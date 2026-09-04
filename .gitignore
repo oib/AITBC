@@ -291,6 +291,9 @@ tests/e2e/fixtures/home/**/.aitbc/*.sock
 tests/fixtures/generated/
 tests/__pycache__/
 
+# Local CI/cache roots for unprivileged runners
+.cache/
+
 # GPU miner local configs
 scripts/gpu/*.local.py
 

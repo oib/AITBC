@@ -1,18 +1,20 @@
 # Agent Service Dependency Injection Architecture
 
+> **Historical note:** `apps/agent-management` was removed from the current checkout. The agent service DI architecture described here was originally designed to de-duplicate logic between the removed `apps/agent-management` and `apps/coordinator-api`. Current agent SDK and lifecycle functionality lives in the CLI (`cli/aitbc_cli/commands/agent_sdk.py`) and `apps/agent-coordinator` (`apps/agent-coordinator/src/agent_app`). References to `apps/agent-management` paths below are intentionally marked as removed/historical.
+
 ## Problem Statement
 
-The codebase contains duplicated agent service logic across multiple apps:
+The codebase historically contained duplicated agent service logic across multiple apps:
 
-- `apps/agent-management/src/app/services/agent_integration.py` (1160 lines)
+- `apps/agent-management/src/app/services/agent_integration.py` (1160 lines) *(removed)*
 - `apps/coordinator-api/src/app/services/agent_coordination/integration.py` (1160 lines)
 
-These files are nearly identical but have app-specific imports:
+These files were nearly identical but had app-specific imports:
 
-- **agent-management**: imports from `app.domain.agent`, `app.services.agent_security`, `app.services.agent_service`
+- **agent-management** *(removed)*: imports from `app.domain.agent`, `app.services.agent_security`, `app.services.agent_service`
 - **coordinator-api**: imports from `...domain.agent`, `.security`, `.agent_service`
 
-Direct extraction to a shared package is blocked because:
+Direct extraction to a shared package was blocked because:
 
 1. Domain models (`AgentExecution`, `AgentStepExecution`, `VerificationLevel`) are app-specific
 2. Service dependencies (`AgentSecurityManager`, `AIAgentOrchestrator`) are app-specific
@@ -243,13 +245,17 @@ class AgentIntegrationService:
 
 ### App-Specific Adapters
 
-#### agent-management Adapter
+#### Agent Coordinator Adapter (historical reference)
 
-Create `apps/agent-management/src/app/adapters/agent_core_adapters.py`:
+The removed `apps/agent-management` app would have used `apps/agent-management/src/app/adapters/agent_core_adapters.py`:
 
 ```python
 """
 Adapters for agent-management app to implement aitbc-agent-core protocols.
+
+Note: apps/agent-management has been removed from the current checkout.
+The current agent coordination implementation lives in apps/agent-coordinator
+and the CLI.
 """
 
 from sqlmodel import Session
@@ -327,7 +333,7 @@ from coordinator_api.domain.agent import AgentExecution, AgentStepExecution
 from coordinator_api.services.agent_coordination.security import AgentSecurityManager
 from coordinator_api.services.agent_coordination.agent_service import AIAgentOrchestrator
 
-# Similar adapter implementations as agent-management
+# Similar adapter implementations as the removed agent-management app
 # but using coordinator-api's domain models and services
 ```
 
@@ -350,6 +356,9 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
 1. Create factory functions in each app to instantiate shared service:
 
    ```python
+   # apps/agent-management was removed; current agent SDK logic is in
+   # cli/aitbc_cli/commands/agent_sdk.py and apps/agent-coordinator.
+   # Original migration example for the removed app:
    # apps/agent-management/src/app/services/agent_integration.py
    from aitbc_agent_core.integration import AgentIntegrationService
    from .adapters.agent_core_adapters import (
@@ -397,11 +406,13 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
 ### Implementation Order
 
 1. **Week 1**: Create protocols and core service in aitbc-agent-core ✅
-2. **Week 2**: Implement adapters for agent-management ✅
+2. **Week 2**: Implement adapters for the removed agent-management app ✅
 3. **Week 3**: Implement adapters for coordinator-api ✅
-4. **Week 4**: Migrate agent-management to use shared service ✅
+4. **Week 4**: Migrate the removed agent-management app to use shared service ✅
 5. **Week 5**: Migrate coordinator-api to use shared service ✅
 6. **Week 6**: Cleanup and verification ✅
+
+> The `agent-management` application was subsequently removed. Active agent coordination now uses `apps/agent-coordinator` and the CLI; the protocol design remains the reference architecture.
 
 ### Migration Status (Completed)
 
@@ -409,8 +420,9 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
 
 - ✅ Created `aitbc-agent-core` package with protocol definitions
 - ✅ Implemented `AgentIntegrationService` core logic
-- ✅ Created adapters for both agent-management and coordinator-api
+- ✅ Created adapters for both the removed `agent-management` app and `coordinator-api`
 - ✅ All protocols defined: domain, security, orchestrator, zk_proof, database
+- ⚠️ `apps/agent-management` has been removed from the checkout; current agent SDK and coordination logic lives in the CLI and `apps/agent-coordinator`
 
 **Week 4-5: Gradual Migration (Completed)**
 
