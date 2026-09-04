@@ -23,7 +23,7 @@ from ..utils import DECIMAL, error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_paths import find_wallet_file
+from ..utils.wallet_paths import find_wallet_file, wallet_dir
 
 logger = get_logger(__name__)
 
