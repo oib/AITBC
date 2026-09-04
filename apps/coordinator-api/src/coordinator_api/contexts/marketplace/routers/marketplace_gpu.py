@@ -9,8 +9,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator
-from sqlalchemy.orm import Session
-from sqlmodel import col, func, select
+from sqlmodel import Session, col, func, select
 
 from aitbc.aitbc_logging import get_logger
 
