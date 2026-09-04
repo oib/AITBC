@@ -290,10 +290,6 @@ class SyncManager:
         This is the single entry point for all block push paths (gossip,
         subscription, or future transports).
         """
-        if not isinstance(block_data, dict):
-            logger.warning("Unexpected block message type", extra={"type": type(block_data), "source": source})
-            return ImportResult(accepted=False, height=-1, block_hash="", reason="Non-dict block message")
-
         if self._should_skip_block(chain_id, block_data):
             logger.debug(
                 "Skipping self-proposed block %s from %s",
@@ -431,6 +427,8 @@ class SyncManager:
 
         source_url = self._source_resolver.get_sync_source(chain_id)
         if not self._should_sync_remote(chain_id, source_url):
+            return
+        if not source_url:
             return
 
         if state.bulk_task and not state.bulk_task.done():

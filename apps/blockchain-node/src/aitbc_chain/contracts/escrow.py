@@ -117,9 +117,9 @@ def settlement_legs_from_chain(session: Any, job_id: str) -> dict[str, Any] | No
     try:
         stmt = (
             select(Transaction)
-            .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))
+            .where(Transaction.type.in_(("ESCROW_RELEASE", "ESCROW_REFUND")))  # type: ignore[attr-defined]
             .where(Transaction.payload["job_id"].as_string() == job_id)
-            .order_by(Transaction.id)
+            .order_by(Transaction.id)  # type: ignore[arg-type]
         )
         legs: dict[str, Any] = {
             "released_amount": 0,
@@ -311,8 +311,8 @@ class EscrowManager:
             with session_scope() as session:
                 records = session.exec(
                     select(EscrowRecord).where(
-                        EscrowRecord.released_at.is_(None),
-                        EscrowRecord.refunded_at.is_(None),
+                        EscrowRecord.released_at.is_(None),  # type: ignore[union-attr]
+                        EscrowRecord.refunded_at.is_(None),  # type: ignore[union-attr]
                     )
                 ).all()
                 for record in records:
@@ -374,7 +374,7 @@ class EscrowManager:
                 select(Transaction)
                 .where(Transaction.type == "ESCROW_LOCK")
                 .where(Transaction.payload["job_id"].as_string() == job_id)
-                .order_by(Transaction.id.desc())
+                .order_by(Transaction.id.desc())  # type: ignore[union-attr]
             )
             lock_tx = session.exec(lock_stmt).first()
             if not lock_tx:
