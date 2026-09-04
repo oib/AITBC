@@ -3,11 +3,14 @@
 # These wrap the commands in CONTRIBUTING.md so there is one place to look
 # and one spelling to keep working.
 
-# Prefer the repo's own venv; fall back to whatever python is on PATH so the targets still
-# work from a git worktree, which has no venv/ of its own. Override with `make PYTHON=...`.
-PYTHON ?= $(shell test -x ./venv/bin/python && echo ./venv/bin/python || command -v python3)
+# Detect the active project virtual environment. Poetry creates .venv by default; the
+# deployment scripts create ./venv. Either works. Override with `make PYTHON=...`.
+PYTHON ?= $(shell \
+	if [ -x ./.venv/bin/python ]; then echo ./.venv/bin/python; \
+	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
+	else command -v python3; fi)
 
-.PHONY: help lint lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi openapi-check ci
+.PHONY: help lint lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, reports findings without failing (local convenience)"
@@ -21,7 +24,8 @@ help:
 	@echo "make test-governance just the governance suite (a bare pytest also covers it)"
 	@echo "make openapi         regenerate docs/api/*-openapi.json from the running apps"
 	@echo "make openapi-check   fail if the committed specs differ from what the apps produce"
-	@echo "make ci              run the lint/type/test/drift gates"
+	@echo "make version-check   verify all version references match aitbc/_version.py"
+	@echo "make ci              run the lint/type/test/drift/version gates"
 
 lint:
 	$(PYTHON) -m ruff check . --exit-zero
@@ -76,4 +80,7 @@ openapi:
 openapi-check:
 	@PYTHON="$(PYTHON)" bash scripts/ci/check-openapi-drift.sh
 
-ci: lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi-check
+version-check:
+	$(PYTHON) scripts/ci/check-version-consistency.py
+
+ci: lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi-check version-check

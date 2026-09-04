@@ -61,34 +61,32 @@ A generic catch-all remains `call_aitbc_http` for any endpoint not yet wrapped.
 ## Installation
 
 The server imports the local `aitbc` package, so it must run from a Python
-environment that has the project and its dependencies installed. Use the
-project venv and make sure `mcp` is present:
+environment that has the project and its dependencies installed. Use the project
+venv (or Poetry `.venv`) and make sure `mcp` is present:
 
 ```bash
 cd /opt/aitbc
-source venv/bin/activate
+source venv/bin/activate   # or: source .venv/bin/activate
 pip install -r mcp-server/requirements.txt
 ```
 
 If you want a dedicated MCP venv instead, install the project and
 `mcp-server/requirements.txt` in it so `import aitbc` works.
 
-The live nodes also need the `aitbc` CLI. If it is not already at
-`/opt/aitbc/venv/bin/aitbc`, install it in the project venv:
+The live nodes also need the `aitbc` CLI. The MCP server resolves it in this
+order:
+
+1. `AITBC_MCP_AITBC_CLI` environment variable.
+2. `aitbc` on the MCP server's `PATH` (e.g. the active venv / Poetry shell).
+3. `<current venv>/bin/aitbc`.
+4. Legacy fallback `/opt/aitbc/venv/bin/aitbc`.
+
+If it is not found, install it in the project venv:
 
 ```bash
 cd /opt/aitbc
-source venv/bin/activate
+source venv/bin/activate  # or: source .venv/bin/activate
 pip install -e cli/
-```
-
-To make `aitbc` callable from any directory on a node, either symlink it into
-a `PATH` directory or add the venv `bin/` directory to the SSH user's `PATH`:
-
-```bash
-ln -s /opt/aitbc/venv/bin/aitbc /usr/local/bin/aitbc
-# or, in the SSH user's shell profile:
-export PATH="/opt/aitbc/venv/bin:$PATH"
 ```
 
 ## Devin configuration
@@ -105,6 +103,7 @@ Add the server to your Devin project or user config:
         "AITBC_MCP_SSH_USER": "oib",
         "AITBC_MCP_AITBC_CLI": "/opt/aitbc/venv/bin/aitbc",
         "AITBC_MCP_HOSTS_FILE": "/etc/aitbc/mcp-hosts.yaml",
+        "AITBC_MCP_SSH_KNOWN_HOSTS": "/etc/aitbc/ssh_known_hosts",
         "AITBC_MCP_LOG_LEVEL": "INFO"
       }
     }
@@ -130,6 +129,7 @@ Example `/etc/aitbc/mcp-hosts.yaml`:
 ```yaml
 ssh_user: oib
 default_host: hub.example
+known_hosts: /etc/aitbc/ssh_known_hosts
 roles:
   hub: hub.example
   customer: hub.example
@@ -225,9 +225,14 @@ Recommended `.devin/config.json`:
 
 * The MCP host (Devin) must be able to reach every host listed in the
   [network configuration](#network-configuration) via passwordless SSH.
-* The `aitbc` CLI must be installed on each live node and available at the
-  default path `/opt/aitbc/venv/bin/aitbc`, or wherever `AITBC_MCP_AITBC_CLI`
-  is configured to point (see [Installation](#installation) above).
+* Host keys must be pre-populated in a `known_hosts` file. By default the server
+  looks at `~/.ssh/known_hosts`, `/etc/ssh/ssh_known_hosts`, or the path configured
+  in `AITBC_MCP_SSH_KNOWN_HOSTS` / `known_hosts` in the hosts config. Connections
+  fail if a host key is unknown; set `AITBC_MCP_SSH_STRICT=false` only for
+  bring-up/testing.
+* The `aitbc` CLI must be installed on each live node and discoverable. The MCP
+  server resolves it from `AITBC_MCP_AITBC_CLI`, `PATH`, the current venv, or the
+  legacy `/opt/aitbc/venv/bin/aitbc` (see [Installation](#installation) above).
 * The SSH user must be able to run `sudo -n <AITBC_MCP_AITBC_CLI> ...` on the
   live nodes. The CLI itself runs `systemctl`/`journalctl` as needed.
 
@@ -316,5 +321,7 @@ connects to it.
 * Even when `dry_run=false`, the tool requires `confirm=true`.
 * Arbitrary commands are parsed with `shlex` and disallowed shell
   metacharacters are rejected.
+* SSH connections use strict host-key checking. New keys are not silently
+  accepted; use a managed `known_hosts` file.
 * `run_cron_job` only accepts scripts under `/opt/aitbc/scripts/`,
   `/opt/aitbc/monitoring/`, and `/opt/aitbc/cluster/`.

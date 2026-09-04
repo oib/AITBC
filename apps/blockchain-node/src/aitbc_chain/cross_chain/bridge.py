@@ -16,6 +16,7 @@ from collections.abc import Iterator
 from aitbc.bridge import ValidatorSetRegistry
 from sqlmodel import Session
 
+from ..config import settings
 from ..logger import get_logger
 from .bridge_finality import BridgeFinalityMixin
 from .bridge_transfer import BridgeTransferMixin
@@ -23,6 +24,70 @@ from .bridge_types import BridgeStatus, BridgeTransfer
 from .bridge_validator import BridgeValidatorMixin
 
 logger = get_logger(__name__)
+
+
+class BridgeProductionSafetyError(RuntimeError):
+    """Raised when the bridge release path is enabled without required safety controls."""
+
+    pass
+
+
+def _validate_bridge_production_safety() -> None:
+    """Fail-closed guard for the cross-chain bridge release path.
+
+    When ``settings.bridge_release_enabled`` is True, the bridge is only allowed to start
+    if the production security controls are explicitly configured:
+
+    - multi-sig is enabled (``bridge_multisig_enabled``)
+    - Merkle proof verification is enforced (``bridge_require_merkle_proof``)
+    - block header signatures are required (``bridge_block_signature_required``)
+    - validator administration is configured (``bridge_admin_addresses``)
+    - at least one supported chain is configured (``bridge_supported_chains``)
+    - the multi-sig threshold is sane (1 < threshold <= validators)
+
+    This guard runs during ``init_cross_chain_bridge`` so an unsafe production
+    configuration refuses node startup instead of silently enabling value-moving
+    bridge operations.
+    """
+    if not getattr(settings, "bridge_release_enabled", False):
+        return
+
+    def _fail(message: str) -> None:
+        logger.error("Bridge production safety: %s", message)
+        raise BridgeProductionSafetyError(message)
+
+    if not getattr(settings, "bridge_multisig_enabled", False):
+        _fail("bridge_release_enabled=True requires bridge_multisig_enabled=True")
+
+    if not getattr(settings, "bridge_require_merkle_proof", False):
+        _fail("bridge_release_enabled=True requires bridge_require_merkle_proof=True")
+
+    if not getattr(settings, "bridge_block_signature_required", False):
+        _fail("bridge_release_enabled=True requires bridge_block_signature_required=True")
+
+    admin_addresses = getattr(settings, "bridge_admin_addresses", "")
+    if not admin_addresses or not admin_addresses.strip():
+        _fail("bridge_release_enabled=True requires bridge_admin_addresses to be configured")
+
+    supported_chains = getattr(settings, "bridge_supported_chains", "")
+    if not supported_chains or not supported_chains.strip():
+        _fail("bridge_release_enabled=True requires bridge_supported_chains to be configured")
+
+    threshold = int(getattr(settings, "bridge_multisig_threshold", 0))
+    validators = int(getattr(settings, "bridge_multisig_validators", 0))
+    if threshold <= 1:
+        _fail("bridge_multisig_threshold must be > 1 when bridge_release_enabled=True")
+    if validators < threshold:
+        _fail(f"bridge_multisig_validators ({validators}) must be >= threshold ({threshold})")
+
+    verification_mode = getattr(settings, "bridge_verification_mode", "in_process")
+    if verification_mode not in {"in_process", "oracle"}:
+        _fail("bridge_verification_mode must be 'in_process' or 'oracle'")
+
+    if verification_mode == "oracle":
+        endpoints = getattr(settings, "bridge_oracle_endpoints", [])
+        if not endpoints:
+            _fail("bridge_verification_mode='oracle' requires bridge_oracle_endpoints")
 
 
 class CrossChainBridge(BridgeTransferMixin, BridgeValidatorMixin, BridgeFinalityMixin):
@@ -91,6 +156,7 @@ _bridge_instance: CrossChainBridge | None = None
 def init_cross_chain_bridge(session_factory: Any) -> CrossChainBridge:
     """Initialize the global cross-chain bridge."""
     global _bridge_instance
+    _validate_bridge_production_safety()
     _bridge_instance = CrossChainBridge(session_factory)
     return _bridge_instance
 
@@ -101,6 +167,7 @@ def get_cross_chain_bridge() -> CrossChainBridge | None:
 
 
 __all__ = [
+    "BridgeProductionSafetyError",
     "BridgeStatus",
     "BridgeTransfer",
     "CrossChainBridge",
