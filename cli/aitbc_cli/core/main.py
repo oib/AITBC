@@ -17,77 +17,229 @@ if REPO_ROOT not in sys.path:
 
 import click
 from aitbc_cli.utils.http_client import get_logger
-from aitbc_cli.commands.account import account
-from aitbc_cli.commands.agent_sdk import agent
-from aitbc_cli.commands.agent_wallet import agent_wallet
-from aitbc_cli.commands.ai import ai
-from aitbc_cli.commands.bond import bond
-from aitbc_cli.commands.bootstrap import bootstrap
-from aitbc_cli.commands.analytics import analytics  # Re-enabled - core.analytics exists
-from aitbc_cli.commands.bridge import bridge
-from aitbc_cli.commands.chain import chain
-from aitbc_cli.commands.cluster import cluster
-from aitbc_cli.commands.coin_requests import coin_requests
-from aitbc_cli.commands.compliance import compliance
-from aitbc_cli.commands.deploy import deploy
-from aitbc_cli.commands.confidential import confidential
-from aitbc_cli.commands.config import config as config_cmd
-from aitbc_cli.commands.contract import contract
-from aitbc_cli.commands.cross_chain import cross_chain  # Re-enabled - no core dependency
-from aitbc_cli.commands.developer import developer
-from aitbc_cli.commands.grant import grant
-from aitbc_cli.commands.economics import economics
-from aitbc_cli.commands.ipfs import ipfs
-from aitbc_cli.commands.oracle import oracle
-from aitbc_cli.commands.edge import edge
-from aitbc_cli.commands.explorer import explorer
+import importlib
 
-from aitbc_cli.commands.agent_comm import agent_comm
-from aitbc_cli.commands.node import node
-from aitbc_cli.commands.exchange import exchange
-from aitbc_cli.commands.exchange_island import exchange_island
-from aitbc_cli.commands.genesis import genesis
-from aitbc_cli.commands.governance import governance
-from aitbc_cli.commands.brand import brand
-from aitbc_cli.commands.http import http
-from aitbc_cli.commands.plugin import plugin
+# Lazy command proxies. Each command module is imported only when the command is
+# invoked or its help text is needed, so `aitbc --help` remains usable even when
+# optional dependencies are missing.
 
-# Import island-specific commands
-from aitbc_cli.commands.gpu_marketplace import gpu
-from aitbc_cli.commands.gpu_resources import gpu as gpu_onchain
-from aitbc_cli.commands.agent import messaging as agent_msg
-from aitbc_cli.commands.market import market
-from aitbc_cli.commands.messaging import messaging
-from aitbc_cli.commands.mining import mining
 
-from aitbc_cli.commands.monitor import monitor
-from aitbc_cli.commands.prometheus import prometheus  # Re-enabled - no core dependency
-from aitbc_cli.commands.network import network
-from aitbc_cli.commands.operations import operations
-from aitbc_cli.commands.performance import performance
-from aitbc_cli.commands.platform import platform
-from aitbc_cli.commands.pool_hub import pool_hub
-from aitbc_cli.commands.reinvest import reinvest
-from aitbc_cli.commands.reputation import reputation
-from aitbc_cli.commands.resource import resource
-from aitbc_cli.commands.script import script
-from aitbc_cli.commands.security import security
-from aitbc_cli.commands.simulate import simulate
-from aitbc_cli.commands.sync import sync
-from aitbc_cli.commands.trade import trade
+class _UnavailableCommand:
+    """Stand-in for a command that could not be loaded."""
 
-# Import modular command groups
-from aitbc_cli.commands.system import system
-from aitbc_cli.commands.control import start, stop, restart
+    def __init__(self, name: str, exc: BaseException) -> None:
+        self.name = name
+        self.exc = exc
+        self.hidden = False
+        self.deprecated = False
+        self.help = f"Command {name!r} is not available: {exc}"
+        self.short_help = self.help
+        self.params = []
+        self.callback = self._raise
+        self.add_help_option = True
+        self.no_args_is_help = False
+        self.options_metavar = "[OPTIONS]"
+        self.invoke_without_command = False
+        self.context_settings = {}
 
-# Import new modular commands
-from aitbc_cli.commands.zk import zk
-from aitbc_cli.commands.auth import auth
-from aitbc_cli.commands.dashboard import dashboard
-from aitbc_cli.commands.transactions import transactions
-from aitbc_cli.commands.update import update
-from aitbc_cli.commands.wallet import wallet
-from aitbc_cli.commands.workflow import workflow
+    def _raise(self, *args, **kwargs) -> None:
+        raise click.ClickException(f"Command {self.name!r} is not available: {self.exc}")
+
+    def get_short_help_str(self, limit: int = 80) -> str:
+        return f"({self.name} unavailable)"
+
+    def get_help(self, ctx) -> str:
+        return f"Command {self.name} is not available: {self.exc}"
+
+    def get_usage(self, ctx) -> str:
+        return ""
+
+    def parse_args(self, ctx, args) -> None:
+        self._raise()
+
+    def invoke(self, ctx) -> None:
+        self._raise()
+
+    def make_context(self, *args, **kwargs) -> None:
+        self._raise()
+
+    def get_command(self, ctx, cmd_name: str):
+        self._raise()
+
+    def list_commands(self, ctx):
+        return []
+
+
+class LazyCommand(click.Command):
+    """Proxy that defers import of a command module until first use."""
+
+    def __init__(self, module_name: str, attr_name: str, name: str | None = None) -> None:
+        self._lazy_module = module_name
+        self._lazy_attr = attr_name
+        self._lazy_loaded: click.Command | None = None
+        self.name = name or attr_name
+
+    def _load(self) -> click.Command:
+        if self._lazy_loaded is None:
+            try:
+                mod = importlib.import_module(self._lazy_module)
+                self._lazy_loaded = getattr(mod, self._lazy_attr)
+            except Exception as exc:
+                logger.warning("Cannot load command %r from %s.%s: %s", self.name, self._lazy_module, self._lazy_attr, exc)
+                self._lazy_loaded = _UnavailableCommand(self.name, exc)
+        return self._lazy_loaded
+
+    def __getattr__(self, name: str):
+        """Delegate attribute access to the real command once loaded."""
+        return getattr(self._load(), name)
+
+    def get_short_help_str(self, limit: int = 80) -> str:
+        """Return help text, masking load failures so `aitbc --help` stays usable."""
+        loaded = self._load()
+        if isinstance(loaded, _UnavailableCommand):
+            return f"({self.name} unavailable)"
+        return loaded.get_short_help_str(limit)
+
+    def get_help(self, ctx) -> str:
+        return self._load().get_help(ctx)
+
+    def get_usage(self, ctx) -> str:
+        return self._load().get_usage(ctx)
+
+    def parse_args(self, ctx, args) -> None:
+        return self._load().parse_args(ctx, args)
+
+    def invoke(self, ctx) -> None:
+        return self._load().invoke(ctx)
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        return self._load().make_context(info_name, args, parent=parent, **extra)
+
+
+class LazyGroup(click.Group):
+    """Proxy that defers import of a command group module until first use."""
+
+    def __init__(self, module_name: str, attr_name: str, name: str | None = None) -> None:
+        self._lazy_module = module_name
+        self._lazy_attr = attr_name
+        self._lazy_loaded: click.Group | None = None
+        self.name = name or attr_name
+
+    def _load(self) -> click.Group:
+        if self._lazy_loaded is None:
+            try:
+                mod = importlib.import_module(self._lazy_module)
+                self._lazy_loaded = getattr(mod, self._lazy_attr)
+            except Exception as exc:
+                logger.warning(
+                    "Cannot load command group %r from %s.%s: %s", self.name, self._lazy_module, self._lazy_attr, exc
+                )
+                self._lazy_loaded = _UnavailableCommand(self.name, exc)
+        return self._lazy_loaded
+
+    def __getattr__(self, name: str):
+        """Delegate attribute access to the real group once loaded."""
+        return getattr(self._load(), name)
+
+    def get_command(self, ctx, cmd_name: str):
+        return self._load().get_command(ctx, cmd_name)
+
+    def list_commands(self, ctx):
+        return self._load().list_commands(ctx)
+
+    def get_short_help_str(self, limit: int = 80) -> str:
+        """Return help text, masking load failures so `aitbc --help` stays usable."""
+        loaded = self._load()
+        if isinstance(loaded, _UnavailableCommand):
+            return f"({self.name} unavailable)"
+        return loaded.get_short_help_str(limit)
+
+    def get_help(self, ctx) -> str:
+        return self._load().get_help(ctx)
+
+    def get_usage(self, ctx) -> str:
+        return self._load().get_usage(ctx)
+
+    def parse_args(self, ctx, args) -> None:
+        return self._load().parse_args(ctx, args)
+
+    def invoke(self, ctx) -> None:
+        return self._load().invoke(ctx)
+
+    def make_context(self, info_name, args, parent=None, **extra):
+        return self._load().make_context(info_name, args, parent=parent, **extra)
+
+
+def _lazy(module_name: str, attr_name: str, name: str | None = None, group: bool = False):
+    """Factory for lazy command/group proxies."""
+    return LazyGroup(module_name, attr_name, name=name) if group else LazyCommand(module_name, attr_name, name=name)
+
+
+account = _lazy("aitbc_cli.commands.account", "account", name="account", group=True)
+agent = _lazy("aitbc_cli.commands.agent_sdk", "agent", name="agent", group=True)
+agent_comm = _lazy("aitbc_cli.commands.agent_comm", "agent_comm", name="agent-comm", group=True)
+agent_msg = _lazy("aitbc_cli.commands.agent", "messaging", name="agent-msg", group=True)
+agent_wallet = _lazy("aitbc_cli.commands.agent_wallet", "agent_wallet", name="agent-wallet", group=True)
+ai = _lazy("aitbc_cli.commands.ai", "ai", name="ai", group=True)
+analytics = _lazy("aitbc_cli.commands.analytics", "analytics", name="analytics", group=True)
+auth = _lazy("aitbc_cli.commands.auth", "auth", name="auth", group=True)
+bond = _lazy("aitbc_cli.commands.bond", "bond", name="bond", group=True)
+bootstrap = _lazy("aitbc_cli.commands.bootstrap", "bootstrap", name="bootstrap", group=True)
+brand = _lazy("aitbc_cli.commands.brand", "brand", name="brand", group=True)
+bridge = _lazy("aitbc_cli.commands.bridge", "bridge", name="bridge", group=True)
+chain = _lazy("aitbc_cli.commands.chain", "chain", name="blockchain", group=True)
+cluster = _lazy("aitbc_cli.commands.cluster", "cluster", name="cluster", group=True)
+coin_requests = _lazy("aitbc_cli.commands.coin_requests", "coin_requests", name="coin-requests", group=True)
+compliance = _lazy("aitbc_cli.commands.compliance", "compliance", name="compliance", group=True)
+confidential = _lazy("aitbc_cli.commands.confidential", "confidential", name="confidential", group=True)
+config_cmd = _lazy("aitbc_cli.commands.config", "config", name="config", group=True)
+contract = _lazy("aitbc_cli.commands.contract", "contract", name="contract", group=True)
+cross_chain = _lazy("aitbc_cli.commands.cross_chain", "cross_chain", name="crosschain", group=True)
+dashboard = _lazy("aitbc_cli.commands.dashboard", "dashboard", name="dashboard", group=True)
+deploy = _lazy("aitbc_cli.commands.deploy", "deploy", name="deploy", group=True)
+developer = _lazy("aitbc_cli.commands.developer", "developer", name="developer", group=True)
+economics = _lazy("aitbc_cli.commands.economics", "economics", name="economics", group=True)
+edge = _lazy("aitbc_cli.commands.edge", "edge", name="edge", group=True)
+exchange = _lazy("aitbc_cli.commands.exchange", "exchange", name="exchange", group=True)
+exchange_island = _lazy("aitbc_cli.commands.exchange_island", "exchange_island", name="exchange-island", group=True)
+explorer = _lazy("aitbc_cli.commands.explorer", "explorer", name="explorer", group=True)
+genesis = _lazy("aitbc_cli.commands.genesis", "genesis", name="genesis", group=True)
+governance = _lazy("aitbc_cli.commands.governance", "governance", name="governance", group=True)
+gpu = _lazy("aitbc_cli.commands.gpu_marketplace", "gpu", name="gpu", group=True)
+gpu_onchain = _lazy("aitbc_cli.commands.gpu_resources", "gpu", name="gpu-onchain", group=True)
+grant = _lazy("aitbc_cli.commands.grant", "grant", name="grant", group=True)
+http = _lazy("aitbc_cli.commands.http", "http", name="http", group=True)
+ipfs = _lazy("aitbc_cli.commands.ipfs", "ipfs", name="ipfs", group=True)
+market = _lazy("aitbc_cli.commands.market", "market", name="market", group=True)
+messaging = _lazy("aitbc_cli.commands.messaging", "messaging", name="messaging", group=True)
+mining = _lazy("aitbc_cli.commands.mining", "mining", name="mining", group=True)
+monitor = _lazy("aitbc_cli.commands.monitor", "monitor", name="monitor", group=True)
+network = _lazy("aitbc_cli.commands.network", "network", name="network", group=True)
+node = _lazy("aitbc_cli.commands.node", "node", name="node", group=True)
+operations = _lazy("aitbc_cli.commands.operations", "operations", name="operations", group=True)
+oracle = _lazy("aitbc_cli.commands.oracle", "oracle", name="oracle", group=True)
+performance = _lazy("aitbc_cli.commands.performance", "performance", name="performance", group=True)
+platform = _lazy("aitbc_cli.commands.platform", "platform", name="platform", group=True)
+plugin = _lazy("aitbc_cli.commands.plugin", "plugin", name="plugin", group=True)
+pool_hub = _lazy("aitbc_cli.commands.pool_hub", "pool_hub", name="pool-hub", group=True)
+prometheus = _lazy("aitbc_cli.commands.prometheus", "prometheus", name="prometheus", group=True)
+reinvest = _lazy("aitbc_cli.commands.reinvest", "reinvest", name="reinvest", group=True)
+reputation = _lazy("aitbc_cli.commands.reputation", "reputation", name="reputation", group=True)
+resource = _lazy("aitbc_cli.commands.resource", "resource", name="resource", group=True)
+restart = _lazy("aitbc_cli.commands.control", "restart", name="restart", group=False)
+script = _lazy("aitbc_cli.commands.script", "script", name="script", group=True)
+security = _lazy("aitbc_cli.commands.security", "security", name="security", group=True)
+simulate = _lazy("aitbc_cli.commands.simulate", "simulate", name="simulate", group=True)
+start = _lazy("aitbc_cli.commands.control", "start", name="start", group=False)
+stop = _lazy("aitbc_cli.commands.control", "stop", name="stop", group=False)
+sync = _lazy("aitbc_cli.commands.sync", "sync", name="sync", group=True)
+system = _lazy("aitbc_cli.commands.system", "system", name="system", group=True)
+trade = _lazy("aitbc_cli.commands.trade", "trade", name="trade", group=True)
+transactions = _lazy("aitbc_cli.commands.transactions", "transactions", name="transactions", group=True)
+update = _lazy("aitbc_cli.commands.update", "update", name="update", group=False)
+wallet = _lazy("aitbc_cli.commands.wallet", "wallet", name="wallet", group=True)
+workflow = _lazy("aitbc_cli.commands.workflow", "workflow", name="workflow", group=True)
+zk = _lazy("aitbc_cli.commands.zk", "zk", name="zk", group=True)
 
 # Force CLI version for user-facing output
 __version__ = "0.10.18"

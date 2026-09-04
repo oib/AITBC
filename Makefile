@@ -10,13 +10,16 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi openapi-check version-check ci
+.PHONY: help lint lint-strict no-float-money typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance live-dry-run openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, reports findings without failing (local convenience)"
 	@echo "make lint-strict     ruff over the repo, fail on any finding (the CI lint gate)"
 	@echo "make typecheck       mypy over all clean apps (the CI type gate)"
-	@echo "make test            unit tests"
+	@echo "make test            unit tests (fast, no external services)"
+	@echo "make test-smoke      smoke tests (import production modules, no services)"
+	@echo "make test-integration integration tests (requires coordinator/blockchain services)"
+	@echo "make test-e2e        end-to-end workflow tests (requires a running environment)"
 	@echo "make test-apps       coordinator and blockchain-node app tests"
 	@echo "make test-cli        CLI tests"
 	@echo "make no-float-money  check for float money violations"
@@ -41,6 +44,19 @@ typecheck:
 
 test:
 	$(PYTHON) -m pytest tests/unit -q
+
+# Smoke tests import production modules in fresh subprocesses to catch import-time failures.
+test-smoke:
+	$(PYTHON) -m pytest tests/smoke -q
+
+# Integration tests exercise multiple services; they expect a reachable coordinator API,
+# blockchain RPC, and (for some tests) Redis/PostgreSQL as configured in the environment.
+test-integration:
+	$(PYTHON) -m pytest tests/integration -q
+
+# E2E tests run full workflows against a running AITBC environment.
+test-e2e:
+	$(PYTHON) -m pytest tests/e2e -q
 
 test-apps:
 	PYTHONPATH=apps/blockchain-node/src $(PYTHON) -m pytest -q \
