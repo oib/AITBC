@@ -119,11 +119,12 @@ All systemd service files moved from `systemd/` to `apps/<service>/` on 2026-05-
 | Explorer | `apps/blockchain-explorer/aitbc-explorer.service` | -- |
 | Marketplace | `apps/marketplace-service/aitbc-marketplace.service` | 8102 |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` | -- |
-| Agent Registry | `apps/agent-management/aitbc-agent-registry.service` | -- |
 | Agent | `apps/agent/aitbc-agent.service` | -- |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` | -- |
 | Plugin | `scripts/utils/aitbc-plugin.service` | -- |
 | Monitoring | `scripts/monitoring/aitbc-monitoring.service` | -- |
+
+> **Removed:** `apps/agent-management` no longer exists in the checkout. Agent registry/SDK and lifecycle functionality now live in the CLI (`aitbc agent`, `cli/aitbc_cli/commands/agent_sdk.py`) and `apps/agent-coordinator`. There is no `aitbc-agent-registry.service` to deploy.
 
 ## Manual Service Installation (If Setup Script Fails)
 
