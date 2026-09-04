@@ -125,12 +125,24 @@ class MeshGossipBackend(GossipBackend):
         inflight.add(task)
         task.add_done_callback(inflight.discard)
 
+    @staticmethod
+    def _publish_factory(peer: GossipBackend, topic: str, message: Any) -> Callable[[], Any]:
+        # A plain zero-arg closure (as opposed to a `lambda p=peer: ...` default-arg
+        # trick) so each call site's peer/topic/message are bound as genuine function
+        # parameters -- correct per-iteration capture without confusing mypy's
+        # inference of the lambda's implicit parameter type.
+        return lambda: peer.publish(topic, message)
+
+    @staticmethod
+    def _publish_batch_factory(peer: GossipBackend, topic: str, messages: list[Any]) -> Callable[[], Any]:
+        return lambda: peer.publish_batch(topic, messages)
+
     async def publish(self, topic: str, message: Any) -> None:
         if not self._running:
             raise RuntimeError("Mesh backend not started")
         await self._local.publish(topic, message)
         for name, peer in self._peers.items():
-            self._spawn_peer_publish(name, lambda p=peer: p.publish(topic, message), topic)
+            self._spawn_peer_publish(name, self._publish_factory(peer, topic, message), topic)
         _increment_publication("gossip_mesh_publications", topic)
 
     async def publish_batch(self, topic: str, messages: list[Any]) -> None:
@@ -140,7 +152,7 @@ class MeshGossipBackend(GossipBackend):
             return
         await self._local.publish_batch(topic, messages)
         for name, peer in self._peers.items():
-            self._spawn_peer_publish(name, lambda p=peer: p.publish_batch(topic, messages), topic)
+            self._spawn_peer_publish(name, self._publish_batch_factory(peer, topic, messages), topic)
         _increment_publication("gossip_mesh_publications", topic)
 
     async def subscribe(self, topic: str, max_queue_size: int = 100) -> TopicSubscription:

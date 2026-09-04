@@ -5,8 +5,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, Header, HTTPException, Request
 from sqlalchemy import desc
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -343,7 +342,7 @@ async def resolve_dispute(
     if req.outcome == "refund" and job.constraints and job.constraints.get("bond_required"):
         from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
 
-        await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)  # type: ignore[arg-type]
+        await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)
     job.payment_status = payment.status
     session.add(job)
     session.commit()
