@@ -9,16 +9,12 @@ AITBC services should run as non-root users for security. This document describe
 
 ## Current User Distribution
 
-Before unification, services use multiple different users:
+Current unit files run almost all services as the `aitbc` user; root is used only for backup/secret-loading tasks.
 
 | User | Services | Purpose |
 |------|----------|---------|
-| `root` | miner, agent-daemon, blockchain-sync, agent-management, blockchain-explorer | High-privilege services (needs GPU access, system resources) |
-| `aitbc-internal` | coordinator-api, agent-coordinator, governance, marketplace, exchange, bridge-monitor, agent, multimodal, modality-optimization, learning, trading | Internal services |
-| `aitbc-blockchain` | blockchain-node, blockchain-p2p, blockchain-rpc | Blockchain-specific services |
-| `aitbc-gpu` | gpu | GPU service |
-| `aitbc-wallet` | wallet | Wallet service |
-| `aitbc-public` | edge, whisper, ffmpeg, blockchain-event-bridge, api-gateway, ai | Public-facing services |
+| `aitbc` | blockchain-node, blockchain-p2p, blockchain-rpc, blockchain-explorer, blockchain-event-bridge, bridge-monitor, coordinator-api, agent-coordinator, governance, marketplace, exchange, pool-hub, gpu, miner, wallet, edge, whisper, ffmpeg, ipfs, api-gateway, ai-engine, hermes-agent, trading | Standard runtime user |
+| `root` | aitbc-backup, aitbc-load-secrets | Tasks requiring access to protected backup/secret paths |
 
 ## Unified User Approach
 
@@ -119,13 +115,10 @@ Blockchain services may need:
 
 ### Root-Required Services
 
-Services currently running as root should be refactored:
+Only backup and secret-loading units run as root. All other services already run as `aitbc`:
 
-- `miner` - Should run as `aitbc` with GPU group membership
-- `agent-daemon` - Should run as `aitbc`
-- `blockchain-sync` - Should run as `aitbc-blockchain`
-- `agent-management` - Should run as `aitbc`
-- `blockchain-explorer` - Should run as `aitbc`
+- `aitbc-backup` - Runs as `root` to read protected data; backup artifacts are restricted on creation
+- `aitbc-load-secrets` - Runs as `root` to write service secrets to `/run/aitbc/secrets/`
 
 ## Verification
 
