@@ -138,10 +138,31 @@ def _normalize_eth_tx(tx: dict[str, Any]) -> dict[str, Any]:
     }
 
 
+async def _post_eth_rpc(payload: Any, timeout: float) -> httpx.Response:
+    """POST to ETH_RPC_URL, retrying briefly on transient transport errors.
+
+    Sepolia/Infura occasionally drops a single connection attempt (~1% of
+    polls observed in practice) that succeeds again a moment later -- retry
+    twice with a short backoff before letting the caller's except-block log
+    it as a real failure.
+    """
+    delays = (0.5, 1.5)
+    last_exc: httpx.TransportError | None = None
+    for attempt in range(len(delays) + 1):
+        try:
+            return await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=timeout)
+        except httpx.TransportError as e:
+            last_exc = e
+            if attempt < len(delays):
+                await asyncio.sleep(delays[attempt])
+    assert last_exc is not None
+    raise last_exc
+
+
 async def _rpc(method: str, params: list[Any], req_id: int = 1) -> Any:
     """Send a single JSON-RPC request and return the ``result`` field."""
     payload = {"jsonrpc": "2.0", "method": method, "params": params, "id": req_id}
-    response = await SharedHttpClient.post(ETH_RPC_URL, json=payload, timeout=10.0)
+    response = await _post_eth_rpc(payload, timeout=10.0)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, dict):
@@ -153,7 +174,7 @@ async def _rpc(method: str, params: list[Any], req_id: int = 1) -> Any:
 
 async def _rpc_batch(payloads: list[dict[str, Any]]) -> dict[int, Any]:
     """Send a JSON-RPC batch and map responses by request ``id``."""
-    response = await SharedHttpClient.post(ETH_RPC_URL, json=payloads, timeout=30.0)
+    response = await _post_eth_rpc(payloads, timeout=30.0)
     response.raise_for_status()
     data = response.json()
     if not isinstance(data, list):
