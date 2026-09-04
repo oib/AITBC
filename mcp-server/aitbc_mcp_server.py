@@ -28,6 +28,7 @@ import json
 import os
 import re
 import shlex
+import shutil
 import socket
 import subprocess
 import sys
@@ -155,18 +156,116 @@ _ROLE_SITES = {
     "follower2": "hub2/customer replica",
 }
 
-# Conservative SSH options: no interactive prompts, time out quickly, accept a
-# new host key on first connection (the host can later be pinned via Devin).
+# Base SSH options: no interactive prompts, time out quickly. Host-key checking is
+# handled per-host by _ssh_opts; new keys are never silently accepted unless the
+# operator explicitly disables strict host-key checking.
 SSH_OPTS = [
     "-o",
     "BatchMode=yes",
     "-o",
     "ConnectTimeout=10",
-    "-o",
-    "StrictHostKeyChecking=accept-new",
 ]
 
-AITBC_CLI = os.getenv("AITBC_MCP_AITBC_CLI", "/opt/aitbc/venv/bin/aitbc")
+
+def _known_hosts_file(host: str) -> Path | None:
+    """Return the known_hosts file to use for ``host``.
+
+    Resolution order:
+    1. ``AITBC_MCP_SSH_KNOWN_HOSTS`` environment variable.
+    2. ``known_hosts`` in the loaded hosts config (global or per-role).
+    3. ``~/.ssh/known_hosts`` if it exists.
+    4. ``/etc/ssh/ssh_known_hosts`` if it exists.
+
+    Returns None when no known-hosts file can be located; callers should refuse the
+    connection in strict mode rather than falling back to accept-new.
+    """
+    env_path = os.getenv("AITBC_MCP_SSH_KNOWN_HOSTS", "").strip()
+    if env_path:
+        path = Path(env_path).expanduser()
+        return path if path.is_file() else None
+
+    config = _load_hosts_config()
+    roles = config.get("roles", {})
+    role = _role_for_host(host)
+    for key in (f"known_hosts_{role}", "known_hosts"):
+        value = config.get(key)
+        if value:
+            path = Path(str(value)).expanduser()
+            return path if path.is_file() else None
+    for role_key, role_host in roles.items():
+        if role_host == host and role_key:
+            value = config.get(f"known_hosts_{role_key}")
+            if value:
+                path = Path(str(value)).expanduser()
+                return path if path.is_file() else None
+
+    candidates = [Path.home() / ".ssh" / "known_hosts", Path("/etc/ssh/ssh_known_hosts")]
+    for candidate in candidates:
+        if candidate.is_file():
+            return candidate
+    return None
+
+
+def _ssh_strict() -> bool:
+    """Return True unless the operator explicitly opts out of strict host-key checks."""
+    return os.getenv("AITBC_MCP_SSH_STRICT", "true").lower() not in {"0", "false", "no", "off"}
+
+
+def _ssh_opts(host: str) -> list[str]:
+    """Build SSH options for ``host`` using a managed known_hosts file.
+
+    If strict host-key checking is enabled (default) and no known_hosts file is
+    available, the returned options will cause the connection to fail instead of
+    silently trusting a new key. Set ``AITBC_MCP_SSH_STRICT=false`` to re-enable
+    the legacy ``accept-new`` behaviour only for bring-up/testing.
+    """
+    opts = list(SSH_OPTS)
+    known_hosts = _known_hosts_file(host)
+    if known_hosts:
+        opts.extend(["-o", f"UserKnownHostsFile={known_hosts}"])
+        opts.extend(["-o", "StrictHostKeyChecking=yes"])
+    elif _ssh_strict():
+        opts.extend(["-o", "StrictHostKeyChecking=yes"])
+    else:
+        opts.extend(["-o", "StrictHostKeyChecking=accept-new"])
+    return opts
+
+
+def _role_for_host(host: str) -> str | None:
+    """Infer the role name for ``host`` from the hosts config, if any."""
+    roles = _role_hosts()
+    for role, role_host in roles.items():
+        if role_host == host:
+            return role
+    return None
+
+
+def _aitbc_cli_path() -> str:
+    """Resolve the path to the ``aitbc`` CLI executable.
+
+    Order of preference:
+    1. ``AITBC_MCP_AITBC_CLI`` environment variable.
+    2. ``aitbc`` on ``$PATH`` (respects active venv / poetry shell).
+    3. ``<sys.prefix>/bin/aitbc`` (the current virtual environment).
+    4. The legacy hard-coded ``/opt/aitbc/venv/bin/aitbc``.
+    """
+    env_path = os.getenv("AITBC_MCP_AITBC_CLI", "").strip()
+    if env_path:
+        return env_path
+
+    from_path = shutil.which("aitbc")
+    if from_path:
+        return from_path
+
+    venv_path = Path(sys.prefix) / "bin" / "aitbc"
+    if venv_path.is_file():
+        return str(venv_path)
+
+    return "/opt/aitbc/venv/bin/aitbc"
+
+
+# Backwards-compatible constant for modules that import the name directly.
+AITBC_CLI = _aitbc_cli_path()
 
 # Logical service names accepted by ``aitbc http call``. The base URLs and
 # ports live in the CLI, not the MCP server, so no local network topology is
@@ -293,7 +392,7 @@ def _run_remote(host: str, command: str, timeout: int = 60) -> dict[str, Any]:
             }
 
     target = _ssh_target(host)
-    cmd = ["ssh"] + SSH_OPTS + [target, "--", command]
+    cmd = ["ssh"] + _ssh_opts(host) + [target, "--", command]
     try:
         res = subprocess.run(cmd, capture_output=True, text=True, timeout=timeout)
         return {

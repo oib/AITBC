@@ -15,9 +15,13 @@ jobs:
       API_KEY_STORAGE_PATH: /tmp/aitbc-ci-api-keys.json
       AITBC_IPFS_DIR: /tmp/aitbc-ci-ipfs
       AITBC_ORACLE_DIR: /tmp/aitbc-ci-oracle
+      PYTHON: ./venv/bin/python
     steps:
       - name: Checkout
         uses: actions/checkout@v4
+
+      - name: Verify Python 3.13.5+
+        run: python3 -c "import sys; assert sys.version_info >= (3,13,5), f'Python {sys.version} is too old'"
 
       - name: Set up Python venv
         run: |
@@ -34,58 +38,45 @@ jobs:
         working-directory: apps/zk-circuits
         run: npm ci --no-audit --no-fund
 
+      - name: Version consistency check
+        run: make version-check
+
       - name: Lint
-        run: |
-          export PYTHON=./venv/bin/python
-          make lint-strict
+        run: make lint-strict
 
       - name: No float money
-        run: |
-          export PYTHON=./venv/bin/python
-          make no-float-money
+        run: make no-float-money
 
       - name: Typecheck
-        run: |
-          export PYTHON=./venv/bin/python
-          make typecheck
+        run: make typecheck
 
       - name: Unit tests
         env:
-          PYTHON: ./venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
         run: make test
 
-      - name: OpenAPI drift check
-        run: |
-          export PYTHON=./venv/bin/python
-          make openapi-check
-
-      - name: CLI docs sync check
-        run: |
-          export PYTHON=./venv/bin/python
-          bash scripts/ci/check-cli-docs.sh
-
       - name: App tests
         env:
-          PYTHON: ./venv/bin/python
           PYTHONPATH: apps/blockchain-node/src
         run: make test-apps
 
       - name: Governance tests
-        run: |
-          export PYTHON=./venv/bin/python
-          make test-governance
+        run: make test-governance
 
       - name: CLI tests
         env:
-          PYTHON: ./venv/bin/python
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: make test-cli
 
+      - name: OpenAPI drift check
+        run: make openapi-check
+
+      - name: CLI docs sync check
+        run: bash scripts/ci/check-cli-docs.sh
+
       - name: Live scenario dry-run
         env:
-          PYTHON: ./venv/bin/python
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: make live-dry-run

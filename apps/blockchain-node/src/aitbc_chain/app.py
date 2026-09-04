@@ -229,7 +229,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     # Initialize cross-chain bridge (enables /rpc/bridge/* endpoints)
     try:
-        from .cross_chain.bridge import get_cross_chain_bridge, init_cross_chain_bridge
+        from .cross_chain.bridge import (
+            BridgeProductionSafetyError,
+            get_cross_chain_bridge,
+            init_cross_chain_bridge,
+        )
 
         init_cross_chain_bridge(session_scope)
         bridge = get_cross_chain_bridge()
@@ -239,6 +243,10 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             create_task_with_logging(bridge.start_finalizer(), name="bridge_release_finalizer")
             _app_logger.info("Bridge release finalizer started")
         _app_logger.info("Cross-chain bridge initialized")
+    except BridgeProductionSafetyError:
+        # Production safety misconfiguration is fatal: refuse to start a node that
+        # could move value with security controls disabled.
+        raise
     except Exception as e:
         _app_logger.warning("Failed to initialize cross-chain bridge: %s", e)
 

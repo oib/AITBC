@@ -6,7 +6,7 @@
 [![Python](https://img.shields.io/badge/python-3.13-blue)](https://www.python.org/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](LICENSE)
 [![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
-[![Version](https://img.shields.io/badge/version-v0.22.0-blue?style=flat-square)]()
+[![Version](https://img.shields.io/badge/version-v0.10.18-blue?style=flat-square)]()
 
 > **Decentralized marketplace for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
@@ -62,6 +62,9 @@ sudo systemctl start aitbc-blockchain-node
 
 ## Quick start (local)
 
+The repository supports both Poetry (`.venv`) and a plain `venv` in the repo root.
+The canonical path for a fresh machine is Poetry:
+
 ```bash
 # 1. Clone
 git clone https://github.com/oib/aitbc.git /opt/aitbc
@@ -72,13 +75,22 @@ pip install poetry
 poetry install
 
 # 3. Run verification
-./venv/bin/python -m ruff check .
-./venv/bin/python -m mypy --show-error-codes aitbc/
-./venv/bin/python -m pytest tests/unit -q
+poetry run make ci
 
 # 4. Start the coordinator API
 cd apps/coordinator-api
 PYTHONPATH=src poetry run uvicorn coordinator_api.main:app --reload
+```
+
+If you prefer a plain virtual environment, use the same lock-exported requirements
+that CI and deployment consume:
+
+```bash
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements.txt -r requirements-dev.txt
+pip install -e . -e cli
+make ci
 ```
 
 For detailed setup, see [docs/getting-started/SETUP.md](docs/getting-started/SETUP.md).
