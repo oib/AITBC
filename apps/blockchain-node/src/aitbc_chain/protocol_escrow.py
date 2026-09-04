@@ -148,7 +148,7 @@ def protocol_transfer_confirmed(
         select(Transaction).where(
             Transaction.chain_id == chain_id,
             Transaction.type == tx_type,
-            Transaction.block_height.is_not(None),
+            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
         )
     ).all()
     for tx in candidates:
@@ -180,7 +180,7 @@ def confirmed_lock_total(
         select(Transaction).where(
             Transaction.chain_id == chain_id,
             Transaction.type == tx_type,
-            Transaction.block_height.is_not(None),
+            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
         )
     ).all()
     for tx in candidates:

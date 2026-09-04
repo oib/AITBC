@@ -234,7 +234,7 @@ class _MeshSubscription:
         while not self._closed:
             await asyncio.sleep(delay)
             if self._closed:
-                return
+                return  # type: ignore[unreachable]
             try:
                 source = await backend.subscribe(self._topic, max_queue_size=self._max_queue_size)
             except Exception as e:
