@@ -19,7 +19,12 @@ from aitbc.aitbc_logging import get_logger
 logger = get_logger(__name__)
 
 _BN128_FQ = 21888242871839275222246405745257275088696311157297823662689037894645226208583
-_ZK_CIRCUITS_NODE_MODULES = Path(os.getenv("COORDINATOR_SNARKJS_NODE_PATH", "/opt/aitbc/apps/zk-circuits/node_modules"))
+# Default derived relative to this file rather than hardcoded to /opt/aitbc: the
+# CI runner checks the repo out to its own ephemeral workspace, not /opt/aitbc.
+_REPO_ROOT = Path(__file__).resolve().parents[7]
+_ZK_CIRCUITS_NODE_MODULES = Path(
+    os.getenv("COORDINATOR_SNARKJS_NODE_PATH", str(_REPO_ROOT / "apps/zk-circuits/node_modules"))
+)
 
 
 def _node_env() -> dict[str, str]:
