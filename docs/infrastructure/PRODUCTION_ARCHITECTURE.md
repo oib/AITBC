@@ -138,3 +138,10 @@ The AITBC production environment uses an FHS-separated runtime layout:
 - ✅ Logs centralized in `/var/log/aitbc/`
 - ✅ Repository clean of runtime files
 - ✅ systemd manages services; no Docker Compose is required
+
+## ⚠️ Known Operational Gaps
+
+These features are implemented and tested in isolation, but require additional operator-specific setup or live validation before they can be considered fully production-proven:
+
+- **Off-site backups**: `scripts/maintenance/aitbc-backup.sh` supports GPG encryption and optional off-host upload, but `BACKUP_GPG_RECIPIENTS`, the upload destination, and a documented restore procedure must be configured and tested on the target hosts. A real restore test has not been performed yet.
+- **PBFT live activation**: `multi_validator_consensus_enabled` and `pbft_consensus_enabled` default to `False`. The PBFT path is covered by unit and integration tests, but activation with independent validators on the live network has not been validated end-to-end.
