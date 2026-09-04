@@ -649,3 +649,114 @@ async def test_the_standin_commits_a_height_the_dead_proposer_had_prepared():
 
     result = await nodes[standin].propose_and_wait(standin, "0x" + secrets.token_hex(32), timeout=5.0, sequence=height, view=1)
     assert result is True, "the stand-in could not finish a height the dead proposer had prepared"
+
+
+@pytest.mark.asyncio
+async def test_pbft_continues_in_majority_partition():
+    """A 4-validator network split 3/1 still commits in the majority partition.
+
+    The proposer is in the 3-node majority. Messages do not cross the partition,
+    but the majority has enough validators (2f+1=3) to complete both PBFT
+    phases.
+    """
+    from eth_keys import keys
+    import secrets
+
+    class PartitionedNetwork:
+        def __init__(self, partitions: dict[str, int]):
+            self.nodes: list[PBFTConsensus] = []
+            self.partitions = partitions
+
+        async def publish(self, topic, msg_data):
+            sender_partition = self.partitions.get(msg_data["sender"], -1)
+            for node in self.nodes:
+                if self.partitions.get(node._local_validator, -1) != sender_partition:
+                    continue
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    keypairs = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        keypairs.append((pk.public_key.to_checksum_address(), pk.to_hex()))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-partition-majority")
+    for addr, _ in keypairs:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    proposer_addr = shared_consensus.select_proposer(1, 0)
+    minority_addr = next(addr for addr, _ in keypairs if addr != proposer_addr)
+    partitions = {addr: 0 if addr != minority_addr else 1 for addr, _ in keypairs}
+
+    net = PartitionedNetwork(partitions)
+    nodes: dict[str, PBFTConsensus] = {}
+    for addr, pk_hex in keypairs:
+        node = PBFTConsensus(
+            shared_consensus, private_key=pk_hex, chain_id="test-pbft-partition-majority", local_validator=addr
+        )
+        node.set_gossip_backend(net)
+        net.nodes.append(node)
+        nodes[addr] = node
+
+    block_hash = "0x" + secrets.token_hex(32)
+    result = await nodes[proposer_addr].propose_and_wait(proposer_addr, block_hash, timeout=5.0, sequence=1, view=0)
+    assert result is True, "majority partition should commit with 2f+1 validators"
+
+
+@pytest.mark.asyncio
+async def test_pbft_minority_partition_cannot_commit():
+    """A 4-validator network split 2/2 cannot commit when the proposer is in a minority partition.
+
+    The proposer can only communicate with one other validator, so the prepare
+    quorum (2f+1=3) is unreachable and propose_and_wait times out.
+    """
+    from eth_keys import keys
+    import secrets
+
+    class PartitionedNetwork:
+        def __init__(self, partitions: dict[str, int]):
+            self.nodes: list[PBFTConsensus] = []
+            self.partitions = partitions
+
+        async def publish(self, topic, msg_data):
+            sender_partition = self.partitions.get(msg_data["sender"], -1)
+            for node in self.nodes:
+                if self.partitions.get(node._local_validator, -1) != sender_partition:
+                    continue
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    keypairs = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        keypairs.append((pk.public_key.to_checksum_address(), pk.to_hex()))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-partition-minority")
+    for addr, _ in keypairs:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    proposer_addr = shared_consensus.select_proposer(1, 0)
+    # Put proposer with exactly one other validator in partition 0; the other
+    # two validators are in partition 1.
+    partition_0 = {proposer_addr}
+    for addr, _ in keypairs:
+        if addr != proposer_addr:
+            partition_0.add(addr)
+            break
+    partitions = {addr: 0 if addr in partition_0 else 1 for addr, _ in keypairs}
+
+    net = PartitionedNetwork(partitions)
+    nodes: dict[str, PBFTConsensus] = {}
+    for addr, pk_hex in keypairs:
+        node = PBFTConsensus(
+            shared_consensus, private_key=pk_hex, chain_id="test-pbft-partition-minority", local_validator=addr
+        )
+        node.set_gossip_backend(net)
+        net.nodes.append(node)
+        nodes[addr] = node
+
+    block_hash = "0x" + secrets.token_hex(32)
+    result = await nodes[proposer_addr].propose_and_wait(proposer_addr, block_hash, timeout=2.0, sequence=1, view=0)
+    assert result is False, "minority partition must not be able to commit without 2f+1 validators"
