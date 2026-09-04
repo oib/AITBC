@@ -4,5 +4,10 @@ set -euo pipefail
 # /opt/aitbc: the CI runner checks the repo out to its own ephemeral
 # workspace, not /opt/aitbc.
 script_dir="$(cd "$(dirname "$0")" && pwd)"
-. "$script_dir/../venv/bin/activate"
-exec aitbc "$@"
+venv_dir="$script_dir/../venv"
+. "$venv_dir/bin/activate"
+# Exec the venv's own console-script by absolute path rather than relying on
+# PATH lookup: some hosts have a stale/unrelated /usr/local/bin/aitbc shim
+# left over from earlier manual provisioning, and "exec aitbc" would resolve
+# to that instead of the venv we just activated, depending on PATH order.
+exec "$venv_dir/bin/aitbc" "$@"
