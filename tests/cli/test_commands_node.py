@@ -92,9 +92,23 @@ class TestNodeCommands:
         assert result.exit_code == 0, result.output
         assert "No nodes configured" in result.output
 
-    def test_node_island_list_islands(self, runner):
-        """``node island list-islands`` returns hardcoded island data."""
+    @patch("aitbc_cli.utils.http_client.AITBCHTTPClient")
+    def test_node_island_list_islands(self, mock_client_cls, runner):
+        """``node island list-islands`` queries the node's island manager via RPC."""
         from aitbc_cli.commands.node import node
+
+        mock_client = MagicMock()
+        mock_client.get.return_value = {
+            "islands": [
+                {
+                    "island_id": "550e8400-e29b-41d4-a716-446655440000",
+                    "island_name": "default",
+                    "chain_id": "ait-island-default",
+                    "status": "Active",
+                }
+            ]
+        }
+        mock_client_cls.return_value = mock_client
 
         result = runner.invoke(node, ["island", "list-islands"])
 
