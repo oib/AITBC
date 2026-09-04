@@ -7,10 +7,14 @@ header="# Generated from poetry.lock by scripts/ci/export-requirements.sh.\n# Do
 run_export() {
     local group="$1"
     local output="$2"
-    poetry export --only "$group" --without-hashes -o "$output"
+    shift 2
+    poetry export --only "$group" --without-hashes -o "$output" "$@"
     { printf '%b' "$header"; cat "$output"; } > "${output}.tmp"
     mv "${output}.tmp" "$output"
 }
-run_export main requirements.txt
+# --extras fhe: tenseal is an optional main dependency; CI's FHE tests
+# (apps/coordinator-api/tests/test_routers_fhe.py) need the real TenSEAL
+# backend, not the mock fallback, so pull it into requirements.txt.
+run_export main requirements.txt --extras fhe
 run_export dev requirements-dev.txt
 echo "Exported requirements.txt and requirements-dev.txt from poetry.lock"
