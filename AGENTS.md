@@ -197,6 +197,75 @@ Do not, on `<shop-node>` or `<hub-node>`:
 - push to the `github` remote or store a GitHub token
 - store any git credential in `~/.git-credentials`
 
+## Shell policy: Zsh / Bash / dash (three separate roles)
+
+The nodes run three shells for three distinct purposes. Do not blur these
+roles -- in particular, do not "simplify" things by making Bash the answer
+to everything.
+
+```
+                    Remote node
+                         |
+          +--------------+--------------+
+          |              |              |
+       Human           Agent          Scripts
+          |              |              |
+        Zsh            Bash           /bin/sh
+          |              |              |
+      Oh My Zsh      .bash_agent       dash
+          |              |              |
+      interactive     agent work     POSIX/system
+```
+
+1. **Zsh** -- human interactive login shell only.
+   - Root's login shell (`getent passwd root`) and Oh My Zsh config
+     (`~/.zshrc`, `~/.oh-my-zsh`) are for interactive human SSH sessions.
+   - Do not modify or depend on Zsh/Oh My Zsh for agent work. Agents should
+     not assume Zsh-specific syntax, options, or plugins exist.
+
+2. **Bash** -- default shell for agent (Devin, Claude, etc.) sessions.
+   - Use `ssh <node> 'bash -lc "..."'` for anything needing Bash features:
+     arrays, `[[ ... ]]`, shell functions, process substitution,
+     `mapfile`/`readarray`, Bash-specific parameter expansion.
+   - The agent environment is `~/.bash_agent` (see the section above for how
+     it's wired via `~/.profile` and `BASH_ENV`). Do not assume aliases or
+     interactive shell functions/prompts exist there.
+
+3. **dash (`/bin/sh`)** -- Debian's POSIX shell, for POSIX-only scripts.
+   - `/bin/sh -> dash` is Debian's default and must stay that way. Verify
+     with:
+     ```bash
+     readlink -f /bin/sh
+     ls -l /bin/sh
+     dash --version   # dash has no --version flag; erroring on it is normal,
+                       # it just confirms the binary is dash, not bash
+     bash --version | head -1
+     ```
+     Expected: `/bin/sh -> dash` (or `readlink -f /bin/sh` resolving to
+     `/usr/bin/dash` / `/bin/dash`).
+   - **Do not change `/bin/sh` to Bash and do not run `dpkg-reconfigure
+     dash`** unless there is a concrete, explicitly-approved reason. Many
+     Debian package scripts and system scripts assume `/bin/sh` is strictly
+     POSIX; pointing it at Bash "to make agent work easier" is the kind of
+     change that turns into an incident later.
+   - New system scripts intended to be portable/POSIX should use
+     `#!/bin/sh` and avoid Bash-specific syntax in them.
+
+4. **Existing scripts** -- respect the shebang that's already there.
+   - Inspect the shebang before editing a script; preserve the existing
+     interpreter unless there's a concrete reason to change it.
+   - If a script genuinely uses Bash-only features, its shebang should be
+     `#!/bin/bash`, not `#!/bin/sh`.
+   - If it's POSIX-compatible (or intended to be), keep/use `#!/bin/sh` and
+     do not introduce Bash-only syntax into it.
+
+5. **Never**, on any node:
+   - Change the account's login shell.
+   - Replace dash with Bash as `/bin/sh`.
+   - Add Oh My Zsh dependencies to agent-facing scripts or execution paths.
+   - Assume aliases or interactive-shell-only functions exist in a
+     non-interactive agent session.
+
 ## SSH shell environment: interactive Zsh vs. non-interactive Bash (agents)
 
 Root's login shell on the nodes is Zsh with Oh My Zsh, and that is unchanged
@@ -229,10 +298,14 @@ Agents should invoke commands as:
 ssh <node> 'bash -lc "your command"'
 ```
 
-This currently applies to `hub.aitbc`. If the same separation is wanted on
-`<shop-node>` or the other nodes, mirror `~/.bash_agent`, `~/.profile`, and
-the `/etc/environment` `BASH_ENV` line -- do not rely on it being present
-fleet-wide until confirmed.
+This is mirrored on all five nodes: `hub.aitbc`, `node0`, `node1`,
+`node2`, `hub2.aitbc`. Note per-host quirks:
+- `hub2.aitbc` did not have `fd-find`/`ripgrep` installed at all (not just a
+  missing symlink); both were installed from the stock Debian repo.
+- Each host's `~/.profile` trailer (the extra `. "$HOME/.cargo/env"` /
+  `. "$HOME/.local/bin/env"` lines) differs -- check what a host actually had
+  before assuming another host's trailer applies to it.
+
 
 ## Operational hints
 
