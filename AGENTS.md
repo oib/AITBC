@@ -197,6 +197,43 @@ Do not, on `<shop-node>` or `<hub-node>`:
 - push to the `github` remote or store a GitHub token
 - store any git credential in `~/.git-credentials`
 
+## SSH shell environment: interactive Zsh vs. non-interactive Bash (agents)
+
+Root's login shell on the nodes is Zsh with Oh My Zsh, and that is unchanged
+for normal interactive SSH sessions. Coding agents (Devin, Claude, etc.) that
+SSH in non-interactively get a separate, minimal Bash environment instead, so
+agent sessions stay deterministic (no OMZ prompt/plugins, no pager hangs,
+predictable `$EDITOR`/`$PAGER`).
+
+How it works, per node:
+
+- `~/.profile` branches on `case $- in *i*)`: an *interactive* bash login
+  shell still sources `~/.bashrc` as before; a *non-interactive* bash login
+  shell (`ssh host bash -lc "..."`) sources `~/.bash_agent` instead.
+- `~/.bash_agent` sets `EDITOR=vim`, `VISUAL=vim`, `LANG=C.UTF-8`,
+  `LC_ALL=C.UTF-8`, `PAGER=cat`, `GIT_PAGER=cat`, `SYSTEMD_PAGER=cat`. No
+  aliases, no PATH override, no Oh My Zsh references -- keep it that way.
+- `/etc/environment` sets `BASH_ENV=/root/.bash_agent`, picked up by PAM's
+  `pam_env.so` (already active in `/etc/pam.d/sshd`). This covers the bare
+  `ssh host bash` form (non-login, non-interactive), which does not read
+  `~/.profile` at all.
+- `~/.zshrc` / Oh My Zsh, the account's login shell, and `sshd_config` are
+  untouched by this. Interactive `ssh host` still lands in Zsh with OMZ
+  exactly as before.
+- `/usr/local/bin/fd` is a compatibility symlink to `/usr/bin/fdfind`
+  (Debian packages `fd` as `fd-find`). Not a new package install.
+
+Agents should invoke commands as:
+
+```bash
+ssh <node> 'bash -lc "your command"'
+```
+
+This currently applies to `hub.aitbc`. If the same separation is wanted on
+`<shop-node>` or the other nodes, mirror `~/.bash_agent`, `~/.profile`, and
+the `/etc/environment` `BASH_ENV` line -- do not rely on it being present
+fleet-wide until confirmed.
+
 ## Operational hints
 
 - After starting or restarting a live service, watch its logs in real time with `journalctl`:
