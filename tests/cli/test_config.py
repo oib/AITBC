@@ -128,8 +128,15 @@ class TestConfigCommands:
         assert ".config/aitbc/config.yaml" in result.output
 
     @patch("aitbc_cli.commands.config.subprocess.run")
-    def test_edit_command(self, mock_run, runner, mock_config, tmp_path):
-        """Test editing configuration file"""
+    def test_edit_command(self, mock_run, runner, mock_config, tmp_path, monkeypatch):
+        """Test editing configuration file falls back to nano when EDITOR is unset"""
+
+        # `config edit` reads os.getenv("EDITOR", "nano"). Without clearing these,
+        # the test asserts the fallback while inheriting whatever the developer's
+        # (or the agent session's) shell exports, and fails for anyone who sets
+        # EDITOR. Clear both so the default is what is actually under test.
+        monkeypatch.delenv("EDITOR", raising=False)
+        monkeypatch.delenv("VISUAL", raising=False)
 
         # Change to the tmp_path directory
         with runner.isolated_filesystem(temp_dir=tmp_path):
@@ -143,6 +150,27 @@ class TestConfigCommands:
             mock_run.assert_called_once()
             args = mock_run.call_args[0][0]
             assert args[0] == "nano"
+            assert str(actual_config_file) in args
+
+    @patch("aitbc_cli.commands.config.subprocess.run")
+    def test_edit_command_honours_editor_env(self, mock_run, runner, mock_config, tmp_path, monkeypatch):
+        """EDITOR overrides the default and is split into command and arguments"""
+
+        monkeypatch.delenv("VISUAL", raising=False)
+        monkeypatch.setenv("EDITOR", "code -w")
+
+        with runner.isolated_filesystem(temp_dir=tmp_path):
+            actual_config_file = Path.cwd() / ".aitbc.yaml"
+
+            result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output": "json"})
+
+            assert result.exit_code == 0
+            mock_run.assert_called_once()
+            args = mock_run.call_args[0][0]
+            # shlex.split, not a bare string: an EDITOR with arguments must not be
+            # passed to subprocess.run as a single argv[0].
+            assert args[0] == "code"
+            assert args[1] == "-w"
             assert str(actual_config_file) in args
 
     def test_reset_config_cancelled(self, runner, mock_config, temp_config_file):
