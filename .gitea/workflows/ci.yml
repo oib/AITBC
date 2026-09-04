@@ -67,6 +67,11 @@ jobs:
           PYTHONPATH: apps/blockchain-node/src
         run: make test-apps
 
+      - name: Governance tests
+        run: |
+          export PYTHON=./venv/bin/python
+          make test-governance
+
       - name: CLI tests
         env:
           PYTHON: ./venv/bin/python
