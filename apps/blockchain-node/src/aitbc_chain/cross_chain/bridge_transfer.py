@@ -806,7 +806,7 @@ class BridgeTransferMixin(BridgeBase):
                 select(CrossChainTransfer).where(
                     CrossChainTransfer.target_chain == chain_id,
                     CrossChainTransfer.status == "confirmed",
-                    CrossChainTransfer.target_tx_hash.is_not(None),  # type: ignore[attr-defined]
+                    CrossChainTransfer.target_tx_hash.is_not(None),  # type: ignore[union-attr]
                 )
             ).all()
             for record in records:
@@ -814,7 +814,7 @@ class BridgeTransferMixin(BridgeBase):
                     select(Transaction).where(
                         Transaction.chain_id == chain_id,
                         Transaction.tx_hash == record.target_tx_hash,
-                        Transaction.block_height.is_not(None),  # type: ignore[attr-defined]
+                        Transaction.block_height.is_not(None),  # type: ignore[union-attr]
                     )
                 ).first()
                 if not tx:
