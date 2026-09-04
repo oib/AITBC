@@ -81,8 +81,8 @@ from cryptography.hazmat.primitives.asymmetric.ed25519 import (
     Ed25519PrivateKey,
     Ed25519PublicKey,
 )
-from ecdsa import NIST256p, VerifyingKey  # type: ignore[import-untyped]
-from ecdsa.ellipticcurve import Point, PointJacobi  # type: ignore[import-untyped]
+from ecdsa import NIST256p, VerifyingKey
+from ecdsa.ellipticcurve import Point, PointJacobi
 
 _CURVE = NIST256p.curve
 _P: int = _CURVE.p()
