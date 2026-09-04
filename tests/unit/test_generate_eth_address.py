@@ -10,7 +10,8 @@ from pathlib import Path
 
 def _load_generate_module():
     """Load the bridge generator directly from its source path."""
-    path = Path("/opt/aitbc/apps/wallet/src/wallet_app/bridge/generate_eth_address.py")
+    repo_root = Path(__file__).resolve().parents[2]
+    path = repo_root / "apps/wallet/src/wallet_app/bridge/generate_eth_address.py"
     spec = importlib.util.spec_from_file_location("wallet_app.bridge.generate_eth_address", path)
     module = importlib.util.module_from_spec(spec)
     spec.loader.exec_module(module)
