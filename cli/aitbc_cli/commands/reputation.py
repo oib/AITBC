@@ -113,7 +113,7 @@ def _simulated_leaderboard(category: str, limit: int, region: str | None) -> lis
                 "transaction_count": tx,
             }
         )
-    entries.sort(key=lambda e: (-e["trust_score"], e["agent_id"]))
+    entries.sort(key=lambda e: (-float(cast(Any, e["trust_score"])), e["agent_id"]))
     for i, e in enumerate(entries, 1):
         e["rank"] = i
     return entries
@@ -178,11 +178,11 @@ def get_profile(ctx, agent_id: str, format: str):
         try:
             resp = http_client.get(_reputation_endpoint(f"/profile/{agent_id}"))
         except NetworkError:
-            data = _simulated_profile(agent_id)
+            simulated = _simulated_profile(agent_id)
             if format == "json":
-                click.echo(json.dumps(data, indent=2, default=str))
+                click.echo(json.dumps(simulated, indent=2, default=str))
             else:
-                output(data, format, title="Reputation Profile (Simulated)")
+                output(simulated, format, title="Reputation Profile (Simulated)")
             return
 
         data: dict[str, Any] = resp
@@ -227,11 +227,11 @@ def trust_score(ctx, agent_id: str, format: str):
         try:
             resp = http_client.get(_reputation_endpoint(f"/trust-score/{agent_id}"))
         except NetworkError:
-            data = _simulated_trust_score(agent_id)
+            simulated = _simulated_trust_score(agent_id)
             if format == "json":
-                click.echo(json.dumps(data, indent=2, default=str))
+                click.echo(json.dumps(simulated, indent=2, default=str))
             else:
-                output(data, format, title="Trust Score (Simulated)")
+                output(simulated, format, title="Trust Score (Simulated)")
             return
 
         data: dict[str, Any] = resp
@@ -329,11 +329,11 @@ def metrics(ctx, format: str):
         try:
             resp = http_client.get(_reputation_endpoint("/metrics"))
         except NetworkError:
-            data = _simulated_metrics()
+            simulated = _simulated_metrics()
             if format == "json":
-                click.echo(json.dumps(data, indent=2, default=str))
+                click.echo(json.dumps(simulated, indent=2, default=str))
             else:
-                output(data, format, title="Reputation Metrics (Simulated)")
+                output(simulated, format, title="Reputation Metrics (Simulated)")
             return
 
         data: dict[str, Any] = resp

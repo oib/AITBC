@@ -9,7 +9,7 @@ import os
 import socket
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -389,7 +389,7 @@ def orderbook(ctx, pair: str, limit: int):
         try:
             response = http_client.get("/transactions", params=params)
             # Response is a dict with 'transactions' key
-            transactions = response if isinstance(response, list) else response.get("transactions", [])
+            transactions = cast(list[dict[str, Any]], response.get("transactions", []))
         except NetworkError:
             transactions = _simulated_orderbook_transactions(pair, limit)
 
@@ -402,7 +402,7 @@ def orderbook(ctx, pair: str, limit: int):
 
         for order in transactions:
             if not isinstance(order, dict):
-                continue
+                continue  # type: ignore[unreachable]
             payload = _order_payload(order)
             if payload.get("side") == "buy":
                 buy_orders.append(payload)
@@ -490,7 +490,7 @@ def rates(ctx):
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             try:
-                orders = http_client.get("/transactions", params=params)
+                orders = cast(list[dict[str, Any]], http_client.get("/transactions", params=params).get("transactions", []))
             except NetworkError:
                 orders = _simulated_orders_for_pair(pair, 100)
 
@@ -554,7 +554,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         try:
-            orders = http_client.get("/transactions", params=params)
+            orders = cast(list[dict[str, Any]], http_client.get("/transactions", params=params).get("transactions", []))
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
 
@@ -571,16 +571,16 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
             price = _as_decimal(raw_price) if raw_price else Decimal(0)
             orders_data.append(
                 {
-                    "Order ID": payload.get("order_id", "")[:20] + "...",  # type: ignore[attr-defined]
-                    "Pair": payload.get("pair"),  # type: ignore[attr-defined]
-                    "Side": payload.get("side", "").upper(),  # type: ignore[attr-defined]
-                    "Amount": f"{amount:.4f} AIT",  # type: ignore[attr-defined]
-                    "Price": f"{price:.8f}"  # type: ignore[attr-defined]
+                    "Order ID": payload.get("order_id", "")[:20] + "...",
+                    "Pair": payload.get("pair"),
+                    "Side": payload.get("side", "").upper(),
+                    "Amount": f"{amount:.4f} AIT",
+                    "Price": f"{price:.8f}"
                     if raw_price
                     else "Market",
-                    "Status": payload.get("status"),  # type: ignore[attr-defined]
-                    "User": payload.get("user_id", "")[:16] + "...",  # type: ignore[attr-defined]
-                    "Created": payload.get("created_at", "")[:19],  # type: ignore[attr-defined]
+                    "Status": payload.get("status"),
+                    "User": payload.get("user_id", "")[:16] + "...",
+                    "Created": payload.get("created_at", "")[:19],
                 }
             )
 

@@ -1,7 +1,7 @@
 # Type Checking Status
 
-**Last Updated**: 2026-06-30
-**MyPy Version**: 2.0.0
+**Last Updated**: 2026-09-05
+**MyPy Version**: 2.1.0
 
 ## Overview
 
@@ -9,7 +9,7 @@ This document tracks type checking debt across the AITBC codebase. The goal is 1
 
 ## Current Status
 
-**✅ v0.10.16 B7 complete** - The six blockchain-node mixin files no longer use `# mypy: ignore-errors`.
+**✅ MyPy baseline cleared** - All 56 previously baselined errors in the clean apps have been fixed. `make typecheck` now reports 0 known errors on a fresh cache.
 
 Introduced typed protocols for the shared attributes and methods:
 
@@ -18,7 +18,7 @@ Introduced typed protocols for the shared attributes and methods:
 
 ## Remaining Line-Level Ignores
 
-A small number of targeted `# type: ignore[code]` comments remain for SQLModel/SQLAlchemy `.in_`/`.desc()` attribute access and `hex()`/`first()` return narrowing. They are documented below:
+A small number of targeted `# type: ignore[code]` comments remain for SQLModel/SQLAlchemy expression construction, `unreachable` defensive branches, and `hex()`/`first()` return narrowing. They are documented below:
 
 | File | Line | Code | Reason |
 |------|------|------|--------|
@@ -29,6 +29,8 @@ A small number of targeted `# type: ignore[code]` comments remain for SQLModel/S
 | `bridge_finality.py` | 225 | `method-assign` | Runtime monkey-patch of `MerklePatriciaTrie.get_root` for state-root verification. |
 | `bridge_transfer.py` | 270 | `attr-defined` | SQLModel column `in_()` not exposed as a typed attribute. |
 | `bridge_validator.py` | 91, 302 | `attr-defined` | SQLModel column `desc()` not exposed as a typed attribute. |
+
+The 2026-09-05 cleanup added a few more SQLAlchemy and `unreachable` ignores in `acceptance_sweeper.py`, `settlement_reconciler.py`, `dashboard.py`, `gpu_marketplace.py`, `exchange_island.py`, and `ai.py`. All are narrow and tied to SQLModel expression methods or defensive runtime branches that mypy cannot prove are safe.
 
 ### Previously Fixed Files (v0.4.23)
 

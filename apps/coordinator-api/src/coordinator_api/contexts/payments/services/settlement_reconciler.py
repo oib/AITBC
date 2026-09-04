@@ -67,9 +67,9 @@ class SettlementReconciler:
         cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
         stmt = (
             select(Job)
-            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .join(JobPayment, Job.payment_id == JobPayment.id)  # type: ignore[arg-type]
             .where(JobPayment.status == "escrowed")
-            .where(JobPayment.escrowed_at.is_not(None))
+            .where(JobPayment.escrowed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at < cutoff)  # type: ignore[operator]
             .limit(self.batch_size)

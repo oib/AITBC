@@ -22,6 +22,7 @@ from __future__ import annotations
 import json
 import os
 from pathlib import Path
+from typing import cast
 
 from ..utils import error, success, warning
 
@@ -131,7 +132,7 @@ class AuthManager:
 
         if value is None:
             warning(f"No stored credential found for '{name}' in '{environment}'")
-        return value
+        return cast(str | None, value)
 
     def delete_credential(self, name: str, environment: str = "default") -> bool:
         """Delete a stored API key. Returns True if one was removed."""

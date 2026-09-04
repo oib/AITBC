@@ -3,7 +3,7 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
-from typing import Annotated, Any
+from typing import Annotated, Any, cast
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
@@ -13,6 +13,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import format_ait
 from aitbc.utils.units import DEFAULT_FAUCET_UNITS
 from aitbc.utils.validation import validate_address
+from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
 
 from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
@@ -187,7 +188,7 @@ def get_wallet_balance(
         canonical_hex = canonical_address(raw_address)
         address = to_checksum_address(canonical_hex)
     except Exception:
-        address = raw_address
+        address = cast(ChecksumAddress, raw_address)
 
     balance = 0
     chain_id = meta.get("chain_id", os.getenv("CHAIN_ID", ""))

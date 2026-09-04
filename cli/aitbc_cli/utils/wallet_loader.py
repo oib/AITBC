@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import os
 from pathlib import Path
+from typing import cast
 
 
 from .address import to_canonical
@@ -72,6 +73,7 @@ def load_wallet_for_payment(
     password = _resolve_password(name, password)
 
     # Search configured and service wallet directories.
+    path: Path | None
     if wallet_path:
         path = Path(wallet_path)
     else:
@@ -86,6 +88,7 @@ def load_wallet_for_payment(
         info = adapter.get_wallet_info(name)
         if not info:
             abort(ctx, f"Wallet '{name}' not found")
+        assert info is not None
         address = to_canonical(info.get("address", ""))
         if not address:
             abort(ctx, f"Wallet '{name}' has no address")
@@ -97,10 +100,10 @@ def load_wallet_for_payment(
     from ..commands.wallet import _load_wallet
 
     wallet_data = _load_wallet(path, name)
-    address = wallet_data.get("address")
-    if not address:
+    raw_address = wallet_data.get("address")
+    if not raw_address:
         abort(ctx, f"Wallet '{name}' has no address")
-    address = to_canonical(address)
+    address = to_canonical(cast(str, raw_address))
 
     private_key = wallet_data.get("private_key")
     if isinstance(private_key, dict):
@@ -108,6 +111,7 @@ def load_wallet_for_payment(
         # _load_wallet already raises/abort in that case, but be defensive.
         if not password:
             abort(ctx, f"Wallet '{name}' is encrypted; provide --password or set AITBC_WALLET_PASSWORD")
+        assert password is not None
         from ..commands.wallet import decrypt_value
 
         try:
@@ -117,4 +121,4 @@ def load_wallet_for_payment(
     if require_private_key and (not isinstance(private_key, str) or not private_key):
         abort(ctx, f"Wallet '{name}' has no usable private key for signing")
 
-    return address, private_key if private_key else None, name
+    return address, cast(str | None, private_key if private_key else None), name

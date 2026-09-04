@@ -6,7 +6,7 @@ import base64
 import json
 import os
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -143,8 +143,8 @@ def verify(
             public_signals = proof_data.get("public_signals")
             circuit = proof_data.get("circuit", circuit)
         else:
-            proof = _load_json_or_file(proof)
-            public_signals = _load_json_or_file(public_signals)
+            proof = _load_json_or_file(cast(str, proof))
+            public_signals = _load_json_or_file(cast(str, public_signals))
 
         result = http_client.post(
             "/v1/zk/verify",
