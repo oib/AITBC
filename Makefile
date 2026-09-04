@@ -46,7 +46,7 @@ test-apps:
 		apps/blockchain-node/tests
 
 test-cli:
-	$(PYTHON) -m pytest -q cli/tests tests/test_cli_docs_sync.py tests/test_syspath_hygiene.py
+	$(PYTHON) -m pytest -q cli/tests tests/cli tests/test_cli_docs_sync.py tests/test_syspath_hygiene.py
 
 live-dry-run:
 	WALLET_URL=http://127.0.0.1:1 BLOCKCHAIN_RPC_URL=http://127.0.0.1:1 bash scripts/ci/live-scenario-dry-run.sh
@@ -76,4 +76,4 @@ openapi:
 openapi-check:
 	@PYTHON="$(PYTHON)" bash scripts/ci/check-openapi-drift.sh
 
-ci: lint-strict no-float-money typecheck test test-apps test-cli live-dry-run openapi-check
+ci: lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi-check
