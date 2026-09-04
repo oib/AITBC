@@ -1,16 +1,16 @@
 # Blockchain Node - AITBC Documentation
 
-PoA/PoS consensus blockchain with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability
+Multi-validator Proof-of-Authority consensus blockchain with optional PBFT finality, REST/WebSocket RPC, real-time gossip layer, and comprehensive observability
 
 ● Live
 
 ## Overview
 
-The AITBC Blockchain Node is the core infrastructure component that maintains the distributed ledger. It implements a hybrid Proof-of-Authority/Proof-of-Stake consensus mechanism with fast finality and supports high throughput for AI workload transactions.
+The AITBC Blockchain Node is the core infrastructure component that maintains the distributed ledger. It implements a multi-validator Proof-of-Authority consensus mechanism with optional PBFT finality and supports high throughput for AI workload transactions.
 
 ### Key Features
 
-- Hybrid PoA/PoS consensus with sub-second finality
+- Multi-validator PoA consensus with optional PBFT finality
 - REST and WebSocket RPC APIs
 - Real-time gossip protocol for block propagation
 - Comprehensive observability with Prometheus metrics
@@ -26,7 +26,7 @@ The blockchain node is built with a modular architecture separating concerns for
 
 #### Consensus Engine
 
-Hybrid PoA/PoS with proposer rotation and validator sets
+Multi-validator PoA with proposer rotation and optional PBFT consensus
 
 #### Storage Layer
 
@@ -116,23 +116,19 @@ LOG_LEVEL=info
 ### Development Mode
 
 ```bash
-# Initialize devnet
-python -m blockchain.scripts.init_devnet
-
-# Start node
-python -m blockchain.main --config devnet.yaml
+# The devnet helper creates a genesis and starts a local chain
+cd apps/blockchain-node
+python -m venv .venv
+source .venv/bin/activate
+./scripts/devnet_up.sh
 ```
 
 ### Production Mode
 
 ```bash
-# Using Docker
-docker run -d \
-  -v /data/blockchain:/data \
-  -p 8202:8202 \
-  -p 9081:9081 \
-  -p 9090:9090 \
-  aitbc/blockchain-node:latest
+# Enable and start the systemd service
+sudo systemctl enable aitbc-blockchain-node
+sudo systemctl start aitbc-blockchain-node
 ```
 
 ## Monitoring

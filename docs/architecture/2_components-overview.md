@@ -8,7 +8,7 @@ Overview of all components in the AITBC platform, their status, and documentatio
 
 ● Live
 
-PoA/PoS consensus with REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
+Multi-validator Proof-of-Authority consensus with optional PBFT finality, REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
 
 [Learn More →](../development/1_overview.md#blockchain-node)
 
@@ -90,7 +90,7 @@ The AITBC platform consists of 8 core components working together to provide a c
 
 ### Infrastructure Layer
 
-- **Blockchain Node** - Distributed ledger with PoA/PoS consensus
+- **Blockchain Node** - Distributed ledger with multi-validator PoA (optional PBFT)
 - **Coordinator API** - Job orchestration and management
 - **Wallet Daemon** - Secure wallet management
 
@@ -138,18 +138,7 @@ The AITBC platform consists of 8 core components working together to provide a c
 
 ## Deployment Information
 
-All components are containerized and can be deployed using Docker Compose:
-
-```bash
-# Deploy all components
-docker-compose up -d
-
-# Check status
-docker-compose ps
-
-# View logs
-docker-compose logs -f
-```
+Production deployments use systemd unit files under `apps/<service>/` and `scripts/` (see `systemctl` commands in the deployment guides). Docker Compose is not used.
 
 ## Support
 
