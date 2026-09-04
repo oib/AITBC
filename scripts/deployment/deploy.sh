@@ -108,20 +108,25 @@ setup_repository() {
         git pull || warning "Git pull failed, continuing with existing code"
     else
         log "Cloning repository..."
-        # REPO_URL should be set as environment variable
-        REPO_URL="${REPO_URL:-https://github.com/your-org/aitbc.git}"
+        # Default to the public mirror; override with REPO_URL for a private source.
+        REPO_URL="${REPO_URL:-https://github.com/oib/AITBC.git}"
         git clone "$REPO_URL" "$REPO_ROOT"
     fi
 
     success "Repository setup completed"
 }
 
-# Create virtual environment
+# Create virtual environment (idempotent: keep existing venv when it is usable)
 create_venv() {
-    log "Creating Python virtual environment..."
+    log "Setting up Python virtual environment..."
+
+    if [[ -d "$VENV_DIR" ]] && [[ -x "$VENV_DIR/bin/python" ]]; then
+        log "Virtual environment already exists, reusing it"
+        return 0
+    fi
 
     if [[ -d "$VENV_DIR" ]]; then
-        log "Virtual environment already exists, recreating..."
+        warning "Virtual environment exists but is incomplete, recreating it"
         rm -rf "$VENV_DIR"
     fi
 
@@ -129,7 +134,7 @@ create_venv() {
     success "Virtual environment created"
 }
 
-# Install Python dependencies
+# Install Python dependencies using declarative profiles (mirrors setup.sh/update.sh)
 install_python_dependencies() {
     log "Installing Python dependencies..."
 
@@ -140,13 +145,46 @@ install_python_dependencies() {
     # Upgrade pip
     pip install --upgrade pip setuptools wheel
 
-    # Install using Poetry
-    if [[ -f "$REPO_ROOT/pyproject.toml" ]]; then
-        pip install poetry
-        cd "$REPO_ROOT" && poetry install
+    local PROFILE="server-no-gpu"
+    if [[ -f "/etc/aitbc/blockchain.env" ]]; then
+        # shellcheck disable=SC1091
+        source "/etc/aitbc/blockchain.env"
+        if [[ "${HARDWARE_PROFILE:-}" == "gpu" ]]; then
+            PROFILE="provider-gpu"
+        elif [[ "${BLOCKCHAIN_MODE:-}" == "hub" ]]; then
+            PROFILE="hub"
+        elif [[ "${MARKET_ROLE:-}" == "customer" ]]; then
+            PROFILE="customer-no-gpu"
+        else
+            PROFILE="server-no-gpu"
+        fi
+    fi
+
+    if [[ -x "$REPO_ROOT/scripts/deployment/install-profiles.sh" ]]; then
+        "$REPO_ROOT/scripts/deployment/install-profiles.sh" "$PROFILE" || error "Profile installation failed"
     else
-        warning "pyproject.toml not found, installing basic dependencies"
-        pip install fastapi uvicorn sqlmodel alembic pydantic httpx requests
+        warning "install-profiles.sh not found, falling back to requirements.txt"
+        if [[ -f "$REPO_ROOT/requirements.txt" ]]; then
+            pip install -r "$REPO_ROOT/requirements.txt" || error "Failed to install requirements"
+        else
+            error "No requirements.txt found and install-profiles.sh is missing"
+        fi
+    fi
+
+    # Install repo-local packages and CLI so imports resolve
+    for pkg_dir in "$REPO_ROOT/packages/aitbc-shared" "$REPO_ROOT/packages/py/"*; do
+        if [[ -d "$pkg_dir" ]] && [[ -f "$pkg_dir/pyproject.toml" ]]; then
+            if pip install -q -e "$pkg_dir" >/dev/null 2>&1; then
+                log "Installed $(basename "$pkg_dir")"
+            else
+                warning "Failed to install $(basename "$pkg_dir")"
+            fi
+        fi
+    done
+
+    if [[ -d "$REPO_ROOT/cli" ]]; then
+        cd "$REPO_ROOT/cli"
+        pip install -e . || warning "Failed to install AITBC CLI"
     fi
 
     success "Python dependencies installed"
