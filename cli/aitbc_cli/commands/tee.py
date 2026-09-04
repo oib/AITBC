@@ -5,6 +5,7 @@ from __future__ import annotations
 from datetime import UTC, datetime
 import base64
 import os
+from typing import cast
 
 import click
 
@@ -188,16 +189,17 @@ def _resolve_quote_from_cli(ctx, quote: str, attestation_id: str, job_id: str) -
     client = _api_client(ctx)
     if client is None:
         abort(ctx, "Coordinator API URL not configured")
+    assert client is not None
     if attestation_id:
         att = client.get(f"/v1/tee/attestations/{attestation_id}")
-        return att.get("quote", "")
+        return cast(str, att.get("quote", ""))
     if job_id:
         job = client.get(f"/v1/jobs/{job_id}")
         att_id = (job or {}).get("tee_attestation_id")
         if not att_id:
             abort(ctx, f"Job {job_id} has no tee_attestation_id")
         att = client.get(f"/v1/tee/attestations/{att_id}")
-        return att.get("quote", "")
+        return cast(str, att.get("quote", ""))
     return ""
 
 
@@ -283,6 +285,7 @@ def register(ctx, enclave_id: str, public_key: str, agent_id: str):
         client = _api_client(ctx)
         if client is None:
             abort(ctx, "Coordinator API URL not configured")
+        assert client is not None
         if not public_key:
             abort(
                 ctx,
@@ -321,6 +324,7 @@ def status(ctx, enclave_id: str):
         client = _api_client(ctx)
         if client is None:
             abort(ctx, "Coordinator API URL not configured")
+        assert client is not None
         result = client.get(f"/v1/tee/enclaves/{enclave_id}")
         output(result, ctx.obj.get("output_format", "table"), title="TEE Enclave Status")
     except NetworkError as e:

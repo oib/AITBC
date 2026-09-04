@@ -8,7 +8,7 @@ without forcing the whole ``aitbc_cli.utils`` package to finish loading.
 import base64
 import logging
 from functools import update_wrapper
-from typing import Any
+from typing import Any, cast
 
 import click
 from click import echo, secho
@@ -86,7 +86,7 @@ def resolve_output_format(ctx, command_format: str | None = None) -> str:
     if command_format:
         return command_format
     if ctx and ctx.obj:
-        return ctx.obj.get("output_format", "table")
+        return cast(str, ctx.obj.get("output_format", "table"))
     return "table"
 
 

@@ -5,7 +5,7 @@ import shutil
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -347,7 +347,7 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
         try:
             with open(wallet_path) as f:
                 data = json.load(f)
-            return data.get("address")
+            return cast(str | None, data.get("address"))
         except Exception:
             pass
 
@@ -357,7 +357,7 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
         for item in wallets_data.get("items", []):
             if item.get("wallet_id") == wallet_name:
                 meta = item.get("metadata", {}) or {}
-                return meta.get("address") or meta.get("original_address") or item.get("address")
+                return cast(str | None, meta.get("address") or meta.get("original_address") or item.get("address"))
     except Exception:
         pass
 
@@ -367,7 +367,7 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
             try:
                 with open(wallet_path) as f:
                     data = json.load(f)
-                return data.get("address")
+                return cast(str | None, data.get("address"))
             except Exception:
                 pass
 
