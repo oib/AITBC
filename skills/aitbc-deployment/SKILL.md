@@ -27,10 +27,11 @@ After repo restructure, systemd service files and wrapper scripts moved from `sy
 | GPU Service | `apps/gpu-service/aitbc-gpu.service` |
 | Marketplace | `apps/marketplace-service/aitbc-marketplace.service` |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` |
-| Agent Management | `apps/agent-management/aitbc-agent-registry.service` |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` |
 | Plugin | `scripts/utils/aitbc-plugin.service` |
 | Monitoring | `scripts/monitoring/aitbc-monitoring.service` |
+
+> **Removed:** `apps/agent-management` no longer exists in the checkout. Agent registry/SDK and lifecycle functionality now live in the CLI (`aitbc agent`, `cli/aitbc_cli/commands/agent_sdk.py`) and `apps/agent-coordinator`. There is no `aitbc-agent-registry.service` to deploy.
 
 **Old references to `systemd/aitbc-*.service` will fail.** Always use `apps/<service>/` paths.
 
