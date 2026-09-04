@@ -31,10 +31,9 @@ jobs:
         run: ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e cli
 
       - name: Lint
-        continue-on-error: true
         run: |
           export PYTHON=./venv/bin/python
-          make lint
+          make lint-strict
 
       - name: No float money
         run: |

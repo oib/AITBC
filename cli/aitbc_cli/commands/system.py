@@ -353,11 +353,11 @@ def _systemctl_service_action(ctx, action: str, service: str, *, action_label: s
         err = result.stderr.strip() or result.stdout.strip()
         raise click.ClickException(f"Failed to {action} service {service_name}: {err}")
     except subprocess.TimeoutExpired:
-        raise click.ClickException(f"Timeout trying to {action} service {service_name}")
+        raise click.ClickException(f"Timeout trying to {action} service {service_name}") from None
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error trying to {action} service {service_name}: {e}")
+        raise click.ClickException(f"Error trying to {action} service {service_name}: {e}") from e
 
 
 @system.command(
@@ -427,7 +427,7 @@ def status(ctx, service: str | None):
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error getting status for {service_name}: {e}")
+        raise click.ClickException(f"Error getting status for {service_name}: {e}") from e
 
 
 @system.command(
@@ -457,7 +457,7 @@ def logs(ctx, service: str, lines: int):
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error reading logs for {service_name}: {e}")
+        raise click.ClickException(f"Error reading logs for {service_name}: {e}") from e
 
 
 @system.command(
@@ -484,7 +484,7 @@ def cat(ctx, service: str):
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error reading unit file for {service_name}: {e}")
+        raise click.ClickException(f"Error reading unit file for {service_name}: {e}") from e
 
 
 @system.command(
@@ -512,7 +512,7 @@ def show(ctx, service: str, properties: str | None):
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error showing properties for {service_name}: {e}")
+        raise click.ClickException(f"Error showing properties for {service_name}: {e}") from e
 
 
 @system.command(
@@ -579,10 +579,10 @@ def read_file(ctx, path: str):
     if re.search(r"[;&|<>$`\\!\n\r]", path):
         raise click.ClickException(f"invalid file path: {path}")
     try:
-        with open(path, "r", encoding="utf-8") as f:
+        with open(path, encoding="utf-8") as f:
             click.echo(f.read())
     except Exception as e:
-        raise click.ClickException(f"Error reading {path}: {e}")
+        raise click.ClickException(f"Error reading {path}: {e}") from e
 
 
 @system.command(
@@ -614,7 +614,7 @@ def list_cron(ctx):
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error listing cron jobs: {e}")
+        raise click.ClickException(f"Error listing cron jobs: {e}") from e
 
 
 # Allowed script prefixes for ``aitbc system run-script --path``.
@@ -648,7 +648,7 @@ def run_script(ctx, path: str):
     except click.ClickException:
         raise
     except Exception as e:
-        raise click.ClickException(f"Error running script {path}: {e}")
+        raise click.ClickException(f"Error running script {path}: {e}") from e
 
 
 if __name__ == "__main__":
