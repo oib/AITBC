@@ -56,14 +56,16 @@ class BlockImportMixin(SyncBase):
             return None
         if not getattr(settings, "validator_set", ""):
             return None
-        cache = getattr(self, "_multi_validator_cache", None)
+        cache: MultiValidatorPoA | None = getattr(self, "_multi_validator_cache", None)
         if cache is not None:
             return cache
+        multi_validator: MultiValidatorPoA | None
         try:
-            self._multi_validator_cache = MultiValidatorPoA.from_settings(self._chain_id)
+            multi_validator = MultiValidatorPoA.from_settings(self._chain_id)
         except Exception:
             logger.exception("Failed to build MultiValidatorPoA from settings for chain %s", self._chain_id)
-            self._multi_validator_cache = None
+            multi_validator = None
+        self._multi_validator_cache = multi_validator
         return self._multi_validator_cache
 
     def _validate_proposer_schedule(
@@ -119,7 +121,7 @@ class BlockImportMixin(SyncBase):
         """
         existing = block_data.get("bridge_state_root")
         if existing:
-            return existing
+            return str(existing)
         from .base_models import CrossChainTransfer
         from .state.merkle_patricia_trie import MerklePatriciaTrie
 

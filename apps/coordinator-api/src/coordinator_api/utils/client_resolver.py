@@ -7,8 +7,7 @@ import uuid
 from datetime import UTC, datetime
 from decimal import Decimal
 
-from sqlalchemy import select
-from sqlmodel import Session
+from sqlmodel import Session, select
 
 from ..contexts.infrastructure.domain.user import User, Wallet
 
@@ -104,7 +103,7 @@ def resolve_client(
 
     # Ethereum wallet address.
     if _WALLET_RE.match(raw):
-        wallet = session.exec(select(Wallet).where(Wallet.address == raw.lower())).scalars().first()
+        wallet = session.exec(select(Wallet).where(Wallet.address == raw.lower())).first()
         if wallet:
             user = session.get(User, wallet.user_id)
             if user:
@@ -114,7 +113,7 @@ def resolve_client(
         raise ValueError(f"Wallet address not registered: {raw}")
 
     # Username lookup.
-    user = session.exec(select(User).where(User.username == raw)).scalars().first()
+    user = session.exec(select(User).where(User.username == raw)).first()
     if user:
         return user.id, raw
 
