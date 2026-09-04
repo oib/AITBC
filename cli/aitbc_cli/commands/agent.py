@@ -15,7 +15,7 @@ from websockets.exceptions import WebSocketException
 from ..config import get_config
 from ..utils import error, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.wallet_paths import find_wallet_file, wallet_dir, wallet_search_dirs
+from ..utils.wallet_paths import find_wallet_file, wallet_search_dirs
 
 logger = get_logger(__name__)
 

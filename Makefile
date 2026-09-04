@@ -10,8 +10,8 @@ PYTHON ?= $(shell test -x ./venv/bin/python && echo ./venv/bin/python || command
 .PHONY: help lint lint-strict no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi openapi-check ci
 
 help:
-	@echo "make lint            ruff over the repo (reports backlog; not yet failing)"
-	@echo "make lint-strict     ruff over the repo, fail on any finding"
+	@echo "make lint            ruff over the repo, reports findings without failing (local convenience)"
+	@echo "make lint-strict     ruff over the repo, fail on any finding (the CI lint gate)"
 	@echo "make typecheck       mypy over all clean apps (the CI type gate)"
 	@echo "make test            unit tests"
 	@echo "make test-apps       coordinator and blockchain-node app tests"
@@ -76,4 +76,4 @@ openapi:
 openapi-check:
 	@PYTHON="$(PYTHON)" bash scripts/ci/check-openapi-drift.sh
 
-ci: lint no-float-money typecheck test test-apps test-cli live-dry-run openapi-check
+ci: lint-strict no-float-money typecheck test test-apps test-cli live-dry-run openapi-check
