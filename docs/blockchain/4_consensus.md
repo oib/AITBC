@@ -112,10 +112,10 @@ Longest chain rule applies:
 
 ## Finality
 
-Blocks are considered final after:
+Finality depends on the consensus mode:
 
-- 1 confirmation for normal transactions
-- 3 confirmations for high-value transactions
+- **Single-validator PoA** (default): finality is probabilistic and relies on the operator-controlled proposer. Downstream consumers such as the cross-chain bridge should use a confirmation-count threshold (`bridge_finality_blocks`) that is at least as strong as the desired security level.
+- **Multi-validator PoA + PBFT**: a block that carries a valid PBFT commit certificate (2f+1 commit messages from active validators) is final immediately. The bridge currently derives finality from `bridge_finality_blocks` confirmations; operators should set `bridge_finality_blocks` so that confirmation-count finality is not weaker than the consensus finality guarantee (e.g. 6 confirmations for single-validator PoA, or at least 1 block plus PBFT certificate verification when PBFT is active).
 
 ## Configuration
 
