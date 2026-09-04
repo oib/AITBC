@@ -57,7 +57,10 @@ def init(
         config = get_config()
         chain_id = getattr(config, "chain_id", os.getenv("CHAIN_ID", ""))
 
-    script_path = Path("/opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py")
+    # Derived relative to this file rather than hardcoded to /opt/aitbc: the
+    # CI runner checks the repo out to its own ephemeral workspace, not /opt/aitbc.
+    _repo_root = Path(__file__).resolve().parents[3]
+    script_path = _repo_root / "apps/blockchain-node/scripts/unified_genesis.py"
 
     if not script_path.exists():
         error(f"Genesis generation script not found: {script_path}")
