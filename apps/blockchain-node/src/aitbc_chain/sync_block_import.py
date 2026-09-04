@@ -103,9 +103,7 @@ class BlockImportMixin(SyncBase):
                 parent_timestamp = parent_block.timestamp
 
         if not mv.validate_block(block, block.proposer, parent_timestamp):
-            raise ValueError(
-                f"Proposer {block.proposer} is not the scheduled/authorized proposer for height {block.height}"
-            )
+            raise ValueError(f"Proposer {block.proposer} is not the scheduled/authorized proposer for height {block.height}")
 
     def _derive_bridge_state_root(
         self,
@@ -223,9 +221,7 @@ class BlockImportMixin(SyncBase):
                 parent_exists = session.exec(
                     select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)
                 ).first()
-                parent_is_our_head = (
-                    parent_exists is not None and our_head is not None and parent_exists.hash == our_head.hash
-                )
+                parent_is_our_head = parent_exists is not None and our_head is not None and parent_exists.hash == our_head.hash
                 if (height == 0 and parent_hash == "0x00") or (height > 0 and parent_is_our_head):
                     try:
                         result = self._append_block(session, block_data, transactions, skip_state_root_validation)
