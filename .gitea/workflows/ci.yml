@@ -30,6 +30,10 @@ jobs:
       - name: Install CLI package
         run: ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e cli
 
+      - name: Install zk-circuits Node deps
+        working-directory: apps/zk-circuits
+        run: npm ci --no-audit --no-fund
+
       - name: Lint
         run: |
           export PYTHON=./venv/bin/python
