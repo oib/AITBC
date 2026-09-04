@@ -9,13 +9,12 @@ internal services.
 from __future__ import annotations
 
 import json
-import re
 from typing import Any
 
 import click
 
 from ..config import get_config
-from ..utils import OUTPUT_FORMAT_OPTION, error, output
+from ..utils import OUTPUT_FORMAT_OPTION, output
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.output import resolve_output_format
 
@@ -148,14 +147,14 @@ def call_http(
         try:
             query_params = json.loads(params)
         except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid --params JSON: {e}")
+            raise click.ClickException(f"Invalid --params JSON: {e}") from e
 
     request_body: dict[str, Any] | None = None
     if body:
         try:
             request_body = json.loads(body)
         except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid --body JSON: {e}")
+            raise click.ClickException(f"Invalid --body JSON: {e}") from e
 
     if auth_kind == "miner" and not api_key:
         try:
@@ -185,6 +184,6 @@ def call_http(
             result = client.delete(path, params=query_params)
         output(result, output_format, title=f"{method} {service}/{path}")
     except NetworkError as e:
-        raise click.ClickException(f"Network error calling {service}/{path}: {e}")
+        raise click.ClickException(f"Network error calling {service}/{path}: {e}") from e
     finally:
         client.close()
