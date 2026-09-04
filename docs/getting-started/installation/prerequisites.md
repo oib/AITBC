@@ -48,7 +48,6 @@ This guide covers the system and software requirements for installing AITBC.
 - Redis (for caching and pub/sub)
 - nginx (for reverse proxy)
 - CUDA Toolkit 12.4 (for GPU support)
-- Docker 24.0+ (for containerized deployment)
 
 ## System Dependencies
 

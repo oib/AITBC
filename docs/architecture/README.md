@@ -77,7 +77,7 @@ Review these documents:
 
 ### **Key Technologies**
 
-- **Blockchain**: Custom AITBC blockchain with Proof-of-Stake consensus
+- **Blockchain**: Custom AITBC blockchain with multi-validator Proof-of-Authority consensus (optional PBFT finality)
 - **API**: FastAPI-based coordinator API
 - **Frontend**: React-based marketplace web application
 - **Wallet**: Python-based wallet service with cryptography

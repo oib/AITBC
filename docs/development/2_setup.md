@@ -9,10 +9,10 @@ This guide helps you set up a development environment for building on AITBC.
 
 ## Prerequisites
 
-- Python 3.8+
+- Python 3.13.5+
 - Git
-- Docker (optional)
-- Node.js 16+ (for frontend development)
+- PostgreSQL 15+ and Redis 7+ (for full local services)
+- Node.js 18+ (for frontend development)
 
 ## Local Development
 
@@ -26,21 +26,28 @@ cd aitbc
 ### 2. Install Dependencies
 
 ```bash
-# Python dependencies
-pip install -r requirements.txt
+# Create a virtual environment
+python3 -m venv venv
+source venv/bin/activate
 
-# Development dependencies
-pip install -r requirements-dev.txt
+# Install dependencies using the declarative profile (e.g. hub)
+./scripts/deployment/install-profiles.sh hub
+
+# Install the CLI in editable mode
+pip install -e cli/
 ```
 
 ### 3. Start Services
 
 ```bash
-# Using Docker Compose
-docker-compose -f docker-compose.dev.yml up -d
+# Start PostgreSQL and Redis
+sudo systemctl start postgresql redis-server
 
-# Or start individually
-aitbc dev start
+# Run the setup script for a local node
+sudo ./scripts/deployment/setup.sh
+
+# Or start a specific service manually from its app directory
+python -m apps.blockchain-node.src.aitbc_chain.main
 ```
 
 ### 4. Verify Setup
@@ -60,12 +67,11 @@ pytest
 Install extensions:
 
 - Python
-- Docker
 - GitLens
 
 ### PyCharm
 
-Configure Python interpreter and enable Docker integration.
+Configure Python interpreter to use `venv` and enable pre-commit.
 
 ## Environment Variables
 

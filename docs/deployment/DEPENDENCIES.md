@@ -62,7 +62,6 @@ This document lists all system-level dependencies required for deploying AITBC i
 
 | Software | Version | Purpose | Installation |
 |----------|---------|---------|--------------|
-| Docker | 24+ | Containerization (optional) | `apt install docker.io` |
 | Node.js | 20+ | Frontend build tools | `apt install nodejs npm` |
 | certbot | Latest | SSL certificate management | `apt install certbot python3-certbot-nginx` |
 

@@ -109,8 +109,8 @@
 
 ## P
 
-- **PoS**: Proof-of-Stake - Consensus mechanism where validators stake tokens to participate in block validation
-- **PoW**: Proof-of-Work - Consensus mechanism where miners solve computational puzzles to validate blocks
+- **PoS**: Proof-of-Stake - A consensus mechanism not used by AITBC; the network uses multi-validator PoA with optional PBFT finality
+- **PoW**: Proof-of-Work - A consensus mechanism not used by AITBC; the network uses multi-validator PoA with optional PBFT finality
 - **Portfolio Management**: Agent capability for managing investment portfolios and assets
 - **Plugin**: Extensible software component that adds functionality to the AITBC system
 
@@ -124,7 +124,7 @@
 - **SDK**: Software Development Kit
 - **Specialized Agent**: Agent type with domain-specific expertise (bounty systems, portfolio management, etc.)
 - **Staking**: Locking tokens to earn rewards and participate in network governance
-- **Staking Validator Agent**: Agent that operates as a validator in the Proof-of-Stake consensus
+- **Staking Validator Agent**: Agent that operates as a validator in the multi-validator PoA consensus
 - **Scenario**: A documented use case or workflow demonstrating AITBC functionality
 - **Smart Contract**: Self-executing contract with terms directly written into code
 - **Swarm Coordinator**: Agent that manages and coordinates groups of agents (swarms)
@@ -169,8 +169,8 @@
 | HTLC | Hashed Time-Locked Contract |
 | IPFS | InterPlanetary File System |
 | JWT | JSON Web Token |
-| PoS | Proof-of-Stake |
-| PoW | Proof-of-Work |
+| PoS | Proof-of-Stake (not used by AITBC; multi-validator PoA with optional PBFT is used) |
+| PoW | Proof-of-Work (not used by AITBC) |
 | RPC | Remote Procedure Call |
 | SDK | Software Development Kit |
 | WAL | Write-Ahead Logging |

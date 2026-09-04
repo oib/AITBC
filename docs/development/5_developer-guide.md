@@ -7,10 +7,10 @@ Build on the AITBC platform: SDKs, APIs, bounties, and resources for developers.
 ### Prerequisites
 
 - Git
-- Docker and Docker Compose
-- Node.js 18+ (for frontend)
-- Python 3.9+ (for AI services)
-- Rust 1.70+ (for blockchain)
+- Python 3.13.5+ (all services and CLI)
+- Node.js 18+ (for frontend, where applicable)
+- PostgreSQL 15+ and Redis 7+ (for live services)
+- systemd (for service management)
 
 ### Setup Development Environment
 
@@ -34,7 +34,8 @@ cd aitbc
 ```bash
 python3 -m venv venv
 source venv/bin/activate
-pip install -e ".[dev]"
+./scripts/deployment/install-profiles.sh hub
+pip install -e cli/
 pre-commit install
 ```
 
@@ -42,11 +43,11 @@ pre-commit install
 
 The AITBC platform consists of:
 
-- **Blockchain Node** (Rust) - PoA/PoS consensus layer
+- **Blockchain Node** (Python/FastAPI) - Multi-validator PoA consensus with optional PBFT
 - **Coordinator API** (Python/FastAPI) - Job orchestration
 - **Marketplace Web** (TypeScript/Vite) - User interface
-- **Miner Daemons** (Go) - GPU compute providers
-- **Wallet Daemon** (Go) - Secure wallet management
+- **CLI** (Python/Click) - Operator and developer tooling
+- **MCP Operation Server** (Python) - Secure live-node management
 
 ## Contributing
 
@@ -61,10 +62,8 @@ The AITBC platform consists of:
 
 ### Code Style
 
-- **Rust**: Use `rustfmt` and `clippy`
 - **Python**: Follow PEP 8, use `ruff` (linting + formatting)
 - **TypeScript**: Use Prettier and ESLint
-- **Go**: Use `gofmt`
 
 ### Git Hooks
 
@@ -169,7 +168,6 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 
 ### Development Environment
 
-- [Docker Compose Setup](2_setup.md)
 - [Local Testnet](1_overview.md)
 - [Faucet for Test Tokens](../architecture/6_trade-exchange.md)
 - [Block Explorer](../blockchain/0_readme.md#explorer-web)
@@ -277,7 +275,7 @@ def test_create_feature_invalid():
 
 ### Technical
 
-- **What's the tech stack?** - Rust for blockchain, Go for services, Python for AI, TypeScript for frontend.
+- **What's the tech stack?** - Python (FastAPI/Click/SQLModel) for the blockchain node, APIs, CLI and most services; TypeScript/Vite for the marketplace frontend; Solidity for standalone contracts.
 - **How do I run tests?** - Use `make test` or check specific component documentation.
 - **Where can I ask questions?** - Discord #dev channel is the best place.
 
