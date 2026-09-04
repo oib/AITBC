@@ -340,7 +340,7 @@ class JobService:
             online_miners = [
                 m
                 for m in self.session.scalars(select(Miner).where(Miner.status == "ONLINE")).all()
-                if m.last_heartbeat and _to_utc(m.last_heartbeat) and _to_utc(m.last_heartbeat) >= cutoff
+                if (hb := _to_utc(m.last_heartbeat)) is not None and hb >= cutoff
             ]
             current_reputation = self._get_miner_reputation(miner)
 

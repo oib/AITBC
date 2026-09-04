@@ -175,7 +175,7 @@ def list_gpus_cmd(ctx):
                     return
                 transactions = response.get("transactions", [])
             else:
-                transactions = response
+                transactions = response  # type: ignore[unreachable]
 
             if not transactions:
                 info("No registered GPUs found")

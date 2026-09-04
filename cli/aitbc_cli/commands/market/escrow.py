@@ -4,7 +4,7 @@ Escrow subgroup and escrow-related helpers
 
 import re
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -204,7 +204,7 @@ def _coordinator_base_url(ctx) -> str:
     url = url.rstrip("/")
     if url.endswith("/v1"):
         url = url[:-3]
-    return url
+    return cast(str, url)
 
 
 def _client_token(ctx) -> str | None:
@@ -212,7 +212,7 @@ def _client_token(ctx) -> str | None:
     token = ctx.obj.get("api_key")
     if not token:
         token = AuthManager().get_credential("client")
-    return token
+    return cast(str | None, token)
 
 
 def _coordinator_refund(ctx, job_id: str, reason: str) -> dict[str, Any] | None:

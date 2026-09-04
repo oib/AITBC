@@ -424,7 +424,7 @@ def exchange_status(ctx):
 )
 @click.option("--gas", "gas_limit", default=30000, type=int, help="Gas limit for the deposit transaction")
 @click.pass_context
-def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: str, gas_limit: int):
+def deposit_eth(ctx, amount: Decimal, ait_address: str | None, bridge_address: str | None, gas_limit: int):
     """Deposit Sepolia ETH to the bridge and mint AIT."""
     try:
         from web3 import Web3

@@ -8,7 +8,7 @@ import os
 import re
 import socket
 from datetime import datetime
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -80,7 +80,7 @@ def get_island_id() -> str:
 
 def _wallet_address(wallet: dict[str, Any]) -> str | None:
     metadata = wallet.get("metadata", {})
-    return metadata.get("address") or metadata.get("original_address")
+    return cast(str | None, metadata.get("address") or metadata.get("original_address"))
 
 
 def _account_balance(address: str, chain_id: str) -> int:
