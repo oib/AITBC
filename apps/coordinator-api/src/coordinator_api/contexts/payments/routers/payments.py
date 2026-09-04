@@ -3,7 +3,7 @@
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, status
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from ....auth import ClientDep  # NEW: JWT auth
 

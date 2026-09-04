@@ -11,8 +11,7 @@ from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import Depends, HTTPException, status
-from sqlalchemy.orm import Session
-from sqlmodel import select
+from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import WALLET_PORT
@@ -137,7 +136,8 @@ def get_receipt_of_record(session: Session, job: Job | None) -> dict[str, Any] |
     if job.receipt_id:
         row = session.execute(select(JobReceipt).where(JobReceipt.receipt_id == job.receipt_id)).scalars().first()
         if row and row.payload:
-            return row.payload
+            payload: dict[str, Any] = row.payload
+            return payload
     return job.receipt if job.receipt else None
 
 

@@ -4,7 +4,7 @@ import os
 from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Request, status
-from sqlalchemy.orm import Session
+from sqlmodel import Session
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.exceptions import NetworkError
