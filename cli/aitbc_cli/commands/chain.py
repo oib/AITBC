@@ -88,7 +88,7 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
         # Get chains
         chains = asyncio.run(
             chain_manager.list_chains(
-                chain_type=ChainType(chain_type) if chain_type != "all" else None,  # type: ignore[arg-type]
+                chain_type=ChainType(chain_type) if chain_type != "all" else None,
                 include_private=show_private,
                 sort_by=sort,
             )
@@ -312,7 +312,7 @@ def create(ctx, config_file, node, dry_run):
             return
 
         # Create chain
-        chain_id = chain_manager.create_chain(chain_config, node)  # type: ignore[arg-type]
+        chain_id = chain_manager.create_chain(chain_config, node)
 
         success("Chain created successfully!")
         result = {

@@ -5,7 +5,7 @@ import os
 import time
 from decimal import Decimal, InvalidOperation
 
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -365,7 +365,7 @@ def submit(
             if model:
                 payload["model"] = model
 
-        job_data = {
+        job_data: dict[str, Any] = {
             "payload": payload,
             "constraints": {},
             "ttl_seconds": 900,
@@ -439,7 +439,7 @@ def submit(
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post("/v1/jobs", json=job_data)
 
-        job_id = result.get("job_id")
+        job_id = cast(str, result.get("job_id"))
         payment_id = result.get("payment_id")
         success(f"Job submitted: {job_id}")
 
@@ -548,6 +548,7 @@ def pay(
         wallet_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet, password=password)
         if not private_key:
             abort(ctx, f"Wallet {wallet} has no usable private key")
+        assert private_key is not None
 
         headers = _auth_headers(ctx)
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
@@ -1028,7 +1029,7 @@ def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordin
             if isinstance(result, dict):
                 result["refund"] = refund_result
             else:
-                result = {"cancel_result": result, "refund": refund_result}
+                result = {"cancel_result": result, "refund": refund_result}  # type: ignore[unreachable]
 
         success(f"Job {job_id} cancelled")
         output(result, resolve_output_format(ctx, format))

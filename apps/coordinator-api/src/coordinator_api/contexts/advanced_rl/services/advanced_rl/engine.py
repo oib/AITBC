@@ -80,7 +80,7 @@ class AdvancedReinforcementLearningEngine:
             "entropy_losses": [],
         }
         for episode in range(config.max_episodes):
-            episode_reward = 0
+            episode_reward = 0.0
             states, actions, rewards, dones, old_log_probs, values = ([], [], [], [], [], [])
             for step in range(config.max_steps_per_episode):
                 state = self.get_state_from_data(training_data[step % len(training_data)])
@@ -97,22 +97,22 @@ class AdvancedReinforcementLearningEngine:
                 dones.append(done)
                 old_log_probs.append(log_prob)
                 values.append(value)
-                episode_reward += reward  # type: ignore[assignment]
+                episode_reward += reward
                 if done:
                     break
-            states = torch.FloatTensor(states).to(self.device)  # type: ignore[assignment]
-            actions = torch.LongTensor(actions).to(self.device)  # type: ignore[assignment]
-            rewards = torch.FloatTensor(rewards).to(self.device)  # type: ignore[assignment]
-            old_log_probs = torch.stack(old_log_probs).to(self.device)  # type: ignore[assignment]
-            values = torch.stack(values).squeeze().to(self.device)  # type: ignore[assignment]
-            advantages = self.calculate_advantages(rewards, values, dones, config.discount_factor)  # type: ignore[arg-type]
-            returns = advantages + values  # type: ignore[operator]
+            states = torch.FloatTensor(states).to(self.device)
+            actions = torch.LongTensor(actions).to(self.device)
+            rewards = torch.FloatTensor(rewards).to(self.device)
+            old_log_probs = torch.stack(old_log_probs).to(self.device)
+            values = torch.stack(values).squeeze().to(self.device)
+            advantages = self.calculate_advantages(rewards, values, dones, config.discount_factor)
+            returns = advantages + values
             for _ in range(4):
                 action_probs, current_values = agent(states)
                 dist = torch.distributions.Categorical(action_probs)
                 current_log_probs = dist.log_prob(actions)
                 entropy = dist.entropy()
-                ratio = torch.exp(current_log_probs - old_log_probs.detach())  # type: ignore[attr-defined]
+                ratio = torch.exp(current_log_probs - old_log_probs.detach())
                 surr1 = ratio * advantages
                 surr2 = torch.clamp(ratio, 1 - clip_ratio, 1 + clip_ratio) * advantages
                 policy_loss = -torch.min(surr1, surr2).mean()
@@ -155,7 +155,7 @@ class AdvancedReinforcementLearningEngine:
             "alpha_values": [],
         }
         for episode in range(config.max_episodes):
-            episode_reward = 0
+            episode_reward = 0.0
             for step in range(config.max_steps_per_episode):
                 state = self.get_state_from_data(training_data[step % len(training_data)])
                 state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -165,7 +165,7 @@ class AdvancedReinforcementLearningEngine:
                     action = dist.sample()
                     action = torch.clamp(action, -1, 1)
                 next_state, reward, done = self.step_in_environment(action.cpu().numpy(), state)
-                episode_reward += reward  # type: ignore[assignment]
+                episode_reward += reward
                 if done:
                     break
             training_history["episode_rewards"].append(episode_reward)
@@ -189,7 +189,7 @@ class AdvancedReinforcementLearningEngine:
         optim.Adam(agent.parameters(), lr=config.learning_rate)
         training_history: dict[str, list[float]] = {"episode_rewards": [], "losses": [], "q_values": []}
         for episode in range(config.max_episodes):
-            episode_reward = 0
+            episode_reward = 0.0
             for step in range(config.max_steps_per_episode):
                 state = self.get_state_from_data(training_data[step % len(training_data)])
                 state_tensor = torch.FloatTensor(state).unsqueeze(0).to(self.device)
@@ -198,7 +198,7 @@ class AdvancedReinforcementLearningEngine:
                     q_values = q_atoms.sum(dim=2)
                     action = q_values.argmax(dim=1).item()
                 next_state, reward, done = self.step_in_environment(action, state)
-                episode_reward += reward  # type: ignore[assignment]
+                episode_reward += reward
                 if done:
                     break
             training_history["episode_rewards"].append(episode_reward)
@@ -222,9 +222,9 @@ class AdvancedReinforcementLearningEngine:
             if t == len(rewards) - 1:
                 next_value = 0
             else:
-                next_value = values[t + 1]  # type: ignore[assignment]
+                next_value = values[t + 1]
             delta = rewards[t] + gamma * next_value * (1 - dones[t]) - values[t]
-            gae = delta + gamma * 0.95 * (1 - dones[t]) * gae  # type: ignore[assignment]
+            gae = delta + gamma * 0.95 * (1 - dones[t]) * gae
             advantages[t] = gae
         return advantages
 
@@ -280,9 +280,9 @@ class AdvancedReinforcementLearningEngine:
         if algorithm == "ppo":
             agent = PPOAgent(state_dim, action_dim)
         elif algorithm == "sac":
-            agent = SACAgent(state_dim, action_dim)  # type: ignore[assignment]
+            agent = SACAgent(state_dim, action_dim)
         elif algorithm == "rainbow_dqn":
-            agent = RainbowDQNAgent(state_dim, action_dim)  # type: ignore[assignment]
+            agent = RainbowDQNAgent(state_dim, action_dim)
         else:
             return None
         agent.load_state_dict(state_dict)
@@ -300,7 +300,7 @@ class AdvancedReinforcementLearningEngine:
                 action = dist.sample().item()
             elif algorithm == "sac":
                 mean, std = agent(state_tensor)
-                dist = torch.distributions.Normal(mean, std)  # type: ignore[assignment]
+                dist = torch.distributions.Normal(mean, std)
                 action = dist.sample()
                 action = torch.clamp(action, -1, 1)
             elif algorithm == "rainbow_dqn":
@@ -318,15 +318,15 @@ class AdvancedReinforcementLearningEngine:
         agent = await self.load_trained_agent(agent_id, algorithm)
         if agent is None:
             return {"error": "Agent not found"}  # type: ignore[dict-item]
-        total_reward = 0
+        total_reward = 0.0
         episode_rewards = []
         for _episode in range(10):
-            episode_reward = 0
+            episode_reward = 0.0
             for step in range(len(test_data)):
                 state = self.get_state_from_data(test_data[step])
                 action = await self.get_agent_action(agent, state, algorithm)
                 next_state, reward, done = self.step_in_environment(action, state)
-                episode_reward += reward  # type: ignore[assignment]
+                episode_reward += reward
                 if done:
                     break
             episode_rewards.append(episode_reward)

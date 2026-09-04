@@ -70,7 +70,7 @@ class AcceptanceSweeper:
         """
         stmt = (
             select(Job)
-            .join(JobPayment, Job.payment_id == JobPayment.id)
+            .join(JobPayment, Job.payment_id == JobPayment.id)  # type: ignore[arg-type]
             .where(JobPayment.status == PENDING_ACCEPTANCE)
             .limit(self.batch_size)
         )
