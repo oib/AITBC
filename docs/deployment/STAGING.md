@@ -66,8 +66,8 @@ Same as production:
 git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
-# Run the setup script with staging configuration
-./scripts/deployment/setup.sh --environment staging
+# Run the setup script (staging is selected by the contents of /etc/aitbc/*.env)
+./scripts/deployment/setup.sh
 ```
 
 ### 2. Environment Configuration

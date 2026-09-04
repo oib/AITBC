@@ -8,8 +8,6 @@ This directory contains production deployment guides and procedures for the AITB
 
 - [Single Server](single-server.md) - Single server production deployment
 - [Multi Server](multi-server.md) - Multi-server deployment
-- Cloud Deployment - AWS, GCP, Azure deployment
-- Docker Deployment - Containerized deployment
 - [Staging Environment](STAGING.md) - Staging environment setup and management
 - [Configuration](configuration.md) - Environment configuration
 - [SSL/TLS Setup](ssl-tls-setup.md) - SSL/TLS configuration
