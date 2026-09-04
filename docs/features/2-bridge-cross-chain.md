@@ -30,6 +30,14 @@ Two implementation defects were found and fixed during the live run:
 1. `BlockHeaderRequest` omitted `bridge_state_root`, so ingested headers could not be used to verify Merkle proofs.
 2. Re-registering an existing bridge validator did not refresh `registered_at`, causing the validator-set freshness check to reject re-registered sets as stale.
 
+### Finality and Consensus Alignment
+
+The bridge derives finality from `bridge_finality_blocks` confirmations. This must be configured to match the underlying consensus guarantee:
+
+- **Single-validator PoA** (default): consensus provides no BFT finality, so use a higher confirmation count (default `bridge_finality_blocks=6`).
+- **Multi-validator PoA + PBFT**: a block with a valid PBFT commit certificate (2f+1 commits) is final. `bridge_finality_blocks` should be set so confirmation-count finality is at least as strong as the PBFT guarantee, and bridge proofs should include or verify the PBFT certificate where available.
+
+Do not set `bridge_finality_blocks` lower than the consensus finality the bridge is expected to trust.
 
 ### Bridge Operations
 
