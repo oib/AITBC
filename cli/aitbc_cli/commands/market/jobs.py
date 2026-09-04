@@ -8,7 +8,7 @@ import os
 import urllib.request
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -74,19 +74,19 @@ def _resolve_offer_from_marketplace(http_client: AITBCHTTPClient, offer_id_or_pl
     # First pass: exact offer_id match.
     for offer in offers:
         if offer.get("offer_id") == offer_id_or_plugin_id:
-            return offer
+            return cast(dict[str, Any], offer)
 
     # Second pass: plugin_id match.
     for offer in offers:
         if offer.get("plugin_id") == offer_id_or_plugin_id:
-            return offer
+            return cast(dict[str, Any], offer)
 
     # Third pass: derive plugin_id from service_type-model and match.
     for offer in offers:
         st = offer.get("service_type", "")
         model = offer.get("model", "")
         if _compute_plugin_id(st, model) == offer_id_or_plugin_id:
-            return offer
+            return cast(dict[str, Any], offer)
 
     return None
 
@@ -852,6 +852,7 @@ def run_job(
         service_type = offer.get("service_type", "")
 
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        assert private_key is not None
 
         # Use explicit --proposer, then HUB_PROPOSER_ID, then local RPC proposer discovery.
         config = get_config()
@@ -960,6 +961,7 @@ def transcribe_job(
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        assert private_key is not None
         _run_whisper(ctx, offer, audio_file, wallet_address, private_key, language, task, fmt, output_format)
     except Exception as e:
         error(f"Error transcribing audio: {e}")
@@ -997,6 +999,7 @@ def process_video(
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        assert private_key is not None
         _run_ffmpeg(
             ctx, offer, input_file, wallet_address, private_key, output_container, codec, resolution, bitrate, output_format
         )
@@ -1045,6 +1048,7 @@ def hermes_job(
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        assert private_key is not None
         config = get_config()
         node_wallet = proposer_id or config.hub_proposer_id or None
         _run_hermes(ctx, offer, prompt, max_time, wallet_address, private_key, output_format, track, node_wallet=node_wallet)

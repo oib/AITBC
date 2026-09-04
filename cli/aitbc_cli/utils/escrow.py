@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import json
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 from aitbc.crypto.crypto import sign_transaction_hash
 from eth_utils import keccak
@@ -40,7 +40,7 @@ def get_node_wallet(ctx, rpc_url: str) -> str:
     node_wallet = health.get("node_wallet") or health.get("proposer_id")
     if not node_wallet:
         abort(ctx, "Blockchain RPC /health did not return node_wallet")
-    return to_canonical(node_wallet)
+    return to_canonical(cast(str, node_wallet))
 
 
 def get_buyer_nonce(ctx, rpc_url: str, buyer: str) -> int:

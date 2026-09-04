@@ -5,7 +5,7 @@ from __future__ import annotations
 import os
 import socket
 from collections import Counter
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -112,7 +112,7 @@ def _client(ctx: click.Context, base_url: str | None = None, timeout: int = 10) 
 
 def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
     try:
-        return client.get(path, params=params)  # type: ignore[no-any-return]
+        return client.get(path, params=params)
     except NetworkError as e:
         logger.warning("Dashboard GET %s failed: %s", path, e)
         return None
@@ -123,7 +123,7 @@ def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None 
 
 def _safe_post(client: AITBCHTTPClient, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
     try:
-        return client.post(path, json=json)  # type: ignore[no-any-return]
+        return client.post(path, json=json)
     except NetworkError as e:
         logger.warning("Dashboard POST %s failed: %s", path, e)
         return None
@@ -248,12 +248,12 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
         coord_client = _client(ctx, timeout=15)
 
         jobs_data = _safe_get(coord_client, "/v1/jobs", {"limit": limit}) or {}
-        if isinstance(jobs_data, list):
-            jobs = jobs_data
+        if isinstance(jobs_data, list):  # type: ignore[unreachable]
+            jobs = jobs_data  # type: ignore[unreachable]
         elif isinstance(jobs_data, dict):
             jobs = jobs_data.get("items", [])
         else:
-            jobs = []
+            jobs = []  # type: ignore[unreachable]
 
         _enrich_jobs_with_escrow(jobs, blockchain_rpc_url)
 
@@ -363,7 +363,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         if miner_id:
             jobs_resp = _safe_post(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
             if jobs_resp:
-                miner_jobs = jobs_resp.get("jobs", jobs_resp.get("items", [])) if isinstance(jobs_resp, dict) else jobs_resp
+                miner_jobs = cast(list[dict[str, Any]], jobs_resp.get("jobs", jobs_resp.get("items", [])))
             earnings_resp = _safe_post(coord_client, f"/v1/miners/{miner_id}/earnings")
             if earnings_resp:
                 miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}

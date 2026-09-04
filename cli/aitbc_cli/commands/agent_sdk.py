@@ -3,7 +3,7 @@
 import asyncio
 import json
 from pathlib import Path
-from typing import Any
+from typing import Any, cast
 
 try:
     from aitbc_agent import Agent, AITBCAgent, ComputeConsumer, ComputeProvider
@@ -201,7 +201,7 @@ def _resolve_agent_id(ctx, agent_id: str | None) -> str:
     if not agents:
         abort(ctx, "No local agents found. Create one with `aitbc agent create <name>`.")
     if len(agents) == 1:
-        resolved = agents[0].get("agent_id")
+        resolved = cast(str, agents[0].get("agent_id"))
         if not resolved:
             abort(ctx, "Local agent has no agent_id")
         info(f"Using local agent {resolved}")
@@ -212,6 +212,7 @@ def _resolve_agent_id(ctx, agent_id: str | None) -> str:
         aid = a.get("agent_id", "no-id")
         agent_list.append(f"{name} ({aid})")
     abort(ctx, "Multiple local agents found; use --agent-id. Agents: " + ", ".join(agent_list))
+    return ""
 
 
 def _check_agent_coordinator(coordinator_url: str, ctx: Any | None = None) -> bool:

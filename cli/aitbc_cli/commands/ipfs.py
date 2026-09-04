@@ -125,7 +125,7 @@ def _ipfs_add_file(ipfs_api: str, file_path: Path) -> str | None:
             )
         response.raise_for_status()
         result = response.json()
-        return result.get("Hash") or result.get("cid")
+        return cast(str | None, result.get("Hash") or result.get("cid"))
     except Exception as e:
         warning(f"IPFS add failed: {e}")
         return None
@@ -619,7 +619,7 @@ def host(
 
     # If a local file is supplied, add it to the IPFS daemon now.
     if file_path.exists() and file_path.is_file():
-        cid = _ipfs_add_file(ipfs_api, file_path)
+        cid = cast(str, _ipfs_add_file(ipfs_api, file_path))
         if not cid:
             error(f"Failed to add file to IPFS at {ipfs_api}")
             raise click.Abort()
