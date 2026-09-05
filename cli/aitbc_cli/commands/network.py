@@ -126,7 +126,7 @@ def test(ctx, peer, rpc_url):
     """Test connectivity to a specific peer address."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/force-sync", json={"peer": peer})
+        result = http_client.post("/rpc/force-sync", json={"peer": peer})
         output(result, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -147,7 +147,7 @@ def force_sync(ctx, rpc_url):
     """Force the local node to synchronize with the network."""
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/force-sync", json={})
+        result = http_client.post("/rpc/force-sync", json={})
         output(result, ctx.obj.get("output_format", "table"), title="Force Sync")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
