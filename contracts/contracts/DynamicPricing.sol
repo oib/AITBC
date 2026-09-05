@@ -73,17 +73,6 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         uint256 priceAdjustmentFactor;
     }
 
-    struct RegionalPricing {
-        string region;
-        uint256 regionalMultiplier;
-        uint256 localSupply;
-        uint256 localDemand;
-        uint256 averagePrice;
-        uint256 lastUpdateTime;
-        uint256 competitionLevel;
-        uint256 infrastructureCost;
-    }
-
     struct DemandForecast {
         uint256 forecastPeriod;
         uint256 predictedDemand;
@@ -143,16 +132,13 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => MarketData) internal marketDataHistory;
     mapping(uint256 => PriceHistory[]) public priceHistory;
     mapping(address => ProviderPricing) public providerPricing;
-    mapping(string => RegionalPricing) public regionalPricing;
     mapping(uint256 => DemandForecast) public demandForecasts;
     mapping(uint256 => PriceAlert) public priceAlerts;
     mapping(address => uint256[]) public providerPriceHistory;
-    mapping(string => uint256[]) public regionalPriceHistory;
     mapping(address => bool) public authorizedPriceOracles;
     mapping(uint256 => bool) public isValidPriceUpdate;
 
     // Arrays for tracking
-    string[] public supportedRegions;
     uint256[] public activePriceAlerts;
     uint256[] public recentPriceUpdates;
 
@@ -186,13 +172,6 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         uint256 newPrice,
         PricingStrategy strategy,
         uint256 adjustmentFactor
-    );
-
-    event RegionalPriceUpdated(
-        string indexed region,
-        uint256 newMultiplier,
-        uint256 localSupply,
-        uint256 localDemand
     );
 
     event DemandForecastCreated(
@@ -254,11 +233,6 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         _;
     }
 
-    modifier validRegion(string memory _region) {
-        require(bytes(_region).length > 0, "Invalid region");
-        _;
-    }
-
     // Constructor
     constructor(
         address _aiPowerRental,
@@ -270,13 +244,6 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         paymentToken = IERC20(_paymentToken);
         priceUpdateCounter = 0;
 
-        // Initialize supported regions
-        supportedRegions.push("us-east");
-        supportedRegions.push("us-west");
-        supportedRegions.push("eu-central");
-        supportedRegions.push("eu-west");
-        supportedRegions.push("ap-southeast");
-        supportedRegions.push("ap-northeast");
     }
 
     /**
@@ -379,9 +346,6 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         // Update provider prices
         _updateProviderPrices(newAveragePrice, utilizationRate);
 
-        // Update regional prices
-        _updateRegionalPrices(_totalSupply, _totalDemand);
-
         // Check price alerts
         _checkPriceAlerts(newAveragePrice);
 
@@ -467,35 +431,6 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         // 2. Calculate provider-specific adjustments
         // 3. Update provider pricing based on strategy
         // 4. Emit ProviderPriceUpdated events
-    }
-
-    /**
-     * @dev Updates regional pricing
-     * @param _totalSupply Total supply
-     * @param _totalDemand Total demand
-     */
-    function _updateRegionalPrices(uint256 _totalSupply, uint256 _totalDemand) internal {
-        for (uint256 i = 0; i < supportedRegions.length; i++) {
-            string memory region = supportedRegions[i];
-            RegionalPricing storage regional = regionalPricing[region];
-
-            // Calculate regional supply/demand (simplified)
-            uint256 regionalSupply = (_totalSupply * regionalPricing[region].localSupply) / 100;
-            uint256 regionalDemand = (_totalDemand * regionalPricing[region].localDemand) / 100;
-
-            // Calculate regional multiplier
-            uint256 newMultiplier = 10000; // Base multiplier
-            if (regionalDemand > regionalSupply) {
-                newMultiplier = (newMultiplier * 11000) / 10000; // 10% premium
-            } else if (regionalSupply > regionalDemand) {
-                newMultiplier = (newMultiplier * 9500) / 10000; // 5% discount
-            }
-
-            regional.regionalMultiplier = newMultiplier;
-            regional.lastUpdateTime = block.timestamp;
-
-            emit RegionalPriceUpdated(region, newMultiplier, regionalSupply, regionalDemand);
-        }
     }
 
     /**
@@ -622,7 +557,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     /**
      * @dev Gets current market price
      * @param _provider Provider address (optional, for provider-specific pricing)
-     * @param _region Region (optional, for regional pricing)
+     * @param _region Accepted for ABI compatibility; ignored (single-island fleet, regional pricing removed)
      */
     function getMarketPrice(address _provider, string memory _region)
         external
@@ -636,11 +571,8 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
             basePrice = marketDataHistory[priceUpdateCounter - 1].averagePrice;
         }
 
-        // Apply regional multiplier if specified
-        if (bytes(_region).length > 0) {
-            RegionalPricing storage regional = regionalPricing[_region];
-            basePrice = (basePrice * regional.regionalMultiplier) / 10000;
-        }
+        // _region is accepted for ABI compatibility but ignored: the fleet
+        // runs a single island, regional pricing machinery was removed.
 
         // Apply provider-specific pricing if specified
         if (_provider != address(0)) {
