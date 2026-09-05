@@ -85,7 +85,9 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
     bytes32 public merkleRoot;
 
     // Mappings
-    mapping(uint256 => BridgeRequest) public bridgeRequests;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getBridgeRequest().
+    mapping(uint256 => BridgeRequest) internal bridgeRequests;
     mapping(address => SupportedToken) public supportedTokens;
     mapping(uint256 => ChainConfig) public supportedChains;
     mapping(address => Validator) public validators;
