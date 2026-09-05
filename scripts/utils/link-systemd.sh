@@ -68,9 +68,10 @@ get_node_role() {
     fi
     if [ -f "/etc/aitbc/node.env" ]; then
         source /etc/aitbc/node.env 2>/dev/null
-        blockchain_mode="${blockchain_mode:-${BLOCKCHAIN_MODE:-}}"
-        market_role="${market_role:-${MARKET_ROLE:-}}"
-        hardware_profile="${hardware_profile:-${HARDWARE_PROFILE:-}}"
+        # node.env is node-specific and must override the public blockchain.env.
+        blockchain_mode="${BLOCKCHAIN_MODE:-$blockchain_mode}"
+        market_role="${MARKET_ROLE:-$market_role}"
+        hardware_profile="${HARDWARE_PROFILE:-$hardware_profile}"
     fi
 
     # Output both axes so get_allowed_services can combine them
