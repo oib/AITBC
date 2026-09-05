@@ -70,6 +70,16 @@ else
 fi
 ok "Dependencies installed"
 
+# 2b. Install the repo-local path packages.
+# `pip install -e .` does NOT cover these: the root pyproject declares a path
+# dep on packages/aitbc-shared only, and nothing under packages/py. They are
+# imported as top-level packages (aitbc_crypto, aitbc_sdk, aitbc_errors, ...),
+# and aitbc/exceptions.py re-exports from aitbc_errors -- so without this step a
+# dev venv cannot even `import aitbc.exceptions`.
+info "Installing repo-local path packages"
+./scripts/utils/install-path-packages.sh ./venv
+ok "Path packages installed"
+
 # 3. Install pre-commit hooks
 info "Installing pre-commit hooks"
 if [ -f venv/bin/pre-commit ]; then
