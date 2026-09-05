@@ -479,4 +479,102 @@ contract CrossChainBridgeFuzzTest is Test {
         vm.expectRevert("Ownable: caller is not the owner");
         bridge.emergencyWithdraw(address(sourceToken), amount);
     }
+
+    // ---------- boundary & replay coverage ----------
+
+    function testFuzz_InitiateRejectsSameChain(uint256 amount) public {
+        amount = bound(amount, 1, 1000);
+        // The same-chain check only fires when the current chain is itself
+        // supported — the constructor registers TARGET_CHAIN (Ethereum).
+        vm.chainId(TARGET_CHAIN);
+        vm.startPrank(user);
+        sourceToken.approve(address(bridge), amount);
+        vm.expectRevert("Same chain bridging not allowed");
+        bridge.initiateBridge(address(sourceToken), address(targetToken), amount, TARGET_CHAIN, recipient);
+        vm.stopPrank();
+    }
+
+    function testFuzz_CompleteRejectsReplay(uint256 amount) public {
+        amount = bound(amount, 1, 100_000 * 10**18);
+        uint256 requestId = _initiateAndConfirm(amount);
+
+        bytes32 leaf = keccak256(abi.encodePacked(requestId, recipient, amount));
+        bridge.updateMerkleRoot(leaf);
+
+        bytes32 unlockTxHash = keccak256("unlock-tx");
+        bytes32[] memory proof = new bytes32[](0);
+        vm.chainId(TARGET_CHAIN);
+        bridge.completeBridge(requestId, unlockTxHash, proof);
+
+        // Second completion with the same unlock hash must not release again,
+        // even though the request itself is already COMPLETED — the
+        // processedTxHashes check fires before the status check would.
+        vm.expectRevert("Request not confirmed");
+        bridge.completeBridge(requestId, unlockTxHash, proof);
+    }
+
+    function testFuzz_ConfirmRejectsCancelledRequest(uint256 amount) public {
+        amount = bound(amount, 1, 1000);
+        uint256 requestId = _initiate(amount);
+
+        vm.warp(block.timestamp + 25 hours);
+        vm.prank(user);
+        bridge.cancelBridge(requestId, "timed out");
+
+        bytes32 lockTxHash = keccak256("lock-tx");
+        vm.prank(validator1);
+        vm.expectRevert("Request not pending");
+        bridge.confirmBridge(requestId, lockTxHash, _sign(V1_PK, requestId, lockTxHash));
+    }
+
+    function testFuzz_CancelRejectsConfirmed(uint256 amount) public {
+        amount = bound(amount, 1, 1000);
+        uint256 requestId = _initiateAndConfirm(amount);
+
+        vm.warp(block.timestamp + 25 hours);
+        vm.prank(user);
+        vm.expectRevert("Request not pending");
+        bridge.cancelBridge(requestId, "too late");
+    }
+
+    function test_GetUserBridgeHistory() public {
+        uint256 requestId = _initiate(1000);
+        uint256 requestId2 = _initiate(2000);
+
+        uint256[] memory history = bridge.getUserBridgeHistory(user);
+        assertEq(history.length, 2);
+        assertEq(history[0], requestId);
+        assertEq(history[1], requestId2);
+    }
+
+    function testFuzz_EmergencyPauseUnpause(uint256 amount) public {
+        amount = bound(amount, 1, 1000);
+        bridge.emergencyPause();
+
+        vm.startPrank(user);
+        sourceToken.approve(address(bridge), amount);
+        vm.expectRevert("Pausable: paused");
+        bridge.initiateBridge(address(sourceToken), address(targetToken), amount, TARGET_CHAIN, recipient);
+        vm.stopPrank();
+
+        bridge.unpause();
+        uint256 requestId = _initiate(amount);
+        assertGt(requestId, 0);
+    }
+
+    function test_AddSupportedChainRejectsZeroId() public {
+        vm.expectRevert("Invalid chain ID");
+        bridge.addSupportedChain(0, CrossChainBridge.ChainType.POLYGON, "x", address(0), 1, 12);
+    }
+
+    function test_RemoveValidatorMiddleCompacts() public {
+        // Removing the middle validator must not leave an active gap in the
+        // activeValidators array used for confirmation thresholds.
+        bridge.removeValidator(validator2);
+
+        (, bool stillActive,,,) = bridge.validators(validator2);
+        assertFalse(stillActive);
+        assertEq(bridge.activeValidators(0), validator1);
+        assertEq(bridge.activeValidators(1), validator3);
+    }
 }
