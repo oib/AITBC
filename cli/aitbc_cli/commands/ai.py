@@ -480,6 +480,19 @@ def submit(
             payment_id = payment_result.get("payment_id")
             success(f"Escrow secured: {payment_id}")
 
+        # A paid job whose escrow could not be secured can never be dispatched --
+        # the coordinator holds it out of the queue until TTL expiry. Surface
+        # that as a failure instead of letting it look like a normal submission.
+        # Deliberately-unpaid jobs (no --payment/--offer-id) still succeed.
+        if not payment_id and (payment or offer_id or result.get("payment_amount")):
+            abort(
+                ctx,
+                f"Job {job_id} was accepted but its escrow could not be secured "
+                f"(payment_status={result.get('payment_status', 'pending')}); it "
+                "would never be dispatched. Resubmit with --provider-address and "
+                f"a signing --wallet, or fund it with 'aitbc ai pay-job {job_id}'.",
+            )
+
         if not wait:
             output(result, ctx.obj.get("output_format", format))
             return
