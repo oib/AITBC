@@ -95,7 +95,17 @@ check_node_configuration() {
         return 0
     fi
 
-    supported_chains=$(grep "^supported_chains=" "$blockchain_env" | cut -d'=' -f2)
+    # The fleet is inconsistent about the spelling: node0 uses lowercase
+    # supported_chains=, node1/node2/hub2 use SUPPORTED_CHAINS=, and hub declares
+    # neither (only CHAIN_ID). Accept either, and treat "not declared" as
+    # unknown rather than as a violation -- a missing key is a config gap, not
+    # evidence that this node is serving someone else's chain.
+    supported_chains=$(grep -iE "^supported_chains=" "$blockchain_env" | head -1 | cut -d'=' -f2- | tr -d '"'"'"'"')
+
+    if [ -z "$supported_chains" ]; then
+        log_warning "$node_name declares no supported_chains/SUPPORTED_CHAINS in $blockchain_env; skipping list check"
+        return 0
+    fi
 
     # Check if expected chain is in the supported chains list (handles comma-separated values)
     if [[ ",$supported_chains," == *",$expected_chain,"* ]]; then
@@ -110,17 +120,19 @@ check_node_configuration() {
 main() {
     log "=== Chain Isolation Verification Started ==="
 
-    # Detect which node this script is running on
+    # Ask the node which chain it is on instead of guessing from its hostname.
+    # The previous version mapped the hostnames "aitbc" and "aitbc1" to
+    # ait-mainnet/ait-testnet and fell back to ait-mainnet for anything else.
+    # No host in the fleet is named either of those any more, and the live chain
+    # is ait-hub.aitbc.bubuit.net -- so every node took the fallback and was
+    # checked against a chain it does not serve, reporting a violation every run.
     local hostname=$(hostname)
     local expected_chain=""
+    expected_chain=$(grep -iE "^chain_id=" /etc/aitbc/blockchain.env 2>/dev/null | head -1 | cut -d'=' -f2- | tr -d '"'"'"'"')
 
-    if [ "$hostname" = "aitbc" ]; then
-        expected_chain="ait-mainnet"
-    elif [ "$hostname" = "aitbc1" ]; then
-        expected_chain="ait-testnet"
-    else
-        log_warning "Unknown hostname: $hostname, defaulting to ait-mainnet check"
-        expected_chain="ait-mainnet"
+    if [ -z "$expected_chain" ]; then
+        log_error "No CHAIN_ID in /etc/aitbc/blockchain.env; cannot determine which chain $hostname should serve"
+        exit 1
     fi
 
     log "Running on node: $hostname (expected chain: $expected_chain)"
@@ -129,38 +141,10 @@ main() {
     check_node_configuration "$hostname" "/etc/aitbc/blockchain.env" "$expected_chain"
     check_database_isolation "$DATA_DIR/$expected_chain/chain.db" "$expected_chain"
 
-    # Check remote node if accessible
-    if [ "$hostname" = "aitbc" ]; then
-        # On aitbc, check aitbc1 (testnet)
-        if ssh aitbc1 test -f "/etc/aitbc/blockchain.env" 2>/dev/null; then
-            REMOTE_CHAINS=$(ssh aitbc1 'cat /etc/aitbc/blockchain.env | grep "^supported_chains=" | cut -d"=" -f2')
-            # Check if expected chain is in the supported chains list (handles comma-separated values)
-            if [[ ",$REMOTE_CHAINS," == *",ait-testnet,"* ]]; then
-                log_success "aitbc1 supported_chains=$REMOTE_CHAINS (includes ait-testnet)"
-            else
-                log_error "aitbc1 supported_chains=$REMOTE_CHAINS (expected to include: ait-testnet)"
-                ((VIOLATION_COUNT++))
-            fi
-            check_database_isolation "$DATA_DIR/ait-testnet/chain.db" "ait-testnet"
-        else
-            log_warning "aitbc1 not accessible, skipping remote checks"
-        fi
-    elif [ "$hostname" = "aitbc1" ]; then
-        # On aitbc1, check aitbc (mainnet)
-        if ssh aitbc test -f "/etc/aitbc/blockchain.env" 2>/dev/null; then
-            REMOTE_CHAINS=$(ssh aitbc 'cat /etc/aitbc/blockchain.env | grep "^supported_chains=" | cut -d"=" -f2')
-            # Check if expected chain is in the supported chains list (handles comma-separated values)
-            if [[ ",$REMOTE_CHAINS," == *",ait-mainnet,"* ]]; then
-                log_success "aitbc supported_chains=$REMOTE_CHAINS (includes ait-mainnet)"
-            else
-                log_error "aitbc supported_chains=$REMOTE_CHAINS (expected to include: ait-mainnet)"
-                ((VIOLATION_COUNT++))
-            fi
-            check_database_isolation "$DATA_DIR/ait-mainnet/chain.db" "ait-mainnet"
-        else
-            log_warning "aitbc not accessible, skipping remote checks"
-        fi
-    fi
+    # The cross-node checks that used to live here shelled out to `ssh aitbc`
+    # and `ssh aitbc1` -- hosts that no longer exist -- and would in any case not
+    # work from the sandboxed systemd unit that now runs this. Each node verifies
+    # itself; the timer runs on all of them.
 
     log "=== Chain Isolation Verification Completed ==="
     log "Total violations found: $VIOLATION_COUNT"
