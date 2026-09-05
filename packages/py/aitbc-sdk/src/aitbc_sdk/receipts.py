@@ -9,7 +9,7 @@ from typing import Any, cast
 import httpx
 from aitbc_crypto.signing import ReceiptVerifier
 
-from aitbc.exceptions import NetworkError
+from aitbc_errors import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 
