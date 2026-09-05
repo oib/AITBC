@@ -1394,6 +1394,97 @@
         }
       }
     },
+    "/v1/admin/payments/{job_id}/retry-release": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Reset and retry a terminally blocked escrow release",
+        "description": "Give a `settlement_failed` payment back to the release path.\n\n`release_payment` stops retrying a held payment after\n`COORDINATOR_RELEASE_MAX_ATTEMPTS` failed attempts and marks it\n`settlement_failed`, which takes it out of every sweeper's candidate set.\nThat is intentional -- a release that never settles needs a human, not a\nfaster retry loop -- but once the blocker is fixed (job state corrected,\nreceipt attested, RPC back up) there must be a way back. This route clears\nthe attempt counter, moves the payment back to `escrowed`, and tries the\nrelease once immediately so the operator gets the answer now instead of at\nthe next sweep. On failure the counter is simply at 1 again and the normal\nsweeper cadence resumes; on repeated failure the payment returns to\n`settlement_failed` after the same bound.\n\nThe escrow itself never moved -- this only re-arms the release path. A\nrefund for the customer remains possible in either state.",
+        "operationId": "retry_release_v1_admin_payments__job_id__retry_release_post",
+        "parameters": [
+          {
+            "name": "job_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Job Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Retry Release V1 Admin Payments  Job Id  Retry Release Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "job has no terminally blocked release (payment_status={payment.status if payment else job.payment_status})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "release still did not settle on-chain; payment is escrowed again with the counter restarted",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/marketplace/offers": {
       "get": {
         "tags": [
