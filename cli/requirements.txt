@@ -1,5 +1,13 @@
 # AITBC CLI Requirements
 # Aligned with root requirements.txt to avoid version conflicts.
+#
+# setup.py feeds this file straight into install_requires, so everything here
+# is a RUNTIME dependency of the CLI. Test tooling does not belong in it:
+# pytest, coverage, pytest-asyncio and pytest-cov used to be listed here, which
+# forced test packages into every production install and pinned
+# coverage==7.15.4 against the root lock's 7.13.5 -- so
+# `pip check` failed fleet-wide. They live in setup.py's extras_require["dev"]
+# and in the repo's requirements-test.txt tier instead. See docs/fleet-roles.md.
 
 annotated-types==0.7.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 anyio==4.13.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
@@ -9,7 +17,6 @@ cffi==2.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1
 charset-normalizer==3.4.7 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 ckzg==2.1.7 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 click==8.4.1 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
-coverage==7.15.4
 cryptography==50.0.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 cytoolz==1.1.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15" and implementation_name == "cpython"
 eth-account==0.13.7 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
@@ -37,9 +44,6 @@ pydantic==2.13.3 ; python_full_version >= "3.13.5" and python_full_version != "3
 pydantic-settings==2.14.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 pydantic-core==2.46.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 pygments==2.20.0 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
-pytest==9.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
-pytest-asyncio==1.4.0
-pytest-cov==7.1.0
 python-dotenv==1.2.2 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 pyyaml==6.0.3 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
 regex==2026.4.4 ; python_full_version >= "3.13.5" and python_full_version != "3.14.1" and python_version < "3.15"
