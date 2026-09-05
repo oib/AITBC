@@ -110,3 +110,33 @@ jobs:
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: make live-dry-run
+
+  contracts:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # forge-std / openzeppelin live in git submodules pinned in .gitmodules
+          submodules: recursive
+
+      - name: Set up Node.js 24
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+          cache: npm
+          cache-dependency-path: contracts/package-lock.json
+
+      - name: Set up Foundry
+        uses: foundry-rs/foundry-toolchain@v1
+
+      - name: Install Hardhat deps
+        working-directory: contracts
+        run: npm ci --no-audit --no-fund
+
+      - name: Forge tests
+        working-directory: contracts
+        run: forge test -vvv
+
+      - name: Hardhat tests
+        working-directory: contracts
+        run: npx hardhat test
