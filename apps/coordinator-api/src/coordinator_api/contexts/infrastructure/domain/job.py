@@ -34,7 +34,7 @@ class Job(SQLModel, table=True):
 
     # Payment tracking
     payment_id: str | None = Field(default=None, index=True)
-    payment_status: str | None = Field(default=None, max_length=20)  # pending, escrowed, released, refunded
+    payment_status: str | None = Field(default=None, max_length=20)  # pending, escrowed, released, refunded, settlement_failed
 
     # Cross-chain settlement fields
     cross_chain_payment_id: str | None = Field(default=None, index=True)
