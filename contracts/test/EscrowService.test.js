@@ -323,7 +323,7 @@ describe.skip("EscrowService", function () {
     });
 
     it("Should get escrow details", async function () {
-      const escrow = await escrowService.escrowAccounts(escrowId);
+      const escrow = await escrowService.getEscrowAccount(escrowId);
       expect(escrow.depositor).to.equal(depositor.address);
       expect(escrow.beneficiary).to.equal(beneficiary.address);
       expect(escrow.amount).to.equal(ESCROW_AMOUNT);

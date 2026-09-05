@@ -149,7 +149,9 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => EscrowAccount) public escrowAccounts;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getEscrowAccount().
+    mapping(uint256 => EscrowAccount) internal escrowAccounts;
     mapping(uint256 => ConditionalRelease) public conditionalReleases;
     mapping(uint256 => MultiSigRelease) public multiSigReleases;
     mapping(uint256 => TimeLockRelease) public timeLockReleases;

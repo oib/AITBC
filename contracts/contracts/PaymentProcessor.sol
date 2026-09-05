@@ -92,7 +92,9 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => Payment) public payments;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getPayment().
+    mapping(uint256 => Payment) internal payments;
     mapping(uint256 => EscrowAccount) public escrowAccounts;
     mapping(uint256 => ScheduledPayment) public scheduledPayments;
     mapping(address => uint256[]) public senderPayments;
