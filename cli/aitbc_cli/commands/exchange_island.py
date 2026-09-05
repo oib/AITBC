@@ -29,6 +29,28 @@ logger = get_logger(__name__)
 # Module-level keystore path (patchable in tests)
 KEYSTORE_PATH = "/var/lib/aitbc/keystore/validator_keys.json"
 
+# The blockchain RPC mounts every router under /rpc (and /v1); it serves nothing
+# at a bare /account, /transaction or /transactions. AITBCHTTPClient adds no
+# prefix of its own and calls raise_for_status(), so a bare path 404s and
+# surfaces as NetworkError -- buy/sell/cancel aborted, and orderbook/rates/orders
+# fell through to their simulated-data fallbacks and presented invented prices as
+# real. Path every call through these constants instead.
+ACCOUNT_PATH = "/rpc/account"
+TX_SUBMIT_PATH = "/rpc/transaction"
+TX_QUERY_PATH = "/rpc/transactions"
+
+
+def _transaction_rows(response: Any) -> list[dict[str, Any]]:
+    """Normalise a /rpc/transactions response to a list of rows.
+
+    The route is declared ``-> list[dict[str, Any]]`` and a live node returns a
+    bare list, but a {"transactions": [...]} envelope is tolerated so a peer
+    returning one does not crash the caller.
+    """
+    rows = response.get("transactions", []) if isinstance(response, dict) else response
+    return cast(list[dict[str, Any]], rows or [])
+
+
 SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 
 
@@ -85,7 +107,7 @@ def _build_exchange_tx(
         return None
 
     http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-    account = http_client.get(f"/account/{address}", params={"chain_id": chain_id})
+    account = http_client.get(f"{ACCOUNT_PATH}/{address}", params={"chain_id": chain_id})
     nonce = account.get("nonce", 0)
 
     pair = f"AIT/{quote_currency}"
@@ -276,7 +298,7 @@ def buy(ctx, ait_amount: Decimal, quote_currency: str, max_price: Decimal | None
         tx_data, order_id, http_client = built
 
         try:
-            response = http_client.post("/transaction", json=tx_data)
+            response = http_client.post(TX_SUBMIT_PATH, json=tx_data)
             success("Buy order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Buying {ait_amount} AIT with {quote_currency}")
@@ -330,7 +352,7 @@ def sell(ctx, ait_amount: Decimal, quote_currency: str, min_price: Decimal | Non
         tx_data, order_id, http_client = built
 
         try:
-            response = http_client.post("/transaction", json=tx_data)
+            response = http_client.post(TX_SUBMIT_PATH, json=tx_data)
             success("Sell order created successfully!")
             success(f"Order ID: {order_id}")
             success(f"Selling {ait_amount} AIT for {quote_currency}")
@@ -387,9 +409,7 @@ def orderbook(ctx, pair: str, limit: int):
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         try:
-            response = http_client.get("/transactions", params=params)
-            # Response is a dict with 'transactions' key
-            transactions = cast(list[dict[str, Any]], response.get("transactions", []))
+            transactions = _transaction_rows(http_client.get(TX_QUERY_PATH, params=params))
         except NetworkError:
             transactions = _simulated_orderbook_transactions(pair, limit)
 
@@ -490,7 +510,7 @@ def rates(ctx):
 
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
             try:
-                orders = cast(list[dict[str, Any]], http_client.get("/transactions", params=params).get("transactions", []))
+                orders = _transaction_rows(http_client.get(TX_QUERY_PATH, params=params))
             except NetworkError:
                 orders = _simulated_orders_for_pair(pair, 100)
 
@@ -554,12 +574,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         try:
-            response = http_client.get("/transactions", params=params)
-            # The endpoint returns either a bare list of orders or a
-            # {"transactions": [...]} envelope depending on the peer; assuming the
-            # envelope crashed with "list object has no attribute get".
-            raw = response.get("transactions", []) if isinstance(response, dict) else response
-            orders = cast(list[dict[str, Any]], raw or [])
+            orders = _transaction_rows(http_client.get(TX_QUERY_PATH, params=params))
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
 
@@ -645,7 +660,7 @@ def cancel(ctx, order_id: str):
         # Submit transaction to blockchain
         try:
             http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            _ = http_client.post("/transaction", json=cancel_data)
+            _ = http_client.post(TX_SUBMIT_PATH, json=cancel_data)
             success(f"Order {order_id} cancelled successfully!")
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
