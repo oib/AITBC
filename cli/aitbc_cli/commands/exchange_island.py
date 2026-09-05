@@ -554,7 +554,12 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 
         http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
         try:
-            orders = cast(list[dict[str, Any]], http_client.get("/transactions", params=params).get("transactions", []))
+            response = http_client.get("/transactions", params=params)
+            # The endpoint returns either a bare list of orders or a
+            # {"transactions": [...]} envelope depending on the peer; assuming the
+            # envelope crashed with "list object has no attribute get".
+            raw = response.get("transactions", []) if isinstance(response, dict) else response
+            orders = cast(list[dict[str, Any]], raw or [])
         except NetworkError:
             orders = _simulated_order_list(user, status, pair, island_id)
 
@@ -575,9 +580,7 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
                     "Pair": payload.get("pair"),
                     "Side": payload.get("side", "").upper(),
                     "Amount": f"{amount:.4f} AIT",
-                    "Price": f"{price:.8f}"
-                    if raw_price
-                    else "Market",
+                    "Price": f"{price:.8f}" if raw_price else "Market",
                     "Status": payload.get("status"),
                     "User": payload.get("user_id", "")[:16] + "...",
                     "Created": payload.get("created_at", "")[:19],
