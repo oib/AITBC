@@ -32,8 +32,8 @@ from ..gossip import GetLogsRequest, GetLogsResponse, get_logs
 from ..sync import export_chain, force_sync, get_sync_config, import_chain
 from ..transactions import (
     TransactionRequest,
-    query_transactions,
     match_marketplace,
+    query_transactions,
     submit_marketplace_transaction,
     submit_transaction,
 )
@@ -206,45 +206,111 @@ async def get_status_route(request: Request, chain_id: str | None = None) -> dic
 @router.get("/network-info", summary="Get network information for joining")
 @rate_limit(rate=100, per=60)
 async def get_network_info_route(request: Request) -> dict[str, Any]:
-    """Get network configuration information for open island joining"""
+    """Get network configuration for open-island joining.
+
+    Uses trusted proxy headers for the public scheme and falls back to
+    AITBC_PROTOCOL for deployments where the reverse proxy is not under
+    direct control.
+    """
+    import json
     import os
     import socket
-    from pathlib import Path
 
-    env_file = Path("/etc/aitbc/blockchain.env")
-    p2p_host = os.getenv("p2p_bind_host", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
-    p2p_port = os.getenv("p2p_bind_port", "8200")
-    p2p_node_id = os.getenv("p2p_node_id", "unknown")
-    if env_file.exists():
-        with open(env_file) as f:
-            for line in f:
-                line = line.strip()
-                if line.startswith("p2p_bind_host="):
-                    p2p_host = line.split("=", 1)[1]
-                elif line.startswith("p2p_bind_port="):
-                    p2p_port = line.split("=", 1)[1]
-                elif line.startswith("p2p_node_id="):
-                    p2p_node_id = line.split("=", 1)[1]
-    hostname = os.getenv("AITBC_HOSTNAME", socket.gethostname())
-    p2p_endpoint = f"{hostname}:{p2p_port}" if p2p_host == "0.0.0.0" else f"{p2p_host}:{p2p_port}"  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
-    chain_id = getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net")
-    supported_chains = getattr(settings, "supported_chains", "ait-mainnet").split(",")
-    protocol = os.getenv("AITBC_PROTOCOL", "http")
-    if request.url.scheme:
-        protocol = request.url.scheme
-    contact_email = os.getenv("CONTACT_EMAIL", "andreas.fleckl@bubuit.net")
-    rpc_endpoint = f"{protocol}://{hostname}/rpc"
+    # 1. Public scheme: trust the upstream reverse proxy first, then a
+    # configured override. Reject anything that is not http/https.
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    protocol = forwarded_proto or os.getenv("AITBC_PROTOCOL", "http") or "http"
+    protocol = protocol.lower()
+    if protocol not in ("http", "https"):
+        protocol = "https"
+
+    # 2. Public hostname: prefer the Host header, then an explicit override.
+    hostname = request.headers.get("host") or os.getenv("AITBC_HOSTNAME") or socket.gethostname()
+    hostname = hostname.split(":")[0]
+
+    base_url = f"{protocol}://{hostname}"
+    rpc_url = f"{base_url}/rpc"
+    wss_url = base_url.replace("https://", "wss://").replace("http://", "ws://")
+    subscribe_url = f"{wss_url}/rpc/subscribe/ws"
+
+    # 3. P2P/gossip relay endpoint. Bind-all means we advertise the public
+    # hostname; a specific bind host is used as-is (e.g. a private relay).
+    p2p_host = settings.p2p_bind_host or "0.0.0.0"
+    p2p_port = settings.p2p_bind_port or 8200
+    p2p_hostname = hostname if p2p_host in ("0.0.0.0", "127.0.0.1") else p2p_host
+    p2p_endpoint = f"{p2p_hostname}:{p2p_port}"
+
+    # 4. Identity and chain metadata from settings.
+    p2p_node_id = settings.p2p_node_id or settings.proposer_id or "unknown"
+    chain_id = settings.chain_id or "ait-hub.aitbc.bubuit.net"
+    supported = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
+    if not supported and chain_id:
+        supported = [chain_id]
+
+    island_id = settings.island_id or f"{chain_id}-island"
+
+    # 5. Public validator set (used by joining validators to verify auth).
+    validators: list[dict[str, Any]] = []
+    try:
+        validators = json.loads(settings.validator_set or "[]")
+    except json.JSONDecodeError:
+        pass
+
+    # 6. Role is server-controlled; do not let callers override it.
+    if settings.is_hub:
+        role = "hub"
+    elif settings.blockchain_mode in ("validator", "follower"):
+        role = settings.blockchain_mode
+    else:
+        role = "follower"
+
+    gossip_url = f"{wss_url}/rpc/gossip/ws"
+    gossip_auth_required = settings.gossip_auth_enabled
+
     return {
+        # Legacy aliases (kept for backward compatibility)
         "p2p_endpoint": p2p_endpoint,
         "p2p_node_id": p2p_node_id,
+        "rpc_endpoint": rpc_url,
+        "wss_subscription_endpoint": subscribe_url,
+        # Public, machine-readable contract
+        "node_id": p2p_node_id,
         "chain_id": chain_id,
+        "island_id": island_id,
         "network_type": "open_island",
-        "supported_chains": supported_chains,
-        "connection_instructions": f"Set default_peer_rpc_url={rpc_endpoint} and enable subscription (subscription_enabled=true, subscription_transport=websocket). Blocks are pushed via WebSocket to {rpc_endpoint}/subscribe/ws",
-        "rpc_endpoint": rpc_endpoint,
-        "api_gateway": f"{protocol}://{hostname}/api",
-        "contact_email": contact_email,
-        "version": "0.5.4",
+        "supported_chains": supported,
+        "is_hub": settings.is_hub,
+        "role": role,
+        "public_rpc_url": rpc_url,
+        "public_peer_endpoint": f"{base_url}:{p2p_port}" if p2p_port != 443 else base_url,
+        "subscription_websocket_url": subscribe_url,
+        "gossip_websocket_url": gossip_url,
+        "gossip_auth_required": gossip_auth_required,
+        "validators": validators,
+        "contact_email": settings.contact_email,
+        "version": os.getenv("AITBC_VERSION", "0.7.6"),
+        "default_peer_rpc_url": base_url,
+        "connection_instructions": (
+            f"Set default_peer_rpc_url={base_url} and enable subscription "
+            f"(subscription_enabled=true, subscription_transport=websocket). "
+            f"Register via POST {base_url}/rpc/subscribe, then receive blocks via "
+            f"WebSocket at {subscribe_url}. Extend the lease with POST {base_url}/rpc/heartbeat."
+        ),
+        "bootstrap": {
+            "blockchain_env_url": f"{base_url}/agent/blockchain.env",
+            "genesis_json_url": f"{base_url}/agent/genesis.json",
+            "docs_url": f"{base_url}/agent/openapi.json",
+        },
+        "join": {
+            "steps": [
+                f"curl -o /etc/aitbc/blockchain.env {base_url}/agent/blockchain.env",
+                f"curl -o /etc/aitbc/genesis.json {base_url}/agent/genesis.json",
+                "Create /etc/aitbc/node.env with a unique NODE_ID",
+                f"Set default_peer_rpc_url={base_url} in node.env",
+                f"Start aitbc-blockchain-node.service and register at {base_url}/rpc/subscribe",
+            ]
+        },
+        "api_gateway": f"{base_url}/api",
     }
 
 

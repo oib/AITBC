@@ -101,6 +101,8 @@ class GossipBroker:
         """
         if topic.startswith("blocks"):
             return PriorityMessageQueue.PRIORITY_BLOCK
+        if topic.startswith("pbft.") or topic.startswith("consensus."):
+            return PriorityMessageQueue.PRIORITY_BLOCK
         if topic.startswith("transactions"):
             return PriorityMessageQueue.PRIORITY_TRANSACTION
         return PriorityMessageQueue.PRIORITY_STATUS
