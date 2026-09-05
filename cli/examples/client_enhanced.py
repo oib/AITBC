@@ -44,7 +44,7 @@ class OutputFormatter:
                 # Table from list of dicts
                 headers = list(data[0].keys())
                 rows = [[item.get(h, "") for h in headers] for item in data]
-                return tabulate(rows, headers=headers, tablefmt="grid")
+                return str(tabulate(rows, headers=headers, tablefmt="grid"))
             else:
                 # Simple list
                 return "\n".join(f"• {item}" for item in data)

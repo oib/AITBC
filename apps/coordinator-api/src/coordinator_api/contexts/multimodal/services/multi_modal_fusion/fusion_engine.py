@@ -133,7 +133,7 @@ class MultiModalFusionEngine:
                         attended_output, attention_weights = attention_networks[modality](query, keys, values)
                         attention_outputs[modality] = attended_output
                         reconstruction_loss = torch.mean((attended_output - query) ** 2)
-                        total_loss += reconstruction_loss
+                        total_loss += reconstruction_loss  # type: ignore[assignment]
                 optimizer.zero_grad()
                 total_loss.backward()  # type: ignore[attr-defined]
                 optimizer.step()
