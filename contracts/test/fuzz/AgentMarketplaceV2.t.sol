@@ -2,7 +2,7 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../../contracts/contracts/AgentMarketplaceV2.sol";
+import "../../contracts/AgentMarketplaceV2.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockToken is ERC20 {
@@ -44,7 +44,7 @@ contract AgentMarketplaceV2FuzzTest is Test {
         vm.prank(provider);
         uint256 capabilityId = marketplace.listCapability(metadataURI, pricePerCall, subscriptionPrice, isSubscriptionEnabled);
 
-        (address providerAgent, string memory storedURI, uint256 storedPricePerCall, uint256 storedSubscriptionPrice, bool storedIsSubscriptionEnabled, bool isActive, , , , ) = marketplace.capabilities(capabilityId);
+        (, address providerAgent, string memory storedURI, uint256 storedPricePerCall, uint256 storedSubscriptionPrice, bool storedIsSubscriptionEnabled, bool isActive, , , ) = marketplace.capabilities(capabilityId);
 
         assertEq(providerAgent, provider);
         assertEq(storedURI, metadataURI);
@@ -75,7 +75,7 @@ contract AgentMarketplaceV2FuzzTest is Test {
         vm.prank(provider);
         marketplace.updateCapability(id, newPricePerCall, newSubscriptionPrice, newIsSubscriptionEnabled, newIsActive);
 
-        (, , uint256 storedPricePerCall, uint256 storedSubscriptionPrice, bool storedIsSubscriptionEnabled, bool storedIsActive, , , , ) = marketplace.capabilities(id);
+        (, , , uint256 storedPricePerCall, uint256 storedSubscriptionPrice, bool storedIsSubscriptionEnabled, bool storedIsActive, , , ) = marketplace.capabilities(id);
 
         assertEq(storedPricePerCall, newPricePerCall);
         assertEq(storedSubscriptionPrice, newSubscriptionPrice);
@@ -128,9 +128,8 @@ contract AgentMarketplaceV2FuzzTest is Test {
     }
 
     function testFuzz_SubscribeToCapability(uint256 pricePerCall, uint256 subscriptionPrice) public {
-        vm.assume(pricePerCall > 0);
-        vm.assume(subscriptionPrice > 0);
-        vm.assume(subscriptionPrice <= 100_000 * 10**18);
+        pricePerCall = bound(pricePerCall, 1, 10_000 * 10**18);
+        subscriptionPrice = bound(subscriptionPrice, 1, 50_000 * 10**18);
 
         vm.prank(provider);
         uint256 capabilityId = marketplace.listCapability("ipfs://test", pricePerCall, subscriptionPrice, true);
@@ -142,7 +141,9 @@ contract AgentMarketplaceV2FuzzTest is Test {
 
         uint256 newProviderBalance = token.balanceOf(provider);
         assertTrue(newProviderBalance > providerBalance);
-        assertTrue(subscriptionId > 0);
+        (, , address subscriberAgent, , bool isActive) = marketplace.subscriptions(subscriptionId);
+        assertEq(subscriberAgent, consumer);
+        assertTrue(isActive);
     }
 
     function testFuzz_RevertIfSubscriptionsNotEnabled(uint256 pricePerCall, uint256 subscriptionPrice) public {
@@ -184,13 +185,13 @@ contract AgentMarketplaceV2FuzzTest is Test {
         vm.prank(owner);
         marketplace.updateCapabilityReputation(id, newScore);
 
-        (, , , , , , , , uint256 reputationScore, ) = marketplace.capabilities(id);
+        (, , , , , , , , , uint256 reputationScore) = marketplace.capabilities(id);
         assertEq(reputationScore, newScore);
     }
 
     function testFuzz_WithdrawPlatformFunds(uint256 amount) public {
-        vm.assume(amount > 0);
-        vm.assume(amount <= 10_000 * 10**18);
+        // The contract retains (pricePerCall * feeBps / 10000); below 40 the fee rounds to 0
+        amount = bound(amount, 40, 10_000 * 10**18);
 
         vm.prank(provider);
         uint256 capabilityId = marketplace.listCapability("ipfs://test", amount, amount * 10, true);
@@ -208,8 +209,8 @@ contract AgentMarketplaceV2FuzzTest is Test {
     }
 
     function testFuzz_CheckSubscription(uint256 pricePerCall, uint256 subscriptionPrice) public {
-        vm.assume(pricePerCall > 0);
-        vm.assume(subscriptionPrice > 0);
+        pricePerCall = bound(pricePerCall, 1, 10_000 * 10**18);
+        subscriptionPrice = bound(subscriptionPrice, 1, 50_000 * 10**18);
 
         vm.prank(provider);
         uint256 capabilityId = marketplace.listCapability("ipfs://test", pricePerCall, subscriptionPrice, true);
@@ -230,8 +231,9 @@ contract AgentMarketplaceV2FuzzTest is Test {
             marketplace.listCapability(string(abi.encodePacked("ipfs://", i)), 1e18, 10e18, true);
         }
 
-        uint256[] memory capabilities = marketplace.providerCapabilities(provider);
-        assertEq(capabilities.length, numCapabilities);
+        for (uint256 i = 0; i < numCapabilities; i++) {
+            assertEq(marketplace.providerCapabilities(provider, i), i);
+        }
     }
 
     function testFuzz_GetSubscriberSubscriptions(uint256 numSubscriptions) public {
@@ -246,8 +248,9 @@ contract AgentMarketplaceV2FuzzTest is Test {
             marketplace.subscribeToCapability(capabilityId);
         }
 
-        uint256[] memory subscriptions = marketplace.subscriberSubscriptions(consumer);
-        assertEq(subscriptions.length, numSubscriptions);
+        for (uint256 i = 0; i < numSubscriptions; i++) {
+            assertEq(marketplace.subscriberSubscriptions(consumer, i), i);
+        }
     }
 
     function testFuzz_PauseUnpause() public {

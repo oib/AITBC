@@ -2,8 +2,8 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../../contracts/contracts/TreasuryManager.sol";
-import "../../contracts/contracts/ContractRegistry.sol";
+import "../../contracts/TreasuryManager.sol";
+import "../../contracts/ContractRegistry.sol";
 import "@openzeppelin/contracts/token/ERC20/ERC20.sol";
 
 contract MockToken is ERC20 {
@@ -30,6 +30,7 @@ contract TreasuryManagerFuzzTest is Test {
         registry = new ContractRegistry();
 
         treasuryManager = new TreasuryManager(address(token));
+        registry.registerContract(keccak256(abi.encodePacked("TreasuryManager")), address(treasuryManager));
         treasuryManager.initialize(address(registry));
 
         token.transfer(address(treasuryManager), 100_000 * 10**18);
@@ -44,7 +45,7 @@ contract TreasuryManagerFuzzTest is Test {
         vm.prank(owner);
         treasuryManager.createBudgetCategory(category, budget);
 
-        (string memory name, uint256 totalBudget, uint256 allocatedAmount, uint256 spentAmount, bool isActive, , , ) = treasuryManager.budgetCategories(category);
+        (string memory name, uint256 totalBudget, uint256 allocatedAmount, uint256 spentAmount, bool isActive, , ) = treasuryManager.budgetCategories(category);
 
         assertEq(name, category);
         assertEq(totalBudget, budget);
@@ -58,7 +59,7 @@ contract TreasuryManagerFuzzTest is Test {
         vm.assume(bytes(category).length <= 100);
 
         vm.prank(owner);
-        vm.expectRevert("Invalid amount");
+        vm.expectRevert(abi.encodeWithSelector(TreasuryManager.InvalidAmount.selector, uint256(0)));
         treasuryManager.createBudgetCategory(category, 0);
     }
 
@@ -88,7 +89,7 @@ contract TreasuryManagerFuzzTest is Test {
         vm.prank(owner);
         treasuryManager.allocateFunds(category, recipient, amount);
 
-        (, uint256 allocatedAmount, , , , , , ) = treasuryManager.budgetCategories(category);
+        (, , uint256 allocatedAmount, , , , ) = treasuryManager.budgetCategories(category);
         assertEq(allocatedAmount, amount);
     }
 
@@ -102,7 +103,7 @@ contract TreasuryManagerFuzzTest is Test {
         treasuryManager.createBudgetCategory(category, 10_000 * 10**18);
 
         vm.prank(owner);
-        vm.expectRevert("InsufficientBudget");
+        vm.expectPartialRevert(TreasuryManager.InsufficientBudget.selector);
         treasuryManager.allocateFunds(category, recipient, amount);
     }
 
@@ -118,7 +119,7 @@ contract TreasuryManagerFuzzTest is Test {
         vm.prank(owner);
         treasuryManager.updateBudgetCategory(category, newBudget);
 
-        (string memory name, uint256 totalBudget, , , , , , ) = treasuryManager.budgetCategories(category);
+        (string memory name, uint256 totalBudget, , , , , ) = treasuryManager.budgetCategories(category);
 
         assertEq(name, category);
         assertEq(totalBudget, newBudget);
@@ -128,7 +129,7 @@ contract TreasuryManagerFuzzTest is Test {
         vm.assume(amount > 0);
         vm.assume(amount <= 10_000 * 10**18);
 
-        token.mint(user1, amount);
+        token.transfer(user1, amount);
         vm.prank(user1);
         token.approve(address(treasuryManager), amount);
 
@@ -160,15 +161,15 @@ contract TreasuryManagerFuzzTest is Test {
         vm.prank(owner);
         treasuryManager.deactivateCategory(category);
 
-        (, , , , bool isActive, , , ) = treasuryManager.budgetCategories(category);
+        (, , , , bool isActive, , ) = treasuryManager.budgetCategories(category);
         assertFalse(isActive);
     }
 
     function testFuzz_GetBudgetBalance(string memory category, uint256 budget, uint256 allocated) public {
-        vm.assume(budget > 0);
-        vm.assume(allocated > 0);
-        vm.assume(allocated <= budget);
-        vm.assume(budget <= 1_000_000 * 10**18);
+        // The treasury is funded with 100_000 tokens in setUp; allocations above
+        // that balance revert with InsufficientBalance before touching the budget.
+        allocated = bound(allocated, 1, 100_000 * 10**18);
+        budget = bound(budget, allocated, 1_000_000 * 10**18);
         vm.assume(bytes(category).length > 0);
         vm.assume(bytes(category).length <= 100);
 
