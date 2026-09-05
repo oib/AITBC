@@ -35,6 +35,24 @@ def _decode(value: Any) -> str:
     return str(value)
 
 
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from a URL before logging."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = f"{parsed.hostname or ''}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(
+                (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+            )
+    except Exception:
+        pass
+    return url
+
+
 def _member(node_id: str, chain_id: str) -> str:
     """Build the lease set member identifying one node's lease on one chain."""
     return f"{node_id}{LEASE_SEPARATOR}{chain_id}"
@@ -66,12 +84,12 @@ class LeaseTracker:
             logger.info("Lease tracker already running")
             return
         try:
-            logger.info("Starting lease tracker with Redis URL: %s", self._redis_url)
+            logger.info("Starting lease tracker with Redis URL: %s", _sanitize_url(self._redis_url))
             if self._redis_url and self._redis_url.startswith("redis://"):
                 self._redis = redis.from_url(self._redis_url, decode_responses=True)
             else:
                 self._redis = redis.Redis(host="127.0.0.1", port=6379, decode_responses=True)
-            logger.info("Redis client created: connected to %s", self._redis_url)
+            logger.info("Redis client created: connected to %s", _sanitize_url(self._redis_url))
             pong = await asyncio.to_thread(self._redis.ping)
             logger.info("Redis ping successful: %s", pong)
             self._running = True
