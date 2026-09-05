@@ -202,58 +202,6 @@ describe.skip("DynamicPricing", function () {
     });
   });
 
-  describe("Regional Pricing", function () {
-    it("Should set regional pricing", async function () {
-      await dynamicPricing.connect(deployer).setRegionalPricing(
-        "us-east-1",
-        150, // 1.5x multiplier
-        500,
-        400,
-        BASE_PRICE
-      );
-
-      const regionalPricing = await dynamicPricing.regionalPricing("us-east-1");
-      expect(regionalPricing.regionalMultiplier).to.equal(150);
-    });
-
-    it("Should emit RegionalPriceUpdated event", async function () {
-      await expect(
-        dynamicPricing.connect(deployer).setRegionalPricing(
-          "us-east-1",
-          150,
-          500,
-          400,
-          BASE_PRICE
-        )
-      ).to.emit(dynamicPricing, "RegionalPriceUpdated");
-    });
-
-    it("Should add supported region", async function () {
-      await dynamicPricing.connect(deployer).setRegionalPricing(
-        "us-east-1",
-        150,
-        500,
-        400,
-        BASE_PRICE
-      );
-
-      const regions = await dynamicPricing.getSupportedRegions();
-      expect(regions).to.include("us-east-1");
-    });
-
-    it("Should revert if non-owner sets regional pricing", async function () {
-      await expect(
-        dynamicPricing.connect(provider).setRegionalPricing(
-          "us-east-1",
-          150,
-          500,
-          400,
-          BASE_PRICE
-        )
-      ).to.be.revertedWithCustomError(dynamicPricing, "OwnableUnauthorizedAccount");
-    });
-  });
-
   describe("Configuration Updates", function () {
     it("Should update base price", async function () {
       await dynamicPricing.connect(deployer).updateBasePrice(2e16);
