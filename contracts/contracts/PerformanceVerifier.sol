@@ -108,7 +108,9 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => PerformanceMetrics) public performanceMetrics;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getPerformanceMetrics().
+    mapping(uint256 => PerformanceMetrics) internal performanceMetrics;
     mapping(uint256 => SLAParameters) public slaParameters;
     mapping(address => OracleData) public oracles;
     mapping(address => PerformanceHistory) public providerHistory;
@@ -502,6 +504,19 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
      * @dev Gets performance history for a provider
      * @param _provider Address of the provider
      */
+    /**
+     * @dev Returns the performance metrics record for a verification
+     * @param _verificationId The verification ID
+     * @return metrics The performance metrics struct
+     */
+    function getPerformanceMetrics(uint256 _verificationId)
+        external
+        view
+        returns (PerformanceMetrics memory metrics)
+    {
+        return performanceMetrics[_verificationId];
+    }
+
     function getProviderHistory(address _provider)
         external
         view

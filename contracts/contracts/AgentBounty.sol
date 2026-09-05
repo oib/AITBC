@@ -78,7 +78,9 @@ contract AgentBounty is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => Bounty) public bounties;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getBounty().
+    mapping(uint256 => Bounty) internal bounties;
     mapping(uint256 => Submission) public submissions;
     mapping(uint256 => uint256[]) public bountySubmissions;
     mapping(address => uint256[]) public userSubmissions;

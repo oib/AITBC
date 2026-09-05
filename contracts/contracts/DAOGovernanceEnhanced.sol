@@ -79,7 +79,9 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
 
     // Mappings
     mapping(address => Staker) public stakers;
-    mapping(uint256 => Proposal) public proposals;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getProposalInfo().
+    mapping(uint256 => Proposal) internal proposals;
     mapping(string => mapping(address => bool)) public isRegionalCouncilMember;
     mapping(string => address[]) public regionalCouncilMembers;
     mapping(uint256 => CrossChainProposal) public crossChainProposals;
