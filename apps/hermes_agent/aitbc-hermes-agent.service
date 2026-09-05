@@ -13,6 +13,7 @@ Environment="HERMES_HOME=/var/lib/aitbc/hermes"
 Environment="HOME=/var/lib/aitbc/hermes"
 Environment="HERMES_PORT=8270"
 EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=-/etc/aitbc/hermes.env
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/hermes_agent/main.py
