@@ -127,3 +127,30 @@ def test_dev_constraints_preserves_every_pin():
             emitted[_canon(match.group(1))] = match.group(2)
 
     assert emitted == _dev_tier_pins(), "dev-constraints.sh changed the set of pins; it must only remove extras markers"
+
+
+def test_cli_runtime_requirements_carry_no_test_tooling():
+    """cli/requirements.txt feeds setup.py's install_requires -- it is runtime.
+
+    pytest, coverage, pytest-asyncio and pytest-cov were all listed there, which
+    forced test packages into every production install of the CLI and pinned
+    coverage==7.15.4 against the root lock's 7.13.5, so `pip check` failed on
+    every node. They belong in extras_require["dev"] and requirements-test.txt.
+    """
+    cli_req = REPO / "cli" / "requirements.txt"
+    if not cli_req.is_file():
+        return
+
+    runtime = set()
+    for line in cli_req.read_text().splitlines():
+        stripped = line.split("#")[0].strip()
+        match = re.match(r"^([A-Za-z0-9._\[\]-]+)\s*==", stripped)
+        if match:
+            runtime.add(_canon(match.group(1)))
+
+    leaked = sorted(runtime & _test_tier_names())
+    assert not leaked, (
+        f"{leaked} are test-tier packages listed as CLI runtime dependencies. "
+        "cli/setup.py passes this file to install_requires, so they would be "
+        "installed on every production host and can conflict with the root lock."
+    )
