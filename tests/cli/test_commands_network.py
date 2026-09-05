@@ -125,7 +125,7 @@ class TestNetworkCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
-        assert "/force-sync" in mock_client.post.call_args[0][0]
+        assert "/rpc/force-sync" in mock_client.post.call_args[0][0]
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_force_sync_aborts_on_network_error(self, mock_http_class, runner):
