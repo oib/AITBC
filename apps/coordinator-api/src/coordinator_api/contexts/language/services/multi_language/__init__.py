@@ -11,7 +11,6 @@ from typing import Any, Optional
 from aitbc.aitbc_logging import get_logger
 
 from .language_detector import LanguageDetector
-from .quality_assurance import TranslationQualityChecker
 from .translation_cache import TranslationCache
 from .translation_engine import TranslationEngine
 
@@ -26,7 +25,6 @@ class MultiLanguageService:
         self.translation_engine: TranslationEngine | None = None
         self.language_detector: LanguageDetector | None = None
         self.translation_cache: TranslationCache | None = None
-        self.quality_checker: TranslationQualityChecker | None = None
         self._initialized = False
 
     def _load_default_config(self) -> dict[str, Any]:
@@ -43,9 +41,6 @@ class MultiLanguageService:
                 "max_cache_size": 100000,
             },
             "detection": {"fasttext": {"model_path": os.getenv("FASTTEXT_MODEL_PATH", "lid.176.bin")}},
-            "quality": {
-                "thresholds": {"overall": 0.7, "bleu": 0.3, "semantic_similarity": 0.6, "length_ratio": 0.5, "confidence": 0.6}
-            },
         }
 
     async def initialize(self) -> None:
@@ -57,7 +52,6 @@ class MultiLanguageService:
             await self._initialize_cache()
             await self._initialize_translation_engine()
             await self._initialize_language_detector()
-            await self._initialize_quality_checker()
             self._initialized = True
             logger.info("Multi-Language Service initialized successfully")
         except Exception as e:
@@ -93,15 +87,6 @@ class MultiLanguageService:
         except Exception as e:
             logger.error("Failed to initialize language detector: %s", e)
             raise
-
-    async def _initialize_quality_checker(self) -> None:
-        """Initialize quality checker"""
-        try:
-            self.quality_checker = TranslationQualityChecker(self.config["quality"])
-            logger.info("Quality checker initialized")
-        except Exception as e:
-            logger.warning("Failed to initialize quality checker: %s", e)
-            self.quality_checker = None
 
     async def shutdown(self) -> None:
         """Shutdown all services"""
@@ -143,14 +128,6 @@ class MultiLanguageService:
             except Exception as e:
                 health_status["services"]["translation_cache"] = {"error": str(e)}
                 health_status["overall"] = "degraded"
-        if self.quality_checker:
-            try:
-                quality_health = await self.quality_checker.health_check()
-                health_status["services"]["quality_checker"] = quality_health
-                if not all(quality_health.values()):
-                    health_status["overall"] = "degraded"
-            except Exception as e:
-                health_status["services"]["quality_checker"] = {"error": str(e)}
         return health_status
 
     def get_service_status(self) -> dict[str, bool]:
@@ -160,7 +137,6 @@ class MultiLanguageService:
             "translation_engine": self.translation_engine is not None,
             "language_detector": self.language_detector is not None,
             "translation_cache": self.translation_cache is not None,
-            "quality_checker": self.quality_checker is not None,
         }
 
 
@@ -197,13 +173,6 @@ async def get_translation_cache() -> TranslationCache | None:
     return multi_language_service.translation_cache
 
 
-async def get_quality_checker() -> TranslationQualityChecker | None:
-    """Get quality checker instance"""
-    if not multi_language_service.quality_checker:
-        await multi_language_service.initialize()
-    return multi_language_service.quality_checker
-
-
 __all__ = [
     "MultiLanguageService",
     "multi_language_service",
@@ -211,5 +180,4 @@ __all__ = [
     "get_translation_engine",
     "get_language_detector",
     "get_translation_cache",
-    "get_quality_checker",
 ]
