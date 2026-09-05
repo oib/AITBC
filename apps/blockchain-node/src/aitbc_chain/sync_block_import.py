@@ -339,8 +339,19 @@ class BlockImportMixin(SyncBase):
             tx_count = len(transactions)
 
         # Build the Block object early so we can run proposer-schedule validation
-        # before any state is mutated.  State/bridge roots and metadata are
-        # filled in after transactions have been applied.
+        # before any state is mutated.  Only block_metadata is filled in after
+        # transactions have been applied.
+        #
+        # The state and bridge roots are carried over from the incoming block
+        # here rather than left unset, because the schedule check below verifies
+        # the proposer signature and both roots are part of the canonical header
+        # that was signed.  Leaving them empty made every multi-validator block
+        # fail that check: the follower rebuilt the header with empty roots, the
+        # signature recovered to an unrelated address, and the block was rejected
+        # with "signature does not match the declared proposer" even though it
+        # was correctly signed.  These fields are re-assigned below (state_root
+        # from the same source, bridge_state_root via _derive_bridge_state_root)
+        # once transactions have been applied, so nothing downstream changes.
         block = Block(
             chain_id=self._chain_id,
             height=block_data["height"],
@@ -349,6 +360,8 @@ class BlockImportMixin(SyncBase):
             proposer=block_data.get("proposer", "unknown"),
             timestamp=timestamp,
             tx_count=tx_count,
+            state_root=block_data.get("state_root"),
+            bridge_state_root=block_data.get("bridge_state_root"),
             # Persist the signature this block was just validated against. Dropping
             # it made the check single-use: the block verified once on the way in and
             # was then stored unsigned, so this node could never re-serve proof of who
