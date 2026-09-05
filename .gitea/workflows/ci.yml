@@ -38,6 +38,14 @@ jobs:
         working-directory: apps/zk-circuits
         run: npm ci --no-audit --no-fund
 
+      - name: Install contracts Node deps
+        working-directory: contracts
+        run: npm ci --no-audit --no-fund
+
+      - name: Hardhat tests
+        working-directory: contracts
+        run: npx hardhat test
+
       - name: Version consistency check
         run: make version-check
 
