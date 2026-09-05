@@ -1339,9 +1339,14 @@ setup_venvs() {
         # designated dev node.
         if [ -f "/opt/aitbc/requirements-test.txt" ]; then
             log "Installing test tier..."
-            pip install -r /opt/aitbc/requirements-test.txt \
-                -c /opt/aitbc/requirements-dev.txt \
+            # requirements-dev.txt is not constraint-legal as-is (it carries
+            # extras); dev-constraints.sh strips them.
+            TEST_CONSTRAINTS="$(mktemp)"
+            /opt/aitbc/scripts/utils/dev-constraints.sh > "$TEST_CONSTRAINTS" \
+                || error "Failed to build test constraints"
+            pip install -r /opt/aitbc/requirements-test.txt -c "$TEST_CONSTRAINTS" \
                 || error "Failed to install test dependencies"
+            rm -f "$TEST_CONSTRAINTS"
         fi
 
         if [ "${AITBC_DEV_NODE:-0}" = "1" ] || [ -f /etc/aitbc/dev-node ]; then
