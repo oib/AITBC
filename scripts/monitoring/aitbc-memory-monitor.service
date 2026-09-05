@@ -29,6 +29,10 @@ RestrictRealtime=true
 LockPersonality=true
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
+# @system-service excludes syslog(2) (it lives in @privileged), which is the
+# syscall dmesg uses -- without this the OOM check is blocked by our own
+# sandbox and reports SKIPPED on every run.
+SystemCallFilter=syslog
 # ProtectKernelTunables is NOT set: it implies restrictions that block the
 # kernel-log read this unit exists to perform.
 ReadWritePaths=/var/log/aitbc
