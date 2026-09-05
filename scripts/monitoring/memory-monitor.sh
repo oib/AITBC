@@ -103,31 +103,54 @@ check_oom_events() {
     echo ""
     echo "=== OOM Killer Events ==="
 
-    # Read the kernel ring buffer directly when we already have CAP_SYSLOG (the
-    # systemd unit runs as root), falling back to a non-interactive sudo for
-    # manual runs. Piping straight into `wc -l` used to swallow the failure: an
-    # unreadable buffer produced a count of 0, so the check reported "no OOM
-    # events" in exactly the case where it could not look. Distinguish the two.
-    local dmesg_out
-    if ! dmesg_out=$(dmesg 2>/dev/null) && ! dmesg_out=$(sudo -n dmesg 2>/dev/null); then
-        echo -e "${YELLOW}SKIPPED: kernel log unreadable (needs CAP_SYSLOG); OOM check did not run${NC}"
-        log_message "WARNING" "Kernel log unreadable; OOM check did not run"
+    # Read the per-service cgroup v2 counters rather than grepping dmesg. These
+    # hosts run with kernel.dmesg_restrict=1 and cannot read the kernel ring
+    # buffer at all -- not even as unsandboxed root -- so a dmesg-based check is
+    # permanently blind here. It used to pipe into `wc -l`, which turned that
+    # into a count of 0 and reported "no OOM events" on every run.
+    #
+    # memory.events is world-readable, needs no privilege, and attributes each
+    # kill to the service it happened in instead of to the host as a whole.
+    local oom_total=0
+    local found=0
+
+    for unit in $(systemctl list-units --type=service --state=running --no-legend 'aitbc*' | awk '{print $1}'); do
+        local cgroup
+        cgroup=$(systemctl show -p ControlGroup --value "$unit" 2>/dev/null)
+        [ -z "$cgroup" ] && continue
+
+        local events="/sys/fs/cgroup${cgroup}/memory.events"
+        [ -r "$events" ] || continue
+        found=1
+
+        local kills
+        kills=$(awk '/^oom_kill /{print $2}' "$events" 2>/dev/null)
+        [[ "$kills" =~ ^[0-9]+$ ]] || continue
+
+        if [ "$kills" -gt 0 ]; then
+            echo -e "${RED}ALERT: $unit has $kills OOM kill(s) recorded${NC}"
+            log_message "ALERT" "$unit has $kills OOM kill(s) recorded"
+            oom_total=$((oom_total + kills))
+        fi
+    done
+
+    if [ "$found" -eq 0 ]; then
+        echo -e "${YELLOW}SKIPPED: no readable cgroup memory.events; OOM check did not run${NC}"
+        log_message "WARNING" "No readable cgroup memory.events; OOM check did not run"
         return 0
     fi
 
-    local oom_count=$(printf '%s\n' "$dmesg_out" | grep -ci "out of memory")
-
-    if [ "$oom_count" -gt 0 ]; then
-        echo -e "${RED}ALERT: Found $oom_count OOM killer events in kernel log${NC}"
-        log_message "ALERT" "Found $oom_count OOM killer events in kernel log"
-        printf '%s\n' "$dmesg_out" | grep -i "out of memory" | tail -5
+    if [ "$oom_total" -gt 0 ]; then
+        echo -e "${RED}ALERT: $oom_total OOM kill(s) recorded across AITBC services${NC}"
+        log_message "ALERT" "$oom_total OOM kill(s) recorded across AITBC services"
         return 1
-    else
-        echo -e "${GREEN}OK: No OOM killer events found${NC}"
-        log_message "INFO" "No OOM killer events found"
-        return 0
     fi
+
+    echo -e "${GREEN}OK: No OOM kills recorded for any AITBC service${NC}"
+    log_message "INFO" "No OOM kills recorded for any AITBC service"
+    return 0
 }
+
 
 # Main execution
 main() {

@@ -5,12 +5,8 @@ After=network.target
 
 [Service]
 Type=oneshot
-# Runs as root deliberately: check_oom_events reads the kernel ring buffer, which
-# needs CAP_SYSLOG. Under User=aitbc the read fails, and because the script pipes
-# into `wc -l` the failure used to come back as a count of 0 -- i.e. a monitor that
-# reports "no OOM events" precisely when it cannot look. The script now
-# distinguishes the two; running as root is what makes the check real.
-User=root
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
 ExecStart=/opt/aitbc/scripts/monitoring/memory-monitor.sh
@@ -23,18 +19,15 @@ PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
 ProtectKernelModules=true
+# Read-only, not inaccessible: the OOM check reads per-service oom_kill counters
+# from /sys/fs/cgroup, which stays readable under this.
 ProtectControlGroups=true
 RestrictSUIDSGID=true
 RestrictRealtime=true
 LockPersonality=true
 SystemCallArchitectures=native
 SystemCallFilter=@system-service
-# @system-service excludes syslog(2) (it lives in @privileged), which is the
-# syscall dmesg uses -- without this the OOM check is blocked by our own
-# sandbox and reports SKIPPED on every run.
-SystemCallFilter=syslog
-# ProtectKernelTunables is NOT set: it implies restrictions that block the
-# kernel-log read this unit exists to perform.
+ProtectKernelTunables=true
 ReadWritePaths=/var/log/aitbc
 
 [Install]
