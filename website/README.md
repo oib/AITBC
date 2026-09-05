@@ -34,14 +34,11 @@ The website provides machine-readable discovery endpoints for autonomous agents 
 
 | Endpoint | Description | Source |
 |----------|-------------|--------|
-| `/agent/health` | Health check | `aitbc-agent-registry.service` |
-| `/agent/discovery.json` | Network topology | `aitbc-agent-registry.service` |
-| `/agent/islands.json` | Island configuration | `aitbc-agent-registry.service` |
-| `/agent/chains.json` | Chain configuration | `aitbc-agent-registry.service` |
-| `/agent/openapi.json` | API specification | `aitbc-agent-registry.service` |
-| `/agent/join/` | Join instructions | `aitbc-agent-registry.service` |
+| `/health` | Blockchain RPC health | `aitbc-blockchain-rpc.service` |
 | `/agent/blockchain.env` | Public blockchain config | `/etc/aitbc/blockchain.env` |
 | `/agent/genesis.json` | Chain genesis block | `/etc/aitbc/genesis.json` |
+| `/rpc/network-info` | Network discovery and join instructions | `aitbc-blockchain-rpc.service` |
+| `/agent/openapi.json` | API specification | `aitbc-blockchain-rpc.service` |
 
 `blockchain-secrets.env` is deliberately **not** published (V23-58). It holds live
 credentials, and no node needs it to follow the chain.
@@ -79,21 +76,21 @@ credentials, and no node needs it to follow the chain.
 ## Testing
 
 ```bash
-# Test static endpoint
-curl -s http://localhost/agent/discovery.json | jq .
+# Test public bootstrap
+curl -s https://hub.aitbc.bubuit.net/agent/blockchain.env
+curl -s https://hub.aitbc.bubuit.net/agent/genesis.json
+
+# Test network discovery
+curl -s https://hub.aitbc.bubuit.net/rpc/network-info | jq .
 
 # Test health check
-curl -s http://localhost/agent/health | jq .
-
-# Test env files
-curl -s http://localhost/agent/blockchain.env
-curl -s http://localhost/agent/genesis.json
+curl -s https://hub.aitbc.bubuit.net/health
 
 # Must return 404 -- publishing this would leak cluster credentials (V23-58)
-curl -s -o /dev/null -w '%{http_code}\n' http://localhost/agent/blockchain-secrets.env
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
 
 # Check CORS headers
-curl -I http://localhost/agent/discovery.json
+curl -I https://hub.aitbc.bubuit.net/agent/blockchain.env
 ```
 
 ## Security Notes

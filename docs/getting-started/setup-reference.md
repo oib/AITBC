@@ -72,9 +72,9 @@ systemctl status aitbc-blockchain-node
 
 The node will automatically:
 
-- Connect to the hub's RPC URL (`default_peer_rpc_url` from `blockchain.env`)
+- Connect to the hub's base URL (`default_peer_rpc_url` from `node.env`; must not end in `/rpc`)
 - Register a subscription lease via `POST /rpc/subscribe`
-- Receive blocks via WebSocket push (`wss://hub/rpc/subscribe/ws`)
+- Receive blocks via WebSocket push (`wss://hub.aitbc.bubuit.net/rpc/subscribe/ws`)
 - Send periodic heartbeats to maintain the lease
 - Fall back to periodic pull sync if subscription fails
 - Join the island with the configured `CHAIN_ID`

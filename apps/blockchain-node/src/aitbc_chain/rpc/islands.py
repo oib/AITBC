@@ -147,7 +147,11 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
 
     # Idempotent join: try to register, but still return the island info if already a member.
     joined = island_manager.join_island(
-        island_id=request.island_id, island_name=request.island_name, chain_id=request.chain_id, is_hub=request.is_hub
+        island_id=request.island_id,
+        island_name=request.island_name,
+        chain_id=request.chain_id,
+        is_hub=request.is_hub,
+        role=request.role,
     )
 
     island = island_manager.get_island_info(request.island_id)
