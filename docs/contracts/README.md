@@ -26,7 +26,6 @@ Production Solidity contracts live in `contracts/contracts/`:
 | Contract | Source |
 |----------|--------|
 | `AIPowerRental` | [AIPowerRental.sol](../../contracts/contracts/AIPowerRental.sol) |
-| `AIServiceAMM` | [AIServiceAMM.sol](../../contracts/contracts/AIServiceAMM.sol) |
 | `AIToken` | [AIToken.sol](../../contracts/contracts/AIToken.sol) |
 | `AgentBounty` | [AgentBounty.sol](../../contracts/contracts/AgentBounty.sol) |
 | `AgentCommunication` | [AgentCommunication.sol](../../contracts/contracts/AgentCommunication.sol) |
