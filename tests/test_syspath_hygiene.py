@@ -23,7 +23,7 @@ REPO = Path(__file__).resolve().parents[1]
 
 # One package per .pth file under packages/py.  Note that aitbc_agent_sdk.pth
 # exposes a package called aitbc_agent, not aitbc_agent_sdk.
-PTH_PACKAGES = ["aitbc_agent_core", "aitbc_agent", "aitbc_crypto", "aitbc_sdk"]
+PTH_PACKAGES = ["aitbc_agent_core", "aitbc_agent", "aitbc_crypto", "aitbc_sdk", "aitbc_errors"]
 
 
 @pytest.mark.parametrize("name", PTH_PACKAGES)
