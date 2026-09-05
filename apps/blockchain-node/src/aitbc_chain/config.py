@@ -120,6 +120,8 @@ class ChainSettings(BaseSettings):
     p2p_bind_port: int = 8200
     p2p_node_id: str = ""
 
+    contact_email: str = os.getenv("CONTACT_EMAIL", "andreas.fleckl@bubuit.net")
+
     proposer_id: str = ""
     proposer_key: str | None = None
 
@@ -407,6 +409,14 @@ class ChainSettings(BaseSettings):
     gossip_tx_topic_v2_template: str = "transactions.{chain_id}"
     gossip_migration_days: int = 30
     gossip_log_v1_warnings: bool = True
+
+    # Gossip websocket authentication and rate limiting (v0.7.6).
+    gossip_auth_enabled: bool = os.getenv("GOSSIP_AUTH_ENABLED", "true").lower() in ("1", "true", "yes", "on")
+    gossip_auth_timeout: float = float(os.getenv("GOSSIP_AUTH_TIMEOUT", "5.0"))
+    gossip_auth_challenge_ttl: float = float(os.getenv("GOSSIP_AUTH_CHALLENGE_TTL", "60.0"))
+    gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
+    gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "500"))
+    gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "4"))
 
     # Multi-chain per island (v0.6.4). Chains hosted on this island.
     # Comma-separated list of chain_ids. If empty, defaults to [chain_id]

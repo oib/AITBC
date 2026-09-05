@@ -932,12 +932,11 @@ setup_node_identities() {
     else
         log "Creating minimal blockchain.env with unique IDs..."
         cat > /etc/aitbc/blockchain.env << EOF
-# AITBC Blockchain Configuration
+# AITBC Blockchain Configuration (public bootstrap safe)
 # Auto-generated unique node identities
 PROPOSER_ID=$PROPOSER_ID
 P2P_NODE_ID=$P2P_NODE_ID
 GOSSIP_BACKEND=broadcast
-GOSSIP_BROADCAST_URL=redis://localhost:6379
 DEFAULT_PEER_RPC_URL=http://127.0.0.1:8202
 BLOCK_SCOPED_PREREGISTERED_TRANSACTIONS=true
 SYNC_STATE_ROOT_VALIDATION_ENABLED=true
@@ -950,7 +949,9 @@ EOF
     # for the internal gossip broker and exposes WebSocket subscriptions.
     if [ "${BLOCKCHAIN_MODE:-follower}" = "hub" ]; then
         set_env GOSSIP_BACKEND redis
-        set_env GOSSIP_BROADCAST_URL redis://localhost:6379
+        # Keep the broadcast URL in node.env (not the public blockchain.env)
+        # so production nodes can add an authenticated redis:// URL safely.
+        set_env_node GOSSIP_BROADCAST_URL redis://localhost:6379
         set_env subscription_enabled true
         set_env subscription_transport websocket
     else
@@ -974,9 +975,9 @@ EOF
     else
         DEFAULT_PEER_RPC="http://127.0.0.1:8202"
     fi
-    set_env DEFAULT_PEER_RPC_URL "$DEFAULT_PEER_RPC"
 
-    # Sync node.env with the same RPC URL and follower settings
+    # Keep DEFAULT_PEER_RPC_URL in node.env so the public blockchain.env can be
+    # downloaded by followers without leaking the local fallback URL.
     set_env_node "DEFAULT_PEER_RPC_URL" "$DEFAULT_PEER_RPC"
     set_env_node "NODE_ID" "${NODE_ID:-aitbc}"
     if [ -n "$OPEN_ISLAND_HUB" ] && [ "${BLOCKCHAIN_MODE:-follower}" != "hub" ]; then
@@ -1003,6 +1004,18 @@ EOF
             set_env_node "HUB_BLOCKCHAIN_RPC_URL" "$HUB_BLOCKCHAIN_RPC"
             set_env_node "BLOCKCHAIN_RPC_URL" "$HUB_BLOCKCHAIN_RPC"
             success "Hub proposer configured: $HUB_PROPOSER_ID"
+
+            # Fetch the public validator set from network-info so the node
+            # has the consensus group and can authenticate gossip peers.
+            HUB_VALIDATOR_SET=""
+            HUB_NETWORK_INFO=$(curl -sfL --max-time 15 "${OPEN_ISLAND_HUB%/}/rpc/network-info" 2>/dev/null || true)
+            if [ -n "$HUB_NETWORK_INFO" ]; then
+                HUB_VALIDATOR_SET=$(printf '%s' "$HUB_NETWORK_INFO" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(json.dumps(d.get("validators",[]), separators=(",", ":")))' 2>/dev/null || true)
+            fi
+            if [ -n "$HUB_VALIDATOR_SET" ]; then
+                set_env_node "VALIDATOR_SET" "$HUB_VALIDATOR_SET"
+                log "Fetched validator set from hub"
+            fi
         else
             warning "Could not fetch hub proposer from $OPEN_ISLAND_HUB/rpc/proposer"
             warning "Customer payments may fail until HUB_PROPOSER_ID is set"
@@ -1160,10 +1173,36 @@ setup_credentials() {
         fi
     fi
 
-    # Add API_KEY_HASH_SECRET to blockchain.env if not present
-    if [ -f "/etc/aitbc/blockchain.env" ] && ! grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/blockchain.env; then
-        echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)" >> /etc/aitbc/blockchain.env
-        log "Added API_KEY_HASH_SECRET to blockchain.env"
+    # Create the cluster-wide secrets file. This is loaded by services via
+    # EnvironmentFile and must not be served as a public bootstrap file.
+    local SECRETS_ENV="/etc/aitbc/blockchain-secrets.env"
+    if [ ! -f "$SECRETS_ENV" ]; then
+        umask 077
+        {
+            echo "# AITBC cluster-wide secrets - DO NOT share with followers"
+            echo "API_KEY_HASH_SECRET=$(cat /etc/aitbc/credentials/api_hash_secret)"
+            echo "JWT_SECRET=$(cat /etc/aitbc/credentials/jwt_secret)"
+            echo "SECRET_KEY=$(cat /etc/aitbc/credentials/secret_key)"
+        } > "$SECRETS_ENV"
+        chown root:aitbc "$SECRETS_ENV"
+        chmod 600 "$SECRETS_ENV"
+        log "Created $SECRETS_ENV with cluster-wide secrets"
+    else
+        for pair in "API_KEY_HASH_SECRET:api_hash_secret" "JWT_SECRET:jwt_secret" "SECRET_KEY:secret_key"; do
+            local var="${pair%%:*}"
+            local cred_file="/etc/aitbc/credentials/${pair##*:}"
+            if ! grep -q "^${var}=" "$SECRETS_ENV" && [ -f "$cred_file" ]; then
+                echo "${var}=$(cat "$cred_file")" >> "$SECRETS_ENV"
+                log "Added $var to $SECRETS_ENV"
+            fi
+        done
+        chmod 600 "$SECRETS_ENV"
+    fi
+
+    # Remove legacy in-blockchain copy if it exists.
+    if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/blockchain.env; then
+        sed -i '/^API_KEY_HASH_SECRET=/d' /etc/aitbc/blockchain.env
+        log "Removed API_KEY_HASH_SECRET from blockchain.env"
     fi
 
     # Write JWT_SECRET and API_KEY_HASH_SECRET to coordinator-api %N.env file

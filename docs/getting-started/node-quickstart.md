@@ -1,54 +1,41 @@
 # Node Quick Start: Join the network
 
-> Renamed from `quickstart.md` (DOC-04). It sat beside `quick-start.md`, an unrelated
-> guide to security and performance features, and the two names differed only by a
-> hyphen — `quick-start.md` has ~51 inbound links, this one had none, so links
-> intended for one routinely reached the other.
-
-This guide shows how to set up a follower node to join the AITBC blockchain network.
+This guide shows how to set up a follower node to join the AITBC blockchain network on the open island at `hub.aitbc.bubuit.net`.
 
 ## 1. Download Chain Configuration
 
-Download the public chain configuration and cluster secrets from the hub:
+Download the public chain configuration and genesis from the hub:
 
 ```bash
+mkdir -p /etc/aitbc
 curl https://hub.aitbc.bubuit.net/agent/blockchain.env \
   -o /etc/aitbc/blockchain.env
 curl https://hub.aitbc.bubuit.net/agent/genesis.json \
   -o /etc/aitbc/genesis.json
 ```
 
-A node that follows the chain needs nothing else — `blockchain-node` does not read
-`blockchain-secrets.env`. If you also run the wallet or agent-coordinator, get that file from
-the hub operator over an authenticated channel; it holds live credentials and is not
-published (V23-58).
+A node that follows the chain needs **only** the two files above. `blockchain-secrets.env` is not required and must not be downloaded from any public URL. If you also run the wallet, agent-coordinator, or event-bridge, get that file from the hub operator over an authenticated channel.
 
 ## 2. Create Your Node Configuration
 
-Create a local configuration file for your node:
+Create a local configuration file for your node with a unique identity:
 
 ```bash
 cat > /etc/aitbc/node.env << EOF
 NODE_ID=yournode.example.com
-NODE_ROLE=follower
+P2P_NODE_ID=yournode.example.com
 BLOCKCHAIN_MODE=follower
-MARKET_ROLE=customer    # or: shop, provider
-HARDWARE_PROFILE=nogpu  # or: gpu
+MARKET_ROLE=customer
+HARDWARE_PROFILE=nogpu
 EOF
 ```
 
-### Configuration Options
+Set `default_peer_rpc_url` to the hub's **base URL** (no `/rpc` suffix). The setup script can do this for you:
 
-- **NODE_ID**: Your node's unique identifier (e.g., your domain name)
-- **NODE_ROLE**: Set to `follower` for follower nodes
-- **BLOCKCHAIN_MODE**: Set to `follower` to sync with the hub
-- **MARKET_ROLE**:
-  - `customer` - Consume GPU resources
-  - `shop` - Provide marketplace services
-  - `provider` - Offer GPU compute capacity
-- **HARDWARE_PROFILE**:
-  - `nogpu` - Node without GPU resources
-  - `gpu` - Node with GPU resources
+```bash
+cd /opt/aitbc
+./scripts/deployment/setup.sh --open-island https://hub.aitbc.bubuit.net --node-id yournode.example.com
+```
 
 ## 3. Start the Node
 
@@ -64,11 +51,15 @@ Check that your node is syncing with the network:
 
 ```bash
 systemctl status aitbc-blockchain-node
-journalctl -u aitbc-blockchain-node -f
+journalctl -u aitbc-blockchain-node -f | grep -iE 'subscribed|lease|websocket|Imported block'
+
+# Compare heights after a minute or two
+watch -n 5 'echo local=$(curl -s http://localhost:8202/rpc/head | jq .height) hub=$(curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height)'
 ```
 
 ## Additional Resources
 
+- [Open Island Joining Guide](https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md)
 - [Full Setup Guide](https://github.com/oib/AITBC/blob/main/docs/getting-started/SETUP.md)
 - [README](https://github.com/oib/AITBC/blob/main/README.md)
-- [Network Discovery](/agent/openapi.json)
+- [Network Discovery](/rpc/network-info)

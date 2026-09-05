@@ -1773,16 +1773,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -1827,16 +1817,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -1886,16 +1866,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       },
@@ -1937,16 +1907,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2000,16 +1960,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2671,7 +2621,7 @@
           "core"
         ],
         "summary": "Get network information for joining",
-        "description": "Get network configuration information for open island joining",
+        "description": "Get network configuration for open-island joining.\n\nUses trusted proxy headers for the public scheme and falls back to\nAITBC_PROTOCOL for deployments where the reverse proxy is not under\ndirect control.",
         "operationId": "get_network_info_route_rpc_network_info_get",
         "responses": {
           "200": {
@@ -11289,16 +11239,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -11343,16 +11283,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11402,16 +11332,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       },
@@ -11453,16 +11373,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -11516,16 +11426,6 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Subscription module not available",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12187,7 +12087,7 @@
           "core"
         ],
         "summary": "Get network information for joining",
-        "description": "Get network configuration information for open island joining",
+        "description": "Get network configuration for open-island joining.\n\nUses trusted proxy headers for the public scheme and falls back to\nAITBC_PROTOCOL for deployments where the reverse proxy is not under\ndirect control.",
         "operationId": "get_network_info_route_v1_network_info_get",
         "responses": {
           "200": {
