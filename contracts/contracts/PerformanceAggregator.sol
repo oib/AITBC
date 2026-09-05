@@ -129,9 +129,15 @@ contract PerformanceAggregator is IPerformanceAggregator, Ownable, ReentrancyGua
         require(address(registry) == address(0), "Already initialized");
         registry = ContractRegistry(_registry);
 
-        // Register this contract
+        // Register this contract if not already registered. The registry only
+        // accepts calls from its owner, so deployment pre-registers the id;
+        // self-registration here would always revert NotAuthorized.
         bytes32 contractId = keccak256(abi.encodePacked("PerformanceAggregator"));
-        registry.registerContract(contractId, address(this));
+        try registry.getContract(contractId) returns (address) {
+            // Already registered, skip
+        } catch {
+            registry.registerContract(contractId, address(this));
+        }
 
         // Get integration addresses from registry
         performanceVerifier = registry.getContract(keccak256(abi.encodePacked("PerformanceVerifier")));
