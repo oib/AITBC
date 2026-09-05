@@ -4,6 +4,9 @@ pragma solidity ^0.8.19;
 import "forge-std/Test.sol";
 import "../../contracts/BountyIntegration.sol";
 import "../../contracts/AIToken.sol";
+import "../../contracts/AgentBounty.sol";
+import "../../contracts/AgentStaking.sol";
+import "../../contracts/PerformanceVerifier.sol";
 
 contract BountyIntegrationFuzzTest is Test {
     BountyIntegration public integration;
@@ -198,5 +201,169 @@ contract BountyIntegrationFuzzTest is Test {
         address[] memory list = integration.getAuthorizedIntegrators();
         assertEq(list.length, 1);
         assertEq(list[0], integrator);
+    }
+
+    // ---------- Happy path: real AgentBounty + AgentStaking fixtures ----------
+
+    address public constant SUBMITTER = address(0x5B);
+    address public constant CREATOR = address(0xC1);
+
+    function _realFixture()
+        internal
+        returns (
+            AIToken token,
+            AgentBounty bounty,
+            AgentStaking staking,
+            BountyIntegration integ
+        )
+    {
+        token = new AIToken(0);
+        // PerformanceVerifier takes three addresses but the happy path never
+        // calls into it — placeholders are sufficient.
+        PerformanceVerifier pv = new PerformanceVerifier(address(0x11), address(0x12), address(0x13));
+        bounty = new AgentBounty(address(token), address(pv));
+        staking = new AgentStaking(address(token), address(pv));
+        integ = new BountyIntegration(
+            address(bounty),
+            address(staking),
+            address(pv),
+            address(token)
+        );
+
+        bounty.authorizeCreator(CREATOR);
+        // updateAgentPerformance requires oracle auth + a supported agent
+        staking.addOracle(address(integ));
+        staking.addSupportedAgent(SUBMITTER, AgentStaking.PerformanceTier.BRONZE);
+        integ.authorizeIntegrator(integrator);
+    }
+
+    function _mapRealBounty(
+        AIToken token,
+        AgentBounty bounty,
+        BountyIntegration integ,
+        bytes32 perfHash,
+        uint256 accuracy
+    ) internal returns (uint256 bountyId, uint256 submissionId, uint256 mappingId) {
+        uint256 reward = 200 * 10 ** 18; // above the BRONZE minimum of 100e18
+
+        // Foundry starts at timestamp 1, but AIToken.mint requires
+        // timestamp >= lastMintTime(0) + 1 day — even the first mint needs
+        // the clock past the cooldown. Warping once here also satisfies
+        // AgentStaking's 1h performanceUpdateDelay for the first update.
+        vm.warp(1 days + 1);
+        // _completeBounty pays from the contract's own balance — it is never
+        // escrowed at createBounty time, only the creator's balance is checked.
+        // createBounty escrows reward + 0.5% creation fee via transferFrom —
+        // the creator needs the balance and an approval for the pull.
+        token.mint(address(this), reward * 2);
+        token.transfer(CREATOR, reward * 2);
+        vm.prank(CREATOR);
+        token.approve(address(bounty), reward * 2);
+
+        vm.prank(CREATOR);
+        bountyId = bounty.createBounty(
+            "t", "d", reward, AgentBounty.BountyTier.BRONZE,
+            keccak256("criteria"), 80, block.timestamp + 1 days, 5, false
+        );
+
+        vm.prank(SUBMITTER);
+        submissionId = bounty.submitBountySolution(bountyId, "", perfHash, accuracy, 1200);
+
+        vm.prank(integrator);
+        mappingId = integ.mapPerformanceToBounty(perfHash, bountyId, submissionId);
+    }
+
+    function test_ProcessMappingCompletesHappyPath() public {
+        (AIToken token, AgentBounty bounty, AgentStaking staking, BountyIntegration integ) = _realFixture();
+        bytes32 perfHash = keccak256("perf-1");
+
+        (uint256 bountyId, uint256 submissionId, uint256 mappingId) =
+            _mapRealBounty(token, bounty, integ, perfHash, 95);
+
+        // mapPerformanceToBounty already ran _processMapping inline, so the
+        // payout landed during _mapRealBounty — assert the absolute balance
+        // (SUBMITTER starts at 0). 2% success + 1% platform fee => 97%.
+        uint256 reward = 200 * 10 ** 18;
+        assertEq(token.balanceOf(SUBMITTER), reward - (reward * 300) / 10000);
+
+        vm.prank(integrator);
+        integ.processMapping(mappingId);
+
+        (,,, BountyIntegration.IntegrationStatus status,,,) = integ.getPerformanceMapping(mappingId);
+        assertEq(uint256(status), uint256(BountyIntegration.IntegrationStatus.COMPLETED));
+
+        (,,,,,, AgentBounty.SubmissionStatus subStatus, address verifierAddr) =
+            bounty.getSubmission(submissionId);
+        assertEq(uint256(subStatus), uint256(AgentBounty.SubmissionStatus.VERIFIED));
+        assertEq(verifierAddr, address(integ));
+
+        (,,,,, AgentBounty.BountyStatus bStatus,,,,,,,) = bounty.getBounty(bountyId);
+        assertEq(uint256(bStatus), uint256(AgentBounty.BountyStatus.COMPLETED));
+
+        // staking side observed the performance update
+        assertGt(staking.lastPerformanceUpdateTime(SUBMITTER), 0);
+    }
+
+    function test_ProcessMappingBelowThresholdSkipsAutoVerify() public {
+        (AIToken token, AgentBounty bounty, AgentStaking staking, BountyIntegration integ) = _realFixture();
+        bytes32 perfHash = keccak256("perf-2");
+
+        // accuracy >= minAccuracy (80) but < autoVerificationThreshold (90):
+        // the mapping completes without verification or staking update.
+        (, uint256 submissionId, uint256 mappingId) =
+            _mapRealBounty(token, bounty, integ, perfHash, 85);
+
+
+        vm.prank(integrator);
+        integ.processMapping(mappingId);
+
+        (,,, BountyIntegration.IntegrationStatus status,,,) = integ.getPerformanceMapping(mappingId);
+        assertEq(uint256(status), uint256(BountyIntegration.IntegrationStatus.COMPLETED));
+
+        (,,,,,, AgentBounty.SubmissionStatus subStatus,) = bounty.getSubmission(submissionId);
+        assertEq(uint256(subStatus), uint256(AgentBounty.SubmissionStatus.PENDING));
+        assertEq(staking.lastPerformanceUpdateTime(SUBMITTER), 0);
+    }
+
+    function testFuzz_ProcessMappingAccuracyBoundaries(uint256 accuracy) public {
+        accuracy = bound(accuracy, 80, 100);
+        (AIToken token, AgentBounty bounty, AgentStaking staking, BountyIntegration integ) = _realFixture();
+        bytes32 perfHash = keccak256(abi.encodePacked("perf", accuracy));
+
+        (, uint256 submissionId, uint256 mappingId) =
+            _mapRealBounty(token, bounty, integ, perfHash, accuracy);
+
+
+        vm.prank(integrator);
+        integ.processMapping(mappingId);
+
+        (,,, BountyIntegration.IntegrationStatus status,,,) = integ.getPerformanceMapping(mappingId);
+        assertEq(uint256(status), uint256(BountyIntegration.IntegrationStatus.COMPLETED));
+
+        (,,,,,, AgentBounty.SubmissionStatus subStatus,) = bounty.getSubmission(submissionId);
+        bool shouldVerify = accuracy >= 90;
+        assertEq(
+            uint256(subStatus),
+            shouldVerify ? uint256(AgentBounty.SubmissionStatus.VERIFIED) : uint256(AgentBounty.SubmissionStatus.PENDING)
+        );
+    }
+
+    function test_HandlePerformanceVerifiedHappyPath() public {
+        (AIToken token, AgentBounty bounty, AgentStaking staking, BountyIntegration integ) = _realFixture();
+        bytes32 perfHash = keccak256("perf-3");
+
+        // Map at 85 (< autoVerificationThreshold 90): the inline processing
+        // leaves the submission PENDING and skips the staking update, so
+        // handlePerformanceVerified is the call that completes them — and the
+        // first updateAgentPerformance call, so the 1h rate limit is not hit.
+        (uint256 bountyId, uint256 submissionId,) = _mapRealBounty(token, bounty, integ, perfHash, 85);
+
+        vm.prank(integrator);
+        integ.handlePerformanceVerified(7, 95, 500, perfHash);
+
+        assertGt(staking.lastPerformanceUpdateTime(SUBMITTER), 0);
+
+        (,,,,,, AgentBounty.SubmissionStatus subStatus,) = bounty.getSubmission(submissionId);
+        assertEq(uint256(subStatus), uint256(AgentBounty.SubmissionStatus.VERIFIED));
     }
 }
