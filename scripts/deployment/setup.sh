@@ -1340,19 +1340,22 @@ setup_venvs() {
         fi
     fi
 
-    # Install repo-local packages (aitbc-shared, aitbc-crypto, aitbc-sdk, etc.)
-    # The CLI and services import these as top-level packages; they must be
-    # present in editable form or imports fail on fresh venvs.
+    # Install repo-local packages (aitbc-shared, aitbc-crypto, aitbc-errors,
+    # aitbc-sdk, ...). The CLI and services import these as top-level packages,
+    # and aitbc/exceptions.py itself re-exports from aitbc_errors -- so a venv
+    # without them does not fail here, it fails on first request.
+    #
+    # This used to be an inline per-package loop with `>/dev/null 2>&1` and a
+    # warning on failure. Two problems: it hid the reason for a failure, and
+    # installing one package at a time only resolved because the unpublished
+    # siblings happened to sort alphabetically before their dependants.
+    # install-path-packages.sh installs them in one pip invocation and fails
+    # loudly. Keep it fatal: continuing past this produces a node that looks
+    # installed and is not.
     log "Installing repo-local packages..."
-    for pkg_dir in /opt/aitbc/packages/aitbc-shared /opt/aitbc/packages/py/*; do
-        if [ -d "$pkg_dir" ] && [ -f "$pkg_dir/pyproject.toml" ]; then
-            if pip install -q -e "$pkg_dir" >/dev/null 2>&1; then
-                log "Installed $(basename "$pkg_dir")"
-            else
-                warning "Failed to install $(basename "$pkg_dir")"
-            fi
-        fi
-    done
+    if ! /opt/aitbc/scripts/utils/install-path-packages.sh /opt/aitbc/venv; then
+        error "Failed to install repo-local path packages"
+    fi
 
     # Install AITBC CLI
     log "Installing AITBC CLI..."

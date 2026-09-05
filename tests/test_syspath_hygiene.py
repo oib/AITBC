@@ -58,3 +58,33 @@ def test_cli_gap_analysis_wins_its_collision_without_evicting_the_package_trees(
 
     # The behaviour the eviction was there to get, which the insert alone provides.
     assert data["first"] == str(REPO)
+
+
+def _modules_shipped_under_packages_py():
+    """Top-level module names actually shipped by packages/py/*/src."""
+    found = set()
+    for pkg in sorted((REPO / "packages" / "py").iterdir()):
+        src = pkg / "src"
+        if not src.is_dir():
+            continue
+        for mod in src.iterdir():
+            if mod.is_dir() and (mod / "__init__.py").is_file():
+                found.add(mod.name)
+    return found
+
+
+def test_pth_packages_covers_every_package_under_packages_py():
+    """A new package under packages/py must be added to PTH_PACKAGES.
+
+    Without this, adding a package silently gets no coverage from the tests
+    above -- which is how aitbc_errors could have shipped untested. It also
+    catches the reverse: a package removed from disk but left in the list.
+    """
+    on_disk = _modules_shipped_under_packages_py()
+    listed = set(PTH_PACKAGES)
+    assert on_disk == listed, (
+        f"PTH_PACKAGES is out of sync with packages/py.\n"
+        f"  shipped but not listed: {sorted(on_disk - listed)}\n"
+        f"  listed but not shipped: {sorted(listed - on_disk)}\n"
+        f"Update PTH_PACKAGES in {__file__}."
+    )
