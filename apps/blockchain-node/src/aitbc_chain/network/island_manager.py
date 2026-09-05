@@ -12,6 +12,8 @@ from enum import Enum
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 
+from ..config import settings
+
 logger = get_logger(__name__)
 
 
@@ -34,6 +36,7 @@ class IslandMembership:
     joined_at: float
     is_hub: bool = False
     peer_count: int = 0
+    role: str = "follower"
 
     @property
     def chain_id(self) -> str:
@@ -56,10 +59,19 @@ class BridgeRequest:
 class IslandManager:
     """Manages island membership and operations for federated mesh"""
 
-    def __init__(self, local_node_id: str, default_island_id: str, default_chain_id: str):
+    def __init__(
+        self,
+        local_node_id: str,
+        default_island_id: str,
+        default_chain_id: str,
+        is_hub: bool | None = None,
+        role: str | None = None,
+    ):
         self.local_node_id = local_node_id
         self.default_island_id = default_island_id
         self.default_chain_id = default_chain_id
+        self.is_hub = is_hub if is_hub is not None else settings.is_hub
+        self.role = role if role is not None else settings.blockchain_mode
         self.islands: dict[str, IslandMembership] = {}
         self.bridge_requests: dict[str, BridgeRequest] = {}
         self.active_bridges: set[str] = set()
@@ -75,10 +87,11 @@ class IslandManager:
             chain_ids=[self.default_chain_id],
             status=IslandStatus.ACTIVE,
             joined_at=time.time(),
-            is_hub=False,
+            is_hub=self.is_hub,
+            role=self.role,
         )
         self.island_peers[self.default_island_id] = set()
-        logger.info("Initialized with default island: %s", self.default_island_id)
+        logger.info("Initialized with default island: %s (hub=%s, role=%s)", self.default_island_id, self.is_hub, self.role)
 
     async def start(self) -> None:
         """Start island manager"""
@@ -100,7 +113,14 @@ class IslandManager:
         self.running = False
         logger.info("Stopping island manager")
 
-    def join_island(self, island_id: str, island_name: str, chain_id: str | list[str], is_hub: bool = False) -> bool:
+    def join_island(
+        self,
+        island_id: str,
+        island_name: str,
+        chain_id: str | list[str],
+        is_hub: bool = False,
+        role: str = "follower",
+    ) -> bool:
         """Join an island. Accepts single chain_id (str) or multiple chain_ids (list)."""
         if island_id in self.islands:
             logger.warning("Already member of island %s", island_id)
@@ -116,6 +136,7 @@ class IslandManager:
             status=IslandStatus.ACTIVE,
             joined_at=time.time(),
             is_hub=is_hub,
+            role=role,
         )
         self.island_peers[island_id] = set()
         logger.info("Joined island %s (name: %s, chains: %s)", island_id, island_name, chain_ids)
@@ -281,8 +302,14 @@ def get_island_manager() -> IslandManager | None:
     return island_manager_instance
 
 
-def create_island_manager(node_id: str, default_island_id: str, default_chain_id: str) -> IslandManager:
+def create_island_manager(
+    node_id: str,
+    default_island_id: str,
+    default_chain_id: str,
+    is_hub: bool | None = None,
+    role: str | None = None,
+) -> IslandManager:
     """Create and set global island manager instance"""
     global island_manager_instance
-    island_manager_instance = IslandManager(node_id, default_island_id, default_chain_id)
+    island_manager_instance = IslandManager(node_id, default_island_id, default_chain_id, is_hub=is_hub, role=role)
     return island_manager_instance

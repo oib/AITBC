@@ -14,6 +14,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 - **Chain ID**: `ait-hub.aitbc.bubuit.net`
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
 - **RPC URL**: `https://hub.aitbc.bubuit.net/rpc` (HTTP + WebSocket, open to all)
+- **WebSocket Subscription**: `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws`
 - **Access**: Open - no authentication required for joining
 
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
@@ -22,7 +23,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 
 Follower nodes do **not** connect to a separate P2P port. Instead, they use the **lease-based subscription system** over the hub's RPC endpoint:
 
-1. **Register**: Follower sends `POST /rpc/subscribe` to the hub's RPC URL to register and obtain a lease
+1. **Register**: Follower sends `POST /rpc/subscribe` to the hub's base URL (`https://hub.aitbc.bubuit.net`) to register and obtain a lease
 2. **Receive blocks**: Follower opens a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for real-time block push
 3. **Heartbeat**: Follower periodically sends `POST /rpc/heartbeat` to extend the lease
 4. **Bulk catch-up**: If the follower falls behind, it uses `POST /rpc/sync` to pull blocks in batches via HTTP
@@ -90,6 +91,7 @@ with `chmod 600`.
 # Create node.env with unique identity
 cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 # Edit NODE_ID to be unique for your node
+sed -i "s/NODE_ID=.*/NODE_ID=node-$(hostname)-$(openssl rand -hex 4)/" /etc/aitbc/node.env
 ```
 
 ### Step 4: Install Dependencies
@@ -104,11 +106,11 @@ pip install -e apps/blockchain-node/
 
 ### Step 5: Configure New Node
 
-The configuration files downloaded from the hub in Step 2 contain the necessary settings. You only need to customize the node-specific identity in `node.env`:
+The configuration files downloaded from the hub in Step 2 contain the necessary settings. You only need to customize the node-specific identity in `node.env`, which was already done in Step 3:
 
 ```bash
-# Edit node.env to set a unique NODE_ID for your node
-sed -i "s/NODE_ID=.*/NODE_ID=node-$(hostname)-$(openssl rand -hex 4)/" /etc/aitbc/node.env
+# Confirm NODE_ID is unique
+grep NODE_ID /etc/aitbc/node.env
 ```
 
 ### Step 6: Create Keystore
@@ -121,14 +123,7 @@ chmod 600 /var/lib/aitbc/keystore/.password
 
 ### Step 7: Start Blockchain Node
 
-```bash
-# Start blockchain node
-/opt/aitbc/venv/bin/python -m aitbc_chain.main \
-  --config /etc/aitbc/blockchain.env \
-  --node-config /etc/aitbc/node.env
-```
-
-Or use systemd service (recommended):
+Use the systemd service (recommended):
 
 ```bash
 # Link systemd service files from repository (keeps them in sync)
@@ -141,7 +136,7 @@ systemctl enable aitbc-blockchain-node.service
 
 The blockchain-node will automatically:
 
-1. Connect to the hub's RPC URL (from `default_peer_rpc_url` in `blockchain.env`)
+1. Connect to the hub's base URL (from `default_peer_rpc_url` in `node.env`)
 2. Register a subscription lease via `POST /rpc/subscribe`
 3. Open a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for block push
 4. Send periodic heartbeats to maintain the lease
@@ -170,7 +165,7 @@ The subscription system automatically pushes new blocks to followers. For initia
 # Trigger bulk sync with hub
 curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
-  -d '{"peer":"https://hub.aitbc.bubuit.net/"}'
+  -d '{"peer":"https://hub.aitbc.bubuit.net"}'
 
 # Monitor sync progress
 watch -n 5 'curl -s http://localhost:8202/rpc/head | jq .height'
@@ -240,8 +235,8 @@ journalctl -u aitbc-blockchain-node.service -f | grep -i "subscribe\|lease\|webs
 # Verify hub RPC is accessible
 curl https://hub.aitbc.bubuit.net/rpc/head
 
-# Check if default_peer_rpc_url is set
-grep default_peer_rpc_url /etc/aitbc/blockchain.env
+# Check if default_peer_rpc_url is set to a base URL (no /rpc suffix)
+grep default_peer_rpc_url /etc/aitbc/node.env
 ```
 
 ### Sync Issues
@@ -254,7 +249,7 @@ curl https://hub.aitbc.bubuit.net/rpc/head
 # Force re-sync
 curl -X POST http://localhost:8202/rpc/sync \
   -H "Content-Type: application/json" \
-  -d '{"peer":"https://hub.aitbc.bubuit.net/","force":true}'
+  -d '{"peer":"https://hub.aitbc.bubuit.net","force":true}'
 ```
 
 ## Network Security
