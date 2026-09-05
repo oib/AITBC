@@ -24,7 +24,11 @@ log_message() {
 check_redis_connection() {
     echo "=== Redis Connection Status ==="
 
-    if redis-cli ping > /dev/null 2>&1; then
+    # redis-cli exits 0 even when the server answers NOAUTH, so testing only the
+    # exit status reports "connected" for a server we cannot actually query --
+    # every stat then comes back empty and the hit-rate maths divides by zero.
+    # Require the actual PONG.
+    if [ "$(redis-cli ping 2>/dev/null | tr -d '\r')" = "PONG" ]; then
         echo -e "${GREEN}OK: Redis is connected${NC}"
         log_message "INFO" "Redis is connected"
         return 0
@@ -70,7 +74,12 @@ check_cache_stats() {
     echo "Keyspace Misses: $keyspace_misses"
     echo "Total Keys: $total_keys"
 
-    if [ "$keyspace_hits" != "0" ] || [ "$keyspace_misses" != "0" ]; then
+    # Guard against non-numeric/empty values as well as a zero total: an
+    # unreadable INFO used to reach the division below and abort the script.
+    if ! [[ "$keyspace_hits" =~ ^[0-9]+$ ]] || ! [[ "$keyspace_misses" =~ ^[0-9]+$ ]]; then
+        echo -e "${YELLOW}WARNING: keyspace statistics unavailable; skipping hit-rate check${NC}"
+        log_message "WARNING" "Keyspace statistics unavailable; skipping hit-rate check"
+    elif [ $((keyspace_hits + keyspace_misses)) -gt 0 ]; then
         local total=$((keyspace_hits + keyspace_misses))
         local hit_rate=$((keyspace_hits * 100 / total))
         echo "Hit Rate: ${hit_rate}%"
