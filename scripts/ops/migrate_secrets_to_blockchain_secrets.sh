@@ -37,11 +37,13 @@ migrate_var() {
 
 umask 077
 touch "$SECRETS_FILE"
+# The service runs as a non-root user in the aitbc group; 640 keeps
+# the file private but readable to the service.
 chown root:aitbc "$SECRETS_FILE"
-chmod 600 "$SECRETS_FILE"
+chmod 640 "$SECRETS_FILE"
 
 # Always remove cluster-wide secrets from the public blockchain.env.
-for var in REDIS_URL GOSSIP_BROADCAST_URL SYNC_REDIS_URL API_KEY_HASH_SECRET BLOCKCHAIN_RPC_API_KEY; do
+for var in REDIS_URL GOSSIP_BROADCAST_URL SYNC_REDIS_URL API_KEY_HASH_SECRET BLOCKCHAIN_RPC_API_KEY COORDINATOR_API_KEY SECRET_KEY JWT_SECRET PROPOSER_KEY GENESIS_PRIVATE_KEY VALIDATOR_KEYS; do
     migrate_var "$var" "$PUBLIC_FILE"
 done
 
@@ -52,12 +54,12 @@ if [ "${1:-}" = "-f" ]; then
 fi
 
 if [ "$FORCE" = true ]; then
-    for var in REDIS_URL GOSSIP_BROADCAST_URL SYNC_REDIS_URL API_KEY_HASH_SECRET BLOCKCHAIN_RPC_API_KEY; do
+    for var in REDIS_URL GOSSIP_BROADCAST_URL SYNC_REDIS_URL API_KEY_HASH_SECRET BLOCKCHAIN_RPC_API_KEY COORDINATOR_API_KEY SECRET_KEY JWT_SECRET PROPOSER_KEY GENESIS_PRIVATE_KEY VALIDATOR_KEYS; do
         migrate_var "$var" /etc/aitbc/node.env
     done
     for f in /etc/aitbc/aitbc-*.env; do
         [ -f "$f" ] || continue
-        for var in REDIS_URL GOSSIP_BROADCAST_URL SYNC_REDIS_URL API_KEY_HASH_SECRET BLOCKCHAIN_RPC_API_KEY; do
+        for var in REDIS_URL GOSSIP_BROADCAST_URL SYNC_REDIS_URL API_KEY_HASH_SECRET BLOCKCHAIN_RPC_API_KEY COORDINATOR_API_KEY SECRET_KEY JWT_SECRET PROPOSER_KEY GENESIS_PRIVATE_KEY VALIDATOR_KEYS; do
             migrate_var "$var" "$f"
         done
     done
