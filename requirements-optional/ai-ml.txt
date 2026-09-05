@@ -11,7 +11,7 @@ langdetect>=1.0.9
 polyglot>=16.7.4
 fasttext>=0.9.2
 nltk>=3.8.1
-spacy>=3.7.0
+spacy>=3.8.15
 
 # AI/ML Libraries
 torch>=2.0.0
