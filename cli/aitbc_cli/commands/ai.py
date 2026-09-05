@@ -431,8 +431,17 @@ def submit(
             if payment:
                 job_data["payment_amount"] = str(Decimal(str(payment)))
             job_data["payment_currency"] = currency or "AITBC"
-            if provider_address or os.environ.get("SHOP_WALLET_ADDRESS"):
-                job_data["provider_address"] = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
+            resolved_provider = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
+            if resolved_provider:
+                job_data["provider_address"] = resolved_provider
+            elif not offer_id:
+                # A paid job without an offer has no server-side provider
+                # resolution — it would be created and queue forever.
+                abort(
+                    ctx,
+                    "provider_address is required for paid jobs without --offer-id: "
+                    "set --provider-address or SHOP_WALLET_ADDRESS",
+                )
 
         # Submit to coordinator
         headers = _auth_headers(ctx)
