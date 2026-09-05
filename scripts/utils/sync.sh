@@ -1,62 +1,121 @@
 #!/bin/bash
-# AITBC GitHub Sync Script
-# Usage: ./sync.sh [push|pull|deploy]
+# AITBC repository sync.
+#
+# Topology -- the flow is one-directional, and only one host mirrors:
+#
+#     gitea.bubuit.net/oib/AITBC  (origin, canonical)
+#              |                     ^
+#         pull |                     | push (mirror only)
+#              v                     |
+#     nodes: /opt/aitbc        IDE host: /opt/aitbc
+#     (origin remote only)     (origin + github remote)
+#                                     |
+#                                     v
+#                        github.com/oib/AITBC  (mirror, read-only downstream)
+#
+# Nodes pull from gitea and never push anywhere; they hold no GitHub
+# credentials. The IDE host is the only place with a github push URL, and it
+# mirrors what gitea already has rather than pushing local work straight to
+# GitHub.
+#
+# Usage: ./sync.sh [status|pull|mirror|deploy]
 
-ENVIRONMENT=$(hostname)
-ACTION=${1:-"status"}
+set -euo pipefail
 
-echo "=== AITBC GitHub Sync ==="
-echo "Environment: $ENVIRONMENT"
+REPO_ROOT=$(git -C "$(dirname "$0")" rev-parse --show-toplevel)
+cd "$REPO_ROOT"
+
+BRANCH=${SYNC_BRANCH:-main}
+ACTION=${1:-status}
+
+# Whether this host can mirror is a property of its git config, not its name.
+# The previous version gated on `hostname = "aitbc"`, which matches no host in
+# the fleet -- so its "don't push from production" guard never fired and its
+# deploy guard always blocked. Ask the remote instead.
+github_push_url() {
+    git remote get-url --push github 2>/dev/null || true
+}
+
+can_mirror() {
+    local url
+    url=$(github_push_url)
+    [ -n "$url" ] && [ "$url" != "no_push" ]
+}
+
+require_clean_tree() {
+    if [ -n "$(git status --porcelain)" ]; then
+        echo "Working tree is not clean; refusing to $1." >&2
+        git status --short >&2
+        exit 1
+    fi
+}
+
+echo "=== AITBC sync ==="
+echo "Host:   $(hostname)"
+echo "Repo:   $REPO_ROOT"
+echo "Branch: $BRANCH"
 echo "Action: $ACTION"
-echo ""
+echo
 
-case $ACTION in
-    "push")
-        echo "📤 Pushing changes to GitHub..."
-        if [ "$ENVIRONMENT" = "aitbc" ]; then
-            echo "❌ Don't push from production server!"
-            exit 1
-        fi
-        git add .
-        git commit -m "auto: sync from $ENVIRONMENT"
-        git push github main
-        echo "✅ Pushed to GitHub"
-        ;;
-
-    "pull")
-        echo "📥 Pulling changes from GitHub..."
-        git pull github main
-        echo "✅ Pulled from GitHub"
-        ;;
-
-    "deploy")
-        echo "🚀 Deploying to AITBC server..."
-        if [ "$ENVIRONMENT" != "aitbc" ]; then
-            echo "❌ Deploy command only works on AITBC server!"
-            exit 1
-        fi
-        git pull github main
-        systemctl restart aitbc-coordinator
-        echo "✅ Deployed and service restarted"
-        ;;
-
-    "status")
-        echo "📊 Git Status:"
-        git status
-        echo ""
-        echo "📊 Remote Status:"
+case "$ACTION" in
+    status)
+        echo "Remotes:"
         git remote -v
-        echo ""
-        echo "📊 Recent Commits:"
+        echo
+        echo "Mirror capability: $(can_mirror && echo "yes ($(github_push_url))" || echo "no -- pull-only host")"
+        echo
+        git fetch --quiet origin "$BRANCH" || echo "(could not reach origin)"
+        echo "Local vs origin/$BRANCH:"
+        git rev-list --left-right --count "HEAD...origin/$BRANCH" 2>/dev/null \
+            | awk '{print "  ahead " $1 ", behind " $2}' || echo "  (unknown)"
+        echo
+        echo "Recent commits:"
         git log --oneline -3
         ;;
 
+    pull)
+        require_clean_tree "pull"
+        echo "Pulling $BRANCH from origin (gitea)..."
+        git fetch origin "$BRANCH"
+        # Fast-forward only: a node that cannot fast-forward has diverged, and
+        # silently merging or rebasing production checkouts hides that.
+        git merge --ff-only "origin/$BRANCH"
+        echo "Now at: $(git log --oneline -1)"
+        ;;
+
+    mirror)
+        if ! can_mirror; then
+            echo "This host has no github push URL; mirroring runs from the IDE host only." >&2
+            exit 1
+        fi
+        echo "Mirroring origin/$BRANCH to github..."
+        # Push what gitea has, not what happens to be checked out here, so the
+        # mirror can never carry commits gitea has not accepted.
+        git fetch origin "$BRANCH"
+        git push github "origin/$BRANCH:refs/heads/$BRANCH"
+        echo "github/$BRANCH now at: $(git rev-parse --short "origin/$BRANCH")"
+        ;;
+
+    push)
+        echo "'push' is now 'mirror' (and no longer auto-commits). Running mirror..." >&2
+        exec "$0" mirror
+        ;;
+
+    deploy)
+        require_clean_tree "deploy"
+        echo "Deploying $BRANCH from origin (gitea)..."
+        git fetch origin "$BRANCH"
+        git merge --ff-only "origin/$BRANCH"
+        "$REPO_ROOT/scripts/utils/manage-services.sh" restart
+        echo "Deployed: $(git log --oneline -1)"
+        ;;
+
     *)
-        echo "Usage: $0 [push|pull|deploy|status]"
-        echo "  push    - Push changes to GitHub (localhost only)"
-        echo "  pull    - Pull changes from GitHub"
-        echo "  deploy  - Pull and restart services (server only)"
-        echo "  status  - Show current status"
+        echo "Usage: $0 [status|pull|mirror|deploy]"
+        echo "  status  - remotes, mirror capability, divergence from origin"
+        echo "  pull    - fast-forward this checkout from gitea"
+        echo "  mirror  - push origin/$BRANCH to GitHub (IDE host only)"
+        echo "  deploy  - pull, then restart AITBC services"
         exit 1
         ;;
 esac
