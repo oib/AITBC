@@ -110,3 +110,42 @@ def test_ai_submit_paid_job_without_provider_aborts(runner, mock_client):
     assert result.exit_code != 0
     assert "provider_address is required" in result.output
     mock_client.post.assert_not_called()
+
+
+def test_ai_submit_paid_job_without_escrow_aborts(runner):
+    """An offer-based paid job that comes back without a payment_id must fail.
+
+    Without this guard the job is created, never dispatched, and quietly
+    expires at TTL -- the 2026-09-05 3df89318 orphan artifact.
+    """
+    client = MagicMock()
+    client.post.return_value = {
+        "job_id": "job-orphan-1",
+        "state": "QUEUED",
+        "payment_amount": "0.01",
+        "payment_status": "pending",
+        # deliberately no payment_id: escrow could not be secured
+    }
+    with patch("aitbc_cli.commands.ai.AITBCHTTPClient", return_value=client):
+        config = MagicMock()
+        config.coordinator_api_url = "http://localhost:8203"
+        config.blockchain_rpc_url = "http://localhost:8202"
+        config.api_key = "test-key"
+        config.timeout = 10
+        # wallet resolves but yields no private key -> the CLI cannot sign the
+        # escrow lock itself either
+        wallet = ("0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f", None, "default")
+        with (
+            patch("aitbc_cli.commands.ai.get_config", return_value=config),
+            patch("aitbc_cli.commands.ai.load_wallet_for_payment", return_value=wallet),
+        ):
+            from aitbc_cli.commands.ai import ai
+
+            result = runner.invoke(
+                ai,
+                ["submit", "--prompt", "hello", "--offer-id", "offer-9", "--offer-quantity", "1"],
+                obj={"output_format": "table", "api_key": "test-key"},
+            )
+
+    assert result.exit_code != 0
+    assert "escrow" in result.output.lower()
