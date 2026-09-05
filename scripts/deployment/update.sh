@@ -342,6 +342,15 @@ do_git_pull() {
         NO_CHANGES=false
     fi
 
+    # Contracts' dependencies (forge-std, openzeppelin) are git submodules. Only
+    # hosts that can actually build contracts need them fetched, so gate on the
+    # foundry toolchain: a no-op where forge is absent or already initialized.
+    if [ -f .gitmodules ] && command -v forge >/dev/null 2>&1; then
+        if ! git submodule update --init --recursive; then
+            warning "git submodule update failed — contract builds may miss lib/ deps"
+        fi
+    fi
+
     # Restore stashed changes
     if [ "${stashed:-}" = "true" ]; then
         warning "Attempting to restore stashed local changes..."

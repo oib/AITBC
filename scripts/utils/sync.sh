@@ -80,6 +80,11 @@ case "$ACTION" in
         # Fast-forward only: a node that cannot fast-forward has diverged, and
         # silently merging or rebasing production checkouts hides that.
         git merge --ff-only "origin/$BRANCH"
+        # Contracts' forge-std/openzeppelin deps are submodules; fetch them only
+        # on hosts that can build contracts (foundry installed). No-op elsewhere.
+        if [ -f .gitmodules ] && command -v forge >/dev/null 2>&1; then
+            git submodule update --init --recursive || echo "warning: submodule update failed" >&2
+        fi
         echo "Now at: $(git log --oneline -1)"
         ;;
 
