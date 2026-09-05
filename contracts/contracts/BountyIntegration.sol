@@ -68,6 +68,9 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
     // Mappings
     mapping(uint256 => PerformanceMapping) public performanceMappings;
     mapping(bytes32 => uint256) public performanceHashToMapping;
+    // mappingId 0 is a valid id, so "is mapped" cannot be derived from
+    // performanceHashToMapping alone.
+    mapping(bytes32 => bool) public performanceHashMapped;
     mapping(uint256 => BatchRequest) public batchRequests;
     mapping(bytes32 => EventHandler) public eventHandlers;
     mapping(address => bool) public authorizedIntegrators;
@@ -174,7 +177,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         nonReentrant
         returns (uint256)
     {
-        require(performanceHashToMapping[_performanceHash] == 0, "Performance already mapped");
+        require(!performanceHashMapped[_performanceHash], "Performance already mapped");
 
         uint256 mappingId = integrationCounter++;
 
@@ -187,6 +190,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
         perfMap.createdAt = block.timestamp;
 
         performanceHashToMapping[_performanceHash] = mappingId;
+        performanceHashMapped[_performanceHash] = true;
         pendingMappings.push(mappingId);
         performanceHashes.push(_performanceHash);
 
@@ -305,7 +309,7 @@ contract BountyIntegration is Ownable, ReentrancyGuard {
     {
         // Check if this performance is mapped to any bounties
         uint256 mappingId = performanceHashToMapping[_performanceHash];
-        if (mappingId > 0) {
+        if (performanceHashMapped[_performanceHash]) {
             PerformanceMapping storage perfMap = performanceMappings[mappingId];
 
             // Update agent staking metrics
