@@ -13,7 +13,7 @@ from aitbc_shared import JobPayment
 
 from ....auth import AdminDep  # NEW: JWT auth
 from ....config import settings
-from ...payments.acceptance import DISPUTED
+from ...payments.acceptance import DISPUTED, META_RELEASE_ATTEMPTS, META_RELEASE_BLOCKED_AT, SETTLEMENT_FAILED
 from ...payments.services.payments import PaymentService
 
 # from ..deps import require_admin_key  # OLD: API key auth (deprecated)
@@ -353,4 +353,68 @@ async def resolve_dispute(
         "outcome": req.outcome,
         "payment_status": resolved_status,
         "resolved_at": datetime.now(UTC).isoformat(),
+    }
+
+
+@router.post("/payments/{job_id}/retry-release", summary="Reset and retry a terminally blocked escrow release")
+async def retry_release(
+    request: Request,
+    job_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> dict[str, Any]:
+    """Give a `settlement_failed` payment back to the release path.
+
+    `release_payment` stops retrying a held payment after
+    `COORDINATOR_RELEASE_MAX_ATTEMPTS` failed attempts and marks it
+    `settlement_failed`, which takes it out of every sweeper's candidate set.
+    That is intentional -- a release that never settles needs a human, not a
+    faster retry loop -- but once the blocker is fixed (job state corrected,
+    receipt attested, RPC back up) there must be a way back. This route clears
+    the attempt counter, moves the payment back to `escrowed`, and tries the
+    release once immediately so the operator gets the answer now instead of at
+    the next sweep. On failure the counter is simply at 1 again and the normal
+    sweeper cadence resumes; on repeated failure the payment returns to
+    `settlement_failed` after the same bound.
+
+    The escrow itself never moved -- this only re-arms the release path. A
+    refund for the customer remains possible in either state.
+    """
+    service = JobService(session)
+    try:
+        job = service.get_job(job_id)
+    except KeyError:
+        raise HTTPException(status_code=404, detail="job not found") from None
+    payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+    if not payment or payment.status != SETTLEMENT_FAILED:
+        raise HTTPException(
+            status_code=409,
+            detail=f"job has no terminally blocked release (payment_status={payment.status if payment else job.payment_status})",
+        )
+    meta = dict(payment.meta_data or {})
+    attempts = int(meta.pop(META_RELEASE_ATTEMPTS, 0) or 0)
+    meta.pop(META_RELEASE_BLOCKED_AT, None)
+    payment.meta_data = meta
+    payment.status = "escrowed"
+    payment.updated_at = datetime.now(UTC)
+    job.payment_status = "escrowed"
+    session.add(payment)
+    session.add(job)
+    session.commit()
+    payment_service = PaymentService(session)
+    settled = await payment_service.release_payment(
+        job.client_id, job.id, job.payment_id, reason="Operator retry after terminal settlement failure"
+    )
+    if not settled:
+        raise HTTPException(
+            status_code=502,
+            detail="release still did not settle on-chain; payment is escrowed again with the counter restarted",
+        )
+    logger.info("Admin %s reset and released the terminally blocked payment on job %s", user["sub"], job.id)
+    return {
+        "job_id": job.id,
+        "payment_id": job.payment_id,
+        "payment_status": payment.status,
+        "cleared_attempts": attempts,
+        "released_at": datetime.now(UTC).isoformat(),
     }

@@ -29,19 +29,39 @@ logger = get_logger(__name__)
 PENDING_ACCEPTANCE = "pending_acceptance"
 DISPUTED = "disputed"
 
+# Terminal state for an escrow whose release kept failing past the retry bound:
+# the funds are still locked on-chain, but every automatic release path has given
+# up and an operator has to reset it (or refund it) deliberately. Deliberately
+# NOT in HELD_STATES -- every release sweeper's candidate set is built from it,
+# so leaving the set is what stops the retries. Fits job_payments.status (20).
+SETTLEMENT_FAILED = "settlement_failed"
+
 # Payment states in which the escrow is still funded and settlement in either
 # direction is still possible. Both fit job_payments.status (max_length=20).
 HELD_STATES = frozenset({"escrowed", PENDING_ACCEPTANCE, DISPUTED})
+
+# Held plus the terminal-release state: everything still backed by on-chain
+# escrow money. Refund paths accept this wider set -- a payment whose release
+# failed terminally is still the customer's money and must stay refundable.
+REFUNDABLE_STATES = HELD_STATES | {SETTLEMENT_FAILED}
 
 # An hour is long enough to look at a result and short enough that a provider is
 # not financing the customer's inattention.
 DEFAULT_WINDOW_SECONDS = 3600
 DEFAULT_MAX_WINDOW_SECONDS = 7 * 24 * 3600
 
+# Twenty attempts at the slowest sweeper interval (300 s) is ~100 minutes of
+# retries before a stuck release goes terminal -- long enough to ride out a
+# transient RPC outage, short enough that a permanently blocked release stops
+# hammering the chain the same day rather than forever.
+DEFAULT_MAX_RELEASE_ATTEMPTS = 20
+
 META_DEADLINE = "acceptance_deadline"
 META_OPENED_AT = "acceptance_opened_at"
 META_DISPUTE_REASON = "dispute_reason"
 META_DISPUTED_AT = "disputed_at"
+META_RELEASE_ATTEMPTS = "release_attempts"
+META_RELEASE_BLOCKED_AT = "release_blocked_at"
 
 
 def _env_int(name: str, default: int) -> int:
@@ -123,7 +143,13 @@ def opened_window(meta: dict[str, Any] | None, window_seconds: int, now: datetim
     return stamped
 
 
+def max_release_attempts() -> int:
+    """How many times a held payment may be released before it goes terminal."""
+    return max(1, _env_int("COORDINATOR_RELEASE_MAX_ATTEMPTS", DEFAULT_MAX_RELEASE_ATTEMPTS))
+
+
 __all__ = [
+    "DEFAULT_MAX_RELEASE_ATTEMPTS",
     "DEFAULT_MAX_WINDOW_SECONDS",
     "DEFAULT_WINDOW_SECONDS",
     "DISPUTED",
@@ -132,10 +158,15 @@ __all__ = [
     "META_DISPUTED_AT",
     "META_DISPUTE_REASON",
     "META_OPENED_AT",
+    "META_RELEASE_ATTEMPTS",
+    "META_RELEASE_BLOCKED_AT",
     "PENDING_ACCEPTANCE",
+    "REFUNDABLE_STATES",
+    "SETTLEMENT_FAILED",
     "deadline_from",
     "deadline_passed",
     "default_window_seconds",
+    "max_release_attempts",
     "max_window_seconds",
     "opened_window",
     "window_seconds_for",
