@@ -326,8 +326,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         );
         require(block.timestamp > request.createdAt + BRIDGE_TIMEOUT, "Bridge not expired");
 
-        // Refund tokens to sender
-        uint256 refundAmount = request.amount + request.fee;
+        // Refund tokens to sender. Only request.amount is still held: the fee was
+        // already forwarded to feeRecipient in initiateBridge, so refunding
+        // amount + fee would always revert on insufficient balance.
+        uint256 refundAmount = request.amount;
         IERC20(request.sourceToken).safeTransfer(request.sender, refundAmount);
 
         // Update status
@@ -400,7 +402,10 @@ contract CrossChainBridge is Ownable, ReentrancyGuard, Pausable {
         returns (bool isValid)
     {
         bytes32 messageHash = keccak256(abi.encodePacked(requestId, lockTxHash, block.chainid));
-        address recoveredAddress = messageHash.recover(signature);
+        bytes32 ethSignedMessageHash = keccak256(
+            abi.encodePacked("\x19Ethereum Signed Message:\n32", messageHash)
+        );
+        address recoveredAddress = ethSignedMessageHash.recover(signature);
         return validators[recoveredAddress].isActive;
     }
 
