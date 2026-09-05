@@ -125,7 +125,9 @@ def _initialize_tracing() -> None:
             exporter = ConsoleSpanExporter()
 
         span_processor = BatchSpanProcessor(exporter)
-        tracer_provider.add_span_processor(span_processor)
+        # The API TracerProvider protocol has no add_span_processor; the object here is
+        # always the SDK implementation, which does.
+        tracer_provider.add_span_processor(span_processor)  # type: ignore[attr-defined]
         logger.info("Tracing exporter configured: %s", type(exporter).__name__)
     except ImportError:
         logger.warning("opentelemetry packages not installed, skipping tracing exporter")
