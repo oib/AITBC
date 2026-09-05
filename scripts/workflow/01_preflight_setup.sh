@@ -67,12 +67,12 @@ CHAIN_ID=ait-mainnet
 BLOCK_TIME=5
 NETWORK_ID=1337
 CONSENSUS=proof_of_authority
-rpc_bind_host=0.0.0.0
-rpc_bind_port=8202
-auto_sync_enabled=true
-island_id=ait-mainnet-island
-supported_chains=ait-mainnet,ait-testnet
-default_peer_rpc_url=http://aitbc1:8202
+RPC_BIND_HOST=0.0.0.0
+RPC_BIND_PORT=8202
+AUTO_SYNC_ENABLED=true
+ISLAND_ID=ait-mainnet-island
+SUPPORTED_CHAINS=ait-mainnet,ait-testnet
+DEFAULT_PEER_RPC_URL=http://aitbc1:8202
 EOF
     echo "Created /etc/aitbc/blockchain.env"
 else

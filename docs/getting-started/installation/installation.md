@@ -13,13 +13,17 @@
 
 ## Security First Setup
 
-**⚠️ IMPORTANT**: AITBC has enterprise-level security hardening. After installation, immediately run:
+**⚠️ IMPORTANT**: After installation, run the security tooling that ships in the repo:
 
 ```bash
-# Run comprehensive security audit and hardening
-./scripts/comprehensive-security-audit.sh
+# Production security assessment (writes /opt/aitbc/security_audit_report.json)
+python3 scripts/security/security_audit.py
 
-# This will fix 90+ CVEs, harden SSH, and verify smart contracts
+# Dependency vulnerability scan
+./scripts/security/dependency-scan.sh
+
+# System hardening (SSH, services, file permissions) — review before running
+./scripts/utils/security_hardening.sh
 ```
 
 **Security Status**: 🛡️ AUDITED & HARDENED
