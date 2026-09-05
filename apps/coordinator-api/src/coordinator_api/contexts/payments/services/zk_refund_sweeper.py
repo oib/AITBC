@@ -38,7 +38,7 @@ from aitbc_shared import JobPayment, PaymentEscrow
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
-from ..acceptance import PENDING_ACCEPTANCE, deadline_from
+from ..acceptance import PENDING_ACCEPTANCE, SETTLEMENT_FAILED, deadline_from
 from .payments import PaymentService, _computation_is_correct, _zk_required_for_payment, get_receipt_of_record
 
 logger = get_logger(__name__)
@@ -101,7 +101,7 @@ class ZkRefundSweeper:
             .join(JobPayment, col(Job.payment_id) == JobPayment.id)
             .where(col(Job.state) == "COMPLETED")
             .where(
-                (col(JobPayment.status).in_({"escrowed", PENDING_ACCEPTANCE}))
+                (col(JobPayment.status).in_({"escrowed", PENDING_ACCEPTANCE, SETTLEMENT_FAILED}))
                 | ((col(JobPayment.status) == "refunded") & (col(JobPayment.refund_transaction_hash).is_(None)))
             )
             .where(col(JobPayment.escrowed_at).is_not(None))

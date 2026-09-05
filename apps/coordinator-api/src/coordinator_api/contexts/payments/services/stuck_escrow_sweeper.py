@@ -20,7 +20,7 @@ from aitbc_shared import JobPayment, PaymentEscrow
 
 from ....storage.db import get_engine
 from ...infrastructure.domain.job import Job
-from ..acceptance import DISPUTED, HELD_STATES, META_DISPUTED_AT
+from ..acceptance import DISPUTED, HELD_STATES, META_DISPUTED_AT, SETTLEMENT_FAILED
 from .payments import PaymentService
 
 logger = get_logger(__name__)
@@ -110,7 +110,7 @@ class StuckEscrowSweeper:
         stmt = (
             select(Job, JobPayment)
             .join(JobPayment, col(Job.payment_id) == JobPayment.id)
-            .where(col(JobPayment.status).in_(HELD_STATES))
+            .where(col(JobPayment.status).in_(HELD_STATES | {SETTLEMENT_FAILED}))
             .where(col(JobPayment.escrowed_at).is_not(None))
             .where(col(Job.payment_id).is_not(None))
             .where(col(Job.state).in_({"CANCELED", "FAILED", "EXPIRED"}))
