@@ -1,0 +1,37 @@
+[Unit]
+Description=AITBC memory usage monitor
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=network.target
+
+[Service]
+Type=oneshot
+# Runs as root deliberately: check_oom_events reads the kernel ring buffer, which
+# needs CAP_SYSLOG. Under User=aitbc the read fails, and because the script pipes
+# into `wc -l` the failure used to come back as a count of 0 -- i.e. a monitor that
+# reports "no OOM events" precisely when it cannot look. The script now
+# distinguishes the two; running as root is what makes the check real.
+User=root
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/aitbc/scripts/monitoring/memory-monitor.sh
+# Exits 1 when a service is over its memory threshold or an OOM kill is found.
+SyslogIdentifier=aitbc-memory-monitor
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# ProtectKernelTunables is NOT set: it implies restrictions that block the
+# kernel-log read this unit exists to perform.
+ReadWritePaths=/var/log/aitbc
+
+[Install]
+WantedBy=multi-user.target

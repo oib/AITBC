@@ -1,0 +1,15 @@
+[Unit]
+Description=Run AITBC chain isolation verification hourly
+Documentation=https://gitea.bubuit.net/oib/AITBC
+
+[Timer]
+OnCalendar=hourly
+# Full sqlite scans of every chain.db -- stagger across the fleet so five nodes
+# do not hit their disks on the same second.
+RandomizedDelaySec=300
+# Catch up after downtime rather than silently skipping a window.
+Persistent=true
+Unit=aitbc-chain-isolation-monitor.service
+
+[Install]
+WantedBy=timers.target

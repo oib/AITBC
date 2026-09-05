@@ -1,0 +1,34 @@
+[Unit]
+Description=AITBC chain isolation verification
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=network.target
+
+[Service]
+Type=oneshot
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+ExecStart=/opt/aitbc/scripts/monitoring/verify_chain_isolation.sh
+# The script exits 1 on a detected violation, so a failed unit IS the alert.
+SyslogIdentifier=aitbc-chain-isolation-monitor
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+# Reads the chain databases; writes only its own log.
+ReadOnlyPaths=/var/lib/aitbc
+ReadWritePaths=/var/log/aitbc
+
+[Install]
+WantedBy=multi-user.target

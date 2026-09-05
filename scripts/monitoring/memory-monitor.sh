@@ -103,12 +103,24 @@ check_oom_events() {
     echo ""
     echo "=== OOM Killer Events ==="
 
-    local oom_count=$(sudo dmesg 2>/dev/null | grep -i "out of memory" | wc -l)
+    # Read the kernel ring buffer directly when we already have CAP_SYSLOG (the
+    # systemd unit runs as root), falling back to a non-interactive sudo for
+    # manual runs. Piping straight into `wc -l` used to swallow the failure: an
+    # unreadable buffer produced a count of 0, so the check reported "no OOM
+    # events" in exactly the case where it could not look. Distinguish the two.
+    local dmesg_out
+    if ! dmesg_out=$(dmesg 2>/dev/null) && ! dmesg_out=$(sudo -n dmesg 2>/dev/null); then
+        echo -e "${YELLOW}SKIPPED: kernel log unreadable (needs CAP_SYSLOG); OOM check did not run${NC}"
+        log_message "WARNING" "Kernel log unreadable; OOM check did not run"
+        return 0
+    fi
 
-    if [ $oom_count -gt 0 ]; then
+    local oom_count=$(printf '%s\n' "$dmesg_out" | grep -ci "out of memory")
+
+    if [ "$oom_count" -gt 0 ]; then
         echo -e "${RED}ALERT: Found $oom_count OOM killer events in kernel log${NC}"
         log_message "ALERT" "Found $oom_count OOM killer events in kernel log"
-        sudo dmesg 2>/dev/null | grep -i "out of memory" | tail -5
+        printf '%s\n' "$dmesg_out" | grep -i "out of memory" | tail -5
         return 1
     else
         echo -e "${GREEN}OK: No OOM killer events found${NC}"

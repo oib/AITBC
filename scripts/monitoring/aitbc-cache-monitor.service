@@ -1,0 +1,36 @@
+[Unit]
+Description=AITBC Redis cache monitor
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=network.target redis-server.service
+
+[Service]
+Type=oneshot
+User=aitbc
+Group=aitbc
+WorkingDirectory=/opt/aitbc
+Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
+# Optional, and absent by default (the leading '-'). Hosts whose Redis requires
+# authentication supply REDISCLI_AUTH here; without it redis-cli gets NOAUTH and
+# the monitor correctly reports a connection failure.
+EnvironmentFile=-/etc/aitbc/redis.env
+ExecStart=/opt/aitbc/scripts/monitoring/cache-monitor.sh
+# Exits 1 when Redis is unreachable or over its memory threshold.
+SyslogIdentifier=aitbc-cache-monitor
+
+# Hardening
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectSystem=strict
+ProtectHome=true
+ProtectKernelTunables=true
+ProtectKernelModules=true
+ProtectControlGroups=true
+RestrictSUIDSGID=true
+RestrictRealtime=true
+LockPersonality=true
+SystemCallArchitectures=native
+SystemCallFilter=@system-service
+ReadWritePaths=/var/log/aitbc
+
+[Install]
+WantedBy=multi-user.target
