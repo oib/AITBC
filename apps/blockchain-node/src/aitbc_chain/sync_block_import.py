@@ -596,6 +596,31 @@ class BlockImportMixin(SyncBase):
                 metrics_registry.increment("sync_state_root_rejected_total")
                 session.rollback()
                 self._track_rejection(self._chain_id)
+                # Two very different faults produced this same message before, and only
+                # one of them is about the incoming block. If our own account state has
+                # drifted away from our head, re-applying the block on top of state that
+                # already contains it can never reproduce the expected root, so the node
+                # retries forever. hub2 emitted 866 identical "BLOCK REJECTED" lines over
+                # six hours pointing at block 1300 while the actual fault was a single
+                # local account row one transaction ahead of its own head.
+                divergence = self._describe_local_state_divergence(session, block_data["height"] - 1)
+                if divergence:
+                    metrics_registry.increment("sync_local_state_divergence_total")
+                    logger.error(
+                        "[SYNC] Local state diverged from our own head %s: %s. "
+                        "Block %s cannot be imported until local state is repaired; "
+                        "retrying will not help - BLOCK REJECTED",
+                        block_data["height"] - 1,
+                        divergence,
+                        block_data["height"],
+                    )
+                    return self._make_import_result(
+                        accepted=False,
+                        height=block_data["height"],
+                        block_hash=block_hash,
+                        reason=(f"Local state diverged from head {block_data['height'] - 1}: {divergence}"),
+                        diverged=True,
+                    )
                 logger.error(
                     "[SYNC] State root mismatch at height %s: expected %s, computed %s - BLOCK REJECTED",
                     block_data["height"],
@@ -627,6 +652,29 @@ class BlockImportMixin(SyncBase):
         return self._make_import_result(
             accepted=True, height=block_data["height"], block_hash=block_data["hash"], reason="Appended to chain"
         )
+
+    def _describe_local_state_divergence(self, session: Session, parent_height: int) -> str | None:
+        """Describe how our account state differs from the state root our own head records.
+
+        Only called after a state-root rejection has already rolled the session back, so
+        the accounts read here are our committed pre-block state. That state must hash to
+        the state root stored in our head block. When it does not, the fault is local --
+        state was mutated outside block import, or a block was applied without being
+        recorded -- and no number of retries of the incoming block will resolve it.
+
+        Returns None when the local state is consistent with our head (in which case the
+        incoming block itself is at fault), or when the comparison cannot be made.
+        """
+        parent = session.exec(select(Block).where(Block.chain_id == self._chain_id, Block.height == parent_height)).first()
+        if parent is None or not parent.state_root:
+            return None
+        actual = state_root_utils.compute_state_root_full(session, self._chain_id)
+        if actual is None:
+            return None
+        recorded = str(parent.state_root)
+        if actual.replace("0x", "").lower() == recorded.replace("0x", "").lower():
+            return None
+        return f"head records state root {recorded}, our accounts hash to {actual}"
 
     def _resolve_fork(
         self, session: Session, block_data: dict[str, Any], transactions: list[dict[str, Any]] | None, our_head: Block
