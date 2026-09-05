@@ -71,7 +71,22 @@ pip install -r mcp-server/requirements.txt
 ```
 
 If you want a dedicated MCP venv instead, install the project and
-`mcp-server/requirements.txt` in it so `import aitbc` works.
+`mcp-server/requirements.txt` in it so `import aitbc` works — including the
+repo-local path packages (`aitbc_errors`, `aitbc_crypto`, ...), which the
+server needs because `aitbc/exceptions.py` re-exports from `aitbc_errors`.
+`mcp-server/sync-venv.sh` does all of it and verifies the import chain:
+
+```bash
+/opt/aitbc/mcp-server/sync-venv.sh /path/to/mcp-venv
+```
+
+A dedicated venv is not covered by `setup.sh`/`update.sh`, which only maintain
+`<repo>/venv`. Re-run `sync-venv.sh` after pulling the repo — a new path
+package (like `aitbc-errors`) will otherwise crash the server at startup and
+the MCP host only reports a generic "cannot connect". On hosts that run
+`update.sh`, you can instead list the venv in `AITBC_EXTRA_VENVS`
+(space-separated, e.g. in `/etc/aitbc/node.env`) and
+`install-path-packages.sh` refreshes it automatically on every update.
 
 The live nodes also need the `aitbc` CLI. The MCP server resolves it in this
 order:
