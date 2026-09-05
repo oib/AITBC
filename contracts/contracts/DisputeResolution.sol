@@ -130,7 +130,9 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => Dispute) public disputes;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getDispute().
+    mapping(uint256 => Dispute) internal disputes;
     mapping(uint256 => Evidence[]) public disputeEvidence;
     mapping(uint256 => ArbitrationVote[]) public arbitrationVotes;
     mapping(uint256 => EscalationRecord) public escalations;

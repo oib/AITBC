@@ -69,7 +69,9 @@ contract StakingPoolFactory is IStakingPoolFactory, Ownable, ReentrancyGuard, Pa
     }
 
     // Mappings
-    mapping(uint256 => StakingPool) public stakingPools;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getPoolDetails().
+    mapping(uint256 => StakingPool) internal stakingPools;
     mapping(uint256 => StakingPosition) public stakingPositions;
     mapping(uint256 => uint256[]) public poolStakers;
     mapping(address => uint256[]) public stakerPositions;

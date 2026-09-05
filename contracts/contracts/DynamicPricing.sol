@@ -138,7 +138,9 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => MarketData) public marketDataHistory;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getMarketData().
+    mapping(uint256 => MarketData) internal marketDataHistory;
     mapping(uint256 => PriceHistory[]) public priceHistory;
     mapping(address => ProviderPricing) public providerPricing;
     mapping(string => RegionalPricing) public regionalPricing;
