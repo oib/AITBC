@@ -432,10 +432,10 @@ contract DAOGovernanceEnhanced is IModularContract, Ownable, ReentrancyGuard {
         if (address(performanceAggregator) != address(0)) {
             uint256 reputation = performanceAggregator.getReputationScore(_staker);
             reputationMultiplier = performanceAggregator.calculateAPYMultiplier(reputation);
+            staker.reputationScore = reputation;
         }
 
         staker.votingPower = (basePower * reputationMultiplier) / 10000;
-        staker.reputationScore = performanceAggregator.getReputationScore(_staker);
 
         emit VotingPowerUpdated(_staker, staker.votingPower);
         emit ReputationUpdated(_staker, staker.reputationScore);
