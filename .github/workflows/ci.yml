@@ -55,6 +55,19 @@ jobs:
             fi
           done
 
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '24'
+
+      - name: Install contracts Node deps
+        working-directory: contracts
+        run: npm ci --no-audit --no-fund
+
+      - name: Hardhat tests
+        working-directory: contracts
+        run: npx hardhat test
+
       - name: Version consistency check
         run: make version-check
 
