@@ -156,6 +156,14 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     uint256[] public activePriceAlerts;
     uint256[] public recentPriceUpdates;
 
+    // Ids for forecasts and alerts must not come from priceUpdateCounter: every
+    // market-data read (getMarketPrice, getMarketData, getPriceHistory) treats
+    // that counter as "number of market-data entries". Sharing it meant creating
+    // one alert or forecast pushed those reads onto an empty slot, so the market
+    // price silently became 0. Declared last to keep the storage layout stable.
+    uint256 public forecastCounter;
+    uint256 public alertCounter;
+
     // Events
     event MarketDataUpdated(
         uint256 indexed timestamp,
@@ -348,8 +356,15 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
 
         // Store price history
         PriceChangeType changeType = _determinePriceChangeType(previousData.averagePrice, newAveragePrice);
-        uint256 changePercentage = previousData.averagePrice > 0 ?
-            ((newAveragePrice - previousData.averagePrice) * 10000) / previousData.averagePrice : 0;
+        // Magnitude only: the subtraction must follow the direction of the change.
+        // Taking (new - previous) unconditionally underflows on every price drop,
+        // which reverted the whole update and made the oracle one-directional.
+        uint256 changePercentage = 0;
+        if (previousData.averagePrice > 0) {
+            changePercentage = newAveragePrice > previousData.averagePrice
+                ? ((newAveragePrice - previousData.averagePrice) * 10000) / previousData.averagePrice
+                : ((previousData.averagePrice - newAveragePrice) * 10000) / previousData.averagePrice;
+        }
 
         priceHistory[priceUpdateId].push(PriceHistory({
             timestamp: timestamp,
@@ -556,7 +571,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         require(_predictedDemand > 0, "Invalid predicted demand");
         require(_confidence <= 100, "Invalid confidence");
 
-        uint256 forecastId = priceUpdateCounter++;
+        uint256 forecastId = forecastCounter++;
 
         demandForecasts[forecastId] = DemandForecast({
             forecastPeriod: _forecastPeriod,
@@ -586,7 +601,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
         require(_subscriber != address(0), "Invalid subscriber");
         require(_thresholdPrice > 0, "Invalid threshold price");
 
-        uint256 alertId = priceUpdateCounter++;
+        uint256 alertId = alertCounter++;
 
         priceAlerts[alertId] = PriceAlert({
             alertId: alertId,
