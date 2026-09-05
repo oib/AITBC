@@ -3,18 +3,32 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/AIPowerRental.sol";
+import "../../contracts/ZKReceiptVerifier.sol";
+import "../../contracts/Groth16Verifier.sol";
+import "../../contracts/AIToken.sol";
 
 contract AIPowerRentalFuzzTest is Test {
     AIPowerRental public rental;
-    address public owner;
+    AIToken public paymentToken;
     address public provider;
-    address payable public renter;
+    address public renter;
 
     function setUp() public {
-        owner = address(this);
         provider = makeAddr("provider");
-        renter = payable(makeAddr("renter"));
-        rental = new AIPowerRental();
+        renter = makeAddr("renter");
+
+        paymentToken = new AIToken(0);
+        vm.warp(block.timestamp + 2 days); // AIToken enforces a 1-day minting cooldown
+        ZKReceiptVerifier zkVerifier = new ZKReceiptVerifier();
+        Groth16Verifier groth16Verifier = new Groth16Verifier();
+        rental = new AIPowerRental(
+            address(paymentToken),
+            address(zkVerifier),
+            address(groth16Verifier)
+        );
+
+        rental.authorizeProvider(provider);
+        rental.authorizeConsumer(renter);
     }
 
     function invariant_balanceInvariant() public {
@@ -22,19 +36,20 @@ contract AIPowerRentalFuzzTest is Test {
     }
 
     function testFuzz_RentalFlow(uint256 duration, uint256 price) public {
-        vm.assume(duration > 0 && duration <= 365 days);
-        vm.assume(price >= 0.001 ether && price <= 10 ether);
+        duration = bound(duration, rental.minRentalDuration(), rental.maxRentalDuration());
+        price = bound(price, 1, 1_000_000 ether);
 
-        uint256 rentAmount = price * duration / 1 days;
-        vm.deal(renter, rentAmount + 1 ether);
+        uint256 totalAmount = price + (price * rental.platformFeePercentage()) / 10000;
+        paymentToken.mint(renter, totalAmount);
 
-        vm.prank(provider);
-        rental.createRental(price, duration);
+        vm.startPrank(renter);
+        uint256 agreementId = rental.createRental(provider, renter, duration, price, "GPU", 1);
+        paymentToken.approve(address(rental), totalAmount);
+        rental.startRental(agreementId);
+        vm.stopPrank();
 
-        uint256 rentalId = 0;
-        vm.prank(renter);
-        rental.startRental{value: rentAmount}(rentalId);
-
-        assertEq(rental.getRentalEnd(rentalId), block.timestamp + duration);
+        AIPowerRental.RentalAgreement memory agreement = rental.getRentalAgreement(agreementId);
+        assertEq(agreement.endTime, agreement.startTime + duration);
+        assertEq(uint8(agreement.status), uint8(AIPowerRental.RentalStatus.Active));
     }
 }
