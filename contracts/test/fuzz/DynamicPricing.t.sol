@@ -6,33 +6,29 @@ import "../../contracts/DynamicPricing.sol";
 
 contract DynamicPricingFuzzTest is Test {
     DynamicPricing public pricing;
-    address public owner;
+    address public oracle;
     address public provider;
 
     function setUp() public {
-        owner = address(this);
+        oracle = makeAddr("oracle");
         provider = makeAddr("provider");
-        pricing = new DynamicPricing();
-        vm.prank(owner);
-        pricing.addProvider(provider);
+        pricing = new DynamicPricing(address(1), address(2), address(3));
+        pricing.authorizePriceOracle(oracle);
     }
 
     function invariant_noNegativePrice() public {
-        uint256 price = pricing.getCurrentPrice(provider);
+        uint256 price = pricing.getMarketPrice(provider, "");
         assertGe(price, 0, "Price should never be negative");
     }
 
-    function testFuzz_PriceAdjustment(uint256 basePrice, uint256 utilization) public {
-        vm.assume(basePrice >= 0.001 ether && basePrice <= 10 ether);
-        vm.assume(utilization >= 0 && utilization <= 10000); // basis points
+    function testFuzz_MarketUpdate(uint256 totalSupply, uint256 totalDemand) public {
+        totalSupply = bound(totalSupply, 1, type(uint64).max);
+        totalDemand = bound(totalDemand, 1, type(uint64).max);
 
-        vm.prank(provider);
-        pricing.setBasePrice(basePrice);
+        vm.prank(oracle);
+        pricing.updateMarketData(totalSupply, totalDemand, 1, 1, 0, 0, 0, 0, 50);
 
-        vm.prank(owner);
-        pricing.updateUtilization(provider, utilization);
-
-        uint256 price = pricing.getCurrentPrice(provider);
-        assertGe(price, 0, "Adjusted price must be non-negative");
+        uint256 price = pricing.getMarketPrice(provider, "");
+        assertGe(price, 0, "Market price must be non-negative");
     }
 }

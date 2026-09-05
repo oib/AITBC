@@ -2,9 +2,13 @@
 pragma solidity ^0.8.19;
 
 import "forge-std/Test.sol";
-import "../../contracts/contracts/ContractRegistry.sol";
+import "../../contracts/ContractRegistry.sol";
 
 contract ContractRegistryFuzzTest is Test {
+    // The registry registers itself under this id in its constructor; fuzzed ids
+    // colliding with it revert with ContractAlreadyRegistered.
+    bytes32 internal selfId = keccak256(abi.encodePacked("ContractRegistry"));
+
     ContractRegistry public registry;
     address public owner;
     address public user1;
@@ -26,6 +30,7 @@ contract ContractRegistryFuzzTest is Test {
     function testFuzz_RegisterContract(bytes32 contractId, address contractAddress) public {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
+        vm.assume(contractId != selfId);
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -37,19 +42,20 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(contractId != bytes32(0));
 
         vm.prank(owner);
-        vm.expectRevert("Invalid address");
+        vm.expectRevert(abi.encodeWithSelector(ContractRegistry.InvalidAddress.selector, address(0)));
         registry.registerContract(contractId, address(0));
     }
 
     function testFuzz_RevertIfAlreadyRegistered(bytes32 contractId, address contractAddress) public {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
+        vm.assume(contractId != selfId);
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
 
         vm.prank(owner);
-        vm.expectRevert("ContractAlreadyRegistered");
+        vm.expectRevert(abi.encodeWithSelector(ContractRegistry.ContractAlreadyRegistered.selector, contractId));
         registry.registerContract(contractId, contractAddress);
     }
 
@@ -58,6 +64,7 @@ contract ContractRegistryFuzzTest is Test {
         vm.assume(newAddress != address(0));
         vm.assume(oldAddress != newAddress);
         vm.assume(contractId != bytes32(0));
+        vm.assume(contractId != selfId);
 
         vm.prank(owner);
         registry.registerContract(contractId, oldAddress);
@@ -71,6 +78,7 @@ contract ContractRegistryFuzzTest is Test {
     function testFuzz_DeregisterContract(bytes32 contractId, address contractAddress) public {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
+        vm.assume(contractId != selfId);
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -78,18 +86,19 @@ contract ContractRegistryFuzzTest is Test {
         vm.prank(owner);
         registry.deregisterContract(contractId);
 
-        vm.expectRevert("ContractNotFound");
+        vm.expectRevert(abi.encodeWithSelector(ContractRegistry.ContractNotFound.selector, contractId));
         registry.getContract(contractId);
     }
 
-    function testFuzz_BatchRegister(bytes32[] calldata contractIds, address[] calldata addresses) public {
-        vm.assume(contractIds.length == addresses.length);
-        vm.assume(contractIds.length > 0);
-        vm.assume(contractIds.length <= 100);
+    function testFuzz_BatchRegister(uint8 numContracts) public {
+        vm.assume(numContracts > 0);
+        vm.assume(numContracts <= 100);
 
-        for (uint256 i = 0; i < addresses.length; i++) {
-            vm.assume(addresses[i] != address(0));
-            vm.assume(contractIds[i] != bytes32(0));
+        bytes32[] memory contractIds = new bytes32[](numContracts);
+        address[] memory addresses = new address[](numContracts);
+        for (uint256 i = 0; i < numContracts; i++) {
+            contractIds[i] = keccak256(abi.encodePacked("batch", i));
+            addresses[i] = address(uint160(i + 1000));
         }
 
         vm.prank(owner);
@@ -123,6 +132,7 @@ contract ContractRegistryFuzzTest is Test {
     function testFuzz_GetContractVersion(bytes32 contractId, address contractAddress) public {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
+        vm.assume(contractId != selfId);
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
@@ -146,6 +156,7 @@ contract ContractRegistryFuzzTest is Test {
     function testFuzz_GetContractId(address contractAddress, bytes32 contractId) public {
         vm.assume(contractAddress != address(0));
         vm.assume(contractId != bytes32(0));
+        vm.assume(contractId != selfId);
 
         vm.prank(owner);
         registry.registerContract(contractId, contractAddress);
