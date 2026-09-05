@@ -13,7 +13,7 @@ Environment="DATA_DIR=/var/lib/aitbc"
 Environment="LOG_DIR=/var/log/aitbc"
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn monitoring_service.main:app --host 0.0.0.0 --port 8002 --log-level critical --no-access-log
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn monitoring_service.main:app --host 127.0.0.1 --port 8002 --log-level critical --no-access-log
 Restart=on-failure
 RestartSec=5
 StandardOutput=journal
