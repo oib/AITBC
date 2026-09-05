@@ -88,7 +88,13 @@ else
     }
 fi
 
-pip install -r "$REQ_FILE" || {
+# Toolchain pins (pip/setuptools/wheel) leak into the lockfile through
+# transitive dev deps like pip-api, and installing them would downgrade the
+# very toolchain doing the installing -- update.sh upgrades pip, then this
+# would pin it straight back. The toolchain floats; the lockfile pins libs.
+TOOLCHAIN_FILTER='^(pip|setuptools|wheel)[[:space:]]*(==|[<>=!~])'
+grep -vE "$TOOLCHAIN_FILTER" "$REQ_FILE" > "$REQ_FILE.filtered"
+pip install -r "$REQ_FILE.filtered" || {
     error "pip install -r '$REQ_FILE' failed"
 }
 
@@ -144,7 +150,10 @@ fi
 if [ "$IS_DEV_NODE" = "1" ]; then
     if [ -f "$REPO_ROOT/requirements-dev.txt" ]; then
         echo "Dev node: installing dev tier..."
-        pip install -r "$REPO_ROOT/requirements-dev.txt" || {
+        # Same toolchain filter as the profile install above: pip/setuptools/
+        # wheel pins in the dev file must not downgrade the running toolchain.
+        grep -vE "$TOOLCHAIN_FILTER" "$REPO_ROOT/requirements-dev.txt" > "$REPO_ROOT/.requirements/requirements-dev.filtered.txt"
+        pip install -r "$REPO_ROOT/.requirements/requirements-dev.filtered.txt" || {
             error "pip install -r requirements-dev.txt failed"
         }
     else
