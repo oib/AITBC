@@ -31,7 +31,6 @@ Production Solidity contracts live in `contracts/contracts/`:
 | `AgentCommunication` | [AgentCommunication.sol](../../contracts/contracts/AgentCommunication.sol) |
 | `AgentMarketplaceV2` | [AgentMarketplaceV2.sol](../../contracts/contracts/AgentMarketplaceV2.sol) |
 | `AgentMemory` | [AgentMemory.sol](../../contracts/contracts/AgentMemory.sol) |
-| `AgentPortfolioManager` | [AgentPortfolioManager.sol](../../contracts/contracts/AgentPortfolioManager.sol) |
 | `AgentServiceMarketplace` | [AgentServiceMarketplace.sol](../../contracts/contracts/AgentServiceMarketplace.sol) |
 | `AgentStaking` | [AgentStaking.sol](../../contracts/contracts/AgentStaking.sol) |
 | `AgentWallet` | [AgentWallet.sol](../../contracts/contracts/AgentWallet.sol) |
