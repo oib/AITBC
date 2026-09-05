@@ -16,9 +16,37 @@ invisible while the app suites were not collected at all.
 from __future__ import annotations
 
 import atexit
+import importlib.util
 import os
 import shutil
 import tempfile
+
+
+def pytest_addoption(parser):
+    """Keep `addopts` parseable on hosts without the dev/test tier.
+
+    `pyproject.toml` addopts carry `--reruns 2 --reruns-delay 1`, which are
+    defined by pytest-rerunfailures — a test-tier dependency that production
+    installs may lack. Without the plugin, pytest aborts collection with
+    "unrecognized arguments", which is what made every node need
+    requirements-test.txt just to run its own suite. When the plugin is not
+    importable, register the options as no-ops so parsing succeeds; reruns
+    simply do not happen on those hosts.
+    """
+    if importlib.util.find_spec("pytest_rerunfailures") is None:
+        parser.addoption(
+            "--reruns",
+            action="store",
+            default="0",
+            help="no-op: pytest-rerunfailures is not installed",
+        )
+        parser.addoption(
+            "--reruns-delay",
+            action="store",
+            default="0",
+            help="no-op: pytest-rerunfailures is not installed",
+        )
+
 
 # Read by `_load_env_file`. Set before collection imports anything, so the env files are
 # never read in-process. Deployments do not set it and are unaffected.
@@ -66,8 +94,12 @@ def pytest_sessionfinish(session, exitstatus):  # noqa: ANN001, ANN201, ARG001
     """
     import gc
 
-    from sqlalchemy.engine import Engine
-    from sqlalchemy.ext.asyncio import AsyncEngine
+    try:
+        from sqlalchemy.engine import Engine
+        from sqlalchemy.ext.asyncio import AsyncEngine
+    except ImportError:
+        # No SQLAlchemy means no engines were ever built -- nothing to check.
+        return
 
     deployed = os.path.realpath(_DEPLOYED_DATA_DIR)
     found: set[str] = set()
