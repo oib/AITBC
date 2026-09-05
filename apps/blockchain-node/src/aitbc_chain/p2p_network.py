@@ -101,7 +101,11 @@ class P2PNetworkService:
         logger.info("Chain ID: %s", self.chain_id)
         if self.island_id:
             self.island_manager = IslandManager(
-                self.node_id, self.island_id, self.island_chain_id or f"ait-{self.island_id[:8]}"
+                self.node_id,
+                self.island_id,
+                self.island_chain_id or f"ait-{self.island_id[:8]}",
+                is_hub=self.is_hub,
+                role=settings.blockchain_mode,
             )
             logger.info("Initialized island manager")
         if self.is_hub:
@@ -637,9 +641,9 @@ class P2PNetworkService:
             from .database import session_scope
 
             with session_scope(self.chain_id) as session:
-                from .models import Block
-
                 from sqlalchemy import select
+
+                from .models import Block
 
                 stmt = select(Block).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
                 block = session.exec(stmt).first()  # type: ignore[call-overload]

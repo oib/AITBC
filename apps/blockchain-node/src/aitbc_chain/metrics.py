@@ -109,6 +109,32 @@ subscription_messages_received_total = Counter(
     ["chain_id", "topic"],
 )
 
+# Gossip WebSocket Auth / Rate-Limit Metrics
+gossip_auth_rejected_total = Counter(
+    "blockchain_gossip_auth_rejected_total",
+    "Total gossip websocket auth failures",
+    ["reason"],
+)
+gossip_auth_accepted_total = Counter(
+    "blockchain_gossip_auth_accepted_total",
+    "Total gossip websocket auth successes",
+    ["address"],
+)
+gossip_rate_limited_total = Counter(
+    "blockchain_gossip_rate_limited_total",
+    "Total gossip websocket rate-limited messages",
+    ["reason"],
+)
+gossip_oversized_message_total = Counter(
+    "blockchain_gossip_oversized_message_total",
+    "Total gossip websocket messages exceeding max size",
+)
+gossip_messages_published_total = Counter(
+    "blockchain_gossip_messages_published_total",
+    "Total messages published through the public gossip websocket",
+    ["topic"],
+)
+
 # Bridge / Escrow Metrics
 bridge_pending_transfers = Gauge(
     "blockchain_bridge_pending_transfers",

@@ -158,22 +158,26 @@ Followers receive blocks from the hub via a **lease-based subscription system** 
 |----------|----------|---------|-------------|
 | `subscription_enabled` | No | `true` | Enable lease-based block subscription from hub (followers) |
 | `subscription_transport` | No | `websocket` | Transport for block push: `websocket`, `http`, or `redis` |
-| `default_peer_rpc_url` | Followers | - | Hub RPC URL (e.g., `http://hub.aitbc.bubuit.net/rpc`) |
+| `default_peer_rpc_url` | Followers | - | Hub **base** URL (e.g., `https://hub.aitbc.bubuit.net`) |
 
 **How it works:**
 
-1. Follower registers via `POST <default_peer_rpc_url>/subscribe` to obtain a lease
-2. Follower opens WebSocket to `ws://<hub>/rpc/subscribe/ws` for real-time block push
-3. Follower sends periodic `POST <default_peer_rpc_url>/heartbeat` to extend the lease
+1. Follower registers via `POST <default_peer_rpc_url>/rpc/subscribe` to obtain a lease
+2. Follower opens WebSocket to `wss://<hub>/rpc/subscribe/ws` for real-time block push
+3. Follower sends periodic `POST <default_peer_rpc_url>/rpc/heartbeat` to extend the lease
 4. If the follower falls behind, it uses bulk sync via `POST /rpc/sync` to catch up
 
-**Example (follower blockchain.env):**
+**Example (follower node.env):**
 
 ```bash
-default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc
+NODE_ID=your-node-id
+BLOCKCHAIN_MODE=follower
+default_peer_rpc_url=https://hub.aitbc.bubuit.net
 subscription_enabled=true
 subscription_transport=websocket
 ```
+
+The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 ### Blockchain Configuration
 
@@ -279,7 +283,7 @@ auto_sync_enabled=true
 island_id=ait-mainnet-island
 supported_chains=ait-mainnet,ait-testnet
 db_encryption_enabled=false
-default_peer_rpc_url=http://node1:8202
+default_peer_rpc_url=https://node1.aitbc.bubuit.net
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
 ENFORCE_STATE_ROOT_VALIDATION=true
 WORKERS=1
@@ -347,7 +351,7 @@ auto_sync_enabled=true
 island_id=ait-testnet-island
 supported_chains=ait-testnet
 db_encryption_enabled=false
-default_peer_rpc_url=http://aitbc:8202
+default_peer_rpc_url=https://aitbc.bubuit.net
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
 ENFORCE_STATE_ROOT_VALIDATION=true
 WORKERS=1
@@ -375,6 +379,18 @@ Until v0.23 this file was served unauthenticated from `https://hub.aitbc.bubuit.
 |----------|----------|---------|-------------|
 | `COORDINATOR_API_KEY` | Yes | - | API key for Agent Coordinator authentication. Also the fallback credential for `X-Api-Key` miner auth (`aitbc/auth/dependencies.py`) — presenting it authenticates as role `miner`. |
 | `SECRET_KEY` | Yes | - | Message authentication secret. Accepted **interchangeably with** `COORDINATOR_API_KEY` by the agent-coordinator faucet and websocket routers, so the two are not independent: either value alone opens both. |
+| `API_KEY_HASH_SECRET` | Yes | - | HMAC secret for API-key hash derivation. |
+| `JWT_SECRET` | Yes | - | Token signing secret for JWT-secured coordinator endpoints. |
+
+### Redis / Gossip Secrets
+
+Cluster-wide backend secrets also live in this file:
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `REDIS_URL` | If using Redis | - | Full `redis://` or `rediss://` URL including credentials. |
+| `GOSSIP_BROADCAST_URL` | If using Redis gossip | - | `redis://` URL used by the hub's gossip broker. |
+| `SYNC_REDIS_URL` | If using Redis sync | - | `redis://` URL used by the sync backend. |
 
 ### Example blockchain-secrets.env
 
@@ -384,6 +400,10 @@ Generate the values; do not copy them from anywhere, including this page.
 # Shared cluster secrets for one island -- placeholders, not usable values
 COORDINATOR_API_KEY=<64 hex chars from `openssl rand -hex 32`>
 SECRET_KEY=<a different 64 hex chars from a second `openssl rand -hex 32`>
+API_KEY_HASH_SECRET=<64 hex chars from a third `openssl rand -hex 32`>
+JWT_SECRET=<64 hex chars from a fourth `openssl rand -hex 32`>
+# Redis backend URL with password (only for hub/validator deployments)
+# REDIS_URL=redis://:<password>@localhost:6379/0
 ```
 
 Use two different values. Because the coordinator routers accept either one, reusing a single value for both means a leak of one is a leak of the other, with nothing left to fall back on during rotation.
@@ -399,7 +419,7 @@ Use two different values. Because the coordinator routers accept either one, reu
 - **File permissions:** Should be `600` (owner read/write only)
 - **Distribution:** Out of band only. These are credentials, not configuration — "open island" describes who may *join* the chain, not who may *authenticate* to its services.
 - **Consistency:** All nodes in the same island must use the same keys
-- **Not needed to follow the chain:** `blockchain-node` reads neither variable. A node that only syncs blocks needs `blockchain.env` and `genesis.json` and nothing from this file. Install it only on hosts running `aitbc-wallet`, `aitbc-agent-coordinator`, or `aitbc-blockchain-event-bridge`.
+- **Not needed to follow the chain as a plain follower:** a follower only needs `blockchain.env` and `genesis.json`. The `aitbc-blockchain-node` service will load `blockchain-secrets.env` if it exists, but it is not required and must not be distributed to new followers. Install it only on hosts running `aitbc-wallet`, `aitbc-agent-coordinator`, `aitbc-blockchain-rpc` (hub/validator), or `aitbc-blockchain-event-bridge`.
 
 ### Setup Instructions
 
@@ -457,19 +477,21 @@ Rotation is the only remedy once a value has been served publicly. Removing the 
 
 Systemd services load environment files in the order specified in the `[Service]` section. Later files can override earlier ones.
 
-**Example (aitbc-wallet.service):**
+**Example (aitbc-blockchain-rpc.service):**
 
 ```ini
-EnvironmentFile=/etc/aitbc/blockchain.env
-EnvironmentFile=/etc/aitbc/blockchain-secrets.env
-EnvironmentFile=/etc/aitbc/node.env
+EnvironmentFile=-/etc/aitbc/blockchain.env
+EnvironmentFile=-/etc/aitbc/node.env
+EnvironmentFile=-/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 ```
 
 **Loading order:**
 
-1. `blockchain.env` - Base blockchain configuration
-2. `blockchain-secrets.env` - Authentication secrets (may override blockchain.env if duplicates exist)
-3. `node.env` - Node-specific settings (highest priority)
+1. `blockchain.env` - Public base blockchain configuration
+2. `node.env` - Node-specific settings
+3. `%N.env` - Service-specific settings
+4. `blockchain-secrets.env` - Cluster-wide secrets (highest priority, overrides public files)
 
 ---
 
@@ -477,8 +499,8 @@ EnvironmentFile=/etc/aitbc/node.env
 
 ### Blockchain Node Services
 
-- **aitbc-blockchain-node.service:** Loads `blockchain.env`, `node.env`
-- **aitbc-blockchain-rpc.service:** Loads `blockchain.env`, `blockchain-secrets.env`, `node.env`
+- **aitbc-blockchain-node.service:** Loads `%N.env`, `blockchain.env`, `node.env`, `blockchain-secrets.env`
+- **aitbc-blockchain-rpc.service:** Loads `blockchain.env`, `node.env`, `%N.env`, `blockchain-secrets.env`
 
 ### Agent Services
 
@@ -516,7 +538,7 @@ EnvironmentFile=/etc/aitbc/node.env
 - `enable_block_production=false`
 - `block_production_chains=` (empty)
 - `subscription_enabled=true`
-- `default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc`
+- `default_peer_rpc_url=https://hub.aitbc.bubuit.net` (base URL, no `/rpc` suffix)
 - `auto_sync_enabled=true`
 - Does **not** run `aitbc-blockchain-p2p` (hub-only service)
 - Receives blocks via lease-based subscription over RPC (WebSocket push)
@@ -537,7 +559,7 @@ EnvironmentFile=/etc/aitbc/node.env
 ```bash
 # Enable auto-sync
 auto_sync_enabled=true
-default_peer_rpc_url=http://hub-node:8202
+default_peer_rpc_url=https://hub.aitbc.bubuit.net
 ```
 
 ### Issue: Fork detection errors
@@ -629,7 +651,7 @@ Before starting services, verify:
 - [ ] `island_id` is set correctly
 - [ ] `auto_sync_enabled` is `true` for follower nodes
 - [ ] `enable_block_production` is `false` for follower nodes
-- [ ] `default_peer_rpc_url` points to hub node RPC URL for followers
+- [ ] `default_peer_rpc_url` points to hub base URL for followers (no `/rpc` suffix)
 - [ ] `subscription_enabled` is `true` for follower nodes
 - [ ] Redis URLs are correct and accessible
 - [ ] `blockchain-secrets.env` exists and has correct permissions (600)

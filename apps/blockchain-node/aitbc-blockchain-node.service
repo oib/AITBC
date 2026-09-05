@@ -15,6 +15,7 @@ EnvironmentFile=/etc/aitbc/%N.env
 # Shared chain-wide public configuration
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed

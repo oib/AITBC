@@ -56,12 +56,14 @@ def _broadcast_backend(monkeypatch):
     """Force the broadcast gossip backend backed by the local Redis for these tests."""
     monkeypatch.setattr(settings, "gossip_backend", "broadcast")
     monkeypatch.setattr(settings, "gossip_broadcast_url", _TEST_REDIS_URL)
+    monkeypatch.setattr(settings, "gossip_auth_enabled", False)
+    monkeypatch.setattr(settings, "gossip_max_concurrent_connections_per_ip", 100)
 
 
 def test_websocket_fanout_with_broadcast_backend(_broadcast_backend) -> None:
     """A message published via the broadcast backend reaches multiple websocket subscribers."""
     with TestClient(create_app()) as client, ExitStack() as stack:
-        sockets = [stack.enter_context(client.websocket_connect("/rpc/transactions")) for _ in range(2)]
+        sockets = [stack.enter_context(client.websocket_connect("/rpc/gossip/ws?topic=transactions")) for _ in range(2)]
 
         payload = {
             "tx_hash": "0x" + "d" * 64,
@@ -81,7 +83,7 @@ def test_websocket_fanout_with_broadcast_backend(_broadcast_backend) -> None:
 def test_broadcast_backend_decodes_cursorless_payload(_broadcast_backend) -> None:
     """A batched/cursorless block payload is decoded and delivered correctly."""
     with TestClient(create_app()) as client:
-        with client.websocket_connect("/rpc/blocks") as websocket:
+        with client.websocket_connect("/rpc/gossip/ws?topic=blocks") as websocket:
             payload = [
                 {"height": 1, "hash": "0x" + "a" * 64},
                 {"height": 2, "hash": "0x" + "b" * 64},

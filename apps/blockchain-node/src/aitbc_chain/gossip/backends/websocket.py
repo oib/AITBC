@@ -9,8 +9,12 @@ from contextlib import suppress
 from typing import Any
 
 from aitbc.async_tasks import create_task_with_logging
+from aitbc.crypto.consensus_signing import sign_consensus_message
+from aitbc.crypto.signature_recovery import canonical_address
 
+from ...config import settings
 from .._internal import _message_id
+from ..gossip_auth import build_auth_message
 from .base import GossipBackend, TopicSubscription
 
 
@@ -134,12 +138,91 @@ class WebsocketGossipBackend(GossipBackend):
             )
         except Exception as e:
             raise RuntimeError(f"Failed to connect to gossip websocket for {topic}: {e}") from e
+
+        try:
+            await self._authenticate(topic, ws)
+        except Exception as e:
+            with suppress(Exception):
+                await ws.close()
+            raise RuntimeError(f"Gossip websocket auth failed for {topic}: {e}") from e
+
         self._websockets[topic] = ws
         self._readers[topic] = create_task_with_logging(
             self._reader(topic, ws),
             name=f"ws-gossip-reader:{topic}",
         )
         self._reconnect_backoff[topic] = 0.5
+
+    async def _authenticate(self, topic: str, ws: Any) -> None:
+        """Perform the validator challenge/response handshake if the server requires it."""
+        from aitbc.aitbc_logging import get_logger
+
+        logger = get_logger(__name__)
+        proposer_id = settings.proposer_id
+        proposer_key = settings.proposer_key
+
+        try:
+            raw = await asyncio.wait_for(ws.recv(), timeout=settings.gossip_auth_timeout)
+        except asyncio.TimeoutError:
+            # Server did not send a challenge; proceed without auth.
+            logger.debug("No auth challenge from server for %s; proceeding", topic)
+            return
+
+        if not raw:
+            return
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError:
+            # If the first message is not JSON, it is real data. We cannot process
+            # it here (queue may not exist), but the reader will handle subsequent
+            # messages. This preserves backward compatibility.
+            logger.debug("Non-JSON first message on %s; skipping auth", topic)
+            return
+
+        if data.get("type") != "auth_challenge":
+            # Server did not require auth; this is real traffic.
+            logger.debug("No auth challenge for %s (got %s); proceeding", topic, data.get("type"))
+            return
+
+        if not proposer_id or not proposer_key:
+            raise RuntimeError("Server required validator auth but PROPOSER_ID/PROPOSER_KEY not set")
+
+        challenge = data.get("challenge", "")
+        timestamp = data.get("timestamp", 0.0)
+        message = build_auth_message(challenge, proposer_id, timestamp)
+        signature = sign_consensus_message(message, proposer_key)
+
+        await ws.send(
+            json.dumps(
+                {
+                    "type": "auth_response",
+                    "address": canonical_address(proposer_id),
+                    "signature": signature,
+                    "timestamp": timestamp,
+                    "challenge": challenge,
+                },
+                default=str,
+            )
+        )
+
+        try:
+            raw = await asyncio.wait_for(ws.recv(), timeout=settings.gossip_auth_timeout)
+        except asyncio.TimeoutError as e:
+            raise RuntimeError("Timeout waiting for auth_ok") from e
+
+        if not raw:
+            raise RuntimeError("Empty auth response")
+
+        try:
+            data = json.loads(raw)
+        except json.JSONDecodeError as e:
+            raise RuntimeError(f"Invalid auth response: {e}") from e
+
+        if data.get("type") != "auth_ok":
+            raise RuntimeError(f"Auth rejected: {data}")
+
+        logger.debug("Authenticated gossip websocket for %s as %s", topic, proposer_id)
 
     async def _reader(self, topic: str, ws: Any) -> None:
         import websockets

@@ -13,7 +13,7 @@
     <script src="index.js"></script>
 
     <!-- Agent Discovery Links -->
-    <link rel="alternate" type="application/json" href="/agent/discovery.json" title="AITBC Network Discovery">
+    <link rel="alternate" type="application/json" href="/rpc/network-info" title="AITBC Network Discovery">
     <link rel="alternate" type="application/json" href="/agent/openapi.json" title="AITBC API Specification">
 
     <!-- Structured Data for AI/Agent Crawlers -->
@@ -66,15 +66,11 @@
             </a>
             <p class="endpoint-note-sm">Health check endpoint for agent registry service</p>
 
-            <a href="/v1/agents/test" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/v1/agents/test</span>
-            </a>
-            <p class="endpoint-note-sm">Test endpoint for agent connectivity</p>
         </div>
 
         <div class="card">
             <h2>Join the Network</h2>
-            <p>This node (<span id="node-id">loading...</span>) is the <strong>HUB</strong> for the <span id="chain-id">loading...</span> island. To run a follower node, download the public chain configuration and follow the setup guide.</p>
+            <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. To run a follower node, download the public chain configuration and follow the setup guide.</p>
 
             <a href="/agent/blockchain.env" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/agent/blockchain.env</span>
@@ -92,8 +88,8 @@
             <p class="endpoint-note">Returns P2P endpoint, node ID, chain ID, and connection instructions for joining the open island</p>
 
             <h3 class="quickstart-heading">Quick Start</h3>
-            <a href="https://github.com/oib/AITBC/blob/main/docs/getting-started/node-quickstart.md" class="endpoint endpoint-link" target="_blank">
-                <span class="method">DOC</span> <span class="path">Quick Start Guide</span>
+            <a href="https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md" class="endpoint endpoint-link" target="_blank">
+                <span class="method">DOC</span> <span class="path">Open Island Joining Guide</span>
             </a>
             <p class="endpoint-note-sm">Step-by-step instructions for joining the network as a follower node</p>
         </div>
@@ -127,7 +123,7 @@
         </div>
 
         <div class="meta">
-            <p>Node ID: <span id="meta-node-id">loading...</span> | Island: <span id="meta-chain-id">loading...</span> | Role: Hub</p>
+            <p>Node ID: <span id="meta-node-id">loading...</span> | Island: <span id="meta-chain-id">loading...</span> | Role: <span id="meta-role">Hub</span></p>
             <p>Contact: <a href="mailto:loading..." id="contact-email-link"><span id="contact-email">loading...</span></a></p>
             <p>This page is optimized for autonomous agents and web crawlers. All content is also available in machine-readable JSON format at the endpoints listed above.</p>
         </div>
