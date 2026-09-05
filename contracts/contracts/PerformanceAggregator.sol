@@ -348,12 +348,17 @@ contract PerformanceAggregator is IPerformanceAggregator, Ownable, ReentrancyGua
             earningsBonus = (1000 * log10(metrics.totalEarnings)) / 10000;
         }
 
-        // Apply time decay
-        uint256 timeSinceLastUpdate = block.timestamp - metrics.lastUpdated;
-        uint256 decayAmount = (timeSinceLastUpdate * REPUTATION_DECAY_RATE) / DECAY_INTERVAL;
+        // Apply time decay. A fresh agent has lastUpdated == 0, which would
+        // make decayAmount enormous and underflow the subtraction below.
+        uint256 decayAmount = 0;
+        if (metrics.lastUpdated > 0) {
+            uint256 timeSinceLastUpdate = block.timestamp - metrics.lastUpdated;
+            decayAmount = (timeSinceLastUpdate * REPUTATION_DECAY_RATE) / DECAY_INTERVAL;
+        }
 
         // Calculate final reputation
-        uint256 finalScore = baseScore + completionRate + accuracyBonus + earningsBonus - decayAmount;
+        uint256 totalScore = baseScore + completionRate + accuracyBonus + earningsBonus;
+        uint256 finalScore = totalScore > decayAmount ? totalScore - decayAmount : 0;
 
         // Clamp to valid range
         if (finalScore > MAX_REPUTATION) {
