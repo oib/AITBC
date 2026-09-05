@@ -250,11 +250,10 @@ contract DynamicPricingConditionalTest is Test {
         assertEq(pricing.getMarketPrice(address(0), ""), _price());
     }
 
-    function test_GetMarketPrice_RegionalMultiplierApplies() public {
+    function test_GetMarketPrice_RegionParamIsIgnored() public {
         _update(1000, 500, 50);
-        // localSupply/localDemand have no setter, so the multiplier stays at the
-        // 10000 base; this pins the region-supplied arm as a no-op rather than
-        // asserting a premium the contract cannot currently produce.
+        // Regional pricing was removed (single-island fleet): the _region
+        // parameter is kept for ABI compatibility and must not affect price.
         assertEq(pricing.getMarketPrice(address(0), "us-east"), _price());
     }
 
