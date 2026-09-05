@@ -220,7 +220,7 @@ async def translate_batch(
     try:
         tasks = []
         for translation_req in request.translations:
-            task = translate_text(translation_req, background_tasks, engine, cache, None)
+            task = translate_text(translation_req, background_tasks, engine, cache)
             tasks.append(task)
         results = await asyncio.gather(*tasks, return_exceptions=True)
         translations = []
