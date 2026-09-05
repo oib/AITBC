@@ -8,6 +8,24 @@ import json
 import os
 import socket
 import time
+from urllib.parse import urlparse, urlunparse
+
+
+def _sanitize_redis_url(url: str) -> str:
+    """Remove credentials from a Redis URL before logging."""
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = parsed.hostname or ""
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(
+                (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+            )
+    except Exception:
+        pass
+    return url
+
 from dataclasses import asdict, dataclass
 from enum import Enum
 from typing import Any, cast
@@ -95,7 +113,8 @@ class HubManager:
 
             self._redis = redis.from_url(self.redis_url)
             await self._redis.ping()
-            logger.info("Connected to Redis for hub persistence: %s", self.redis_url)
+            safe_url = _sanitize_redis_url(self.redis_url)
+            logger.info("Connected to Redis for hub persistence: %s", safe_url)
             return True
         except Exception as e:
             logger.error("Failed to connect to Redis: %s", e)
