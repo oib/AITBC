@@ -27,7 +27,14 @@ describe("TreasuryManager", function () {
     treasuryManager = await TreasuryManager.deploy(await paymentToken.getAddress());
     await treasuryManager.waitForDeployment();
 
-    // Initialize treasury (this will register it in the registry)
+    // The registry's registerContract is owner-only, so TreasuryManager
+    // cannot self-register inside initialize() — pre-register its id first.
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")),
+      await treasuryManager.getAddress()
+    );
+
+    // Initialize treasury (skips registration since the id is already mapped)
     await treasuryManager.initialize(await contractRegistry.getAddress());
 
     // Transfer tokens to treasury

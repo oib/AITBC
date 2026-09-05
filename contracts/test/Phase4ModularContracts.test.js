@@ -63,7 +63,9 @@ describe("Phase 4 Modular Smart Contracts", function () {
     daoGovernanceEnhanced = await DAOGovernanceEnhanced.deploy(await aiToken.getAddress(), MIN_STAKE);
     await daoGovernanceEnhanced.waitForDeployment();
 
-    // Register contracts in registry first (required by PerformanceAggregator.initialize)
+    // The registry's registerContract is owner-only, so a contract cannot
+    // self-register inside initialize() — every id must be pre-registered
+    // by the registry owner (here, deployer).
     await contractRegistry.registerContract(
       ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager")),
       await treasuryManager.getAddress()
@@ -72,8 +74,24 @@ describe("Phase 4 Modular Smart Contracts", function () {
       ethers.keccak256(ethers.toUtf8Bytes("RewardDistributor")),
       await rewardDistributor.getAddress()
     );
-    // StakingPoolFactory, PerformanceAggregator, and DAOGovernanceEnhanced register themselves during initialize()
-    // PerformanceAggregator registers itself during initialize(), so don't register it here
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("PerformanceAggregator")),
+      await performanceAggregator.getAddress()
+    );
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("StakingPoolFactory")),
+      await stakingPoolFactory.getAddress()
+    );
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("DAOGovernanceEnhanced")),
+      await daoGovernanceEnhanced.getAddress()
+    );
+    // DAOGovernanceEnhanced.initialize() resolves CrossChainGovernance
+    // unconditionally, so a stub entry is required.
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("CrossChainGovernance")),
+      user3.address
+    );
 
     // Register mock contracts that PerformanceAggregator.initialize() requires
     await contractRegistry.registerContract(
