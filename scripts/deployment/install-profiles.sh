@@ -91,3 +91,56 @@ fi
 pip install -r "$REQ_FILE" || {
     error "pip install -r '$REQ_FILE' failed"
 }
+
+# ---------------------------------------------------------------------------
+# Dependency tiers.
+#
+# The export above is `--only main`, so for a long time nothing on this path
+# installed a test runner. That is not drift -- it is what this script does --
+# and it collided with pyproject's addopts, which unconditionally pass
+# --reruns (pytest-rerunfailures). Result: profile-installed nodes could not
+# run pytest at all; collection aborted with "unrecognized arguments". node0,
+# node2 and hub2 were all in that state.
+#
+#   test tier -- every node. Small, and a node that cannot run its own tests
+#                cannot be verified after a deploy.
+#   dev  tier -- the IDE host and the designated dev nodes only. mypy, ruff,
+#                pre-commit, bandit, safety, pip-audit, ipython, types-*.
+#                Currently node2 and hub2 -- see docs/fleet-roles.md.
+#
+# Versions for the test tier come from requirements-dev.txt used as a
+# constraints file, so both tiers stay pinned to the same poetry.lock export.
+# ---------------------------------------------------------------------------
+
+if [ -f "$REPO_ROOT/requirements-test.txt" ]; then
+    echo "Installing test tier (every node)..."
+    constraint_args=()
+    [ -f "$REPO_ROOT/requirements-dev.txt" ] && constraint_args=(-c "$REPO_ROOT/requirements-dev.txt")
+    pip install -r "$REPO_ROOT/requirements-test.txt" "${constraint_args[@]}" || {
+        error "pip install -r requirements-test.txt failed"
+    }
+fi
+
+# Whether this host is a dev node is a property of its configuration, not its
+# name or its hardware profile -- node2 is a dev node AND a GPU follower running
+# 18 services, so the two axes have to compose rather than being alternative
+# profile names.
+IS_DEV_NODE=0
+[ "${AITBC_DEV_NODE:-0}" = "1" ] && IS_DEV_NODE=1
+[ -f /etc/aitbc/dev-node ] && IS_DEV_NODE=1
+if [ -f /etc/aitbc/blockchain.env ] && grep -qE '^AITBC_DEV_NODE=1' /etc/aitbc/blockchain.env 2>/dev/null; then
+    IS_DEV_NODE=1
+fi
+
+if [ "$IS_DEV_NODE" = "1" ]; then
+    if [ -f "$REPO_ROOT/requirements-dev.txt" ]; then
+        echo "Dev node: installing dev tier..."
+        pip install -r "$REPO_ROOT/requirements-dev.txt" || {
+            error "pip install -r requirements-dev.txt failed"
+        }
+    else
+        error "AITBC_DEV_NODE is set but requirements-dev.txt is missing"
+    fi
+else
+    echo "Not a dev node: skipping dev tier (mypy/ruff/pre-commit/bandit/safety)."
+fi

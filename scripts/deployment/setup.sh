@@ -1302,7 +1302,7 @@ setup_venvs() {
         # Try to detect profile from environment if available
         # Maps role axes to valid install-profiles.sh profile names:
         #   provider-gpu    — any node with GPU (gets ai-ml.txt with pycuda, torch, etc.)
-        #   hub             — hub node without GPU (full install with dev deps)
+        #   hub             — hub node without GPU
         #   customer-no-gpu — follower + customer, no GPU (lightweight CLI + wallet)
         #   server-no-gpu   — follower + shop, no GPU (core blockchain services)
         if [ -f "/etc/aitbc/blockchain.env" ]; then
@@ -1333,10 +1333,25 @@ setup_venvs() {
             pip install fastapi uvicorn sqlmodel || warning "Failed to install core packages"
         fi
 
-        # Install development dependencies (optional for production)
-        if [ -f "/opt/aitbc/requirements-dev.txt" ]; then
-            log "Installing development dependencies..."
-            pip install -r /opt/aitbc/requirements-dev.txt || warning "Failed to install dev dependencies"
+        # Dependency tiers -- mirrors install-profiles.sh. The test tier goes on
+        # every node (pyproject's addopts hard-require pytest-rerunfailures, so
+        # without it pytest cannot even collect); the dev tier goes only on the
+        # designated dev node.
+        if [ -f "/opt/aitbc/requirements-test.txt" ]; then
+            log "Installing test tier..."
+            pip install -r /opt/aitbc/requirements-test.txt \
+                -c /opt/aitbc/requirements-dev.txt \
+                || error "Failed to install test dependencies"
+        fi
+
+        if [ "${AITBC_DEV_NODE:-0}" = "1" ] || [ -f /etc/aitbc/dev-node ]; then
+            if [ -f "/opt/aitbc/requirements-dev.txt" ]; then
+                log "Dev node: installing dev tier..."
+                pip install -r /opt/aitbc/requirements-dev.txt \
+                    || error "Failed to install dev dependencies"
+            fi
+        else
+            log "Not a dev node: skipping dev tier."
         fi
     fi
 
