@@ -60,14 +60,19 @@ class TestExchangeIslandCommands:
             ]
         }
 
-        from aitbc_cli.commands.exchange_island import exchange_island
+        from aitbc_cli.commands.exchange_island import TX_QUERY_PATH, exchange_island
 
         result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
         called_path = mock_client.get.call_args[0][0]
-        assert "/transactions" in called_path
+        # Assert the exact path, not a substring. The commands used to call a bare
+        # "/transactions", which the RPC does not serve -- every router is mounted
+        # under /rpc (or /v1), so the bare path 404s and orderbook silently fell
+        # back to simulated data. A substring check passes for both, so it could
+        # never have caught that.
+        assert called_path == TX_QUERY_PATH
 
     @patch("aitbc_cli.commands.exchange_island.AITBCHTTPClient")
     @patch("aitbc_cli.commands.exchange_island.get_island_id", return_value="island-test-123")
