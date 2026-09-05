@@ -111,6 +111,8 @@ jobs:
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: make live-dry-run
 
+  # Forge suite only -- the Hardhat suite runs as a step in the main ci job
+  # (added in aa4a9618a), so it is deliberately not repeated here.
   contracts:
     runs-on: ubuntu-latest
     steps:
@@ -119,24 +121,9 @@ jobs:
           # forge-std / openzeppelin live in git submodules pinned in .gitmodules
           submodules: recursive
 
-      - name: Set up Node.js 24
-        uses: actions/setup-node@v4
-        with:
-          node-version: '24'
-          cache: npm
-          cache-dependency-path: contracts/package-lock.json
-
       - name: Set up Foundry
         uses: foundry-rs/foundry-toolchain@v1
-
-      - name: Install Hardhat deps
-        working-directory: contracts
-        run: npm ci --no-audit --no-fund
 
       - name: Forge tests
         working-directory: contracts
         run: forge test -vvv
-
-      - name: Hardhat tests
-        working-directory: contracts
-        run: npx hardhat test
