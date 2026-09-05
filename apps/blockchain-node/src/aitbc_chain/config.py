@@ -415,8 +415,8 @@ class ChainSettings(BaseSettings):
     gossip_auth_timeout: float = float(os.getenv("GOSSIP_AUTH_TIMEOUT", "5.0"))
     gossip_auth_challenge_ttl: float = float(os.getenv("GOSSIP_AUTH_CHALLENGE_TTL", "60.0"))
     gossip_max_message_size: int = int(os.getenv("GOSSIP_MAX_MESSAGE_SIZE", "1048576"))
-    gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "500"))
-    gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "4"))
+    gossip_max_messages_per_minute: int = int(os.getenv("GOSSIP_MAX_MESSAGES_PER_MINUTE", "2000"))
+    gossip_max_concurrent_connections_per_ip: int = int(os.getenv("GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP", "32"))
 
     # Multi-chain per island (v0.6.4). Chains hosted on this island.
     # Comma-separated list of chain_ids. If empty, defaults to [chain_id]
