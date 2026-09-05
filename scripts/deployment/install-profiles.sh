@@ -115,7 +115,16 @@ pip install -r "$REQ_FILE" || {
 if [ -f "$REPO_ROOT/requirements-test.txt" ]; then
     echo "Installing test tier (every node)..."
     constraint_args=()
-    [ -f "$REPO_ROOT/requirements-dev.txt" ] && constraint_args=(-c "$REPO_ROOT/requirements-dev.txt")
+    if [ -f "$REPO_ROOT/requirements-dev.txt" ]; then
+        # Not usable as constraints verbatim -- the export carries extras
+        # (coverage[toml]) and pip rejects those in a constraints file.
+        TEST_CONSTRAINTS="$(mktemp)"
+        trap 'rm -f "$TEST_CONSTRAINTS"' EXIT
+        "$REPO_ROOT/scripts/utils/dev-constraints.sh" > "$TEST_CONSTRAINTS" || {
+            error "failed to build constraints from requirements-dev.txt"
+        }
+        constraint_args=(-c "$TEST_CONSTRAINTS")
+    fi
     pip install -r "$REPO_ROOT/requirements-test.txt" "${constraint_args[@]}" || {
         error "pip install -r requirements-test.txt failed"
     }

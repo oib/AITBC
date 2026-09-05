@@ -74,3 +74,56 @@ def test_addopts_plugins_are_in_the_test_tier():
                 "requirements-test.txt. Every node runs with these addopts, so pytest "
                 "would abort during collection with 'unrecognized arguments'."
             )
+
+
+def test_dev_constraints_output_is_constraint_legal():
+    """The generated constraints file must be something pip will accept.
+
+    requirements-dev.txt cannot be passed to `pip install -c` verbatim: it
+    contains `coverage[toml]==...` and pip refuses constraints with extras
+    ("ERROR: Constraints cannot have extras"). The first version of the tier
+    split did exactly that and failed on every host. scripts/utils/dev-constraints.sh
+    strips the extras; this asserts it actually did.
+    """
+    import subprocess
+
+    script = REPO / "scripts" / "utils" / "dev-constraints.sh"
+    assert script.is_file(), f"{script} is missing"
+
+    result = subprocess.run(["bash", str(script)], capture_output=True, text=True, timeout=30, check=True)
+
+    offenders = []
+    for line in result.stdout.splitlines():
+        stripped = line.split("#")[0].strip()
+        if not stripped:
+            continue
+        name = stripped.split(";")[0].strip()
+        if "[" in name:
+            offenders.append(stripped)
+
+    assert not offenders, (
+        f"dev-constraints.sh emitted {len(offenders)} line(s) still carrying extras, "
+        f"which pip rejects in a constraints file: {offenders[:3]}"
+    )
+    # Sanity: it must still be pinning things, not have filtered everything away.
+    assert result.stdout.count("==") > 50, "constraints output looks truncated"
+
+
+def test_dev_constraints_preserves_every_pin():
+    """Stripping extras must not drop or alter any pin."""
+    import subprocess
+
+    result = subprocess.run(
+        ["bash", str(REPO / "scripts" / "utils" / "dev-constraints.sh")],
+        capture_output=True,
+        text=True,
+        timeout=30,
+        check=True,
+    )
+    emitted = {}
+    for line in result.stdout.splitlines():
+        match = re.match(r"^([A-Za-z0-9._-]+)==([^\s;]+)", line.split("#")[0].strip())
+        if match:
+            emitted[_canon(match.group(1))] = match.group(2)
+
+    assert emitted == _dev_tier_pins(), "dev-constraints.sh changed the set of pins; it must only remove extras markers"
