@@ -35,8 +35,13 @@ from ..acceptance import (
     HELD_STATES,
     META_DISPUTE_REASON,
     META_DISPUTED_AT,
+    META_RELEASE_ATTEMPTS,
+    META_RELEASE_BLOCKED_AT,
     PENDING_ACCEPTANCE,
+    REFUNDABLE_STATES,
+    SETTLEMENT_FAILED,
     deadline_from,
+    max_release_attempts,
     opened_window,
 )
 from ..provider_binding import same_address
@@ -564,6 +569,38 @@ class PaymentService:
         # on-chain operation. Anything outside HELD_STATES has already settled.
         if payment.status not in HELD_STATES:
             return False
+        # A held payment that keeps failing release is retried by every sweeper at
+        # every interval forever. Count attempts in meta_data (reassigned, not
+        # mutated -- the column is plain JSON) and, past the bound, move the
+        # payment to `settlement_failed` so no automatic path picks it up again.
+        # The escrow stays funded and refundable; an operator resets the counter
+        # through the admin retry-release route once the blocker is fixed.
+        meta = dict(payment.meta_data or {})
+        attempts = int(meta.get(META_RELEASE_ATTEMPTS) or 0)
+        if attempts >= max_release_attempts():
+            now = datetime.now(UTC)
+            payment.status = SETTLEMENT_FAILED
+            payment.updated_at = now
+            meta[META_RELEASE_BLOCKED_AT] = now.isoformat()
+            payment.meta_data = meta
+            stuck_job = self.session.get(Job, job_id)
+            if stuck_job is not None:
+                stuck_job.payment_status = SETTLEMENT_FAILED
+                self.session.add(stuck_job)
+            self.session.add(payment)
+            self.session.commit()
+            logger.critical(
+                "Escrow release for job %s payment %s failed %s times; marking settlement_failed "
+                "and stopping automatic retries (refund and the admin retry route still work)",
+                job_id,
+                payment_id,
+                attempts,
+            )
+            return False
+        meta[META_RELEASE_ATTEMPTS] = attempts + 1
+        payment.meta_data = meta
+        self.session.add(payment)
+        self.session.commit()
         job = self.session.get(Job, job_id)
         if job is None:
             logger.error("Escrow release blocked for job %s: job not found", job_id)
@@ -681,7 +718,7 @@ class PaymentService:
         # A payment that was never escrowed cannot be refunded; gating on escrowed_at
         # rather than status prevents the audit invariant from being broken by pending
         # or otherwise non-escrowed rows.
-        elif payment.escrowed_at is None or payment.status not in HELD_STATES:
+        elif payment.escrowed_at is None or payment.status not in REFUNDABLE_STATES:
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
