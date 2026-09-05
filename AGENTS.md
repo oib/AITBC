@@ -321,6 +321,50 @@ This is mirrored on all five nodes: `hub.aitbc`, `node0`, `node1`,
 
   Use `-n 50` to see the last 50 lines, and add `--no-pager` for non-interactive output.
 
+## Smart contract test suites (two of them, different hosts)
+
+`contracts/` carries **two** independent suites. Both must pass; neither covers
+what the other does.
+
+**Foundry (`forge`) -- runs on the IDE host.**
+
+```bash
+cd /opt/aitbc/contracts && ~/.foundry/bin/forge test              # 238 tests
+cd /opt/aitbc/contracts/governance && ~/.foundry/bin/forge test   # 16 tests
+```
+
+`/usr/bin/forge` on the IDE host is **ZOE, an unrelated tool**. The real
+toolchain is `~/.foundry/bin/forge` (installed via foundryup) -- use the
+explicit path or the wrong binary answers.
+
+Coverage needs a flag and a newer solc:
+
+```bash
+cd /opt/aitbc/contracts && ~/.foundry/bin/forge coverage --ir-minimum --report summary
+```
+
+`forge coverage` disables `via_ir`, which the project depends on for stack
+relief, so plain `forge coverage` fails. Two things worth knowing when it does:
+solc 0.8.20 reports stack-too-deep with **no source location** -- pass
+`--use ~/.solc-select/artifacts/solc-0.8.34/solc-0.8.34` to get the filename.
+And the usual cause is a `public` mapping over a struct with >=14 fields: the
+auto-generated getter flattens the struct into that many return values and
+overflows the stack. Keep such mappings `internal` and expose an explicit
+`getX() returns (Struct memory)` -- returning the struct as one tuple is fine.
+
+**Hardhat (mocha) -- runs on node2 only.**
+
+```bash
+ssh node2 'bash -lc "cd /opt/aitbc/contracts && npx hardhat test"'   # 246 tests
+```
+
+node2 is the only host with a Node toolchain (24.20 / npm 11.16) and installed
+`node_modules`. The IDE host has no npm at all. This matters more than it
+looks: the Hardhat suites are the *only* coverage for `AgentStaking`,
+`PaymentProcessor` and `EscrowService`, which forge reports at or near 0% lines.
+If node2 is unavailable, those contracts are effectively untested, and CI does
+not run this suite.
+
 ## Wallet key mismatches
 
 If a wallet's stored key does not match the address it is supposed to control,
