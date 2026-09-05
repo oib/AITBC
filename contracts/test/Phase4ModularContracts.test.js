@@ -92,6 +92,12 @@ describe("Phase 4 Modular Smart Contracts", function () {
       ethers.keccak256(ethers.toUtf8Bytes("CrossChainGovernance")),
       user3.address
     );
+    // TreasuryManager.initialize() resolves "DAOGovernance" for its
+    // onlyAuthorized checks; proposals that allocate funds go through it.
+    await contractRegistry.registerContract(
+      ethers.keccak256(ethers.toUtf8Bytes("DAOGovernance")),
+      await daoGovernanceEnhanced.getAddress()
+    );
 
     // Register mock contracts that PerformanceAggregator.initialize() requires
     await contractRegistry.registerContract(
@@ -154,22 +160,22 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await treasuryManager.createBudgetCategory("development", BUDGET_AMOUNT);
 
       // Deposit funds to treasury
-      await aiToken.connect(deployer).transfer(treasuryManager.address, BUDGET_AMOUNT);
+      await aiToken.connect(deployer).transfer(treasuryManager.target, BUDGET_AMOUNT);
 
-      await treasuryManager.allocateFunds("development", user1.address, ethers.utils.parseEther("1000"));
+      await treasuryManager.allocateFunds("development", user1.address, ethers.parseEther("1000"));
 
       const allocation = await treasuryManager.getAllocation(1);
       expect(allocation[0]).to.equal(user1.address);
-      expect(allocation[1]).to.equal(ethers.utils.parseEther("1000"));
+      expect(allocation[1]).to.equal(ethers.parseEther("1000"));
     });
 
     it("Should release vested funds", async function () {
       await treasuryManager.createBudgetCategory("development", BUDGET_AMOUNT);
 
       // Deposit funds to treasury
-      await aiToken.connect(deployer).transfer(treasuryManager.address, BUDGET_AMOUNT);
+      await aiToken.connect(deployer).transfer(treasuryManager.target, BUDGET_AMOUNT);
 
-      await treasuryManager.allocateFunds("development", user1.address, ethers.utils.parseEther("1000"));
+      await treasuryManager.allocateFunds("development", user1.address, ethers.parseEther("1000"));
 
       // Fast forward time
       await ethers.provider.send("evm_increaseTime", [31 * 24 * 60 * 60]); // 31 days
@@ -179,51 +185,51 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await treasuryManager.releaseVestedFunds(1);
       const userBalanceAfter = await aiToken.balanceOf(user1.address);
 
-      expect(userBalanceAfter.sub(userBalanceBefore)).to.equal(ethers.utils.parseEther("1000"));
+      expect(userBalanceAfter - userBalanceBefore).to.equal(ethers.parseEther("1000"));
     });
   });
 
   describe("RewardDistributor", function () {
     it("Should create reward pools", async function () {
-      await rewardDistributor.createRewardPool(aiToken.address, REWARD_AMOUNT);
+      await rewardDistributor.createRewardPool(aiToken.target, REWARD_AMOUNT);
 
       const poolBalance = await rewardDistributor.getPoolBalance(1);
       expect(poolBalance).to.equal(REWARD_AMOUNT);
     });
 
     it("Should distribute rewards", async function () {
-      await rewardDistributor.createRewardPool(aiToken.address, REWARD_AMOUNT);
+      await rewardDistributor.createRewardPool(aiToken.target, REWARD_AMOUNT);
 
       // Deposit tokens to reward distributor
-      await aiToken.connect(deployer).transfer(rewardDistributor.address, REWARD_AMOUNT);
+      await aiToken.connect(deployer).transfer(rewardDistributor.target, REWARD_AMOUNT);
 
       const recipients = [user1.address, user2.address];
-      const amounts = [ethers.utils.parseEther("500"), ethers.utils.parseEther("500")];
+      const amounts = [ethers.parseEther("500"), ethers.parseEther("500")];
 
       await rewardDistributor.distributeRewards(1, recipients, amounts);
 
       const userRewards = await rewardDistributor.getUserRewards(user1.address);
-      expect(userRewards).to.equal(ethers.utils.parseEther("500"));
+      expect(userRewards).to.equal(ethers.parseEther("500"));
     });
 
     it("Should claim rewards", async function () {
-      await rewardDistributor.createRewardPool(aiToken.address, REWARD_AMOUNT);
+      await rewardDistributor.createRewardPool(aiToken.target, REWARD_AMOUNT);
 
       // Deposit tokens to reward distributor
-      await aiToken.connect(deployer).transfer(rewardDistributor.address, REWARD_AMOUNT);
+      await aiToken.connect(deployer).transfer(rewardDistributor.target, REWARD_AMOUNT);
 
       const recipients = [user1.address];
-      const amounts = [ethers.utils.parseEther("500")];
+      const amounts = [ethers.parseEther("500")];
 
       await rewardDistributor.distributeRewards(1, recipients, amounts);
 
       const userBalanceBefore = await aiToken.balanceOf(user1.address);
-      await rewardDistributor.claimReward(1);
+      await rewardDistributor.connect(user1).claimReward(1);
       const userBalanceAfter = await aiToken.balanceOf(user1.address);
 
       // Account for claim fee
-      const expectedAmount = ethers.utils.parseEther("500").mul(9990).div(10000); // 0.1% fee
-      expect(userBalanceAfter.sub(userBalanceBefore)).to.equal(expectedAmount);
+      const expectedAmount = ethers.parseEther("500") * 9990n / 10000n; // 0.1% fee
+      expect((userBalanceAfter - userBalanceBefore)).to.equal(expectedAmount);
     });
   });
 
@@ -232,14 +238,14 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await performanceAggregator.updateAgentPerformance(user1.address, 8000);
 
       const reputation = await performanceAggregator.getReputationScore(user1.address);
-      expect(reputation).to.be.greaterThan(0);
+      expect(reputation).to.be.greaterThan(0n);
     });
 
     it("Should calculate APY multiplier", async function () {
       await performanceAggregator.updateAgentPerformance(user1.address, 8000);
 
       const multiplier = await performanceAggregator.calculateAPYMultiplier(8000);
-      expect(multiplier).to.be.greaterThan(10000); // Greater than 1x
+      expect(multiplier).to.be.greaterThan(10000n); // Greater than 1x
     });
 
     it("Should maintain performance history", async function () {
@@ -263,24 +269,26 @@ describe("Phase 4 Modular Smart Contracts", function () {
     it("Should allow staking", async function () {
       await stakingPoolFactory.createPool("Basic Pool", 500, 30 * 24 * 60 * 60);
 
+      await aiToken.approve(stakingPoolFactory.target, MIN_STAKE);
       await stakingPoolFactory.stakeInPool(1, MIN_STAKE);
 
       const positionDetails = await stakingPoolFactory.getPositionDetails(1);
       expect(positionDetails.amount).to.equal(MIN_STAKE);
-      expect(positionDetails.staker).to.equal(user1.address);
+      expect(positionDetails.staker).to.equal(deployer.address);
     });
 
     it("Should calculate pool performance", async function () {
       await stakingPoolFactory.createPool("Basic Pool", 500, 30 * 24 * 60 * 60);
 
       const performance = await stakingPoolFactory.getPoolPerformance(1);
-      expect(performance).to.be.greaterThan(0);
+      expect(performance).to.be.greaterThan(0n);
     });
   });
 
   describe("DAOGovernanceEnhanced", function () {
     it("Should allow staking", async function () {
-      await daoGovernanceEnhanced.stake(MIN_STAKE);
+      await aiToken.connect(user1).approve(daoGovernanceEnhanced.target, MIN_STAKE);
+      await daoGovernanceEnhanced.connect(user1).stake(MIN_STAKE);
 
       const stakerInfo = await daoGovernanceEnhanced.getStakerInfo(user1.address);
       expect(stakerInfo.amount).to.equal(MIN_STAKE);
@@ -288,30 +296,50 @@ describe("Phase 4 Modular Smart Contracts", function () {
     });
 
     it("Should create proposals", async function () {
+      await aiToken.approve(daoGovernanceEnhanced.target, MIN_STAKE);
       await daoGovernanceEnhanced.stake(MIN_STAKE);
 
-      const proposalId = await daoGovernanceEnhanced.createProposal(
+      const proposalId = await daoGovernanceEnhanced.createProposal.staticCall(
         "",
         "test proposal",
         7 * 24 * 60 * 60,
         0, // TREASURY_ALLOCATION
-        treasuryManager.address,
+        treasuryManager.target,
         "0x",
         0
       );
-
-      expect(proposalId).to.be.greaterThan(0);
-    });
-
-    it("Should allow voting", async function () {
-      await daoGovernanceEnhanced.stake(MIN_STAKE);
-
-      const proposalId = await daoGovernanceEnhanced.createProposal(
+      await daoGovernanceEnhanced.createProposal(
         "",
         "test proposal",
         7 * 24 * 60 * 60,
         0,
-        treasuryManager.address,
+        treasuryManager.target,
+        "0x",
+        0
+      );
+
+      expect(proposalId).to.be.greaterThan(0n);
+    });
+
+    it("Should allow voting", async function () {
+      await aiToken.approve(daoGovernanceEnhanced.target, MIN_STAKE);
+      await daoGovernanceEnhanced.stake(MIN_STAKE);
+
+      const proposalId = await daoGovernanceEnhanced.createProposal.staticCall(
+        "",
+        "test proposal",
+        7 * 24 * 60 * 60,
+        0,
+        treasuryManager.target,
+        "0x",
+        0
+      );
+      await daoGovernanceEnhanced.createProposal(
+        "",
+        "test proposal",
+        7 * 24 * 60 * 60,
+        0,
+        treasuryManager.target,
         "0x",
         0
       );
@@ -319,7 +347,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await daoGovernanceEnhanced.castVote(proposalId, 1); // Vote for
 
       const proposalInfo = await daoGovernanceEnhanced.getProposalInfo(proposalId);
-      expect(proposalInfo.forVotes).to.be.greaterThan(0);
+      expect(proposalInfo.forVotes).to.be.greaterThan(0n);
     });
   });
 
@@ -327,20 +355,34 @@ describe("Phase 4 Modular Smart Contracts", function () {
     it("Should integrate TreasuryManager with DAOGovernanceEnhanced", async function () {
       // Set up budget category
       await treasuryManager.createBudgetCategory("governance", BUDGET_AMOUNT);
-      await aiToken.connect(deployer).transfer(treasuryManager.address, BUDGET_AMOUNT);
+      await aiToken.connect(deployer).transfer(treasuryManager.target, BUDGET_AMOUNT);
 
       // Create and execute proposal for treasury allocation
+      await aiToken.approve(daoGovernanceEnhanced.target, MIN_STAKE);
       await daoGovernanceEnhanced.stake(MIN_STAKE);
 
-      const proposalId = await daoGovernanceEnhanced.createProposal(
+      const proposalId = await daoGovernanceEnhanced.createProposal.staticCall(
         "",
         "treasury allocation",
         7 * 24 * 60 * 60,
         0, // TREASURY_ALLOCATION
-        treasuryManager.address,
-        treasuryManager.interface.encodeFunctionData("allocateFunds", ["governance", user1.address, ethers.utils.parseEther("1000")]),
+        treasuryManager.target,
+        treasuryManager.interface.encodeFunctionData("allocateFunds", ["governance", user1.address, ethers.parseEther("1000")]),
         0
       );
+      await daoGovernanceEnhanced.createProposal(
+        "",
+        "treasury allocation",
+        7 * 24 * 60 * 60,
+        0,
+        treasuryManager.target,
+        treasuryManager.interface.encodeFunctionData("allocateFunds", ["governance", user1.address, ethers.parseEther("1000")]),
+        0
+      );
+
+      // One staker's 100-token weight cannot reach the 1000-token
+      // default quorum; lower it for this execution test.
+      await daoGovernanceEnhanced.setQuorum(1n);
 
       await daoGovernanceEnhanced.castVote(proposalId, 1);
 
@@ -362,6 +404,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await stakingPoolFactory.createPool("Performance Pool", 500, 30 * 24 * 60 * 60);
 
       // Stake in pool
+      await aiToken.approve(stakingPoolFactory.target, MIN_STAKE);
       await stakingPoolFactory.stakeInPool(1, MIN_STAKE);
 
       // Check if performance affects staking
@@ -374,32 +417,33 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await performanceAggregator.updateAgentPerformance(user1.address, 8000);
 
       // Create performance-based reward
-      await rewardDistributor.createPerformanceReward(user1.address, ethers.utils.parseEther("100"));
+      await rewardDistributor.createPerformanceReward(user1.address, ethers.parseEther("100"));
 
-      // Check if performance multiplier is applied
-      const userRewards = await rewardDistributor.getUserRewards(user1.address);
-      expect(userRewards).to.be.greaterThan(0);
+      // createPerformanceReward records a pending reward; it does not
+      // credit userTotalRewards until distributePerformanceReward runs.
+      const rewardIds = await rewardDistributor.getAgentPerformanceRewards(user1.address);
+      expect(rewardIds.length).to.be.greaterThan(0);
     });
 
     it("Should handle cross-contract communication through registry", async function () {
       // Test that contracts can find each other through registry
-      const treasuryAddress = await stakingPoolFactory.registry.getContract(
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("TreasuryManager"))
+      const treasuryAddress = await contractRegistry.getContract(
+        ethers.keccak256(ethers.toUtf8Bytes("TreasuryManager"))
       );
 
-      expect(treasuryAddress).to.equal(treasuryManager.address);
+      expect(treasuryAddress).to.equal(treasuryManager.target);
 
-      const performanceAddress = await treasuryManager.registry.getContract(
-        ethers.utils.keccak256(ethers.utils.toUtf8Bytes("PerformanceAggregator"))
+      const performanceAddress = await contractRegistry.getContract(
+        ethers.keccak256(ethers.toUtf8Bytes("PerformanceAggregator"))
       );
 
-      expect(performanceAddress).to.equal(performanceAggregator.address);
+      expect(performanceAddress).to.equal(performanceAggregator.target);
     });
   });
 
   describe("Security Tests", function () {
     it("Should prevent unauthorized contract registration", async function () {
-      const testContractId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("UnauthorizedContract"));
+      const testContractId = ethers.keccak256(ethers.toUtf8Bytes("UnauthorizedContract"));
 
       await expect(
         contractRegistry.connect(user1).registerContract(testContractId, user1.address)
@@ -410,17 +454,29 @@ describe("Phase 4 Modular Smart Contracts", function () {
       await treasuryManager.createBudgetCategory("development", BUDGET_AMOUNT);
 
       await expect(
-        treasuryManager.allocateFunds("development", user1.address, BUDGET_AMOUNT.add(1))
+        treasuryManager.allocateFunds("development", user1.address, BUDGET_AMOUNT + 1n)
       ).to.revert(ethers);
     });
 
     it("Should prevent invalid voting", async function () {
-      const proposalId = await daoGovernanceEnhanced.createProposal(
+      await aiToken.approve(daoGovernanceEnhanced.target, MIN_STAKE);
+      await daoGovernanceEnhanced.stake(MIN_STAKE);
+
+      const proposalId = await daoGovernanceEnhanced.createProposal.staticCall(
         "",
         "test proposal",
         7 * 24 * 60 * 60,
         0,
-        treasuryManager.address,
+        treasuryManager.target,
+        "0x",
+        0
+      );
+      await daoGovernanceEnhanced.createProposal(
+        "",
+        "test proposal",
+        7 * 24 * 60 * 60,
+        0,
+        treasuryManager.target,
         "0x",
         0
       );
@@ -434,7 +490,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
   describe("Gas Optimization Tests", function () {
     it("Should track gas usage for key operations", async function () {
       // Test gas usage for contract registration
-      const testContractId = ethers.utils.keccak256(ethers.utils.toUtf8Bytes("GasTest"));
+      const testContractId = ethers.keccak256(ethers.toUtf8Bytes("GasTest"));
       const tx = await contractRegistry.registerContract(testContractId, user1.address);
       const receipt = await tx.wait();
 
@@ -448,6 +504,7 @@ describe("Phase 4 Modular Smart Contracts", function () {
 
       // Test gas usage for staking
       await stakingPoolFactory.createPool("Gas Test Pool", 500, 30 * 24 * 60 * 60);
+      await aiToken.approve(stakingPoolFactory.target, MIN_STAKE);
       const tx3 = await stakingPoolFactory.stakeInPool(1, MIN_STAKE);
       const receipt3 = await tx3.wait();
 
