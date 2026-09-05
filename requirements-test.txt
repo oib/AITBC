@@ -1,0 +1,28 @@
+# Test tier -- the minimum needed to RUN the suite, not to develop on it.
+#
+# pyproject.toml's [tool.pytest.ini_options] addopts unconditionally passes
+# --reruns/--reruns-delay (pytest-rerunfailures) and the suite uses asyncio,
+# mock, timeout and coverage plugins. Without these, pytest aborts during
+# collection with "unrecognized arguments" -- the whole suite, not one test.
+# Every node must therefore carry this tier, or it cannot verify itself after a
+# deploy.
+#
+# Deliberately unpinned here. Versions come from requirements-dev.txt used as a
+# constraints file (`pip install -r requirements-test.txt -c requirements-dev.txt`),
+# which is generated from poetry.lock -- so this file cannot drift from the lock,
+# and adding a test group to pyproject (which would need a lock regeneration) is
+# not required. tests/test_requirements_tiers.py enforces the relationship.
+#
+# The rest of requirements-dev.txt -- mypy, ruff, pre-commit, bandit, safety,
+# pip-audit, ipython, types-* -- is the DEV tier and belongs only on the IDE
+# host and the designated dev nodes. See scripts/deployment/install-profiles.sh
+# for the mechanism and docs/fleet-roles.md for who is what.
+
+pytest
+pytest-asyncio
+pytest-cov
+pytest-mock
+pytest-rerunfailures
+pytest-timeout
+coverage[toml]
+fakeredis
