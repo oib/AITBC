@@ -49,6 +49,24 @@ def _env_value(*names: str) -> str | None:
     return None
 
 
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from a URL before logging."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = parsed.hostname or ""
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(
+                (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+            )
+    except Exception:
+        pass
+    return url
+
+
 class RateLimitMiddleware(BaseHTTPMiddleware):
     """Rate limit requests by client IP."""
 
@@ -145,7 +163,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         max_size=settings.mempool_max_size,
         min_fee=settings.min_fee,
     )
-    _app_logger.info("Initializing gossip backend: %s, url: %s", settings.gossip_backend, settings.gossip_broadcast_url)
+    _app_logger.info(
+        "Initializing gossip backend: %s, url: %s",
+        settings.gossip_backend,
+        _sanitize_url(settings.gossip_broadcast_url or ""),
+    )
     _backend = create_backend(
         settings.gossip_backend,
         broadcast_url=settings.gossip_broadcast_url,
