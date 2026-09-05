@@ -401,28 +401,18 @@ sync_venv() {
             || warning "CLI reinstall failed (continuing)"
     fi
 
-    # Refresh editable local packages so imports like aitbc_agent_core resolve
-    # even when install-profiles.sh falls back to requirements.txt.
-    # Include packages/aitbc-shared as well as packages/py/*.
-    local pkg_dirs=()
-    if [ -d "$AITBC_ROOT/packages/aitbc-shared" ]; then
-        pkg_dirs+=("$AITBC_ROOT/packages/aitbc-shared")
-    fi
-    if [ -d "$AITBC_ROOT/packages/py" ]; then
-        for pkg in "$AITBC_ROOT/packages/py"/*/; do
-            [ -f "$pkg/pyproject.toml" ] || continue
-            pkg_dirs+=("$pkg")
-        done
-    fi
-
-    if [ "${#pkg_dirs[@]}" -gt 0 ]; then
-        log "Installing repo-local packages..."
-        for pkg in "${pkg_dirs[@]}"; do
-            # shellcheck disable=SC2015
-            pip install -e "$pkg" --quiet 2>/dev/null \
-                && success "Installed $(basename "$pkg")" \
-                || warning "Failed to install $(basename "$pkg") (continuing)"
-        done
+    # Refresh repo-local path packages (aitbc-shared, packages/py/*) so imports
+    # like aitbc_errors resolve even when install-profiles.sh falls back to
+    # requirements.txt. install-path-packages.sh installs them in one pip
+    # invocation (order-independent) and fails loudly -- the previous per-package
+    # loop here hid failures behind --quiet 2>/dev/null and only worked because
+    # dependencies happened to sort first alphabetically. A failure is an error,
+    # not a warning: a venv missing these packages breaks on first import.
+    # AITBC_EXTRA_VENVS is honoured inside install-path-packages.sh.
+    log "Installing repo-local packages..."
+    if ! "$AITBC_ROOT/scripts/utils/install-path-packages.sh" "$VENV_DIR"; then
+        error "Failed to install repo-local path packages"
+        return 1
     fi
 }
 
