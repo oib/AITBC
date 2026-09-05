@@ -10,6 +10,7 @@ WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc
 EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment=FFMPEG_PORT=8230
 Environment=FFMPEG_GPU_DEVICE=0

@@ -9,6 +9,7 @@ User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/exchange
 EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 Environment="PYTHONPATH=/opt/aitbc"
 Environment="BLOCKCHAIN_RPC_URL=http://localhost:8202"
