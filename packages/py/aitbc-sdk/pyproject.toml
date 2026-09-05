@@ -11,7 +11,8 @@ dependencies = [
     "pydantic>=2.5.0",
     "httpx>=0.28.1",
     "pynacl>=1.5.0",
-    "aitbc-crypto>=0.1.0"
+    "aitbc-crypto>=0.1.0",
+    "aitbc-errors>=0.1.0"
 ]
 
 [build-system]
@@ -29,3 +30,4 @@ packages = [
 # aitbc-crypto (>=0.1.0) which doesn't match any versions".
 [tool.poetry.dependencies]
 aitbc-crypto = { path = "../aitbc-crypto", develop = true }
+aitbc-errors = { path = "../aitbc-errors", develop = true }

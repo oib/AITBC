@@ -5,7 +5,7 @@ from __future__ import annotations
 from decimal import Decimal
 from typing import Any
 
-from aitbc.exceptions import NetworkError, RateLimitError
+from aitbc_errors import NetworkError, RateLimitError
 from aitbc.network import AITBCHTTPClient
 from aitbc.types import GrantSummary, RegistryEntry, SDKResponse, WalletBalance
 

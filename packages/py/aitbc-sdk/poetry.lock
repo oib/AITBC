@@ -19,6 +19,20 @@ type = "directory"
 url = "../aitbc-crypto"
 
 [[package]]
+name = "aitbc-errors"
+version = "0.1.0"
+description = "AITBC exception hierarchy. Deliberately dependency-free."
+optional = false
+python-versions = ">=3.13.5,<3.14"
+groups = ["main"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "../aitbc-errors"
+
+[[package]]
 name = "annotated-types"
 version = "0.8.0"
 description = "Reusable constraint types to use with typing.Annotated"
@@ -489,4 +503,4 @@ typing-extensions = ">=4.15.0"
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5,<3.14"
-content-hash = "33804ea49f9e0fa3913048040c3055a155d457d039274c16db729c8550ded336"
+content-hash = "08b0748e2cf86b74780b8ebd52a392e77d149a5f4ab590fe6dfd1bacffb50771"
