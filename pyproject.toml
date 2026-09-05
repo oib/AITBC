@@ -134,7 +134,9 @@ ruff = "0.15.17"
 mypy = "2.1.0"
 pre-commit = "4.5.1"
 bandit = "1.9.4"
-safety = "3.7.0"
+# safety dropped 2026-09-05: it requires a PyUp API key nobody has (both call
+# sites degrade to pip-audit already) and it drags nltk>=3.9 into the dev tier.
+# pip-audit remains the primary dependency scanner.
 pytest-cov = "7.1.0"
 types-requests = "2.33.0.20260518"
 types-PyYAML = "6.0.3"
