@@ -25,7 +25,7 @@ from ..config import settings
 
 # Topics only validators may publish to. Subscribing to these is allowed from
 # anyone, but publishing requires a valid validator signature.
-RESTRICTED_GOSSIP_TOPICS = ("blocks.", "pbft.", "consensus.")
+RESTRICTED_GOSSIP_TOPICS = ("blocks", "pbft.", "consensus.")
 
 # Topics anyone may publish to (still rate-limited).
 PUBLIC_GOSSIP_TOPICS = ("transactions", "status", "mempool")
@@ -33,7 +33,10 @@ PUBLIC_GOSSIP_TOPICS = ("transactions", "status", "mempool")
 
 def is_restricted_topic(topic: str) -> bool:
     """Return True if ``topic`` requires validator authentication to publish."""
-    return any(topic.startswith(prefix) for prefix in RESTRICTED_GOSSIP_TOPICS)
+    for prefix in RESTRICTED_GOSSIP_TOPICS:
+        if topic == prefix or topic.startswith(prefix + "."):
+            return True
+    return False
 
 
 def is_public_topic(topic: str) -> bool:
@@ -48,9 +51,9 @@ def _parse_validator_set() -> list[Any]:
     try:
         data: Any = json.loads(settings.validator_set)
         if isinstance(data, list):
-            return list(data)
+            return [item for item in data]
         if isinstance(data, dict) and "validators" in data:
-            return list(data["validators"])
+            return [item for item in data["validators"]]
         return []
     except json.JSONDecodeError:
         return []
