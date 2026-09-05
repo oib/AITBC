@@ -1,0 +1,22 @@
+[project]
+name = "aitbc-errors"
+version = "0.1.0"
+description = "AITBC exception hierarchy. Deliberately dependency-free."
+authors = [
+    {name = "AITBC Team", email = "team@aitbc.dev"}
+]
+readme = "README.md"
+requires-python = ">=3.13.5,<3.14"
+# Intentionally empty, and it must stay that way. The whole point of this
+# package is that anything can import an AITBC exception without dragging in
+# a web framework. Adding a dependency here defeats it.
+dependencies = []
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
+
+[tool.poetry]
+packages = [
+    { include = "aitbc_errors", from = "src" }
+]
