@@ -133,7 +133,7 @@ class PostgreSQLLedgerAdapter:
                 (json.dumps(metadata), wallet_id),
             )
             self.connection.commit()
-            result = cursor.rowcount > 0
+            result = bool(cursor.rowcount > 0)
             cursor.close()
             return result
         except Exception as e:
@@ -153,7 +153,7 @@ class PostgreSQLLedgerAdapter:
                 (wallet_id,),
             )
             self.connection.commit()
-            result = cursor.rowcount > 0
+            result = bool(cursor.rowcount > 0)
             cursor.close()
             return result
         except Exception as e:
