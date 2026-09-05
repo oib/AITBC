@@ -66,7 +66,7 @@ torchvision = {version = "0.28.0", optional = true}
 # GPU acceleration (coordinator-api gpu_optimizer.py — requires /dev/nvidia-uvm in containers)
 pycuda = {version = "2026.1", optional = true, markers = "platform_machine == 'x86_64' and sys_platform == 'linux'"}
 # CLI Tools
-click = "8.4.1"
+click = ">=8.4.2,<9.0.0"
 rich = "15.0.0"
 typer = "0.25.1"
 click-completion = "0.5.2"
