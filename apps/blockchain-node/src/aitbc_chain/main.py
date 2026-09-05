@@ -53,6 +53,28 @@ except ImportError as e:
     create_multi_chain_manager = None
 
 
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from a URL before logging."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = parsed.hostname or ""
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse(
+                (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
+            )
+    except Exception:
+        pass
+    return url
+
+
+def _sanitize_urls(urls: list[str]) -> list[str]:
+    return [_sanitize_url(u) for u in urls]
+
+
 def _load_keystore_password() -> str:
     """Load keystore password from file or environment."""
     pwd_file = settings.keystore_password_file
@@ -399,8 +421,8 @@ class BlockchainNode:
         logger.info(
             "Initializing gossip backend: %s, url: %s, mesh peers: %s",
             settings.gossip_backend,
-            settings.gossip_broadcast_url,
-            settings.mesh_peer_url_list(),
+            _sanitize_url(settings.gossip_broadcast_url or ""),
+            _sanitize_urls(settings.mesh_peer_url_list()),
         )
         await gossip_broker.set_backend(backend)
         logger.info("Gossip backend initialized successfully")
