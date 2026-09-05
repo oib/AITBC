@@ -108,7 +108,9 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => LiquidityPool) public pools;
+    // internal: the flattened auto-getter exceeds the ABI encoder stack
+    // (>=14 return values) without the optimizer; use getPool().
+    mapping(uint256 => LiquidityPool) internal pools;
     mapping(address => mapping(uint256 => LiquidityPosition)) public liquidityPositions;
     mapping(address => uint256[]) public providerPools;
     mapping(address => mapping(address => uint256)) public poolByTokenPair; // tokenA -> tokenB -> poolId
@@ -459,6 +461,19 @@ contract AIServiceAMM is Ownable, ReentrancyGuard, Pausable {
      * @param poolId The pool ID
      * @return metrics Pool metrics
      */
+    /**
+     * @dev Returns the full liquidity pool record
+     * @param poolId The pool ID
+     * @return pool The liquidity pool struct
+     */
+    function getPool(uint256 poolId)
+        external
+        view
+        returns (LiquidityPool memory pool)
+    {
+        return pools[poolId];
+    }
+
     function getPoolMetrics(uint256 poolId)
         external
         view

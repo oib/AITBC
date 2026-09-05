@@ -93,7 +93,7 @@ describe.skip("DynamicPricing", function () {
         75    // marketSentiment
       );
 
-      const marketData = await dynamicPricing.marketDataHistory(0);
+      const marketData = await dynamicPricing.getMarketData(0);
       expect(marketData.totalSupply).to.equal(1000);
       expect(marketData.totalDemand).to.equal(800);
     });

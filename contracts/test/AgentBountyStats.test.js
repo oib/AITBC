@@ -76,7 +76,7 @@ describe("AgentBounty statistics (SC-12)", function () {
     let scannedActive = 0n;
     let scannedValue = 0n;
     for (let i = 0; i < total; i++) {
-      const b = await bounty.bounties(i);
+      const b = await bounty.getBounty(i);
       if (b.status === 1n) {
         scannedActive += 1n;
         scannedValue += b.rewardAmount;
