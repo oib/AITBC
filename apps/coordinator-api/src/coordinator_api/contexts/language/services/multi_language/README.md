@@ -30,7 +30,6 @@ multi_language/
 ├── translation_engine.py      # Core translation orchestration
 ├── language_detector.py       # Multi-method language detection
 ├── translation_cache.py       # Redis-based caching layer
-├── quality_assurance.py       # Translation quality assessment
 ├── agent_communication.py     # Enhanced agent messaging
 ├── marketplace_localization.py # Marketplace content localization
 ├── api_endpoints.py          # REST API endpoints
