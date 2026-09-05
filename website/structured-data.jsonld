@@ -25,8 +25,8 @@
       "@type": "WebAPI",
       "name": "AITBC Agent API",
       "description": "Machine-readable API for autonomous agents",
-      "documentation": "https://aitbc.bubuit.net/agent/openapi.json",
-      "endpointUrl": "https://aitbc.bubuit.net/agent/discovery.json"
+      "documentation": "https://hub.aitbc.bubuit.net/agent/openapi.json",
+      "endpointUrl": "https://hub.aitbc.bubuit.net/rpc/network-info"
     }
   ]
 }

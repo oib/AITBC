@@ -2,8 +2,8 @@
 Islands router.
 """
 
-from typing import Any
 from collections.abc import Callable
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request
 
@@ -47,19 +47,21 @@ except ImportError as e:
 
 
 @router.post("/join", summary="Join an island")
-async def join_island_route(request: JoinIslandRequest) -> JoinIslandResponse:
+@rate_limit(rate=10, per=60)
+async def join_island_route(body: JoinIslandRequest, request: Request) -> JoinIslandResponse:
     """Join an island for edge compute operations"""
     if join_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await join_island(request)
+    return await join_island(body)
 
 
 @router.post("/leave", summary="Leave an island")
-async def leave_island_route(request: LeaveIslandRequest) -> LeaveIslandResponse:
+@rate_limit(rate=10, per=60)
+async def leave_island_route(body: LeaveIslandRequest, request: Request) -> LeaveIslandResponse:
     """Leave an island"""
     if leave_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await leave_island(request)
+    return await leave_island(body)
 
 
 @router.get("", summary="List all islands")
@@ -73,7 +75,7 @@ async def list_islands_route(request: Request) -> dict[str, Any]:
 
 @router.get("/{island_id}", summary="Get island details")
 @rate_limit(rate=100, per=60)
-async def get_island_route(island_id: str) -> dict[str, Any]:
+async def get_island_route(request: Request, island_id: str) -> dict[str, Any]:
     """Get details of a specific island"""
     if get_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
@@ -81,8 +83,9 @@ async def get_island_route(island_id: str) -> dict[str, Any]:
 
 
 @router.post("/bridge", summary="Request a bridge to another island")
-async def request_bridge_route(request: BridgeRequestRequest) -> BridgeRequestResponse:
+@rate_limit(rate=10, per=60)
+async def request_bridge_route(body: BridgeRequestRequest, request: Request) -> BridgeRequestResponse:
     """Request a bridge to another island for cross-island communication"""
     if request_bridge is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await request_bridge(request)
+    return await request_bridge(body)
