@@ -24,3 +24,10 @@ build-backend = "poetry.core.masonry.api"
 packages = [
     { include = "aitbc_sdk", from = "src" }
 ]
+
+# aitbc-crypto is a sibling package in this repo, not published to PyPI. The
+# [project] table above declares the version constraint; poetry needs to be
+# told where to actually find it, or `poetry lock` fails with "depends on
+# aitbc-crypto (>=0.1.0) which doesn't match any versions".
+[tool.poetry.dependencies]
+aitbc-crypto = { path = "../aitbc-crypto", develop = true }
