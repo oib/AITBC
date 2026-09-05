@@ -287,6 +287,29 @@ class PoAProposer:
             self._logger.warning("Failed to sign block header for %s: %s", proposer, e)
             return ""
 
+    @staticmethod
+    def _certificate_commit_count(certificate: list[dict[str, Any]], block_hash: str) -> int:
+        """Count distinct validators that committed to ``block_hash`` in a PBFT certificate.
+
+        Counted the same way ``sync_validator._validate_pbft_certificate`` counts
+        them -- distinct senders of commit messages bound to this block hash,
+        proposer included -- so the proposer never rejects a block that every
+        follower would accept. Signatures are not re-verified here: these commits
+        were verified by the local PBFT engine before it accepted them.
+        """
+        seen: set[str] = set()
+        for commit in certificate:
+            if not isinstance(commit, dict) or commit.get("message_type") != "commit":
+                continue
+            sender = commit.get("sender", "")
+            if not sender:
+                continue
+            commit_block_hash = commit.get("block_hash", "")
+            if commit_block_hash and commit_block_hash != block_hash:
+                continue
+            seen.add(canonical_address(sender))
+        return len(seen)
+
     async def _collect_attestations(self, block: Block) -> list[dict[str, str]]:
         """Collect canonical header signatures from local and remote validators.
 
@@ -348,6 +371,17 @@ class PoAProposer:
             return
         from ..config import settings
 
+        # Answering attestation requests is a validator duty, not a proposer duty:
+        # a validator with ENABLE_BLOCK_PRODUCTION=false still has to sign other
+        # validators' headers. Started before the block-production check because
+        # it used to sit after it, so on a four-validator fleet where only two
+        # nodes produce blocks the proposer could collect exactly one attestation
+        # -- below MULTI_VALIDATOR_MIN_ATTESTATIONS=2 -- and every block was
+        # dropped even though PBFT had reached quorum.
+        if self._remote_attestation is not None:
+            await self._remote_attestation.start()
+            self._logger.info("Remote attestation listener started for chain %s", self._config.chain_id)
+
         if not getattr(settings, "enable_block_production", True):
             self._logger.info("Block production disabled, skipping PoA proposer loop")
             return
@@ -357,13 +391,19 @@ class PoAProposer:
         if head is not None:
             self._last_block_timestamp = head.timestamp
             self._logger.info("Initialized last block timestamp from head", extra={"height": head.height})
-        if self._remote_attestation is not None:
-            await self._remote_attestation.start()
-            self._logger.info("Remote attestation listener started for chain %s", self._config.chain_id)
         self._stop_event.clear()
         self._task = create_task_with_logging(self._run_loop(), name="poa_proposer_loop")
 
     async def stop(self) -> None:
+        # Mirrors start(): the attestation listener runs even when the proposer
+        # loop does not, so it must be stopped before the "no loop" early return
+        # or a non-producing validator would leak its gossip subscription.
+        if self._remote_attestation is not None:
+            try:
+                await asyncio.wait_for(self._remote_attestation.stop(), timeout=5.0)
+            except (asyncio.TimeoutError, asyncio.CancelledError):
+                self._logger.warning("Remote attestation listener did not stop within timeout")
+            self._logger.info("Remote attestation listener stopped for chain %s", self._config.chain_id)
         if self._task is None:
             return
         self._logger.info("Stopping PoA proposer loop")
@@ -374,12 +414,6 @@ class PoAProposer:
         except (asyncio.TimeoutError, asyncio.CancelledError):
             self._logger.warning("PoA proposer loop did not stop within timeout")
         self._task = None
-        if self._remote_attestation is not None:
-            try:
-                await asyncio.wait_for(self._remote_attestation.stop(), timeout=5.0)
-            except (asyncio.TimeoutError, asyncio.CancelledError):
-                self._logger.warning("Remote attestation listener did not stop within timeout")
-            self._logger.info("Remote attestation listener stopped for chain %s", self._config.chain_id)
 
     async def _run_loop(self) -> None:
         await asyncio.sleep(self._config.interval_seconds)
@@ -1045,6 +1079,21 @@ class PoAProposer:
             if self._stop_event.is_set():
                 session.rollback()
                 return False
+
+            # The PBFT certificate is resolved *before* the attestation gate,
+            # because it can satisfy it. sync_validator._validate_attestations
+            # checks the certificate instead of the attestations list whenever one
+            # is present, so a block carrying a commit quorum is accepted by every
+            # follower no matter how many gossip attestations came back. Requiring
+            # a second, independent signature round here was therefore stricter
+            # than the network itself: PBFT would reach quorum and the block would
+            # still be dropped, stalling the chain on a check no verifier applies.
+            pbft_certificate: list[dict[str, Any]] = []
+            if self._pbft_consensus:
+                pbft_certificate = self._pbft_consensus.get_certificate(block_hash)
+                if pbft_certificate:
+                    metadata_dict["pbft_certificate"] = pbft_certificate
+
             if self._multi_validator:
                 attestations = await self._collect_attestations(block)
                 configured_min = getattr(settings, "multi_validator_min_attestations", 0)
@@ -1057,22 +1106,29 @@ class PoAProposer:
                         effective_min,
                         max(0, len(active_validators) - 1),
                     )
+                if attestations:
+                    metadata_dict["attestations"] = attestations
                 if effective_min and len(attestations) < effective_min:
-                    self._logger.warning(
-                        "Not enough attestations for multi-validator block %s: got %d, need %d",
+                    commit_count = self._certificate_commit_count(pbft_certificate, block_hash)
+                    if commit_count < effective_min:
+                        self._logger.warning(
+                            "Not enough attestations for multi-validator block %s: got %d attestation(s) "
+                            "and %d PBFT commit(s), need %d",
+                            next_height,
+                            len(attestations),
+                            commit_count,
+                            effective_min,
+                        )
+                        session.rollback()
+                        return False
+                    self._logger.info(
+                        "Block %s carries %d attestation(s), below the %d minimum, but its PBFT certificate "
+                        "holds %d commits; proceeding on the certificate",
                         next_height,
                         len(attestations),
                         effective_min,
+                        commit_count,
                     )
-                    session.rollback()
-                    return False
-                if attestations:
-                    metadata_dict["attestations"] = attestations
-
-            if self._pbft_consensus:
-                pbft_certificate = self._pbft_consensus.get_certificate(block_hash)
-                if pbft_certificate:
-                    metadata_dict["pbft_certificate"] = pbft_certificate
 
             # v0.25.7: stamp the state-transition rule version so followers can
             # replay this block with the same rules that produced its state_root.
