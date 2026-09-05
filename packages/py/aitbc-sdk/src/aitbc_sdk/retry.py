@@ -7,7 +7,7 @@ from collections.abc import Callable
 from dataclasses import dataclass
 from typing import Any
 
-from aitbc.exceptions import CircuitBreakerOpenError, RetryError
+from aitbc_errors import CircuitBreakerOpenError, RetryError
 from aitbc.network.circuit_breaker import CircuitBreaker as _CoreCircuitBreaker
 from aitbc.network.retry_policy import RetryPolicy as _CoreRetryPolicy
 
