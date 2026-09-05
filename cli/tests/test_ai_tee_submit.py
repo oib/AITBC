@@ -49,6 +49,8 @@ def test_ai_submit_tee_attestation_flags(runner, mock_client):
             "hello",
             "--payment",
             "5",
+            "--provider-address",
+            "0x17B9ED0c7b8b0d0B30Fa3d4BbE2F6a0Abb679d",
         ],
         obj={"output_format": "table", "api_key": "test-key"},
     )
@@ -73,6 +75,8 @@ def test_ai_submit_confidential_and_measurement(runner, mock_client):
             "hello",
             "--payment",
             "5",
+            "--provider-address",
+            "0x17B9ED0c7b8b0d0B30Fa3d4BbE2F6a0Abb679d",
         ],
         obj={"output_format": "table", "api_key": "test-key"},
     )
@@ -83,3 +87,26 @@ def test_ai_submit_confidential_and_measurement(runner, mock_client):
     assert payload["constraints"]["tee_attestation_required"] is True
     assert payload["constraints"]["required_enclave_measurement"] == "m1"
     assert payload["constraints"]["tee_enclave_id"] == "m1"
+
+
+def test_ai_submit_paid_job_without_provider_aborts(runner, mock_client):
+    """A paid job with no resolvable provider must fail loudly at submit
+    time rather than queue forever (the 3df89318 artifact)."""
+    from aitbc_cli.commands.ai import ai
+
+    result = runner.invoke(
+        ai,
+        [
+            "submit",
+            "--prompt",
+            "hello",
+            "--payment",
+            "5",
+        ],
+        obj={"output_format": "table", "api_key": "test-key"},
+        env={"SHOP_WALLET_ADDRESS": ""},
+    )
+
+    assert result.exit_code != 0
+    assert "provider_address is required" in result.output
+    mock_client.post.assert_not_called()
