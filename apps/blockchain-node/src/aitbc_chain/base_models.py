@@ -307,6 +307,10 @@ class Escrow(ChainBase, table=True):
     protected: bool = Field(default=False)
     energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
     energy_quote_id: str | None = None
+    energy_quote_digest: str | None = None
+    energy_settlement_route: str | None = None
+    energy_settlement_asset: str | None = None
+    energy_settlement_unit_scale: int | None = None
     energy_net_floor_units: int | None = None
     energy_provider_credit_units: int | None = None
     energy_fee_basis_points: int | None = None
