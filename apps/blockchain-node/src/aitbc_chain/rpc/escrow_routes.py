@@ -18,6 +18,14 @@ from fastapi.security import APIKeyHeader
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.marketplace.energy_pricing import (
+    EnergyPricingError,
+    EnergyQuote,
+    FeeModel,
+    SettlementRoute,
+    compute_funding_breakdown,
+    evaluate_quote,
+)
 from aitbc.utils import ait_to_units, units_to_ait
 from eth_utils import keccak
 
@@ -652,12 +660,69 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     if _to_canonical(payload.get("provider", "")) != _to_canonical(provider):
         raise HTTPException(status_code=400, detail="lock_tx payload provider mismatch") from None
 
+    # E1: validate the energy quote for fixed-duration GPU rentals.
+    energy_quote_data = body.get("energy_quote") or body.get("energy_quote_snapshot")
+    energy_kwargs: dict[str, Any] = {}
+    if payload.get("energy_quote_id") or energy_quote_data:
+        if not energy_quote_data:
+            raise HTTPException(
+                status_code=400,
+                detail="Protected ESCROW_LOCK payload references an energy quote but no quote was supplied",
+            ) from None
+        try:
+            quote = EnergyQuote.from_dict(energy_quote_data)
+        except EnergyPricingError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid energy quote: {exc}") from exc
+        if quote.job_id != job_id:
+            raise HTTPException(status_code=400, detail="energy quote job_id mismatch") from None
+        if quote.provider != provider:
+            raise HTTPException(status_code=400, detail="energy quote provider mismatch") from None
+        if quote.buyer != buyer:
+            raise HTTPException(status_code=400, detail="energy quote buyer mismatch") from None
+        if quote.settlement_route != SettlementRoute.NATIVE:
+            raise HTTPException(status_code=400, detail="energy quote settlement route is not native") from None
+        lock_amount_units = int(tx_to_submit.get("amount", 0))
+        if quote.principal_units != lock_amount_units:
+            raise HTTPException(
+                status_code=400,
+                detail=f"energy quote principal {quote.principal_units} does not match lock amount {lock_amount_units}",
+            ) from None
+
+        result = evaluate_quote(
+            quote=quote,
+            profile=quote.to_profile(),
+            rate=quote.to_rate(),
+            now=int(datetime.now(UTC).timestamp()),
+        )
+        if not result.approved:
+            raise HTTPException(
+                status_code=422,
+                detail=f"Energy quote refused: {result.refusal_reason} ({result.refusal_code})",
+            ) from None
+        if result.breakdown is None:
+            raise HTTPException(status_code=422, detail="Energy quote did not produce a funding breakdown") from None
+
+        # Use the exact locked units as the authoritative gross amount.
+        amount_dec = units_to_ait(quote.principal_units)
+        energy_kwargs = {
+            "protected": True,
+            "energy_quote_snapshot": quote.to_dict(include_signature=False),
+            "energy_quote_id": quote.quote_id,
+            "energy_net_floor_units": quote.net_energy_floor_units,
+            "energy_provider_credit_units": result.breakdown.provider_credit_units,
+            "energy_fee_basis_points": quote.fee_basis_points,
+        }
+
     # v0.25.5: do not call POST /register-account to bootstrap the buyer.  The
     # buyer must already have an on-chain account (faucet or previous transfer)
     # before the lock transaction can be admitted.
 
     success, message, contract_id = await mgr.create_contract(
-        job_id=job_id, client_address=buyer, agent_address=provider, amount=amount_dec
+        job_id=job_id,
+        client_address=buyer,
+        agent_address=provider,
+        amount=amount_dec,
+        **energy_kwargs,
     )
     if not success:
         raise HTTPException(status_code=400, detail=message) from None
@@ -670,7 +735,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     await mgr.fund_contract(contract_id, lock_tx_hash)
 
     try:
-        amount_units = ait_to_units(amount_dec)
+        amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
         with session_scope() as session:
             existing = session.get(Escrow, job_id)
             if existing:
@@ -679,6 +744,13 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                 existing.buyer = _to_canonical(buyer)
                 existing.provider = _to_canonical(provider)
                 existing.amount = amount_units
+                if energy_kwargs:
+                    existing.protected = True
+                    existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
+                    existing.energy_quote_id = energy_kwargs.get("energy_quote_id")
+                    existing.energy_net_floor_units = energy_kwargs.get("energy_net_floor_units")
+                    existing.energy_provider_credit_units = energy_kwargs.get("energy_provider_credit_units")
+                    existing.energy_fee_basis_points = energy_kwargs.get("energy_fee_basis_points")
             else:
                 escrow_record = Escrow(
                     job_id=job_id,
@@ -688,6 +760,18 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     amount=amount_units,
                     status="locked",
                     lock_tx_hash=lock_tx_hash,
+                    **(
+                        {
+                            "protected": True,
+                            "energy_quote_snapshot": energy_kwargs.get("energy_quote_snapshot"),
+                            "energy_quote_id": energy_kwargs.get("energy_quote_id"),
+                            "energy_net_floor_units": energy_kwargs.get("energy_net_floor_units"),
+                            "energy_provider_credit_units": energy_kwargs.get("energy_provider_credit_units"),
+                            "energy_fee_basis_points": energy_kwargs.get("energy_fee_basis_points"),
+                        }
+                        if energy_kwargs
+                        else {}
+                    ),
                 )
                 session.add(escrow_record)
             session.commit()
@@ -749,9 +833,11 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
 
     # Reconciliation/duplicate release handling: if the row is already released,
     # return the stored result without resubmitting.
+    escrow_record: Escrow | None = None
     try:
         with session_scope() as session:
             record = session.get(Escrow, job_id)
+            escrow_record = record
             if record is not None:
                 # Heal before the guards read the row: a release whose change leg
                 # was mined last reads back as a refund until it is reconciled,
@@ -805,12 +891,39 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         contract.state = EscrowState.JOB_COMPLETED
     # Hold the per-contract lock across release and settlement so the rollback
     # snapshot cannot interleave with a concurrent release of this contract.
+    # E1: fixed-duration protected rentals do not accept arbitrary metered overrides
+    # and must release the full frozen gross amount.
+    if escrow_record and escrow_record.protected:
+        requested_amount = None
+        if contract and escrow_record.energy_fee_basis_points is not None:
+            contract.fee_rate = Decimal(escrow_record.energy_fee_basis_points) / Decimal(10000)
+        if contract and escrow_record.energy_provider_credit_units is not None:
+            contract.energy_provider_credit_units = escrow_record.energy_provider_credit_units
+            contract.energy_net_floor_units = escrow_record.energy_net_floor_units
+
     async with mgr.release_lock(contract_id):
         release_snapshot = mgr.snapshot_release_state(contract_id)
         ok, message = await mgr.release_payment(contract_id, requested_amount)
         if not ok:
             raise HTTPException(status_code=400, detail=message)
         released_amount = contract.released_amount if contract else Decimal(0)
+
+        # E1: ensure the provider receives at least the frozen credit, never below
+        # the energy floor. Bump the settled amount up to the exact signed target.
+        if escrow_record and escrow_record.protected and escrow_record.energy_provider_credit_units is not None:
+            target_ait = units_to_ait(escrow_record.energy_provider_credit_units)
+            if released_amount < target_ait:
+                released_amount = target_ait
+                if contract:
+                    contract.released_amount = target_ait
+            if escrow_record.energy_net_floor_units is not None:
+                floor_ait = units_to_ait(escrow_record.energy_net_floor_units)
+                if released_amount < floor_ait:
+                    mgr.restore_after_failed_settlement(contract_id, release_snapshot)
+                    raise HTTPException(
+                        status_code=422,
+                        detail="Protected escrow release would underpay the energy floor",
+                    )
         buyer_addr = contract.client_address if contract else ""
         provider_addr = contract.agent_address if contract else ""
         # What the buyer locked but the job did not consume. release_payment clamps an

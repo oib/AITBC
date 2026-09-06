@@ -202,6 +202,15 @@ class Settings(BaseAITBCConfig):
     # Server-side password used to encrypt agent wallets at rest. Must be set in production.
     wallet_encryption_password: str = ""
 
+    # EVM energy pricing oracle (used to build fixed-duration GPU rental quotes)
+    eth_rpc_url: str | None = Field(default=None, description="Ethereum JSON-RPC URL for energy oracle reads")
+    energy_pricing_contract_address: str | None = Field(default=None, description="IEnergyPricing contract address")
+    energy_pricing_chain_id: int = Field(default=1, description="EVM chain ID for energy oracle reads")
+    energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime")
+    energy_max_rate_age_seconds: int = Field(default=300, description="Maximum age of an energy rate observation")
+    energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
+    native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
+
     @field_validator("blockchain_rpc_url")
     @classmethod
     def validate_blockchain_rpc_url(cls, v: str) -> str:

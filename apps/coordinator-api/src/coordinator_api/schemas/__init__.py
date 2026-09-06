@@ -41,6 +41,10 @@ class JobPaymentCreate(BaseModel):
     offer_unit_price: Decimal | None = Field(default=None, description="Advertised price of one unit")
     offer_price_unit: str | None = Field(default=None, description="Unit the offer is priced in")
     offer_quantity: Decimal | None = Field(default=None, description="Units bought at the advertised price")
+    # E1: fixed-duration GPU rental energy quote. When present, the amount and fee
+    # are governed by the signed quote rather than by the display amount.
+    protected: bool = Field(default=False, description="Whether this payment is a protected fixed-duration GPU rental")
+    energy_quote: dict[str, Any] | None = Field(default=None, description="Signed energy quote for protected rentals")
 
     @field_validator("job_id")
     @classmethod
@@ -85,6 +89,10 @@ class JobPaymentView(BaseModel):
     refunded_at: datetime | None = None
     transaction_hash: str | None = None
     refund_transaction_hash: str | None = None
+    protected: bool = False
+    energy_quote_id: str | None = None
+    energy_buyer_charge_units: int | None = None
+    energy_net_floor_units: int | None = None
 
 
 class PaymentRequest(BaseModel):
