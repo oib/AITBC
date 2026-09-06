@@ -597,7 +597,12 @@ class ChainSettings(BaseSettings):
     validator_keys: str = ""
     # Minimum number of attestations required in block_metadata for a multi-validator
     # block to be accepted during sync (in addition to the proposer signature).
-    multi_validator_min_attestations: int = 2  # G6: require at least 2 validator attestations when multi-validator is active
+    # G6: require at least 2 validator attestations when multi-validator is active.
+    # TRAP: this default is *nonzero*. Setting it explicitly to 0 or 1 LOWERS the
+    # quorum bar below the shipped default — 0 does not mean "extra safe", it means
+    # "no attestation certificate required". Do not set it without understanding
+    # that larger is stricter, smaller is weaker.
+    multi_validator_min_attestations: int = 2
     # v0.25.7: historical state-transition rule changes are gated by block version.
     # New blocks set state_transition_version=2 in their metadata. Blocks that
     # lack the version key are treated as v1 if their height is below this value
