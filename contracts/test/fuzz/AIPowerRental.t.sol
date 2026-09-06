@@ -327,3 +327,145 @@ contract AIPowerRentalOverflowTest is Test {
         assertEq(netFloor, 198_000_000_000_000_000);
     }
 }
+
+contract AIPowerRentalPinnedFloorTest is Test {
+    AIPowerRental public rental;
+    DynamicPricing public energyPricing;
+    AIToken public paymentToken;
+    address public provider;
+    address public renter;
+    address public publisher;
+
+    function setUp() public {
+        provider = makeAddr("provider");
+        renter = makeAddr("renter");
+        publisher = makeAddr("publisher");
+
+        paymentToken = new AIToken(0);
+        vm.warp(block.timestamp + 2 days);
+
+        ZKReceiptVerifier zkVerifier = new ZKReceiptVerifier();
+        Groth16Verifier groth16Verifier = new Groth16Verifier();
+        rental = new AIPowerRental(
+            address(paymentToken),
+            address(zkVerifier),
+            address(groth16Verifier)
+        );
+
+        energyPricing = new DynamicPricing(address(0), address(0), address(paymentToken));
+        energyPricing.setEnergyPublisher(publisher);
+        rental.setEnergyPricing(address(energyPricing));
+
+        rental.authorizeProvider(provider);
+        rental.authorizeConsumer(renter);
+
+        energyPricing.registerEnergyProfile(
+            "gpu-001",
+            provider,
+            "rtx-4060-ti",
+            165,
+            300_000_000_000_000_000
+        );
+        vm.prank(publisher);
+        energyPricing.publishEnergyRate(
+            4_000_000_000_000_000_000,
+            block.timestamp,
+            "operator_reference"
+        );
+    }
+
+    function test_StartRentalUsesPinnedFloorNotRecomputed() public {
+        // §5.1: Create a protected rental at the current floor, then raise the
+        // rate before startRental. The pinned floor from creation should be
+        // used, not the new (higher) floor. If startRental re-prices, the
+        // previously-valid agreement would be rejected.
+        uint256 price = 200_000_000_000_000_000; // above the floor
+        uint256 platformFee = (price * rental.platformFeePercentage()) / 10000;
+        uint256 totalAmount = price + platformFee;
+        paymentToken.mint(renter, totalAmount);
+
+        vm.startPrank(renter);
+        uint256 agreementId = rental.createProtectedRental(
+            provider,
+            renter,
+            "gpu-001",
+            "rtx-4060-ti",
+            1,
+            3600,
+            price,
+            totalAmount,
+            1_000_000_000_000_000_000
+        );
+
+        // Raise the rate significantly — the new floor would be much higher.
+        vm.prank(publisher);
+        energyPricing.publishEnergyRate(
+            100_000_000_000_000_000_000, // 100 AIT/EUR, up from 4
+            block.timestamp,
+            "operator_reference"
+        );
+
+        // startRental should still succeed because it uses the pinned floor
+        // from creation, not the new (higher) recomputed floor.
+        paymentToken.approve(address(rental), totalAmount);
+        rental.startRental(agreementId);
+        vm.stopPrank();
+
+        AIPowerRental.RentalAgreement memory agreement = rental.getRentalAgreement(agreementId);
+        assertEq(uint8(agreement.status), uint8(AIPowerRental.RentalStatus.Active));
+    }
+
+    function test_StartRentalRevertsOnInsufficientBalance() public {
+        // §5.4: startRental should revert with a clear message when the buyer
+        // has insufficient token balance.
+        uint256 price = 200_000_000_000_000_000;
+        uint256 platformFee = (price * rental.platformFeePercentage()) / 10000;
+        uint256 totalAmount = price + platformFee;
+        // Mint less than required
+        paymentToken.mint(renter, totalAmount - 1);
+
+        vm.startPrank(renter);
+        uint256 agreementId = rental.createProtectedRental(
+            provider,
+            renter,
+            "gpu-001",
+            "rtx-4060-ti",
+            1,
+            3600,
+            price,
+            totalAmount,
+            1_000_000_000_000_000_000
+        );
+        paymentToken.approve(address(rental), totalAmount);
+        vm.expectRevert("Insufficient token balance");
+        rental.startRental(agreementId);
+        vm.stopPrank();
+    }
+
+    function test_StartRentalRevertsOnInsufficientAllowance() public {
+        // §5.4: startRental should revert with a clear message when the buyer
+        // has insufficient allowance.
+        uint256 price = 200_000_000_000_000_000;
+        uint256 platformFee = (price * rental.platformFeePercentage()) / 10000;
+        uint256 totalAmount = price + platformFee;
+        paymentToken.mint(renter, totalAmount);
+
+        vm.startPrank(renter);
+        uint256 agreementId = rental.createProtectedRental(
+            provider,
+            renter,
+            "gpu-001",
+            "rtx-4060-ti",
+            1,
+            3600,
+            price,
+            totalAmount,
+            1_000_000_000_000_000_000
+        );
+        // Approve less than required
+        paymentToken.approve(address(rental), totalAmount - 1);
+        vm.expectRevert("Insufficient token allowance");
+        rental.startRental(agreementId);
+        vm.stopPrank();
+    }
+}

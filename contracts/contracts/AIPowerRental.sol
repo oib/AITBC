@@ -436,6 +436,16 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         if (terms.isProtected) {
             require(address(energyPricing) != address(0), "Energy pricing not configured");
 
+            // §5.1: the floor was pinned at createProtectedRental time and
+            // frozen in terms.netEnergyFloor. Re-computing from the live oracle
+            // here would re-price the quote: if the rate moved up, a valid
+            // quote would be rejected; if it moved down, a below-floor quote
+            // could be accepted. Use the pinned floor instead.
+            require(agreement.price >= terms.netEnergyFloor, "Price below pinned energy floor");
+            require(totalAmount <= terms.buyerMaxTotal, "Buyer cap exceeded at funding");
+
+            // Verify the profile is still enabled and the provider/model still
+            // match, but do not re-price.
             IEnergyPricing.EnergyProfile memory profile = energyPricing.getEnergyProfile(terms.resourceId);
             require(profile.enabled, "Energy profile disabled");
             require(
@@ -446,16 +456,6 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
                 keccak256(bytes(agreement.gpuModel)) == keccak256(bytes(profile.modelId)),
                 "Model does not match registered resource"
             );
-
-            (uint256 netFloor, bool valid, ) = energyPricing.getEnergyFloor(
-                terms.resourceId,
-                terms.gpuCount,
-                agreement.duration,
-                terms.settlementUnitScale
-            );
-            require(valid, "Energy floor is not valid at funding");
-            require(agreement.price >= netFloor, "Price below energy floor at funding");
-            require(totalAmount <= terms.buyerMaxTotal, "Buyer cap exceeded at funding");
 
             IEnergyPricing.EnergyRate memory rate = energyPricing.getEnergyRate();
             require(rate.enabled, "Energy rate disabled at funding");
@@ -470,9 +470,20 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             terms.rateSubmittedAt = rate.submittedAt;
             terms.rateSourceKind = rate.sourceKind;
             terms.profileRevision = profile.revision;
-            terms.netEnergyFloor = netFloor;
             terms.fundedAt = block.timestamp;
         }
+
+        // §5.4: explicit balance and allowance checks before transferFrom so
+        // the failure is diagnosable rather than a generic "Payment transfer
+        // failed" that could mean anything.
+        require(
+            paymentToken.balanceOf(msg.sender) >= totalAmount,
+            "Insufficient token balance"
+        );
+        require(
+            paymentToken.allowance(msg.sender, address(this)) >= totalAmount,
+            "Insufficient token allowance"
+        );
 
         // Transfer tokens from consumer to contract
         require(
