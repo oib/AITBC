@@ -34,17 +34,16 @@ single source of truth, so optional packages stay pinned to the same versions as
 | `gpu` | pycuda |
 | `ml` | torch, torchvision, pillow, opencv-python |
 | `fhe` | tenseal |
-| `language` | openai, deepl, google-cloud-translate, langdetect, fasttext, polyglot |
 | `search` | meilisearch |
 | `sqlcipher` | sqlcipher3-binary |
 | `security` | detect-secrets |
 | `observability` | opentelemetry-sdk, opentelemetry-exporter-otlp |
 
-No installation profile currently maps to `language`, `search`, `sqlcipher`, `security`, or
+No installation profile currently maps to `search`, `sqlcipher`, `security`, or
 `observability`. Install those directly when a service needs them:
 
 ```bash
-poetry install --extras language
+poetry install --extras search
 ```
 
 ## Installation Profiles
