@@ -67,9 +67,9 @@ The setup.sh script automatically selects the appropriate profile based on your 
 Each profile installs different dependency sets:
 
 - **customer-no-gpu**: requirements-minimal.txt + CLI requirements
-- **server-no-gpu**: requirements.txt + security.txt
-- **hub**: requirements.txt + security.txt + dev.txt
-- **provider-gpu**: requirements.txt + ai-ml.txt + security.txt
+- **server-no-gpu**: requirements.txt
+- **hub**: requirements.txt + dev.txt
+- **provider-gpu**: requirements.txt + ai-ml.txt
 
 ## Node Profiles
 

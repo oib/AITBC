@@ -169,7 +169,6 @@ pip install -r requirements-dev.txt
 
 # Optional modules (install as needed)
 pip install -r requirements-optional/ai-ml.txt      # torch, transformers, openai, spacy
-pip install -r requirements-optional/security.txt    # python-jose, passlib, sentry-sdk
 # testing.txt references requirements-dev.txt (no separate install needed)
 ```
 
