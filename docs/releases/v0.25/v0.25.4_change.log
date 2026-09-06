@@ -151,3 +151,19 @@ This release covers the 300 commits between the end of the `v0.25.3` change log 
 - Live Sepolia round-trip validated for the two-way bridge (deposit + withdraw paths, `dd988df7f0` family).
 - PBFT mesh and proposer-schedule signature checks exercised on the live fleet; the block-2555 rejection on node1 was traced to the pre-fix `bridge_state_root` rebuild and has not recurred since fleet convergence.
 - `python -m py_compile` + `ruff` clean on all files touched by the dead-stub cleanup; contract suites (forge + Hardhat) run in CI.
+
+### Pre-existing issue fixes
+
+- : include  in  and the header cache so multi-validator signature validation has the PBFT certificate and attestations it needs for blocks fetched over HTTP ().
+- : log the actual rejection reason in  signature failures ().
+- :  returns an empty diff when state roots match and no transactions touched addresses; falls back to full sync when state changed without touched addresses ().
+- : require both  and  to be configured before enabling  gossip, eliminating follower auth failures caused by stale half-configured proposer identities ().
+- : quote  and  status literals in the  backfill migration so the SQL compares against string values instead of non-existent columns ().
+
+### Pre-existing issue fixes
+
+- fix(blockchain): include block_metadata in /rpc/block and the header cache so multi-validator signature validation has the PBFT certificate and attestations it needs for blocks fetched over HTTP (b7c4e0d22).
+- fix(blockchain): log the actual rejection reason in sync_block_import signature failures (b7c4e0d22).
+- fix(blockchain): get_state_delta returns an empty diff when state roots match and no transactions touched addresses; falls back to full sync when state changed without touched addresses (b7c4e0d22).
+- fix(blockchain): require both proposer_id and proposer_key to be configured before enabling SyncManager gossip, eliminating follower auth failures caused by stale half-configured proposer identities (ba1f10499).
+- fix(coordinator): quote rejected and active status literals in the 5d8339a13a12 backfill migration so the SQL compares against string values instead of non-existent columns (050cca219).
