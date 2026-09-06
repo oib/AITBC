@@ -44,6 +44,33 @@ _gossip_msg_rate = RateLimiter(
 )
 
 
+def _gossip_client_ip(websocket: WebSocket) -> str:
+    """Return the remote client IP for the gossip websocket.
+
+    When uvicorn's ``--proxy-headers`` middleware is active it rewrites
+    ``scope["client"]`` for us.  As a defensive fallback we also check the
+    standard forwarded headers, preferring the address appended by the trusted
+    reverse proxy (the right-most entry in ``X-Forwarded-For``) over the
+    immediate TCP peer.
+    """
+    if websocket.client:
+        host = websocket.client.host
+    else:
+        host = "unknown"
+
+    # FastAPI's Headers object is case-insensitive.
+    x_real_ip = websocket.headers.get("x-real-ip")
+    if x_real_ip:
+        return x_real_ip.strip().split(",")[0].strip() or host
+
+    x_forwarded_for = websocket.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        # The last address was appended by our trusted proxy.
+        return x_forwarded_for.strip().split(",")[-1].strip() or host
+
+    return host
+
+
 async def _stream_topic(topic: str, websocket: WebSocket) -> None:
     subscription = await gossip_broker.subscribe(topic)
     try:
@@ -61,10 +88,11 @@ async def gossip_websocket(websocket: WebSocket) -> None:
     """Bidirectional WebSocket gossip with validator authentication.
 
     Clients connect with ``?topic=<topic>``. Publishing to validator-only
-    topics (``blocks.``, ``pbft.``, ``consensus.*``) requires a signed
-    challenge/response using a key from ``VALIDATOR_SET``. Public topics
-    (``transactions``, ``status.*``) can be published without authentication
-    but are still rate-limited.
+    topics (``blocks``, ``pbft``, ``consensus`` and any dotted sub-topic)
+    requires a signed challenge/response using a key from ``VALIDATOR_SET``.
+    Public topics (``transactions``, ``status``, ``mempool`` and any dotted
+    sub-topic) can be published without authentication but are still
+    rate-limited.
 
     The server bridges messages into the node's ``gossip_broker`` so remote
     validators can publish and subscribe to gossip channels over the existing
@@ -75,7 +103,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
         await websocket.close(code=1008)
         return
 
-    client_ip = websocket.client.host if websocket.client else "unknown"
+    client_ip = _gossip_client_ip(websocket)
 
     # Connection-level source limit.
     if _gossip_ip_connections.get(client_ip, 0) >= settings.gossip_max_concurrent_connections_per_ip:
