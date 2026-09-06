@@ -15,7 +15,6 @@ import time
 from decimal import Decimal
 from typing import Any
 
-import click
 import requests
 
 # Default configuration
@@ -512,21 +511,3 @@ def miner_cli_dispatcher(action: str, **kwargs) -> dict[Any, Any]:
         return result  # type: ignore[no-any-return]
     else:
         return {"action": action, "status": f"❌ Unknown action. Available: {', '.join(actions.keys())}"}
-
-
-if __name__ == "__main__":
-    # Test the module
-    click.echo("🚀 AITBC Miner Management Module")
-    click.echo("Available functions:")
-    for func in [
-        register_miner,
-        get_miner_status,
-        send_heartbeat,
-        poll_jobs,
-        submit_job_result,
-        update_capabilities,
-        check_earnings,
-        list_marketplace_offers,
-        create_marketplace_offer,
-    ]:
-        click.echo(f"  - {func.__name__}")

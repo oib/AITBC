@@ -523,9 +523,3 @@ def start_monitoring() -> asyncio.Task[None] | None:
         monitor_thread = threading.Thread(target=_run_sync, daemon=True)
         monitor_thread.start()
         return None
-
-
-if __name__ == "__main__":
-    # For testing
-    logger.info("Testing bridge monitor...")
-    asyncio.run(monitor_loop())

@@ -532,28 +532,3 @@ def create_agent_info(
         chain_id=chain_id,
         island_id=island_id,
     )
-
-
-async def example_usage() -> None:
-    """Example of how to use the agent discovery system"""
-    registry = AgentRegistry()
-    await registry.start()
-    discovery_service = AgentDiscoveryService(registry)
-    agent_info = create_agent_info(
-        agent_id="agent-001",
-        agent_type="worker",
-        capabilities=["data_processing", "analysis"],
-        services=["process_data", "analyze_results"],
-        endpoints={"http": "http://localhost:8001", "ws": "ws://localhost:8002"},
-    )
-    await registry.register_agent(agent_info)
-    agents = await registry.discover_agents({"capabilities": ["data_processing"], "status": "active"})
-    logger.info("Found %s agents", len(agents))
-    best_agent = await discovery_service.find_best_agent({"capabilities": ["data_processing"], "min_health_score": 0.8})
-    if best_agent:
-        logger.info("Best agent: %s", best_agent.agent_id)
-    await registry.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(example_usage())
