@@ -597,6 +597,23 @@ class PaymentService:
         backed by real funds. The hub never signs on behalf of the buyer; without a
         pre-signed lock, no escrow is created.
         """
+        # Idempotency: a payment that already has an escrow must not POST a second
+        # /rpc/escrow/create. The chain side also guards (an existing ESCROW_LOCK for
+        # the job short-circuits the route), but stopping here avoids the round-trip
+        # and keeps the coordinator ledger authoritative about what it already did.
+        existing_escrow = (
+            self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id))
+            .scalars()
+            .first()
+        )
+        if existing_escrow is not None or payment.escrowed_at is not None or payment.escrow_address:
+            logger.warning(
+                "Refusing to double-lock payment %s for job %s: escrow already exists",
+                payment.id,
+                payment.job_id,
+            )
+            return existing_escrow
+
         # G2: the buyer must be explicit. Never fall back to GENESIS_ADDRESS; in this
         # environment GENESIS_ADDRESS is the legacy proposer/node wallet and using it
         # as a buyer would create self-send escrow locks.
