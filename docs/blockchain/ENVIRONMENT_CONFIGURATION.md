@@ -84,9 +84,18 @@ enable_block_production=true
 # Node Identity
 NODE_ID=aitbc2
 
-# P2P Configuration (not needed for followers — subscription system uses RPC)
+# P2P identity (kept for uniqueness, not used for follower gossip)
 p2p_node_id=node-7af14c549bab473d9deb4ca8ab4bdcde
-proposer_id=0x88A13a03119cfaefe99Bd4657b5F4DD4A2199AD7
+
+# Followers must not set proposer_id unless they also hold the matching proposer
+# key. SyncManager only enables gossip when both proposer_id and proposer_key are
+# present; a stale proposer_id here causes "PROPOSER_ID/PROPOSER_KEY not set"
+# warnings and can make the node try to authenticate as a validator.
+# proposer_id=0x...
+
+# Do not set stale mesh peer URLs on followers. Block push comes from the hub
+# websocket subscription, not a mesh.
+# GOSSIP_MESH_PEER_URLS=
 
 # Trusted Proposers (for follower nodes)
 trusted_proposers=
@@ -94,6 +103,10 @@ trusted_proposers=
 # Block Production Configuration
 block_production_chains=
 enable_block_production=false
+
+# Keep the gossip backend explicit. Followers receive blocks via the hub
+# websocket subscription, not the validator gossip broker.
+GOSSIP_BACKEND=websocket
 ```
 
 ---
