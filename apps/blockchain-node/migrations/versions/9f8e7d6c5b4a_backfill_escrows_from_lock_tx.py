@@ -22,7 +22,8 @@ from __future__ import annotations
 from datetime import UTC, datetime
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import op, context
+from sqlalchemy import inspect
 
 # revision identifiers, used by Alembic.
 revision: str = "9f8e7d6c5b4a"
@@ -41,8 +42,37 @@ branch_labels: str | None = None
 depends_on: str | None = None
 
 
+def _transaction_has_column(bind: sa.engine.Connection, column: str) -> bool:
+    """Check whether the ``transaction`` table has a given column.
+
+    The baseline migration (``e31f486f1484``) creates ``transaction`` with
+    only ``id``, ``tx_hash``, ``block_height``, ``sender``, ``recipient``,
+    ``payload``, and ``created_at``. The ``type`` and ``value`` columns are
+    added by ``SQLModel.metadata.create_all`` at application startup, not by
+    any migration. On a fresh database that has only seen migrations, these
+    columns are absent and the backfill query would fail with
+    ``no such column: t.type``.
+
+    On a fresh database there is no data to backfill, so skipping the
+    backfill is safe and correct.
+    """
+    if context.is_offline_mode():
+        return True
+    inspector = inspect(bind)
+    if "transaction" not in inspector.get_table_names():
+        return False
+    return column in {c["name"] for c in inspector.get_columns("transaction")}
+
+
 def upgrade() -> None:
     bind = op.get_bind()
+
+    # The backfill query references t.type and t.value, which are not created
+    # by any migration -- they come from SQLModel.metadata.create_all at app
+    # startup. On a fresh database (migrations only), these columns are absent
+    # and there is no data to backfill anyway, so skip the repair.
+    if not _transaction_has_column(bind, "type") or not _transaction_has_column(bind, "value"):
+        return
 
     # Find the earliest ESCROW_LOCK for each job_id that has no Escrow row.
     rows = bind.execute(
