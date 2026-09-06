@@ -1,8 +1,0 @@
-# AITBC Security & Compliance Optional Dependencies
-# Pinned to the versions resolved in poetry.lock. Do not edit manually.
-
-# These packages are also present (and pinned) in ../requirements.txt.
-# This file exists for backward compatibility with install-profiles.sh.
-
-cryptography==50.0.0
-sentry-sdk==2.61.1
