@@ -699,16 +699,18 @@ class EscrowManager:
             contract.released_amount += remaining_payment
 
         # E1: fixed-duration GPU rentals must pay the provider at least the frozen
-        # energy floor. Bump the in-memory released amount to the exact signed
-        # provider credit if rounding would otherwise underpay.
+        # energy floor. The locked gross must cover the signed provider credit,
+        # otherwise the escrow is under-funded and cannot be released.
         if contract.protected and contract.energy_provider_credit_units is not None:
             target_ait = units_to_ait(contract.energy_provider_credit_units)
-            if contract.released_amount < target_ait:
-                contract.released_amount = target_ait
+            if billable < target_ait:
+                return (False, "Protected escrow release would underpay the energy floor")
             if contract.energy_net_floor_units is not None:
                 floor_ait = units_to_ait(contract.energy_net_floor_units)
-                if contract.released_amount < floor_ait:
+                if billable < floor_ait:
                     return (False, "Protected escrow release would underpay the energy floor")
+            if contract.released_amount < target_ait:
+                contract.released_amount = target_ait
 
         contract.state = EscrowState.RELEASED
         self.active_contracts.discard(contract_id)
