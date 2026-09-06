@@ -7,6 +7,7 @@ import os
 import sys
 from decimal import Decimal
 from pathlib import Path
+from typing import Any
 
 import click
 from eth_keys import keys
@@ -53,6 +54,8 @@ def _send_transaction_impl(
     password: str,
     keystore_dir: Path | None = None,
     rpc_url: str | None = None,
+    tx_type: str = "TRANSFER",
+    payload: dict[str, Any] | None = None,
 ) -> str | None:
     """Send a secp256k1-signed transaction from one wallet to another."""
     keystore_dir = keystore_dir or wallet_dir()
@@ -125,6 +128,11 @@ def _send_transaction_impl(
 
     # The TransactionRequest model adds to/amount to payload, so we include them up front
     # and sign over the exact dict the verifier will hash.
+    tx_payload = dict(payload) if payload else {}
+    if "to" not in tx_payload:
+        tx_payload["to"] = to_address
+    if "amount" not in tx_payload:
+        tx_payload["amount"] = amount_seconds
     transaction = {
         "chain_id": chain_id,
         "from": sender_address,
@@ -132,8 +140,8 @@ def _send_transaction_impl(
         "amount": amount_seconds,
         "fee": fee_seconds,
         "nonce": actual_nonce,
-        "type": "TRANSFER",
-        "payload": {"to": to_address, "amount": amount_seconds},
+        "type": tx_type,
+        "payload": tx_payload,
     }
 
     # Sign the canonical JSON (sort_keys, compact) of all fields except the signature.
@@ -173,6 +181,8 @@ def _send_transaction_impl(
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
+@click.option("--type", "tx_type", default="TRANSFER", help="Transaction type (default TRANSFER)")
+@click.option("--payload", help="JSON payload for non-standard transaction types")
 @click.option("--use-explorer", is_flag=True, help="Use Explorer API for status checks")
 def send(
     from_wallet: str,
@@ -182,6 +192,8 @@ def send(
     password: str | None,
     password_file: str | None,
     rpc_url: str | None,
+    tx_type: str,
+    payload: str | None,
     use_explorer: bool,
 ):
     """Send a transaction from one wallet to another."""
@@ -248,7 +260,27 @@ def send(
         error("Password is required for transaction")
         return
 
-    tx_hash = _send_transaction_impl(from_wallet, to_address, amount, fee, password, rpc_url=rpc_url)
+    parsed_payload: dict[str, Any] | None = None
+    if payload:
+        try:
+            parsed_payload = json.loads(payload)
+            if not isinstance(parsed_payload, dict):
+                error("Payload must be a JSON object")
+                return
+        except json.JSONDecodeError as e:
+            error(f"Invalid payload JSON: {e}")
+            return
+
+    tx_hash = _send_transaction_impl(
+        from_wallet,
+        to_address,
+        amount,
+        fee,
+        password,
+        rpc_url=rpc_url,
+        tx_type=tx_type,
+        payload=parsed_payload,
+    )
     if tx_hash:
         success(f"Transaction sent: {tx_hash}")
 
