@@ -188,6 +188,7 @@ chain = _lazy("aitbc_cli.commands.chain", "chain", name="blockchain", group=True
 cluster = _lazy("aitbc_cli.commands.cluster", "cluster", name="cluster", group=True)
 coin_requests = _lazy("aitbc_cli.commands.coin_requests", "coin_requests", name="coin-requests", group=True)
 compliance = _lazy("aitbc_cli.commands.compliance", "compliance", name="compliance", group=True)
+energy = _lazy("aitbc_cli.commands.energy", "energy", name="energy", group=True)
 confidential = _lazy("aitbc_cli.commands.confidential", "confidential", name="confidential", group=True)
 config_cmd = _lazy("aitbc_cli.commands.config", "config", name="config", group=True)
 contract = _lazy("aitbc_cli.commands.contract", "contract", name="contract", group=True)
@@ -358,6 +359,7 @@ cli.add_command(prometheus)  # Re-enabled - no core dependency
 cli.add_command(node)
 cli.add_command(agent_comm)  # Cross-chain agent communication (distinct from `agent` SDK group)
 cli.add_command(exchange)
+cli.add_command(energy)
 cli.add_command(ipfs)  # Local content-addressed storage
 cli.add_command(oracle)  # Local data oracle
 cli.add_command(config_cmd, name="config")

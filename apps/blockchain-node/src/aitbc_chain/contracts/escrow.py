@@ -81,6 +81,10 @@ class EscrowContract:
     protected: bool = False
     energy_quote_snapshot: dict[str, Any] | None = None
     energy_quote_id: str | None = None
+    energy_quote_digest: str | None = None
+    energy_settlement_route: str | None = None
+    energy_settlement_asset: str | None = None
+    energy_settlement_unit_scale: int | None = None
     energy_net_floor_units: int | None = None
     energy_provider_credit_units: int | None = None
     energy_fee_basis_points: int | None = None
@@ -237,6 +241,10 @@ class EscrowManager:
         protected: bool = False,
         energy_quote_snapshot: dict[str, Any] | None = None,
         energy_quote_id: str | None = None,
+        energy_quote_digest: str | None = None,
+        energy_settlement_route: str | None = None,
+        energy_settlement_asset: str | None = None,
+        energy_settlement_unit_scale: int | None = None,
         energy_net_floor_units: int | None = None,
         energy_provider_credit_units: int | None = None,
         energy_fee_basis_points: int | None = None,
@@ -290,6 +298,10 @@ class EscrowManager:
                 protected=protected,
                 energy_quote_snapshot=energy_quote_snapshot,
                 energy_quote_id=energy_quote_id,
+                energy_quote_digest=energy_quote_digest,
+                energy_settlement_route=energy_settlement_route,
+                energy_settlement_asset=energy_settlement_asset,
+                energy_settlement_unit_scale=energy_settlement_unit_scale,
                 energy_net_floor_units=energy_net_floor_units,
                 energy_provider_credit_units=energy_provider_credit_units,
                 energy_fee_basis_points=energy_fee_basis_points,

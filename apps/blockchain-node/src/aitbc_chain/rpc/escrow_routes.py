@@ -279,6 +279,12 @@ def _build_lock_tx(
     amount_dec: Decimal,
     nonce: int,
     fee: int | None = None,
+    *,
+    energy_quote_id: str | None = None,
+    energy_quote_digest: str | None = None,
+    settlement_route: str | None = None,
+    settlement_asset: str | None = None,
+    settlement_unit_scale: int | None = None,
 ) -> tuple[dict[str, Any], int]:
     """Build the canonical ESCROW_LOCK transaction dict and return it with the compute-unit amount."""
     amount_units = ait_to_units(amount_dec)
@@ -292,6 +298,21 @@ def _build_lock_tx(
         raise ValueError("escrow provider cannot be the node wallet")
     if fee is None:
         fee = _fee_for(amount_units)
+    payload: dict[str, Any] = {
+        "action": "escrow_lock",
+        "job_id": job_id,
+        "provider": _to_canonical(provider),
+    }
+    if energy_quote_id:
+        payload["energy_quote_id"] = energy_quote_id
+    if energy_quote_digest:
+        payload["energy_quote_digest"] = energy_quote_digest
+    if settlement_route:
+        payload["settlement_route"] = settlement_route
+    if settlement_asset:
+        payload["settlement_asset"] = settlement_asset
+    if settlement_unit_scale is not None:
+        payload["settlement_unit_scale"] = settlement_unit_scale
     tx: dict[str, Any] = {
         "from": _to_canonical(buyer),
         "to": _to_canonical(_NODE_WALLET),
@@ -300,11 +321,7 @@ def _build_lock_tx(
         "nonce": nonce,
         "type": "ESCROW_LOCK",
         "chain_id": _CHAIN_ID,
-        "payload": {
-            "action": "escrow_lock",
-            "job_id": job_id,
-            "provider": _to_canonical(provider),
-        },
+        "payload": payload,
     }
     return tx, amount_units
 
@@ -685,6 +702,26 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                 status_code=400,
                 detail=f"energy quote principal {quote.principal_units} does not match lock amount {lock_amount_units}",
             ) from None
+        # Bind the quote digest and settlement metadata so a replay or
+        # substitution cannot fund a different route/asset/amount against the
+        # same quote id. The digest covers the canonical signed payload, so a
+        # mismatch here means the quote was altered after signing.
+        payload_energy_quote_digest = payload.get("energy_quote_digest")
+        if payload_energy_quote_digest and payload_energy_quote_digest != quote.digest_sha256().hex():
+            raise HTTPException(
+                status_code=400,
+                detail="energy quote digest in lock payload does not match supplied quote",
+            ) from None
+        if payload.get("settlement_route") and payload.get("settlement_route") != quote.settlement_route.value:
+            raise HTTPException(
+                status_code=400,
+                detail="energy quote settlement route in lock payload does not match quote",
+            ) from None
+        if payload.get("settlement_unit_scale") and int(payload.get("settlement_unit_scale")) != quote.settlement_unit_scale:
+            raise HTTPException(
+                status_code=400,
+                detail="energy quote settlement unit scale in lock payload does not match quote",
+            ) from None
 
         result = evaluate_quote(
             quote=quote,
@@ -706,6 +743,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             "protected": True,
             "energy_quote_snapshot": quote.to_dict(include_signature=False),
             "energy_quote_id": quote.quote_id,
+            "energy_quote_digest": quote.digest_sha256().hex(),
+            "energy_settlement_route": quote.settlement_route.value,
+            "energy_settlement_asset": quote.settlement_asset,
+            "energy_settlement_unit_scale": quote.settlement_unit_scale,
             "energy_net_floor_units": quote.net_energy_floor_units,
             "energy_provider_credit_units": result.breakdown.provider_credit_units,
             "energy_fee_basis_points": quote.fee_basis_points,
@@ -746,6 +787,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     existing.protected = True
                     existing.energy_quote_snapshot = energy_kwargs.get("energy_quote_snapshot")
                     existing.energy_quote_id = energy_kwargs.get("energy_quote_id")
+                    existing.energy_quote_digest = energy_kwargs.get("energy_quote_digest")
+                    existing.energy_settlement_route = energy_kwargs.get("energy_settlement_route")
+                    existing.energy_settlement_asset = energy_kwargs.get("energy_settlement_asset")
+                    existing.energy_settlement_unit_scale = energy_kwargs.get("energy_settlement_unit_scale")
                     existing.energy_net_floor_units = energy_kwargs.get("energy_net_floor_units")
                     existing.energy_provider_credit_units = energy_kwargs.get("energy_provider_credit_units")
                     existing.energy_fee_basis_points = energy_kwargs.get("energy_fee_basis_points")
@@ -763,6 +808,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                             "protected": True,
                             "energy_quote_snapshot": energy_kwargs.get("energy_quote_snapshot"),
                             "energy_quote_id": energy_kwargs.get("energy_quote_id"),
+                            "energy_quote_digest": energy_kwargs.get("energy_quote_digest"),
+                            "energy_settlement_route": energy_kwargs.get("energy_settlement_route"),
+                            "energy_settlement_asset": energy_kwargs.get("energy_settlement_asset"),
+                            "energy_settlement_unit_scale": energy_kwargs.get("energy_settlement_unit_scale"),
                             "energy_net_floor_units": energy_kwargs.get("energy_net_floor_units"),
                             "energy_provider_credit_units": energy_kwargs.get("energy_provider_credit_units"),
                             "energy_fee_basis_points": energy_kwargs.get("energy_fee_basis_points"),

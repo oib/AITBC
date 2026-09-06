@@ -209,4 +209,120 @@ contract AIPowerRentalProtectedTest is Test {
         rental.startRental(agreementId);
         vm.stopPrank();
     }
+
+    function test_LegacyRentalBlockedWhenRequireProtected() public {
+        // When requireProtectedRentals is true, createRental is blocked.
+        rental.setRequireProtectedRentals(true);
+        uint256 price = 1 ether;
+        uint256 totalAmount = price + (price * rental.platformFeePercentage()) / 10000;
+        paymentToken.mint(renter, totalAmount);
+
+        vm.startPrank(renter);
+        vm.expectRevert("Legacy rentals disabled; use createProtectedRental");
+        rental.createRental(provider, renter, 3600, price, "GPU", 1);
+        vm.stopPrank();
+    }
+
+    function test_LegacyRentalAllowedWhenNotRequired() public {
+        // When requireProtectedRentals is false (default), createRental works.
+        assertFalse(rental.requireProtectedRentals());
+        uint256 price = 1 ether;
+        uint256 totalAmount = price + (price * rental.platformFeePercentage()) / 10000;
+        paymentToken.mint(renter, totalAmount);
+
+        vm.startPrank(renter);
+        uint256 agreementId = rental.createRental(provider, renter, 3600, price, "GPU", 1);
+        vm.stopPrank();
+        assertLt(agreementId, rental.agreementCounter());
+    }
+
+    function test_StartRentalRevertsWhenPaused() public {
+        // startRental should revert when the contract is paused.
+        uint256 price = 1 ether;
+        uint256 totalAmount = price + (price * rental.platformFeePercentage()) / 10000;
+        paymentToken.mint(renter, totalAmount);
+
+        vm.startPrank(renter);
+        uint256 agreementId = rental.createRental(provider, renter, 3600, price, "GPU", 1);
+        paymentToken.approve(address(rental), totalAmount);
+
+        rental.pause(); // owner pauses
+        vm.expectRevert("Pausable: paused");
+        rental.startRental(agreementId);
+        vm.stopPrank();
+    }
+}
+
+contract AIPowerRentalOverflowTest is Test {
+    DynamicPricing public energyPricing;
+    AIToken public paymentToken;
+    address public provider;
+    address public publisher;
+
+    function setUp() public {
+        provider = makeAddr("provider");
+        publisher = makeAddr("publisher");
+        paymentToken = new AIToken(0);
+        vm.warp(block.timestamp + 2 days);
+        energyPricing = new DynamicPricing(address(0), address(0), address(paymentToken));
+        energyPricing.setEnergyPublisher(publisher);
+    }
+
+    function test_GetEnergyFloorMaxValuesNoOverflow() public {
+        // Register a profile with extreme but valid values to test that
+        // getEnergyFloor does not overflow with mulDiv intermediates.
+        energyPricing.registerEnergyProfile(
+            "gpu-extreme",
+            provider,
+            "extreme-gpu",
+            50000, // MAX_TDP_WATTS
+            1_000_000 * 1e18 // MAX_EUR_PER_KWH_WHOLE * SCALE
+        );
+        vm.prank(publisher);
+        energyPricing.publishEnergyRate(
+            1_000_000_000 * 1e18, // MAX_AIT_PER_EUR_WHOLE * SCALE
+            block.timestamp,
+            "operator_reference"
+        );
+
+        (uint256 netFloor, bool valid, ) = energyPricing.getEnergyFloor(
+            "gpu-extreme",
+            10000, // MAX_GPU_COUNT
+            86400 * 365, // MAX_DURATION_SECONDS
+            1e36 // MAX_SETTLEMENT_UNIT_SCALE
+        );
+        assertTrue(valid);
+        assertGt(netFloor, 0);
+        // The result must fit in uint256 (no revert from overflow).
+    }
+
+    function test_GetEnergyFloorMatchesPythonArithmetic() public {
+        // Reference vector: 165W, 0.30 EUR/kWh, 1 GPU, 3600s, 4 AIT/EUR, 1e18 scale
+        energyPricing.registerEnergyProfile(
+            "gpu-ref",
+            provider,
+            "rtx-4060-ti",
+            165,
+            300_000_000_000_000_000
+        );
+        vm.prank(publisher);
+        energyPricing.publishEnergyRate(
+            4_000_000_000_000_000_000,
+            block.timestamp,
+            "operator_reference"
+        );
+
+        (uint256 netFloor, bool valid, ) = energyPricing.getEnergyFloor(
+            "gpu-ref",
+            1,
+            3600,
+            1e18
+        );
+        assertTrue(valid);
+        // Python: ceil(165 * 1 * 3600 * 3e17 * 4e18 * 1e18 / (1000 * 3600 * 1e18 * 1e18))
+        // = ceil(165 * 3e17 * 4e18 * 1e18 / (1000 * 1e18 * 1e18))
+        // = ceil(165 * 12e53 / 1e39)
+        // = ceil(1980e14) = 198_000_000_000_000_000
+        assertEq(netFloor, 198_000_000_000_000_000);
+    }
 }

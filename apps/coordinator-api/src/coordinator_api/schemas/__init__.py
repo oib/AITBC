@@ -45,6 +45,12 @@ class JobPaymentCreate(BaseModel):
     # are governed by the signed quote rather than by the display amount.
     protected: bool = Field(default=False, description="Whether this payment is a protected fixed-duration GPU rental")
     energy_quote: dict[str, Any] | None = Field(default=None, description="Signed energy quote for protected rentals")
+    # EVM settlement data. When the buyer funds a protected rental directly on
+    # the EVM chain, the CLI forwards the confirmed transaction hash and the
+    # agreement/escrow id so the coordinator can verify and record it.
+    evm_tx_hash: str | None = Field(default=None, description="Confirmed EVM transaction hash for the protected rental")
+    evm_agreement_id: int | None = Field(default=None, description="AIPowerRental agreement id (EVM rail)")
+    evm_escrow_id: int | None = Field(default=None, description="EscrowService escrow id (EVM rail)")
 
     @field_validator("job_id")
     @classmethod

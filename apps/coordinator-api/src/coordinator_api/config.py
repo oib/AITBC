@@ -7,7 +7,7 @@ Provides environment-based adapter selection and consolidated settings.
 import os
 from typing import Annotated, Any
 
-from pydantic import Field, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
@@ -210,6 +210,19 @@ class Settings(BaseAITBCConfig):
     energy_max_rate_age_seconds: int = Field(default=300, description="Maximum age of an energy rate observation")
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
     native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
+
+    # Operator key used to sign EnergyQuote payloads returned by the marketplace.
+    # Stored as SecretStr so it cannot leak through repr/logs. When unset, the
+    # coordinator returns unsigned quotes (legacy behaviour) and the CLI must
+    # refuse to fund them.
+    energy_operator_key: SecretStr | None = Field(default=None, description="Operator private key (hex) used to sign energy quotes")
+    energy_operator_address: str | None = Field(default=None, description="Operator address (0x...) that signs energy quotes")
+
+    # EVM contracts used for protected GPU rentals. Required for the EVM
+    # settlement rail; the native rail only needs the energy pricing contract.
+    energy_rental_contract_address: str | None = Field(default=None, description="AIPowerRental contract address")
+    energy_escrow_contract_address: str | None = Field(default=None, description="EscrowService contract address")
+    energy_token_contract_address: str | None = Field(default=None, description="ERC-20 AITBC token contract address")
 
     @field_validator("blockchain_rpc_url")
     @classmethod
