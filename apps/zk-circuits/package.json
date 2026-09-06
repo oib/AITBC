@@ -3,17 +3,16 @@
   "version": "1.0.0",
   "description": "Zero-knowledge circuits for AITBC receipt attestation",
   "dependencies": {
-    "circom": "^0.5.46",
     "circomlib": "^2.0.5",
     "ffjavascript": "^0.2.60",
     "poseidon-lite": "^0.3.0",
     "snarkjs": "^0.7.5"
   },
-  "pnpm": {
-    "overrides": {
-      "serialize-javascript": "^6.0.2",
-      "underscore": "^1.13.6"
-    }
+  "overrides": {
+    "circom_runtime": {
+      "ffjavascript": "^0.3.1"
+    },
+    "underscore": "^1.13.8"
   },
   "engines": {
     "node": ">=24.14.0"
