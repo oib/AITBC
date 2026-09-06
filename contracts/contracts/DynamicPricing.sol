@@ -873,8 +873,12 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
             return (0, false, "rate stale");
         }
 
-        uint256 pre1 = profile.tdpWatts * _gpuCount * _durationSeconds * profile.eurPerKwh;
-        uint256 pre2 = rate.aitPerEur * _settlementUnitScale;
+        uint256 pre1 = Math.mulDiv(
+            Math.mulDiv(profile.tdpWatts, _gpuCount, 1),
+            Math.mulDiv(_durationSeconds, profile.eurPerKwh, 1),
+            1
+        );
+        uint256 pre2 = Math.mulDiv(rate.aitPerEur, _settlementUnitScale, 1);
         uint256 denominator = ENERGY_WATTS_PER_KILOWATT * ENERGY_SECONDS_PER_HOUR * ENERGY_FIXED_POINT_SCALE * ENERGY_FIXED_POINT_SCALE;
 
         netFloor = Math.mulDiv(pre1, pre2, denominator, Math.Rounding.Up);

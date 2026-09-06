@@ -25,6 +25,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.marketplace.energy_pricing import (
     EnergyQuote,
     EnergyPricingError,
+    SettlementRoute,
     evaluate_quote,
 )
 from aitbc.utils.units import ait_to_units, units_to_ait
@@ -58,6 +59,42 @@ _brand = get_active_brand()
 # P2.1: high-value jobs require a verified ZK receipt proof before escrow release.
 _ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10"))
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
+
+
+def _resolve_authoritative_inputs(quote: EnergyQuote) -> tuple[Any, Any]:
+    """Return the authoritative (profile, rate) for a quote from the energy oracle.
+
+    Reads the on-chain ``IEnergyPricing`` contract at the quote's pinned EVM
+    block when available, so the funding gate compares the quote against the
+    operator-registered inputs rather than the quote's self-attested embedded
+    values. Falls back to the quote's embedded profile/rate only when the
+    oracle is not configured (e.g. local tests), matching the previous
+    behaviour so existing flows are not broken by this hardening.
+    """
+    from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+
+    contract = settings.energy_pricing_contract_address
+    rpc_url = settings.eth_rpc_url
+    if not contract or not rpc_url:
+        return quote.to_profile(), quote.to_rate()
+    try:
+        rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
+        oracle = EVMEnergyOracle(rpc, contract, settings.energy_pricing_chain_id)
+        block = quote.evm_block_number if quote.evm_block_number is not None else "latest"
+        profile = oracle.get_profile(quote.resource_id, block_identifier=block)
+        rate = oracle.get_rate(block_identifier=block)
+        return profile, rate
+    except Exception as exc:
+        logger.warning(
+            "Authoritative energy oracle read failed for resource %s; refusing protected funding: %s",
+            quote.resource_id,
+            exc,
+        )
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not read authoritative energy inputs: {exc}",
+        ) from exc
 
 
 def _parse_settled_at(value: object) -> datetime | None:
@@ -227,10 +264,10 @@ class PaymentService:
             # E1: validate the signed energy quote for fixed-duration GPU rentals.
             amount = payment_data.amount
             if payment_data.protected or payment_data.energy_quote:
-                if payment_data.payment_method != "aitbc_token":
+                if payment_data.payment_method not in ("aitbc_token", "evm"):
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Protected fixed-duration GPU rentals are currently only supported with aitbc_token settlement",
+                        detail="Protected fixed-duration GPU rentals are only supported with aitbc_token or evm settlement",
                     )
                 if not payment_data.energy_quote:
                     raise HTTPException(
@@ -249,10 +286,21 @@ class PaymentService:
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Energy quote is bound to a different job",
                     )
+                # Verify the operator signature against the configured operator
+                # address so a self-attested quote cannot fund a rental.
+                if settings.energy_operator_address and not quote.verify_operator_signature(settings.energy_operator_address):
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Energy quote operator signature is missing or invalid",
+                    )
+                # Evaluate against the authoritative oracle snapshot rather than
+                # the quote's embedded profile/rate. This prevents a caller from
+                # embedding arbitrary terms and funding below the real floor.
+                authoritative_profile, authoritative_rate = _resolve_authoritative_inputs(quote)
                 result = evaluate_quote(
                     quote=quote,
-                    profile=quote.to_profile(),
-                    rate=quote.to_rate(),
+                    profile=authoritative_profile,
+                    rate=authoritative_rate,
                     now=int(time.time()),
                 )
                 if not result.approved:
@@ -309,6 +357,13 @@ class PaymentService:
                 escrow = await self._create_crypto_escrow(payment)
                 if escrow is not None:
                     self.session.add(escrow)
+            elif payment_data.payment_method == "evm":
+                # EVM protected rental: the buyer funds the rental directly
+                # on-chain through AIPowerRental.startRental. The coordinator
+                # verifies the transaction and records the agreement/escrow id
+                # but does not sign or submit any transaction on the buyer's
+                # behalf.
+                await self._verify_evm_protected_payment(payment, payment_data, quote)
             # G4: the dispatch gate in JobService reads job.payment_status, so every
             # entry point that creates a payment has to leave it in step. Without this a
             # client retrying a skipped escrow through POST /v1/payments would lock the
@@ -344,6 +399,101 @@ class PaymentService:
 
     def _get_node_wallet_address(self) -> str:
         return os.getenv("NODE_WALLET_ADDRESS") or os.getenv("GENESIS_WALLET_ADDRESS") or ""
+
+    async def _verify_evm_protected_payment(
+        self,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+        quote: EnergyQuote,
+    ) -> None:
+        """Verify a buyer-submitted EVM rental transaction and record it.
+
+        The buyer calls ``AIPowerRental.startRental(agreementId)`` directly
+        on-chain, which transfers ERC-20 principal + fee from the buyer to
+        the contract. The coordinator does **not** sign or submit this
+        transaction; it only verifies the receipt and records the agreement
+        and escrow ids so dispatch can proceed.
+
+        Raises ``HTTPException`` if the transaction is missing, failed, or
+        does not match the quote terms. The payment is left in ``pending``
+        until the receipt confirms success, at which point it is marked
+        ``confirmed``.
+        """
+        if not payment_data.evm_tx_hash:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="EVM protected payment requires evm_tx_hash",
+            )
+        if quote.settlement_route != SettlementRoute.EVM:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Energy quote settlement route is not evm",
+            )
+        # The agreement/escrow ids are optional but, when supplied, are
+        # recorded for later release/refund coordination.
+        meta = payment.meta_data or {}
+        meta["evm_tx_hash"] = payment_data.evm_tx_hash
+        meta["evm_chain_id"] = quote.evm_chain_id
+        meta["evm_contract"] = quote.evm_contract
+        if payment_data.evm_agreement_id is not None:
+            meta["evm_agreement_id"] = payment_data.evm_agreement_id
+        if payment_data.evm_escrow_id is not None:
+            meta["evm_escrow_id"] = payment_data.evm_escrow_id
+        meta["energy_settlement_route"] = quote.settlement_route.value
+        meta["energy_is_protected"] = True
+        payment.meta_data = meta
+
+        # Verify the on-chain transaction when an EVM RPC is configured.
+        # If no RPC is available (e.g. local dev), the payment is left
+        # pending for manual verification.
+        rpc_url = settings.eth_rpc_url
+        if not rpc_url:
+            logger.warning(
+                "EVM RPC not configured; leaving EVM payment %s pending for manual verification",
+                payment.id,
+            )
+            payment.status = "pending"
+            return
+
+        try:
+            from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+
+            rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
+            receipt = rpc.get_transaction_receipt(payment_data.evm_tx_hash)
+            if receipt is None:
+                payment.status = "pending"
+                logger.info("EVM tx %s not yet mined; payment %s pending", payment_data.evm_tx_hash, payment.id)
+                return
+            if int(receipt.get("status", 0)) != 1:
+                payment.status = "failed"
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"EVM transaction {payment_data.evm_tx_hash} failed on-chain",
+                )
+            # Verify the transaction was sent to the expected rental contract.
+            to_addr = (receipt.get("to") or "").lower()
+            expected_contract = (quote.evm_contract or "").lower()
+            if expected_contract and to_addr != expected_contract:
+                payment.status = "failed"
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"EVM tx sent to {to_addr}, expected {expected_contract}",
+                )
+            # Verify the transaction's chain matches the quote's chain.
+            chain_id = int(receipt.get("chainId", 0))
+            if quote.evm_chain_id and chain_id != quote.evm_chain_id:
+                payment.status = "failed"
+                raise HTTPException(
+                    status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                    detail=f"EVM tx chain {chain_id} does not match quote chain {quote.evm_chain_id}",
+                )
+            payment.status = "confirmed"
+            logger.info("EVM protected payment %s confirmed for job %s", payment.id, payment.job_id)
+        except HTTPException:
+            raise
+        except Exception as exc:
+            logger.warning("EVM receipt verification failed for %s: %s", payment_data.evm_tx_hash, exc)
+            payment.status = "pending"
 
     async def _get_account_nonce(self, address: str) -> int:
         try:
