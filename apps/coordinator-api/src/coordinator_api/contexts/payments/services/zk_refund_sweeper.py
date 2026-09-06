@@ -94,10 +94,9 @@ class ZkRefundSweeper:
         # coordinator being run with --workers 1; a real lock is what makes a
         # second worker harmless — it loses the race and skips the pass instead
         # of refunding against a half-updated ledger.
-        lock_path = lock_path or os.getenv(
-            "COORDINATOR_ZK_REFUND_SWEEP_LOCK_PATH", "/var/lib/aitbc/zk_refund_sweeper.lock"
+        self._sweep_lock = filelock.FileLock(
+            lock_path or os.getenv("COORDINATOR_ZK_REFUND_SWEEP_LOCK_PATH") or "/var/lib/aitbc/zk_refund_sweeper.lock"
         )
-        self._sweep_lock = filelock.FileLock(lock_path)
 
     def _find_candidates(self, session: Any) -> list[tuple[Job, JobPayment]]:
         """Completed jobs whose ZK receipt failed and whose refund is not on-chain.

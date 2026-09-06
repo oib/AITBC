@@ -602,9 +602,7 @@ class PaymentService:
         # the job short-circuits the route), but stopping here avoids the round-trip
         # and keeps the coordinator ledger authoritative about what it already did.
         existing_escrow = (
-            self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id))
-            .scalars()
-            .first()
+            self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
         )
         if existing_escrow is not None or payment.escrowed_at is not None or payment.escrow_address:
             logger.warning(

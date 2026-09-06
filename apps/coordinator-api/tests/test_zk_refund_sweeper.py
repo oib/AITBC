@@ -469,9 +469,7 @@ class TestZkRefundSweeper:
         mock_service.refund_payment.assert_not_called()
 
     @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
-    def test_sweep_skips_when_another_worker_holds_the_lock(
-        self, mock_service_cls, sweep_session, tmp_path
-    ):
+    def test_sweep_skips_when_another_worker_holds_the_lock(self, mock_service_cls, sweep_session, tmp_path):
         """The sweep lock is what replaces ``--workers 1``: a second worker skips."""
         import filelock
 
