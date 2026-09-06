@@ -21,6 +21,11 @@ Hardening notes:
   the row carries that hash; an unbacked escrow that PaymentService marked as
   refunded-without-hash is downgraded to ``failed`` so it does not show up as a
   live refund in audits.
+- Multi-worker safety no longer depends on ``--workers 1``: each pass runs
+  under a ``filelock`` (``COORDINATOR_ZK_REFUND_SWEEP_LOCK_PATH``, default
+  ``/var/lib/aitbc/zk_refund_sweeper.lock``). A worker that loses the race
+  skips the pass; a missing/unwritable lock file degrades to the pre-lock
+  behaviour with a warning rather than stranding refunds.
 """
 
 from __future__ import annotations
@@ -31,6 +36,7 @@ from collections.abc import Callable
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
+import filelock
 from sqlmodel import Session, col, select
 
 from aitbc.aitbc_logging import get_logger
@@ -76,6 +82,7 @@ class ZkRefundSweeper:
         min_age_seconds: int | None = None,
         batch_size: int | None = None,
         session_factory: Callable[[], Any] | None = None,
+        lock_path: str | None = None,
     ) -> None:
         self.interval_seconds = interval_seconds or _env_int("COORDINATOR_ZK_REFUND_SWEEP_INTERVAL_SECONDS", 60)
         # Give the normal completion path a grace period before sweeping in and
@@ -83,6 +90,14 @@ class ZkRefundSweeper:
         self.min_age_seconds = min_age_seconds or _env_int("COORDINATOR_ZK_REFUND_SWEEP_MIN_AGE_SECONDS", 120)
         self.batch_size = batch_size or _env_int("COORDINATOR_ZK_REFUND_SWEEP_BATCH_SIZE", 25)
         self._session_factory = session_factory or (lambda: Session(get_engine()))
+        # Cross-process sweep lock. The refund path used to rely on the
+        # coordinator being run with --workers 1; a real lock is what makes a
+        # second worker harmless — it loses the race and skips the pass instead
+        # of refunding against a half-updated ledger.
+        lock_path = lock_path or os.getenv(
+            "COORDINATOR_ZK_REFUND_SWEEP_LOCK_PATH", "/var/lib/aitbc/zk_refund_sweeper.lock"
+        )
+        self._sweep_lock = filelock.FileLock(lock_path)
 
     def _find_candidates(self, session: Any) -> list[tuple[Job, JobPayment]]:
         """Completed jobs whose ZK receipt failed and whose refund is not on-chain.
@@ -135,7 +150,27 @@ class ZkRefundSweeper:
 
     async def run_once(self) -> dict[str, int]:
         """One sweep. Returns counts for logging and tests."""
-        counts = {"candidates": 0, "refunded": 0, "failed": 0}
+        counts = {"candidates": 0, "refunded": 0, "failed": 0, "skipped": 0}
+        locked = False
+        try:
+            self._sweep_lock.acquire(timeout=0.05)
+            locked = True
+        except filelock.Timeout:
+            logger.debug("ZK refund sweep skipped: another worker holds the sweep lock")
+            counts["skipped"] = 1
+            return counts
+        except OSError as e:
+            # The lock file's directory is missing or unwritable (tests, dev
+            # machines). That was the pre-lock behaviour; refusing to sweep
+            # would strand refunds where no second worker exists anyway.
+            logger.warning("ZK refund sweep lock unavailable (%s); sweeping unguarded", e)
+        try:
+            return await self._run_sweep(counts)
+        finally:
+            if locked:
+                self._sweep_lock.release()
+
+    async def _run_sweep(self, counts: dict[str, int]) -> dict[str, int]:
         with self._session_factory() as session:
             for job, _payment in self._find_candidates(session):
                 counts["candidates"] += 1
