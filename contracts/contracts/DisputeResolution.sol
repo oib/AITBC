@@ -602,16 +602,72 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
     // View functions
 
     /**
-     * @dev Gets dispute details
+     * @dev Gets dispute details (core fields).
      * @param _disputeId ID of the dispute
+     *
+     * §5.6: Dispute has 17 fields, exceeding the EVM stack depth in coverage
+     * mode (no via_ir). Split into two view functions.
      */
     function getDispute(uint256 _disputeId)
         external
         view
         disputeExists(_disputeId)
-        returns (Dispute memory)
+        returns (
+            uint256 disputeId,
+            uint256 agreementId,
+            address initiator,
+            address respondent,
+            DisputeStatus status,
+            DisputeType disputeType,
+            string memory reason,
+            bytes32 evidenceHash,
+            uint256 filingTime,
+            uint256 resolutionAmount,
+            address winner
+        )
     {
-        return disputes[_disputeId];
+        Dispute storage d = disputes[_disputeId];
+        return (
+            d.disputeId,
+            d.agreementId,
+            d.initiator,
+            d.respondent,
+            d.status,
+            d.disputeType,
+            d.reason,
+            d.evidenceHash,
+            d.filingTime,
+            d.resolutionAmount,
+            d.winner
+        );
+    }
+
+    /**
+     * @dev Gets dispute deadline/escalation fields.
+     * @param _disputeId ID of the dispute
+     */
+    function getDisputeDeadlines(uint256 _disputeId)
+        external
+        view
+        disputeExists(_disputeId)
+        returns (
+            uint256 evidenceDeadline,
+            uint256 arbitrationDeadline,
+            string memory resolutionReason,
+            uint256 arbitratorCount,
+            bool isEscalated,
+            uint256 escalationLevel
+        )
+    {
+        Dispute storage d = disputes[_disputeId];
+        return (
+            d.evidenceDeadline,
+            d.arbitrationDeadline,
+            d.resolutionReason,
+            d.arbitratorCount,
+            d.isEscalated,
+            d.escalationLevel
+        );
     }
 
     /**
