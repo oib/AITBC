@@ -1,6 +1,6 @@
 # security
 
-Security — access control, encryption, key management, KYC/AML, quotas, and trading surveillance.
+Security — access control, encryption, key management, KYC/AML, and quotas.
 
 ## Domain Models
 
@@ -34,4 +34,3 @@ Security — access control, encryption, key management, KYC/AML, quotas, and tr
 - key_management.py
 - kyc_aml_providers.py
 - quota_enforcement.py
-- trading_surveillance.py
