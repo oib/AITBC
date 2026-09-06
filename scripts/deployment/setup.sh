@@ -1199,6 +1199,29 @@ setup_credentials() {
         chmod 600 "$SECRETS_ENV"
     fi
 
+    # Consensus-signing keys are scoped to the blockchain services only
+    # (aitbc-blockchain-node, -rpc, -p2p) via validator-secrets.env.
+    # Keep them out of the shared secrets file and the public blockchain.env.
+    local VALIDATOR_SECRETS_ENV="/etc/aitbc/validator-secrets.env"
+    for var in PROPOSER_KEY VALIDATOR_KEYS; do
+        for src in /etc/aitbc/blockchain.env /etc/aitbc/node.env "$SECRETS_ENV"; do
+            [ -f "$src" ] || continue
+            if grep -q "^${var}=" "$src"; then
+                umask 077
+                touch "$VALIDATOR_SECRETS_ENV"
+                if ! grep -q "^${var}=" "$VALIDATOR_SECRETS_ENV"; then
+                    grep -E "^${var}=" "$src" | head -n1 >> "$VALIDATOR_SECRETS_ENV"
+                    log "Moved $var from $src -> $VALIDATOR_SECRETS_ENV"
+                fi
+                sed -i "/^${var}=/d" "$src"
+            fi
+        done
+    done
+    if [ -f "$VALIDATOR_SECRETS_ENV" ]; then
+        chown root:root "$VALIDATOR_SECRETS_ENV"
+        chmod 600 "$VALIDATOR_SECRETS_ENV"
+    fi
+
     # Remove legacy in-blockchain copy if it exists.
     if [ -f "/etc/aitbc/blockchain.env" ] && grep -q "^API_KEY_HASH_SECRET=" /etc/aitbc/blockchain.env; then
         sed -i '/^API_KEY_HASH_SECRET=/d' /etc/aitbc/blockchain.env
