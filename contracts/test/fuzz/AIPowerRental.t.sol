@@ -245,11 +245,12 @@ contract AIPowerRentalProtectedTest is Test {
         vm.startPrank(renter);
         uint256 agreementId = rental.createRental(provider, renter, 3600, price, "GPU", 1);
         paymentToken.approve(address(rental), totalAmount);
+        vm.stopPrank();
 
-        rental.pause(); // owner pauses
+        rental.pause(); // owner (address(this)) pauses
+        vm.prank(renter);
         vm.expectRevert("Pausable: paused");
         rental.startRental(agreementId);
-        vm.stopPrank();
     }
 }
 
