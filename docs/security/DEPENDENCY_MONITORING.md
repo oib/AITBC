@@ -40,8 +40,10 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 
 - **Status**: 0 vulnerabilities found
 - **Tool**: cargo-audit
-- **Scope**: dev/gpu/gpu_zk_research (48 crate dependencies)
-- **Note**: Halo2 dependencies are beta versions but currently have no known vulnerabilities
+- **Scope**: dev/gpu/gpu_zk_research (55 crate dependencies)
+- **Note**: halo2_gadgets was pinned at 0.1.0 and carried CVE-2026-54496 (GHSA-ww9q-8r59-xv46,
+  CVSS 9.3) until 2026-09-06; it is now on 0.5.0. The abandoned `halo2` umbrella crate
+  (0.1.0-beta.2, no release since 2021) was dropped in favour of halo2_proofs + halo2_gadgets.
 
 ## Monitoring Strategy
 
