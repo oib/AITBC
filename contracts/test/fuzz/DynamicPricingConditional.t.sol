@@ -64,12 +64,12 @@ contract DynamicPricingConditionalTest is Test {
     }
 
     function _price() internal view returns (uint256) {
-        (, , , , uint256 averagePrice, , , , , , , , ) = pricing.getMarketData(0);
+        (, , , , uint256 averagePrice, , , , , , , , , ) = pricing.getMarketData(0);
         return averagePrice;
     }
 
     function _marketAveragePrice(DynamicPricing p) internal view returns (uint256) {
-        (, , , , uint256 averagePrice, , , , , , , , ) = p.getMarketData(0);
+        (, , , , uint256 averagePrice, , , , , , , , , ) = p.getMarketData(0);
         return averagePrice;
     }
 
