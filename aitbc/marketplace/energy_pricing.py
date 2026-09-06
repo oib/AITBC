@@ -366,13 +366,13 @@ class QuoteResult:
 
 
 def to_scaled(
-    value: Decimal | str,
+    value: Decimal | str | int,
     *,
     scale: int = FIXED_POINT_SCALE,
     name: str = "value",
     allow_quantize: bool = False,
 ) -> int:
-    """Convert a positive human-readable Decimal or string to a scaled integer.
+    """Convert a positive human-readable Decimal, string, or int to a scaled integer.
 
     Rejects binary floats, infinities, NaN, zero and negative values. By
     default it rejects values with more than 18 decimal places; set
@@ -381,7 +381,7 @@ def to_scaled(
     if isinstance(value, float):
         raise EnergyPricingError(f"{name} must not be a binary float")
     try:
-        dec = Decimal(value) if isinstance(value, str) else value
+        dec = Decimal(value)
     except (InvalidOperation, ValueError) as exc:
         raise EnergyPricingError(f"{name} is not a valid decimal: {exc}") from exc
     if not isinstance(dec, Decimal):
