@@ -208,14 +208,12 @@ PORT=8011
 - **Redis**: For translation caching
 - **PostgreSQL**: For persistent storage and analytics
 - **External APIs**: OpenAI, Google Translate, DeepL
-- **NLP Models**: spaCy models for quality assessment
 
 ### Deployment Steps
 1. Install dependencies: `pip install -r requirements.txt`
 2. Configure environment variables
 3. Run database migrations: `psql -f database_schema.sql`
-4. Download NLP models: `python -m spacy download en_core_web_sm`
-5. Start service: `uvicorn main:app --host 0.0.0.0 --port 8011`
+4. Start service: `uvicorn main:app --host 0.0.0.0 --port 8011`
 
 ### Docker-Free Deployment
 ```bash
