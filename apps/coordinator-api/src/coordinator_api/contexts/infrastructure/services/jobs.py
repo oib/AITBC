@@ -112,6 +112,21 @@ def _provider_binding_blocks_dispatch(
         return f"miner {miner.id} registered no wallet_address, so it cannot be the escrow provider"
     if not same_address(wallet, provider):
         return f"miner {miner.id} wallet {wallet} is not the escrow provider {provider}"
+    # §4.7: for protected fixed-duration GPU rentals, the miner must own the
+    # quoted GPU resource. Without this check a protected job could be
+    # dispatched to a miner that does not have the resource the energy quote
+    # was priced against, defeating the floor binding.
+    if job.protected and job.resource_id:
+        from ...marketplace.domain.gpu_marketplace import GPURegistry
+
+        gpu = session.exec(
+            select(GPURegistry).where(
+                GPURegistry.miner_id == miner.id,
+                GPURegistry.resource_id == job.resource_id,
+            )
+        ).first()
+        if gpu is None:
+            return f"miner {miner.id} does not own protected resource {job.resource_id}"
     return None
 
 

@@ -286,6 +286,32 @@ class PaymentService:
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Energy quote is bound to a different job",
                     )
+                # §4.6: bind the quote to the actual GPU resource and job terms.
+                # The job's energy fields are set at quote time by the GPU quote
+                # endpoint; verifying them here prevents a buyer from swapping
+                # the quote for a different resource/duration after the job was
+                # created.
+                if job.protected:
+                    if job.resource_id and quote.resource_id != job.resource_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"Energy quote resource_id {quote.resource_id} does not match job resource_id {job.resource_id}",
+                        )
+                    if job.model_id and quote.model_id != job.model_id:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"Energy quote model_id {quote.model_id} does not match job model_id {job.model_id}",
+                        )
+                    if job.gpu_count is not None and quote.gpu_count != job.gpu_count:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"Energy quote gpu_count {quote.gpu_count} does not match job gpu_count {job.gpu_count}",
+                        )
+                    if job.duration_seconds is not None and quote.duration_seconds != job.duration_seconds:
+                        raise HTTPException(
+                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                            detail=f"Energy quote duration {quote.duration_seconds}s does not match job duration {job.duration_seconds}s",
+                        )
                 # Verify the operator signature against the configured operator
                 # address so a self-attested quote cannot fund a rental.
                 if settings.energy_operator_address and not quote.verify_operator_signature(settings.energy_operator_address):
