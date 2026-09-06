@@ -316,7 +316,7 @@ class EnergyQuote:
         return data
 
     @classmethod
-    def from_dict(cls, data: dict[str, Any]) -> "EnergyQuote":
+    def from_dict(cls, data: dict[str, Any]) -> EnergyQuote:
         """Reconstruct a quote from its JSON/database representation."""
         payload = dict(data)
         for key in ("operator_signature", "buyer_signature"):
