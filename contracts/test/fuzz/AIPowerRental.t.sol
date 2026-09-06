@@ -129,7 +129,7 @@ contract AIPowerRentalProtectedTest is Test {
         assertEq(uint8(agreement.status), uint8(AIPowerRental.RentalStatus.Active));
         assertEq(agreement.price, price);
 
-        AIPowerRental.RentalEnergyTerms memory terms = rental.rentalEnergyTerms(agreementId);
+        AIPowerRental.RentalEnergyTerms memory terms = rental.getRentalEnergyTerms(agreementId);
         assertTrue(terms.isProtected);
         assertEq(terms.netEnergyFloor, 198_000_000_000_000_000);
         assertEq(paymentToken.balanceOf(address(rental)), totalAmount);
