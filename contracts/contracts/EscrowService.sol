@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import "./AIPowerRental.sol";
 import "./PaymentProcessor.sol";
+import "./IEnergyPricing.sol";
 
 /**
  * @title Escrow Service
@@ -19,6 +20,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     IERC20 public paymentToken;
     AIPowerRental public aiPowerRental;
     PaymentProcessor public paymentProcessor;
+    IEnergyPricing public energyPricing;
 
     uint256 public escrowCounter;
     uint256 public minEscrowAmount = 1e15; // 0.001 AITBC minimum
@@ -114,6 +116,27 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 approvalTime; // Timestamp when approval was achieved
     }
 
+    struct ComputeEscrowTerms {
+        string resourceId;
+        string modelId;
+        uint256 gpuCount;
+        uint256 duration;
+        uint256 settlementUnitScale;
+        uint256 tdpWatts;
+        uint256 eurPerKwh;
+        uint256 aitPerEur;
+        uint256 rateVersion;
+        uint256 rateObservedAt;
+        uint256 rateSubmittedAt;
+        string rateSourceKind;
+        uint256 profileRevision;
+        uint256 netEnergyFloor;
+        uint256 buyerMaxTotal;
+        bool isProtected;
+        uint256 createdAt;
+        uint256 fundedAt;
+    }
+
     // Enums
     enum EscrowType {
         Standard,
@@ -122,7 +145,8 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         Conditional,
         PerformanceBased,
         MilestoneBased,
-        Emergency
+        Emergency,
+        ProtectedCompute
     }
 
     enum ReleaseCondition {
@@ -156,6 +180,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => MultiSigRelease) public multiSigReleases;
     mapping(uint256 => TimeLockRelease) public timeLockReleases;
     mapping(uint256 => EmergencyRelease) public emergencyReleases;
+    mapping(uint256 => ComputeEscrowTerms) public computeEscrowTerms;
     mapping(address => uint256[]) public depositorEscrows;
     mapping(address => uint256[]) public beneficiaryEscrows;
     mapping(bytes32 => uint256) public conditionEscrows;
@@ -180,6 +205,19 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 indexed escrowId,
         uint256 amount,
         uint256 platformFee
+    );
+
+    event ComputeEscrowCreated(
+        uint256 indexed escrowId,
+        address indexed depositor,
+        address indexed beneficiary,
+        string resourceId,
+        string modelId,
+        uint256 gpuCount,
+        uint256 duration,
+        uint256 amount,
+        uint256 platformFee,
+        uint256 netEnergyFloor
     );
 
     event EscrowReleased(
@@ -391,6 +429,138 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         } else if (_escrowType == EscrowType.MultiSignature) {
             _setupMultiSignature(escrowId);
         }
+
+        return escrowId;
+    }
+
+    /**
+     * @dev Creates a protected fixed-duration GPU compute escrow.
+     * The buyer transfers principal + platform fee. The provider net principal
+     * must cover the on-chain energy floor.
+     * @param _beneficiary Provider address
+     * @param _resourceId Registered resource identifier
+     * @param _modelId GPU model as registered for the resource
+     * @param _gpuCount Number of GPUs
+     * @param _duration Duration in seconds
+     * @param _amount Provider net principal in AITBC tokens
+     * @param _buyerMaxTotal Maximum total the buyer authorizes (principal + platform fee)
+     * @param _settlementUnitScale Atomic units per settlement token
+     */
+    function createComputeEscrow(
+        address _beneficiary,
+        string memory _resourceId,
+        string memory _modelId,
+        uint256 _gpuCount,
+        uint256 _duration,
+        uint256 _amount,
+        uint256 _buyerMaxTotal,
+        uint256 _settlementUnitScale
+    )
+        external
+        sufficientBalance(
+            msg.sender,
+            _amount + ((_amount * platformFeePercentage) / 10000)
+        )
+        sufficientAllowance(
+            msg.sender,
+            _amount + ((_amount * platformFeePercentage) / 10000)
+        )
+        nonReentrant
+        whenNotPaused
+        returns (uint256)
+    {
+        require(_beneficiary != address(0), "Invalid beneficiary");
+        require(_beneficiary != msg.sender, "Cannot be own beneficiary");
+        require(address(energyPricing) != address(0), "Energy pricing not configured");
+        require(_amount >= minEscrowAmount && _amount <= maxEscrowAmount, "Invalid amount");
+        require(_gpuCount > 0, "Invalid GPU count");
+        require(_duration > 0, "Invalid duration");
+        require(_buyerMaxTotal > 0, "Invalid buyer cap");
+
+        IEnergyPricing.EnergyProfile memory profile = energyPricing.getEnergyProfile(_resourceId);
+        require(profile.enabled, "Energy profile disabled");
+        require(_beneficiary == profile.provider, "Provider does not match registered resource");
+        require(
+            keccak256(bytes(_modelId)) == keccak256(bytes(profile.modelId)),
+            "Model does not match registered resource"
+        );
+
+        (uint256 netFloor, bool valid, ) = energyPricing.getEnergyFloor(
+            _resourceId,
+            _gpuCount,
+            _duration,
+            _settlementUnitScale
+        );
+        require(valid, "Energy floor is not valid");
+        require(_amount >= netFloor, "Amount below energy floor");
+
+        uint256 platformFee = (_amount * platformFeePercentage) / 10000;
+        uint256 totalAmount = _amount + platformFee;
+        require(totalAmount <= _buyerMaxTotal, "Buyer cap exceeded");
+
+        IEnergyPricing.EnergyRate memory rate = energyPricing.getEnergyRate();
+        require(rate.enabled, "Energy rate disabled");
+
+        uint256 escrowId = escrowCounter++;
+
+        _initializeEscrowAccount(
+            escrowId,
+            _beneficiary,
+            address(0), // no arbiter for protected compute escrows
+            _amount,
+            EscrowType.ProtectedCompute,
+            ReleaseCondition.TimeBased,
+            ""
+        );
+
+        EscrowAccount storage escrow = escrowAccounts[escrowId];
+        escrow.releaseTime = block.timestamp + _duration;
+
+        _updateEscrowTracking(escrowId, _beneficiary);
+        _transferTokensForEscrow(_amount);
+
+        computeEscrowTerms[escrowId] = ComputeEscrowTerms({
+            resourceId: _resourceId,
+            modelId: _modelId,
+            gpuCount: _gpuCount,
+            duration: _duration,
+            settlementUnitScale: _settlementUnitScale,
+            tdpWatts: profile.tdpWatts,
+            eurPerKwh: profile.eurPerKwh,
+            aitPerEur: rate.aitPerEur,
+            rateVersion: rate.version,
+            rateObservedAt: rate.observedAt,
+            rateSubmittedAt: rate.submittedAt,
+            rateSourceKind: rate.sourceKind,
+            profileRevision: profile.revision,
+            netEnergyFloor: netFloor,
+            buyerMaxTotal: _buyerMaxTotal,
+            isProtected: true,
+            createdAt: block.timestamp,
+            fundedAt: block.timestamp
+        });
+
+        emit EscrowCreated(
+            escrowId,
+            msg.sender,
+            _beneficiary,
+            _amount,
+            EscrowType.ProtectedCompute,
+            ReleaseCondition.TimeBased
+        );
+        emit EscrowFunded(escrowId, _amount, platformFee);
+        emit ComputeEscrowCreated(
+            escrowId,
+            msg.sender,
+            _beneficiary,
+            _resourceId,
+            _modelId,
+            _gpuCount,
+            _duration,
+            _amount,
+            platformFee,
+            netFloor
+        );
 
         return escrowId;
     }
@@ -633,12 +803,17 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
 
         escrow.isRefunded = true;
 
+        uint256 refundAmount = escrow.amount;
+        if (escrow.escrowType == EscrowType.ProtectedCompute) {
+            refundAmount += escrow.platformFee;
+        }
+
         require(
-            paymentToken.transfer(escrow.depositor, escrow.amount),
+            paymentToken.transfer(escrow.depositor, refundAmount),
             "Refund transfer failed"
         );
 
-        emit EscrowRefunded(_escrowId, escrow.depositor, escrow.amount, _reason);
+        emit EscrowRefunded(_escrowId, escrow.depositor, refundAmount, _reason);
     }
 
     /**
@@ -907,6 +1082,14 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     function _releaseEscrow(uint256 _escrowId, string memory _reason) internal {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
 
+        if (escrow.escrowType == EscrowType.ProtectedCompute) {
+            ComputeEscrowTerms storage terms = computeEscrowTerms[_escrowId];
+            require(
+                escrow.amount >= terms.netEnergyFloor,
+                "Release amount below energy floor"
+            );
+        }
+
         escrow.isReleased = true;
 
         // Transfer amount to beneficiary
@@ -1112,5 +1295,14 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @dev Sets the energy pricing contract used for protected compute escrows
+     * @param _energyPricing Address of the IEnergyPricing implementation
+     */
+    function setEnergyPricing(address _energyPricing) external onlyOwner {
+        require(_energyPricing != address(0), "Energy pricing cannot be zero address");
+        energyPricing = IEnergyPricing(_energyPricing);
     }
 }

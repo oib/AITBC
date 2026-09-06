@@ -303,6 +303,13 @@ class Escrow(ChainBase, table=True):
     # written before partial releases existed, where a settlement moved the whole lock.
     released_amount: int | None = None  # compute-units paid to the provider, net of fee
     refunded_amount: int | None = None  # compute-units returned to the buyer unbilled
+    # E1: fixed-duration GPU rental energy floor snapshot, frozen at lock time.
+    protected: bool = Field(default=False)
+    energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON))
+    energy_quote_id: str | None = None
+    energy_net_floor_units: int | None = None
+    energy_provider_credit_units: int | None = None
+    energy_fee_basis_points: int | None = None
 
 
 class CrossChainTransfer(ChainBase, table=True):

@@ -77,6 +77,13 @@ class EscrowContract:
     resolution: dict[str, Any] | None
     released_amount: Decimal
     refunded_amount: Decimal
+    # E1: protected fixed-duration GPU rental quote snapshot, frozen at funding.
+    protected: bool = False
+    energy_quote_snapshot: dict[str, Any] | None = None
+    energy_quote_id: str | None = None
+    energy_net_floor_units: int | None = None
+    energy_provider_credit_units: int | None = None
+    energy_fee_basis_points: int | None = None
 
 
 @dataclass
@@ -226,11 +233,20 @@ class EscrowManager:
         fee_rate: Decimal | None = None,
         milestones: list[dict[str, Any]] | None = None,
         duration_days: int = 30,
+        *,
+        protected: bool = False,
+        energy_quote_snapshot: dict[str, Any] | None = None,
+        energy_quote_id: str | None = None,
+        energy_net_floor_units: int | None = None,
+        energy_provider_credit_units: int | None = None,
+        energy_fee_basis_points: int | None = None,
     ) -> tuple[bool, str, str | None]:
         """Create new escrow contract"""
         try:
             if not self._validate_contract_inputs(job_id, client_address, agent_address, amount):
                 return (False, "Invalid contract inputs", None)
+            if protected and energy_fee_basis_points is not None:
+                fee_rate = Decimal(energy_fee_basis_points) / Decimal(10000)
             fee_rate = fee_rate or self.default_fee_rate
             validated_milestones: list[dict[Any, Any]] = []
             if milestones:
@@ -271,6 +287,12 @@ class EscrowManager:
                 resolution=None,
                 released_amount=Decimal("0"),
                 refunded_amount=Decimal("0"),
+                protected=protected,
+                energy_quote_snapshot=energy_quote_snapshot,
+                energy_quote_id=energy_quote_id,
+                energy_net_floor_units=energy_net_floor_units,
+                energy_provider_credit_units=energy_provider_credit_units,
+                energy_fee_basis_points=energy_fee_basis_points,
             )
             self.escrow_contracts[contract_id] = contract
             log_info(f"Escrow contract created: {contract_id} for job {job_id}")
@@ -323,13 +345,16 @@ class EscrowManager:
                     if contract_id in self.escrow_contracts:
                         continue
                     amount = units_to_ait(record.amount)
+                    fee_rate = self.default_fee_rate
+                    if record.protected and record.energy_fee_basis_points is not None:
+                        fee_rate = Decimal(record.energy_fee_basis_points) / Decimal(10000)
                     contract = EscrowContract(
                         contract_id=contract_id,
                         job_id=record.job_id,
                         client_address=record.buyer,
                         agent_address=record.provider,
                         amount=amount,
-                        fee_rate=self.default_fee_rate,
+                        fee_rate=fee_rate,
                         created_at=record.created_at.timestamp(),
                         expires_at=record.created_at.timestamp() + self.max_contract_duration,
                         state=EscrowState.FUNDED,
@@ -347,6 +372,12 @@ class EscrowManager:
                         resolution=None,
                         released_amount=Decimal("0"),
                         refunded_amount=Decimal("0"),
+                        protected=record.protected,
+                        energy_quote_snapshot=record.energy_quote_snapshot,
+                        energy_quote_id=record.energy_quote_id,
+                        energy_net_floor_units=record.energy_net_floor_units,
+                        energy_provider_credit_units=record.energy_provider_credit_units,
+                        energy_fee_basis_points=record.energy_fee_basis_points,
                     )
                     self.escrow_contracts[contract_id] = contract
                     self.active_contracts.add(contract_id)
@@ -459,13 +490,16 @@ class EscrowManager:
                     state = EscrowState.RELEASED
                 elif record.refunded_at:
                     state = EscrowState.REFUNDED
+                fee_rate = self.default_fee_rate
+                if record.protected and record.energy_fee_basis_points is not None:
+                    fee_rate = Decimal(record.energy_fee_basis_points) / Decimal(10000)
                 contract = EscrowContract(
                     contract_id=contract_id,
                     job_id=record.job_id,
                     client_address=record.buyer,
                     agent_address=record.provider,
                     amount=amount,
-                    fee_rate=self.default_fee_rate,
+                    fee_rate=fee_rate,
                     created_at=record.created_at.timestamp(),
                     expires_at=record.created_at.timestamp() + self.max_contract_duration,
                     state=state,
@@ -491,6 +525,12 @@ class EscrowManager:
                         if record.refunded_amount is not None
                         else (amount if record.refunded_at is not None else Decimal("0"))
                     ),
+                    protected=record.protected,
+                    energy_quote_snapshot=record.energy_quote_snapshot,
+                    energy_quote_id=record.energy_quote_id,
+                    energy_net_floor_units=record.energy_net_floor_units,
+                    energy_provider_credit_units=record.energy_provider_credit_units,
+                    energy_fee_basis_points=record.energy_fee_basis_points,
                 )
                 self.escrow_contracts[contract_id] = contract
                 if state not in {EscrowState.RELEASED, EscrowState.REFUNDED}:
@@ -657,6 +697,19 @@ class EscrowManager:
         remaining_payment = billable - contract.released_amount - platform_fee_total
         if remaining_payment > 0:
             contract.released_amount += remaining_payment
+
+        # E1: fixed-duration GPU rentals must pay the provider at least the frozen
+        # energy floor. Bump the in-memory released amount to the exact signed
+        # provider credit if rounding would otherwise underpay.
+        if contract.protected and contract.energy_provider_credit_units is not None:
+            target_ait = units_to_ait(contract.energy_provider_credit_units)
+            if contract.released_amount < target_ait:
+                contract.released_amount = target_ait
+            if contract.energy_net_floor_units is not None:
+                floor_ait = units_to_ait(contract.energy_net_floor_units)
+                if contract.released_amount < floor_ait:
+                    return (False, "Protected escrow release would underpay the energy floor")
+
         contract.state = EscrowState.RELEASED
         self.active_contracts.discard(contract_id)
         log_info(f"Payment released for contract: {contract_id} - billed {billable} of {total_milestone_amount}")

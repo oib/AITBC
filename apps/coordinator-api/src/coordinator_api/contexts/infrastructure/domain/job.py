@@ -66,6 +66,17 @@ class Job(SQLModel, table=True):
     offer_id: str | None = Field(default=None, index=True)
     provider_address: str | None = Field(default=None, index=True)
 
+    # E1: fixed-duration GPU rental energy quote binding. If protected, the job
+    # must be dispatched with the matching resource, model, count and duration.
+    protected: bool = Field(default=False)
+    resource_id: str | None = Field(default=None, index=True)
+    model_id: str | None = Field(default=None, index=True)
+    gpu_count: int | None = Field(default=None)
+    duration_seconds: int | None = Field(default=None)
+    energy_quote_snapshot: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
+
     # Completion tracking
     completed_at: datetime | None = Field(default=None)
 

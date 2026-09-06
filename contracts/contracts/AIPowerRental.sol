@@ -7,6 +7,7 @@ import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "./ZKReceiptVerifier.sol";
 import "./Groth16Verifier.sol";
+import "./IEnergyPricing.sol";
 
 /**
  * @title AI Power Rental Contract
@@ -19,6 +20,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     IERC20 public paymentToken;
     ZKReceiptVerifier public zkVerifier;
     Groth16Verifier public groth16Verifier;
+    IEnergyPricing public energyPricing;
 
     uint256 public agreementCounter;
     uint256 public platformFeePercentage = 250; // 2.5% in basis points
@@ -60,6 +62,26 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         uint256 resolutionAmount;
     }
 
+    struct RentalEnergyTerms {
+        string resourceId;
+        string modelId;
+        uint256 gpuCount;
+        uint256 settlementUnitScale;
+        uint256 tdpWatts;
+        uint256 eurPerKwh;
+        uint256 aitPerEur;
+        uint256 rateVersion;
+        uint256 rateObservedAt;
+        uint256 rateSubmittedAt;
+        string rateSourceKind;
+        uint256 profileRevision;
+        uint256 netEnergyFloor;
+        uint256 buyerMaxTotal;
+        bool isProtected;
+        uint256 createdAt;
+        uint256 fundedAt;
+    }
+
     // Enums
     enum RentalStatus {
         Created,
@@ -73,6 +95,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     // Mappings
     mapping(uint256 => RentalAgreement) public rentalAgreements;
     mapping(uint256 => DisputeInfo) public disputes;
+    mapping(uint256 => RentalEnergyTerms) public rentalEnergyTerms;
     mapping(address => uint256[]) public providerAgreements;
     mapping(address => uint256[]) public consumerAgreements;
     mapping(address => bool) public authorizedProviders;
@@ -87,6 +110,19 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         uint256 price,
         string gpuModel,
         uint256 computeUnits
+    );
+
+    event ProtectedAgreementCreated(
+        uint256 indexed agreementId,
+        address indexed provider,
+        address indexed consumer,
+        string resourceId,
+        string modelId,
+        uint256 gpuCount,
+        uint256 duration,
+        uint256 price,
+        uint256 platformFee,
+        uint256 netEnergyFloor
     );
 
     event AgreementStarted(
@@ -246,6 +282,133 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Creates a protected fixed-duration GPU rental with an energy-cost floor.
+     * @param _provider Address of the compute provider
+     * @param _consumer Address of the compute consumer
+     * @param _resourceId Registered resource identifier
+     * @param _modelId GPU model as registered for the resource
+     * @param _gpuCount Number of GPUs of this resource
+     * @param _duration Duration in seconds
+     * @param _price Provider principal in AITBC tokens (must cover the floor)
+     * @param _buyerMaxTotal Maximum total the buyer authorizes (principal + platform fee)
+     * @param _settlementUnitScale Atomic units per settlement token (e.g. 1e18 for 18-decimal AITBC)
+     */
+    function createProtectedRental(
+        address _provider,
+        address _consumer,
+        string memory _resourceId,
+        string memory _modelId,
+        uint256 _gpuCount,
+        uint256 _duration,
+        uint256 _price,
+        uint256 _buyerMaxTotal,
+        uint256 _settlementUnitScale
+    ) external onlyAuthorizedConsumer nonReentrant whenNotPaused returns (uint256) {
+        require(_duration >= minRentalDuration, "Duration too short");
+        require(_duration <= maxRentalDuration, "Duration too long");
+        require(_price > 0, "Price must be positive");
+        require(_consumer == msg.sender, "Consumer must be caller");
+        require(authorizedProviders[_provider], "Provider not authorized");
+        require(address(energyPricing) != address(0), "Energy pricing not configured");
+
+        IEnergyPricing.EnergyProfile memory profile = energyPricing.getEnergyProfile(_resourceId);
+        require(profile.enabled, "Energy profile disabled");
+        require(_provider == profile.provider, "Provider does not match registered resource");
+        require(
+            keccak256(bytes(_modelId)) == keccak256(bytes(profile.modelId)),
+            "Model does not match registered resource"
+        );
+
+        (uint256 netFloor, bool valid, ) = energyPricing.getEnergyFloor(
+            _resourceId,
+            _gpuCount,
+            _duration,
+            _settlementUnitScale
+        );
+        require(valid, "Energy floor is not valid");
+        require(_price >= netFloor, "Price below energy floor");
+
+        uint256 platformFee = (_price * platformFeePercentage) / 10000;
+        uint256 totalAmount = _price + platformFee;
+        require(totalAmount <= _buyerMaxTotal, "Buyer cap exceeded");
+
+        IEnergyPricing.EnergyRate memory rate = energyPricing.getEnergyRate();
+        require(rate.enabled, "Energy rate disabled");
+
+        uint256 agreementId = agreementCounter++;
+
+        rentalAgreements[agreementId] = RentalAgreement({
+            agreementId: agreementId,
+            provider: _provider,
+            consumer: _consumer,
+            duration: _duration,
+            price: _price,
+            startTime: 0,
+            endTime: 0,
+            platformFee: platformFee,
+            status: RentalStatus.Created,
+            performance: PerformanceMetrics({
+                responseTime: 0,
+                accuracy: 0,
+                availability: 0,
+                computePower: 0,
+                withinSLA: false,
+                lastUpdateTime: 0
+            }),
+            gpuModel: _modelId,
+            computeUnits: 0,
+            performanceProof: bytes32(0)
+        });
+
+        rentalEnergyTerms[agreementId] = RentalEnergyTerms({
+            resourceId: _resourceId,
+            modelId: _modelId,
+            gpuCount: _gpuCount,
+            settlementUnitScale: _settlementUnitScale,
+            tdpWatts: profile.tdpWatts,
+            eurPerKwh: profile.eurPerKwh,
+            aitPerEur: rate.aitPerEur,
+            rateVersion: rate.version,
+            rateObservedAt: rate.observedAt,
+            rateSubmittedAt: rate.submittedAt,
+            rateSourceKind: rate.sourceKind,
+            profileRevision: profile.revision,
+            netEnergyFloor: netFloor,
+            buyerMaxTotal: _buyerMaxTotal,
+            isProtected: true,
+            createdAt: block.timestamp,
+            fundedAt: 0
+        });
+
+        providerAgreements[_provider].push(agreementId);
+        consumerAgreements[_consumer].push(agreementId);
+
+        emit AgreementCreated(
+            agreementId,
+            _provider,
+            _consumer,
+            _duration,
+            _price,
+            _modelId,
+            0
+        );
+        emit ProtectedAgreementCreated(
+            agreementId,
+            _provider,
+            _consumer,
+            _resourceId,
+            _modelId,
+            _gpuCount,
+            _duration,
+            _price,
+            platformFee,
+            netFloor
+        );
+
+        return agreementId;
+    }
+
+    /**
      * @dev Starts a rental agreement and locks payment
      * @param _agreementId ID of the agreement to start
      */
@@ -260,6 +423,48 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         require(msg.sender == agreement.consumer, "Only consumer can start");
 
         uint256 totalAmount = agreement.price + agreement.platformFee;
+
+        RentalEnergyTerms storage terms = rentalEnergyTerms[_agreementId];
+        if (terms.isProtected) {
+            require(address(energyPricing) != address(0), "Energy pricing not configured");
+
+            IEnergyPricing.EnergyProfile memory profile = energyPricing.getEnergyProfile(terms.resourceId);
+            require(profile.enabled, "Energy profile disabled");
+            require(
+                agreement.provider == profile.provider,
+                "Provider does not match registered resource"
+            );
+            require(
+                keccak256(bytes(agreement.gpuModel)) == keccak256(bytes(profile.modelId)),
+                "Model does not match registered resource"
+            );
+
+            (uint256 netFloor, bool valid, ) = energyPricing.getEnergyFloor(
+                terms.resourceId,
+                terms.gpuCount,
+                agreement.duration,
+                terms.settlementUnitScale
+            );
+            require(valid, "Energy floor is not valid at funding");
+            require(agreement.price >= netFloor, "Price below energy floor at funding");
+            require(totalAmount <= terms.buyerMaxTotal, "Buyer cap exceeded at funding");
+
+            IEnergyPricing.EnergyRate memory rate = energyPricing.getEnergyRate();
+            require(rate.enabled, "Energy rate disabled at funding");
+
+            // Snapshot the funding-time energy terms. The price and platform fee
+            // were frozen at creation and are not changed here.
+            terms.tdpWatts = profile.tdpWatts;
+            terms.eurPerKwh = profile.eurPerKwh;
+            terms.aitPerEur = rate.aitPerEur;
+            terms.rateVersion = rate.version;
+            terms.rateObservedAt = rate.observedAt;
+            terms.rateSubmittedAt = rate.submittedAt;
+            terms.rateSourceKind = rate.sourceKind;
+            terms.profileRevision = profile.revision;
+            terms.netEnergyFloor = netFloor;
+            terms.fundedAt = block.timestamp;
+        }
 
         // Transfer tokens from consumer to contract
         require(
@@ -494,6 +699,15 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
      */
     function unpause() external onlyOwner {
         _unpause();
+    }
+
+    /**
+     * @dev Sets the energy pricing contract used for protected rentals
+     * @param _energyPricing Address of the IEnergyPricing implementation
+     */
+    function setEnergyPricing(address _energyPricing) external onlyOwner {
+        require(_energyPricing != address(0), "Energy pricing cannot be zero address");
+        energyPricing = IEnergyPricing(_energyPricing);
     }
 
     /**
