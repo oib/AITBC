@@ -1,5 +1,0 @@
-# AITBC Testing & Quality Optional Dependencies
-# Install with: pip install -r requirements-optional/testing.txt
-# Note: This file references requirements-dev.txt to avoid duplication
-
--r ../requirements-dev.txt
