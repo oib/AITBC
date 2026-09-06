@@ -1,0 +1,141 @@
+# v0.25.4 — Bridge, escrow/consensus hardening, repo-wide cleanup
+
+**Baseline**: end of `v0.25.3` coverage at `47401ce757` (2026-08-31); `v0.25.3` was documented but never tagged.
+**Date**: 2026-09-06.
+**Tag**: `v0.25.4` (pending).
+
+This release covers the 286 commits between the end of the `v0.25.3` change log and `main` (`5bdbce4d9`). Headline items: the hub-only two-way ETH-AITBC bridge with live Sepolia validation, escrow and payment settlement hardening, PBFT/multi-validator consensus fixes including gossip mesh and proposer-schedule signature checks, RPC API-key enforcement, secret migration to `blockchain-secrets.env`, contract test-suite repair with fuzz coverage, and a large dead-code/stale-docs cleanup.
+
+## Changes
+
+### Two-way ETH-AITBC bridge (hub-only)
+
+- `feat(bridge)`: hub-only two-way ETH-AITBC bridge (`6f405b3707`), with live Sepolia round-trip fixes (`dd988df7f0`).
+- Bridge tests: `BRIDGE_WITHDRAW`, DB, reserve guard, and refund tests (`374e1740a3`).
+- Money stored as `Decimal`; MCP server synced with the ETH-AIT bridge (`2c27299d0d`).
+- Bridge reliability: init target chain DB before probing/backfilling bridge validators (`128a68d8d0`, `d9ba6a7d55`), backfill validators for supported chains (`a645839e72`), do not mark a transfer completed until the release tx is block-sealed (`cf8777f34f`), derive `bridge_state_root` on P2P-synced blocks (`33d9a26ebb`), retry transient ETH RPC connection failures in wallet-bridge (`1441a98bd3`).
+
+### Escrow and payments
+
+- `X-API-Key` auth on escrow endpoints; reinvest address derived from contract (`20dcbfdb19`); marketplace sends `X-API-Key` when creating escrows (`a1d1a1a286`); CLI passes `BLOCKCHAIN_RPC_API_KEY` to escrow RPC (`5b1e699321`); `BlockchainRPCClient` falls back to `BLOCKCHAIN_RPC_API_KEY` env (`1613abf3e3`).
+- `get_escrow` derives state from timestamps with status fallback (`e02f4fc8bb`); guard refund/release against stale status (`035c56418d`); guard refund after job completion, fix micro rounding, harden release idempotency (`ba452d446d`).
+- Persist `release_tx_hash` and reject release without it (`dd9805e4a0`); backfill `release_tx_hash` on replay and commit the backfill (`442692da3b`, `1c5bf331ad`).
+- Validate `auto_reinvest_address` against the escrow provider in `_auto_stake` (`a0a492717e`).
+- Stop direct `POST /register-account` calls; create recipients in block state (`e6487d957b`); ensure provider account exists in the `ESCROW_LOCK` transition (`10c401aa55`).
+- `ESCROW_LOCK` fee is 1% with a dust floor (`60189e2e96`); bill the requested amount and return the buyer change (`ca51ae19bb`); the escrowed principal is the lock, not lock plus fee (`7f47b68e99`); settlement legs read from the chain, not the last txn (`385bd8a933`); node wallet advertised on `/health` so clients lock against it (`7e73818fe2`).
+- Stuck-escrow sweeper hardened with an on-chain hash invariant; refund semantics documented (`0718134613`).
+- Escrow-release retries bounded with a `settlement_failed` terminal state (`ff89c1a7e2`).
+- `ipfs_rental_sweeper` uses `rental_id` as `job_id` for escrow release/refund (`1a00e273e9`).
+- CLI paid submits abort when the provider is missing or the escrow is left unsecured (`4eee07d529`, `efe9ba8fb6`).
+
+### Consensus (PBFT / multi-validator PoA)
+
+- Block producers may start in multi-validator mode regardless of `blockchain_mode` (`7a5d6216c5`); proposer key/id required before starting the multi-validator producer (`684aac701d`); block production defaults to all supported chains and loads the validator set for status (`76be7d5988`).
+- `multi_validator_min_attestations` honored for PBFT quorum during rollout (`c209719a71`); status endpoint reports PBFT `required_messages` accordingly (`5d200224d2`); PBFT/attestation quorum made dynamic and `MultiValidatorPoA.validate_block` wired in (`90fd018b71`); multi-validator attestation gate fixed in `poa.py` (`e549a19c40`).
+- PBFT round audit logging and structured timeout diagnostics (`b4f4678286`); a later round may supersede one that produced no block (`d3861a2ebf`); the proposer rotates when the scheduled one is unavailable (`cb8cfbf25e`); proposer-schedule validation skipped for unknown proposers during import (`379992d7db`); heartbeat idle time uses the chain head timestamp (`c786fc7ab3`, `e670ca8fed`).
+- Transaction records kept out of per-tx nested savepoints (`3acefcda7d`); account rows no longer leak from rejected transactions (`ad2981f9e0`) and are no longer written outside consensus (`d639db7ba1`); staking and bounty balances moved into block processing (`268307b8e6`); HTLC swap settlement deferred to block processing (`4151dfee84`).
+- Signed state roots carried into the follower's proposer-schedule check (`430d11ab74`); state/bridge roots carried through the proposer-signature check (`ba01001d03`) — this is the `bridge_state_root` bug that made node1 reject signed block 2555 mid-rollout.
+- Local state divergence is now told apart from a bad block (`a05962ebf4`).
+- State-transition version gate for historical replay (`b6f43f6eb7`); deterministic block-version threshold tests (`4fea041f4d`).
+- Tests: PBFT fault tolerance with one down validator (`63f271d2d7`), majority/minority partition tests (`cd874ca5e3`), bulk-fork coverage (`3dec6c4d44`).
+
+### Gossip / P2P
+
+- New mesh backend so validators gossip peer-to-peer instead of via the hub (`3a18de6ea9`); authenticated validator gossip and secure open-island onboarding (`10d2c2d902`).
+- Restricted-topic matching corrected for `pbft`, `consensus`, and blocks (`8bd814d97e`, `a2b2fb2bc5`); topic-matching regression tests and explicit client-IP extraction (`f3e0d3816e`); per-IP limit key derived from `X-Forwarded-For`/`X-Real-IP` (`c99aa5a8aa`); per-IP connection and rate limits raised (`7a878e21ac`).
+- Attestation responses sharing a block hash are no longer deduplicated away (`9ac10c792c`).
+- `broker.py` split into a `backends` package (`a620e13344`).
+- Redis credentials redacted from service logs and gossip logs (`918792dd42`, `7a878e21ac`); `GOSSIP_BROADCAST_URL` read from env in broadcast tests (`ab31e3700a`) and loaded from `blockchain.env`/`node.env` for trading (`bc68b8fc0c`).
+
+### Sync
+
+- First block validated before a bulk pull, with divergence detection (`143c606105`); graceful shutdown hardened for `blockchain-rpc` (`3518292f32`).
+- Ops tooling: `reset-follower-to-snapshot.sh` for safe resync (`555bff95dc`); `reset-follower-to-genesis.sh` installs the fork `chain.db` from `/agent/chain.db` (`3bb6783417`).
+
+### Coordinator
+
+- `JobReceipt.payload` wrapped in `MutableDict` and signed after ZK/TEE (`c485329f88`); `not_required` accepted as a valid attestation gate (`b9e8de56ca`); tests use the JobReceipt of record with the denormalised `job.receipt` poisoned (`6166e9cedc`, `74a8cd7206`).
+- `client_ref` added and `client_id` foreign keys enforced (`d7b7b042de`).
+- `ZkRefundSweeper` hardened on-chain record and dedupe gaps (`4dbd7c0427`); may retry stale no-hash refund rows (`01b83914ea`).
+- `BOND_SLASH` emitted in compute units via the correct nonce endpoint (`9e7e6f8b72`); slash-authority nonce no longer reused for back-to-back slashes (`15d41deccd`); `ProviderBond` status set after slash based on remaining amount vs the required floor (`f9f9a0b26e`).
+- Proactive stale-job reaper for abandoned RUNNING/QUEUED jobs (`0014acdc12`); dry-run modes for the stale-job and stuck-escrow reapers plus a bond-slash downtime cooldown (`c844888def`).
+- Marketplace job records signed and 403 responses preserved (`1716a07038`); marketplace analytics URL given its missing `/v1` prefix (`2f7644b0e4`); F821 NameError crashes fixed (`a9bd660f54`).
+
+### RPC
+
+- 30s Redis account-state cache removed — it caused stale nonce/balance reads (`4dff9e60fb`).
+- Transaction query logs made human-readable (`c6d71d4fb7`).
+- Rate limiting keyed by request on `list_islands_route` and `list_stakes` (`2869399875`).
+
+### G3 / jobs
+
+- `deterministic_decoding` job class (`5e9d6cf0c4`); shadow-mode spot-check re-run for deterministic jobs (`8bdfe66966`); `computation_correct` ZK-gate health check (`96731d51a1`).
+
+### CLI
+
+- `aitbc tee` deferred to release 2.0 (`9079fb74a9`); stale `marketplace` references removed from CLI help and the component overview (`266a1de7f1`); legacy marketplace CLI group removed (`e670ca8fed`).
+- Command modules lazy-loaded; test make targets split (`6511a3a166`); duplicate `commands/node.py` removed in favor of the `commands/node/` package (`4272f1f3d8`).
+- `--output` on subcommands respects the global format (`f922f4d392`); `aitbc system file` missing `re` import fixed (`8f9da12ed5`); wallet `--wallet <name>` searches configured and service directories (`ea07c11cfa`); `remaining_balance` reported after stake (`bd964a2e32`); exchange-island accepts either response shape and calls RPC paths the node actually serves (`14b512a3af`, `d0eef334e2`); force-sync points at `/rpc/force-sync` (`6ad92cdab2`).
+- Path de-hardcoding: `/opt/aitbc` removed from the aitbc-cli launcher, genesis script path, and tests (`5b0d714bbc`, `fbbb3b9bfa`, `7ba7144e39`, `ad818accc0`).
+- MCP/CLI refactor: service, chain, and HTTP operations routed through the `aitbc` CLI (`c259acaf54`); `run_cron_job` migrated to `aitbc system run-script` (`92fdc8dc93`); duplicate auth args in `call_aitbc_http` removed (`e64e002c9e`); CLI README/usage regenerated (`58b3c9c553`).
+
+### Wallet
+
+- Bridge block fetches batched with last-scanned-block tracking (`5855147626`).
+- Non-string `private_key` guarded and the `lstrip` prefix-strip bug fixed (`bc445df8fd`).
+
+### Marketplace / other apps
+
+- Hermes Agent added as a shop software offer (`c7dced45fd`); `HOME` set with `ProtectHome=read-only` (`ed2df6e04a`); run URL and `Decimal` output corrected (`342bf76357`).
+- Trading: `004_v024_exchange_payment` `down_revision` corrected (`a0d13df0d3`); unused `force` param dropped from the offer-sync endpoint (`16ad65b2af`); `GOSSIP_BROADCAST_URL` env loading for Redis auth (`bc68b8fc0c`).
+- agent-coordinator: `/v1/system/status` route collision resolved (`f00100b61a`).
+- Monitoring service moved out of `scripts/monitoring/examples` into `apps/` (`c9ec32d9c6`); memory/cache/chain-isolation monitors scheduled (`411466cf00`); chain-isolation false-positive fix (`6514cab422`); OOM check based on cgroup counters, not `dmesg` (`1c08594390`, `d066eb68d5`); cache monitor no longer crashes on `NOAUTH` (`1c08594390`).
+
+### Secrets, systemd, deployment
+
+- Secret migration broadened to `blockchain-secrets.env`, including `BLOCKCHAIN_API_KEY` (`ff1f70b425`, `91c84d3d2e`); all service units load `blockchain-secrets.env` (`1ddb0965a5`); `node.env` overrides `blockchain.env` when linking units (`22c388fe8f`).
+- `blockchain_rpc_api_key` exposed for trading, gpu, pool-hub, and edge services (`a424b7f0c6`); `aitbc-trading.service` loads its service env file (`1fb760d576`); miner service unit no longer hardcodes a localhost coordinator URL (`035d1e4ade`).
+- Deployment: uppercase env-var keys enforced (`77b2096a30`); `deploy.sh` dependencies and venv handling modernized (`927bde3969`); `github` remote kept fetch-only on new nodes (`f16268df37`); `sync.sh` matches the actual mirror topology (`8f4c7eff77`); test/dev dependency tiers split with a dev-node role (`37e69a7fb8`); repo-local path packages installed reliably (`452e87dc9c`); `update.sh` syncs path packages and covers side venvs (`6211517f2d`); contract submodules initialised on forge-equipped hosts (`97a3cd6824`); pip/setuptools/wheel kept floating through tier installs (`33abefc354`); hub RPC drop-in persisted (`b3a4f0dadb`).
+- `lease_tracker` `_sanitize_url` guarded against an unset Redis URL (`3902fe6b63`); signature-validation toggle `SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL` now logs (`cd796380a1`).
+
+### Contracts
+
+- Foundry config repaired; stale fuzz tests fixed (`4a14fa340b`); forge coverage unblocked via oversized-struct getters (`d43e06f65f`); fuzz suites added for 13 previously untested contracts (`2281c2cf94`); `BountyIntegration` happy-path and `CrossChainBridge` revert-path/boundary tests (`e5b1e93196`, `3e9e13a099`).
+- Dead contracts removed: `AIServiceAMM.sol` (`a28556b2e9`), `AgentPortfolioManager` (`e3d2965930`), `RegionalPricing` machinery in `DynamicPricing` (`743c11ddf9`), skipped/placeholder test files (`cf3ca76233`).
+- Fixes: reputation-decay underflow on fresh agents (`e4541aeb5e`), registry self-registration in `initialize()` made skippable (`ac8971cecd`), two `DynamicPricing` state bugs (`33055a5490`), the `performanceAggregator` guard in `_updateVotingPower` made real (`15002c6197`).
+- CI runs forge + Hardhat suites on GitHub runners (`aa4a9618a3`, `e1ddb2abcb`, `489288881d`); the two contract suites documented in AGENTS (`d0c8031b7e`).
+
+### Packages / dependencies
+
+- New dependency-free `aitbc-errors` leaf package for the exception hierarchy (`a02bca27d1`), now sourced across the repo (`225739e6f2`).
+- `aitbc-crypto`: `pydantic` declared (imported but undeclared) and unused `cryptography` dropped (`1870354de5`, `060fbccd22`); `aitbc-sdk`: path source for `aitbc-crypto`, stale lock refreshed, Dependabot advisories cleared, unused `cryptography`/`requests` dropped (`80ea47ff8a`, `ff8fc91d42`, `076e6d180a`).
+- `click` bumped to >=8.4.2 for `huggingface-hub` (`758ed14140`); `nltk` and its only consumer removed (`83343a2f61`); `safety` dropped from dev group (`44b9ba97d3`); vestigial per-app `poetry.lock` files deleted (`dfe5c211ef`) and three stale ones regenerated (`5bdbce4d9`); dev export no longer usable as a pip constraints file — fixed (`c7c1e4e4f7`); test tooling removed from CLI runtime deps (`aab716a7d1`); toolchain pins stripped at export (`4eee07d529`).
+- zk-circuits: dead `circom` dep dropped, dependency overrides made effective (`d72b4706f1`); `poseidon-lite` `node_modules` path de-hardcoded (`ab06b8c877`).
+
+### Migrations
+
+- blockchain-node given a single alembic head (`86a5a4baef`).
+
+### Islands / join / nginx
+
+- Public URL scheme derived and `AITBC_PROTOCOL`/forwarded headers respected on join (`08f10934b4`, `bd6f999f97`); `X-Forwarded-Proto` preserved from the edge proxy (`94a08ca612`); island body params renamed with `Request` passed through (`08f10934b4`); https default for island credentials and authenticated Redis health check (`31f355fac1`); health check uses `REDISCLI_AUTH` (`9dde4f687f`).
+
+### Repo-wide cleanup and docs
+
+- Large stale-docs purge: aspirational, duplicate, and superseded documents removed or moved to local scratch (2026-08-31 batch: `9ca150a71c`, `beb8fcc5f1`, `cfa8d6441e`, `ca221cc78c`, `833fa94946`, `059f8e26b0`, `7bba45ebbe`, `b5a1788a28`, `c6268d1d57`, `73633785d1`, `b65af28d4e`, `a49e8648b6`, `0609924d39`, `956b29a611`, `73325181ca`, `d91c0c790c`, `26db3e6af0`, `84f235e795`, `39ed170f00`, `fb86bf3b63`, `1599d23047`; restored public infra/network docs `54de68c58c`; apps catalog updated `4b6ef1d01c`; 2026-09-01 batch `bcb26d999a`, `42f335111a`, `dc2974d9d3`).
+- Dead code removed: SAW orchestrator test harness and process docs (`7538752cae`, `4ad04adf5d`, `6e1ede45a7`, `c726cd0b43`, `5c47683291`), dead ZK JS helpers, runtime ZK bloat (intermediate ptau, C++ witness generator, `receipt.circom`) (`b2dd478485`, `7d86fe3182`), dead manual test scripts (`978ce107ce`, `6cb9489e29`), `__main__`/`example_usage` stubs in library modules (`3fd978cd73`).
+- Operational docs: live service inventory/ports refreshed (`8986a064f4`), known operational gaps documented (`265e0bab60`), Zsh/Bash SSH environment separation and three-shell policy documented (`56007427f0`, `8cc37bc00f`), obsolete PoS/Docker-Compose/agent-management architecture claims removed (`b0d1419b16`, `e9183fb424`, `1e378da950`), PBFT/bridge finality alignment documented (`409b9c80ea`), hardware-backed TEE deferred to release 2.0 (`a9eaa79a4e`), canonical AGENTS.md kept repo-generic (`c654ed229c`), `/opt/aitbc` role clarified (`163f8a6c7a`).
+- New tooling: MCP tool dumper with role filter (`2bc08ffb35`).
+
+### CI / tests
+
+- Lint gate now actually fails on findings (`c1945b7d5d`); `tests/cli` and the governance suite wired into CI (`2adb538e8a`); mypy gate fails when mypy is missing (`7ec4693ad1`); non-root CI bootstrap (`1e378da950`); venv setup no longer chokes on checkout-specific local package paths (`43271d7ded`); zk-circuits Node deps and `tenseal` provisioned for App tests (`84c446fb52`); CI no longer hard-requires dev-tier deps for pytest (`a8567bb17b`).
+- mypy: baseline tightened (`1ee70f8cc1`), regenerated on a full-dependency host (`53231e30fb`, `1bcb2676a3`), CI-surfaced errors triaged (`443ad3b15c`, `086e0cf4e6`), 56 baselined errors resolved (`69288faf4f`), `type: ignore` comments restored where a deps-incomplete env dropped them (`c8cfac4c84`), `Session`/`select` imports consolidated on sqlmodel (`dd7ab413d5`).
+- Test hygiene: 126 pre-existing CLI test failures quarantined (`d76e063283`), expected XFAILs excluded from collection (`bce54b6cd0`), flaky parallel-performance timing assertions fixed (`5a3546d7ea`), gossip broadcast tests given headroom against a live shared Redis (`65d8b314ad`), `config edit` test made `EDITOR`-independent (`7550c27615`), unit-test failures from `make test` fixed (`178b4a8fb1`), `test_p1_3_bridge` confirmed→completed split finished (`ecedb1d7aa`), `generate_eth_address` test de-hardcoded (`ad818accc0`), `translate_batch` stale 5th arg dropped (`d0631fc09e`), `escrow` `sum()` pinned to `Decimal` (`e2bff0ce59`), backup skips missing `/etc/prometheus` cleanly (`6dff48255b`).
+- P0 sweep: unified setup/CI/version, bridge/MCP hardening, secure key backups (`310a464c5d`); 5xx exception-detail hardening findings and the pip-audit skip bug fixed (`13656099f9`).
+
+## Validation
+
+- Live Sepolia round-trip validated for the two-way bridge (deposit + withdraw paths, `dd988df7f0` family).
+- PBFT mesh and proposer-schedule signature checks exercised on the live fleet; the block-2555 rejection on node1 was traced to the pre-fix `bridge_state_root` rebuild and has not recurred since fleet convergence.
+- `python -m py_compile` + `ruff` clean on all files touched by the dead-stub cleanup; contract suites (forge + Hardhat) run in CI.
