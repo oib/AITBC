@@ -546,7 +546,7 @@ async def buy_gpu(
             total_cost = booking.total_cost
             duration_hours = booking.duration_hours
             duration_dec = Decimal(str(duration_hours))
-            end_time = start_time + timedelta(seconds=booking.duration_seconds)
+            end_time = start_time + timedelta(seconds=booking.duration_seconds or 0)
         else:
             job_create = JobCreate(
                 payload={
