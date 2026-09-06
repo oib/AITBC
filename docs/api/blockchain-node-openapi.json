@@ -19000,6 +19000,16 @@
               }
             }
           },
+          "409": {
+            "description": "escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "escrow contract_id missing after create",
             "content": {
