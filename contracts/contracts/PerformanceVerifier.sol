@@ -276,13 +276,13 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         });
 
         agreementVerifications[_agreementId].push(verificationId);
-        providerVerifications[agreement.provider].push(verificationId);
+        providerVerifications[agreementProvider].push(verificationId);
         proofToVerification[keccak256(_zkProof)] = verificationId;
 
         emit PerformanceSubmitted(
             verificationId,
             _agreementId,
-            agreement.provider,
+            agreementProvider,
             _responseTime,
             _accuracy,
             _availability
