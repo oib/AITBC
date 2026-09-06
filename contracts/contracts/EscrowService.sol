@@ -1148,6 +1148,19 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Gets the frozen compute/energy terms for a protected escrow.
+     * @param _escrowId ID of the escrow
+     */
+    function getComputeEscrowTerms(uint256 _escrowId)
+        external
+        view
+        escrowExists(_escrowId)
+        returns (ComputeEscrowTerms memory)
+    {
+        return computeEscrowTerms[_escrowId];
+    }
+
+    /**
      * @dev Gets conditional release details
      * @param _escrowId ID of the escrow
      */

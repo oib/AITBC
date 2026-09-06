@@ -129,11 +129,11 @@ contract EscrowServiceProtectedTest is Test {
         assertEq(depositor, client);
         assertEq(beneficiary, provider);
         assertEq(storedAmount, amount);
-        assertEq(escrowType, EscrowService.EscrowType.ProtectedCompute);
+        assertEq(uint256(escrowType), uint256(EscrowService.EscrowType.ProtectedCompute));
         assertTrue(releaseTime > block.timestamp);
         assertEq(paymentToken.balanceOf(address(escrow)), totalAmount);
 
-        EscrowService.ComputeEscrowTerms memory terms = escrow.computeEscrowTerms(escrowId);
+        EscrowService.ComputeEscrowTerms memory terms = escrow.getComputeEscrowTerms(escrowId);
         assertTrue(terms.isProtected);
         assertEq(terms.netEnergyFloor, 198_000_000_000_000_000);
 
