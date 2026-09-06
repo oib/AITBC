@@ -201,6 +201,7 @@ class EnergyQuote:
     ait_per_eur_scaled: int
     rate_version: int
     rate_observed_at: int
+    rate_submitted_at: int = 0
     rate_source_kind: str
     profile_revision: int
     evm_chain_id: int | None = None
@@ -626,6 +627,7 @@ def build_minimum_quote(
         ait_per_eur_scaled=rate.ait_per_eur_scaled,
         rate_version=rate.version,
         rate_observed_at=rate.observed_at,
+        rate_submitted_at=rate.submitted_at,
         rate_source_kind=rate.source_kind,
         profile_revision=profile.revision,
         evm_chain_id=evm_chain_id,
