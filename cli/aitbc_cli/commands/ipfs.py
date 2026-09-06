@@ -11,6 +11,7 @@ import hashlib
 import json
 import os
 import secrets
+import sys
 import tempfile
 import uuid
 from datetime import UTC, datetime, timedelta
@@ -20,13 +21,22 @@ from typing import Any, cast
 
 import click
 import requests
+from eth_keys.datatypes import PrivateKey
+from eth_utils import keccak
+
+from aitbc.crypto.crypto import sign_transaction_hash
 
 from ..config import get_config
-from ..utils import OUTPUT_FORMAT_OPTION, error, info, output, success, warning
+from ..utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, success, warning
 from ..utils.address import to_canonical
+from ..utils.chain_id import get_chain_id
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.output import resolve_output_format
+from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_loader import load_wallet_for_payment
+from ..utils.wallet_paths import wallet_dir
+from .transactions import _send_transaction_impl
 
 IPFS_DIR = Path(os.environ.get("AITBC_IPFS_DIR", "/var/lib/aitbc/ipfs"))
 IPFS_API = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5001")
@@ -808,3 +818,263 @@ def unpin(ctx: click.Context, rental_id: str, refund: bool, reason: str, output_
 
 if __name__ == "__main__":
     ipfs()
+# ---------------------------------------------------------------------------
+# Island IPFS subscription and swarm-key commands
+# ---------------------------------------------------------------------------
+
+
+def _resolve_wallet_password(password: str | None, password_file: str | None, wallet_name: str) -> str:
+    """Resolve a wallet password from flags, env, unencrypted wallet, or TTY prompt."""
+    if password is not None:
+        return password
+    if password_file:
+        with open(password_file) as f:
+            return f.read().strip()
+    if "AITBC_WALLET_PASSWORD" in os.environ:
+        return os.environ["AITBC_WALLET_PASSWORD"]
+
+    keystore_dir = wallet_dir()
+    keystore = keystore_dir / f"{wallet_name}.json"
+    if keystore.exists():
+        data = json.loads(keystore.read_text())
+        if not data.get("encrypted") and not data.get("encrypted_private_key"):
+            return ""
+
+    if not sys.stdin.isatty():
+        abort(None, "No TTY available for password prompt. Use --password, --password-file, or set AITBC_WALLET_PASSWORD.")
+        return ""  # unreachable; abort always raises
+
+    import getpass
+
+    try:
+        return getpass.getpass("Enter wallet password: ")
+    except Exception as e:
+        abort(None, f"Password prompt failed: {e}", from_exception=e)
+        return ""  # unreachable; abort always raises
+
+
+def _load_wallet_key(wallet_name: str, password: str) -> tuple[str, PrivateKey]:
+    """Load a file wallet and return (address, private_key)."""
+    keystore = wallet_dir() / f"{wallet_name}.json"
+    if not keystore.exists():
+        raise click.BadParameter(f"Wallet '{wallet_name}' not found at {keystore}")
+
+    data = json.loads(keystore.read_text())
+    address = data.get("address")
+    if not address:
+        raise click.BadParameter(f"Wallet '{wallet_name}' has no address")
+
+    if data.get("encrypted") or data.get("encrypted_private_key"):
+        if not password:
+            raise click.BadParameter(f"Wallet '{wallet_name}' is encrypted; provide --password")
+        private_key_hex = decrypt_private_key(keystore, password)
+    else:
+        private_key_hex = data.get("private_key", "")
+
+    if not private_key_hex:
+        raise click.BadParameter(f"Wallet '{wallet_name}' has no private key")
+    if isinstance(private_key_hex, str) and private_key_hex.startswith("0x"):
+        private_key_hex = private_key_hex[2:]
+
+    try:
+        private_key = PrivateKey(bytes.fromhex(private_key_hex))
+    except ValueError as e:
+        raise click.BadParameter(f"Invalid private key in wallet '{wallet_name}': {e}") from e
+
+    return address, private_key
+
+
+def _default_rpc_url(rpc_url: str | None) -> str:
+    if rpc_url:
+        return rpc_url
+    config = get_config()
+    return getattr(config, "blockchain_rpc_url", "http://127.0.0.1:8202") or "http://127.0.0.1:8202"
+
+
+def _default_coordinator_url(coordinator_url: str | None) -> str:
+    if coordinator_url:
+        return coordinator_url
+    config = get_config()
+    return getattr(config, "coordinator_api_url", "http://127.0.0.1:8203") or "http://127.0.0.1:8203"
+
+
+@click.group(name="island")
+@click.pass_context
+def island(ctx):
+    """Private island IPFS subscription and swarm-key management."""
+    ctx.ensure_object(dict)
+
+
+@island.command()
+@click.option("--wallet", "wallet_name", required=True, help="Wallet name to pay from")
+@click.option("--to", "to_address", required=True, help="Island treasury / recipient address")
+@click.option("--island-id", required=True, help="Island identifier (e.g. ait-hub.aitbc.bubuit.net-island)")
+@click.option("--duration", type=int, default=1000, help="Subscription duration in blocks (default 1000)")
+@click.option("--quota", type=int, default=1073741824, help="Quota in bytes (default 1 GiB)")
+@click.option("--amount", type=DECIMAL, required=True, help="Payment amount in AIT")
+@click.option("--fee", type=DECIMAL, default="0.001", help="Transaction fee in AIT")
+@click.option("--password", help="Wallet password")
+@click.option("--password-file", help="File containing wallet password")
+@click.option("--rpc-url", help="Blockchain RPC URL")
+@click.pass_context
+def subscribe(
+    ctx,
+    wallet_name: str,
+    to_address: str,
+    island_id: str,
+    duration: int,
+    quota: int,
+    amount: Decimal,
+    fee: Decimal,
+    password: str | None,
+    password_file: str | None,
+    rpc_url: str | None,
+):
+    """Subscribe to a private island IPFS network.
+
+    Submits an IPFS_SUBSCRIPTION transaction that creates or extends an
+    on-chain subscription record. The member can then request the swarm key
+    with `aitbc-cli ipfs island swarm-key`.
+    """
+    resolved_password = _resolve_wallet_password(password, password_file, wallet_name)
+    resolved_rpc_url = _default_rpc_url(rpc_url)
+    payload = {
+        "island_id": island_id,
+        "duration_blocks": duration,
+        "quota_bytes": quota,
+    }
+
+    tx_hash = _send_transaction_impl(
+        from_wallet=wallet_name,
+        to_address=to_address,
+        amount=amount,
+        fee=fee,
+        password=resolved_password,
+        rpc_url=resolved_rpc_url,
+        tx_type="IPFS_SUBSCRIPTION",
+        payload=payload,
+    )
+    if tx_hash:
+        success(f"Island IPFS subscription transaction sent: {tx_hash}")
+        click.echo(
+            json.dumps(
+                {
+                    "success": True,
+                    "data": {
+                        "tx_hash": tx_hash,
+                        "island_id": island_id,
+                        "duration_blocks": duration,
+                        "quota_bytes": quota,
+                    },
+                },
+                indent=2,
+            )
+        )
+    else:
+        error("Failed to send island IPFS subscription transaction")
+
+
+@island.command(name="swarm-key")
+@click.option("--wallet", "wallet_name", required=True, help="Wallet name whose address is subscribed")
+@click.option("--island-id", required=True, help="Island identifier")
+@click.option("--coordinator-url", help="Coordinator API base URL")
+@click.option("--chain-id", help="Blockchain chain ID (auto-detected from RPC if omitted)")
+@click.option("--rpc-url", help="Blockchain RPC URL for chain ID auto-detection")
+@click.option("--api-key", help="Coordinator API key (default from config / AITBC_API_KEY / MINER_API_KEYS)")
+@click.option("--password", help="Wallet password")
+@click.option("--password-file", help="File containing wallet password")
+@click.option("--output", type=click.Path(), help="Optional path to write the swarm.key")
+@click.option("--bootstrap", is_flag=True, help="Also print a bootstrap multiaddr for the hub island daemon")
+@click.pass_context
+def swarm_key(
+    ctx,
+    wallet_name: str,
+    island_id: str,
+    coordinator_url: str | None,
+    chain_id: str | None,
+    rpc_url: str | None,
+    api_key: str | None,
+    password: str | None,
+    password_file: str | None,
+    output: str | None,
+    bootstrap: bool,
+):
+    """Request the swarm key for a subscribed island IPFS network.
+
+    Signs an authorization challenge with the wallet key and calls the
+    coordinator swarm-key endpoint. The coordinator checks the on-chain
+    subscription before returning the key.
+    """
+    resolved_password = _resolve_wallet_password(password, password_file, wallet_name)
+    member_address, private_key = _load_wallet_key(wallet_name, resolved_password)
+
+    resolved_rpc_url = _default_rpc_url(rpc_url)
+    if not chain_id:
+        chain_id = get_chain_id(resolved_rpc_url, override=None, timeout=5)
+        if not chain_id:
+            error("Could not auto-detect chain_id; pass --chain-id explicitly")
+            return
+
+    resolved_coordinator_url = _default_coordinator_url(coordinator_url)
+    resolved_api_key = api_key
+    if not resolved_api_key:
+        resolved_api_key = getattr(get_config(), "api_key", None)
+    if not resolved_api_key:
+        error("No API key available; set AITBC_API_KEY, add api_key to config, or pass --api-key")
+        return
+
+    nonce = f"{datetime.now(UTC).isoformat()}:{secrets.token_hex(8)}"
+    challenge = f"{island_id}:{member_address}:{nonce}".encode()
+    msg_hash = "0x" + keccak(challenge).hex()
+    private_key_hex = private_key.to_hex()
+    signature = sign_transaction_hash(msg_hash, private_key_hex)
+
+    request = {
+        "chain_id": chain_id,
+        "island_id": island_id,
+        "member_address": member_address,
+        "nonce": nonce,
+        "signature": signature,
+    }
+
+    url = f"{resolved_coordinator_url.rstrip('/')}/v1/ipfs/island/swarm-key"
+    try:
+        response = requests.post(
+            url,
+            json=request,
+            headers={"X-Api-Key": resolved_api_key},
+            timeout=30,
+        )
+        response.raise_for_status()
+    except requests.RequestException as e:
+        error(f"Failed to request swarm key: {e}")
+        if isinstance(e, requests.HTTPError) and e.response is not None:
+            click.echo(e.response.text, err=True)
+        return
+
+    data = response.json()
+    key = data.get("swarm_key", "")
+    if output:
+        out_path = Path(output)
+        out_path.write_text(key)
+        out_path.chmod(0o600)
+        success(f"Swarm key written to {output}")
+
+    result_data: dict[str, Any] = {
+        "island_id": data.get("island_id"),
+        "chain_id": data.get("chain_id"),
+        "member_address": data.get("member_address"),
+        "swarm_key": key,
+    }
+    if bootstrap and data.get("hub_multiaddr_template"):
+        template = data.get("hub_multiaddr_template", "")
+        # The template contains <hub_peer_id>; keep it as a hint if peer id not known.
+        if "<hub_peer_id>" in template:
+            result_data["bootstrap_hint"] = template
+        else:
+            result_data["bootstrap"] = template
+
+    click.echo(json.dumps({"success": True, "data": result_data}, indent=2))
+
+
+ipfs.add_command(island, name="island")
