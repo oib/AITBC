@@ -505,16 +505,72 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
      * @param _provider Address of the provider
      */
     /**
-     * @dev Returns the performance metrics record for a verification
+     * @dev Returns the performance metrics record for a verification (core fields).
      * @param _verificationId The verification ID
-     * @return metrics The performance metrics struct
+     *
+     * §5.6: PerformanceMetrics has 17 fields, exceeding the EVM stack depth
+     * in coverage mode (no via_ir). Split into two view functions.
      */
     function getPerformanceMetrics(uint256 _verificationId)
         external
         view
-        returns (PerformanceMetrics memory metrics)
+        returns (
+            uint256 verificationId,
+            uint256 agreementId,
+            address provider,
+            uint256 responseTime,
+            uint256 accuracy,
+            uint256 availability,
+            uint256 computePower,
+            uint256 throughput,
+            uint256 memoryUsage,
+            uint256 energyEfficiency,
+            uint256 score,
+            bool withinSLA
+        )
     {
-        return performanceMetrics[_verificationId];
+        PerformanceMetrics storage m = performanceMetrics[_verificationId];
+        return (
+            m.verificationId,
+            m.agreementId,
+            m.provider,
+            m.responseTime,
+            m.accuracy,
+            m.availability,
+            m.computePower,
+            m.throughput,
+            m.memoryUsage,
+            m.energyEfficiency,
+            m.score,
+            m.withinSLA
+        );
+    }
+
+    /**
+     * @dev Returns the proof/status/amount fields of a performance verification.
+     * @param _verificationId The verification ID
+     */
+    function getPerformanceMetricsStatus(uint256 _verificationId)
+        external
+        view
+        returns (
+            uint256 timestamp,
+            bytes32 zkProof,
+            bytes32 groth16Proof,
+            VerificationStatus status,
+            uint256 penaltyAmount,
+            uint256 rewardAmount
+        )
+    {
+        PerformanceMetrics storage m = performanceMetrics[_verificationId];
+        return (
+            m.timestamp,
+            m.zkProof,
+            m.groth16Proof,
+            m.status,
+            m.penaltyAmount,
+            m.rewardAmount
+        );
     }
 
     function getProviderHistory(address _provider)
