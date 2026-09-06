@@ -207,7 +207,7 @@ class PaymentService:
         """Create a new payment for a job with ACID compliance"""
         job = self._require_owned_job(job_id, client_id)
         try:
-            meta = {}
+            meta: dict[str, Any] = {}
             if payment_data.provider_address:
                 meta["provider_address"] = payment_data.provider_address
             if payment_data.auto_reinvest_pct is not None:
@@ -389,7 +389,7 @@ class PaymentService:
             raise ValueError(f"Invalid node wallet address {node_wallet}: {e}") from e
         if not validate_address(node_wallet):
             raise ValueError(f"Invalid node wallet address {node_wallet}: not a valid 0x address")
-        return {
+        tx: dict[str, Any] = {
             "from": buyer,
             "to": node_wallet,
             "amount": amount_units,
@@ -490,6 +490,7 @@ class PaymentService:
                 nonce = await self._get_account_nonce(buyer)
             fee = payment_data.buyer_lock_fee
             lock_tx, _amount_seconds = self._build_escrow_lock_tx(payment, buyer, provider, nonce, fee)
+            meta = payment.meta_data or {}
 
             if payment_data.buyer_lock_signature:
                 lock_tx["signature"] = payment_data.buyer_lock_signature
@@ -716,7 +717,7 @@ class PaymentService:
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
             try:
-                release_body = {"reason": reason or "Job completed successfully"}
+                release_body: dict[str, Any] = {"reason": reason or "Job completed successfully"}
                 meta = payment.meta_data or {}
                 if meta.get("energy_is_protected"):
                     release_body["energy_is_protected"] = True
