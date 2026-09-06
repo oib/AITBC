@@ -21,9 +21,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.marketplace.energy_pricing import (
     EnergyPricingError,
     EnergyQuote,
-    FeeModel,
     SettlementRoute,
-    compute_funding_breakdown,
     evaluate_quote,
 )
 from aitbc.utils import ait_to_units, units_to_ait
