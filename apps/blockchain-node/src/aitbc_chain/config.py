@@ -54,7 +54,6 @@ class ChainSettings(BaseSettings):
     chain_id: str = ""
     supported_chains: str = ""  # Comma-separated list of supported chain IDs (defaults to chain_id if empty)
     db_path: Path = DATA_DIR / "data" / "chain.db"
-    enforce_state_root_validation: bool = False  # Phase 1.3 enforcement flag
     db_encryption_enabled: bool = False  # Phase 2: SQLCipher database encryption flag (ait-mainnet only)
     db_encryption_key_path: Path = Path("/etc/aitbc/secrets/db_encryption.key")  # Phase 2: Encryption key file path
 
