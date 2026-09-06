@@ -34,7 +34,7 @@ single source of truth, so optional packages stay pinned to the same versions as
 | `gpu` | pycuda |
 | `ml` | torch, torchvision, pillow, opencv-python |
 | `fhe` | tenseal |
-| `language` | spacy, openai, deepl, google-cloud-translate, langdetect, fasttext, polyglot |
+| `language` | openai, deepl, google-cloud-translate, langdetect, fasttext, polyglot |
 | `search` | meilisearch |
 | `sqlcipher` | sqlcipher3-binary |
 | `security` | detect-secrets |
