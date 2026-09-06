@@ -97,9 +97,15 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     }
 
     // Mappings
-    mapping(uint256 => RentalAgreement) public rentalAgreements;
+    // §5.6: rentalAgreements is internal because the auto-generated public
+    // getter returns the full struct (12 fields + nested PerformanceMetrics =
+    // 17+ ABI-encoded values), which exceeds the EVM stack depth in coverage
+    // mode. Use getRentalAgreement() and getRentalPerformance() instead.
+    mapping(uint256 => RentalAgreement) internal rentalAgreements;
     mapping(uint256 => DisputeInfo) public disputes;
-    mapping(uint256 => RentalEnergyTerms) public rentalEnergyTerms;
+    // §5.6: RentalEnergyTerms has 18 fields; the auto-generated getter would
+    // exceed the EVM stack depth in coverage mode. Use getRentalEnergyTerms().
+    mapping(uint256 => RentalEnergyTerms) internal rentalEnergyTerms;
     mapping(address => uint256[]) public providerAgreements;
     mapping(address => uint256[]) public consumerAgreements;
     mapping(address => bool) public authorizedProviders;
