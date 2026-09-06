@@ -1,7 +1,7 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
-  "total_modules": 8,
-  "total_lines": 1603,
+  "total_modules": 7,
+  "total_lines": 1496,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
       "lines": 189,
@@ -37,11 +37,6 @@
       "lines": 455,
       "verdict": "keep",
       "why": "An SDK client is outward-facing surface. Nothing inside the service is supposed to import it, so 'unimported' is the expected state, not a defect."
-    },
-    "apps/coordinator-api/src/coordinator_api/storage/models_governance.py": {
-      "lines": 107,
-      "verdict": "keep",
-      "why": "Defines six SQLModel tables (GovernanceProposal, ProposalVote, TreasuryTransaction, GovernanceParameter, VotingPowerSnapshot, ProtocolUpgrade). Nothing imports it, so its tables are never registered with SQLModel.metadata and none of them exist in the live databases; the governance tables that do exist (dao_proposal, proposals, treasury_allocation, ...) come from other, live models. Kept only because it was out of scope when amm.py was removed. It is the next deletion candidate, not a migration risk."
     }
   }
 }
