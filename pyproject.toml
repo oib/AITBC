@@ -320,7 +320,9 @@ select = [
 ]
 ignore = [
     "E501",  # line too long, handled by black
-    "C901",  # too complex
+    "C901",  # too complex — stays out of `select` so `ruff check .` stays green;
+             # complexity growth is instead gated by scripts/ci/check-c901-ratchet.sh
+             # against scripts/ci/c901-baseline.txt (baseline: 170 files, 244 findings)
     "UP040", # Don't upgrade TypeAlias to `type` statement (breaks MyPy base class usage)
     "E402", # Allow module level imports not at top of file (for re-exports in crypto/security.py and network/http_client.py)
     "C401", # Allow generator expressions in set() calls (style preference)
