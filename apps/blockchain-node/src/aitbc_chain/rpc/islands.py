@@ -8,7 +8,7 @@ import socket
 from pathlib import Path
 from typing import Any
 
-from fastapi import HTTPException
+from fastapi import HTTPException, Request
 from pydantic import BaseModel
 
 from ..config import settings
@@ -72,10 +72,19 @@ class BridgeRequestResponse(BaseModel):
     message: str
 
 
-def _build_join_credentials(island_id: str, island_name: str, island_chain_id: str) -> dict[str, Any]:
+def _build_join_credentials(
+    island_id: str, island_name: str, island_chain_id: str, request: Request | None = None
+) -> dict[str, Any]:
     """Build the credentials block returned to a joining node."""
     hub_host = settings.hub_discovery_url or socket.gethostname()
-    public_scheme = os.getenv("AITBC_PROTOCOL", "http")
+    # Prefer an explicit operator override, then the forwarded scheme, then the
+    # ASGI scheme, then http as a safe local default.
+    public_scheme = (
+        os.getenv("AITBC_PROTOCOL")
+        or (request.headers.get("x-forwarded-proto") if request else None)
+        or (request.url.scheme if request else None)
+        or "http"
+    )
     public_rpc = os.getenv("RPC_PUBLIC_ENDPOINT", f"{public_scheme}://{hub_host}/rpc")
     credentials: dict[str, Any] = {
         "chain_id": island_chain_id,
@@ -135,7 +144,7 @@ def _island_members(island_manager: Any, island_id: str) -> list[dict[str, Any]]
     return members
 
 
-async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
+async def join_island(payload: JoinIslandRequest, request: Request | None = None) -> JoinIslandResponse:
     """
     Join an island for edge compute operations.
     Calls IslandManager.join_island to register the node as a member of the specified island.
@@ -148,29 +157,29 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
 
     # Idempotent join: try to register, but still return the island info if already a member.
     joined = island_manager.join_island(
-        island_id=request.island_id,
-        island_name=request.island_name,
-        chain_id=request.chain_id,
-        is_hub=request.is_hub,
-        role=request.role,
+        island_id=payload.island_id,
+        island_name=payload.island_name,
+        chain_id=payload.chain_id,
+        is_hub=payload.is_hub,
+        role=payload.role,
     )
 
-    island = island_manager.get_island_info(request.island_id)
+    island = island_manager.get_island_info(payload.island_id)
     if island is None:
         # The join failed and the island is unknown.
         return JoinIslandResponse(
             success=False,
-            island_id=request.island_id,
-            island_name=request.island_name,
-            island_chain_id=request.island_id,
+            island_id=payload.island_id,
+            island_name=payload.island_name,
+            island_chain_id=payload.island_id,
             status="failed",
-            message=f"Island {request.island_id} is not known on this hub",
+            message=f"Island {payload.island_id} is not known on this hub",
             credentials={},
             members=[],
         )
 
-    chain_id = island.chain_id or (request.chain_id if isinstance(request.chain_id, str) else request.chain_id[0])
-    credentials = _build_join_credentials(island.island_id, island.island_name, chain_id)
+    chain_id = island.chain_id or (payload.chain_id if isinstance(payload.chain_id, str) else payload.chain_id[0])
+    credentials = _build_join_credentials(island.island_id, island.island_name, chain_id, request=request)
     members = _island_members(island_manager, island.island_id)
 
     status = "joined" if joined else "already_member"
@@ -190,7 +199,7 @@ async def join_island(request: JoinIslandRequest) -> JoinIslandResponse:
     )
 
 
-async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
+async def leave_island(payload: LeaveIslandRequest, request: Request | None = None) -> LeaveIslandResponse:
     """
     Leave an island.
     Calls IslandManager.leave_island to remove the node from the specified island.
@@ -199,18 +208,18 @@ async def leave_island(request: LeaveIslandRequest) -> LeaveIslandResponse:
     if island_manager is None:
         raise HTTPException(status_code=503, detail="Island manager not available")
 
-    success = island_manager.leave_island(request.island_id)
+    success = island_manager.leave_island(payload.island_id)
 
     if success:
         return LeaveIslandResponse(
-            success=True, island_id=request.island_id, status="left", message=f"Successfully left island {request.island_id}"
+            success=True, island_id=payload.island_id, status="left", message=f"Successfully left island {payload.island_id}"
         )
     else:
         return LeaveIslandResponse(
             success=False,
-            island_id=request.island_id,
+            island_id=payload.island_id,
             status="failed",
-            message=f"Failed to leave island {request.island_id} (may not be a member)",
+            message=f"Failed to leave island {payload.island_id} (may not be a member)",
         )
 
 
@@ -271,7 +280,7 @@ async def get_island(island_id: str) -> dict[str, Any]:
     }
 
 
-async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse:
+async def request_bridge(payload: BridgeRequestRequest, request: Request | None = None) -> BridgeRequestResponse:
     """
     Request a bridge to another island for cross-island communication.
     Calls IslandManager.request_bridge to initiate a bridge request.
@@ -280,21 +289,21 @@ async def request_bridge(request: BridgeRequestRequest) -> BridgeRequestResponse
     if island_manager is None:
         raise HTTPException(status_code=503, detail="Island manager not available")
 
-    request_id = island_manager.request_bridge(request.target_island_id)
+    request_id = island_manager.request_bridge(payload.target_island_id)
 
     if request_id:
         return BridgeRequestResponse(
             success=True,
             request_id=request_id,
-            target_island_id=request.target_island_id,
+            target_island_id=payload.target_island_id,
             status="pending",
-            message=f"Bridge request {request_id} submitted for {request.target_island_id}",
+            message=f"Bridge request {request_id} submitted for {payload.target_island_id}",
         )
     else:
         return BridgeRequestResponse(
             success=False,
             request_id="",
-            target_island_id=request.target_island_id,
+            target_island_id=payload.target_island_id,
             status="failed",
-            message=f"Failed to request bridge to {request.target_island_id} (may already be a member)",
+            message=f"Failed to request bridge to {payload.target_island_id} (may already be a member)",
         )
