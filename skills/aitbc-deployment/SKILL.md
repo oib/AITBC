@@ -120,7 +120,6 @@ pip install -r /opt/aitbc/requirements-dev.txt
 
 # Optional modules
 pip install -r /opt/aitbc/requirements-optional/ai-ml.txt
-pip install -r /opt/aitbc/requirements-optional/security.txt
 pip install -r /opt/aitbc/requirements-optional/testing.txt
 ```
 
