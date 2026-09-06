@@ -290,6 +290,21 @@ class SyncManager:
         This is the single entry point for all block push paths (gossip,
         subscription, or future transports).
         """
+        if not isinstance(block_data, dict) or "height" not in block_data or "proposer" not in block_data:
+            logger.debug(
+                "Ignoring non-block message in handle_block",
+                extra={
+                    "source": source,
+                    "chain_id": chain_id,
+                    "keys": list(block_data.keys())[:10] if isinstance(block_data, dict) else None,
+                },
+            )
+            return ImportResult(
+                accepted=False,
+                height=-1,
+                block_hash="",
+                reason="Not a block message",
+            )
         if self._should_skip_block(chain_id, block_data):
             logger.debug(
                 "Skipping self-proposed block %s from %s",
@@ -498,6 +513,16 @@ class SyncManager:
                     block_data = json.loads(block_data)
                 if not isinstance(block_data, dict):
                     logger.warning("Unexpected gossip message type", extra={"type": type(block_data)})
+                    continue
+                if "height" not in block_data or "proposer" not in block_data:
+                    logger.debug(
+                        "Skipping non-block gossip message",
+                        extra={
+                            "keys": list(block_data.keys())[:10],
+                            "source": "gossip",
+                            "chain_id": chain_id,
+                        },
+                    )
                     continue
                 await self.handle_block(chain_id, block_data, source="gossip")
         except asyncio.CancelledError:
