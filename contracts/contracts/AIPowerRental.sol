@@ -440,7 +440,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             // frozen in terms.netEnergyFloor. Re-computing from the live oracle
             // here would re-price the quote: if the rate moved up, a valid
             // quote would be rejected; if it moved down, a below-floor quote
-            // could be accepted. Use the pinned floor instead.
+            // could be accepted. Use the pinned floor for the price check.
             require(agreement.price >= terms.netEnergyFloor, "Price below pinned energy floor");
             require(totalAmount <= terms.buyerMaxTotal, "Buyer cap exceeded at funding");
 
@@ -456,6 +456,17 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
                 keccak256(bytes(agreement.gpuModel)) == keccak256(bytes(profile.modelId)),
                 "Model does not match registered resource"
             );
+
+            // Check rate validity (enabled, not stale) via getEnergyFloor's
+            // `valid` return, but discard the recomputed floor and use the
+            // pinned value for the price comparison.
+            (, bool valid, ) = energyPricing.getEnergyFloor(
+                terms.resourceId,
+                terms.gpuCount,
+                agreement.duration,
+                terms.settlementUnitScale
+            );
+            require(valid, "Energy rate stale or invalid at funding");
 
             IEnergyPricing.EnergyRate memory rate = energyPricing.getEnergyRate();
             require(rate.enabled, "Energy rate disabled at funding");
