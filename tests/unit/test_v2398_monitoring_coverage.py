@@ -38,7 +38,7 @@ SECURITY_HARDENING_SH = REPO_ROOT / "scripts" / "utils" / "security_hardening.sh
 # disagrees, change the app's default and it disagrees too.
 PORT_SOURCES: dict[str, tuple[int, str, str]] = {
     "aitbc-pool-hub": (8210, "apps/pool-hub/aitbc-pool-hub.service", r"--port\s+(\d+)"),
-    "aitbc-monitoring": (8002, "scripts/monitoring/aitbc-monitoring.service", r"--port\s+(\d+)"),
+    "aitbc-monitoring": (8002, "apps/monitoring-service/aitbc-monitoring.service", r"--port\s+(\d+)"),
     "aitbc-blockchain-explorer": (
         8100,
         "apps/blockchain-explorer/main.py",

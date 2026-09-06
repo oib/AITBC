@@ -41,7 +41,7 @@ print(f"alembic: target database -> {_db_url}", file=sys.stderr)
 # Interpret the config file for Python logging.
 # This line sets up loggers basically.
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # This package's tables are on their own MetaData, not the global SQLModel one, because
 # apps/coordinator-api defines a Transaction, Block and Receipt of its own -- see
