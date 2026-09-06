@@ -1,7 +1,7 @@
 {
   "_comment": "Modules under the guarded roots that nothing in this repository imports, recorded so the guard fails only on new ones. This list may shrink and must never grow. Regenerate after deleting something with: python scripts/lint/no_orphan_modules.py --update-baseline. 'verdict' is the reviewed decision for each entry -- 'delete' means it is queued for removal, 'keep' means it is unreachable on purpose and 'why' says why. An entry is debt with a number attached, not an accepted state.",
-  "total_modules": 10,
-  "total_lines": 2458,
+  "total_modules": 9,
+  "total_lines": 1963,
   "orphans": {
     "apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py": {
       "lines": 189,
@@ -12,11 +12,6 @@
       "lines": 316,
       "verdict": "keep",
       "why": "Named by docs/architecture/agent-service-di-architecture.md as a design target."
-    },
-    "apps/coordinator-api/src/coordinator_api/contexts/language/services/multi_language/api_endpoints.py": {
-      "lines": 472,
-      "verdict": "keep",
-      "why": "A FastAPI router in the language context, which has zero references in main.py. Same whole-context decision as trading_surveillance.py."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/external_providers.py": {
       "lines": 159,
@@ -44,7 +39,7 @@
       "why": "A deliberate stub. Its docstring records that the BFV implementation it replaced was not cryptographically secure and is disabled pending a vetted FHE library. Deleting it deletes a security decision."
     },
     "apps/coordinator-api/src/coordinator_api/sdk/enterprise_client.py": {
-      "lines": 478,
+      "lines": 455,
       "verdict": "keep",
       "why": "An SDK client is outward-facing surface. Nothing inside the service is supposed to import it, so 'unimported' is the expected state, not a defect."
     },
