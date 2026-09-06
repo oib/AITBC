@@ -29,7 +29,7 @@ from gpu_service.domain.base import gpu_metadata  # noqa: E402
 config = context.config
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # This service's tables are on their own MetaData, not the global SQLModel one, because
 # apps/coordinator-api defines the same six table names -- see gpu_service/domain/base.py

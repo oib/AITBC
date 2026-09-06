@@ -45,7 +45,7 @@ def _sync_database_url() -> str:
 config.set_main_option("sqlalchemy.url", _sync_database_url())
 
 if config.config_file_name is not None:
-    fileConfig(config.config_file_name)
+    fileConfig(config.config_file_name, disable_existing_loggers=False)
 
 # This service's tables are on their own MetaData, not the global SQLModel one, because
 # apps/coordinator-api defines the same table names -- see trading_service/domain/base.py

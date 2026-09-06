@@ -339,7 +339,7 @@ def test_the_billing_endpoint_is_documented_as_absent_from_coordinator_api() -> 
     test pins the fact and the warning together: if the route is ever added, the
     spec assertion fails and the warning gets removed with it.
     """
-    spec = json.loads((REPO_ROOT / "docs/api/coordinator/openapi.json").read_text(encoding="utf-8"))
+    spec = json.loads((REPO_ROOT / "docs/api/coordinator-api-openapi.json").read_text(encoding="utf-8"))
     billing_paths = [p for p in spec.get("paths", {}) if "billing" in p or "usage" in p]
     assert billing_paths == [], f"coordinator-api now serves {billing_paths}; drop the warning in sla-monitoring.md"
 
