@@ -6,7 +6,7 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 
 | site | host / path | role | what to do here |
 |---|---|---|---|
-| **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` / `release/v0.24.0` |
+| **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` |
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **<shop-node>** | SSH `<shop-node>` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
 | **<hub-node>** | SSH `<hub-node>` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace |
