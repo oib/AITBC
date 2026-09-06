@@ -180,7 +180,9 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     mapping(uint256 => MultiSigRelease) public multiSigReleases;
     mapping(uint256 => TimeLockRelease) public timeLockReleases;
     mapping(uint256 => EmergencyRelease) public emergencyReleases;
-    mapping(uint256 => ComputeEscrowTerms) public computeEscrowTerms;
+    // §5.6: ComputeEscrowTerms has 18 fields; the auto-generated getter would
+    // exceed the EVM stack depth in coverage mode. Use getComputeEscrowTerms().
+    mapping(uint256 => ComputeEscrowTerms) internal computeEscrowTerms;
     mapping(address => uint256[]) public depositorEscrows;
     mapping(address => uint256[]) public beneficiaryEscrows;
     mapping(bytes32 => uint256) public conditionEscrows;
