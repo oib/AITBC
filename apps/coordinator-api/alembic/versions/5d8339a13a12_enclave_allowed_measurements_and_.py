@@ -58,9 +58,9 @@ def upgrade() -> None:
         """
         UPDATE tee_attestation
         SET registered = true
-        WHERE status != rejected
+        WHERE status != 'rejected'
           AND enclave_id IN (
-              SELECT enclave_id FROM enclave_identity WHERE status = active
+              SELECT enclave_id FROM enclave_identity WHERE status = 'active'
           )
         """
     )
