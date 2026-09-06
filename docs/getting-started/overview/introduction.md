@@ -81,7 +81,6 @@ The following areas are on the roadmap and are partially implemented or aspirati
 |---------|--------|-------|
 | AI Trading Engine | 🟡 Designed | ML-based trading and portfolio optimization (Phase 4.1). |
 | Advanced Analytics Platform | 🟡 Designed | Real-time analytics dashboard and KPI tracking (Phase 4.2). |
-| AI-Powered Surveillance | 🟡 Designed | Behavioral analysis and automated alerts (Phase 4.3). |
 | Compliance Framework | 🟡 Designed | KYC/AML and regulatory reporting modules (Phase 4). |
 
 ## Chain-specific token system
