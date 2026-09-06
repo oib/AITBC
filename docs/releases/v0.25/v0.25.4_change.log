@@ -1,10 +1,10 @@
-# v0.25.4 — Bridge, escrow/consensus hardening, repo-wide cleanup
+# v0.25.4 — Bridge, escrow/consensus hardening, GPU electricity-cost floor, repo-wide cleanup
 
 **Baseline**: end of `v0.25.3` coverage at `47401ce757` (2026-08-31); `v0.25.3` was documented but never tagged.
 **Date**: 2026-09-06.
 **Tag**: `v0.25.4` (pending).
 
-This release covers the 286 commits between the end of the `v0.25.3` change log and `main` (`5bdbce4d9`). Headline items: the hub-only two-way ETH-AITBC bridge with live Sepolia validation, escrow and payment settlement hardening, PBFT/multi-validator consensus fixes including gossip mesh and proposer-schedule signature checks, RPC API-key enforcement, secret migration to `blockchain-secrets.env`, contract test-suite repair with fuzz coverage, and a large dead-code/stale-docs cleanup.
+This release covers the 300 commits between the end of the `v0.25.3` change log and `main` (`a47ae3715`). Headline items: the hub-only two-way ETH-AITBC bridge with live Sepolia validation, escrow and payment settlement hardening, a GPU electricity-cost floor for fixed-duration rentals with EVM and native parity, PBFT/multi-validator consensus fixes including gossip mesh and proposer-schedule signature checks, RPC API-key enforcement, secret migration to `blockchain-secrets.env`, contract test-suite repair with fuzz coverage, and a large dead-code/stale-docs cleanup.
 
 ## Changes
 
@@ -133,6 +133,18 @@ This release covers the 286 commits between the end of the `v0.25.3` change log 
 - mypy: baseline tightened (`1ee70f8cc1`), regenerated on a full-dependency host (`53231e30fb`, `1bcb2676a3`), CI-surfaced errors triaged (`443ad3b15c`, `086e0cf4e6`), 56 baselined errors resolved (`69288faf4f`), `type: ignore` comments restored where a deps-incomplete env dropped them (`c8cfac4c84`), `Session`/`select` imports consolidated on sqlmodel (`dd7ab413d5`).
 - Test hygiene: 126 pre-existing CLI test failures quarantined (`d76e063283`), expected XFAILs excluded from collection (`bce54b6cd0`), flaky parallel-performance timing assertions fixed (`5a3546d7ea`), gossip broadcast tests given headroom against a live shared Redis (`65d8b314ad`), `config edit` test made `EDITOR`-independent (`7550c27615`), unit-test failures from `make test` fixed (`178b4a8fb1`), `test_p1_3_bridge` confirmed→completed split finished (`ecedb1d7aa`), `generate_eth_address` test de-hardcoded (`ad818accc0`), `translate_batch` stale 5th arg dropped (`d0631fc09e`), `escrow` `sum()` pinned to `Decimal` (`e2bff0ce59`), backup skips missing `/etc/prometheus` cleanly (`6dff48255b`).
 - P0 sweep: unified setup/CI/version, bridge/MCP hardening, secure key backups (`310a464c5d`); 5xx exception-detail hardening findings and the pip-audit skip bug fixed (`13656099f9`).
+
+### GPU electricity-cost floor for fixed-duration rentals
+
+- Shared energy quote and floor arithmetic (`c8a271b7b`): `aitbc/marketplace/energy_pricing.py` introduces `EnergyQuote`, `EnergyProfile`, `EnergyRate`, deterministic quote serialization/digesting, `quote_energy_floor()`, and `evaluate_quote()` so a fixed-duration GPU rental freezes its economic terms at funding.
+- Native and EVM paths treated as separate enforcement systems. Native gates are in service paths; no consensus rule changes.
+- EVM contracts updated (`c8a271b7b`): `IEnergyPricing` interface, `DynamicPricing` energy profile/rate functions, `AIPowerRental` protected funding and `startRental` gating, and `EscrowService` protected compute-escrow gates (`c8a271b7b`). Solidity tests added in `contracts/test/fuzz/AIPowerRental.t.sol`, `contracts/test/fuzz/EscrowService.t.sol`, and `contracts/test/fuzz/DynamicPricingEnergy.t.sol`.
+- Solidity getter fixes (`0c6d11767`, `50b40995d`, `d9060c599`): struct view functions `getRentalEnergyTerms()` and `getComputeEscrowTerms()` added to avoid auto-generated public-mapping tuple returns; enum casts and struct field access fixed in tests.
+- Coordinator payment gate (`c8a271b7b`, `1d2a63b74`): protected payment creation requires an energy quote, binds buyer/provider/resource/model/GPU count/duration, runs `evaluate_quote`, and persists the exact buyer charge, provider credit, fee, and net floor in `job_payments.meta_data`. The canonical `ESCROW_LOCK` transaction carries the quote ID and digest.
+- Coordinator GPU marketplace (`c8a271b7b`, `1d2a63b74`): `POST /marketplace/gpu/quote` prepares a bound job and unsigned quote; `POST /marketplace/gpu/purchase` funds the prepared job with the same quote; failure rolls back the booking, GPU availability, and unstarted job.
+- Blockchain-node escrow gate (`c8a271b7b`, `a156e44b7`): `Escrow` stores frozen `protected`, `energy_quote_snapshot`, `energy_quote_id`, `energy_net_floor_units`, `energy_provider_credit_units`, and `energy_fee_basis_points`. `POST /rpc/escrow/create` validates the quote and exact lock amount; protected release enforces the frozen floor and refuses arbitrary metered overrides. Under-funded releases are refused with an explicit floor message.
+- Migrations (`c8a271b7b`): `f53990f9d6cc_add_energy_floor_quote_columns.py` for the coordinator `job`, `gpu_registry`, and `gpu_bookings` tables; `ec9a04333809_add_energy_floor_escrow.py` for the blockchain-node `escrow` table. Existing rows backfilled as `protected = false`.
+- Type and lint fixes (`1d2a63b74`, `50b40995d`, `d9060c599`, `a47ae3715`): `dict[str, Any]` for payment/release JSON payloads, mypy narrowing for `Decimal.as_tuple().exponent`, and regenerated `docs/api/coordinator-api-openapi.json`.
 
 ## Validation
 
