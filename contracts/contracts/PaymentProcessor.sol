@@ -653,16 +653,66 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
     // View functions
 
     /**
-     * @dev Gets payment details
+     * @dev Gets payment details (core fields).
      * @param _paymentId ID of the payment
+     *
+     * §5.6: Payment has 14 fields, which can exceed the EVM stack depth in
+     * coverage mode (no via_ir). Split into two view functions.
      */
     function getPayment(uint256 _paymentId)
         external
         view
         paymentExists(_paymentId)
-        returns (Payment memory)
+        returns (
+            uint256 paymentId,
+            address from,
+            address to,
+            uint256 amount,
+            uint256 platformFee,
+            uint256 disputeFee,
+            PaymentStatus status,
+            uint256 releaseTime,
+            uint256 createdTime,
+            uint256 confirmedTime
+        )
     {
-        return payments[_paymentId];
+        Payment storage p = payments[_paymentId];
+        return (
+            p.paymentId,
+            p.from,
+            p.to,
+            p.amount,
+            p.platformFee,
+            p.disputeFee,
+            p.status,
+            p.releaseTime,
+            p.createdTime,
+            p.confirmedTime
+        );
+    }
+
+    /**
+     * @dev Gets payment agreement/condition fields.
+     * @param _paymentId ID of the payment
+     */
+    function getPaymentConditions(uint256 _paymentId)
+        external
+        view
+        paymentExists(_paymentId)
+        returns (
+            bytes32 agreementId,
+            string memory paymentPurpose,
+            ReleaseCondition releaseCondition,
+            bytes32 conditionHash
+        )
+    {
+        Payment storage p = payments[_paymentId];
+        return (
+            p.agreementId,
+            p.paymentPurpose,
+            p.releaseCondition,
+            p.conditionHash
+        );
     }
 
     /**
