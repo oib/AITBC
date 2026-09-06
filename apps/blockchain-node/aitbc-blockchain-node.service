@@ -16,6 +16,8 @@ EnvironmentFile=/etc/aitbc/%N.env
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+# Consensus-signing secrets (VALIDATOR_KEYS, PROPOSER_KEY) — scoped to blockchain services only
+EnvironmentFile=-/etc/aitbc/validator-secrets.env
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
 ExecReload=/bin/kill -HUP $MAINPID
 KillMode=mixed

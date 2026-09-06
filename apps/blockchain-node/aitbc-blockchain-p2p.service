@@ -11,6 +11,8 @@ Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+# Consensus-signing secrets (VALIDATOR_KEYS, PROPOSER_KEY) — scoped to blockchain services only
+EnvironmentFile=-/etc/aitbc/validator-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 # Secret: MEMPOOL_DB_URL must be set in /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env

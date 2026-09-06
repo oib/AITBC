@@ -15,6 +15,8 @@ EnvironmentFile=-/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/node.env
 EnvironmentFile=-/etc/aitbc/%N.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+# Consensus-signing secrets (VALIDATOR_KEYS, PROPOSER_KEY) — scoped to blockchain services only
+EnvironmentFile=-/etc/aitbc/validator-secrets.env
 Environment=AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false
 Environment=enable_block_production=false
 ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host ${RPC_BIND_HOST} --port ${RPC_BIND_PORT} --workers 1 --timeout-keep-alive 30 --timeout-graceful-shutdown 15 --limit-concurrency 1000 --backlog 2048 --log-level critical --no-access-log --proxy-headers
