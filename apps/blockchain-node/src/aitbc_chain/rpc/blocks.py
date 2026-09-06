@@ -138,6 +138,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
         "state_root": block.state_root,
         "bridge_state_root": block.bridge_state_root,
         "signature": block.signature,
+        "block_metadata": block.block_metadata,
         "transactions": tx_list,
     }
     # Populate the in-process cache with the block header (without transactions).
@@ -156,6 +157,7 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
             "state_root": block.state_root,
             "bridge_state_root": block.bridge_state_root,
             "signature": block.signature,
+            "block_metadata": block.block_metadata,
         },
         chain_id,
     )
