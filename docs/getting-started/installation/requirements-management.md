@@ -23,54 +23,69 @@ Development tools, testing frameworks, and code quality utilities:
 - CLI tools (click, rich, typer, tabulate, keyring)
 - Development utilities (tqdm, ipython)
 
-## Tier 3: Optional Modules (`requirements-optional/`)
+## Tier 3: Optional Dependency Groups (Poetry extras)
 
-Specialized dependency sets for specific use cases:
+Specialized dependency sets live in `[tool.poetry.extras]` in the root `pyproject.toml`.
+There are no standalone optional requirements files — the extras and the lock file are the
+single source of truth, so optional packages stay pinned to the same versions as everything else.
 
-- `ai-ml.txt` - AI/ML and translation (torch, transformers, openai, spacy, nltk)
-- `testing.txt` - Testing and quality (references requirements-dev.txt)
+| Extra | Packages |
+|---|---|
+| `gpu` | pycuda |
+| `ml` | torch, torchvision, pillow, opencv-python |
+| `fhe` | tenseal |
+| `language` | spacy, openai, deepl, google-cloud-translate, langdetect, fasttext, polyglot |
+| `search` | meilisearch |
+| `sqlcipher` | sqlcipher3-binary |
+| `security` | detect-secrets |
+| `observability` | opentelemetry-sdk, opentelemetry-exporter-otlp |
+
+No installation profile currently maps to `language`, `search`, `sqlcipher`, `security`, or
+`observability`. Install those directly when a service needs them:
+
+```bash
+poetry install --extras language
+```
 
 ## Installation Profiles
 
-Use the installation profile script for dependency management:
+`scripts/deployment/install-profiles.sh <profile>` resolves a profile to a set of extras, runs
+`poetry export --only main --extras "<extras>"` into `.requirements/requirements-<profile>.txt`,
+strips pip/setuptools/wheel from the export, and pip-installs the remainder.
+
+Valid profile names — anything else logs a warning and falls back to base dependencies:
+
+| Profile | Extras installed |
+|---|---|
+| `provider-gpu` (alias `gpu`) | `gpu ml` |
+| `ai` (alias `ml`) | `ml` |
+| `fhe` | `fhe` |
+| `hub`, `customer-no-gpu`, `server-no-gpu`, `default` | none — base dependencies only |
 
 ```bash
-# Install core production dependencies
-./scripts/deployment/install-profiles.sh core
+# Non-GPU shop node
+./scripts/deployment/install-profiles.sh server-no-gpu
 
-# Install development dependencies
-./scripts/deployment/install-profiles.sh dev
-
-# Install all optional modules
-./scripts/deployment/install-profiles.sh optional
-
-# Install specific optional module
-./scripts/deployment/install-profiles.sh ai-ml
-./scripts/deployment/install-profiles.sh security
-./scripts/deployment/install-profiles.sh testing
-
-# Install everything (core + dev + optional)
-./scripts/deployment/install-profiles.sh all
+# GPU provider node
+./scripts/deployment/install-profiles.sh provider-gpu
 ```
+
+`deploy.sh` and `setup.sh` derive the profile automatically from `BLOCKCHAIN_MODE`,
+`MARKET_ROLE`, and `HARDWARE_PROFILE`, so it rarely needs to be passed by hand.
 
 ## Missing Dependencies
 
-If services report missing dependencies, use the installation profile script:
+If services report missing dependencies, re-run the profile installer for the node's own
+profile. It is idempotent:
 
 ```bash
-# Install core dependencies
-./scripts/deployment/install-profiles.sh core
+./scripts/deployment/install-profiles.sh server-no-gpu
+```
 
-# Install development dependencies
-./scripts/deployment/install-profiles.sh dev
+Development and test tooling is not part of any profile — install it separately:
 
-# Install optional modules if needed
-./scripts/deployment/install-profiles.sh ai-ml
-./scripts/deployment/install-profiles.sh security
-./scripts/deployment/install-profiles.sh testing
-
-# Install everything
-./scripts/deployment/install-profiles.sh all
+```bash
+pip install -r requirements-dev.txt
 ```
 
 ## See Also
