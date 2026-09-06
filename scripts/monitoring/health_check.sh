@@ -423,12 +423,15 @@ check_redis() {
         source /etc/aitbc/blockchain-secrets.env 2>/dev/null || true
     fi
 
-    local redis_ping
-    if [ -n "${REDIS_URL:-}" ]; then
-        redis_ping=$(redis-cli -u "$REDIS_URL" ping 2>/dev/null | tr -d '\r')
-    else
-        redis_ping=$(redis-cli -h localhost ping 2>/dev/null | tr -d '\r')
+    # redis-cli 8.x rejects URLs with an empty username even when the password
+    # is for the default user. Export REDISCLI_AUTH and use a plain localhost ping.
+    if [ -n "${REDIS_URL:-}" ] && [ -z "${REDISCLI_AUTH:-}" ]; then
+        REDISCLI_AUTH=$(printf '%s' "$REDIS_URL" | sed -n 's#^[^:]*://\([^:]*\):\([^@]*\)@.*#\2#p')
+        export REDISCLI_AUTH
     fi
+
+    local redis_ping
+    redis_ping=$(redis-cli -h localhost ping 2>/dev/null | tr -d '\r')
 
     if [ "$redis_ping" = "PONG" ]; then
         success "Redis is reachable"
