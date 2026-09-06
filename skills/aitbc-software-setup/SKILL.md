@@ -169,7 +169,6 @@ pip install -r requirements-dev.txt
 
 # Optional extras live in [tool.poetry.extras] in pyproject.toml
 poetry install --extras ml          # torch, torchvision, pillow, opencv-python
-poetry install --extras language    # openai, deepl, langdetect, fasttext, polyglot
 ```
 
 Or use the profile installer:
