@@ -47,9 +47,9 @@ aitbc --help
 | `gpu` | Local GPU service commands for hardware management | `discover`, `list-gpus`, `register`, `unregister`, `update` |
 | `gpu-onchain` | GPU resource tracking commands (on-chain) | `allocate`, `allocations`, `list`, `query`, `register` |
 | `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
-| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `host`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload` |
+| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `host`, `island`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
-| `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
+| `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `gpu`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
 | `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks` |
