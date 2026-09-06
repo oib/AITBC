@@ -26,6 +26,10 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     uint256 public platformFeePercentage = 250; // 2.5% in basis points
     uint256 public minRentalDuration = 3600; // 1 hour minimum
     uint256 public maxRentalDuration = 86400 * 30; // 30 days maximum
+    /// @dev When true, new legacy (unprotected) rentals are blocked so that
+    /// callers cannot bypass the energy floor by using createRental instead of
+    /// createProtectedRental. Existing unprotected rentals are unaffected.
+    bool public requireProtectedRentals;
 
     // Structs
     struct RentalAgreement {
@@ -238,6 +242,9 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         require(_duration <= maxRentalDuration, "Duration too long");
         require(_price > 0, "Price must be positive");
         require(authorizedProviders[_provider], "Provider not authorized");
+        // Block new legacy rentals when the operator has enabled protected-only
+        // mode. Existing unprotected rentals are not affected.
+        require(!requireProtectedRentals, "Legacy rentals disabled; use createProtectedRental");
 
         uint256 agreementId = agreementCounter++;
         uint256 platformFee = (_price * platformFeePercentage) / 10000;
@@ -417,6 +424,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         agreementExists(_agreementId)
         validStatus(_agreementId, RentalStatus.Created)
         nonReentrant
+        whenNotPaused
     {
         RentalAgreement storage agreement = rentalAgreements[_agreementId];
 
@@ -717,6 +725,14 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     function updatePlatformFee(uint256 _newFee) external onlyOwner {
         require(_newFee <= 1000, "Fee too high"); // Max 10%
         platformFeePercentage = _newFee;
+    }
+
+    /**
+     * @dev When set to true, new legacy (unprotected) rentals are blocked.
+     * Existing unprotected rentals are not affected.
+     */
+    function setRequireProtectedRentals(bool _required) external onlyOwner {
+        requireProtectedRentals = _required;
     }
 
     // View functions

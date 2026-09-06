@@ -104,6 +104,10 @@ class RefusalCode(StrEnum):
     RATE_MISMATCH = "rate_mismatch"
     RATE_DISABLED = "rate_disabled"
     INVALID_INPUT = "invalid_input"
+    INVALID_SIGNATURE = "invalid_signature"
+    DOMAIN_MISMATCH = "domain_mismatch"
+    CHAIN_MISMATCH = "chain_mismatch"
+    FLOOR_MISMATCH = "floor_mismatch"
 
 
 class EnergyPricingError(Exception):
@@ -215,6 +219,7 @@ class EnergyQuote:
     buyer_cap_units: int | None = None
     issued_at: int = 0
     expires_at: int = 0
+    operator_address: str | None = None
     operator_signature: bytes | None = None
     buyer_signature: bytes | None = None
 
@@ -335,6 +340,45 @@ class EnergyQuote:
         crypto dependencies.
         """
         return hashlib.sha256(self.canonical_bytes()).digest()
+
+    def with_operator_signature(
+        self,
+        operator_address: str,
+        operator_signature: bytes,
+    ) -> "EnergyQuote":
+        """Return a copy of this quote with the operator attestation attached.
+
+        The signature must be produced over ``digest_sha256()`` by the caller
+        (typically via ``aitbc.crypto.crypto.sign_transaction_hash``). The
+        ``operator_address`` is included in the canonical signed payload so the
+        verifier can confirm who attested to the quote.
+        """
+        return EnergyQuote(
+            **{
+                **self.to_canonical_dict(),
+                "operator_address": operator_address,
+                "operator_signature": operator_signature,
+                "buyer_signature": self.buyer_signature,
+            }
+        )
+
+    def verify_operator_signature(self, expected_address: str) -> bool:
+        """Return True when the operator signature attests this quote to ``expected_address``.
+
+        Recovery goes through the canonical secp256k1 helper in
+        ``aitbc.crypto.signature_recovery`` so this module stays free of a
+        direct ``eth_keys`` dependency. A missing signature or address, or a
+        recovery to a different address, returns False rather than raising.
+        """
+        if self.operator_signature is None or not self.operator_address:
+            return False
+        try:
+            from aitbc.crypto.signature_recovery import recover_address
+
+            recovered = recover_address(self.digest_sha256(), self.operator_signature)
+        except Exception:
+            return False
+        return recovered.lower() == expected_address.lower()
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -572,6 +616,7 @@ def build_minimum_quote(
     evm_contract: str | None = None,
     evm_block_number: int | None = None,
     evm_block_hash: str | None = None,
+    operator_address: str | None = None,
 ) -> EnergyQuote:
     """Create an EnergyQuote with the minimum principal covering the energy floor.
 
@@ -644,6 +689,7 @@ def build_minimum_quote(
         buyer_cap_units=buyer_cap_units,
         issued_at=issued,
         expires_at=expires,
+        operator_address=operator_address,
     )
 
 

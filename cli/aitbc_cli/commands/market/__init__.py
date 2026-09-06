@@ -232,5 +232,7 @@ def market(ctx, market_wallet, market_wallet_path, market_password, market_passw
 # Import submodules to register all commands
 from . import escrow, exchange, jobs, offers, ratings
 from .escrow import _escrow_create, _get_blockchain_rpc_url
+from . import gpu as gpu_module
 
 market.add_command(escrow.escrow)
+market.add_command(gpu_module.gpu)

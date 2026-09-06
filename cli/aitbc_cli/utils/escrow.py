@@ -63,6 +63,12 @@ def build_escrow_lock_tx(
     nonce: int,
     fee: int | None = None,
     chain_id: str = "ait-hub.aitbc.bubuit.net",
+    *,
+    energy_quote_id: str | None = None,
+    energy_quote_digest: str | None = None,
+    settlement_route: str | None = None,
+    settlement_asset: str | None = None,
+    settlement_unit_scale: int | None = None,
 ) -> dict[str, Any]:
     """Build an unsigned ESCROW_LOCK transaction dict for the given job."""
     buyer_canon = to_canonical(buyer)
@@ -71,6 +77,21 @@ def build_escrow_lock_tx(
     amount_units = ait_to_units(amount_ait)
     if fee is None:
         fee = max(DEFAULT_TX_FEE_UNITS, amount_units // 100)
+    payload: dict[str, Any] = {
+        "action": "escrow_lock",
+        "job_id": job_id,
+        "provider": provider_canon,
+    }
+    if energy_quote_id:
+        payload["energy_quote_id"] = energy_quote_id
+    if energy_quote_digest:
+        payload["energy_quote_digest"] = energy_quote_digest
+    if settlement_route:
+        payload["settlement_route"] = settlement_route
+    if settlement_asset:
+        payload["settlement_asset"] = settlement_asset
+    if settlement_unit_scale is not None:
+        payload["settlement_unit_scale"] = settlement_unit_scale
     return {
         "from": buyer_canon,
         "to": node_canon,
@@ -79,11 +100,7 @@ def build_escrow_lock_tx(
         "nonce": nonce,
         "type": "ESCROW_LOCK",
         "chain_id": chain_id,
-        "payload": {
-            "action": "escrow_lock",
-            "job_id": job_id,
-            "provider": provider_canon,
-        },
+        "payload": payload,
     }
 
 
@@ -107,6 +124,12 @@ def create_signed_escrow_lock(
     chain_id: str | None = None,
     fee: int | None = None,
     node_wallet: str | None = None,
+    *,
+    energy_quote_id: str | None = None,
+    energy_quote_digest: str | None = None,
+    settlement_route: str | None = None,
+    settlement_asset: str | None = None,
+    settlement_unit_scale: int | None = None,
 ) -> tuple[dict[str, Any], str]:
     """Build and sign a complete ESCROW_LOCK transaction.
 
@@ -129,6 +152,11 @@ def create_signed_escrow_lock(
         nonce,
         fee=fee,
         chain_id=chain_id or "ait-hub.aitbc.bubuit.net",
+        energy_quote_id=energy_quote_id,
+        energy_quote_digest=energy_quote_digest,
+        settlement_route=settlement_route,
+        settlement_asset=settlement_asset,
+        settlement_unit_scale=settlement_unit_scale,
     )
     signature = sign_escrow_lock_tx(lock_tx, private_key)
     return lock_tx, signature

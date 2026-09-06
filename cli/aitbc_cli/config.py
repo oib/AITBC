@@ -94,6 +94,22 @@ class CLIConfig(BaseAITBCConfig):
         description="Hub blockchain RPC URL (from HUB_BLOCKCHAIN_RPC_URL env var). Falls back to hub_discovery_url + /rpc.",
     )
 
+    # EVM energy pricing / protected GPU rental configuration. The CLI reads
+    # these so `aitbc market gpu quote/buy --settlement evm` can verify quotes
+    # against the on-chain IEnergyPricing contract and submit protected rental
+    # or compute-escrow transactions. They mirror the coordinator settings and
+    # default to the same env vars when the CLI runs on a node.
+    evm_rpc_url: str | None = Field(default=None, description="Ethereum JSON-RPC URL for EVM energy quote verification and rental transactions")
+    energy_pricing_contract_address: str | None = Field(default=None, description="IEnergyPricing contract address")
+    energy_pricing_chain_id: int = Field(default=1, description="EVM chain ID for energy oracle reads")
+    energy_rental_contract_address: str | None = Field(default=None, description="AIPowerRental contract address")
+    energy_escrow_contract_address: str | None = Field(default=None, description="EscrowService contract address")
+    energy_token_contract_address: str | None = Field(default=None, description="ERC-20 AITBC token contract address")
+    energy_operator_address: str | None = Field(default=None, description="Operator address (0x...) expected to sign energy quotes")
+    energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime in seconds")
+    energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote signing domain")
+    native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
+
     # Authentication
     api_key: str | None = Field(default=None, description="API key for authentication")
 
