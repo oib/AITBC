@@ -438,7 +438,7 @@ class BlockchainNode:
                 use_subscription = False
             # Followers without a configured proposer cannot authenticate on
             # validator-only gossip topics, so avoid the noisy auth failures.
-            if not settings.proposer_id and not settings.proposer_key:
+            if not settings.proposer_id or not settings.proposer_key:
                 use_gossip = False
             self._sync_manager = SyncManager(
                 chains=chains,
