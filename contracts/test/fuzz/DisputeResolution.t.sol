@@ -80,11 +80,12 @@ contract DisputeResolutionFuzzTest is Test {
         );
 
         assertEq(disputeId, 0);
-        DisputeResolution.Dispute memory d = disputes_.getDispute(disputeId);
-        assertEq(d.initiator, initiator);
-        assertEq(d.respondent, respondent);
-        assertEq(uint256(d.status), uint256(DisputeResolution.DisputeStatus.Filed));
-        assertEq(d.evidenceDeadline, block.timestamp + 3 days);
+        (, , address dInitiator, address dRespondent, DisputeResolution.DisputeStatus dStatus, , , , , , ) = disputes_.getDispute(disputeId);
+        (uint256 dEvidenceDeadline, , , , , ) = disputes_.getDisputeDeadlines(disputeId);
+        assertEq(dInitiator, initiator);
+        assertEq(dRespondent, respondent);
+        assertEq(uint256(dStatus), uint256(DisputeResolution.DisputeStatus.Filed));
+        assertEq(dEvidenceDeadline, block.timestamp + 3 days);
         assertEq(disputes_.userDisputes(initiator, 0), disputeId);
         assertEq(disputes_.userDisputes(respondent, 0), disputeId);
         assertEq(disputes_.agreementDisputes(agreementId), disputeId);
@@ -147,7 +148,8 @@ contract DisputeResolutionFuzzTest is Test {
         DisputeResolution.Evidence[] memory ev = disputes_.getDisputeEvidence(disputeId);
         assertEq(ev.length, 1);
         assertEq(ev[0].submitter, submitter);
-        assertEq(uint256(disputes_.getDispute(disputeId).status), uint256(DisputeResolution.DisputeStatus.EvidenceSubmitted));
+        (, , , , DisputeResolution.DisputeStatus dStatus, , , , , , ) = disputes_.getDispute(disputeId);
+        assertEq(uint256(dStatus), uint256(DisputeResolution.DisputeStatus.EvidenceSubmitted));
     }
 
     function testFuzz_SubmitEvidenceRejectsNonParticipant(address caller) public {
@@ -287,9 +289,10 @@ contract DisputeResolutionFuzzTest is Test {
     function testFuzz_AssignArbitratorsTransitionsStatus() public {
         uint256 disputeId = _fileAndAssign();
 
-        DisputeResolution.Dispute memory d = disputes_.getDispute(disputeId);
-        assertEq(d.arbitratorCount, 3);
-        assertEq(uint256(d.status), uint256(DisputeResolution.DisputeStatus.ArbitrationInProgress));
+        (, , , , DisputeResolution.DisputeStatus dStatus, , , , , , ) = disputes_.getDispute(disputeId);
+        (, , , uint256 dArbitratorCount, , ) = disputes_.getDisputeDeadlines(disputeId);
+        assertEq(dArbitratorCount, 3);
+        assertEq(uint256(dStatus), uint256(DisputeResolution.DisputeStatus.ArbitrationInProgress));
         assertEq(disputes_.getArbitratorDisputes(arb1).length, 1);
     }
 
@@ -326,10 +329,10 @@ contract DisputeResolutionFuzzTest is Test {
         vm.prank(arb3);
         disputes_.submitArbitrationVote(disputeId, false, 50, "no");
 
-        DisputeResolution.Dispute memory d = disputes_.getDispute(disputeId);
-        assertEq(uint256(d.status), uint256(DisputeResolution.DisputeStatus.Resolved));
-        assertEq(d.winner, provider); // initiator
-        assertEq(d.resolutionAmount, 100e18);
+        (, , , , DisputeResolution.DisputeStatus dStatus, , , , , uint256 dResolutionAmount, address dWinner) = disputes_.getDispute(disputeId);
+        assertEq(uint256(dStatus), uint256(DisputeResolution.DisputeStatus.Resolved));
+        assertEq(dWinner, provider); // initiator
+        assertEq(dResolutionAmount, 100e18);
     }
 
     function testFuzz_ResolutionRespondentWins() public {
@@ -342,9 +345,9 @@ contract DisputeResolutionFuzzTest is Test {
         vm.prank(arb3);
         disputes_.submitArbitrationVote(disputeId, true, 50, "yes");
 
-        DisputeResolution.Dispute memory d = disputes_.getDispute(disputeId);
-        assertEq(d.winner, consumer); // respondent
-        assertEq(d.resolutionAmount, 0);
+        (, , , , , , , , , uint256 dResolutionAmount, address dWinner) = disputes_.getDispute(disputeId);
+        assertEq(dWinner, consumer); // respondent
+        assertEq(dResolutionAmount, 0);
     }
 
     function testFuzz_VoteRejectsWrongStatus() public {
@@ -376,10 +379,11 @@ contract DisputeResolutionFuzzTest is Test {
 
         disputes_.escalateDispute(disputeId, "appeal");
 
-        DisputeResolution.Dispute memory d = disputes_.getDispute(disputeId);
-        assertEq(uint256(d.status), uint256(DisputeResolution.DisputeStatus.Escalated));
-        assertEq(d.escalationLevel, 2);
-        assertTrue(d.isEscalated);
+        (, , , , DisputeResolution.DisputeStatus dStatus, , , , , , ) = disputes_.getDispute(disputeId);
+        (, , , , bool dIsEscalated, uint256 dEscalationLevel) = disputes_.getDisputeDeadlines(disputeId);
+        assertEq(uint256(dStatus), uint256(DisputeResolution.DisputeStatus.Escalated));
+        assertEq(dEscalationLevel, 2);
+        assertTrue(dIsEscalated);
     }
 
     function testFuzz_EscalateOnlyOwner(address caller) public {
