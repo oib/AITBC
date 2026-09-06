@@ -372,6 +372,9 @@ class TestEscrowManager:
         asyncio.run(self.escrow_manager.start_job(contract_id))
         asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
         asyncio.run(self.escrow_manager.verify_milestone(contract_id, "milestone_1"))
+        # Mimic the route layer that marks the job completed before release.
+        contract = self.escrow_manager.escrow_contracts[contract_id]
+        contract.state = EscrowState.JOB_COMPLETED
 
         success, message = asyncio.run(self.escrow_manager.release_payment(contract_id))
         assert success, message
@@ -402,6 +405,9 @@ class TestEscrowManager:
         asyncio.run(self.escrow_manager.start_job(contract_id))
         asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
         asyncio.run(self.escrow_manager.verify_milestone(contract_id, "milestone_1"))
+        # Mimic the route layer that marks the job completed before release.
+        contract = self.escrow_manager.escrow_contracts[contract_id]
+        contract.state = EscrowState.JOB_COMPLETED
 
         success, message = asyncio.run(self.escrow_manager.release_payment(contract_id))
         assert not success

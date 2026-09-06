@@ -107,8 +107,7 @@ def test_compute_energy_net_units_multiple_gpus() -> None:
         settlement_unit_scale=36_000_000,
     )
     net_two = compute_energy_net_units(
-        **_reference_kwargs(),
-        gpu_count=2,
+        **dict(_reference_kwargs(), gpu_count=2),
         settlement_unit_scale=36_000_000,
     )
     assert net_two == 2 * net_one
@@ -120,8 +119,7 @@ def test_compute_energy_net_units_fractional_duration() -> None:
         settlement_unit_scale=36_000_000,
     )
     net_half_hour = compute_energy_net_units(
-        **_reference_kwargs(),
-        duration_seconds=1800,
+        **dict(_reference_kwargs(), duration_seconds=1800),
         settlement_unit_scale=36_000_000,
     )
     assert net_half_hour == net_one_hour // 2
@@ -130,14 +128,12 @@ def test_compute_energy_net_units_fractional_duration() -> None:
 def test_compute_energy_net_units_zero_or_negative_rejected() -> None:
     with pytest.raises(EnergyPricingError):
         compute_energy_net_units(
-            **_reference_kwargs(),
-            gpu_count=0,
+            **dict(_reference_kwargs(), gpu_count=0),
             settlement_unit_scale=36_000_000,
         )
     with pytest.raises(EnergyPricingError):
         compute_energy_net_units(
-            **_reference_kwargs(),
-            duration_seconds=-1,
+            **dict(_reference_kwargs(), duration_seconds=-1),
             settlement_unit_scale=36_000_000,
         )
 
