@@ -2,7 +2,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("🚀 AITBC GPU Acceleration Research - Halo2 ZK Proofs");
     println!("==================================================");
     println!("✅ Rust environment: Working (version 1.93.1)");
-    println!("✅ Halo2 library: Available (version 0.1.0-beta.2)");
+    println!("✅ Halo2 library: Available (halo2_proofs 0.3, halo2_gadgets 0.5)");
     println!("✅ GPU hardware: NVIDIA RTX 4060 Ti detected");
 
     // Test basic Halo2 functionality
