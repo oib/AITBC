@@ -219,14 +219,21 @@ class StateSyncMixin(SyncBase):
                 addr = _to_ait_address(raw_addr)
                 acc = account_map.get(addr)
                 if acc is not None and isinstance(acc, dict):
-                    # New account created as dict — convert to Account model
-                    new_acc = Account(
-                        chain_id=self._chain_id,
-                        address=addr,
-                        balance=acc["balance"],
-                        nonce=acc["nonce"],
-                    )
-                    session.add(new_acc)
+                    # New account created as dict — convert to Account model, but only
+                    # if the account is not already tracked in this session. The peer may
+                    # mark an existing account as `is_new` when it lacks historical state.
+                    db_acc = session.get(Account, (self._chain_id, addr))
+                    if db_acc is not None:
+                        db_acc.balance = acc["balance"]
+                        db_acc.nonce = acc["nonce"]
+                    else:
+                        new_acc = Account(
+                            chain_id=self._chain_id,
+                            address=addr,
+                            balance=acc["balance"],
+                            nonce=acc["nonce"],
+                        )
+                        session.add(new_acc)
                 elif acc is None:
                     # Account was deleted — already removed from map, need to delete from DB
                     db_acc = session.exec(

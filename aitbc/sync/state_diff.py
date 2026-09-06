@@ -262,10 +262,17 @@ def apply_state_diff(
                 changed.append(change.address)
             continue
         if change.is_new or change.address not in account_map:
-            account_map[change.address] = {
-                "balance": change.new_balance,
-                "nonce": change.new_nonce,
-            }
+            existing = account_map.get(change.address)
+            if existing is not None and not isinstance(existing, dict):
+                # Peer marked the account as new, but we already have it. Update in place
+                # rather than replacing the mapped ORM instance with a placeholder dict.
+                existing.balance = change.new_balance
+                existing.nonce = change.new_nonce
+            else:
+                account_map[change.address] = {
+                    "balance": change.new_balance,
+                    "nonce": change.new_nonce,
+                }
             changed.append(change.address)
         else:
             account = account_map[change.address]
