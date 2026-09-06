@@ -3,6 +3,7 @@ pragma solidity ^0.8.20;
 
 import "forge-std/Test.sol";
 import "../../contracts/DynamicPricing.sol";
+import "../../contracts/IEnergyPricing.sol";
 
 contract DynamicPricingEnergyTest is Test {
     DynamicPricing public pricing;
@@ -25,21 +26,14 @@ contract DynamicPricingEnergyTest is Test {
             300_000_000_000_000_000
         );
 
-        (
-            bool enabled,
-            uint256 revision,
-            string memory modelId,
-            address p,
-            uint256 tdpWatts,
-            uint256 eurPerKwh
-        ) = pricing.getEnergyProfile("gpu-001");
+        IEnergyPricing.EnergyProfile memory profile = pricing.getEnergyProfile("gpu-001");
 
-        assertTrue(enabled);
-        assertEq(revision, 1);
-        assertEq(modelId, "rtx-4060-ti");
-        assertEq(p, provider);
-        assertEq(tdpWatts, 165);
-        assertEq(eurPerKwh, 300_000_000_000_000_000);
+        assertTrue(profile.enabled);
+        assertEq(profile.revision, 1);
+        assertEq(profile.modelId, "rtx-4060-ti");
+        assertEq(profile.provider, provider);
+        assertEq(profile.tdpWatts, 165);
+        assertEq(profile.eurPerKwh, 300_000_000_000_000_000);
     }
 
     function test_PublishAndGetRate() public {
@@ -50,21 +44,14 @@ contract DynamicPricingEnergyTest is Test {
             "operator_reference"
         );
 
-        (
-            bool enabled,
-            uint256 version,
-            uint256 aitPerEur,
-            uint256 observedAt,
-            uint256 submittedAt,
-            string memory sourceKind
-        ) = pricing.getEnergyRate();
+        IEnergyPricing.EnergyRate memory rate = pricing.getEnergyRate();
 
-        assertTrue(enabled);
-        assertEq(version, 1);
-        assertEq(aitPerEur, 4_000_000_000_000_000_000);
-        assertEq(observedAt, block.timestamp);
-        assertEq(submittedAt, block.timestamp);
-        assertEq(sourceKind, "operator_reference");
+        assertTrue(rate.enabled);
+        assertEq(rate.version, 1);
+        assertEq(rate.aitPerEur, 4_000_000_000_000_000_000);
+        assertEq(rate.observedAt, block.timestamp);
+        assertEq(rate.submittedAt, block.timestamp);
+        assertEq(rate.sourceKind, "operator_reference");
     }
 
     function test_GetEnergyFloor_NativeUnits() public {
@@ -168,9 +155,9 @@ contract DynamicPricingEnergyTest is Test {
         vm.prank(provider);
         pricing.setResourceTariff("gpu-001", 400_000_000_000_000_000);
 
-        (, uint256 revision, , , , uint256 eurPerKwh) = pricing.getEnergyProfile("gpu-001");
-        assertEq(revision, 2);
-        assertEq(eurPerKwh, 400_000_000_000_000_000);
+        IEnergyPricing.EnergyProfile memory profile = pricing.getEnergyProfile("gpu-001");
+        assertEq(profile.revision, 2);
+        assertEq(profile.eurPerKwh, 400_000_000_000_000_000);
     }
 
     function test_ProviderSetResourceTariff_Unauthorized() public {

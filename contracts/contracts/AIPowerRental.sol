@@ -735,6 +735,19 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
+     * @dev Gets the frozen energy terms for a rental agreement.
+     * @param _agreementId ID of the agreement
+     */
+    function getRentalEnergyTerms(uint256 _agreementId)
+        external
+        view
+        agreementExists(_agreementId)
+        returns (RentalEnergyTerms memory)
+    {
+        return rentalEnergyTerms[_agreementId];
+    }
+
+    /**
      * @dev Gets dispute information
      * @param _agreementId ID of the agreement
      */
