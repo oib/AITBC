@@ -425,8 +425,8 @@ something calls `POST /v1/sla/metrics/collect`, and usage is synced only by
 
 Before enabling `POOLHUB_ENABLE_BILLING_SYNC`, check that the coordinator named by
 `POOLHUB_COORDINATOR_BILLING_URL` actually serves `POST /api/billing/usage`.
-coordinator-api does not: the route is absent from its source and from all 272
-paths in `docs/api/coordinator/openapi.json`, so on a stock deployment this
+coordinator-api does not: the route is absent from its source and from all 390
+paths in `docs/api/coordinator-api-openapi.json`, so on a stock deployment this
 scheduler can only log an hourly failure.
 
 ### Constructing a scheduler directly
@@ -568,7 +568,7 @@ The pool-hub integrates with coordinator-api's billing system via HTTP API:
 
 1. **Usage Recording**: Pool-hub posts usage events to coordinator-api's `/api/billing/usage`
    endpoint — which coordinator-api does not serve. The route is absent from its source and
-   from all 272 paths of `docs/api/coordinator/openapi.json`, and everything it does publish
+   from all 390 paths of `docs/api/coordinator-api-openapi.json`, and everything it does publish
    is under `/v1`. Until that endpoint exists, every usage event Pool-hub sends is dropped.
 2. **Billing Metrics**: Pool-hub can query billing metrics from coordinator-api
 3. **Invoice Generation**: Pool-hub can trigger invoice generation in coordinator-api

@@ -16,7 +16,11 @@ run_export() {
     local output="$2"
     shift 2
     poetry export --only "$group" --without-hashes -o "$output" "$@"
-    { printf '%b' "$header"; grep -vE "$TOOLCHAIN_FILTER" "$output"; } > "${output}.tmp"
+    # Path dependencies (e.g. aitbc-shared) are exported as absolute
+    # file://$REPO_ROOT/... URLs, which makes the file uninstallable on any
+    # checkout not at that path. Rewrite them to repo-relative paths.
+    { printf '%b' "$header"; grep -vE "$TOOLCHAIN_FILTER" "$output" \
+        | sed "s|-e file://$REPO_ROOT/|-e ./|g"; } > "${output}.tmp"
     mv "${output}.tmp" "$output"
 }
 # --extras fhe: tenseal is an optional main dependency; CI's FHE tests
