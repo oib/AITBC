@@ -26,7 +26,7 @@ from eth_utils import keccak
 
 from aitbc.crypto.crypto import sign_transaction_hash
 
-from ..config import get_config
+from ..config import _resolve_api_key, get_config
 from ..utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, success, warning
 from ..utils.address import to_canonical
 from ..utils.chain_id import get_chain_id
@@ -1020,6 +1020,8 @@ def swarm_key(
     if not resolved_api_key:
         resolved_api_key = getattr(get_config(), "api_key", None)
     if not resolved_api_key:
+        resolved_api_key = _resolve_api_key({})
+    if not resolved_api_key:
         error("No API key available; set AITBC_API_KEY, add api_key to config, or pass --api-key")
         return
 
@@ -1037,7 +1039,10 @@ def swarm_key(
         "signature": signature,
     }
 
-    url = f"{resolved_coordinator_url.rstrip('/')}/v1/ipfs/island/swarm-key"
+    base = resolved_coordinator_url.rstrip("/")
+    if base.endswith("/v1"):
+        base = base[:-3]
+    url = f"{base}/v1/ipfs/island/swarm-key"
     try:
         response = requests.post(
             url,
