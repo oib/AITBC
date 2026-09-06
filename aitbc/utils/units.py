@@ -38,10 +38,14 @@ def ait_to_units(ait: Decimal | float | int | str) -> int:
     Accepts a float for callers that still hold one -- ``str()`` first, so a float's
     shortest repr is what gets parsed rather than its full binary expansion.
 
-    Rounds to the nearest whole compute-unit (banker's rounding) instead of
-    truncating, so sub-cent amounts are not silently underpaid.
+    Rounds to the nearest whole compute-unit with ``ROUND_HALF_UP`` instead of
+    banker's rounding (``ROUND_HALF_EVEN``). Banker's rounding rounds 0.5 to
+    the nearest even number, which can underpay the provider by one unit on
+    amounts that land exactly on the half-unit boundary.
     """
-    return int((Decimal(str(ait)) * UNITS_PER_AIT).to_integral_value())
+    from decimal import ROUND_HALF_UP
+
+    return int((Decimal(str(ait)) * UNITS_PER_AIT).to_integral_value(rounding=ROUND_HALF_UP))
 
 
 def format_ait(units: Decimal | float | int | str) -> str:
