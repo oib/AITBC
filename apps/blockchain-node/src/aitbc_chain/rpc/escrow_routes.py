@@ -42,6 +42,19 @@ _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRES
 _logger = get_logger(__name__)
 
 
+def _energy_operator_address() -> str:
+    """Return the operator address that must have signed protected energy quotes.
+
+    Read per call rather than pinned at import so the gate follows a config
+    change on restart-free reloads and so tests can set it. Empty means the
+    check is skipped, which is the deployed state today: no host sets
+    ``ENERGY_OPERATOR_ADDRESS``. The same variable configures the coordinator's
+    ``settings.energy_operator_address``, so setting it turns both gates on
+    together.
+    """
+    return os.getenv("ENERGY_OPERATOR_ADDRESS", "").strip()
+
+
 def _settled_leg_ait(stored_units: int | None, settled_at: Any, locked_units: int) -> str:
     """Return one settled leg of an escrow as AIT.
 
@@ -721,6 +734,20 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             raise HTTPException(
                 status_code=400,
                 detail="energy quote settlement unit scale in lock payload does not match quote",
+            ) from None
+
+        # Verify the operator signature against the configured operator address
+        # so a self-attested quote cannot fund an escrow. ``evaluate_quote``
+        # below still compares the quote against ``quote.to_profile()`` /
+        # ``quote.to_rate()``, which is self-referential and therefore proves
+        # nothing on its own; this signature is what makes those embedded terms
+        # attributable to the operator. Replacing them with an authoritative
+        # oracle read is tracked separately.
+        _operator = _energy_operator_address()
+        if _operator and not quote.verify_operator_signature(_operator):
+            raise HTTPException(
+                status_code=422,
+                detail="Energy quote operator signature is missing or invalid",
             ) from None
 
         result = evaluate_quote(
