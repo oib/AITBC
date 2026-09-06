@@ -106,11 +106,9 @@ tests/cli/test_edge_sync_honesty.py::test_payload_is_still_printed_in_simulated_
 tests/cli/test_edge_sync_honesty.py::test_real_success_still_reports_synced
 tests/cli/test_edge_sync_honesty.py::test_simulated_response_is_not_reported_as_synced
 tests/cli/test_governance_group.py::TestGovernanceClose::test_close_proposal
-tests/cli/test_governance.py::TestGovernanceCommands::test_delegate_command
 tests/cli/test_governance.py::TestGovernanceCommands::test_execute_command
 tests/cli/test_governance.py::TestGovernanceCommands::test_get_proposal_command
 tests/cli/test_governance.py::TestGovernanceCommands::test_proposal_command
-tests/cli/test_governance.py::TestGovernanceCommands::test_stake_command
 tests/cli/test_governance.py::TestGovernanceCommands::test_vote_command
 tests/cli/test_governance.py::TestGovernanceCommands::test_voting_power_command
 tests/cli/test_ipfs.py::test_download_falls_back_when_daemon_down
