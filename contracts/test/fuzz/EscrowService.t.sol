@@ -133,9 +133,9 @@ contract EscrowServiceProtectedTest is Test {
         assertTrue(releaseTime > block.timestamp);
         assertEq(paymentToken.balanceOf(address(escrow)), totalAmount);
 
-        EscrowService.ComputeEscrowTerms memory terms = escrow.getComputeEscrowTerms(escrowId);
-        assertTrue(terms.isProtected);
-        assertEq(terms.netEnergyFloor, 198_000_000_000_000_000);
+        (, , , , , , , , , uint256 netEnergyFloor, , bool isProtected) = escrow.getComputeEscrowTerms(escrowId);
+        assertTrue(isProtected);
+        assertEq(netEnergyFloor, 198_000_000_000_000_000);
 
         // Release after duration
         vm.warp(releaseTime + 1);
