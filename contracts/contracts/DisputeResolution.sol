@@ -282,17 +282,30 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         require(bytes(_reason).length > 0, "Reason required");
 
         // Verify agreement exists and get participants
-        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(_agreementId);
-        require(agreement.provider != address(0), "Invalid agreement");
+        (
+            ,
+            address agreementProvider,
+            address agreementConsumer,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+            ,
+
+        ) = aiPowerRental.getRentalAgreement(_agreementId);
+        require(agreementProvider != address(0), "Invalid agreement");
 
         // Verify caller is a participant
         require(
-            msg.sender == agreement.provider || msg.sender == agreement.consumer,
+            msg.sender == agreementProvider || msg.sender == agreementConsumer,
             "Not agreement participant"
         );
 
         // Verify respondent is the other participant
-        address otherParticipant = msg.sender == agreement.provider ? agreement.consumer : agreement.provider;
+        address otherParticipant = msg.sender == agreementProvider ? agreementConsumer : agreementProvider;
         require(_respondent == otherParticipant, "Respondent not in agreement");
 
         uint256 disputeId = disputeCounter++;
@@ -563,10 +576,10 @@ contract DisputeResolution is Ownable, ReentrancyGuard, Pausable {
         dispute.status = DisputeStatus.Resolved;
 
         // Calculate resolution amount based on agreement
-        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(dispute.agreementId);
+        (, , , , uint256 agreementPrice, , , , , , , ) = aiPowerRental.getRentalAgreement(dispute.agreementId);
 
         if (initiatorWins) {
-            dispute.resolutionAmount = agreement.price; // Full refund/compensation
+            dispute.resolutionAmount = agreementPrice; // Full refund/compensation
         } else {
             dispute.resolutionAmount = 0; // No compensation
         }
