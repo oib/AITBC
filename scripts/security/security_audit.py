@@ -300,8 +300,8 @@ class SecurityAudit:
 
         # Check for input validation
         input_validation_files = [
-            "apps/coordinator-api/src/app/services/secure_pickle.py",
-            "apps/coordinator-api/src/app/middleware/security.py",
+            "apps/coordinator-api/src/coordinator_api/utils/security.py",
+            "apps/coordinator-api/src/coordinator_api/validators/__init__.py",
         ]
 
         for validation_file in input_validation_files:
