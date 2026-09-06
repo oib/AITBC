@@ -1,6 +1,7 @@
 "\nGPU marketplace endpoints backed by persistent SQLModel tables.\n"
 
 import statistics
+import time
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
@@ -12,18 +13,33 @@ from pydantic import BaseModel, Field, field_validator
 from sqlmodel import Session, col, func, select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+from aitbc.marketplace.energy_pricing import (
+    DEFAULT_FEE_BASIS_POINTS,
+    EnergyQuote,
+    NATIVE_UNITS_PER_AIT,
+    SettlementRoute,
+    build_minimum_quote,
+)
+from aitbc.utils.units import ait_to_units, units_to_ait
 
 from ....auth import AuthDep, MinerDep
+from ....custom_types import Constraints
 from ....validators import validate_ethereum_address
 from ....utils.client_resolver import resolve_client
 
 from ...trading.services.market_data_collector import MarketDataCollector
+from ....config import settings
 from ....storage.db import get_session
 from ...trading.services.trading_marketplace.dynamic_pricing import (
     DynamicPricingEngine,
     PricingStrategy,
     ResourceType,
 )
+from ...infrastructure.services.jobs import JobService
+from ....schemas import JobCreate
+from ...infrastructure.domain.job import Job
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
 from ..services.ollama_queue import get_queue
 
@@ -56,11 +72,14 @@ async def get_market_collector() -> MarketDataCollector:
 class GPURegisterRequest(BaseModel):
     miner_id: str
     model: str
+    model_id: str | None = None
     memory_gb: int
     cuda_version: str
     region: str
     price_per_hour: Decimal
     capabilities: list[str] = []
+    resource_id: str | None = None
+    protected: bool = False
 
 
 class GPUBookRequest(BaseModel):
@@ -84,6 +103,18 @@ class GPUBuyRequest(BaseModel):
     gpu_id: str
     duration_hours: float
     payment_method: str = "blockchain"
+    job_id: str | None = None
+    energy_quote: dict[str, Any] | None = None
+    protected: bool = False
+
+
+class GPUQuoteRequest(BaseModel):
+    buyer_id: str
+    gpu_id: str
+    duration_hours: float = Field(default=1.0, ge=0.0167, le=8760)
+    gpu_count: int = Field(default=1, ge=1, le=10000)
+    buyer_max_amount: Decimal | None = None
+    payload: dict[str, Any] | None = None
 
 
 class GPUSellRequest(BaseModel):
@@ -135,6 +166,75 @@ def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
     return gpu
 
 
+def _get_energy_oracle() -> EVMEnergyOracle | None:
+    """Return an EVM energy oracle if the contract and RPC are configured."""
+    contract = settings.energy_pricing_contract_address
+    rpc_url = settings.eth_rpc_url
+    if not contract or not rpc_url:
+        return None
+    rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
+    return EVMEnergyOracle(rpc, contract, settings.energy_pricing_chain_id)
+
+
+def _build_energy_quote(
+    gpu: GPURegistry,
+    buyer: str,
+    job_id: str,
+    duration_hours: float,
+    gpu_count: int,
+    buyer_cap_units: int | None = None,
+) -> dict[str, Any]:
+    """Build a signed minimum energy quote for a fixed-duration GPU rental.
+
+    Falls back to an informative error dict if the energy oracle is unconfigured.
+    """
+    oracle = _get_energy_oracle()
+    if oracle is None:
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Energy pricing oracle is not configured",
+        )
+    if not gpu.resource_id:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"GPU {gpu.id} has no canonical resource_id",
+        )
+    try:
+        profile = oracle.get_profile(gpu.resource_id)
+        rate = oracle.get_rate()
+    except Exception as exc:
+        logger.error("Failed to read energy inputs for %s: %s", gpu.resource_id, exc)
+        raise HTTPException(
+            status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail=f"Could not read energy inputs: {exc}",
+        ) from exc
+
+    duration_seconds = int(duration_hours * 3600)
+    if duration_seconds <= 0:
+        duration_seconds = 3600
+
+    quote = build_minimum_quote(
+        profile=profile,
+        rate=rate,
+        buyer=buyer,
+        job_id=job_id,
+        quote_id=uuid4().hex,
+        domain=settings.energy_quote_domain,
+        chain_id=settings.native_chain_id,
+        settlement_asset="AITBC",
+        settlement_unit_scale=NATIVE_UNITS_PER_AIT,
+        settlement_route=SettlementRoute.NATIVE,
+        gpu_count=gpu_count,
+        duration_seconds=duration_seconds,
+        buyer_cap_units=buyer_cap_units,
+        fee_basis_points=DEFAULT_FEE_BASIS_POINTS,
+        quote_lifetime_seconds=settings.energy_quote_lifetime_seconds,
+        evm_chain_id=settings.energy_pricing_chain_id,
+        evm_contract=settings.energy_pricing_contract_address,
+    )
+    return quote.to_dict(include_signature=False)
+
+
 @router.post("/marketplace/gpu/register")
 async def register_gpu(
     request: dict[str, Any],
@@ -155,6 +255,7 @@ async def register_gpu(
         id=gpu_id,
         miner_id=miner_id,
         model=gpu_specs.get("name", "Unknown GPU"),
+        model_id=gpu_specs.get("model_id"),
         memory_gb=gpu_specs.get("memory_gb", 0),
         cuda_version=cuda_version,
         region="default",
@@ -164,6 +265,8 @@ async def register_gpu(
         average_rating=0.0,
         total_reviews=0,
         created_at=datetime.now(UTC),
+        resource_id=gpu_specs.get("resource_id"),
+        protected=bool(gpu_specs.get("protected")),
     )
     session.add(gpu_record)
     session.commit()
@@ -223,6 +326,92 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
     return result
 
 
+@router.post("/marketplace/gpu/quote")
+async def quote_gpu(
+    request: GPUQuoteRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
+) -> dict[str, Any]:
+    """Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.
+
+    The returned quote is valid for a short window. The buyer funds it through
+    POST /marketplace/gpu/purchase using the same job_id and energy_quote.
+    """
+    gpu = _get_gpu_or_404(session, request.gpu_id)
+    if gpu.status != "available":
+        raise HTTPException(
+            status_code=http_status.HTTP_409_CONFLICT,
+            detail=f"GPU {request.gpu_id} is not available for quoting",
+        )
+
+    duration_seconds = int(request.duration_hours * 3600)
+    job_service = JobService(session)
+    job_create = JobCreate(
+        payload={
+            "type": "gpu_compute",
+            "gpu_id": request.gpu_id,
+            "task": "general_compute",
+            "duration_hours": request.duration_hours,
+            "gpu_count": request.gpu_count,
+            "protected": True,
+            **(request.payload or {}),
+        },
+        constraints=Constraints(
+            gpu=gpu.model,
+            region=gpu.region,
+            min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
+        ),
+        ttl_seconds=duration_seconds + settings.energy_quote_lifetime_seconds + 60,
+    )
+    job = job_service.create_job(client_id=request.buyer_id, req=job_create)
+    job.protected = True
+    job.resource_id = gpu.resource_id
+    job.model_id = gpu.model_id or gpu.model
+    job.gpu_count = request.gpu_count
+    job.duration_seconds = duration_seconds
+
+    buyer_cap_units = None
+    if request.buyer_max_amount is not None:
+        buyer_cap_units = ait_to_units(request.buyer_max_amount)
+
+    quote_dict = _build_energy_quote(
+        gpu=gpu,
+        buyer=request.buyer_id,
+        job_id=job.id,
+        duration_hours=request.duration_hours,
+        gpu_count=request.gpu_count,
+        buyer_cap_units=buyer_cap_units,
+    )
+    quote = EnergyQuote.from_dict(quote_dict)
+    # Validate that the minimum quote fits under the buyer cap and current freshness.
+    from aitbc.marketplace.energy_pricing import evaluate_quote
+    result = evaluate_quote(
+        quote=quote,
+        profile=quote.to_profile(),
+        rate=quote.to_rate(),
+        now=int(time.time()),
+        hard_cap_units=buyer_cap_units,
+    )
+    if not result.approved:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Quote refused: {result.refusal_reason} ({result.refusal_code})",
+        )
+
+    job.energy_quote_snapshot = quote.to_dict(include_signature=False)
+    session.add(job)
+    session.commit()
+    return {
+        "job_id": job.id,
+        "gpu_id": gpu.id,
+        "resource_id": gpu.resource_id,
+        "duration_hours": request.duration_hours,
+        "gpu_count": request.gpu_count,
+        "energy_quote": quote_dict,
+        "buyer_charge_ait": units_to_ait(result.breakdown.buyer_charge_units) if result.breakdown else None,
+    }
+
+
 @router.post("/marketplace/gpu/purchase")
 async def buy_gpu(
     request: GPUBuyRequest,
@@ -239,7 +428,19 @@ async def buy_gpu(
     from datetime import datetime, timedelta
 
     start_time = datetime.now(UTC)
-    end_time = start_time + timedelta(hours=request.duration_hours)
+    duration_hours = request.duration_hours
+    # E1: if the buyer supplied a signed energy quote, use its frozen terms.
+    supplied_quote: EnergyQuote | None = None
+    if request.energy_quote:
+        try:
+            supplied_quote = EnergyQuote.from_dict(request.energy_quote)
+            duration_hours = supplied_quote.duration_seconds / 3600
+        except Exception as exc:
+            raise HTTPException(
+                status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid energy_quote: {exc}",
+            ) from exc
+    end_time = start_time + timedelta(hours=duration_hours)
     try:
         dynamic_result = await engine.calculate_dynamic_price(
             resource_id=gpu.id,
@@ -251,21 +452,39 @@ async def buy_gpu(
         current_price = dynamic_result.recommended_price
     except Exception:
         current_price = gpu.price_per_hour
-    duration_dec = Decimal(str(request.duration_hours))
+    duration_dec = Decimal(str(duration_hours))
     total_cost = duration_dec * current_price
+    if supplied_quote is not None:
+        total_cost = units_to_ait(supplied_quote.principal_units)
     resolved_client_id, client_ref = resolve_client(session, request.buyer_id, auto_create=True)
     booking_id = str(uuid4())
+    # E1: a supplied quote freezes the resource/model/count/duration.
+    quote_resource_id = gpu.resource_id
+    quote_model_id = gpu.model_id or gpu.model
+    quote_gpu_count = 1
+    quote_duration_seconds = int(duration_hours * 3600)
+    if supplied_quote is not None:
+        quote_resource_id = supplied_quote.resource_id
+        quote_model_id = supplied_quote.model_id
+        quote_gpu_count = supplied_quote.gpu_count
+        quote_duration_seconds = supplied_quote.duration_seconds
     booking = GPUBooking(
         id=booking_id,
         gpu_id=request.gpu_id,
         client_id=resolved_client_id,
         client_ref=client_ref,
         job_id=f"purchase_{client_ref[:8]}",
-        duration_hours=request.duration_hours,
+        duration_hours=duration_hours,
         total_cost=total_cost,
         start_time=start_time,
         end_time=end_time,
         status="active",
+        protected=(supplied_quote is not None) or request.protected or gpu.protected,
+        resource_id=quote_resource_id,
+        model_id=quote_model_id,
+        gpu_count=quote_gpu_count,
+        duration_seconds=quote_duration_seconds,
+        energy_quote_snapshot=request.energy_quote,
     )
     gpu.status = "booked"
     session.add(booking)
@@ -286,36 +505,83 @@ async def buy_gpu(
 
         job_session = SQLModelSession(bind=session.bind)
         job_service = JobService(job_session)
-        job_create = JobCreate(
-            payload={
-                "type": "gpu_compute",
-                "gpu_id": request.gpu_id,
-                "task": "general_compute",
-                "duration_hours": request.duration_hours,
-            },
-            constraints=Constraints(
-                gpu=gpu.model,
-                region=gpu.region,
-                min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
-                max_price=current_price * Decimal("1.1"),
-            ),
-            ttl_seconds=int(duration_dec * 3600),
-            payment_amount=total_cost,
-            payment_currency="AITBC",
-        )
-        job = job_service.create_job(client_id=request.buyer_id, req=job_create)
-        job_id = job.id
+        if request.job_id:
+            # E1: a prepared quote already created and bound the job.
+            job = job_session.get(Job, request.job_id)
+            if not job:
+                raise HTTPException(
+                    status_code=http_status.HTTP_404_NOT_FOUND,
+                    detail=f"Prepared job {request.job_id} not found",
+                )
+            # E1: carry the frozen quote and binding fields from the prepared job.
+            quote_snapshot = request.energy_quote or job.energy_quote_snapshot
+            if quote_snapshot and job.energy_quote_snapshot:
+                supplied = quote_snapshot.get("quote_id")
+                stored = job.energy_quote_snapshot.get("quote_id")
+                if supplied != stored:
+                    raise HTTPException(
+                        status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Energy quote does not match the prepared job",
+                    )
+            if quote_snapshot:
+                try:
+                    quote = EnergyQuote.from_dict(quote_snapshot)
+                    booking.protected = True
+                    booking.total_cost = units_to_ait(quote.principal_units)
+                    booking.energy_quote_snapshot = quote.to_dict(include_signature=False)
+                    booking.duration_seconds = quote.duration_seconds
+                    booking.duration_hours = quote.duration_seconds / 3600
+                    booking.gpu_count = quote.gpu_count
+                    booking.resource_id = quote.resource_id
+                    booking.model_id = quote.model_id
+                except Exception as exc:
+                    raise HTTPException(
+                        status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Invalid energy quote for prepared job: {exc}",
+                    ) from exc
+            else:
+                booking.protected = job.protected
+            booking.job_id = job.id
+            job_id = job.id
+            total_cost = booking.total_cost
+            duration_hours = booking.duration_hours
+            duration_dec = Decimal(str(duration_hours))
+            end_time = start_time + timedelta(seconds=booking.duration_seconds)
+        else:
+            job_create = JobCreate(
+                payload={
+                    "type": "gpu_compute",
+                    "gpu_id": request.gpu_id,
+                    "task": "general_compute",
+                    "duration_hours": duration_hours,
+                    "gpu_count": quote_gpu_count,
+                },
+                constraints=Constraints(
+                    gpu=quote_model_id,
+                    region=gpu.region,
+                    min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
+                    max_price=total_cost * Decimal("1.1"),
+                ),
+                ttl_seconds=int(duration_dec * 3600),
+                payment_amount=total_cost,
+                payment_currency="AITBC",
+            )
+            job = job_service.create_job(client_id=request.buyer_id, req=job_create)
+            job_id = job.id
         job_session.close()
-        logger.info("Created job %s for GPU purchase %s", job.id, booking_id)
+        logger.info("Using job %s for GPU purchase %s", job_id, booking_id)
         try:
             payment_session = SQLModelSession(bind=session.bind)
             payment_service = PaymentService(payment_session)
+            quote_payload = request.energy_quote or (job.energy_quote_snapshot if request.job_id else None)
             payment_create = JobPaymentCreate(
                 job_id=job.id,
                 amount=total_cost,
                 currency="AITBC",
                 payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
-                escrow_timeout_seconds=int(request.duration_hours * 3600),
+                escrow_timeout_seconds=int(duration_hours * 3600),
+                protected=booking.protected,
+                energy_quote=quote_payload,
             )
             # V23-46: client_id was missing entirely (TypeError). The job above was
             # created with client_id=request.buyer_id, which is what the ownership
@@ -363,7 +629,7 @@ async def buy_gpu(
         "buyer_id": request.buyer_id,
         "job_id": job_id,
         "payment_id": payment_id,
-        "duration_hours": request.duration_hours,
+        "duration_hours": duration_hours,
         "total_cost": total_cost,
         "price_per_hour": current_price,
         "status": "purchased",
