@@ -660,21 +660,3 @@ class TaskDistributor:
                 break
         logger.info("Cleared %s tasks from %s queue", cleared_count, priority.value)
         return cleared_count
-
-
-async def example_usage() -> None:
-    """Example of how to use the load balancer"""
-    registry = AgentRegistry()
-    await registry.start()
-    load_balancer = LoadBalancer(registry)
-    load_balancer.set_strategy(LoadBalancingStrategy.LEAST_CONNECTIONS)
-    distributor = TaskDistributor(load_balancer)
-    for i in range(10):
-        await distributor.submit_task(
-            {"task_id": f"task-{i}", "task_type": "data_processing", "data": f"sample_data_{i}"}, TaskPriority.NORMAL
-        )
-    await registry.stop()
-
-
-if __name__ == "__main__":
-    asyncio.run(example_usage())

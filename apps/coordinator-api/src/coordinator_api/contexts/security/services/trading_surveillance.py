@@ -473,22 +473,3 @@ def get_alerts(level: str | None = None) -> dict[str, Any]:
 def get_surveillance_summary() -> dict[str, Any]:
     """Get surveillance summary"""
     return surveillance.get_alert_summary()  # type: ignore[return-value]
-
-
-async def test_trading_surveillance() -> None:
-    """Test trading surveillance system"""
-    logger.info("Testing Trading Surveillance System")
-    await start_surveillance(["ETH/USDT"])
-    logger.info("Surveillance started")
-    await asyncio.sleep(5)
-    alerts = get_alerts()
-    logger.info("Generated alerts: %s", alerts["total"])
-    summary = get_surveillance_summary()
-    logger.info("Alert summary: %s", summary)
-    await stop_surveillance()
-    logger.info("Surveillance stopped")
-    logger.info("Trading surveillance test complete")
-
-
-if __name__ == "__main__":
-    asyncio.run(test_trading_surveillance())
