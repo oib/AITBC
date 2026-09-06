@@ -2017,6 +2017,78 @@
         }
       }
     },
+    "/v1/marketplace/gpu/quote": {
+      "post": {
+        "tags": [
+          "marketplace-gpu"
+        ],
+        "summary": "Quote Gpu",
+        "description": "Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.\n\nThe returned quote is valid for a short window. The buyer funds it through\nPOST /marketplace/gpu/purchase using the same job_id and energy_quote.",
+        "operationId": "quote_gpu_v1_marketplace_gpu_quote_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/GPUQuoteRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Quote Gpu V1 Marketplace Gpu Quote Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "GPU {request.gpu_id} is not available for quoting",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/marketplace/gpu/purchase": {
       "post": {
         "tags": [
@@ -2078,6 +2150,16 @@
           },
           "402": {
             "description": "Payment failed: {payment_status}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Prepared job {request.job_id} not found",
             "content": {
               "application/json": {
                 "schema": {
@@ -32148,6 +32230,34 @@
             "type": "string",
             "title": "Payment Method",
             "default": "blockchain"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "energy_quote": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Quote"
+          },
+          "protected": {
+            "type": "boolean",
+            "title": "Protected",
+            "default": false
           }
         },
         "type": "object",
@@ -32208,6 +32318,65 @@
         ],
         "title": "GPUMetrics",
         "description": "GPU metrics model"
+      },
+      "GPUQuoteRequest": {
+        "properties": {
+          "buyer_id": {
+            "type": "string",
+            "title": "Buyer Id"
+          },
+          "gpu_id": {
+            "type": "string",
+            "title": "Gpu Id"
+          },
+          "duration_hours": {
+            "type": "number",
+            "maximum": 8760.0,
+            "minimum": 0.0167,
+            "title": "Duration Hours",
+            "default": 1.0
+          },
+          "gpu_count": {
+            "type": "integer",
+            "maximum": 10000.0,
+            "minimum": 1.0,
+            "title": "Gpu Count",
+            "default": 1
+          },
+          "buyer_max_amount": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Buyer Max Amount"
+          },
+          "payload": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Payload"
+          }
+        },
+        "type": "object",
+        "required": [
+          "buyer_id",
+          "gpu_id"
+        ],
+        "title": "GPUQuoteRequest"
       },
       "GPUReviewRequest": {
         "properties": {
@@ -33217,6 +33386,25 @@
             ],
             "title": "Offer Quantity",
             "description": "Units bought at the advertised price"
+          },
+          "protected": {
+            "type": "boolean",
+            "title": "Protected",
+            "description": "Whether this payment is a protected fixed-duration GPU rental",
+            "default": false
+          },
+          "energy_quote": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Quote",
+            "description": "Signed energy quote for protected rentals"
           }
         },
         "type": "object",
@@ -33331,6 +33519,44 @@
               }
             ],
             "title": "Refund Transaction Hash"
+          },
+          "protected": {
+            "type": "boolean",
+            "title": "Protected",
+            "default": false
+          },
+          "energy_quote_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Quote Id"
+          },
+          "energy_buyer_charge_units": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Buyer Charge Units"
+          },
+          "energy_net_floor_units": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Energy Net Floor Units"
           }
         },
         "type": "object",
