@@ -26,7 +26,7 @@ Revises: b7f3c1a90d24
 import os
 
 import sqlalchemy as sa
-from alembic import op
+from alembic import op, context
 
 revision: str = "c9a4f1e2b73d"
 down_revision: str | None = "b7f3c1a90d24"
@@ -37,23 +37,52 @@ BUYER_FK = "fk_escrow_buyer_account"
 PROVIDER_FK = "fk_escrow_provider_account"
 CHAIN_ID_INDEX = "ix_escrow_chain_id"
 
-# `copy_from` rather than reflection: SQLAlchemy would have to reflect the broken
-# constraint to rebuild the table, and what is listed here is what the rebuilt table
-# gets -- so the two single-column foreign keys are simply absent from it.
-_ESCROW = sa.Table(
-    "escrow",
-    sa.MetaData(),
-    sa.Column("job_id", sa.String(), primary_key=True, nullable=False),
-    sa.Column("chain_id", sa.String(), nullable=True),
-    sa.Column("buyer", sa.String()),
-    sa.Column("provider", sa.String()),
-    sa.Column("amount", sa.Integer(), nullable=False),
-    sa.Column("created_at", sa.DateTime(), nullable=False),
-    sa.Column("released_at", sa.DateTime()),
-    sa.Column("job_tx_hash", sa.String()),
-    sa.Column("refunded_at", sa.DateTime()),
-    sa.Column("refund_tx_hash", sa.String()),
-)
+
+def _table_exists(bind: sa.engine.Connection, table_name: str) -> bool:
+    """Check whether a table exists in the current database."""
+    if context.is_offline_mode():
+        return True
+    return table_name in sa.inspect(bind).get_table_names()
+
+
+def _column_exists(bind: sa.engine.Connection, table_name: str, column: str) -> bool:
+    """Check whether a column already exists on a table."""
+    if context.is_offline_mode():
+        return False
+    if not _table_exists(bind, table_name):
+        return False
+    return any(c["name"] == column for c in sa.inspect(bind).get_columns(table_name))
+
+
+def _create_escrow_if_absent(bind: sa.engine.Connection) -> None:
+    """Create the escrow table when it does not exist.
+
+    The blockchain baseline migration (``e31f486f1484``) does not create the
+    escrow table -- it was historically created by
+    ``SQLModel.metadata.create_all`` at application startup. On a fresh
+    database that has only seen migrations, the table is absent and
+    ``ALTER TABLE escrow`` fails with ``no such table: escrow``.
+
+    This function creates the table with the pre-chain_id schema (matching
+    what the baseline would have produced) so the rest of this migration
+    can add ``chain_id`` and the composite foreign keys. On databases where
+    the table already exists (the normal case for live nodes), this is a
+    no-op.
+    """
+    if _table_exists(bind, "escrow"):
+        return
+    op.create_table(
+        "escrow",
+        sa.Column("job_id", sa.String(), primary_key=True, nullable=False),
+        sa.Column("buyer", sa.String()),
+        sa.Column("provider", sa.String()),
+        sa.Column("amount", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("released_at", sa.DateTime()),
+        sa.Column("job_tx_hash", sa.String()),
+        sa.Column("refunded_at", sa.DateTime()),
+        sa.Column("refund_tx_hash", sa.String()),
+    )
 
 
 def _resolve_chain_id(bind: sa.engine.Connection) -> str:
@@ -84,7 +113,31 @@ def _resolve_chain_id(bind: sa.engine.Connection) -> str:
 def upgrade() -> None:
     bind = op.get_bind()
 
-    op.add_column("escrow", sa.Column("chain_id", sa.String(), nullable=True))
+    # On a fresh database the escrow table may not exist yet (the baseline
+    # migration does not create it). Create it with the pre-chain_id schema
+    # so the rest of this migration can proceed.
+    _create_escrow_if_absent(bind)
+
+    # `copy_from` rather than reflection: SQLAlchemy would have to reflect the broken
+    # constraint to rebuild the table, and what is listed here is what the rebuilt table
+    # gets -- so the two single-column foreign keys are simply absent from it.
+    _ESCROW = sa.Table(
+        "escrow",
+        sa.MetaData(),
+        sa.Column("job_id", sa.String(), primary_key=True, nullable=False),
+        sa.Column("chain_id", sa.String(), nullable=True),
+        sa.Column("buyer", sa.String()),
+        sa.Column("provider", sa.String()),
+        sa.Column("amount", sa.Integer(), nullable=False),
+        sa.Column("created_at", sa.DateTime(), nullable=False),
+        sa.Column("released_at", sa.DateTime()),
+        sa.Column("job_tx_hash", sa.String()),
+        sa.Column("refunded_at", sa.DateTime()),
+        sa.Column("refund_tx_hash", sa.String()),
+    )
+
+    if not _column_exists(bind, "escrow", "chain_id"):
+        op.add_column("escrow", sa.Column("chain_id", sa.String(), nullable=True))
     chain_id = _resolve_chain_id(bind)
     bind.execute(sa.text("UPDATE escrow SET chain_id = :chain_id WHERE chain_id IS NULL"), {"chain_id": chain_id})
 
