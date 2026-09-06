@@ -22,7 +22,7 @@ Key changes:
 - `systemd/` → `apps/<service>/` (all service files and wrappers)
 - `scripts/setup.sh` → `scripts/deployment/setup.sh`
 - `infra/` → `scripts/deployment/`
-- `requirements-modules/` → central `requirements.txt` / `requirements-optional/`
+- `requirements-modules/`, `requirements-optional/` → central `requirements.txt` + `[tool.poetry.extras]`
 - `docs/scenarios/`, `docs/agent-training/`, `docs/agent/`, `docs/planning/` → DELETED
 
 **Old `systemd/` references below are OUTDATED. Use `apps/<service>/` paths.**
