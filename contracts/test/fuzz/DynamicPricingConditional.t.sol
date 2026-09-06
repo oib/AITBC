@@ -74,12 +74,12 @@ contract DynamicPricingConditionalTest is Test {
     }
 
     function _marketIsActive(DynamicPricing p) internal view returns (bool) {
-        (, , , , , , , , , , , , bool isMarketActive) = p.getMarketData(0);
+        (, , , , , , , , , , , , , bool isMarketActive) = p.getMarketData(0);
         return isMarketActive;
     }
 
     function _marketLastUpdateTime(DynamicPricing p, uint256 ts) internal view returns (uint256) {
-        (, , , , , , , uint256 lastUpdateTime, , , , , ) = p.getMarketData(ts);
+        (, , , , , , , uint256 lastUpdateTime, , , , , , ) = p.getMarketData(ts);
         return lastUpdateTime;
     }
 
