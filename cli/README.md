@@ -40,6 +40,7 @@ aitbc --help
 | `edge` | Edge API commands for island, GPU, database, serve, and metrics operations | `balance`, `database`, `gpu`, `island`, `metrics`, `serve`, `status`, `transfer` |
 | `exchange` | Exchange integration and trading management commands | `add-liquidity`, `create-pair`, `list`, `monitor`, `register`, `start-trading`, `status` |
 | `exchange-island` | Exchange commands for trading AIT against ETH on the island | `buy`, `cancel`, `orderbook`, `orders`, `rates`, `sell` |
+| `energy` | Energy-floor pricing, operator signing, and provider tariff management | `floor`, `operator`, `provider` |
 | `explorer` | Blockchain Explorer commands - access blockchain data via Explorer API | `activity-timeline`, `block`, `block-by-hash`, `blocks-by-address`, `chain-head`, `chains`, `latest-blocks`, `network-stats`, `non-empty-blocks`, `provider-reputation`, `search-transactions`, `top-addresses`, `transaction`, `transaction-by-hash` |
 | `genesis` | Genesis block and wallet generation commands | `info`, `init`, `sync-from-hub`, `verify` |
 | `governance` | Governance operations — on-chain proposals, voting, and execution | `aggregate-votes`, `close`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote` |
