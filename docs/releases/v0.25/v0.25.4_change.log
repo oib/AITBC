@@ -167,3 +167,4 @@ This release covers the 300 commits between the end of the `v0.25.3` change log 
 - fix(blockchain): get_state_delta returns an empty diff when state roots match and no transactions touched addresses; falls back to full sync when state changed without touched addresses (b7c4e0d22).
 - fix(blockchain): require both proposer_id and proposer_key to be configured before enabling SyncManager gossip, eliminating follower auth failures caused by stale half-configured proposer identities (ba1f10499).
 - fix(coordinator): quote rejected and active status literals in the 5d8339a13a12 backfill migration so the SQL compares against string values instead of non-existent columns (050cca219).
+- fix(blockchain): filter non-block messages in the gossip consumer and add a defensive guard in SyncManager.handle_block to stop keep-alive/control frames from being treated as blocks (1357b92b8).
