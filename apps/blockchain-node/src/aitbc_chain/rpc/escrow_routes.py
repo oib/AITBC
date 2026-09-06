@@ -675,13 +675,10 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             raise HTTPException(
                 status_code=409,
                 detail=(
-                    f"escrow for job {job_id} is already locked on-chain with different "
-                    f"parameters (tx {existing_lock_hash})"
+                    f"escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})"
                 ),
             ) from None
-        existing_contract = next(
-            (c for c in mgr.escrow_contracts.values() if c.job_id == job_id), None
-        )
+        existing_contract = next((c for c in mgr.escrow_contracts.values() if c.job_id == job_id), None)
         _logger.info(
             "ESCROW_LOCK already settled for job_id=%s (%s); returning existing escrow",
             job_id,
@@ -1086,9 +1083,7 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
         # billed_gross/unbilled_amount into the refund call below. Passing an explicit
         # Decimal start pins the type and makes an empty milestones list (which
         # create_contract never actually produces) return Decimal(0) instead of int 0.
-        locked_total = (
-            sum((Decimal(str(ms["amount"])) for ms in contract.milestones), Decimal(0)) if contract else Decimal(0)
-        )
+        locked_total = sum((Decimal(str(ms["amount"])) for ms in contract.milestones), Decimal(0)) if contract else Decimal(0)
         billed_gross = locked_total if requested_amount is None else min(requested_amount, locked_total)
         unbilled_amount = locked_total - billed_gross
         # Reinvestment must be paid to the escrow's recorded provider; the caller must
