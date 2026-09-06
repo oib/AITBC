@@ -675,16 +675,36 @@ class ChainSettings(BaseSettings):
 
     @model_validator(mode="after")
     def _resolve_validate_signatures(self) -> ChainSettings:
-        """If SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL is a future timestamp, disable validation."""
+        """If SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL is a future timestamp, disable validation.
+
+        Both outcomes are logged. Turning proposer-signature validation off is a
+        security-relevant change that used to happen silently, so a stale value
+        left over from a past migration was invisible; a malformed value fails
+        closed, which is the safe direction but is just as easy to miss.
+        """
         if not self.sync_validate_signatures or not self.sync_validate_signatures_skip_until:
             return self
+        # Imported locally: this validator runs while the module is still being
+        # imported, before aitbc_chain.logger can be safely pulled in.
+        import logging
+
+        logger = logging.getLogger(__name__)
         try:
             from datetime import UTC, datetime
 
             if datetime.now(UTC) < datetime.fromisoformat(self.sync_validate_signatures_skip_until):
                 self.sync_validate_signatures = False
+                logger.warning(
+                    "Block proposer signature validation is DISABLED by "
+                    "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=%s; it re-enables itself after that time",
+                    self.sync_validate_signatures_skip_until,
+                )
         except ValueError:
-            pass
+            logger.warning(
+                "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=%r is not a valid ISO timestamp; "
+                "leaving block proposer signature validation ENABLED",
+                self.sync_validate_signatures_skip_until,
+            )
         return self
 
     def mesh_peer_url_list(self) -> list[str]:
