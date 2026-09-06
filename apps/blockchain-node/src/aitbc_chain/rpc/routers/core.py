@@ -32,8 +32,8 @@ from ..gossip import GetLogsRequest, GetLogsResponse, get_logs
 from ..sync import export_chain, force_sync, get_sync_config, import_chain
 from ..transactions import (
     TransactionRequest,
-    match_marketplace,
     query_transactions,
+    match_marketplace,
     submit_marketplace_transaction,
     submit_transaction,
 )
@@ -219,7 +219,9 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
     # 1. Public scheme: trust the upstream reverse proxy first, then a
     # configured override. Reject anything that is not http/https.
     forwarded_proto = request.headers.get("x-forwarded-proto")
-    protocol = forwarded_proto or os.getenv("AITBC_PROTOCOL", "http") or "http"
+    # AITBC_PROTOCOL lets the operator override the scheme when the reverse
+    # proxy does not set, or overwrites, X-Forwarded-Proto.
+    protocol = os.getenv("AITBC_PROTOCOL") or forwarded_proto or request.url.scheme or "http"
     protocol = protocol.lower()
     if protocol not in ("http", "https"):
         protocol = "https"

@@ -75,7 +75,8 @@ class BridgeRequestResponse(BaseModel):
 def _build_join_credentials(island_id: str, island_name: str, island_chain_id: str) -> dict[str, Any]:
     """Build the credentials block returned to a joining node."""
     hub_host = settings.hub_discovery_url or socket.gethostname()
-    public_rpc = os.getenv("RPC_PUBLIC_ENDPOINT", f"http://{hub_host}/rpc")
+    public_scheme = os.getenv("AITBC_PROTOCOL", "http")
+    public_rpc = os.getenv("RPC_PUBLIC_ENDPOINT", f"{public_scheme}://{hub_host}/rpc")
     credentials: dict[str, Any] = {
         "chain_id": island_chain_id,
         "island_id": island_id,

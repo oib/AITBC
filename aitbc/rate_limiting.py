@@ -64,6 +64,25 @@ def _extract_request(args: tuple[Any, ...], kwargs: dict[str, Any]) -> Request |
 _warned_unkeyed: set[str] = set()
 
 
+def _client_ip_for_rate_limit(request: Request) -> str:
+    """Return the real client IP for rate-limiting, preferring proxy headers.
+
+    Nginx sets ``X-Real-IP`` and/or ``X-Forwarded-For``.  We trust the
+    right-most value in ``X-Forwarded-For`` (the one our proxy appended) and
+    fall back to the ASGI ``client`` host, which uvicorn's ``--proxy-headers``
+    middleware already rewrites for us.
+    """
+    x_real_ip = request.headers.get("x-real-ip")
+    if x_real_ip:
+        return x_real_ip.strip().split(",")[0].strip()
+
+    x_forwarded_for = request.headers.get("x-forwarded-for")
+    if x_forwarded_for:
+        return x_forwarded_for.strip().split(",")[-1].strip()
+
+    return request.client.host if request.client else "unknown"
+
+
 def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], str] | None, handler: str = "?") -> str:
     """Extract the rate limit key from the request.
 
@@ -84,7 +103,7 @@ def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], s
         return "unknown"
     if key_func:
         return key_func(request)
-    return request.client.host if request.client else "unknown"
+    return _client_ip_for_rate_limit(request)
 
 
 def rate_limit(
