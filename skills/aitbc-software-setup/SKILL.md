@@ -167,16 +167,17 @@ pip install -r requirements.txt
 # Development + testing tools
 pip install -r requirements-dev.txt
 
-# Optional modules (install as needed)
-pip install -r requirements-optional/ai-ml.txt      # torch, transformers, openai, spacy
-# testing.txt references requirements-dev.txt (no separate install needed)
+# Optional extras live in [tool.poetry.extras] in pyproject.toml
+poetry install --extras ml          # torch, torchvision, pillow, opencv-python
+poetry install --extras language    # spacy, openai, deepl, langdetect, fasttext
 ```
 
 Or use the profile installer:
 ```bash
-./scripts/deployment/install-profiles.sh core       # production only
-./scripts/deployment/install-profiles.sh dev        # + dev tools
-./scripts/deployment/install-profiles.sh all        # everything
+./scripts/deployment/install-profiles.sh server-no-gpu   # base deps, no extras
+./scripts/deployment/install-profiles.sh hub             # base deps, no extras
+./scripts/deployment/install-profiles.sh provider-gpu    # base + gpu,ml extras
+./scripts/deployment/install-profiles.sh fhe             # base + fhe extra
 ```
 
 ## Starting Services

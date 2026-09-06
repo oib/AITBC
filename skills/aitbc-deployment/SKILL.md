@@ -118,9 +118,9 @@ pip install -r /opt/aitbc/requirements.txt
 # Dev/testing deps
 pip install -r /opt/aitbc/requirements-dev.txt
 
-# Optional modules
-pip install -r /opt/aitbc/requirements-optional/ai-ml.txt
-pip install -r /opt/aitbc/requirements-optional/testing.txt
+# Optional extras (gpu/ml/fhe/language/...) come from pyproject.toml,
+# installed per-profile by install-profiles.sh -- not from separate files
+/opt/aitbc/scripts/deployment/install-profiles.sh provider-gpu
 ```
 
 ## Key Pitfalls
