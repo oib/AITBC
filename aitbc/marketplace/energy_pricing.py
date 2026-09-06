@@ -44,7 +44,7 @@ import time
 from dataclasses import asdict, dataclass
 from decimal import Decimal, InvalidOperation, ROUND_HALF_UP
 from enum import StrEnum
-from typing import Any, cast
+from typing import Any
 
 FIXED_POINT_SCALE = 10**18
 SECONDS_PER_HOUR = 3600
@@ -388,10 +388,12 @@ def to_scaled(
         raise EnergyPricingError(
             f"{name} must be Decimal or str, got {type(value).__name__}"
         )
-    dec = cast(Decimal, dec)
     if not dec.is_finite() or dec <= 0:
         raise EnergyPricingError(f"{name} must be finite and positive: {dec}")
-    if dec.as_tuple().exponent < -18:
+    exponent = dec.as_tuple().exponent
+    if not isinstance(exponent, int):
+        raise EnergyPricingError(f"{name} has a non-finite Decimal exponent: {exponent}")
+    if exponent < -18:
         if not allow_quantize:
             raise EnergyPricingError(
                 f"{name} has more than 18 decimal places: {dec}; "
