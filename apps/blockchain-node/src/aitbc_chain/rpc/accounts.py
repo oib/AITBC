@@ -338,6 +338,7 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
     state is not available.
     """
     import base64
+    from aitbc.sync import compute_state_diff, encode_state_diff
 
     chain_id = get_chain_id(chain_id)
 
@@ -377,10 +378,28 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             if tx.recipient:
                 touched_addresses.add(tx.recipient)
 
-        # If no touched addresses found (no transactions), fall back to returning
-        # all accounts as the diff (caller will check is_too_large)
+        # If no touched addresses found (no transactions), there is no meaningful
+        # state delta. A block that changed state without touching any transaction
+        # sender/recipient cannot be expressed as a delta without historical state.
+        # Return an empty diff when the roots match, otherwise fall back to full sync.
         if not touched_addresses:
-            accounts = session.exec(select(Account).where(Account.chain_id == chain_id)).all()
+            if from_state_root and from_state_root == to_state_root:
+                return {
+                    "diff": base64.b64encode(
+                        encode_state_diff(
+                            compute_state_diff({}, {}, from_height, to_height, from_state_root, to_state_root, chain_id)
+                        )
+                    ).decode("ascii"),
+                    "from_height": from_height,
+                    "to_height": to_height,
+                    "from_state_root": from_state_root,
+                    "to_state_root": to_state_root,
+                    "account_count": 0,
+                }
+            return {
+                "error": f"State changed between {from_height} and {to_height} without touched transactions",
+                "fallback": "full_sync",
+            }
         else:
             accounts = session.exec(
                 select(Account).where(
@@ -393,8 +412,6 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
         # as new (old_balance=0, old_nonce=0). The caller applies the new values.
         old_accounts: dict[str, tuple[int, int]] = {}
         new_accounts: dict[str, tuple[int, int]] = {acc.address: (acc.balance, acc.nonce) for acc in accounts}
-
-        from aitbc.sync import compute_state_diff, encode_state_diff
 
         diff = compute_state_diff(
             old_accounts=old_accounts,
