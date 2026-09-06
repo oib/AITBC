@@ -396,6 +396,7 @@ contract AIPowerRentalPinnedFloorTest is Test {
             totalAmount,
             1_000_000_000_000_000_000
         );
+        vm.stopPrank();
 
         // Raise the rate significantly — the new floor would be much higher.
         vm.prank(publisher);
@@ -407,6 +408,7 @@ contract AIPowerRentalPinnedFloorTest is Test {
 
         // startRental should still succeed because it uses the pinned floor
         // from creation, not the new (higher) recomputed floor.
+        vm.startPrank(renter);
         paymentToken.approve(address(rental), totalAmount);
         rental.startRental(agreementId);
         vm.stopPrank();
