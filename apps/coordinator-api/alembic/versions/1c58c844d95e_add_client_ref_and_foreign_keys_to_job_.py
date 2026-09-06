@@ -8,7 +8,7 @@ Create Date: 2026-09-01 18:06:07.108621+00:00
 
 from collections.abc import Sequence
 
-from alembic import op
+from alembic import op, context
 import sqlalchemy as sa
 
 
@@ -17,6 +17,44 @@ revision: str = "1c58c844d95e"
 down_revision: str | Sequence[str] | None = "5d8339a13a12"
 branch_labels: str | Sequence[str] | None = None
 depends_on: str | Sequence[str] | None = None
+
+
+def _table_exists(bind: sa.engine.Connection, table_name: str) -> bool:
+    """Check whether a table exists in the current database.
+
+    In offline SQL generation mode the database is assumed to be in the
+    historical state described by prior revisions, so the table is assumed
+    to exist.
+    """
+    if context.is_offline_mode():
+        return True
+    return table_name in sa.inspect(bind).get_table_names()
+
+
+def _column_exists(bind: sa.engine.Connection, table_name: str, column: str) -> bool:
+    """Check whether a column already exists on a table.
+
+    When ``001_initial_migration`` runs ``SQLModel.metadata.create_all`` on a
+    fresh database, the current models (which already include ``client_ref``)
+    are created. Later migrations that ``ALTER TABLE ... ADD COLUMN`` then fail
+    with ``duplicate column name``. This guard skips the ALTER when the column
+    is already present, which is the pattern established by
+    ``c7d1f4a9e230`` and ``236edfbd9728`` in this repo.
+    """
+    if context.is_offline_mode():
+        return False
+    if not _table_exists(bind, table_name):
+        return False
+    return any(c["name"] == column for c in sa.inspect(bind).get_columns(table_name))
+
+
+def _index_exists(bind: sa.engine.Connection, table_name: str, index_name: str) -> bool:
+    """Check whether an index already exists on a table."""
+    if context.is_offline_mode():
+        return False
+    if not _table_exists(bind, table_name):
+        return False
+    return any(idx["name"] == index_name for idx in sa.inspect(bind).get_indexes(table_name))
 
 
 def upgrade() -> None:
@@ -36,17 +74,20 @@ def upgrade() -> None:
     from sqlalchemy import select, text
     from sqlmodel import Session
 
-    from alembic import context
     from coordinator_api.contexts.infrastructure.domain.user import User, Wallet
 
-    # 1. Add client_ref columns to preserve the original caller string.
-    for table in ("job", "agent_executions", "gpu_bookings"):
-        op.add_column(
-            table,
-            sa.Column("client_ref", sa.String(length=255), nullable=True),
-        )
-
     bind = op.get_bind()
+
+    # 1. Add client_ref columns to preserve the original caller string.
+    # Guard against duplicate-column failures on fresh databases where
+    # 001_initial_migration has already created the current schema via
+    # SQLModel.metadata.create_all (which includes client_ref).
+    for table in ("job", "agent_executions", "gpu_bookings"):
+        if not _column_exists(bind, table, "client_ref"):
+            op.add_column(
+                table,
+                sa.Column("client_ref", sa.String(length=255), nullable=True),
+            )
 
     # Offline SQL generation (--sql) targets a fresh, empty database; there is no
     # data to backfill. Skip the data migration so the generated SQL only
@@ -163,12 +204,14 @@ def upgrade() -> None:
 
     # 5. Add indexes for client_ref (SQLModel index=True).
     for table in tables:
-        op.create_index(
-            op.f(f"ix_{table}_client_ref"),
-            table,
-            ["client_ref"],
-            unique=False,
-        )
+        index_name = op.f(f"ix_{table}_client_ref")
+        if not _index_exists(bind, table, index_name):
+            op.create_index(
+                index_name,
+                table,
+                ["client_ref"],
+                unique=False,
+            )
 
 
 def downgrade() -> None:
