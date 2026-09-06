@@ -2,7 +2,6 @@
 Multi-Agent Communication Protocols for AITBC Agent Coordination
 """
 
-import asyncio
 import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
@@ -357,25 +356,3 @@ def create_protocol(protocol_type: str, agent_id: str, **kwargs: Any) -> Communi
         return BroadcastProtocol(agent_id, kwargs.get("broadcast_channel", "global"))
     else:
         raise ValueError(f"Unknown protocol type: {protocol_type}")
-
-
-async def example_usage() -> Any:
-    """Example of how to use the communication protocols"""
-    comm_manager = CommunicationManager("agent-001")
-    hierarchical_protocol = create_protocol("hierarchical", "agent-001", is_master=True)
-    p2p_protocol = create_protocol("peer_to_peer", "agent-001")
-    broadcast_protocol = create_protocol("broadcast", "agent-001")
-    comm_manager.add_protocol("hierarchical", hierarchical_protocol)
-    comm_manager.add_protocol("peer_to_peer", p2p_protocol)
-    comm_manager.add_protocol("broadcast", broadcast_protocol)
-
-    async def handle_heartbeat(message: AgentMessage) -> Any:
-        logger.info("Received heartbeat from %s", message.sender_id)
-
-    await comm_manager.register_handler("hierarchical", MessageType.HEARTBEAT, handle_heartbeat)
-    heartbeat = MessageTemplates.create_heartbeat("agent-001")
-    await comm_manager.send_message("hierarchical", heartbeat)
-
-
-if __name__ == "__main__":
-    asyncio.run(example_usage())
