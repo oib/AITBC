@@ -40,5 +40,3 @@ Analytics — advanced analytics and performance monitoring.
   - adaptive_learning.py
   - advanced_learning.py
   - analytics.py
-  - surveillance.py
-  - trading_engine.py
