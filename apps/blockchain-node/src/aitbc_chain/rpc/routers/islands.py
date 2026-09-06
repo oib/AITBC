@@ -52,7 +52,7 @@ async def join_island_route(body: JoinIslandRequest, request: Request) -> JoinIs
     """Join an island for edge compute operations"""
     if join_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await join_island(body)
+    return await join_island(body, request)
 
 
 @router.post("/leave", summary="Leave an island")
@@ -61,7 +61,7 @@ async def leave_island_route(body: LeaveIslandRequest, request: Request) -> Leav
     """Leave an island"""
     if leave_island is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await leave_island(body)
+    return await leave_island(body, request)
 
 
 @router.get("", summary="List all islands")
@@ -88,4 +88,4 @@ async def request_bridge_route(body: BridgeRequestRequest, request: Request) -> 
     """Request a bridge to another island for cross-island communication"""
     if request_bridge is None:
         raise HTTPException(status_code=503, detail="Islands module not available")
-    return await request_bridge(body)
+    return await request_bridge(body, request)
