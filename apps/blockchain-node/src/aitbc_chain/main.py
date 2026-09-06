@@ -63,9 +63,7 @@ def _sanitize_url(url: str) -> str:
             netloc = parsed.hostname or ""
             if parsed.port:
                 netloc += f":{parsed.port}"
-            return urlunparse(
-                (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
-            )
+            return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
     except Exception:
         pass
     return url
@@ -438,6 +436,10 @@ class BlockchainNode:
             if settings.blockchain_mode == "hub" and not settings.multi_validator_consensus_enabled:
                 use_gossip = False
                 use_subscription = False
+            # Followers without a configured proposer cannot authenticate on
+            # validator-only gossip topics, so avoid the noisy auth failures.
+            if not settings.proposer_id and not settings.proposer_key:
+                use_gossip = False
             self._sync_manager = SyncManager(
                 chains=chains,
                 node_id=os.getenv("NODE_ID", settings.p2p_node_id or "unknown-node"),
