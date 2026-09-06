@@ -92,6 +92,9 @@ with `chmod 600`.
 cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 # Edit NODE_ID to be unique for your node
 sed -i "s/NODE_ID=.*/NODE_ID=node-$(hostname)-$(openssl rand -hex 4)/" /etc/aitbc/node.env
+# Verify the follower template does not carry a stale proposer_id or mesh URLs
+grep -vE '^\s*#' /etc/aitbc/node.env | grep -iE 'proposer_id|GOSSIP_MESH_PEER_URLS' && \
+  echo "Warning: remove proposer_id and GOSSIP_MESH_PEER_URLS from follower node.env" || true
 ```
 
 ### Step 4: Install Dependencies
