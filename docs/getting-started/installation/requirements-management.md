@@ -28,7 +28,6 @@ Development tools, testing frameworks, and code quality utilities:
 Specialized dependency sets for specific use cases:
 
 - `ai-ml.txt` - AI/ML and translation (torch, transformers, openai, spacy, nltk)
-- `security.txt` - Security and compliance (python-jose, passlib, sentry-sdk)
 - `testing.txt` - Testing and quality (references requirements-dev.txt)
 
 ## Installation Profiles
