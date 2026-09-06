@@ -1148,16 +1148,74 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
     }
 
     /**
-     * @dev Gets the frozen compute/energy terms for a protected escrow.
+     * @dev Gets the frozen compute/energy terms for a protected escrow (core fields).
      * @param _escrowId ID of the escrow
+     *
+     * §5.6: ComputeEscrowTerms has 18 fields, which exceeds the EVM stack
+     * depth in coverage mode (no via_ir). Split into two view functions.
      */
     function getComputeEscrowTerms(uint256 _escrowId)
         external
         view
         escrowExists(_escrowId)
-        returns (ComputeEscrowTerms memory)
+        returns (
+            string memory resourceId,
+            string memory modelId,
+            uint256 gpuCount,
+            uint256 duration,
+            uint256 settlementUnitScale,
+            uint256 tdpWatts,
+            uint256 eurPerKwh,
+            uint256 aitPerEur,
+            uint256 rateVersion,
+            uint256 netEnergyFloor,
+            uint256 buyerMaxTotal,
+            bool isProtected
+        )
     {
-        return computeEscrowTerms[_escrowId];
+        ComputeEscrowTerms storage t = computeEscrowTerms[_escrowId];
+        return (
+            t.resourceId,
+            t.modelId,
+            t.gpuCount,
+            t.duration,
+            t.settlementUnitScale,
+            t.tdpWatts,
+            t.eurPerKwh,
+            t.aitPerEur,
+            t.rateVersion,
+            t.netEnergyFloor,
+            t.buyerMaxTotal,
+            t.isProtected
+        );
+    }
+
+    /**
+     * @dev Gets the rate/timestamp fields of a protected escrow's energy terms.
+     * @param _escrowId ID of the escrow
+     */
+    function getComputeEscrowTermsRate(uint256 _escrowId)
+        external
+        view
+        escrowExists(_escrowId)
+        returns (
+            uint256 rateObservedAt,
+            uint256 rateSubmittedAt,
+            string memory rateSourceKind,
+            uint256 profileRevision,
+            uint256 createdAt,
+            uint256 fundedAt
+        )
+    {
+        ComputeEscrowTerms storage t = computeEscrowTerms[_escrowId];
+        return (
+            t.rateObservedAt,
+            t.rateSubmittedAt,
+            t.rateSourceKind,
+            t.profileRevision,
+            t.createdAt,
+            t.fundedAt
+        );
     }
 
     /**
