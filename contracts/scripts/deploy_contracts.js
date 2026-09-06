@@ -92,6 +92,16 @@ async function main() {
         await aiPowerRental.setPerformanceVerifier(performanceVerifier.address);
         console.log("Performance verifier set in AIPowerRental");
 
+        // §5.7: link DynamicPricing as the energy pricing oracle so
+        // createProtectedRental and startRental can enforce the energy floor.
+        await aiPowerRental.setEnergyPricing(dynamicPricing.address);
+        console.log("Energy pricing (DynamicPricing) set in AIPowerRental");
+
+        // §5.7: enable protected-only mode so legacy createRental is blocked
+        // and all new rentals must go through the energy-floor path.
+        await aiPowerRental.setRequireProtectedRentals(true);
+        console.log("Protected-only rentals enabled in AIPowerRental");
+
         // Set dispute resolver in payment processor
         await paymentProcessor.setDisputeResolver(disputeResolution.address);
         console.log("Dispute resolver set in PaymentProcessor");

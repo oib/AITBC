@@ -942,6 +942,23 @@ async def release_escrow(job_id: str, request: dict[str, Any]) -> dict[str, Any]
     # and must release the full frozen gross amount.
     if escrow_record and escrow_record.protected:
         requested_amount = None
+        # §4.3: enforce that the settlement asset and unit scale match the
+        # frozen quote. A protected rental was priced in a specific asset at a
+        # specific scale; releasing in a different asset or scale would
+        # silently change the economic terms.
+        if escrow_record.energy_settlement_asset and escrow_record.energy_settlement_asset != "AITBC":
+            raise HTTPException(
+                status_code=422,
+                detail=f"Protected escrow settlement asset {escrow_record.energy_settlement_asset} is not supported for native release",
+            )
+        if escrow_record.energy_settlement_unit_scale is not None:
+            from aitbc.utils.units import UNITS_PER_AIT
+
+            if escrow_record.energy_settlement_unit_scale != UNITS_PER_AIT:
+                raise HTTPException(
+                    status_code=422,
+                    detail=f"Protected escrow settlement unit scale {escrow_record.energy_settlement_unit_scale} does not match native scale {UNITS_PER_AIT}",
+                )
         if contract and escrow_record.energy_fee_basis_points is not None:
             contract.fee_rate = Decimal(escrow_record.energy_fee_basis_points) / Decimal(10000)
         if contract and escrow_record.energy_provider_credit_units is not None:
