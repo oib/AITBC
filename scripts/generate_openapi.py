@@ -15,7 +15,7 @@ REPO_ROOT = Path("/opt/aitbc")
 sys.path.insert(0, str(REPO_ROOT))
 
 # Import constants
-from aitbc import (  # noqa: E402
+from aitbc.constants import (  # noqa: E402
     AGENT_COORDINATOR_PORT,
     COORDINATOR_API_PORT,
     MARKETPLACE_PORT,
@@ -38,7 +38,7 @@ os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
 os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
 
-OUTPUT_DIR = REPO_ROOT / "docs" / "openapi"
+OUTPUT_DIR = REPO_ROOT / "docs" / "api"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
 
 
@@ -100,9 +100,9 @@ def main():
     print("=" * 60)
 
     services = [
-        ("app.main", "coordinator-api", "coordinator-api.json"),
-        ("marketplace_service.main", "marketplace", "marketplace.json"),
-        ("app.main", "wallet", "wallet.json"),
+        ("coordinator_api.main", "coordinator-api", "coordinator-api-openapi.json"),
+        ("marketplace_service.main", "marketplace", "marketplace-openapi.json"),
+        ("wallet_app.main", "wallet", "wallet-openapi.json"),
     ]
 
     # Set paths for each service
