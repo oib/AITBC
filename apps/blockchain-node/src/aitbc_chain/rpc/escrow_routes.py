@@ -359,6 +359,28 @@ async def _submit_lock_tx(signed_lock_tx: dict[str, Any]) -> str:
     return str(tx_hash)
 
 
+async def _find_existing_lock(job_id: str) -> str | None:
+    """Return the hash of an ESCROW_LOCK already on-chain for ``job_id``, if any.
+
+    The create endpoint must be idempotent like the release/refund paths: a retry
+    whose first attempt already mined must see the settled lock instead of
+    submitting a second ESCROW_LOCK for the same job.
+    """
+    try:
+        r = await SharedHttpClient.get(
+            f"{_HUB_RPC_URL}/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit={_RELEASE_LOOKUP_LIMIT}"
+        )
+        if r.status_code != 200:
+            return None
+        for tx in r.json() or []:
+            if (tx.get("payload") or {}).get("job_id") == job_id:
+                settled_hash = tx.get("tx_hash")
+                return str(settled_hash) if settled_hash else None
+    except Exception as e:
+        _logger.warning("ESCROW_LOCK: settled-lock lookup failed for job_id=%s: %s", job_id, e)
+    return None
+
+
 async def _find_existing_release(job_id: str) -> str | None:
     """Return the hash of an ESCROW_RELEASE already on-chain for ``job_id``, if any.
 
@@ -636,6 +658,46 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     mgr = get_escrow_manager()
     if mgr is None:
         raise HTTPException(status_code=503, detail="EscrowManager not initialised")
+
+    # Idempotency: a retry whose first create already landed an ESCROW_LOCK
+    # on-chain must not submit a second lock. Mirrors the
+    # _find_existing_release/_find_existing_refund guards on the settlement
+    # paths — this was the one submission path without it.
+    existing_lock_hash = await _find_existing_lock(job_id)
+    if existing_lock_hash:
+        with session_scope() as session:
+            existing_row = session.get(Escrow, job_id)
+        if existing_row and (
+            _to_canonical(existing_row.buyer) != _to_canonical(buyer)
+            or _to_canonical(existing_row.provider) != _to_canonical(provider)
+            or int(existing_row.amount) != ait_to_units(amount_dec)
+        ):
+            raise HTTPException(
+                status_code=409,
+                detail=(
+                    f"escrow for job {job_id} is already locked on-chain with different "
+                    f"parameters (tx {existing_lock_hash})"
+                ),
+            ) from None
+        existing_contract = next(
+            (c for c in mgr.escrow_contracts.values() if c.job_id == job_id), None
+        )
+        _logger.info(
+            "ESCROW_LOCK already settled for job_id=%s (%s); returning existing escrow",
+            job_id,
+            existing_lock_hash,
+        )
+        return {
+            "success": True,
+            "duplicate": True,
+            "contract_id": existing_contract.contract_id if existing_contract else None,
+            "job_id": job_id,
+            "buyer": buyer,
+            "provider": provider,
+            "amount": str(amount_dec),
+            "lock_tx_hash": (existing_row.lock_tx_hash if existing_row and existing_row.lock_tx_hash else existing_lock_hash),
+            "message": "escrow already locked",
+        }
 
     # Accept a pre-built signed lock tx or build one from the provided signature.
     signed_lock_tx = body.get("lock_tx")

@@ -63,13 +63,20 @@ class SettlementReconciler:
         self._session_factory = session_factory or (lambda: Session(get_engine()))
 
     def _find_unsettled(self, session: Any) -> list[Job]:
-        """Completed jobs whose payment is still escrowed past the grace period."""
+        """Completed jobs whose payment is still escrowed past the grace period.
+
+        The gate keys on ``status == 'escrowed'`` alone. It previously also
+        required ``escrowed_at IS NOT NULL``, which let an inconsistently
+        stamped row (status escrowed, timestamp never written — exactly the
+        class that produced the hashless refund rows) escape the sweep forever.
+        ``release_payment`` re-verifies on-chain state before doing anything,
+        so widening the query is safe; being skipped silently is not.
+        """
         cutoff = datetime.now(UTC) - timedelta(seconds=self.min_age_seconds)
         stmt = (
             select(Job)
             .join(JobPayment, Job.payment_id == JobPayment.id)  # type: ignore[arg-type]
             .where(JobPayment.status == "escrowed")
-            .where(JobPayment.escrowed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at.is_not(None))  # type: ignore[union-attr]
             .where(Job.completed_at < cutoff)  # type: ignore[operator]
             .limit(self.batch_size)
