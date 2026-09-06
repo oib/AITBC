@@ -106,6 +106,21 @@ class GPUBuyRequest(BaseModel):
     job_id: str | None = None
     energy_quote: dict[str, Any] | None = None
     protected: bool = False
+    # Native ESCROW_LOCK buyer signature data. When the CLI signs the lock
+    # locally, it forwards these fields so the coordinator can create the
+    # on-chain escrow without signing on the buyer's behalf.
+    buyer_address: str | None = None
+    provider_address: str | None = None
+    buyer_lock_signature: str | None = None
+    buyer_lock_nonce: int | None = None
+    buyer_lock_fee: int | None = None
+    # EVM settlement data. When the buyer funds the rental directly on-chain,
+    # the CLI forwards the confirmed transaction hash and agreement/escrow id
+    # so the coordinator can verify and record the protected rental.
+    evm_tx_hash: str | None = None
+    evm_agreement_id: int | None = None
+    evm_escrow_id: int | None = None
+    settlement_route: str | None = None
 
 
 class GPUQuoteRequest(BaseModel):
@@ -115,6 +130,7 @@ class GPUQuoteRequest(BaseModel):
     gpu_count: int = Field(default=1, ge=1, le=10000)
     buyer_max_amount: Decimal | None = None
     payload: dict[str, Any] | None = None
+    settlement_route: str = Field(default="native", description="Settlement rail: 'native' or 'evm'")
 
 
 class GPUSellRequest(BaseModel):
@@ -183,10 +199,15 @@ def _build_energy_quote(
     duration_hours: float,
     gpu_count: int,
     buyer_cap_units: int | None = None,
+    settlement_route: SettlementRoute = SettlementRoute.NATIVE,
+    settlement_unit_scale: int = NATIVE_UNITS_PER_AIT,
 ) -> dict[str, Any]:
     """Build a signed minimum energy quote for a fixed-duration GPU rental.
 
     Falls back to an informative error dict if the energy oracle is unconfigured.
+    The quote is signed by the coordinator operator when ``energy_operator_key``
+    is configured; otherwise it is returned unsigned (legacy behaviour) so the
+    CLI can detect the missing attestation and refuse to fund.
     """
     oracle = _get_energy_oracle()
     if oracle is None:
@@ -213,6 +234,18 @@ def _build_energy_quote(
     if duration_seconds <= 0:
         duration_seconds = 3600
 
+    # Pin the EVM block for provenance when reading from an EVM oracle so the
+    # quote carries the exact inputs the operator attested to.
+    evm_block_number = None
+    evm_block_hash = None
+    if settlement_route == SettlementRoute.EVM:
+        try:
+            block = oracle.rpc.get_block("latest")
+            evm_block_number = int(block["number"])
+            evm_block_hash = block["hash"]
+        except Exception as exc:
+            logger.warning("Could not pin EVM block for energy quote: %s", exc)
+
     quote = build_minimum_quote(
         profile=profile,
         rate=rate,
@@ -222,8 +255,8 @@ def _build_energy_quote(
         domain=settings.energy_quote_domain,
         chain_id=settings.native_chain_id,
         settlement_asset="AITBC",
-        settlement_unit_scale=NATIVE_UNITS_PER_AIT,
-        settlement_route=SettlementRoute.NATIVE,
+        settlement_unit_scale=settlement_unit_scale,
+        settlement_route=settlement_route,
         gpu_count=gpu_count,
         duration_seconds=duration_seconds,
         buyer_cap_units=buyer_cap_units,
@@ -231,8 +264,34 @@ def _build_energy_quote(
         quote_lifetime_seconds=settings.energy_quote_lifetime_seconds,
         evm_chain_id=settings.energy_pricing_chain_id,
         evm_contract=settings.energy_pricing_contract_address,
+        evm_block_number=evm_block_number,
+        evm_block_hash=evm_block_hash,
+        operator_address=settings.energy_operator_address,
     )
-    return quote.to_dict(include_signature=False)
+
+    # Sign the quote with the operator key when configured. The signature is
+    # produced over the SHA-256 digest of the canonical quote JSON, matching
+    # ``EnergyQuote.verify_operator_signature`` on the CLI side.
+    operator_key = settings.energy_operator_key
+    if operator_key is not None and settings.energy_operator_address:
+        from aitbc.crypto.crypto import sign_transaction_hash
+
+        try:
+            signature_hex = sign_transaction_hash(
+                "0x" + quote.digest_sha256().hex(),
+                operator_key.get_secret_value(),
+            )
+            quote = quote.with_operator_signature(
+                operator_address=settings.energy_operator_address,
+                operator_signature=bytes.fromhex(signature_hex.removeprefix("0x")),
+            )
+        except Exception as exc:
+            logger.error("Failed to sign energy quote: %s", exc)
+            raise HTTPException(
+                status_code=http_status.HTTP_500_INTERNAL_SERVER_ERROR,
+                detail="Failed to sign energy quote",
+            ) from exc
+    return quote.to_dict(include_signature=True)
 
 
 @router.post("/marketplace/gpu/register")
@@ -374,6 +433,21 @@ async def quote_gpu(
     if request.buyer_max_amount is not None:
         buyer_cap_units = ait_to_units(request.buyer_max_amount)
 
+    # Resolve the settlement rail and unit scale for this quote.
+    try:
+        settlement_route = SettlementRoute(request.settlement_route)
+    except ValueError:
+        raise HTTPException(
+            status_code=http_status.HTTP_422_UNPROCESSABLE_ENTITY,
+            detail=f"Invalid settlement_route: {request.settlement_route}",
+        ) from None
+    if settlement_route == SettlementRoute.EVM:
+        from aitbc.marketplace.energy_pricing import EVM_UNITS_PER_AIT
+
+        settlement_unit_scale = EVM_UNITS_PER_AIT
+    else:
+        settlement_unit_scale = NATIVE_UNITS_PER_AIT
+
     quote_dict = _build_energy_quote(
         gpu=gpu,
         buyer=request.buyer_id,
@@ -381,6 +455,8 @@ async def quote_gpu(
         duration_hours=request.duration_hours,
         gpu_count=request.gpu_count,
         buyer_cap_units=buyer_cap_units,
+        settlement_route=settlement_route,
+        settlement_unit_scale=settlement_unit_scale,
     )
     quote = EnergyQuote.from_dict(quote_dict)
     # Validate that the minimum quote fits under the buyer cap and current freshness.
@@ -407,6 +483,7 @@ async def quote_gpu(
         "resource_id": gpu.resource_id,
         "duration_hours": request.duration_hours,
         "gpu_count": request.gpu_count,
+        "settlement_route": settlement_route.value,
         "energy_quote": quote_dict,
         "buyer_charge_ait": units_to_ait(result.breakdown.buyer_charge_units) if result.breakdown else None,
     }
@@ -574,14 +651,32 @@ async def buy_gpu(
             payment_session = SQLModelSession(bind=session.bind)
             payment_service = PaymentService(payment_session)
             quote_payload = request.energy_quote or (job.energy_quote_snapshot if request.job_id else None)
+
+            # Resolve the payment method. The CLI sends "blockchain" for the
+            # legacy native path or "evm" for EVM-protected rentals. The
+            # PaymentService expects "aitbc_token" for the native rail and
+            # "evm" for the EVM rail.
+            if request.payment_method == "blockchain":
+                payment_method = "aitbc_token"
+            else:
+                payment_method = request.payment_method
+
             payment_create = JobPaymentCreate(
                 job_id=job.id,
                 amount=total_cost,
                 currency="AITBC",
-                payment_method="aitbc_token" if request.payment_method == "blockchain" else request.payment_method,
+                payment_method=payment_method,
                 escrow_timeout_seconds=int(duration_hours * 3600),
                 protected=booking.protected,
                 energy_quote=quote_payload,
+                buyer_address=request.buyer_address,
+                provider_address=request.provider_address,
+                buyer_lock_signature=request.buyer_lock_signature,
+                buyer_lock_nonce=request.buyer_lock_nonce,
+                buyer_lock_fee=request.buyer_lock_fee,
+                evm_tx_hash=request.evm_tx_hash,
+                evm_agreement_id=request.evm_agreement_id,
+                evm_escrow_id=request.evm_escrow_id,
             )
             # V23-46: client_id was missing entirely (TypeError). The job above was
             # created with client_id=request.buyer_id, which is what the ownership

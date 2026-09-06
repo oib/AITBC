@@ -224,6 +224,49 @@ class EthereumRPCClient:
             call_kwargs["block_identifier"] = block_identifier
         return fn(*(args or [])).call(**call_kwargs)
 
+    def encode_function_call(
+        self,
+        abi: list,
+        function_name: str,
+        args: list | None = None,
+    ) -> str:
+        """Encode a contract function call and return the hex calldata."""
+        from web3 import Web3
+
+        w3 = self._get_web3()
+        contract = w3.eth.contract(abi=abi)
+        fn = contract.functions[function_name]
+        return fn(*(args or []))._encode_transaction_data().hex()
+
+    def sign_transaction(self, tx: dict[str, Any], private_key: str) -> str:
+        """Sign an EVM transaction and return the raw signed hex string.
+
+        ``tx`` should contain ``to``, ``nonce``, ``gas``, ``gasPrice``,
+        ``chainId``, ``data``, and ``value``. The ``from`` field is ignored
+        (the signer is derived from ``private_key``).
+        """
+        from web3 import Web3
+
+        w3 = self._get_web3()
+        # web3 expects checksummed addresses for contract calls
+        to = tx.get("to")
+        if to and isinstance(to, str):
+            tx = {**tx, "to": Web3.to_checksum_address(to)}
+        signed = w3.eth.account.sign_transaction(tx, private_key)
+        return signed.raw_transaction.hex()
+
+    def send_raw_transaction(self, raw_tx_hex: str) -> str:
+        """Submit a raw signed transaction and return the tx hash hex."""
+        from web3 import Web3
+
+        w3 = self._get_web3()
+        if raw_tx_hex.startswith("0x"):
+            raw_bytes = bytes.fromhex(raw_tx_hex[2:])
+        else:
+            raw_bytes = bytes.fromhex(raw_tx_hex)
+        tx_hash = w3.eth.send_raw_transaction(raw_bytes)
+        return tx_hash.hex()
+
     def wait_for_transaction(self, tx_hash: str, timeout: int = 120, poll_interval: int = 5) -> dict[str, Any] | None:
         """Poll for transaction confirmation up to timeout seconds."""
         deadline = time.time() + timeout
