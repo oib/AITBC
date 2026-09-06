@@ -249,15 +249,15 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         require(_availability <= 100, "Invalid availability");
 
         // Get agreement details
-        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(_agreementId);
-        require(agreement.provider != address(0), "Invalid agreement");
+        (, address agreementProvider, , , , , , , , , , ) = aiPowerRental.getRentalAgreement(_agreementId);
+        require(agreementProvider != address(0), "Invalid agreement");
 
         uint256 verificationId = verificationCounter++;
 
         performanceMetrics[verificationId] = PerformanceMetrics({
             verificationId: verificationId,
             agreementId: _agreementId,
-            provider: agreement.provider,
+            provider: agreementProvider,
             responseTime: _responseTime,
             accuracy: _accuracy,
             availability: _availability,
@@ -449,18 +449,18 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         }
 
         // Get agreement details to calculate penalty amount
-        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
+        (, , , , uint256 agreementPrice, , , , , , , ) = aiPowerRental.getRentalAgreement(metrics.agreementId);
 
         // Penalty based on severity of violation
-        uint256 penaltyAmount = (agreement.price * penaltyPercentage) / 10000;
+        uint256 penaltyAmount = (agreementPrice * penaltyPercentage) / 10000;
 
         // Additional penalties for severe violations
         if (metrics.responseTime > maxResponseTime * 2) {
-            penaltyAmount += (agreement.price * 1000) / 10000; // Additional 10%
+            penaltyAmount += (agreementPrice * 1000) / 10000; // Additional 10%
         }
 
         if (metrics.accuracy < minAccuracy - 10) {
-            penaltyAmount += (agreement.price * 1000) / 10000; // Additional 10%
+            penaltyAmount += (agreementPrice * 1000) / 10000; // Additional 10%
         }
 
         return penaltyAmount;
@@ -483,18 +483,18 @@ contract PerformanceVerifier is Ownable, ReentrancyGuard, Pausable {
         }
 
         // Get agreement details
-        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
+        (, , , , uint256 agreementPrice, , , , , , , ) = aiPowerRental.getRentalAgreement(metrics.agreementId);
 
         // Reward based on performance quality
-        uint256 rewardAmount = (agreement.price * rewardPercentage) / 10000;
+        uint256 rewardAmount = (agreementPrice * rewardPercentage) / 10000;
 
         // Additional rewards for exceptional performance
         if (metrics.responseTime < maxResponseTime / 2) {
-            rewardAmount += (agreement.price * 500) / 10000; // Additional 5%
+            rewardAmount += (agreementPrice * 500) / 10000; // Additional 5%
         }
 
         if (metrics.accuracy > minAccuracy + 5) {
-            rewardAmount += (agreement.price * 500) / 10000; // Additional 5%
+            rewardAmount += (agreementPrice * 500) / 10000; // Additional 5%
         }
 
         return rewardAmount;
@@ -647,13 +647,13 @@ function verifyPerformanceProof(
         metrics.status = VerificationStatus.Verified;
 
         // Get agreement details for reward/penalty
-        AIPowerRental.RentalAgreement memory agreement = aiPowerRental.getRentalAgreement(metrics.agreementId);
+        (, address agreementProvider, , , , , , , , , , ) = aiPowerRental.getRentalAgreement(metrics.agreementId);
 
         // Execute SLA logic (distribute rewards/penalties)
         if (metrics.score >= minAccuracy) {
-            _rewardProvider(agreement.provider, metrics.agreementId);
+            _rewardProvider(agreementProvider, metrics.agreementId);
         } else {
-            _penalizeProvider(agreement.provider, metrics.agreementId);
+            _penalizeProvider(agreementProvider, metrics.agreementId);
         }
     }
 
