@@ -64,7 +64,23 @@ contract DynamicPricingConditionalTest is Test {
     }
 
     function _price() internal view returns (uint256) {
-        return pricing.getMarketData(0).averagePrice;
+        (, , , , uint256 averagePrice, , , , , , , , ) = pricing.getMarketData(0);
+        return averagePrice;
+    }
+
+    function _marketAveragePrice(DynamicPricing p) internal view returns (uint256) {
+        (, , , , uint256 averagePrice, , , , , , , , ) = p.getMarketData(0);
+        return averagePrice;
+    }
+
+    function _marketIsActive(DynamicPricing p) internal view returns (bool) {
+        (, , , , , , , , , , , , bool isMarketActive) = p.getMarketData(0);
+        return isMarketActive;
+    }
+
+    function _marketLastUpdateTime(DynamicPricing p, uint256 ts) internal view returns (uint256) {
+        (, , , , , , , uint256 lastUpdateTime, , , , , ) = p.getMarketData(ts);
+        return lastUpdateTime;
     }
 
     // ---- _calculateDynamicPrice: supply/demand arms ------------------------
@@ -95,7 +111,7 @@ contract DynamicPricingConditionalTest is Test {
         fresh.authorizePriceOracle(oracle);
         vm.prank(oracle);
         fresh.updateMarketData(1000, 500, 1, 1, 0, 0, 0, 0, 50); // util 5000, no premium
-        assertGt(high, fresh.getMarketData(0).averagePrice, "high utilization must price above mid");
+        assertGt(high, _marketAveragePrice(fresh), "high utilization must price above mid");
     }
 
     function test_LowUtilization_AppliesDiscount() public {
@@ -124,8 +140,8 @@ contract DynamicPricingConditionalTest is Test {
         vm.prank(oracle);
         low.updateMarketData(1000, 500, 1, 1, 0, 0, 0, 0, 10);
 
-        assertGt(highSent, mid.getMarketData(0).averagePrice, "high sentiment premium");
-        assertGt(mid.getMarketData(0).averagePrice, low.getMarketData(0).averagePrice, "low sentiment discount");
+        assertGt(highSent, _marketAveragePrice(mid), "high sentiment premium");
+        assertGt(_marketAveragePrice(mid), _marketAveragePrice(low), "low sentiment discount");
     }
 
     // ---- _calculateDynamicPrice: bounds arms -------------------------------
@@ -228,15 +244,15 @@ contract DynamicPricingConditionalTest is Test {
     function test_MarketActiveRequiresBothSides() public {
         vm.prank(oracle);
         pricing.updateMarketData(1000, 500, 1, 1, 0, 0, 0, 0, 50);
-        assertTrue(pricing.getMarketData(0).isMarketActive, "providers and consumers present");
+        assertTrue(_marketIsActive(pricing), "providers and consumers present");
 
         vm.prank(oracle);
         pricing.updateMarketData(1000, 500, 0, 1, 0, 0, 0, 0, 50);
-        assertFalse(pricing.getMarketData(0).isMarketActive, "no providers");
+        assertFalse(_marketIsActive(pricing), "no providers");
 
         vm.prank(oracle);
         pricing.updateMarketData(1000, 500, 1, 0, 0, 0, 0, 0, 50);
-        assertFalse(pricing.getMarketData(0).isMarketActive, "no consumers");
+        assertFalse(_marketIsActive(pricing), "no consumers");
     }
 
     // ---- getMarketPrice conditional arms -----------------------------------
@@ -266,10 +282,10 @@ contract DynamicPricingConditionalTest is Test {
 
     function test_GetMarketData_TimestampSearchFindsEarlierEntry() public {
         _update(1000, 500, 50);
-        uint256 firstTime = pricing.getMarketData(0).lastUpdateTime;
+        uint256 firstTime = _marketLastUpdateTime(pricing, 0);
         vm.warp(block.timestamp + 1000);
         _update(1000, 900, 50);
-        assertEq(pricing.getMarketData(firstTime).lastUpdateTime, firstTime, "must find the earlier entry");
+        assertEq(_marketLastUpdateTime(pricing, firstTime), firstTime, "must find the earlier entry");
     }
 
     function test_GetMarketData_RevertsWhenNoDataAtOrBeforeTimestamp() public {

@@ -611,20 +611,54 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
     function getMarketData(uint256 _timestamp)
         external
         view
-        returns (MarketData memory)
+        returns (
+            uint256 totalSupply,
+            uint256 totalDemand,
+            uint256 activeProviders,
+            uint256 activeConsumers,
+            uint256 averagePrice,
+            uint256 priceVolatility,
+            uint256 utilizationRate,
+            uint256 lastUpdateTime,
+            uint256 totalVolume,
+            uint256 transactionCount,
+            uint256 averageResponseTime,
+            uint256 averageAccuracy,
+            uint256 marketSentiment,
+            bool isMarketActive
+        )
     {
+        MarketData memory data;
         if (_timestamp == 0 && priceUpdateCounter > 0) {
-            return marketDataHistory[priceUpdateCounter - 1];
-        }
-
-        // Find closest timestamp
-        for (uint256 i = priceUpdateCounter; i > 0; i--) {
-            if (marketDataHistory[i - 1].lastUpdateTime <= _timestamp) {
-                return marketDataHistory[i - 1];
+            data = marketDataHistory[priceUpdateCounter - 1];
+        } else {
+            // Find closest timestamp
+            bool found = false;
+            for (uint256 i = priceUpdateCounter; i > 0; i--) {
+                if (marketDataHistory[i - 1].lastUpdateTime <= _timestamp) {
+                    data = marketDataHistory[i - 1];
+                    found = true;
+                    break;
+                }
             }
+            if (!found) revert("No market data found for timestamp");
         }
-
-        revert("No market data found for timestamp");
+        return (
+            data.totalSupply,
+            data.totalDemand,
+            data.activeProviders,
+            data.activeConsumers,
+            data.averagePrice,
+            data.priceVolatility,
+            data.utilizationRate,
+            data.lastUpdateTime,
+            data.totalVolume,
+            data.transactionCount,
+            data.averageResponseTime,
+            data.averageAccuracy,
+            data.marketSentiment,
+            data.isMarketActive
+        );
     }
 
     /**
