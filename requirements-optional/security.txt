@@ -4,5 +4,5 @@
 # These packages are also present (and pinned) in ../requirements.txt.
 # This file exists for backward compatibility with install-profiles.sh.
 
-cryptography==48.0.1
+cryptography==50.0.0
 sentry-sdk==2.61.1
