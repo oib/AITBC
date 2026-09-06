@@ -39,6 +39,8 @@ def _run_alembic_upgrade(app_dir: Path, alembic_ini: str, db_path: Path, extra_e
 
     Raises ``AssertionError`` if the migration fails.
     """
+    import os as _os
+
     from alembic.config import Config
     from alembic import command
 
@@ -50,15 +52,21 @@ def _run_alembic_upgrade(app_dir: Path, alembic_ini: str, db_path: Path, extra_e
     if extra_env:
         env.update(extra_env)
 
-    old_environ = os.environ.copy()
-    os.environ.update(env)
+    old_environ = _os.environ.copy()
+    old_cwd = Path.cwd()
+    _os.environ.update(env)
+    # alembic.ini uses a relative script_location (e.g. ``alembic`` or
+    # ``migrations``), so we must chdir to the app directory for Alembic to
+    # find the versions folder.
+    _os.chdir(str(app_dir))
     try:
         cfg = Config(str(app_dir / alembic_ini))
         cfg.set_main_option("sqlalchemy.url", db_url)
         command.upgrade(cfg, "head")
     finally:
-        os.environ.clear()
-        os.environ.update(old_environ)
+        _os.chdir(str(old_cwd))
+        _os.environ.clear()
+        _os.environ.update(old_environ)
 
 
 @pytest.fixture
