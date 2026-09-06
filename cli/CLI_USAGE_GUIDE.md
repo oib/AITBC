@@ -36,9 +36,9 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `gpu` — Local GPU service commands for hardware management. Subcommands: `discover`, `list-gpus`, `register`, `unregister`, `update`
 - `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `list`, `query`, `register`
 - `grant` — DAO grant proposal commands.. Subcommands: `create`, `disburse`, `list`, `vote`
-- `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `host`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload`
+- `ipfs` — Local content-addressed storage (IPFS-compatible surface).. Subcommands: `download`, `host`, `island`, `list`, `pin`, `rentals`, `token`, `unpin`, `upload`
 - `list` — Legacy wallet list alias
-- `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
+- `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `gpu`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
 - `messaging` — Messaging system and forum operations. Subcommands: `list`, `send`, `topic`
 - `mining` — Mining operations commands. Subcommands: `list`, `start`, `status`, `stop`
 - `monitor` — Monitoring, metrics, and alerting commands. Subcommands: `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks`
