@@ -467,3 +467,22 @@ class TestZkRefundSweeper:
         assert counts["refunded"] == 0
         assert counts["failed"] == 0
         mock_service.refund_payment.assert_not_called()
+
+    @patch("coordinator_api.contexts.payments.services.zk_refund_sweeper.PaymentService")
+    def test_sweep_skips_when_another_worker_holds_the_lock(
+        self, mock_service_cls, sweep_session, tmp_path
+    ):
+        """The sweep lock is what replaces ``--workers 1``: a second worker skips."""
+        import filelock
+
+        lock_path = str(tmp_path / "zk_sweep.lock")
+        held = filelock.FileLock(lock_path)
+        held.acquire()
+        try:
+            sweeper = ZkRefundSweeper(session_factory=lambda: sweep_session, lock_path=lock_path)
+            counts = asyncio.run(sweeper.run_once())
+        finally:
+            held.release()
+
+        assert counts == {"candidates": 0, "refunded": 0, "failed": 0, "skipped": 1}
+        mock_service_cls.assert_not_called()
