@@ -409,18 +409,33 @@ check_database() {
 }
 
 # Check Redis connectivity
+# Redis is usually authenticated. Pull REDIS_URL from the environment or the
+# secrets file so the ping actually proves reachability rather than a NOAUTH
+# response.
 check_redis() {
-    if command -v redis-cli &> /dev/null; then
-        if redis-cli -h localhost ping 2>/dev/null | grep -q PONG; then
-            success "Redis is reachable"
-            return 0
-        else
-            error "Redis is not reachable"
-            return 1
-        fi
-    else
+    if ! command -v redis-cli &> /dev/null; then
         warning "redis-cli not available, skipping Redis check"
         return 0
+    fi
+
+    if [ -z "${REDIS_URL:-}" ] && [ -f "/etc/aitbc/blockchain-secrets.env" ]; then
+        # shellcheck disable=SC1091
+        source /etc/aitbc/blockchain-secrets.env 2>/dev/null || true
+    fi
+
+    local redis_ping
+    if [ -n "${REDIS_URL:-}" ]; then
+        redis_ping=$(redis-cli -u "$REDIS_URL" ping 2>/dev/null | tr -d '\r')
+    else
+        redis_ping=$(redis-cli -h localhost ping 2>/dev/null | tr -d '\r')
+    fi
+
+    if [ "$redis_ping" = "PONG" ]; then
+        success "Redis is reachable"
+        return 0
+    else
+        error "Redis is not reachable"
+        return 1
     fi
 }
 
