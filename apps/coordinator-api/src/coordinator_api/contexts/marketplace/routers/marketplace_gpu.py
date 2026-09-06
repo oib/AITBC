@@ -608,8 +608,6 @@ async def buy_gpu(
     # never succeeded, so we don't return a fake "purchased" status.
     if payment_status in ("failed", "skipped") or job_id is None:
         if job_id is not None:
-            from ....contexts.infrastructure.domain import Job
-
             existing_job = session.get(Job, job_id)
             if existing_job and existing_job.state in ("QUEUED", "RUNNING"):
                 existing_job.state = "CANCELED"
