@@ -6,7 +6,8 @@
         "/opt/aitbc/mcp-server/aitbc_mcp_server.py"
       ],
       "env": {
-        "AITBC_MCP_LOG_LEVEL": "INFO"
+        "AITBC_MCP_LOG_LEVEL": "INFO",
+        "AITBC_MCP_AITBC_CLI": "/usr/local/bin/aitbc"
       }
     }
   }
