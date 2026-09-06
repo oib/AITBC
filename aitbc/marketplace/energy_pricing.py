@@ -388,6 +388,7 @@ def to_scaled(
         raise EnergyPricingError(
             f"{name} must be Decimal or str, got {type(value).__name__}"
         )
+    assert isinstance(dec, Decimal)
     if not dec.is_finite() or dec <= 0:
         raise EnergyPricingError(f"{name} must be finite and positive: {dec}")
     if dec.as_tuple().exponent < -18:
