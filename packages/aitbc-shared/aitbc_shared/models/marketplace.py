@@ -37,6 +37,11 @@ class MarketplaceOffer(SQLModel, table=True):
     region: str | None = Field(default=None, index=True)
     # v0.6.6: Chain awareness — which chain this offer is on
     chain_id: str | None = Field(default=None, index=True)
+    # E1: resource binding for fixed-duration GPU energy-floor quotes.
+    resource_id: str | None = Field(default=None)
+    model_id: str | None = Field(default=None)
+    protected: bool = Field(default=False)
+    energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
 
 class MarketplaceBid(SQLModel, table=True):

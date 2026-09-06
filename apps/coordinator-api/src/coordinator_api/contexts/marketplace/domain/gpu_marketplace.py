@@ -20,6 +20,7 @@ class GPURegistry(SQLModel, table=True):
     id: str = Field(default_factory=lambda: f"gpu_{uuid4().hex[:8]}", primary_key=True)
     miner_id: str = Field(index=True)
     model: str = Field(index=True)
+    model_id: str | None = Field(default=None, index=True)
     memory_gb: int = Field(default=0)
     cuda_version: str = Field(default="")
     region: str = Field(default="", index=True)
@@ -29,6 +30,10 @@ class GPURegistry(SQLModel, table=True):
     average_rating: float = Field(default=0.0)
     total_reviews: int = Field(default=0)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
+    # E1: energy-floor resource binding. The authoritative tariff/power live on the
+    # EVM IEnergyPricing contract; these fields bind the listing to a resource.
+    resource_id: str | None = Field(default=None, index=True)
+    protected: bool = Field(default=False)
 
 
 class GPUBooking(SQLModel, table=True):
@@ -48,6 +53,15 @@ class GPUBooking(SQLModel, table=True):
     start_time: datetime = Field(default_factory=lambda: datetime.now(UTC))
     end_time: datetime | None = Field(default=None)
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False)
+    # E1: protected rental snapshot, immutable once funded.
+    protected: bool = Field(default=False)
+    resource_id: str | None = Field(default=None, index=True)
+    model_id: str | None = Field(default=None, index=True)
+    gpu_count: int | None = Field(default=None)
+    duration_seconds: int | None = Field(default=None)
+    energy_quote_snapshot: dict[str, Any] | None = Field(
+        default=None, sa_column=Column(JSON, nullable=True)
+    )
 
 
 class GPUReview(SQLModel, table=True):

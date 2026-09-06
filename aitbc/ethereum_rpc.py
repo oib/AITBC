@@ -203,15 +203,26 @@ class EthereumRPCClient:
         abi: list,
         function_name: str,
         args: list | None = None,
+        block_identifier: int | str | None = None,
     ) -> Any:
-        """Call a read-only contract function."""
+        """Call a read-only contract function.
+
+        ``block_identifier`` pins the read to a specific block number, hash, or
+        tag (e.g. ``"latest"``). Pinned reads are required for energy-rate
+        provenance so a quote's inputs cannot be silently replaced between
+        quote creation and funding. Existing callers that omit the argument
+        keep the previous default behaviour.
+        """
         from web3 import Web3
 
         w3 = self._get_web3()
         checksum = Web3.to_checksum_address(contract_address)
         contract = w3.eth.contract(address=checksum, abi=abi)
         fn = contract.functions[function_name]
-        return fn(*(args or [])).call()
+        call_kwargs: dict[str, Any] = {}
+        if block_identifier is not None:
+            call_kwargs["block_identifier"] = block_identifier
+        return fn(*(args or [])).call(**call_kwargs)
 
     def wait_for_transaction(self, tx_hash: str, timeout: int = 120, poll_interval: int = 5) -> dict[str, Any] | None:
         """Poll for transaction confirmation up to timeout seconds."""

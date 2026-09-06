@@ -350,5 +350,63 @@ class TestEscrowManager:
         assert stats["total_contracts"] >= 5
 
 
+    def test_protected_contract_release_enforces_floor(self):
+        """Protected fixed-duration rentals pay the provider the frozen credit."""
+        amount = Decimal("0.20307694")
+        success, _, contract_id = asyncio.run(
+            self.escrow_manager.create_contract(
+                job_id="job-protected-001",
+                client_address="0x1234567890123456789012345678901234567890",
+                agent_address="0x2345678901234567890123456789012345678901",
+                amount=amount,
+                protected=True,
+                energy_quote_id="quote-001",
+                energy_net_floor_units=7_128_000,
+                energy_provider_credit_units=7_128_001,
+                energy_fee_basis_points=250,
+            )
+        )
+        assert success
+
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.start_job(contract_id))
+        asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
+        asyncio.run(self.escrow_manager.verify_milestone(contract_id, "milestone_1"))
+
+        success, message = asyncio.run(self.escrow_manager.release_payment(contract_id))
+        assert success, message
+
+        contract = asyncio.run(self.escrow_manager.get_contract_info(contract_id))
+        assert contract.state == EscrowState.RELEASED
+        assert contract.released_amount >= Decimal("0.198")
+
+    def test_protected_contract_release_refuses_under_floor(self):
+        """A release that cannot cover the frozen credit is refused."""
+        amount = Decimal("0.001")
+        success, _, contract_id = asyncio.run(
+            self.escrow_manager.create_contract(
+                job_id="job-protected-002",
+                client_address="0x1234567890123456789012345678901234567890",
+                agent_address="0x2345678901234567890123456789012345678901",
+                amount=amount,
+                protected=True,
+                energy_quote_id="quote-002",
+                energy_net_floor_units=7_128_000,
+                energy_provider_credit_units=7_128_001,
+                energy_fee_basis_points=250,
+            )
+        )
+        assert success
+
+        asyncio.run(self.escrow_manager.fund_contract(contract_id, "tx_hash_001"))
+        asyncio.run(self.escrow_manager.start_job(contract_id))
+        asyncio.run(self.escrow_manager.complete_milestone(contract_id, "milestone_1"))
+        asyncio.run(self.escrow_manager.verify_milestone(contract_id, "milestone_1"))
+
+        success, message = asyncio.run(self.escrow_manager.release_payment(contract_id))
+        assert not success
+        assert "floor" in message.lower()
+
+
 if __name__ == "__main__":
     pytest.main([__file__])
