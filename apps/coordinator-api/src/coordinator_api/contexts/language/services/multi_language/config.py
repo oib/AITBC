@@ -112,20 +112,6 @@ class MultiLanguageConfig:
                 "consistency": 0.4,
             },
             "weights": {"confidence": 0.3, "length_ratio": 0.2, "semantic_similarity": 0.3, "bleu": 0.2, "consistency": 0.1},
-            "models": {
-                "spacy_models": {
-                    "en": "en_core_web_sm",
-                    "zh": "zh_core_web_sm",
-                    "es": "es_core_news_sm",
-                    "fr": "fr_core_news_sm",
-                    "de": "de_core_news_sm",
-                    "ja": "ja_core_news_sm",
-                    "ko": "ko_core_news_sm",
-                    "ru": "ru_core_news_sm",
-                },
-                "download_missing": True,
-                "fallback_model": "en_core_web_sm",
-            },
             "features": {
                 "enable_bleu": True,
                 "enable_semantic": True,
