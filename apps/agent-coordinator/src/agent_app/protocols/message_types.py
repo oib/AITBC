@@ -494,22 +494,3 @@ def create_consensus_message(
         consensus_id=str(uuid.uuid4()), proposal=proposal, voting_options=voting_options, voting_deadline=deadline
     )
     return AgentMessage(sender_id=sender_id, message_type=MessageType.CONSENSUS, payload=consensus_msg.dict())
-
-
-async def example_usage() -> None:
-    """Example of how to use the message routing system"""
-    processor = MessageProcessor("agent-001")
-
-    async def process_task(message: AgentMessage) -> None:
-        task_data = TaskMessage(**message.payload)
-        logger.info("Processing task: %s", task_data.task_id)
-
-    processor.register_processor(MessageType.TASK_ASSIGNMENT, process_task)
-    task_message = create_task_message(
-        sender_id="agent-001", receiver_id="agent-002", task_type="data_processing", task_data={"input": "test_data"}
-    )
-    await processor.message_queue.enqueue(task_message)
-
-
-if __name__ == "__main__":
-    asyncio.run(example_usage())

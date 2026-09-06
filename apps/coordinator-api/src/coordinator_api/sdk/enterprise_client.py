@@ -444,28 +444,6 @@ async def create_salesforce_integration(
     return await enterprise_client.create_integration(config)
 
 
-async def example_usage() -> None:
-    """Example usage of the Enterprise SDK"""
-    config = EnterpriseConfig(
-        tenant_id="enterprise_tenant_123", client_id="enterprise_client_456", client_secret="enterprise_secret_789"
-    )
-    async with EnterpriseClient(config) as client:
-        sap_result = await create_sap_integration(client, "DEV", "100", "sap_user", "sap_pass", "sap.example.com")
-        if sap_result.success and sap_result.data:
-            integration_id = sap_result.data["integration_id"]
-            test_result = await client.test_integration(integration_id)
-            if test_result.success:
-                logger.info("SAP integration test passed")
-                erp = ERPIntegration(client)
-                customers_result = await erp.sync_customers(integration_id)
-                if customers_result.success and customers_result.data:
-                    customers = customers_result.data["data"]["customers"]
-                    logger.info("Synced %s customers", len(customers))
-        analytics = await client.get_analytics()
-        if analytics.success and analytics.data:
-            logger.info("API calls: %s", analytics.data["api_calls_total"])
-
-
 __all__ = [
     "EnterpriseClient",
     "EnterpriseConfig",
@@ -474,5 +452,4 @@ __all__ = [
     "WebhookHandler",
     "create_sap_integration",
     "create_salesforce_integration",
-    "example_usage",
 ]
