@@ -544,6 +544,47 @@ exec /opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"'
 }
 
 # ----------------------------------------------------------------------------
+# Step 4e: Scope consensus-signing keys to the blockchain services
+# ----------------------------------------------------------------------------
+# VALIDATOR_KEYS / PROPOSER_KEY must not live in the shared
+# blockchain-secrets.env (loaded by every aitbc service). Move them to the
+# root-only validator-secrets.env, which only the blockchain units read.
+ensure_validator_secrets_scope() {
+    log "Step 4e: Checking consensus-signing secret scope..."
+    local secrets_env="/etc/aitbc/blockchain-secrets.env"
+    local validator_env="/etc/aitbc/validator-secrets.env"
+    local var src moved=0
+
+    for var in PROPOSER_KEY VALIDATOR_KEYS; do
+        for src in "$secrets_env" "$BLOCKCHAIN_ENV_FILE" "$NODE_ENV_FILE"; do
+            [ -f "$src" ] || continue
+            if grep -q "^${var}=" "$src" 2>/dev/null; then
+                umask 077
+                touch "$validator_env"
+                if ! grep -q "^${var}=" "$validator_env" 2>/dev/null; then
+                    grep -E "^${var}=" "$src" | head -n1 >> "$validator_env"
+                    log "Moved $var from $src -> $validator_env"
+                    moved=1
+                else
+                    log "Dropped duplicate $var from $src (already in $validator_env)"
+                fi
+                sed -i "/^${var}=/d" "$src"
+            fi
+        done
+    done
+
+    if [ -f "$validator_env" ]; then
+        chown root:root "$validator_env"
+        chmod 600 "$validator_env"
+    fi
+    if [ "$moved" -eq 0 ]; then
+        log "Signing secrets already scoped (or absent) — nothing to move"
+    else
+        success "Consensus-signing secrets scoped to $validator_env"
+    fi
+}
+
+# ----------------------------------------------------------------------------
 # Step 4c: Ensure consensus-safety env defaults
 # ----------------------------------------------------------------------------
 ensure_consensus_env_defaults() {
@@ -839,6 +880,7 @@ main() {
     ensure_aitbc_wrapper
     ensure_consensus_env_defaults
     ensure_gossip_defaults
+    ensure_validator_secrets_scope
 
     if [ "$DO_MIGRATE" = "true" ]; then
         run_migrations || exit 1
