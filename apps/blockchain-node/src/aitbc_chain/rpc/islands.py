@@ -78,13 +78,15 @@ def _build_join_credentials(
     """Build the credentials block returned to a joining node."""
     hub_host = settings.hub_discovery_url or socket.gethostname()
     # Prefer an explicit operator override, then the forwarded scheme, then the
-    # ASGI scheme, then http as a safe local default.
+    # ASGI scheme, then https as the production default.
     public_scheme = (
         os.getenv("AITBC_PROTOCOL")
         or (request.headers.get("x-forwarded-proto") if request else None)
         or (request.url.scheme if request else None)
-        or "http"
-    )
+        or "https"
+    ).lower()
+    if public_scheme not in ("http", "https"):
+        public_scheme = "https"
     public_rpc = os.getenv("RPC_PUBLIC_ENDPOINT", f"{public_scheme}://{hub_host}/rpc")
     credentials: dict[str, Any] = {
         "chain_id": island_chain_id,
