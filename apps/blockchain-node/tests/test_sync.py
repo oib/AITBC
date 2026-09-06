@@ -559,7 +559,9 @@ class TestChainSyncBulkImport:
             assert len(stored_txs) == 2
 
     def test_enforced_state_root_mismatch_rolls_back_block(self, session_factory, monkeypatch):
-        monkeypatch.setattr(sync_settings, "enforce_state_root_validation", True)
+        # The old enforce_state_root_validation flag was dead — the real gate is
+        # sync_state_root_validation_enabled (default True), which makes
+        # skip_state_root_validation=False the default for import_block.
         sync = ChainSync(session_factory, chain_id="test", validate_signatures=False)
         blocks = _seed_chain(session_factory, count=1, chain_id="test")
         last = blocks[-1]

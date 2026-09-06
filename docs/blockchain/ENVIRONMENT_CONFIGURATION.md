@@ -226,7 +226,7 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `ENFORCE_STATE_ROOT_VALIDATION` | No | `false` | Enable state root validation |
+| `SYNC_STATE_ROOT_VALIDATION_ENABLED` | No | `true` | Validate state roots on sync/bulk import (`enforce_state_root_validation` was removed — it was never read) |
 | `WORKERS` | No | `1` | Number of worker processes |
 
 ### Monitoring
@@ -298,7 +298,7 @@ supported_chains=ait-mainnet,ait-testnet
 db_encryption_enabled=false
 default_peer_rpc_url=https://node1.aitbc.bubuit.net
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
-ENFORCE_STATE_ROOT_VALIDATION=true
+SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 WORKERS=1
 
 # Monitoring Configuration
@@ -366,7 +366,7 @@ supported_chains=ait-testnet
 db_encryption_enabled=false
 default_peer_rpc_url=https://aitbc.bubuit.net
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
-ENFORCE_STATE_ROOT_VALIDATION=true
+SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 WORKERS=1
 
 # Monitoring Configuration
