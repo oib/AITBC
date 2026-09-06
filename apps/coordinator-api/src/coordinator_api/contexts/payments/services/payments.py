@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import httpx
 import os
+import time
 
 from aitbc_shared import JobPayment, PaymentEscrow
 from datetime import UTC, datetime, timedelta
@@ -21,7 +22,12 @@ from aitbc_agent_core import get_active_brand
 
 from ....config import settings
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.utils.units import ait_to_units
+from aitbc.marketplace.energy_pricing import (
+    EnergyQuote,
+    EnergyPricingError,
+    evaluate_quote,
+)
+from aitbc.utils.units import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address
 from ....custom_types import JobState
 from ....schemas import JobPaymentCreate, JobPaymentView
@@ -217,9 +223,69 @@ class PaymentService:
                 meta["offer_price_unit"] = payment_data.offer_price_unit
             if payment_data.offer_quantity is not None:
                 meta["offer_quantity"] = str(payment_data.offer_quantity)
+
+            # E1: validate the signed energy quote for fixed-duration GPU rentals.
+            amount = payment_data.amount
+            if payment_data.protected or payment_data.energy_quote:
+                if payment_data.payment_method != "aitbc_token":
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Protected fixed-duration GPU rentals are currently only supported with aitbc_token settlement",
+                    )
+                if not payment_data.energy_quote:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Protected payment requires an energy quote",
+                    )
+                try:
+                    quote = EnergyQuote.from_dict(payment_data.energy_quote)
+                except EnergyPricingError as exc:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Invalid energy quote: {exc}",
+                    ) from exc
+                if quote.job_id != job_id:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Energy quote is bound to a different job",
+                    )
+                result = evaluate_quote(
+                    quote=quote,
+                    profile=quote.to_profile(),
+                    rate=quote.to_rate(),
+                    now=int(time.time()),
+                )
+                if not result.approved:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail=f"Quote refused: {result.refusal_reason} ({result.refusal_code})",
+                    )
+                if result.breakdown is None:
+                    raise HTTPException(
+                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                        detail="Quote evaluation did not return a funding breakdown",
+                    )
+                # The display amount is the exact buyer charge converted to AITBC.
+                amount = units_to_ait(result.breakdown.buyer_charge_units)
+                meta["energy_quote"] = quote.to_dict(include_signature=True)
+                meta["energy_quote_digest"] = quote.digest_sha256().hex()
+                meta["energy_buyer_charge_units"] = result.breakdown.buyer_charge_units
+                meta["energy_provider_credit_units"] = result.breakdown.provider_credit_units
+                meta["energy_platform_fee_units"] = result.breakdown.platform_fee_units
+                meta["energy_net_floor_units"] = result.breakdown.net_units
+                meta["energy_settlement_route"] = quote.settlement_route.value
+                meta["energy_is_protected"] = True
+                # The quote names the provider; fall back to it when the caller
+                # did not supply an explicit provider_address.
+                if not payment_data.provider_address and quote.provider:
+                    payment_data.provider_address = quote.provider
+                    meta["provider_address"] = quote.provider
+                if not payment_data.buyer_address and quote.buyer:
+                    payment_data.buyer_address = quote.buyer
+
             payment = JobPayment(
                 job_id=job_id,
-                amount=payment_data.amount,
+                amount=amount,
                 currency=payment_data.currency,
                 payment_method=payment_data.payment_method,
                 expires_at=datetime.now(UTC) + timedelta(seconds=payment_data.escrow_timeout_seconds),
@@ -252,8 +318,17 @@ class PaymentService:
             # D: keep the denormalized job row in sync with the authoritative
             # JobPayment row for display/listing purposes. Security and threshold
             # checks must use JobPayment.amount directly.
-            job.payment_amount = payment_data.amount
+            job.payment_amount = payment.amount
             job.payment_token = payment_data.currency
+            # E1: copy the protected rental binding to the job for dispatch.
+            if payment_data.protected and payment_data.energy_quote:
+                quote = EnergyQuote.from_dict(payment_data.energy_quote)
+                job.protected = True
+                job.resource_id = quote.resource_id
+                job.model_id = quote.model_id
+                job.gpu_count = quote.gpu_count
+                job.duration_seconds = quote.duration_seconds
+                job.energy_quote_snapshot = quote.to_dict(include_signature=False)
             self.session.add(job)
             self.session.commit()
             self.session.refresh(payment)
@@ -291,10 +366,16 @@ class PaymentService:
         fee: int | None = None,
     ) -> tuple[dict[str, Any], int]:
         """Build the canonical ESCROW_LOCK transaction. Amount is in compute-units."""
-        amount_ait = payment.amount
-        amount_units = ait_to_units(amount_ait)
-        if amount_units <= 0:
-            amount_units = ait_to_units(Decimal("1"))
+        meta = payment.meta_data or {}
+        # E1: protected rentals use the exact signed buyer charge, not a rounded
+        # display amount reconstructed from payment.amount.
+        if meta.get("energy_is_protected"):
+            amount_units = int(meta["energy_buyer_charge_units"])
+        else:
+            amount_ait = payment.amount
+            amount_units = ait_to_units(amount_ait)
+            if amount_units <= 0:
+                amount_units = ait_to_units(Decimal("1"))
         if fee is None:
             # v0.25.6: 1% fee with dust floor; the flat DEFAULT_TX_FEE_UNITS
             # (0.01 AIT) made small escrow locks cost 100% of the value.
@@ -321,7 +402,11 @@ class PaymentService:
                 "job_id": payment.job_id,
                 "provider": provider,
             },
-        }, amount_units
+        }
+        if meta.get("energy_is_protected"):
+            tx["payload"]["energy_quote_id"] = meta["energy_quote"]["quote_id"]
+            tx["payload"]["energy_quote_digest"] = meta["energy_quote_digest"]
+        return tx, amount_units
 
     async def _create_token_escrow(
         self,
@@ -416,15 +501,19 @@ class PaymentService:
                 return None
 
             client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
+            payload = {
+                "job_id": payment.job_id,
+                "buyer": buyer,
+                "provider": provider,
+                "amount": str(payment.amount),
+                "lock_tx": lock_tx,
+            }
+            if meta.get("energy_is_protected"):
+                payload["energy_quote"] = meta["energy_quote"]
+                payload["energy_quote_digest"] = meta["energy_quote_digest"]
             response = await client.post(
                 f"{self.blockchain_rpc_url}/rpc/escrow/create",
-                json={
-                    "job_id": payment.job_id,
-                    "buyer": buyer,
-                    "provider": provider,
-                    "amount": str(payment.amount),
-                    "lock_tx": lock_tx,
-                },
+                json=payload,
             )
             escrow_data = response
             contract_id = escrow_data.get("contract_id")
@@ -629,6 +718,10 @@ class PaymentService:
             try:
                 release_body = {"reason": reason or "Job completed successfully"}
                 meta = payment.meta_data or {}
+                if meta.get("energy_is_protected"):
+                    release_body["energy_is_protected"] = True
+                    release_body["energy_quote"] = meta.get("energy_quote")
+                    release_body["energy_quote_digest"] = meta.get("energy_quote_digest")
                 provider_address = meta.get("provider_address")
                 auto_reinvest_pct = meta.get("auto_reinvest_pct")
                 # P2.4: if the payment was created before constraints stored reinvest, fall
@@ -847,6 +940,7 @@ class PaymentService:
 
     def to_view(self, payment: JobPayment) -> JobPaymentView:
         """Convert payment to view model"""
+        meta = payment.meta_data or {}
         return JobPaymentView(
             job_id=payment.job_id,
             payment_id=payment.id,
@@ -862,4 +956,8 @@ class PaymentService:
             refunded_at=payment.refunded_at,
             transaction_hash=payment.transaction_hash,
             refund_transaction_hash=payment.refund_transaction_hash,
+            protected=bool(meta.get("energy_is_protected")),
+            energy_quote_id=meta.get("energy_quote", {}).get("quote_id") if meta.get("energy_quote") else None,
+            energy_buyer_charge_units=meta.get("energy_buyer_charge_units"),
+            energy_net_floor_units=meta.get("energy_net_floor_units"),
         )

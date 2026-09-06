@@ -5,15 +5,17 @@ import "@openzeppelin/contracts/access/Ownable.sol";
 import "@openzeppelin/contracts/security/ReentrancyGuard.sol";
 import "@openzeppelin/contracts/security/Pausable.sol";
 import "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import "@openzeppelin/contracts/utils/math/Math.sol";
 import "./AIPowerRental.sol";
 import "./PerformanceVerifier.sol";
+import "./IEnergyPricing.sol";
 
 /**
  * @title Dynamic Pricing
  * @dev Advanced dynamic pricing contract with supply/demand analysis and automated price adjustment
  * @notice Implements data-driven pricing for AI power marketplace with ZK-based verification
  */
-contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
+contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
 
     // State variables
     AIPowerRental public aiPowerRental;
@@ -30,6 +32,23 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
     uint256 public smoothingFactor = 50; // 50% smoothing in basis points
     uint256 public surgeMultiplier = 300; // 3x surge pricing max
     uint256 public discountMultiplier = 50; // 50% minimum price
+
+    // Energy pricing state (fixed-duration GPU rentals)
+    uint256 public constant ENERGY_BASIS_POINTS = 10000;
+    uint256 public constant ENERGY_FIXED_POINT_SCALE = 1e18;
+    uint256 public constant ENERGY_WATTS_PER_KILOWATT = 1000;
+    uint256 public constant ENERGY_SECONDS_PER_HOUR = 3600;
+    uint256 public constant MAX_GPU_COUNT = 10000;
+    uint256 public constant MAX_DURATION_SECONDS = 86400 * 365;
+    uint256 public constant MAX_TDP_WATTS = 50000;
+    uint256 public constant MAX_EUR_PER_KWH_WHOLE = 1_000_000;
+    uint256 public constant MAX_AIT_PER_EUR_WHOLE = 1_000_000_000;
+    uint256 public constant MAX_SETTLEMENT_UNIT_SCALE = 1e36;
+
+    address public energyPublisher;
+    uint256 public maxRateAge = 300; // seconds; operator-configurable
+    mapping(string => IEnergyPricing.EnergyProfile) public energyProfiles;
+    IEnergyPricing.EnergyRate public energyRate;
 
     // Structs
     struct MarketData {
@@ -702,5 +721,163 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable {
                 emit PriceAlertTriggered(alertId, alert.subscriber, alert.alertType, _currentPrice, alert.thresholdPrice);
             }
         }
+    }
+
+    // ============================================================
+    // Energy pricing (IEnergyPricing implementation)
+    // ============================================================
+
+    modifier onlyEnergyPublisher() {
+        require(energyPublisher != address(0) && msg.sender == energyPublisher, "Not authorized energy publisher");
+        _;
+    }
+
+    function setEnergyPublisher(address _publisher) external override onlyOwner {
+        require(_publisher != address(0), "Invalid publisher address");
+        energyPublisher = _publisher;
+        emit EnergyPublisherChanged(_publisher);
+    }
+
+    function setMaxRateAge(uint256 _maxRateAge) external override onlyOwner {
+        require(_maxRateAge > 0, "Max rate age must be positive");
+        maxRateAge = _maxRateAge;
+    }
+
+    function registerEnergyProfile(
+        string calldata _resourceId,
+        address _provider,
+        string calldata _modelId,
+        uint256 _tdpWatts,
+        uint256 _eurPerKwh
+    ) external override onlyOwner {
+        require(bytes(_resourceId).length > 0, "Empty resource id");
+        require(_provider != address(0), "Invalid provider address");
+        require(bytes(_modelId).length > 0, "Empty model id");
+        require(_tdpWatts > 0 && _tdpWatts <= MAX_TDP_WATTS, "Invalid TDP watts");
+        require(
+            _eurPerKwh > 0 && _eurPerKwh <= MAX_EUR_PER_KWH_WHOLE * ENERGY_FIXED_POINT_SCALE,
+            "Invalid EUR/kWh"
+        );
+
+        uint256 revision = energyProfiles[_resourceId].revision + 1;
+
+        energyProfiles[_resourceId] = IEnergyPricing.EnergyProfile({
+            enabled: true,
+            revision: revision,
+            modelId: _modelId,
+            provider: _provider,
+            tdpWatts: _tdpWatts,
+            eurPerKwh: _eurPerKwh
+        });
+
+        if (revision == 1) {
+            emit EnergyProfileRegistered(_resourceId, _provider, _modelId);
+        } else {
+            emit EnergyProfileUpdated(_resourceId, revision);
+        }
+    }
+
+    function setResourceTariff(
+        string calldata _resourceId,
+        uint256 _eurPerKwh
+    ) external override {
+        IEnergyPricing.EnergyProfile storage profile = energyProfiles[_resourceId];
+        require(profile.enabled, "Profile not found or disabled");
+        require(
+            msg.sender == profile.provider || msg.sender == owner(),
+            "Not authorized for this resource"
+        );
+        require(
+            _eurPerKwh > 0 && _eurPerKwh <= MAX_EUR_PER_KWH_WHOLE * ENERGY_FIXED_POINT_SCALE,
+            "Invalid EUR/kWh"
+        );
+
+        profile.eurPerKwh = _eurPerKwh;
+        profile.revision += 1;
+
+        emit ResourceTariffUpdated(_resourceId, _eurPerKwh);
+        emit EnergyProfileUpdated(_resourceId, profile.revision);
+    }
+
+    function publishEnergyRate(
+        uint256 _aitPerEur,
+        uint256 _observedAt,
+        string calldata _sourceKind
+    ) external override onlyEnergyPublisher {
+        require(
+            _aitPerEur > 0 && _aitPerEur <= MAX_AIT_PER_EUR_WHOLE * ENERGY_FIXED_POINT_SCALE,
+            "Invalid AIT/EUR"
+        );
+        require(_observedAt > 0, "Observed at must be positive");
+        require(_observedAt <= block.timestamp + 60, "Observed at is in the future");
+        require(bytes(_sourceKind).length > 0, "Empty source kind");
+
+        uint256 version = energyRate.version + 1;
+        uint256 submittedAt = block.timestamp;
+
+        energyRate = IEnergyPricing.EnergyRate({
+            enabled: true,
+            version: version,
+            aitPerEur: _aitPerEur,
+            observedAt: _observedAt,
+            submittedAt: submittedAt,
+            sourceKind: _sourceKind
+        });
+
+        emit EnergyRatePublished(version, _aitPerEur, _observedAt, _sourceKind);
+    }
+
+    function getEnergyProfile(
+        string calldata _resourceId
+    ) external view override returns (IEnergyPricing.EnergyProfile memory) {
+        return energyProfiles[_resourceId];
+    }
+
+    function getEnergyRate() external view override returns (IEnergyPricing.EnergyRate memory) {
+        return energyRate;
+    }
+
+    function getEnergyFloor(
+        string calldata _resourceId,
+        uint256 _gpuCount,
+        uint256 _durationSeconds,
+        uint256 _settlementUnitScale
+    ) external view override returns (uint256 netFloor, bool valid, string memory reason) {
+        IEnergyPricing.EnergyProfile memory profile = energyProfiles[_resourceId];
+        if (!profile.enabled) {
+            return (0, false, "profile disabled");
+        }
+
+        if (_gpuCount == 0 || _gpuCount > MAX_GPU_COUNT) {
+            return (0, false, "invalid gpu count");
+        }
+
+        if (_durationSeconds == 0 || _durationSeconds > MAX_DURATION_SECONDS) {
+            return (0, false, "invalid duration");
+        }
+
+        if (_settlementUnitScale == 0 || _settlementUnitScale > MAX_SETTLEMENT_UNIT_SCALE) {
+            return (0, false, "invalid settlement scale");
+        }
+
+        IEnergyPricing.EnergyRate memory rate = energyRate;
+        if (!rate.enabled) {
+            return (0, false, "rate disabled");
+        }
+
+        if (rate.observedAt > block.timestamp) {
+            return (0, false, "rate observed in future");
+        }
+
+        if (block.timestamp - rate.observedAt > maxRateAge) {
+            return (0, false, "rate stale");
+        }
+
+        uint256 pre1 = profile.tdpWatts * _gpuCount * _durationSeconds * profile.eurPerKwh;
+        uint256 pre2 = rate.aitPerEur * _settlementUnitScale;
+        uint256 denominator = ENERGY_WATTS_PER_KILOWATT * ENERGY_SECONDS_PER_HOUR * ENERGY_FIXED_POINT_SCALE * ENERGY_FIXED_POINT_SCALE;
+
+        netFloor = Math.mulDiv(pre1, pre2, denominator, Math.Rounding.Up);
+        return (netFloor, true, "");
     }
 }
