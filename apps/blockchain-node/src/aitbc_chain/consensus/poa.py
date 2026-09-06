@@ -1566,44 +1566,55 @@ class PoAProposer:
         # Sort deltas by original tx index for deterministic ordering
         all_deltas.sort(key=lambda x: x[0])
 
-        # Write all deltas to DB in a single batch
+        # Write all deltas to DB in a single batch — this is the only phase that
+        # touches the session, so it is wrapped: a mid-write failure must not
+        # escape with flushed state or queued Transaction rows still pending in
+        # the caller's session (same incident class as the sequential path's
+        # savepoint leak).
         successful_deltas = [d for _, d, _ in all_deltas]
-        if successful_deltas:
-            apply_deltas_to_db(session, successful_deltas, chain_id)
-
-        # Create Transaction records and track changed addresses
         processed_txs: list[Any] = []
         changed_addresses: set[str] = set()
-        for _idx, delta, tx in all_deltas:
-            sender = delta.sender
-            recipient = delta.recipient
-            tx_type = delta.tx_type
-            tx_data = tx.content
-            value = tx_data.get("amount", 0)
-            fee = tx_data.get("fee", 0)
-            original_payload = tx_data.get("payload", {})
-            transaction = Transaction(
-                chain_id=chain_id,
-                tx_hash=tx.tx_hash,
-                # Raw, not the canonicalised locals: these are signed (V23-65).
-                sender=tx_data.get("from", sender),
-                recipient=tx_data.get("to", recipient),
-                payload=original_payload,
-                value=value,
-                fee=fee,
-                nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
-                timestamp=timestamp.isoformat(),
-                block_height=next_height,
-                status="confirmed",
-                type=tx_type,
+        try:
+            if successful_deltas:
+                apply_deltas_to_db(session, successful_deltas, chain_id)
+
+            # Create Transaction records and track changed addresses
+            for _idx, delta, tx in all_deltas:
+                sender = delta.sender
+                recipient = delta.recipient
+                tx_type = delta.tx_type
+                tx_data = tx.content
+                value = tx_data.get("amount", 0)
+                fee = tx_data.get("fee", 0)
+                original_payload = tx_data.get("payload", {})
+                transaction = Transaction(
+                    chain_id=chain_id,
+                    tx_hash=tx.tx_hash,
+                    # Raw, not the canonicalised locals: these are signed (V23-65).
+                    sender=tx_data.get("from", sender),
+                    recipient=tx_data.get("to", recipient),
+                    payload=original_payload,
+                    value=value,
+                    fee=fee,
+                    nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
+                    timestamp=timestamp.isoformat(),
+                    block_height=next_height,
+                    status="confirmed",
+                    type=tx_type,
+                )
+                session.add(transaction)
+                changed_addresses.add(sender)
+                if recipient:
+                    changed_addresses.add(recipient)
+                existing_tx_map[tx.tx_hash] = next_height
+                processed_txs.append(tx)
+                self._logger.info("[PROPOSE-PARALLEL] Successfully processed tx %s", tx.tx_hash)
+        except Exception:
+            session.rollback()
+            self._logger.error(
+                "[PROPOSE-PARALLEL] Write phase failed; session rolled back — aborting proposal"
             )
-            session.add(transaction)
-            changed_addresses.add(sender)
-            if recipient:
-                changed_addresses.add(recipient)
-            existing_tx_map[tx.tx_hash] = next_height
-            processed_txs.append(tx)
-            self._logger.info("[PROPOSE-PARALLEL] Successfully processed tx %s", tx.tx_hash)
+            return [], set(), False
 
         self._logger.info(
             "[PROPOSE-PARALLEL] Processed %d/%d txs in parallel",
