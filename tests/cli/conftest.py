@@ -52,29 +52,6 @@ def runner():
     return CliRunner()
 
 
-def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
-    """Exclude quarantined CLI tests from collection so they don't block CI.
-
-    These tests exercise CLI commands that have been removed or renamed during
-    the v0.10.x refactor. They are listed in ``quarantined.txt`` and are kept
-    in the repo for reference, but are not collected or run until the CLI
-    command surface is reconciled.
-    """
-    quarantine_file = Path(__file__).resolve().parent / "quarantined.txt"
-    if not quarantine_file.exists():
-        return
-
-    quarantined = {line.strip() for line in quarantine_file.read_text().splitlines() if line.strip()}
-    if not quarantined:
-        return
-
-    prefix = "tests/cli/"
-    prefixed = {"tests/cli/" + node for node in quarantined if not node.startswith(prefix)}
-    match_set = quarantined | prefixed
-
-    items[:] = [item for item in items if item.nodeid not in match_set]
-
-
 @pytest.fixture(autouse=True)
 def _mock_payment_wallet(monkeypatch):
     """Provide a deterministic default wallet for payment commands.

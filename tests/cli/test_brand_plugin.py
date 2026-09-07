@@ -66,7 +66,7 @@ def test_plugin_load_demo(tmp_path, runner, monkeypatch):
         "identity_method = 'did:demo'\n"
     )
     monkeypatch.setenv("AITBC_PLUGINS_DIR", str(plugins_dir))
-    result = runner.invoke(plugin, ["load", "demo"])
+    result = runner.invoke(plugin, ["load", "--name", "demo"])
     assert result.exit_code == 0
     data = _parse_json_output(result.output)
     assert data["name"] == "demo"
@@ -83,7 +83,7 @@ def test_plugin_create_writes_loadable_plugin(tmp_path, runner, monkeypatch):
     assert (plugins_dir / "newbrand.py").exists()
 
     monkeypatch.setenv("AITBC_PLUGINS_DIR", str(plugins_dir))
-    result = runner.invoke(plugin, ["load", "newbrand"])
+    result = runner.invoke(plugin, ["load", "--name", "newbrand"])
     assert result.exit_code == 0, result.output
     data = _parse_json_output(result.output)
     assert data["name"] == "newbrand"

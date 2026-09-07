@@ -167,7 +167,7 @@ def test_an_explicit_chain_id_is_passed_through(db, chain) -> None:
 
 
 def test_reopen_clears_a_hash_the_chain_does_not_have(db, chain) -> None:
-    result = _run("reopen", "req-lost", "--rpc-url", RPC)
+    result = _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
     assert "Reopened" in result.output
     assert _hash_of("req-lost") is None
@@ -175,7 +175,7 @@ def test_reopen_clears_a_hash_the_chain_does_not_have(db, chain) -> None:
 
 def test_reopen_refuses_a_request_the_chain_still_has(db, chain) -> None:
     """The whole point. This hash is what stops `/execute` paying a second time."""
-    result = _run("reopen", "req-paid", "--rpc-url", RPC)
+    result = _run("reopen", "--request-id", "req-paid", "--rpc-url", RPC)
 
     assert "Refusing to reopen" in result.output
     assert _hash_of("req-paid") == PAID_HASH
@@ -185,21 +185,21 @@ def test_reopen_refuses_when_the_chain_cannot_be_reached(db, chain) -> None:
     """An unreachable node must not read as a missing transaction."""
     chain["error"] = RuntimeError("connection refused")
 
-    result = _run("reopen", "req-lost", "--rpc-url", RPC)
+    result = _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
     assert "could not confirm" in result.output
     assert _hash_of("req-lost") == LOST_HASH
 
 
 def test_force_overrides_the_refusal_and_says_so(db, chain) -> None:
-    result = _run("reopen", "req-paid", "--rpc-url", RPC, "--force")
+    result = _run("reopen", "--request-id", "req-paid", "--rpc-url", RPC, "--force")
 
     assert "--force given" in result.output
     assert _hash_of("req-paid") is None
 
 
 def test_reopen_leaves_a_trail(db, chain) -> None:
-    _run("reopen", "req-lost", "--rpc-url", RPC)
+    _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
     with agent_db.get_db_session() as session:
         reopened = session.query(CoinRequest).filter(CoinRequest.id == "req-lost").first()
@@ -208,8 +208,8 @@ def test_reopen_leaves_a_trail(db, chain) -> None:
 
 
 def test_reopening_an_unexecuted_request_is_a_no_op(db, chain) -> None:
-    _run("reopen", "req-lost", "--rpc-url", RPC)
+    _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
-    result = _run("reopen", "req-lost", "--rpc-url", RPC)
+    result = _run("reopen", "--request-id", "req-lost", "--rpc-url", RPC)
 
     assert "already executable" in result.output
