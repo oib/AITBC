@@ -696,6 +696,18 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             "message": "escrow already locked",
         }
 
+    # E1: parse the energy quote up front so the lock_signature reconstruction
+    # below can bind the quote id and digest into the payload. The signature
+    # check downstream rejects any tx that differs from what the buyer signed,
+    # so a field the buyer did not sign can never be smuggled in this way.
+    energy_quote_data = body.get("energy_quote") or body.get("energy_quote_snapshot")
+    quote: EnergyQuote | None = None
+    if energy_quote_data:
+        try:
+            quote = EnergyQuote.from_dict(energy_quote_data)
+        except EnergyPricingError as exc:
+            raise HTTPException(status_code=400, detail=f"Invalid energy quote: {exc}") from exc
+
     # Accept a pre-built signed lock tx or build one from the provided signature.
     signed_lock_tx = body.get("lock_tx")
     lock_signature = body.get("lock_signature")
@@ -721,7 +733,19 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             except Exception:
                 raise HTTPException(status_code=400, detail="lock_fee must be an integer") from None
         try:
-            tx_to_submit, _ = _build_lock_tx(job_id, buyer, provider, amount_dec, nonce, fee)
+            tx_to_submit, _ = _build_lock_tx(
+                job_id,
+                buyer,
+                provider,
+                amount_dec,
+                nonce,
+                fee,
+                energy_quote_id=quote.quote_id if quote else None,
+                energy_quote_digest=quote.digest_sha256().hex() if quote else None,
+                settlement_route=quote.settlement_route.value if quote else None,
+                settlement_asset=quote.settlement_asset if quote else None,
+                settlement_unit_scale=quote.settlement_unit_scale if quote else None,
+            )
         except ValueError as e:
             raise HTTPException(status_code=400, detail=str(e)) from None
         tx_to_submit["signature"] = lock_signature
@@ -748,18 +772,13 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         raise HTTPException(status_code=400, detail="lock_tx payload provider mismatch") from None
 
     # E1: validate the energy quote for fixed-duration GPU rentals.
-    energy_quote_data = body.get("energy_quote") or body.get("energy_quote_snapshot")
     energy_kwargs: dict[str, Any] = {}
     if payload.get("energy_quote_id") or energy_quote_data:
-        if not energy_quote_data:
+        if quote is None:
             raise HTTPException(
                 status_code=400,
                 detail="Protected ESCROW_LOCK payload references an energy quote but no quote was supplied",
             ) from None
-        try:
-            quote = EnergyQuote.from_dict(energy_quote_data)
-        except EnergyPricingError as exc:
-            raise HTTPException(status_code=400, detail=f"Invalid energy quote: {exc}") from exc
         if quote.job_id != job_id:
             raise HTTPException(status_code=400, detail="energy quote job_id mismatch") from None
         if quote.provider != provider:
@@ -789,7 +808,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                 status_code=400,
                 detail="energy quote settlement route in lock payload does not match quote",
             ) from None
-        if payload.get("settlement_unit_scale") and int(payload.get("settlement_unit_scale")) != quote.settlement_unit_scale:
+        payload_unit_scale = payload.get("settlement_unit_scale")
+        if payload_unit_scale is not None and int(payload_unit_scale) != quote.settlement_unit_scale:
             raise HTTPException(
                 status_code=400,
                 detail="energy quote settlement unit scale in lock payload does not match quote",
