@@ -76,7 +76,15 @@ def _build_join_credentials(
     island_id: str, island_name: str, island_chain_id: str, request: Request | None = None
 ) -> dict[str, Any]:
     """Build the credentials block returned to a joining node."""
-    hub_host = settings.hub_discovery_url or socket.gethostname()
+    # F-5d: prefer explicit operator overrides before socket.gethostname(),
+    # which may return a hostname that is not resolvable from remote nodes.
+    hub_host = os.getenv("AITBC_HOSTNAME") or settings.hub_discovery_url or socket.gethostname()
+    if hub_host == socket.gethostname():
+        _logger.warning(
+            "Join credentials using socket.gethostname() %s — set AITBC_HOSTNAME "
+            "or hub_discovery_url so remote nodes can resolve this endpoint",
+            hub_host,
+        )
     # Prefer an explicit operator override, then the forwarded scheme, then the
     # ASGI scheme, then https as the production default.
     public_scheme = (

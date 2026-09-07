@@ -122,10 +122,19 @@ class BulkSyncMixin(SyncBase):
             elif isinstance(data, dict) and "blocks" in data:
                 return data["blocks"]  # type: ignore[no-any-return]
             else:
-                logger.error("Unexpected blocks-range response", extra={"data": data})
+                logger.error("Unexpected blocks-range response from %s: %s", source_url, data)
                 return []
         except Exception as e:
-            logger.error("Failed to fetch blocks range", extra={"start": start, "end": end, "error": str(e)})
+            # F-5b: put the error in the message so the journal formatter
+            # renders it — the default JournalFormatter only renders
+            # record.getMessage(), not the extra dict.
+            logger.error(
+                "Failed to fetch blocks range %d-%d from %s: %s",
+                start,
+                end,
+                source_url,
+                e,
+            )
             return []
 
     async def bulk_import_from(self, source_url: str) -> int:
@@ -203,6 +212,11 @@ class BulkSyncMixin(SyncBase):
         metrics_registry.set_gauge("sync_gap_size", float(gap_size))
         metrics_registry.set_gauge("sync_batch_size", float(dynamic_batch_size))
         # Check if parallel sync is enabled
+        # F-5c: parallel sync is disabled by design, not dormant code.
+        # The gate requires sync_parallel_enabled=True AND >1 registered peer.
+        # In v0.6.2 only one peer (the source_url) is registered, so the
+        # parallel path is never taken. Multi-peer support comes when island
+        # managers provide peer lists (planned for a future release).
         use_parallel = getattr(settings, "sync_parallel_enabled", False) and len(self._peer_tracker.get_all_peers()) > 1
         start_height = local_height + 1
 
@@ -211,7 +225,9 @@ class BulkSyncMixin(SyncBase):
         # batch would extend the wrong chain (V23-90).
         first_batch = await self.fetch_blocks_range(start_height, start_height, source_url)
         if not first_batch:
-            logger.warning("Source returned no first block for bulk sync", extra={"height": start_height, "source_url": source_url})
+            logger.warning(
+                "Source returned no first block for bulk sync", extra={"height": start_height, "source_url": source_url}
+            )
             return 0
         first_block = first_batch[0]
         result = self.import_block(
