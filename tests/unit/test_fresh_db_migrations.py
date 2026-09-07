@@ -23,7 +23,6 @@ Run with: ``pytest tests/unit/test_fresh_db_migrations.py -v``
 
 from __future__ import annotations
 
-import os
 import tempfile
 from pathlib import Path
 

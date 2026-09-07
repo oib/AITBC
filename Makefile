@@ -49,7 +49,7 @@ typecheck:
 	PYTHON=$(PYTHON) bash scripts/ci/mypy-precommit.sh
 
 test:
-	$(PYTHON) -m pytest tests/unit -q
+	$(PYTHON) -m pytest tests/unit mcp-server/tests -q
 
 # Smoke tests import production modules in fresh subprocesses to catch import-time failures.
 test-smoke:
