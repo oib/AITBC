@@ -23,7 +23,6 @@ from ...utils.energy_quote import (
     compute_settlement_breakdown,
     parse_quote,
     verify_quote,
-    verify_quote_against_oracle,
 )
 from ...utils.escrow import create_signed_escrow_lock
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
@@ -95,7 +94,7 @@ def gpu():
 @click.pass_context
 def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement, json_output):
     """Request an operator-signed energy quote for a GPU rental."""
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30)
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,
         "gpu_id": gpu_id,
@@ -106,7 +105,7 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
     if max_ait is not None:
         payload["buyer_max_amount"] = str(max_ait)
     try:
-        result = client.post("/marketplace/gpu/quote", json=payload)
+        result = client.post("/v1/marketplace/gpu/quote", json=payload)
     except NetworkError as e:
         error(f"Failed to get quote: {e}")
         sys.exit(1)
@@ -315,7 +314,7 @@ def _buy_native(
     )
 
     # Submit to the coordinator's escrow create endpoint.
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30)
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,
         "gpu_id": gpu_id,
@@ -334,7 +333,7 @@ def _buy_native(
         payload["buyer_max_amount"] = str(max_ait)
 
     try:
-        result = client.post("/marketplace/gpu/purchase", json=payload)
+        result = client.post("/v1/marketplace/gpu/purchase", json=payload)
     except NetworkError as e:
         error(f"Purchase failed: {e}")
         sys.exit(1)
@@ -406,8 +405,7 @@ def _buy_evm(
     charge_ait = breakdown["buyer_charge_units"] / (10 ** evm.get_token_decimals())
     if not yes:
         click.confirm(
-            f"This will call startRental({agreement_id}) on-chain, "
-            f"transferring {charge_ait:.6f} AIT. Continue?",
+            f"This will call startRental({agreement_id}) on-chain, transferring {charge_ait:.6f} AIT. Continue?",
             abort=True,
         )
 
@@ -441,7 +439,7 @@ def _buy_evm(
     success(f"startRental confirmed: {start_result.tx_hash}")
 
     # Notify the coordinator.
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30)
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {
         "buyer_id": buyer_id,
         "gpu_id": gpu_id,
@@ -459,7 +457,7 @@ def _buy_evm(
         payload["buyer_max_amount"] = str(max_ait)
 
     try:
-        result = client.post("/marketplace/gpu/purchase", json=payload)
+        result = client.post("/v1/marketplace/gpu/purchase", json=payload)
     except NetworkError as e:
         error(f"Coordinator notification failed: {e}")
         sys.exit(1)
@@ -481,7 +479,7 @@ def status(ctx, job_id, json_output):
     """Check the status of a GPU rental and its escrow."""
     client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=10)
     try:
-        result = client.get(f"/marketplace/gpu/status/{job_id}")
+        result = client.get(f"/v1/marketplace/gpu/status/{job_id}")
     except NetworkError as e:
         error(f"Failed to get status: {e}")
         sys.exit(1)
@@ -527,10 +525,10 @@ def release(ctx, job_id, wallet, wallet_path, password, password_file, yes, json
     if not yes:
         click.confirm(f"Release escrow for job {job_id} to the provider?", abort=True)
 
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30)
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {"job_id": job_id, "buyer_address": buyer_address}
     try:
-        result = client.post("/marketplace/gpu/release", json=payload)
+        result = client.post("/v1/marketplace/gpu/release", json=payload)
     except NetworkError as e:
         error(f"Release failed: {e}")
         sys.exit(1)
@@ -570,10 +568,10 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, reason, ye
     if not yes:
         click.confirm(f"Request refund for job {job_id}?", abort=True)
 
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30)
+    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
     payload: dict[str, Any] = {"job_id": job_id, "buyer_address": buyer_address, "reason": reason}
     try:
-        result = client.post("/marketplace/gpu/refund", json=payload)
+        result = client.post("/v1/marketplace/gpu/refund", json=payload)
     except NetworkError as e:
         error(f"Refund request failed: {e}")
         sys.exit(1)
@@ -583,3 +581,15 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, reason, ye
     else:
         success(f"Refund requested for job {job_id}")
         info(f"Status: {result.get('status', 'unknown')}")
+
+
+def _auth_headers(ctx) -> dict[str, str]:
+    """Return Authorization header from --api-key or the stored client credential."""
+    token = ctx.obj.get("api_key") if ctx.obj else None
+    if not token:
+        from ...auth import AuthManager
+
+        token = AuthManager().get_credential("client")
+    if token:
+        return {"Authorization": f"Bearer {token}"}
+    return {}
