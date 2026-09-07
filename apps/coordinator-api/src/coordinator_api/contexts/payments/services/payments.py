@@ -857,18 +857,49 @@ class PaymentService:
         return True
 
     def get_dispute_evidence(self, job_id: str) -> dict[str, Any] | None:
-        """Return spot-check evidence for a disputed job, if any (A-1).
+        """Return spot-check evidence for a disputed job, if any (A-1 / S-3).
 
         Called by the dispute resolver to surface automatic re-execution
         results alongside the operator's manual ruling.
+
+        The evidence is read from the completed, server-created shadow job
+        (``spot_check_for`` points to the original). Client-supplied values on
+        the original job's ``constraints`` are never trusted, so forged
+        ``spot_check_result`` records cannot drive refunds or bond slashing.
         """
         job = self.session.get(Job, job_id)
         if job is None:
             return None
-        constraints = job.constraints or {}
-        result = constraints.get("spot_check_result")
+
+        from sqlmodel import select
+
+        # Find the completed shadow re-run created by SpotCheckService.
+        shadow = (
+            self.session.execute(
+                select(Job)
+                .where(Job.constraints["spot_check_for"].as_string() == job.id)
+                .where(Job.state == "COMPLETED")
+                .order_by(Job.requested_at.desc())  # type: ignore[attr-defined]
+            )
+            .scalars()
+            .first()
+        )
+        if not shadow:
+            return None
+        shadow_constraints = shadow.constraints or {}
+        if not shadow_constraints.get("shadow_mode"):
+            return None
+
+        result = shadow_constraints.get("spot_check_result")
         if not result or not isinstance(result, dict):
             return None
+
+        # Verify the record is actually for this shadow job and the original.
+        if result.get("spot_check_job_id") != shadow.id:
+            return None
+        if result.get("original_job_id") != job.id:
+            return None
+
         return {
             "match": result.get("match"),
             "original_output_hash": result.get("original_output_hash"),
