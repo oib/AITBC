@@ -15,7 +15,6 @@ from typing import Any
 
 from aitbc.marketplace.energy_pricing import (
     DEFAULT_MAX_RATE_AGE_SECONDS,
-    DEFAULT_QUOTE_LIFETIME_SECONDS,
     EnergyQuote,
     RefusalCode,
     SettlementRoute,

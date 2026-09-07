@@ -9,7 +9,6 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-import pytest
 
 from aitbc.utils.units import UNITS_PER_AIT, ait_to_units, units_to_ait
 

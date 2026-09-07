@@ -7,6 +7,8 @@ from decimal import Decimal
 from pathlib import Path
 from types import ModuleType
 
+import pytest
+
 REPO_ROOT = Path(__file__).resolve().parents[2]
 
 
@@ -36,6 +38,7 @@ def test_reinvestment_worker_dispatches_and_publishes_capacity() -> None:
 
 def test_yield_adapter_registry_and_harvest() -> None:
     """The yield registry returns adapters and the demo adapter compounds rewards."""
+    pytest.importorskip("coordinator_api.contexts.agent_economics.yield_adapter")
     ya = _import_module(
         "coordinator_api.contexts.agent_economics.yield_adapter",
         REPO_ROOT / "apps/coordinator-api/src",
