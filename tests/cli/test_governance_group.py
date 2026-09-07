@@ -30,7 +30,7 @@ class TestGovernanceClose:
 
         from aitbc_cli.commands.governance import governance
 
-        result = runner.invoke(governance, ["close", "prop-123"], obj=gov_ctx_obj)
+        result = runner.invoke(governance, ["close", "--proposal-id", "prop-123"], obj=gov_ctx_obj)
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()

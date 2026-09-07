@@ -70,7 +70,7 @@ class TestTransactionsCommands:
 
         from aitbc_cli.commands.transactions import transactions
 
-        result = runner.invoke(transactions, ["status", "0xabc123"])
+        result = runner.invoke(transactions, ["status", "--tx-hash", "0xabc123"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -86,7 +86,7 @@ class TestTransactionsCommands:
 
         result = runner.invoke(
             transactions,
-            ["status", "0xabc123", "--rpc-url", "http://custom-node:8202"],
+            ["status", "--tx-hash", "0xabc123", "--rpc-url", "http://custom-node:8202"],
         )
 
         assert result.exit_code == 0, result.output
@@ -101,7 +101,7 @@ class TestTransactionsCommands:
         mock_client = mock_http_class.return_value
         mock_client.get.side_effect = NetworkError("connection refused")
 
-        result = runner.invoke(transactions, ["status", "0xabc123"])
+        result = runner.invoke(transactions, ["status", "--tx-hash", "0xabc123"])
 
         # NetworkError is caught and an error message is printed (exit 0).
         assert result.exit_code == 0, result.output

@@ -27,12 +27,6 @@ class TestOperationsCommands:
 
         assert operations.name == "operations"
 
-    def test_operations_group_has_marketplace_subgroup(self):
-        """The ``marketplace`` subgroup is registered on the operations group."""
-        from aitbc_cli.commands.operations import operations
-
-        assert "marketplace" in operations.commands
-
     def test_operations_group_has_ai_subgroup(self):
         """The ``ai`` subgroup is registered on the operations group."""
         from aitbc_cli.commands.operations import operations
@@ -50,13 +44,6 @@ class TestOperationsCommands:
         from aitbc_cli.commands.operations import operations
 
         assert "governance" in operations.commands
-
-    def test_marketplace_subgroup_has_list_listings_subcommand(self):
-        """The ``list-listings`` subcommand is on the marketplace subgroup."""
-        from aitbc_cli.commands.operations import operations
-
-        marketplace = operations.commands["marketplace"]
-        assert "list-listings" in marketplace.commands
 
     def test_ai_subgroup_has_status_subcommand(self):
         """The ``status`` subcommand is on the ai subgroup."""
@@ -78,20 +65,6 @@ class TestOperationsCommands:
 
         governance = operations.commands["governance"]
         assert "execute" in governance.commands
-
-    @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
-    def test_operations_marketplace_list_listings(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``operations marketplace list-listings`` lists marketplace listings."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"listings": [{"name": "item1", "price": 100}]}
-
-        from aitbc_cli.commands.operations import operations
-
-        result = runner.invoke(operations, ["marketplace", "list-listings"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        assert "/rpc/marketplace/listings" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.operations.AITBCHTTPClient")
     def test_operations_ai_status_all(self, mock_http_class, runner, mock_blockchain_rpc):
@@ -148,7 +121,7 @@ class TestOperationsCommands:
 
         from aitbc_cli.commands.operations import operations
 
-        result = runner.invoke(operations, ["governance", "execute", "prop1"])
+        result = runner.invoke(operations, ["governance", "execute", "--proposal-id", "prop1"])
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
@@ -164,10 +137,13 @@ class TestOperationsCommands:
 
         from aitbc_cli.commands.operations import operations
 
-        result = runner.invoke(operations, ["governance", "voting-power", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"])
+        result = runner.invoke(
+            operations, ["governance", "voting-power", "--address", "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C"]
+        )
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
+        assert "/v1/governance/voting-power/0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C" in mock_client.get.call_args[0][0]
 
 
 if __name__ == "__main__":

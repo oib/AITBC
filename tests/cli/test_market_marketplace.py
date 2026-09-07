@@ -13,11 +13,5 @@ class TestMarketMarketplaceHelp:
         assert result.exit_code == 0, result.output
         assert "GPU" in result.output or "software" in result.output
 
-    def test_marketplace_help_describes_global_chain(self):
-        from aitbc_cli.commands.marketplace_cmd import marketplace
-
-        runner = CliRunner()
-        result = runner.invoke(marketplace, ["--help"])
-
-        assert result.exit_code == 0, result.output
-        assert "Global" in result.output or "on-chain" in result.output
+    # The ``marketplace`` top-level group was removed in the market-subtree
+    # refactor; the on-chain/global help it described no longer exists.

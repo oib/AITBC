@@ -47,7 +47,7 @@ def runner():
 def _invoke(runner, response: FakeResponse):
     client = FakeClient(response)
     with patch("aitbc_cli.commands.edge.get_edge_client", return_value=client):
-        result = runner.invoke(edge, ["database", "sync-db", "db_123"], obj={"output": "json"})
+        result = runner.invoke(edge, ["database", "sync-db", "--database-id", "db_123"], obj={"output": "json"})
     return result, client
 
 

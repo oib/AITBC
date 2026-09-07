@@ -52,7 +52,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
-            result = runner.invoke(config, ["profiles", "save", profile_name], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["profiles", "save", "--name", profile_name], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code == 0
             assert f"Profile '{profile_name}' saved" in result.output
@@ -82,7 +84,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
-            result = runner.invoke(config, ["profiles", "save", profile_name], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["profiles", "save", "--name", profile_name], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code == 0
 
@@ -141,7 +145,7 @@ class TestConfigProfilesIntegration:
 
             with runner.isolated_filesystem(temp_dir=tmp_path):
                 result = runner.invoke(
-                    config, ["profiles", "load", profile_name], obj={"config": mock_config, "output": "table"}
+                    config, ["profiles", "load", "--name", profile_name], obj={"config": mock_config, "output": "table"}
                 )
 
                 assert result.exit_code == 0
@@ -161,7 +165,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
-            result = runner.invoke(config, ["profiles", "load", "nonexistent"], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["profiles", "load", "--name", "nonexistent"], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code != 0
             assert "not found" in result.output
@@ -180,7 +186,10 @@ class TestConfigProfilesIntegration:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
             result = runner.invoke(
-                config, ["profiles", "delete", profile_name], obj={"config": mock_config, "output": "table"}, input="y\n"
+                config,
+                ["profiles", "delete", "--name", profile_name],
+                obj={"config": mock_config, "output": "table"},
+                input="y\n",
             )
 
             assert result.exit_code == 0
@@ -199,7 +208,10 @@ class TestConfigProfilesIntegration:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
             result = runner.invoke(
-                config, ["profiles", "delete", profile_name], obj={"config": mock_config, "output": "json"}, input="n\n"
+                config,
+                ["profiles", "delete", "--name", profile_name],
+                obj={"config": mock_config, "output": "json"},
+                input="n\n",
             )
 
             assert result.exit_code == 0
@@ -211,7 +223,7 @@ class TestConfigProfilesIntegration:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
             result = runner.invoke(
-                config, ["profiles", "delete", "nonexistent"], obj={"config": mock_config, "output": "table"}
+                config, ["profiles", "delete", "--name", "nonexistent"], obj={"config": mock_config, "output": "table"}
             )
 
             assert result.exit_code != 0
@@ -227,7 +239,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
-            result = runner.invoke(config, ["profiles", "save", profile_name], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["profiles", "save", "--name", profile_name], obj={"config": mock_config, "output": "table"}
+            )
             assert result.exit_code == 0
 
             # List
@@ -239,13 +253,16 @@ class TestConfigProfilesIntegration:
             # Load
             with runner.isolated_filesystem(temp_dir=tmp_path):
                 result = runner.invoke(
-                    config, ["profiles", "load", profile_name], obj={"config": mock_config, "output": "table"}
+                    config, ["profiles", "load", "--name", profile_name], obj={"config": mock_config, "output": "table"}
                 )
                 assert result.exit_code == 0
 
             # Delete
             result = runner.invoke(
-                config, ["profiles", "delete", profile_name], obj={"config": mock_config, "output": "table"}, input="y\n"
+                config,
+                ["profiles", "delete", "--name", profile_name],
+                obj={"config": mock_config, "output": "table"},
+                input="y\n",
             )
             assert result.exit_code == 0
 
@@ -266,7 +283,7 @@ class TestConfigProfilesIntegration:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
             result = runner.invoke(
-                config, ["profiles", "save", "different_profile"], obj={"config": mock_config, "output": "table"}
+                config, ["profiles", "save", "--name", "different_profile"], obj={"config": mock_config, "output": "table"}
             )
 
             assert result.exit_code == 0
@@ -286,7 +303,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = tmp_path
 
-            result = runner.invoke(config, ["profiles", "save", "new_profile"], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["profiles", "save", "--name", "new_profile"], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code == 0
             assert profiles_dir.exists()

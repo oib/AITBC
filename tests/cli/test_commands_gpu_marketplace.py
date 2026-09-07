@@ -72,7 +72,7 @@ class TestGPUMarketplaceCommands:
 
         from aitbc_cli.commands.gpu_marketplace import gpu
 
-        result = runner.invoke(gpu, ["register", "gpu-0"])
+        result = runner.invoke(gpu, ["register", "--gpu-id", "gpu-0"])
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
@@ -91,7 +91,7 @@ class TestGPUMarketplaceCommands:
 
         result = runner.invoke(
             gpu,
-            ["register", "gpu-0", "--specs", '{"model": "RTX 4090", "memory_gb": 24}'],
+            ["register", "--gpu-id", "gpu-0", "--specs", '{"model": "RTX 4090", "memory_gb": 24}'],
         )
 
         assert result.exit_code == 0, result.output

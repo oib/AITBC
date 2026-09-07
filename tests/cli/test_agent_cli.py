@@ -16,63 +16,63 @@ class TestAgentCLI:
         runner = CliRunner()
         result = runner.invoke(agent, ["--help"])
         assert result.exit_code == 0
-        assert "Agent SDK management commands" in result.output
+        assert "Register, configure, discover, and manage AITBC agents" in result.output
 
     def test_agent_discover_command(self):
         """Test agent discover command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["discover", "--help"])
         assert result.exit_code == 0
-        assert "Discover agents by capability" in result.output
+        assert "Discover and filter remote agents by capability" in result.output
 
     def test_agent_inbox_command(self):
         """Test agent inbox command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["inbox", "--help"])
         assert result.exit_code == 0
-        assert "View agent inbox" in result.output
+        assert "View messages in a specified agent's inbox" in result.output
 
     def test_agent_subscribe_command(self):
         """Test agent subscribe command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["subscribe", "--help"])
         assert result.exit_code == 0
-        assert "Subscribe to topic" in result.output
+        assert "Subscribe an agent to a message topic" in result.output
 
     def test_agent_workflow_group(self):
         """Test agent workflow command group"""
         runner = CliRunner()
         result = runner.invoke(agent, ["workflow", "--help"])
         assert result.exit_code == 0
-        assert "Workflow management" in result.output
+        assert "multi-step agent workflows" in result.output
 
     def test_agent_workflow_create_command(self):
         """Test agent workflow create command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["workflow", "create-workflow", "--help"])
         assert result.exit_code == 0
-        assert "Create workflow" in result.output
+        assert "Create a new multi-step workflow" in result.output
 
     def test_agent_workflow_execute_command(self):
         """Test agent workflow execute command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["workflow", "execute", "--help"])
         assert result.exit_code == 0
-        assert "Execute workflow" in result.output
+        assert "Execute a previously created workflow" in result.output
 
     def test_agent_workflow_status_command(self):
         """Test agent workflow status command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["workflow", "workflow-status", "--help"])
         assert result.exit_code == 0
-        assert "Get workflow status" in result.output
+        assert "Get the current execution status of a workflow" in result.output
 
     def test_agent_workflow_list_command(self):
         """Test agent workflow list command"""
         runner = CliRunner()
         result = runner.invoke(agent, ["workflow", "list-workflows", "--help"])
         assert result.exit_code == 0
-        assert "List workflows" in result.output
+        assert "List all workflows" in result.output
 
 
 if __name__ == "__main__":

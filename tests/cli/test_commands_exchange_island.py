@@ -62,7 +62,7 @@ class TestExchangeIslandCommands:
 
         from aitbc_cli.commands.exchange_island import TX_QUERY_PATH, exchange_island
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
+        result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -86,7 +86,7 @@ class TestExchangeIslandCommands:
 
         from aitbc_cli.commands.exchange_island import exchange_island
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
+        result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
 
@@ -95,7 +95,7 @@ class TestExchangeIslandCommands:
         """``exchange-island orderbook`` exits gracefully when credentials are missing."""
         from aitbc_cli.commands.exchange_island import exchange_island
 
-        result = runner.invoke(exchange_island, ["orderbook", "AIT/ETH"])
+        result = runner.invoke(exchange_island, ["orderbook", "--pair", "AIT/ETH"])
 
         assert result.exit_code == 0, result.output
 

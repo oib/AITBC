@@ -16,14 +16,14 @@ class TestAICLI:
         runner = CliRunner()
         result = runner.invoke(ai, ["--help"])
         assert result.exit_code == 0
-        assert "AI job submission and inspection" in result.output
+        assert "Submit, pay for, and inspect AI jobs" in result.output
 
     def test_ai_submit_command(self):
         """Test AI submit command"""
         runner = CliRunner()
         result = runner.invoke(ai, ["submit", "--help"])
         assert result.exit_code == 0
-        assert "Submit an AI job" in result.output
+        assert "Submit a new AI job" in result.output
 
     def test_ai_jobs_command(self):
         """Test AI jobs command"""
@@ -37,7 +37,7 @@ class TestAICLI:
         runner = CliRunner()
         result = runner.invoke(ai, ["status", "--help"])
         assert result.exit_code == 0
-        assert "Show AI job status" in result.output
+        assert "Show the current status of an AI job" in result.output
 
     def test_ai_service_list_command(self):
         """Test AI service list command"""
@@ -51,28 +51,28 @@ class TestAICLI:
         runner = CliRunner()
         result = runner.invoke(ai, ["service", "service-status", "--help"])
         assert result.exit_code == 0
-        assert "Check AI service status" in result.output
+        assert "Show the status of a named AI service" in result.output
 
     def test_ai_service_test_command(self):
         """Test AI service test command"""
         runner = CliRunner()
         result = runner.invoke(ai, ["service", "test", "--help"])
         assert result.exit_code == 0
-        assert "Test AI service endpoint" in result.output
+        assert "Test an AI service endpoint by service name" in result.output
 
     def test_ai_results_command(self):
         """Test AI results command"""
         runner = CliRunner()
         result = runner.invoke(ai, ["results", "--help"])
         assert result.exit_code == 0
-        assert "Show AI job results" in result.output
+        assert "Show the results of a completed AI job" in result.output
 
     def test_ai_cancel_command(self):
         """Test AI cancel command"""
         runner = CliRunner()
         result = runner.invoke(ai, ["cancel", "--help"])
         assert result.exit_code == 0
-        assert "Cancel AI job" in result.output
+        assert "Cancel an AI job and optionally refund" in result.output
 
     def test_ai_stats_command(self):
         """Test AI stats command"""
@@ -86,7 +86,7 @@ class TestAICLI:
         runner = CliRunner()
         result = runner.invoke(ai, ["service", "--help"])
         assert result.exit_code == 0
-        assert "AI service management" in result.output
+        assert "Manage and inspect AI services" in result.output
 
 
 if __name__ == "__main__":

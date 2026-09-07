@@ -70,7 +70,7 @@ class TestCoinRequestsCommands:
 
         from aitbc_cli.commands.coin_requests import coin_requests
 
-        result = runner.invoke(coin_requests, ["show", "nonexistent-req-id"])
+        result = runner.invoke(coin_requests, ["show", "--request-id", "nonexistent-req-id"])
 
         assert result.exit_code == 0, result.output
         assert "not found" in result.output
