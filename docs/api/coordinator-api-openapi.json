@@ -1394,6 +1394,58 @@
         }
       }
     },
+    "/v1/admin/disputes/auto-adjudicate": {
+      "post": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "Auto-adjudicate disputes with spot-check evidence (S-3)",
+        "description": "Auto-resolve disputes where spot-check evidence proves a mismatch (S-3).\n\nScans all DISPUTED payments for completed spot-check results. When the\nspot-check shows a mismatch (the re-execution produced different output),\nthe dispute is auto-refunded and the provider's bond is slashed \u2014 the\nevidence is deterministic and the operator's judgment adds nothing.\n\nDisputes without spot-check evidence (non-deterministic jobs, or\nspot-checks still running) are left for manual resolution via\n/disputes/{{job_id}}/resolve.\n\nReturns a summary of what was adjudicated.",
+        "operationId": "auto_adjudicate_disputes_v1_admin_disputes_auto_adjudicate_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Auto Adjudicate Disputes V1 Admin Disputes Auto Adjudicate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/admin/payments/{job_id}/retry-release": {
       "post": {
         "tags": [
