@@ -9,12 +9,10 @@ from __future__ import annotations
 
 import time
 from dataclasses import replace
-from decimal import Decimal
 
 import pytest
 
 from aitbc.marketplace.energy_pricing import (
-    EnergyPricingError,
     EnergyProfile,
     EnergyQuote,
     EnergyRate,
@@ -22,8 +20,6 @@ from aitbc.marketplace.energy_pricing import (
     RefusalCode,
     SettlementRoute,
     build_minimum_quote,
-    compute_energy_net_units,
-    evaluate_quote,
 )
 
 TARIFF_SCALED = 300_000_000_000_000_000  # 0.30 * 10**18

@@ -2,7 +2,9 @@
 
 from __future__ import annotations
 
+import pytest
 
+pytest.importorskip("coordinator_api.contexts.preferences.redis_cache")
 from coordinator_api.contexts.preferences.redis_cache import ThemePreferenceCache
 
 

@@ -7,6 +7,7 @@ without making the main file unmanageable.
 
 from __future__ import annotations
 
+import json
 from decimal import Decimal
 
 from typing import Annotated, Any
@@ -430,6 +431,73 @@ def get_eth_bridge_status(
 ) -> str:
     """Get the active ETH-AITBC bridge status and deposit address."""
     return _http_read_tool(role, host, "wallet", "v1/bridge/status")
+
+
+# Safe fields to expose for bridge preflight checks.  Anything outside this
+# allowlist (in particular ``rpc_url``) is withheld so that bridge status
+# queries do not leak credentials into the MCP conversation.
+_BRIDGE_STATUS_SAFE_KEYS = {
+    "status",
+    "message",
+    "enabled",
+    "ready",
+    "network",
+    "deposit_address",
+    "wallet_address",
+    "fee_rate",
+    "min_deposit",
+    "minimum_deposit",
+    "poll_interval",
+    "auto_poll",
+}
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def get_eth_bridge_status_redacted(
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to query."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Get the ETH-AITBC bridge status with RPC credentials redacted.
+
+    Returns a safe subset of the bridge status needed for preflight checks:
+    status, enabled/ready, network, deposit address, minimum deposit, fee rate,
+    and polling state.  The full ``rpc_url`` and any other credential-bearing
+    fields are omitted.
+    """
+    target = _host_for_role(role, host)
+    result = _run_http(target, "wallet", "v1/bridge/status", "GET", None, None, 30)
+
+    if not isinstance(result, dict) or result.get("returncode") != 0:
+        error: dict[str, Any] = {
+            "error": "Bridge status query failed",
+            "returncode": result.get("returncode") if isinstance(result, dict) else None,
+        }
+        return _json(error)
+
+    raw = result.get("json")
+    if raw is None and isinstance(result.get("stdout"), str):
+        try:
+            raw = json.loads(result["stdout"])
+        except Exception:
+            pass
+
+    if not isinstance(raw, dict):
+        return _json(
+            {
+                "error": "Invalid bridge status response",
+                "returncode": result.get("returncode"),
+            }
+        )
+
+    redacted = {k: v for k, v in raw.items() if k in _BRIDGE_STATUS_SAFE_KEYS}
+    redacted.pop("rpc_url", None)
+    return _json(redacted)
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
