@@ -63,15 +63,15 @@ See [Service Selection](../setup-service-selection.md) for the hub service matri
 
 ## Multi-chain architecture
 
-> **Port Reference:** For authoritative port assignments, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
+> **Port Reference:** For authoritative port assignments, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). The layers below describe the architecture, not the port map — port numbers live only in the reference.
 
-- **Layer 1**: Wallet Daemon (8108) — Multi-chain wallet management
-- **Layer 2**: Coordinator API (8203) — Job and transaction coordination
-- **Layer 3**: Blockchain RPC (8202) — Transaction processing and consensus
-- **Layer 4**: Consensus (8202) — PoA block validation
-- **Layer 5**: P2P Network (7070) — Gossip relay on hub nodes
-- **Layer 6**: Blockchain Explorer API (8100) — Block/transaction search
-- **Layer 7**: Marketplace / GPU (8102, 8101, 8111) — Compute marketplace and job dispatch
+- **Layer 1**: Wallet Daemon — multi-chain wallet management
+- **Layer 2**: Coordinator API — job and transaction coordination
+- **Layer 3**: Blockchain RPC — transaction processing and consensus
+- **Layer 4**: Consensus — PoA block validation
+- **Layer 5**: P2P Network — gossip relay on hub nodes
+- **Layer 6**: Blockchain Explorer API — block/transaction search
+- **Layer 7**: Marketplace / GPU / Edge — compute marketplace and job dispatch
 
 ## Feature status
 
@@ -79,9 +79,9 @@ The following areas are on the roadmap and are partially implemented or aspirati
 
 | Feature | Status | Notes |
 |---------|--------|-------|
-| AI Trading Engine | 🟡 Designed | ML-based trading and portfolio optimization (Phase 4.1). |
-| Advanced Analytics Platform | 🟡 Designed | Real-time analytics dashboard and KPI tracking (Phase 4.2). |
-| Compliance Framework | 🟡 Designed | KYC/AML and regulatory reporting modules (Phase 4). |
+| AI Trading Engine | 🟡 Partial | `apps/trading` runs a live trading service (order matching, inter-chain settlement); the ML-driven optimization and portfolio layer remain roadmap work (Phase 4.1). |
+| Advanced Analytics Platform | 🟡 Partial | Marketplace analytics ship in coordinator-api (`market_analytics` service, developer-platform router); the full real-time dashboard and KPI surface are not built (Phase 4.2). |
+| Compliance Framework | 🟡 Partial | Policy templates, data classification, and the `compliance check`/`classify` CLI are implemented (`aitbc.compliance.policies`); HIPAA-grade containers and regulatory reporting stay planned (Phase 4). |
 
 ## Chain-specific token system
 
