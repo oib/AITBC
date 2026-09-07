@@ -24,7 +24,7 @@
       1 apps/blockchain-node/src/aitbc_chain/app.py
       1 apps/blockchain-node/src/aitbc_chain/chain_sync.py
       3 apps/blockchain-node/src/aitbc_chain/consensus/pbft.py
-      4 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
+      3 apps/blockchain-node/src/aitbc_chain/consensus/poa.py
       1 apps/blockchain-node/src/aitbc_chain/consensus/remote_attestation.py
       2 apps/blockchain-node/src/aitbc_chain/contracts/escrow.py
       1 apps/blockchain-node/src/aitbc_chain/cross_chain/bridge.py
@@ -111,10 +111,10 @@
       1 cli/aitbc_cli/commands/genesis.py
       1 cli/aitbc_cli/commands/http.py
       3 cli/aitbc_cli/commands/ipfs.py
+      1 cli/aitbc_cli/commands/market/__init__.py
       1 cli/aitbc_cli/commands/market/escrow.py
       2 cli/aitbc_cli/commands/market/exchange.py
       1 cli/aitbc_cli/commands/market/gpu.py
-      1 cli/aitbc_cli/commands/market/__init__.py
       2 cli/aitbc_cli/commands/market/jobs.py
       3 cli/aitbc_cli/commands/market/offers.py
       2 cli/aitbc_cli/commands/monitor.py
@@ -124,9 +124,9 @@
       2 cli/aitbc_cli/commands/simulate.py
       1 cli/aitbc_cli/commands/sync.py
       3 cli/aitbc_cli/commands/transactions.py
+      1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py
-      1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/misc.py
       1 cli/aitbc_cli/core/chain_manager.py
       1 cli/aitbc_cli/core/genesis_generator.py
@@ -134,13 +134,13 @@
       1 cli/aitbc_cli/utils/error_handling.py
       1 cli/aitbc_cli/utils/help_quality.py
       1 cli/aitbc_cli/utils/wallet_loader.py
-      1 cli/examples/client_enhanced.py
       1 cli/examples/client.py
+      1 cli/examples/client_enhanced.py
       1 cli/extended_features.py
-      1 cli_gap_analysis.py
       1 cli/miner_cli.py
       2 cli/miner_management.py
       1 cli/tests/run_cli_tests.py
+      1 cli_gap_analysis.py
       1 dev/gpu/gpu_miner_host.py
       1 mcp-server/aitbc_mcp_cli_tools.py
       3 mcp-server/aitbc_mcp_server.py
