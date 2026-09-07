@@ -152,7 +152,7 @@ async def record_sla_metric(
 
 @router.get("/system/health")
 @rate_limit(rate=200, per=60)
-async def get_system_status(
+async def get_system_health(
     request: Request, current_user: Annotated[dict[str, Any], Depends(get_current_user)]
 ) -> dict[str, Any]:
     """Get comprehensive system status"""
