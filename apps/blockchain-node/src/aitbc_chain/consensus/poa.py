@@ -792,221 +792,11 @@ class PoAProposer:
                 # fall back to sequential processing.
                 use_parallel = bool(processed_txs) or not pending_txs
             if not use_parallel:
-                # Collect transaction records created or updated by this
-                # proposal and add them to the session only after all state
-                # transitions have succeeded. Adding them inside per-tx nested
-                # savepoints caused new Transaction rows to leak into the DB
-                # when the outer transaction was rolled back (e.g., PBFT fail).
-                pending_transaction_records: list[Transaction] = []
-                for tx in pending_txs:
-                    try:
-                        tx_data = tx.content
-                        sender = _to_ait_address(tx_data.get("from", ""))
-                        recipient = _to_ait_address(tx_data.get("to", ""))
-                        value = tx_data.get("amount", 0)
-                        fee = tx_data.get("fee", 0)
-                        tx_type = (tx_data.get("type") or "TRANSFER").upper()
-                        self._logger.info(
-                            "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
-                            tx.tx_hash,
-                            sender,
-                            recipient,
-                            value,
-                            fee,
-                        )
-                        if not sender or not recipient:
-                            self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
-                            continue
-                        # Pre-registered transactions (e.g. bridge releases/refunds and faucet
-                        # funding) are already applied by the originating RPC call. Record them in
-                        # the block without re-running the state transition to avoid replay and
-                        # double-credit.
-                        existing_tx_record = session.exec(
-                            select(Transaction).where(
-                                Transaction.chain_id == self._config.chain_id,
-                                Transaction.tx_hash == tx.tx_hash,
-                            )
-                        ).first()
-                        if (
-                            existing_tx_record
-                            and existing_tx_record.status == "confirmed"
-                            and existing_tx_record.block_height is None
-                            and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK", "FAUCET"}
-                        ):
-                            existing_tx_record.block_height = next_height
-                            existing_tx_record.timestamp = timestamp.isoformat()
-                            session.add(existing_tx_record)
-                            processed_txs.append(tx)
-                            existing_tx_map[tx.tx_hash] = next_height
-                            self._logger.info(
-                                "[PROPOSE] Included pre-registered %s tx %s in block %s",
-                                tx_type,
-                                tx.tx_hash,
-                                next_height,
-                            )
-                            continue
-
-                        # v0.24.2: Block-scoped pre-registered credits (FAUCET, BRIDGE_RELEASE,
-                        # BRIDGE_REFUND) have a magic sender and should be applied now, not earlier.
-                        if getattr(settings, "block_scoped_preregistered_transactions", False) and tx_type in {
-                            "FAUCET",
-                            "BRIDGE_RELEASE",
-                            "BRIDGE_REFUND",
-                        }:
-                            state_transition = get_state_transition()
-                            tx_data_for_transition = tx.content.copy()
-                            tx_data_for_transition["nonce"] = 0
-                            tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                            success, error_msg = state_transition.apply_transaction(
-                                session,
-                                self._config.chain_id,
-                                tx_data_for_transition,
-                                tx.tx_hash,
-                                block_version=2,
-                            )
-                            if not success:
-                                self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
-                                continue
-                            original_payload = tx.content.get("payload", {})
-                            transaction = Transaction(
-                                chain_id=self._config.chain_id,
-                                tx_hash=tx.tx_hash,
-                                sender=tx_data.get("from", ""),
-                                recipient=tx_data.get("to", ""),
-                                payload=original_payload,
-                                value=value,
-                                fee=fee,
-                                nonce=0,
-                                timestamp=timestamp.isoformat(),
-                                block_height=next_height,
-                                status="confirmed",
-                                type=tx_type,
-                            )
-                            pending_transaction_records.append(transaction)
-                            changed_addresses.add(recipient)
-                            existing_tx_map[tx.tx_hash] = next_height
-                            processed_txs.append(tx)
-                            self._logger.info("[PROPOSE] Successfully applied credit tx %s", tx.tx_hash)
-                            continue
-
-                        sender_account = account_map.get(sender)
-                        if not sender_account:
-                            self._logger.warning(
-                                "[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender
-                            )
-                            continue
-                        total_cost = value + fee
-                        if sender_account.balance < total_cost:
-                            self._logger.warning(
-                                "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
-                                tx.tx_hash,
-                                sender_account.balance,
-                                total_cost,
-                            )
-                            continue
-                        # Resolve canonical tx type and validate governance
-                        # payloads before mutating state so we can skip invalid
-                        # transactions without rolling back earlier work.
-                        tx_type = tx.content.get("type", "TRANSFER")
-                        if tx_type:
-                            tx_type = tx_type.upper()
-                        else:
-                            tx_type = "TRANSFER"
-                        if tx_type.startswith("GOVERNANCE_"):
-                            gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
-                            if gov_errors:
-                                self._logger.warning(
-                                    "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
-                                    tx.tx_hash,
-                                    ", ".join(gov_errors),
-                                )
-                                continue
-                        existing_block_height = existing_tx_map.get(tx.tx_hash)
-                        if existing_block_height is not None:
-                            self._logger.warning(
-                                "[PROPOSE] Skipping tx %s: already exists in database at block %s",
-                                tx.tx_hash,
-                                existing_block_height,
-                            )
-                            continue
-                        # Do not create the recipient account here. The state
-                        # transition calls _ensure_account itself, and only on
-                        # paths that go on to succeed. Creating the row up front
-                        # left it behind whenever apply_transaction returned
-                        # False: the block state root is a full scan of the
-                        # account table, so the proposer committed a header no
-                        # other validator could reproduce. It was also wrong for
-                        # BRIDGE_LOCK, where the state transition deliberately
-                        # creates no recipient account at all.
-                        recipient_account = account_map.get(recipient)
-                        if recipient_account:
-                            self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
-                        else:
-                            self._logger.info(
-                                "[PROPOSE] Recipient account for %s will be created by the state transition", recipient
-                            )
-                        state_transition = get_state_transition()
-                        tx_data_for_transition = tx.content.copy()
-                        tx_data_for_transition["nonce"] = sender_account.nonce
-                        tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
-                        success, error_msg = state_transition.apply_transaction(
-                            session,
-                            self._config.chain_id,
-                            tx_data_for_transition,
-                            tx.tx_hash,
-                            block_version=2,
-                        )
-                        if not success:
-                            self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
-                            continue
-                        if recipient_account is None:
-                            # The state transition created it; pick up the real
-                            # row so later transactions in this block see it.
-                            recipient_account = session.get(Account, (self._config.chain_id, recipient))
-                            if recipient_account is not None:
-                                account_map[recipient] = recipient_account
-                        original_payload = tx.content.get("payload", {})
-                        if existing_tx_record:
-                            existing_tx_record.block_height = next_height
-                            existing_tx_record.status = "confirmed"
-                            existing_tx_record.timestamp = timestamp.isoformat()
-                            existing_tx_record.nonce = tx_data_for_transition["nonce"]
-                            pending_transaction_records.append(existing_tx_record)
-                        else:
-                            transaction = Transaction(
-                                chain_id=self._config.chain_id,
-                                tx_hash=tx.tx_hash,
-                                # Raw, not the canonicalised locals: these are signed (V23-65).
-                                sender=tx_data.get("from", ""),
-                                recipient=tx_data.get("to", ""),
-                                payload=original_payload,
-                                value=value,
-                                fee=fee,
-                                nonce=tx_data_for_transition["nonce"],
-                                timestamp=timestamp.isoformat(),
-                                block_height=next_height,
-                                status="confirmed",
-                                type=tx_type,
-                            )
-                            pending_transaction_records.append(transaction)
-                        # Track changed addresses for incremental state root computation
-                        changed_addresses.add(sender)
-                        changed_addresses.add(recipient)
-                        # Track the newly committed tx hash so subsequent iterations
-                        # in this loop detect it as a duplicate without another DB query.
-                        existing_tx_map[tx.tx_hash] = next_height
-                        processed_txs.append(tx)
-                        self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
-                    except Exception as e:
-                        session.rollback()
-                        self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
-                        return False
-                # Add transaction records only after all state transitions for
-                # this block have succeeded. This keeps them inside the outer
-                # transaction so a subsequent PBFT or attestation failure rolls
-                # them back together with the account state changes.
-                for record in pending_transaction_records:
-                    session.add(record)
+                processed_txs, changed_addresses, ok = self._process_txs_sequential(
+                    session, pending_txs, account_map, existing_tx_map, next_height, timestamp
+                )
+                if not ok:
+                    return False
             if pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True):
                 self._logger.warning(
                     "[PROPOSE] Skipping block proposal: all drained transactions were invalid (count=%s, chain=%s)",
@@ -1460,6 +1250,241 @@ class PoAProposer:
             created += 1
         session.commit()
         self._logger.info("Created %s accounts from genesis allocations", created)
+
+    def _process_txs_sequential(
+        self,
+        session: Session,
+        pending_txs: list[Any],
+        account_map: dict[str, Account],
+        existing_tx_map: dict[str, int],
+        next_height: int,
+        timestamp: datetime,
+    ) -> tuple[list[Any], set[str], bool]:
+        """Sequential transaction processing — the fallback for the parallel path.
+
+        Same contract as ``_process_txs_parallel``: returns
+        ``(processed_txs, changed_addresses, ok)``. On a per-transaction
+        exception the session is rolled back and ``ok=False`` is returned so the
+        caller can abort the proposal with a clean session.
+        """
+        processed_txs: list[Any] = []
+        changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
+        # Collect transaction records created or updated by this
+        # proposal and add them to the session only after all state
+        # transitions have succeeded. Adding them inside per-tx nested
+        # savepoints caused new Transaction rows to leak into the DB
+        # when the outer transaction was rolled back (e.g., PBFT fail).
+        pending_transaction_records: list[Transaction] = []
+        for tx in pending_txs:
+            try:
+                tx_data = tx.content
+                sender = _to_ait_address(tx_data.get("from", ""))
+                recipient = _to_ait_address(tx_data.get("to", ""))
+                value = tx_data.get("amount", 0)
+                fee = tx_data.get("fee", 0)
+                tx_type = (tx_data.get("type") or "TRANSFER").upper()
+                self._logger.info(
+                    "[PROPOSE] Processing tx %s: from=%s, to=%s, amount=%s, fee=%s",
+                    tx.tx_hash,
+                    sender,
+                    recipient,
+                    value,
+                    fee,
+                )
+                if not sender or not recipient:
+                    self._logger.warning("[PROPOSE] Skipping tx %s: missing sender or recipient", tx.tx_hash)
+                    continue
+                # Pre-registered transactions (e.g. bridge releases/refunds and faucet
+                # funding) are already applied by the originating RPC call. Record them in
+                # the block without re-running the state transition to avoid replay and
+                # double-credit.
+                existing_tx_record = session.exec(
+                    select(Transaction).where(
+                        Transaction.chain_id == self._config.chain_id,
+                        Transaction.tx_hash == tx.tx_hash,
+                    )
+                ).first()
+                if (
+                    existing_tx_record
+                    and existing_tx_record.status == "confirmed"
+                    and existing_tx_record.block_height is None
+                    and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK", "FAUCET"}
+                ):
+                    existing_tx_record.block_height = next_height
+                    existing_tx_record.timestamp = timestamp.isoformat()
+                    session.add(existing_tx_record)
+                    processed_txs.append(tx)
+                    existing_tx_map[tx.tx_hash] = next_height
+                    self._logger.info(
+                        "[PROPOSE] Included pre-registered %s tx %s in block %s",
+                        tx_type,
+                        tx.tx_hash,
+                        next_height,
+                    )
+                    continue
+
+                # v0.24.2: Block-scoped pre-registered credits (FAUCET, BRIDGE_RELEASE,
+                # BRIDGE_REFUND) have a magic sender and should be applied now, not earlier.
+                if getattr(settings, "block_scoped_preregistered_transactions", False) and tx_type in {
+                    "FAUCET",
+                    "BRIDGE_RELEASE",
+                    "BRIDGE_REFUND",
+                }:
+                    state_transition = get_state_transition()
+                    tx_data_for_transition = tx.content.copy()
+                    tx_data_for_transition["nonce"] = 0
+                    tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
+                    success, error_msg = state_transition.apply_transaction(
+                        session,
+                        self._config.chain_id,
+                        tx_data_for_transition,
+                        tx.tx_hash,
+                        block_version=2,
+                    )
+                    if not success:
+                        self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
+                        continue
+                    original_payload = tx.content.get("payload", {})
+                    transaction = Transaction(
+                        chain_id=self._config.chain_id,
+                        tx_hash=tx.tx_hash,
+                        sender=tx_data.get("from", ""),
+                        recipient=tx_data.get("to", ""),
+                        payload=original_payload,
+                        value=value,
+                        fee=fee,
+                        nonce=0,
+                        timestamp=timestamp.isoformat(),
+                        block_height=next_height,
+                        status="confirmed",
+                        type=tx_type,
+                    )
+                    pending_transaction_records.append(transaction)
+                    changed_addresses.add(recipient)
+                    existing_tx_map[tx.tx_hash] = next_height
+                    processed_txs.append(tx)
+                    self._logger.info("[PROPOSE] Successfully applied credit tx %s", tx.tx_hash)
+                    continue
+
+                sender_account = account_map.get(sender)
+                if not sender_account:
+                    self._logger.warning(
+                        "[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender
+                    )
+                    continue
+                total_cost = value + fee
+                if sender_account.balance < total_cost:
+                    self._logger.warning(
+                        "[PROPOSE] Skipping tx %s: insufficient balance (has %s, needs %s)",
+                        tx.tx_hash,
+                        sender_account.balance,
+                        total_cost,
+                    )
+                    continue
+                # Resolve canonical tx type and validate governance
+                # payloads before mutating state so we can skip invalid
+                # transactions without rolling back earlier work.
+                tx_type = tx.content.get("type", "TRANSFER")
+                if tx_type:
+                    tx_type = tx_type.upper()
+                else:
+                    tx_type = "TRANSFER"
+                if tx_type.startswith("GOVERNANCE_"):
+                    gov_errors = _validate_governance_payload(tx_type, tx.content.get("payload", {}))
+                    if gov_errors:
+                        self._logger.warning(
+                            "[PROPOSE] Skipping governance tx %s: invalid payload: %s",
+                            tx.tx_hash,
+                            ", ".join(gov_errors),
+                        )
+                        continue
+                existing_block_height = existing_tx_map.get(tx.tx_hash)
+                if existing_block_height is not None:
+                    self._logger.warning(
+                        "[PROPOSE] Skipping tx %s: already exists in database at block %s",
+                        tx.tx_hash,
+                        existing_block_height,
+                    )
+                    continue
+                # Do not create the recipient account here. The state
+                # transition calls _ensure_account itself, and only on
+                # paths that go on to succeed. Creating the row up front
+                # left it behind whenever apply_transaction returned
+                # False: the block state root is a full scan of the
+                # account table, so the proposer committed a header no
+                # other validator could reproduce. It was also wrong for
+                # BRIDGE_LOCK, where the state transition deliberately
+                # creates no recipient account at all.
+                recipient_account = account_map.get(recipient)
+                if recipient_account:
+                    self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
+                else:
+                    self._logger.info(
+                        "[PROPOSE] Recipient account for %s will be created by the state transition", recipient
+                    )
+                state_transition = get_state_transition()
+                tx_data_for_transition = tx.content.copy()
+                tx_data_for_transition["nonce"] = sender_account.nonce
+                tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
+                success, error_msg = state_transition.apply_transaction(
+                    session,
+                    self._config.chain_id,
+                    tx_data_for_transition,
+                    tx.tx_hash,
+                    block_version=2,
+                )
+                if not success:
+                    self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
+                    continue
+                if recipient_account is None:
+                    # The state transition created it; pick up the real
+                    # row so later transactions in this block see it.
+                    recipient_account = session.get(Account, (self._config.chain_id, recipient))
+                    if recipient_account is not None:
+                        account_map[recipient] = recipient_account
+                original_payload = tx.content.get("payload", {})
+                if existing_tx_record:
+                    existing_tx_record.block_height = next_height
+                    existing_tx_record.status = "confirmed"
+                    existing_tx_record.timestamp = timestamp.isoformat()
+                    existing_tx_record.nonce = tx_data_for_transition["nonce"]
+                    pending_transaction_records.append(existing_tx_record)
+                else:
+                    transaction = Transaction(
+                        chain_id=self._config.chain_id,
+                        tx_hash=tx.tx_hash,
+                        # Raw, not the canonicalised locals: these are signed (V23-65).
+                        sender=tx_data.get("from", ""),
+                        recipient=tx_data.get("to", ""),
+                        payload=original_payload,
+                        value=value,
+                        fee=fee,
+                        nonce=tx_data_for_transition["nonce"],
+                        timestamp=timestamp.isoformat(),
+                        block_height=next_height,
+                        status="confirmed",
+                        type=tx_type,
+                    )
+                    pending_transaction_records.append(transaction)
+                # Track changed addresses for incremental state root computation
+                changed_addresses.add(sender)
+                changed_addresses.add(recipient)
+                # Track the newly committed tx hash so subsequent iterations
+                # in this loop detect it as a duplicate without another DB query.
+                existing_tx_map[tx.tx_hash] = next_height
+                processed_txs.append(tx)
+                self._logger.info("[PROPOSE] Successfully processed tx %s: updated balances", tx.tx_hash)
+            except Exception as e:
+                session.rollback()
+                self._logger.warning("Failed to process transaction %s: %s", tx.tx_hash, e)
+                return [], set(), False
+        # Add transaction records only after all state transitions for
+        # this block have succeeded. This keeps them inside the outer
+        # transaction so a subsequent PBFT or attestation failure rolls
+        # them back together with the account state changes.
+        for record in pending_transaction_records:
+            session.add(record)
+        return processed_txs, changed_addresses, True
 
     def _process_txs_parallel(
         self,
