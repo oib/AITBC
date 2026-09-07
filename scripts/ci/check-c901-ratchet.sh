@@ -18,7 +18,7 @@ PYTHON="${PYTHON:-python3}"
 current="$(mktemp)"
 trap 'rm -f "$current"' EXIT
 { "$PYTHON" -m ruff check . --select C901 --output-format concise 2>/dev/null || true; } \
-    | cut -d: -f1 | sort | uniq -c > "$current"
+    | grep -E ':[0-9]+:[0-9]+: C901 ' | cut -d: -f1 | sort | uniq -c > "$current"
 
 if [ "${1:-}" = "--update" ]; then
     sort -k2 "$current" > "$BASELINE"
