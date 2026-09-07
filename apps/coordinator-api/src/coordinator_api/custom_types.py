@@ -3,10 +3,10 @@ Shared types and enums for the AITBC Coordinator API
 """
 
 from decimal import Decimal
-from typing import Any
+
 from enum import StrEnum
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, ConfigDict, Field
 
 
 class JobState(StrEnum):
@@ -19,6 +19,8 @@ class JobState(StrEnum):
 
 
 class Constraints(BaseModel):
+    model_config = ConfigDict(extra="ignore")
+
     gpu: str | None = None
     cuda: str | None = None
     min_vram_gb: int | None = None
@@ -54,9 +56,6 @@ class Constraints(BaseModel):
     decode_seed: int | None = Field(
         default=None, description="Optional seed for deterministic decoding (auto-assigned if unset)"
     )
-    # G3: shadow-mode spot-check. Internal fields used for re-running deterministic jobs.
-    shadow_mode: bool = Field(default=False, description="Internal: shadow-mode job does not pay or affect reputation")
-    spot_check_for: str | None = Field(default=None, description="Internal: original job id this shadow re-run verifies")
-    spot_check_result: dict[str, Any] | None = Field(
-        default=None, description="Internal: result of the shadow re-run comparison"
-    )
+    # Server-only spot-check fields are intentionally NOT declared here. They are
+    # set only by the coordinator's SpotCheckService and stored on the shadow job
+    # record, never accepted from clients.
