@@ -24,12 +24,18 @@ DEFAULT_ENERGY_PRICING_ABI: list[dict] = [
         "inputs": [{"name": "resourceId", "type": "string"}],
         "name": "getEnergyProfile",
         "outputs": [
-            {"name": "enabled", "type": "bool"},
-            {"name": "revision", "type": "uint256"},
-            {"name": "modelId", "type": "string"},
-            {"name": "provider", "type": "address"},
-            {"name": "tdpWatts", "type": "uint256"},
-            {"name": "eurPerKwh", "type": "uint256"},
+            {
+                "name": "",
+                "type": "tuple",
+                "components": [
+                    {"name": "enabled", "type": "bool"},
+                    {"name": "revision", "type": "uint256"},
+                    {"name": "modelId", "type": "string"},
+                    {"name": "provider", "type": "address"},
+                    {"name": "tdpWatts", "type": "uint256"},
+                    {"name": "eurPerKwh", "type": "uint256"},
+                ],
+            },
         ],
         "stateMutability": "view",
         "type": "function",
@@ -38,12 +44,18 @@ DEFAULT_ENERGY_PRICING_ABI: list[dict] = [
         "inputs": [],
         "name": "getEnergyRate",
         "outputs": [
-            {"name": "enabled", "type": "bool"},
-            {"name": "version", "type": "uint256"},
-            {"name": "aitPerEur", "type": "uint256"},
-            {"name": "observedAt", "type": "uint256"},
-            {"name": "submittedAt", "type": "uint256"},
-            {"name": "sourceKind", "type": "string"},
+            {
+                "name": "",
+                "type": "tuple",
+                "components": [
+                    {"name": "enabled", "type": "bool"},
+                    {"name": "version", "type": "uint256"},
+                    {"name": "aitPerEur", "type": "uint256"},
+                    {"name": "observedAt", "type": "uint256"},
+                    {"name": "submittedAt", "type": "uint256"},
+                    {"name": "sourceKind", "type": "string"},
+                ],
+            },
         ],
         "stateMutability": "view",
         "type": "function",
@@ -99,13 +111,9 @@ class EVMEnergyOracle:
                 block_identifier=block_identifier,
             )
         except Exception as exc:
-            raise EnergyOracleError(
-                f"EVM read failed for {function_name}: {exc}"
-            ) from exc
+            raise EnergyOracleError(f"EVM read failed for {function_name}: {exc}") from exc
 
-    def _resolve_block(
-        self, block_identifier: int | str | None
-    ) -> tuple[int, str]:
+    def _resolve_block(self, block_identifier: int | str | None) -> tuple[int, str]:
         """Return the concrete block number and hash for a block identifier."""
         if block_identifier is None:
             block = self.rpc.get_block("latest")
@@ -119,13 +127,9 @@ class EVMEnergyOracle:
         block_identifier: int | str | None = None,
     ) -> EnergyProfile:
         """Fetch and validate the energy profile for ``resource_id``."""
-        result = self._call(
-            "getEnergyProfile", resource_id, block_identifier=block_identifier
-        )
-        if not isinstance(result, (tuple, list)) or len(result) < 6:
-            raise EnergyOracleError(
-                f"unexpected getEnergyProfile return: {result}"
-            )
+        result = self._call("getEnergyProfile", resource_id, block_identifier=block_identifier)
+        if not isinstance(result, tuple | list) or len(result) < 6:
+            raise EnergyOracleError(f"unexpected getEnergyProfile return: {result}")
         enabled, revision, model_id, provider, tdp_watts, eur_per_kwh = result[:6]
         return EnergyProfile(
             resource_id=resource_id,
@@ -143,11 +147,9 @@ class EVMEnergyOracle:
     ) -> EnergyRate:
         """Fetch and validate the current energy rate."""
         result = self._call("getEnergyRate", block_identifier=block_identifier)
-        if not isinstance(result, (tuple, list)) or len(result) < 6:
+        if not isinstance(result, tuple | list) or len(result) < 6:
             raise EnergyOracleError(f"unexpected getEnergyRate return: {result}")
-        enabled, version, ait_per_eur, observed_at, submitted_at, source_kind = (
-            result[:6]
-        )
+        enabled, version, ait_per_eur, observed_at, submitted_at, source_kind = result[:6]
         return EnergyRate(
             ait_per_eur_scaled=int(ait_per_eur),
             version=int(version),
@@ -178,13 +180,11 @@ class EVMEnergyOracle:
             settlement_unit_scale,
             block_identifier=block_identifier,
         )
-        if not isinstance(result, (tuple, list)) or len(result) < 3:
+        if not isinstance(result, tuple | list) or len(result) < 3:
             raise EnergyOracleError(f"unexpected getEnergyFloor return: {result}")
         net_floor, valid, reason = result[:3]
         if not valid:
-            raise EnergyOracleError(
-                f"getEnergyFloor returned invalid: {reason}"
-            )
+            raise EnergyOracleError(f"getEnergyFloor returned invalid: {reason}")
         return int(net_floor)
 
     def get_pinned_inputs(
