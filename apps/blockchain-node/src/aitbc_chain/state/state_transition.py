@@ -74,6 +74,25 @@ def _is_bond_burn(address: str) -> bool:
     return canonical_address(address) == _BOND_BURN_ADDRESS
 
 
+def _escrow_address(job_id: str) -> str:
+    """Derive a deterministic escrow address for a job (S-4).
+
+    Funds locked for a job go to escrow:<job_id> — an address with no
+    known private key, so the locked value is unspendable by the node
+    wallet until a release or refund transaction moves it.
+    """
+    return canonical_address("0x" + keccak(f"aitbc.escrow.{job_id}".encode()).hex()[:40])
+
+
+def _is_escrow_address(address: str, job_id: str | None = None) -> bool:
+    """Check whether an address is (or matches) a per-escrow lock address."""
+    if job_id is None:
+        # Without a job_id, check if it matches the escrow prefix pattern.
+        # This is a heuristic — we can't reverse the hash.
+        return False
+    return canonical_address(address) == _escrow_address(job_id)
+
+
 def _is_valid_0x_address(address: str) -> bool:
     """Return True if ``address`` is a canonical 42-character 0x address."""
     try:
@@ -154,7 +173,9 @@ class StateTransition:
         self._processed_nonces.clear()
         self._processed_tx_hashes.clear()
 
-    def validate_transaction(self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str) -> tuple[bool, str]:
+    def validate_transaction(
+        self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str, block_version: int = 2
+    ) -> tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
 
@@ -257,7 +278,22 @@ class StateTransition:
             total_cost = fee
         else:
             total_cost = value + fee
-        if sender_account.balance < total_cost:
+        # S-4 (v3): ESCROW_RELEASE/ESCROW_REFUND funds come from the per-escrow
+        # address, not the sender (node wallet). Skip the sender balance check
+        # and validate against the escrow address instead.
+        if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
+            job_id = (tx_data.get("payload") or {}).get("job_id", "")
+            if not job_id:
+                return (False, f"{tx_type} payload must include job_id for v3 escrow")
+            escrow_addr = _escrow_address(job_id)
+            escrow_account = session.get(Account, (chain_id, escrow_addr))
+            if escrow_account is None or escrow_account.balance < value:
+                escrow_bal = escrow_account.balance if escrow_account else 0
+                return (False, f"Escrow {job_id} has insufficient balance: {escrow_bal} < {value}")
+            # The sender (node) pays only the fee, not the value.
+            if sender_account.balance < fee:
+                return (False, f"Insufficient balance for fee: {sender_account.balance} < {fee}")
+        elif sender_account.balance < total_cost:
             return (False, f"Insufficient balance for {sender_addr}: {sender_account.balance} < {total_cost}")
         # v0.25.5: recipient accounts are created on first credit during
         # block execution, so a release/refund/transfer to a never-before-seen
@@ -325,7 +361,7 @@ class StateTransition:
             Tuple of (success, error_message)
         """
         logger.info("apply_transaction called for tx %s, tx_data keys: %s", tx_hash, list(tx_data.keys()))
-        is_valid, error_msg = self.validate_transaction(session, chain_id, tx_data, tx_hash)
+        is_valid, error_msg = self.validate_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version)
         if not is_valid:
             return (False, error_msg)
         sender_addr = _to_ait_address(tx_data.get("from") or "")
@@ -440,6 +476,17 @@ class StateTransition:
             provider_addr = _to_ait_address((tx_data.get("payload") or {}).get("provider", ""))
             if provider_addr:
                 _ensure_account(session, chain_id, provider_addr)
+            # S-4 (v3): redirect the locked value to a deterministic per-escrow
+            # address so the node wallet's spendable balance never includes
+            # escrowed funds. The escrow address has no known key — funds can
+            # only leave via ESCROW_RELEASE or ESCROW_REFUND.
+            if block_version >= 3:
+                job_id = (tx_data.get("payload") or {}).get("job_id", "")
+                if job_id:
+                    escrow_addr = _escrow_address(job_id)
+                    _ensure_account(session, chain_id, escrow_addr)
+                    # Override the recipient for the balance update below.
+                    recipient_addr = escrow_addr
         sender_account = session.get(Account, (chain_id, sender_addr))
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
             total_cost = fee
@@ -467,6 +514,50 @@ class StateTransition:
                 {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
             )
         session.flush()
+        if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND") and block_version >= 3:
+            # S-4 (v3): move funds FROM the per-escrow address to the
+            # destination (provider for release, buyer for refund). The
+            # transaction sender is the node, but the funds come from the
+            # escrow address — the node wallet's balance is untouched.
+            job_id = (tx_data.get("payload") or {}).get("job_id", "")
+            if job_id:
+                escrow_addr = _escrow_address(job_id)
+                # The generic path above debited the sender (node wallet) for
+                # value+fee and credited the recipient for value. Undo both
+                # the sender debit (for value) and the recipient credit, then
+                # re-credit the recipient from the escrow address. The sender
+                # keeps only the fee debit.
+                # Undo recipient credit
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :recipient_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
+                )
+                # Undo sender debit (for value only — fee stays debited)
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance + :value WHERE chain_id = :chain_id AND address = :sender_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "sender_addr": sender_addr},
+                )
+                escrow_account = session.get(Account, (chain_id, escrow_addr))
+                if escrow_account is None or escrow_account.balance < value:
+                    raise ValueError(f"Escrow {job_id} has insufficient balance for {tx_type}")
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance - :value WHERE chain_id = :chain_id AND address = :escrow_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "escrow_addr": escrow_addr},
+                )
+                session.execute(
+                    text(
+                        "UPDATE account SET balance = balance + :value WHERE chain_id = :chain_id AND address = :recipient_addr"
+                    ),
+                    {"value": value, "chain_id": chain_id, "recipient_addr": recipient_addr},
+                )
+                session.flush()
+                logger.info("S-4: %s moved %s from escrow %s to %s", tx_type, value, escrow_addr, recipient_addr)
         if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
             self._handle_bond_transaction(session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value)
         if tx_type == "GOVERNANCE_EXECUTE":
