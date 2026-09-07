@@ -82,7 +82,7 @@ class TestExchangeCommands:
 
         from aitbc_cli.commands.exchange import exchange
 
-        result = runner.invoke(exchange, ["status", "NonExistent"])
+        result = runner.invoke(exchange, ["status", "--exchange-name", "NonExistent"])
 
         assert result.exit_code == 0, result.output
 

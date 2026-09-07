@@ -131,7 +131,7 @@ class TestNodeCommands:
         """``node island leave`` confirms leaving an island."""
         from aitbc_cli.commands.node import node
 
-        result = runner.invoke(node, ["island", "leave", "test-island"])
+        result = runner.invoke(node, ["island", "leave", "--island-id", "test-island"])
 
         assert result.exit_code == 0, result.output
         assert "Successfully left" in result.output

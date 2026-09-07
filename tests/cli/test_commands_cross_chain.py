@@ -87,7 +87,7 @@ class TestCrossChainCommands:
 
         result = runner.invoke(
             cross_chain,
-            ["status", "swap123"],
+            ["status", "--swap-id", "swap123"],
             obj={"output": "table", "output_format": "table", "config": mock_config},
         )
 

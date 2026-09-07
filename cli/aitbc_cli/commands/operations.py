@@ -59,7 +59,7 @@ def _get_wallet_password(wallet_name: str) -> str:
     deprecated=True,
     epilog="""Examples:
 
-  aitbc operations marketplace list-listings
+  aitbc operations ai status
 
   aitbc operations governance vote --proposal-id prop-123 --vote for""",
 )

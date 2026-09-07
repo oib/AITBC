@@ -69,7 +69,7 @@ class TestAICommands:
         """``ai submit`` posts the job payload to the coordinator."""
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"job_id": "job_test_123", "status": "queued"}
+        mock_client.post.return_value = {"job_id": "job_test_123", "status": "queued", "payment_id": "pay_test_123"}
 
         from aitbc_cli.commands.ai import ai
 
@@ -85,6 +85,8 @@ class TestAICommands:
                 "Hello world",
                 "--payment",
                 "5.0",
+                "--provider-address",
+                "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450",
                 "--coordinator-url",
                 "http://coordinator:8006",
             ],
@@ -111,6 +113,7 @@ class TestAICommands:
             "job_id": "job_skipped_pay",
             "status": "queued",
             "payment_status": "skipped",
+            "payment_id": "pay_skipped",
         }
 
         from aitbc_cli.commands.ai import ai
@@ -125,6 +128,8 @@ class TestAICommands:
                 "1.0",
                 "--currency",
                 "INVALID_CURRENCY",
+                "--provider-address",
+                "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450",
                 "--coordinator-url",
                 "http://coordinator:8006",
             ],
@@ -247,6 +252,8 @@ class TestAICommands:
                 "wait test",
                 "--payment",
                 "1.0",
+                "--provider-address",
+                "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450",
                 "--coordinator-url",
                 "http://coordinator:8006",
                 "--wait",

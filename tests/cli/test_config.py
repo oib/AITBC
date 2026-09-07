@@ -67,7 +67,9 @@ class TestConfigCommands:
         """Test setting coordinator URL"""
         with runner.isolated_filesystem():
             result = runner.invoke(
-                config, ["set", "agent_coordinator_url", "http://new:8000"], obj={"config": mock_config, "output": "table"}
+                config,
+                ["set", "--key", "agent_coordinator_url", "--value", "http://new:8000"],
+                obj={"config": mock_config, "output": "table"},
             )
 
             assert result.exit_code == 0
@@ -84,7 +86,9 @@ class TestConfigCommands:
         """Test setting API key"""
         with runner.isolated_filesystem():
             result = runner.invoke(
-                config, ["set", "api_key", "new_test_key_12345"], obj={"config": mock_config, "output": "table"}
+                config,
+                ["set", "--key", "api_key", "--value", "new_test_key_12345"],
+                obj={"config": mock_config, "output": "table"},
             )
 
             assert result.exit_code == 0
@@ -93,21 +97,27 @@ class TestConfigCommands:
     def test_set_timeout(self, runner, mock_config):
         """Test setting timeout"""
         with runner.isolated_filesystem():
-            result = runner.invoke(config, ["set", "timeout", "45"], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["set", "--key", "timeout", "--value", "45"], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code == 0
             assert "Timeout set to: 45s" in result.output
 
     def test_set_invalid_timeout(self, runner, mock_config):
         """Test setting invalid timeout"""
-        result = runner.invoke(config, ["set", "timeout", "invalid"], obj={"config": mock_config, "output": "json"})
+        result = runner.invoke(
+            config, ["set", "--key", "timeout", "--value", "invalid"], obj={"config": mock_config, "output": "json"}
+        )
 
         assert result.exit_code != 0
         assert "Timeout must be an integer" in result.output
 
     def test_set_invalid_key(self, runner, mock_config):
         """Test setting invalid configuration key"""
-        result = runner.invoke(config, ["set", "invalid_key", "value"], obj={"config": mock_config, "output": "json"})
+        result = runner.invoke(
+            config, ["set", "--key", "invalid_key", "--value", "value"], obj={"config": mock_config, "output": "json"}
+        )
 
         assert result.exit_code != 0
         assert "Unknown configuration key" in result.output
@@ -295,7 +305,9 @@ class TestConfigCommands:
             # The config file will be created in the current directory
             actual_config_file = Path.cwd() / ".aitbc.yaml"
 
-            result = runner.invoke(config, ["import-config", str(import_file)], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["import-config", "--file-path", str(import_file)], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code == 0
             assert "Configuration imported" in result.output
@@ -319,7 +331,9 @@ class TestConfigCommands:
             # The config file will be created in the current directory
             actual_config_file = Path.cwd() / ".aitbc.yaml"
 
-            result = runner.invoke(config, ["import-config", str(import_file)], obj={"config": mock_config, "output": "table"})
+            result = runner.invoke(
+                config, ["import-config", "--file-path", str(import_file)], obj={"config": mock_config, "output": "table"}
+            )
 
             assert result.exit_code == 0
 
@@ -346,7 +360,9 @@ class TestConfigCommands:
             shutil.copy2(temp_config_file, local_config)
 
             result = runner.invoke(
-                config, ["import-config", str(import_file), "--merge"], obj={"config": mock_config, "output": "table"}
+                config,
+                ["import-config", "--file-path", str(import_file), "--merge"],
+                obj={"config": mock_config, "output": "table"},
             )
 
             assert result.exit_code == 0
@@ -360,7 +376,7 @@ class TestConfigCommands:
     def test_import_nonexistent_file(self, runner, mock_config):
         """Test importing non-existent file"""
         result = runner.invoke(
-            config, ["import-config", "/nonexistent/file.yaml"], obj={"config": mock_config, "output": "json"}
+            config, ["import-config", "--file-path", "/nonexistent/file.yaml"], obj={"config": mock_config, "output": "json"}
         )
 
         assert result.exit_code != 0
@@ -424,7 +440,7 @@ class TestConfigCommands:
             mock_home.return_value = tmp_path
 
             result = runner.invoke(
-                config, ["profiles", "save", "test_profile"], obj={"config": mock_config, "output": "table"}
+                config, ["profiles", "save", "--name", "test_profile"], obj={"config": mock_config, "output": "table"}
             )
 
             assert result.exit_code == 0
@@ -476,7 +492,9 @@ class TestConfigCommands:
             mock_home.return_value = tmp_path
 
             with runner.isolated_filesystem(temp_dir=tmp_path):
-                result = runner.invoke(config, ["profiles", "load", "load_me"], obj={"config": mock_config, "output": "table"})
+                result = runner.invoke(
+                    config, ["profiles", "load", "--name", "load_me"], obj={"config": mock_config, "output": "table"}
+                )
 
                 assert result.exit_code == 0
                 assert "Profile 'load_me' loaded" in result.output
@@ -495,7 +513,10 @@ class TestConfigCommands:
             mock_home.return_value = tmp_path
 
             result = runner.invoke(
-                config, ["profiles", "delete", "delete_me"], obj={"config": mock_config, "output": "table"}, input="y\n"
+                config,
+                ["profiles", "delete", "--name", "delete_me"],
+                obj={"config": mock_config, "output": "table"},
+                input="y\n",
             )
 
             assert result.exit_code == 0
@@ -516,7 +537,7 @@ class TestConfigCommands:
             mock_home.return_value = tmp_path
 
             result = runner.invoke(
-                config, ["profiles", "delete", "keep_me"], obj={"config": mock_config, "output": "json"}, input="n\n"
+                config, ["profiles", "delete", "--name", "keep_me"], obj={"config": mock_config, "output": "json"}, input="n\n"
             )
 
             assert result.exit_code == 0
