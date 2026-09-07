@@ -12,6 +12,7 @@ from pathlib import Path
 from typing import TYPE_CHECKING, Any
 
 if TYPE_CHECKING:
+    from ..mempool import DatabaseMempool, InMemoryMempool
     from .multi_validator_poa import MultiValidatorPoA
 
 from .pbft import PBFTConsensus
@@ -263,9 +264,7 @@ class PoAProposer:
         from ..config import settings as _settings
         from .multi_validator_poa import proposer_round
 
-        return proposer_round(
-            parent_timestamp, block_timestamp, getattr(_settings, "consensus_proposer_round_seconds", 120)
-        )
+        return proposer_round(parent_timestamp, block_timestamp, getattr(_settings, "consensus_proposer_round_seconds", 120))
 
     def _empty_bridge_root(self) -> str:
         """Return the bridge event trie root for a block with no lock events."""
@@ -569,8 +568,7 @@ class PoAProposer:
 
     async def _propose_block(self) -> bool:
         from ..config import settings
-        from ..mempool import get_mempool as get_mempool_instance, PendingTransaction as MempoolPendingTx
-        from ..models import Account, Transaction
+        from ..mempool import get_mempool as get_mempool_instance
 
         if not await self._ensure_synced_before_proposal():
             return False
@@ -582,68 +580,14 @@ class PoAProposer:
 
         mempool = get_mempool_instance()
 
-        # If we are not the selected proposer for the next block, skip quietly.
-        # This prevents follower nodes from repeatedly forcing heartbeat blocks,
-        # draining the mempool, and recomputing state roots when they cannot sign.
+        # Early gates: skip quietly when the selected proposer for the next
+        # height is not a local key, or when the generation mode does not call
+        # for a block right now.
         head = self._fetch_chain_head()
-        next_height = (head.height + 1) if head is not None else 0
-        proposer = self._select_proposer(
-            next_height,
-            self._proposer_round(head.timestamp if head is not None else None, datetime.now(UTC)),
-        )
-        if self._multi_validator and proposer and proposer not in self._validator_keys:
-            self._logger.debug(
-                "[PROPOSE] Proposer %s for height %s is not a local key, skipping quietly (chain=%s)",
-                proposer,
-                next_height,
-                self._config.chain_id,
-            )
+        if not self._selected_proposer_is_local(head):
             return False
-
-        block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
-        max_empty_block_interval = getattr(settings, "max_empty_block_interval", 60)
-        if block_generation_mode in ["mempool-only", "hybrid"]:
-            mempool_size = mempool.size(self._config.chain_id)
-            if block_generation_mode == "mempool-only":
-                if mempool_size == 0:
-                    self._logger.debug(
-                        "[PROPOSE] Skipping block proposal: mempool is empty (chain=%s, mode=mempool-only)",
-                        self._config.chain_id,
-                    )
-                    metrics_registry.increment("sync_empty_blocks_skipped_total")
-                    return False
-            elif block_generation_mode == "hybrid":
-                last_block_timestamp = head.timestamp if head is not None else self._last_block_timestamp
-                if last_block_timestamp:
-                    last_timestamp = (
-                        last_block_timestamp
-                        if last_block_timestamp.tzinfo is not None
-                        else last_block_timestamp.replace(tzinfo=UTC)
-                    )
-                    time_since_last_block = (datetime.now(UTC) - last_timestamp).total_seconds()
-                    if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
-                        self._logger.debug(
-                            "[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain=%s, mode=hybrid, idle_time=%ss)",
-                            self._config.chain_id,
-                            time_since_last_block,
-                        )
-                        metrics_registry.increment("sync_empty_blocks_skipped_total")
-                        return False
-                    elif mempool_size == 0 and time_since_last_block >= max_empty_block_interval:
-                        self._logger.info(
-                            "[PROPOSE] Forcing heartbeat block: idle for %ss (chain=%s, mode=hybrid)",
-                            time_since_last_block,
-                            self._config.chain_id,
-                        )
-                        metrics_registry.increment("sync_heartbeat_blocks_forced_total")
-                        metrics_registry.observe("sync_time_since_last_block_seconds", time_since_last_block)
-                elif mempool_size == 0:
-                    self._logger.debug(
-                        "[PROPOSE] Skipping block proposal: no previous block timestamp (chain=%s, mode=hybrid)",
-                        self._config.chain_id,
-                    )
-                    metrics_registry.increment("sync_empty_blocks_skipped_total")
-                    return False
+        if self._should_skip_for_empty_mempool(head, mempool):
+            return False
         with self._session_factory() as session:
             head = session.exec(
                 select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
@@ -709,75 +653,7 @@ class PoAProposer:
                     next_height,
                 )
                 return False
-            max_txs = self._config.max_txs_per_block
-            max_bytes = self._config.max_block_size_bytes
-            pending_txs = list(mempool.drain(max_txs, max_bytes, self._config.chain_id))
-            self._logger.info("[PROPOSE] drained %s txs from mempool, chain=%s", len(pending_txs), self._config.chain_id)
-            # Include transactions that were pre-registered in the DB (e.g. bridge releases)
-            # but not yet assigned to a block.
-            pre_registered = session.exec(
-                select(Transaction).where(
-                    Transaction.chain_id == self._config.chain_id,
-                    Transaction.block_height.is_(None),  # type: ignore[union-attr]
-                    Transaction.status == "confirmed",
-                )
-            ).all()
-            for tx_rec in pre_registered:
-                content = {
-                    "from": tx_rec.sender or "bridge_release",
-                    "to": tx_rec.recipient or "",
-                    "amount": tx_rec.value or 0,
-                    "value": tx_rec.value or 0,
-                    "fee": tx_rec.fee or 0,
-                    "nonce": tx_rec.nonce or 0,
-                    "type": tx_rec.type or "TRANSFER",
-                    "payload": tx_rec.payload or {},
-                    "signature": "",
-                }
-                pending_txs.append(
-                    MempoolPendingTx(
-                        tx_hash=tx_rec.tx_hash,
-                        content=content,
-                        received_at=0.0,
-                        fee=content["fee"],  # type: ignore[arg-type]
-                        size_bytes=len(str(content).encode()),
-                    )
-                )
-            if pre_registered:
-                self._logger.info(
-                    "[PROPOSE] added %s pre-registered DB txs, chain=%s", len(pre_registered), self._config.chain_id
-                )
-            # Batch-fetch all unique sender and recipient accounts in one query
-            # (eliminates the per-tx session.get() round-trips).
-            unique_addresses: set[str] = set()
-            for tx in pending_txs:
-                tx_data = tx.content
-                sender = _to_ait_address(tx_data.get("from", ""))
-                recipient = _to_ait_address(tx_data.get("to", ""))
-                if sender:
-                    unique_addresses.add(sender)
-                if recipient:
-                    unique_addresses.add(recipient)
-            account_map: dict[str, Account] = {}
-            if unique_addresses:
-                existing_accounts = session.exec(
-                    select(Account).where(
-                        Account.chain_id == self._config.chain_id,
-                        Account.address.in_(unique_addresses),  # type: ignore[attr-defined]
-                    )
-                ).all()
-                account_map = {acc.address: acc for acc in existing_accounts}
-            # Batch-fetch duplicate tx hashes in one query (eliminates the
-            # per-tx duplicate-check DB round-trip).
-            existing_tx_map: dict[str, int] = {}
-            if pending_txs:
-                existing_tx_rows = session.execute(
-                    select(Transaction.tx_hash, Transaction.block_height).where(
-                        Transaction.chain_id == self._config.chain_id,
-                        Transaction.tx_hash.in_([tx.tx_hash for tx in pending_txs]),  # type: ignore[attr-defined]
-                    )
-                ).all()
-                existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
+            pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
             processed_txs: list[Any] = []
             changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
             # Feature flag: parallel tx validation (v0.6.1). Default off for safety.
@@ -882,65 +758,251 @@ class PoAProposer:
             # v0.7.2: Sign the canonical block header so the same signature is
             # valid for both PoA consensus and bridge proof verification.
             block.signature = self._sign_block_hash_for(proposer, block)
-            session.add(block)
-            session.commit()
-            # Invalidate the in-process block header cache for the new block
-            # so stale entries are not served by rpc/blocks.py.
-            from ..block_cache import get_block_header_cache
+            self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
+            return await self._broadcast_block(block, processed_txs)
 
-            get_block_header_cache().invalidate(self._config.chain_id, height=next_height, hash=block_hash)
-            metrics_registry.increment("blocks_proposed_total")
-            metrics_registry.set_gauge("chain_head_height", float(next_height))
-            if interval_seconds is not None and interval_seconds >= 0:
-                metrics_registry.observe("block_interval_seconds", interval_seconds)
-                metrics_registry.set_gauge("poa_last_block_interval_seconds", float(interval_seconds))
-            proposer_suffix = _sanitize_metric_suffix(proposer)
-            metrics_registry.increment(f"poa_blocks_proposed_total_{proposer_suffix}")
-            if self._last_proposer_id is not None and self._last_proposer_id != proposer:
-                metrics_registry.increment("poa_proposer_switches_total")
-            self._last_proposer_id = proposer
-            self._last_block_timestamp = timestamp
-            block_height.set(block.height)
-            self._logger.info("Proposed block", extra={"height": block.height, "hash": block.hash, "proposer": block.proposer})
-            tx_list = [tx.content for tx in processed_txs] if processed_txs else []
-            gossip_topic = f"blocks.{self._config.chain_id}"
+    def _selected_proposer_is_local(self, head: Block | None) -> bool:
+        """Return False when the selected proposer for the next height is not
+        one of this node's validator keys.
+
+        In multi-validator mode this prevents follower nodes from repeatedly
+        forcing heartbeat blocks, draining the mempool, and recomputing state
+        roots when they cannot sign.
+        """
+        next_height = (head.height + 1) if head is not None else 0
+        proposer = self._select_proposer(
+            next_height,
+            self._proposer_round(head.timestamp if head is not None else None, datetime.now(UTC)),
+        )
+        if self._multi_validator and proposer and proposer not in self._validator_keys:
+            self._logger.debug(
+                "[PROPOSE] Proposer %s for height %s is not a local key, skipping quietly (chain=%s)",
+                proposer,
+                next_height,
+                self._config.chain_id,
+            )
+            return False
+        return True
+
+    def _should_skip_for_empty_mempool(self, head: Block | None, mempool: InMemoryMempool | DatabaseMempool) -> bool:
+        """Apply the ``block_generation_mode`` empty-mempool gate.
+
+        Returns True when the proposal should be skipped: in ``mempool-only``
+        mode whenever the mempool is empty, and in ``hybrid`` mode when the
+        heartbeat gate says no heartbeat block is due.
+        """
+        block_generation_mode = getattr(settings, "block_generation_mode", "hybrid")
+        max_empty_block_interval = getattr(settings, "max_empty_block_interval", 60)
+        if block_generation_mode not in ["mempool-only", "hybrid"]:
+            return False
+        mempool_size = mempool.size(self._config.chain_id)
+        if block_generation_mode == "mempool-only":
+            if mempool_size == 0:
+                self._logger.debug(
+                    "[PROPOSE] Skipping block proposal: mempool is empty (chain=%s, mode=mempool-only)",
+                    self._config.chain_id,
+                )
+                metrics_registry.increment("sync_empty_blocks_skipped_total")
+                return True
+            return False
+        return self._hybrid_empty_mempool_gate(head, mempool_size, max_empty_block_interval)
+
+    def _hybrid_empty_mempool_gate(self, head: Block | None, mempool_size: int, max_empty_block_interval: int) -> bool:
+        """Hybrid-mode half of the empty-mempool gate.
+
+        Returns True when the proposal should be skipped because the mempool
+        is empty and either the heartbeat interval has not elapsed or no
+        previous block timestamp exists. Emits the heartbeat metrics when a
+        heartbeat block is due and the proposal proceeds.
+        """
+        last_block_timestamp = head.timestamp if head is not None else self._last_block_timestamp
+        if last_block_timestamp:
+            last_timestamp = (
+                last_block_timestamp if last_block_timestamp.tzinfo is not None else last_block_timestamp.replace(tzinfo=UTC)
+            )
+            time_since_last_block = (datetime.now(UTC) - last_timestamp).total_seconds()
+            if mempool_size == 0 and time_since_last_block < max_empty_block_interval:
+                self._logger.debug(
+                    "[PROPOSE] Skipping block proposal: mempool empty, heartbeat not yet due (chain=%s, mode=hybrid, idle_time=%ss)",
+                    self._config.chain_id,
+                    time_since_last_block,
+                )
+                metrics_registry.increment("sync_empty_blocks_skipped_total")
+                return True
+            elif mempool_size == 0 and time_since_last_block >= max_empty_block_interval:
+                self._logger.info(
+                    "[PROPOSE] Forcing heartbeat block: idle for %ss (chain=%s, mode=hybrid)",
+                    time_since_last_block,
+                    self._config.chain_id,
+                )
+                metrics_registry.increment("sync_heartbeat_blocks_forced_total")
+                metrics_registry.observe("sync_time_since_last_block_seconds", time_since_last_block)
+        elif mempool_size == 0:
+            self._logger.debug(
+                "[PROPOSE] Skipping block proposal: no previous block timestamp (chain=%s, mode=hybrid)",
+                self._config.chain_id,
+            )
+            metrics_registry.increment("sync_empty_blocks_skipped_total")
+            return True
+        return False
+
+    def _collect_proposal_txs(
+        self, session: Session, mempool: InMemoryMempool | DatabaseMempool
+    ) -> tuple[list[Any], dict[str, Account], dict[str, int]]:
+        """Drain the mempool and batch-fetch the state the tx loop needs.
+
+        Returns ``(pending_txs, account_map, existing_tx_map)``: the drained
+        transactions plus pre-registered, still-unassigned DB transactions
+        (e.g. bridge releases), the batch-fetched sender/recipient accounts,
+        and the tx_hash → block_height map used for duplicate detection.
+        """
+        from ..mempool import PendingTransaction as MempoolPendingTx
+
+        max_txs = self._config.max_txs_per_block
+        max_bytes = self._config.max_block_size_bytes
+        pending_txs = list(mempool.drain(max_txs, max_bytes, self._config.chain_id))
+        self._logger.info("[PROPOSE] drained %s txs from mempool, chain=%s", len(pending_txs), self._config.chain_id)
+        # Include transactions that were pre-registered in the DB (e.g. bridge releases)
+        # but not yet assigned to a block.
+        pre_registered = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == self._config.chain_id,
+                Transaction.block_height.is_(None),  # type: ignore[union-attr]
+                Transaction.status == "confirmed",
+            )
+        ).all()
+        for tx_rec in pre_registered:
+            content = {
+                "from": tx_rec.sender or "bridge_release",
+                "to": tx_rec.recipient or "",
+                "amount": tx_rec.value or 0,
+                "value": tx_rec.value or 0,
+                "fee": tx_rec.fee or 0,
+                "nonce": tx_rec.nonce or 0,
+                "type": tx_rec.type or "TRANSFER",
+                "payload": tx_rec.payload or {},
+                "signature": "",
+            }
+            pending_txs.append(
+                MempoolPendingTx(
+                    tx_hash=tx_rec.tx_hash,
+                    content=content,
+                    received_at=0.0,
+                    fee=content["fee"],  # type: ignore[arg-type]
+                    size_bytes=len(str(content).encode()),
+                )
+            )
+        if pre_registered:
+            self._logger.info("[PROPOSE] added %s pre-registered DB txs, chain=%s", len(pre_registered), self._config.chain_id)
+        # Batch-fetch all unique sender and recipient accounts in one query
+        # (eliminates the per-tx session.get() round-trips).
+        unique_addresses: set[str] = set()
+        for tx in pending_txs:
+            tx_data = tx.content
+            sender = _to_ait_address(tx_data.get("from", ""))
+            recipient = _to_ait_address(tx_data.get("to", ""))
+            if sender:
+                unique_addresses.add(sender)
+            if recipient:
+                unique_addresses.add(recipient)
+        account_map: dict[str, Account] = {}
+        if unique_addresses:
+            existing_accounts = session.exec(
+                select(Account).where(
+                    Account.chain_id == self._config.chain_id,
+                    Account.address.in_(unique_addresses),  # type: ignore[attr-defined]
+                )
+            ).all()
+            account_map = {acc.address: acc for acc in existing_accounts}
+        # Batch-fetch duplicate tx hashes in one query (eliminates the
+        # per-tx duplicate-check DB round-trip).
+        existing_tx_map: dict[str, int] = {}
+        if pending_txs:
+            existing_tx_rows = session.execute(
+                select(Transaction.tx_hash, Transaction.block_height).where(
+                    Transaction.chain_id == self._config.chain_id,
+                    Transaction.tx_hash.in_([tx.tx_hash for tx in pending_txs]),  # type: ignore[attr-defined]
+                )
+            ).all()
+            existing_tx_map = {row[0]: row[1] for row in existing_tx_rows}
+        return pending_txs, account_map, existing_tx_map
+
+    def _commit_and_record_block(
+        self,
+        session: Session,
+        block: Block,
+        proposer: str,
+        interval_seconds: float | None,
+        timestamp: datetime,
+    ) -> None:
+        """Commit the signed block and update caches, metrics and proposer state."""
+        session.add(block)
+        session.commit()
+        # Invalidate the in-process block header cache for the new block
+        # so stale entries are not served by rpc/blocks.py.
+        from ..block_cache import get_block_header_cache
+
+        get_block_header_cache().invalidate(self._config.chain_id, height=block.height, hash=block.hash)
+        metrics_registry.increment("blocks_proposed_total")
+        metrics_registry.set_gauge("chain_head_height", float(block.height))
+        if interval_seconds is not None and interval_seconds >= 0:
+            metrics_registry.observe("block_interval_seconds", interval_seconds)
+            metrics_registry.set_gauge("poa_last_block_interval_seconds", float(interval_seconds))
+        proposer_suffix = _sanitize_metric_suffix(proposer)
+        metrics_registry.increment(f"poa_blocks_proposed_total_{proposer_suffix}")
+        if self._last_proposer_id is not None and self._last_proposer_id != proposer:
+            metrics_registry.increment("poa_proposer_switches_total")
+        self._last_proposer_id = proposer
+        self._last_block_timestamp = timestamp
+        block_height.set(block.height)
+        self._logger.info("Proposed block", extra={"height": block.height, "hash": block.hash, "proposer": block.proposer})
+
+    async def _broadcast_block(self, block: Block, processed_txs: list[Any]) -> bool:
+        """Publish a committed block to the gossip broker.
+
+        Returns False when the stop event fires mid-broadcast — the block is
+        already committed, but the caller reports the proposal as aborted.
+        Broadcast failures are logged and do not fail the proposal.
+        """
+        tx_list = [tx.content for tx in processed_txs] if processed_txs else []
+        gossip_topic = f"blocks.{self._config.chain_id}"
+        if self._stop_event.is_set():
+            return False
+        try:
+            subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
+            subscriber_count = len(subscribers)
+            poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)
+            self._logger.info(
+                "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
+            )
             if self._stop_event.is_set():
                 return False
-            try:
-                subscribers = await lease_tracker.get_valid_subscribers(self._config.chain_id)
-                subscriber_count = len(subscribers)
-                poa_valid_subscribers.labels(chain_id=self._config.chain_id).set(subscriber_count)
-                self._logger.info(
-                    "[BROADCAST] block=%s, topic=%s, valid_subscribers=%s", block.height, gossip_topic, subscriber_count
-                )
-                if self._stop_event.is_set():
-                    return False
-                # v0.7.6: always publish to gossip_broker; the backend (Redis on
-                # hub, WSS on remote validators) is responsible for fan-out.
-                # Leases are still logged as a metric but do not gate block
-                # propagation now that multiple validators may produce.
-                await gossip_broker.publish(
-                    gossip_topic,
-                    {
-                        "chain_id": self._config.chain_id,
-                        "height": block.height,
-                        "hash": block.hash,
-                        "parent_hash": block.parent_hash,
-                        "proposer": block.proposer,
-                        "timestamp": block.timestamp.isoformat(),
-                        "tx_count": block.tx_count,
-                        "state_root": block.state_root,
-                        "bridge_state_root": block.bridge_state_root,
-                        "signature": block.signature,
-                        "block_metadata": block.block_metadata,
-                        "transactions": tx_list,
-                    },
-                )
-                self._logger.info(
-                    "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
-                )
-            except Exception as e:
-                self._logger.error("Failed to broadcast block %s: %s", block.height, e)
+            # v0.7.6: always publish to gossip_broker; the backend (Redis on
+            # hub, WSS on remote validators) is responsible for fan-out.
+            # Leases are still logged as a metric but do not gate block
+            # propagation now that multiple validators may produce.
+            await gossip_broker.publish(
+                gossip_topic,
+                {
+                    "chain_id": self._config.chain_id,
+                    "height": block.height,
+                    "hash": block.hash,
+                    "parent_hash": block.parent_hash,
+                    "proposer": block.proposer,
+                    "timestamp": block.timestamp.isoformat(),
+                    "tx_count": block.tx_count,
+                    "state_root": block.state_root,
+                    "bridge_state_root": block.bridge_state_root,
+                    "signature": block.signature,
+                    "block_metadata": block.block_metadata,
+                    "transactions": tx_list,
+                },
+            )
+            self._logger.info(
+                "[BROADCAST SUCCESS] block=%s, topic=%s, subscribers=%s", block.height, gossip_topic, subscriber_count
+            )
+        except Exception as e:
+            self._logger.error("Failed to broadcast block %s: %s", block.height, e)
         return True
 
     async def _ensure_genesis_block(self) -> None:
@@ -1386,9 +1448,7 @@ class PoAProposer:
 
                 sender_account = account_map.get(sender)
                 if not sender_account:
-                    self._logger.warning(
-                        "[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender
-                    )
+                    self._logger.warning("[PROPOSE] Skipping tx %s: sender account not found for %s", tx.tx_hash, sender)
                     continue
                 total_cost = value + fee
                 if sender_account.balance < total_cost:
@@ -1437,9 +1497,7 @@ class PoAProposer:
                 if recipient_account:
                     self._logger.info("[PROPOSE] Recipient account exists for %s", recipient)
                 else:
-                    self._logger.info(
-                        "[PROPOSE] Recipient account for %s will be created by the state transition", recipient
-                    )
+                    self._logger.info("[PROPOSE] Recipient account for %s will be created by the state transition", recipient)
                 state_transition = get_state_transition()
                 tx_data_for_transition = tx.content.copy()
                 tx_data_for_transition["nonce"] = sender_account.nonce
@@ -1654,9 +1712,7 @@ class PoAProposer:
                 self._logger.info("[PROPOSE-PARALLEL] Successfully processed tx %s", tx.tx_hash)
         except Exception:
             session.rollback()
-            self._logger.error(
-                "[PROPOSE-PARALLEL] Write phase failed; session rolled back — aborting proposal"
-            )
+            self._logger.error("[PROPOSE-PARALLEL] Write phase failed; session rolled back — aborting proposal")
             return [], set(), False
 
         self._logger.info(
