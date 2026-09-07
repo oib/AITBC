@@ -343,6 +343,11 @@ async def resolve_dispute(
         from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
 
         await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)
+    # A-1: surface spot-check evidence in the resolution response so the
+    # operator can see the automatic re-execution result alongside their ruling.
+    from ...payments.services.payments import PaymentService as _PS
+
+    evidence = _PS(session).get_dispute_evidence(job.id)
     job.payment_status = payment.status
     session.add(job)
     session.commit()
@@ -353,6 +358,7 @@ async def resolve_dispute(
         "outcome": req.outcome,
         "payment_status": resolved_status,
         "resolved_at": datetime.now(UTC).isoformat(),
+        "spot_check_evidence": evidence,
     }
 
 
