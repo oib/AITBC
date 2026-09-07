@@ -807,6 +807,12 @@ class PaymentService:
         The escrow deliberately stays locked. Refunding on the customer's word alone
         would be the mirror image of the problem an acceptance window exists to fix --
         one party settling in its own favour -- so an operator or arbiter rules on it.
+
+        A-1 (Option B): when a dispute is filed, automatically schedule a spot-check
+        re-execution so the dispute resolver has evidence rather than only the
+        customer's word. The spot-check is best-effort — if the job is not
+        deterministic or no eligible miner exists, the dispute still proceeds
+        without it and the operator rules manually as before.
         """
         payment = self.session.get(JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
@@ -827,7 +833,37 @@ class PaymentService:
         self.session.add(payment)
         self.session.commit()
         logger.info("Payment %s disputed on job %s: %s", payment_id, job_id, reason)
+        # A-1: best-effort spot-check re-execution for dispute evidence.
+        try:
+            from ...infrastructure.services.spot_check import SpotCheckService
+
+            spot = SpotCheckService(self.session).schedule_if_eligible(job)
+            if spot is not None:
+                logger.info("Scheduled spot-check %s for disputed job %s", spot.id, job.id)
+        except Exception as e:
+            logger.warning("Spot-check scheduling failed for disputed job %s: %s", job.id, e)
         return True
+
+    def get_dispute_evidence(self, job_id: str) -> dict[str, Any] | None:
+        """Return spot-check evidence for a disputed job, if any (A-1).
+
+        Called by the dispute resolver to surface automatic re-execution
+        results alongside the operator's manual ruling.
+        """
+        job = self.session.get(Job, job_id)
+        if job is None:
+            return None
+        constraints = job.constraints or {}
+        result = constraints.get("spot_check_result")
+        if not result or not isinstance(result, dict):
+            return None
+        return {
+            "match": result.get("match"),
+            "original_output_hash": result.get("original_output_hash"),
+            "spot_output_hash": result.get("spot_output_hash"),
+            "spot_check_job_id": result.get("spot_check_job_id"),
+            "completed_at": result.get("completed_at"),
+        }
 
     def _get_receipt_of_record(self, job: Job | None) -> dict[str, Any] | None:
         """Return the canonical receipt for a job.
