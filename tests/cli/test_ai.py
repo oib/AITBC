@@ -43,7 +43,7 @@ def mock_http_client(monkeypatch):
 
         def post(self, path, **kwargs):
             calls["post"].append((self.base_url, path, kwargs))
-            return {"job_id": "job-123"}
+            return {"job_id": "job-123", "payment_id": "pay-1"}
 
     monkeypatch.setattr("aitbc_cli.commands.ai.AITBCHTTPClient", FakeClient)
     return calls

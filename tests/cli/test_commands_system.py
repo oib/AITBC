@@ -109,7 +109,7 @@ class TestSystemCommands:
         mock_run.assert_called_once()
         cmd = mock_run.call_args[0][0]
         assert "systemctl" in cmd
-        assert "aitbc-blockchain-node" in cmd
+        assert "aitbc-blockchain-node.service" in cmd
 
     @patch("aitbc_cli.commands.system.get_config")
     @patch("aitbc_cli.commands.system.AITBCHTTPClient")

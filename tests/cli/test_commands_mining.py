@@ -110,7 +110,7 @@ class TestMiningCommands:
         from aitbc_cli.commands.mining import mining
 
         with patch("aitbc_cli.commands.mining._keystore_dirs", lambda: [wallet_dir]):
-            result = runner.invoke(mining, ["start", "testwallet", "--threads", "2"])
+            result = runner.invoke(mining, ["start", "--wallet-name", "testwallet", "--threads", "2"])
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()

@@ -98,7 +98,7 @@ class TestComplianceClassify:
     def test_classify_normalizes_case(self, runner):
         from aitbc_cli.commands.compliance import compliance
 
-        result = runner.invoke(compliance, ["classify", "PHI"])
+        result = runner.invoke(compliance, ["classify", "--label", "PHI"])
 
         assert result.exit_code == 0, result.output
         assert '"normalized": "phi"' in result.output
@@ -106,7 +106,7 @@ class TestComplianceClassify:
     def test_classify_flags_sensitive_label(self, runner):
         from aitbc_cli.commands.compliance import compliance
 
-        result = runner.invoke(compliance, ["classify", "pii"])
+        result = runner.invoke(compliance, ["classify", "--label", "pii"])
 
         assert result.exit_code == 0, result.output
         assert '"sensitive": true' in result.output
@@ -114,7 +114,7 @@ class TestComplianceClassify:
     def test_classify_flags_non_sensitive_label(self, runner):
         from aitbc_cli.commands.compliance import compliance
 
-        result = runner.invoke(compliance, ["classify", "public"])
+        result = runner.invoke(compliance, ["classify", "--label", "public"])
 
         assert result.exit_code == 0, result.output
         assert '"sensitive": false' in result.output

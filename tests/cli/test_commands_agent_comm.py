@@ -58,9 +58,13 @@ class TestAgentCommCommands:
             agent_comm,
             [
                 "register",
+                "--agent-id",
                 "agent-001",
+                "--name",
                 "TestAgent",
+                "--chain-id",
                 "test-chain",
+                "--endpoint",
                 "http://localhost:8000",
                 "--capabilities",
                 "compute,storage",
@@ -101,7 +105,7 @@ class TestAgentCommCommands:
 
         obj = make_cli_obj()
         obj["config"] = mock_config
-        result = runner.invoke(agent_comm, ["status", "agent-001"], obj=obj)
+        result = runner.invoke(agent_comm, ["status", "--agent-id", "agent-001"], obj=obj)
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()

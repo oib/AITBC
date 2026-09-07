@@ -59,7 +59,7 @@ class TestAgentSDKCommands:
 
         result = runner.invoke(
             agent,
-            ["create", "test-agent", "--type", "provider"],
+            ["create", "--name", "test-agent", "--type", "provider"],
         )
 
         assert result.exit_code == 0, result.output

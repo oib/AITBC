@@ -16,14 +16,14 @@ class TestReputationCLI:
         runner = CliRunner()
         result = runner.invoke(reputation, ["--help"])
         assert result.exit_code == 0
-        assert "Reputation management commands" in result.output
+        assert "Manage and query agent reputation profiles" in result.output
 
     def test_reputation_profile_command(self):
         """Test reputation profile command"""
         runner = CliRunner()
         result = runner.invoke(reputation, ["profile", "--help"])
         assert result.exit_code == 0
-        assert "Get reputation profile for an agent" in result.output
+        assert "Get the reputation profile for an agent" in result.output
 
     def test_reputation_feedback_command(self):
         """Test reputation feedback command"""
@@ -37,14 +37,14 @@ class TestReputationCLI:
         runner = CliRunner()
         result = runner.invoke(reputation, ["leaderboard", "--help"])
         assert result.exit_code == 0
-        assert "Get reputation leaderboard" in result.output
+        assert "Get the agent reputation leaderboard" in result.output
 
     def test_reputation_trust_score_command(self):
         """Test reputation trust-score command"""
         runner = CliRunner()
         result = runner.invoke(reputation, ["trust-score", "--help"])
         assert result.exit_code == 0
-        assert "Get detailed trust score breakdown for an agent" in result.output
+        assert "Get a detailed trust score breakdown for an agent" in result.output
 
     def test_reputation_metrics_command(self):
         """Test reputation metrics command"""

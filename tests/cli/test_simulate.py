@@ -95,7 +95,9 @@ class TestSimulateCommands:
     def test_run_scenario(self, runner, mock_config, mock_http):
         """Test running a simulation scenario via coordinator API"""
         result = runner.invoke(
-            simulate, ["run", "test_scenario", "--params", '{"nodes": 5}'], obj={"config": mock_config, "output": "json"}
+            simulate,
+            ["run", "--scenario", "test_scenario", "--params", '{"nodes": 5}'],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code == 0
@@ -105,7 +107,9 @@ class TestSimulateCommands:
 
     def test_status_command(self, runner, mock_config, mock_http):
         """Test simulation status command"""
-        result = runner.invoke(simulate, ["status", "sim_123"], obj={"config": mock_config, "output": "json"})
+        result = runner.invoke(
+            simulate, ["status", "--simulation-id", "sim_123"], obj={"config": mock_config, "output": "json"}
+        )
 
         assert result.exit_code == 0
         mock_http.return_value.get.assert_called_once()
@@ -114,7 +118,9 @@ class TestSimulateCommands:
 
     def test_result_command(self, runner, mock_config, mock_http):
         """Test simulation result command"""
-        result = runner.invoke(simulate, ["result", "sim_123"], obj={"config": mock_config, "output": "json"})
+        result = runner.invoke(
+            simulate, ["result", "--simulation-id", "sim_123"], obj={"config": mock_config, "output": "json"}
+        )
 
         assert result.exit_code == 0
         mock_http.return_value.get.assert_called_once()
@@ -124,7 +130,9 @@ class TestSimulateCommands:
     def test_run_invalid_json_params(self, runner, mock_config):
         """Test run with invalid JSON params exits with error"""
         result = runner.invoke(
-            simulate, ["run", "test_scenario", "--params", "not-valid-json"], obj={"config": mock_config, "output": "json"}
+            simulate,
+            ["run", "--scenario", "test_scenario", "--params", "not-valid-json"],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code != 0

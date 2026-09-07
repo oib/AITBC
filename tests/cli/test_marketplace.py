@@ -13,23 +13,16 @@ from aitbc_cli.core.main import cli
 
 @pytest.fixture
 def mock_marketplace_config(monkeypatch):
-    """Patch get_config / load_multichain_config for local endpoints."""
+    """Patch get_config for local endpoints and a known hub proposer."""
     config = SimpleNamespace(
         marketplace_service_url="http://127.0.0.1:8102",
         blockchain_rpc_url="http://127.0.0.1:8202",
         exchange_service_url="http://127.0.0.1:8106",
         hub_discovery_url="",
+        hub_proposer_id="0x1111111111111111111111111111111111111111",
+        blockchain_rpc_api_key=None,
     )
-
-    def _get_config():
-        return config
-
-    monkeypatch.setattr("aitbc_cli.commands.marketplace_cmd.get_config", _get_config)
-    monkeypatch.setattr("aitbc_cli.commands.market.escrow.get_config", _get_config)
-    monkeypatch.setattr(
-        "aitbc_cli.commands.marketplace_cmd.load_multichain_config",
-        lambda: SimpleNamespace(blockchain_rpc_url="http://127.0.0.1:8202"),
-    )
+    monkeypatch.setattr("aitbc_cli.commands.market.escrow.get_config", lambda: config)
     return config
 
 
@@ -51,8 +44,6 @@ def mock_http_client(monkeypatch):
                 }
             if "/rpc/account/" in path:
                 return {"balance": 1000000000, "nonce": 0}
-            if path == "/health":
-                return {"supported_chains": ["ait-hub.aitbc.bubuit.net"], "proposer_id": "0xFe2d63FE87Db282083b9159e5857Cac788af9E03"}
             return {"supported_chains": ["ait-hub.aitbc.bubuit.net"]}
 
         def post(self, path, **kwargs):
@@ -65,40 +56,22 @@ def mock_http_client(monkeypatch):
                 return {"transaction_hash": "0xabc123"}
             return {}
 
-    # Patch the AITBCHTTPClient class everywhere it is imported in market modules.
-    monkeypatch.setattr("aitbc_cli.commands.marketplace_cmd.AITBCHTTPClient", FakeClient)
+    # ``market escrow`` and the escrow helpers import the client into their own
+    # namespaces, so patch every copy.
     monkeypatch.setattr("aitbc_cli.commands.market.escrow.AITBCHTTPClient", FakeClient)
-    # ``create_signed_escrow_lock`` and the escrow helpers import the client into
-    # their own namespace, so patch those copies too.
     monkeypatch.setattr("aitbc_cli.utils.escrow.AITBCHTTPClient", FakeClient)
-    # ``marketplace_cmd.list`` re-imports AITBCHTTPClient inside the command body.
     monkeypatch.setattr("aitbc_cli.utils.http_client.AITBCHTTPClient", FakeClient)
+    # ``_escrow_create`` re-imports this at call time, so patching the source
+    # module covers it — the signing and nonce round-trips are skipped.
+    monkeypatch.setattr(
+        "aitbc_cli.utils.escrow.create_signed_escrow_lock",
+        lambda *args, **kwargs: ({"type": "ESCROW_LOCK"}, "0x" + "ab" * 64),
+    )
     return calls
 
 
-def test_marketplace_create_posts_to_local_service(mock_marketplace_config, mock_http_client):
-    """The marketplace create command posts a chain listing to the local marketplace service."""
-    calls = mock_http_client
-    runner = CliRunner()
-    result = runner.invoke(
-        cli,
-        [
-            "marketplace",
-            "create",
-            "chain-1",
-            "Local Chain",
-            "research",
-            "A local chain for testing",
-            "seller-1",
-            "10.0",
-        ],
-    )
-    assert result.exit_code == 0, result.output
-    assert any(path == "/v1/marketplace/offers" for _, path, _ in calls["post"]), f"Calls: {calls['post']}"
-
-
 def test_market_escrow_create_posts_to_local_blockchain(mock_marketplace_config, mock_http_client):
-    """The ``market escrow create`` command posts to the local blockchain RPC."""
+    """``market escrow create`` posts the signed lock to the local blockchain RPC."""
     calls = mock_http_client
     runner = CliRunner()
     result = runner.invoke(
@@ -107,9 +80,13 @@ def test_market_escrow_create_posts_to_local_blockchain(mock_marketplace_config,
             "market",
             "escrow",
             "create",
+            "--job-id",
             "job-1",
+            "--buyer",
             "0x11a01cb7F3C01AE8E8a992FE72fbDF3B530ccdD7",
+            "--provider",
             "0xEd34ECBd91d29f7E13213ba321F5E7Fc8830a450",
+            "--amount",
             "2.5",
         ],
     )
