@@ -63,6 +63,10 @@
 | v0.24.0 | Hub node development special | ✅ Complete | See [v0.24.0 overview](v0.24/v0.24.0_change.log); details split into v0.24.1–v0.24.18 |
 | v0.25.0 | On-chain liquidity, sync consolidation and MCP expansion | ✅ Complete | AIT-only on-chain liquidity pool, MCP server expansion; see v0.25.0_change.log |
 | v0.25.1 | Open follow-ups and design notes | ✅ Complete | Post-v0.25.0 live-validation gaps and operational tasks; see v0.25.1_change.log |
+| v0.25.2 | CLI, docs, and test surface cleanup | ✅ Complete | See v0.25.2_change.log |
+| v0.25.3 | Escrow and settlement hardening | ✅ Complete | See v0.25.3_change.log |
+| v0.25.4 | Bridge, escrow/consensus hardening, GPU electricity-cost floor | ✅ Complete | See v0.25.4_change.log |
+| v0.25.5 | Audit reconciliation: register fully closed, fleet hardening, dead-code removal | ✅ Complete | All 8 register lanes at 0 items; see v0.25.5_change.log |
 
 ## Security Audit Summary
 
