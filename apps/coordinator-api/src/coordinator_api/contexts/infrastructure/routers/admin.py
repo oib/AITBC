@@ -362,6 +362,91 @@ async def resolve_dispute(
     }
 
 
+@router.post("/disputes/auto-adjudicate", summary="Auto-adjudicate disputes with spot-check evidence (S-3)")
+@rate_limit(rate=5, per=60)
+async def auto_adjudicate_disputes(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminDep,
+) -> dict[str, Any]:
+    """Auto-resolve disputes where spot-check evidence proves a mismatch (S-3).
+
+    Scans all DISPUTED payments for completed spot-check results. When the
+    spot-check shows a mismatch (the re-execution produced different output),
+    the dispute is auto-refunded and the provider's bond is slashed — the
+    evidence is deterministic and the operator's judgment adds nothing.
+
+    Disputes without spot-check evidence (non-deterministic jobs, or
+    spot-checks still running) are left for manual resolution via
+    /disputes/{{job_id}}/resolve.
+
+    Returns a summary of what was adjudicated.
+    """
+    from sqlmodel import select
+    from ...infrastructure.domain import Job
+    from ...payments.acceptance import DISPUTED
+    from ...payments.services.payments import PaymentService
+    from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+
+    payment_service = PaymentService(session)
+
+    # Find all disputed payments
+    disputed = session.execute(select(JobPayment).where(JobPayment.status == DISPUTED)).scalars().all()
+
+    adjudicated = []
+    skipped = []
+
+    for payment in disputed:
+        job = session.get(Job, payment.job_id) if payment.job_id else None
+        if not job:
+            skipped.append({"payment_id": payment.id, "reason": "job not found"})
+            continue
+
+        evidence = payment_service.get_dispute_evidence(job.id)
+        if not evidence:
+            skipped.append({"payment_id": payment.id, "job_id": job.id, "reason": "no spot-check evidence"})
+            continue
+
+        if evidence["match"] is True:
+            skipped.append({"payment_id": payment.id, "job_id": job.id, "reason": "spot-check matched — manual ruling needed"})
+            continue
+
+        if evidence["match"] is False:
+            # Mismatch: auto-refund + slash
+            reason = f"Auto-adjudicated: spot-check mismatch (original={evidence['original_output_hash']}, spot={evidence['spot_output_hash']})"
+            settled = await payment_service.refund_payment(job.client_id, job.id, payment.id, reason=reason)
+            if not settled:
+                skipped.append({"payment_id": payment.id, "job_id": job.id, "reason": "refund did not settle on-chain"})
+                continue
+
+            # Slash the bond if one was posted
+            if job.constraints and job.constraints.get("bond_required"):
+                await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, reason)
+
+            job.payment_status = payment.status
+            session.add(job)
+            session.commit()
+
+            adjudicated.append(
+                {
+                    "payment_id": payment.id,
+                    "job_id": job.id,
+                    "outcome": "refund",
+                    "bond_slashed": bool(job.constraints and job.constraints.get("bond_required")),
+                    "evidence": evidence,
+                }
+            )
+            logger.info("Auto-adjudicated dispute on job %s: spot-check mismatch → refund + slash", job.id)
+
+    return {
+        "adjudicated": adjudicated,
+        "skipped": skipped,
+        "total_disputed": len(disputed),
+        "total_adjudicated": len(adjudicated),
+        "total_skipped": len(skipped),
+    }
+
+
 @router.post("/payments/{job_id}/retry-release", summary="Reset and retry a terminally blocked escrow release")
 async def retry_release(
     request: Request,
