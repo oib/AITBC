@@ -558,7 +558,13 @@ class JobService:
                 raise ValueError(f"Job {job_id} is not in running state")
             job.state = "COMPLETED"
             job.result = result.get("output")
-            job.receipt = result.get("receipt")
+            # The denormalised copy must never displace the signed receipt of
+            # record: a caller-supplied receipt is only adopted when the job has
+            # no JobReceipt row (receipt_id unset). The settlement triage found
+            # job.receipt drifting from the signed payload — always in the
+            # payer-harmful direction — where a later write overwrote it.
+            if not job.receipt_id:
+                job.receipt = result.get("receipt")
             job.completed_at = datetime.now(UTC)
             if job.requested_at and job.requested_at.tzinfo is None:
                 # Same normalization as _to_utc, inline so the assignment target
