@@ -1,0 +1,397 @@
+# v0.25.5 — Audit reconciliation: register fully closed, fleet hardening, dead-code removal
+
+**Baseline**: end of `v0.25.4` coverage at `a47ae3715` (2026-09-05).
+**Date**: 2026-09-07.
+**Tag**: `v0.25.5` (pending).
+
+This release covers the 136 commits between the end of the `v0.25.4` change log
+and `main` (`2b112f9f46`). The headline is the complete reconciliation of the
+six-artifact open-items register: all 8 lanes (C, S, A, B, P, F, O, D) are now
+at 0 items. 34 register items were closed across Tiers 0–7, the fleet was
+deployed to `main` tip, and the last remaining flagged items from the fleet
+audit were resolved or verified as non-issues.
+
+## Register reconciliation
+
+The six-artifact register (AITBC Static Audit · Escrow Settlement Triage · The
+Open Arcs · The 1804 Freeze · Remediation Docket · TASKLIST.md) is now fully
+closed. Every item was re-derived against current source and the five live
+hosts before disposition. Items were closed with commit citations, struck as
+stale, converted to operator decisions, or verified as already resolved.
+
+### Lane 1 — Chain & consensus (C) · all closed
+
+- **C-1** — Proposer hang at height 1804: root cause traced to a silent hung
+  proposer task (no crash, no traceback). Watchdog added (`227bb9e105`) +
+  per-phase debug tracing added (`87e11d7118`). The failure mode is converted
+  from "silent" to "loud and located". Closed in Tier-6.
+- **C-2** — Host-level outage: live fleet exercise executed (node1 stopped
+  to simulate outage). Finding: chain stalled because
+  `consensus_proposer_round_seconds` defaulted to 2× heartbeat interval.
+  Fixed (`e8e9a91b04`): round timeout aligned to heartbeat (`max(30,
+  max_empty_block_interval)` = 60s). `CONSENSUS_PROPOSER_ROUND_SECONDS=60`
+  set on all 5 nodes. 5 regression tests. Closed in Tier-4 + Tier-5.
+- **C-3** — Dead `enforce_state_root_validation` flag removed (`3e9a648bab`).
+  The real gate is `sync_state_root_validation_enabled` (default True).
+- **C-4** — `_process_txs_parallel` write-phase rollback added
+  (`a7dd35c85a`). Session rollback on failure, matching other
+  `_propose_block` failure exits. 3 tests.
+- **C-5** — Closed in Tier-0 (bridge flags verified on all five hosts).
+- **C-6** — Trap comment added at `config.py:600` (`8cff16db7a`).
+- **C-7** — Closed in Tier-0 (bridge flags `true` on all five hosts).
+
+### Lane 2 — Settlement & escrow (S) · all closed
+
+- **S-1** — Closed in Tier-0.
+- **S-2** — Escrow dedupe gaps closed (`53c1b6d608`): `_find_existing_lock`
+  mirrors release/refund lookups; idempotency guard in `create_escrow` (409
+  on param mismatch, 200 + settled state on true retry); double-lock refusal
+  in `_create_token_escrow`. Sweeper lock added (`374988beeb`): `run_once`
+  runs under `filelock`; losing worker skips. Gate coverage fixed (`53c1b6d608`):
+  `escrowed_at IS NOT NULL` gate dropped; `status=='escrowed'` is sufficient.
+- **S-3** — Auto-adjudication implemented (`f9aa1df824`):
+  `POST /v1/admin/disputes/auto-adjudicate` scans DISPUTED payments for
+  spot-check mismatch evidence; mismatches auto-refund + slash. 3 tests.
+- **S-4** — Per-escrow addresses for escrow custody (`3ba7328768`): Option B
+  implemented — each escrow gets a unique derived address, eliminating the
+  shared-custody problem. ESCROW_LOCK credits `escrow:<job_id>`;
+  RELEASE/REFUND debit it. v1/v2 backward compatible. 4 tests; 862 total
+  blockchain-node tests green.
+- **S-5** — Receipt drift mechanism fixed (`7a3e664eb6`): `execute_job` no
+  longer adopts caller-supplied `result["receipt"]` when a signed `JobReceipt`
+  exists. 3 regression tests. Historical residue formally written off by
+  operator.
+- **S-6** — Gate check verified: 0 of 48 refunded rows lack a hash on hub.
+- **S-7** — Closed in Tier-0.
+- **S-8** — Closed in Tier-3 (nginx `real_ip_recursive` fix deployed).
+
+### Lane 3 — The loop's unbound arcs (A) · all closed
+
+- **A-1** — Closed with research note (Tier-6): TEE/ZK gates verify
+  self-consistency, not truth — a structural gap inherent to remote-computation
+  verification. Optimistic challenge path wired (`d42be7c76c`):
+  `dispute_payment` auto-schedules `SpotCheckService` re-execution for
+  deterministic jobs. Research directions recorded: economic security,
+  reputation-weighted attestation, hardware-attested execution measurement.
+- **A-2** — Bridge verified healthy on hub (Tier-4): `aitbc bridge health`
+  returns `status: healthy`, `bridge_initialized: true`, `release_enabled: true`.
+- **A-3** — Priced-job probe completed end-to-end (Tier-5): CLI bugs fixed
+  (`9879293c18`), DynamicPricing contract deployed on Sepolia
+  (`0xCC80D7A81dA5231d09292708fA28AB97Dbe9AcEa`), energy profile registered,
+  energy rate published. ABI fix (`b71d38bb31`): IEnergyPricing struct returns
+  needed tuple ABI format.
+- **A-4** — Fail-closed energy operator gate (`cc920a7791`): missing
+  `ENERGY_OPERATOR_ADDRESS` or oracle config rejects with 503. 3 tests.
+- **A-5** — `EscrowManager.load_from_db` restores all ten E1 columns
+  (`7fecd759d2`); `create_escrow` `lock_signature` branch binds quote
+  id/digest/route/asset/scale.
+- **A-6** — Closed 7 Sep.
+- **A-7** — EVM §5.2, §5.3, §5.5, §5.6 verified implemented (Tier-5).
+- **A-8** — G8 surface drag closed with follow-up (Tier-7): the two API-dead
+  contexts (`agent_economics`, `preferences`) removed in `ff6ef7634`.
+
+### Lane 4 — Build, CI & test hygiene (B) · all closed
+
+- **B-1** — CLI test quarantine retired (`addb50293e`): all 126 quarantined
+  IDs resolved; `tests/cli` back in normal run — 1067/1067 green on node2.
+- **B-2** — `make lint` now strict (alias of `lint-strict`); soft mode
+  survives as `lint-report` (`eb83fbcfbe`).
+- **B-3** — C901 ratchet implemented (`eb83fbcfbe`): per-file violation count
+  compared against `c901-baseline.txt`, fails on growth. `_propose_block`
+  split into seven-phase pipeline at ~CC 7 (`24b6c88660` + 3 earlier commits).
+- **B-4** — All 7 stale OpenAPI specs regenerated (`4a5cc7b8df` +
+  `600412a448`).
+- **B-5** — Audit now scores `utils/security.py` + `validators/` (`8cff16db7a`).
+- **B-6** — `.secrets.baseline` regenerated (`90ef51488b`): 772 findings,
+  all `is_verified: False`.
+- **B-7** — All 4 Dependabot alerts dismissed as not-exploitable (Tier-4):
+  `ecdsa` verify-only, `elliptic` dev-only.
+- **B-8** — Schema-conformance test added (`b2ab7a1e0f`): fresh DB +
+  `alembic upgrade head` matches declared models at head.
+
+### Lane 5 — Packaging, dependencies & docs (P) · all closed
+
+- **P-1** — Relative `-e ./packages/aitbc-shared` + `export-requirements.sh`
+  rewrites `file://$REPO_ROOT/` (`8cff16db7a`).
+- **P-2** — `packages/README.md` written (`8cff16db7a`).
+- **P-3** — `security`, `observability`, `sqlcipher` mapped into all install
+  profiles; `search` into `hub` profile (`de0def2188`). `AITBC_EXTRA_EXTRAS`
+  passthrough added (`f207fcb0d3`).
+- **P-4** — `[tool.poetry]` metadata deduplicated (`c341087843`): poetry 2.x
+  reads name/version/description/authors from `[project]`.
+- **P-5** — Closed in Tier-1.
+- **P-6** — Closed upstream by `891d404724`.
+- **P-7** — Closed upstream by `891d404724`.
+- **P-9** — Closed upstream by `891d404724`.
+- **P-10** — `introduction.md` no longer duplicates port numbers; feature
+  status corrected (`7a53a6a1c9`).
+- **P-11** — Stale policy deleted (`8cff16db7a`).
+
+### Lane 6 — Fleet & deployment (F) · all closed
+
+- **F-1** — Fleet deploy executed 7 Sep: all five hosts updated from
+  `b0d5fc1a5` to `6ee9e5c74` (121 commits). Sequence: node0 → node1 → hub2 →
+  hub. All converged at height 4400.
+- **F-2** — Backup on three disks (`8cff16db7a`).
+- **F-3** — node1 nginx `/nginx_status` allowlist hardened (Tier-3).
+- **F-4** — `AITBC_MCP_AITBC_CLI` added (`8cff16db7a`).
+- **F-5** — All six sub-items resolved (Tier-6):
+  - **F-5a**: clarification — no provider-level block filter exists;
+    proposer mechanisms are the real surface.
+  - **F-5b**: `fetch_blocks_range` exception logging fixed (`7839be1bbc`).
+  - **F-5c**: `_parallel_bulk_import` documented as disabled-by-design
+    (`7839be1bbc`).
+  - **F-5d**: `AITBC_HOSTNAME` env fallback added (`7839be1bbc`).
+  - **F-5e**: `RegionalPricing` setters already removed (`743c11ddf9`).
+  - **F-5f**: 102 branch-coverage tests added (`210a02a23`).
+- **F-6** — Git identity set on all five hosts (`8cff16db7a`).
+
+### Lane 7 — Operator-only (O) · all closed
+
+- **O-1** — node2 GitHub token: credential cache cleared, no stored creds.
+  PAT revocation is manual at github.com/settings/tokens (Tier-4).
+- **O-2** — `PROPOSER_KEY` scrubbed from hub auth.log/journal, then rotated:
+  new key controls `0xe738…d225`, `VALIDATOR_SET` updated on all 5 nodes
+  (Tier-4).
+- **O-3** — Hub Redis password rotated, `/etc/aitbc/redis.env` updated
+  (Tier-3).
+- **O-4** — Mislabeled commits amended on feature branches, force-pushed
+  (Tier-3).
+- **O-5** — node0 `validator-secrets.env` created; all five hosts have
+  scoped validator secrets (Tier-5).
+- **O-6** — Authorization record corrected: the recovery report's claim of
+  approval was incorrect (Tier-5).
+
+### Lane 8 — Deferred cleanup (D) · all closed
+
+- **D-1** — API-dead contexts `agent_economics` and `preferences` removed
+  (`ff6ef7634`): 3 files, 184 lines of dead code.
+- **D-2** — Mesh gossip auth: already implemented (challenge/response
+  validator auth, topic gating, rate limiting). Finding was outdated.
+- **D-3** — hub.aitbc `MemoryMax` already raised to 1GB via drop-in override;
+  mypy not installed on hub (pull-only node).
+- **D-4** — CI/test hygiene: 159 Hardhat tests pass, `make lint-strict` in
+  GitHub Actions, `forge test` in Gitea CI.
+
+## Flagged items — all resolved
+
+Items surfaced during the fleet audit, not part of the register:
+
+- **hub.aitbc connectivity** — transient CPU/IO stall (systemd-journald
+  watchdog timeout), self-resolved. Currently healthy.
+- **node2 `key-audit.json`** — false-positive `GENESIS_WALLET` mismatch fixed
+  (`c16ccb95a8`): excluded `GENESIS_WALLET` from `NODE_WALLET_ADDRESS`
+  fallback in `scripts/ops/key-audit.py`.
+- **`gitea-local` tea login** — verified working on `gitea-runner` (token
+  configured, URL reachable).
+- **Duplicate Operation ID** — `get_system_status` renamed to
+  `get_system_health` in alerts router (`2b112f9f46`).
+- **`shop-wallet.json`** — verified as properly encrypted wallet (dict-shaped
+  `private_key` is expected format, not a bug).
+
+## Consensus & sync fixes
+
+- `_propose_block` refactored into a seven-phase pipeline (`24b6c88660` +
+  `6f27f25e8a` + `b9c855f5c7` + `69ef77460c`): early gates → resolve head →
+  collect txs → assemble block → consensus gates → broadcast. CC drops from
+  ~88 to ~7, under the C901 threshold.
+- Proposer watchdog (`227bb9e105`): `_propose_block_with_watchdog` logs error
+  + `poa_proposer_stalled_iterations_total` after `max(60s, 4×interval)`.
+- Per-phase tracing (`87e11d7118`): each phase logs start and duration.
+- Proposer round timeout aligned to heartbeat (`e8e9a91b04`).
+- `_process_txs_parallel` write-phase rollback (`a7dd35c85a`).
+- `fetch_blocks_range` exception logging improved (`7839be1bbc`): error
+  details in log message, not just `extra` dict.
+- `_parallel_bulk_import` documented as disabled-by-design (`7839be1bbc`).
+- `AITBC_HOSTNAME` env intermediate before `socket.gethostname()` fallback
+  (`7839be1bbc`).
+- `get_block` includes `block_metadata` for multi-validator signature
+  validation (`a2d22d4597`).
+- `get_state_delta` returns empty diff when state roots match (`a2d22d4597`).
+- SyncManager gossip disabled when proposer id or key missing (`5ea965e1d8`,
+  `ba1f10499`).
+- Non-block messages filtered in SyncManager gossip consumer (`856c5bfc22`).
+- Duplicate Account inserts avoided in delta sync (`2926376d0b`).
+
+## Escrow & payments
+
+- Escrow dedupe gaps closed (`53c1b6d608`): `_find_existing_lock`,
+  idempotency guard, double-lock refusal.
+- ZK refund sweeper cross-process lock (`374988beeb`): `filelock` on
+  `run_once`; losing worker skips the pass.
+- Sweeper gate coverage fixed (`53c1b6d608`): `escrowed_at IS NOT NULL`
+  gate dropped.
+- Auto-adjudication endpoint (`f9aa1df824`): scans DISPUTED payments for
+  spot-check mismatch evidence.
+- Per-escrow custody addresses (`3ba7328768`): Option B — each escrow gets a
+  unique derived address.
+- Energy quote digest bound on every lock path (`7fecd759d2`).
+- Energy operator signature verified before funding (`ee2583b281`).
+- Protected release refuses when locked gross cannot cover floor
+  (`5a1b00be8a`).
+- Caller-supplied receipt no longer displaces signed `JobReceipt`
+  (`7a3e664eb6`).
+- Paid submit aborts when escrow left unsecured (`f8a09b547c`,
+  `886b10b79f`).
+
+## Security & secrets
+
+- `VALIDATOR_KEYS`/`PROPOSER_KEY` scoped to `validator-secrets.env` on all
+  five hosts (`5bea3c6de3`, `c4a5b26299`).
+- `PROPOSER_KEY` rotated after leak into auth.log/journal: new key controls
+  `0xe738…d225`, `VALIDATOR_SET` updated fleet-wide.
+- Hub Redis password rotated; `/etc/aitbc/redis.env` created.
+- Gossip WebSocket authentication implemented (`252469f3b2`,
+  `761b887837`): challenge/response validator auth, restricted topic gating
+  (`blocks`, `pbft`, `consensus`), public topic allow-list, per-IP connection
+  and rate limits.
+- Redis credentials redacted from service logs (`28a0c5d521`, `6978ab02a9`).
+- `BLOCKCHAIN_API_KEY` migrated to `blockchain-secrets.env` (`ca55c983f3`).
+- Secret migration broadened, file permissions loosened (`65e87a6509`).
+- systemd units load `blockchain-secrets.env` (`2f39229ed8`).
+- `node.env` overrides `blockchain.env` when linking units (`aced3b9acd`).
+- `.secrets.baseline` regenerated after 11 weeks (`90ef51488b`).
+- `.pth` provisioning documented — `deployment/setup.sh:1347` writes them via
+  `pip install -e` (`452e87dc9c`).
+
+## Contracts & EVM
+
+- `foundry.toml` functional: solc 0.8.20, `evm_version=paris`, `via_ir`
+  enabled. 159 Hardhat tests pass on node2; 20 fuzz test files.
+- `stack too deep` fixes for coverage: `getRentalAgreement`,
+  `getComputeEscrowTerms`, `getMarketData`, `getPerformanceMetrics`,
+  `getDispute`, `getPayment` split into multiple functions (`8b682dbedc`,
+  `9810c9bf7e`, `ee04b5a241`, `78b09e7b9b`, `9aa73c066e`, `0fc387a105`).
+- Struct getters added for public-mapping tuple returns (`3dc66673cb`,
+  `0c6d11767`, `50b40995d`, `d9060c599`).
+- `IEnergyPricing` tuple ABI fix (`b71d38bb31`).
+- `DynamicPricing` energy profile/rate functions, `AIPowerRental` protected
+  funding, `EscrowService` protected compute-escrow gates (`c8a271b7b`,
+  `e6d602cd65`).
+- Forge + Hardhat suites run in both Gitea CI and GitHub Actions
+  (`6ba6a6e86f`, `97affbfe7e`, `a1a93073d6`).
+
+## CLI & API
+
+- GPU marketplace commands use `/v1/` prefix and Authorization headers
+  (`9879293c18`).
+- Paid submits abort when provider missing or escrow unsecured
+  (`f8a09b547c`, `4eee07d529`).
+- `X-API-Key` auth on escrow endpoints (`20dcbfdb19`, `a1d1a1a286`,
+  `5b1e699321`, `1613abf3e3`).
+- `docs/api/` OpenAPI specs regenerated (`4a5cc7b8df`, `41c1506e69`,
+  `3e5da1d898`).
+- `introduction.md` defers to SERVICE_PORTS, corrects feature status
+  (`7a53a6a1c9`).
+- `coordinator-context-map.md` written (`6ee9e5c74`): 36 contexts, 48
+  mounts, 72 routers, flag-gated surface, duplication clusters, two API-dead
+  contexts.
+
+## Dead code & dependency cleanup
+
+- `agent_economics` and `preferences` contexts removed (`ff6ef7634`): 184
+  lines.
+- `language` context removed (`5aefc2cc5e`): unreachable.
+- `trading_surveillance.py` removed (`29baaabd9d`): dead.
+- `amm.py` domain models removed (`ed7dfb221e`): dead.
+- `models_governance.py` removed (`2a9bfa7986`): dead.
+- `requirements-optional/` directory removed (`b48167ce00`): dead.
+- `__main__` and `example_usage` stubs removed (`03fc48bba5`).
+- Skipped/placeholder contract test files removed (`2a1bfe0b9a`).
+- Unused `python-jose` dropped (`cda93736d6`): removes `ecdsa` dep.
+- Orphaned `spacy` dropped (`3336af9230`): left behind by nltk removal.
+- Dead `circom` dep dropped (`d9ad7dbf08`).
+- Dependency hygiene: undeclared imports declared, unused removed
+  (`891d404724`).
+
+## Dependency updates
+
+- `pip` → 26.2.1 (`d0d3da7f24`): CVE-2026-13346.
+- `setuptools` → 84.0.0 (`c4ba3823c3`): CVE-2026-59890.
+- `cryptography` → 50.0.0 in requirements-optional (`385d09e5bc`):
+  GHSA-g6cj-pr64-35w5.
+- `pytest` → >=9.0.3 (`7493da0c3a`): GHSA-6w46-j5rx-g56g.
+- `halo2_gadgets` → 0.5.0 (`c946b89b31`): CVE-2026-54496.
+- Three stale poetry locks regenerated (`a4d3b33bb3`).
+- `ai-engine` examples lockfile regenerated (`260db8d072`).
+
+## Migrations
+
+- `f53990f9d6cc` — energy floor quote columns for coordinator `job`,
+  `gpu_registry`, `gpu_bookings` (`c8a271b7b`).
+- `ec9a04333809` — energy floor escrow columns for blockchain-node
+  (`c8a271b7b`).
+- `4e8b7c2d1f0a` — `Job.offer_id` and `Job.provider_address` for
+  provider-bound dispatch (`d80c0dc`).
+- `5d8339a13a12` — status literal quoting fix (`050cca219`).
+- `20d972cf7f` — `ALTER TABLE` guards for fresh-database compatibility.
+- `8622b2a996` — fresh-database migration tests for both chains.
+- `03fba1f840` — escrow backfill skip when transaction.type/value absent.
+- `b2ab7a1e0f` — schema-conformance test: fresh DB + `alembic upgrade head`
+  matches declared models.
+
+## IPFS & islands
+
+- `IPFS_SUBSCRIPTION` on-chain model and state transition (`a203c2acc9`).
+- Swarm-key endpoint and private island IPFS daemon (`1bcddb1f8f`).
+- Private island daemon configured for AutoConf, telemetry, AutoTLS
+  (`d37e8e8ab8`).
+- Island swarm-key API-key fallback and hub2 default (`f9f429ee13`).
+- HTTPS default for island credentials (`edeffbeb4f`).
+- Island body params renamed, `Request` passed, public URL scheme derived
+  (`3f4e81a2ef`).
+- `X-Forwarded-Proto` preserved from edge proxy (`d24f846455`).
+- `AITBC_PROTOCOL` and forwarded headers respected for public URLs
+  (`e5133c2182`).
+
+## Health checks & monitoring
+
+- `REDISCLI_AUTH` used for authenticated Redis ping (`6d0adbe381`).
+- Authenticated Redis health check in islands/monitoring (`edeffbeb4f`).
+- `_sanitize_url` guards against unset Redis URL (`b2b4538883`).
+- `SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL` toggle logged (`a8202715c2`).
+
+## Tests
+
+- 102 branch-coverage tests for `EscrowManager` + `StakingManager`
+  (`210a02a23`).
+- PBFT fault tolerance tests: one down validator, majority/minority
+  partitions, bulk-fork coverage (`63f271d2d7`, `cd874ca5e3`, `3dec6c4d44`).
+- Host-outage gossip-silence test (`eca08824a2`).
+- Proposer round timeout regression tests (`e8e9a91b04`).
+- `_process_txs_parallel` failure rollback tests (`a7dd35c85a`).
+- Schema-conformance test (`b2ab7a1e0f`).
+- Auto-adjudication tests (`f9aa1df824`).
+- CLI test quarantine retired — all 126 IDs resolved (`addb50293e`).
+- E2E marketplace escrow flow test (`27983dcb21`).
+- Migration fresh-database tests (`8622b2a996`).
+- `getMarketData` destructure count fixes (`5de308a042`, `dc50444710`).
+- `startRental` paused test fix (`3138ae0957`).
+- Rate validity check test fix (`85e6bd9ad2`).
+- Alembic `script_location` chdir fix (`4672cd4503`).
+- B-4 test failures resolved (`600412a448`).
+
+## Fleet deployment
+
+- All five hosts updated from `b0d5fc1a5` to `6ee9e5c74` (121 commits) on
+  7 Sep. Sequence: node0 → node1 → hub2 → hub. Per-host: snapshot, git
+  reset, update.sh, schema repair, daemon-reload, restart. All converged at
+  height 4400, hash `0xbdc5e38b…`.
+- hub2/node1 needed 3 alembic migrations; hub/node0 DBs already at head.
+- Chain DBs needed `verify-db-schema.py --repair` for energy-quote columns.
+- `aitbc-blockchain-{node,p2p,rpc}.service` gained
+  `EnvironmentFile=-/etc/aitbc/validator-secrets.env`.
+- `aitbc-island-ipfs.service` gained `After=/Wants=aitbc-coordinator-api.service`.
+- `CONSENSUS_PROPOSER_ROUND_SECONDS=60` set on all 5 nodes.
+- All five hosts have scoped validator secrets (`validator-secrets.env`).
+
+## Known limitations & notes
+
+- The exact await that hung the proposer at height 1804 is unprovable from
+  logs alone (zero logging between heartbeat lines). The watchdog + per-phase
+  tracing convert the failure mode from "silent" to "loud and located" — the
+  next stall will show exactly which phase blocked.
+- `gitea-local` tea login on `gitea-runner` is configured but the container
+  has no `/opt/aitbc` checkout — tea commands that require a repo context
+  will fail. The login itself is valid.
+- The six-artifact register is now fully closed. No open items remain.
