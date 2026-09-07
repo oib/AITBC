@@ -21,6 +21,10 @@ from ....utils.client_resolver import resolve_client
 
 logger = get_logger(__name__)
 
+# G3: these keys are server-only; clients must not be able to set them at job
+# creation, or they could forge spot-check evidence and trigger auto-adjudication.
+_SERVER_ONLY_CONSTRAINT_KEYS = frozenset({"shadow_mode", "spot_check_for", "spot_check_result"})
+
 # P2.3: high-value jobs require an active/locked provider performance bond.
 _BOND_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_BOND_HIGH_VALUE_THRESHOLD", "10"))
 _BOND_REQUIRE = os.getenv("COORDINATOR_BOND_REQUIRE", "false").lower() == "true"
@@ -148,12 +152,18 @@ class JobService:
         ttl = max(req.ttl_seconds, 1)
         now = datetime.now(UTC)
         resolved_client_id, client_ref = resolve_client(self.session, client_id, auto_create=True)
+        # G3: drop any server-only keys the client may have tried to smuggle in.
+        raw_constraints = (
+            req.constraints.model_dump(mode="json") if hasattr(req.constraints, "model_dump") else dict(req.constraints)
+        )
+        for key in _SERVER_ONLY_CONSTRAINT_KEYS:
+            raw_constraints.pop(key, None)
         job = Job(
             client_id=resolved_client_id,
             client_ref=client_ref,
             state="QUEUED",
             payload=req.payload,
-            constraints=req.constraints.model_dump(mode="json") if hasattr(req.constraints, "model_dump") else req.constraints,
+            constraints=raw_constraints,
             ttl_seconds=ttl,
             requested_at=now,
             expires_at=now + timedelta(seconds=ttl),

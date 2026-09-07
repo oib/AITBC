@@ -111,20 +111,33 @@ def test_get_dispute_evidence_returns_none_without_spot_check(payment_session):
 
 
 def test_get_dispute_evidence_returns_result_after_spot_check(payment_session):
-    """get_dispute_evidence returns the spot-check result when it exists."""
+    """get_dispute_evidence returns the spot-check result from the shadow job."""
+    from coordinator_api.contexts.infrastructure.domain.job import Job
+
     job, payment = _make_disputable_job_and_payment(payment_session)
-    # Simulate a completed spot-check stored on the job
-    job.constraints = {
-        "deterministic_decoding": True,
-        "spot_check_result": {
-            "match": False,
-            "original_output_hash": "abc123",
-            "spot_output_hash": "def456",
-            "spot_check_job_id": "shadow-1",
-            "completed_at": "2026-09-07T16:00:00+00:00",
+    # Simulate the server-created, completed shadow job that carries the record.
+    shadow = Job(
+        id="shadow-1",
+        client_id=job.client_id,
+        state="COMPLETED",
+        payload=job.payload,
+        constraints={
+            "shadow_mode": True,
+            "spot_check_for": job.id,
+            "spot_check_result": {
+                "spot_check_job_id": "shadow-1",
+                "original_job_id": job.id,
+                "match": False,
+                "original_output_hash": "abc123",
+                "spot_output_hash": "def456",
+                "completed_at": "2026-09-07T16:00:00+00:00",
+            },
         },
-    }
-    payment_session.add(job)
+        ttl_seconds=900,
+        requested_at=datetime.now(UTC),
+        expires_at=datetime.now(UTC),
+    )
+    payment_session.add(shadow)
     payment_session.commit()
     service = PaymentService(payment_session)
     evidence = service.get_dispute_evidence(job.id)
