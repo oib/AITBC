@@ -104,7 +104,7 @@ def _initialize_tracing() -> None:
     try:
         import os
 
-        from opentelemetry import trace
+        import opentelemetry.trace as trace
         from opentelemetry.sdk.trace import TracerProvider
         from opentelemetry.sdk.trace.export import BatchSpanProcessor, ConsoleSpanExporter
 
