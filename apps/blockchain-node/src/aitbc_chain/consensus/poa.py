@@ -567,189 +567,40 @@ class PoAProposer:
         return True
 
     async def _propose_block(self) -> bool:
-        from ..config import settings
-        from ..mempool import get_mempool as get_mempool_instance
-
-        if not await self._ensure_synced_before_proposal():
-            return False
-        if self._stop_event.is_set():
-            return False
-
-        # Start a fresh per-block replay cache for this proposal.
-        get_state_transition().reset_processed_cache()
-
-        mempool = get_mempool_instance()
-
-        # Early gates: skip quietly when the selected proposer for the next
-        # height is not a local key, or when the generation mode does not call
-        # for a block right now.
-        head = self._fetch_chain_head()
-        if not self._selected_proposer_is_local(head):
-            return False
-        if self._should_skip_for_empty_mempool(head, mempool):
+        mempool = await self._passes_early_gates()
+        if mempool is None:
             return False
         with self._session_factory() as session:
-            head = session.exec(
-                select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
-            ).first()
-            next_height = 0
-            parent_hash = "0x00"
-            interval_seconds: float | None = None
-            if head is not None:
-                next_height = head.height + 1
-                parent_hash = head.hash
-                # v0.25.4: a validator must not build on a stale local state. If the
-                # parent block's state_root does not match the state we have locally,
-                # re-apply the parent block before proposing. This prevents a
-                # multi-validator proposer from building a block whose header state_root
-                # ignores the previous block's state transition.
-                if head.state_root:
-                    local_state_root = _compute_state_root(session, self._config.chain_id)
-                    if local_state_root != head.state_root:
-                        self._logger.warning(
-                            "[PROPOSE] Parent state mismatch at height %s: parent state_root=%s, local=%s",
-                            head.height,
-                            head.state_root,
-                            local_state_root,
-                        )
-                        if not self._reapply_parent_block(session, head):
-                            session.rollback()
-                            return False
-                head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
-                interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
-                if interval_seconds < self._config.interval_seconds:
-                    self._logger.debug(
-                        "[PROPOSE] Skipping block proposal: too soon after last block (chain=%s, elapsed=%ss, interval=%ss)",
-                        self._config.chain_id,
-                        interval_seconds,
-                        self._config.interval_seconds,
-                    )
-                    return False
+            resolved = self._resolve_proposal_head(session)
+            if resolved is None:
+                return False
+            head, next_height, parent_hash, interval_seconds = resolved
             timestamp = datetime.now(UTC)
-            # v0.7.6: Determine the intended proposer before draining the mempool
-            # or touching account state. This prevents a node from consuming
-            # transactions, creating Transaction records, or mutating balances
-            # when it is not this validator's turn to propose.
-            # v0.25.6: the round is how long this height has gone without a
-            # block. Derive it from the timestamp this block will actually
-            # carry, because that is the timestamp every other node will use to
-            # work out which validator was entitled to propose it.
-            round_number = self._proposer_round(head.timestamp if head is not None else None, timestamp)
-            proposer = self._select_proposer(next_height, round_number)
-            if round_number:
-                self._logger.warning(
-                    "[PROPOSE] Height %s has gone %s round(s) without a block; this round belongs to %s",
-                    next_height,
-                    round_number,
-                    proposer,
-                )
-            if not proposer:
-                self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
+            # v0.7.6: Determine the intended proposer before draining the
+            # mempool or touching account state. This prevents a node from
+            # consuming transactions, creating Transaction records, or
+            # mutating balances when it is not this validator's turn to
+            # propose.
+            selected = self._select_round_proposer(head, next_height, timestamp)
+            if selected is None:
                 return False
-            if self._multi_validator and proposer not in self._validator_keys:
-                self._logger.warning(
-                    "[PROPOSE] Selected proposer %s is not a local key, skipping proposal at height %s",
-                    proposer,
-                    next_height,
-                )
-                return False
+            proposer, round_number = selected
             pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
-            processed_txs: list[Any] = []
-            changed_addresses: set[str] = set()  # tracks accounts modified during the tx loop
-            # Feature flag: parallel tx validation (v0.6.1). Default off for safety.
-            use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1
-            if use_parallel:
-                processed_txs, changed_addresses, ok = self._process_txs_parallel(
-                    session, pending_txs, account_map, existing_tx_map, next_height, timestamp
-                )
-                if not ok:
-                    return False
-                # If parallel returned nothing (e.g. conflict rate exceeded threshold),
-                # fall back to sequential processing.
-                use_parallel = bool(processed_txs) or not pending_txs
-            if not use_parallel:
-                processed_txs, changed_addresses, ok = self._process_txs_sequential(
-                    session, pending_txs, account_map, existing_tx_map, next_height, timestamp
-                )
-                if not ok:
-                    return False
-            if pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True):
-                self._logger.warning(
-                    "[PROPOSE] Skipping block proposal: all drained transactions were invalid (count=%s, chain=%s)",
-                    len(pending_txs),
-                    self._config.chain_id,
-                )
-                # The PBFT and attestation failure paths below both roll back
-                # before returning; this one must too, so nothing a rejected
-                # transaction touched survives into the next proposal.
-                session.rollback()
-                return False
-            # Compute state root from the full account state. The previous
-            # "incremental" approach created a fresh trie per call but only
-            # populated it with changed accounts — producing a wrong root that
-            # excluded all other accounts. Since the trie is not persisted across
-            # blocks, a full recompute is the only correct option.
-            state_root = _compute_state_root(session, self._config.chain_id)
-            # v0.7.2: compute the bridge event trie root from BRIDGE_LOCK events.
-            bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id)
-            # The proposer was already selected at the top of this function before
-            # draining the mempool, so transactions are only applied when this node
-            # is actually the selected validator.
-            # v0.7.2: block hash binds chain, height, parent, time, txs,
-            # proposer, account state root, and bridge event trie root.
-            block_hash = self._compute_block_hash(
-                next_height, parent_hash, timestamp, processed_txs, proposer, state_root, bridge_state_root
+            processed_txs, changed_addresses, ok = self._process_proposal_txs(
+                session, pending_txs, account_map, existing_tx_map, next_height, timestamp
             )
-
-            block = Block(
-                chain_id=self._config.chain_id,
-                height=next_height,
-                hash=block_hash,
-                parent_hash=parent_hash,
-                proposer=proposer,
-                timestamp=timestamp,
-                tx_count=len(processed_txs),
-                state_root=state_root,
-                bridge_state_root=bridge_state_root,
-                signature="",
-                block_metadata=None,
-            )
-
-            # v0.7.7: if PBFT is enabled, run the full consensus round before
-            # writing the block. The block hash is the digest of the proposed
-            # block and the certificate is stored in block_metadata.
-            if self._stop_event.is_set():
-                session.rollback()
+            if not ok:
                 return False
-            if self._pbft_consensus:
-                pbft_ok = await self._pbft_consensus.propose_and_wait(
-                    proposer,
-                    block_hash,
-                    timeout=getattr(settings, "pbft_view_change_timeout", 30),
-                    sequence=next_height,
-                    view=round_number,
-                )
-                if not pbft_ok:
-                    self._logger.warning(
-                        "PBFT consensus failed for block %s on chain %s; skipping proposal",
-                        next_height,
-                        self._config.chain_id,
-                    )
-                    session.rollback()
-                    return False
-
-            # v0.7.5: collect attestations from other local validators and store
-            # them in block_metadata as JSON. The proposer signature remains the
-            # canonical block signature.
+            if self._reject_if_all_invalid(session, pending_txs, processed_txs):
+                return False
+            block, block_hash = self._assemble_proposal_block(
+                session, next_height, parent_hash, timestamp, processed_txs, proposer
+            )
             metadata_dict: dict[str, Any] = {}
-            if self._stop_event.is_set():
-                session.rollback()
+            if not await self._run_consensus_gates(
+                session, block, block_hash, proposer, round_number, next_height, metadata_dict
+            ):
                 return False
-
-            if not await self._collect_and_gate_attestations(block, block_hash, metadata_dict):
-                session.rollback()
-                return False
-
             # v0.25.7: stamp the state-transition rule version so followers can
             # replay this block with the same rules that produced its state_root.
             metadata_dict["state_transition_version"] = 2
@@ -760,6 +611,258 @@ class PoAProposer:
             block.signature = self._sign_block_hash_for(proposer, block)
             self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
             return await self._broadcast_block(block, processed_txs)
+
+    async def _passes_early_gates(self) -> InMemoryMempool | DatabaseMempool | None:
+        """Pre-session proposal gates.
+
+        Returns the mempool when the proposal may proceed, else None. Checks,
+        in order: the node is synced enough to propose, the stop event is not
+        set, the selected proposer for the next height is a local key, and the
+        generation-mode empty-mempool gate is satisfied. Also starts a fresh
+        per-block replay cache once the node is known to be running.
+        """
+        from ..mempool import get_mempool
+
+        if not await self._ensure_synced_before_proposal():
+            return None
+        if self._stop_event.is_set():
+            return None
+
+        # Start a fresh per-block replay cache for this proposal.
+        get_state_transition().reset_processed_cache()
+
+        mempool = get_mempool()
+
+        # If we are not the selected proposer for the next block, skip quietly.
+        head = self._fetch_chain_head()
+        if not self._selected_proposer_is_local(head):
+            return None
+        if self._should_skip_for_empty_mempool(head, mempool):
+            return None
+        return mempool
+
+    def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
+        """Fetch the chain head and validate proposal freshness.
+
+        Returns ``(head, next_height, parent_hash, interval_seconds)``, or None
+        when the proposal must be skipped: the parent state_root could not be
+        repaired by ``_reapply_parent_block``, or the head is younger than the
+        configured block interval. The session is rolled back on the reapply
+        failure path.
+        """
+        head = session.exec(
+            select(Block).where(Block.chain_id == self._config.chain_id).order_by(text("height DESC")).limit(1)
+        ).first()
+        next_height = 0
+        parent_hash = "0x00"
+        interval_seconds: float | None = None
+        if head is not None:
+            next_height = head.height + 1
+            parent_hash = head.hash
+            # v0.25.4: a validator must not build on a stale local state. If the
+            # parent block's state_root does not match the state we have locally,
+            # re-apply the parent block before proposing. This prevents a
+            # multi-validator proposer from building a block whose header state_root
+            # ignores the previous block's state transition.
+            if head.state_root:
+                local_state_root = _compute_state_root(session, self._config.chain_id)
+                if local_state_root != head.state_root:
+                    self._logger.warning(
+                        "[PROPOSE] Parent state mismatch at height %s: parent state_root=%s, local=%s",
+                        head.height,
+                        head.state_root,
+                        local_state_root,
+                    )
+                    if not self._reapply_parent_block(session, head):
+                        session.rollback()
+                        return None
+            head_timestamp = head.timestamp if head.timestamp.tzinfo is not None else head.timestamp.replace(tzinfo=UTC)
+            interval_seconds = (datetime.now(UTC) - head_timestamp).total_seconds()
+            if interval_seconds < self._config.interval_seconds:
+                self._logger.debug(
+                    "[PROPOSE] Skipping block proposal: too soon after last block (chain=%s, elapsed=%ss, interval=%ss)",
+                    self._config.chain_id,
+                    interval_seconds,
+                    self._config.interval_seconds,
+                )
+                return None
+        return head, next_height, parent_hash, interval_seconds
+
+    def _select_round_proposer(self, head: Block | None, next_height: int, timestamp: datetime) -> tuple[str, int] | None:
+        """Pick the proposer for ``next_height`` at this proposal's round.
+
+        Returns ``(proposer, round_number)``, or None when the proposal must be
+        skipped: no proposer is available, or the selected proposer is not a
+        local validator key in multi-validator mode.
+
+        v0.25.6: the round is how long this height has gone without a
+        block. Derive it from the timestamp this block will actually
+        carry, because that is the timestamp every other node will use to
+        work out which validator was entitled to propose it.
+        """
+        round_number = self._proposer_round(head.timestamp if head is not None else None, timestamp)
+        proposer = self._select_proposer(next_height, round_number)
+        if round_number:
+            self._logger.warning(
+                "[PROPOSE] Height %s has gone %s round(s) without a block; this round belongs to %s",
+                next_height,
+                round_number,
+                proposer,
+            )
+        if not proposer:
+            self._logger.warning("[PROPOSE] No proposer available for height %s, skipping", next_height)
+            return None
+        if self._multi_validator and proposer not in self._validator_keys:
+            self._logger.warning(
+                "[PROPOSE] Selected proposer %s is not a local key, skipping proposal at height %s",
+                proposer,
+                next_height,
+            )
+            return None
+        return proposer, round_number
+
+    def _process_proposal_txs(
+        self,
+        session: Session,
+        pending_txs: list[Any],
+        account_map: dict[str, Account],
+        existing_tx_map: dict[str, int],
+        next_height: int,
+        timestamp: datetime,
+    ) -> tuple[list[Any], set[str], bool]:
+        """Apply the drained transactions through the state transition.
+
+        Returns ``(processed_txs, changed_addresses, ok)``. Uses the parallel
+        path when the ``parallel_tx_validation`` feature flag (v0.6.1, default
+        off) is on and more than one tx is pending, falling back to sequential
+        processing when parallel returns nothing (e.g. the conflict rate
+        exceeded threshold).
+        """
+        use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1
+        if use_parallel:
+            processed_txs, changed_addresses, ok = self._process_txs_parallel(
+                session, pending_txs, account_map, existing_tx_map, next_height, timestamp
+            )
+            if not ok:
+                return processed_txs, changed_addresses, False
+            # If parallel returned nothing (e.g. conflict rate exceeded
+            # threshold), fall back to sequential processing.
+            if processed_txs or not pending_txs:
+                return processed_txs, changed_addresses, ok
+        return self._process_txs_sequential(session, pending_txs, account_map, existing_tx_map, next_height, timestamp)
+
+    def _reject_if_all_invalid(self, session: Session, pending_txs: list[Any], processed_txs: list[Any]) -> bool:
+        """Return True when every drained transaction was rejected and the
+        proposal must abort.
+
+        Rolls the session back first, so nothing a rejected transaction
+        touched survives into the next proposal — the same contract the PBFT
+        and attestation failure paths follow.
+        """
+        if not (pending_txs and (not processed_txs) and getattr(settings, "propose_only_if_mempool_not_empty", True)):
+            return False
+        self._logger.warning(
+            "[PROPOSE] Skipping block proposal: all drained transactions were invalid (count=%s, chain=%s)",
+            len(pending_txs),
+            self._config.chain_id,
+        )
+        session.rollback()
+        return True
+
+    def _assemble_proposal_block(
+        self,
+        session: Session,
+        next_height: int,
+        parent_hash: str,
+        timestamp: datetime,
+        processed_txs: list[Any],
+        proposer: str,
+    ) -> tuple[Block, str]:
+        """Compute the state roots and build the unsigned proposal block.
+
+        Returns ``(block, block_hash)``. The block hash binds chain, height,
+        parent, time, txs, proposer, account state root, and bridge event
+        trie root (v0.7.2).
+        """
+        # Compute state root from the full account state. The previous
+        # "incremental" approach created a fresh trie per call but only
+        # populated it with changed accounts — producing a wrong root that
+        # excluded all other accounts. Since the trie is not persisted across
+        # blocks, a full recompute is the only correct option.
+        state_root = _compute_state_root(session, self._config.chain_id)
+        # v0.7.2: compute the bridge event trie root from BRIDGE_LOCK events.
+        bridge_state_root = self._compute_bridge_state_root(session, processed_txs, self._config.chain_id)
+        # v0.7.2: block hash binds chain, height, parent, time, txs,
+        # proposer, account state root, and bridge event trie root.
+        block_hash = self._compute_block_hash(
+            next_height, parent_hash, timestamp, processed_txs, proposer, state_root, bridge_state_root
+        )
+
+        block = Block(
+            chain_id=self._config.chain_id,
+            height=next_height,
+            hash=block_hash,
+            parent_hash=parent_hash,
+            proposer=proposer,
+            timestamp=timestamp,
+            tx_count=len(processed_txs),
+            state_root=state_root,
+            bridge_state_root=bridge_state_root,
+            signature="",
+            block_metadata=None,
+        )
+        return block, block_hash
+
+    async def _run_consensus_gates(
+        self,
+        session: Session,
+        block: Block,
+        block_hash: str,
+        proposer: str,
+        round_number: int,
+        next_height: int,
+        metadata_dict: dict[str, Any],
+    ) -> bool:
+        """Run the post-assembly consensus gates: the PBFT round and the
+        attestation collection.
+
+        Rolls the session back and returns False on abort or failure — the
+        caller only has to propagate the False.
+        """
+        # v0.7.7: if PBFT is enabled, run the full consensus round before
+        # writing the block. The block hash is the digest of the proposed
+        # block and the certificate is stored in block_metadata.
+        if self._stop_event.is_set():
+            session.rollback()
+            return False
+        if self._pbft_consensus:
+            pbft_ok = await self._pbft_consensus.propose_and_wait(
+                proposer,
+                block_hash,
+                timeout=getattr(settings, "pbft_view_change_timeout", 30),
+                sequence=next_height,
+                view=round_number,
+            )
+            if not pbft_ok:
+                self._logger.warning(
+                    "PBFT consensus failed for block %s on chain %s; skipping proposal",
+                    next_height,
+                    self._config.chain_id,
+                )
+                session.rollback()
+                return False
+
+        # v0.7.5: collect attestations from other local validators and store
+        # them in block_metadata as JSON. The proposer signature remains the
+        # canonical block signature.
+        if self._stop_event.is_set():
+            session.rollback()
+            return False
+
+        if not await self._collect_and_gate_attestations(block, block_hash, metadata_dict):
+            session.rollback()
+            return False
+        return True
 
     def _selected_proposer_is_local(self, head: Block | None) -> bool:
         """Return False when the selected proposer for the next height is not
