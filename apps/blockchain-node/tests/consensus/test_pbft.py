@@ -652,6 +652,78 @@ async def test_the_standin_commits_a_height_the_dead_proposer_had_prepared():
 
 
 @pytest.mark.asyncio
+async def test_host_level_outage_silent_validator_leaves_exact_quorum():
+    """C-2 harness half: a validator host gone *before* the round starts.
+
+    A host outage is not a dead-after-prepare — it is total silence: the node
+    never receives a message and never emits one, and it never had any part
+    in the height. With four validators this leaves exactly 2f+1 = 3 live
+    nodes, the tightest case that can still commit: the view-1 proposer must
+    carry the height with no contribution from the dead host at all.
+
+    The live-fleet half (RPC and gossip physically disappearing together —
+    partition or power-off, not `systemctl restart`) remains open; this test
+    pins the gossip-silence side of it.
+    """
+    from eth_keys import keys
+    import secrets
+
+    class Network:
+        def __init__(self):
+            self.nodes: list[PBFTConsensus] = []
+            self.down: set[str] = set()
+
+        async def publish(self, topic, msg_data):
+            if msg_data["sender"] in self.down:
+                return  # a dead host cannot emit either
+            for node in self.nodes:
+                if node._local_validator in self.down:
+                    continue
+                if node._local_validator != msg_data["sender"]:
+                    await node.handle_incoming_message(msg_data)
+
+    keypairs = []
+    for _ in range(4):
+        pk = keys.PrivateKey(secrets.token_bytes(32))
+        keypairs.append((pk.public_key.to_checksum_address(), pk.to_hex()))
+
+    shared_consensus = MultiValidatorPoA("test-pbft-host-outage")
+    for addr, _ in keypairs:
+        shared_consensus.add_validator(addr, 1000.0)
+        shared_consensus.validators[addr].role = ValidatorRole.PROPOSER
+
+    height = 9
+    dead = shared_consensus.select_proposer(height, 0)
+    standin = shared_consensus.select_proposer(height, 1)
+    assert dead != standin
+
+    net = Network()
+    nodes: dict[str, PBFTConsensus] = {}
+    for addr, pk_hex in keypairs:
+        node = PBFTConsensus(shared_consensus, private_key=pk_hex, chain_id="test-pbft-host-outage", local_validator=addr)
+        node.set_gossip_backend(net)
+        net.nodes.append(node)
+        nodes[addr] = node
+
+    # One host down leaves exactly the liveness threshold: 2f+1 = 3.
+    assert nodes[standin].required_messages == 3
+
+    # The host is already down when the round would have started — no
+    # pre-prepare is ever delivered to it and it never sees the height.
+    net.down.add(dead)
+
+    result = await nodes[standin].propose_and_wait(standin, "0x" + secrets.token_hex(32), timeout=5.0, sequence=height, view=1)
+    assert result is True, "2f+1 survivors could not commit with the dead host silent from the start"
+
+    # The dead node never participated: no pre-prepare, no prepared height,
+    # no commit record for this sequence.
+    dead_node = nodes[dead]
+    assert all(k.split(":")[0] != str(height) for k in dead_node.state.pre_prepare_messages)
+    assert height not in dead_node._prepared_heights
+    assert all(k.split(":")[0] != str(height) for k in dead_node.state.committed_messages)
+
+
+@pytest.mark.asyncio
 async def test_pbft_continues_in_majority_partition():
     """A 4-validator network split 3/1 still commits in the majority partition.
 
