@@ -136,21 +136,10 @@ class SpotCheckService:
         }
         _write_log(record)
 
-        # Record the outcome on the original job so it is queryable without
-        # adding a new table. Constraints are stored as JSON, so extra keys are
-        # safe as long as the code reading them checks the dict directly.
-        original_result = dict(original.constraints or {})
-        original_result["spot_check_result"] = {
-            "spot_check_job_id": job.id,
-            "match": match,
-            "completed_at": record["timestamp"],
-            "original_output_hash": original_hash,
-            "spot_output_hash": spot_hash,
-        }
-        original.constraints = original_result
-        self.session.add(original)
-
-        # Also store on the shadow job for symmetry.
+        # S-3: the authoritative spot-check record is on the shadow job itself,
+        # which is a server-created Job row. This separates client-writable
+        # constraints on the original job from the coordinator-owned verification
+        # record. get_dispute_evidence() now reads from the shadow job.
         shadow_constraints = dict(constraints)
         shadow_constraints["spot_check_result"] = record
         job.constraints = shadow_constraints
