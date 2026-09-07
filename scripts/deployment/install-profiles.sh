@@ -52,26 +52,28 @@ fi
 
 case "$PROFILE" in
     provider-gpu|gpu)
-        EXTRAS="gpu ml"
+        EXTRAS="gpu ml security observability sqlcipher"
         ;;
     ai|ml)
-        EXTRAS="ml"
+        EXTRAS="ml security observability sqlcipher"
         ;;
     fhe)
-        EXTRAS="fhe"
+        EXTRAS="fhe security observability sqlcipher"
         ;;
-    hub|customer-no-gpu|server-no-gpu|default)
-        EXTRAS=""
+    hub)
+        EXTRAS="search security observability sqlcipher"
+        ;;
+    customer-no-gpu|server-no-gpu|default)
+        EXTRAS="security observability sqlcipher"
         ;;
     *)
         warning "Unknown profile '$PROFILE', falling back to base dependencies"
-        EXTRAS=""
+        EXTRAS="security observability sqlcipher"
         ;;
 esac
 
-# Extras that no profile maps to (search, sqlcipher, security, observability)
-# are still installable through this path: AITBC_EXTRA_EXTRAS="search sqlcipher"
-# appends them to whatever the profile resolved.
+# Additional extras beyond the profile default can still be appended via
+# AITBC_EXTRA_EXTRAS="search" if a non-hub node needs meilisearch.
 if [ -n "${AITBC_EXTRA_EXTRAS:-}" ]; then
     EXTRAS="${EXTRAS}${EXTRAS:+ }${AITBC_EXTRA_EXTRAS}"
 fi
