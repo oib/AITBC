@@ -121,7 +121,7 @@ class TestSimulateCommands:
 
         from aitbc_cli.commands.simulate import simulate
 
-        result = runner.invoke(simulate, ["run", "test-scenario"])
+        result = runner.invoke(simulate, ["run", "--scenario", "test-scenario"])
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
@@ -138,7 +138,7 @@ class TestSimulateCommands:
 
         result = runner.invoke(
             simulate,
-            ["run", "test-scenario", "--params", '{"key": "value"}'],
+            ["run", "--scenario", "test-scenario", "--params", '{"key": "value"}'],
         )
 
         assert result.exit_code == 0, result.output
@@ -154,7 +154,7 @@ class TestSimulateCommands:
 
         from aitbc_cli.commands.simulate import simulate
 
-        result = runner.invoke(simulate, ["status", "sim-123"])
+        result = runner.invoke(simulate, ["status", "--simulation-id", "sim-123"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -169,7 +169,7 @@ class TestSimulateCommands:
 
         from aitbc_cli.commands.simulate import simulate
 
-        result = runner.invoke(simulate, ["result", "sim-123"])
+        result = runner.invoke(simulate, ["result", "--simulation-id", "sim-123"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -185,7 +185,7 @@ class TestSimulateCommands:
         mock_client = mock_http_class.return_value
         mock_client.post.side_effect = NetworkError("connection refused")
 
-        result = runner.invoke(simulate, ["run", "test-scenario"])
+        result = runner.invoke(simulate, ["run", "--scenario", "test-scenario"])
 
         assert result.exit_code != 0
 

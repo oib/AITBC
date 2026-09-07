@@ -27,7 +27,7 @@ def mock_config():
 
 
 @pytest.fixture
-def temp_wallet_dir():
+def temp_wallet_dir(monkeypatch):
     """Create a temporary wallet directory with a test wallet"""
     with tempfile.TemporaryDirectory() as tmpdir:
         test_wallet_dir = Path(tmpdir) / "wallets"
@@ -35,8 +35,11 @@ def temp_wallet_dir():
         wallet_file = test_wallet_dir / "test_wallet.json"
         wallet_data = {"address": "0x4472315052d1bC56dd9aA6514B9796770C8c0611", "balance": 1000.0, "private_key": "a" * 64}
         wallet_file.write_text(json.dumps(wallet_data))
-        with patch("aitbc_cli.commands.operations.wallet_dir", lambda: test_wallet_dir):
-            yield test_wallet_dir
+        # find_wallet_file resolves via wallet_search_dirs(), where
+        # AITBC_WALLET_DIR wins — patching the imported `wallet_dir` name no
+        # longer reaches it.
+        monkeypatch.setenv("AITBC_WALLET_DIR", str(test_wallet_dir))
+        yield test_wallet_dir
 
 
 class TestGovernanceCommands:
@@ -90,7 +93,18 @@ class TestGovernanceCommands:
         """Test voting on a governance proposal"""
         result = runner.invoke(
             operations,
-            ["governance", "vote", "prop_123", "--vote", "for", "--wallet", "test_wallet", "--voting-power", "10"],
+            [
+                "governance",
+                "vote",
+                "--proposal-id",
+                "prop_123",
+                "--vote",
+                "for",
+                "--wallet",
+                "test_wallet",
+                "--voting-power",
+                "10",
+            ],
             obj={"config": mock_config, "output": "json"},
         )
 
@@ -103,7 +117,9 @@ class TestGovernanceCommands:
     def test_get_proposal_command(self, runner, mock_config, mock_http, temp_wallet_dir):
         """Test getting a governance proposal"""
         result = runner.invoke(
-            operations, ["governance", "get-proposal", "prop_123"], obj={"config": mock_config, "output": "json"}
+            operations,
+            ["governance", "get-proposal", "--proposal-id", "prop_123"],
+            obj={"config": mock_config, "output": "json"},
         )
 
         assert result.exit_code == 0
@@ -158,7 +174,7 @@ class TestGovernanceCommands:
     def test_execute_command(self, runner, mock_config, mock_http, temp_wallet_dir):
         """Test proposal execution command"""
         result = runner.invoke(
-            operations, ["governance", "execute", "prop_123"], obj={"config": mock_config, "output": "json"}
+            operations, ["governance", "execute", "--proposal-id", "prop_123"], obj={"config": mock_config, "output": "json"}
         )
 
         assert result.exit_code == 0
@@ -170,7 +186,7 @@ class TestGovernanceCommands:
         """Test voting power query command"""
         result = runner.invoke(
             operations,
-            ["governance", "voting-power", "0x4472315052d1bC56dd9aA6514B9796770C8c0611"],
+            ["governance", "voting-power", "--address", "0x4472315052d1bC56dd9aA6514B9796770C8c0611"],
             obj={"config": mock_config, "output": "json"},
         )
 

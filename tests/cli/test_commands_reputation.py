@@ -118,7 +118,7 @@ class TestReputationCommands:
 
         from aitbc_cli.commands.reputation import reputation
 
-        result = runner.invoke(reputation, ["create-profile", "agent1"])
+        result = runner.invoke(reputation, ["create-profile", "--agent-id", "agent1"])
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
@@ -140,7 +140,9 @@ class TestReputationCommands:
             reputation,
             [
                 "feedback",
+                "--agent-id",
                 "agent1",
+                "--reviewer-id",
                 "reviewer1",
                 "--overall",
                 "4.5",

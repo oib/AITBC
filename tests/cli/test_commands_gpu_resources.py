@@ -61,7 +61,7 @@ class TestGPUResourcesCommands:
 
         from aitbc_cli.commands.gpu_resources import gpu
 
-        result = runner.invoke(gpu, ["query", "gpu-0"])
+        result = runner.invoke(gpu, ["query", "--gpu-id", "gpu-0"])
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
@@ -123,7 +123,7 @@ class TestGPUResourcesCommands:
         mock_client = mock_http_class.return_value
         mock_client.get.side_effect = NetworkError("connection refused")
 
-        result = runner.invoke(gpu, ["query", "gpu-0"])
+        result = runner.invoke(gpu, ["query", "--gpu-id", "gpu-0"])
 
         # NetworkError is caught and reported via error(), exit code stays 0.
         assert result.exit_code == 0, result.output

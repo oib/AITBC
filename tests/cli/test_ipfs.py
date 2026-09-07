@@ -42,7 +42,7 @@ def test_download_falls_back_when_daemon_down(runner, tmp_path):
         patch("aitbc_cli.commands.ipfs._daemon_available", return_value=False),
         patch("aitbc_cli.commands.ipfs.IPFS_DIR", ipfs_dir),
     ):
-        result = runner.invoke(ipfs, ["download", cid])
+        result = runner.invoke(ipfs, ["download", "--cid", cid])
 
     assert result.exit_code == 0
     output = json.loads(result.output)

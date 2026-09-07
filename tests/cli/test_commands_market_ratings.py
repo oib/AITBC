@@ -51,7 +51,7 @@ UNREACHABLE = NetworkError("GET request failed: HTTPConnectionPool(host='localho
 
 def test_ratings_reports_a_missing_service_as_missing(runner, monkeypatch):
     _stub(monkeypatch, NOT_FOUND)
-    result = runner.invoke(market, ["ratings", "no-such-service"], obj={})
+    result = runner.invoke(market, ["ratings", "--service-id", "no-such-service"], obj={})
     assert result.exit_code != 0
     assert "No such service: no-such-service" in result.output
     assert "is running" not in result.output
@@ -59,7 +59,7 @@ def test_ratings_reports_a_missing_service_as_missing(runner, monkeypatch):
 
 def test_ratings_still_reports_an_unreachable_service_as_unreachable(runner, monkeypatch):
     _stub(monkeypatch, UNREACHABLE)
-    result = runner.invoke(market, ["ratings", "no-such-service"], obj={})
+    result = runner.invoke(market, ["ratings", "--service-id", "no-such-service"], obj={})
     assert result.exit_code != 0
     assert "Marketplace service not reachable" in result.output
     assert "Ensure marketplace-service is running" in result.output
@@ -69,7 +69,15 @@ def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):
     _stub(monkeypatch, NOT_FOUND)
     result = runner.invoke(
         market,
-        ["rate", "no-such-service", "5.0", "--reviewer-id", "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e"],
+        [
+            "rate",
+            "--service-id",
+            "no-such-service",
+            "--rating",
+            "5.0",
+            "--reviewer-id",
+            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
+        ],
         obj={},
     )
     assert result.exit_code != 0
@@ -81,7 +89,15 @@ def test_rate_still_reports_an_unreachable_service_as_unreachable(runner, monkey
     _stub(monkeypatch, UNREACHABLE)
     result = runner.invoke(
         market,
-        ["rate", "no-such-service", "5.0", "--reviewer-id", "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e"],
+        [
+            "rate",
+            "--service-id",
+            "no-such-service",
+            "--rating",
+            "5.0",
+            "--reviewer-id",
+            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
+        ],
         obj={},
     )
     assert result.exit_code != 0
@@ -104,7 +120,15 @@ def test_rate_rejects_an_out_of_range_rating_before_any_request(runner, monkeypa
     monkeypatch.setattr(ratings_module, "AITBCHTTPClient", _explode)
     result = runner.invoke(
         market,
-        ["rate", "some-service", "9.0", "--reviewer-id", "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e"],
+        [
+            "rate",
+            "--service-id",
+            "some-service",
+            "--rating",
+            "9.0",
+            "--reviewer-id",
+            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
+        ],
         obj={},
     )
     assert result.exit_code != 0

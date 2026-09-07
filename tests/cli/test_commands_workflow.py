@@ -78,7 +78,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["run", "test-workflow", "--dry-run"])
+        result = runner.invoke(workflow, ["run", "--workflow-name", "test-workflow", "--dry-run"])
 
         assert result.exit_code == 0, result.output
         assert "Dry run" in result.output
@@ -99,7 +99,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["run", "test-workflow"])
+        result = runner.invoke(workflow, ["run", "--workflow-name", "test-workflow"])
 
         assert result.exit_code == 0, result.output
         assert "exec-123" in result.output
@@ -119,7 +119,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["run", "test-workflow"])
+        result = runner.invoke(workflow, ["run", "--workflow-name", "test-workflow"])
 
         assert result.exit_code == 0, result.output
         assert "Failed" in result.output
@@ -143,7 +143,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["status", "exec-123"])
+        result = runner.invoke(workflow, ["status", "--workflow-name", "exec-123"])
 
         assert result.exit_code == 0, result.output
         assert "running" in result.output
@@ -162,7 +162,7 @@ class TestWorkflowCommands:
 
         from aitbc_cli.commands.workflow import workflow
 
-        result = runner.invoke(workflow, ["stop", "exec-123"])
+        result = runner.invoke(workflow, ["stop", "--workflow-name", "exec-123"])
 
         assert result.exit_code == 0, result.output
         assert "Cancelled" in result.output
