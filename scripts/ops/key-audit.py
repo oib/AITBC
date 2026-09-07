@@ -117,8 +117,9 @@ def _audit_env(path: Path, text: str) -> list[dict[str, Any]]:
                 if gm:
                     declared_raw = gm.group(1)
                     break
-            # and NODE_WALLET_ADDRESS for any *_WALLET_PRIVATE_KEY
-            if base.upper().endswith("WALLET"):
+            # and NODE_WALLET_ADDRESS for any *_WALLET_PRIVATE_KEY — but not
+            # for GENESIS_WALLET, which is a different wallet from NODE_WALLET.
+            if base.upper().endswith("WALLET") and base.upper() not in ("GENESIS", "GENESIS_WALLET"):
                 nm = re.match(r"^\s*NODE_WALLET_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
                 if nm:
                     declared_raw = nm.group(1)
