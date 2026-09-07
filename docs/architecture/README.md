@@ -20,6 +20,7 @@ This directory contains comprehensive architecture documentation for the AITBC p
 
 - **[edge_gpu_setup.md](./edge_gpu_setup.md)** - Edge computing and GPU setup architecture
 - **[money-types-and-the-signature-boundary.md](./money-types-and-the-signature-boundary.md)** - Decision record: why four payload fields are `float` while all other money is `Decimal`. Read before changing a money type in `blockchain-node`
+- **[coordinator-context-map.md](./coordinator-context-map.md)** - Inventory of the 36 bounded contexts inside coordinator-api. A map, not a refactor proposal — read before proposing coordinator decomposition
 
 ## 🎯 **Quick Start**
 
