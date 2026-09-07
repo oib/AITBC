@@ -630,11 +630,11 @@ class ChainSettings(BaseSettings):
     # gap the network produces when it is healthy. A smaller value is still
     # safe, because the proposer derives the round from the same timestamp its
     # validators will, but the slot then rotates on ordinary blocks instead of
-    # only when a proposer is missing. The default leaves room for a validator
-    # configured with a 180s empty-block interval.
+    # only when a proposer is missing. The default aligns with the heartbeat
+    # interval so a silent proposer is skipped within one heartbeat cycle.
     # Left unset, this is derived from ``max_empty_block_interval`` -- see
     # ``_scale_the_proposer_round_to_the_heartbeat``. An explicit value wins.
-    consensus_proposer_round_seconds: int = 300
+    consensus_proposer_round_seconds: int = 60
     # Drop a pre-prepare whose sender is not the scheduled proposer for the
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
@@ -670,11 +670,20 @@ class ChainSettings(BaseSettings):
         heartbeat there are free to drift apart -- and had: 300s against the
         deployed 60s heartbeat, on a chain measured producing a block every
         62-72s, meant a validator going dark cost five minutes on every height
-        it owned. Twice the heartbeat keeps a wide margin over the healthy gap
-        while rotating within about two block times.
+        it owned. Aligning the round with the heartbeat (rather than 2x) means
+        a silent proposer is skipped within one heartbeat cycle instead of two.
         """
         if "consensus_proposer_round_seconds" not in self.model_fields_set:
-            self.consensus_proposer_round_seconds = max(120, 2 * self.max_empty_block_interval)
+            # Align the round window with the heartbeat interval, not 2x it.
+            # The C-2 live exercise found that a 120s round vs 60s heartbeat
+            # stalls the chain for 2 full heartbeats when a proposer is silent,
+            # because the round does not advance until 120s but the heartbeat
+            # fires at 60s — and the heartbeat cannot be produced because the
+            # round-0 proposer is the one that is dead. Setting the round to
+            # the heartbeat interval means the round advances at the same
+            # moment the heartbeat would fire, handing the slot to the next
+            # validator within one heartbeat cycle.
+            self.consensus_proposer_round_seconds = max(30, self.max_empty_block_interval)
         return self
 
     @model_validator(mode="after")
