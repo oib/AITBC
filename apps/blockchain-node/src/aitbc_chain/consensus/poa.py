@@ -597,11 +597,21 @@ class PoAProposer:
         return True
 
     async def _propose_block(self) -> bool:
+        # C-1: per-phase tracing. The 1804 freeze showed that a silent hang
+        # between heartbeat lines is impossible to diagnose from logs alone.
+        # Each phase now logs its start and duration so the journal shows
+        # exactly which await blocked if the proposer stalls again.
+        chain = self._config.chain_id
+        _t0 = time.time()
+        self._logger.debug("[PROPOSE:%s] phase=early_gates start", chain)
         mempool = await self._passes_early_gates()
+        self._logger.debug("[PROPOSE:%s] phase=early_gates done %.3fs", chain, time.time() - _t0)
         if mempool is None:
             return False
         with self._session_factory() as session:
+            _t1 = time.time()
             resolved = self._resolve_proposal_head(session)
+            self._logger.debug("[PROPOSE:%s] phase=resolve_head done %.3fs", chain, time.time() - _t1)
             if resolved is None:
                 return False
             head, next_height, parent_hash, interval_seconds = resolved
@@ -615,22 +625,30 @@ class PoAProposer:
             if selected is None:
                 return False
             proposer, round_number = selected
+            _t2 = time.time()
             pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
             processed_txs, changed_addresses, ok = self._process_proposal_txs(
                 session, pending_txs, account_map, existing_tx_map, next_height, timestamp
             )
+            self._logger.debug("[PROPOSE:%s] phase=collect_txs done %.3fs", chain, time.time() - _t2)
             if not ok:
                 return False
             if self._reject_if_all_invalid(session, pending_txs, processed_txs):
                 return False
+            _t3 = time.time()
             block, block_hash = self._assemble_proposal_block(
                 session, next_height, parent_hash, timestamp, processed_txs, proposer
             )
+            self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
             metadata_dict: dict[str, Any] = {}
+            _t4 = time.time()
+            self._logger.info("[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number)
             if not await self._run_consensus_gates(
                 session, block, block_hash, proposer, round_number, next_height, metadata_dict
             ):
+                self._logger.warning("[PROPOSE:%s] phase=consensus_gates failed %.3fs", chain, time.time() - _t4)
                 return False
+            self._logger.debug("[PROPOSE:%s] phase=consensus_gates done %.3fs", chain, time.time() - _t4)
             # v0.25.7: stamp the state-transition rule version so followers can
             # replay this block with the same rules that produced its state_root.
             metadata_dict["state_transition_version"] = 2
@@ -640,7 +658,13 @@ class PoAProposer:
             # valid for both PoA consensus and bridge proof verification.
             block.signature = self._sign_block_hash_for(proposer, block)
             self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
-            return await self._broadcast_block(block, processed_txs)
+            _t5 = time.time()
+            self._logger.debug("[PROPOSE:%s] phase=broadcast start", chain)
+            result = await self._broadcast_block(block, processed_txs)
+            self._logger.debug(
+                "[PROPOSE:%s] phase=broadcast done %.3fs total=%.3fs", chain, time.time() - _t5, time.time() - _t0
+            )
+            return result
 
     async def _passes_early_gates(self) -> InMemoryMempool | DatabaseMempool | None:
         """Pre-session proposal gates.
