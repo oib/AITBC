@@ -6,11 +6,11 @@ authors = [{name = "AITBC Team"}]
 requires-python = ">=3.13.5,!=3.14.1,<3.15"
 dynamic = ["dependencies"]
 
+# [project] above is the canonical metadata block (PEP 621); poetry 2.x reads
+# name/version/description/authors from there, so they are not repeated here.
+# Dependencies stay in [tool.poetry.dependencies] because `develop = true`
+# path deps have no PEP 621 spelling — hence [project].dynamic = ["dependencies"].
 [tool.poetry]
-name = "aitbc"
-version = "0.10.18"
-description = "AI Agent Compute Network - Main Project"
-authors = ["AITBC Team"]
 package-mode = true
 
 [tool.poetry.dependencies]
