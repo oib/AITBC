@@ -5354,9 +5354,9 @@
     },
     "/v1/system/health": {
       "get": {
-        "summary": "Get System Status",
+        "summary": "Get System Health",
         "description": "Get comprehensive system status",
-        "operationId": "get_system_status_v1_system_health_get",
+        "operationId": "get_system_health_v1_system_health_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5365,7 +5365,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Get System Status V1 System Health Get"
+                  "title": "Response Get System Health V1 System Health Get"
                 }
               }
             }

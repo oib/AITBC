@@ -74,6 +74,9 @@ jobs:
       - name: Lint
         run: make lint-strict
 
+      - name: C901 complexity ratchet
+        run: make c901-ratchet
+
       - name: No float money
         run: make no-float-money
 

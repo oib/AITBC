@@ -345,7 +345,7 @@ class EnergyQuote:
         self,
         operator_address: str,
         operator_signature: bytes,
-    ) -> "EnergyQuote":
+    ) -> EnergyQuote:
         """Return a copy of this quote with the operator attestation attached.
 
         The signature must be produced over ``digest_sha256()`` by the caller

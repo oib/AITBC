@@ -231,7 +231,6 @@ class EthereumRPCClient:
         args: list | None = None,
     ) -> str:
         """Encode a contract function call and return the hex calldata."""
-        from web3 import Web3
 
         w3 = self._get_web3()
         contract = w3.eth.contract(abi=abi)
@@ -257,7 +256,6 @@ class EthereumRPCClient:
 
     def send_raw_transaction(self, raw_tx_hex: str) -> str:
         """Submit a raw signed transaction and return the tx hash hex."""
-        from web3 import Web3
 
         w3 = self._get_web3()
         if raw_tx_hex.startswith("0x"):

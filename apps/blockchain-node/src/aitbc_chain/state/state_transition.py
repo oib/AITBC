@@ -212,6 +212,7 @@ class StateTransition:
             logger.warning("Replay attack detected: Transaction %s already persisted", tx_hash)
             return (False, f"Transaction {tx_hash} already processed (replay attack)")
         sender_addr = _to_ait_address(tx_data.get("from") or "")
+        recipient_addr = _to_ait_address(tx_data.get("to") or "")
         value = tx_data.get("value", 0)
         fee = tx_data.get("fee", 0)
         tx_record = session.exec(
