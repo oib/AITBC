@@ -423,7 +423,7 @@ class PoAProposer:
             if self._stop_event.is_set():
                 break
             try:
-                proposed = await self._propose_block()
+                proposed = await self._propose_block_with_watchdog()
                 if proposed:
                     await self._wait_until_next_slot()
                 elif block_generation_mode == "hybrid":
@@ -440,6 +440,36 @@ class PoAProposer:
             except Exception as exc:
                 self._logger.error("Failed to propose block: %s\n%s", exc, traceback.format_exc())
                 await asyncio.sleep(1.0)
+
+    async def _propose_block_with_watchdog(self) -> bool:
+        """Run one proposal iteration under a silence watchdog.
+
+        The 1804 freeze is the reason this exists: the proposer task hung at
+        20:09:31 on 31 Aug with no error, no traceback, and no further log for
+        ~16h — every wait inside the pipeline was individually bounded, but
+        nothing observed the iteration *itself* stalling. An iteration that
+        outlives this threshold is a stalled proposer, not an idle one, and the
+        journal should say so.
+        """
+        watchdog_after = max(60.0, self._config.interval_seconds * 4)
+        task = asyncio.ensure_future(self._propose_block())
+
+        async def _watch() -> None:
+            await asyncio.sleep(watchdog_after)
+            if not task.done():
+                self._logger.error(
+                    "[PROPOSE] proposal iteration still running after %.0fs on chain %s — "
+                    "the proposer is stalled, not idle; check gossip, sync, and PBFT state",
+                    watchdog_after,
+                    self._config.chain_id,
+                )
+                metrics_registry.increment("poa_proposer_stalled_iterations_total")
+
+        watcher = asyncio.ensure_future(_watch())
+        try:
+            return await task
+        finally:
+            watcher.cancel()
 
     async def _wait_until_next_slot(self) -> None:
         head = self._fetch_chain_head()
