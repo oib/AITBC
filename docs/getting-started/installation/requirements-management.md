@@ -39,12 +39,22 @@ single source of truth, so optional packages stay pinned to the same versions as
 | `security` | detect-secrets |
 | `observability` | opentelemetry-sdk, opentelemetry-exporter-otlp |
 
-No installation profile currently maps to `search`, `sqlcipher`, `security`, or
-`observability`. Install those directly when a service needs them:
+No installation profile maps to `search`, `sqlcipher`, `security`, or
+`observability` by default. They are installable two ways — directly:
 
 ```bash
 poetry install --extras search
 ```
+
+or through the profile installer, which appends `AITBC_EXTRA_EXTRAS` to the
+profile's extras:
+
+```bash
+AITBC_EXTRA_EXTRAS="search observability" ./scripts/deployment/install-profiles.sh server-no-gpu
+```
+
+Whether any profile should include them by default is a deployment decision,
+not a code default.
 
 ## Installation Profiles
 
