@@ -13,19 +13,17 @@ from __future__ import annotations
 
 import json
 import sys
-from typing import Any
 
 import click
 
 from ..config import get_config
 from ..utils import error, info, output, success, warning
 from ..utils.energy_quote import (
-    compute_settlement_breakdown,
     parse_quote,
     verify_quote,
     verify_quote_against_oracle,
 )
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import get_logger
 
 logger = get_logger(__name__)
 
@@ -160,7 +158,6 @@ def provider_register(
         error("A private key is required to register an energy profile")
         sys.exit(1)
 
-    from ..utils.evm_contract import EVMContractClient, _ERC20_ABI
 
     # Build and submit the registerEnergyProfile call via the EVM client.
     # We use the IEnergyPricing ABI directly since it's a separate contract.

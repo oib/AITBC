@@ -515,6 +515,9 @@ testpaths = [
     # gone as of V23-84; every setting in it was a pytest default, a marker already declared
     # below, or a weakening of the addopts above.
     "cli/tests",
+    # mcp-server tests are standalone and exercise typed MCP tools without
+    # needing a running node; keep them in the default collection.
+    "mcp-server/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
