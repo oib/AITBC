@@ -77,7 +77,13 @@ def _resolve_authoritative_inputs(quote: EnergyQuote) -> tuple[Any, Any]:
     contract = settings.energy_pricing_contract_address
     rpc_url = settings.eth_rpc_url
     if not contract or not rpc_url:
-        return quote.to_profile(), quote.to_rate()
+        # A-4: fail-closed — no fallback to self-attested quote values.
+        # The operator must configure ENERGY_PRICING_CONTRACT_ADDRESS and
+        # ETH_RPC_URL so the funding gate reads the on-chain oracle.
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="Energy pricing oracle is not configured (ENERGY_PRICING_CONTRACT_ADDRESS / ETH_RPC_URL); refusing protected funding",
+        )
     try:
         rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
         oracle = EVMEnergyOracle(rpc, contract, settings.energy_pricing_chain_id)
@@ -312,9 +318,15 @@ class PaymentService:
                             status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                             detail=f"Energy quote duration {quote.duration_seconds}s does not match job duration {job.duration_seconds}s",
                         )
-                # Verify the operator signature against the configured operator
+                # A-4: Verify the operator signature against the configured operator
                 # address so a self-attested quote cannot fund a rental.
-                if settings.energy_operator_address and not quote.verify_operator_signature(settings.energy_operator_address):
+                # Fail-closed: if ENERGY_OPERATOR_ADDRESS is not set, reject.
+                if not settings.energy_operator_address:
+                    raise HTTPException(
+                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                        detail="ENERGY_OPERATOR_ADDRESS is not configured; refusing protected funding",
+                    )
+                if not quote.verify_operator_signature(settings.energy_operator_address):
                     raise HTTPException(
                         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
                         detail="Energy quote operator signature is missing or invalid",
