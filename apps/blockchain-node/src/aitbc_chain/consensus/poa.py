@@ -870,55 +870,9 @@ class PoAProposer:
                 session.rollback()
                 return False
 
-            # The PBFT certificate is resolved *before* the attestation gate,
-            # because it can satisfy it. sync_validator._validate_attestations
-            # checks the certificate instead of the attestations list whenever one
-            # is present, so a block carrying a commit quorum is accepted by every
-            # follower no matter how many gossip attestations came back. Requiring
-            # a second, independent signature round here was therefore stricter
-            # than the network itself: PBFT would reach quorum and the block would
-            # still be dropped, stalling the chain on a check no verifier applies.
-            pbft_certificate: list[dict[str, Any]] = []
-            if self._pbft_consensus:
-                pbft_certificate = self._pbft_consensus.get_certificate(block_hash)
-                if pbft_certificate:
-                    metadata_dict["pbft_certificate"] = pbft_certificate
-
-            if self._multi_validator:
-                attestations = await self._collect_attestations(block)
-                configured_min = getattr(settings, "multi_validator_min_attestations", 0)
-                active_validators = self._multi_validator.get_consensus_participants()
-                effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
-                if configured_min > effective_min:
-                    self._logger.warning(
-                        "Configured min_attestations %d reduced to %d because only %d non-proposer validators are active",
-                        configured_min,
-                        effective_min,
-                        max(0, len(active_validators) - 1),
-                    )
-                if attestations:
-                    metadata_dict["attestations"] = attestations
-                if effective_min and len(attestations) < effective_min:
-                    commit_count = self._certificate_commit_count(pbft_certificate, block_hash)
-                    if commit_count < effective_min:
-                        self._logger.warning(
-                            "Not enough attestations for multi-validator block %s: got %d attestation(s) "
-                            "and %d PBFT commit(s), need %d",
-                            next_height,
-                            len(attestations),
-                            commit_count,
-                            effective_min,
-                        )
-                        session.rollback()
-                        return False
-                    self._logger.info(
-                        "Block %s carries %d attestation(s), below the %d minimum, but its PBFT certificate "
-                        "holds %d commits; proceeding on the certificate",
-                        next_height,
-                        len(attestations),
-                        effective_min,
-                        commit_count,
-                    )
+            if not await self._collect_and_gate_attestations(block, block_hash, metadata_dict):
+                session.rollback()
+                return False
 
             # v0.25.7: stamp the state-transition rule version so followers can
             # replay this block with the same rules that produced its state_root.
@@ -1250,6 +1204,70 @@ class PoAProposer:
             created += 1
         session.commit()
         self._logger.info("Created %s accounts from genesis allocations", created)
+
+    async def _collect_and_gate_attestations(
+        self,
+        block: Block,
+        block_hash: str,
+        metadata_dict: dict[str, Any],
+    ) -> bool:
+        """Collect gossip attestations and apply the multi-validator gate.
+
+        Populates ``metadata_dict`` with ``pbft_certificate`` and
+        ``attestations`` when present. Returns False when the attestation
+        minimum is unmet and the PBFT certificate cannot cover it — the caller
+        owns the session rollback.
+
+        The PBFT certificate is resolved *before* the attestation gate,
+        because it can satisfy it. sync_validator._validate_attestations
+        checks the certificate instead of the attestations list whenever one
+        is present, so a block carrying a commit quorum is accepted by every
+        follower no matter how many gossip attestations came back. Requiring
+        a second, independent signature round here was therefore stricter
+        than the network itself: PBFT would reach quorum and the block would
+        still be dropped, stalling the chain on a check no verifier applies.
+        """
+        pbft_certificate: list[dict[str, Any]] = []
+        if self._pbft_consensus:
+            pbft_certificate = self._pbft_consensus.get_certificate(block_hash)
+            if pbft_certificate:
+                metadata_dict["pbft_certificate"] = pbft_certificate
+
+        if self._multi_validator:
+            attestations = await self._collect_attestations(block)
+            configured_min = getattr(settings, "multi_validator_min_attestations", 0)
+            active_validators = self._multi_validator.get_consensus_participants()
+            effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
+            if configured_min > effective_min:
+                self._logger.warning(
+                    "Configured min_attestations %d reduced to %d because only %d non-proposer validators are active",
+                    configured_min,
+                    effective_min,
+                    max(0, len(active_validators) - 1),
+                )
+            if attestations:
+                metadata_dict["attestations"] = attestations
+            if effective_min and len(attestations) < effective_min:
+                commit_count = self._certificate_commit_count(pbft_certificate, block_hash)
+                if commit_count < effective_min:
+                    self._logger.warning(
+                        "Not enough attestations for multi-validator block %s: got %d attestation(s) "
+                        "and %d PBFT commit(s), need %d",
+                        block.height,
+                        len(attestations),
+                        commit_count,
+                        effective_min,
+                    )
+                    return False
+                self._logger.info(
+                    "Block %s carries %d attestation(s), below the %d minimum, but its PBFT certificate "
+                    "holds %d commits; proceeding on the certificate",
+                    block.height,
+                    len(attestations),
+                    effective_min,
+                    commit_count,
+                )
+        return True
 
     def _process_txs_sequential(
         self,
