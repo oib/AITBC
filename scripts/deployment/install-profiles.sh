@@ -69,6 +69,13 @@ case "$PROFILE" in
         ;;
 esac
 
+# Extras that no profile maps to (search, sqlcipher, security, observability)
+# are still installable through this path: AITBC_EXTRA_EXTRAS="search sqlcipher"
+# appends them to whatever the profile resolved.
+if [ -n "${AITBC_EXTRA_EXTRAS:-}" ]; then
+    EXTRAS="${EXTRAS}${EXTRAS:+ }${AITBC_EXTRA_EXTRAS}"
+fi
+
 if [ ! -x "$POETRY" ]; then
     echo "Bootstrapping Poetry into $POETRY_VENV ..."
     python3 -m venv "$POETRY_VENV"
