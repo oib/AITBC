@@ -518,6 +518,10 @@ async def execute_governance_proposal(
         mempool = get_mempool()
         tx_hash = mempool.add(tx_data, chain_id=chain_id)
 
+        from .transactions import _queue_peer_fanout
+
+        _queue_peer_fanout(chain_id, tx_data)
+
         _logger.info(
             "Governance proposal %s queued for on-chain execution by %s (tx %s)",
             proposal_id,
