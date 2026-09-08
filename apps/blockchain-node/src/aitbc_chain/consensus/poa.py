@@ -40,6 +40,8 @@ from ..base_models import _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
 from ..state.pure_state_transition import (
     StateDelta,
+    _determine_tx_type,
+    _escrow_address,
     apply_delta_to_map,
     apply_deltas_to_db,
     compute_state_delta,
@@ -815,13 +817,13 @@ class PoAProposer:
         exceeded threshold).
         """
         block_version = get_block_version_for_height(next_height)
-        # S-4: v3 blocks can use the parallel path once escrow lock metadata is
-        # prefetched — the pure delta needs the per-job context for v3
-        # ESCROW_RELEASE/REFUND. If any such tx has no resolvable lock, keep the
-        # block sequential so the sequential path's own rules apply.
+        # S-4: v2/v3 blocks can use the parallel path once escrow lock metadata
+        # is prefetched. If any release/refund references a job with no
+        # resolvable lock, keep the block sequential so the sequential path's own
+        # rules apply.
         escrow_context: dict[str, dict[str, Any]] | None = None
         use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1 and block_version in (2, 3)
-        if use_parallel and block_version >= 3:
+        if use_parallel:
             escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
             if escrow_context is None:
                 use_parallel = False
@@ -1083,8 +1085,8 @@ class PoAProposer:
             )
         if pre_registered:
             self._logger.info("[PROPOSE] added %s pre-registered DB txs, chain=%s", len(pre_registered), self._config.chain_id)
-        # Batch-fetch all unique sender and recipient accounts in one query
-        # (eliminates the per-tx session.get() round-trips).
+        # Batch-fetch all unique sender, recipient and v3 escrow accounts in one
+        # query (eliminates the per-tx session.get() round-trips).
         unique_addresses: set[str] = set()
         for tx in pending_txs:
             tx_data = tx.content
@@ -1094,6 +1096,17 @@ class PoAProposer:
                 unique_addresses.add(sender)
             if recipient:
                 unique_addresses.add(recipient)
+            tx_type = _determine_tx_type(tx_data)
+            if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+                payload = tx_data.get("payload", {}) or {}
+                if isinstance(payload, str):
+                    try:
+                        payload = json.loads(payload)
+                    except Exception:
+                        payload = {}
+                job_id = payload.get("job_id", "")
+                if job_id:
+                    unique_addresses.add(_escrow_address(job_id))
         account_map: dict[str, Account] = {}
         if unique_addresses:
             existing_accounts = session.exec(
