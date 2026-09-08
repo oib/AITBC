@@ -186,6 +186,16 @@ fi
 # Check if a service basename is in the allowed list
 is_service_allowed() {
     local basename="$1"
+    # aitbc-cache-monitor is not a role service: it belongs on hosts that run a
+    # local redis-server (its optional EnvironmentFile /etc/aitbc/redis.env
+    # supplies REDISCLI_AUTH). Gate on Redis presence so a relink does not
+    # silently remove it and non-Redis hosts never get a failing timer.
+    if [ "$basename" = "aitbc-cache-monitor" ]; then
+        # systemctl cat avoids the list-unit-files|grep -q pipe: under pipefail,
+        # grep -q's early exit SIGPIPEs systemctl and the pipeline reports 141.
+        systemctl cat redis-server.service >/dev/null 2>&1
+        return
+    fi
     if [ "$ROLE_FILTER" = "false" ]; then
         return 0  # Allow all
     fi

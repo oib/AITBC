@@ -400,19 +400,20 @@ Items surfaced during the fleet audit, not part of the register:
 - `gitea-local` tea login on `gitea-runner` is configured but the container
   has no `/opt/aitbc` checkout — tea commands that require a repo context
   will fail. The login itself is valid.
-- The six-artifact register is not fully closed. The only remaining open
-  register item is **O-3 — `redis.env`**: the file exists on `hub.aitbc` and
-  `node2` but is loaded by no live unit; the actual Redis credentials live in
-  `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Operator confirmation is
-  outstanding whether it is vestigial (remove) or intended (provision/mask).
-- **R10 (deployment manifest)** is closed with a recorded residual: the fleet
-  is at tip, backups are present, and the schema head is correct, but a
-  per-pull approval log and a restore test are not establishable and were not
-  manufactured.
+- **The six-artifact register is fully closed 8 Sep.** All 58 IDs have a
+  dated disposition (O-3, R7, R8, F-5f, B-8, S-3, S-4, D-2, and all others).
+  The only remaining tracked item is **R10 (deployment manifest)**, which is
+  closed with a recorded residual: the fleet is at tip, backups and schema
+  head are correct, but a per-pull approval log and a restore test are not
+  establishable and were not manufactured.
+- **Credential-hygiene residuals (BOND_SLASH_PRIVATE_KEY copies in backups) are
+  recorded under the operator's dev-fleet posture:** they are fixed only when
+  they break function or the operator explicitly asks; rotation + purge is not
+  planned work.
 - **R7 (watchdog phase diagnosis)**, **R8 (PAT revocation)**, the
   `ENFORCE_STATE_ROOT_VALIDATION` dead env var, the hub `ENERGY_OPERATOR_ADDRESS`
-  pair, the `BOND_SLASH_AUTHORITY_ADDRESS` fleet split, and the `node0` sync lag
-  were all resolved 8 Sep.
+  pair, the `BOND_SLASH_AUTHORITY_ADDRESS` fleet split, the `O-3` Redis cache
+  monitor, and the `node0` sync lag were all resolved 8 Sep.
 
 ## 2026-09-08 post-audit corrections
 
@@ -434,10 +435,14 @@ inspection updated the following conclusions:
   (`.gitea/workflows/ci.yml:47`, `.github/workflows/ci.yml:69,132`), which is
   what they add. The branch therefore carries no unmerged substance and is
   retirable.
-- **O-3 — `redis.env`** exists only on `hub.aitbc` and `node2`; no systemd unit
-  on any host loads it. The actual Redis credentials live in
-  `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Status narrowed, not
-  fully closed.
+- **O-3 — `redis.env` is needed and wired 8 Sep.** The file exists on
+  `hub.aitbc` and `node2` and supplies `REDISCLI_AUTH` to
+  `aitbc-cache-monitor.service` (EnvironmentFile is optional by design). The
+  real gap was that the unit was never installed — `aitbc-cache-monitor.service`
+  and `.timer` are now installed and the timer is enabled on `hub.aitbc` and
+  `node2` (the two hosts running `redis-server`). First runs succeeded (hit rates
+  100% / 98%). Node0, node1, and hub2 correctly have no `redis.env` because they
+  run no local Redis. Status **closed**.
 - **CI history** — Gitea Actions runs **19477–19638** were consecutive
   failures (162 runs, not the 22 or 39 noted in earlier audit drafts).
   The last green before the streak is 19476 (`3451957919`, 4 Sep 23:54); the
@@ -450,9 +455,10 @@ inspection updated the following conclusions:
   window. Both earlier counts (22, then 39) were API page-size artifacts: a
   30-run and a 50-run page truncated the walk-back, so the streak has to be
   re-derived against the full paginated run list, not a single page.
-- **Fleet at 8 Sep 14:xx** is at `origin/main` tip `79769fb57`. All five
-  `aitbc-blockchain-node/rpc` services are active and `/health` returns `ok`;
-  all five hosts are at block 5268 with zero failed `aitbc-*` units.
+- **Fleet at 8 Sep 14:xx** is at `origin/main` tip `85c30e7f6` (Gitea CI
+  run 19654 green). All five `aitbc-blockchain-node/rpc` services are active and
+  `/health` returns `ok`; all five hosts are at block 5268 with zero failed
+  `aitbc-*` units.
 
 ## 2026-09-08 live env cleanup
 
@@ -493,6 +499,12 @@ inspection updated the following conclusions:
   `BOND_SLASH_AUTHORITY_ADDRESS=0xab07…1d76` is now set on all five hosts
   (added on node0, corrected on node1/hub, already correct on node2/hub2). Rolling
   restarts applied; fleet converged at height 5265.
+- **O-3 — redis.env / cache monitor closed.** `aitbc-cache-monitor.service`
+  and its `.timer` were installed and enabled on `hub.aitbc` and `node2`. The
+  unit sources `/etc/aitbc/redis.env` for `REDISCLI_AUTH`; first runs returned
+  100% (hub) and 98% (node2) hit rates. Node0, node1, and hub2 correctly have no
+  `redis.env` because they run no local Redis. This closes the last open register
+  item.
 - **node0 block lag resolved.** `default_peer_rpc_url` in
   `/etc/aitbc/blockchain.env` pointed to `https://node1.aitbc.bubuit.net` (a
   follower) instead of `https://hub.aitbc.bubuit.net`. On 8 Sep it was corrected,
@@ -500,3 +512,9 @@ inspection updated the following conclusions:
   `BLOCK_TIME_SECONDS=60`, and `market_role` was set to `customer`.
   `aitbc-blockchain-node` and `aitbc-blockchain-rpc` were restarted; node0 caught
   up and is now at the fleet height.
+- **Operator posture stated 8 Sep:** this is a fast-forward dev fleet, not a
+  production-hardened deployment. Credential-hygiene findings (exposed keys in
+  backups, rotation schedules, purge cycles) are recorded, not automatically
+  remediated — fixed only when they break function or the operator explicitly
+  asks. Under this posture the BOND_SLASH_PRIVATE_KEY transcript exposure is an
+  accepted risk and rotation + purge is not planned work.
