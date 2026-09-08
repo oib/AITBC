@@ -2,6 +2,7 @@
 Transaction-related RPC endpoints.
 """
 
+import asyncio
 import os
 from datetime import UTC, datetime
 from typing import Any
@@ -95,6 +96,43 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
             )
 
 
+async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -> None:
+    """Best-effort relay of a locally submitted transaction to mesh peers.
+
+    Each validator's mempool is a localhost DB and nothing on this host
+    republishes local-bus messages to the mesh — the mesh fan-out only happens
+    inside the node process's ``MeshGossipBackend.publish``. A tx submitted
+    over REST therefore reaches a block only if *this* host happens to propose
+    (the 8 Sep governance tx sat in hub's mempool while node1/node2/hub2
+    produced empty blocks). Push the envelope to every peer's public
+    ``transactions.<chain>`` gossip endpoint so each validator's own mempool
+    picks it up. One hop, tx-hash deduped downstream — no loop risk.
+    """
+    from ..config import settings
+    from ..gossip.backends.websocket import WebsocketGossipBackend
+
+    for url in settings.mesh_peer_url_list():
+        backend = WebsocketGossipBackend(url)
+        try:
+            await backend.start()
+            await backend.publish(f"transactions.{chain_id}", {"type": "new_transaction", "tx": tx_data})
+        except Exception as e:
+            _logger.warning("tx fan-out to %s failed: %s", url, e)
+        finally:
+            try:
+                await backend.shutdown()
+            except Exception:
+                pass
+
+
+def _queue_peer_fanout(chain_id: str, tx_data: dict[str, Any]) -> None:
+    """Fire-and-forget peer relay; never blocks or fails the submit path."""
+    try:
+        asyncio.get_running_loop().create_task(_fanout_transaction_to_peers(chain_id, tx_data))
+    except RuntimeError:
+        pass  # no running loop (e.g. synchronous test contexts)
+
+
 @rate_limit(rate=50, per=60)
 async def submit_transaction(request: Request, tx_data: TransactionRequest) -> dict[str, Any]:
     """Submit a new transaction to the mempool"""
@@ -129,6 +167,7 @@ async def submit_transaction(request: Request, tx_data: TransactionRequest) -> d
         _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
+        _queue_peer_fanout(chain_id, tx_data_dict)
 
         return {"success": True, "transaction_hash": tx_hash, "message": "Transaction submitted to mempool"}
     except HTTPException:
@@ -242,6 +281,7 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
             _validate_transaction_admission(tx_data_dict, mempool)
 
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
+        _queue_peer_fanout(chain_id, tx_data_dict)
 
         return {"success": True, "transaction_hash": tx_hash, "message": "Marketplace transaction submitted to mempool"}
     except HTTPException:
