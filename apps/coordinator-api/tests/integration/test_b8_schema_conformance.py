@@ -52,7 +52,12 @@ def _run_alembic(tmp_path: Path, *args: str) -> Path:
 
 def _get_model_columns() -> dict[str, set[str]]:
     """Return {table_name: {column_names}} from the declared SQLModel metadata."""
+    # Keep this in lock-step with the 001_initial migration's model imports so the
+    # test compares the migration output against the schema the migration actually
+    # intends to create, not against whichever models happened to be loaded by the
+    # test collection order.
     import coordinator_api.main  # noqa: F401
+    import coordinator_api.models.multitenant  # noqa: F401
     from sqlmodel import SQLModel
 
     tables: dict[str, set[str]] = {}
