@@ -808,10 +808,14 @@ class PoAProposer:
         processing when parallel returns nothing (e.g. the conflict rate
         exceeded threshold).
         """
-        use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1
+        block_version = get_block_version_for_height(next_height)
+        # S-4: the pure/parallel state transition is not yet v3-aware, so
+        # do not use it for v3 blocks.  v2 is the only version validated in
+        # parallel today.
+        use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1 and block_version == 2
         if use_parallel:
             processed_txs, changed_addresses, ok = self._process_txs_parallel(
-                session, pending_txs, account_map, existing_tx_map, next_height, timestamp
+                session, pending_txs, account_map, existing_tx_map, next_height, timestamp, block_version
             )
             if not ok:
                 return processed_txs, changed_addresses, False
@@ -1767,6 +1771,7 @@ class PoAProposer:
         existing_tx_map: dict[str, int],
         next_height: int,
         timestamp: datetime,
+        block_version: int,
     ) -> tuple[list[Any], set[str], bool]:
         """Process transactions in parallel using dependency analysis.
 
@@ -1834,7 +1839,9 @@ class PoAProposer:
 
                 def compute_fn(item: tuple[str, dict[str, Any]]) -> StateDelta:
                     tx_hash, tx_data = item
-                    return compute_state_delta(account_map, tx_data, chain_id, tx_hash, processed_tx_hashes)
+                    return compute_state_delta(
+                        account_map, tx_data, chain_id, tx_hash, processed_tx_hashes, block_version=block_version
+                    )
 
                 results = executor.execute_groups([group_items], compute_fn)
                 group_deltas = results[0] if results else []
@@ -1853,7 +1860,7 @@ class PoAProposer:
                                 existing_tx_map[tx_hash],
                             )
                             continue
-                        apply_delta_to_map(account_map, delta, chain_id)
+                        apply_delta_to_map(account_map, delta, chain_id, block_version)
                         processed_tx_hashes.add(tx_hash)
                         all_deltas.append((i, delta, tx))
                     else:
@@ -1874,7 +1881,7 @@ class PoAProposer:
         changed_addresses: set[str] = set()
         try:
             if successful_deltas:
-                apply_deltas_to_db(session, successful_deltas, chain_id)
+                apply_deltas_to_db(session, successful_deltas, chain_id, block_version)
 
             # Create Transaction records and track changed addresses
             for _idx, delta, tx in all_deltas:
