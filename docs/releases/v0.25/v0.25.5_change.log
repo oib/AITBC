@@ -395,3 +395,25 @@ Items surfaced during the fleet audit, not part of the register:
   has no `/opt/aitbc` checkout — tea commands that require a repo context
   will fail. The login itself is valid.
 - The six-artifact register is now fully closed. No open items remain.
+
+## 2026-09-08 post-audit corrections
+
+A read-only Gitea Actions API audit (`tea api` on `hub.aitbc`) and live host
+inspection updated the following conclusions:
+
+- **D-2 — Mesh gossip auth gap** is closed on `main` at `252469f3b` (same tree
+  as the cited branch commit `761b887837`) plus the two fixes `b990194ed7` and
+  `20257c5975`. The `origin/feat/open-island-gossip-remediation` branch still
+  carries four unmerged commits unrelated to the auth gap.
+- **O-3 — `redis.env`** exists only on `hub.aitbc` and `node2`; no systemd unit
+  on any host loads it. The actual Redis credentials live in
+  `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Status narrowed, not
+  fully closed.
+- **CI history** — Gitea Actions runs 19600–19638 were consecutive failures
+  (39 runs, not the 22 noted earlier). 19639 (`b62637a792`) is the first green
+  gate in that window; 19642 (`3d09e81054`) also failed, with the green follow-up
+  at 19643 (`c79462f3e`). 19644–19646 are green.
+- **Fleet at 8 Sep 10:xx** is at `origin/main` tip `8cb48178d5`. All five
+  `aitbc-blockchain-node/rpc` services are active and `/health` returns `ok`;
+  `hub`, `hub2`, `node1`, and `node2` are at block 5130, while `node0` is at
+  5128 (two blocks behind at the time of inspection).
