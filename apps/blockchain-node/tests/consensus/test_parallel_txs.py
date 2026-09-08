@@ -70,7 +70,7 @@ def _patch_pipeline(monkeypatch, apply_deltas):
     monkeypatch.setattr(
         poa_module,
         "compute_state_delta",
-        lambda account_map, tx_data, chain_id, tx_hash, processed, block_version=2: StateDelta(
+        lambda account_map, tx_data, chain_id, tx_hash, processed, block_version=2, escrow_context=None: StateDelta(
             sender=tx_data["from"],
             recipient=tx_data["to"],
             sender_balance_change=-5,
