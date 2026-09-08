@@ -46,7 +46,13 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
-from ..state.state_transition import _ensure_account, get_block_version, get_block_version_for_height, get_state_transition
+from ..state.state_transition import (
+    _ensure_account,
+    build_escrow_context,
+    get_block_version,
+    get_block_version_for_height,
+    get_state_transition,
+)
 
 logger = get_logger(__name__)
 
@@ -809,13 +815,19 @@ class PoAProposer:
         exceeded threshold).
         """
         block_version = get_block_version_for_height(next_height)
-        # S-4: the pure/parallel state transition is not yet v3-aware, so
-        # do not use it for v3 blocks.  v2 is the only version validated in
-        # parallel today.
-        use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1 and block_version == 2
+        # S-4: v3 blocks can use the parallel path once escrow lock metadata is
+        # prefetched — the pure delta needs the per-job context for v3
+        # ESCROW_RELEASE/REFUND. If any such tx has no resolvable lock, keep the
+        # block sequential so the sequential path's own rules apply.
+        escrow_context: dict[str, dict[str, Any]] | None = None
+        use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1 and block_version in (2, 3)
+        if use_parallel and block_version >= 3:
+            escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
+            if escrow_context is None:
+                use_parallel = False
         if use_parallel:
             processed_txs, changed_addresses, ok = self._process_txs_parallel(
-                session, pending_txs, account_map, existing_tx_map, next_height, timestamp, block_version
+                session, pending_txs, account_map, existing_tx_map, next_height, timestamp, block_version, escrow_context
             )
             if not ok:
                 return processed_txs, changed_addresses, False
@@ -1772,6 +1784,7 @@ class PoAProposer:
         next_height: int,
         timestamp: datetime,
         block_version: int,
+        escrow_context: dict[str, dict[str, Any]] | None = None,
     ) -> tuple[list[Any], set[str], bool]:
         """Process transactions in parallel using dependency analysis.
 
@@ -1840,7 +1853,13 @@ class PoAProposer:
                 def compute_fn(item: tuple[str, dict[str, Any]]) -> StateDelta:
                     tx_hash, tx_data = item
                     return compute_state_delta(
-                        account_map, tx_data, chain_id, tx_hash, processed_tx_hashes, block_version=block_version
+                        account_map,
+                        tx_data,
+                        chain_id,
+                        tx_hash,
+                        processed_tx_hashes,
+                        block_version=block_version,
+                        escrow_context=escrow_context,
                     )
 
                 results = executor.execute_groups([group_items], compute_fn)
