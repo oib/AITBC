@@ -69,6 +69,7 @@ test-apps:
 		--deselect=apps/coordinator-api/tests/test_phase8_integration.py \
 		--deselect=apps/coordinator-api/tests/test_zk_receipt.py \
 		apps/coordinator-api/tests/test_*.py \
+		apps/coordinator-api/tests/integration \
 		apps/blockchain-node/tests
 
 test-cli:
