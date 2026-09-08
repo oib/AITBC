@@ -357,6 +357,13 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         Payment storage payment = payments[_paymentId];
 
         require(
+            msg.sender == payment.from ||
+            msg.sender == payment.to ||
+            msg.sender == owner(),
+            "Not authorized to release"
+        );
+
+        require(
             payment.status == PaymentStatus.Confirmed ||
             payment.status == PaymentStatus.HeldInEscrow,
             "Payment not ready for release"
@@ -426,6 +433,13 @@ contract PaymentProcessor is Ownable, ReentrancyGuard, Pausable {
         nonReentrant
     {
         EscrowAccount storage escrow = escrowAccounts[_escrowId];
+
+        require(
+            msg.sender == escrow.depositor ||
+            msg.sender == escrow.beneficiary ||
+            msg.sender == owner(),
+            "Not authorized to release"
+        );
 
         require(!escrow.isReleased, "Escrow already released");
         require(!escrow.isRefunded, "Escrow already refunded");
