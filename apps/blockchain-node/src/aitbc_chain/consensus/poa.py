@@ -1178,6 +1178,24 @@ class PoAProposer:
             self._logger.error("Failed to broadcast block %s: %s", block.height, e)
         return True
 
+    def _seed_chain_parameters(self, session: Session, parameters: dict[str, Any] | None) -> None:
+        """Seed ``chain_parameter`` rows from a ``parameters`` map in genesis.
+
+        Genesis content is identical on every node — block 0's hash covers the
+        genesis.json (or RPC-bootstrap) payload — so parameters seeded here
+        start fleet-identical. Later changes go through GOVERNANCE_EXECUTE
+        parameter_change, which is the deterministic channel. This is what
+        consensus-facing values like ``bond_slash_authority`` should use
+        instead of per-node env (see the 1-2 Sep slash divergence).
+        """
+        from ..base_models import ChainParameter
+
+        for name, value in (parameters or {}).items():
+            session.add(ChainParameter(chain_id=self._config.chain_id, parameter=str(name), value=str(value)))
+        if parameters:
+            session.commit()
+            self._logger.info("Seeded %d chain parameters from genesis: %s", len(parameters), sorted(parameters))
+
     async def _ensure_genesis_block(self) -> None:
         with self._session_factory() as session:
             genesis = session.exec(
@@ -1227,6 +1245,7 @@ class PoAProposer:
                         if genesis_allocations:
                             self._create_accounts_from_allocations(session, genesis_allocations)
                             self._logger.info("Initialized %s accounts from RPC bootstrap", len(genesis_allocations))
+                        self._seed_chain_parameters(session, rpc_genesis_data.get("parameters"))
                         return
                     except Exception as e:
                         self._logger.warning(
@@ -1287,6 +1306,7 @@ class PoAProposer:
                 if genesis_allocations:
                     self._create_accounts_from_allocations(session, genesis_allocations)
                     self._logger.info("Initialized %s accounts from genesis.json", len(genesis_allocations))
+                self._seed_chain_parameters(session, local_genesis_data.get("parameters"))
             except Exception as e:
                 self._logger.error("Failed to create genesis block from genesis.json: %s", e)
                 session.rollback()
