@@ -66,13 +66,11 @@ def _make_tx() -> SimpleNamespace:
 def _patch_pipeline(monkeypatch, apply_deltas):
     monkeypatch.setattr(poa_module, "DependencyGraph", _FakeGraph)
     monkeypatch.setattr(poa_module, "ParallelExecutor", _FakeExecutor)
-    monkeypatch.setattr(
-        poa_module, "extract_read_write_sets", lambda content: (frozenset(), frozenset())
-    )
+    monkeypatch.setattr(poa_module, "extract_read_write_sets", lambda content: (frozenset(), frozenset()))
     monkeypatch.setattr(
         poa_module,
         "compute_state_delta",
-        lambda account_map, tx_data, chain_id, tx_hash, processed: StateDelta(
+        lambda account_map, tx_data, chain_id, tx_hash, processed, block_version=2: StateDelta(
             sender=tx_data["from"],
             recipient=tx_data["to"],
             sender_balance_change=-5,
@@ -88,7 +86,7 @@ def _patch_pipeline(monkeypatch, apply_deltas):
 
 
 def test_write_phase_failure_rolls_back_and_returns_failure(monkeypatch):
-    def _boom(session, deltas, chain_id):
+    def _boom(session, deltas, chain_id, block_version=2):
         raise RuntimeError("simulated mid-write failure")
 
     _patch_pipeline(monkeypatch, _boom)
@@ -96,7 +94,7 @@ def test_write_phase_failure_rolls_back_and_returns_failure(monkeypatch):
     proposer = _make_proposer()
     session = MagicMock()
     result = proposer._process_txs_parallel(
-        session, [_make_tx()], {}, {}, next_height=5, timestamp=datetime.now()
+        session, [_make_tx()], {}, {}, next_height=5, timestamp=datetime.now(), block_version=2
     )
 
     assert result == ([], set(), False)
@@ -108,7 +106,7 @@ def test_write_phase_failure_after_transaction_adds_rolls_back(monkeypatch):
 
     applied = {"called": False}
 
-    def _apply_ok(session, deltas, chain_id):
+    def _apply_ok(session, deltas, chain_id, block_version=2):
         applied["called"] = True
 
     _patch_pipeline(monkeypatch, _apply_ok)
@@ -118,7 +116,7 @@ def test_write_phase_failure_after_transaction_adds_rolls_back(monkeypatch):
     session.add.side_effect = RuntimeError("simulated add failure")
 
     result = proposer._process_txs_parallel(
-        session, [_make_tx()], {}, {}, next_height=5, timestamp=datetime.now()
+        session, [_make_tx()], {}, {}, next_height=5, timestamp=datetime.now(), block_version=2
     )
 
     assert result == ([], set(), False)
@@ -126,7 +124,7 @@ def test_write_phase_failure_after_transaction_adds_rolls_back(monkeypatch):
 
 
 def test_happy_path_returns_processed_txs(monkeypatch):
-    def _apply_ok(session, deltas, chain_id):
+    def _apply_ok(session, deltas, chain_id, block_version=2):
         pass
 
     _patch_pipeline(monkeypatch, _apply_ok)
@@ -136,7 +134,7 @@ def test_happy_path_returns_processed_txs(monkeypatch):
     tx = _make_tx()
 
     processed, changed, ok = proposer._process_txs_parallel(
-        session, [tx], {}, {}, next_height=5, timestamp=datetime.now()
+        session, [tx], {}, {}, next_height=5, timestamp=datetime.now(), block_version=2
     )
 
     assert ok is True
