@@ -499,3 +499,23 @@ async def test_operator_ruling_for_release_does_not_slash(db_session, slash_env)
     db_session.refresh(bond)
     assert bond.amount == Decimal("10")
     assert bond.status == ProviderBondStatus.ACTIVE.value
+
+
+def test_malformed_slash_authority_fails_fast(db_session, monkeypatch):
+    """A polluted env value (e.g. an inline `#` comment that systemd
+    EnvironmentFile does not strip) must raise at construction rather than
+    silently mismatching every downstream comparison."""
+    monkeypatch.setenv(
+        "BOND_SLASH_AUTHORITY_ADDRESS",
+        "0x2222222222222222222222222222222222222222  # canonical, fixed",
+    )
+    monkeypatch.setenv("BOND_BURN_ADDRESS", "0x3333333333333333333333333333333333333333")
+    with pytest.raises(ValueError, match="not an EVM address"):
+        BondSlashingService(db_session)
+
+
+def test_valid_slash_authority_canonicalises(db_session, monkeypatch):
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", "0x2222222222222222222222222222222222222222")
+    monkeypatch.setenv("BOND_BURN_ADDRESS", "0x3333333333333333333333333333333333333333")
+    service = BondSlashingService(db_session)
+    assert service.slash_authority == "0x2222222222222222222222222222222222222222"

@@ -44,11 +44,32 @@ for var in $VARS; do
     done
 done
 
+echo "=== *_ADDRESS value-shape check ==="
+# systemd EnvironmentFile does not strip inline `#` comments: a comment on an
+# assignment line becomes part of the value (measured 110 bytes instead of 42
+# on 8 Sep). Assert every *_ADDRESS variable is exactly 0x + 40 hex.
+shape_bad=0
+for h in $HOSTS; do
+    bad=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" \
+        "grep -hE '^[A-Z_0-9]*ADDRESS=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null \
+         | while IFS= read -r line; do \
+             name=\${line%%=*}; val=\${line#*=}; val=\$(echo \"\$val\" | tr -d '[:space:]'); \
+             echo \"\$val\" | grep -qE '^0x[0-9a-fA-F]{40}\$' || echo \"\$name\"; \
+           done" 2>/dev/null || echo "UNREACHABLE")
+    if [ -n "$bad" ]; then
+        shape_bad=1
+        for name in $bad; do printf "  %-14s %s <- malformed\n" "$h" "$name"; done
+    fi
+done
+if [ "$shape_bad" -eq 0 ]; then
+    echo "  all *_ADDRESS values well-formed on all hosts"
+fi
+
 echo
-if [ "$drift" -eq 0 ]; then
+if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
-    echo "DRIFT DETECTED — differing values above"
+    echo "DRIFT DETECTED — differing/malformed values above"
     exit 1
 fi
