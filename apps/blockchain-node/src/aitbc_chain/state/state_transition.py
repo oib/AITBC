@@ -188,6 +188,50 @@ def _escrow_beneficiary(lock_tx: Transaction, tx_type: str) -> str | None:
     return None
 
 
+def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[str, Any]]) -> dict[str, dict[str, Any]] | None:
+    """Prefetch per-job lock metadata for ESCROW_RELEASE/ESCROW_REFUND txs (S-4).
+
+    The pure/parallel ``compute_state_delta`` cannot touch the DB, so callers
+    that want parallel validation of v3 blocks must supply this map:
+    ``{job_id: {"lock_version": int|None, "expected_beneficiary": str|None,
+    "escrow_addr": str}}``.
+
+    Returns ``None`` when any release/refund references a job_id with no
+    on-chain lock — the sequential path applies its own missing-lock rules, so
+    the caller must keep sequential processing to stay consensus-identical.
+    Batches with no release/refund txs return ``{}`` (cheap no-op).
+    """
+    context: dict[str, dict[str, Any]] = {}
+    for tx_data in tx_datas:
+        tx_type = _tx_type(tx_data)
+        if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+            continue
+        payload = tx_data.get("payload") or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        job_id = payload.get("job_id") or tx_data.get("job_id") or ""
+        if job_id in context:
+            # A second release/refund for the same job with a different tx_type
+            # would need a different beneficiary — an invalid batch anyway; let
+            # the sequential path apply its own checks.
+            if context[job_id].get("tx_type") != tx_type:
+                return None
+            continue
+        lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
+        if lock_tx is None:
+            return None
+        context[job_id] = {
+            "tx_type": tx_type,
+            "lock_version": _get_escrow_lock_block_version(session, chain_id, job_id),
+            "expected_beneficiary": _escrow_beneficiary(lock_tx, tx_type),
+            "escrow_addr": _escrow_address(job_id),
+        }
+    return context
+
+
 def _ensure_account(session: Session, chain_id: str, address: str) -> Account:
     ait_addr = _to_ait_address(address)
     account = session.get(Account, (chain_id, ait_addr))

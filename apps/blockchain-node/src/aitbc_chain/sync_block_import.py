@@ -28,7 +28,7 @@ from .state.pure_state_transition import (
     compute_state_delta,
     extract_read_write_sets,
 )
-from .state.state_transition import get_block_version, get_state_transition
+from .state.state_transition import build_escrow_context, get_block_version, get_state_transition
 from .consensus.multi_validator_poa import MultiValidatorPoA
 from aitbc.crypto.signature_recovery import canonical_address
 from .mempool import compute_tx_hash
@@ -394,7 +394,17 @@ class BlockImportMixin(SyncBase):
             parallel_applied = False
             # Historical v1 blocks (pre state-transition fix) use the sequential
             # path so the v1/v2 account-creation gating is applied correctly.
-            if settings.parallel_tx_validation and block_version == 2:
+            # S-4: v3 blocks may use the parallel path once the per-job escrow
+            # lock metadata is prefetched; a release/refund with no resolvable
+            # lock must stay sequential so its own missing-lock rules apply.
+            escrow_context: dict[str, dict[str, Any]] | None = None
+            if settings.parallel_tx_validation and block_version >= 3:
+                escrow_context = build_escrow_context(session, self._chain_id, transactions)
+            if (
+                settings.parallel_tx_validation
+                and block_version in (2, 3)
+                and (block_version == 2 or escrow_context is not None)
+            ):
                 # Build dependency graph from read/write sets.
                 graph = DependencyGraph()
                 tx_hash_to_data: dict[str, dict[str, Any]] = {}
@@ -457,7 +467,13 @@ class BlockImportMixin(SyncBase):
                         def _compute_delta(tx_data: dict[str, Any]) -> StateDelta:
                             txh = tx_data.get("tx_hash", "")
                             return compute_state_delta(
-                                account_map, tx_data, self._chain_id, txh, existing_tx_hashes, block_version=block_version
+                                account_map,
+                                tx_data,
+                                self._chain_id,
+                                txh,
+                                existing_tx_hashes,
+                                block_version=block_version,
+                                escrow_context=escrow_context,
                             )
 
                         for group in groups:
