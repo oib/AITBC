@@ -394,7 +394,11 @@ Items surfaced during the fleet audit, not part of the register:
 - `gitea-local` tea login on `gitea-runner` is configured but the container
   has no `/opt/aitbc` checkout — tea commands that require a repo context
   will fail. The login itself is valid.
-- The six-artifact register is now fully closed. No open items remain.
+- The six-artifact register is not fully closed. Open operational items
+  include R7 (watchdog phase diagnosis), R8 (PAT revocation confirmation),
+  R10 (deployment approval/manifest evidence), hub.aitbc missing
+  `ENERGY_OPERATOR_ADDRESS`, and the now-cleaned `ENFORCE_STATE_ROOT_VALIDATION`
+  dead env var.
 
 ## 2026-09-08 post-audit corrections
 
@@ -436,3 +440,13 @@ inspection updated the following conclusions:
   `aitbc-blockchain-node/rpc` services are active and `/health` returns `ok`;
   `hub`, `hub2`, `node1`, and `node2` are at block 5130, while `node0` is at
   5128 (two blocks behind at the time of inspection).
+
+## 2026-09-08 live env cleanup
+
+- Removed the dead `ENFORCE_STATE_ROOT_VALIDATION=true` line from
+  `/etc/aitbc/blockchain.env` on `node0`, `node1`, `node2`, and `hub2.aitbc`.
+  The code no longer reads this variable (T2-2 deleted it); the real gate is
+  `SYNC_STATE_ROOT_VALIDATION_ENABLED`. Backups kept as
+  `/etc/aitbc/blockchain.env.bak-20260908-enforce`. No service restart was
+  required because the running processes do not consume the variable; the next
+  planned restart will pick up the cleaned env.
