@@ -87,6 +87,26 @@ success() { echo -e "${GREEN}[$(date +'%H:%M:%S')] ✓${NC} $*"; }
 warning() { echo -e "${YELLOW}[$(date +'%H:%M:%S')] ⚠${NC} $*" >&2; }
 error()   { echo -e "${RED}[$(date +'%H:%M:%S')] ✗${NC} $*" >&2; }
 
+# Durable per-host deploy log — the audit trail the R10 per-pull evidence gap
+# lacks. One append-only line per run: who/when/args, exit code, and the
+# before→after commit. Set AITBC_DEPLOY_LOG to override the location.
+DEPLOY_LOG="${AITBC_DEPLOY_LOG:-/var/log/aitbc/deploys.log}"
+DEPLOY_START_SHA=""
+DEPLOY_ARGS=""
+
+record_deploy() {
+    local exit_code=$?
+    local end_sha
+    end_sha=$(git -C "$AITBC_ROOT" rev-parse --short HEAD 2>/dev/null || echo "?")
+    mkdir -p "$(dirname "$DEPLOY_LOG")" 2>/dev/null || true
+    printf '%s host=%s user=%s args="%s" sha=%s->%s exit=%s\n' \
+        "$(date -u +%Y-%m-%dT%H:%M:%SZ)" \
+        "$(hostname -s 2>/dev/null || hostname)" \
+        "${SUDO_USER:-$(whoami)}" \
+        "$DEPLOY_ARGS" "$DEPLOY_START_SHA" "$end_sha" "$exit_code" \
+        >> "$DEPLOY_LOG" 2>/dev/null || true
+}
+
 # Record warnings/errors for an end-of-run agent follow-up block.
 __update_agent_followup_path="$AITBC_ROOT/scripts/utils/agent_followup.sh"
 if [ -f "$__update_agent_followup_path" ]; then
@@ -855,6 +875,13 @@ main() {
 
     check_root
     check_repo
+
+    # Deploy-log bookkeeping: capture the start SHA once the repo is confirmed,
+    # and always emit one line on exit — covering success, abort, and early
+    # exits like the no-changes fast path below.
+    DEPLOY_ARGS="$*"
+    DEPLOY_START_SHA=$(git -C "$AITBC_ROOT" rev-parse --short HEAD 2>/dev/null || echo "?")
+    trap 'record_deploy' EXIT
 
     if [ "$DO_BACKUP" = "true" ]; then
         run_pre_update_backup
