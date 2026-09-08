@@ -18,7 +18,7 @@ from sqlmodel import Session, select
 
 from ..config import settings
 from ..logger import get_logger
-from ..base_models import Block, Bond, IPFSSubscription, _to_ait_address
+from ..base_models import Block, Bond, ChainParameter, IPFSSubscription, _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_transaction_signature
@@ -51,10 +51,34 @@ else:
     _BOND_BURN_ADDRESS = canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
 
-def _bond_slash_authority() -> str | None:
-    addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "")
-    if addr:
-        return canonical_address(addr)
+def _bond_slash_authority(session: Session, chain_id: str) -> str | None:
+    """Return the canonical bond-slash authority address.
+
+    The on-chain ``bond_slash_authority`` chain parameter wins: it is applied
+    identically on every node that imports the parameter-setting transaction,
+    so the gate is deterministic across the fleet. ``BOND_SLASH_AUTHORITY_ADDRESS``
+    remains the fallback for chains that never set the parameter; a
+    disagreement between the two is logged, because per-node env drift is
+    exactly how the 1-2 Sep slashes were skipped on node0.
+    """
+    onchain = session.exec(
+        select(ChainParameter).where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.parameter == "bond_slash_authority",
+        )
+    ).first()
+    env_addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
+    if onchain and onchain.value.strip():
+        addr = canonical_address(onchain.value.strip())
+        if env_addr and canonical_address(env_addr) != addr:
+            logger.warning(
+                "BOND_SLASH_AUTHORITY_ADDRESS=%s disagrees with on-chain bond_slash_authority=%s; using the on-chain value",
+                env_addr,
+                addr,
+            )
+        return addr
+    if env_addr:
+        return canonical_address(env_addr)
     return None
 
 
@@ -651,7 +675,19 @@ class StateTransition:
                     session.flush()
                     logger.info("S-4: %s moved %s from escrow %s to %s", tx_type, value, escrow_addr, recipient_addr)
         if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
-            self._handle_bond_transaction(session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value)
+            skip_reason = self._handle_bond_transaction(
+                session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value
+            )
+            if skip_reason:
+                # Fee and nonce still applied — name it, or the "Applied
+                # transaction" INFO below reads as a fully-applied slash
+                # (the 1-2 Sep forensics trap).
+                logger.warning(
+                    "%s %s applied fee/nonce but bond effect skipped: %s",
+                    tx_type,
+                    tx_hash,
+                    skip_reason,
+                )
         if tx_type == "GOVERNANCE_EXECUTE":
             self._handle_governance_execute(session, chain_id, tx_data, tx_hash)
         if tx_type == "RECEIPT_CLAIM":
@@ -863,8 +899,13 @@ class StateTransition:
         sender_addr: str,
         recipient_addr: str,
         value: int,
-    ) -> None:
+    ) -> str | None:
         """Record bond state alongside the on-chain value transfer.
+
+        Returns None when the bond effect was applied, or a short reason string
+        when it was skipped. The caller logs the reason so a skipped slash
+        cannot masquerade as a fully applied transaction.
+
 
         Design:
         - BOND_LOCK is a normal transfer provider -> bond escrow. We record the bond.
@@ -874,20 +915,17 @@ class StateTransition:
         payload = tx_data.get("payload", {}) or {}
         bond_id = payload.get("bond_id")
         if not bond_id:
-            logger.warning("%s transaction %s missing bond_id in payload", tx_type, tx_hash)
-            return
+            return "missing bond_id in payload"
         provider = payload.get("provider")
         if not provider:
-            logger.warning("%s transaction %s missing provider in payload", tx_type, tx_hash)
-            return
+            return "missing provider in payload"
 
         now = datetime.now(UTC)
         if tx_type == "BOND_LOCK":
             if not _is_bond_escrow(recipient_addr):
-                logger.warning("BOND_LOCK %s does not target the bond escrow address", tx_hash)
-                return
+                return "recipient is not the bond escrow address"
             if value <= 0:
-                return
+                return "non-positive lock value"
             lock_days = int(payload.get("lock_days", 30))
             locked_until = now + timedelta(days=lock_days)
             # Reuse an existing active bond with the same id if it exists (top-up).
@@ -916,38 +954,32 @@ class StateTransition:
                 logger.info("Bond locked: %s provider=%s amount=%s locked_until=%s", bond_id, provider, value, locked_until)
         elif tx_type == "BOND_RELEASE":
             if sender_addr != _to_ait_address(provider):
-                logger.warning("BOND_RELEASE %s not signed by the bond provider", tx_hash)
-                return
+                return "not signed by the bond provider"
             if recipient_addr != sender_addr:
-                logger.warning("BOND_RELEASE %s recipient must be the provider", tx_hash)
-                return
+                return "recipient must be the provider"
             if value != 0:
-                logger.warning("BOND_RELEASE %s must have value=0", tx_hash)
-                return
+                return "must have value=0"
             bond = session.exec(
                 select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
             ).first()
             if not bond:
-                logger.warning("BOND_RELEASE %s references unknown or inactive bond %s", tx_hash, bond_id)
-                return
+                return f"unknown or inactive bond {bond_id}"
             if bond.locked_until:
                 locked_until = bond.locked_until
                 if locked_until.tzinfo is None:
                     locked_until = locked_until.replace(tzinfo=UTC)
                 if now < locked_until:
-                    logger.warning("BOND_RELEASE %s attempted before lock period expires for %s", tx_hash, bond_id)
-                    return
+                    return f"lock period for {bond_id} has not expired"
             release_amount = bond.amount
             if release_amount <= 0:
-                return
+                return "bond has nothing to release"
             escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
             sender = session.get(Account, (chain_id, sender_addr))
             if escrow and sender:
                 session.refresh(escrow)
                 session.refresh(sender)
                 if escrow.balance < release_amount:
-                    logger.warning("BOND_RELEASE %s escrow balance %s < %s", tx_hash, escrow.balance, release_amount)
-                    return
+                    return f"escrow balance {escrow.balance} below release amount {release_amount}"
                 escrow.balance -= release_amount
                 sender.balance += release_amount
                 logger.info("BOND_RELEASE %s moved %s from escrow to %s", tx_hash, release_amount, sender_addr)
@@ -957,41 +989,34 @@ class StateTransition:
             bond.updated_at = now
             logger.info("Bond released: %s amount=%s", bond_id, release_amount)
         elif tx_type == "BOND_SLASH":
-            slash_authority = _bond_slash_authority()
+            slash_authority = _bond_slash_authority(session, chain_id)
             if not slash_authority:
-                logger.warning("BOND_SLASH %s rejected: no BOND_SLASH_AUTHORITY_ADDRESS configured", tx_hash)
-                return
+                return "no slash authority configured (chain parameter or BOND_SLASH_AUTHORITY_ADDRESS)"
             if sender_addr != _to_ait_address(slash_authority):
-                logger.warning("BOND_SLASH %s not signed by the configured slash authority", tx_hash)
-                return
+                return "not signed by the configured slash authority"
             if not _is_bond_burn(recipient_addr):
-                logger.warning("BOND_SLASH %s does not burn to the bond burn address", tx_hash)
-                return
+                return "does not burn to the bond burn address"
             if value != 0:
-                logger.warning("BOND_SLASH %s must have value=0", tx_hash)
-                return
+                return "must have value=0"
             slash_amount = int(payload.get("amount", 0))
             if slash_amount <= 0:
-                logger.warning("BOND_SLASH %s missing positive amount in payload", tx_hash)
-                return
+                return "missing positive amount in payload"
             bond = session.exec(
                 select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == bond_id, Bond.status == "active")
             ).first()
             if not bond:
-                logger.warning("BOND_SLASH %s references unknown or inactive bond %s", tx_hash, bond_id)
-                return
+                return f"unknown or inactive bond {bond_id}"
             if slash_amount > bond.amount:
                 slash_amount = bond.amount
             if slash_amount <= 0:
-                return
+                return "slash amount reduced to zero"
             escrow = _ensure_account(session, chain_id, _BOND_ESCROW_ADDRESS)
             burn = _ensure_account(session, chain_id, _BOND_BURN_ADDRESS)
             if escrow and burn:
                 session.refresh(escrow)
                 session.refresh(burn)
                 if escrow.balance < slash_amount:
-                    logger.warning("BOND_SLASH %s escrow balance %s < %s", tx_hash, escrow.balance, slash_amount)
-                    return
+                    return f"escrow balance {escrow.balance} below slash amount {slash_amount}"
                 escrow.balance -= slash_amount
                 burn.balance += slash_amount
                 logger.info("BOND_SLASH %s moved %s from escrow to burn", tx_hash, slash_amount)
@@ -1000,7 +1025,7 @@ class StateTransition:
             bond.status = "slashed" if bond.amount <= 0 else "active"
             bond.updated_at = now
             logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
-            logger.info("Bond slashed: %s amount=%s remaining=%s", bond_id, slash_amount, bond.amount)
+        return None
 
     def validate_state_transition(
         self, session: Session, chain_id: str, old_accounts: dict[str, Account], new_accounts: dict[str, Account]

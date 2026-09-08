@@ -198,3 +198,130 @@ def test_bond_slash_by_authority(session, monkeypatch):
     assert bond is not None
     assert bond.amount == 3000
     assert bond.status == "active"
+
+
+def test_bond_slash_prefers_onchain_parameter(session, monkeypatch):
+    """chain_parameter.bond_slash_authority wins over a disagreeing env var.
+
+    The env var is per-node configuration; the parameter is chain state applied
+    identically everywhere. A disagreeing env must not silently shadow it —
+    that drift is what made the 1-2 Sep slashes apply on only part of the fleet.
+    """
+    from aitbc.crypto.crypto import derive_ethereum_address
+    from aitbc_chain.base_models import ChainParameter
+
+    chain_id = "ait-test"
+    private_key = "0x" + "22" * 32
+    authority_addr = derive_ethereum_address(private_key)
+    wrong_addr = derive_ethereum_address("0x" + "99" * 32)
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", wrong_addr)
+
+    provider_private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(provider_private_key)
+    escrow = _BOND_ESCROW_ADDRESS
+    burn = _BOND_BURN_ADDRESS
+
+    st = StateTransition()
+    session.add(Account(chain_id=chain_id, address=authority_addr, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=provider_addr, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=escrow, balance=5000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=burn, balance=0, nonce=0))
+    session.add(
+        Bond(
+            chain_id=chain_id,
+            bond_id="bond_1",
+            provider=provider_addr,
+            amount=5000,
+            locked_until=datetime.now(UTC) + timedelta(days=7),
+            status="active",
+            created_tx_hash="tx_hash_1",
+        )
+    )
+    session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value=authority_addr))
+    session.commit()
+
+    tx_data = _make_tx(
+        private_key,
+        {
+            "to": burn,
+            "amount": 0,
+            "value": 0,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": 0,
+            "type": "BOND_SLASH",
+            "chain_id": chain_id,
+            "payload": {"bond_id": "bond_1", "provider": provider_addr, "amount": 2000},
+        },
+    )
+    success, msg = st.apply_transaction(session, chain_id, tx_data, "tx_hash_param")
+    assert success, msg
+
+    bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
+    assert bond is not None
+    assert bond.amount == 3000  # on-chain authority accepted the slash
+
+
+def test_bond_slash_without_authority_skips_effect(session, monkeypatch):
+    """With no chain parameter and no env var, the slash applies fee/nonce only
+    and the handler returns the skip reason instead of a bare silent return."""
+    from aitbc.crypto.crypto import derive_ethereum_address
+
+    monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
+
+    chain_id = "ait-test"
+    signer_key = "0x" + "33" * 32
+    signer_addr = derive_ethereum_address(signer_key)
+    provider_private_key = "0x" + "11" * 32
+    provider_addr = derive_ethereum_address(provider_private_key)
+    escrow = _BOND_ESCROW_ADDRESS
+    burn = _BOND_BURN_ADDRESS
+
+    st = StateTransition()
+    session.add(Account(chain_id=chain_id, address=signer_addr, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=escrow, balance=5000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=burn, balance=0, nonce=0))
+    session.add(
+        Bond(
+            chain_id=chain_id,
+            bond_id="bond_1",
+            provider=provider_addr,
+            amount=5000,
+            locked_until=datetime.now(UTC) + timedelta(days=7),
+            status="active",
+            created_tx_hash="tx_hash_1",
+        )
+    )
+    session.commit()
+
+    tx_data = _make_tx(
+        signer_key,
+        {
+            "to": burn,
+            "amount": 0,
+            "value": 0,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": 0,
+            "type": "BOND_SLASH",
+            "chain_id": chain_id,
+            "payload": {"bond_id": "bond_1", "provider": provider_addr, "amount": 2000},
+        },
+    )
+    success, _ = st.apply_transaction(session, chain_id, tx_data, "tx_hash_skip")
+    assert success  # the tx itself still applies (fee/nonce)
+
+    bond = session.exec(select(Bond).where(Bond.chain_id == chain_id, Bond.bond_id == "bond_1")).first()
+    assert bond is not None
+    assert bond.amount == 5000  # effect skipped, not silently slashed
+    assert bond.slashed_tx_hash is None
+
+    reason = st._handle_bond_transaction(
+        session,
+        chain_id,
+        tx_data,
+        "tx_hash_skip",
+        "BOND_SLASH",
+        _to_ait_address(signer_addr),
+        _to_ait_address(burn),
+        0,
+    )
+    assert reason is not None and "no slash authority" in reason
