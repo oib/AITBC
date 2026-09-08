@@ -410,8 +410,12 @@ inspection updated the following conclusions:
   passes. This gives the safety fix its own `main` disposition instead of letting
   it retire with the feature branch.
 - The `origin/feat/open-island-gossip-remediation` branch now contains only the
-  three genuinely unmerged commits `d3693d01ab`, `5fbe633c7f`, `ffe0669023`
-  (contracts CI pipeline changes).
+  three unmerged commits `d3693d01ab`, `5fbe633c7f`, `ffe0669023` (contracts CI
+  pipeline changes). Those three are unmerged by SHA but not by effect: `main`
+  already runs the Hardhat suite in both pipelines and Forge on GitHub
+  (`.gitea/workflows/ci.yml:47`, `.github/workflows/ci.yml:69,132`), which is
+  what they add. The branch therefore carries no unmerged substance and is
+  retirable.
 - **O-3 — `redis.env`** exists only on `hub.aitbc` and `node2`; no systemd unit
   on any host loads it. The actual Redis credentials live in
   `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Status narrowed, not
@@ -422,7 +426,12 @@ inspection updated the following conclusions:
   first failure is 19477 (`7ec4693ad1`, "fix(ci): fail the mypy gate when mypy
   is not installed"). The first green gate after the streak is 19639
   (`b62637a792`); 19642 (`3d09e81054`) also failed, with the green follow-up
-  at 19643 (`c79462f3e`). 19644–19647 are green.
+  at 19643 (`c79462f3e`). 19644–19647 are green, 19647 on the current fleet tip
+  `ae7dd6b9be`. The streak ran from 5 Sep 00:07 to 7 Sep 22:34 — about 70 hours
+  with no green gate, covering the whole Tier-6 and most of the Tier-4 merge
+  window. Both earlier counts (22, then 39) were API page-size artifacts: a
+  30-run and a 50-run page truncated the walk-back, so the streak has to be
+  re-derived against the full paginated run list, not a single page.
 - **Fleet at 8 Sep 10:xx** is at `origin/main` tip `8cb48178d5`. All five
   `aitbc-blockchain-node/rpc` services are active and `/health` returns `ok`;
   `hub`, `hub2`, `node1`, and `node2` are at block 5130, while `node0` is at
