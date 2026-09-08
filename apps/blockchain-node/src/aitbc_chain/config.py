@@ -608,6 +608,14 @@ class ChainSettings(BaseSettings):
     # and as v2 at or above it. Default 0 means all unversioned blocks are v1,
     # so new chains with no history work under v2 from the first produced block.
     state_transition_v2_height: int = 0
+    # S-4: per-escrow custody (v3) activation height. New blocks at or above this
+    # height set state_transition_version=3. Default 0 means v3 is not activated;
+    # existing chains continue under v2 until the operator sets a positive height.
+    state_transition_v3_height: int = 0
+    # S-4: address(es) allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3.
+    # If empty, no authority check is performed (legacy behaviour). When set, the
+    # state transition rejects releases/refunds signed by any other address.
+    escrow_settlement_authority: str = ""
     # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
     multi_validator_attestation_timeout_seconds: float = 1.0
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must
