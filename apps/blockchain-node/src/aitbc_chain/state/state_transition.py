@@ -51,6 +51,27 @@ else:
     _BOND_BURN_ADDRESS = canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
 
+def _governance_executors(session: Session, chain_id: str) -> frozenset[str] | None:
+    """Authorized GOVERNANCE_EXECUTE senders from the on-chain
+    ``governance_executors`` chain parameter (comma-separated addresses).
+
+    The parameter is chain state, applied identically on every node, so the
+    gate is deterministic — a per-node env list would recreate the
+    slash-authority class of silent divergence. Unset or empty means no
+    restriction (pre-gate behavior); once set, only listed senders pass
+    validation on every node at the same height.
+    """
+    row = session.exec(
+        select(ChainParameter).where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.parameter == "governance_executors",
+        )
+    ).first()
+    if not row or not row.value.strip():
+        return None
+    return frozenset(_to_ait_address(a.strip()) for a in row.value.split(",") if a.strip())
+
+
 def _bond_slash_authority(session: Session, chain_id: str) -> str | None:
     """Return the canonical bond-slash authority address.
 
@@ -368,6 +389,13 @@ class StateTransition:
         tx_nonce = tx_data.get("nonce", 0)
         if tx_nonce != expected_nonce:
             return (False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}")
+        if tx_type == "GOVERNANCE_EXECUTE":
+            executors = _governance_executors(session, chain_id)
+            if executors is not None and sender_addr not in executors:
+                return (
+                    False,
+                    f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor",
+                )
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"} and value != 0:
             return (False, f"{tx_type} transactions must have value=0, got {value}")
         if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
