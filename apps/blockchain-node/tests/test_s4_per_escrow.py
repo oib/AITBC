@@ -346,8 +346,9 @@ def test_v2_lock_can_be_released_after_v3_activation(engine):
 
 def test_block_version_helper_defaults():
     """get_block_version_for_height follows activation thresholds and default-0 is safe."""
-    assert get_block_version_for_height(0) == 1
-    assert get_block_version_for_height(1000) == 1
+    # With no positive activation thresholds, the default for a *new* block is v2.
+    assert get_block_version_for_height(0) == 2
+    assert get_block_version_for_height(1000) == 2
 
 
 def test_get_block_version_uses_metadata():
