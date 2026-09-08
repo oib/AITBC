@@ -19,17 +19,28 @@ branch_labels = None
 depends_on = None
 
 
-def upgrade() -> None:
-    # Importing main triggers imports of all routers, which in turn import the
-    # domain models. After that, SQLModel.metadata contains the full schema.
+def _load_model_metadata() -> None:
+    """Import the coordinator API entry point and any model modules not pulled in by it.
+
+    SQLModel.metadata is global; models are only registered when their module is
+    imported. `coordinator_api.main` imports the routers, but some model modules
+    (e.g. `models.multitenant`) are only reached through service-side code, so
+    importing them explicitly here keeps the migration graph in sync with the
+    full declared schema.
+    """
     import coordinator_api.main  # noqa: F401
+    import coordinator_api.models.multitenant  # noqa: F401
+
+
+def upgrade() -> None:
+    _load_model_metadata()
     from sqlmodel import SQLModel
 
     SQLModel.metadata.create_all(op.get_bind(), checkfirst=True)
 
 
 def downgrade() -> None:
-    import coordinator_api.main  # noqa: F401
+    _load_model_metadata()
     from sqlmodel import SQLModel
 
     SQLModel.metadata.drop_all(op.get_bind())
