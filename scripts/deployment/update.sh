@@ -281,6 +281,17 @@ get_profile() {
 run_pre_update_backup() {
     log "Step 0: Triggering pre-update backup..."
     if ! systemctl list-unit-files 2>/dev/null | grep -q '^aitbc-backup\.service'; then
+        # The backup unit may not have been linked yet (e.g. first update after
+        # setup, or after a manual cleanup). Link it on demand so the pre-update
+        # backup can run; the full systemd relink still runs in Step 3.
+        log "aitbc-backup.service not linked; relinking systemd units..."
+        if [ -x "$LINK_SYSTEMD_SCRIPT" ]; then
+            "$LINK_SYSTEMD_SCRIPT" >/dev/null 2>&1
+            systemctl daemon-reload >/dev/null 2>&1
+        fi
+    fi
+
+    if ! systemctl list-unit-files 2>/dev/null | grep -q '^aitbc-backup\.service'; then
         warning "aitbc-backup.service not installed — skipping pre-update backup"
         return 0
     fi
