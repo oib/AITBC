@@ -394,7 +394,7 @@ class BlockImportMixin(SyncBase):
             parallel_applied = False
             # Historical v1 blocks (pre state-transition fix) use the sequential
             # path so the v1/v2 account-creation gating is applied correctly.
-            if settings.parallel_tx_validation and block_version >= 2:
+            if settings.parallel_tx_validation and block_version == 2:
                 # Build dependency graph from read/write sets.
                 graph = DependencyGraph()
                 tx_hash_to_data: dict[str, dict[str, Any]] = {}
@@ -456,7 +456,9 @@ class BlockImportMixin(SyncBase):
 
                         def _compute_delta(tx_data: dict[str, Any]) -> StateDelta:
                             txh = tx_data.get("tx_hash", "")
-                            return compute_state_delta(account_map, tx_data, self._chain_id, txh, existing_tx_hashes)
+                            return compute_state_delta(
+                                account_map, tx_data, self._chain_id, txh, existing_tx_hashes, block_version=block_version
+                            )
 
                         for group in groups:
                             # Update nonces from account_map before processing each group
@@ -477,7 +479,7 @@ class BlockImportMixin(SyncBase):
                             group_results_sorted = sorted(group_results, key=lambda d: tx_hash_to_index.get(d.tx_hash, 0))
                             for delta in group_results_sorted:
                                 if delta.success:
-                                    apply_delta_to_map(account_map, delta, self._chain_id)
+                                    apply_delta_to_map(account_map, delta, self._chain_id, block_version)
                                     existing_tx_hashes.add(delta.tx_hash)
                             all_deltas.extend(group_results_sorted)
                     finally:
@@ -488,7 +490,7 @@ class BlockImportMixin(SyncBase):
                         key=lambda d: tx_hash_to_index.get(d.tx_hash, 0),
                     )
                     # Batch-write all deltas to the DB.
-                    apply_deltas_to_db(session, successful_deltas, self._chain_id)
+                    apply_deltas_to_db(session, successful_deltas, self._chain_id, block_version)
                     # Create Transaction records for all successful txs.
                     for delta in successful_deltas:
                         tx_data = tx_hash_to_data.get(delta.tx_hash, {})
