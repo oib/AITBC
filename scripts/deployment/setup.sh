@@ -1481,6 +1481,32 @@ ensure_service_env_files() {
             log "Created missing shared env file: $common"
         fi
     done
+
+    # /etc/aitbc/redis.env feeds REDISCLI_AUTH to aitbc-cache-monitor on hosts
+    # that run a local redis-server. Create it once; never overwrite. Populate
+    # from redis.conf's requirepass when one is configured; empty otherwise --
+    # the monitor then correctly reports a NOAUTH connection failure.
+    # systemctl cat avoids a list-unit-files|grep -q pipe: under pipefail,
+    # grep -q's early exit SIGPIPEs systemctl and the pipeline reports 141.
+    if systemctl cat redis-server.service >/dev/null 2>&1 \
+        && [ ! -f /etc/aitbc/redis.env ]; then
+        local redis_auth=""
+        if [ -f /etc/redis/redis.conf ]; then
+            redis_auth=$(awk '/^requirepass[[:space:]]/{print $2; exit}' /etc/redis/redis.conf)
+        fi
+        {
+            echo "# Redis credentials for aitbc-cache-monitor (REDISCLI_AUTH)."
+            echo "# Only needed when the local redis-server requires auth."
+            echo "REDISCLI_AUTH=${redis_auth}"
+        } > /etc/aitbc/redis.env
+        chmod 640 /etc/aitbc/redis.env
+        chown root:aitbc /etc/aitbc/redis.env 2>/dev/null || true
+        if [ -n "$redis_auth" ]; then
+            log "Created /etc/aitbc/redis.env (auth populated from redis.conf)"
+        else
+            log "Created /etc/aitbc/redis.env (no auth configured)"
+        fi
+    fi
     success "Per-service environment files verified"
 }
 
@@ -1657,6 +1683,17 @@ setup_autostart() {
         # shellcheck disable=SC2015
         systemctl enable "$svc" 2>/dev/null && log "  Enabled: $svc" || warning "  Could not enable: $svc"
     done
+
+    # aitbc-cache-monitor follows Redis, not the node role: enable its timer
+    # where a local redis-server exists and the unit got linked.
+    # systemctl cat: see the pipefail note in ensure_service_env_files.
+    if systemctl cat redis-server.service >/dev/null 2>&1 \
+        && systemctl cat aitbc-cache-monitor.timer >/dev/null 2>&1; then
+        # shellcheck disable=SC2015
+        systemctl enable --now aitbc-cache-monitor.timer 2>/dev/null \
+            && log "  Enabled: aitbc-cache-monitor.timer" \
+            || warning "  Could not enable: aitbc-cache-monitor.timer"
+    fi
 
     success "Auto-start configured"
 }
