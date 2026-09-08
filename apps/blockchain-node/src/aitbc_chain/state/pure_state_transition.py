@@ -26,6 +26,13 @@ from ..base_models import Block, IPFSSubscription, _to_ait_address
 from ..models import Account, Receipt
 
 
+def _escrow_address(job_id: str) -> str:
+    from aitbc.crypto.signature_recovery import canonical_address
+    from eth_utils import keccak
+
+    return canonical_address("0x" + keccak(f"aitbc.escrow.{job_id}".encode()).hex()[:40])
+
+
 @dataclass
 class StateDelta:
     """State change resulting from a transaction.
@@ -48,6 +55,10 @@ class StateDelta:
     minted_amount: int | None = None
     # For IPFS_SUBSCRIPTION: subscription record to be written to the DB
     ipfs_subscription: dict[str, Any] | None = None
+    # For ESCROW_LOCK v2/v3: additional accounts (e.g. provider) that the
+    # sequential path would ensure exist. They carry zero balance change but
+    # must be present in account state for matching state roots.
+    extra_accounts: list[str] | None = None
 
 
 def _determine_tx_type(tx_data: dict[str, Any]) -> str:
@@ -95,12 +106,12 @@ def compute_state_delta(
     value = tx_data.get("value", tx_data.get("amount", 0))
     fee = tx_data.get("fee", 0)
 
-    # S-4: v3 escrow rules (per-escrow addresses, settlement authority, etc.)
-    # are not yet modeled by the pure/parallel path.  Any caller that enables
-    # parallel validation must therefore not use the parallel path for v3
-    # blocks; compute_state_delta reports the limitation so the state root
-    # cannot diverge silently.
-    if block_version >= 3 and tx_type in {"ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND"}:
+    # S-4: v3 escrow release/refund are not yet modeled by the pure/parallel
+    # path.  Any caller that enables parallel validation must therefore not use
+    # the parallel path for v3 blocks containing those tx types;
+    # compute_state_delta reports the limitation so the state root cannot
+    # diverge silently.
+    if block_version >= 3 and tx_type in {"ESCROW_RELEASE", "ESCROW_REFUND"}:
         return StateDelta(
             sender=sender,
             recipient=recipient,
@@ -112,6 +123,48 @@ def compute_state_delta(
             tx_type=tx_type,
             tx_hash=tx_hash,
         )
+
+    # S-4: ESCROW_LOCK always creates the provider account, and v3 also
+    # redirects the locked value to a deterministic per-escrow address.
+    extra_accounts: list[str] | None = None
+    if tx_type == "ESCROW_LOCK":
+        payload = tx_data.get("payload", {}) or {}
+        if isinstance(payload, str):
+            try:
+                import json
+
+                payload = json.loads(payload)
+            except Exception:
+                payload = {}
+        provider_addr = _to_ait_address(payload.get("provider", ""))
+        extra_accounts = [a for a in [provider_addr] if a]
+        if block_version >= 3:
+            job_id = payload.get("job_id", "")
+            if not job_id:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error="ESCROW_LOCK v3 payload must include job_id",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+            if not payload.get("provider"):
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error="ESCROW_LOCK v3 payload must include provider",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+            recipient = _escrow_address(job_id)
 
     # Liquidity pool transactions update non-account state (pools, stakes,
     # distributions) that the parallel delta map cannot yet model. Force a
@@ -339,6 +392,7 @@ def compute_state_delta(
         success=True,
         tx_type=tx_type,
         tx_hash=tx_hash,
+        extra_accounts=extra_accounts,
     )
 
     # IPFS_SUBSCRIPTION: capture subscription terms for apply_deltas_to_db
@@ -398,6 +452,18 @@ def apply_delta_to_map(
     """
     if not delta.success:
         return
+
+    # S-4 (ESCROW_LOCK): ensure provider/per-escrow accounts exist in the
+    # in-memory map so the resulting account set matches the sequential path.
+    if delta.extra_accounts:
+        for addr in delta.extra_accounts:
+            if addr and addr not in account_map:
+                account_map[addr] = Account(
+                    chain_id=chain_id,
+                    address=addr,
+                    balance=0,
+                    nonce=0,
+                )
 
     # Update sender
     sender_account = account_map.get(delta.sender)
@@ -459,6 +525,22 @@ def apply_deltas_to_db(
                 "address": delta.sender,
             },
         )
+
+    # Ensure extra accounts exist (ESCROW_LOCK provider, etc.)
+    for delta in successful:
+        if delta.extra_accounts:
+            for addr in delta.extra_accounts:
+                if addr and addr != delta.recipient:
+                    extra_account = session.get(Account, (chain_id, addr))
+                    if not extra_account:
+                        session.add(
+                            Account(
+                                chain_id=chain_id,
+                                address=addr,
+                                balance=0,
+                                nonce=0,
+                            )
+                        )
 
     # Batch UPDATE recipient balances (skip MESSAGE type)
     for delta in successful:
