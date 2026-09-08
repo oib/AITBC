@@ -387,6 +387,12 @@ Items surfaced during the fleet audit, not part of the register:
 
 ## Known limitations & notes
 
+- **Operator posture (stated 8 Sep):** this fleet is a fast-forward dev
+  environment, not a production-hardened deployment. Credential-hygiene findings
+  (exposed keys in backups, rotation schedules, purge cycles) are recorded, not
+  automatically remediated — they are fixed only when they break function or the
+  operator explicitly asks. Under this posture the `BOND_SLASH_PRIVATE_KEY`
+  transcript exposure is accepted risk and rotation + purge is **not planned work**.
 - The exact await that hung the proposer at height 1804 is unprovable from
   logs alone (zero logging between heartbeat lines). The watchdog + per-phase
   tracing convert the failure mode from "silent" to "loud and located" — the
@@ -394,11 +400,19 @@ Items surfaced during the fleet audit, not part of the register:
 - `gitea-local` tea login on `gitea-runner` is configured but the container
   has no `/opt/aitbc` checkout — tea commands that require a repo context
   will fail. The login itself is valid.
-- The six-artifact register is not fully closed. Open operational items
-  include R10 (deployment approval/manifest evidence), hub.aitbc missing
-  `ENERGY_OPERATOR_ADDRESS`, and a live fleet-wide `BOND_SLASH_AUTHORITY_ADDRESS`
-  split. R7 (watchdog phase diagnosis) was closed 8 Sep and R8 (PAT revocation)
-  was closed 8 Sep.
+- The six-artifact register is not fully closed. The only remaining open
+  register item is **O-3 — `redis.env`**: the file exists on `hub.aitbc` and
+  `node2` but is loaded by no live unit; the actual Redis credentials live in
+  `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Operator confirmation is
+  outstanding whether it is vestigial (remove) or intended (provision/mask).
+- **R10 (deployment manifest)** is closed with a recorded residual: the fleet
+  is at tip, backups are present, and the schema head is correct, but a
+  per-pull approval log and a restore test are not establishable and were not
+  manufactured.
+- **R7 (watchdog phase diagnosis)**, **R8 (PAT revocation)**, the
+  `ENFORCE_STATE_ROOT_VALIDATION` dead env var, the hub `ENERGY_OPERATOR_ADDRESS`
+  pair, the `BOND_SLASH_AUTHORITY_ADDRESS` fleet split, and the `node0` sync lag
+  were all resolved 8 Sep.
 
 ## 2026-09-08 post-audit corrections
 
@@ -436,10 +450,9 @@ inspection updated the following conclusions:
   window. Both earlier counts (22, then 39) were API page-size artifacts: a
   30-run and a 50-run page truncated the walk-back, so the streak has to be
   re-derived against the full paginated run list, not a single page.
-- **Fleet at 8 Sep 10:xx** is at `origin/main` tip `8cb48178d5`. All five
+- **Fleet at 8 Sep 14:xx** is at `origin/main` tip `79769fb57`. All five
   `aitbc-blockchain-node/rpc` services are active and `/health` returns `ok`;
-  `hub`, `hub2`, `node1`, and `node2` are at block 5130, while `node0` is at
-  5128 (two blocks behind at the time of inspection).
+  all five hosts are at block 5268 with zero failed `aitbc-*` units.
 
 ## 2026-09-08 live env cleanup
 
@@ -462,3 +475,28 @@ inspection updated the following conclusions:
 - Added `apps/blockchain-node/tests/consensus/test_proposer_watchdog.py` with
   stalled-phase tests for `early_gates`, `consensus_gates`, and `broadcast`.
   All pass at `LOG_LEVEL=INFO`.
+
+## 2026-09-08 continued — further reconciliations
+
+- **ENERGY_OPERATOR_ADDRESS resolved on hub.** A dedicated fleet-wide operator
+  keypair was generated on `hub.aitbc` and written to
+  `aitbc-coordinator-api.env`; the same pair was deployed to `node2`. The
+  chain-side `escrow_routes` gate was armed on `hub.aitbc` by adding
+  `ENERGY_OPERATOR_ADDRESS` to `aitbc-blockchain-rpc.env` and restarting the RPC.
+  `aitbc-coordinator-api` on both hosts restarted and returned health 200. Energy
+  quotes now sign and verify instead of returning 503.
+- **BOND_SLASH_AUTHORITY_ADDRESS fleet split fixed (config-only).** The shared
+  private key was derived on `hub.aitbc` without printing its value; it controls
+  `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76`, the only working slash authority.
+  `0xe738…d225` was hub's proposer address with no matching key. The operator
+  chose config fix over rotation (transcript exposure = accepted risk).
+  `BOND_SLASH_AUTHORITY_ADDRESS=0xab07…1d76` is now set on all five hosts
+  (added on node0, corrected on node1/hub, already correct on node2/hub2). Rolling
+  restarts applied; fleet converged at height 5265.
+- **node0 block lag resolved.** `default_peer_rpc_url` in
+  `/etc/aitbc/blockchain.env` pointed to `https://node1.aitbc.bubuit.net` (a
+  follower) instead of `https://hub.aitbc.bubuit.net`. On 8 Sep it was corrected,
+  stale `SYNC_SOURCE_*` variables were removed, `BLOCK_TIME=5` was replaced with
+  `BLOCK_TIME_SECONDS=60`, and `market_role` was set to `customer`.
+  `aitbc-blockchain-node` and `aitbc-blockchain-rpc` were restarted; node0 caught
+  up and is now at the fleet height.
