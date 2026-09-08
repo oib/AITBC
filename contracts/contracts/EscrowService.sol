@@ -416,6 +416,10 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         // Initialize escrow account
         _initializeEscrowAccount(escrowId, _beneficiary, _arbiter, _amount, _escrowType, _releaseCondition, _conditionDescription);
 
+        // S-4/F-5f: persist the requested release timestamp. Without this, time-based
+        // release/refund checks read releaseTime as 0 and always succeed/fail incorrectly.
+        escrowAccounts[escrowId].releaseTime = _releaseTime;
+
         // Update tracking arrays
         _updateEscrowTracking(escrowId, _beneficiary);
 
