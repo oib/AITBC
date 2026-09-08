@@ -17,7 +17,7 @@ Key design:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Any
+from typing import Any, cast
 
 from sqlmodel import Session, select
 from sqlalchemy import func, text
@@ -40,6 +40,174 @@ def _escrow_settlement_authority() -> str | None:
     if not addr:
         return None
     return _to_ait_address(addr)
+
+
+def _decode_payload(payload: Any) -> dict[str, Any]:
+    """Return payload as a dict, decoding JSON string if necessary."""
+    if isinstance(payload, str):
+        try:
+            import json
+
+            return cast(dict[str, Any], json.loads(payload))
+        except Exception:
+            return {}
+    if not payload:
+        return {}
+    return cast(dict[str, Any], payload)
+
+
+def _escrow_v3_release_refund_delta(
+    account_map: dict[str, Account],
+    sender: str,
+    recipient: str,
+    value: int,
+    fee: int,
+    tx_type: str,
+    tx_hash: str,
+    job_id: str,
+    context: dict[str, Any],
+) -> StateDelta:
+    """Compute a v3 ESCROW_RELEASE/ESCROW_REFUND delta (value comes from escrow)."""
+    escrow_addr = context.get("escrow_addr") or _escrow_address(job_id)
+    escrow_account = account_map.get(escrow_addr)
+    escrow_balance = escrow_account.balance if escrow_account else 0
+    if escrow_balance < value:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"Escrow {job_id} has insufficient balance: {escrow_balance} < {value}",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    sender_account = account_map.get(sender)
+    if not sender_account or sender_account.balance < fee:
+        bal = sender_account.balance if sender_account else 0
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"Insufficient balance for fee: {bal} < {fee}",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    return StateDelta(
+        sender=sender,
+        recipient=recipient,
+        sender_balance_change=-fee,
+        recipient_balance_change=value,
+        sender_nonce_change=1,
+        success=True,
+        tx_type=tx_type,
+        tx_hash=tx_hash,
+        extra_debits={escrow_addr: -value},
+    )
+
+
+def _escrow_v2_release_refund_delta(
+    account_map: dict[str, Account],
+    sender: str,
+    recipient: str,
+    value: int,
+    fee: int,
+    tx_type: str,
+    tx_hash: str,
+) -> StateDelta:
+    """Compute a v2 (lock_version < 3) ESCROW_RELEASE/ESCROW_REFUND delta."""
+    total_cost = value + fee
+    sender_account = account_map.get(sender)
+    if not sender_account or sender_account.balance < total_cost:
+        bal = sender_account.balance if sender_account else 0
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"Insufficient balance for {sender}: {bal} < {total_cost}",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    return StateDelta(
+        sender=sender,
+        recipient=recipient,
+        sender_balance_change=-total_cost,
+        recipient_balance_change=value,
+        sender_nonce_change=1,
+        success=True,
+        tx_type=tx_type,
+        tx_hash=tx_hash,
+    )
+
+
+def _escrow_release_refund_delta(
+    account_map: dict[str, Account],
+    tx_data: dict[str, Any],
+    sender: str,
+    recipient: str,
+    value: int,
+    fee: int,
+    tx_type: str,
+    tx_hash: str,
+    block_version: int,
+    escrow_context: dict[str, dict[str, Any]] | None,
+) -> StateDelta:
+    """Validate and compute an ESCROW_RELEASE/ESCROW_REFUND delta."""
+    payload = _decode_payload(tx_data.get("payload", {}) or {})
+    job_id = payload.get("job_id", "")
+    if not job_id:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"{tx_type} payload must include job_id",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    context = (escrow_context or {}).get(job_id, {})
+    lock_version = context.get("lock_version")
+    if lock_version is None:
+        lock_version = 2 if block_version < 3 else 3
+    expected_beneficiary = context.get("expected_beneficiary")
+    if expected_beneficiary and recipient != expected_beneficiary:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"{tx_type} for {job_id} must pay {expected_beneficiary}, got {recipient}",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+    if block_version >= 3:
+        authority = _escrow_settlement_authority()
+        if authority and sender != authority:
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error=f"{tx_type} must be signed by settlement authority {authority}, got {sender}",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+    if lock_version >= 3:
+        return _escrow_v3_release_refund_delta(account_map, sender, recipient, value, fee, tx_type, tx_hash, job_id, context)
+    return _escrow_v2_release_refund_delta(account_map, sender, recipient, value, fee, tx_type, tx_hash)
 
 
 @dataclass
@@ -258,120 +426,17 @@ def compute_state_delta(
 
     # S-4: ESCROW_RELEASE/ESCROW_REFUND require the matching lock metadata.
     if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
-        payload = tx_data.get("payload", {}) or {}
-        if isinstance(payload, str):
-            try:
-                import json
-
-                payload = json.loads(payload)
-            except Exception:
-                payload = {}
-        job_id = payload.get("job_id", "")
-        if not job_id:
-            return StateDelta(
-                sender=sender,
-                recipient=recipient,
-                sender_balance_change=0,
-                recipient_balance_change=0,
-                sender_nonce_change=0,
-                success=False,
-                error=f"{tx_type} payload must include job_id",
-                tx_type=tx_type,
-                tx_hash=tx_hash,
-            )
-        context = (escrow_context or {}).get(job_id, {})
-        lock_version = context.get("lock_version")
-        if lock_version is None:
-            lock_version = 2 if block_version < 3 else 3
-        expected_beneficiary = context.get("expected_beneficiary")
-        if expected_beneficiary and recipient != expected_beneficiary:
-            return StateDelta(
-                sender=sender,
-                recipient=recipient,
-                sender_balance_change=0,
-                recipient_balance_change=0,
-                sender_nonce_change=0,
-                success=False,
-                error=f"{tx_type} for {job_id} must pay {expected_beneficiary}, got {recipient}",
-                tx_type=tx_type,
-                tx_hash=tx_hash,
-            )
-        if block_version >= 3:
-            authority = _escrow_settlement_authority()
-            if authority and sender != authority:
-                return StateDelta(
-                    sender=sender,
-                    recipient=recipient,
-                    sender_balance_change=0,
-                    recipient_balance_change=0,
-                    sender_nonce_change=0,
-                    success=False,
-                    error=f"{tx_type} must be signed by settlement authority {authority}, got {sender}",
-                    tx_type=tx_type,
-                    tx_hash=tx_hash,
-                )
-        if lock_version >= 3:
-            escrow_addr = context.get("escrow_addr") or _escrow_address(job_id)
-            escrow_account = account_map.get(escrow_addr)
-            escrow_balance = escrow_account.balance if escrow_account else 0
-            if escrow_balance < value:
-                return StateDelta(
-                    sender=sender,
-                    recipient=recipient,
-                    sender_balance_change=0,
-                    recipient_balance_change=0,
-                    sender_nonce_change=0,
-                    success=False,
-                    error=f"Escrow {job_id} has insufficient balance: {escrow_balance} < {value}",
-                    tx_type=tx_type,
-                    tx_hash=tx_hash,
-                )
-            if sender_account.balance < fee:
-                return StateDelta(
-                    sender=sender,
-                    recipient=recipient,
-                    sender_balance_change=0,
-                    recipient_balance_change=0,
-                    sender_nonce_change=0,
-                    success=False,
-                    error=f"Insufficient balance for fee: {sender_account.balance} < {fee}",
-                    tx_type=tx_type,
-                    tx_hash=tx_hash,
-                )
-            extra_debits = {escrow_addr: -value}
-            return StateDelta(
-                sender=sender,
-                recipient=recipient,
-                sender_balance_change=-fee,
-                recipient_balance_change=value,
-                sender_nonce_change=1,
-                success=True,
-                tx_type=tx_type,
-                tx_hash=tx_hash,
-                extra_debits=extra_debits,
-            )
-        total_cost = value + fee
-        if sender_account.balance < total_cost:
-            return StateDelta(
-                sender=sender,
-                recipient=recipient,
-                sender_balance_change=0,
-                recipient_balance_change=0,
-                sender_nonce_change=0,
-                success=False,
-                error=f"Insufficient balance for {sender}: {sender_account.balance} < {total_cost}",
-                tx_type=tx_type,
-                tx_hash=tx_hash,
-            )
-        return StateDelta(
-            sender=sender,
-            recipient=recipient,
-            sender_balance_change=-total_cost,
-            recipient_balance_change=value,
-            sender_nonce_change=1,
-            success=True,
-            tx_type=tx_type,
-            tx_hash=tx_hash,
+        return _escrow_release_refund_delta(
+            account_map,
+            tx_data,
+            sender,
+            recipient,
+            value,
+            fee,
+            tx_type,
+            tx_hash,
+            block_version,
+            escrow_context,
         )
 
     # MESSAGE type: value must be 0
@@ -553,6 +618,39 @@ def compute_state_delta(
     return delta
 
 
+def _ensure_extra_accounts_in_map(account_map: dict[str, Account], extra_accounts: list[str] | None, chain_id: str) -> None:
+    """Create zero-balance accounts for any extra accounts that are missing."""
+    if not extra_accounts:
+        return
+    for addr in extra_accounts:
+        if addr and addr not in account_map:
+            account_map[addr] = Account(
+                chain_id=chain_id,
+                address=addr,
+                balance=0,
+                nonce=0,
+            )
+
+
+def _apply_extra_debits_to_map(account_map: dict[str, Account], extra_debits: dict[str, int] | None, chain_id: str) -> None:
+    """Apply per-account extra debits (e.g. v3 escrow release)."""
+    if not extra_debits:
+        return
+    for addr, change in extra_debits.items():
+        if not addr:
+            continue
+        account = account_map.get(addr)
+        if account:
+            account.balance += change
+        else:
+            account_map[addr] = Account(
+                chain_id=chain_id,
+                address=addr,
+                balance=change,
+                nonce=0,
+            )
+
+
 def apply_delta_to_map(
     account_map: dict[str, Account],
     delta: StateDelta,
@@ -575,15 +673,7 @@ def apply_delta_to_map(
 
     # S-4 (ESCROW_LOCK): ensure provider/per-escrow accounts exist in the
     # in-memory map so the resulting account set matches the sequential path.
-    if delta.extra_accounts:
-        for addr in delta.extra_accounts:
-            if addr and addr not in account_map:
-                account_map[addr] = Account(
-                    chain_id=chain_id,
-                    address=addr,
-                    balance=0,
-                    nonce=0,
-                )
+    _ensure_extra_accounts_in_map(account_map, delta.extra_accounts, chain_id)
 
     # Update sender
     sender_account = account_map.get(delta.sender)
@@ -607,20 +697,7 @@ def apply_delta_to_map(
             account_map[delta.recipient] = new_account
 
     # S-4 (v3 release/refund): apply extra debits (e.g. per-escrow address)
-    if delta.extra_debits:
-        for addr, change in delta.extra_debits.items():
-            if not addr:
-                continue
-            account = account_map.get(addr)
-            if account:
-                account.balance += change
-            else:
-                account_map[addr] = Account(
-                    chain_id=chain_id,
-                    address=addr,
-                    balance=change,
-                    nonce=0,
-                )
+    _apply_extra_debits_to_map(account_map, delta.extra_debits, chain_id)
 
 
 def apply_deltas_to_db(
@@ -803,6 +880,32 @@ def apply_deltas_to_db(
     session.flush()
 
 
+def _add_receipt_rw_set(tx_data: dict[str, Any], read_set: set[str]) -> None:
+    """Add the receipt dependency for RECEIPT_CLAIM transactions."""
+    receipt_id = tx_data.get("payload", {}).get("receipt_id")
+    if receipt_id:
+        read_set.add(f"receipt:{receipt_id}")
+
+
+def _add_ipfs_rw_set(tx_data: dict[str, Any], sender: str, read_set: set[str], write_set: set[str]) -> None:
+    """Add island subscription read/write dependencies for IPFS_SUBSCRIPTION."""
+    payload = _decode_payload(tx_data.get("payload", {}) or {})
+    island_id = payload.get("island_id")
+    if island_id:
+        read_set.add(f"ipfs_subscription:{island_id}:{sender}")
+        write_set.add(f"ipfs_subscription:{island_id}:{sender}")
+
+
+def _add_escrow_rw_set(tx_data: dict[str, Any], read_set: set[str], write_set: set[str]) -> None:
+    """Add per-escrow read/write dependencies for ESCROW_RELEASE/ESCROW_REFUND."""
+    payload = _decode_payload(tx_data.get("payload", {}) or {})
+    job_id = payload.get("job_id", "")
+    if job_id:
+        escrow_addr = _escrow_address(job_id)
+        read_set.add(escrow_addr)
+        write_set.add(escrow_addr)
+
+
 def extract_read_write_sets(tx_data: dict[str, Any]) -> tuple[frozenset[str], frozenset[str]]:
     """Extract read/write sets from transaction data for dependency analysis.
 
@@ -828,39 +931,12 @@ def extract_read_write_sets(tx_data: dict[str, Any]) -> tuple[frozenset[str], fr
         write_set.add(recipient)
 
     if tx_type == "RECEIPT_CLAIM":
-        receipt_id = tx_data.get("payload", {}).get("receipt_id")
-        if receipt_id:
-            # Receipt is an additional read dependency
-            read_set.add(f"receipt:{receipt_id}")
+        _add_receipt_rw_set(tx_data, read_set)
 
     if tx_type == "IPFS_SUBSCRIPTION":
-        payload = tx_data.get("payload", {}) or {}
-        if isinstance(payload, str):
-            try:
-                import json
-
-                payload = json.loads(payload)
-            except Exception:
-                payload = {}
-        island_id = payload.get("island_id")
-        if island_id:
-            # Subscription table is an additional read/write dependency
-            read_set.add(f"ipfs_subscription:{island_id}:{sender}")
-            write_set.add(f"ipfs_subscription:{island_id}:{sender}")
+        _add_ipfs_rw_set(tx_data, sender, read_set, write_set)
 
     if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
-        payload = tx_data.get("payload", {}) or {}
-        if isinstance(payload, str):
-            try:
-                import json
-
-                payload = json.loads(payload)
-            except Exception:
-                payload = {}
-        job_id = payload.get("job_id", "")
-        if job_id:
-            escrow_addr = _escrow_address(job_id)
-            read_set.add(escrow_addr)
-            write_set.add(escrow_addr)
+        _add_escrow_rw_set(tx_data, read_set, write_set)
 
     return frozenset(read_set), frozenset(write_set)
