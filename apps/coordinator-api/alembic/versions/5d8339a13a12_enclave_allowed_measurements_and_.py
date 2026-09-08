@@ -30,7 +30,7 @@ def upgrade() -> None:
     if context.is_offline_mode():
         op.add_column(
             "enclave_identity",
-            sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("[]")),
+            sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
         )
         op.add_column(
             "tee_attestation",
@@ -45,7 +45,7 @@ def upgrade() -> None:
     if "allowed_measurements" not in existing_enclave_cols:
         op.add_column(
             "enclave_identity",
-            sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("[]")),
+            sa.Column("allowed_measurements", sa.JSON(), nullable=False, server_default=sa.text("'[]'")),
         )
     if "registered" not in existing_tee_cols:
         op.add_column(
