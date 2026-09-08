@@ -78,11 +78,15 @@ if [ -n "${AITBC_EXTRA_EXTRAS:-}" ]; then
     EXTRAS="${EXTRAS}${EXTRAS:+ }${AITBC_EXTRA_EXTRAS}"
 fi
 
+# Ensure a Poetry >=2.4.1 venv exists. If the venv is stale (e.g. created by
+# an older setup.sh with Poetry 1.8.x), re-run pip install --upgrade so
+# pyproject.toml's [project] / package-mode metadata is understood.
 if [ ! -x "$POETRY" ]; then
     echo "Bootstrapping Poetry into $POETRY_VENV ..."
     python3 -m venv "$POETRY_VENV"
-    "$POETRY_VENV/bin/pip" install -q "poetry>=2.4.1,<3" poetry-plugin-export
 fi
+"$POETRY_VENV/bin/pip" install -q --upgrade "poetry>=2.4.1,<3" poetry-plugin-export
+POETRY="$POETRY_VENV/bin/poetry"
 
 mkdir -p "$REPO_ROOT/.requirements"
 REQ_FILE="$REPO_ROOT/.requirements/requirements-$PROFILE.txt"
