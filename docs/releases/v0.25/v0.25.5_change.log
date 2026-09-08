@@ -395,10 +395,10 @@ Items surfaced during the fleet audit, not part of the register:
   has no `/opt/aitbc` checkout — tea commands that require a repo context
   will fail. The login itself is valid.
 - The six-artifact register is not fully closed. Open operational items
-  include R7 (watchdog phase diagnosis), R8 (PAT revocation confirmation),
-  R10 (deployment approval/manifest evidence), hub.aitbc missing
-  `ENERGY_OPERATOR_ADDRESS`, and the now-cleaned `ENFORCE_STATE_ROOT_VALIDATION`
-  dead env var.
+  include R10 (deployment approval/manifest evidence), hub.aitbc missing
+  `ENERGY_OPERATOR_ADDRESS`, and a live fleet-wide `BOND_SLASH_AUTHORITY_ADDRESS`
+  split. R7 (watchdog phase diagnosis) was closed 8 Sep and R8 (PAT revocation)
+  was closed 8 Sep.
 
 ## 2026-09-08 post-audit corrections
 
@@ -450,3 +450,15 @@ inspection updated the following conclusions:
   `/etc/aitbc/blockchain.env.bak-20260908-enforce`. No service restart was
   required because the running processes do not consume the variable; the next
   planned restart will pick up the cleaned env.
+
+## 2026-09-08 R7 — watchdog phase diagnosis
+
+- Added `PoAProposer._propose_phase` and updated `_propose_block` to set it
+  before each proposal phase (`early_gates`, `resolve_head`, `collect_txs`,
+  `assemble_block`, `consensus_gates`, `broadcast`).
+- The watchdog now includes the active phase in its ERROR log and in a
+  per-phase metric counter, making a future 1804-class stall diagnosable at
+  `LOG_LEVEL=INFO`.
+- Added `apps/blockchain-node/tests/consensus/test_proposer_watchdog.py` with
+  stalled-phase tests for `early_gates`, `consensus_gates`, and `broadcast`.
+  All pass at `LOG_LEVEL=INFO`.
