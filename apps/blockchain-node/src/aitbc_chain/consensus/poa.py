@@ -46,7 +46,7 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
-from ..state.state_transition import _ensure_account, get_block_version, get_state_transition
+from ..state.state_transition import _ensure_account, get_block_version, get_block_version_for_height, get_state_transition
 
 logger = get_logger(__name__)
 
@@ -651,7 +651,7 @@ class PoAProposer:
             self._logger.debug("[PROPOSE:%s] phase=consensus_gates done %.3fs", chain, time.time() - _t4)
             # v0.25.7: stamp the state-transition rule version so followers can
             # replay this block with the same rules that produced its state_root.
-            metadata_dict["state_transition_version"] = 2
+            metadata_dict["state_transition_version"] = get_block_version_for_height(next_height)
             block.block_metadata = json.dumps(metadata_dict)
 
             # v0.7.2: Sign the canonical block header so the same signature is
@@ -1512,6 +1512,10 @@ class PoAProposer:
         # savepoints caused new Transaction rows to leak into the DB
         # when the outer transaction was rolled back (e.g., PBFT fail).
         pending_transaction_records: list[Transaction] = []
+        # S-4: the active state-transition version for this block. Every path that
+        # calls apply_transaction must use the same version so the state root is
+        # deterministic and consistent with the stamped block_metadata.
+        block_version = get_block_version_for_height(next_height)
         for tx in pending_txs:
             try:
                 tx_data = tx.content
@@ -1576,7 +1580,7 @@ class PoAProposer:
                         self._config.chain_id,
                         tx_data_for_transition,
                         tx.tx_hash,
-                        block_version=2,
+                        block_version=block_version,
                     )
                     if not success:
                         self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
@@ -1664,7 +1668,7 @@ class PoAProposer:
                     self._config.chain_id,
                     tx_data_for_transition,
                     tx.tx_hash,
-                    block_version=2,
+                    block_version=block_version,
                 )
                 if not success:
                     self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
