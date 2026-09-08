@@ -1,3 +1,4 @@
+# mypy: warn_unused_ignores=False
 """
 Multi-Modal Fusion Engine - Main service for multi-modal fusion operations
 """
