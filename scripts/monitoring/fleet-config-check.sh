@@ -17,7 +17,39 @@ set -euo pipefail
 if [ "$#" -gt 0 ]; then
     HOSTS="$*"
 else
-    HOSTS="${AITBC_FLEET_HOSTS:-node0 node1 node2 hub.aitbc hub2.aitbc}"
+    HOSTS="${AITBC_FLEET_HOSTS:-node0 node1 node2 hub hub2}"
+fi
+
+# Host names are site-dependent: the IDE reaches hub/hub2 via ssh-config
+# aliases (hub.aitbc), fleet nodes via FQDNs, and neither scheme resolves
+# everywhere. Auto-probe candidate addresses per canonical host so the check
+# runs identically on the IDE and on any fleet node.
+declare -A HOST_CANDIDATES=(
+    [node0]="node0 10.1.223.93"
+    [node1]="node1 10.1.223.40"
+    [node2]="node2 10.1.223.136"
+    [hub]="hub.aitbc hub.aitbc.bubuit.net 192.168.100.10"
+    [hub2]="hub2.aitbc hub2.aitbc.bubuit.net 10.177.61.28"
+)
+
+declare -A RESOLVED=()
+ssh_reach=0
+for host in $HOSTS; do
+    RESOLVED[$host]=""
+    for cand in ${HOST_CANDIDATES[$host]:-$host}; do
+        if ssh -o ConnectTimeout=4 -o BatchMode=yes "$cand" true 2>/dev/null; then
+            RESOLVED[$host]=$cand
+            ssh_reach=1
+            break
+        fi
+    done
+    if [ -z "${RESOLVED[$host]}" ]; then
+        RESOLVED[$host]=$host
+    fi
+done
+if [ "$ssh_reach" -eq 0 ]; then
+    echo "NOTE: no ssh reach to any fleet host from here — env sections SKIPPED"
+    echo "(env reads are dev-tier; the convergence section below works anywhere)"
 fi
 
 VARS="BOND_SLASH_AUTHORITY_ADDRESS CHAIN_ID SUPPORTED_CHAINS \
@@ -25,11 +57,15 @@ STATE_TRANSITION_V2_HEIGHT STATE_TRANSITION_V3_HEIGHT \
 SYNC_STATE_ROOT_VALIDATION_ENABLED BOND_ESCROW_ADDRESS BOND_BURN_ADDRESS"
 
 drift=0
+shape_bad=0
+if [ "$ssh_reach" -eq 0 ]; then
+    echo "=== env sections skipped (no ssh reach) ==="
+else
 for var in $VARS; do
     echo "=== $var ==="
     seen=""
     for h in $HOSTS; do
-        val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" \
+        val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
             "grep -h '^${var}=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null | tail -1 | cut -d= -f2-" \
             2>/dev/null || echo "UNREACHABLE")
         if [ -z "$val" ]; then
@@ -48,9 +84,8 @@ echo "=== *_ADDRESS value-shape check ==="
 # systemd EnvironmentFile does not strip inline `#` comments: a comment on an
 # assignment line becomes part of the value (measured 110 bytes instead of 42
 # on 8 Sep). Assert every *_ADDRESS variable is exactly 0x + 40 hex.
-shape_bad=0
 for h in $HOSTS; do
-    bad=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" \
+    bad=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
         "grep -hE '^[A-Z_0-9]*ADDRESS=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null \
          | while IFS= read -r line; do \
              name=\${line%%=*}; val=\${line#*=}; val=\$(echo \"\$val\" | tr -d '[:space:]'); \
@@ -64,19 +99,40 @@ done
 if [ "$shape_bad" -eq 0 ]; then
     echo "  all *_ADDRESS values well-formed on all hosts"
 fi
+fi  # ssh_reach
 
 echo "=== chain-head convergence (height + hash, two samples) ==="
 # Forks look like: equal heights with different hashes. Poll skew looks like:
 # heights differing by one with matching hashes. Flag ONLY hash mismatch at an
 # equal height, or a host trailing the fleet max by >2 blocks in BOTH samples.
 # A failed/empty probe prints UNREACHABLE — distinct from a real divergence.
+#
+# Head state is pulled from each node's own RPC surface (/rpc/status) — the
+# surface peers already use — so this section runs from ANY host, fleet node
+# or IDE alike, with no ssh. (The env sections above stay ssh-based: reading
+# a host's env is dev-tier and fleet nodes have no inter-node ssh by design.)
+declare -A RPC_ENDPOINTS=(
+    [node0]="http://10.1.223.93:8202/rpc/status"
+    [node1]="http://10.1.223.40:8202/rpc/status"
+    [node2]="http://10.1.223.136:8202/rpc/status"
+    [hub]="https://hub.aitbc.bubuit.net/rpc/status"
+    [hub2]="https://hub2.aitbc.bubuit.net/rpc/status"
+    [hub.aitbc]="https://hub.aitbc.bubuit.net/rpc/status"
+    [hub2.aitbc]="https://hub2.aitbc.bubuit.net/rpc/status"
+)
 conv_bad=0
 sample_heads() {
     for h in $HOSTS; do
-        out=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "$h" \
-            "sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
-             'SELECT height || \"|\" || substr(hash,1,16) FROM block ORDER BY height DESC LIMIT 1' 2>/dev/null" \
-            2>/dev/null || true)
+        out=""
+        url="${RPC_ENDPOINTS[$h]:-}"
+        if [ -n "$url" ]; then
+            out=$(curl -s -m 6 -k "$url" 2>/dev/null | python3 -c 'import json,sys
+try:
+    d = json.load(sys.stdin)
+    print(str(d["height"]) + "|" + d["last_block_hash"][:16])
+except Exception:
+    pass' 2>/dev/null)
+        fi
         if [ -z "$out" ]; then
             echo "$h UNREACHABLE"
         else
