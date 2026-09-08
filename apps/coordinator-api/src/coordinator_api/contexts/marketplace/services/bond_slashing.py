@@ -19,6 +19,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 from aitbc.utils.units import ait_to_units
@@ -77,6 +78,19 @@ def _compute_slash_amount(bond: ProviderBond, condition: SlashingCondition) -> i
     return int(amount_decimal)
 
 
+def _env_evm_address(name: str) -> str:
+    """Read an EVM address from the environment, strictly validated.
+
+    Empty/unset stays empty (the caller's missing-config checks handle it); a
+    *malformed* value raises instead of propagating a string that can never
+    compare equal to any real address.
+    """
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return ""
+    return canonical_address(raw, strict=True)
+
+
 def _miner_wallet(miner: Miner) -> str | None:
     return miner_wallet_address(miner)
 
@@ -87,9 +101,13 @@ class BondSlashingService:
     def __init__(self, session: Session) -> None:
         self.session = session
         self.blockchain_rpc_url = settings.blockchain_rpc_url
-        self.slash_authority = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "")
+        # Addresses come from env at a configuration boundary: strict
+        # canonicalisation converts malformed values (e.g. an inline `#` comment
+        # that systemd EnvironmentFile does not strip) into an immediate error
+        # instead of a silent every-comparison-fails mismatch downstream.
+        self.slash_authority = _env_evm_address("BOND_SLASH_AUTHORITY_ADDRESS")
         self.slash_private_key = os.getenv("BOND_SLASH_PRIVATE_KEY", "")
-        self.bond_burn_address = os.getenv("BOND_BURN_ADDRESS", "")
+        self.bond_burn_address = _env_evm_address("BOND_BURN_ADDRESS")
         self.chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
         self.tx_fee = int(os.getenv("BOND_SLASH_TX_FEE", "36"))
 
