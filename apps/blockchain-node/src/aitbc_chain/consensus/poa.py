@@ -140,6 +140,7 @@ class PoAProposer:
         self._logger = get_logger(__name__)
         self._stop_event = asyncio.Event()
         self._task: asyncio.Task[None] | None = None
+        self._propose_phase: str | None = None
         self._last_proposer_id: str | None = None
         self._last_block_timestamp: datetime | None = None
         self._multi_validator: MultiValidatorPoA | None = consensus
@@ -441,7 +442,7 @@ class PoAProposer:
                 self._logger.error("Failed to propose block: %s\n%s", exc, traceback.format_exc())
                 await asyncio.sleep(1.0)
 
-    async def _propose_block_with_watchdog(self) -> bool:
+    async def _propose_block_with_watchdog(self, *, watchdog_after: float | None = None) -> bool:
         """Run one proposal iteration under a silence watchdog.
 
         The 1804 freeze is the reason this exists: the proposer task hung at
@@ -450,20 +451,27 @@ class PoAProposer:
         nothing observed the iteration *itself* stalling. An iteration that
         outlives this threshold is a stalled proposer, not an idle one, and the
         journal should say so.
+
+        `watchdog_after` is public only for tests; production should leave it at
+        the default computed from `interval_seconds`.
         """
-        watchdog_after = max(60.0, self._config.interval_seconds * 4)
+        if watchdog_after is None:
+            watchdog_after = max(60.0, self._config.interval_seconds * 4)
         task = asyncio.ensure_future(self._propose_block())
 
         async def _watch() -> None:
             await asyncio.sleep(watchdog_after)
             if not task.done():
+                phase = self._propose_phase or "unknown"
                 self._logger.error(
-                    "[PROPOSE] proposal iteration still running after %.0fs on chain %s — "
-                    "the proposer is stalled, not idle; check gossip, sync, and PBFT state",
+                    "[PROPOSE] proposal iteration still running after %.0fs on chain %s "
+                    "(phase=%s) — the proposer is stalled, not idle; check gossip, sync, and PBFT state",
                     watchdog_after,
                     self._config.chain_id,
+                    phase,
                 )
                 metrics_registry.increment("poa_proposer_stalled_iterations_total")
+                metrics_registry.increment(f"poa_proposer_stalled_iterations_total_phase_{phase}")
 
         watcher = asyncio.ensure_future(_watch())
         try:
@@ -602,7 +610,9 @@ class PoAProposer:
         # Each phase now logs its start and duration so the journal shows
         # exactly which await blocked if the proposer stalls again.
         chain = self._config.chain_id
+        self._propose_phase = "idle"
         _t0 = time.time()
+        self._propose_phase = "early_gates"
         self._logger.debug("[PROPOSE:%s] phase=early_gates start", chain)
         mempool = await self._passes_early_gates()
         self._logger.debug("[PROPOSE:%s] phase=early_gates done %.3fs", chain, time.time() - _t0)
@@ -610,6 +620,7 @@ class PoAProposer:
             return False
         with self._session_factory() as session:
             _t1 = time.time()
+            self._propose_phase = "resolve_head"
             resolved = self._resolve_proposal_head(session)
             self._logger.debug("[PROPOSE:%s] phase=resolve_head done %.3fs", chain, time.time() - _t1)
             if resolved is None:
@@ -625,6 +636,7 @@ class PoAProposer:
             if selected is None:
                 return False
             proposer, round_number = selected
+            self._propose_phase = "collect_txs"
             _t2 = time.time()
             pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
             processed_txs, changed_addresses, ok = self._process_proposal_txs(
@@ -636,12 +648,14 @@ class PoAProposer:
             if self._reject_if_all_invalid(session, pending_txs, processed_txs):
                 return False
             _t3 = time.time()
+            self._propose_phase = "assemble_block"
             block, block_hash = self._assemble_proposal_block(
                 session, next_height, parent_hash, timestamp, processed_txs, proposer
             )
             self._logger.debug("[PROPOSE:%s] phase=assemble_block done %.3fs", chain, time.time() - _t3)
             metadata_dict: dict[str, Any] = {}
             _t4 = time.time()
+            self._propose_phase = "consensus_gates"
             self._logger.info("[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number)
             if not await self._run_consensus_gates(
                 session, block, block_hash, proposer, round_number, next_height, metadata_dict
@@ -659,11 +673,13 @@ class PoAProposer:
             block.signature = self._sign_block_hash_for(proposer, block)
             self._commit_and_record_block(session, block, proposer, interval_seconds, timestamp)
             _t5 = time.time()
+            self._propose_phase = "broadcast"
             self._logger.debug("[PROPOSE:%s] phase=broadcast start", chain)
             result = await self._broadcast_block(block, processed_txs)
             self._logger.debug(
                 "[PROPOSE:%s] phase=broadcast done %.3fs total=%.3fs", chain, time.time() - _t5, time.time() - _t0
             )
+            self._propose_phase = None
             return result
 
     async def _passes_early_gates(self) -> InMemoryMempool | DatabaseMempool | None:
