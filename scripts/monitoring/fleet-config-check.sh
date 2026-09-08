@@ -141,7 +141,7 @@ except Exception:
     done
 }
 S1_OUT=$(sample_heads)
-sleep 5
+sleep 60
 S2_OUT=$(sample_heads)
 
 report_and_check() {
@@ -176,6 +176,12 @@ echo "$R2" | head -n -1
 b1=$(echo "$R1" | tail -1 | cut -d' ' -f1); m1=$(echo "$R1" | tail -1 | cut -d' ' -f2)
 b2=$(echo "$R2" | tail -1 | cut -d' ' -f1); m2=$(echo "$R2" | tail -1 | cut -d' ' -f2)
 if [ "${b1:-0}" = "1" ] || [ "${b2:-0}" = "1" ]; then conv_bad=1; fi
+# liveness check: the fleet must make progress between the two samples; five
+# hosts agreeing on a dead chain is a perfect convergence result.
+if [ -n "$m1" ] && [ -n "$m2" ] && [ "$m2" -le "$m1" ]; then
+    echo "  HALT: fleet max height did not increase between samples ($m1 -> $m2)"
+    conv_bad=1
+fi
 # lag check: trailing >2 blocks in BOTH samples
 while read -r host rest; do
     [ "$rest" = "UNREACHABLE" ] && continue
