@@ -71,6 +71,7 @@ def compute_state_delta(
     chain_id: str,
     tx_hash: str = "",
     existing_tx_hashes: set[str] | None = None,
+    block_version: int = 2,
 ) -> StateDelta:
     """Compute the state delta for a transaction WITHOUT modifying the DB.
 
@@ -83,6 +84,7 @@ def compute_state_delta(
         chain_id: Chain identifier.
         tx_hash: Transaction hash (for duplicate detection).
         existing_tx_hashes: Set of already-processed tx hashes (for duplicate check).
+        block_version: State-transition rule version active for the block.
 
     Returns:
         StateDelta with balance/nonce changes, or success=False with error.
@@ -92,6 +94,24 @@ def compute_state_delta(
     tx_type = _determine_tx_type(tx_data)
     value = tx_data.get("value", tx_data.get("amount", 0))
     fee = tx_data.get("fee", 0)
+
+    # S-4: v3 escrow rules (per-escrow addresses, settlement authority, etc.)
+    # are not yet modeled by the pure/parallel path.  Any caller that enables
+    # parallel validation must therefore not use the parallel path for v3
+    # blocks; compute_state_delta reports the limitation so the state root
+    # cannot diverge silently.
+    if block_version >= 3 and tx_type in {"ESCROW_LOCK", "ESCROW_RELEASE", "ESCROW_REFUND"}:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=0,
+            sender_nonce_change=0,
+            success=False,
+            error=f"v3 {tx_type} not supported by parallel state transition",
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
 
     # Liquidity pool transactions update non-account state (pools, stakes,
     # distributions) that the parallel delta map cannot yet model. Force a
@@ -363,6 +383,7 @@ def apply_delta_to_map(
     account_map: dict[str, Account],
     delta: StateDelta,
     chain_id: str,
+    block_version: int = 2,
 ) -> None:
     """Apply a StateDelta to the in-memory account_map.
 
@@ -373,6 +394,7 @@ def apply_delta_to_map(
         account_map: In-memory account state (will be mutated).
         delta: StateDelta from compute_state_delta.
         chain_id: Chain identifier.
+        block_version: State-transition rule version active for the block.
     """
     if not delta.success:
         return
@@ -403,6 +425,7 @@ def apply_deltas_to_db(
     session: Session,
     deltas: list[StateDelta],
     chain_id: str,
+    block_version: int = 2,
 ) -> None:
     """Write accumulated state deltas to the DB in a single batch.
 
@@ -415,6 +438,7 @@ def apply_deltas_to_db(
         session: Database session.
         deltas: List of successful StateDelta objects.
         chain_id: Chain identifier.
+        block_version: State-transition rule version active for the block.
     """
     successful = [d for d in deltas if d.success]
     if not successful:
