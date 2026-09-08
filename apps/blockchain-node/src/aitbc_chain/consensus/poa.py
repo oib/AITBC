@@ -77,6 +77,24 @@ def _with_scheme(url: str) -> str:
     return f"http://{url}"
 
 
+def _escrow_addresses_from_txs(tx_datas: list[dict[str, Any]]) -> set[str]:
+    """Return the per-escrow addresses for any ESCROW_RELEASE/REFUND txs."""
+    escrow_addrs: set[str] = set()
+    for tx_data in tx_datas:
+        tx_type = _determine_tx_type(tx_data)
+        if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+            payload = tx_data.get("payload", {}) or {}
+            if isinstance(payload, str):
+                try:
+                    payload = json.loads(payload)
+                except Exception:
+                    payload = {}
+            job_id = payload.get("job_id", "")
+            if job_id:
+                escrow_addrs.add(_escrow_address(job_id))
+    return escrow_addrs
+
+
 # v0.7.3: Governance transaction payload validation
 _GOV_REQUIRED_FIELDS: dict[str, tuple[str, ...]] = {
     "GOVERNANCE_PROPOSE": ("proposal_id", "title", "proposer"),
@@ -1096,17 +1114,7 @@ class PoAProposer:
                 unique_addresses.add(sender)
             if recipient:
                 unique_addresses.add(recipient)
-            tx_type = _determine_tx_type(tx_data)
-            if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
-                payload = tx_data.get("payload", {}) or {}
-                if isinstance(payload, str):
-                    try:
-                        payload = json.loads(payload)
-                    except Exception:
-                        payload = {}
-                job_id = payload.get("job_id", "")
-                if job_id:
-                    unique_addresses.add(_escrow_address(job_id))
+        unique_addresses.update(_escrow_addresses_from_txs([tx.content for tx in pending_txs]))
         account_map: dict[str, Account] = {}
         if unique_addresses:
             existing_accounts = session.exec(
