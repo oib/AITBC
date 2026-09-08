@@ -321,6 +321,21 @@ This is mirrored on all five nodes: `hub.aitbc`, `node0`, `node1`,
 
   Use `-n 50` to see the last 50 lines, and add `--no-pager` for non-interactive output.
 
+- **Chain store path**: the live chain database is
+  `DATA_DIR / "data" / <chain_id> / "chain.db"` — on the current fleet that is
+  `/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`
+  (`apps/blockchain-node/src/aitbc_chain/config.py:89-93`). `/var/lib/aitbc/chain.db`
+  does **not** exist — note that `sqlite3 <path>` silently *creates* a 0-byte
+  database when handed a missing path, so probing the wrong path mutates the
+  host. Check `AITBC_DATA_DIR`/`--data-dir` first if unsure.
+
+- **systemd `EnvironmentFile=` does not strip inline `#` comments** — a comment
+  on an assignment line becomes part of the value (8 Sep: a
+  `BOND_SLASH_AUTHORITY_ADDRESS=<addr>  # note` line gave 6 units a 110-byte
+  env value). Annotate env files on their own line, and verify with
+  `scripts/monitoring/fleet-config-check.sh`, which now shape-checks every
+  `*_ADDRESS` value (`^0x[0-9a-fA-F]{40}$`).
+
 ## Smart contract test suites (two of them, different hosts)
 
 `contracts/` carries **two** independent suites. Both must pass; neither covers
