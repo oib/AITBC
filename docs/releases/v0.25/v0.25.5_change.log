@@ -403,8 +403,15 @@ inspection updated the following conclusions:
 
 - **D-2 — Mesh gossip auth gap** is closed on `main` at `252469f3b` (same tree
   as the cited branch commit `761b887837`) plus the two fixes `b990194ed7` and
-  `20257c5975`. The `origin/feat/open-island-gossip-remediation` branch still
-  carries four unmerged commits unrelated to the auth gap.
+  `20257c5975`.
+- **CLI escrow guard** (`1484e614f5` "fix(cli): abort when a paid submit leaves
+  escrow unsecured" with test `f3f33a8c6d`) is also already on `main` as
+  `f8a09b547c` and `886b10b79` with an identical tree; `cli/tests/test_ai_tee_submit.py`
+  passes. This gives the safety fix its own `main` disposition instead of letting
+  it retire with the feature branch.
+- The `origin/feat/open-island-gossip-remediation` branch now contains only the
+  three genuinely unmerged commits `d3693d01ab`, `5fbe633c7f`, `ffe0669023`
+  (contracts CI pipeline changes).
 - **O-3 — `redis.env`** exists only on `hub.aitbc` and `node2`; no systemd unit
   on any host loads it. The actual Redis credentials live in
   `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Status narrowed, not
