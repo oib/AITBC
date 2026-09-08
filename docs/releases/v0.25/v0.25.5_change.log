@@ -409,10 +409,13 @@ inspection updated the following conclusions:
   on any host loads it. The actual Redis credentials live in
   `/etc/aitbc/blockchain-secrets.env` and `redis.conf`. Status narrowed, not
   fully closed.
-- **CI history** — Gitea Actions runs 19600–19638 were consecutive failures
-  (39 runs, not the 22 noted earlier). 19639 (`b62637a792`) is the first green
-  gate in that window; 19642 (`3d09e81054`) also failed, with the green follow-up
-  at 19643 (`c79462f3e`). 19644–19646 are green.
+- **CI history** — Gitea Actions runs **19477–19638** were consecutive
+  failures (162 runs, not the 22 or 39 noted in earlier audit drafts).
+  The last green before the streak is 19476 (`3451957919`, 4 Sep 23:54); the
+  first failure is 19477 (`7ec4693ad1`, "fix(ci): fail the mypy gate when mypy
+  is not installed"). The first green gate after the streak is 19639
+  (`b62637a792`); 19642 (`3d09e81054`) also failed, with the green follow-up
+  at 19643 (`c79462f3e`). 19644–19647 are green.
 - **Fleet at 8 Sep 10:xx** is at `origin/main` tip `8cb48178d5`. All five
   `aitbc-blockchain-node/rpc` services are active and `/health` returns `ok`;
   `hub`, `hub2`, `node1`, and `node2` are at block 5130, while `node0` is at
