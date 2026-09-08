@@ -102,7 +102,7 @@ def recover_address(msg_hash: bytes, signature: str | bytes) -> str:
 _EVM_ADDRESS_RE: Final = re.compile(r"^0x[0-9a-fA-F]{40}$")
 
 
-def canonical_address(address: str) -> str:
+def canonical_address(address: str, *, strict: bool = False) -> str:
     """Normalize an address to the EIP-55 checksummed 0x form used for comparison.
 
     Valid secp256k1/EVM addresses (``0x`` + 40 hex) are returned as EIP-55 checksum
@@ -110,6 +110,12 @@ def canonical_address(address: str) -> str:
     is returned unchanged (lower-cased). This means legacy spellings no longer compare
     equal to their 0x counterpart, effectively rejecting them at comparison boundaries
     without raising in the middle of consensus code.
+
+    With ``strict=True`` the function instead raises ``ValueError`` on any input that
+    is not ``0x`` + 40 hex. Use it at configuration-load boundaries (env vars, config
+    files) where a malformed address must surface immediately rather than silently
+    mismatching downstream — the lenient default has repeatedly converted bad config
+    into invisible failures.
     """
     from eth_utils import to_checksum_address
 
@@ -117,6 +123,8 @@ def canonical_address(address: str) -> str:
     lowered = value.lower()
     if _EVM_ADDRESS_RE.fullmatch(lowered):
         return to_checksum_address(lowered)
+    if strict:
+        raise ValueError(f"not an EVM address (expected 0x + 40 hex): {address!r:.60}")
     return lowered
 
 
