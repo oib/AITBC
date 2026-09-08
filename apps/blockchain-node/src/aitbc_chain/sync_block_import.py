@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import json
 import time
 from typing import Any
 
@@ -23,6 +24,8 @@ from .metrics import (
 from .state import state_root_utils
 from .state.pure_state_transition import (
     StateDelta,
+    _determine_tx_type,
+    _escrow_address,
     apply_delta_to_map,
     apply_deltas_to_db,
     compute_state_delta,
@@ -394,17 +397,13 @@ class BlockImportMixin(SyncBase):
             parallel_applied = False
             # Historical v1 blocks (pre state-transition fix) use the sequential
             # path so the v1/v2 account-creation gating is applied correctly.
-            # S-4: v3 blocks may use the parallel path once the per-job escrow
-            # lock metadata is prefetched; a release/refund with no resolvable
-            # lock must stay sequential so its own missing-lock rules apply.
+            # S-4: v2/v3 blocks may use the parallel path once per-job escrow
+            # lock metadata is prefetched. A release/refund with no resolvable
+            # lock returns None and the block stays sequential.
             escrow_context: dict[str, dict[str, Any]] | None = None
-            if settings.parallel_tx_validation and block_version >= 3:
+            if settings.parallel_tx_validation and block_version in (2, 3):
                 escrow_context = build_escrow_context(session, self._chain_id, transactions)
-            if (
-                settings.parallel_tx_validation
-                and block_version in (2, 3)
-                and (block_version == 2 or escrow_context is not None)
-            ):
+            if settings.parallel_tx_validation and block_version in (2, 3) and escrow_context is not None:
                 # Build dependency graph from read/write sets.
                 graph = DependencyGraph()
                 tx_hash_to_data: dict[str, dict[str, Any]] = {}
@@ -418,10 +417,11 @@ class BlockImportMixin(SyncBase):
                 groups = graph.get_conflict_groups()
                 # Fall back to sequential if too many transactions conflict.
                 if groups and graph.conflict_rate() <= settings.conflict_threshold:
-                    # Batch-fetch all sender/recipient accounts into account_map.
-                    # Pre-create any missing accounts with zero balance so that
-                    # `compute_state_delta` does not fail on followers that have
-                    # not yet replayed the blocks that created those accounts.
+                    # Batch-fetch all sender/recipient/v3-escrow accounts into
+                    # account_map. Pre-create any missing accounts with zero
+                    # balance so that `compute_state_delta` does not fail on
+                    # followers that have not yet replayed the blocks that created
+                    # those accounts.
                     unique_addresses: set[str] = set()
                     for tx_data in transactions:
                         raw_from = tx_data.get("from", "")
@@ -432,6 +432,23 @@ class BlockImportMixin(SyncBase):
                             unique_addresses.add(sender_addr)
                         if recipient_addr and raw_to != "bridge_lock":
                             unique_addresses.add(recipient_addr)
+                        tx_type = _determine_tx_type(tx_data)
+                        if tx_type in ("ESCROW_RELEASE", "ESCROW_REFUND"):
+                            payload = tx_data.get("payload", {}) or {}
+                            if isinstance(payload, str):
+                                try:
+                                    payload = json.loads(payload)
+                                except Exception:
+                                    payload = {}
+                            job_id = payload.get("job_id", "")
+                            if job_id:
+                                ctx = (escrow_context or {}).get(job_id, {})
+                                lock_version = ctx.get("lock_version")
+                                # Only pre-fetch the per-escrow account when the
+                                # lock itself was a v3 per-escrow lock; v2 locks
+                                # keep the generic sender->recipient transfer.
+                                if lock_version is not None and lock_version >= 3:
+                                    unique_addresses.add(_escrow_address(job_id))
                     account_map: dict[str, Account] = {}
                     if unique_addresses:
                         existing_accounts = session.exec(
