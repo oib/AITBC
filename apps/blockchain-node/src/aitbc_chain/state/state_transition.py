@@ -206,9 +206,9 @@ def get_block_version_for_height(height: int) -> int:
     if v3_threshold > 0 and height >= v3_threshold:
         return 3
     v2_threshold = getattr(settings, "state_transition_v2_height", 0)
-    if v2_threshold > 0 and height >= v2_threshold:
-        return 2
-    return 1
+    if v2_threshold > 0 and height < v2_threshold:
+        return 1
+    return 2
 
 
 class StateTransition:
