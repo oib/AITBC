@@ -225,30 +225,36 @@ get_node_role() {
     if [ -f "$BLOCKCHAIN_ENV_FILE" ]; then
         # shellcheck disable=SC1090
         source "$BLOCKCHAIN_ENV_FILE" 2>/dev/null
-        blockchain_mode="${BLOCKCHAIN_MODE:-}"
-        market_role="${MARKET_ROLE:-}"
-        hardware_profile="${HARDWARE_PROFILE:-}"
+        # Support both UPPER_CASE and lower_case legacy env files.
+        blockchain_mode="${BLOCKCHAIN_MODE:-${blockchain_mode:-}}"
+        market_role="${MARKET_ROLE:-${market_role:-}}"
+        hardware_profile="${HARDWARE_PROFILE:-${hardware_profile:-}}"
     fi
     if [ -f "$NODE_ENV_FILE" ]; then
         # shellcheck disable=SC1090
         source "$NODE_ENV_FILE" 2>/dev/null
-        blockchain_mode="${blockchain_mode:-${BLOCKCHAIN_MODE:-}}"
-        market_role="${market_role:-${MARKET_ROLE:-}}"
-        hardware_profile="${hardware_profile:-${HARDWARE_PROFILE:-}}"
+        blockchain_mode="${BLOCKCHAIN_MODE:-${blockchain_mode:-}}"
+        market_role="${MARKET_ROLE:-${market_role:-}}"
+        hardware_profile="${HARDWARE_PROFILE:-${hardware_profile:-}}"
     fi
 
-    # Auto-detect GPU via nvidia-smi. If the env file says nogpu but a GPU
-    # is present, override to gpu so the correct profile (provider-gpu) is
-    # used and GPU dependencies (pycuda, torch, etc.) get installed.
+    # Auto-detect GPU via nvidia-smi. If the env file is not set, default to
+    # the detected profile. If it is explicitly set to 'nogpu' while a GPU is
+    # present, keep the configured value but warn; update.sh should not silently
+    # override an explicit operator choice.
     detect_gpu
-    if [ "$DETECTED_HARDWARE" = "gpu" ] && [ "${hardware_profile:-nogpu}" != "gpu" ]; then
-        warning "GPU detected (${GPU_NAME:-unknown}) but HARDWARE_PROFILE=${hardware_profile:-nogpu} — overriding to gpu"
-        hardware_profile="gpu"
+    if [ -z "$hardware_profile" ]; then
+        hardware_profile="$DETECTED_HARDWARE"
+        if [ "$DETECTED_HARDWARE" = "gpu" ]; then
+            log "GPU detected (${GPU_NAME:-unknown}) — setting HARDWARE_PROFILE=gpu"
+        fi
+    elif [ "$DETECTED_HARDWARE" = "gpu" ] && [ "$hardware_profile" != "gpu" ]; then
+        warning "GPU detected (${GPU_NAME:-unknown}) but HARDWARE_PROFILE=$hardware_profile — keeping nogpu as configured"
     elif [ "$DETECTED_HARDWARE" = "gpu" ]; then
         log "GPU confirmed: ${GPU_NAME:-unknown} (${GPU_COUNT:-1} device(s))"
     fi
 
-    echo "${blockchain_mode:-follower}:${market_role:-customer}:${hardware_profile:-$DETECTED_HARDWARE}"
+    echo "${blockchain_mode:-follower}:${market_role:-customer}:${hardware_profile:-nogpu}"
 }
 
 # Detect install-profiles.sh profile name from role (mirrors setup.sh)
