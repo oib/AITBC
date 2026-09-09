@@ -114,7 +114,7 @@ In another terminal, with the local node API on `http://localhost:8202`:
 
 ```bash
 aitbc wallet create --name soak-wallet
-aitbc wallet fund --name soak-wallet --amount 1000
+aitbc wallet send genesis soak-wallet 1000 <genesis-password>
 aitbc ai submit --prompt "multi-validator soak" --wallet soak-wallet --payment 1
 ```
 
