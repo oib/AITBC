@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Annotated, Any
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def _get_env() -> str:
-    """Get the current environment, checking ENVIRONMENT then APP_ENV."""
-    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
+    """Get the current environment, checking ENVIRONMENT, APP_ENV, then NODE_ENV."""
+    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", os.getenv("NODE_ENV", "development")))
 
 
 def _is_production() -> bool:
@@ -60,12 +60,18 @@ class Settings(BaseAITBCConfig):
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
     app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port: int = Field(default=8203, description="Server port")
-    # Keep this in sync with _get_env(): the systemd units set NODE_ENV, not ENVIRONMENT.
-    environment: str = Field(
-        default="development",
-        description="Environment",
-        validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV"),
-    )
+    environment: str = Field(default="development", description="Environment")
+
+    @model_validator(mode="before")
+    @classmethod
+    def _resolve_environment(cls, data: dict[str, Any]) -> dict[str, Any]:
+        """Keep Settings.environment in sync with _get_env() for NODE_ENV."""
+        if not data.get("environment"):
+            env = os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV")
+            if env:
+                data["environment"] = env
+        return data
+
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
     key_storage_dir: str = Field(default=str(REPO_DIR / "data" / "keys"), description="Key storage directory")
 
@@ -145,8 +151,8 @@ class Settings(BaseAITBCConfig):
     @field_validator("admin_wallet_addresses")
     @classmethod
     def _validate_admin_wallet_addresses(cls, v: str) -> str:
-        """Warn when the admin allowlist is empty, except in test fixtures."""
-        if not v and not os.getenv("TEST_MODE"):
+        """Warn when the admin allowlist is empty in production."""
+        if _is_production() and not v:
             logger.warning("admin router configured with no admin wallets; all admin routes will 403")
         return v
 
