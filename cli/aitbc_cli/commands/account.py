@@ -51,7 +51,13 @@ def get(ctx, address, rpc_url, chain_id):
         # Show the canonical checksum address so callers can copy it confidently.
         account_data["canonical"] = canonical
 
-        output(account_data, ctx.obj.get("output_format", "table"), title=f"Account: {canonical}")
+        fmt = ctx.obj.get("output_format", "table")
+        if fmt not in ("json", "yaml") and "balance" in account_data:
+            account_data["balance_units"] = account_data["balance"]
+            account_data["balance"] = format_ait(account_data["balance"])
+            account_data.pop("balance_ait", None)
+
+        output(account_data, fmt, title=f"Account: {canonical}")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
@@ -78,7 +84,14 @@ def list(ctx, rpc_url, chain_id):
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         accounts = http_client.get("/rpc/accounts", params=params)
 
-        output(accounts, ctx.obj.get("output_format", "table"), title="Accounts")
+        fmt = ctx.obj.get("output_format", "table")
+        if fmt not in ("json", "yaml"):
+            for account in accounts.get("accounts", []):
+                if "balance" in account:
+                    account["balance_units"] = account["balance"]
+                    account["balance"] = format_ait(account["balance"])
+
+        output(accounts, fmt, title="Accounts")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
