@@ -4,7 +4,7 @@ import os
 from pathlib import Path
 from typing import Any
 
-from pydantic import Field, SecretStr, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
 from aitbc.config.hub import hub_agent_url, hub_coordinator_url, hub_exchange_url
@@ -99,13 +99,17 @@ class CLIConfig(BaseAITBCConfig):
     # against the on-chain IEnergyPricing contract and submit protected rental
     # or compute-escrow transactions. They mirror the coordinator settings and
     # default to the same env vars when the CLI runs on a node.
-    evm_rpc_url: str | None = Field(default=None, description="Ethereum JSON-RPC URL for EVM energy quote verification and rental transactions")
+    evm_rpc_url: str | None = Field(
+        default=None, description="Ethereum JSON-RPC URL for EVM energy quote verification and rental transactions"
+    )
     energy_pricing_contract_address: str | None = Field(default=None, description="IEnergyPricing contract address")
     energy_pricing_chain_id: int = Field(default=1, description="EVM chain ID for energy oracle reads")
     energy_rental_contract_address: str | None = Field(default=None, description="AIPowerRental contract address")
     energy_escrow_contract_address: str | None = Field(default=None, description="EscrowService contract address")
     energy_token_contract_address: str | None = Field(default=None, description="ERC-20 AITBC token contract address")
-    energy_operator_address: str | None = Field(default=None, description="Operator address (0x...) expected to sign energy quotes")
+    energy_operator_address: str | None = Field(
+        default=None, description="Operator address (0x...) expected to sign energy quotes"
+    )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime in seconds")
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote signing domain")
     native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
@@ -123,6 +127,14 @@ class CLIConfig(BaseAITBCConfig):
 
     # Config file path (for backward compatibility)
     config_file: str | None = Field(default=None, description="Path to config file")
+
+    @field_validator("blockchain_rpc_url", mode="after")
+    @classmethod
+    def _normalize_blockchain_rpc_url(cls, v: str) -> str:
+        """Env files often set the full /rpc endpoint, but CLI code appends /rpc/...."""
+        if v.endswith("/rpc"):
+            return v[:-3].rstrip("/")
+        return v
 
     @model_validator(mode="after")
     def _resolve_hub_only_urls(self) -> "CLIConfig":
