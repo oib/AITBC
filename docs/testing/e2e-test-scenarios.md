@@ -253,7 +253,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 1. Health-check the coordinator, marketplace, and blockchain RPC services
 2. Register a software-service offer via `POST /v1/marketplace/offer`
 3. Create a job bound to that offer via `POST /v1/jobs`
-4. Fund the test buyer via `POST /rpc/faucet` and poll until the balance is on-chain
+4. Fund the test buyer from the genesis wallet and poll until the balance is on-chain
 5. Sign an `ESCROW_LOCK` transaction and create the payment/escrow via `POST /v1/payments`
 6. Register a miner via `POST /v1/miners/register`
 7. Poll for job assignment and submit a result via `POST /v1/miners/{job_id}/result`
@@ -265,7 +265,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - `tests/e2e/test_marketplace_escrow.py` passes or, if the node is not configured to settle escrow, skips cleanly at the release step
 - Software offer registration is retrievable by `plugin_id`
 - Job creation returns `state == QUEUED` and a quoted `payment_amount`
-- Buyer account is funded through the faucet after one block
+- Buyer account is funded from the genesis wallet after one block
 - Payment/escrow creation returns `status == "escrowed"`
 - Miner receives and completes the job
 - Job acceptance triggers an on-chain `ESCROW_RELEASE` and reaches `payment_status == "released"`
@@ -279,7 +279,6 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - Block production enabled on the blockchain node
 - `E2E_NODE_WALLET_ADDRESS` (or `NODE_WALLET_ADDRESS` / `GENESIS_WALLET_ADDRESS`) set for escrow tests
 - `JWT_SECRET` or pre-created `E2E_CLIENT_TOKEN` and `E2E_MINER_TOKEN` for coordinator auth
-- Faucet endpoint available to fund the test buyer wallet
 - Settlement key configured on the blockchain node for escrow release (`ESCROW_RELEASE_PRIVATE_KEY` or `GENESIS_WALLET_PRIVATE_KEY`)
 
 **Execution:**

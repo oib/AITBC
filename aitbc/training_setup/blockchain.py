@@ -1,6 +1,6 @@
 """
 Blockchain and Wallet Setup Module
-Handles genesis allocation, faucet wallet setup, and training wallet funding
+Handles genesis allocation, genesis funding-source setup, and training wallet funding
 """
 
 import logging
@@ -81,7 +81,7 @@ class BlockchainSetup:
         log.info("Genesis block already exists, initialization skipped")
         return {"status": "completed", "note": "Genesis block already exists"}
 
-    def setup_faucet_wallet(self) -> dict[str, Any]:
+    def setup_genesis_funding_source(self) -> dict[str, Any]:
         """
         Check genesis wallet status for funding.
         Genesis wallet is pre-funded with 999,999,890 AIT and used as funding source.
@@ -109,7 +109,7 @@ class BlockchainSetup:
             log.warning("Genesis balance check failed: %s", e)
         return {"status": "completed", "funding_source": "genesis", "note": "Genesis wallet used as funding source"}
 
-    def fund_training_wallet(self, wallet_name: str, faucet_amount: int = 1000, password: str | None = None) -> dict[str, Any]:
+    def fund_training_wallet(self, wallet_name: str, amount: int = 1000, password: str | None = None) -> dict[str, Any]:
         if password is None:
             raise ValueError("password is required and must not be empty")
         """
@@ -117,7 +117,7 @@ class BlockchainSetup:
 
         Args:
             wallet_name: Name of the wallet to fund
-            faucet_amount: Amount to fund
+            amount: Amount to fund
             password: Wallet password
 
         Returns:
@@ -145,21 +145,21 @@ class BlockchainSetup:
             log.warning("Wallet creation check failed: %s", e)
         try:
             result = subprocess.run(  # nosec B603: fixed command, safe input
-                [str(aitbc_cli), "wallet", "send", "genesis", wallet_name, str(faucet_amount), self.genesis_password],
+                [str(aitbc_cli), "wallet", "send", "genesis", wallet_name, str(amount), self.genesis_password],
                 cwd=self.aitbc_dir,
                 capture_output=True,
                 text=True,
                 timeout=30,
             )
             if result.returncode == 0:
-                log.info("✓ Wallet %s funded with %s AIT from genesis", wallet_name, faucet_amount)
+                log.info("✓ Wallet %s funded with %s AIT from genesis", wallet_name, amount)
             else:
                 log.warning("Funding failed: %s", result.stderr)
                 return {"status": "failed", "error": result.stderr}
         except Exception as e:
             log.warning("Funding failed: %s", e)
             return {"status": "failed", "error": str(e)}
-        return {"status": "completed", "wallet": wallet_name, "amount": faucet_amount}
+        return {"status": "completed", "wallet": wallet_name, "amount": amount}
 
     def check_wallet_balance(self, wallet_name: str) -> dict[str, Any]:
         """

@@ -33,7 +33,7 @@
 
   <p>
     The key is safe to publish because it reaches only those two endpoints, and neither pays
-    outside the hub's faucet policy: <code>/execute</code> takes the amount and destination from
+    outside the hub's coin-request policy: <code>/execute</code> takes the amount and destination from
     the hub's own stored row, and <code>/register</code> writes rows the policy has ruled on.
   </p>
 
@@ -44,7 +44,7 @@
   </p>
 
   <p>
-    <strong>Faucet policy:</strong> one automatic grant per agent <em>and</em> per destination
+    <strong>Coin-request policy:</strong> one automatic grant per agent <em>and</em> per destination
     wallet, counted canonically, so <code>ait1…</code> and <code>0x…</code> spellings of the same
     address are one wallet. Anything beyond that waits for a hub operator.
   </p>

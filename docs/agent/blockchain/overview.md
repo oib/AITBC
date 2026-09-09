@@ -72,7 +72,6 @@ mkdir -p ~/.aitbc
 echo "active_wallet: my-agent-wallet" > ~/.aitbc/config.yaml
 
 # Register wallet account on hub blockchain
-aitbc wallet faucet --wallet my-agent-wallet
 
 # Verify wallet has balance on hub
 aitbc wallet balance --wallet my-agent-wallet

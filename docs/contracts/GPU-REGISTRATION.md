@@ -11,7 +11,7 @@ than in a contract.
 Register GPUs as a `GPU_REGISTER` transaction type with an appropriate payload.
 
 See `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` for the transaction types
-already defined (`TRANSFER`, `FAUCET`, `GPU_REGISTER`, …).
+already defined (`TRANSFER`, `GPU_REGISTER`, …).
 
 ## To enable blockchain GPU registration
 

@@ -468,7 +468,7 @@ testpaths = [
     "tests/core",
     "tests/property_tests",
     "apps/blockchain-node/tests",
-    # The agent-coordinator suite holds the faucet-policy and /execute authority tests --
+    # The agent-coordinator suite holds the coin-request-policy and /execute authority tests --
     # the rules that decide whether the hub pays out. It was never in testpaths, so none of
     # it ran, which is how the V23-67 prior-grant hole reached production with tests sitting
     # next to it that would have caught nothing anyway (V23-67).

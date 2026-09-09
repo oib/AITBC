@@ -31,7 +31,6 @@ class Settings(ServiceSettings):
     # Authentication / authorization
     api_key: str | None = Field(default=None, alias="WALLET_API_KEY")
     auth_enabled: bool = Field(default=True, alias="WALLET_AUTH_ENABLED")
-    enable_faucet: bool = Field(default=False, alias="WALLET_ENABLE_FAUCET")
 
     @property
     def ledger_db_path(self) -> Path:

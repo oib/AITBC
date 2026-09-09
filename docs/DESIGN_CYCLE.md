@@ -60,7 +60,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 
 | Step | Intended | Today | Gap |
 |------|----------|-------|-----|
-| 0. Acquire AIT | ETH on-ramp, or faucet | Genesis wallet / manual `wallet send`; `aitbc wallet fund` now calls `/rpc/faucet` and accepts bech32 or 0x addresses. Exchange `buy` still keystore-gated. | Customer onboarding |
+| 0. Acquire AIT | ETH on-ramp | Genesis wallet / manual `wallet send`; Exchange `buy` still keystore-gated. | Customer onboarding |
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list` reputation-sort live; `aitbc ai submit --min-reputation` live. Web UI still defaults to mock (P1.2 in progress). | Partial — P1.2 |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | CLI wallet-signed JWT via `aitbc auth login`; `aitbc ai submit` falls back to it. `--api-key` still accepted. Web UI may require API key setup. | Done for CLI |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
@@ -165,7 +165,7 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 
 ### Product / economics
 
-1. No real customer on-ramp (ETH→AIT `buy` still keystore-gated; no faucet play).
+1. No real customer on-ramp (ETH→AIT `buy` still keystore-gated).
 2. Reputation is queryable but does not rank miners or offers.
 3. No automatic provider reinvestment or performance bonds (CLI shells only).
 4. Fee market is fixed; dynamic pricing was deprecated in v0.5.0.
@@ -202,7 +202,6 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 | P0.3 | Non-genesis settlement key for `ESCROW_RELEASE` | Shipped: `ESCROW_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_ADDRESS` env vars; derived key signs the on-chain release tx, falling back to `GENESIS_WALLET_PRIVATE_KEY` (Phase 8) |
 | P0.4 | Production defaults that match live: escrow on; document nginx as the public RPC, not rebinding 8202 | Shipped: `escrow_enabled` defaults to `True` in `apps/blockchain-node/src/aitbc_chain/config.py`; `STATUS.md` updated. Scenario 34 documents nginx/SSH-tunnel as the public path and warns against raw `:8202`; escrow release is live (Phases 1, 8) |
 | P0.5 | Follower soak: no more silent forks; `aitbc sync status` / `aitbc network status` alert on divergence | Shipped: `aitbc sync status --hub-url` with `--alert` and `--gap-threshold` (Phase 3) |
-| P0.6 | One on-ramp play: `aitbc wallet fund` against `/rpc/faucet` with bech32/0x support | Shipped: CLI path to the live faucet (Phase 4) |
 | P0.7 | Collapse or clearly alias `market` vs `marketplace` in `--help` and scenarios | Shipped: updated group docstrings, `cli/README.md` disambiguation, help-output tests (Phase 5) |
 
 ### P1 — make the loop trustless and operable

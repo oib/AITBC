@@ -8,7 +8,7 @@ reasons worth keeping in mind, because both are shapes that recur:
 1. The calls run in FastAPI background tasks that catch `NetworkError` into a log line. The
    router has already returned 201 by the time the 404 arrives, so a client that stakes or
    deploys a bounty is told it succeeded while nothing reaches the chain.
-2. `tests/fixtures/mock_blockchain_node.py` implemented `/rpc/admin/mintFaucet` and
+2. `tests/fixtures/mock_blockchain_node.py` implemented `/rpc/admin/mintToken` and
    `/rpc/getBalance/{address}` — endpoints no node has ever served. **The mock was written to
    match the client rather than the server**, so the integration suite proved only that the
    client agreed with itself.
