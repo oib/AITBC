@@ -208,7 +208,7 @@ def list_offers(
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
 
         # Resolve the local identity when --mine is used.
         my_address: str | None = None
@@ -461,7 +461,7 @@ def cancel(ctx, order_ids: tuple[str, ...]):
         cancel_data["signature"] = sign_transaction_data(cancel_data, private_key)
 
         try:
-            hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
             success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
@@ -493,7 +493,7 @@ def status(ctx, order_id: str):
         config = get_config()
         blockchain_rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
         hub_url = (
-            f"http://{config.hub_discovery_url}"
+            f"https://{config.hub_discovery_url}"
             if config.hub_discovery_url and not config.hub_discovery_url.startswith("http")
             else (config.hub_discovery_url or blockchain_rpc_url)
         )
@@ -579,7 +579,9 @@ def match(ctx, output_format: str):
 
             if not result:
                 # Try hub
-                hub_url = config.blockchain_rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
+                hub_url = config.blockchain_rpc_url.replace(
+                    "localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net"
+                ).replace("http://", "https://")
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get("/rpc/transactions/marketplace/match")
 
@@ -711,7 +713,7 @@ def offer(
         config = get_config()
         chain_id = get_chain_id()
         island_id = get_island_id()
-        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         # Auto-detect deployment type from model name suffix
