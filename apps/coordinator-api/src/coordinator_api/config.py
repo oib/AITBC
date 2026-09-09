@@ -60,6 +60,7 @@ class Settings(BaseAITBCConfig):
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
     app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port: int = Field(default=8203, description="Server port")
+    # Keep this in sync with _get_env(): the systemd units set NODE_ENV, not ENVIRONMENT.
     environment: str = Field(
         default="development",
         description="Environment",
