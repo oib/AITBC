@@ -1,10 +1,12 @@
 """Tests for the aitbc auth command group."""
 
+import base64
+import json
 from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
-from aitbc_cli.auth import AuthManager
+from aitbc_cli.auth import AuthManager, ExpiredAdminToken
 from click.testing import CliRunner
 
 
@@ -108,6 +110,22 @@ class TestAuthCommands:
         # Admin token present: use it directly.
         mock_get_credential.side_effect = ["admin-jwt", None]
         assert mgr.get_admin_token() == "admin-jwt"
+
+    def test_get_admin_token_raises_on_expired_jwt(self, tmp_path):
+        """An expired JWT is surfaced before it reaches the server."""
+
+        def _b64(v: dict) -> str:
+            return base64.urlsafe_b64encode(json.dumps(v).encode()).decode().rstrip("=")
+
+        expired_token = f"{_b64({'alg': 'none'})}.{_b64({'exp': 1})}."
+
+        store = tmp_path / "creds.json"
+        store.write_text("{}")
+        mgr = AuthManager(store_path=store)
+
+        with patch.object(mgr, "get_credential", return_value=expired_token):
+            with pytest.raises(ExpiredAdminToken):
+                mgr.get_admin_token()
 
     @patch("aitbc_cli.commands.auth.AuthManager")
     def test_auth_logout(self, mock_auth_manager, runner):

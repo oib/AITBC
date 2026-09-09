@@ -9,7 +9,7 @@ from typing import Any
 import click
 from rich.console import Console
 
-from ..auth import AuthManager
+from ..auth import AuthManager, ExpiredAdminToken
 from ..utils import error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, get_logger
@@ -544,6 +544,9 @@ def sweepers(ctx, show_config: bool):
     try:
         client = _admin_client(ctx)
         data = client.get("/v1/admin/sweepers")
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e))
+        return
     except Exception as e:
         abort(ctx, f"Error fetching sweeper status: {e}", from_exception=e)
         return
