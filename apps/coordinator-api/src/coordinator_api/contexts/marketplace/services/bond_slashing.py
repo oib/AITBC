@@ -19,6 +19,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from eth_account import Account
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
@@ -106,10 +107,36 @@ class BondSlashingService:
         # that systemd EnvironmentFile does not strip) into an immediate error
         # instead of a silent every-comparison-fails mismatch downstream.
         self.slash_authority = _env_evm_address("BOND_SLASH_AUTHORITY_ADDRESS")
-        self.slash_private_key = os.getenv("BOND_SLASH_PRIVATE_KEY", "")
+        self.slash_private_key = self._validated_slash_private_key(
+            os.getenv("BOND_SLASH_PRIVATE_KEY", ""), self.slash_authority
+        )
         self.bond_burn_address = _env_evm_address("BOND_BURN_ADDRESS")
         self.chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
         self.tx_fee = int(os.getenv("BOND_SLASH_TX_FEE", "36"))
+
+    @staticmethod
+    def _validated_slash_private_key(private_key: str, authority: str) -> str:
+        """Return the private key only if it controls the configured authority.
+
+        A slash signed by the wrong key will be rejected on-chain. Clearing the
+        key here makes every slash call fail-safe ("slashing not configured")
+        and logs the mismatch so it is visible in the coordinator logs.
+        """
+        if not private_key or not authority:
+            return private_key
+        try:
+            derived = Account.from_key(private_key).address
+        except Exception as exc:
+            logger.error("BOND_SLASH_PRIVATE_KEY is not a valid private key: %s", exc)
+            return ""
+        if derived.lower() != authority.lower():
+            logger.error(
+                "BOND_SLASH_PRIVATE_KEY does not match BOND_SLASH_AUTHORITY_ADDRESS: derived %s, expected %s",
+                derived,
+                authority,
+            )
+            return ""
+        return private_key
 
     def _bond_for_job(self, job: Job) -> ProviderBond | None:
         """Return the active/locked bond backing a job, if any."""
