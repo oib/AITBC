@@ -113,7 +113,7 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 | `aitbc messaging` | messaging RPC | `(Simulated)` | messaging service not reachable |
 | `aitbc exchange-island` | exchange service (8106) | `(Simulated)` | exchange not reachable |
 | `aitbc ipfs` | local Kubo daemon | filesystem CID shim | Kubo daemon not running |
-| `aitbc tee launch` | local TEE runtime | `(Simulated)` | no TEE runtime present |
+| `aitbc tee launch` | local TEE runtime | **not registered** | group deferred to release 2.0 in `9079fb74a`; `aitbc tee` is absent from the CLI |
 | `aitbc simulate` | — | always simulated | explicit simulation |
 
 Scenario files that touch these groups include a note near the top. Live product-path scenarios (e.g. 34, 07, 48) produce real on-chain/coordinator data when the services are running.
@@ -150,14 +150,14 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 | # | Scenario | Focus | CLI group |
 |---|---|----------|-------|-----------|
 || 37 | [ZK Proof for High-Value Jobs](./37_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai` |
-|| 38 | TEE Attestation for Confidential Jobs | Confidential jobs require and verify a TEE attestation | `aitbc ai`, `aitbc tee` |
+|| 38 | TEE Attestation for Confidential Jobs | Confidential jobs require and verify a TEE attestation | `aitbc ai`, `aitbc tee` (deferred, not registered) |
 || 39 | [Automatic Reinvestment from Released Escrow](./40_auto_reinvestment.md) | Auto-stake provider earnings on escrow release | `aitbc ai` |
 || 40 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via marketplace offers | `aitbc market` |
 || 41 | [Real IPFS Daemon behind `aitbc ipfs`](./42_ipfs_daemon.md) | Use Kubo for real CIDs and cross-node retrieval | `aitbc ipfs` |
 || 42 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
 || 43 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |
 || 45 | [Agent-Message Workflow](./45_agent_msg_workflow.md) | Send, ping, and receive agent-to-agent messages with delivery status | `aitbc agent-msg` |
-|| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` |
+|| 46 | [Confidential TEE Jobs](./46_tee_confidential_jobs.md) | Confidential jobs require and verify a TEE attestation via the new CLI surface | `aitbc ai`, `aitbc tee` (deferred, not registered) |
 || 47 | [ZK Proofs for High-Value Jobs](./47_zk_high_value_jobs.md) | High-value jobs require and verify a ZK receipt proof | `aitbc ai`, `aitbc zk` |
 || 48 | [Performance Bonds for High-Value Jobs](./48_performance_bonds_high_value.md) | High-value jobs require an active provider performance bond | `aitbc ai`, `aitbc bond` |
 || 49 | [Auto-Reinvest from Released Escrow](./49_auto_reinvest_escrow.md) | Escrow release automatically stakes a provider-defined percentage of earnings | `aitbc ai` |

@@ -58,6 +58,8 @@ SYNC_STATE_ROOT_VALIDATION_ENABLED BOND_ESCROW_ADDRESS BOND_BURN_ADDRESS"
 
 drift=0
 shape_bad=0
+shadowed=0
+eff_drift=0
 if [ "$ssh_reach" -eq 0 ]; then
     echo "=== env sections skipped (no ssh reach) ==="
 else
@@ -99,6 +101,73 @@ done
 if [ "$shape_bad" -eq 0 ]; then
     echo "  all *_ADDRESS values well-formed on all hosts"
 fi
+echo "=== EnvironmentFile shadow check ==="
+# The 8 Sep outage and the mesh-peer defect found on 9 Sep were the same bug:
+# a variable set in two EnvironmentFile entries of one unit, where the later
+# file silently wins. Neither was visible in the file the operator was reading.
+# Flag any variable assigned in more than one EnvironmentFile of a unit.
+shadowed=0
+for h in $HOSTS; do
+    out=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        'for unit in aitbc-blockchain-node aitbc-blockchain-rpc; do
+            files=$(systemctl show -p EnvironmentFiles --value "$unit" 2>/dev/null \
+                    | tr " " "\n" | sed "s/ (ignore_errors=.*)//; s/^-//" | grep "^/" || true)
+            [ -z "$files" ] && continue
+            for f in $files; do
+                [ -r "$f" ] || continue
+                sudo grep -hoE "^[A-Za-z_][A-Za-z0-9_]*=" "$f" | tr -d "=" | sed "s|$| $f|"
+            done | sort | awk -v U="$unit" "
+                {name=\$1; file=\$2; if (name==prev) {n++; list=list \" \" file}
+                 else {if (n>1) print U \" \" prev \" \" list; prev=name; n=1; list=file}}
+                END {if (n>1) print U \" \" prev \" \" list}"
+        done' 2>/dev/null || echo "UNREACHABLE")
+    if [ -n "$out" ] && [ "$out" != "UNREACHABLE" ]; then
+        shadowed=1
+        echo "$out" | while read -r unit name files; do
+            printf "  %-14s %s: %s set in >1 file: %s\n" "$h" "$unit" "$name" "$files"
+        done
+    fi
+done
+if [ "$shadowed" -eq 0 ]; then
+    echo "  no variable is set by more than one EnvironmentFile on any host"
+fi
+
+echo "=== effective env (from the running process, not the files) ==="
+# Files are what we intend; /proc/<pid>/environ is what the node actually got.
+# Reading the files reproduces our own precedence assumptions and so cannot
+# catch a mistake in them; this section reads ground truth instead.
+eff_drift=0
+EFF_VARS="$VARS GOSSIP_BACKEND GOSSIP_MESH_PEER_URLS"
+for var in $EFF_VARS; do
+    seen=""
+    first=1
+    for h in $HOSTS; do
+        val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+            "pid=\$(systemctl show -p MainPID --value aitbc-blockchain-node 2>/dev/null); \
+             if [ -n \"\$pid\" ] && [ \"\$pid\" != 0 ]; then \
+                 sudo tr '\\0' '\\n' < /proc/\$pid/environ | grep '^${var}=' | cut -d= -f2- | tail -1; \
+             else echo NOTRUNNING; fi" 2>/dev/null || echo "UNREACHABLE")
+        [ -z "$val" ] && val="<unset>"
+        if [ "$first" -eq 1 ]; then
+            echo "=== $var (effective) ==="
+            first=0
+        fi
+        printf "  %-14s %s\n" "$h" "$val"
+        if [ -z "$seen" ]; then
+            seen="$val"
+        elif [ "$seen" != "$val" ]; then
+            # peer lists are legitimately per-host: each node omits itself.
+            case "$var" in
+                GOSSIP_MESH_PEER_URLS) ;;
+                *) eff_drift=1 ;;
+            esac
+        fi
+    done
+done
+if [ "$eff_drift" -eq 0 ]; then
+    echo "  no effective-env drift in consensus variables"
+fi
+
 fi  # ssh_reach
 
 echo "=== chain-head convergence (height + hash, two samples) ==="
@@ -196,7 +265,8 @@ while read -r host rest; do
 done <<< "$S2_OUT"
 
 echo
-if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ]; then
+if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
+   && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
