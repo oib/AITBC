@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def _get_env() -> str:
-    """Get the current environment, checking ENVIRONMENT, APP_ENV, then NODE_ENV."""
-    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", os.getenv("NODE_ENV", "development")))
+    """Get the current environment, checking ENVIRONMENT then APP_ENV."""
+    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
 
 
 def _is_production() -> bool:
@@ -64,7 +64,7 @@ class Settings(BaseAITBCConfig):
     environment: str = Field(
         default="development",
         description="Environment",
-        validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV", "NODE_ENV"),
+        validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV"),
     )
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
     key_storage_dir: str = Field(default=str(REPO_DIR / "data" / "keys"), description="Key storage directory")
@@ -145,8 +145,8 @@ class Settings(BaseAITBCConfig):
     @field_validator("admin_wallet_addresses")
     @classmethod
     def _validate_admin_wallet_addresses(cls, v: str) -> str:
-        """Warn when the admin allowlist is empty in production."""
-        if _is_production() and not v:
+        """Warn when the admin allowlist is empty, except in test fixtures."""
+        if not v and not os.getenv("TEST_MODE"):
             logger.warning("admin router configured with no admin wallets; all admin routes will 403")
         return v
 

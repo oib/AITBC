@@ -498,7 +498,9 @@ def _admin_client(ctx: click.Context, timeout: int = 15) -> AITBCHTTPClient:
     anything else as an API key.
     """
     config = ctx.obj["config"]
-    base_url = ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
+    base_url = (ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203").rstrip("/")
+    if base_url.endswith("/v1"):
+        base_url = base_url[:-3]
     # Explicit --api-key on the command line wins over stored credentials.
     token = ctx.obj.get("api_key") or AuthManager().get_admin_token() or config.api_key or ""
 
