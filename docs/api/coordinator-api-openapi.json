@@ -1537,6 +1537,58 @@
         }
       }
     },
+    "/v1/admin/sweepers": {
+      "get": {
+        "tags": [
+          "admin"
+        ],
+        "summary": "List background sweeper tasks, their status and configuration",
+        "description": "Report every background sweeper this coordinator manages.\n\nRead-only: it reports what the tasks are doing, it does not start, stop or\ntrigger them.\n\n`status` distinguishes three things that look alike from outside:\n`disabled` means the enable flag is off and no task was ever started,\n`running` means the task is alive, and anything else (`not started`,\n`error: ...`, `cancelled`, `completed`) on an *enabled* sweeper means it\nshould be running and is not - a run_forever coroutine that has finished\nhas crashed out of its loop.\n\n`config` is each sweeper's effective settings, read off a fresh instance,\nso it reflects the environment this process was started with rather than\nthe documented defaults.",
+        "operationId": "list_sweepers_v1_admin_sweepers_get",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response List Sweepers V1 Admin Sweepers Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/marketplace/offers": {
       "get": {
         "tags": [
