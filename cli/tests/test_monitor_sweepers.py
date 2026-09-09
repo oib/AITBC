@@ -160,7 +160,11 @@ def test_an_expired_admin_token_says_so(monkeypatch):
         return base64.urlsafe_b64encode(json.dumps(v).encode()).decode().rstrip("=")
 
     expired_token = f"{_b64({'alg': 'none'})}.{_b64({'exp': 1})}."
-    monkeypatch.setattr(monitor_mod.AuthManager, "get_admin_token", lambda self, environment="default": expired_token)
+
+    def _fake_credential(self, name, environment="default", quiet=False):
+        return expired_token if name in ("admin", "client") else None
+
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", _fake_credential)
 
     result = CliRunner().invoke(cli, ["monitor", "sweepers"])
 
