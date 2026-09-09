@@ -14,7 +14,7 @@ from dotenv import load_dotenv
 class Config:
     """Configuration object for AITBC CLI"""
 
-    coordinator_url: str = "http://127.0.0.1:8011"
+    coordinator_url: str = "http://127.0.0.1:8203"
     api_key: str | None = None
     role: str | None = None  # admin, client, miner, etc.
     config_dir: Path = field(default_factory=lambda: Path.home() / ".aitbc")
@@ -36,7 +36,7 @@ class Config:
             if not any(url.startswith(prefix) for prefix in localhost_prefixes):
                 # Force to localhost if not already
                 if url_name == "coordinator_url":
-                    self.coordinator_url = "http://localhost:8011"
+                    self.coordinator_url = "http://localhost:8203"
                 elif url_name == "blockchain_rpc_url":
                     self.blockchain_rpc_url = "http://localhost:8202"
                 elif url_name == "wallet_url":

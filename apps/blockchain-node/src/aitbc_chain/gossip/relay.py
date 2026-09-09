@@ -104,12 +104,12 @@ def create_app() -> Starlette:
         Middleware(
             CORSMiddleware,
             allow_origins=[
-                "http://localhost:8011",
+                "http://127.0.0.1:8203",
                 "http://localhost:8001",
                 "http://localhost:8002",
                 "http://localhost:8003",
                 "http://localhost:8010",
-                "http://localhost:8011",
+                "http://127.0.0.1:8203",
                 "http://localhost:8012",
                 "http://localhost:8013",
                 "http://localhost:8014",

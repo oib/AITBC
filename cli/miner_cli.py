@@ -47,7 +47,7 @@ Examples:
         """,
     )
 
-    parser.add_argument("--coordinator-url", default="http://localhost:8011", help="Coordinator API URL")
+    parser.add_argument("--coordinator-url", default="http://127.0.0.1:8203", help="Coordinator API URL")
     parser.add_argument("--api-key", default="miner_prod_key_use_real_value", help="Miner API key")
 
     subparsers = parser.add_subparsers(dest="action", help="Miner management actions")
