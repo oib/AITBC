@@ -16,7 +16,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `brand` — Show and manage white-label brand settings.. Subcommands: `list`, `show`
 - `bridge` — Cross-chain bridge management. Subcommands: `attest`, `balance`, `confirm`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock`
 - `cluster` — Cluster management and operations. Subcommands: `balance`, `status`, `sync`
-- `coin-requests` — Manage coin transfer requests.. Subcommands: `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show`
+- `coin-requests` — Manage coin transfer requests.. Subcommands: `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `request`, `show`
 - `compliance` — Compliance policy, classification, and audit commands.. Subcommands: `check`, `classify`, `export-audit`
 - `confidential` — Confidential TEE-signed transaction commands.. Subcommands: `balance`, `send`
 - `config` — Manage CLI configuration. Subcommands: `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate`
