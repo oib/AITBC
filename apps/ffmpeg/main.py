@@ -32,7 +32,7 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for FFmpeg service"""
     # Verify FFmpeg with GPU support is available
     try:
-        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=15)
         if _hw_accel not in result.stdout:
             logger.warning(f"{_hw_accel} hardware acceleration not available in FFmpeg")
         else:
@@ -49,7 +49,7 @@ app = FastAPI(title="AITBC FFmpeg Service", version="1.0.0", lifespan=lifespan)
 async def health():
     """Health check endpoint"""
     try:
-        result = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=15)
         return create_simple_health_response(
             "ffmpeg",
             status="ok",
@@ -77,7 +77,7 @@ async def capabilities():
                 ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
                 capture_output=True,
                 text=True,
-                timeout=5,
+                timeout=15,
             )
             if result.returncode == 0:
                 gpu_info = {
@@ -125,7 +125,7 @@ async def process_video(
 
     # Validate GPU acceleration is available
     try:
-        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=5)
+        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=15)
         if _hw_accel not in result.stdout:
             logger.exception("Unhandled exception")
 
