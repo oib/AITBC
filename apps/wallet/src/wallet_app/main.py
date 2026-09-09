@@ -83,10 +83,19 @@ async def _import_file_wallets() -> None:
     if not wallet_files:
         return
     daemon_url = "http://localhost:8108"
-    password = os.getenv("WALLET_IMPORT_PASSWORD")
-    if not password:
+    keystore_password = os.getenv("WALLET_IMPORT_PASSWORD")
+    if not keystore_password:
         logger.warning("WALLET_IMPORT_PASSWORD not set, skipping file wallet auto-import")
         return
+    file_passwords = []
+    for env_name in [
+        "WALLET_FILE_PASSWORD",
+        "AITBC_WALLET_PASSWORD",
+        "WALLET_IMPORT_PASSWORD",
+    ]:
+        val = os.getenv(env_name)
+        if val and val not in file_passwords:
+            file_passwords.append(val)
     import asyncio
 
     max_retries = 10
@@ -104,6 +113,23 @@ async def _import_file_wallets() -> None:
                         wallet_id = data.get("wallet_id") or wallet_file.stem
                         address = data.get("address", "")
                         raw_private_key = data.get("private_key", "")
+                        if isinstance(raw_private_key, dict):
+                            decrypted: str | None = None
+                            for file_password in file_passwords:
+                                try:
+                                    from aitbc.security.encryption import decrypt_value
+
+                                    decrypted = decrypt_value(raw_private_key, file_password)
+                                    break
+                                except Exception:
+                                    continue
+                            if decrypted is None:
+                                logger.warning(
+                                    "Skipping wallet %s: failed to decrypt private_key dict with any configured file password",
+                                    wallet_file.name,
+                                )
+                                continue
+                            raw_private_key = decrypted
                         if not isinstance(raw_private_key, str):
                             logger.warning(
                                 "Skipping wallet %s: private_key field is not a string (got %s)",
@@ -126,7 +152,7 @@ async def _import_file_wallets() -> None:
                         payload = {
                             "wallet_id": wallet_id,
                             "chain_id": chain_id,
-                            "password": password,
+                            "password": keystore_password,
                             "secret_key": secret_b64,
                             "metadata": {"address": address, "imported_from": str(wallet_file), "original_address": address},
                         }
