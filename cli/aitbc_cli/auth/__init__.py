@@ -22,7 +22,7 @@ from __future__ import annotations
 import base64
 import json
 import os
-from datetime import datetime, timezone
+from datetime import datetime, timezone, UTC
 from pathlib import Path
 from typing import cast
 
@@ -50,7 +50,7 @@ def _jwt_payload(token: str) -> dict | None:
         payload_b64 = token.split(_JWT_SEGMENT_SEPARATOR)[1]
         padding = (4 - len(payload_b64) % 4) % 4
         payload = base64.urlsafe_b64decode(payload_b64 + "=" * padding).decode()
-        return json.loads(payload)
+        return cast(dict | None, json.loads(payload))
     except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
         return None
 
@@ -61,9 +61,9 @@ def _is_token_expired(token: str) -> bool:
     if not payload:
         return False
     exp = payload.get("exp")
-    if not isinstance(exp, (int, float)):
+    if not isinstance(exp, int | float):
         return False
-    return datetime.now(timezone.utc).timestamp() > exp
+    return datetime.now(UTC).timestamp() > exp
 
 
 def _resolve_keyring():
@@ -191,10 +191,7 @@ class AuthManager:
         admin = self.get_credential("admin", environment, quiet=True)
         token = admin or self.get_credential("client", environment, quiet=True)
         if token and _is_token_expired(token):
-            raise ExpiredAdminToken(
-                "The stored admin credential has expired. "
-                "Run `aitbc auth login` to refresh it."
-            )
+            raise ExpiredAdminToken("The stored admin credential has expired. Run `aitbc auth login` to refresh it.")
         return token
 
     def delete_credential(self, name: str, environment: str = "default") -> bool:
