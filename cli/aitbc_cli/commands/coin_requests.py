@@ -508,7 +508,10 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = No
 @click.pass_context
 def reconcile(ctx, rpc_url, annotate, chain_id):
     """Check executed coin requests against the chain and report or annotate discrepancies."""
-    rpc_url = rpc_url or os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    if not rpc_url:
+        from ..config import get_config
+
+        rpc_url = get_config().blockchain_rpc_url
     click.echo(f"Checking executed coin requests against {rpc_url}\n")
 
     checked = missing = unreachable = 0
@@ -554,7 +557,10 @@ def reconcile(ctx, rpc_url, annotate, chain_id):
 @click.pass_context
 def reopen(ctx, request_id, rpc_url, force, chain_id):
     """Clear a request's transaction hash so it can be executed again."""
-    rpc_url = rpc_url or os.getenv("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    if not rpc_url:
+        from ..config import get_config
+
+        rpc_url = get_config().blockchain_rpc_url
     with get_db_session() as session:
         req = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
         if not req:
