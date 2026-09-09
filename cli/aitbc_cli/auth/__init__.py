@@ -118,8 +118,13 @@ class AuthManager:
         success(f"Credential '{name}' stored for environment '{environment}'")
         return True
 
-    def get_credential(self, name: str, environment: str = "default") -> str | None:
-        """Retrieve an API key, or None if absent."""
+    def get_credential(self, name: str, environment: str = "default", quiet: bool = False) -> str | None:
+        """Retrieve an API key, or None if absent.
+
+        ``quiet`` suppresses the not-found warning. That warning goes to
+        stdout, so a caller probing for an optional credential would otherwise
+        corrupt machine-readable output.
+        """
         key = self._key(name, environment)
         try:
             if self._keyring is not None:
@@ -130,7 +135,7 @@ class AuthManager:
             error(f"Failed to read credential '{name}' for environment '{environment}': {exc}")
             return None
 
-        if value is None:
+        if value is None and not quiet:
             warning(f"No stored credential found for '{name}' in '{environment}'")
         return cast(str | None, value)
 

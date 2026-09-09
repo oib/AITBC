@@ -9,6 +9,7 @@ from typing import Any
 import click
 from rich.console import Console
 
+from ..auth import AuthManager
 from ..utils import error, output, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, get_logger
@@ -482,6 +483,27 @@ def campaign_stats(ctx, campaign_id: str | None):
         output(stats, ctx.obj["output_format"])
 
 
+def _admin_client(ctx: click.Context, timeout: int = 15) -> AITBCHTTPClient:
+    """Build a client for an admin-authenticated coordinator endpoint.
+
+    /v1/admin requires a Bearer JWT with the admin role, so the plain
+    X-API-Key header _monitoring_client sends is not enough: it 401s. Prefer a
+    stored admin credential, fall back to whatever the invocation supplied, and
+    follow the repo-wide convention of sending a JWT as a Bearer token and
+    anything else as an API key.
+    """
+    config = ctx.obj["config"]
+    base_url = ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
+    token = AuthManager().get_credential("admin", quiet=True) or ctx.obj.get("api_key") or config.api_key or ""
+
+    kwargs: dict[str, Any] = {"base_url": base_url, "timeout": timeout}
+    if token and token.startswith("ey") and token.count(".") == 2:
+        kwargs["headers"] = {"Authorization": f"Bearer {token}"}
+    elif token:
+        kwargs["api_key"] = token
+    return AITBCHTTPClient(**kwargs)
+
+
 @monitor.command(
     epilog="""Examples:
 
@@ -512,7 +534,7 @@ def sweepers(ctx, show_config: bool):
     """
     fmt = ctx.obj["output_format"]
     try:
-        client = _monitoring_client(ctx, timeout=15)
+        client = _admin_client(ctx)
         data = client.get("/v1/admin/sweepers")
     except Exception as e:
         abort(ctx, f"Error fetching sweeper status: {e}", from_exception=e)
