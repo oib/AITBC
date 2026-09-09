@@ -1,5 +1,15 @@
 # Scenario 46: Confidential AI job with TEE attestation
 
+> **Not runnable on the current CLI.** The `aitbc tee` group was deferred to
+> release 2.0 in `9079fb74a` (1 Sep) because TEE verification needs real
+> silicon — SGX/SEV/TPM — that no live node has. The module still ships at
+> `cli/aitbc_cli/commands/tee.py` with its tests, but `main.py` does not
+> register it, so every `aitbc tee ...` line below exits with
+> `No such command 'tee'`. The coordinator-side attestation API is live; only
+> the CLI front end is missing. See
+> `docs/releases/v0.25/v0.25.2_change.log` and
+> `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`.
+
 ## Goal
 
 Run a CLI-first confidential inference job. The job is marked confidential,
