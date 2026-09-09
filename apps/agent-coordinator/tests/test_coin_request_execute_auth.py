@@ -1,4 +1,4 @@
-"""The faucet's remote-execution endpoint signs treasury transfers (V23-62).
+"""The coin-request remote-execution endpoint signs treasury transfers (V23-62).
 
 `POST /api/v1/agent/coin-requests/execute` exists so an island operator who holds no genesis
 key can approve a payout and have the hub sign it. Past its one auth check it calls
@@ -47,7 +47,7 @@ PENDING = {"id": "req-0002", "amount": 250, "wallet_address": "0x3e68f68531Da9c0
 
 
 @pytest.fixture
-def client(bare_client, faucet_env):
+def client(bare_client, coin_request_env):
     """A hub holding one approved request and one still pending."""
     from aitbc.db import agent_db
 

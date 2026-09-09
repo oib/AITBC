@@ -41,7 +41,6 @@
       "mcp__aitbc__release_escrow",
       "mcp__aitbc__refund_escrow",
       "mcp__aitbc__register_account",
-      "mcp__aitbc__request_faucet",
       "mcp__aitbc__force_sync_chain"
     ],
     "deny": []

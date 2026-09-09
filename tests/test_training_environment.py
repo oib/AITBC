@@ -44,13 +44,13 @@ class TestTrainingEnvironment:
                 result = env.create_genesis_allocation()
             assert result["status"] == "completed"
 
-    def test_setup_faucet_wallet(self):
+    def test_setup_genesis_funding_source(self):
         with tempfile.TemporaryDirectory() as tmpdir:
             env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir)
             with patch("subprocess.run") as mock_run:
                 mock_run.return_value.returncode = 0
                 mock_run.return_value.stdout = "1000000"
-                result = env.setup_faucet_wallet()
+                result = env.setup_genesis_funding_source()
             assert result["status"] == "completed"
 
     def test_configure_messaging_auth(self):

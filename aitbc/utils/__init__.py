@@ -60,10 +60,8 @@ from .time_utils import (
     to_timezone,
 )
 from .units import (
-    DEFAULT_FAUCET_UNITS,
     DEFAULT_TX_FEE_UNITS,
     LIQUIDITY_FEE_UNITS,
-    MAX_FAUCET_UNITS,
     UNITS_PER_AIT,
     ait_to_units,
     format_ait,
@@ -90,8 +88,6 @@ __all__ = [
     "UNITS_PER_AIT",
     "DEFAULT_TX_FEE_UNITS",
     "LIQUIDITY_FEE_UNITS",
-    "DEFAULT_FAUCET_UNITS",
-    "MAX_FAUCET_UNITS",
     # Time utils
     "Timer",
     "add_duration",

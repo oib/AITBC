@@ -169,7 +169,6 @@ Get paid to contribute to AITBC! Check open bounties on GitHub.
 ### Development Environment
 
 - [Local Testnet](1_overview.md)
-- [Faucet for Test Tokens](../architecture/6_trade-exchange.md)
 - [Block Explorer](../blockchain/0_readme.md#explorer-web)
 
 ### Learning Resources

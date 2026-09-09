@@ -56,7 +56,7 @@ The 36,000,000 scale keeps the integer-money design but adds 10,000× precision:
 | 1 AIT | 36,000,000 | Base unit |
 | 100 AIT | 3,600,000,000 | Free grant amount |
 | 1,000 AIT | 36,000,000,000 | Typical stake |
-| 1,000,000 AIT | 36,000,000,000,000,000 | Faucet default |
+| 1,000,000 AIT | 36,000,000,000,000,000 | Large airdrop default |
 
 ## How It Works
 
@@ -185,7 +185,6 @@ from aitbc.utils import UNITS_PER_AIT, ait_to_units, units_to_ait, format_ait
 UNITS_PER_AIT = 36_000_000
 DEFAULT_TX_FEE_UNITS = 360_000  # 0.01 AIT
 LIQUIDITY_FEE_UNITS = 36_000_000  # 1 AIT
-DEFAULT_FAUCET_UNITS = 36_000_000_000_000_000  # 1,000,000 AIT
 
 # Convert units to AIT (Decimal)
 ait = units_to_ait(36000000)  # Returns: Decimal("1")

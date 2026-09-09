@@ -18,7 +18,7 @@ class TestTrainingEnvironment:
         env = TrainingEnvironment()
         assert env.aitbc_dir == Path("/opt/aitbc")
         assert env.log_dir == Path("/var/log/aitbc/training-setup")
-        assert env.faucet_amount == 1000
+        assert env.fund_amount == 1000
         assert env.genesis_allocation == 10000
 
     def test_custom_initialization(self):
@@ -26,12 +26,12 @@ class TestTrainingEnvironment:
         env = TrainingEnvironment(
             aitbc_dir="/custom/path",
             log_dir="/custom/logs",
-            faucet_amount=500,
+            fund_amount=500,
             genesis_allocation=5000,
         )
         assert env.aitbc_dir == Path("/custom/path")
         assert env.log_dir == Path("/custom/logs")
-        assert env.faucet_amount == 500
+        assert env.fund_amount == 500
         assert env.genesis_allocation == 5000
 
     def test_check_prerequisites_missing_cli(self, tmp_path):

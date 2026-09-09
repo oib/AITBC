@@ -82,7 +82,7 @@ Each timestamped directory under `/var/backups/aitbc/` now contains:
 | `redis.rdb` | Redis RDB snapshot |
 | `key-audit.json` | Non-sensitive report comparing declared addresses to derived addresses |
 
-The `key-audit.json` file contains only public addresses and `match: true/false` results. It flags mismatches such as a `wallets/*.json` or `*.env` file whose private key does not derive to its declared address, which is the root cause of faucet/bridge signing failures and chain splits.
+The `key-audit.json` file contains only public addresses and `match: true/false` results. It flags mismatches such as a `wallets/*.json` or `*.env` file whose private key does not derive to its declared address, which is the root cause of funding/bridge signing failures and chain splits.
 
 ## Manual Backups
 

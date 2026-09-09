@@ -1,6 +1,6 @@
-"""Shared fixtures for the coin-request faucet tests (V23-62).
+"""Shared fixtures for the coin-request policy tests (V23-62).
 
-The faucet is the one path in the tree that moves money without a signature from the payer,
+The coin-request path is the one path in the tree that moves money without a signature from the payer,
 so its tests need two things held constant: a signer that cannot actually emit a transaction,
 and a database that is not the deployed one.
 """
@@ -29,7 +29,7 @@ API_KEY = "test-coordinator-api-key"
 TREASURY_BALANCE = ait_to_units(1_000_000_000)
 TX_HASH = "0x" + "cd" * 32
 
-# Under the hub's automatic ceiling (100 AIT), so the faucet policy approves it unattended.
+# Under the hub's automatic ceiling (100 AIT), so the coin-request policy approves it unattended.
 PAYOUT = 1_000_000
 
 
@@ -95,12 +95,12 @@ def store_request(session, spec: dict, status: CoinRequestStatus, sender: str = 
 
 
 @pytest.fixture
-def faucet_env(monkeypatch, tmp_path):
+def coin_request_env(monkeypatch, tmp_path):
     """A hub with a real (empty) database, a fake signer and a known API key."""
     FakeTransactionService.instances.clear()
     monkeypatch.setenv("COORDINATOR_API_KEY", API_KEY)
     monkeypatch.delenv("SECRET_KEY", raising=False)
-    monkeypatch.delenv("FAUCET_AUTO_APPROVE_MAX", raising=False)
+    monkeypatch.delenv("COIN_REQUEST_AUTO_APPROVE_MAX", raising=False)
     monkeypatch.setattr(coin_requests, "TransactionService", FakeTransactionService)
     monkeypatch.setattr("aitbc.network.AITBCHTTPClient", FakeHttpClient, raising=False)
 
@@ -118,7 +118,7 @@ def faucet_env(monkeypatch, tmp_path):
 
 
 @pytest.fixture
-def bare_client(faucet_env):
+def bare_client(coin_request_env):
     """A hub whose database has no requests in it at all."""
     app = FastAPI()
     app.include_router(coin_requests.router)

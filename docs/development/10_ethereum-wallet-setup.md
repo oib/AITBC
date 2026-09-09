@@ -113,8 +113,7 @@ GET /api/exchange/rates
 ### Testnet Ethereum
 
 - Use Ethereum testnet for testing
-- Get testnet Ethereum from faucets:
-  - https://sepoliafaucet.com/
+- Get testnet Ethereum from a faucet:
   - https://sepoliafaucet.com/
 
 ### Demo Mode

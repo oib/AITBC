@@ -20,7 +20,6 @@ Required environment:
 """
 
 import asyncio
-import os
 from decimal import Decimal
 from typing import Any
 
@@ -189,27 +188,10 @@ class TestMarketplaceEscrowFlow:
         address: str,
         min_balance: int = _MIN_BUYER_BALANCE,
     ) -> None:
-        """Fund the buyer account if the current balance is too low."""
+        """Skip the test if the buyer account is not already funded."""
         balance = await self._get_buyer_balance(client, address)
-        if balance >= min_balance:
-            return
-
-        faucet_resp = await client.post(
-            "/rpc/faucet",
-            json={"address": address, "amount": 1_000_000, "chain_id": os.getenv("E2E_CHAIN_ID", "ait-hub.aitbc.bubuit.net")},
-        )
-        if faucet_resp.status_code in (200, 201):
-            # The faucet may add a pending transaction instead of immediately
-            # updating the account balance. Poll until a block is produced.
-            deadline = asyncio.get_event_loop().time() + 90
-            while asyncio.get_event_loop().time() < deadline:
-                balance = await self._get_buyer_balance(client, address)
-                if balance >= min_balance:
-                    return
-                await asyncio.sleep(2.0)
-
         if balance < min_balance:
-            pytest.skip(f"Buyer account {address} balance too low ({balance}); faucet unavailable")
+            pytest.skip(f"Buyer account {address} balance too low ({balance}); pre-fund the account before running e2e tests")
 
     async def _get_buyer_balance(self, client: httpx.AsyncClient, address: str) -> int:
         resp = await client.get(f"/rpc/accounts/{address}")

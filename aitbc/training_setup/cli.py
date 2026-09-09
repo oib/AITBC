@@ -33,7 +33,7 @@ def cli():
     help="Log directory",
 )
 @click.option(
-    "--faucet-amount",
+    "--fund-amount",
     default=1000,
     help="Amount to fund per request",
 )
@@ -42,7 +42,7 @@ def cli():
     default=10000,
     help="Genesis allocation amount",
 )
-def setup(aitbc_dir, log_dir, faucet_amount, genesis_allocation):
+def setup(aitbc_dir, log_dir, fund_amount, genesis_allocation):
     """Setup complete training environment"""
     click.echo("Starting AITBC training environment setup...")
 
@@ -50,7 +50,7 @@ def setup(aitbc_dir, log_dir, faucet_amount, genesis_allocation):
         env = TrainingEnvironment(
             aitbc_dir=aitbc_dir,
             log_dir=log_dir,
-            faucet_amount=faucet_amount,
+            fund_amount=fund_amount,
             genesis_allocation=genesis_allocation,
         )
 
