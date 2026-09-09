@@ -20,7 +20,7 @@ from typing import Any
 
 import click
 
-from ..auth import AuthManager
+from ..auth import AuthManager, ExpiredAdminToken
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import abort
@@ -485,6 +485,8 @@ def resolve(ctx, job_id, outcome, reason, assume_yes, coordinator_url, format):
         client = _coordinator_client(ctx, coordinator_url)
         result = client.post(f"/v1/admin/disputes/{job_id}/resolve", json=payload)
         output(result, ctx.obj.get("output_format", format), title="Dispute Resolved")
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e))
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:
@@ -516,6 +518,8 @@ def auto_adjudicate(ctx, assume_yes, coordinator_url, format):
         client = _coordinator_client(ctx, coordinator_url)
         result = client.post("/v1/admin/disputes/auto-adjudicate", json={})
         output(result, ctx.obj.get("output_format", format), title="Auto-Adjudication")
+    except ExpiredAdminToken as e:
+        abort(ctx, str(e))
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
     except Exception as e:

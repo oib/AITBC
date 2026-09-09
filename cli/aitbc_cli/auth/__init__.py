@@ -19,14 +19,51 @@ fixing.
 
 from __future__ import annotations
 
+import base64
 import json
 import os
+from datetime import datetime, timezone
 from pathlib import Path
 from typing import cast
 
 from ..utils import error, success, warning
 
 _DEFAULT_STORE = Path.home() / ".aitbc" / "credentials.json"
+
+
+class ExpiredAdminToken(Exception):
+    """Raised when the stored admin JWT has expired."""
+
+
+_JWT_SEGMENT_SEPARATOR = "."
+
+
+def _jwt_payload(token: str) -> dict | None:
+    """Return the payload of a JWT without verifying the signature.
+
+    Handles base64url padding automatically. Returns ``None`` if the token is
+    not a JWT or cannot be decoded.
+    """
+    if not token.startswith("ey") or token.count(_JWT_SEGMENT_SEPARATOR) != 2:
+        return None
+    try:
+        payload_b64 = token.split(_JWT_SEGMENT_SEPARATOR)[1]
+        padding = (4 - len(payload_b64) % 4) % 4
+        payload = base64.urlsafe_b64decode(payload_b64 + "=" * padding).decode()
+        return json.loads(payload)
+    except (ValueError, json.JSONDecodeError, UnicodeDecodeError):
+        return None
+
+
+def _is_token_expired(token: str) -> bool:
+    """Check whether a JWT's ``exp`` claim is in the past."""
+    payload = _jwt_payload(token)
+    if not payload:
+        return False
+    exp = payload.get("exp")
+    if not isinstance(exp, (int, float)):
+        return False
+    return datetime.now(timezone.utc).timestamp() > exp
 
 
 def _resolve_keyring():
@@ -145,11 +182,20 @@ class AuthManager:
         The token's role is a server-side claim, not a property of the storage slot,
         so an admin wallet's JWT is valid for admin routes regardless of whether it
         was stored as ``admin`` or ``client`` (the default for ``aitbc auth login``).
+
+        Raises:
+            ExpiredAdminToken: if the chosen token is a JWT whose ``exp`` claim has
+            passed, so the caller can surface a friendly "run ``aitbc auth login``"
+            message instead of a bare 401.
         """
         admin = self.get_credential("admin", environment, quiet=True)
-        if admin:
-            return admin
-        return self.get_credential("client", environment, quiet=True)
+        token = admin or self.get_credential("client", environment, quiet=True)
+        if token and _is_token_expired(token):
+            raise ExpiredAdminToken(
+                "The stored admin credential has expired. "
+                "Run `aitbc auth login` to refresh it."
+            )
+        return token
 
     def delete_credential(self, name: str, environment: str = "default") -> bool:
         """Delete a stored API key. Returns True if one was removed."""
@@ -204,4 +250,4 @@ class AuthManager:
         return self.store_credential(name, api_key)
 
 
-__all__ = ["AuthManager"]
+__all__ = ["AuthManager", "ExpiredAdminToken"]

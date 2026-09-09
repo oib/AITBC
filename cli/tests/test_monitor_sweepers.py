@@ -7,6 +7,7 @@ non-zero exit that goes with it are what these cover.
 
 from __future__ import annotations
 
+import base64
 import json
 from typing import Any
 
@@ -150,3 +151,19 @@ def test_a_missing_credential_does_not_corrupt_json_output(monkeypatch):
 
     assert result.exit_code == 0, result.output
     assert json.loads(result.output) == REPORT
+
+
+def test_an_expired_admin_token_says_so(monkeypatch):
+    """A stored JWT past its exp claim should fail with a re-auth hint, not a 401."""
+
+    def _b64(v: dict) -> str:
+        return base64.urlsafe_b64encode(json.dumps(v).encode()).decode().rstrip("=")
+
+    expired_token = f"{_b64({'alg': 'none'})}.{_b64({'exp': 1})}."
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_admin_token", lambda self, environment="default": expired_token)
+
+    result = CliRunner().invoke(cli, ["monitor", "sweepers"])
+
+    assert result.exit_code != 0
+    assert "expired" in result.output.lower()
+    assert "aitbc auth login" in result.output
