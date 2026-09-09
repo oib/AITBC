@@ -123,7 +123,7 @@ Click on "Wallet" in the navigation to see:
 
 ### Getting Testnet Ethereum
 
-1. Visit a testnet faucet (e.g., https://sepoliafaucet.com/)
+1. Visit a testnet faucet or bridge (e.g., https://sepoliafaucet.com/)
 2. Enter your testnet address
 3. Receive free testnet Ethereum for testing
 

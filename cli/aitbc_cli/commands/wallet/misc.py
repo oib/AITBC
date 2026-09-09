@@ -7,9 +7,6 @@ from pathlib import Path
 
 import click
 
-from aitbc.utils import ait_to_units
-from aitbc.utils.units import DEFAULT_FAUCET_UNITS
-from aitbc.utils.validation import validate_address_strict
 from ...utils import error, output, success
 from ...utils.http_client import AITBCHTTPClient
 from ...utils.wallet_paths import wallet_dir as resolve_wallet_dir
@@ -102,71 +99,6 @@ def rewards(ctx):
         },
         ctx.obj.get("output_format", "table"),
     )
-
-
-@wallet.command(
-    epilog="""Examples:
-
-  aitbc wallet fund --address 0xAbc... --amount 10"""
-)
-@click.option("--address", "address", required=True, help="Blockchain address to fund.")
-@click.option(
-    "--amount",
-    default=DEFAULT_FAUCET_UNITS,
-    help=f"Amount to request from faucet in compute-units (default: {DEFAULT_FAUCET_UNITS})",
-)
-@click.option("--amount-ait", default=None, help="Amount to request from faucet in AIT (overrides --amount)")
-@click.option("--chain-id", help="Chain ID (defaults to node's chain)")
-@click.pass_context
-def fund(ctx, address: str, amount: int, amount_ait: str | None, chain_id: str):
-    """Fund a wallet address with AITBC from the on-chain faucet."""
-    import httpx
-
-    from ...config import get_config
-    from ...utils.chain_id import get_chain_id
-
-    config = get_config()
-    rpc_url = config.blockchain_rpc_url if hasattr(config, "blockchain_rpc_url") else "http://localhost:8202"
-
-    # Get chain_id
-    if not chain_id:
-        chain_id = get_chain_id(rpc_url)
-
-    # Convert AIT to compute-units if requested
-    if amount_ait is not None:
-        # Passed through as a string so ait_to_units parses it as a Decimal
-        # instead of a float that click already rounded.
-        try:
-            amount = int(ait_to_units(amount_ait))
-        except (InvalidOperation, ValueError):
-            error(f"Invalid --amount-ait: {amount_ait}")
-            return
-
-    # Normalize and validate address (canonical 0x only)
-    try:
-        address = validate_address_strict(address).lower()
-    except Exception as e:
-        error(f"Invalid address: {e}")
-        return
-
-    # Call faucet endpoint at /rpc/faucet
-    faucet_url = f"{rpc_url}/rpc/faucet"
-    faucet_data = {"address": address, "amount": amount, "chain_id": chain_id}
-
-    try:
-        response = httpx.post(faucet_url, json=faucet_data, timeout=10)
-        response.raise_for_status()
-        result = response.json()
-
-        if result.get("success"):
-            success(f"Successfully funded wallet {address} with {amount} units")
-            output(result, ctx.obj.get("output_format", "table"))
-        else:
-            error(f"Failed to fund wallet: {result.get('message', 'Unknown error')}")
-    except httpx.HTTPError as e:
-        error(f"HTTP error calling faucet: {e}")
-    except Exception as e:
-        error(f"Error funding wallet: {e}")
 
 
 @wallet.command(

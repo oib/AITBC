@@ -12,7 +12,6 @@ Match a compute request to best GPU offer (price-time priority)
 - `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` — Get pricing engine instance
 - `Marketplace` exposes `POST /v1/marketplace/match` (operation `match_request_v1_marketplace_match_post`) — Match Request
 - `Blockchain Node` exposes `POST /rpc/islands/bridge` (operation `request_bridge_route_rpc_islands_bridge_post`) — Request a bridge to another island
-- `Blockchain Node` exposes `POST /rpc/faucet` (operation `faucet_request_route_rpc_faucet_post`) — Request test tokens from faucet
 
 ## Examples
 
@@ -23,7 +22,6 @@ Match a compute request to best GPU offer (price-time priority)
 - `GET /requests/{request_id}/result` (`get_compute_result` in `apps/edge/src/aitbc_edge/routers/serve.py`)
 - `POST /v1/marketplace/match` (`match_request_v1_marketplace_match_post`) on `Marketplace`
 - `POST /rpc/islands/bridge` (`request_bridge_route_rpc_islands_bridge_post`) on `Blockchain Node`
-- `POST /rpc/faucet` (`faucet_request_route_rpc_faucet_post`) on `Blockchain Node`
 
 ## Operational Notes
 

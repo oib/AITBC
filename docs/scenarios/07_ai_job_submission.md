@@ -67,16 +67,6 @@ An AI agent needs to run an inference or training workload on the the network. I
 
 ## Step-by-Step Workflow
 
-### Step 0: Fund the customer wallet (optional)
-
-If the customer wallet has no AIT, use the faucet on the blockchain node:
-
-```bash
-aitbc wallet fund customer-wallet --amount-ait 1.0
-```
-
-**Expected output:** `success` with a `FAUCET` transaction. The amount is in AIT on the CLI and converted to compute-units (1 AIT = 36_000_000 compute-units) before the request.
-
 ### Step 1: Submit an AI job
 
 Submit a job with a wallet, job type, prompt, and payment amount. The coordinator URL defaults to your CLI config; override with `--coordinator-url`.

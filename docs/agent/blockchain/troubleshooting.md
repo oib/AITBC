@@ -27,7 +27,6 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 **Solutions:**
 
 - Ensure wallet has enough the network tokens for staking
-- Request tokens from faucet: `aitbc wallet faucet --wallet <wallet>`
 - Check wallet balance: `aitbc wallet balance --wallet <wallet>`
 
 ### Already voted

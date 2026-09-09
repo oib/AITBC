@@ -391,7 +391,7 @@ Until v0.23 this file was served unauthenticated from `https://hub.aitbc.bubuit.
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `COORDINATOR_API_KEY` | Yes | - | API key for Agent Coordinator authentication. Also the fallback credential for `X-Api-Key` miner auth (`aitbc/auth/dependencies.py`) — presenting it authenticates as role `miner`. |
-| `SECRET_KEY` | Yes | - | Message authentication secret. Accepted **interchangeably with** `COORDINATOR_API_KEY` by the agent-coordinator faucet and websocket routers, so the two are not independent: either value alone opens both. |
+| `SECRET_KEY` | Yes | - | Message authentication secret. Accepted **interchangeably with** `COORDINATOR_API_KEY` by the agent-coordinator coin-request and websocket routers, so the two are not independent: either value alone opens both. |
 | `API_KEY_HASH_SECRET` | Yes | - | HMAC secret for API-key hash derivation. |
 | `JWT_SECRET` | Yes | - | Token signing secret for JWT-secured coordinator endpoints. |
 

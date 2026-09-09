@@ -137,18 +137,6 @@ def training_env_mock():
         yield env
 
 
-@pytest.fixture
-def mock_faucet_response():
-    """Mock faucet API response for testing"""
-    return {
-        "status": "success",
-        "address": "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
-        "amount": 1000,
-        "transaction_id": "tx_test123",
-        "timestamp": "2026-05-05T12:00:00",
-    }
-
-
 # ---------------------------------------------------------------------------
 # fakeredis fixtures — in-process Redis fakes (no server required)
 # Added in v0.5.19 so Redis-dependent tests can run without a live Redis.

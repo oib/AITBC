@@ -7,7 +7,7 @@ that island's database, so the hub has nothing to consult. `/register` is how it
 The whole design question is what status that row may take. If registering could write an
 approved row on the caller's word, then register-then-execute would hand back exactly what
 `/execute` stopped giving away — an arbitrary treasury transfer for anyone holding the shared
-API key, one call further along. So the hub decides, using the faucet policy it already
+API key, one call further along. So the hub decides, using the coin-request policy it already
 applied over the WebSocket: a first grant within the automatic ceiling goes through unattended,
 anything else waits for an operator.
 
@@ -19,7 +19,7 @@ from __future__ import annotations
 
 import pytest
 
-from agent_app.services import faucet_policy
+from agent_app.services import coin_request_policy
 
 from .conftest import API_KEY, PAYOUT, signed_transactions, stored_request
 
@@ -80,7 +80,7 @@ def test_a_first_request_within_the_ceiling_is_approved(bare_client) -> None:
     stored = stored_request("req-0001")
     assert stored is not None
     assert stored.approval_mode == "automatic"
-    assert stored.approved_by == "faucet-policy"
+    assert stored.approved_by == "coin-request-policy"
 
 
 def test_an_amount_above_the_ceiling_waits_for_an_operator(bare_client) -> None:
@@ -118,7 +118,7 @@ def test_the_second_grant_check_does_not_wait_for_the_first_to_be_executed(bare_
 
 
 def test_automatic_approval_can_be_turned_off_entirely(bare_client, monkeypatch) -> None:
-    monkeypatch.setenv("FAUCET_AUTO_APPROVE_MAX", "0")
+    monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", "0")
 
     response = _register(bare_client)
 
@@ -127,15 +127,15 @@ def test_automatic_approval_can_be_turned_off_entirely(bare_client, monkeypatch)
 
 
 def test_the_ceiling_is_configurable(bare_client, monkeypatch) -> None:
-    monkeypatch.setenv("FAUCET_AUTO_APPROVE_MAX", str(PAYOUT - 1))
+    monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", str(PAYOUT - 1))
 
     assert _register(bare_client).json()["status"] == "pending"
 
 
 def test_a_nonsense_ceiling_falls_back_to_the_default(monkeypatch) -> None:
-    monkeypatch.setenv("FAUCET_AUTO_APPROVE_MAX", "lots")
+    monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", "lots")
 
-    assert faucet_policy.auto_approve_ceiling() == faucet_policy.DEFAULT_AUTO_APPROVE_MAX
+    assert coin_request_policy.auto_approve_ceiling() == coin_request_policy.DEFAULT_AUTO_APPROVE_MAX
 
 
 # --- Registering twice ------------------------------------------------------------------

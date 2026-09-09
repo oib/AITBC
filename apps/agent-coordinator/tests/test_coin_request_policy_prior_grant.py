@@ -6,7 +6,7 @@ was granted 100 AIT to the same `0xe0383C46…` and auto-approved, because it de
 
 `has_prior_grant` keyed on `sender` alone. `sender` is a string in the registration body —
 the caller writes it, nothing checks it against an identity, and changing it costs nothing.
-So the faucet's one-grant-per-agent rule was really one-grant-per-*name*, and the wallet
+So the coin-request policy's one-grant-per-agent rule was really one-grant-per-*name*, and the wallet
 that actually receives the money was never counted against.
 
 The address is counted canonically: only the `0x<body>` spelling is a valid secp256k1/EVM
@@ -24,13 +24,13 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from agent_app.services import faucet_policy
+from agent_app.services import coin_request_policy
 from aitbc.db import agent_db
 from aitbc.models import CoinRequest, CoinRequestStatus
 
 WALLET = "0xe0383C465aF763F2489B61Ec169bB06E485DAB95"
 OTHER_WALLET = "0x335de516468598827245e10094A9c014F4894a02"
-GRANT = faucet_policy.DEFAULT_AUTO_APPROVE_MAX
+GRANT = coin_request_policy.DEFAULT_AUTO_APPROVE_MAX
 
 
 @pytest.fixture
@@ -56,7 +56,7 @@ def _grant(session, request_id: str, sender: str, wallet: str, *, executed: bool
             wallet_address=wallet,
             status=CoinRequestStatus.APPROVED,
             approval_mode="automatic",
-            approved_by="faucet-policy",
+            approved_by="coin-request-policy",
             created_at=now,
             expires_at=now + timedelta(days=1),
             transaction_hash="0x" + "2d" * 32 if executed else None,
@@ -72,7 +72,7 @@ def test_renaming_the_sender_does_not_buy_a_second_grant(session) -> None:
     """The hub's own sequence, replayed. This is the finding."""
     _grant(session, "req-follower-1782118019", "follower", WALLET)
 
-    status, reason = faucet_policy.decide(session, "follower-ait-reset", GRANT, WALLET)
+    status, reason = coin_request_policy.decide(session, "follower-ait-reset", GRANT, WALLET)
 
     assert status == CoinRequestStatus.PENDING
     assert WALLET in reason
@@ -86,7 +86,7 @@ def test_respelling_the_wallet_does_not_buy_a_second_grant(session, respelled: s
     """Counting the destination is only worth anything if it sees through the 0x spellings."""
     _grant(session, "req-1", "follower", WALLET)
 
-    status, _ = faucet_policy.decide(session, "someone-else", GRANT, respelled)
+    status, _ = coin_request_policy.decide(session, "someone-else", GRANT, respelled)
 
     assert status == CoinRequestStatus.PENDING
 
@@ -99,7 +99,7 @@ def test_the_prior_grant_is_found_however_it_was_stored(session, stored_as: str)
     """Rows are now stored in canonical 0x form; the lookup matches that form."""
     _grant(session, "req-1", "follower", stored_as)
 
-    status, _ = faucet_policy.decide(session, "someone-else", GRANT, WALLET)
+    status, _ = coin_request_policy.decide(session, "someone-else", GRANT, WALLET)
 
     assert status == CoinRequestStatus.PENDING
 
@@ -108,16 +108,16 @@ def test_the_prior_grant_is_found_however_it_was_stored(session, stored_as: str)
 
 
 def test_a_genuinely_new_agent_and_wallet_is_still_granted(session) -> None:
-    """Widening the check must not stop the faucet doing its job."""
+    """Widening the check must not stop the coin-request policy doing its job."""
     _grant(session, "req-1", "follower", WALLET)
 
-    status, _ = faucet_policy.decide(session, "brand-new-agent", GRANT, OTHER_WALLET)
+    status, _ = coin_request_policy.decide(session, "brand-new-agent", GRANT, OTHER_WALLET)
 
     assert status == CoinRequestStatus.APPROVED
 
 
 def test_the_first_grant_of_all_is_approved(session) -> None:
-    status, _ = faucet_policy.decide(session, "follower", GRANT, WALLET)
+    status, _ = coin_request_policy.decide(session, "follower", GRANT, WALLET)
 
     assert status == CoinRequestStatus.APPROVED
 
@@ -126,7 +126,7 @@ def test_the_same_agent_asking_for_a_different_wallet_is_still_stopped(session) 
     """Why the sender clause stays: the destination check alone would allow this."""
     _grant(session, "req-1", "follower", WALLET)
 
-    status, _ = faucet_policy.decide(session, "follower", GRANT, OTHER_WALLET)
+    status, _ = coin_request_policy.decide(session, "follower", GRANT, OTHER_WALLET)
 
     assert status == CoinRequestStatus.PENDING
 
@@ -135,7 +135,7 @@ def test_an_unexecuted_approval_still_counts(session) -> None:
     """A registered row waits for an operator to run `execute`; it is a grant regardless."""
     _grant(session, "req-1", "follower", WALLET, executed=False)
 
-    status, _ = faucet_policy.decide(session, "renamed", GRANT, WALLET)
+    status, _ = coin_request_policy.decide(session, "renamed", GRANT, WALLET)
 
     assert status == CoinRequestStatus.PENDING
 
@@ -157,16 +157,16 @@ def test_a_pending_request_is_not_a_grant(session) -> None:
     )
     session.flush()
 
-    status, _ = faucet_policy.decide(session, "follower", GRANT, WALLET)
+    status, _ = coin_request_policy.decide(session, "follower", GRANT, WALLET)
 
     assert status == CoinRequestStatus.APPROVED
 
 
 def test_a_non_address_wallet_is_not_expanded(session) -> None:
     """Agent ids reach this field too; they must be matched as themselves, not widened."""
-    assert faucet_policy.address_spellings("hub-coordinator") == ["hub-coordinator"]
-    assert faucet_policy.address_spellings("ait1short") == ["ait1short"]
+    assert coin_request_policy.address_spellings("hub-coordinator") == ["hub-coordinator"]
+    assert coin_request_policy.address_spellings("ait1short") == ["ait1short"]
 
 
 def test_two_different_wallets_do_not_collapse(session) -> None:
-    assert not set(faucet_policy.address_spellings(WALLET)) & set(faucet_policy.address_spellings(OTHER_WALLET))
+    assert not set(coin_request_policy.address_spellings(WALLET)) & set(coin_request_policy.address_spellings(OTHER_WALLET))

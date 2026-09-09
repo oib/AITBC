@@ -3,7 +3,7 @@
 Followers need to call `/register` and `/execute` without holding a hub credential, so the
 hub publishes a key in its bootstrap file at `/agent/blockchain.env` — a file anyone can read.
 That is fine for a key which reaches only those two endpoints: `/execute` takes the amount and
-destination from the stored row (V23-62), and `/register` writes rows the faucet policy has
+destination from the stored row (V23-62), and `/register` writes rows the coin-request policy has
 ruled on (V23-67). Neither will pay outside the policy however loudly it is asked.
 
 `COORDINATOR_API_KEY` was published in that file, and it is not that kind of key. It also
