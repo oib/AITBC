@@ -18,6 +18,11 @@ logger = get_logger(__name__)
 console = Console()
 
 
+def _looks_like_jwt(token: str) -> bool:
+    """A JWT is three base64url segments separated by dots."""
+    return token.startswith("ey") and token.count(".") == 2
+
+
 def _monitoring_client(ctx: click.Context, timeout: int = 10) -> AITBCHTTPClient:
     """Build an HTTP client for the coordinator monitoring endpoints."""
     config = ctx.obj["config"]
@@ -494,7 +499,7 @@ def _admin_client(ctx: click.Context, timeout: int = 15) -> AITBCHTTPClient:
     """
     config = ctx.obj["config"]
     base_url = ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
-    token = AuthManager().get_credential("admin", quiet=True) or ctx.obj.get("api_key") or config.api_key or ""
+    token = AuthManager().get_admin_token() or ctx.obj.get("api_key") or config.api_key or ""
 
     kwargs: dict[str, Any] = {"base_url": base_url, "timeout": timeout}
     if token and token.startswith("ey") and token.count(".") == 2:
