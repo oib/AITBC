@@ -25,6 +25,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `dashboard` — Operational dashboards for customers and shops.. Subcommands: `customer`, `shop`
 - `deploy` — Deploy and manage white-label platform configurations.. Subcommands: `deploy-brand`
 - `developer` — Developer registry commands.. Subcommands: `list`, `register`
+- `dispute` — File, inspect and rule on disputes: evidence, arbitrator votes, and payment rulings. Subcommands: `active`, `arbitrator`, `auto-adjudicate`, `evidence`, `file`, `get`, `resolve`, `user`, `vote`, `votes`
 - `economics` — Economic intelligence, modeling, and OpenClaw DAO governance.. Subcommands: `distributed`, `market`, `model`, `propose`, `status`, `vote`
 - `edge` — Edge API commands for island, GPU, database, serve, and metrics operations. Subcommands: `balance`, `database`, `gpu`, `island`, `metrics`, `serve`, `status`, `transfer`
 - `exchange` — Exchange integration and trading management commands. Subcommands: `add-liquidity`, `create-pair`, `list`, `monitor`, `register`, `start-trading`, `status`

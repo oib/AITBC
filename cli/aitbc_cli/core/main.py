@@ -111,7 +111,9 @@ class LazyCommand(click.Command):
     def invoke(self, ctx: click.Context) -> Any:
         return self._load().invoke(ctx)
 
-    def make_context(self, info_name: str | None, args: list[str], parent: click.Context | None = None, **extra: Any) -> click.Context:
+    def make_context(
+        self, info_name: str | None, args: list[str], parent: click.Context | None = None, **extra: Any
+    ) -> click.Context:
         return self._load().make_context(info_name, args, parent=parent, **extra)
 
 
@@ -163,7 +165,9 @@ class LazyGroup(click.Group):
     def invoke(self, ctx: click.Context) -> Any:
         return self._load().invoke(ctx)
 
-    def make_context(self, info_name: str | None, args: list[str], parent: click.Context | None = None, **extra: Any) -> click.Context:
+    def make_context(
+        self, info_name: str | None, args: list[str], parent: click.Context | None = None, **extra: Any
+    ) -> click.Context:
         return self._load().make_context(info_name, args, parent=parent, **extra)
 
 
@@ -196,6 +200,7 @@ cross_chain = _lazy("aitbc_cli.commands.cross_chain", "cross_chain", name="cross
 dashboard = _lazy("aitbc_cli.commands.dashboard", "dashboard", name="dashboard", group=True)
 deploy = _lazy("aitbc_cli.commands.deploy", "deploy", name="deploy", group=True)
 developer = _lazy("aitbc_cli.commands.developer", "developer", name="developer", group=True)
+dispute = _lazy("aitbc_cli.commands.dispute", "dispute", name="dispute", group=True)
 economics = _lazy("aitbc_cli.commands.economics", "economics", name="economics", group=True)
 edge = _lazy("aitbc_cli.commands.edge", "edge", name="edge", group=True)
 exchange = _lazy("aitbc_cli.commands.exchange", "exchange", name="exchange", group=True)
@@ -353,6 +358,7 @@ cli.add_command(cross_chain, name="crosschain")  # Re-enabled - no core dependen
 cli.add_command(reputation)  # Reputation management
 cli.add_command(governance)  # Governance operations
 cli.add_command(developer)  # Developer registry
+cli.add_command(dispute)  # Dispute filing, evidence, arbitration and payment rulings
 cli.add_command(grant)  # DAO grant proposals
 cli.add_command(monitor)
 cli.add_command(prometheus)  # Re-enabled - no core dependency
