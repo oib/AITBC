@@ -88,7 +88,7 @@ def _account_balance(address: str, chain_id: str) -> int:
     try:
         config = get_config()
         hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
-        client = AITBCHTTPClient(base_url=f"http://{hub}", timeout=5)
+        client = AITBCHTTPClient(base_url=f"https://{hub}", timeout=5)
         data = client.get(f"/rpc/accounts/{address}", params={"chain_id": chain_id})
         return int(data.get("balance", 0))
     except Exception as e:
@@ -154,7 +154,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
     # Prefer the local blockchain RPC; the hub discovery URL may not expose /rpc.
-    for base_url in (rpc_url, f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"):
+    for base_url in (rpc_url, f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"):
         try:
             http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
             response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")
@@ -171,9 +171,8 @@ def get_next_nonce(wallet_address: str | None = None) -> int:
     """Get next transaction nonce from blockchain (confirmed nonce + 1)."""
     if not wallet_address:
         wallet_address = get_wallet_address()
-    config = get_config()
-    hub_url = config.hub_discovery_url or "hub.aitbc.bubuit.net"
-    chain_id = "ait-" + hub_url
+    get_config()
+    chain_id = get_chain_id()
     return get_account_nonce(wallet_address, chain_id)
 
 
