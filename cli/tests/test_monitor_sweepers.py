@@ -103,7 +103,7 @@ def test_a_failed_request_exits_non_zero(monkeypatch):
 
 def test_a_jwt_credential_is_sent_as_a_bearer_token(monkeypatch):
     """/v1/admin rejects X-API-Key, so the admin client must send Bearer."""
-    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", lambda self, name, quiet=False: "ey.header.sig")
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_admin_token", lambda self, environment="default": "ey.header.sig")
     captured = {}
 
     class _Client:
@@ -122,7 +122,7 @@ def test_a_jwt_credential_is_sent_as_a_bearer_token(monkeypatch):
 
 
 def test_a_non_jwt_credential_falls_back_to_the_api_key_header(monkeypatch):
-    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", lambda self, name, quiet=False: "plain-key")
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_admin_token", lambda self, environment="default": "plain-key")
     captured = {}
 
     class _Client:
@@ -143,7 +143,7 @@ def test_a_non_jwt_credential_falls_back_to_the_api_key_header(monkeypatch):
 def test_a_missing_credential_does_not_corrupt_json_output(monkeypatch):
     """The credential store warns on stdout; probing for an optional admin
     credential must not put that warning in front of the JSON."""
-    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", lambda self, name, quiet=False: None)
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_admin_token", lambda self, environment="default": None)
     monkeypatch.setattr(monitor_mod.AITBCHTTPClient, "get", lambda self, endpoint, **kw: REPORT, raising=True)
 
     result = CliRunner().invoke(cli, ["--output", "json", "monitor", "sweepers"])
