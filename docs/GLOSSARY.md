@@ -48,7 +48,6 @@
 - **Federated Learning Coordinator**: Agent that coordinates federated learning across multiple participants
 - **Follower Agent**: Agent type that monitors blockchain state and maintains synchronization
 - **Failure Recovery**: Stage 10 training covering error handling, recovery procedures, and fault tolerance
-- **Faucet**: A service that provides test tokens for development and testing purposes
 
 ## G
 

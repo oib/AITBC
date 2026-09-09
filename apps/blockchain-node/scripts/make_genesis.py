@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Generate a production-ready genesis file with fixed allocations.
 
-This replaces the old devnet faucet model. Genesis now defines a fixed
+This replaces the old devnet minting model. Genesis now defines a fixed
 initial coin supply allocated to specific addresses. No admin minting
 is allowed; the total supply is immutable after genesis.
 

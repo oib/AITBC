@@ -1,8 +1,8 @@
 """The mock blockchain node must serve routes the real blockchain node serves.
 
 V23-42. `tests/fixtures/mock_blockchain_node.py` served `/rpc/getBalance/{address}`,
-`/rpc/admin/mintFaucet` and `/rpc/sendTx`. The real node has never had any of the three; it
-has `/rpc/balance/{address}`, `/rpc/faucet` and `/rpc/transaction`, with different response
+`/rpc/admin/mintToken` and `/rpc/sendTx`. The real node has never had any of the three; it
+has `/rpc/balance/{address}` and `/rpc/transaction`, with different response
 shapes. The mock had been written to match a *client* rather than the server, so the client
 and the mock agreed with each other while neither agreed with the thing they stand in for.
 

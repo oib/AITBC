@@ -21,12 +21,6 @@ class MessagingError(TrainingSetupError):
     pass
 
 
-class FaucetError(TrainingSetupError):
-    """Exception raised when faucet setup fails."""
-
-    pass
-
-
 class PrerequisitesError(TrainingSetupError):
     """Exception raised when prerequisites are not met."""
 

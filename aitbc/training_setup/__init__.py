@@ -9,14 +9,12 @@ from .blockchain import BlockchainSetup
 from .environment import TrainingEnvironment
 from .exceptions import FundingError, MessagingError, TrainingSetupError
 from .messaging import MessagingSetup
-from .services import ServiceDeployment
 
 __all__ = [
     "BlockchainSetup",
     "FundingError",
     "MessagingError",
     "MessagingSetup",
-    "ServiceDeployment",
     "TrainingEnvironment",
     "TrainingSetupError",
 ]

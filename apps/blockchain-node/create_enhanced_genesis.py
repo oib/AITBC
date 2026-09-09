@@ -91,8 +91,8 @@ def create_enhanced_genesis(config_path: str = None):
                     {
                         "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
                         "balance": "1000000",
-                        "type": "faucet",
-                        "metadata": {"purpose": "Development faucet for testing"},
+                        "type": "dev_fund",
+                        "metadata": {"purpose": "Development fund for testing"},
                     },
                 ],
                 "contracts": [],

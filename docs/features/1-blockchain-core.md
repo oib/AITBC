@@ -9,7 +9,6 @@
 | Block Query | Query blocks by height, get chain head, genesis allocations | [docs/blockchain/0_readme.md](../blockchain/0_readme.md) | ✅ | — |
 | Transaction Submission | Submit transactions to the blockchain via RPC | [docs/blockchain/10_api-blockchain.md](../blockchain/10_api-blockchain.md) | ✅ | — |
 | Account Management | Create accounts, get balances, state snapshots | [docs/blockchain/0_readme.md](../blockchain/0_readme.md) | ✅ | — |
-| Faucet | Request test tokens for development | [docs/features/faucet.md](./faucet.md) | ✅ | — |
 | Auto Sync | Automatic bulk sync to detect and resolve block gaps | [docs/blockchain/operational-features.md](../blockchain/operational-features.md) | ✅ | — |
 | Force Sync | Manual triggering of blockchain data synchronization | [docs/blockchain/operational-features.md](../blockchain/operational-features.md) | ✅ | — |
 | Export/Import Blocks | Export/import blockchain data for backup or recovery | [docs/blockchain/operational-features.md](../blockchain/operational-features.md) | ✅ | — |

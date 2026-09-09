@@ -26,7 +26,7 @@ private key**. Nobody can produce a signature that recovers to one, so a
 release can never be forged through ``/rpc/transaction`` (which verifies the
 signature against the sender before admitting anything to the mempool). Only
 this node's own code can originate one. That is the same property that makes
-the FAUCET magic sender safe.
+pre-registered credit magic senders safe.
 """
 
 from __future__ import annotations

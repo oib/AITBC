@@ -148,7 +148,7 @@ Click the "Connect Wallet" button. A unique wallet address will be generated for
 ### 3. Get Testnet Ethereum
 
 For testing, get free testnet Ethereum from:
-[sepoliafaucet.com](https://sepoliafaucet.com/)
+[sepoliafaucet.com](https://sepoliafaucet.com/) (Sepolia testnet ETH provider)
 
 ### 4. Make Your First Purchase
 

@@ -11,7 +11,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import format_ait
-from aitbc.utils.units import DEFAULT_FAUCET_UNITS
+
 from aitbc.utils.validation import validate_address
 from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
@@ -356,69 +356,6 @@ def send_transaction(
         raise
     except Exception as exc:
         logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
-        raise HTTPException(
-            status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs"
-        ) from exc
-
-
-@router.post("/wallets/{wallet_id}/faucet", response_model=WalletTransactionResponse, summary="Request faucet funds")
-@rate_limit(rate=5, per=3600)  # 5 requests per hour
-async def faucet_request(
-    request: Request,
-    wallet_id: str,
-    keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
-    _admin: Annotated[None, Depends(require_admin_api_key)],
-) -> WalletTransactionResponse:
-    """
-    Request test tokens from the blockchain faucet.
-
-    This endpoint funds a newly created wallet with test tokens
-    for development and testing purposes.
-    """
-    from .settings import settings
-
-    # Faucet is disabled by default; enable with WALLET_ENABLE_FAUCET=true.
-    if not settings.enable_faucet:
-        raise HTTPException(status_code=status.HTTP_501_NOT_IMPLEMENTED, detail="Faucet is disabled")
-
-    try:
-        # Get wallet public key
-        record = keystore.get_wallet(wallet_id)
-        if not record:
-            raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Wallet not found")
-
-        address = record.public_key
-
-        # Call blockchain faucet
-        import httpx
-
-        rpc_url = settings.blockchain_rpc_url
-        response = httpx.post(f"{rpc_url}/rpc/faucet", json={"address": address, "amount": DEFAULT_FAUCET_UNITS}, timeout=30.0)
-        response.raise_for_status()
-        result = response.json()
-
-        if not result.get("success"):
-            raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=result.get("message", "Faucet request failed"))
-
-        logger.info(
-            "Faucet funding successful", extra={"wallet_id": wallet_id, "address": address, "amount": result.get("amount", 0)}
-        )
-
-        return WalletTransactionResponse(
-            success=True,
-            tx_hash=result.get("tx_hash", ""),
-            status="confirmed",
-            sender="faucet",
-            recipient=address,
-            amount=result.get("amount", 0),
-            fee=0,
-            nonce=0,
-        )
-
-    except HTTPException:
-        raise
-    except Exception as exc:
-        logger.error("Faucet request failed", extra={"wallet_id": wallet_id, "error": str(exc)})
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs"
         ) from exc

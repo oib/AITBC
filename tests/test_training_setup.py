@@ -1,7 +1,7 @@
 """Tests for AITBC training_setup module.
 
 Tests cover:
-- exceptions.py: TrainingSetupError, FundingError, MessagingError, FaucetError, PrerequisitesError
+- exceptions.py: TrainingSetupError, FundingError, MessagingError, PrerequisitesError
 - stage_runner.py: Command, ExpectedCondition, StageDefinition, StageRunner, create_example_stage_json
 - environment.py: TrainingEnvironment class
 - cli.py: click CLI commands
@@ -19,16 +19,11 @@ from click.testing import CliRunner
 from aitbc.training_setup import (
     FundingError,
     MessagingError,
-    # FaucetError, N/A in __init__
-    # PrerequisitesError, N/A in __init__
     TrainingSetupError,
 )
 from aitbc.training_setup.cli import cli
 from aitbc.training_setup.environment import TrainingEnvironment
-from aitbc.training_setup.exceptions import (
-    FaucetError,
-    PrerequisitesError,
-)
+from aitbc.training_setup.exceptions import PrerequisitesError
 from aitbc.training_setup.stage_runner import (
     Command,
     ExpectedCondition,
@@ -56,11 +51,6 @@ class TestExceptions:
         with pytest.raises(MessagingError):
             raise MessagingError("Messaging failed")
 
-    def test_faucet_error(self):
-        """Test FaucetError exception."""
-        with pytest.raises(FaucetError):
-            raise FaucetError("Faucet failed")
-
     def test_prerequisites_error(self):
         """Test PrerequisitesError exception."""
         with pytest.raises(PrerequisitesError):
@@ -70,7 +60,6 @@ class TestExceptions:
         """Test exception inheritance."""
         assert issubclass(FundingError, TrainingSetupError)
         assert issubclass(MessagingError, TrainingSetupError)
-        assert issubclass(FaucetError, TrainingSetupError)
         assert issubclass(PrerequisitesError, TrainingSetupError)
 
     def test_catch_base_exception(self):
@@ -366,7 +355,7 @@ class TestTrainingEnvironment:
             env = TrainingEnvironment(
                 aitbc_dir=tmpdir,
                 log_dir=tmpdir + "/logs",
-                faucet_amount=1000,
+                fund_amount=1000,
                 genesis_allocation=10000,
             )
             # Mock the CLI path
@@ -376,7 +365,7 @@ class TestTrainingEnvironment:
     def test_init(self, mock_env):
         """Test TrainingEnvironment initialization."""
         assert mock_env.aitbc_dir is not None
-        assert mock_env.faucet_amount == 1000
+        assert mock_env.fund_amount == 1000
         assert mock_env.genesis_allocation == 10000
         assert mock_env.wallet_prefix == "training-w"
         assert mock_env.stage_runner is not None
@@ -387,11 +376,11 @@ class TestTrainingEnvironment:
             env = TrainingEnvironment(
                 aitbc_dir=tmpdir,
                 log_dir=tmpdir + "/logs",
-                faucet_amount=2000,
+                fund_amount=2000,
                 genesis_allocation=20000,
                 wallet_prefix="custom-w",
             )
-            assert env.faucet_amount == 2000
+            assert env.fund_amount == 2000
             assert env.genesis_allocation == 20000
             assert env.wallet_prefix == "custom-w"
 
@@ -458,15 +447,15 @@ class TestTrainingEnvironment:
             assert result["status"] == "completed"
 
     @patch("aitbc.training_setup.environment.subprocess.run")
-    def test_setup_faucet_wallet(self, mock_run):
-        """Test setup_faucet_wallet."""
+    def test_setup_genesis_funding_source(self, mock_run):
+        """Test setup_genesis_funding_source."""
         mock_run.return_value = Mock(returncode=0, stdout="100000 AIT")
 
         with tempfile.TemporaryDirectory() as tmpdir:
             env = TrainingEnvironment(aitbc_dir=tmpdir, log_dir=tmpdir + "/logs")
             env.aitbc_dir = Path(tmpdir)
 
-            result = env.setup_faucet_wallet()
+            result = env.setup_genesis_funding_source()
             assert result["status"] == "completed"
             assert result["funding_source"] == "genesis"
 
@@ -519,13 +508,13 @@ class TestTrainingEnvironment:
 
     @patch.object(TrainingEnvironment, "check_prerequisites")
     @patch.object(TrainingEnvironment, "create_genesis_allocation")
-    @patch.object(TrainingEnvironment, "setup_faucet_wallet")
+    @patch.object(TrainingEnvironment, "setup_genesis_funding_source")
     @patch.object(TrainingEnvironment, "fund_training_wallet")
     @patch.object(TrainingEnvironment, "configure_messaging_auth")
     @patch.object(TrainingEnvironment, "test_messaging_connectivity")
     @patch.object(TrainingEnvironment, "verify_environment")
     def test_setup_full_environment_success(
-        self, mock_verify, mock_messaging, mock_fund, mock_configure, mock_faucet, mock_genesis, mock_prereq
+        self, mock_verify, mock_messaging, mock_fund, mock_configure, mock_genesis_funding, mock_genesis, mock_prereq
     ):
         """Test setup_full_environment success."""
         with tempfile.TemporaryDirectory() as tmpdir:

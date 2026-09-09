@@ -7,7 +7,6 @@ Implements the minimal API endpoints required by the test suite.
 import time
 from typing import Any
 
-from aitbc.utils.units import DEFAULT_FAUCET_UNITS
 
 import uvicorn
 from fastapi import FastAPI
@@ -58,28 +57,6 @@ async def get_balance(address: str):
             "staked": 0,
             "bridge_locked": 0,
             "total_balance": balance,
-        }
-    )
-
-
-@app.post("/rpc/faucet")
-async def faucet(request: dict[str, Any]):
-    """Mint test tokens to an address (devnet only). Was `/rpc/admin/mintFaucet` — see above."""
-    address = request.get("address")
-    amount = request.get("amount", DEFAULT_FAUCET_UNITS)
-
-    if address in mock_chain_state["balances"]:
-        mock_chain_state["balances"][address] += amount
-    else:
-        mock_chain_state["balances"][address] = amount
-
-    return JSONResponse(
-        {
-            "success": True,
-            "address": address,
-            "amount": amount,
-            "tx_hash": f"0x{abs(hash((address, amount))):064x}"[:66],
-            "message": "Faucet transaction completed",
         }
     )
 

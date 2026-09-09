@@ -383,7 +383,7 @@ def _has_received_initial_coins(sender: str, wallet_address: str) -> bool:
     try:
         import sqlite3
 
-        from ..services.faucet_policy import address_spellings
+        from ..services.coin_request_policy import address_spellings
 
         spellings = address_spellings(wallet_address)
         conn = sqlite3.connect(db_path)

@@ -8,7 +8,7 @@ separate state, and then a fixture that patches a class attribute in one copy is
 a test reading it from the other.
 
 That is not hypothetical. `apps/exchange/tests/conftest.py` inserted `parents[2]` — `apps/`,
-under a comment saying "repo root" — and ten agent-coordinator faucet tests began reporting
+under a comment saying "repo root" — and ten agent-coordinator coin-request tests began reporting
 that no transaction had been signed when the endpoint had signed correctly. They passed when
 run alone and failed in a full run, which is the combination that costs a day (V23-69).
 

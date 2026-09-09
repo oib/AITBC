@@ -33,16 +33,16 @@ DEFAULT_AUTO_APPROVE_MAX = ait_to_units(100)
 def auto_approve_ceiling() -> int:
     """The largest amount the hub will approve without a human.
 
-    Set `FAUCET_AUTO_APPROVE_MAX` to 0 to turn automatic approval off entirely, which makes
+    Set `COIN_REQUEST_AUTO_APPROVE_MAX` to 0 to turn automatic approval off entirely, which makes
     every registered request wait for an operator.
     """
-    raw = os.getenv("FAUCET_AUTO_APPROVE_MAX")
+    raw = os.getenv("COIN_REQUEST_AUTO_APPROVE_MAX")
     if raw is None:
         return DEFAULT_AUTO_APPROVE_MAX
     try:
         ceiling = int(raw)
     except ValueError:
-        logger.warning("FAUCET_AUTO_APPROVE_MAX=%r is not an integer; using %s", raw, DEFAULT_AUTO_APPROVE_MAX)
+        logger.warning("COIN_REQUEST_AUTO_APPROVE_MAX=%r is not an integer; using %s", raw, DEFAULT_AUTO_APPROVE_MAX)
         return DEFAULT_AUTO_APPROVE_MAX
     return max(ceiling, 0)
 

@@ -105,7 +105,7 @@ Conflating these two has already caused a production outage, so they are worth s
 | `GENESIS_WALLET_ADDRESS` | The wallet holding the genesis allocation — the account AIT transfers are sent *from*, paired with `GENESIS_WALLET_PRIVATE_KEY`. Read by bridge-monitor, blockchain-node escrow, and the CLI exchange command. | Yes |
 
 Setting `GENESIS_WALLET_ADDRESS` to the proposer address does not fail loudly. It produces
-transfers from an account that does not exist, so bridge deposits and faucet transfers stop
+transfers from an account that does not exist, so bridge deposits and genesis-funding transfers stop
 working while block production looks perfectly healthy.
 
 **A follower still needs its own `PROPOSER_ID`**, even with `ENABLE_BLOCK_PRODUCTION=false`.

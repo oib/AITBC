@@ -238,24 +238,6 @@ def test_create_wallet():
     assert "--no-encrypt" in cmd
 
 
-def test_fund_wallet():
-    _clear()
-    result = json.loads(
-        aitbc_mcp_cli_tools.fund_wallet(
-            address="0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C",
-            amount_ait="5.0",
-            dry_run=False,
-            confirm=True,
-            role="hub",
-        )
-    )
-    assert result["returncode"] == 0
-    cmd = _last_command()
-    assert "wallet fund" in cmd
-    assert "0x5e2D7C7A4F8E9B1C3d5A2e8F4c6b8a0D2e4f6A8C" in cmd
-    assert "--amount-ait=5.0" in cmd
-
-
 def test_dry_run_gating():
     _clear()
     result = json.loads(
@@ -388,7 +370,6 @@ if __name__ == "__main__":
     test_upload_ipfs()
     test_download_ipfs()
     test_create_wallet()
-    test_fund_wallet()
     test_dry_run_gating()
     test_run_market_offer()
     test_send_aitbc_from_wallet()

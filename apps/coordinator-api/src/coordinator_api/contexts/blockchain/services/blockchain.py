@@ -190,12 +190,12 @@ def validate_address(address: str) -> bool:
 async def mint_tokens(address: str, amount: Decimal) -> dict[str, Any]:
     """Not implemented. See V23-42.
 
-    The old implementation POSTed ``/admin/mintFaucet``, which does not exist on the node.
+    The old implementation POSTed ``/admin/mintToken``, which does not exist on the node.
     Developer platform routes now return 501 for this path.
     """
     raise NotImplementedError(
         "No mint endpoint exists on the blockchain node. Reward payout needs a real on-chain "
-        "distribution path with verification, not the devnet faucet — see V23-42."
+        "distribution path with verification — see V23-42."
     )
 
 

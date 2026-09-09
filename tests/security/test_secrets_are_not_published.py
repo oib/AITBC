@@ -3,7 +3,7 @@
 The hub served `/agent/blockchain-secrets.env` unauthenticated, with CORS open to `*`, for as
 long as the endpoint existed. The two values behind it are credentials rather than settings:
 `COORDINATOR_API_KEY` authenticates as role `miner` through the `X-Api-Key` dependency in
-`aitbc/auth/dependencies.py`, and the agent-coordinator faucet and websocket routers accept
+`aitbc/auth/dependencies.py`, and the agent-coordinator coin-request and websocket routers accept
 either it *or* `SECRET_KEY`, so one value opens both surfaces.
 
 Nothing needed it to be public. `blockchain-node` reads neither variable, so a node joining

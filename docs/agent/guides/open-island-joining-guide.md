@@ -74,7 +74,7 @@ curl -o /etc/aitbc/genesis.json https://hub.aitbc.bubuit.net/agent/genesis.json
 
 **There is no endpoint for `blockchain-secrets.env`, and there must not be.** It holds two
 live credentials — `COORDINATOR_API_KEY` authenticates as role `miner`, and the coordinator's
-faucet and websocket routers accept either it or `SECRET_KEY`. It was served here
+coin-request and websocket routers accept either it or `SECRET_KEY`. It was served here
 unauthenticated until v0.23 (V23-58).
 
 You almost certainly do not need it. `blockchain-node` reads neither variable, so a node that

@@ -14,9 +14,9 @@ than paid on the caller's word.
 
 Which is why `/register` cannot simply write an approved row on request — that would
 hand back exactly what `/execute` stopped giving away, one call further along. It
-writes a row under the hub's own faucet policy instead: within the policy the request
+writes a row under the hub's own coin-request policy instead: within the policy the request
 is approved and the island keeps working unattended, outside it the request waits for
-an operator. See `services.faucet_policy`.
+an operator. See `services.coin_request_policy`.
 """
 
 import hmac
@@ -32,7 +32,7 @@ from aitbc.crypto import TransactionService
 from aitbc.db import get_db_session
 from aitbc.models import CoinRequest, CoinRequestStatus
 
-from ..services import faucet_policy
+from ..services import coin_request_policy
 
 logger = get_logger(__name__)
 
@@ -61,7 +61,7 @@ def _require_api_key(x_api_key: str | None) -> None:
     `FOLLOWER_API_KEY` is meant to be published — it goes in the public bootstrap file that
     every island reads, so anyone at all can hold it. It is safe to publish only because it
     reaches nothing but `/register` and `/execute`, and neither of those will pay outside the
-    hub's own faucet policy: `/execute` takes the amount and destination from the stored row,
+    hub's own coin-request policy: `/execute` takes the amount and destination from the stored row,
     and `/register` writes rows the policy has ruled on.
 
     `COORDINATOR_API_KEY` is not that kind of key, whatever its name suggests. It also
@@ -132,7 +132,7 @@ async def register_coin_request(req: RegisterRequest, x_api_key: str | None = He
                 "reason": "already registered",
             }
 
-        status, reason = faucet_policy.decide(session, req.sender, req.amount, req.wallet_address)
+        status, reason = coin_request_policy.decide(session, req.sender, req.amount, req.wallet_address)
         now = datetime.now(UTC).replace(tzinfo=None)
         approved = status is CoinRequestStatus.APPROVED
         session.add(
@@ -144,7 +144,7 @@ async def register_coin_request(req: RegisterRequest, x_api_key: str | None = He
                 wallet_address=req.wallet_address,
                 status=status,
                 approval_mode="automatic" if approved else "manual",
-                approved_by="faucet-policy" if approved else None,
+                approved_by="coin-request-policy" if approved else None,
                 approved_at=now if approved else None,
                 created_at=now,
                 expires_at=now + REQUEST_TTL,

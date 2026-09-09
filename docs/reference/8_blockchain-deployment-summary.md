@@ -49,7 +49,6 @@ systemctl status blockchain-rpc-2   # RPC API
 
 1. **Basic Test**: `/opt/test_blockchain_simple.py`
    - Verifies node responsiveness
-   - Tests faucet functionality
    - Checks chain head
 
 2. **Comprehensive Test**: `/opt/test_blockchain_nodes.py`
@@ -71,7 +70,6 @@ python test_blockchain_final.py
 
 - Both nodes are running and producing blocks
 - RPC APIs are responsive
-- Faucet (minting) is functional
 - Transaction submission works
 - Block production active (2s block time)
 

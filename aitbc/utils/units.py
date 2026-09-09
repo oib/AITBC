@@ -20,12 +20,6 @@ DEFAULT_TX_FEE_UNITS = int(Decimal(str(DEFAULT_TX_FEE_AIT)) * UNITS_PER_AIT)
 
 LIQUIDITY_FEE_UNITS = UNITS_PER_AIT  # 1 AIT default for liquidity deposit/claim/withdraw
 
-DEFAULT_FAUCET_AIT = Decimal("1_000_000")
-DEFAULT_FAUCET_UNITS = int(Decimal(str(DEFAULT_FAUCET_AIT)) * UNITS_PER_AIT)
-
-MAX_FAUCET_AIT = Decimal("10_000_000")
-MAX_FAUCET_UNITS = int(Decimal(str(MAX_FAUCET_AIT)) * UNITS_PER_AIT)
-
 
 def units_to_ait(units: Decimal | float | int | str) -> Decimal:
     """Convert compute-units to AIT."""
