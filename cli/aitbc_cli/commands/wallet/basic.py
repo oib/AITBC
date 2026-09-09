@@ -425,7 +425,13 @@ def balance(ctx, name: str | None):
         "chain_id": account_data.get("chain_id", chain_id),
     }
 
-    output(balance_data, ctx.obj.get("output_format", "table"), title=f"Wallet: {wallet_name}")
+    fmt = ctx.obj.get("output_format", "table")
+    if fmt not in ("json", "yaml"):
+        balance_data["balance_units"] = balance_data["balance"]
+        balance_data["balance"] = format_ait(balance_data["balance"])
+        balance_data.pop("balance_ait", None)
+
+    output(balance_data, fmt, title=f"Wallet: {wallet_name}")
 
 
 @wallet.command(
