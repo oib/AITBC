@@ -509,3 +509,190 @@ async def retry_release(
         "cleared_attempts": attempts,
         "released_at": datetime.now(UTC).isoformat(),
     }
+
+
+# --- Background sweeper visibility -------------------------------------------
+#
+# The sweepers are started as run_forever coroutines in main.py and, until this
+# endpoint, were reachable from nowhere: BackgroundTaskManager.get_task_status()
+# existed but no router called it, so "is the stuck-escrow sweeper actually
+# running, and with what batch size" could only be answered by reading journald.
+
+
+def _sweeper_specs() -> list[tuple[str, Any, Any, str]]:
+    """(task name, enabled predicate, class, purpose) for each managed sweeper.
+
+    Imported lazily and per-call, the same way main.py starts them, so that a
+    sweeper module failing to import degrades this one row instead of the whole
+    admin router.
+    """
+    from ...infrastructure.services.stale_job_reaper import StaleJobReaper
+    from ...infrastructure.services.stale_job_reaper import reaper_enabled as stale_job_enabled
+    from ...infrastructure.services.stale_miner_reaper import StaleMinerReaper
+    from ...infrastructure.services.stale_miner_reaper import reaper_enabled as stale_miner_enabled
+    from ...marketplace.services.bond_slash_sweeper import BondSlashSweeper
+    from ...marketplace.services.bond_slash_sweeper import sweeper_enabled as bond_slash_enabled
+    from ...payments.services.acceptance_sweeper import AcceptanceSweeper
+    from ...payments.services.acceptance_sweeper import sweeper_enabled as acceptance_enabled
+    from ...payments.services.settlement_reconciler import SettlementReconciler, reconciler_enabled
+    from ...payments.services.stuck_escrow_sweeper import StuckEscrowSweeper, stuck_escrow_sweeper_enabled
+    from ...payments.services.zk_refund_sweeper import ZkRefundSweeper, zk_refund_sweeper_enabled
+
+    return [
+        (
+            "escrow_settlement_reconciler",
+            reconciler_enabled,
+            SettlementReconciler,
+            "Re-drive escrow releases that completed but never settled on-chain",
+        ),
+        (
+            "zk_refund_sweeper",
+            zk_refund_sweeper_enabled,
+            ZkRefundSweeper,
+            "Refund escrow for jobs whose ZK receipt could not be verified",
+        ),
+        (
+            "acceptance_window_sweeper",
+            acceptance_enabled,
+            AcceptanceSweeper,
+            "Release escrow once the customer acceptance window expires",
+        ),
+        (
+            "stuck_escrow_sweeper",
+            stuck_escrow_sweeper_enabled,
+            StuckEscrowSweeper,
+            "Refund escrow stuck in canceled, failed, expired or unresolved-disputed states",
+        ),
+        (
+            "bond_slash_sweeper",
+            bond_slash_enabled,
+            BondSlashSweeper,
+            "Slash provider bonds when a slashing condition is detected",
+        ),
+        (
+            "stale_miner_reaper",
+            stale_miner_enabled,
+            StaleMinerReaper,
+            "Mark miners whose last heartbeat is stale as OFFLINE",
+        ),
+        (
+            "stale_job_reaper",
+            stale_job_enabled,
+            StaleJobReaper,
+            "Expire abandoned QUEUED/RUNNING jobs whose TTL passed or whose miner went dark",
+        ),
+    ]
+
+
+def _extra_config(name: str) -> dict[str, Any]:
+    """Settings a sweeper reads but does not store on itself.
+
+    The acceptance sweeper is the case that matters: its most consequential
+    knob is the window length, which lives in the acceptance module and gates
+    whether the sweeper runs at all, so omitting it would leave the row looking
+    fully described while hiding the setting an operator actually asks about.
+    """
+    if name == "acceptance_window_sweeper":
+        from ...payments.acceptance import default_window_seconds, max_window_seconds
+
+        return {
+            "acceptance_window_seconds": default_window_seconds(),
+            "acceptance_window_max_seconds": max_window_seconds(),
+        }
+    return {}
+
+
+def _sweeper_config(factory: Any) -> dict[str, Any]:
+    """Read a sweeper's effective settings off a throwaway instance.
+
+    Every sweeper resolves its own env vars in __init__ and stores them as plain
+    public attributes, so constructing one is how you learn what the running
+    task is actually using. Construction is side-effect free - it reads the
+    environment and builds a session factory; it opens no session and, in the
+    zk refund case, creates the file lock object without acquiring it.
+    """
+    try:
+        instance = factory()
+    except Exception as exc:  # pragma: no cover - defensive
+        logger.warning("Could not read sweeper config for %s: %s", factory, exc)
+        return {"error": f"{type(exc).__name__}: {exc}"}
+    return {
+        name: value
+        for name, value in sorted(vars(instance).items())
+        if not name.startswith("_") and isinstance(value, int | float | str | bool)
+    }
+
+
+def collect_sweeper_report() -> dict[str, Any]:
+    """Build the sweeper report. Split out from the route so it can be tested
+    without standing up the app, and so the route stays a thin wrapper."""
+    from ....core.lifecycle import get_task_manager
+
+    statuses = get_task_manager().get_task_status()
+
+    sweepers: list[dict[str, Any]] = []
+    for name, is_enabled, factory, purpose in _sweeper_specs():
+        try:
+            enabled = bool(is_enabled())
+        except Exception as exc:  # pragma: no cover - defensive
+            logger.warning("Could not evaluate enable flag for %s: %s", name, exc)
+            enabled = False
+        # A run_forever task that is enabled but absent from the registry was
+        # never started; one that is present but not "running" has finished,
+        # which for a forever-loop means it crashed out.
+        status = statuses.get(name, "not started") if enabled else "disabled"
+        sweepers.append(
+            {
+                "name": name,
+                "purpose": purpose,
+                "enabled": enabled,
+                "status": status,
+                "healthy": (not enabled) or status == "running",
+                "config": _sweeper_config(factory) | _extra_config(name),
+            }
+        )
+
+    known = {entry["name"] for entry in sweepers}
+    other_tasks = [{"name": name, "status": status} for name, status in sorted(statuses.items()) if name not in known]
+
+    return {
+        "process": "coordinator-api",
+        "sweepers": sweepers,
+        "degraded": sorted(entry["name"] for entry in sweepers if not entry["healthy"]),
+        # Other managed background tasks, so this endpoint never hides one.
+        "other_tasks": other_tasks,
+        # Runs in the marketplace service, a separate process with its own task
+        # registry, so this coordinator cannot see its status. Listed to keep
+        # the absence deliberate rather than looking like an omission.
+        "external_sweepers": [
+            {
+                "name": "ipfs_rental_sweeper",
+                "process": "marketplace-service",
+                "purpose": "Expire IPFS rentals past their grace period",
+                "status": "not visible from this process",
+            }
+        ],
+        "checked_at": datetime.now(UTC).isoformat(),
+    }
+
+
+@router.get("/sweepers", summary="List background sweeper tasks, their status and configuration")
+@rate_limit(rate=60, per=60)
+async def list_sweepers(request: Request, user: AdminDep) -> dict[str, Any]:
+    """Report every background sweeper this coordinator manages.
+
+    Read-only: it reports what the tasks are doing, it does not start, stop or
+    trigger them.
+
+    `status` distinguishes three things that look alike from outside:
+    `disabled` means the enable flag is off and no task was ever started,
+    `running` means the task is alive, and anything else (`not started`,
+    `error: ...`, `cancelled`, `completed`) on an *enabled* sweeper means it
+    should be running and is not - a run_forever coroutine that has finished
+    has crashed out of its loop.
+
+    `config` is each sweeper's effective settings, read off a fresh instance,
+    so it reflects the environment this process was started with rather than
+    the documented defaults.
+    """
+    return collect_sweeper_report()
