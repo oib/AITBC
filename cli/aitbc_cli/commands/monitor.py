@@ -10,6 +10,7 @@ import click
 from rich.console import Console
 
 from ..utils import error, output, success
+from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, get_logger
 
 logger = get_logger(__name__)
@@ -479,3 +480,83 @@ def campaign_stats(ctx, campaign_id: str | None):
         output(stats[0], ctx.obj["output_format"])
     else:
         output(stats, ctx.obj["output_format"])
+
+
+@monitor.command(
+    epilog="""Examples:
+
+  aitbc monitor sweepers
+
+  aitbc monitor sweepers --config
+
+  aitbc monitor sweepers --output json"""
+)
+@click.option("--config", "show_config", is_flag=True, help="Also show each sweeper's effective settings")
+@click.pass_context
+def sweepers(ctx, show_config: bool):
+    """Show the coordinator's background sweepers: which are enabled, and which are actually running.
+
+    The sweepers refund stuck escrow, release accepted payments, slash bonds and
+    expire dead jobs. They are run_forever coroutines with no other handle on
+    them, so this is the only way to see - without reading journald - that one
+    is enabled but has crashed out of its loop.
+
+    An enabled sweeper in any state other than `running` is the alarm: a
+    run_forever task that has finished has stopped doing its job while the
+    config still claims it is on.
+
+    Read-only. This reports the sweepers, it does not trigger them.
+
+    `ipfs_rental_sweeper` runs in the marketplace service, a separate process,
+    and is listed under external sweepers without a status for that reason.
+    """
+    fmt = ctx.obj["output_format"]
+    try:
+        client = _monitoring_client(ctx, timeout=15)
+        data = client.get("/v1/admin/sweepers")
+    except Exception as e:
+        abort(ctx, f"Error fetching sweeper status: {e}", from_exception=e)
+        return
+
+    entries = data.get("sweepers", [])
+
+    if fmt == "json":
+        output(data, fmt, title="Background Sweepers")
+        return
+
+    rows = []
+    for entry in entries:
+        row = {
+            "sweeper": entry.get("name"),
+            "enabled": "yes" if entry.get("enabled") else "no",
+            "status": entry.get("status"),
+            "purpose": entry.get("purpose"),
+        }
+        if show_config:
+            cfg = entry.get("config") or {}
+            row["config"] = ", ".join(f"{k}={v}" for k, v in cfg.items()) or "-"
+        rows.append(row)
+
+    output(rows, fmt, title="Background Sweepers")
+
+    for entry in data.get("external_sweepers", []):
+        output(
+            {
+                "sweeper": entry.get("name"),
+                "process": entry.get("process"),
+                "status": entry.get("status"),
+                "purpose": entry.get("purpose"),
+            },
+            fmt,
+            title="External Sweepers",
+        )
+
+    other = data.get("other_tasks") or []
+    if other:
+        output(other, fmt, title="Other Background Tasks")
+
+    degraded = data.get("degraded") or []
+    if degraded:
+        error(f"Enabled but not running: {', '.join(degraded)}")
+    else:
+        success("All enabled sweepers are running")
