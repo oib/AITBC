@@ -32,7 +32,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `exchange-island` — Exchange commands for trading AIT against ETH on the island. Subcommands: `buy`, `cancel`, `orderbook`, `orders`, `rates`, `sell`
 - `energy` — Energy-floor pricing, operator signing, and provider tariff management. Subcommands: `floor`, `operator`, `provider`
 - `explorer` — Blockchain Explorer commands - access blockchain data via Explorer API. Subcommands: `activity-timeline`, `block`, `block-by-hash`, `blocks-by-address`, `chain-head`, `chains`, `latest-blocks`, `network-stats`, `non-empty-blocks`, `provider-reputation`, `search-transactions`, `top-addresses`, `transaction`, `transaction-by-hash`
-- `genesis` — Genesis block and wallet generation commands. Subcommands: `info`, `init`, `sync-from-hub`, `verify`
+- `genesis` — Genesis block and wallet generation commands. Subcommands: `info`, `init`, `reset`, `sync-from-hub`, `verify`
 - `governance` — Governance operations — on-chain proposals, voting, and execution. Subcommands: `aggregate-votes`, `close`, `execute`, `execute-cross-chain`, `get`, `list`, `propagate`, `propose`, `status`, `vote`
 - `gpu` — Local GPU service commands for hardware management. Subcommands: `discover`, `list-gpus`, `register`, `unregister`, `update`
 - `gpu-onchain` — GPU resource tracking commands (on-chain). Subcommands: `allocate`, `allocations`, `list`, `query`, `register`
