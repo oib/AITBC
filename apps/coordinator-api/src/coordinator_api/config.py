@@ -20,8 +20,8 @@ logger = logging.getLogger(__name__)
 
 
 def _get_env() -> str:
-    """Get the current environment, checking ENVIRONMENT then APP_ENV."""
-    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "development"))
+    """Get the current environment, checking ENVIRONMENT, APP_ENV, then NODE_ENV."""
+    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", os.getenv("NODE_ENV", "development")))
 
 
 def _is_production() -> bool:
