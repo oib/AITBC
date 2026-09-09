@@ -4,6 +4,7 @@ Unified configuration for AITBC Coordinator API
 Provides environment-based adapter selection and consolidated settings.
 """
 
+import logging
 import os
 from typing import Annotated, Any
 
@@ -13,6 +14,9 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 from aitbc.config import BaseAITBCConfig
 from aitbc.constants import LOG_DIR, REPO_DIR
 from aitbc_shared import DatabaseConfig as BaseDatabaseConfig
+
+
+logger = logging.getLogger(__name__)
 
 
 def _get_env() -> str:
@@ -133,6 +137,14 @@ class Settings(BaseAITBCConfig):
                 raise ValueError("JWT_SECRET must be at least 32 characters long in production")
         return v
 
+    @field_validator("admin_wallet_addresses")
+    @classmethod
+    def _validate_admin_wallet_addresses(cls, v: str) -> str:
+        """Warn when the admin allowlist is empty in production."""
+        if _is_production() and not v:
+            logger.warning("admin router configured with no admin wallets; all admin routes will 403")
+        return v
+
     # CORS - override inherited allow_origins with coordinator-api specific defaults
     allow_origins: list[str] = Field(
         default=[
@@ -215,7 +227,9 @@ class Settings(BaseAITBCConfig):
     # Stored as SecretStr so it cannot leak through repr/logs. When unset, the
     # coordinator returns unsigned quotes (legacy behaviour) and the CLI must
     # refuse to fund them.
-    energy_operator_key: SecretStr | None = Field(default=None, description="Operator private key (hex) used to sign energy quotes")
+    energy_operator_key: SecretStr | None = Field(
+        default=None, description="Operator private key (hex) used to sign energy quotes"
+    )
     energy_operator_address: str | None = Field(default=None, description="Operator address (0x...) that signs energy quotes")
 
     # EVM contracts used for protected GPU rentals. Required for the EVM
