@@ -5,6 +5,7 @@ Tests for JWT token generation, validation, and password management
 
 from datetime import timedelta
 
+import jwt
 import pytest
 from fastapi import HTTPException
 
@@ -202,6 +203,54 @@ class TestJWTHandler:
         validation = handler2.validate_token(token)
 
         assert validation["valid"] is True
+
+
+class TestJWTNoExpiration:
+    """Test tokens that are issued without an expiry claim."""
+
+    def test_jwt_auth_omits_expiry_when_no_expiration_set(self, monkeypatch):
+        """JWTAuth.create_token must not add an `exp` claim when expiry is 0."""
+        monkeypatch.setenv("JWT_NO_EXPIRATION", "1")
+        secret = "test_secret_key_for_testing_that_is_at_least_32_characters"
+        auth = JWTAuth(secret=secret)
+
+        assert auth.expiration_hours == 0
+        token = auth.create_token({"sub": "user1", "role": "admin"})
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+
+        assert "exp" not in payload
+        assert payload["type"] == "access"
+
+    def test_jwt_auth_zero_expiration_hours_omits_expiry(self, monkeypatch):
+        """JWT_EXPIRATION_HOURS=0 is a synonym for non-expiring access tokens."""
+        monkeypatch.setenv("JWT_EXPIRATION_HOURS", "0")
+        secret = "test_secret_key_for_testing_that_is_at_least_32_characters"
+        auth = JWTAuth(secret=secret)
+
+        assert auth.expiration_hours == 0
+        token = auth.create_token({"sub": "user1", "role": "admin"})
+        payload = jwt.decode(token, secret, algorithms=["HS256"])
+
+        assert "exp" not in payload
+
+    def test_jwt_handler_omits_expiry_when_no_expiration_set(self, monkeypatch):
+        """JWTHandler.generate_token must not add an `exp` claim when expiry is 0."""
+        monkeypatch.setenv("JWT_NO_EXPIRATION", "1")
+        secret = "test_secret_key_for_testing_that_is_at_least_32_characters"
+        handler = JWTHandler(secret_key=secret)
+
+        assert handler.token_expiry == timedelta(0)
+        assert handler.refresh_expiry == timedelta(0)
+
+        result = handler.generate_token({"user_id": "user1", "role": "admin"})
+        assert result["expires_at"] is None
+        payload = jwt.decode(result["token"], secret, algorithms=["HS256"])
+        assert "exp" not in payload
+
+        refresh = handler.generate_refresh_token({"user_id": "user1", "role": "admin"})
+        assert refresh["expires_at"] is None
+        refresh_payload = jwt.decode(refresh["refresh_token"], secret, algorithms=["HS256"])
+        assert "exp" not in refresh_payload
 
 
 class TestJWTAuth:
