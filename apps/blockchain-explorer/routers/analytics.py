@@ -68,7 +68,6 @@ async def api_activity_timeline(
             "TRANSFER": "#10b981",
             "GPU_MARKETPLACE": "#3b82f6",
             "ESCROW_RELEASE": "#8b5cf6",
-            "FAUCET": "#f59e0b",
             "GPU_REGISTER": "#ef4444",
         }
 
@@ -174,11 +173,11 @@ async def api_top_addresses(
             await cursor.execute(
                 """
                 SELECT
-                    CASE WHEN sender = 'faucet' OR sender = '0x0000000000000000000000000000000000000000' THEN recipient ELSE sender END as addr,
+                    CASE WHEN sender IN ('bridge_release', 'bridge_refund') OR sender = '0x0000000000000000000000000000000000000000' THEN recipient ELSE sender END as addr,
                     COUNT(*) as tx_count,
                     COALESCE(SUM(CAST(value AS REAL)), 0) as volume
                 FROM "transaction"
-                WHERE sender != 'faucet' AND sender != '0x0000000000000000000000000000000000000000'
+                WHERE sender NOT IN ('bridge_release', 'bridge_refund') AND sender != '0x0000000000000000000000000000000000000000'
                 GROUP BY addr
                 ORDER BY tx_count DESC
                 LIMIT ?
