@@ -141,7 +141,7 @@ except Exception:
     done
 }
 S1_OUT=$(sample_heads)
-sleep 60
+sleep 90
 S2_OUT=$(sample_heads)
 
 report_and_check() {
