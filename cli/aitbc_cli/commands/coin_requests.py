@@ -2,7 +2,10 @@
 
 import json
 import os
-from datetime import UTC, datetime
+import socket
+import time
+from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import click
 import requests
@@ -43,7 +46,7 @@ from aitbc.crypto import TransactionService  # noqa: E402
 from aitbc.db import get_db_session, init_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
 from aitbc.utils import format_ait  # noqa: E402
-from aitbc.utils.units import DEFAULT_TX_FEE_UNITS  # noqa: E402
+from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units  # noqa: E402
 
 
 def _agent_api_base() -> str:
@@ -577,3 +580,158 @@ def reopen(ctx, request_id, rpc_url, force, chain_id):
         req.audit_log = (req.audit_log or "") + entry
         req.transaction_hash = None
         click.echo(f"Reopened {request_id}. It is executable again — the hub will pay it if you execute it.")
+
+
+@coin_requests.command(
+    name="request",
+    epilog="""Examples:
+
+  aitbc coin-requests request
+
+  aitbc coin-requests request --wallet default --amount 100""",
+)
+@click.option("--wallet", default="default", show_default=True, help="Wallet name to receive the coins.")
+@click.option("--amount", type=int, default=100, show_default=True, help="Amount in AIT.")
+@click.option("--sender", default=None, help="Sender id (defaults to hostname-wallet-suffix).")
+@click.option("--recipient", default="hub-coordinator", show_default=True, help="Recipient agent id.")
+@click.option("--request-id", default=None, help="Request id (defaults to a unique value).")
+@click.pass_context
+def request_coins(ctx, wallet, amount, sender, recipient, request_id):
+    """Request a one-time initial coin grant from the hub for a local wallet.
+
+    This is the follower-side entry point: it registers the request with the hub,
+    and, if the hub's coin-request policy auto-approves it, executes it immediately.
+    """
+    from aitbc_cli.utils.wallet_paths import find_wallet_file
+
+    if amount <= 0:
+        click.echo("Error: amount must be positive.")
+        return
+
+    wallet_path = find_wallet_file(wallet)
+    if not wallet_path or not Path(wallet_path).exists():
+        click.echo(f"Error: wallet '{wallet}' not found in the configured wallet directories.")
+        return
+
+    try:
+        wallet_data = json.loads(Path(wallet_path).read_text())
+    except Exception as e:
+        click.echo(f"Error reading wallet file: {e}")
+        return
+
+    wallet_address = wallet_data.get("address")
+    if not wallet_address:
+        click.echo("Error: wallet file has no 'address' field.")
+        return
+
+    if not sender:
+        suffix = wallet_address[-8:] if len(wallet_address) >= 8 else wallet_address
+        sender = f"{socket.gethostname()}-{suffix}"
+
+    if not request_id:
+        request_id = f"req-{sender}-{int(time.time())}"
+
+    amount_units = ait_to_units(amount)
+    now = datetime.now(UTC).replace(tzinfo=None)
+
+    try:
+        hub = _agent_api_base()
+    except RuntimeError as e:
+        click.echo(f"Error: {e}")
+        return
+
+    api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
+    if not api_key:
+        click.echo("Error: no API key available. Set FOLLOWER_API_KEY for followers.")
+        return
+
+    base_url = f"{hub.rstrip('/')}/coin-requests"
+    headers = {"x-api-key": api_key, "Content-Type": "application/json"}
+
+    click.echo(f"Requesting {format_ait(amount_units)} to {wallet_address} as {sender}")
+
+    # Register with the hub
+    try:
+        reg = requests.post(
+            f"{base_url}/register",
+            json={
+                "request_id": request_id,
+                "sender": sender,
+                "amount": amount_units,
+                "wallet_address": wallet_address,
+                "recipient": recipient,
+            },
+            headers=headers,
+            timeout=30,
+        )
+    except Exception as e:
+        click.echo(f"Error registering request: {e}")
+        return
+
+    if reg.status_code != 200:
+        click.echo(f"Hub registration failed: {reg.status_code} {reg.text}")
+        return
+
+    reg_data = reg.json()
+    status = reg_data.get("status")
+    reason = reg_data.get("reason", "no reason given")
+
+    # Keep a local record so the follower can track/execute/reopen it later.
+    with get_db_session() as session:
+        existing = session.query(CoinRequest).filter(CoinRequest.id == request_id).first()
+        if existing is None:
+            status_enum = (
+                CoinRequestStatus(status) if status in {s.value for s in CoinRequestStatus} else CoinRequestStatus.PENDING
+            )
+            session.add(
+                CoinRequest(
+                    id=request_id,
+                    sender=sender,
+                    recipient=recipient,
+                    amount=amount_units,
+                    wallet_address=wallet_address,
+                    status=status_enum,
+                    approval_mode="automatic" if status == "approved" else "manual",
+                    approved_by="coin-request-policy" if status == "approved" else None,
+                    approved_at=now if status == "approved" else None,
+                    created_at=now,
+                    expires_at=now + timedelta(hours=24),
+                    audit_log=f"Registered by CLI at {now.isoformat()} | {status}: {reason}",
+                )
+            )
+
+    if status != "approved":
+        click.echo(f"Request {request_id} registered with status '{status}'.")
+        click.echo(f"  reason: {reason}")
+        click.echo("It can be approved and executed by a hub operator with:")
+        click.echo(f"  aitbc coin-requests approve {request_id}")
+        click.echo(f"  aitbc coin-requests execute {request_id}")
+        return
+
+    # Auto-execute the approved request
+    try:
+        resp = requests.post(
+            f"{base_url}/execute",
+            json={
+                "request_id": request_id,
+                "sender": sender,
+                "amount": amount_units,
+                "wallet_address": wallet_address,
+                "approved_by": "cli",
+            },
+            headers=headers,
+            timeout=30,
+        )
+    except Exception as e:
+        click.echo(f"Error executing request: {e}")
+        return
+
+    if resp.status_code != 200:
+        click.echo(f"Hub execution failed: {resp.status_code} {resp.text}")
+        return
+
+    result = resp.json()
+    tx_hash = result.get("tx_hash")
+    click.echo(f"Request {request_id} executed.")
+    click.echo(f"  transaction: {tx_hash}")
+    click.echo(f"  amount: {format_ait(amount_units)} to {wallet_address}")

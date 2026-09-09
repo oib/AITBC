@@ -27,7 +27,7 @@ aitbc --help
 | `brand` | Show and manage white-label brand settings. | `list`, `show` |
 | `bridge` | Cross-chain bridge management | `attest`, `balance`, `confirm`, `health`, `ingest-header`, `lock`, `oracle-status`, `pending`, `proof`, `register-validator`, `security-status`, `sign-proof`, `start`, `status`, `stop`, `store-header`, `unlock` |
 | `cluster` | Cluster management and operations | `balance`, `status`, `sync` |
-| `coin-requests` | Manage coin transfer requests. | `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `show` |
+| `coin-requests` | Manage coin transfer requests. | `approve`, `execute`, `list`, `reconcile`, `reject`, `reopen`, `request`, `show` |
 | `compliance` | Compliance policy, classification, and audit commands. | `check`, `classify`, `export-audit` |
 | `confidential` | Confidential TEE-signed transaction commands. | `balance`, `send` |
 | `config` | Manage CLI configuration | `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate` |
