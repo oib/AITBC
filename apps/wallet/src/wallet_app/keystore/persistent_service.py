@@ -276,7 +276,7 @@ class PersistentKeystoreService:
                 conn.close()
 
             # Register account on blockchain
-            chain_registration = self._register_account_on_chain(public_key_hex)
+            chain_registration = self._register_account_on_chain(metadata_map.get("address", public_key_hex))
             if chain_registration["success"]:
                 metadata_map["chain_registered"] = "true"
                 metadata_map["chain_balance"] = str(chain_registration.get("balance", 0))

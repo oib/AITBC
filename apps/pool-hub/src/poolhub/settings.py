@@ -83,7 +83,7 @@ class Settings(ServiceSettings):
     prometheus_namespace: str = Field(default="poolhub")
 
     # Coordinator-API Billing Integration
-    coordinator_billing_url: str = Field(default="http://localhost:8011")
+    coordinator_billing_url: str = Field(default="http://127.0.0.1:8203")
     coordinator_api_key: str | None = Field(default=None)
 
     # Blockchain integration (v0.6.7)
