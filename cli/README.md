@@ -53,7 +53,7 @@ aitbc --help
 | `market` | GPU and software offers published by shop miners | `cancel`, `escrow`, `exchange`, `gpu`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
 | `mining` | Mining operations commands | `list`, `start`, `status`, `stop` |
-| `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks` |
+| `monitor` | Monitoring, metrics, and alerting commands | `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks` |
 | `network` | Peer connectivity and network operations | `force-sync`, `gossip`, `heartbeat`, `lease-status`, `peers`, `status`, `subscribe`, `subscribers`, `test` |
 | `node` | Node management commands | `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test` |
 | `operations` | **Legacy** on-chain operations commands. Hidden from `aitbc --help`; prefer the top-level `aitbc ai`, `aitbc agent`, `aitbc governance`, and `aitbc market` groups. | `agent`, `ai`, `governance` |

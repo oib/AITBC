@@ -42,7 +42,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `market` — Blockchain marketplace commands for GPU trading. Subcommands: `cancel`, `escrow`, `exchange`, `gpu`, `hermes`, `list`, `match`, `offer`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe`
 - `messaging` — Messaging system and forum operations. Subcommands: `list`, `send`, `topic`
 - `mining` — Mining operations commands. Subcommands: `list`, `start`, `status`, `stop`
-- `monitor` — Monitoring, metrics, and alerting commands. Subcommands: `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `webhooks`
+- `monitor` — Monitoring, metrics, and alerting commands. Subcommands: `alerts`, `campaign-stats`, `campaigns`, `dashboard`, `history`, `metrics`, `sweepers`, `webhooks`
 - `network` — Peer connectivity and network operations. Subcommands: `force-sync`, `gossip`, `heartbeat`, `lease-status`, `peers`, `status`, `subscribe`, `subscribers`, `test`
 - `node` — Node management commands. Subcommands: `add`, `bridge`, `chain`, `chains`, `hub`, `info`, `island`, `list`, `monitor`, `node-info`, `remove`, `test`
 - `operations` — General operations commands. Subcommands: `agent`, `ai`, `governance`
