@@ -139,6 +139,18 @@ class AuthManager:
             warning(f"No stored credential found for '{name}' in '{environment}'")
         return cast(str | None, value)
 
+    def get_admin_token(self, environment: str = "default") -> str | None:
+        """Return the stored admin JWT if available, falling back to the client JWT.
+
+        The token's role is a server-side claim, not a property of the storage slot,
+        so an admin wallet's JWT is valid for admin routes regardless of whether it
+        was stored as ``admin`` or ``client`` (the default for ``aitbc auth login``).
+        """
+        admin = self.get_credential("admin", environment, quiet=True)
+        if admin:
+            return admin
+        return self.get_credential("client", environment, quiet=True)
+
     def delete_credential(self, name: str, environment: str = "default") -> bool:
         """Delete a stored API key. Returns True if one was removed."""
         key = self._key(name, environment)

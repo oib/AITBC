@@ -216,3 +216,41 @@ def test_idor_balance_access_denied(client):
     own = client.get(f"/v1/users/{alice_user_id}/balance?token={alice_token}")
     assert own.status_code == 200
     assert own.json()["user_id"] == alice_user_id
+
+
+def test_admin_wallet_can_access_admin_route(client, monkeypatch):
+    """A wallet in the admin allowlist obtains an admin JWT and reaches /v1/admin/sweepers."""
+    from coordinator_api.config import settings
+
+    admin_account = Account.create()
+    original = settings.admin_wallet_addresses
+    monkeypatch.setattr(settings, "admin_wallet_addresses", admin_account.address)
+    try:
+        reg_resp = _register_user(client, admin_account)
+        assert reg_resp.status_code == 200
+        token = reg_resp.json()["session_token"]
+
+        resp = client.get("/v1/admin/sweepers", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 200
+        assert "sweepers" in resp.json()
+    finally:
+        settings.admin_wallet_addresses = original
+
+
+def test_non_admin_wallet_is_denied_admin_route(client, monkeypatch):
+    """A wallet not in the admin allowlist cannot reach admin routes."""
+    from coordinator_api.config import settings
+
+    other = Account.create()
+    original = settings.admin_wallet_addresses
+    monkeypatch.setattr(settings, "admin_wallet_addresses", other.address)
+    try:
+        user_account = Account.create()
+        reg_resp = _register_user(client, user_account)
+        assert reg_resp.status_code == 200
+        token = reg_resp.json()["session_token"]
+
+        resp = client.get("/v1/admin/sweepers", headers={"Authorization": f"Bearer {token}"})
+        assert resp.status_code == 403
+    finally:
+        settings.admin_wallet_addresses = original

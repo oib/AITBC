@@ -53,7 +53,7 @@ def _coordinator_client(ctx, coordinator_url: str | None = None, timeout: int | 
 
     token = ctx.obj.get("api_key") or config.api_key or ""
     if not token:
-        token = AuthManager().get_credential("client") or ""
+        token = AuthManager().get_admin_token() or ""
 
     client_kwargs: dict[str, Any] = {"base_url": url, "timeout": timeout or config.timeout or 30, "headers": None}
     if token and _looks_like_jwt(token):
