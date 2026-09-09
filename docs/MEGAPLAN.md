@@ -1947,7 +1947,7 @@ read them. Operator action; a per-file approval list can be produced on request.
 `fleet-config-check.sh` dirty; the file content matches `c9c35d033` but the node
 has not run `sync.sh pull`.
 
-### §17.18 — F3/F4/F5 remediation applied (9 Sep, 09:30)
+### §17.19 — F3/F4/F5 remediation applied (9 Sep, 09:30 → 10:15)
 
 F3, F4, and the file-permission part of F5 were applied after operator approval.
 
@@ -1965,11 +1965,13 @@ F3, F4, and the file-permission part of F5 were applied after operator approval.
   local Redis access is denied everywhere.
 - **F5 partially closed**: the seven world-readable files are now `640`
   `root:aitbc`; the stale `BLOCKCHAIN_API_KEY` line was removed from hub2's
-  `blockchain.env`. The remaining credentials (`GENESIS_WALLET_PRIVATE_KEY`,
-  Postgres DSNs, `MINER_AUTH_TOKEN`/`MINER_API_KEYS`) are covered by the new
-  permissions but have not yet been rotated — the genesis wallet requires a
-  chain-state migration and the Postgres DSNs require database password changes,
-  so those are left for an explicit follow-up.
+  `blockchain.env`. Local PostgreSQL user passwords were rotated for `aitbc_user`,
+  `aitbc_mempool`, and `poolhub`, and the corresponding DSNs and credential files
+  were updated. `MINER_AUTH_TOKEN` and `MINER_API_KEYS` were rotated on all five
+  hosts. `GENESIS_WALLET_PRIVATE_KEY` was removed from `node.env` on
+  `node0`/`node1`/`hub2` because `GENESIS_WALLET_ADDRESS` is not configured there.
+  The same key on `node2` and `hub.aitbc` (where `GENESIS_WALLET_ADDRESS` is set)
+  still needs a wallet migration on-chain before it can be safely rotated.
 - **Monitoring fix**: `scripts/monitoring/fleet-config-check.sh` `sleep 60` was
   changed to `sleep 90`, committed as `58d8dca1f5`, pushed to gitea, and
   `git checkout origin/main -- scripts/monitoring/fleet-config-check.sh` was run
@@ -1977,5 +1979,132 @@ F3, F4, and the file-permission part of F5 were applied after operator approval.
   is now a 90s window.
 - **node2 pulled**: `/opt/aitbc` on node2 now reports `58d8dca1f5`.
 - **Verification after changes**: `fleet-config-check.sh` from node2:
-  **6031 → 6032**, all five hosts same hash, exit 0; all `aitbc-blockchain-*`
-  and `redis-server` units are active.
+  **6031 → 6032**, all five hosts same hash, exit 0; final re-check at
+  **6046 → 6047**. All `aitbc-blockchain-*` and `redis-server` units are active.
+
+### §17.18 — CLI feature coverage audit (9 Sep)
+
+Question: does the `aitbc` CLI cover the recently-landed features? Method: walked
+the full command tree with lazy resolution (`list_commands`/`get_command` on a
+click Context — a naive `cmd.commands` walk misses every lazily-registered group
+since `6511a3a16`), giving **483 commands under 68 top-level groups**, then
+compared against `git log --grep=^feat` for the last 30 days and against the
+backend HTTP route surface.
+
+`cli_gap_analysis.py` reports docs↔CLI parity clean: 68 top-level groups in the
+CLI, 68 in docs, 0 undocumented, 0 missing. That tool compares *registered groups
+to docs headings only* — it cannot see the gaps below.
+
+**G-A — disputes/arbitration have no CLI surface at all (OPEN)**
+
+`f9aa1df82` (auto-adjudicate on spot-check mismatch) and `d42be7c76`
+(dispute-triggered spot-check re-execution) landed a dispute subsystem with eight
+routes:
+
+```
+post("/disputes/auto-adjudicate")   post("/disputes/{job_id}/resolve")
+get("/{dispute_id}")                get("/{dispute_id}/evidence")
+get("/{dispute_id}/votes")          post("/{escrow_id}/dispute")
+post("/{bounty_id}/dispute")        post("/bounties/{bounty_id}/dispute")
+```
+
+CLI matches for `dispute|arbitrat`: **0**. The MCP surface exposes six dispute
+tools, so the capability is reachable by agents but not by an operator at a shell.
+**Suggest** a `dispute` group (`open`, `list`, `get`, `evidence`, `votes`,
+`resolve`, `auto-adjudicate`) — the largest single hole in the tree.
+
+**G-B — `aitbc tee` is deferred but still documented as usable (OPEN, docs)**
+
+`cli/aitbc_cli/commands/tee.py` defines a complete group (`attest`, `keygen`,
+`launch`, `verify`, `register`, `status`) that `core/main.py` never registers.
+This is deliberate — `9079fb74a refactor(cli): defer 'aitbc tee' to release 2.0`
+(1 Sep) — but three live docs still instruct users to run it:
+
+- `docs/scenarios/46_tee_confidential_jobs.md:36,54` — `aitbc tee register …`, `aitbc tee status …`
+- `docs/scenarios/README.md:116` — `aitbc tee launch`
+- `docs/DESIGN_CYCLE.md:118` — cites `aitbc tee attest --key-file` / `keygen` as landed
+
+**Suggest** marking the deferral in those three files. `system_architect.py` is
+the only other unregistered module and looks dead.
+
+**G-C — no gossip surface (OPEN, directly relevant to F3)**
+
+`3a18de6ea` added the mesh gossip backend. There is no CLI command and no HTTP
+route that reports gossip backend, configured peers, or live peer state —
+`network peers` is P2P, not gossip. This is precisely why F3 (`node.env`
+shadowing `GOSSIP_MESH_PEER_URLS` down to two peers) was invisible.
+**Suggest** `network gossip status` reading the effective backend and peer list
+from the running process, which would make F3-class drift self-reporting.
+
+**G-D — sweepers are one-sixth covered (OPEN, minor)**
+
+`ai refund-sweep` covers the ZK refund sweeper. No CLI trigger or status for
+`bond_slash_sweeper`, `acceptance_sweeper`, the stuck-escrow sweeper
+(`fb2409dbd`), or `ipfs_rental_sweeper` (`a3c084e5a`).
+
+**Well covered** — islands (`node island` ×7, `edge island` ×5, `ipfs island` ×2),
+bond incl. `bond slash` and `bond appeal`, bridge (17 commands), `energy floor`
+and the operator/provider groups, `crosschain` (8), `ai` (14). Island commands are
+fragmented across three parents with a redundant `node island list` /
+`node island list-islands` pair and an awkward `node island island-info`; worth a
+cleanup pass given islands are the open-onboarding path.
+
+**Risk** — the lazy loader catches import failures into `_UnavailableCommand` with
+only `logger.warning` (`core/main.py:85-92`, `:129-138`), so a broken command
+module degrades silently instead of failing. Zero are currently broken; a CI
+assertion that all 67 lazy registrations resolve would keep it that way.
+
+### §17.19 — `aitbc dispute` group drafted (G-A)
+
+Closes the §17.18 G-A gap. New file `cli/aitbc_cli/commands/dispute.py` (522
+lines), registered lazily in `core/main.py` alongside the other 67 groups.
+**14 commands, covering all 11 chain dispute routes and both coordinator admin
+routes** — the whole surface that previously had no CLI.
+
+```
+aitbc dispute file | active | get | user | vote | votes
+aitbc dispute evidence add | list | verify
+aitbc dispute arbitrator list | queue | authorize
+aitbc dispute resolve | auto-adjudicate
+```
+
+**Two backends behind one group.** The chain RPC (`/rpc/disputes/*`, port 8202)
+carries on-chain arbitration; the coordinator admin API
+(`/v1/admin/disputes/*`) rules on disputed *job payments*, a different object
+under `AdminDep` so neither the rejecting customer nor the provider can rule on
+their own dispute. `resolve` and `auto-adjudicate` are the only coordinator
+commands; the module docstring says so, since the split is not obvious.
+
+Design notes:
+
+- `_chain_client` reads `config.blockchain_rpc_url` (default
+  `http://127.0.0.1:8202`) and attaches `blockchain_rpc_api_key` when set — the
+  read routes are open, filing/evidence/votes are authenticated.
+- `_coordinator_client` is the `bond.py` pattern verbatim (JWT vs API-key
+  branch), so the auth behaviour matches its sibling group rather than
+  inventing a second convention.
+- `resolve` and `auto-adjudicate` both prompt before acting and take `--yes`.
+  A refund that settles also slashes the provider bond, so these move money and
+  are not undoable from the CLI; every other command is read-only or additive.
+- `arbitrator queue` rather than `arbitrator disputes` — `aitbc dispute
+  arbitrator disputes 0x…` reads badly.
+- `evidence verify` takes `--reject` rather than `--verified/--no-verified`;
+  the endpoint field stays `verified: not reject`.
+
+Verified on node2:
+
+| Check | Result |
+|---|---|
+| Group resolves through the lazy loader | `LazyGroup`, 14 commands, 69 top-level |
+| Live call `aitbc dispute active` | `{"success": true, "disputes": [], "count": 0}` from the local node |
+| `cli_gap_analysis.py` | 69 CLI groups / 69 documented, 0 gaps either way |
+| `tests/cli` + `tests/test_cli_docs_sync.py` | no failures |
+
+Docs updated in the same shape as the neighbouring rows: `cli/README.md:39`
+(table) and `cli/CLI_USAGE_GUIDE.md:28` (bullet). Both are what
+`cli_gap_analysis.py` parses, so leaving them out would have turned
+`test_cli_docs_sync.py` red.
+
+**Uncommitted** — four files sit in node2's working tree
+(`dispute.py` untracked; `core/main.py`, `cli/README.md`,
+`cli/CLI_USAGE_GUIDE.md` modified) awaiting the commit → push → sync workflow.
