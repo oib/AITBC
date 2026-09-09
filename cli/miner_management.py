@@ -18,7 +18,7 @@ from typing import Any
 import requests
 
 # Default configuration
-DEFAULT_COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://localhost:8011")
+DEFAULT_COORDINATOR_URL = os.getenv("COORDINATOR_URL", "http://127.0.0.1:8203")
 DEFAULT_API_KEY = os.getenv("MINER_API_KEY", "")
 
 

@@ -16,7 +16,7 @@ class Settings(ServiceSettings):
     app_name: str = Field(default="AITBC Wallet Daemon")
     debug: bool = Field(default=False)
 
-    coordinator_base_url: str = Field(default="http://localhost:8011", alias="COORDINATOR_BASE_URL")
+    coordinator_base_url: str = Field(default="http://127.0.0.1:8203", alias="COORDINATOR_BASE_URL")
     coordinator_api_key: str = Field(..., alias="COORDINATOR_API_KEY")
 
     # Blockchain RPC configuration for on-chain operations
