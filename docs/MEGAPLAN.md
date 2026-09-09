@@ -2054,7 +2054,7 @@ only `logger.warning` (`core/main.py:85-92`, `:129-138`), so a broken command
 module degrades silently instead of failing. Zero are currently broken; a CI
 assertion that all 67 lazy registrations resolve would keep it that way.
 
-### §17.19 — `aitbc dispute` group drafted (G-A)
+### §17.20 — `aitbc dispute` group drafted (G-A)
 
 Closes the §17.18 G-A gap. New file `cli/aitbc_cli/commands/dispute.py` (522
 lines), registered lazily in `core/main.py` alongside the other 67 groups.
