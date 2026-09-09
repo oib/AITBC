@@ -17,7 +17,6 @@ from ...logger import get_logger
 from ...models import Account, Transaction
 from ..accounts import (
     create_account,
-    faucet_request,
     get_account,
     get_account_alias,
     get_balance_breakdown,
@@ -434,13 +433,6 @@ async def create_account_route(request: Request, account_data: dict) -> dict[str
     state root. The account is created by the first transaction that credits it.
     """
     return await create_account(request, account_data)  # type: ignore[no-any-return]
-
-
-@router.post("/faucet", summary="Request test tokens from faucet")
-@rate_limit(rate=10, per=3600)
-async def faucet_request_route(request: Request, faucet_data: dict) -> dict[str, Any]:
-    """Request test tokens from the blockchain faucet"""
-    return await faucet_request(request, faucet_data)  # type: ignore[no-any-return]
 
 
 @router.get("/balance/{address}", summary="Get detailed balance breakdown")

@@ -2,9 +2,6 @@
 Account-related RPC endpoints.
 """
 
-import hashlib
-import uuid
-from datetime import UTC, datetime
 from typing import Any, cast
 
 from fastapi import HTTPException, Request, status
@@ -18,7 +15,6 @@ from ..logger import get_logger
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.utils.units import DEFAULT_FAUCET_UNITS, MAX_FAUCET_UNITS
 
 _logger = get_logger(__name__)
 
@@ -128,106 +124,6 @@ async def create_account(request: Request, account_data: dict[str, Any]) -> dict
         "created": False,
         "pending": True,
         "message": "Address accepted; the on-chain account is created by the first transaction that credits it",
-    }
-
-
-@rate_limit(rate=10, per=3600)
-async def faucet_request(request: Request, faucet_data: dict[str, Any]) -> dict[str, Any]:
-    """
-    Request test tokens from the blockchain faucet.
-
-    This endpoint allows newly created wallets to receive initial funds
-    for testing and development purposes.
-
-    Args:
-        faucet_data: Dictionary containing:
-            - address: The account address to fund
-            - amount: Optional amount to request (default: 1000000)
-            - chain_id: Optional chain ID (defaults to node's chain)
-
-    Returns:
-        Dictionary with success status and transaction details
-    """
-    chain_id = get_chain_id(faucet_data.get("chain_id"))
-    address = faucet_data.get("address")
-    amount = faucet_data.get("amount", DEFAULT_FAUCET_UNITS)
-    if not address:
-        raise HTTPException(status_code=400, detail="address is required")
-    address = canonical_address(address)
-    if not address.startswith("0x"):
-        address = "0x" + address
-    # Allow both lower-case and EIP-55 checksum hex characters (V23-66).
-    if not all(c in "0123456789abcdefABCDEF" for c in address[2:]) or len(address) != 42:
-        raise HTTPException(status_code=400, detail="address must be a valid 0x hex string")
-    if amount > MAX_FAUCET_UNITS:
-        amount = MAX_FAUCET_UNITS
-    from ..config import settings as chain_settings
-    from ..mempool import get_mempool
-
-    block_scoped = bool(getattr(chain_settings, "block_scoped_preregistered_transactions", False))
-    timestamp = datetime.now(UTC)
-    tx_hash = hashlib.sha256(f"faucet:{address}:{amount}:{timestamp.isoformat()}:{uuid.uuid4()}".encode()).hexdigest()
-
-    if block_scoped:
-        # Do not touch the account table here. Under block scoping the credit is applied
-        # at block time, and the block-time path creates the recipient account itself
-        # (StateTransition._ensure_account). Committing a zero-balance row now would put
-        # an account in the table that the block headers do not account for, so
-        # compute_state_root_full would disagree with the parent header and the proposer
-        # would refuse to build the very block that carries this credit. That deadlock
-        # froze all four validators on 2026-09-03.
-        mempool = get_mempool()
-        mempool.add(
-            {
-                "from": "faucet",
-                "to": address,
-                "amount": amount,
-                "fee": 0,
-                "type": "FAUCET",
-                "payload": {"type": "FAUCET", "amount": amount, "reason": "test_funding"},
-                "nonce": 0,
-                "timestamp": timestamp.isoformat(),
-            },
-            chain_id=chain_id,
-            tx_hash=tx_hash,
-        )
-    else:
-        with session_scope(chain_id) as session:
-            account = session.get(Account, (chain_id, address))
-            if not account:
-                account = Account(chain_id=chain_id, address=address, balance=0, nonce=0)
-                session.add(account)
-                session.flush()
-                _logger.info("Faucet auto-created account: %s", address)
-            account.balance += amount
-            session.add(account)
-            session.commit()
-
-        with session_scope(chain_id) as tx_session:
-            faucet_tx = Transaction(
-                chain_id=chain_id,
-                tx_hash=tx_hash,
-                sender="faucet",
-                recipient=address,
-                payload={"type": "FAUCET", "amount": amount, "reason": "test_funding"},
-                value=amount,
-                fee=0,
-                nonce=0,
-                timestamp=timestamp,
-                block_height=None,
-                status="confirmed",
-                type="FAUCET",
-            )
-            tx_session.add(faucet_tx)
-            tx_session.commit()
-
-    return {
-        "success": True,
-        "address": address,
-        "amount": amount,
-        "tx_hash": tx_hash,
-        "chain_id": chain_id,
-        "message": "Faucet transaction submitted to mempool" if block_scoped else "Faucet transaction completed",
     }
 
 

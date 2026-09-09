@@ -668,30 +668,6 @@ def create_wallet(
     return _run_aitbc_cli_write(role, host, "wallet", "create", None, options, dry_run, confirm)
 
 
-@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def fund_wallet(
-    address: Annotated[str, Field(description="Wallet address to fund.")],
-    amount_ait: Annotated[str, Field(description="Amount to request from faucet in AIT.")] = "1.0",
-    chain_id: Annotated[str | None, Field(description="Chain ID override.")] = None,
-    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
-    confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
-    role: Annotated[
-        NodeRole | None,
-        Field(description="Node role to run the command on."),
-    ] = None,
-    host: Annotated[
-        str | None,
-        Field(description="Override the host for this call."),
-    ] = None,
-) -> str:
-    """Fund a wallet address using the blockchain faucet."""
-    _validate_evm_address(address, "wallet address")
-    options: dict[str, str | None] = {"address": address, "amount-ait": amount_ait}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    return _run_aitbc_cli_write(role, host, "wallet", "fund", None, options, dry_run, confirm)
-
-
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def get_wallet_info(
     wallet_name: Annotated[str, Field(description="Wallet name.")] = "genesis",

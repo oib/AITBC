@@ -3509,53 +3509,6 @@
         }
       }
     },
-    "/rpc/faucet": {
-      "post": {
-        "tags": [
-          "rpc",
-          "core"
-        ],
-        "summary": "Request test tokens from faucet",
-        "description": "Request test tokens from the blockchain faucet",
-        "operationId": "faucet_request_route_rpc_faucet_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Faucet Data"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Faucet Request Route Rpc Faucet Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
     "/rpc/balance/{address}": {
       "get": {
         "tags": [
@@ -12958,53 +12911,6 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Create Account Route V1 Register Account Post"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/faucet": {
-      "post": {
-        "tags": [
-          "v1",
-          "core"
-        ],
-        "summary": "Request test tokens from faucet",
-        "description": "Request test tokens from the blockchain faucet",
-        "operationId": "faucet_request_route_v1_faucet_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "additionalProperties": true,
-                "type": "object",
-                "title": "Faucet Data"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Faucet Request Route V1 Faucet Post"
                 }
               }
             }

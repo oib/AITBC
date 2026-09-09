@@ -859,7 +859,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         }
 
     # v0.25.5: do not call POST /register-account to bootstrap the buyer.  The
-    # buyer must already have an on-chain account (faucet or previous transfer)
+    # buyer must already have an on-chain account (genesis allocation or previous transfer)
     # before the lock transaction can be admitted.
 
     success, message, contract_id = await mgr.create_contract(

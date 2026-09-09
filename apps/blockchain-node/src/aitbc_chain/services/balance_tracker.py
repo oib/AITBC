@@ -38,7 +38,6 @@ class BalanceChangeType(Enum):
     bridge_release = "bridge_release"
     fee = "fee"
     reward = "reward"
-    faucet = "faucet"
 
 
 @dataclass

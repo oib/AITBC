@@ -304,7 +304,9 @@ class ChainSettings(BaseSettings):
     sync_manager_http_host: str = "0.0.0.0"
     sync_parallel_peers: str = ""  # "url1,url2" or "chain_id:url1,..."
     state_sync_max_gap: int = 10
-    block_scoped_preregistered_transactions: bool = False  # apply FAUCET/BRIDGE_* Account changes only at block time
+    block_scoped_preregistered_transactions: bool = (
+        False  # apply pre-registered credit (BRIDGE_*) Account changes only at block time
+    )
 
     # Automatic bulk sync settings
     auto_sync_enabled: bool = True  # enable automatic bulk sync when gap detected

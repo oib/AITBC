@@ -28,7 +28,7 @@ async def require_admin_api_key(
     """Require an API key for admin/minting endpoints.
 
     In production, set WALLET_API_KEY (or reuse COORDINATOR_API_KEY) and pass it
-    as the X-API-Key header. The faucet is disabled by default.
+    as the X-API-Key header.
     """
     authenticator = APIKeyAuthenticator(
         expected_key=config.api_key,

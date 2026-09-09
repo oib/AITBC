@@ -13,7 +13,6 @@ from typing import Any
 from .blockchain import BlockchainSetup
 from .exceptions import PrerequisitesError
 from .messaging import MessagingSetup
-from .services import ServiceDeployment
 from .stage_runner import StageRunner
 
 log = logging.getLogger(__name__)
@@ -22,9 +21,8 @@ log = logging.getLogger(__name__)
 class TrainingEnvironment:
     """
     Manages AITBC training environment setup including:
-    - Account funding via genesis and faucet
+    - Account funding via genesis
     - Messaging authentication configuration
-    - Faucet service deployment
     - Environment verification
     - Schema-driven stage execution
     """
@@ -33,20 +31,19 @@ class TrainingEnvironment:
         self,
         aitbc_dir: str = "/opt/aitbc",
         log_dir: str = "/var/log/aitbc/training-setup",
-        faucet_amount: int = 1000,
+        fund_amount: int = 1000,
         genesis_allocation: int = 10000,
         wallet_prefix: str = "training-w",
         genesis_password_path: str = "/var/lib/aitbc/keystore/.genesis_password",  # nosec B107
     ):
         self.aitbc_dir = Path(aitbc_dir)
         self.log_dir = Path(log_dir)
-        self.faucet_amount = faucet_amount
+        self.fund_amount = fund_amount
         self.genesis_allocation = genesis_allocation
         self.wallet_prefix = wallet_prefix
         self.genesis_password_path = Path(genesis_password_path)
         self.blockchain_setup = BlockchainSetup(str(self.aitbc_dir), str(self.genesis_password_path))
         self.messaging_setup = MessagingSetup(str(self.aitbc_dir))
-        self.service_deployment = ServiceDeployment(str(self.aitbc_dir))
         self.stage_runner = StageRunner(str(self.aitbc_dir / "aitbc-cli"))
         self.log_dir.mkdir(parents=True, exist_ok=True)
         self._setup_logging()
@@ -161,7 +158,7 @@ class TrainingEnvironment:
             Dictionary with setup status
         """
         log.info("Setting up training wallet: %s", wallet_name)
-        funding_result = self.blockchain_setup.fund_training_wallet(wallet_name, self.faucet_amount, password)
+        funding_result = self.blockchain_setup.fund_training_wallet(wallet_name, self.fund_amount, password)
         balance_result = self.blockchain_setup.check_wallet_balance(wallet_name)
         return {"funding": funding_result, "balance": balance_result}
 
@@ -175,7 +172,7 @@ class TrainingEnvironment:
             return {"prerequisites": "failed"}
 
         genesis = self.create_genesis_allocation()
-        faucet = self.setup_faucet_wallet()
+        genesis_funding = self.setup_genesis_funding_source()
         self.fund_training_wallet("dummy")  # Test mocks this
         messaging_auth = self.configure_messaging_auth()
         messaging = self.test_messaging_connectivity()
@@ -184,7 +181,7 @@ class TrainingEnvironment:
         return {
             "prerequisites": prereq_status,
             "genesis": genesis,
-            "faucet": faucet,
+            "genesis_funding": genesis_funding,
             "funding": "completed",
             "wallets_funded": "completed",
             "messaging_auth": messaging_auth,
@@ -203,10 +200,8 @@ class TrainingEnvironment:
         results = {
             "prerequisites": self.check_prerequisites(),
             "genesis": self.blockchain_setup.create_genesis_allocation(),
-            "faucet": self.blockchain_setup.setup_faucet_wallet(),
+            "genesis_funding": self.blockchain_setup.setup_genesis_funding_source(),
             "messaging": self.messaging_setup.configure_messaging_auth(),
-            "service": self.service_deployment.deploy_faucet_service(),
-            "service_start": self.service_deployment.start_faucet_service(),
         }
         log.info("Complete environment setup finished")
         return results
@@ -224,15 +219,13 @@ class TrainingEnvironment:
         """Delegate to blockchain_setup (backward compatibility)."""
         return self.blockchain_setup.create_genesis_allocation()
 
-    def setup_faucet_wallet(self) -> dict[str, Any]:
+    def setup_genesis_funding_source(self) -> dict[str, Any]:
         """Delegate to blockchain_setup (backward compatibility)."""
-        return self.blockchain_setup.setup_faucet_wallet()
+        return self.blockchain_setup.setup_genesis_funding_source()
 
-    def fund_training_wallet(
-        self, wallet_name: str, faucet_amount: int | None = None, password: str | None = None
-    ) -> dict[str, Any]:
+    def fund_training_wallet(self, wallet_name: str, amount: int | None = None, password: str | None = None) -> dict[str, Any]:
         """Delegate to blockchain_setup (backward compatibility)."""
-        amount = faucet_amount or self.faucet_amount
+        amount = amount or self.fund_amount
         if not password:
             raise ValueError("password is required for training wallet and must not be empty or default")
         pwd = password

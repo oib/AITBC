@@ -169,7 +169,7 @@ server {
     # It previously was, unauthenticated and with CORS wide open. The two values it holds are
     # both live credentials, not configuration: COORDINATOR_API_KEY authenticates as role
     # `miner` via the X-Api-Key dependency in aitbc/auth/dependencies.py, and either value
-    # alone authorises the agent-coordinator faucet and websocket endpoints, which accept
+    # alone authorises the agent-coordinator coin-request and websocket endpoints, which accept
     # COORDINATOR_API_KEY *or* SECRET_KEY. Publishing them grants those roles to anyone who
     # runs curl.
     #

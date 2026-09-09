@@ -45,7 +45,7 @@ the repository.
 | Contracts / forum | `list_contracts`, `get_messaging_contract_state`, `get_forum_topics`, `get_topic_messages` |
 | Disputes | `get_active_disputes`, `get_authorized_arbitrators`, `get_arbitrator_disputes`, `get_user_disputes`, `get_dispute`, `get_dispute_evidence`, `get_arbitration_votes` |
 | Subscription | `list_subscribers`, `get_lease_status` |
-| Mutating RPC | `submit_blockchain_transaction`, `submit_marketplace_transaction`, `create_marketplace_listing`, `register_gpu`, `allocate_gpu`, `stake_tokens`, `unstake_tokens`, `register_agent_identity`, `create_governance_proposal`, `cast_governance_vote`, `execute_governance_proposal`, `create_cross_chain_swap`, `create_cross_chain_bridge`, `bridge_lock`, `bridge_confirm`, `bridge_unlock`, `create_escrow`, `release_escrow`, `refund_escrow`, `register_account`, `request_faucet`, `force_sync_chain` |
+| Mutating RPC | `submit_blockchain_transaction`, `submit_marketplace_transaction`, `create_marketplace_listing`, `register_gpu`, `allocate_gpu`, `stake_tokens`, `unstake_tokens`, `register_agent_identity`, `create_governance_proposal`, `cast_governance_vote`, `execute_governance_proposal`, `create_cross_chain_swap`, `create_cross_chain_bridge`, `bridge_lock`, `bridge_confirm`, `bridge_unlock`, `create_escrow`, `release_escrow`, `refund_escrow`, `register_account`, `force_sync_chain` |
 | Version / auth | `get_aitbc_version`, `get_auth_status` |
 
 All destructive tools default to `dry_run=true` and require `confirm=true` before
@@ -228,7 +228,6 @@ Recommended `.devin/config.json`:
       "mcp__aitbc__release_escrow",
       "mcp__aitbc__refund_escrow",
       "mcp__aitbc__register_account",
-      "mcp__aitbc__request_faucet",
       "mcp__aitbc__force_sync_chain"
     ],
     "deny": []

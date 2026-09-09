@@ -96,7 +96,7 @@ AITBC keeps fees simple and almost invisible.
 | Allocation | Share | Purpose |
 |------------|-------|---------|
 | Burn | 50% | Reduces supply, rewards long-term holders |
-| Treasury | 50% | Faucet giveaways, hosting, model downloads, development |
+| Treasury | 50% | Community airdrops, hosting, model downloads, development |
 
 ## Why Not Peg to ETH?
 

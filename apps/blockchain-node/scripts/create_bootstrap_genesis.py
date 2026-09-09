@@ -22,7 +22,7 @@ GENESIS_CONFIG = {
             "balance": 10_000_000_000_000,  # 10 million AITBC (in smallest units)
             "nonce": 0,
         },
-        # Community Faucet - 1 million AITBC for airdrop
+        # Community Fund - 1 million AITBC for airdrop
         {
             "address": "0x742d35Cc6634C0532925a3b844Bc9e7595f0bEb1",
             "balance": 1_000_000_000_000,  # 1 million AITBC
@@ -78,7 +78,7 @@ def create_genesis_with_bootstrap():
 
     print("\nPurpose of Funds:")
     print("  - Exchange Treasury: Provides liquidity for trading")
-    print("  - Community Faucet: Airdrop to early users")
+    print("  - Community Fund: Airdrop to early users")
     print("  - Team Fund: Development incentives")
     print("  - Early Investors: Initial backers")
     print("  - Ecosystem Fund: Partnerships and growth")

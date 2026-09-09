@@ -13,4 +13,4 @@ Tests import from ``apps.exchange.simple_exchange.*`` modules.
 # .conftest`. A conftest already imported under the first name is then imported *again* under
 # the second, so two module objects exist for one file — and a fixture that patches a class
 # attribute in one copy is invisible to a test reading it from the other. That is what made
-# the agent-coordinator faucet tests fail in a full run while passing alone (V23-69).
+# the agent-coordinator coin-request tests fail in a full run while passing alone (V23-69).
