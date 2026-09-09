@@ -1,8 +1,10 @@
 """Tests for the aitbc auth command group."""
 
+from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
+from aitbc_cli.auth import AuthManager
 from click.testing import CliRunner
 
 
@@ -91,6 +93,21 @@ class TestAuthCommands:
         result = runner.invoke(auth, ["status"])
         assert result.exit_code == 0
         assert "client@default" in result.output
+
+    @patch.object(AuthManager, "get_credential")
+    def test_get_admin_token_falls_back_to_client(self, mock_get_credential, tmp_path):
+        """An admin client should prefer the admin slot but accept a client JWT."""
+        store = tmp_path / "creds.json"
+        store.write_text("{}")
+        mgr = AuthManager(store_path=store)
+
+        # No admin token: fall back to client token.
+        mock_get_credential.side_effect = [None, "client-jwt"]
+        assert mgr.get_admin_token() == "client-jwt"
+
+        # Admin token present: use it directly.
+        mock_get_credential.side_effect = ["admin-jwt", None]
+        assert mgr.get_admin_token() == "admin-jwt"
 
     @patch("aitbc_cli.commands.auth.AuthManager")
     def test_auth_logout(self, mock_auth_manager, runner):
