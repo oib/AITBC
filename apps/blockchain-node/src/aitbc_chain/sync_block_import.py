@@ -428,7 +428,7 @@ class BlockImportMixin(SyncBase):
                         raw_to = tx_data.get("to", "")
                         sender_addr = _to_ait_address(raw_from)
                         recipient_addr = _to_ait_address(raw_to)
-                        if sender_addr and raw_from not in {"faucet", "bridge_release", "bridge_refund"}:
+                        if sender_addr and raw_from not in {"bridge_release", "bridge_refund"}:
                             unique_addresses.add(sender_addr)
                         if recipient_addr and raw_to != "bridge_lock":
                             unique_addresses.add(recipient_addr)
@@ -558,7 +558,7 @@ class BlockImportMixin(SyncBase):
                     tx_hash = tx_data.get("tx_hash", "")
                     raw_from = tx_data.get("from", "")
                     raw_to = tx_data.get("to", "")
-                    if raw_from not in {"faucet", "bridge_release", "bridge_refund"}:
+                    if raw_from not in {"bridge_release", "bridge_refund"}:
                         sender_acct = session.get(Account, (self._chain_id, sender_addr))
                         if sender_acct is None and block_version >= 2:
                             sender_acct = Account(chain_id=self._chain_id, address=sender_addr, balance=0, nonce=0)
@@ -576,7 +576,7 @@ class BlockImportMixin(SyncBase):
                     # (e.g. parallel-validated GPU_MARKETPLACE offers); the follower
                     # must apply them with the current account nonce, not the stored
                     # one, or the second transaction fails and the state root diverges.
-                    if raw_from not in {"faucet", "bridge_release", "bridge_refund"} and sender_acct is not None:
+                    if raw_from not in {"bridge_release", "bridge_refund"} and sender_acct is not None:
                         tx_data["nonce"] = sender_acct.nonce
                     if "value" not in tx_data and "amount" in tx_data:
                         tx_data["value"] = tx_data["amount"]
