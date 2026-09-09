@@ -358,7 +358,7 @@ class Agent:
     async def _fetch_sender_public_key(self, sender_id: str) -> str | None:
         """Fetch sender's public key from coordinator API"""
         try:
-            coordinator_url = os.getenv("COORDINATOR_API_URL", "http://localhost:8011")
+            coordinator_url = os.getenv("COORDINATOR_API_URL", "http://127.0.0.1:8203")
             client = AITBCHTTPClient(timeout=5.0)
 
             response = client.get(f"{coordinator_url}/v1/agent-identity/{sender_id}")
