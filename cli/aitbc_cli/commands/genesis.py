@@ -9,7 +9,7 @@ from pathlib import Path
 import click
 import httpx
 
-from ..utils import error, output, success
+from ..utils import error, genesis_reset, output, success
 
 
 @click.group(
@@ -374,3 +374,73 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
     except Exception as e:
         error(f"Failed to sync genesis: {e}")
         return
+
+
+@genesis.command(
+    epilog="""Examples:
+
+  aitbc genesis reset --new-wallet --yes
+
+  aitbc genesis reset --chain-id ait-hub.aitbc.bubuit.net --new-wallet"""
+)
+@click.option("--chain-id", default=None, help="Chain ID (defaults to CHAIN_ID env or config)")
+@click.option("--new-wallet", is_flag=True, help="Generate a new genesis wallet and update env files")
+@click.option("--password", help="Wallet import password (auto-generated if not provided)")
+@click.option("--yes", is_flag=True, help="Skip confirmation prompt")
+@click.option("--data-dir", type=click.Path(), help="Override chain data directory")
+@click.option("--etc-dir", type=click.Path(), help="Override env directory")
+@click.option("--wallet-dir", type=click.Path(), help="Override wallet directory")
+@click.pass_context
+def reset(
+    ctx,
+    chain_id: str,
+    new_wallet: bool,
+    password: str | None,
+    yes: bool,
+    data_dir: str,
+    etc_dir: str,
+    wallet_dir: str,
+):
+    """Reset the local chain: back up old data, generate a new genesis block, and restart services.
+
+    This is a destructive operation. It stops the local blockchain services,
+    backs up the chain data and environment, optionally creates a new genesis
+    wallet, runs the genesis reset script, and restarts services. Use only when
+    the current chain is being intentionally replaced.
+    """
+    if not chain_id:
+        chain_id = os.environ.get("CHAIN_ID", "")
+        if not chain_id:
+            from ..config import get_config
+
+            chain_id = getattr(get_config(), "chain_id", "")
+
+    if not chain_id:
+        error("Could not determine chain ID. Set CHAIN_ID or pass --chain-id.")
+        return
+
+    if not yes:
+        click.confirm(
+            f"This will STOP services, BACK UP, and RESET chain {chain_id}.\nContinue?",
+            abort=True,
+        )
+
+    kwargs: dict[str, Any] = {"output_format": ctx.obj.get("output_format", "table")}
+    if data_dir:
+        kwargs["data_dir"] = Path(data_dir)
+    if etc_dir:
+        kwargs["etc_dir"] = Path(etc_dir)
+    if wallet_dir:
+        kwargs["wallet_dir"] = Path(wallet_dir)
+
+    result = genesis_reset.reset_genesis(
+        chain_id=chain_id,
+        new_wallet=new_wallet,
+        password=password,
+        yes=yes,
+        **kwargs,
+    )
+    if result:
+        output(result, ctx.obj.get("output_format", "table"), title="Genesis Reset Summary")
+    else:
+        ctx.exit(1)
