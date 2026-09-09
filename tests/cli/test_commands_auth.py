@@ -127,6 +127,22 @@ class TestAuthCommands:
             with pytest.raises(ExpiredAdminToken):
                 mgr.get_admin_token()
 
+    @patch.object(AuthManager, "get_credential")
+    def test_get_admin_token_accepts_non_expiring_jwt(self, mock_get_credential, tmp_path):
+        """A token without an `exp` claim is treated as not expired."""
+
+        def _b64(v: dict) -> str:
+            return base64.urlsafe_b64encode(json.dumps(v).encode()).decode().rstrip("=")
+
+        non_expiring_token = f"{_b64({'alg': 'none'})}.{_b64({'sub': 'user-1', 'role': 'admin'})}."
+
+        store = tmp_path / "creds.json"
+        store.write_text('{}')
+        mgr = AuthManager(store_path=store)
+
+        mock_get_credential.return_value = non_expiring_token
+        assert mgr.get_admin_token() == non_expiring_token
+
     @patch("aitbc_cli.commands.auth.AuthManager")
     def test_auth_logout(self, mock_auth_manager, runner):
         mock_manager = MagicMock()
