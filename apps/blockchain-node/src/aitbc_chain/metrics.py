@@ -135,6 +135,21 @@ gossip_messages_published_total = Counter(
     ["topic"],
 )
 
+# Liveness, as opposed to the counters above. An auth counter only says a peer
+# authenticated at some point since this process started; it stays high after
+# the peer drops and reads zero for a healthy peer just after an RPC restart.
+# These gauges say what is connected right now.
+gossip_open_connections = Gauge(
+    "blockchain_gossip_open_connections",
+    "Currently open gossip websocket connections",
+)
+
+gossip_authenticated_connections = Gauge(
+    "blockchain_gossip_authenticated_connections",
+    "Currently open gossip websocket connections per authenticated validator address",
+    ["address"],
+)
+
 # Bridge / Escrow Metrics
 bridge_pending_transfers = Gauge(
     "blockchain_bridge_pending_transfers",
