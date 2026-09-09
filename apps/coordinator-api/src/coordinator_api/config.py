@@ -8,7 +8,7 @@ import logging
 import os
 from typing import Annotated, Any
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
@@ -60,7 +60,11 @@ class Settings(BaseAITBCConfig):
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
     app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port: int = Field(default=8203, description="Server port")
-    environment: str = Field(default="development", description="Environment")
+    environment: str = Field(
+        default="development",
+        description="Environment",
+        validation_alias=AliasChoices("ENVIRONMENT", "APP_ENV", "NODE_ENV"),
+    )
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
     key_storage_dir: str = Field(default=str(REPO_DIR / "data" / "keys"), description="Key storage directory")
 
