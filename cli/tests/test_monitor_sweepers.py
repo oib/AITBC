@@ -99,3 +99,54 @@ def test_a_failed_request_exits_non_zero(monkeypatch):
     monkeypatch.setattr(monitor_mod.AITBCHTTPClient, "get", _boom, raising=True)
     result = CliRunner().invoke(cli, ["monitor", "sweepers"])
     assert result.exit_code != 0
+
+
+def test_a_jwt_credential_is_sent_as_a_bearer_token(monkeypatch):
+    """/v1/admin rejects X-API-Key, so the admin client must send Bearer."""
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", lambda self, name, quiet=False: "ey.header.sig")
+    captured = {}
+
+    class _Client:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def get(self, endpoint, **kw):
+            return REPORT
+
+    monkeypatch.setattr(monitor_mod, "AITBCHTTPClient", _Client)
+    result = CliRunner().invoke(cli, ["monitor", "sweepers"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["headers"] == {"Authorization": "Bearer ey.header.sig"}
+    assert "api_key" not in captured
+
+
+def test_a_non_jwt_credential_falls_back_to_the_api_key_header(monkeypatch):
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", lambda self, name, quiet=False: "plain-key")
+    captured = {}
+
+    class _Client:
+        def __init__(self, **kwargs):
+            captured.update(kwargs)
+
+        def get(self, endpoint, **kw):
+            return REPORT
+
+    monkeypatch.setattr(monitor_mod, "AITBCHTTPClient", _Client)
+    result = CliRunner().invoke(cli, ["monitor", "sweepers"])
+
+    assert result.exit_code == 0, result.output
+    assert captured["api_key"] == "plain-key"
+    assert "headers" not in captured
+
+
+def test_a_missing_credential_does_not_corrupt_json_output(monkeypatch):
+    """The credential store warns on stdout; probing for an optional admin
+    credential must not put that warning in front of the JSON."""
+    monkeypatch.setattr(monitor_mod.AuthManager, "get_credential", lambda self, name, quiet=False: None)
+    monkeypatch.setattr(monitor_mod.AITBCHTTPClient, "get", lambda self, endpoint, **kw: REPORT, raising=True)
+
+    result = CliRunner().invoke(cli, ["--output", "json", "monitor", "sweepers"])
+
+    assert result.exit_code == 0, result.output
+    assert json.loads(result.output) == REPORT
