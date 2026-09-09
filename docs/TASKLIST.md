@@ -9026,9 +9026,41 @@ Open:
   fresh `requirepass`; created `/etc/aitbc/redis.env` with `REDISCLI_AUTH` for
   `aitbc-cache-monitor`; all local `redis://` consumer URLs now authenticated.
 - F5 partially closed: seven world-readable files `chmod 640` + `chgrp aitbc`;
-  stale `BLOCKCHAIN_API_KEY` removed from hub2 `blockchain.env`. Remaining
-  credentials (`GENESIS_WALLET_PRIVATE_KEY`, Postgres DSNs, `MINER_*`) still need
-  rotation — postponed for explicit chain/DB migration.
+  stale `BLOCKCHAIN_API_KEY` removed from hub2 `blockchain.env`; Postgres DSNs and
+  `MINER_*` tokens rotated fleet-wide. `GENESIS_WALLET_PRIVATE_KEY` removed from
+  `node0`/`node1`/`hub2` `node.env` (no `GENESIS_WALLET_ADDRESS` set there).
+  Remaining: `GENESIS_WALLET_PRIVATE_KEY` on `node2` and `hub` requires on-chain
+  wallet migration before rotation.
 - `fleet-config-check.sh` sleep bumped to 90s, committed/pushed as `58d8dca1f5`,
   live nodes updated; node2 `git pull` now at `58d8dca1f5`.
-- Live verification: 6031 → 6032, all five hosts same hash, exit 0.
+- Live verification: 6031 → 6032 and 6046 → 6047, all five hosts same hash,
+  exit 0.
+
+## 2026-09-09 07:40 — CLI feature coverage audit
+
+483 commands / 68 groups (lazy-resolved walk; naive cmd.commands walk undercounts).
+docs<->CLI parity clean per cli_gap_analysis.py, but that tool only compares group
+headings. Real gaps:
+- G-A disputes/arbitration: 8 backend routes, 6 MCP tools, 0 CLI commands.
+- G-B `aitbc tee` deferred in 9079fb74a but still documented as usable in
+  scenarios/46_tee_confidential_jobs.md:36,54, scenarios/README.md:116,
+  DESIGN_CYCLE.md:118. system_architect.py also unregistered (likely dead).
+- G-C no gossip CLI or HTTP surface at all -> F3 was undetectable.
+- G-D sweepers: only `ai refund-sweep`; 4 others have no CLI.
+- Island commands fragmented across node/edge/ipfs + redundant list/list-islands.
+- Lazy loader swallows ImportError into _UnavailableCommand (main.py:85-92,129-138).
+
+## 2026-09-09 08:05 — dispute CLI group drafted (G-A)
+
+cli/aitbc_cli/commands/dispute.py (522 lines) + lazy registration in core/main.py.
+14 commands = all 11 chain /rpc/disputes routes + both /v1/admin/disputes routes.
+  file active get user vote votes | evidence add/list/verify
+  arbitrator list/queue/authorize | resolve auto-adjudicate
+resolve + auto-adjudicate confirm before acting (--yes to skip); they move money
+and slash bonds. Everything else is read-only or additive.
+Verified on node2: group resolves lazily (69 top-level), `dispute active` returns
+live data from 127.0.0.1:8202, gap analysis 69/69 clean, tests/cli +
+test_cli_docs_sync.py no failures.
+Docs rows added at cli/README.md:39 and cli/CLI_USAGE_GUIDE.md:28 (both parsed by
+cli_gap_analysis.py).
+UNCOMMITTED on node2 — 4 files awaiting commit/push/sync.
