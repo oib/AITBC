@@ -499,10 +499,11 @@ def _admin_client(ctx: click.Context, timeout: int = 15) -> AITBCHTTPClient:
     """
     config = ctx.obj["config"]
     base_url = ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
-    token = AuthManager().get_admin_token() or ctx.obj.get("api_key") or config.api_key or ""
+    # Explicit --api-key on the command line wins over stored credentials.
+    token = ctx.obj.get("api_key") or AuthManager().get_admin_token() or config.api_key or ""
 
     kwargs: dict[str, Any] = {"base_url": base_url, "timeout": timeout}
-    if token and token.startswith("ey") and token.count(".") == 2:
+    if token and _looks_like_jwt(token):
         kwargs["headers"] = {"Authorization": f"Bearer {token}"}
     elif token:
         kwargs["api_key"] = token
