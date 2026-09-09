@@ -91,9 +91,47 @@ def _get_algorithm() -> str:
     return os.getenv("JWT_ALGORITHM", "HS256")
 
 
+def _is_no_expiration() -> bool:
+    """Return whether non-expiring tokens are explicitly requested."""
+    return os.getenv("JWT_NO_EXPIRATION", "").lower() in ("1", "true", "yes")
+
+
 def _get_expiry_hours() -> int:
-    """Get token expiry hours from env or default."""
-    return int(os.getenv("JWT_EXPIRATION_HOURS", "24"))
+    """Get token expiry hours from env or default (0 means no expiry)."""
+    if _is_no_expiration():
+        logger.warning("JWT_NO_EXPIRATION is set; access tokens will not expire")
+        return 0
+    raw = os.getenv("JWT_EXPIRATION_HOURS", "24")
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Invalid JWT_EXPIRATION_HOURS %r; using default 24", raw)
+        return 24
+    if value < 0:
+        logger.warning("JWT_EXPIRATION_HOURS %r is negative; using default 24", raw)
+        return 24
+    if value == 0:
+        logger.warning("JWT_EXPIRATION_HOURS is 0; access tokens will not expire")
+    return value
+
+
+def _get_refresh_expiry_days() -> int:
+    """Get refresh-token expiry days from env or default (0 means no expiry)."""
+    if _is_no_expiration():
+        logger.warning("JWT_NO_EXPIRATION is set; refresh tokens will not expire")
+        return 0
+    raw = os.getenv("JWT_REFRESH_EXPIRY_DAYS", "7")
+    try:
+        value = int(raw)
+    except ValueError:
+        logger.warning("Invalid JWT_REFRESH_EXPIRY_DAYS %r; using default 7", raw)
+        return 7
+    if value < 0:
+        logger.warning("JWT_REFRESH_EXPIRY_DAYS %r is negative; using default 7", raw)
+        return 7
+    if value == 0:
+        logger.warning("JWT_REFRESH_EXPIRY_DAYS is 0; refresh tokens will not expire")
+    return value
 
 
 def _identity_payload(payload: dict[str, Any]) -> dict[str, Any]:
@@ -134,10 +172,10 @@ class JWTAuth:
         if secret:
             _validate_secret(self.secret)
         self.algorithm = algorithm or _get_algorithm()
-        self.expiration_hours = expiration_hours or _get_expiry_hours()
+        self.expiration_hours = max(0, _get_expiry_hours() if expiration_hours is None else expiration_hours)
 
     def create_token(self, payload: dict[str, Any]) -> str:
-        """Create JWT token with expiration.
+        """Create JWT token with optional expiration.
 
         Args:
             payload: Claims to include in token.
@@ -145,10 +183,10 @@ class JWTAuth:
         Returns:
             Encoded JWT token string.
         """
-        expire = datetime.now(UTC) + timedelta(hours=self.expiration_hours)
         to_encode = _identity_payload(payload)
-        to_encode.setdefault("exp", expire)
         to_encode.setdefault("type", "access")
+        if self.expiration_hours > 0:
+            to_encode.setdefault("exp", datetime.now(UTC) + timedelta(hours=self.expiration_hours))
         return jwt.encode(to_encode, self.secret, algorithm=self.algorithm)
 
     def decode_token(self, token: str) -> dict[str, Any]:
@@ -259,20 +297,25 @@ class JWTHandler:
             _validate_secret(self.secret_key)
         self.algorithm = _get_algorithm()
         self.token_expiry = timedelta(hours=_get_expiry_hours())
-        self.refresh_expiry = timedelta(days=7)
+        self.refresh_expiry = timedelta(days=_get_refresh_expiry_days())
 
     def generate_token(self, payload: dict[str, Any], expires_delta: timedelta | None = None) -> dict[str, Any]:
         """Generate JWT token with specified payload."""
         try:
-            if expires_delta:
-                expire = datetime.now(UTC) + expires_delta
-            else:
-                expire = datetime.now(UTC) + self.token_expiry
+            effective_expiry = expires_delta if expires_delta is not None else self.token_expiry
             token_payload = _identity_payload(payload)
-            token_payload.setdefault("exp", expire)
             token_payload.setdefault("type", "access")
+            expire: datetime | None = None
+            if effective_expiry.total_seconds() != 0:
+                expire = datetime.now(UTC) + effective_expiry
+                token_payload.setdefault("exp", expire)
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
-            return {"status": "success", "token": token, "expires_at": expire.isoformat(), "token_type": "Bearer"}  # nosec B105
+            return {
+                "status": "success",
+                "token": token,
+                "expires_at": expire.isoformat() if expire else None,
+                "token_type": "Bearer",
+            }  # nosec B105
         except Exception as e:
             logger.error("Error generating JWT token: %s", e)
             return {"status": "error", "message": "Token generation failed"}
@@ -280,12 +323,14 @@ class JWTHandler:
     def generate_refresh_token(self, payload: dict[str, Any]) -> dict[str, Any]:
         """Generate refresh token for token renewal."""
         try:
-            expire = datetime.now(UTC) + self.refresh_expiry
             token_payload = _identity_payload(payload)
-            token_payload.setdefault("exp", expire)
             token_payload.setdefault("type", "refresh")
+            expire: datetime | None = None
+            if self.refresh_expiry.total_seconds() > 0:
+                expire = datetime.now(UTC) + self.refresh_expiry
+                token_payload.setdefault("exp", expire)
             token = jwt.encode(token_payload, self.secret_key, algorithm=self.algorithm)
-            return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat()}
+            return {"status": "success", "refresh_token": token, "expires_at": expire.isoformat() if expire else None}
         except Exception as e:
             logger.error("Error generating refresh token: %s", e)
             return {"status": "error", "message": "Token generation failed"}
