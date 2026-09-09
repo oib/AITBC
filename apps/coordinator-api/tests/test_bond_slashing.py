@@ -15,6 +15,7 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 from aitbc_shared import JobPayment
+from eth_account import Account
 from fastapi import HTTPException
 
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
@@ -111,11 +112,11 @@ def test_slash_amount_computed_deterministically():
 
 @pytest.fixture
 def slash_env(monkeypatch):
-    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", "0x2222222222222222222222222222222222222222")
-    monkeypatch.setenv(
-        "BOND_SLASH_PRIVATE_KEY",
-        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
-    )
+    # Use a real keypair so the service can validate that the private key
+    # actually controls the configured authority.
+    account = Account.create()
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", account.address)
+    monkeypatch.setenv("BOND_SLASH_PRIVATE_KEY", account.key.hex())
     monkeypatch.setenv("BOND_BURN_ADDRESS", "0x3333333333333333333333333333333333333333")
 
 
@@ -202,6 +203,29 @@ async def test_slash_skips_without_bond(db_session, slash_env):
         result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
     assert result["slashed"] is False
     assert result["reason"] == "no active bond"
+    mock_client.assert_not_called()
+
+
+@pytest.mark.asyncio
+async def test_slash_skips_mismatched_private_key(db_session, monkeypatch):
+    """A private key that does not match the authority address disables slashing."""
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", "0x2222222222222222222222222222222222222222")
+    monkeypatch.setenv(
+        "BOND_SLASH_PRIVATE_KEY",
+        "0x1234567890abcdef1234567890abcdef1234567890abcdef1234567890abcdef",
+    )
+    monkeypatch.setenv("BOND_BURN_ADDRESS", "0x3333333333333333333333333333333333333333")
+    miner = _miner(db_session)
+    job = _bonded_job(db_session)
+    job.assigned_miner_id = miner.id
+    db_session.add(job)
+    db_session.commit()
+    _provider_bond(db_session, miner.id)
+
+    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+        result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
+    assert result["slashed"] is False
+    assert result["reason"] == "slashing not configured"
     mock_client.assert_not_called()
 
 
