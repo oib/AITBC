@@ -22,7 +22,9 @@ from ..logger import get_logger
 from ..metrics import (
     gossip_auth_accepted_total,
     gossip_auth_rejected_total,
+    gossip_authenticated_connections,
     gossip_messages_published_total,
+    gossip_open_connections,
     gossip_oversized_message_total,
     gossip_rate_limited_total,
 )
@@ -111,6 +113,7 @@ async def gossip_websocket(websocket: WebSocket) -> None:
         await websocket.close(code=1008)
         return
     _gossip_ip_connections[client_ip] = _gossip_ip_connections.get(client_ip, 0) + 1
+    gossip_open_connections.inc()
 
     challenge: str | None = None
     challenge_ts: float = 0.0
@@ -194,6 +197,8 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                         await websocket.close(code=1008)
                         break
                     if verify_challenge(client_challenge, claimed, client_ts, signature):
+                        if not authorized:
+                            gossip_authenticated_connections.labels(address=claimed).inc()
                         authorized = True
                         authorized_address = claimed
                         gossip_auth_accepted_total.labels(address=claimed).inc()
@@ -235,6 +240,9 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                 pass
     finally:
         _gossip_ip_connections[client_ip] = max(0, _gossip_ip_connections.get(client_ip, 1) - 1)
+        gossip_open_connections.dec()
+        if authorized_address:
+            gossip_authenticated_connections.labels(address=authorized_address).dec()
 
 
 @router.websocket("/subscribe/ws")
