@@ -387,7 +387,7 @@ class StateTransition:
             # and recipient accounts exist before the generic recipient check.
             _ensure_account(session, chain_id, sender_addr)
             _ensure_account(session, chain_id, _to_ait_address(tx_data.get("to") or ""))
-        if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+        if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}:
             # Pre-registered credit transactions do not require a sender account or
             # nonce. The state update is applied off-chain by the RPC call that
             # created the transaction; the block just anchors the record.  Replay is
@@ -576,9 +576,9 @@ class StateTransition:
             if ok:
                 self._processed_tx_hashes.add(tx_hash)
             return (ok, msg)
-        if tx_type in {"FAUCET", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+        if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}:
             # Pre-registered credit transactions: the sender is a magic string
-            # (faucet/bridge_release/bridge_refund) and does not have an account.
+            # (bridge_release/bridge_refund) and does not have an account.
             # Only the recipient is credited.
             _ensure_account(session, chain_id, recipient_addr)
             logger.info("Updating recipient balance: %s += %s", recipient_addr, value)
