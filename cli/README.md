@@ -36,6 +36,7 @@ aitbc --help
 | `dashboard` | Operational dashboards for customers and shops. | `customer`, `shop` |
 | `deploy` | Deploy and manage white-label platform configurations. | `deploy-brand` |
 | `developer` | Developer registry commands. | `list`, `register` |
+| `dispute` | File, inspect and rule on disputes: evidence, arbitrator votes, and payment rulings. | `active`, `arbitrator`, `auto-adjudicate`, `evidence`, `file`, `get`, `resolve`, `user`, `vote`, `votes` |
 | `economics` | Economic intelligence, modeling, and OpenClaw DAO governance. | `distributed`, `market`, `model`, `propose`, `status`, `vote` |
 | `edge` | Edge API commands for island, GPU, database, serve, and metrics operations | `balance`, `database`, `gpu`, `island`, `metrics`, `serve`, `status`, `transfer` |
 | `exchange` | Exchange integration and trading management commands | `add-liquidity`, `create-pair`, `list`, `monitor`, `register`, `start-trading`, `status` |
