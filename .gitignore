@@ -489,3 +489,11 @@ contracts/out/
 contracts/cache/
 contracts/governance/out/
 contracts/governance/cache/
+
+# IDE-local working documents. MEGAPLAN.md and TASKLIST.md are the operator
+# planning notes kept at /home/oib/windsurf/aitbc/docs on the IDE host (see
+# AGENTS.md). They were tracked here by mistake; concurrent sessions edited
+# both copies and they diverged. Keep them out of the tree - the IDE copy is
+# canonical.
+docs/MEGAPLAN.md
+docs/TASKLIST.md
