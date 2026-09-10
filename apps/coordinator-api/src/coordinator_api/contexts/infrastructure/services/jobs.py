@@ -452,7 +452,10 @@ class JobService:
             if constraints.gpu not in names:
                 return False
         if constraints.min_vram_gb:
-            required_mb = constraints.min_vram_gb * 1024
+            # Use decimal GB (1000 MB/GB) rather than binary GiB so marketing
+            # memory values (e.g. 16 GB) do not reject cards that report a few
+            # MiB less than 16 * 1024 (e.g. 16380 MiB for a 16 GB RTX 4060 Ti).
+            required_mb = constraints.min_vram_gb * 1000
             if not any((gpu.get("memory_mb") or 0) >= required_mb for gpu in gpu_specs):
                 return False
         if constraints.cuda:
