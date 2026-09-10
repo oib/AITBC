@@ -18,6 +18,8 @@ Daily validation notes are split into the `LIVE_VALIDATION_DAYS/` folder.
 - [2026-09-03](LIVE_VALIDATION_DAYS/2026-09-03.md)
 - [2026-09-07](LIVE_VALIDATION_DAYS/2026-09-07.md)
 - [2026-09-08](LIVE_VALIDATION_DAYS/2026-09-08.md)
+- [2026-09-09](LIVE_VALIDATION_DAYS/2026-09-09.md)
+- [2026-09-10](LIVE_VALIDATION_DAYS/2026-09-10.md)
 
 To add a new day, create `LIVE_VALIDATION_DAYS/YYYY-MM-DD.md`.
 
@@ -165,3 +167,14 @@ See full notes in [LIVE_VALIDATION_DAYS/2026-09-08.md](LIVE_VALIDATION_DAYS/2026
 - **F1/F2 closed + register finalised 8 Sep (`aef0b5099`):** `fleet-config-check.sh` now pulls chain-head convergence over each node's `/rpc/status`, so it runs from any fleet host without ssh; `BOND_BURN_ADDRESS` is set and uniform fleet-wide. §14 acceptance re-asserted at `aef0b5099` with Gitea CI **19673** green. The register is fully closed; the only R10 residual is the per-pull approval log (recorded, not manufactured). Operator-lane credentials/identity hygiene and the service-level networked rejoin/restore test on `node0` (live hub snapshot, rejoined at 5581 / `0xfab1122fe72f11`, `fleet-config-check.sh` exit 0) were completed post-close under explicit operator approval.
 - **Post-close active outage closed 8 Sep 23:28:** after the §17.14 rotation, the chain halted at 5581. Two causes found: (1) missing colon in `redis://PASSWORD@host` URLs, and (2) `blockchain.env` forcing `GOSSIP_BACKEND=websocket` to a self-referencing `wss://hub.aitbc.bubuit.net:443` on the hub. Both fixed; fleet switched to `GOSSIP_BACKEND=mesh` with `wss://<peer>/rpc/gossip/ws`. Redis password exposed during debugging was rotated again. `fleet-config-check.sh` now requires a 60s height increase; verified 5591 → 5592.
 - **F3/F4/F5 remediation 9 Sep:** `GOSSIP_MESH_PEER_URLS` override in `node.env` removed on all five hosts, restoring full mesh. Local Redis on every host re-secured with `bind 127.0.0.1`, `protected-mode yes`, `requirepass`, and local consumer URLs authenticated; `redis.env` created for `aitbc-cache-monitor`. World-readable credential files `chmod 640` + `chgrp aitbc`; stale `BLOCKCHAIN_API_KEY` removed from hub2; local Postgres user passwords and `MINER_*` tokens rotated; `GENESIS_WALLET_PRIVATE_KEY` removed from `node0`/`node1`/`hub2` (no `GENESIS_WALLET_ADDRESS` there). New genesis wallet created and full spendable balance transferred on-chain to `0x5A1a52b85B687Af457C406E8d22562F9Efa86c3A`; new key/address written to `node.env` and `blockchain.env` on `node2` and `hub`; `aitbc-wallet` and `aitbc-bridge-monitor` reloaded. `BLOCKCHAIN_RPC_API_KEY` and all Redis `requirepass` values were re-rotated after debug exposure and services reloaded. `fleet-config-check.sh` sample interval raised to 90s and live nodes updated; verification 6031 → 6032, 6073 → 6074, 6082 → 6083, and 6090 → 6092. Installed `awstats` + `fcgiwrap` on `hub.aitbc`, configured nginx `/cgi-bin/` FastCGI, and served live stats from `/var/log/nginx/access.log` at `http://hub.aitbc.bubuit.net/cgi-bin/awstats.pl`.
+
+## 2026-09-10 — GPU_REGISTER / GPU_ALLOCATE cross-node visibility
+
+See full notes in [LIVE_VALIDATION_DAYS/2026-09-10.md](LIVE_VALIDATION_DAYS/2026-09-10.md).
+
+- Commit `753ad3496` forces `GPU_REGISTER`/`GPU_ALLOCATE` through the full
+  sequential `StateTransition.apply_transaction` path, closing the parallel
+  execution gap that was dropping `gpu_registration`/`gpu_allocation` rows on
+  followers.
+- All five nodes (`hub.aitbc`, `node0`, `node1`, `node2`, `hub1.aitbc`) now
+  return the same 5 GPUs from `GET /rpc/gpus` and converge at height **1682**.
