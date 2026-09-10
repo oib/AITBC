@@ -25,6 +25,7 @@ Usage examples::
 from .api_key import APIKeyManager, api_key_manager
 from .dependencies import (
     AdminDep,
+    AdminOrClientDep,
     APIKeyAuth,
     APIKeyAuthenticator,
     AuthDep,
@@ -32,6 +33,7 @@ from .dependencies import (
     MinerDep,
     get_token,
     require_admin,
+    require_admin_or_client,
     require_auth,
     require_client,
     require_miner,
@@ -103,6 +105,7 @@ __all__ = [
     "permission_manager",
     # FastAPI Dependencies
     "AdminDep",
+    "AdminOrClientDep",
     "APIKeyAuth",
     "APIKeyAuthenticator",
     "AuthDep",
@@ -110,6 +113,7 @@ __all__ = [
     "MinerDep",
     "get_token",
     "require_admin",
+    "require_admin_or_client",
     "require_auth",
     "require_client",
     "require_miner",
