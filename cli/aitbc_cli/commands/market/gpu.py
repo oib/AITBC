@@ -507,28 +507,11 @@ def status(ctx, job_id, json_output):
 
 @gpu.command()
 @click.option("--job-id", required=True, help="Job ID")
-@click.option("--wallet", help="Wallet name for signing")
-@click.option("--wallet-path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
 @click.option("--yes", is_flag=True, help="Skip confirmation prompt")
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
-def release(ctx, job_id, wallet, wallet_path, password, password_file, yes, json_output):
+def release(ctx, job_id, yes, json_output):
     """Release escrow funds to the provider after rental completion."""
-    pw = password
-    if password_file:
-        with open(password_file) as f:
-            pw = f.read().strip()
-
-    buyer_address, private_key, _ = load_wallet_for_payment(
-        ctx,
-        wallet_name=wallet,
-        wallet_path=wallet_path,
-        password=pw,
-        require_private_key=False,
-    )
-
     if not yes:
         click.confirm(f"Release escrow for job {job_id} to the provider?", abort=True)
 
