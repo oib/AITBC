@@ -235,3 +235,22 @@ def test_build_pool_hub_heartbeat_data_reports_current_jobs(mock_latency, mock_g
         assert data["current_jobs"] == 1
     finally:
         production_miner.ACTIVE_JOB_IDS.clear()
+
+
+@pytest.mark.unit
+def test_download_media_decodes_data_uri(tmp_path):
+    """_download_media decodes a base64 data: URI and writes it to disk."""
+    import base64
+
+    dest = tmp_path / "output.bin"
+    data = b"hello worker"
+    uri = f"data:application/octet-stream;base64,{base64.b64encode(data).decode()}"
+    production_miner._download_media(uri, str(dest))
+    assert dest.read_bytes() == data
+
+
+@pytest.mark.unit
+def test_download_media_rejects_unsupported_schemes():
+    """_download_media raises an error for unsupported URL schemes."""
+    with pytest.raises(Exception, match="unsupported URL scheme"):
+        production_miner._download_media("ftp://example.com/file.mp3", "/tmp/output.bin")
