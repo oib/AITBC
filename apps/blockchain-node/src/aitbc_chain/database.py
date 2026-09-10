@@ -152,7 +152,7 @@ def _set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.execute("PRAGMA cache_size=-64000")
     cursor.execute("PRAGMA temp_store=MEMORY")
     cursor.execute("PRAGMA mmap_size=30000000000")
-    cursor.execute("PRAGMA busy_timeout=5000")
+    cursor.execute("PRAGMA busy_timeout=10000")
     cursor.close()
 
 
