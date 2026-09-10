@@ -54,6 +54,13 @@ class Settings(ServiceSettings):
     # v0.6.6: Payment verification (v0.10.1: enabled by default for end-to-end flow)
     require_payment_verification: bool = True
 
+    # v0.10.2: background compute worker settings
+    edge_worker_enabled: bool = True
+    edge_worker_poll_interval: int = 5
+    edge_worker_executor: str = "stub"  # stub or ollama
+    ollama_url: str = "http://localhost:11434"
+    island_id: str = "default"
+
     # JWT auth deferred to v0.7.1 (Bridge Security)
     # cors_origins retained for cross-origin requests
     cors_origins: list[str] = ["http://localhost:3000", "http://localhost:8080"]
