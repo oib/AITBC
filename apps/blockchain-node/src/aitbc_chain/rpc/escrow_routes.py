@@ -871,21 +871,27 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     )
     if not success:
         raise HTTPException(status_code=400, detail=message) from None
-
-    lock_tx_hash = await _submit_lock_tx(tx_to_submit)
-
-    # Fund the in-memory contract now that the lock has been submitted.
     if contract_id is None:
         raise HTTPException(status_code=500, detail="escrow contract_id missing after create")
-    await mgr.fund_contract(contract_id, lock_tx_hash)
 
+    amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
+
+    # Persist the Escrow DB record *before* broadcasting the lock transaction.
+    # If the lock is broadcast but the service drops the response, the chain has
+    # the funds but the DB has no record, leaving the escrow unreleasable and
+    # unrefundable. Writing the row first means a row always exists; the
+    # lock_tx_hash is updated after submission.
     try:
-        amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
         with session_scope() as session:
+            for addr in (buyer, provider):
+                ait_addr = _to_canonical(addr)
+                account = session.get(Account, (_CHAIN_ID, ait_addr))
+                if account is None:
+                    session.add(Account(chain_id=_CHAIN_ID, address=ait_addr, balance=0, nonce=0))
             existing = session.get(Escrow, job_id)
             if existing:
-                existing.status = "locked"
-                existing.lock_tx_hash = lock_tx_hash
+                existing.status = "created"
+                existing.lock_tx_hash = None
                 existing.buyer = _to_canonical(buyer)
                 existing.provider = _to_canonical(provider)
                 existing.amount = amount_units
@@ -907,8 +913,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     buyer=_to_canonical(buyer),
                     provider=_to_canonical(provider),
                     amount=amount_units,
-                    status="locked",
-                    lock_tx_hash=lock_tx_hash,
+                    status="created",
+                    lock_tx_hash=None,
                     **(
                         {
                             "protected": True,
@@ -929,7 +935,24 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                 session.add(escrow_record)
             session.commit()
     except Exception as e:
-        _logger.warning("Failed to persist escrow to DB after lock: %s", e)
+        _logger.error("Failed to persist escrow to DB before lock: %s", e)
+        raise HTTPException(status_code=500, detail=f"Failed to persist escrow: {e}") from e
+
+    lock_tx_hash = await _submit_lock_tx(tx_to_submit)
+
+    # Fund the in-memory contract now that the lock has been submitted.
+    await mgr.fund_contract(contract_id, lock_tx_hash)
+
+    try:
+        with session_scope() as session:
+            record = session.get(Escrow, job_id)
+            if record:
+                record.status = "locked"
+                record.lock_tx_hash = lock_tx_hash
+                session.add(record)
+                session.commit()
+    except Exception as e:
+        _logger.warning("Failed to update Escrow lock_tx_hash for job %s: %s", job_id, e)
 
     _logger.info(
         "Escrow created and locked: contract_id=%s job_id=%s amount=%s tx=%s", contract_id, job_id, amount, lock_tx_hash
