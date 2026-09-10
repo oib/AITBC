@@ -10,6 +10,7 @@ from __future__ import annotations
 import json
 import os
 from datetime import UTC, datetime, timedelta
+from decimal import Decimal
 from typing import Any
 
 from eth_utils import keccak
@@ -440,9 +441,9 @@ class StateTransition:
                     False,
                     f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor",
                 )
-        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"} and value != 0:
+        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE"} and value != 0:
             return (False, f"{tx_type} transactions must have value=0, got {value}")
-        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
+        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE"}:
             total_cost = fee
         else:
             total_cost = value + fee
@@ -519,6 +520,35 @@ class StateTransition:
                 return (False, "IPFS_SUBSCRIPTION requires value > 0")
             # Ensure recipient (island treasury) exists so the payment can be credited.
             _ensure_account(session, chain_id, recipient_addr)
+        if tx_type == "GPU_REGISTER":
+            payload = tx_data.get("payload") or {}
+            if not payload.get("gpu_id"):
+                return (False, "GPU_REGISTER payload must include gpu_id")
+            if not payload.get("miner_id"):
+                return (False, "GPU_REGISTER payload must include miner_id")
+            if not payload.get("model"):
+                return (False, "GPU_REGISTER payload must include model")
+            if not isinstance(payload.get("memory_gb"), int):
+                return (False, "GPU_REGISTER payload must include integer memory_gb")
+            try:
+                Decimal(str(payload.get("price_per_hour", 0)))
+            except Exception:
+                return (False, "GPU_REGISTER payload must include a valid price_per_hour")
+            if value != 0:
+                return (False, "GPU_REGISTER must have value=0")
+        if tx_type == "GPU_ALLOCATE":
+            payload = tx_data.get("payload") or {}
+            if not payload.get("gpu_id"):
+                return (False, "GPU_ALLOCATE payload must include gpu_id")
+            if not payload.get("client_id"):
+                return (False, "GPU_ALLOCATE payload must include client_id")
+            try:
+                float(payload.get("duration_hours", 0))
+                Decimal(str(payload.get("total_cost", 0)))
+            except Exception:
+                return (False, "GPU_ALLOCATE payload must include valid duration_hours and total_cost")
+            if value != 0:
+                return (False, "GPU_ALLOCATE must have value=0")
         return (True, "Transaction validated successfully")
 
     def apply_transaction(
@@ -673,7 +703,7 @@ class StateTransition:
                     # Override the recipient for the balance update below.
                     recipient_addr = escrow_addr
         sender_account = session.get(Account, (chain_id, sender_addr))
-        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE"}:
+        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE"}:
             total_cost = fee
         else:
             total_cost = value + fee
@@ -777,6 +807,18 @@ class StateTransition:
                 )
         if tx_type == "IPFS_SUBSCRIPTION":
             self._handle_ipfs_subscription(session, chain_id, tx_data, tx_hash, sender_addr)
+        if tx_type == "GPU_REGISTER":
+            payload = tx_data.get("payload") or {}
+            gpu_data = {**(payload if isinstance(payload, dict) else {}), "registered_by": sender_addr}
+            ok, msg = self.handle_gpu_registration(session, chain_id, gpu_data)
+            if not ok:
+                return (False, msg)
+        if tx_type == "GPU_ALLOCATE":
+            payload = tx_data.get("payload") or {}
+            allocation_data = {**(payload if isinstance(payload, dict) else {}), "allocated_by": sender_addr}
+            ok, msg = self.handle_gpu_allocation(session, chain_id, allocation_data)
+            if not ok:
+                return (False, msg)
         self._processed_tx_hashes.add(tx_hash)
         if sender_addr is not None:
             self._processed_nonces[sender_addr] = sender_account.nonce  # type: ignore[union-attr]
@@ -1151,25 +1193,38 @@ class StateTransition:
                 select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == gpu_id)
             ).first()
             if existing:
-                existing.model = gpu_data.get("model", existing.model)
-                existing.memory_gb = gpu_data.get("memory_gb", existing.memory_gb)
-                existing.cuda_version = gpu_data.get("cuda_version", existing.cuda_version)
-                existing.region = gpu_data.get("region", existing.region)
-                existing.capabilities = gpu_data.get("capabilities", existing.capabilities)
-                existing.price_per_hour = gpu_data.get("price_per_hour", existing.price_per_hour)
+                existing.model = str(gpu_data.get("model", existing.model))
+                existing.memory_gb = int(gpu_data.get("memory_gb", existing.memory_gb))
+                existing.cuda_version = str(gpu_data.get("cuda_version", existing.cuda_version))
+                existing.region = str(gpu_data.get("region", existing.region))
+                existing.capabilities = list(gpu_data.get("capabilities", existing.capabilities) or [])
+                raw_price = gpu_data.get("price_per_hour", existing.price_per_hour)
+                try:
+                    existing.price_per_hour = Decimal(str(raw_price))
+                except Exception:
+                    return (False, f"Invalid price_per_hour for GPU {gpu_id}")
                 existing.status = "active"
                 existing.updated_at = datetime.now(UTC)
             else:
+                price = gpu_data.get("price_per_hour", 0.0)
+                try:
+                    price = Decimal(str(price))
+                except Exception:
+                    return (False, f"Invalid price_per_hour for GPU {gpu_id}")
+                try:
+                    memory_gb = int(gpu_data.get("memory_gb", 0))
+                except Exception:
+                    return (False, f"Invalid memory_gb for GPU {gpu_id}")
                 registration = GPURegistration(
                     chain_id=chain_id,
                     gpu_id=gpu_id,
-                    miner_id=gpu_data.get("miner_id", ""),
-                    model=gpu_data.get("model", ""),
-                    memory_gb=gpu_data.get("memory_gb", 0),
-                    cuda_version=gpu_data.get("cuda_version", ""),
-                    region=gpu_data.get("region", ""),
-                    capabilities=gpu_data.get("capabilities", []),
-                    price_per_hour=gpu_data.get("price_per_hour", 0.0),
+                    miner_id=str(gpu_data.get("miner_id", "")),
+                    model=str(gpu_data.get("model", "")),
+                    memory_gb=memory_gb,
+                    cuda_version=str(gpu_data.get("cuda_version", "")),
+                    region=str(gpu_data.get("region", "")),
+                    capabilities=list(gpu_data.get("capabilities", []) or []),
+                    price_per_hour=price,
                     registered_by=gpu_data.get("registered_by", ""),
                     registered_at=datetime.now(UTC),
                     status="active",
@@ -1205,13 +1260,18 @@ class StateTransition:
             if not gpu:
                 return (False, f"GPU not found: {gpu_id}")
             allocation_id = allocation_data.get("allocation_id", f"alloc_{uuid4().hex[:12]}")
+            try:
+                duration_hours = float(allocation_data.get("duration_hours", 0.0))
+                total_cost = Decimal(str(allocation_data.get("total_cost", 0.0)))
+            except Exception:
+                return (False, f"Invalid duration_hours or total_cost for GPU {gpu_id}")
             allocation = GPUAllocation(
                 chain_id=chain_id,
                 allocation_id=allocation_id,
                 gpu_id=gpu_id,
                 client_id=allocation_data.get("client_id", ""),
-                duration_hours=allocation_data.get("duration_hours", 0.0),
-                total_cost=allocation_data.get("total_cost", 0.0),
+                duration_hours=duration_hours,
+                total_cost=total_cost,
                 status="active",
                 allocated_by=allocation_data.get("allocated_by", ""),
                 allocated_at=datetime.now(UTC),
