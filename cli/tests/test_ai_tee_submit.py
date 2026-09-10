@@ -27,6 +27,7 @@ def mock_client():
         config.blockchain_rpc_url = "http://localhost:8202"
         config.api_key = "test-key"
         config.timeout = 10
+        config.tee_attestation_enabled = True
         wallet = ("0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f", None, "default")
         with (
             patch("aitbc_cli.commands.ai.get_config", return_value=config),
@@ -132,6 +133,7 @@ def test_ai_submit_paid_job_without_escrow_aborts(runner):
         config.blockchain_rpc_url = "http://localhost:8202"
         config.api_key = "test-key"
         config.timeout = 10
+        config.tee_attestation_enabled = True
         # wallet resolves but yields no private key -> the CLI cannot sign the
         # escrow lock itself either
         wallet = ("0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f", None, "default")
