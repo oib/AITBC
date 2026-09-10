@@ -6,7 +6,7 @@ Targets:
 - /var/lib/aitbc/wallets/*.json
 - chain genesis / validator configs (when run with --genesis)
 
-This script must be run on the live node (aitbc3, hub.aitbc, hub2.aitbc) after
+This script must be run on the live node (node2, hub.aitbc, hub1.aitbc) after
 pulling the 0x-only branch and before restarting services.
 """
 

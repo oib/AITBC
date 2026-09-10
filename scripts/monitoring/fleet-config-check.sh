@@ -17,10 +17,10 @@ set -euo pipefail
 if [ "$#" -gt 0 ]; then
     HOSTS="$*"
 else
-    HOSTS="${AITBC_FLEET_HOSTS:-node0 node1 node2 hub hub2}"
+    HOSTS="${AITBC_FLEET_HOSTS:-node0 node1 node2 hub hub1}"
 fi
 
-# Host names are site-dependent: the IDE reaches hub/hub2 via ssh-config
+# Host names are site-dependent: the IDE reaches hub/hub1 via ssh-config
 # aliases (hub.aitbc), fleet nodes via FQDNs, and neither scheme resolves
 # everywhere. Auto-probe candidate addresses per canonical host so the check
 # runs identically on the IDE and on any fleet node.
@@ -29,7 +29,7 @@ declare -A HOST_CANDIDATES=(
     [node1]="node1 10.1.223.40"
     [node2]="node2 10.1.223.136"
     [hub]="hub.aitbc hub.aitbc.bubuit.net 192.168.100.10"
-    [hub2]="hub2.aitbc hub2.aitbc.bubuit.net 10.177.61.28"
+    [hub1]="hub1.aitbc hub1.aitbc.bubuit.net 10.177.61.28"
 )
 
 declare -A RESOLVED=()
@@ -185,9 +185,9 @@ declare -A RPC_ENDPOINTS=(
     [node1]="http://10.1.223.40:8202/rpc/status"
     [node2]="http://10.1.223.136:8202/rpc/status"
     [hub]="https://hub.aitbc.bubuit.net/rpc/status"
-    [hub2]="https://hub2.aitbc.bubuit.net/rpc/status"
+    [hub1]="https://hub1.aitbc.bubuit.net/rpc/status"
     [hub.aitbc]="https://hub.aitbc.bubuit.net/rpc/status"
-    [hub2.aitbc]="https://hub2.aitbc.bubuit.net/rpc/status"
+    [hub1.aitbc]="https://hub1.aitbc.bubuit.net/rpc/status"
 )
 conv_bad=0
 sample_heads() {

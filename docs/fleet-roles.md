@@ -28,11 +28,11 @@ the subset relationship and the addopts/plugin correspondence.
 | `node1` | follower, GPU | yes | no | production follower |
 | `node2` | follower, GPU, service workhorse | yes | **yes** | runs the widest set of services (coordinator-api, marketplace, miner, pool-hub, edge, whisper, ffmpeg, hermes-agent), so it is the most representative place to reproduce and test integration behaviour |
 | `hub.aitbc` | public hub, api-gateway | no | **yes** | public-facing; promoted to primary hub on 2026-09-10 with 4 vCPU / 4 GB RAM and the full customer + block-production stack |
-| `hub2.aitbc` | follower | no | no | demoted former hub; now a follower/customer replica with minimal services |
+| `hub1.aitbc` | follower | no | no | former hub, demoted 2026-09-10; now a follower/customer replica with minimal services (formerly `hub2.aitbc`) |
 
-`hub.aitbc` (the `hub2` container) was promoted with 4 vCPU and 4 GB of RAM on
-2026-09-10 and now runs the full hub/customer service stack. `hub2.aitbc` is
-demoted to a follower with minimal services.
+`hub.aitbc` (the former `hub2.aitbc` container) was promoted with 4 vCPU and 4 GB of RAM on
+2026-09-10 and now runs the full hub/customer service stack. `hub1.aitbc`
+(formerly `hub2.aitbc`) is the demoted former hub.
 
 ## How a host is marked
 
@@ -54,7 +54,7 @@ add or remove the marker and re-run the installer.
 The profile installer exports with `poetry export --only main`, so for a long
 time the primary deployment path installed **no** test runner at all. That is
 the script's design, not drift — but it collided with the mandatory `--reruns`
-addopt, leaving `node0`, `node2` and `hub2` unable to run pytest in any form.
+addopt, leaving `node0`, `node2` and `hub1` (then `hub2`) unable to run pytest in any form.
 `node1` and `hub.aitbc` were complete only because they happened to be
 provisioned through `deployment/setup.sh`'s fallback branch, which installed
 `requirements-dev.txt` wholesale (and did it with `|| warning`, so a failure

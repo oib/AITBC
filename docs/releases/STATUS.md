@@ -235,7 +235,7 @@ the economic loop verdict below and in
 `docs/scenarios/46_tee_confidential_jobs.md`.
 
 **Blocking dependency.** No SGX/TDX-capable host in the fleet. All four validators
-(`hub.aitbc`, `hub2.aitbc`, `node1`, `node2`) are ordinary VMs with no enclave
+(`hub.aitbc`, `hub1.aitbc` (formerly `hub2.aitbc`), `node1`, `node2`) are ordinary VMs with no enclave
 runtime — `aitbc tee launch` reports "no TEE runtime present". This is a hardware
 procurement dependency, not an engineering backlog item, so it carries no date.
 
@@ -385,7 +385,7 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 The live network was clarified and reconfigured as five distinct hosts:
 
 - `hub.aitbc` — validator, IP `192.168.100.10`
-- `hub2.aitbc` — validator, IP `10.177.61.28`
+- `hub1.aitbc` (formerly `hub2.aitbc`) — validator, IP `10.177.61.28`
 - `node1.aitbc.bubuit.net` (formerly `aitbc1`) — validator, IP `10.1.223.40`
 - `node2.aitbc.bubuit.net` (formerly `aitbc3`) — validator, IP `10.1.223.136`
 - `node0.aitbc.bubuit.net` — follower, IP `10.1.223.93`

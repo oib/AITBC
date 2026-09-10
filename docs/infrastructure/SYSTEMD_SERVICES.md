@@ -7,7 +7,7 @@ AITBC runs as a set of `systemd` units. Service startup, stop, restart, and heal
 
 ## Service inventory
 
-The exact units installed vary by node role. The hub runs the coordinator, customer-facing services and block production; the shop/follower runs the miner, pool hub, GPU and island services. A typical follower/customer replica (e.g. `hub2.aitbc`) runs a subset of the hub's blockchain services.
+The exact units installed vary by node role. The hub runs the coordinator, customer-facing services and block production; the shop/follower runs the miner, pool hub, GPU and island services. A typical follower/customer replica (e.g. `hub1.aitbc`, formerly `hub2.aitbc`) runs a subset of the hub's blockchain services.
 
 ### Core blockchain services (all node types)
 

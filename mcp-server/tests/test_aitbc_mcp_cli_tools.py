@@ -63,7 +63,7 @@ def test_sell_ait_exchange():
         aitbc_mcp_cli_tools.sell_ait_exchange(
             amount="2.0",
             min_price="0.00075",
-            wallet="hub2-shop",
+            wallet="shop-wallet",
             dry_run=False,
             confirm=True,
             role="hub",
@@ -75,7 +75,7 @@ def test_sell_ait_exchange():
     assert "--ait-amount=2.0" in cmd
     assert "--quote-currency=ETH" in cmd
     assert "--min-price=0.00075" in cmd
-    assert "--wallet=hub2-shop" in cmd
+    assert "--wallet=shop-wallet" in cmd
 
 
 def test_get_exchange_orderbook():
@@ -162,7 +162,7 @@ def test_create_market_offer():
             price="1",
             unit="per_day",
             description="Host files for 1 AIT per day",
-            wallet="hub2-shop",
+            wallet="shop-wallet",
             dry_run=False,
             confirm=True,
             role="shop",
@@ -172,7 +172,7 @@ def test_create_market_offer():
     cmd = _last_command()
     assert cmd.startswith("AITBC_WALLET_DIR=/var/lib/aitbc/wallets")
     assert "market" in cmd
-    assert "--wallet=hub2-shop" in cmd
+    assert "--wallet=shop-wallet" in cmd
     assert "offer" in cmd
     assert "ipfs" in cmd
     assert "ipfs-host" in cmd
