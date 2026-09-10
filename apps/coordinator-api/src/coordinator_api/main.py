@@ -61,6 +61,7 @@ from .routers import (
     agent_performance,
     agent_router,
     client,
+    confidential,
     developer_platform,
     edge_gpu,
     exchange,
@@ -509,6 +510,7 @@ def create_app() -> FastAPI:
         logger.warning("Failed to include Agent router: %s", e)
 
     # Core routers
+    app.include_router(confidential, prefix="/v1")
     app.include_router(swarm, prefix="/v1")
     app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
     app.include_router(payments, prefix="/v1")
