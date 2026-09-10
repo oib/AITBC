@@ -32,13 +32,14 @@ logger = get_logger(__name__)
 
 
 def _coordinator_url() -> str:
-    """Return the coordinator API base URL."""
+    """Return the coordinator API base URL, stripping a trailing /v1 path
+    so endpoints that already begin with /v1/ do not double-prefix it.
+    """
     config = get_config()
-    if config.hub_discovery_url:
-        if config.hub_discovery_url.startswith(("http://", "https://")):
-            return config.hub_discovery_url.rstrip("/")
-        return f"https://{config.hub_discovery_url}"
-    return config.coordinator_url or "http://localhost:8203"
+    url = (config.coordinator_url or config.coordinator_api_url or "http://localhost:8203").rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
+    return url.rstrip("/")
 
 
 def _blockchain_rpc_url() -> str:

@@ -682,8 +682,20 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
 
         config = get_config()
         rpc_url = getattr(config, "blockchain_rpc_url", "http://localhost:8202")
-        # Use hub RPC for cross-node transaction propagation
-        rpc_url = rpc_url.replace("localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net")
+        # Local/follower nodes cannot propagate a transaction to the proposer on
+        # their own. Use the hub's public RPC unless the operator has explicitly
+        # configured a non-local blockchain RPC.
+        if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
+            hub_rpc = (
+                getattr(config, "hub_blockchain_rpc_url", None)
+                or f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            )
+            if hub_rpc:
+                hub_rpc = hub_rpc.rstrip("/")
+                if hub_rpc.endswith("/rpc"):
+                    hub_rpc = hub_rpc[:-4]
+                if hub_rpc:
+                    rpc_url = hub_rpc
 
     # Get chain_id from RPC
     try:
