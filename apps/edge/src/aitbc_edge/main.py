@@ -18,6 +18,7 @@ configure_logging(level="INFO", service_name="edge", to_file=True)
 
 from .config import settings
 from .routers import database_router as database
+from .routers import edge_gpu_router as edge_gpu
 from .routers import gpu_router as gpu
 from .routers import islands_router as islands
 from .routers import metrics_router as metrics
@@ -124,6 +125,7 @@ async def readiness_check() -> dict[str, str]:
 
 app.include_router(islands, prefix=f"{settings.api_prefix}/islands", tags=["islands"])
 app.include_router(gpu, prefix=f"{settings.api_prefix}/gpu", tags=["gpu"])
+app.include_router(edge_gpu, prefix=f"{settings.api_prefix}/edge-gpu", tags=["edge-gpu"])
 app.include_router(database, prefix=f"{settings.api_prefix}/database", tags=["database"])
 app.include_router(serve, prefix=f"{settings.api_prefix}/serve", tags=["serve"])
 app.include_router(metrics, prefix=f"{settings.api_prefix}/metrics", tags=["metrics"])

@@ -63,30 +63,32 @@ class TestEdgeCommands:
         called_path = mock_http_class.return_value.get.call_args[0][0]
         assert "/v1/gpu/" in called_path
 
-    @patch("aitbc_cli.commands.edge.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.edge.httpx.Client")
     @patch("aitbc_cli.commands.edge.get_config")
     def test_edge_balance_command(self, mock_get_config, mock_http_class, runner, mock_config):
-        """``edge balance`` returns edge wallet balance from the mocked coordinator API."""
+        """``edge balance`` uses the local edge API."""
         mock_get_config.return_value = mock_config
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"address": "0xedge123", "balance": 50000}
+        mock_response = mock_http_class.return_value.get.return_value
+        mock_response.json.return_value = {"address": "0xedge123", "balance": 50000}
+        mock_response.raise_for_status.return_value = None
 
         from aitbc_cli.commands.edge import edge
 
         result = runner.invoke(edge, ["balance"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        called_path = mock_client.get.call_args[0][0]
-        assert "/edge-gpu/balance" in called_path
+        mock_http_class.assert_called_once()
+        called_path = mock_http_class.return_value.get.call_args[0][0]
+        assert "/v1/edge-gpu/balance" in called_path
 
-    @patch("aitbc_cli.commands.edge.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.edge.httpx.Client")
     @patch("aitbc_cli.commands.edge.get_config")
     def test_edge_transfer_command(self, mock_get_config, mock_http_class, runner, mock_config):
-        """``edge transfer`` submits a transfer via the mocked coordinator API."""
+        """``edge transfer`` submits a transfer via the local edge API."""
         mock_get_config.return_value = mock_config
-        mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"tx_hash": "0xtransfer123", "status": "submitted"}
+        mock_response = mock_http_class.return_value.post.return_value
+        mock_response.json.return_value = {"tx_hash": "0xtransfer123", "status": "submitted"}
+        mock_response.raise_for_status.return_value = None
 
         from aitbc_cli.commands.edge import edge
 
@@ -95,9 +97,9 @@ class TestEdgeCommands:
         )
 
         assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once()
-        called_path = mock_client.post.call_args[0][0]
-        assert "/edge-gpu/transfer" in called_path
+        mock_http_class.assert_called_once()
+        called_path = mock_http_class.return_value.post.call_args[0][0]
+        assert "/v1/edge-gpu/transfer" in called_path
 
     @patch("aitbc_cli.commands.edge.httpx.Client")
     @patch("aitbc_cli.commands.edge.get_config")

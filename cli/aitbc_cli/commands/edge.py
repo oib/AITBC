@@ -11,7 +11,7 @@ import httpx
 
 from ..config import get_config
 from ..utils import DECIMAL, error, info, output, success, warning
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import NetworkError, get_logger
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -61,12 +61,12 @@ def status(ctx):
 )
 @click.pass_context
 def balance(ctx):
-    """Get edge wallet balance from the coordinator API."""
-    config = get_config()
-
+    """Get edge wallet balance from the local edge API."""
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        balance_data = http_client.get("/edge-gpu/balance")
+        client = get_edge_client()
+        response = client.get("/v1/edge-gpu/balance")
+        response.raise_for_status()
+        balance_data = response.json()
         success("Edge Wallet Balance:")
         output(balance_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
@@ -87,16 +87,16 @@ def balance(ctx):
 @click.option("--note", help="Transfer note")
 @click.pass_context
 def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
-    """Transfer edge tokens to another address with an optional note."""
-    config = get_config()
-
+    """Transfer edge tokens to another address with an optional note via the local edge API."""
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
+        client = get_edge_client()
         transfer_data = {"to_address": to_address, "amount": str(amount)}
         if note:
             transfer_data["note"] = note
 
-        result = http_client.post("/edge-gpu/transfer", json=transfer_data)
+        response = client.post("/v1/edge-gpu/transfer", json=transfer_data)
+        response.raise_for_status()
+        result = response.json()
         success(f"Transfer of {amount} to {to_address} submitted")
         output(result, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
