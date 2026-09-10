@@ -53,6 +53,9 @@ async def test_consensus_status_three_validators_crash_only(monkeypatch) -> None
     mock_consensus = MagicMock()
     mock_consensus.validators = validators
     mock_consensus.get_consensus_participants.return_value = list(validators.keys())
+    mock_consensus._pbft_view = 0
+    mock_consensus._pbft_sequence = 0
+    mock_consensus._current_epoch = 0
 
     monkeypatch.setattr(settings, "multi_validator_consensus_enabled", True)
     monkeypatch.setattr(settings, "validator_set", ",".join(validators))
