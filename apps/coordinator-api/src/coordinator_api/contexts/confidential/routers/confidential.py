@@ -370,9 +370,16 @@ async def get_confidential_status(request: Request, ) -> dict[str, Any]:
 async def create_confidential_payment(request: ConfidentialPaymentCreate) -> ConfidentialPaymentView:
     """Receive a confidential payment envelope from the CLI.
 
-    The CLI builds and locally validates the payment; this endpoint records the
-    envelope and returns a simulated receipt so the customer workflow completes.
+    Fail-closed: without a real TEE this endpoint must not emit a 'settled'
+    receipt. When ``CONFIDENTIAL_TEE_ENABLED`` is true the coordinator records
+    the envelope and returns a receipt; otherwise it returns 503 Service
+    Unavailable so callers fall back to local simulated settlement.
     """
+    if not settings.confidential_tee_enabled:
+        raise HTTPException(
+            status_code=503,
+            detail="Confidential TEE payment settlement is not enabled on this coordinator",
+        )
     return ConfidentialPaymentView(
         payment_id=request.payment_id,
         sender_id=request.sender_id,
