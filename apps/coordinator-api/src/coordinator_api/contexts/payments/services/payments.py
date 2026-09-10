@@ -36,6 +36,7 @@ from ....storage import get_session
 from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
 from ...infrastructure.domain.job_receipt import JobReceipt
+from ...marketplace.domain.gpu_marketplace import GPURegistry, GPUBooking
 from ...zk_applications.services import model_registry
 from ..acceptance import (
     DISPUTED,
@@ -1076,6 +1077,7 @@ class PaymentService:
                 if escrow:
                     escrow.is_released = True
                     escrow.released_at = settled_at
+                self._release_gpu_if_rental(job)
                 self.session.commit()
                 logger.info("Released payment %s for job %s", payment_id, job_id)
                 return True
@@ -1085,6 +1087,34 @@ class PaymentService:
         except Exception as e:
             logger.error("Error releasing payment: %s", e)
             return False
+
+    def _release_gpu_if_rental(self, job: Job) -> None:
+        """Mark a rented GPU and its booking as completed/finished when payment is released.
+
+        This is intentionally idempotent: repeated releases only update rows if the
+        job is a GPU rental and the booking is still active.
+        """
+        payload = job.payload or {}
+        if payload.get("type") != "gpu_compute":
+            return
+        gpu_id = payload.get("gpu_id")
+        if not gpu_id:
+            return
+        gpu = self.session.get(GPURegistry, gpu_id)
+        if gpu and gpu.status == "booked":
+            gpu.status = "available"
+            self.session.add(gpu)
+        booking = (
+            self.session.execute(
+                select(GPUBooking).where(GPUBooking.job_id == job.id, GPUBooking.status == "active").limit(1)
+            )
+            .scalars()
+            .first()
+        )
+        if booking:
+            booking.status = "completed"
+            booking.end_time = datetime.now(UTC)
+            self.session.add(booking)
 
     async def refund_payment(self, client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
         """Refund payment to client"""
