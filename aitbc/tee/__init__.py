@@ -18,6 +18,7 @@ from .attestation import (
     verify_quote,
 )
 from .benchmark import TEEBenchmark, TEEBenchmarkResult
+from .config import is_tee_attestation_enabled
 from .channel import ChannelState, TEEChannel, ChannelMessage
 from .enclave import Enclave, EnclaveConfig, EnclaveStatus
 from .errors import TEEError
@@ -58,6 +59,7 @@ __all__ = [
     "SessionState",
     "VerificationMode",
     "ZKProof",
+    "is_tee_attestation_enabled",
     "load_or_create_signing_key",
     "public_key_for_signing_key",
     "seal",

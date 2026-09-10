@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+import pytest
+
 import production_miner
 
 from aitbc.tee import AttestationQuote, computation_transcript
@@ -11,8 +13,21 @@ def _job(job_id="job-1", payload=None, **constraints):
     return {"job_id": job_id, "payload": payload or {}, "constraints": constraints}
 
 
+@pytest.fixture(autouse=True)
+def tee_enabled(monkeypatch):
+    """Enable TEE attestation for build_tee_quote tests; a dedicated test below covers the disabled path."""
+    monkeypatch.setenv("TEE_ATTESTATION_ENABLED", "true")
+
+
 def test_build_tee_quote_returns_none_without_a_tee_constraint():
     assert production_miner.build_tee_quote(_job()) is None
+
+
+def test_build_tee_quote_disabled_returns_none_when_tee_requested(monkeypatch):
+    """Fail-closed: when TEE attestation is disabled the miner must not build a quote."""
+    monkeypatch.setenv("TEE_ATTESTATION_ENABLED", "false")
+    job = _job(tee_enclave_id="enc-x")
+    assert production_miner.build_tee_quote(job) is None
 
 
 def test_build_tee_quote_binds_computation_transcript():

@@ -228,6 +228,9 @@ if HAS_PYDANTIC_SETTINGS:
         rate_limit_requests: int = Field(default=60, description="Rate limit requests per window")
         rate_limit_window_seconds: int = Field(default=60, description="Rate limit window in seconds")
         allow_origins: list[str] = Field(default_factory=list, description="CORS allowed origins")
+        tee_attestation_enabled: bool = Field(
+            default=False, description="Enable TEE attestation support; default is False for fail-closed behaviour"
+        )
 
         @field_validator("environment")
         @classmethod

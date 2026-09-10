@@ -31,6 +31,8 @@ def _api_client() -> AITBCHTTPClient | None:
     (e.g. ``https://hub/c/v1``). Since the endpoints below already start
     with ``/v1/``, strip any trailing ``/v1`` to avoid doubling it.
     """
+    from ..auth import AuthManager
+
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
@@ -38,7 +40,22 @@ def _api_client() -> AITBCHTTPClient | None:
     url = url.rstrip("/")
     if url.endswith("/v1"):
         url = url[:-3]
-    return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
+
+    # /v1/confidential/payments is authenticated as a client/admin route, not a
+    # miner API-key route, so a JWT client credential is required.
+    token = config.api_key or ""
+    if not token:
+        token = AuthManager().get_credential("client") or ""
+    if not token:
+        return None
+
+    headers = {"Authorization": f"Bearer {token}"} if _looks_like_jwt(token) else {"X-Api-Key": token}
+    return AITBCHTTPClient(base_url=url, timeout=config.timeout, headers=headers)
+
+
+def _looks_like_jwt(token: str) -> bool:
+    """A JWT is three base64url segments separated by dots."""
+    return token.startswith("ey") and token.count(".") == 2
 
 
 def _signing_key() -> bytes:

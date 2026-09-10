@@ -92,6 +92,8 @@ def tee():
 @click.pass_context
 def attest(ctx, enclave_id: str, measurement: str, key_file: str):
     """Attest a TEE enclave and verify its measurement."""
+    if not get_config().tee_attestation_enabled:
+        abort(ctx, "TEE attestation is not enabled. Set TEE_ATTESTATION_ENABLED=true to attest.")
     try:
         signing_key = load_or_create_signing_key(key_file) if key_file else None
         generator = QuoteGenerator(enclave_id, signing_key=signing_key)
@@ -219,6 +221,8 @@ def _resolve_quote_from_cli(ctx, quote: str, attestation_id: str, job_id: str) -
 @click.pass_context
 def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, zk_proof: str, mode: str):
     """Verify a TEE quote, attestation, or zero-knowledge proof."""
+    if not get_config().tee_attestation_enabled:
+        abort(ctx, "TEE attestation is not enabled. Set TEE_ATTESTATION_ENABLED=true to verify.")
     try:
         if not (quote or attestation_id or job_id):
             abort(ctx, "Provide --quote, --attestation-id, or --job-id")

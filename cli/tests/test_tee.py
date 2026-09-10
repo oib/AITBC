@@ -37,7 +37,12 @@ def mock_client():
     with patch("aitbc_cli.commands.tee.AITBCHTTPClient", return_value=client):
         with patch(
             "aitbc_cli.commands.tee.get_config",
-            return_value=MagicMock(coordinator_api_url="http://localhost:8203", api_key="test-key", timeout=10),
+            return_value=MagicMock(
+                coordinator_api_url="http://localhost:8203",
+                api_key="test-key",
+                timeout=10,
+                tee_attestation_enabled=True,
+            ),
         ):
             with patch(
                 "aitbc_cli.commands.tee.AuthManager", return_value=MagicMock(get_credential=MagicMock(return_value=""))
@@ -191,8 +196,9 @@ def test_tee_keygen_is_idempotent(tmp_path, runner):
         assert f.read() == b"0" * 32
 
 
-def test_tee_verify_local(runner):
+def test_tee_verify_local(runner, monkeypatch):
     """verify should validate a quote locally without coordinator calls."""
+    monkeypatch.setenv("TEE_ATTESTATION_ENABLED", "true")
     from aitbc.tee.attestation import QuoteGenerator
     from aitbc_cli.commands.tee import tee
 

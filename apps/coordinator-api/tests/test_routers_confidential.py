@@ -1,9 +1,9 @@
 """Tests for the confidential router.
 
 The confidential endpoints are primarily stubs/simulations; these tests verify
-that the public CLI-facing payment route is fail-closed (503 unless TEE is
-explicitly enabled), returns a simulated receipt when enabled, and that other
-routes still respect the security matrix.
+that the CLI-facing payment route is fail-closed (503 unless TEE is
+explicitly enabled), requires authentication, and that other routes still
+respect the security matrix.
 """
 
 import pytest
@@ -17,13 +17,29 @@ def client_token() -> str:
 
 
 @pytest.mark.unit
-def test_confidential_payments_disabled_by_default(client):
+def test_confidential_payments_requires_auth(client):
+    """POST /v1/confidential/payments now requires a client/admin token."""
+    resp = client.post(
+        "/v1/confidential/payments",
+        json={
+            "payment_id": "pay-123",
+            "sender_id": "wallet-1",
+            "recipient_id": "recipient-1",
+            "amount_commitment": "0xdeadbeef",
+        },
+    )
+    assert resp.status_code in (401, 403)
+
+
+@pytest.mark.unit
+def test_confidential_payments_disabled_for_authenticated_client(client, client_token):
     """POST /v1/confidential/payments returns 503 when TEE is not enabled."""
     from coordinator_api.config import settings
 
     assert settings.confidential_tee_enabled is False
     resp = client.post(
         "/v1/confidential/payments",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
             "payment_id": "pay-123",
             "sender_id": "wallet-1",
@@ -36,13 +52,14 @@ def test_confidential_payments_disabled_by_default(client):
 
 
 @pytest.mark.unit
-def test_confidential_payments_is_public_when_enabled(client, monkeypatch):
-    """POST /v1/confidential/payments works without auth when TEE is enabled."""
+def test_confidential_payments_authenticated_when_enabled(client, client_token, monkeypatch):
+    """POST /v1/confidential/payments works with a client token when TEE is enabled."""
     from coordinator_api.config import settings
 
     monkeypatch.setattr(settings, "confidential_tee_enabled", True)
     resp = client.post(
         "/v1/confidential/payments",
+        headers={"Authorization": f"Bearer {client_token}"},
         json={
             "payment_id": "pay-123",
             "sender_id": "wallet-1",
