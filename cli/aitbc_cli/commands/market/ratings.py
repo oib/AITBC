@@ -14,14 +14,19 @@ logger = get_logger(__name__)
 from . import get_wallet_address, market
 
 
-def _marketplace_base_url() -> str:
+def _marketplace_base_url(override_url: str | None = None) -> str:
     """Return a public marketplace service URL.
 
-    The configured ``marketplace_service_url`` is usually the local service
-    (``http://localhost:8102``), which is not available on customer nodes. Fall
-    back to the hub's public marketplace endpoint so ratings can be submitted
-    from any follower.
+    ``override_url`` wins when given (e.g. via ``--marketplace-url``). The
+    configured ``marketplace_service_url`` is used next when it points off the
+    local box. Otherwise fall back to the hub's public marketplace endpoint so
+    ratings work from any follower.
     """
+    if override_url:
+        url = override_url.rstrip("/")
+        if url.endswith("/v1"):
+            url = url[:-3].rstrip("/")
+        return url
     config = get_config()
     url = config.marketplace_service_url or ""
     if url and "localhost" not in url and "127.0.0.1" not in url:
@@ -44,8 +49,9 @@ def _marketplace_base_url() -> str:
 @click.option("--rating", "rating", required=True, type=float, help="The Rating.")
 @click.option("--comment", help="Optional comment/review text")
 @click.option("--reviewer-id", help="Reviewer ID (defaults to wallet address)")
+@click.option("--marketplace-url", help="Override the marketplace service URL")
 @click.pass_context
-def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
+def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, marketplace_url: str):
     """Rate a marketplace service offer on a 1-5 scale."""
     try:
         # Validate rating scale
@@ -58,7 +64,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             reviewer_id = get_wallet_address()
 
         # Call marketplace service API
-        client = AITBCHTTPClient(base_url=_marketplace_base_url(), timeout=10)
+        client = AITBCHTTPClient(base_url=_marketplace_base_url(marketplace_url), timeout=10)
         response = client.post(
             f"/v1/marketplace/offer/{service_id}/rate",
             json={"rating": rating, "reviewer_id": reviewer_id, "comment": comment or ""},
@@ -92,7 +98,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             error(f"No such service: {service_id}")
         else:
             error(f"Marketplace service not reachable: {e}")
-            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url()}")
+            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url(marketplace_url)}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error rating service: {e}")
@@ -110,12 +116,13 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
 @click.option("--service-id", "service_id", required=True, help="The Service id.")
 @click.option("--limit", default=50, help="Number of ratings to return")
 @click.option("--offset", default=0, help="Offset for pagination")
+@click.option("--marketplace-url", help="Override the marketplace service URL")
 @click.pass_context
-def ratings(ctx, service_id: str, limit: int, offset: int):
+def ratings(ctx, service_id: str, limit: int, offset: int, marketplace_url: str):
     """View ratings for a marketplace service offer."""
     try:
         # Call marketplace service API
-        client = AITBCHTTPClient(base_url=_marketplace_base_url(), timeout=10)
+        client = AITBCHTTPClient(base_url=_marketplace_base_url(marketplace_url), timeout=10)
         response = client.get(f"/v1/marketplace/offer/{service_id}/ratings", params={"limit": limit, "offset": offset})
 
         service_info = response.get("service_info", {})
@@ -139,7 +146,7 @@ def ratings(ctx, service_id: str, limit: int, offset: int):
             error(f"No such service: {service_id}")
         else:
             error(f"Marketplace service not reachable: {e}")
-            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url()}")
+            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url(marketplace_url)}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error getting ratings: {e}")
