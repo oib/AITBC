@@ -4,6 +4,7 @@ Rating commands: rate, ratings, sync-ratings
 
 import click
 
+from ...config import get_config
 from ...utils import error, info, output, success
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -11,6 +12,24 @@ from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 logger = get_logger(__name__)
 
 from . import get_wallet_address, market
+
+
+def _marketplace_base_url() -> str:
+    """Return a public marketplace service URL.
+
+    The configured ``marketplace_service_url`` is usually the local service
+    (``http://localhost:8102``), which is not available on customer nodes. Fall
+    back to the hub's public marketplace endpoint so ratings can be submitted
+    from any follower.
+    """
+    config = get_config()
+    url = config.marketplace_service_url or ""
+    if url and "localhost" not in url and "127.0.0.1" not in url:
+        return url.rstrip("/")
+    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    if hub.startswith(("http://", "https://")):
+        return hub.rstrip("/")
+    return f"https://{hub}"
 
 
 @market.command(
@@ -39,7 +58,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             reviewer_id = get_wallet_address()
 
         # Call marketplace service API
-        client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
+        client = AITBCHTTPClient(base_url=_marketplace_base_url(), timeout=10)
         response = client.post(
             f"/v1/marketplace/offer/{service_id}/rate",
             json={"rating": rating, "reviewer_id": reviewer_id, "comment": comment or ""},
@@ -73,7 +92,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str):
             error(f"No such service: {service_id}")
         else:
             error(f"Marketplace service not reachable: {e}")
-            error("Ensure marketplace-service is running at http://localhost:8102")
+            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url()}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error rating service: {e}")
@@ -96,7 +115,7 @@ def ratings(ctx, service_id: str, limit: int, offset: int):
     """View ratings for a marketplace service offer."""
     try:
         # Call marketplace service API
-        client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
+        client = AITBCHTTPClient(base_url=_marketplace_base_url(), timeout=10)
         response = client.get(f"/v1/marketplace/offer/{service_id}/ratings", params={"limit": limit, "offset": offset})
 
         service_info = response.get("service_info", {})
@@ -120,7 +139,7 @@ def ratings(ctx, service_id: str, limit: int, offset: int):
             error(f"No such service: {service_id}")
         else:
             error(f"Marketplace service not reachable: {e}")
-            error("Ensure marketplace-service is running at http://localhost:8102")
+            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url()}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error getting ratings: {e}")

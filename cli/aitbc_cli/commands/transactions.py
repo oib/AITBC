@@ -28,6 +28,32 @@ from ..utils.wallet_paths import wallet_dir
 logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://127.0.0.1:8202"
+
+
+def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
+    """Return the RPC URL to submit a transaction from.
+
+    Follower/customer nodes run a local blockchain RPC, but it cannot on its own
+    propagate transactions to the proposer. When the default local RPC is used,
+    prefer the hub's public blockchain RPC URL instead.
+    """
+    if rpc_url:
+        return rpc_url
+    config = get_config()
+    rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
+    if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
+        hub_rpc = (
+            getattr(config, "hub_blockchain_rpc_url", None) or f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        )
+        if hub_rpc:
+            hub_rpc = hub_rpc.rstrip("/")
+            if hub_rpc.endswith("/rpc"):
+                hub_rpc = hub_rpc[:-4]
+            if hub_rpc:
+                return hub_rpc
+    return rpc_url
+
+
 # The chain settles in integer compute-units (1 AIT = 36_000_000), so the default fee is
 # expressed in those units too: 360_000 compute-units = 0.01 AIT.
 DEFAULT_FEE_UNITS = DEFAULT_TX_FEE_UNITS
@@ -59,7 +85,7 @@ def _send_transaction_impl(
 ) -> str | None:
     """Send a secp256k1-signed transaction from one wallet to another."""
     keystore_dir = keystore_dir or wallet_dir()
-    rpc_url = rpc_url or DEFAULT_RPC_URL
+    rpc_url = _resolve_transaction_rpc_url(rpc_url)
 
     # Validate recipient address
     try:
@@ -253,8 +279,7 @@ def send(
                     abort(None, f"Password prompt failed: {e}", from_exception=e)
 
     if not rpc_url:
-        config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
+        rpc_url = _resolve_transaction_rpc_url(None)
 
     if password is None:
         error("Password is required for transaction")
@@ -385,8 +410,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
                     abort(None, f"Password prompt failed: {e}", from_exception=e)
 
     if not rpc_url:
-        config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
+        rpc_url = _resolve_transaction_rpc_url(None)
 
     if password is None:
         error("Password is required for batch transactions")
@@ -446,8 +470,7 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             error(f"Error: {e}")
     else:
         if not rpc_url:
-            config = get_config()
-            rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
+            rpc_url = _resolve_transaction_rpc_url(None)
 
         try:
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -471,8 +494,7 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
 def pending(rpc_url: str | None):
     """Get the list of pending transactions from the node."""
     if not rpc_url:
-        config = get_config()
-        rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
+        rpc_url = _resolve_transaction_rpc_url(None)
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -508,7 +530,7 @@ def pending(rpc_url: str | None):
 def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: str | None):
     """Estimate the transaction fee for a transfer."""
     if not rpc_url:
-        rpc_url = DEFAULT_RPC_URL
+        rpc_url = _resolve_transaction_rpc_url(None)
 
     try:
         test_tx = {
