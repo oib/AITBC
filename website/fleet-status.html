@@ -1,0 +1,664 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AITBC Fleet Status</title>
+    <meta name="description" content="Live fleet status, consensus health, and service availability for the AITBC network.">
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+    <link rel="stylesheet" href="/style.css">
+    <style>
+        .fleet-content h2 { border-bottom: 1px solid var(--border); padding-bottom: 0.5rem; margin: 2rem 0 1rem; color: var(--primary); }
+        .fleet-content h3 { color: var(--secondary); margin: 1.5rem 0 0.75rem; }
+        .fleet-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.85rem; overflow-x: auto; display: block; }
+        .fleet-content th, .fleet-content td { padding: 0.5rem; border-bottom: 1px solid var(--border); text-align: left; vertical-align: top; }
+        .fleet-content th { color: var(--text-muted); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; }
+        .fleet-content tr:hover { background: rgba(255,255,255,0.03); }
+        .fleet-content code { font-family: 'Courier New', monospace; background: var(--code); padding: 0.1rem 0.3rem; border-radius: 3px; font-size: 0.85rem; }
+        .fleet-content ul, .fleet-content ol { margin-left: 1.5rem; margin-bottom: 1rem; }
+        .fleet-content li { margin: 0.5rem 0; }
+        .fleet-content pre { background: var(--code); padding: 1rem; border-radius: 6px; overflow-x: auto; font-size: 0.85rem; }
+        .fleet-content hr { border: 0; border-top: 1px solid var(--border); margin: 2rem 0; }
+        .fleet-content p { margin-bottom: 1rem; }
+        .fleet-meta { color: var(--text-muted); font-size: 0.85rem; margin-bottom: 1rem; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <div class="header-nav">
+                <a href="/">Home</a>
+                <a href="/explorer.html">Explorer</a>
+                <a href="/exchange.html">Exchange</a>
+                <a href="/marketplace.html">Marketplace</a>
+                <a href="/fleet-status.html">Fleet Status</a>
+            </div>
+            <h1>AITBC Fleet Status</h1>
+            <p class="subtitle">Reconciled live view of network health, consensus, and service availability</p>
+        </header>
+        <div class="fleet-meta">Generated from live RPC, <code>systemctl</code>, and bridge/consensus/health checks across all five fleet roles.</div>
+        <div class="card fleet-content">
+<h1 id="aitbc-fleet-status-2026-09-10-updated-2015-cest">AITBC Fleet Status — 2026-09-10 (updated 20:15 CEST)</h1>
+<p>Generated from live RPC, <code>systemctl</code>, and bridge/consensus/health checks across all five fleet roles.</p>
+<h2 id="consistency-summary">Consistency summary</h2>
+<table>
+<thead>
+<tr>
+<th>Host</th>
+<th>Roles</th>
+<th>Chain Height</th>
+<th>Mempool</th>
+<th>Services (running / reachable)</th>
+<th style="text-align: right;">Key issues</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hub.aitbc</td>
+<td>hub, customer</td>
+<td>1479</td>
+<td>0</td>
+<td>14 / 14</td>
+<td style="text-align: right;">none</td>
+</tr>
+<tr>
+<td>node0</td>
+<td>follower, customer (gpu)</td>
+<td>1479</td>
+<td>0</td>
+<td>7 / 7</td>
+<td style="text-align: right;">none</td>
+</tr>
+<tr>
+<td>node1</td>
+<td>follower, customer + PBFT validator (gpu)</td>
+<td>1479</td>
+<td>0</td>
+<td>7 / 7</td>
+<td style="text-align: right;">none</td>
+</tr>
+<tr>
+<td>node2</td>
+<td>follower, shop + PBFT validator (gpu)</td>
+<td>1479</td>
+<td>0</td>
+<td>16 / 16</td>
+<td style="text-align: right;">none</td>
+</tr>
+<tr>
+<td>hub1.aitbc</td>
+<td>follower + validator (nogpu)</td>
+<td>1479</td>
+<td>0</td>
+<td>3 / 3</td>
+<td style="text-align: right;">none</td>
+</tr>
+</tbody>
+</table>
+<ul>
+<li><strong>Chain height</strong> is consistent at <strong>1479</strong> (<code>0x126b91fead...</code>) across all five nodes.</li>
+<li><strong>Mempool</strong> is empty (0 pending transactions) on all reachable endpoints.</li>
+<li><strong>Multi-validator consensus</strong> is active with <strong>4 validators</strong> (<code>hub.aitbc</code>, <code>node1</code>, <code>node2</code>, <code>hub1.aitbc</code>): <code>MultiValidatorPoA</code>, <code>active_validators: 4</code>, <code>total_validators: 4</code>, <code>fault_tolerance: 1</code>, <code>required_messages: 3</code> (computed live as <code>2f+1</code>), <code>min_attestations: 1</code> (crash-tolerance threshold actually enforced).</li>
+<li><strong>Bridge</strong> is healthy on <code>hub.aitbc</code> (<code>aitbc-bridge-monitor</code> is <code>activating</code>; event-bridge reports <code>bridge_running: true</code>); bridge endpoints are not exposed on <code>node0/1/2/hub1</code>.</li>
+<li><strong>DNS / sync</strong>: <code>node0/1/2</code> no longer need <code>/etc/hosts</code> bypass; <code>getent hosts hub.aitbc.bubuit.net</code> resolves to <code>152.53.242.245</code>.</li>
+<li><strong>Coordinator auth</strong>: <code>hub.aitbc</code> <code>aitbc-coordinator-api</code> now loads <code>z-env-override.conf</code> and <code>admin-wallet-override.conf</code>, <code>ENVIRONMENT=production</code>, and all three key classes are present in the process.</li>
+</ul>
+<hr />
+<h2 id="per-host-service-grid">Per-host service grid</h2>
+<h3 id="hubaitbc">hub.aitbc</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Running</th>
+<th style="text-align: right;">Reachable</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aitbc-agent-coordinator</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">healthy</td>
+</tr>
+<tr>
+<td>aitbc-api-gateway</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">healthy</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-event-bridge</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">bridge healthy</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-explorer</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8100</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-node</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-p2p</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-rpc</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8202</td>
+</tr>
+<tr>
+<td>aitbc-bridge-monitor</td>
+<td>activating</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">still starting</td>
+</tr>
+<tr>
+<td>aitbc-coordinator-api</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8203, env=production</td>
+</tr>
+<tr>
+<td>aitbc-exchange</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8106</td>
+</tr>
+<tr>
+<td>aitbc-governance</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-marketplace</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8102</td>
+</tr>
+<tr>
+<td>aitbc-pool-hub</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8210, 1 miner online</td>
+</tr>
+<tr>
+<td>aitbc-trading</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8104</td>
+</tr>
+<tr>
+<td>aitbc-wallet</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8108</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node0">node0</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Running</th>
+<th style="text-align: right;">Reachable</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aitbc-blockchain-explorer</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8100</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-node</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-rpc</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8202</td>
+</tr>
+<tr>
+<td>aitbc-governance</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-monitoring</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8002</td>
+</tr>
+<tr>
+<td>aitbc-trading</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-wallet</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8108</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node1">node1</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Running</th>
+<th style="text-align: right;">Reachable</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aitbc-blockchain-explorer</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8100</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-node</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-rpc</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8202</td>
+</tr>
+<tr>
+<td>aitbc-governance</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-monitoring</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8002</td>
+</tr>
+<tr>
+<td>aitbc-trading</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-wallet</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8108</td>
+</tr>
+</tbody>
+</table>
+<h3 id="node2">node2</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Running</th>
+<th style="text-align: right;">Reachable</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aitbc-blockchain-explorer</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8100</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-node</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-rpc</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8202</td>
+</tr>
+<tr>
+<td>aitbc-coordinator-api</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8203, env=production</td>
+</tr>
+<tr>
+<td>aitbc-edge</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-ffmpeg</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8211</td>
+</tr>
+<tr>
+<td>aitbc-governance</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-gpu</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-hermes-agent</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-marketplace</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8102</td>
+</tr>
+<tr>
+<td>aitbc-miner</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only</td>
+</tr>
+<tr>
+<td>aitbc-monitoring</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8002</td>
+</tr>
+<tr>
+<td>aitbc-pool-hub</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8210, 2 miners online</td>
+</tr>
+<tr>
+<td>aitbc-trading</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8105</td>
+</tr>
+<tr>
+<td>aitbc-wallet</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8108</td>
+</tr>
+<tr>
+<td>aitbc-whisper</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8206</td>
+</tr>
+</tbody>
+</table>
+<h3 id="hub1aitbc">hub1.aitbc</h3>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>Running</th>
+<th style="text-align: right;">Reachable</th>
+<th style="text-align: left;">Notes</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>aitbc-blockchain-node</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only; follower</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-p2p</td>
+<td>yes</td>
+<td style="text-align: right;">n/a</td>
+<td style="text-align: left;">process-only; follower</td>
+</tr>
+<tr>
+<td>aitbc-blockchain-rpc</td>
+<td>yes</td>
+<td style="text-align: right;">200</td>
+<td style="text-align: left;">8202</td>
+</tr>
+</tbody>
+</table>
+<p><code>hub1.aitbc</code> is the demoted old hub. Customer services are stopped. It syncs from <code>https://node2.aitbc.bubuit.net</code>.</p>
+<hr />
+<h2 id="consensus-status">Consensus status</h2>
+<table>
+<thead>
+<tr>
+<th>Host</th>
+<th>Mode</th>
+<th>multi_validator_enabled</th>
+<th>active_validators</th>
+<th>total_validators</th>
+<th>chain_id</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>hub.aitbc</td>
+<td>MultiValidatorPoA</td>
+<td>true</td>
+<td>4</td>
+<td>4</td>
+<td><code>ait-hub.aitbc.bubuit.net</code></td>
+</tr>
+<tr>
+<td>node0</td>
+<td>MultiValidatorPoA</td>
+<td>true</td>
+<td>4</td>
+<td>4</td>
+<td><code>ait-hub.aitbc.bubuit.net</code></td>
+</tr>
+<tr>
+<td>node1</td>
+<td>MultiValidatorPoA</td>
+<td>true</td>
+<td>4</td>
+<td>4</td>
+<td><code>ait-hub.aitbc.bubuit.net</code></td>
+</tr>
+<tr>
+<td>node2</td>
+<td>MultiValidatorPoA</td>
+<td>true</td>
+<td>4</td>
+<td>4</td>
+<td><code>ait-hub.aitbc.bubuit.net</code></td>
+</tr>
+<tr>
+<td>hub1.aitbc</td>
+<td>MultiValidatorPoA</td>
+<td>true</td>
+<td>4</td>
+<td>4</td>
+<td><code>ait-hub.aitbc.bubuit.net</code></td>
+</tr>
+</tbody>
+</table>
+<p>Validator set (4 active):
+- <code>0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B</code> (hub.aitbc / genesis)
+- <code>0x43641ca248D38406c52CF1D6B235948DF27bfCF0</code> (node2)
+- <code>0x241D3e44d42b6d4c270d0231780913f14386d90C</code> (node1)
+- <code>0x9Ea1B0ab1d8d03F3a3427af12ed4548a56B6cBa5</code> (hub1.aitbc)</p>
+<hr />
+<h2 id="customer-service-health-matrix">Customer-service health matrix</h2>
+<table>
+<thead>
+<tr>
+<th>Service</th>
+<th>hub.aitbc</th>
+<th>node0</th>
+<th>node1</th>
+<th>node2</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>API gateway (8201)</td>
+<td>200</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Explorer (8100)</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Marketplace (8102)</td>
+<td>200</td>
+<td>—</td>
+<td>—</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Trading (8105)</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Exchange (8106)</td>
+<td>200</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Governance (8104)</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Pool hub (8210)</td>
+<td>200</td>
+<td>—</td>
+<td>—</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Agent coordinator (8107)</td>
+<td>200</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>Wallet (8108)</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Coordinator API (8203)</td>
+<td>200</td>
+<td>—</td>
+<td>—</td>
+<td>200</td>
+</tr>
+<tr>
+<td>Bridge monitor</td>
+<td>activating</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+<tr>
+<td>AWStats</td>
+<td>200 (via netcup)</td>
+<td>—</td>
+<td>—</td>
+<td>—</td>
+</tr>
+</tbody>
+</table>
+<p><code>—</code> means the service is not installed/running on that host by design.</p>
+<hr />
+<h2 id="resolved-operational-items">Resolved operational items</h2>
+<ul>
+<li><strong>Coordinator API drop-in on hub.aitbc</strong>: <code>z-env-override.conf</code> and <code>admin-wallet-override.conf</code> added; <code>/health</code> reports <code>env=production</code> and the miner key is accepted.</li>
+<li><strong>Route-level auth confirmed</strong>: <code>/v1/miners/*</code> requires <code>MINER</code> role, <code>/v1/jobs</code> requires <code>ADMIN_OR_CLIENT</code>; a miner key gets 200 on heartbeat and 403 on <code>/v1/jobs</code> / bare <code>/v1/miners</code>.</li>
+<li><strong>CLI <code>ai jobs</code> on hub</strong>: <code>/root/.aitbc.yaml</code> created with local URLs; <code>aitbc auth login</code> now defaults to the <code>default</code> wallet; <code>aitbc ai jobs</code> works end-to-end.</li>
+<li><strong>v0.25.2 / v0.25.6 release notes</strong>: committed and pushed from <code>node2</code>; v0.25.2 PBFT attribution corrected.</li>
+<li><strong>PBFT display quirk</strong>: <code>consensus/status</code> now reports <code>MultiValidatorPoA</code> when <code>PBFT_CONSENSUS_ENABLED=false</code>, and <code>MultiValidatorPoA</code> only when PBFT is enabled. Fix committed, pushed, and deployed to all five nodes.</li>
+<li><strong>MULTI_VALIDATOR_MIN_ATTESTATIONS</strong>: kept at <code>1</code> by operator decision. With 4 validators this gives crash-tolerance; Byzantine fault tolerance would require a higher threshold.</li>
+<li><strong>Promote <code>hub1.aitbc</code> to validator</strong>: <code>0x9Ea1B0ab1d8d03F3a3427af12ed4548a56B6cBa5</code> added to <code>VALIDATOR_SET</code> and <code>VALIDATOR_KEYS</code> on all five nodes; all nodes converge with 4 active validators.</li>
+<li><strong><code>aitbc market gpu quote</code> public</strong>: <code>/v1/marketplace/gpu/quote</code> no longer requires authentication; the CLI can quote fixed-duration GPU rentals without a coordinator client token.</li>
+<li><strong><code>aitbc confidential send</code> fail-closed</strong>: <code>/v1/confidential/payments</code> is wired and public, but it now returns <code>503 Service Unavailable</code> unless <code>CONFIDENTIAL_TEE_ENABLED=true</code>. The CLI falls back to a local simulated settlement. Live <code>POST</code> from <code>node0</code> returns 503 and the CLI still prints a simulated receipt.</li>
+<li><strong>GPU miner concurrency fixed</strong>: <code>production_miner.py</code> tracks <code>ACTIVE_JOB_IDS</code> and reports the real <code>inflight</code> count in heartbeats so the coordinator does not over-assign jobs.</li>
+<li><strong>Pin <code>node0</code> as customer scenario-test node</strong>: <code>blockchain_mode=follower</code>, <code>market_role=customer</code>, <code>hardware_profile=gpu</code> explicit; CLI configured to hub; <code>aitbc auth login</code> and <code>aitbc ai submit</code> verified; <code>test_v2392</code> and <code>health_check.sh all</code> pass.</li>
+<li><strong><code>aitbc edge status</code> fixed and remote-capable</strong>: the command now queries the local Edge API <code>/v1/gpu/</code> by default, and <code>edge_api_host</code>/<code>edge_api_port</code> in <code>~/.aitbc.yaml</code> can point it at a remote edge node. An nginx <code>/v1/</code> route on <code>node2</code> exposes the edge API at <code>https://node2.aitbc.bubuit.net/v1/</code>; <code>aitbc edge status</code> from <code>node0</code> against <code>node2</code> returns the two edge GPUs.</li>
+<li><strong><code>aitbc ai submit</code> local media support</strong>: local audio/video file paths are uploaded to <code>POST /v1/media/upload</code> on the coordinator and the returned <code>https://hub.aitbc.bubuit.net/c/v1/media/download/{token}</code> URL is placed in the job payload; the worker downloads via that URL. The upload endpoint enforces <code>max_media_upload_bytes</code> (default 100MB) and nginx <code>client_max_body_size</code> is set to 100MB on <code>/c/</code>.</li>
+<li><strong><code>aitbc ai submit --wait</code> end-to-end</strong>: the CLI now auto-accepts a completed job and waits for the payment to be released; a live run from <code>node0</code> completed, escrowed, and released successfully.</li>
+<li>
+<p><strong>Native energy quote age configurable</strong>: <code>energy_max_rate_age_seconds</code> is honored by <code>quote_gpu</code> and payment validation; <code>hub.aitbc</code> sets it to <code>86400</code> so the operator-published rate stays valid for quotes.</p>
+</li>
+<li>
+<p><strong>TEE attestation / confidential payment fail-closed (2026-09-10)</strong>: <code>TEE_ATTESTATION_ENABLED</code> now defaults to <code>False</code>; <code>POST /v1/tee/attestations</code>, <code>aitbc tee attest/verify</code>, <code>aitbc ai submit --confidential</code>, and <code>production_miner.build_tee_quote</code> are all gated behind it. <code>/v1/confidential/payments</code> raised from <code>AuthLevel.NONE</code> to <code>AuthLevel.ADMIN_OR_CLIENT</code> with an <code>AdminOrClientDep</code> handler dependency. All targeted unit tests pass.</p>
+</li>
+<li><strong>Whisper marketplace transcription end-to-end (2026-09-10)</strong>: Festival-generated <code>/tmp/test_audio_16k.wav</code> on <code>node0</code> was submitted via <code>aitbc ai submit --type transcribe --input &lt;wav&gt; --offer-id sw_offer_20260910115054_49d92c3c</code>. The job (<code>82dd7c5929744311a6bb281a0ced0a5c</code>) executed on <code>node2</code> by <code>aitbc-miner-1</code> with Whisper <code>base</code>, escrow locked and released, payment <code>b61bad51ddf044ec9ee0034e1de8f49b</code> released. Transcription: "Hello, this is a test of the festival text to speech system. It will be transcribed by whisper".</li>
+</ul>
+<h2 id="open-operational-items">Open operational items</h2>
+<ul>
+<li><code>aitbc ai submit</code> with a 5-second silent test MP3 returns an empty transcription because the audio contains no speech; the media transport, Whisper execution, escrow, and payment release all succeed end-to-end. Use a real spoken recording for a non-empty transcription.</li>
+<li>Local media in <code>aitbc ai submit</code> is now uploaded to the coordinator <code>/v1/media/upload</code> endpoint and referenced by download URL in the job payload. The default size guard is 100MB, configurable via <code>MAX_MEDIA_UPLOAD_BYTES</code>.</li>
+<li>The shop miner has <code>max_concurrent_jobs=1</code> (<code>concurrency=1</code>); a long-running <code>gpu_compute</code> rental can block AI jobs. An orphan 1-hour <code>gpu_compute</code> job (<code>76d4d4e3...</code>) was cancelled to free the miner. For mixed AI/GPU workloads, consider running a separate GPU-rental worker or raising <code>max_concurrent_jobs</code> on a node with capacity.</li>
+<li><code>aitbc edge status</code> from node0 → node2 now works via an nginx <code>/v1/</code> route and <code>edge_api_host</code> in <code>~/.aitbc.yaml</code>; <code>aitbc edge serve submit-request</code> from node0 to node2 is now verified with a locked escrow and payment verification.</li>
+<li><code>aitbc gpu-onchain list</code> on node0 does not see node2's <code>GPU_REGISTER</code> record because <code>aitbc gpu-onchain register</code> writes to the local blockchain node DB (<code>/rpc/gpu/register</code>), not an island-wide transaction.</li>
+<li>IPFS Kubo daemons on <code>node0</code> and <code>node2</code> are now persistent <code>ipfs.service</code> systemd units (enabled, restart-on-failure) instead of transient <code>ipfs-node0</code> / <code>ipfs-node2</code> scopes; the two daemons are reconnected over the <code>10.0.0.0/8</code> swarm and <code>aitbc ipfs upload/download/list</code> work.</li>
+<li>Confidential/TEE and FHE workloads remain <code>simulated</code> because the fleet has no TEE/FHE hardware, but the public <code>/v1/confidential/payments</code> route is now fail-closed (503) and the CLI falls back to local simulation.</li>
+</ul>
+        </div>
+        <div class="meta">
+            <p>Source: <a href="https://github.com/oib/AITBC">github.com/oib/AITBC</a> | For autonomous agents, use <a href="/rpc/network-info">/rpc/network-info</a>.</p>
+        </div>
+    </div>
+</body>
+</html>
