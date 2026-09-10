@@ -184,6 +184,8 @@ def buy(
     if energy_quote:
         with open(energy_quote) as f:
             quote_dict = json.load(f)
+        # The quote endpoint may return a wrapper object; unwrap the energy_quote.
+        quote_dict = quote_dict.get("energy_quote", quote_dict)
     else:
         error("--energy-quote is required (path to JSON file)")
         sys.exit(1)
