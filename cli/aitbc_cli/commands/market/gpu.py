@@ -34,7 +34,11 @@ logger = get_logger(__name__)
 def _coordinator_url() -> str:
     """Return the coordinator API base URL."""
     config = get_config()
-    return config.coordinator_url or "http://localhost:8100"
+    if config.hub_discovery_url:
+        if config.hub_discovery_url.startswith(("http://", "https://")):
+            return config.hub_discovery_url.rstrip("/")
+        return f"https://{config.hub_discovery_url}"
+    return config.coordinator_url or "http://localhost:8203"
 
 
 def _blockchain_rpc_url() -> str:
