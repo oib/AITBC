@@ -4,6 +4,7 @@ Commands for interacting with the Edge API service
 """
 
 from decimal import Decimal
+from typing import Any
 
 import click
 import httpx
@@ -541,22 +542,32 @@ def serve():
 
   aitbc edge serve submit-request --gpu-id gpu-1 --model-name model-1 --input-data '{"x":1}'
 
-  aitbc edge serve submit-request --gpu-id gpu-1 --model-name model-1 --input-data '{"x":1}' --priority high"""
+  aitbc edge serve submit-request --gpu-id gpu-1 --model-name model-1 --input-data '{"x":1}' --priority high --job-id job-123"""
 )
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.option("--model-name", "model_name", required=True, help="The Model name.")
 @click.option("--input-data", "input_data", required=True, help="The Input data.")
 @click.option("--priority", default="normal", help="Request priority")
-def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str):
+@click.option("--job-id", "job_id", default=None, help="Job ID for edge servers that verify escrow")
+@click.option("--escrow-id", "escrow_id", default=None, help="Legacy escrow ID for payment verification")
+def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str, job_id: str | None, escrow_id: str | None):
     """Submit a compute request to a GPU with model name and input data."""
     try:
         import json
 
+        body: dict[str, Any] = {
+            "gpu_id": gpu_id,
+            "model_name": model_name,
+            "input_data": json.loads(input_data),
+            "priority": priority,
+        }
+        if job_id:
+            body["job_id"] = job_id
+        if escrow_id:
+            body["escrow_id"] = escrow_id
+
         client = get_edge_client()
-        response = client.post(
-            "/v1/serve/requests",
-            json={"gpu_id": gpu_id, "model_name": model_name, "input_data": json.loads(input_data), "priority": priority},
-        )
+        response = client.post("/v1/serve/requests", json=body)
         response.raise_for_status()
         result = response.json()
 
