@@ -648,7 +648,7 @@ async def buy_gpu(
                     min_vram_gb=None,
                     max_price=total_cost * Decimal("1.1"),
                 ),
-                ttl_seconds=int(duration_dec * 3600),
+                ttl_seconds=max(300, int(duration_dec * 3600)),
                 payment_amount=total_cost,
                 payment_currency="AITBC",
             )
@@ -675,7 +675,7 @@ async def buy_gpu(
                 amount=total_cost,
                 currency="AITBC",
                 payment_method=payment_method,
-                escrow_timeout_seconds=int(duration_hours * 3600),
+                escrow_timeout_seconds=max(300, int(duration_hours * 3600)),
                 protected=booking.protected,
                 energy_quote=quote_payload,
                 buyer_address=request.buyer_address,
@@ -704,7 +704,7 @@ async def buy_gpu(
         booking.job_id = job.id
         session.add(booking)
         session.commit()
-        logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment.id, booking_id)
+        logger.info("Successfully created job %s and payment %s for GPU purchase %s", job.id, payment_id, booking_id)
     except Exception as e:
         logger.error("Failed to create job/payment for GPU purchase: %s", e)
 
