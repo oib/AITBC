@@ -58,6 +58,20 @@ from ..state.state_transition import (
 
 logger = get_logger(__name__)
 
+# Transaction types whose side effects (pools, stakes, GPU tables, etc.) are not
+# modeled by the pure/parallel delta map. They must be applied through the
+# full StateTransition.apply_transaction sequential path to keep state roots
+# and side-effect tables consistent across proposer and follower nodes.
+_SEQUENTIAL_ONLY_TX_TYPES = frozenset(
+    {
+        "LIQUIDITY_DEPOSIT",
+        "LIQUIDITY_WITHDRAW",
+        "LIQUIDITY_CLAIM",
+        "GPU_REGISTER",
+        "GPU_ALLOCATE",
+    }
+)
+
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 
 
@@ -839,8 +853,16 @@ class PoAProposer:
         # is prefetched. If any release/refund references a job with no
         # resolvable lock, keep the block sequential so the sequential path's own
         # rules apply.
+        # Side-effect types that the pure delta map cannot model must always go
+        # through the full sequential state transition.
+        has_sequential_only = any(_determine_tx_type(tx.content) in _SEQUENTIAL_ONLY_TX_TYPES for tx in pending_txs)
         escrow_context: dict[str, dict[str, Any]] | None = None
-        use_parallel = getattr(settings, "parallel_tx_validation", False) and len(pending_txs) > 1 and block_version in (2, 3)
+        use_parallel = (
+            not has_sequential_only
+            and getattr(settings, "parallel_tx_validation", False)
+            and len(pending_txs) > 1
+            and block_version in (2, 3)
+        )
         if use_parallel:
             escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
             if escrow_context is None:
