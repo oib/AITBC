@@ -609,6 +609,15 @@ class PaymentService:
         if meta.get("energy_is_protected"):
             tx["payload"]["energy_quote_id"] = meta["energy_quote"]["quote_id"]
             tx["payload"]["energy_quote_digest"] = meta["energy_quote_digest"]
+            # E1: mirror the energy-quote settlement metadata in the lock payload
+            # so it matches the transaction the buyer signed locally.
+            eq = meta["energy_quote"]
+            if eq.get("settlement_route"):
+                tx["payload"]["settlement_route"] = eq["settlement_route"]
+            if eq.get("settlement_asset"):
+                tx["payload"]["settlement_asset"] = eq["settlement_asset"]
+            if eq.get("settlement_unit_scale") is not None:
+                tx["payload"]["settlement_unit_scale"] = eq["settlement_unit_scale"]
         return tx, amount_units
 
     async def _create_token_escrow(
