@@ -133,3 +133,79 @@ def test_rate_rejects_an_out_of_range_rating_before_any_request(runner, monkeypa
     )
     assert result.exit_code != 0
     assert "Rating must be between 1.0 and 5.0" in result.output
+
+
+class _CaptureClient:
+    """Records the base_url passed to AITBCHTTPClient and returns a fixed response."""
+
+    def __init__(self, base_url: str, timeout: int = 10, headers: dict | None = None):
+        self.base_url = base_url
+        self.timeout = timeout
+        self.headers = headers
+
+    def get(self, *args, **kwargs):
+        return {"service_info": {"avg_rating": 5.0, "rating_count": 1}, "ratings": []}
+
+    def post(self, *args, **kwargs):
+        return {
+            "status": "success",
+            "rating": {
+                "service_id": kwargs.get("json", {}).get("service_id", "svc-1"),
+                "rating": 5.0,
+                "reviewer_id": "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
+                "comment": "",
+                "created_at": "2026-09-10T18:21:58.763625",
+            },
+        }
+
+
+def test_rate_uses_marketplace_url_override(runner, monkeypatch):
+    """--marketplace-url is passed through to the HTTP client base URL."""
+    captured: list[str] = []
+
+    def _client_factory(base_url: str, **kwargs):
+        captured.append(base_url)
+        return _CaptureClient(base_url, **kwargs)
+
+    monkeypatch.setattr(ratings_module, "AITBCHTTPClient", _client_factory)
+    result = runner.invoke(
+        market,
+        [
+            "rate",
+            "--service-id",
+            "svc-1",
+            "--rating",
+            "5.0",
+            "--reviewer-id",
+            "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
+            "--marketplace-url",
+            "https://market.example.com/v1/",
+        ],
+        obj={},
+    )
+    assert result.exit_code == 0
+    assert captured == ["https://market.example.com"]
+
+
+def test_ratings_uses_marketplace_url_override(runner, monkeypatch):
+    """--marketplace-url is passed through to the HTTP client base URL for ratings too."""
+    captured: list[str] = []
+
+    def _client_factory(base_url: str, **kwargs):
+        captured.append(base_url)
+        return _CaptureClient(base_url, **kwargs)
+
+    monkeypatch.setattr(ratings_module, "AITBCHTTPClient", _client_factory)
+    result = runner.invoke(
+        market,
+        [
+            "ratings",
+            "--service-id",
+            "svc-1",
+            "--marketplace-url",
+            "https://market.example.com/v1/",
+        ],
+        obj={},
+    )
+    assert result.exit_code == 0
+    assert captured == ["https://market.example.com"]
