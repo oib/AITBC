@@ -311,7 +311,9 @@ async def register_gpu(
     from datetime import datetime
 
     gpu_id = f"gpu_{uuid.uuid4().hex[:8]}"
-    miner_id = gpu_specs.get("miner_id") or gpu_specs.get("miner") or "default_miner"
+    # E1: the authenticated miner is the canonical owner; a caller-supplied
+    # miner_id is allowed only for bootstrap/service accounts that know both.
+    miner_id = gpu_specs.get("miner_id") or user.get("sub") or gpu_specs.get("miner") or "default_miner"
     compute_capability = gpu_specs.get("compute_capability", "")
     cuda_version = compute_capability if compute_capability else ""
     price_per_hour = Decimal(str(gpu_specs.get("price_per_hour", "0.05")))
