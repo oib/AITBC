@@ -9,6 +9,7 @@ from pydantic import BaseModel
 from sqlmodel import Session
 
 from ....auth import AuthDep
+from ....config import settings
 from ....storage import get_session
 from ..attestation import EnclaveIdentity, EnclaveOwnershipError, EnclaveStatus, TEEAttestation, TEEAttestationService
 
@@ -53,6 +54,11 @@ def submit_attestation(
     trust root must use the job release path, which calls
     ``verify_and_store(..., require_registered=True)``.
     """
+    if not settings.tee_attestation_enabled:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="TEE attestation is not enabled on this coordinator",
+        )
     return service.verify_and_store(payload.enclave_id, payload.quote, payload.measurement)
 
 

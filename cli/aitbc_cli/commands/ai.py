@@ -449,6 +449,15 @@ def submit(
         if zk_proof_required:
             job_data["constraints"]["zk_proof_required"] = True
 
+        if (
+            tee_attestation_required or tee_enclave_id or confidential or enclave_measurement
+        ) and not config.tee_attestation_enabled:
+            abort(
+                ctx,
+                "TEE attestation is not enabled. Remove --confidential, --tee-attestation-required, "
+                "--tee-enclave-id, and --enclave-measurement, or set TEE_ATTESTATION_ENABLED=true."
+            )
+
         if tee_attestation_required:
             job_data["constraints"]["tee_attestation_required"] = True
         if tee_enclave_id:
