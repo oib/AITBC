@@ -40,6 +40,20 @@ from .sync_validator import ImportResult
 
 logger = get_logger(__name__)
 
+# Transaction types whose side effects (pools, stakes, GPU tables, etc.) are not
+# modeled by the pure/parallel delta map. They must be applied through the
+# full StateTransition.apply_transaction sequential path to keep state roots
+# and side-effect tables consistent across nodes.
+_SEQUENTIAL_ONLY_TX_TYPES = frozenset(
+    {
+        "LIQUIDITY_DEPOSIT",
+        "LIQUIDITY_WITHDRAW",
+        "LIQUIDITY_CLAIM",
+        "GPU_REGISTER",
+        "GPU_ALLOCATE",
+    }
+)
+
 
 class BlockImportMixin(SyncBase):
     """Import a single block, append it, and resolve chain forks."""
@@ -403,7 +417,12 @@ class BlockImportMixin(SyncBase):
             escrow_context: dict[str, dict[str, Any]] | None = None
             if settings.parallel_tx_validation and block_version in (2, 3):
                 escrow_context = build_escrow_context(session, self._chain_id, transactions)
-            if settings.parallel_tx_validation and block_version in (2, 3) and escrow_context is not None:
+            if (
+                settings.parallel_tx_validation
+                and block_version in (2, 3)
+                and escrow_context is not None
+                and not any(_determine_tx_type(tx) in _SEQUENTIAL_ONLY_TX_TYPES for tx in transactions)
+            ):
                 # Build dependency graph from read/write sets.
                 graph = DependencyGraph()
                 tx_hash_to_data: dict[str, dict[str, Any]] = {}
