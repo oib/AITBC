@@ -105,9 +105,16 @@ def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
 
 
 def get_edge_client():
-    """Get Edge API HTTP client"""
+    """Get Edge API HTTP client.
+
+    ``edge_api_host`` may be a plain host or a full URL (``https://node2...``)
+    so the CLI can target a remote edge API as well as the local one.
+    """
     config = get_config()
-    base_url = f"http://{config.edge_api_host}:{config.edge_api_port}"
+    if config.edge_api_host.startswith(("http://", "https://")):
+        base_url = config.edge_api_host.rstrip("/")
+    else:
+        base_url = f"http://{config.edge_api_host}:{config.edge_api_port}"
     return httpx.Client(base_url=base_url, timeout=30.0)
 
 

@@ -287,6 +287,8 @@ def get_config(config_file: str | None = None) -> CLIConfig:
             api_key=api_key,
             blockchain_rpc_api_key=config_data.get("blockchain_rpc_api_key"),
             timeout=config_data.get("timeout", 30),
+            edge_api_host=config_data.get("edge_api_host", "localhost"),
+            edge_api_port=config_data.get("edge_api_port", 8111),
             _env_file=_cli_env_files(),
         )
 
