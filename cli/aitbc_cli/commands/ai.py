@@ -1,6 +1,8 @@
 """AI job submission and inspection commands for AITBC CLI"""
 
+import base64
 import builtins
+import mimetypes
 import os
 import time
 from decimal import Decimal, InvalidOperation
@@ -51,6 +53,27 @@ def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     if url.endswith("/v1"):
         url = url[:-3]
     return url
+
+
+def _media_url(input_url: str) -> tuple[str, str | None]:
+    """Return a worker-safe URL and optional original filename.
+
+    Remote http(s) and data: URIs are passed through unchanged. A local
+    filesystem path is read and encoded as a data: URI so the worker never
+    receives an arbitrary local path.
+    """
+    if not input_url:
+        return "", None
+    if input_url.startswith(("http://", "https://", "data:")):
+        return input_url, None
+    path = os.path.expanduser(input_url)
+    if not os.path.isfile(path):
+        return input_url, None
+    mime, _ = mimetypes.guess_type(path)
+    mime = mime or "application/octet-stream"
+    with open(path, "rb") as f:
+        encoded = base64.b64encode(f.read()).decode("ascii")
+    return f"data:{mime};base64,{encoded}", os.path.basename(path)
 
 
 def _create_escrow_payment(
@@ -352,7 +375,11 @@ def submit(
                 payload["model"] = model
         elif job_type in ("transcribe", "reencode"):
             if input_url:
-                payload["url"] = input_url
+                media_url, filename = _media_url(input_url)
+                if media_url:
+                    payload["url"] = media_url
+                if filename:
+                    payload["filename"] = filename
             if model:
                 payload["model"] = model
             if output_format:
