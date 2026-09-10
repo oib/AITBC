@@ -9,7 +9,7 @@ operations.
 from __future__ import annotations
 
 from decimal import Decimal
-from typing import Annotated, Literal
+from typing import Annotated, Any, Literal
 
 from mcp.types import ToolAnnotations
 from pydantic import Field
@@ -1670,4 +1670,663 @@ def set_aitbc_config(
         dry_run,
         confirm,
         subcommand_options=subcommand_options,
+    )
+
+
+# ---------------------------------------------------------------------------
+# Auto-generated CLI tool extensions
+# ---------------------------------------------------------------------------
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_wallet_rewards(
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc wallet rewards`."""
+    options: dict[str, Any] = {}
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "wallet",
+        subcommand="rewards",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_wallet_staking_info(
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc wallet staking-info`."""
+    options: dict[str, Any] = {}
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "wallet",
+        subcommand="staking-info",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_ai_distribution_stats(
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc ai distribution-stats`."""
+    options: dict[str, Any] = {}
+    if coordinator_url is not None:
+        options["coordinator-url"] = coordinator_url
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "ai",
+        subcommand="distribution-stats",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_ai_service_list(
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc ai service list`."""
+    options: dict[str, Any] = {}
+    if coordinator_url is not None:
+        options["coordinator-url"] = coordinator_url
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "ai",
+        subcommand=["service", "list"],
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_ai_service_service_status(
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")] = None,
+    name: Annotated[str | None, Field(description="Service name")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc ai service service-status`."""
+    options: dict[str, Any] = {}
+    if coordinator_url is not None:
+        options["coordinator-url"] = coordinator_url
+    if name is not None:
+        options["name"] = name
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "ai",
+        subcommand=["service", "service-status"],
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_blockchain_sync_status(
+    all_chains: Annotated[
+        bool | None, Field(description="Show status for all supported chains (default: node's configured chains)")
+    ] = None,
+    chain_id: Annotated[str | None, Field(description="Show status for a specific chain only")] = None,
+    node_url: Annotated[str | None, Field(description="Local node RPC URL")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc blockchain sync-status`."""
+    options: dict[str, Any] = {}
+    if all_chains:
+        options["all-chains"] = None
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    if node_url is not None:
+        options["node-url"] = node_url
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "blockchain",
+        subcommand="sync-status",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_blockchain_monitor(
+    chain_id: Annotated[str, Field(description="The Chain id.")],
+    export: Annotated[str | None, Field(description="Export monitoring data to file")] = None,
+    interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
+    realtime: Annotated[bool | None, Field(description="Real-time monitoring")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc blockchain monitor`."""
+    options: dict[str, Any] = {}
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    if export is not None:
+        options["export"] = export
+    if interval is not None:
+        options["interval"] = interval
+    if realtime:
+        options["realtime"] = None
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "blockchain",
+        subcommand="monitor",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_node_monitor(
+    node_id: Annotated[str, Field(description="The Node id.")],
+    interval: Annotated[int | None, Field(description="Update interval in seconds")] = None,
+    realtime: Annotated[bool | None, Field(description="Real-time monitoring")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc node monitor`."""
+    options: dict[str, Any] = {}
+    if node_id is not None:
+        options["node-id"] = node_id
+    if interval is not None:
+        options["interval"] = interval
+    if realtime:
+        options["realtime"] = None
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "node",
+        subcommand="monitor",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_system_status(
+    service: Annotated[str | None, Field(description="Show full systemctl status for a specific service")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc system status`."""
+    options: dict[str, Any] = {}
+    if service is not None:
+        options["service"] = service
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "system",
+        subcommand="status",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_system_logs(
+    service: Annotated[str, Field(description="Service to show logs for")],
+    lines: Annotated[int | None, Field(description="Number of log lines to show")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc system logs`."""
+    options: dict[str, Any] = {}
+    if service is not None:
+        options["service"] = service
+    if lines is not None:
+        options["lines"] = lines
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "system",
+        subcommand="logs",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_system_cron(
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc system cron`."""
+    options: dict[str, Any] = {}
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "system",
+        subcommand="cron",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_system_config(
+    show_secrets: Annotated[bool | None, Field(description="Show sensitive values like API keys")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc system config`."""
+    options: dict[str, Any] = {}
+    if show_secrets:
+        options["show-secrets"] = None
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "system",
+        subcommand="config",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_system_file(
+    path: Annotated[
+        str,
+        Field(
+            description="Absolute path to a file under /opt/aitbc, /etc/aitbc, /etc/systemd, /var/log/aitbc, or /var/lib/aitbc"
+        ),
+    ],
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc system file`."""
+    options: dict[str, Any] = {}
+    if path is not None:
+        options["path"] = path
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "system",
+        subcommand="file",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_explorer_block(
+    height: Annotated[int, Field(description="The Height.")],
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc explorer block`."""
+    options: dict[str, Any] = {}
+    if height is not None:
+        options["height"] = height
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "explorer",
+        subcommand="block",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_explorer_transaction(
+    tx_hash: Annotated[str, Field(description="The Tx hash.")],
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc explorer transaction`."""
+    options: dict[str, Any] = {}
+    if tx_hash is not None:
+        options["tx-hash"] = tx_hash
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "explorer",
+        subcommand="transaction",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_explorer_chain_head(
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc explorer chain-head`."""
+    options: dict[str, Any] = {}
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "explorer",
+        subcommand="chain-head",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_explorer_latest_blocks(
+    chain_id: Annotated[str | None, Field(description="Chain ID to query")] = None,
+    limit: Annotated[int | None, Field(description="Number of blocks to return")] = None,
+    offset: Annotated[int | None, Field(description="Offset for pagination")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc explorer latest-blocks`."""
+    options: dict[str, Any] = {}
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    if limit is not None:
+        options["limit"] = limit
+    if offset is not None:
+        options["offset"] = offset
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "explorer",
+        subcommand="latest-blocks",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_governance_list(
+    category: Annotated[str | None, Field(description="Filter by category")] = None,
+    proposer_id: Annotated[str | None, Field(description="Filter by proposer ID")] = None,
+    status: Annotated[
+        str | None, Field(description="Filter by status (draft, active, succeeded, defeated, executed, cancelled)")
+    ] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc governance list`."""
+    options: dict[str, Any] = {}
+    if category is not None:
+        options["category"] = category
+    if proposer_id is not None:
+        options["proposer-id"] = proposer_id
+    if status is not None:
+        options["status"] = status
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "governance",
+        subcommand="list",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_governance_status(
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc governance status`."""
+    options: dict[str, Any] = {}
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "governance",
+        subcommand="status",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_reputation_leaderboard(
+    category: Annotated[str | None, Field(description="Category to rank by")] = None,
+    limit: Annotated[int | None, Field(description="Number of results")] = None,
+    region: Annotated[str | None, Field(description="Filter by region")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc reputation leaderboard`."""
+    options: dict[str, Any] = {}
+    if category is not None:
+        options["category"] = category
+    if limit is not None:
+        options["limit"] = limit
+    if region is not None:
+        options["region"] = region
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "reputation",
+        subcommand="leaderboard",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_monitor_dashboard(
+    duration: Annotated[int | None, Field(description="Duration in seconds (0 = indefinite)")] = None,
+    refresh: Annotated[int | None, Field(description="Refresh interval in seconds")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc monitor dashboard`."""
+    options: dict[str, Any] = {}
+    if duration is not None:
+        options["duration"] = duration
+    if refresh is not None:
+        options["refresh"] = refresh
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "monitor",
+        subcommand="dashboard",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_monitor_metrics(
+    export_path: Annotated[str | None, Field(description="Export metrics to file")] = None,
+    period: Annotated[str | None, Field(description="Time period (1h, 24h, 7d, 30d)")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc monitor metrics`."""
+    options: dict[str, Any] = {}
+    if export_path is not None:
+        options["export"] = export_path
+    if period is not None:
+        options["period"] = period
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "monitor",
+        subcommand="metrics",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_analytics_summary(
+    chain_id: Annotated[str | None, Field(description="Specific chain ID to analyze")] = None,
+    hours: Annotated[int | None, Field(description="Time range in hours")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc analytics summary`."""
+    options: dict[str, Any] = {}
+    if chain_id is not None:
+        options["chain-id"] = chain_id
+    if hours is not None:
+        options["hours"] = hours
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "analytics",
+        subcommand="summary",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_analytics_dashboard(
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc analytics dashboard`."""
+    options: dict[str, Any] = {}
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "analytics",
+        subcommand="dashboard",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_crosschain_status(
+    swap_id: Annotated[str, Field(description="The Swap id.")],
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc crosschain status`."""
+    options: dict[str, Any] = {}
+    if swap_id is not None:
+        options["swap-id"] = swap_id
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "crosschain",
+        subcommand="status",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_crosschain_swaps(
+    limit: Annotated[int | None, Field(description="Number of swaps to show")] = None,
+    status: Annotated[str | None, Field(description="Filter by status")] = None,
+    user_address: Annotated[str | None, Field(description="Filter by user address")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc crosschain swaps`."""
+    options: dict[str, Any] = {}
+    if limit is not None:
+        options["limit"] = limit
+    if status is not None:
+        options["status"] = status
+    if user_address is not None:
+        options["user-address"] = user_address
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "crosschain",
+        subcommand="swaps",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_crosschain_rates(
+    from_chain: Annotated[str | None, Field(description="Source chain ID")] = None,
+    from_token: Annotated[str | None, Field(description="Source token symbol")] = None,
+    to_chain: Annotated[str | None, Field(description="Target chain ID")] = None,
+    to_token: Annotated[str | None, Field(description="Target token symbol")] = None,
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc crosschain rates`."""
+    options: dict[str, Any] = {}
+    if from_chain is not None:
+        options["from-chain"] = from_chain
+    if from_token is not None:
+        options["from-token"] = from_token
+    if to_chain is not None:
+        options["to-chain"] = to_chain
+    if to_token is not None:
+        options["to-token"] = to_token
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "crosschain",
+        subcommand="rates",
+        options=options,
+        timeout=timeout,
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def aitbc_crosschain_pools(
+    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
+    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
+    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
+) -> str:
+    """Run `aitbc crosschain pools`."""
+    options: dict[str, Any] = {}
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "crosschain",
+        subcommand="pools",
+        options=options,
+        timeout=timeout,
     )
