@@ -437,6 +437,12 @@ def build_tee_quote(job, output=""):
     of job_id/model/prompt/output so a registered enclave cannot reuse a quote
     for a different transcript.
     """
+    from aitbc.tee import is_tee_attestation_enabled
+
+    if not is_tee_attestation_enabled():
+        logger.warning("TEE attestation is disabled; not building a TEE quote for job %s", job.get("job_id"))
+        return None
+
     constraints = job.get("constraints") or {}
     if not (constraints.get("tee_attestation_required") or constraints.get("tee_enclave_id")):
         return None
