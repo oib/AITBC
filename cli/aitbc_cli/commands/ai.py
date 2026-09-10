@@ -55,12 +55,13 @@ def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     return url
 
 
-def _media_url(input_url: str) -> tuple[str, str | None]:
+def _media_url(input_url: str, http_client: AITBCHTTPClient | None = None) -> tuple[str, str | None]:
     """Return a worker-safe URL and optional original filename.
 
     Remote http(s) and data: URIs are passed through unchanged. A local
-    filesystem path is read and encoded as a data: URI so the worker never
-    receives an arbitrary local path.
+    filesystem path is uploaded to the coordinator media endpoint if a client
+    is available; otherwise it falls back to an inline data: URI so the worker
+    never receives an arbitrary local path.
     """
     if not input_url:
         return "", None
@@ -71,9 +72,28 @@ def _media_url(input_url: str) -> tuple[str, str | None]:
         return input_url, None
     mime, _ = mimetypes.guess_type(path)
     mime = mime or "application/octet-stream"
-    with open(path, "rb") as f:
-        encoded = base64.b64encode(f.read()).decode("ascii")
-    return f"data:{mime};base64,{encoded}", os.path.basename(path)
+    filename = os.path.basename(path)
+
+    if http_client is None:
+        with open(path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("ascii")
+        return f"data:{mime};base64,{encoded}", filename
+
+    try:
+        with open(path, "rb") as f:
+            response = http_client.session.post(
+                http_client._build_url("/v1/media/upload"),
+                files={"file": (filename, f, mime)},
+                timeout=300,
+            )
+        response.raise_for_status()
+        result = response.json()
+        return result.get("download_url", ""), result.get("filename", filename)
+    except Exception as e:
+        logger.warning("Media upload failed for %s: %s", path, e)
+        with open(path, "rb") as f:
+            encoded = base64.b64encode(f.read()).decode("ascii")
+        return f"data:{mime};base64,{encoded}", filename
 
 
 def _create_escrow_payment(
@@ -372,6 +392,10 @@ def submit(
 
         wallet_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet, password=password)
 
+        # Auth once and reuse for media upload and job submission.
+        headers = _auth_headers(ctx)
+        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
+
         # Prepare job data in the JobCreate shape expected by coordinator-api
         job_type = job_type or "inference"
         payload = {
@@ -384,7 +408,7 @@ def submit(
                 payload["model"] = model
         elif job_type in ("transcribe", "reencode"):
             if input_url:
-                media_url, filename = _media_url(input_url)
+                media_url, filename = _media_url(input_url, http_client)
                 if media_url:
                     payload["url"] = media_url
                 if filename:
@@ -480,8 +504,6 @@ def submit(
                 )
 
         # Submit to coordinator
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
         result = http_client.post("/v1/jobs", json=job_data)
 
         job_id = cast(str, result.get("job_id"))
