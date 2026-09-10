@@ -614,6 +614,27 @@ class ConfidentialAccessResponse(BaseModel):
     access_id: str | None = None
 
 
+class ConfidentialPaymentCreate(BaseModel):
+    """Request to record a confidential payment from the CLI."""
+
+    payment_id: str
+    sender_id: str
+    recipient_id: str
+    amount_commitment: str
+
+
+class ConfidentialPaymentView(BaseModel):
+    """Response confirming a confidential payment was received."""
+
+    payment_id: str
+    sender_id: str
+    recipient_id: str
+    amount_commitment: str
+    settled: bool = True
+    status: str = "simulated"
+    confidential: bool = True
+
+
 # Key Management Models
 
 
