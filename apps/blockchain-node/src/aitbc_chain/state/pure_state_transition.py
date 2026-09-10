@@ -239,6 +239,10 @@ class StateDelta:
     # For ESCROW_RELEASE/ESCROW_REFUND v3: per-account balance debits beyond
     # sender and recipient (e.g. the per-escrow address that loses value).
     extra_debits: dict[str, int] | None = None
+    # For side-effect transactions that the pure delta map cannot model.
+    # Set by compute_state_delta when the tx type must be processed
+    # sequentially by StateTransition.apply_transaction.
+    requires_sequential: bool = False
 
 
 def _determine_tx_type(tx_data: dict[str, Any]) -> str:
@@ -335,10 +339,11 @@ def compute_state_delta(
                 )
             recipient = _escrow_address(job_id)
 
-    # Liquidity pool transactions update non-account state (pools, stakes,
-    # distributions) that the parallel delta map cannot yet model. Force a
-    # sequential fallback so StateTransition.apply_transaction handles them.
-    if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM"}:
+    # Liquidity pool and GPU transactions update non-account state (pools,
+    # stakes, distributions, gpu_registration, gpu_allocation) that the pure
+    # delta map cannot yet model. Force a sequential fallback so
+    # StateTransition.apply_transaction handles them.
+    if tx_type in {"LIQUIDITY_DEPOSIT", "LIQUIDITY_WITHDRAW", "LIQUIDITY_CLAIM", "GPU_REGISTER", "GPU_ALLOCATE"}:
         return StateDelta(
             sender=sender,
             recipient=recipient,
@@ -349,6 +354,7 @@ def compute_state_delta(
             error=f"{tx_type} must be processed sequentially",
             tx_type=tx_type,
             tx_hash=tx_hash,
+            requires_sequential=True,
         )
 
     # Validate sender exists
