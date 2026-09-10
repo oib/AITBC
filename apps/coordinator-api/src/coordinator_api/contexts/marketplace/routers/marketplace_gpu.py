@@ -396,7 +396,6 @@ async def get_gpu_details(gpu_id: str, session: Annotated[Session, Depends(get_s
 async def quote_gpu(
     request: GPUQuoteRequest,
     session: Annotated[Session, Depends(get_session)],
-    user: AuthDep,
 ) -> dict[str, Any]:
     """Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.
 
