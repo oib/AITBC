@@ -584,11 +584,11 @@ def _build_aitbc_cli_command(
     group: str,
     subcommand: str | list[str] | None = None,
     args: list[str] | None = None,
-    options: dict[str, str | None] | None = None,
+    options: dict[str, Any] | None = None,
     output_format: str = "json",
     *,
-    group_options: dict[str, str | None] | None = None,
-    subcommand_options: dict[str, str | None] | None = None,
+    group_options: dict[str, Any] | None = None,
+    subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
 ) -> str:
     """Build a quoted aitbc CLI command string.
@@ -611,7 +611,13 @@ def _build_aitbc_cli_command(
     for key, value in (group_options or {}).items():
         if not _safe_option_key(key):
             raise ValueError(f"invalid option key: {key}")
-        if value is None or value == "":
+        if isinstance(value, list):
+            for v in value:
+                if v is None or v == "":
+                    tokens.append(f"--{key}")
+                else:
+                    tokens.append(f"--{key}={shlex.quote(str(v))}")
+        elif value is None or value == "":
             tokens.append(f"--{key}")
         else:
             tokens.append(f"--{key}={shlex.quote(str(value))}")
@@ -630,7 +636,13 @@ def _build_aitbc_cli_command(
     for key, value in (subcommand_options or options or {}).items():
         if not _safe_option_key(key):
             raise ValueError(f"invalid option key: {key}")
-        if value is None or value == "":
+        if isinstance(value, list):
+            for v in value:
+                if v is None or v == "":
+                    tokens.append(f"--{key}")
+                else:
+                    tokens.append(f"--{key}={shlex.quote(str(v))}")
+        elif value is None or value == "":
             tokens.append(f"--{key}")
         else:
             tokens.append(f"--{key}={shlex.quote(str(value))}")
@@ -652,12 +664,12 @@ def _run_aitbc_cli(
     group: str,
     subcommand: str | list[str] | None,
     args: list[str] | None,
-    options: dict[str, str | None] | None,
+    options: dict[str, Any] | None,
     output_format: str = "json",
     timeout: int = 120,
     *,
-    group_options: dict[str, str | None] | None = None,
-    subcommand_options: dict[str, str | None] | None = None,
+    group_options: dict[str, Any] | None = None,
+    subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
 ) -> dict[str, Any]:
     """Run an aitbc CLI subcommand on a remote host and optionally parse JSON."""
@@ -686,11 +698,11 @@ def _aitbc_cli_read_tool(
     group: str,
     subcommand: str | list[str] | None = None,
     args: list[str] | None = None,
-    options: dict[str, str | None] | None = None,
+    options: dict[str, Any] | None = None,
     timeout: int = 120,
     *,
-    group_options: dict[str, str | None] | None = None,
-    subcommand_options: dict[str, str | None] | None = None,
+    group_options: dict[str, Any] | None = None,
+    subcommand_options: dict[str, Any] | None = None,
     env: dict[str, str] | None = None,
 ) -> str:
     """Helper for read-only aitbc CLI tools."""
@@ -848,16 +860,14 @@ def list_nodes() -> str:
     return _json(
         {
             "nodes": [
-                {"role": role, "host": host, "site": _ROLE_SITES.get(role, "live node")}
-                for role, host in roles.items()
+                {"role": role, "host": host, "site": _ROLE_SITES.get(role, "live node")} for role, host in roles.items()
             ],
             "environment": {
                 "default_host": _default_host(),
                 "ssh_user": _ssh_user() or "(current user)",
             },
             "note": (
-                "Connections use passwordless SSH. "
-                "Configure roles with AITBC_MCP_HOSTS or an mcp-hosts.{yaml,json} file."
+                "Connections use passwordless SSH. Configure roles with AITBC_MCP_HOSTS or an mcp-hosts.{yaml,json} file."
             ),
         }
     )
@@ -1291,6 +1301,90 @@ def run_aitbc_cli(
             }
         )
 
+    return _json(
+        _run_aitbc_cli(
+            target,
+            group,
+            subcommand,
+            args,
+            options,
+            output_format,
+            timeout,
+            group_options=group_options,
+        )
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
+def read_aitbc_cli(
+    group: Annotated[
+        str,
+        Field(description="Live aitbc CLI group (e.g. 'wallet', 'market', 'ai')."),
+    ],
+    subcommand: Annotated[
+        list[str] | None,
+        Field(
+            description="Subcommand path as a list (e.g. ['service', 'list']). Pass None for top-level commands like 'version'."
+        ),
+    ] = None,
+    args: Annotated[
+        list[str] | None,
+        Field(description="Positional arguments for the subcommand."),
+    ] = None,
+    options: Annotated[
+        dict[str, str | list[str] | None] | None,
+        Field(
+            description="Subcommand options as --key=value. Pass a list for multi-value options, or null for boolean flags."
+        ),
+    ] = None,
+    group_options: Annotated[
+        dict[str, str | list[str] | None] | None,
+        Field(description="Group-level options placed before the subcommand, e.g. {'wallet-name': 'default'}."),
+    ] = None,
+    output_format: Annotated[
+        Literal["json", "yaml", "csv", "table"],
+        Field(description="Output format; JSON is preferred for machine parsing."),
+    ] = "json",
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role where the command runs."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+    timeout: Annotated[
+        int,
+        Field(description="Timeout in seconds.", ge=5, le=600),
+    ] = 120,
+) -> str:
+    """Generic read-only wrapper for any aitbc CLI command.
+
+    This is a fallback for commands that do not yet have a dedicated typed tool.
+    Destructive subcommands are rejected; use run_aitbc_cli for mutating operations.
+
+    Examples:
+      - group="version"
+      - group="wallet", subcommand=["rewards"]
+      - group="ai", subcommand=["service", "list"]
+      - group="market", subcommand=["list"], group_options={"mine": None}
+    """
+    target = _host_for_role(role, host)
+    if group not in ALL_AITBC_GROUPS:
+        return _json(
+            {
+                "error": f"unknown aitbc group: {group}",
+                "allowed_groups": sorted(ALL_AITBC_GROUPS),
+            }
+        )
+    if _is_aitbc_subcommand_destructive(subcommand):
+        return _json(
+            {
+                "error": "subcommand is destructive",
+                "subcommand": subcommand,
+                "note": "Use run_aitbc_cli for mutating operations; destructive subcommands require dry_run=false and confirm=true.",
+            }
+        )
     return _json(
         _run_aitbc_cli(
             target,
