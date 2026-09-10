@@ -496,18 +496,19 @@ def _download_media(url: str, dest: str) -> None:
 
 
 def _run_whisper(audio_path: str, model: str = "base", *, deterministic: bool = False, seed: int | None = None) -> str:
-    """Transcribe an audio file with OpenAI Whisper and return the text."""
+    """Transcribe an audio file with the local Whisper service and return the text."""
     try:
-        import whisper
-
-        w = whisper.load_model(model)
-        kwargs: dict[str, Any] = {"fp16": False}
-        if deterministic:
-            kwargs["temperature"] = 0
-            kwargs["best_of"] = 1
+        whisper_url = os.environ.get("WHISPER_SERVICE_URL", "http://127.0.0.1:8110").rstrip("/") + "/transcribe"
+        with open(audio_path, "rb") as f:
+            files = {"file": f}
+            data = {"model": model, "task": "transcribe"}
+            if deterministic:
+                data["deterministic"] = "true"
             if seed is not None:
-                kwargs["initial_prompt"] = f"seed={seed}"
-        result = w.transcribe(audio_path, **kwargs)
+                data["seed"] = str(seed)
+            resp = requests.post(whisper_url, files=files, data=data, timeout=180)
+            resp.raise_for_status()
+            result = resp.json()
         return str(result.get("text", "")).strip()
     except Exception as e:
         raise Exception(f"Whisper transcription failed: {e}") from e
