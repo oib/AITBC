@@ -142,7 +142,7 @@ def test(ctx, peer, rpc_url):
         try:
             body: dict[str, Any] = resp.json()
         except Exception:
-            body = {"status": resp.text}
+            body = {"status": resp.text.strip()}
         body["peer"] = peer
         body["endpoint"] = url
         output(body, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
@@ -243,6 +243,17 @@ def heartbeat(ctx, node_id, duration, rpc_url):
         abort(ctx, f"Error extending lease: {e}", from_exception=e)
 
 
+def _hub_rpc_url() -> str:
+    """Return a public hub RPC URL for network-wide queries."""
+    from ..config import get_config
+
+    config = get_config()
+    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    if hub.startswith(("http://", "https://")):
+        return hub.rstrip("/")
+    return f"https://{hub}"
+
+
 @network.command(
     epilog="""Examples:
 
@@ -251,7 +262,7 @@ def heartbeat(ctx, node_id, duration, rpc_url):
   aitbc network lease-status --node-id node-1"""
 )
 @click.option("--node-id", help="Subscriber node ID (default: from NODE_ID in /etc/aitbc/node.env)")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
 def lease_status(ctx, node_id, rpc_url):
     """Check the current lease status for a subscriber."""
@@ -261,7 +272,7 @@ def lease_status(ctx, node_id, rpc_url):
             abort(ctx, "node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=rpc_url or _hub_rpc_url(), timeout=10)
         result = http_client.get(f"/rpc/lease/{node_id}")
         output(result, ctx.obj.get("output_format", "table"), title="Lease Status")
     except NetworkError as e:
@@ -278,12 +289,12 @@ def lease_status(ctx, node_id, rpc_url):
   aitbc network subscribers --chain-id ait-mainnet"""
 )
 @click.option("--chain-id", help="Filter by chain ID")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
 def subscribers(ctx, chain_id, rpc_url):
     """List all active subscribers, optionally filtered by chain."""
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = AITBCHTTPClient(base_url=rpc_url or _hub_rpc_url(), timeout=10)
         params = {"chain_id": chain_id} if chain_id else {}
         result = http_client.get("/rpc/subscribers", params=params)
         output(result, ctx.obj.get("output_format", "table"), title="Active Subscribers")
