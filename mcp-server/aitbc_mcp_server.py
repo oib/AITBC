@@ -150,10 +150,10 @@ def _ssh_user() -> str:
 _ROLE_SITES = {
     "hub": "hub/customer node",
     "customer": "hub/customer node",
-    "customer2": "hub2/customer replica",
+    "customer2": "hub1/customer replica",
     "shop": "shop/follower node",
     "follower": "shop/follower node",
-    "follower2": "hub2/customer replica",
+    "follower2": "hub1/customer replica",
 }
 
 # Base SSH options: no interactive prompts, time out quickly. Host-key checking is

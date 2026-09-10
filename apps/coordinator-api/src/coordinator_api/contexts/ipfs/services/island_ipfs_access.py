@@ -185,7 +185,7 @@ def get_member_swarm_key(
     if not is_ipfs_subscription_active(chain_id, island_id, member_address):
         raise PermissionError("No active IPFS subscription for this island")
     key = get_island_swarm_key(island_id)
-    hub_host = os.environ.get("ISLAND_IPFS_HUB_HOST", "hub2.aitbc.bubuit.net")
+    hub_host = os.environ.get("ISLAND_IPFS_HUB_HOST", "hub.aitbc.bubuit.net")
     hub_port = os.environ.get("ISLAND_IPFS_HUB_SWARM_PORT", "4002")
     hub_peer_id = os.environ.get("ISLAND_IPFS_HUB_PEER_ID", "<hub_peer_id>")
     multiaddr = f"/dns4/{hub_host}/tcp/{hub_port}/p2p/{hub_peer_id}"

@@ -10,15 +10,16 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **node2** | SSH `node2` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
 | **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace; promoted 2026-09-10 from the former `hub2.aitbc` container |
-| **hub2.aitbc** | SSH `hub2.aitbc` (`/opt/aitbc`) | **follower/customer replica** | demoted former hub; pull-only, no commits |
+| **hub1.aitbc** | SSH `hub1.aitbc` (`/opt/aitbc`) | **follower/customer replica** | former hub, demoted 2026-09-10; pull-only, no commits |
 | **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | `/home/oib/windsurf/aitbc` is a partial staging checkout for notes and temporary scripts. `/opt/aitbc` is a non-active canonical clone (no `data/` or `venv/`, so no services run here); it is safe for gitea commits/pushes that do not require active node features. |
 
 ## Where the full repo lives
 
-The canonical, full AITBC repository is only on the two remote nodes:
+The canonical, full AITBC repository is primarily on the two commit/push nodes, with a live follower deployment on `hub1.aitbc`:
 
-- `node2:/opt/aitbc` (shop node)
-- `hub.aitbc:/opt/aitbc` (primary hub; former `hub2` container)
+- `node2:/opt/aitbc` (shop/follower — commit and push to gitea)
+- `hub.aitbc:/opt/aitbc` (hub/customer — commit and push to gitea)
+- `hub1.aitbc:/opt/aitbc` (follower/customer replica — pull only; do not commit or push from here)
 
 Both remotes point to gitea as `origin`. `github` should remain a read-only reference on live nodes; the GitHub mirror is maintained from the IDE host `/opt/aitbc` using a dedicated, non-shared token.
 
@@ -300,8 +301,8 @@ ssh <node> 'bash -lc "your command"'
 ```
 
 This is mirrored on all five nodes: `hub.aitbc`, `node0`, `node1`,
-`node2`, `hub2.aitbc`. Note per-host quirks:
-- `hub2.aitbc` did not have `fd-find`/`ripgrep` installed at all (not just a
+`node2`, `hub1.aitbc`. Note per-host quirks:
+- `hub1.aitbc` (formerly `hub2.aitbc`) did not have `fd-find`/`ripgrep` installed at all (not just a
   missing symlink); both were installed from the stock Debian repo.
 - Each host's `~/.profile` trailer (the extra `. "$HOME/.cargo/env"` /
   `. "$HOME/.local/bin/env"` lines) differs -- check what a host actually had

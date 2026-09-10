@@ -2,7 +2,7 @@
 # Chain Isolation Verification Script
 # Checks for chain isolation violations across AITBC blockchain nodes
 
-set -e
+set -euo pipefail
 
 DATA_DIR="/var/lib/aitbc/data"
 LOG_FILE="/var/log/aitbc/chain-isolation-verification.log"
@@ -96,7 +96,7 @@ check_node_configuration() {
     fi
 
     # The fleet is inconsistent about the spelling: node0 uses lowercase
-    # supported_chains=, node1/node2/hub2 use SUPPORTED_CHAINS=, and hub declares
+    # supported_chains=, node1/node2/hub1 use SUPPORTED_CHAINS=, and hub declares
     # neither (only CHAIN_ID). Accept either, and treat "not declared" as
     # unknown rather than as a violation -- a missing key is a config gap, not
     # evidence that this node is serving someone else's chain.
