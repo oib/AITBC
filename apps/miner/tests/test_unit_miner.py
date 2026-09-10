@@ -205,3 +205,33 @@ def test_execute_job_gpu_compute(mock_sleep, mock_snapshot, mock_gpu_info, mock_
     assert result["result"]["gpu_start"] == mock_snapshot.return_value
     assert result["result"]["gpu_end"] == mock_snapshot.return_value
     assert result["metrics"]["memory_peak"] == 2048
+
+
+@pytest.mark.unit
+@patch("production_miner.get_gpu_info", return_value=None)
+@patch("production_miner.measure_coordinator_latency", return_value=12.0)
+@patch("production_miner.AITBCHTTPClient")
+def test_send_heartbeat_reports_inflight(mock_client, mock_latency, mock_gpu):
+    """send_heartbeat reports the number of running jobs as inflight / current_jobs."""
+    mock_client.return_value.post.return_value = True
+    production_miner.ACTIVE_JOB_IDS.add("job-abc")
+    try:
+        production_miner.send_heartbeat()
+        payload = mock_client.return_value.post.call_args.kwargs["json"]
+        assert payload["inflight"] == 1
+        assert payload["current_jobs"] == 1
+    finally:
+        production_miner.ACTIVE_JOB_IDS.clear()
+
+
+@pytest.mark.unit
+@patch("production_miner.get_gpu_info", return_value=None)
+@patch("production_miner.measure_coordinator_latency", return_value=5.0)
+def test_build_pool_hub_heartbeat_data_reports_current_jobs(mock_latency, mock_gpu):
+    """build_pool_hub_heartbeat_data reports the number of running jobs as current_jobs."""
+    production_miner.ACTIVE_JOB_IDS.add("job-xyz")
+    try:
+        data = production_miner.build_pool_hub_heartbeat_data()
+        assert data["current_jobs"] == 1
+    finally:
+        production_miner.ACTIVE_JOB_IDS.clear()
