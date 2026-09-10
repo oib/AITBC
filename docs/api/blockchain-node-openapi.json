@@ -5249,7 +5249,7 @@
           "consensus"
         ],
         "summary": "Get consensus status",
-        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.",
+        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.\n\n``current_view``, ``current_sequence`` and ``current_epoch`` are only\nmeaningful when PBFT is enabled. ``fault_tolerance`` and\n``required_messages`` are derived from the active validator set size and\n``MULTI_VALIDATOR_MIN_ATTESTATIONS``; they do not come from a live PBFT\nengine when PBFT is disabled.",
         "operationId": "consensus_status_route_rpc_consensus_status_get",
         "parameters": [
           {
@@ -14686,7 +14686,7 @@
           "consensus"
         ],
         "summary": "Get consensus status",
-        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.",
+        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.\n\n``current_view``, ``current_sequence`` and ``current_epoch`` are only\nmeaningful when PBFT is enabled. ``fault_tolerance`` and\n``required_messages`` are derived from the active validator set size and\n``MULTI_VALIDATOR_MIN_ATTESTATIONS``; they do not come from a live PBFT\nengine when PBFT is disabled.",
         "operationId": "consensus_status_route_v1_consensus_status_get",
         "parameters": [
           {
