@@ -38,7 +38,7 @@ from ...trading.services.trading_marketplace.dynamic_pricing import (
     ResourceType,
 )
 from ...infrastructure.services.jobs import JobService
-from ....schemas import JobCreate
+from ....schemas import JobCreate, brand_symbol
 from ...infrastructure.domain.job import Job
 from ..domain.energy import NativeEnergyProfile, NativeEnergyRate
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
@@ -410,7 +410,7 @@ async def quote_gpu(
             detail=f"GPU {request.gpu_id} is not available for quoting",
         )
 
-    duration_seconds = int(request.duration_hours * 3600)
+    duration_seconds = max(1, int(request.duration_hours * 3600))
     job_service = JobService(session)
     job_create = JobCreate(
         payload={
@@ -484,6 +484,12 @@ async def quote_gpu(
         )
 
     job.energy_quote_snapshot = quote.to_dict(include_signature=False)
+    # G4: a quoted but unfunded job must not be handed to a miner. Mark it as
+    # priced but unpaid so the dispatch gate refuses it until buy_gpu creates the
+    # real payment and binds the escrow.
+    if result.breakdown:
+        job.payment_amount = units_to_ait(result.breakdown.buyer_charge_units)
+        job.payment_token = brand_symbol
     session.add(job)
     session.commit()
     return {
@@ -548,7 +554,7 @@ async def buy_gpu(
     quote_resource_id = gpu.resource_id
     quote_model_id = gpu.model_id or gpu.model
     quote_gpu_count = 1
-    quote_duration_seconds = int(duration_hours * 3600)
+    quote_duration_seconds = max(1, int(duration_hours * 3600))
     if supplied_quote is not None:
         quote_resource_id = supplied_quote.resource_id
         quote_model_id = supplied_quote.model_id
