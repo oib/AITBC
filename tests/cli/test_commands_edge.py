@@ -45,22 +45,23 @@ class TestEdgeCommands:
 
         assert "transfer" in edge.commands
 
-    @patch("aitbc_cli.commands.edge.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.edge.httpx.Client")
     @patch("aitbc_cli.commands.edge.get_config")
     def test_edge_status_command(self, mock_get_config, mock_http_class, runner, mock_config):
-        """``edge status`` returns edge status from the mocked coordinator API."""
+        """``edge status`` returns edge status from the mocked local edge API."""
         mock_get_config.return_value = mock_config
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"status": "online", "gpus": 4, "load": 0.65}
+        mock_response = mock_http_class.return_value.get.return_value
+        mock_response.json.return_value = {"gpus": [{"id": "gpu-1"}], "total": 1}
+        mock_response.raise_for_status.return_value = None
 
         from aitbc_cli.commands.edge import edge
 
         result = runner.invoke(edge, ["status"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        called_path = mock_client.get.call_args[0][0]
-        assert "/edge-gpu/metrics" in called_path
+        mock_http_class.assert_called_once()
+        called_path = mock_http_class.return_value.get.call_args[0][0]
+        assert "/v1/gpu/" in called_path
 
     @patch("aitbc_cli.commands.edge.AITBCHTTPClient")
     @patch("aitbc_cli.commands.edge.get_config")
@@ -98,20 +99,21 @@ class TestEdgeCommands:
         called_path = mock_client.post.call_args[0][0]
         assert "/edge-gpu/transfer" in called_path
 
-    @patch("aitbc_cli.commands.edge.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.edge.httpx.Client")
     @patch("aitbc_cli.commands.edge.get_config")
     def test_edge_status_network_error_handled(self, mock_get_config, mock_http_class, runner, mock_config):
-        """``edge status`` handles NetworkError gracefully (exit 0)."""
+        """``edge status`` handles a connection error gracefully (exit 0)."""
+        import httpx
+
         from aitbc_cli.commands.edge import edge
-        from aitbc_cli.utils.http_client import NetworkError
 
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value
-        mock_client.get.side_effect = NetworkError("connection refused")
+        mock_client.get.side_effect = httpx.ConnectError("connection refused")
 
         result = runner.invoke(edge, ["status"])
 
-        # NetworkError is caught and reported via error(), exit code stays 0.
+        # Connection errors are caught and reported via error(), exit code stays 0.
         assert result.exit_code == 0, result.output
 
 
