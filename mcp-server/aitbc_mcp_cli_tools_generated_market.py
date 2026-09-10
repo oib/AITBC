@@ -740,10 +740,6 @@ def aitbc_market_gpu_refund(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_gpu_release(
     job_id: Annotated[str, Field(description="Job ID")],
-    wallet: Annotated[str | None, Field(description="Wallet name for signing")],
-    wallet_path: Annotated[str | None, Field(description="Direct wallet file path")],
-    password: Annotated[str | None, Field(description="Wallet password")],
-    password_file: Annotated[str | None, Field(description="Wallet password file")],
     yes: Annotated[bool | None, Field(description="Skip confirmation prompt")],
     json_output: Annotated[bool | None, Field(description="Output raw JSON")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -756,14 +752,6 @@ def aitbc_market_gpu_release(
     options: dict[str, Any] = {}
     if job_id is not None:
         options["job-id"] = job_id
-    if wallet is not None:
-        options["wallet"] = wallet
-    if wallet_path is not None:
-        options["wallet-path"] = wallet_path
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
     if yes:
         options["yes"] = None
     if json_output:
@@ -1128,6 +1116,7 @@ def aitbc_market_rate(
     rating: Annotated[float, Field(description="The Rating.")],
     comment: Annotated[str | None, Field(description="Optional comment/review text")],
     reviewer_id: Annotated[str | None, Field(description="Reviewer ID (defaults to wallet address)")],
+    marketplace_url: Annotated[str | None, Field(description="Override the marketplace service URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1144,6 +1133,8 @@ def aitbc_market_rate(
         options["comment"] = comment
     if reviewer_id is not None:
         options["reviewer-id"] = reviewer_id
+    if marketplace_url is not None:
+        options["marketplace-url"] = marketplace_url
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1181,6 +1172,7 @@ def aitbc_market_ratings(
     service_id: Annotated[str, Field(description="The Service id.")],
     limit: Annotated[int | None, Field(description="Number of ratings to return")],
     offset: Annotated[int | None, Field(description="Offset for pagination")],
+    marketplace_url: Annotated[str | None, Field(description="Override the marketplace service URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1193,6 +1185,8 @@ def aitbc_market_ratings(
         options["limit"] = limit
     if offset is not None:
         options["offset"] = offset
+    if marketplace_url is not None:
+        options["marketplace-url"] = marketplace_url
     args = None
     return _aitbc_cli_read_tool(
         role,

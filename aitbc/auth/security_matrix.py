@@ -47,6 +47,9 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/exchange/market-stats": AuthLevel.NONE,
     # Public blockchain explorer data
     "/v1/explorer/*": AuthLevel.NONE,
+    # Media download is public (workers fetch by opaque token); upload is client-only.
+    "/v1/media/download/*": AuthLevel.NONE,
+    "/v1/media/upload": AuthLevel.ADMIN_OR_CLIENT,
     # D2: same wildcard gap as "/v1/payments" below -- "/v1/blocks/*" does not
     # match "/v1/blocks", so the block list fell through to deny-by-default even
     # though the endpoint is a normal client route. ADMIN_OR_CLIENT matches the
