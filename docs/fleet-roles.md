@@ -27,12 +27,12 @@ the subset relationship and the addopts/plugin correspondence.
 | `node0` | validator, GPU | yes | no | validator with recovery + backup timers; keep the runtime lean |
 | `node1` | follower, GPU | yes | no | production follower |
 | `node2` | follower, GPU, service workhorse | yes | **yes** | runs the widest set of services (coordinator-api, marketplace, miner, pool-hub, edge, whisper, ffmpeg, hermes-agent), so it is the most representative place to reproduce and test integration behaviour |
-| `hub.aitbc` | public hub, api-gateway | no | no | public-facing, and the smallest box by disk (~11 GB free, 3 GB RAM) — it must stay minimal |
-| `hub2.aitbc` | follower | no | **yes** | spare capacity on disk (~425 GB) and the lightest service load (8 units), so tooling work there disturbs nothing |
+| `hub.aitbc` | public hub, api-gateway | no | **yes** | public-facing; promoted to primary hub on 2026-09-10 with 4 vCPU / 4 GB RAM and the full customer + block-production stack |
+| `hub2.aitbc` | follower | no | no | demoted former hub; now a follower/customer replica with minimal services |
 
-`hub2` has only ~1 GB of RAM. It is fine for pytest and ruff; memory-hungry
-tools (notably a full `mypy` run over the tree) may struggle there. Prefer
-`node2` or the IDE host for those.
+`hub.aitbc` (the `hub2` container) was promoted with 4 vCPU and 4 GB of RAM on
+2026-09-10 and now runs the full hub/customer service stack. `hub2.aitbc` is
+demoted to a follower with minimal services.
 
 ## How a host is marked
 
