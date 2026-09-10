@@ -356,6 +356,7 @@ class PaymentService:
                     profile=authoritative_profile,
                     rate=authoritative_rate,
                     now=int(time.time()),
+                    max_rate_age_seconds=settings.energy_max_rate_age_seconds,
                 )
                 if not result.approved:
                     raise HTTPException(
