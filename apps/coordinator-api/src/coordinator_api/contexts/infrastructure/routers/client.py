@@ -98,6 +98,18 @@ async def submit_job(
     user: AdminOrClientDep,
 ) -> JobView:
     req, quote = await _apply_offer_quote(req)
+
+    if not settings.tee_attestation_enabled and req.constraints and (
+        req.constraints.tee_attestation_required
+        or req.constraints.tee_enclave_id
+        or req.constraints.confidential
+        or req.constraints.required_enclave_measurement
+    ):
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="TEE attestation is not enabled on this coordinator",
+        )
+
     service = JobService(session)
     job = service.create_job(user["sub"], req)
     if req.payment_amount and req.payment_amount > 0:
