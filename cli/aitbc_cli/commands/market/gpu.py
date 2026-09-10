@@ -533,9 +533,8 @@ def release(ctx, job_id, wallet, wallet_path, password, password_file, yes, json
         click.confirm(f"Release escrow for job {job_id} to the provider?", abort=True)
 
     client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
-    payload: dict[str, Any] = {"job_id": job_id, "buyer_address": buyer_address}
     try:
-        result = client.post("/v1/marketplace/gpu/release", json=payload)
+        result = client.post(f"/v1/jobs/{job_id}/accept")
     except NetworkError as e:
         error(f"Release failed: {e}")
         sys.exit(1)
