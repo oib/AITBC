@@ -2,7 +2,7 @@
 
 `AITBCHTTPClient` calls `raise_for_status` and re-raises everything -- including a 4xx --
 as `NetworkError`, and both commands caught that and printed "Marketplace service not
-reachable ... Ensure marketplace-service is running". That is a wrong diagnosis of a service
+reachable ... Ensure marketplace-service is reachable at <url>". That is a wrong diagnosis of a service
 that answered, and it is the message a user would get the moment V23-81 made those two routes
 return 404 for an unknown service. These pin the branch that tells the two apart.
 
@@ -62,7 +62,7 @@ def test_ratings_still_reports_an_unreachable_service_as_unreachable(runner, mon
     result = runner.invoke(market, ["ratings", "--service-id", "no-such-service"], obj={})
     assert result.exit_code != 0
     assert "Marketplace service not reachable" in result.output
-    assert "Ensure marketplace-service is running" in result.output
+    assert "Ensure marketplace-service is reachable" in result.output
 
 
 def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):
@@ -102,7 +102,7 @@ def test_rate_still_reports_an_unreachable_service_as_unreachable(runner, monkey
     )
     assert result.exit_code != 0
     assert "Marketplace service not reachable" in result.output
-    assert "Ensure marketplace-service is running" in result.output
+    assert "Ensure marketplace-service is reachable" in result.output
 
 
 def test_rate_rejects_an_out_of_range_rating_before_any_request(runner, monkeypatch):
