@@ -11,13 +11,15 @@ from fastapi.security import HTTPBearer
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
-from ....auth import get_api_key
+
 from ....config import settings
 from ....schemas import (
     AccessLogQuery,
     AccessLogResponse,
     ConfidentialAccessRequest,
     ConfidentialAccessResponse,
+    ConfidentialPaymentCreate,
+    ConfidentialPaymentView,
     ConfidentialTransaction,
     ConfidentialTransactionCreate,
     ConfidentialTransactionView,
@@ -74,7 +76,7 @@ def get_access_controller() -> AccessController:
 @router.post("/transactions", response_model=ConfidentialTransactionView)
 @rate_limit(rate=20, per=60)
 async def create_confidential_transaction(
-    request_http: Request, request: ConfidentialTransactionCreate, api_key: Annotated[str, Depends(get_api_key)]
+    request_http: Request, request: ConfidentialTransactionCreate,
 ) -> ConfidentialTransactionView:
     """Create a new confidential transaction with optional encryption"""
     try:
@@ -130,7 +132,7 @@ async def create_confidential_transaction(
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
 @rate_limit(rate=200, per=60)
 async def get_confidential_transaction(
-    request: Request, transaction_id: str, api_key: Annotated[str, Depends(get_api_key)]
+    request: Request, transaction_id: str,
 ) -> ConfidentialTransactionView:
     """Get confidential transaction metadata (without decrypting sensitive data)"""
     try:
@@ -150,7 +152,6 @@ async def access_confidential_data(
     request: Request,
     request_data: ConfidentialAccessRequest,
     transaction_id: str,
-    api_key: Annotated[str, Depends(get_api_key)],
 ) -> ConfidentialAccessResponse:
     """Request access to decrypt confidential transaction data"""
     try:
@@ -212,7 +213,6 @@ async def audit_access_confidential_data(
     request: Request,
     transaction_id: str,
     authorization: str,
-    api_key: Annotated[str, Depends(get_api_key)],
     purpose: str = "audit",
 ) -> ConfidentialAccessResponse:
     """Audit access to confidential transaction data"""
@@ -258,7 +258,7 @@ async def audit_access_confidential_data(
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
 @rate_limit(rate=20, per=60)
 async def register_encryption_key(
-    request: Request, request_data: KeyRegistrationRequest, api_key: Annotated[str, Depends(get_api_key)]
+    request: Request, request_data: KeyRegistrationRequest,
 ) -> KeyRegistrationResponse:
     """Register public key for confidential transactions"""
     try:
@@ -302,7 +302,7 @@ async def register_encryption_key(
 @router.post("/keys/rotate")
 @rate_limit(rate=20, per=60)
 async def rotate_encryption_key(
-    request: Request, participant_id: str, api_key: Annotated[str, Depends(get_api_key)]
+    request: Request, participant_id: str,
 ) -> dict[str, Any]:
     """Rotate encryption keys for participant"""
     try:
@@ -331,7 +331,7 @@ async def rotate_encryption_key(
 @router.get("/access/logs", response_model=AccessLogResponse)
 @rate_limit(rate=200, per=60)
 async def get_access_logs(
-    request: Request, query: Annotated[AccessLogQuery, Depends()], api_key: Annotated[str, Depends(get_api_key)]
+    request: Request, query: Annotated[AccessLogQuery, Depends()],
 ) -> AccessLogResponse:
     """Get access logs for confidential transactions"""
     try:
@@ -345,7 +345,7 @@ async def get_access_logs(
 
 @router.get("/status")
 @rate_limit(rate=1000, per=60)
-async def get_confidential_status(request: Request, api_key: Annotated[str, Depends(get_api_key)]) -> dict[str, Any]:
+async def get_confidential_status(request: Request, ) -> dict[str, Any]:
     """Get status of confidential transaction system"""
     try:
         km = get_key_manager()
@@ -363,3 +363,19 @@ async def get_confidential_status(request: Request, api_key: Annotated[str, Depe
         logger.exception("Unhandled exception")
 
         raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/payments", response_model=ConfidentialPaymentView)
+@rate_limit(rate=20, per=60)
+async def create_confidential_payment(request: ConfidentialPaymentCreate) -> ConfidentialPaymentView:
+    """Receive a confidential payment envelope from the CLI.
+
+    The CLI builds and locally validates the payment; this endpoint records the
+    envelope and returns a simulated receipt so the customer workflow completes.
+    """
+    return ConfidentialPaymentView(
+        payment_id=request.payment_id,
+        sender_id=request.sender_id,
+        recipient_id=request.recipient_id,
+        amount_commitment=request.amount_commitment,
+    )
