@@ -8,22 +8,23 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 |---|---|---|---|
 | **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` |
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
-| **<shop-node>** | SSH `<shop-node>` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
-| **<hub-node>** | SSH `<hub-node>` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace |
+| **node2** | SSH `node2` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
+| **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace; promoted 2026-09-10 from the former `hub2.aitbc` container |
+| **hub2.aitbc** | SSH `hub2.aitbc` (`/opt/aitbc`) | **follower/customer replica** | demoted former hub; pull-only, no commits |
 | **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | `/home/oib/windsurf/aitbc` is a partial staging checkout for notes and temporary scripts. `/opt/aitbc` is a non-active canonical clone (no `data/` or `venv/`, so no services run here); it is safe for gitea commits/pushes that do not require active node features. |
 
 ## Where the full repo lives
 
 The canonical, full AITBC repository is only on the two remote nodes:
 
-- `<shop-node>:/opt/aitbc`
-- `<hub-node>:/opt/aitbc`
+- `node2:/opt/aitbc` (shop node)
+- `hub.aitbc:/opt/aitbc` (primary hub; former `hub2` container)
 
 Both remotes point to gitea as `origin`. `github` should remain a read-only reference on live nodes; the GitHub mirror is maintained from the IDE host `/opt/aitbc` using a dedicated, non-shared token.
 
 > **Repository visibility note:** Gitea is the private, single-operator development repository. GitHub is the public mirror. AITBC software users other than the operator have no access to the Gitea instance, so deployment/setup scripts that must work for public users should continue to reference GitHub. Only the operator's live nodes and tooling should treat Gitea as the primary source of truth.
 >
-> **GitHub mirror policy (2026-08-24):** the public GitHub mirror is no longer pushed from `<shop-node>` or `<hub-node>`. The only node that holds the GitHub token is the IDE host, in `/opt/aitbc`. Live nodes pull/fetch from Gitea and may keep a `github` remote for reference, but must not store GitHub credentials or push to GitHub.
+> **GitHub mirror policy (2026-08-24):** the public GitHub mirror is no longer pushed from `node2` or `hub.aitbc`. The only node that holds the GitHub token is the IDE host, in `/opt/aitbc`. Live nodes pull/fetch from Gitea and may keep a `github` remote for reference, but must not store GitHub credentials or push to GitHub.
 
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
 `/opt/aitbc` on the IDE host is a canonical clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. It can be used for reading code, running local static checks, and for gitea commits/pushes that do not require live services or production data. Live work must still use `<shop-node>` or `<hub-node>`.
