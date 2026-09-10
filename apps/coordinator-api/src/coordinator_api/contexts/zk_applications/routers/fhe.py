@@ -81,10 +81,17 @@ def _from_b64(text: str) -> bytes:
 
 
 def _ensure_available() -> None:
-    if not _service.get_provider().available:
+    try:
+        provider = _service.get_provider()
+    except RuntimeError as exc:
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail="FHE service is unavailable; install 'tenseal' to enable FHE operations",
+            detail=str(exc),
+        ) from exc
+    if not provider.available:
+        raise HTTPException(
+            status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+            detail="FHE provider is unavailable; install 'tenseal' to enable FHE operations",
         )
 
 
@@ -217,9 +224,14 @@ async def get_context_info(context_id: str, current_user: AuthDep) -> dict[str, 
 async def fhe_health(current_user: AuthDep) -> dict[str, Any]:
     """Check FHE service health."""
     providers = _service.list_providers()
+    try:
+        provider = _service.get_provider()
+        available = provider.available
+    except RuntimeError:
+        available = False
     return {
-        "status": "available" if _service.get_provider().available else "unavailable",
-        "fhe_available": _service.get_provider().available,
+        "status": "available" if available else "unavailable",
+        "fhe_available": available,
         "service": "fhe",
         "providers": providers,
     }
