@@ -571,6 +571,8 @@ def execute_job(job, available_models):
             return _execute_transcribe(job)
         if job_type == "reencode":
             return _execute_reencode(job)
+        if job_type == "gpu_compute":
+            return _execute_gpu_compute(job)
         logger.error("Unsupported job type: %s", job_type)
         _submit_failure(job_id, f"Unsupported job type: {job_type}")
         return False
@@ -673,6 +675,77 @@ def _execute_reencode(job):
     if tee_quote:
         logger.info("Attaching TEE quote for job %s", job_id)
     _submit_success(job_id, summary["stderr"], execution_time, summary, tee_quote=tee_quote)
+    return True
+
+
+def _gpu_snapshot() -> dict[str, Any]:
+    """Return a lightweight nvidia-smi snapshot, or an error dict."""
+    try:
+        result = subprocess.run(
+            ["nvidia-smi", "--query-gpu=name,utilization.gpu,memory.used,memory.total", "--format=csv,noheader,nounits"],
+            capture_output=True,
+            text=True,
+            timeout=5,
+        )
+        if result.returncode == 0:
+            parts = [p.strip() for p in result.stdout.strip().split(",")]
+            if len(parts) >= 4:
+                return {
+                    "name": parts[0],
+                    "utilization": int(parts[1]),
+                    "memory_used_mb": int(parts[2]),
+                    "memory_total_mb": int(parts[3]),
+                }
+    except Exception as e:
+        logger.warning("nvidia-smi snapshot failed: %s", e)
+    return {}
+
+
+def _execute_gpu_compute(job):
+    """Run a fixed-duration GPU compute rental.
+
+    The payload carries a duration; the worker holds the reservation for that
+    time, snapshots the GPU at start and end, and returns a completion proof.
+    This is enough for marketplace rental settlement; heavier workloads can be
+    layered on top later.
+    """
+    job_id = job.get("job_id")
+    payload = job.get("payload", {})
+    task = payload.get("task", "general_compute")
+    duration_hours = payload.get("duration_hours", 0.0)
+    duration_seconds = payload.get("duration_seconds") or int(duration_hours * 3600)
+    if duration_seconds <= 0:
+        duration_seconds = 60
+
+    logger.info("Running GPU compute rental for %ss (%s)", duration_seconds, task)
+    start_time = time.time()
+    start_snapshot = _gpu_snapshot()
+
+    # Hold the reservation in small sleeps so we can still be interrupted.
+    elapsed = 0
+    while elapsed < duration_seconds:
+        sleep_chunk = min(5, duration_seconds - elapsed)
+        time.sleep(sleep_chunk)
+        elapsed += sleep_chunk
+
+    end_snapshot = _gpu_snapshot()
+    execution_time = time.time() - start_time
+    output = f"GPU rental completed: {task} for {duration_seconds}s"
+    tee_quote = build_tee_quote(job, output=output)
+    if tee_quote:
+        logger.info("Attaching TEE quote for job %s", job_id)
+    _submit_success(
+        job_id,
+        output,
+        execution_time,
+        {
+            "task": task,
+            "duration_seconds": duration_seconds,
+            "gpu_start": start_snapshot,
+            "gpu_end": end_snapshot,
+        },
+        tee_quote=tee_quote,
+    )
     return True
 
 
