@@ -95,9 +95,14 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
 - Multi-validator consensus source support is complete and live; attestation threshold can be raised from `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` to `2` after a longer observation window.
 - `MockFHEProvider` is still registered alongside `tenseal`; a future release should restrict `mock` to non-production environments.
 
+## MCP server typed CLI wrappers
+
+- Add 28 dedicated, read-only MCP tools in `mcp-server/aitbc_mcp_cli_tools.py` that wrap common `aitbc` CLI subcommands for explorer, governance, crosschain, AI services, system, node, blockchain, monitor, analytics, bridge, and reputation. The tools are generated from the live CLI click objects, reuse the existing `_aitbc_cli_read_tool` helper, and pass `ruff`, `mypy`, and `pytest`.
+
 ## Full commit list
 
 ```text
+8306e4591 feat(mcp): add typed read-only CLI wrappers for market, wallet, ai, blockchain, node, system, explorer, governance, crosschain, bridge, reputation, monitor, and analytics
 4f56210af fix(rpc): normalize chain_id default and count lease subscribers as island peers
 ce3a4c363 fix(auth): re-export AdminOrClientDep in coordinator_api.auth
 ede8622b1 fix(auth,node): allow admin wallets to drive client job/payment routes and avoid loopback in network-info
