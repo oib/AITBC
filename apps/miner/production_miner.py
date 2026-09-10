@@ -3,6 +3,7 @@ Real GPU Miner Client for AITBC - runs on host with actual GPU
 """
 
 import asyncio
+from functools import partial
 import os
 import subprocess
 import sys
@@ -873,7 +874,7 @@ async def main():
                             # Run the blocking, potentially slow model execution in a
                             # worker thread so heartbeats and the next poll continue.
                             task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
-                            task.add_done_callback(lambda t, jid=job_id: _on_job_done(jid, t))
+                            task.add_done_callback(partial(_on_job_done, job_id))
                 else:
                     logger.debug("At max capacity (%s/%s jobs); skipping poll", len(ACTIVE_JOB_IDS), max_concurrent_jobs)
                 last_poll = current_time
