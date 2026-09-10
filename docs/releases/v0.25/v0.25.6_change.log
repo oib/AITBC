@@ -16,7 +16,7 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
 
 ## FHE
 
-- **FHE provider selection** now defaults to `tenseal` when the package is present in the coordinator virtual environment, with `mock` still registered as a fallback. A future release should restrict the `mock` provider to non-production environments.
+- **FHE provider selection** defaults to `tenseal` when installed, with `mock` only allowed in non-production environments. `FHE_ALLOW_MOCK` defaults to `True` in dev/test and `False` in production; FHE endpoints return `503` when no real provider is active, and coordinator-api refuses to start in production with `FHE_ALLOW_MOCK=false` and no real backend.
 
 ## Auth & coordinator hardening
 
