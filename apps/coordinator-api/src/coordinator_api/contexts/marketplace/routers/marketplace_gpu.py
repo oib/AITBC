@@ -475,6 +475,7 @@ async def quote_gpu(
         rate=quote.to_rate(),
         now=int(time.time()),
         hard_cap_units=buyer_cap_units,
+        max_rate_age_seconds=settings.energy_max_rate_age_seconds,
     )
     if not result.approved:
         raise HTTPException(
