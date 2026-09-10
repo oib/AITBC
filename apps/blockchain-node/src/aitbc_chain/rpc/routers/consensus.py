@@ -20,7 +20,13 @@ router = APIRouter(prefix="/consensus", tags=["consensus"])
 @router.get("/status", summary="Get consensus status")
 @rate_limit(rate=100, per=60)
 async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
-    """Get consensus mode, view, sequence, epoch, and fault tolerance."""
+    """Get consensus mode, view, sequence, epoch, and fault tolerance.
+
+    ``current_view``, ``current_sequence`` and ``current_epoch`` are only
+    meaningful when PBFT is enabled. ``fault_tolerance`` and
+    ``required_messages`` are derived from the active validator set size and
+    ``MULTI_VALIDATOR_MIN_ATTESTATIONS``; they do not come from a live PBFT
+    engine when PBFT is disabled."""
     chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
         return {
@@ -49,18 +55,20 @@ async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
             required_messages = base_required
         pbft_enabled = getattr(settings, "pbft_consensus_enabled", False)
         mode = "MultiValidatorPoA + PBFT" if pbft_enabled else "MultiValidatorPoA"
-        return {
+        result: dict[str, Any] = {
             "mode": mode,
             "multi_validator_enabled": True,
             "chain_id": chain_id,
-            "current_view": consensus._pbft_view,
-            "current_sequence": consensus._pbft_sequence,
-            "current_epoch": consensus._current_epoch,
             "fault_tolerance": fault_tolerance,
             "required_messages": required_messages,
             "active_validators": len(participants),
             "total_validators": len(consensus.validators),
         }
+        if pbft_enabled:
+            result["current_view"] = consensus._pbft_view
+            result["current_sequence"] = consensus._pbft_sequence
+            result["current_epoch"] = consensus._current_epoch
+        return result
     except RuntimeError:
         return {
             "mode": "PoA (single proposer)",
