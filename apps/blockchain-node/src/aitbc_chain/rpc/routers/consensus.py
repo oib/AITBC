@@ -23,10 +23,14 @@ async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
     """Get consensus mode, view, sequence, epoch, and fault tolerance.
 
     ``current_view``, ``current_sequence`` and ``current_epoch`` are only
-    meaningful when PBFT is enabled. ``fault_tolerance`` and
-    ``required_messages`` are derived from the active validator set size and
-    ``MULTI_VALIDATOR_MIN_ATTESTATIONS``; they do not come from a live PBFT
-    engine when PBFT is disabled."""
+    meaningful when PBFT is enabled.
+
+    ``fault_tolerance`` and ``required_messages`` are standard BFT values
+    derived from the active validator count (``f = floor((n-1)/3)`` and
+    ``2f + 1``). ``multi_validator_min_attestations`` is the live
+    crash-tolerance threshold: a block is accepted when it carries at least
+    that many attestations.
+    """
     chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
         return {
@@ -46,13 +50,15 @@ async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
                 "multi_validator_enabled": False,
                 "chain_id": chain_id,
             }
-        fault_tolerance = max(1, len(participants) // 3)
-        base_required = 2 * fault_tolerance + 1
+
+        # Standard BFT quorum values from the active validator count.
+        n = len(participants)
+        fault_tolerance = (n - 1) // 3
+        required_messages = 2 * fault_tolerance + 1
+
+        # Crash-tolerance threshold actually used by the multi-validator engine.
         min_attestations = getattr(settings, "multi_validator_min_attestations", 0)
-        if min_attestations and min_attestations > 0:
-            required_messages = max(2, min(base_required, min_attestations + 1))
-        else:
-            required_messages = base_required
+
         pbft_enabled = getattr(settings, "pbft_consensus_enabled", False)
         mode = "MultiValidatorPoA + PBFT" if pbft_enabled else "MultiValidatorPoA"
         result: dict[str, Any] = {
@@ -61,7 +67,8 @@ async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
             "chain_id": chain_id,
             "fault_tolerance": fault_tolerance,
             "required_messages": required_messages,
-            "active_validators": len(participants),
+            "min_attestations": min_attestations,
+            "active_validators": n,
             "total_validators": len(consensus.validators),
         }
         if pbft_enabled:
