@@ -30,6 +30,8 @@ def aitbc_gpu_onchain_allocate(
     duration_hours: Annotated[float, Field(description="Allocation duration in hours")],
     total_cost: Annotated[str, Field(description="Total cost in AIT")],
     wallet: Annotated[str, Field(description="Wallet name for signing")],
+    password: Annotated[str | None, Field(description="Wallet password (or AITBC_WALLET_PASSWORD env var)")],
+    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -48,6 +50,10 @@ def aitbc_gpu_onchain_allocate(
         options["total-cost"] = total_cost
     if wallet is not None:
         options["wallet"] = wallet
+    if password is not None:
+        options["password"] = password
+    if wait:
+        options["wait"] = None
     args = None
     command = _build_aitbc_cli_command(
         "gpu-onchain",
@@ -204,6 +210,8 @@ def aitbc_gpu_onchain_register(
     cuda_version: Annotated[str | None, Field(description="CUDA version")],
     region: Annotated[str | None, Field(description="Geographic region")],
     capabilities: Annotated[list[str] | None, Field(description="GPU capabilities (can specify multiple)")],
+    password: Annotated[str | None, Field(description="Wallet password (or AITBC_WALLET_PASSWORD env var)")],
+    wait: Annotated[bool | None, Field(description="Wait for the transaction to be mined")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -230,6 +238,10 @@ def aitbc_gpu_onchain_register(
         options["price-per-hour"] = price_per_hour
     if wallet is not None:
         options["wallet"] = wallet
+    if password is not None:
+        options["password"] = password
+    if wait:
+        options["wait"] = None
     args = None
     command = _build_aitbc_cli_command(
         "gpu-onchain",

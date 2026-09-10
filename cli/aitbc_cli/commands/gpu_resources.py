@@ -1,17 +1,14 @@
 """GPU resource tracking commands for AITBC CLI."""
 
-import json
 from decimal import Decimal
 
 import click
 
-from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.utils.validation import validate_address, validate_address_strict
+from aitbc.utils.validation import validate_address_strict
 
 from ..config import get_config
 from ..utils import DECIMAL, error, output, success
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.wallet_paths import find_wallet_file
 
 logger = get_logger(__name__)
 
@@ -46,6 +43,8 @@ def gpu():
 @click.option("--capabilities", multiple=True, help="GPU capabilities (can specify multiple)")
 @click.option("--price-per-hour", type=DECIMAL, required=True, help="Price per hour in AIT")
 @click.option("--wallet", required=True, help="Wallet name for signing")
+@click.option("--password", help="Wallet password (or AITBC_WALLET_PASSWORD env var)")
+@click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def register_onchain(
@@ -59,6 +58,8 @@ def register_onchain(
     capabilities: tuple,
     price_per_hour: Decimal,
     wallet: str,
+    password: str | None,
+    wait: bool,
     format: str,
 ):
     """Register GPU immutable specs on the blockchain with a signing wallet."""
@@ -80,38 +81,34 @@ def register_onchain(
 
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
-        # Load wallet to get address
-        wallet_path = find_wallet_file(wallet)
+        from ..utils.gpu_onchain import submit_gpu_register, wait_for_tx
 
-        if wallet_path is None:
-            error(f"Wallet '{wallet}' not found")
-            return
+        result = submit_gpu_register(
+            ctx,
+            rpc_url,
+            chain_id,
+            wallet,
+            password,
+            gpu_id,
+            miner_id,
+            model,
+            memory_gb,
+            cuda_version,
+            region,
+            capabilities,
+            price_per_hour,
+        )
 
-        with open(wallet_path) as f:
-            wallet_data = json.load(f)
+        tx_hash = result.get("transaction_hash", result.get("tx_hash"))
+        if wait and tx_hash:
+            mined = wait_for_tx(rpc_url, tx_hash)
+            if mined:
+                result["mined"] = True
+                result["block_height"] = mined.get("block_height")
+            else:
+                result["mined"] = False
 
-        registered_by = wallet_data["address"]
-        hex_address = canonical_address(registered_by)
-        if not validate_address(hex_address):
-            error(f"Invalid wallet address: {registered_by}")
-            return
-
-        # Submit GPU registration to blockchain RPC
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        registration_data = {
-            "gpu_id": gpu_id,
-            "miner_id": miner_id,
-            "model": model,
-            "memory_gb": memory_gb,
-            "cuda_version": cuda_version,
-            "region": region,
-            "capabilities": list(capabilities),
-            "price_per_hour": str(price_per_hour),
-            "registered_by": hex_address,
-        }
-        result = http_client.post(f"/rpc/gpu/register?chain_id={chain_id}", json=registration_data)
-
-        success(f"GPU '{gpu_id}' registered on-chain")
+        success(f"GPU '{gpu_id}' registration transaction submitted")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
@@ -172,9 +169,21 @@ def query_gpu(ctx, gpu_id: str, format: str):
 @click.option("--duration-hours", type=float, required=True, help="Allocation duration in hours")
 @click.option("--total-cost", type=DECIMAL, required=True, help="Total cost in AIT")
 @click.option("--wallet", required=True, help="Wallet name for signing")
+@click.option("--password", help="Wallet password (or AITBC_WALLET_PASSWORD env var)")
+@click.option("--wait", is_flag=True, help="Wait for the transaction to be mined")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_cost: Decimal, wallet: str, format: str):
+def allocate_gpu(
+    ctx,
+    gpu_id: str,
+    client_id: str,
+    duration_hours: float,
+    total_cost: Decimal,
+    wallet: str,
+    password: str | None,
+    wait: bool,
+    format: str,
+):
     """Record a GPU allocation on the blockchain for a client."""
     config = get_config()
 
@@ -194,39 +203,36 @@ def allocate_gpu(ctx, gpu_id: str, client_id: str, duration_hours: float, total_
 
             chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
-        # Load wallet to get address
-        wallet_path = find_wallet_file(wallet)
-
-        if wallet_path is None:
-            error(f"Wallet '{wallet}' not found")
-            return
-
-        with open(wallet_path) as f:
-            wallet_data = json.load(f)
-
-        allocated_by = wallet_data["address"]
-        hex_allocated_by = canonical_address(allocated_by)
-        if not validate_address(hex_allocated_by):
-            error(f"Invalid wallet address: {allocated_by}")
-            return
         try:
             hex_client_id = validate_address_strict(client_id)
         except Exception as e:
             error(f"Invalid client address: {e}")
             return
 
-        # Submit GPU allocation to blockchain RPC
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
-        allocation_data = {
-            "gpu_id": gpu_id,
-            "client_id": hex_client_id,
-            "duration_hours": duration_hours,
-            "total_cost": str(total_cost),
-            "allocated_by": hex_allocated_by,
-        }
-        result = http_client.post(f"/rpc/gpu/allocate?chain_id={chain_id}", json=allocation_data)
+        from ..utils.gpu_onchain import submit_gpu_allocate, wait_for_tx
 
-        success(f"GPU allocation recorded on-chain for '{gpu_id}'")
+        result = submit_gpu_allocate(
+            ctx,
+            rpc_url,
+            chain_id,
+            wallet,
+            password,
+            gpu_id,
+            hex_client_id,
+            duration_hours,
+            total_cost,
+        )
+
+        tx_hash = result.get("transaction_hash", result.get("tx_hash"))
+        if wait and tx_hash:
+            mined = wait_for_tx(rpc_url, tx_hash)
+            if mined:
+                result["mined"] = True
+                result["block_height"] = mined.get("block_height")
+            else:
+                result["mined"] = False
+
+        success(f"GPU allocation transaction submitted for '{gpu_id}'")
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")
