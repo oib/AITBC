@@ -704,11 +704,12 @@ def render_function(spec: dict[str, Any], mode: str) -> list[str]:
     return lines + signature
 
 
-def build_header(mode: str, count: int, has_read_only: bool, has_safeguarded: bool, has_decimal: bool) -> list[str]:
-    imports = [
-        "    NodeRole,",
-        "    _aitbc_cli_read_tool,",
-    ]
+def build_header(
+    mode: str, count: int, has_read_only: bool, has_safeguarded: bool, has_decimal: bool, has_literal: bool
+) -> list[str]:
+    imports = ["    NodeRole,"]
+    if has_read_only:
+        imports.append("    _aitbc_cli_read_tool,")
     if has_safeguarded:
         imports.extend(
             [
@@ -719,10 +720,11 @@ def build_header(mode: str, count: int, has_read_only: bool, has_safeguarded: bo
                 "    _run_aitbc_cli,",
             ]
         )
-    elif has_read_only:
-        pass
     imports.append("    mcp,")
     decimal_import = ["from decimal import Decimal", ""] if has_decimal else []
+    typing_imports = ["Annotated", "Any"]
+    if has_literal:
+        typing_imports.append("Literal")
     return [
         "# ---------------------------------------------------------------------------",
         f"# Auto-generated AITBC CLI MCP wrappers ({mode} mode, {count} tools)",
@@ -733,7 +735,7 @@ def build_header(mode: str, count: int, has_read_only: bool, has_safeguarded: bo
         "from __future__ import annotations",
         "",
         *decimal_import,
-        "from typing import Annotated, Any, Literal",
+        f"from typing import {', '.join(typing_imports)}",
         "",
         "from mcp.types import ToolAnnotations",
         "from pydantic import Field",
@@ -769,6 +771,11 @@ def main() -> int:
         action="store_true",
         help="Compare the generated module to the existing file and exit with status 1 if it would change.",
     )
+    parser.add_argument(
+        "--split-by-group",
+        action="store_true",
+        help="Write one module per top-level CLI group plus a master import module.",
+    )
     args = parser.parse_args()
 
     if args.mode == "read_only":
@@ -802,18 +809,12 @@ def main() -> int:
 
     results.sort(key=lambda r: r["path"])
 
-    has_read_only = any(spec["mode"] == "read_only" for spec in results)
-    has_safeguarded = any(spec["mode"] == "safeguarded" for spec in results)
-    has_decimal = any(p["type"] == "Decimal" for spec in results for p in spec["options"] + spec["positional"])
-
-    lines = build_header(args.mode, len(results), has_read_only, has_safeguarded, has_decimal)
-    for spec in results:
-        lines.extend(render_function(spec, args.mode))
-        lines.append("")
-
-    output = "\n".join(lines).rstrip() + "\n"
+    if args.split_by_group:
+        return write_split_modules(results, args)
 
     out_path = Path(args.output)
+    output = render_module(args.mode, results)
+
     if args.check:
         if out_path.exists() and out_path.read_text() == output:
             print("Generated module is up to date.")
@@ -824,6 +825,77 @@ def main() -> int:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     out_path.write_text(output)
     print(f"Wrote {len(results)} tools to {out_path}")
+    return 0
+
+
+def render_module(mode: str, specs: list[dict[str, Any]]) -> str:
+    """Render a single Python module containing the given tool specs."""
+    has_read_only = any(spec["mode"] == "read_only" for spec in specs)
+    has_safeguarded = any(spec["mode"] == "safeguarded" for spec in specs)
+    has_decimal = any(p["type"] == "Decimal" for spec in specs for p in spec["options"] + spec["positional"])
+    has_literal = any("Literal[" in p["type"] for spec in specs for p in spec["options"] + spec["positional"])
+
+    lines = build_header(mode, len(specs), has_read_only, has_safeguarded, has_decimal, has_literal)
+    for spec in specs:
+        lines.extend(render_function(spec, mode))
+        lines.append("")
+
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def write_split_modules(results: list[dict[str, Any]], args: argparse.Namespace) -> int:
+    """Write one module per top-level CLI group plus a master import module."""
+    out_path = Path(args.output)
+    output_dir = out_path.parent
+    master_name = out_path.stem
+
+    groups: dict[str, list[dict[str, Any]]] = {}
+    for spec in results:
+        top = spec["path"][0]
+        groups.setdefault(top, []).append(spec)
+
+    group_modules: list[str] = []
+    for group, specs in sorted(groups.items()):
+        safe_group = group.replace("-", "_")
+        module_name = f"{master_name}_{safe_group}"
+        group_modules.append(module_name)
+        group_path = output_dir / f"{module_name}.py"
+        group_output = render_module(args.mode, specs)
+
+        if args.check:
+            if not group_path.exists() or group_path.read_text() != group_output:
+                print(f"Generated module would change: {group_path}")
+                return 1
+            continue
+
+        group_path.parent.mkdir(parents=True, exist_ok=True)
+        group_path.write_text(group_output)
+        print(f"Wrote {len(specs)} tools to {group_path}")
+
+    master_lines = [
+        f"# Auto-generated master module for AITBC CLI MCP wrappers ({args.mode} mode).",
+        "# This file imports all group-specific modules produced by",
+        "# scripts/dev/generate_mcp_cli_tools.py --split-by-group.",
+        "# Do not edit manually; regenerate instead.",
+        "",
+        "from __future__ import annotations",
+        "",
+    ]
+    for module in group_modules:
+        master_lines.append(f"import {module}  # noqa: F401")
+
+    master_output = "\n".join(master_lines) + "\n"
+
+    if args.check:
+        if not out_path.exists() or out_path.read_text() != master_output:
+            print(f"Generated master module would change: {out_path}")
+            return 1
+        print("All generated modules are up to date.")
+        return 0
+
+    out_path.parent.mkdir(parents=True, exist_ok=True)
+    out_path.write_text(master_output)
+    print(f"Wrote master imports for {len(group_modules)} groups to {out_path}")
     return 0
 
 
