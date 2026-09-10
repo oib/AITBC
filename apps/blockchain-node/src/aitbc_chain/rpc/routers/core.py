@@ -225,9 +225,13 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
     if protocol not in ("http", "https"):
         protocol = "https"
 
-    # 2. Public hostname: prefer the Host header, then an explicit override.
-    hostname = request.headers.get("host") or os.getenv("AITBC_HOSTNAME") or socket.gethostname()
+    # 2. Public hostname: explicit operator override wins, then a non-loopback
+    # Host header, then the system's FQDN. Local CLI calls set Host to 127.0.0.1
+    # or localhost; using that value would publish unreachable URLs.
+    hostname = os.getenv("AITBC_HOSTNAME") or request.headers.get("host") or socket.getfqdn() or socket.gethostname()
     hostname = hostname.split(":")[0]
+    if not os.getenv("AITBC_HOSTNAME") and hostname in ("127.0.0.1", "localhost", "::1"):
+        hostname = socket.getfqdn() or socket.gethostname()
 
     base_url = f"{protocol}://{hostname}"
     rpc_url = f"{base_url}/rpc"

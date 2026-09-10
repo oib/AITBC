@@ -143,6 +143,28 @@ def require_miner_jwt(token: str = Depends(get_token)) -> dict[str, Any]:
     return verify_access_token(token, required_role="miner")
 
 
+def require_admin_or_client(token: str = Depends(get_token)) -> dict[str, Any]:
+    """Require either admin or client role via JWT.
+
+    Operators with an admin wallet also need to drive the customer
+    workflows (submit/pay/list jobs), so both roles are accepted.
+
+    Returns:
+        Token payload.
+
+    Raises:
+        HTTPException: If token is invalid or role is not admin/client.
+    """
+    payload = verify_access_token(token)
+    if payload.get("role") not in ("admin", "client"):
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Role required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    return payload
+
+
 def _configured_miner_keys() -> list[str]:
     """The miner API keys, read at the moment they are needed.
 
@@ -252,12 +274,14 @@ def require_miner(request: Request) -> dict[str, Any]:
 AuthDep = Annotated[dict[str, Any], Depends(require_auth)]
 AdminDep = Annotated[dict[str, Any], Depends(require_admin)]
 ClientDep = Annotated[dict[str, Any], Depends(require_client)]
+AdminOrClientDep = Annotated[dict[str, Any], Depends(require_admin_or_client)]
 MinerDep = Annotated[dict[str, Any], Depends(require_miner)]
 APIKeyAuth = Annotated[dict[str, Any], Depends(APIKeyAuthenticator)]
 
 
 __all__ = [
     "AdminDep",
+    "AdminOrClientDep",
     "APIKeyAuth",
     "APIKeyAuthenticator",
     "AuthDep",
@@ -265,6 +289,7 @@ __all__ = [
     "MinerDep",
     "get_token",
     "require_admin",
+    "require_admin_or_client",
     "require_auth",
     "require_client",
     "require_miner",
