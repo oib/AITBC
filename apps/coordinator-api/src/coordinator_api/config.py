@@ -268,7 +268,12 @@ class Settings(BaseAITBCConfig):
     @classmethod
     def validate_blockchain_rpc_url(cls, v: str) -> str:
         if "localhost" in v or "127.0.0.1" in v:
-            if _is_production():
+            if _is_production() and os.getenv("ALLOW_LOCAL_BLOCKCHAIN_RPC", "").strip().lower() not in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            ):
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
 
