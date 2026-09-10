@@ -136,6 +136,7 @@ from ..contexts.zk_applications.routers.zk_applications import router as zk_appl
 
 # Islands proxy router moved to contexts/infrastructure
 from ..contexts.infrastructure.routers.islands_proxy import router as islands_proxy  # noqa: E402
+from .media import router as media  # noqa: E402
 
 __all__ = [
     "client",
@@ -189,4 +190,5 @@ __all__ = [
     "fhe",
     "oracle",
     "disputes",
+    "media",
 ]

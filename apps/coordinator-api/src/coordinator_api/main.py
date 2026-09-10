@@ -70,6 +70,7 @@ from .routers import (
     governance_enhanced,
     inference,
     islands_proxy,
+    media,
     miner,
     monitor,
     multi_modal_rl,
@@ -513,6 +514,7 @@ def create_app() -> FastAPI:
     app.include_router(confidential, prefix="/v1")
     app.include_router(swarm, prefix="/v1")
     app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
+    app.include_router(media, prefix="/v1")
     app.include_router(payments, prefix="/v1")
     app.include_router(inference, prefix="/v1")
     app.include_router(explorer, prefix="/v1")

@@ -1073,6 +1073,8 @@ def aitbc_edge_serve_submit_request(
     model_name: Annotated[str, Field(description="The Model name.")],
     input_data: Annotated[str, Field(description="The Input data.")],
     priority: Annotated[str | None, Field(description="Request priority")],
+    job_id: Annotated[str | None, Field(description="Job ID for edge servers that verify escrow")],
+    escrow_id: Annotated[str | None, Field(description="Legacy escrow ID for payment verification")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -1089,6 +1091,10 @@ def aitbc_edge_serve_submit_request(
         options["input-data"] = input_data
     if priority is not None:
         options["priority"] = priority
+    if job_id is not None:
+        options["job-id"] = job_id
+    if escrow_id is not None:
+        options["escrow-id"] = escrow_id
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -1127,7 +1133,7 @@ def aitbc_edge_status(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get edge status from the coordinator API.."""
+    """Get edge status from the local edge API.."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
