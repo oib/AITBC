@@ -6,6 +6,7 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
+import base64
 from unittest.mock import patch
 
 import pytest
@@ -299,6 +300,34 @@ class TestAICommands:
 
         assert result.exit_code != 0
         assert "Timed out" in result.output
+
+
+def test_media_url_passes_remote_urls_unchanged():
+    """Remote http, https and data: URIs are returned as-is with no filename."""
+    from aitbc_cli.commands.ai import _media_url
+
+    assert _media_url("https://example.com/audio.mp3") == ("https://example.com/audio.mp3", None)
+    assert _media_url("data:audio/mpeg;base64,SGVsbG8=") == ("data:audio/mpeg;base64,SGVsbG8=", None)
+
+
+def test_media_url_encodes_local_file_as_data_uri(tmp_path, monkeypatch):
+    """A local file path is converted to a data: URI and its basename is returned."""
+    from aitbc_cli.commands.ai import _media_url
+
+    audio = tmp_path / "test.mp3"
+    audio.write_bytes(b"fake audio data")
+    url, filename = _media_url(str(audio))
+
+    assert url.startswith("data:audio/mpeg;base64,")
+    assert filename == "test.mp3"
+    assert base64.b64decode(url.split(",", 1)[1]) == b"fake audio data"
+
+
+def test_media_url_leaves_unknown_path_unchanged():
+    """A non-existent path that is not a URL is passed through unchanged."""
+    from aitbc_cli.commands.ai import _media_url
+
+    assert _media_url("/no/such/file.mp3") == ("/no/such/file.mp3", None)
 
 
 if __name__ == "__main__":

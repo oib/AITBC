@@ -3,6 +3,7 @@ Real GPU Miner Client for AITBC - runs on host with actual GPU
 """
 
 import asyncio
+import base64
 from functools import partial
 import os
 import subprocess
@@ -470,9 +471,19 @@ def build_tee_quote(job, output=""):
 
 
 def _download_media(url: str, dest: str) -> None:
-    """Download an audio/video file from a URL to a local path."""
+    """Download an audio/video file from a URL (or data URI) to a local path."""
     try:
         parsed = urllib.parse.urlparse(url)
+        if parsed.scheme == "data":
+            # data:[<mediatype>][;base64],<data>
+            header, _, data = parsed.path.partition(",")
+            if ";base64" in header:
+                content = base64.b64decode(data)
+            else:
+                content = urllib.parse.unquote_to_bytes(data)
+            with open(dest, "wb") as f:
+                f.write(content)
+            return
         if parsed.scheme not in {"http", "https"}:
             raise ValueError(f"unsupported URL scheme: {parsed.scheme}")
         with requests.get(url, timeout=30, stream=True) as resp:
@@ -646,11 +657,13 @@ def _execute_transcribe(job):
     url = payload.get("url") or payload.get("input")
     if not url:
         raise Exception("Transcribe job requires 'url' or 'input' in payload")
+    filename = payload.get("filename", "")
     model = payload.get("model", "base")
     logger.info("Running transcription with model: %s", model)
     start_time = time.time()
     with tempfile.TemporaryDirectory() as tmp:
-        ext = os.path.splitext(url.split("?")[0])[1] or ".wav"
+        source = filename or url.split("?")[0]
+        ext = os.path.splitext(source)[1] or ".bin"
         input_path = os.path.join(tmp, f"input{ext}")
         _download_media(url, input_path)
         constraints = job.get("constraints") or {}
@@ -674,11 +687,13 @@ def _execute_reencode(job):
     url = payload.get("url") or payload.get("input")
     if not url:
         raise Exception("Re-encode job requires 'url' or 'input' in payload")
+    filename = payload.get("filename", "")
     output_format = payload.get("output_format") or payload.get("format") or "mp4"
     logger.info("Running re-encode to format: %s", output_format)
     start_time = time.time()
     with tempfile.TemporaryDirectory() as tmp:
-        input_ext = os.path.splitext(url.split("?")[0])[1] or ".bin"
+        source = filename or url.split("?")[0]
+        input_ext = os.path.splitext(source)[1] or ".bin"
         input_path = os.path.join(tmp, f"input{input_ext}")
         _download_media(url, input_path)
         output_path = os.path.join(tmp, f"output.{output_format}")
