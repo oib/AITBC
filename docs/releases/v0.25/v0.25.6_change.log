@@ -1,0 +1,183 @@
+# v0.25.6 — Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path
+
+**Baseline**: end of `v0.25.5` coverage at `2b112f9f46` (2026-09-07).
+**Date**: 2026-09-10.
+**Tag**: `v0.25.6` (pending).
+
+This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headline is the completion and live validation of the multi-validator Proof-of-Authority consensus path, plus a broad set of CLI, auth, coordinator, state-transition, monitoring, and deployment script improvements.
+
+## Consensus & chain hardening
+
+- **Chain ID normalization** (`4f56210af`): `/rpc/consensus/status`, `/rpc/consensus/validators`, and `/rpc/consensus/slashing-history` now default `chain_id` from `settings.chain_id` instead of the hard-coded short `ait-hub`.
+- **Island peer count** (`4f56210af`): `list_islands` and `get_island` now count active lease-tracker subscribers as peers, fixing the `peer_count: 0` mismatch.
+- **Watchdog and proposer phase reporting** (`7ccdabf9b`): the active proposer phase is included in watchdog ERROR output and metrics for easier diagnosis of hung proposers.
+- **New blocks default to v2** (`d119e8ca9`), and v3 per-escrow activation, beneficiary, and authority checks are wired (`f1b0d465a`).
+- **Multi-validator consensus validated end-to-end**: the 3-validator PoA/PBFT path is active and producing blocks with attestations across the fleet. Operational validator key and environment configuration happened outside the repo; the source support was completed and verified in this cycle.
+
+## FHE
+
+- **FHE provider selection** now defaults to `tenseal` when the package is present in the coordinator virtual environment, with `mock` still registered as a fallback. A future release should restrict the `mock` provider to non-production environments.
+
+## Auth & coordinator hardening
+
+- **Admin-router access restored** (`86e2d65ec`): admin client tests and production gate repaired; empty allowlist now warns instead of failing closed.
+- **JWT token expiry configurable** (`d4224233b`): supports non-expiring tokens; admin JWT expiry is detected and re-login suggested (`39b348979`).
+- **`BOND_SLASH_PRIVATE_KEY` validation** (`64ffb6740`) and operational mismatch documentation (`e41b2d7e0`, `b486147f1`, `25a4eeee5`).
+- **Coordinator environment detection** (`17c5f305a`, `6dc1a34c8`, `e3b723a11`): no longer derives production mode from `NODE_ENV`; `Settings.environment` reads it correctly.
+- **Client constraint separation** (`6651dc3b1`): server-owned spot-check evidence is separated from client-side constraints.
+- **B-8 schema-conformance migration** (`3d09e8105`) made aware of all models.
+
+## CLI & wallet
+
+- **`aitbc genesis reset`** command added (`c8c2afb12`) for operational chain reset, including service stop, env/data backup, optional new genesis wallet, and restart.
+- **Coin requests** command for follower init coins (`1a2007959`).
+- **Market offer commands** use `https` and canonical `chain_id` (`3451e00ee`).
+- **Balance display** shows AIT by default with `balance_units` (`145f585ed`).
+- **Auto-import encrypted dict private keys** in wallet (`24d787863`).
+- **Dispute command group** added (`9bbb48779`).
+- **CLI admin client** strips `/v1` from base URL and drops `NODE_ENV` gate (`e3518c253`); `monitor sweepers` authenticates as admin (`cd91676a0`); `BLOCKCHAIN_RPC_URL` trailing `/rpc` is normalized (`07aadd301`).
+- **Legacy 8011 defaults** replaced with coordinator API port `8203` (`a7165e308`).
+
+## Faucet → genesis funding
+
+- **Devnet faucet removed** (`4345b881b`, `c7b728ce2`): `FAUCET` transaction type purged from consensus and state; genesis funding promoted as the canonical source of initial coins.
+- Scenario and system-flow docs updated for genesis funding (`9b1ebf62b`).
+
+## State / escrow v3 parallel path
+
+- **Pure state transition v3 support**:
+  - `ESCROW_LOCK` implemented (`38acca737`).
+  - `ESCROW_RELEASE` and `ESCROW_REFUND` modeled (`1df6eb365`).
+  - Escrow accounts pre-fetched and context built for v2/v3 parallel path (`fe5f4a451`).
+  - `escrow_context` wired into parallel callers (`2baf883f3`).
+  - `pure_state_delta` helpers refactored to keep C901 baseline (`1c8df3a50`, `e75e7355b`).
+  - `block_version` plumbed through `pure_state_transition` and v3 parallel path guarded (`f7262cc64`).
+- **Governance execute sender gating** (`628f99a74`): `GOVERNANCE_EXECUTE` senders validated against the on-chain executor list.
+- **Bond-slash authority deterministic + auditable** (`5c79eebe3`).
+
+## Contracts & bridge
+
+- **PaymentProcessor release authorization** and escrow/payment tests (`14d2b9e59`).
+- **EscrowService Solidity coverage** added and `releaseTime` storage fixed (`8cb48178d`).
+- **REST-submitted transactions relayed to mesh peers** (`1d5b7bba6`).
+- **Strict EVM-address validation** at config boundaries (`9ce3489a2`).
+
+## Monitoring & deployment scripts
+
+- **Fleet-config-check improvements**:
+  - Chain-head convergence check over node RPC (`aef0b5099`).
+  - Host resolution + clean exit fixes (`976cec9e9`).
+  - Chain-halt detection (`c9c35d033`).
+  - Sleep extended to 90s to avoid false HALTs (`58d8dca1f`).
+- **Append-only per-host deploy log** in `update.sh` (`a5b39ec66`).
+- **On-demand link `aitbc-backup.service`** before pre-update backup (`04fbbcc8a`).
+- **Skip `sqlcipher3-binary` on non-x86_64 aarch64 installs** (`596d73844`).
+- **`ffmpeg` subprocess timeouts** raised from 5s to 15s (`dcc111bea`).
+- **Network gossip** CLI command backed by a real liveness gauge (`250fa42d4`).
+- **Background sweepers** exposed read-only via coordinator/CLI (`4f90b02fb`).
+
+## CI / build / test
+
+- Mypy baseline tightened to 6 known errors (`5cafb57ea`); unused-ignore warnings disabled in optional-torch modules (`c79462f3e`).
+- CI lint and typecheck baselines fixed; redacted bridge-status tool added; C901 + MCP tests wired (`39881c783`, `b62637a79`).
+
+## Documentation
+
+- v0.25.5 release log and `STATUS.md` updates (`7fd8a398e`, `79769fb57`, `85c30e7f6`, `7d93b678a`).
+- Post-audit corrections for D-2, O-3, and CI red streak (`ae7dd6b9b`, `1b3397970`, `b57c2e454`, `b02aed4da`).
+- F3/F4/F5 remediation and 2026-09-09 validation notes (`163e249d0`, `362169a2b`, `d4144972d`, `e67e130ab`, `9b4ac089f`).
+- `MEGAPLAN.md` and `TASKLIST.md` untracked (`83bf08fa7`).
+- Admin-router wallet creation, cpuset cleanup, and BOND_SLASH operational notes (`df85fedc8`, `84f3120d3`, `b486147f1`, `e41b2d7e0`, `25a4eeee5`).
+- AWStats setup on `hub.aitbc` recorded (`3ae7ea266`).
+
+## Known limitations / follow-ups
+
+- Multi-validator consensus source support is complete and live; attestation threshold can be raised from `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` to `2` after a longer observation window.
+- `MockFHEProvider` is still registered alongside `tenseal`; a future release should restrict `mock` to non-production environments.
+
+## Full commit list
+
+```text
+4f56210af fix(rpc): normalize chain_id default and count lease subscribers as island peers
+ce3a4c363 fix(auth): re-export AdminOrClientDep in coordinator_api.auth
+ede8622b1 fix(auth,node): allow admin wallets to drive client job/payment routes and avoid loopback in network-info
+07aadd301 fix(cli): normalize BLOCKCHAIN_RPC_URL ending in /rpc
+145f585ed feat(cli): show AIT by default and units as balance_units
+1a2007959 feat(cli): add aitbc coin-requests request for follower init coins
+3451e00ee feat(cli): use https and canonical chain_id for market offer commands
+c7b728ce2 feat(faucet): purge FAUCET transaction type from consensus and state
+9b1ebf62b docs: update scenario and system-flow docs for genesis funding
+4345b881b feat(faucet): remove devnet faucet and promote genesis funding
+c8c2afb12 feat(cli): add aitbc genesis reset command for operational chain reset
+d4224233b feat(auth): make JWT token expiry configurable and support non-expiring tokens
+df85fedc8 docs: record dedicated admin-router wallet creation
+84f3120d3 docs: record node0/node1 cpuset.conf cleanup
+a7d77d302 fix(cli): cast json.loads return in _jwt_payload to silence mypy
+1f154d600 fix(cli): correct expired-token test to exercise the real get_admin_token path
+39b348979 feat(cli): detect expired admin JWT and suggest re-login
+b486147f1 docs: record BOND_SLASH_PRIVATE_KEY operational fix on node2
+e41b2d7e0 docs: record BOND_SLASH_PRIVATE_KEY mismatch and fail-safe validation
+64ffb6740 fix(coordinator): validate BOND_SLASH_PRIVATE_KEY against authority address
+25a4eeee5 docs: record 2026-09-09 admin router restore and wallet key mismatch
+e3518c253 fix(cli, coordinator): strip /v1 from admin client base URL and drop NODE_ENV gate
+e3b723a11 fix(coordinator): Settings.environment also reads NODE_ENV
+6dc1a34c8 fix(coordinator): remove NODE_ENV from environment detection
+17c5f305a fix(coordinator): do not derive production mode from NODE_ENV
+3fec31fb1 fix(cli, coordinator): repair admin client tests and production gate
+86e2d65ec fix(cli, coordinator): restore admin-router access and warn on empty allowlist
+24d787863 feat(wallet): auto-import encrypted dict private keys
+a7165e308 fix: replace legacy 8011 defaults with 8203 coordinator API
+3ae7ea266 docs: record AWStats setup on hub.aitbc
+cd91676a0 fix(cli): authenticate monitor sweepers as admin
+dcc111bea fix(ffmpeg): raise subprocess timeouts from 5s to 15s
+4f90b02fb feat(coordinator,cli): expose background sweepers read-only
+9b4ac089f docs: final fleet convergence re-check at 6090 -> 6092
+250fa42d4 feat(cli,node): add network gossip, backed by a real liveness gauge
+e67e130ab docs: record Redis and RPC API key re-rotation after genesis migration
+d4144972d docs: mark F5 closed with genesis wallet migration
+83bf08fa7 chore(docs): untrack MEGAPLAN.md and TASKLIST.md
+1b6d08ecc fix(monitoring,docs): detect env shadowing, correct the tee deferral docs
+9bbb48779 feat(cli): add dispute command group
+362169a2b docs: update F5 status with DB and miner token rotation
+163e249d0 docs: F3/F4/F5 remediation and 2026-09-09 validation note
+58d8dca1f fix(monitoring): extend fleet-config-check sleep to 90s to avoid false HALTs
+c9c35d033 fix(monitoring): detect chain halts in fleet-config-check.sh
+aef0b5099 fix(monitoring): pull-based convergence check over node RPC (F1 done right)
+976cec9e9 fix(monitoring): fleet-config-check host resolution + clean exit (F1/F2)
+04fbbcc8a fix(deploy): on-demand link aitbc-backup.service before pre-update backup
+596d73844 fix(deploy): skip sqlcipher3-binary on non-x86_64 aarch64 installs
+dc1f1cf32 feat(monitoring): chain-head convergence check in fleet-config-check (S8)
+9ce3489a2 fix(config): strict EVM-address validation at config boundaries (S1-S7)
+e75e7355b refactor(state): extract v3 escrow pre-fetch helper to keep C901 baseline
+fe5f4a451 fix(state): pre-fetch escrow accounts and build context for v2/v3 parallel path
+2baf883f3 feat(state): wire escrow_context into parallel callers, enable v3 parallel path
+1c8df3a50 refactor(state): split pure_state_delta helpers to keep C901 baseline
+1df6eb365 fix(state): model v3 ESCROW_RELEASE and ESCROW_REFUND in pure_state_transition
+a5b39ec66 feat(deploy): append-only per-host deploy log in update.sh
+38acca737 fix(state): implement v3 ESCROW_LOCK in pure_state_transition
+0c460fe9f fix(coordinator): make historical-schema upgrade converge to current models
+f7262cc64 fix(state): plumb block_version through pure_state_transition and guard v3 parallel path
+628f99a74 fix(chain): gate GOVERNANCE_EXECUTE senders via on-chain executor list
+14d2b9e59 fix(contracts): PaymentProcessor release authorization and escrow/payment tests
+1d5b7bba6 fix(rpc): relay REST-submitted transactions to mesh peers
+5c79eebe3 fix(chain): make bond-slash authority deterministic + auditable
+7d93b678a docs(release): final reconciliation — O-3 closed, register fully closed
+85c30e7f6 docs(release): update v0.25.5 known limitations to current open-task state
+79769fb57 docs(v0.25.5): note R7 closure and remaining open items
+7ccdabf9b feat(consensus): R7 — include active proposer phase in watchdog ERROR and metric
+6e6bb2161 docs(v0.25.5): record ENFORCE_STATE_ROOT_VALIDATION cleanup and remaining open items
+1b3397970 docs(v0.25.5): record ENFORCE_STATE_ROOT_VALIDATION cleanup and remaining open items
+b57c2e454 docs(v0.25.5): give CLI escrow guard its own main disposition
+b02aed4da docs(v0.25.5): correct CI red-streak count to 162 runs
+ae7dd6b9b docs(v0.25.5): post-audit corrections for D-2, O-3 and CI red streak
+8cb48178d test(contracts): add EscrowService Solidity coverage and fix releaseTime storage
+d119e8ca9 fix(s4): new blocks default to v2, not v1
+f1b0d465a feat(s4): v3 per-escrow activation rule, beneficiary and authority checks
+c79462f3e fix(mypy): disable unused-ignore warnings in optional-torch modules
+3d09e8105 fix(coordinator): make B-8 schema-conformance migration aware of all models
+5cafb57ea chore(mypy): tighten baseline to 6 known errors
+6651dc3b1 fix(coordinator): separate client constraints from server-owned spot-check evidence (S-3/R1)
+b62637a79 fix(ci): typecheck baseline and opentelemetry import
+39881c783 fix(ci): resolve lint failures, add redacted bridge-status tool, and wire C901 + MCP tests
+7fd8a398e docs(release): add v0.25.5 change log and update STATUS.md
+```
