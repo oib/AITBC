@@ -244,6 +244,9 @@ class Settings(BaseAITBCConfig):
     eth_rpc_url: str | None = Field(default=None, description="Ethereum JSON-RPC URL for energy oracle reads")
     energy_pricing_contract_address: str | None = Field(default=None, description="IEnergyPricing contract address")
     energy_pricing_chain_id: int = Field(default=1, description="EVM chain ID for energy oracle reads")
+    native_energy_pricing: bool = Field(
+        default=False, description="Use coordinator-native tables instead of EVM for energy inputs"
+    )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime")
     energy_max_rate_age_seconds: int = Field(default=300, description="Maximum age of an energy rate observation")
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
