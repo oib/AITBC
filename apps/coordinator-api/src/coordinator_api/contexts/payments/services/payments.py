@@ -61,35 +61,50 @@ _ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
-def _resolve_authoritative_inputs(quote: EnergyQuote) -> tuple[Any, Any]:
+def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session) -> tuple[Any, Any]:
     """Return the authoritative (profile, rate) for a quote from the energy oracle.
 
     Reads the on-chain ``IEnergyPricing`` contract at the quote's pinned EVM
     block when available, so the funding gate compares the quote against the
     operator-registered inputs rather than the quote's self-attested embedded
-    values. Falls back to the quote's embedded profile/rate only when the
-    oracle is not configured (e.g. local tests), matching the previous
-    behaviour so existing flows are not broken by this hardening.
+    values. When the coordinator is configured for native energy pricing, reads
+    from the local ``NativeEnergyOracle`` tables instead.
     """
+    if settings.native_energy_pricing:
+        from ...marketplace.services.native_energy import NativeEnergyOracle
+
+        try:
+            native_oracle = NativeEnergyOracle(session)
+            profile = native_oracle.get_profile(quote.resource_id)
+            rate = native_oracle.get_rate()
+            return profile, rate
+        except Exception as exc:
+            logger.warning(
+                "Native energy oracle read failed for resource %s; refusing protected funding: %s",
+                quote.resource_id,
+                exc,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail=f"Could not read native energy inputs: {exc}",
+            ) from exc
+
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
     from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
     contract = settings.energy_pricing_contract_address
     rpc_url = settings.eth_rpc_url
     if not contract or not rpc_url:
-        # A-4: fail-closed — no fallback to self-attested quote values.
-        # The operator must configure ENERGY_PRICING_CONTRACT_ADDRESS and
-        # ETH_RPC_URL so the funding gate reads the on-chain oracle.
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Energy pricing oracle is not configured (ENERGY_PRICING_CONTRACT_ADDRESS / ETH_RPC_URL); refusing protected funding",
         )
     try:
         rpc = EthereumRPCClient(EthereumConfig(rpc_url=rpc_url, network=str(settings.energy_pricing_chain_id)))
-        oracle = EVMEnergyOracle(rpc, contract, settings.energy_pricing_chain_id)
+        evm_oracle = EVMEnergyOracle(rpc, contract, settings.energy_pricing_chain_id)
         block = quote.evm_block_number if quote.evm_block_number is not None else "latest"
-        profile = oracle.get_profile(quote.resource_id, block_identifier=block)
-        rate = oracle.get_rate(block_identifier=block)
+        profile = evm_oracle.get_profile(quote.resource_id, block_identifier=block)
+        rate = evm_oracle.get_rate(block_identifier=block)
         return profile, rate
     except Exception as exc:
         logger.warning(
@@ -334,7 +349,7 @@ class PaymentService:
                 # Evaluate against the authoritative oracle snapshot rather than
                 # the quote's embedded profile/rate. This prevents a caller from
                 # embedding arbitrary terms and funding below the real floor.
-                authoritative_profile, authoritative_rate = _resolve_authoritative_inputs(quote)
+                authoritative_profile, authoritative_rate = _resolve_authoritative_inputs(quote, self.session)
                 result = evaluate_quote(
                     quote=quote,
                     profile=authoritative_profile,
