@@ -425,7 +425,7 @@ async def quote_gpu(
         constraints=Constraints(
             gpu=gpu.model,
             region=gpu.region,
-            min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
+            min_vram_gb=None,
         ),
         ttl_seconds=duration_seconds + settings.energy_quote_lifetime_seconds + 60,
     )
@@ -645,7 +645,7 @@ async def buy_gpu(
                 constraints=Constraints(
                     gpu=quote_model_id,
                     region=gpu.region,
-                    min_vram_gb=gpu.memory_gb if gpu.memory_gb else None,
+                    min_vram_gb=None,
                     max_price=total_cost * Decimal("1.1"),
                 ),
                 ttl_seconds=int(duration_dec * 3600),
