@@ -10,6 +10,7 @@ import warnings
 
 from aitbc.auth import (
     AdminDep,
+    AdminOrClientDep,
     AuthDep,
     AuthLevel,
     AuthMiddleware,
@@ -21,6 +22,7 @@ from aitbc.auth import (
     get_auth_level,
     get_jwt_auth,
     require_admin,
+    require_admin_or_client,
     require_auth,
     require_client,
     require_miner,
@@ -60,10 +62,12 @@ __all__ = [
     "verify_access_token",
     "require_auth",
     "require_admin",
+    "require_admin_or_client",
     "require_client",
     "require_miner",
     "AuthDep",
     "AdminDep",
+    "AdminOrClientDep",
     "ClientDep",
     "MinerDep",
     "AuthLevel",
