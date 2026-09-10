@@ -157,14 +157,23 @@ def _wait_for_job(
             state = status.get("state", state)
 
         # For paid jobs, the miner triggers escrow release after submitting the
-        # result. Allow a short extra window for payment_status to flip.
+        # result. Allow a short extra window for payment_status to flip; if the
+        # coordinator is holding the payment for customer acceptance, accept it
+        # on behalf of the customer so a --wait invocation runs end-to-end.
         if payment_id and state == "COMPLETED":
+            accept_attempted = False
             while status.get("payment_status") != "released":
                 if _timed_out():
                     abort(
                         ctx,
                         f"Job {job_id} completed but payment {payment_id} was not released within timeout",
                     )
+                if not accept_attempted and status.get("payment_status") in ("escrowed", "pending_acceptance"):
+                    try:
+                        http_client.post(f"/v1/jobs/{job_id}/accept")
+                    except Exception as e:
+                        logger.warning("Could not auto-accept job %s: %s", job_id, e)
+                    accept_attempted = True
                 time.sleep(min(poll_interval, 2.0))
                 try:
                     status = http_client.get(f"/v1/jobs/{job_id}")
