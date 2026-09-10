@@ -42,6 +42,9 @@ if MINER_ID == AUTH_TOKEN:
 HEARTBEAT_INTERVAL = 15
 MAX_RETRIES = 10
 RETRY_DELAY = 30
+# In-memory set of job IDs currently running in worker threads. Used to report
+# accurate inflight counts to the coordinator and to respect max_concurrent_jobs.
+ACTIVE_JOB_IDS: set[str] = set()
 coordinator_client = AITBCHTTPClient(
     base_url=COORDINATOR_URL, headers={"X-Api-Key": AUTH_TOKEN, "Content-Type": "application/json"}, timeout=30
 )
@@ -270,7 +273,12 @@ async def wait_for_coordinator():
 
 def register_miner():
     """Register the miner with the coordinator"""
-    register_data = {"capabilities": build_gpu_capabilities(), "concurrency": 1, "region": "localhost"}
+    capabilities = build_gpu_capabilities()
+    register_data = {
+        "capabilities": capabilities,
+        "concurrency": capabilities.get("max_concurrent_jobs", 1),
+        "region": capabilities.get("region", "localhost"),
+    }
     if MINER_WALLET_ADDRESS:
         register_data["wallet_address"] = MINER_WALLET_ADDRESS
     else:
@@ -299,10 +307,12 @@ def send_heartbeat():
     gpu_info = get_gpu_info()
     arch = classify_architecture(gpu_info["name"]) if gpu_info else "unknown"
     latency_ms = measure_coordinator_latency()
+    inflight_count = len(ACTIVE_JOB_IDS)
     if gpu_info:
         heartbeat_data = {
             "status": "ONLINE",
-            "current_jobs": 0,
+            "inflight": inflight_count,
+            "current_jobs": inflight_count,
             "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": gpu_info["utilization"],
             "memory_used": gpu_info["memory_used"],
@@ -314,7 +324,8 @@ def send_heartbeat():
     else:
         heartbeat_data = {
             "status": "ONLINE",
-            "current_jobs": 0,
+            "inflight": inflight_count,
+            "current_jobs": inflight_count,
             "last_seen": datetime.now(UTC).isoformat(),
             "gpu_utilization": 0,
             "memory_used": 0,
@@ -360,10 +371,11 @@ def build_pool_hub_heartbeat_data():
     """Build the payload the pool hub expects for a heartbeat."""
     gpu_info = get_gpu_info()
     latency_ms = measure_coordinator_latency()
+    inflight_count = len(ACTIVE_JOB_IDS)
     if gpu_info:
         return {
             "status": "active",
-            "current_jobs": 0,
+            "current_jobs": inflight_count,
             "gpu_utilization": gpu_info["utilization"],
             "memory_used": gpu_info["memory_used"],
             "memory_total": gpu_info["memory_total"],
@@ -371,7 +383,7 @@ def build_pool_hub_heartbeat_data():
         }
     return {
         "status": "active",
-        "current_jobs": 0,
+        "current_jobs": inflight_count,
         "gpu_utilization": 0,
         "memory_used": 0,
         "memory_total": 0,
@@ -824,6 +836,12 @@ async def main():
     # shop is discoverable through `aitbc market list` immediately.
     await asyncio.to_thread(publish_default_offers, models)
 
+    capabilities = build_gpu_capabilities()
+    max_concurrent_jobs = int(capabilities.get("max_concurrent_jobs", 1))
+
+    def _on_job_done(job_id: str, task: asyncio.Task) -> None:
+        ACTIVE_JOB_IDS.discard(job_id)
+
     last_heartbeat = 0.0
     last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
@@ -843,11 +861,21 @@ async def main():
                 await asyncio.to_thread(publish_default_offers, models)
                 last_offer_publish = current_time
             if current_time - last_poll >= 3:
-                job = poll_for_jobs()
-                if job:
-                    # Run the blocking, potentially slow model execution in a
-                    # worker thread so heartbeats and the next poll continue.
-                    asyncio.create_task(asyncio.to_thread(execute_job, job, models))
+                # Only poll if we have capacity; the coordinator also checks
+                # inflight, but a local guard avoids thundering-herd polls and
+                # reflects the actual thread count.
+                if len(ACTIVE_JOB_IDS) < max_concurrent_jobs:
+                    job = poll_for_jobs()
+                    if job:
+                        job_id = job.get("job_id")
+                        if job_id:
+                            ACTIVE_JOB_IDS.add(job_id)
+                            # Run the blocking, potentially slow model execution in a
+                            # worker thread so heartbeats and the next poll continue.
+                            task = asyncio.create_task(asyncio.to_thread(execute_job, job, models))
+                            task.add_done_callback(lambda t, jid=job_id: _on_job_done(jid, t))
+                else:
+                    logger.debug("At max capacity (%s/%s jobs); skipping poll", len(ACTIVE_JOB_IDS), max_concurrent_jobs)
                 last_poll = current_time
             await asyncio.sleep(1)
     except KeyboardInterrupt:
