@@ -3523,6 +3523,7 @@ if __name__ == "__main__":
     sys.modules["aitbc_mcp_server"] = sys.modules["__main__"]
 
 import aitbc_mcp_cli_tools  # noqa: F401  # registers more CLI tools
+import aitbc_mcp_cli_tools_generated  # noqa: F401  # registers auto-generated CLI tools
 
 # ---------------------------------------------------------------------------
 # Additional typed RPC tools from the companion module
