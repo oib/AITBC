@@ -5249,7 +5249,7 @@
           "consensus"
         ],
         "summary": "Get consensus status",
-        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.\n\n``current_view``, ``current_sequence`` and ``current_epoch`` are only\nmeaningful when PBFT is enabled. ``fault_tolerance`` and\n``required_messages`` are derived from the active validator set size and\n``MULTI_VALIDATOR_MIN_ATTESTATIONS``; they do not come from a live PBFT\nengine when PBFT is disabled.",
+        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.\n\n``current_view``, ``current_sequence`` and ``current_epoch`` are only\nmeaningful when PBFT is enabled.\n\n``fault_tolerance`` and ``required_messages`` are standard BFT values\nderived from the active validator count (``f = floor((n-1)/3)`` and\n``2f + 1``). ``multi_validator_min_attestations`` is the live\ncrash-tolerance threshold: a block is accepted when it carries at least\nthat many attestations.",
         "operationId": "consensus_status_route_rpc_consensus_status_get",
         "parameters": [
           {
@@ -14686,7 +14686,7 @@
           "consensus"
         ],
         "summary": "Get consensus status",
-        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.\n\n``current_view``, ``current_sequence`` and ``current_epoch`` are only\nmeaningful when PBFT is enabled. ``fault_tolerance`` and\n``required_messages`` are derived from the active validator set size and\n``MULTI_VALIDATOR_MIN_ATTESTATIONS``; they do not come from a live PBFT\nengine when PBFT is disabled.",
+        "description": "Get consensus mode, view, sequence, epoch, and fault tolerance.\n\n``current_view``, ``current_sequence`` and ``current_epoch`` are only\nmeaningful when PBFT is enabled.\n\n``fault_tolerance`` and ``required_messages`` are standard BFT values\nderived from the active validator count (``f = floor((n-1)/3)`` and\n``2f + 1``). ``multi_validator_min_attestations`` is the live\ncrash-tolerance threshold: a block is accepted when it carries at least\nthat many attestations.",
         "operationId": "consensus_status_route_v1_consensus_status_get",
         "parameters": [
           {
