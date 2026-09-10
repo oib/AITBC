@@ -88,30 +88,45 @@ def send(ctx, wallet_id: str, recipient_id: str, amount: str):
         validate_payment(payment)
         receipt = settle_payment(payment)
         client = _api_client()
+        simulated_result = {
+            "tx_id": tx.tx_id,
+            "sender_id": tx.sender_id,
+            "recipient_id": tx.recipient_id,
+            "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
+            "signature": tx.signature.hex() if tx.signature else "",
+            "settled": receipt["settled"],
+            "status": "simulated",
+            "confidential": True,
+        }
         if client is None:
-            result = {
-                "tx_id": tx.tx_id,
-                "sender_id": tx.sender_id,
-                "recipient_id": tx.recipient_id,
-                "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
-                "signature": tx.signature.hex() if tx.signature else "",
-                "settled": receipt["settled"],
-                "status": "simulated",
-            }
+            result = simulated_result
         else:
-            result = client.post(
-                "/v1/confidential/payments",
-                json={
-                    "payment_id": tx.tx_id,
-                    "sender_id": tx.sender_id,
-                    "recipient_id": tx.recipient_id,
-                    "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
-                },
-            )
+            try:
+                result = client.post(
+                    "/v1/confidential/payments",
+                    json={
+                        "payment_id": tx.tx_id,
+                        "sender_id": tx.sender_id,
+                        "recipient_id": tx.recipient_id,
+                        "amount_commitment": tx.amount_commitment.hex() if tx.amount_commitment else "",
+                    },
+                )
+            except NetworkError as e:
+                # A 503 from the coordinator means confidential TEE settlement is not enabled;
+                # fall back to the local simulated settlement rather than failing outright.
+                if "503" in str(e) or "Service Unavailable" in str(e):
+                    click.echo(
+                        "Coordinator does not have confidential TEE enabled; using simulated local settlement.",
+                        err=True,
+                    )
+                    result = simulated_result
+                else:
+                    raise
             # The envelope was still built by an unpersisted local wallet, and no range proof
             # accompanies the commitment. Saying so on this branch too is the V23-19a fix.
             if isinstance(result, dict):
                 result.setdefault("status", "simulated")
+                result.setdefault("confidential", True)
         output(result, ctx.obj.get("output_format", "table"), title="Confidential Send")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
