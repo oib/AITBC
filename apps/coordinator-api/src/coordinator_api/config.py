@@ -64,6 +64,9 @@ class Settings(BaseAITBCConfig):
     fhe_allow_mock: bool | None = Field(
         default=None, description="Allow the plaintext MockFHEProvider; default is True in dev/test, False in production"
     )
+    confidential_tee_enabled: bool = Field(
+        default=False, description="Enable confidential TEE payment settlement; default is False for fail-closed behaviour"
+    )
 
     @model_validator(mode="before")
     @classmethod
