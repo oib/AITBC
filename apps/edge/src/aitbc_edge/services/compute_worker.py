@@ -115,8 +115,8 @@ async def _execute_request(
 
 
 async def _mark_request_status(
-    request_id: str, status: str, started_at: datetime | None = None
-) -> ComputeRequest | None:
+    request_id: str, status: str, started_at: datetime | None = None, error: str | None = None
+) -> None:
     """Load and update the status of a compute request."""
     async with get_session() as session:
         result = await session.execute(
@@ -125,32 +125,38 @@ async def _mark_request_status(
         request = result.scalar_one_or_none()
         if request is None:
             logger.warning("Request %s not found while updating status", request_id)
-            return None
+            return
 
         request.status = status
         request.updated_at = datetime.now(UTC)
         if started_at is not None:
             request.started_at = started_at
+        if error is not None:
+            request.error = error
         await session.commit()
-        return request
 
 
 async def _execute_and_store(request_id: str) -> None:
     """Execute a queued request and persist the result."""
-    request = await _mark_request_status(request_id, "running", datetime.now(UTC))
-    if request is None:
-        return
-
-    output_data, metrics, _execution_time, success, error = await _execute_request(request)
-
     async with get_session() as session:
         result = await session.execute(
             select(ComputeRequest).where(ComputeRequest.request_id == request_id)
         )
         request = result.scalar_one_or_none()
         if request is None:
-            logger.warning("Request %s disappeared before result could be stored", request_id)
+            logger.warning("Request %s not found", request_id)
             return
+        if request.status != "queued":
+            return
+
+        request.status = "running"
+        request.started_at = datetime.now(UTC)
+        request.updated_at = datetime.now(UTC)
+        await session.commit()
+        # Keep the ORM object attached while we execute so attribute access works.
+        await session.refresh(request)
+
+        output_data, metrics, _execution_time, success, error = await _execute_request(request)
 
         request.completed_at = datetime.now(UTC)
         request.updated_at = datetime.now(UTC)
@@ -206,12 +212,12 @@ async def process_queued_requests() -> int:
         try:
             await _execute_and_store(request_id)
             count += 1
-        except Exception:
-            logger.exception("Failed to process queued request %s", request_id)
+        except Exception as exc:
+            logger.exception("Failed to process queued request %s: %s", request_id, exc)
             try:
-                await _mark_request_status(request_id, "failed")
-            except Exception:
-                logger.exception("Could not mark request %s as failed", request_id)
+                await _mark_request_status(request_id, "failed", error=str(exc))
+            except Exception as mark_exc:
+                logger.exception("Could not mark request %s as failed: %s", request_id, mark_exc)
     return count
 
 
