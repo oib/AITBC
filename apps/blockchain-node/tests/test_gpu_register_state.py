@@ -185,3 +185,70 @@ def test_gpu_allocate_creates_record_and_takes_fee(session, st):
     assert allocation.duration_hours == 2.0
     assert str(allocation.total_cost) == "0.20000000"
     assert allocation.allocated_by == sender
+
+
+def test_gpu_register_requires_sequential_delta():
+    """The pure/parallel delta map cannot model the gpu_registration side effect,
+    so it must force a sequential fallback through the full state transition."""
+    from aitbc_chain.state.pure_state_transition import compute_state_delta
+
+    tx_data = {
+        "from": "0x" + "aa" * 20,
+        "to": "0x" + "aa" * 20,
+        "amount": 0,
+        "fee": 36,
+        "nonce": 0,
+        "type": "GPU_REGISTER",
+        "chain_id": "ait-test",
+        "payload": {
+            "gpu_id": "gpu-parallel",
+            "miner_id": "miner-1",
+            "model": "RTX 4090",
+            "memory_gb": 24,
+            "price_per_hour": "0.1",
+        },
+    }
+    delta = compute_state_delta(
+        {},
+        tx_data,
+        "ait-test",
+        tx_hash="tx-gpu-parallel",
+        existing_tx_hashes=set(),
+        block_version=2,
+    )
+    assert not delta.success
+    assert delta.requires_sequential
+    assert "GPU_REGISTER" in delta.error
+    assert "sequentially" in delta.error
+
+
+def test_gpu_allocate_requires_sequential_delta():
+    """GPU_ALLOCATE must also force sequential processing in the parallel delta path."""
+    from aitbc_chain.state.pure_state_transition import compute_state_delta
+
+    tx_data = {
+        "from": "0x" + "aa" * 20,
+        "to": "0x" + "aa" * 20,
+        "amount": 0,
+        "fee": 36,
+        "nonce": 0,
+        "type": "GPU_ALLOCATE",
+        "chain_id": "ait-test",
+        "payload": {
+            "gpu_id": "gpu-1",
+            "client_id": "0x" + "bb" * 20,
+            "duration_hours": 2.0,
+            "total_cost": "0.2",
+        },
+    }
+    delta = compute_state_delta(
+        {},
+        tx_data,
+        "ait-test",
+        tx_hash="tx-gpu-allocate",
+        existing_tx_hashes=set(),
+        block_version=2,
+    )
+    assert not delta.success
+    assert delta.requires_sequential
+    assert "GPU_ALLOCATE" in delta.error
