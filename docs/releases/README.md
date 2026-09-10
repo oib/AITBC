@@ -30,6 +30,7 @@ Read the release notes newest-first:
 ### Current Releases (v0.5.x+)
 
 - **[v0.25.0](v0.25/v0.25.0_change.log)** - On-chain liquidity, sync consolidation and MCP expansion
+- **[v0.25.6](v0.25/v0.25.6_change.log)** - Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path
 - **[v0.25.1](v0.25/v0.25.1_change.log)** - Open follow-ups and design notes after v0.25.0
 - **[v0.24.0](v0.24/v0.24.0_change.log)** - Hub node development special (split into v0.24.1–v0.24.18 by topic)
 - **[v0.23.0](v0.23/v0.23.0_change.log)** - Design & Correctness Audit (split into v0.23.1–v0.23.34 by topic)
