@@ -49,10 +49,9 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/explorer/*": AuthLevel.NONE,
     # D2: same wildcard gap as "/v1/payments" below -- "/v1/blocks/*" does not
     # match "/v1/blocks", so the block list fell through to deny-by-default even
-    # though the endpoint is a normal client route. CLIENT, not NONE: the handler
-    # in client.py carries its own ClientDep, and the matrix has to agree with it
-    # or the middleware waves through a request the dependency then rejects.
-    "/v1/blocks": AuthLevel.CLIENT,
+    # though the endpoint is a normal client route. ADMIN_OR_CLIENT matches the
+    # AdminOrClientDep used in client.py so the middleware and route agree.
+    "/v1/blocks": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/blocks/*": AuthLevel.NONE,
     "/v1/transactions/*": AuthLevel.NONE,
     "/v1/accounts/*": AuthLevel.NONE,
@@ -84,13 +83,14 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/marketplace/gpu/*/confirm": AuthLevel.MINER,
     "/v1/marketplace/gpu/*/delete": AuthLevel.MINER,
     "/v1/marketplace/gpu/sync-offers": AuthLevel.MINER,
-    # Client routes
-    "/v1/jobs": AuthLevel.CLIENT,
-    "/v1/jobs/*": AuthLevel.CLIENT,
-    "/v1/marketplace/gpu/purchase": AuthLevel.CLIENT,
-    "/v1/marketplace/gpu/quote": AuthLevel.CLIENT,
-    "/v1/marketplace/gpu/*/book": AuthLevel.CLIENT,
-    "/v1/marketplace/gpu/bid": AuthLevel.CLIENT,
+    # Client routes. Admin wallets (operator accounts) also drive the customer
+    # job/payment workflow, so these accept admin-or-client.
+    "/v1/jobs": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/jobs/*": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/gpu/purchase": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/gpu/quote": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/gpu/*/book": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/gpu/bid": AuthLevel.ADMIN_OR_CLIENT,
     # D2: the bare collection path needs its own entry. get_auth_level() tries an
     # exact match and then fnmatch, and "/v1/payments" does not match
     # "/v1/payments/*" -- so POST /v1/payments fell through to the CORE-03
@@ -99,9 +99,9 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # with it unreachable no priced job could ever reach payment_status
     # "escrowed", and the G2 and G3 gates downstream of it were unreachable too.
     # "/v1/jobs" and "/v1/jobs/*" above are the same pair spelled correctly.
-    "/v1/payments": AuthLevel.CLIENT,
-    "/v1/payments/send": AuthLevel.CLIENT,
-    "/v1/payments/*": AuthLevel.CLIENT,
+    "/v1/payments": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/payments/send": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/payments/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/exchange/*": AuthLevel.CLIENT,
     # Admin or client routes
     "/v1/governance*": AuthLevel.ADMIN_OR_CLIENT,

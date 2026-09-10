@@ -12,7 +12,7 @@ from aitbc.network import AITBCHTTPClient
 from aitbc_shared import JobPayment
 from aitbc.rate_limiting import rate_limit
 
-from ....auth import ClientDep
+from ....auth import AdminOrClientDep
 from ....config import settings
 from ...marketplace.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
 from ...payments.acceptance import PENDING_ACCEPTANCE
@@ -95,7 +95,7 @@ async def submit_job(
     req: JobCreate,
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobView:
     req, quote = await _apply_offer_quote(req)
     service = JobService(session)
@@ -161,7 +161,7 @@ async def get_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobView:
     service = JobService(session)
     try:
@@ -177,7 +177,7 @@ async def get_job_result(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobResult:
     service = JobService(session)
     try:
@@ -197,7 +197,7 @@ async def cancel_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobView:
     service = JobService(session)
     try:
@@ -216,7 +216,7 @@ async def get_job_receipt(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> dict:
     service = JobService(session)
     try:
@@ -234,7 +234,7 @@ async def list_job_receipts(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> dict:
     service = JobService(session)
     receipts = service.list_receipts(job_id, client_id=user["sub"])
@@ -247,7 +247,7 @@ async def list_job_receipts(
 async def list_jobs(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
@@ -273,7 +273,7 @@ async def list_jobs(
 async def get_job_history(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
     limit: int = 20,
     offset: int = 0,
     status: str | None = None,
@@ -318,7 +318,7 @@ async def get_job_history(
 async def get_blocks(
     request: Request,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
     limit: int = 20,
     offset: int = 0,
 ) -> dict:
@@ -348,7 +348,7 @@ async def accept_job(
     request: Request,
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobView:
     """Release the held escrow now, without waiting for the window to expire (G3).
 
@@ -400,7 +400,7 @@ async def reject_job(
     job_id: str,
     req: JobRejection,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobView:
     """Refuse the delivered result. The escrow stays locked pending a ruling (G3).
 
