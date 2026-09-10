@@ -522,11 +522,9 @@ def release(ctx, job_id, yes, json_output):
         error(f"Release failed: {e}")
         sys.exit(1)
 
-    if json_output:
-        output(json.dumps(result, indent=2, default=str))
-    else:
-        success(f"Release submitted for job {job_id}")
-        info(f"Status: {result.get('status', 'unknown')}")
+    success(f"Release submitted for job {job_id}")
+    fmt = "json" if json_output else "table"
+    output(result, format=fmt)
 
 
 @gpu.command()
