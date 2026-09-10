@@ -47,8 +47,10 @@ async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
             required_messages = max(2, min(base_required, min_attestations + 1))
         else:
             required_messages = base_required
+        pbft_enabled = getattr(settings, "pbft_consensus_enabled", False)
+        mode = "MultiValidatorPoA + PBFT" if pbft_enabled else "MultiValidatorPoA"
         return {
-            "mode": "MultiValidatorPoA + PBFT",
+            "mode": mode,
             "multi_validator_enabled": True,
             "chain_id": chain_id,
             "current_view": consensus._pbft_view,

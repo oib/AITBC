@@ -5257,8 +5257,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "ait-hub",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Chain Id"
             }
           }
@@ -5314,8 +5320,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "ait-hub",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Chain Id"
             }
           }
@@ -5371,8 +5383,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "ait-hub",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Chain Id"
             }
           }
@@ -14676,8 +14694,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "ait-hub",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Chain Id"
             }
           }
@@ -14733,8 +14757,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "ait-hub",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Chain Id"
             }
           }
@@ -14790,8 +14820,14 @@
             "in": "query",
             "required": false,
             "schema": {
-              "type": "string",
-              "default": "ait-hub",
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
               "title": "Chain Id"
             }
           }
