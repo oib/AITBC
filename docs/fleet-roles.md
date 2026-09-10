@@ -24,15 +24,16 @@ the subset relationship and the addopts/plugin correspondence.
 | host | role | GPU | dev tier | why |
 |---|---|---|---|---|
 | `at1` (IDE) | authoring, the only push point | — | **yes** | where code is written, linted, committed and mirrored |
-| `node0` | validator, GPU | yes | no | validator with recovery + backup timers; keep the runtime lean |
+| `node0` | customer / follower, GPU | yes | no | primary customer node; `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid marketplace jobs run here |
 | `node1` | follower, GPU | yes | no | production follower |
 | `node2` | follower, GPU, service workhorse | yes | **yes** | runs the widest set of services (coordinator-api, marketplace, miner, pool-hub, edge, whisper, ffmpeg, hermes-agent), so it is the most representative place to reproduce and test integration behaviour |
-| `hub.aitbc` | public hub, api-gateway | no | **yes** | public-facing; promoted to primary hub on 2026-09-10 with 4 vCPU / 4 GB RAM and the full customer + block-production stack |
+| `hub.aitbc` | public hub, proposer | no | **yes** | public-facing; promoted to primary hub on 2026-09-10 with 4 vCPU / 4 GB RAM; runs the block-production and hub service stack (customer traffic is on `node0`) |
 | `hub1.aitbc` | follower | no | no | former hub, demoted 2026-09-10; now a follower/customer replica with minimal services (formerly `hub2.aitbc`) |
 
 `hub.aitbc` (the former `hub2.aitbc` container) was promoted with 4 vCPU and 4 GB of RAM on
-2026-09-10 and now runs the full hub/customer service stack. `hub1.aitbc`
-(formerly `hub2.aitbc`) is the demoted former hub.
+2026-09-10 and now runs the full hub/proposer service stack. Customer traffic
+is handled by `node0`. `hub1.aitbc` (formerly `hub2.aitbc`) is the demoted
+former hub.
 
 ## How a host is marked
 
