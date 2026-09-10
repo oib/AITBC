@@ -22,6 +22,7 @@ from .routers import gpu_router as gpu
 from .routers import islands_router as islands
 from .routers import metrics_router as metrics
 from .routers import serve_router as serve
+from .services.compute_worker import run_compute_worker
 from .storage import init_db
 
 logger = get_logger(__name__)
@@ -88,10 +89,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Database initialized")
     # v0.6.6: start coordinator health reporting background task
     health_task = create_task_with_logging(_report_health_to_coordinator(), name="edge_health_report")
+    # v0.10.2: start background compute worker that executes queued requests
+    worker_task = create_task_with_logging(run_compute_worker(), name="edge_compute_worker")
     # v0.6.6: Register edge node on blockchain
     await _register_edge_node_on_blockchain()
     yield
     health_task.cancel()
+    worker_task.cancel()
     logger.info("Shutting down Edge API Service")
 
 
