@@ -40,7 +40,9 @@ from ...trading.services.trading_marketplace.dynamic_pricing import (
 from ...infrastructure.services.jobs import JobService
 from ....schemas import JobCreate
 from ...infrastructure.domain.job import Job
+from ..domain.energy import NativeEnergyProfile, NativeEnergyRate
 from ..domain.gpu_marketplace import GPUBooking, GPURegistry, GPUReview
+from ..services.native_energy import NativeEnergyOracle
 from ..services.ollama_queue import get_queue
 
 logger = get_logger(__name__)
@@ -182,8 +184,10 @@ def _get_gpu_or_404(session: Session, gpu_id: str) -> GPURegistry:
     return gpu
 
 
-def _get_energy_oracle() -> EVMEnergyOracle | None:
-    """Return an EVM energy oracle if the contract and RPC are configured."""
+def _get_energy_oracle(session: Session) -> NativeEnergyOracle | EVMEnergyOracle | None:
+    """Return a native or EVM energy oracle depending on configuration."""
+    if settings.native_energy_pricing:
+        return NativeEnergyOracle(session)
     contract = settings.energy_pricing_contract_address
     rpc_url = settings.eth_rpc_url
     if not contract or not rpc_url:
@@ -193,6 +197,7 @@ def _get_energy_oracle() -> EVMEnergyOracle | None:
 
 
 def _build_energy_quote(
+    session: Session,
     gpu: GPURegistry,
     buyer: str,
     job_id: str,
@@ -209,7 +214,7 @@ def _build_energy_quote(
     is configured; otherwise it is returned unsigned (legacy behaviour) so the
     CLI can detect the missing attestation and refuse to fund.
     """
-    oracle = _get_energy_oracle()
+    oracle = _get_energy_oracle(session)
     if oracle is None:
         raise HTTPException(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -238,7 +243,7 @@ def _build_energy_quote(
     # quote carries the exact inputs the operator attested to.
     evm_block_number = None
     evm_block_hash = None
-    if settlement_route == SettlementRoute.EVM:
+    if settlement_route == SettlementRoute.EVM and isinstance(oracle, EVMEnergyOracle):
         try:
             block = oracle.rpc.get_block("latest")
             evm_block_number = int(block["number"])
@@ -449,6 +454,7 @@ async def quote_gpu(
         settlement_unit_scale = NATIVE_UNITS_PER_AIT
 
     quote_dict = _build_energy_quote(
+        session=session,
         gpu=gpu,
         buyer=request.buyer_id,
         job_id=job.id,
@@ -461,6 +467,7 @@ async def quote_gpu(
     quote = EnergyQuote.from_dict(quote_dict)
     # Validate that the minimum quote fits under the buyer cap and current freshness.
     from aitbc.marketplace.energy_pricing import evaluate_quote
+
     result = evaluate_quote(
         quote=quote,
         profile=quote.to_profile(),
@@ -1211,4 +1218,110 @@ async def bid_gpu(request: dict[str, Any], session: Annotated[Session, Depends(g
         "bid_amount": request.get("bid_amount"),
         "duration_hours": request.get("duration_hours"),
         "timestamp": datetime.now(UTC).isoformat() + "Z",
+    }
+
+
+@router.post("/marketplace/native-energy/profile", status_code=http_status.HTTP_201_CREATED)
+async def register_native_energy_profile(
+    request: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    user: MinerDep,
+) -> dict[str, Any]:
+    """Register or update an AIT-native energy profile for a GPU resource."""
+    data = request.get("profile") or request
+    resource_id = data.get("resource_id")
+    if not resource_id:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="resource_id is required")
+
+    scale = 10**18
+    eur = data.get("eur_per_kwh")
+    try:
+        eur_scaled = int(Decimal(str(eur)) * scale) if eur is not None else int(data.get("eur_per_kwh_scaled", 0))
+    except Exception:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh is not a valid number") from None
+
+    tdp = int(data.get("tdp_watts", 0))
+    if tdp <= 0:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="tdp_watts must be positive")
+    if eur_scaled <= 0:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh must be positive")
+
+    existing = session.get(NativeEnergyProfile, resource_id)
+    if existing:
+        existing.provider = data.get("provider", existing.provider)
+        existing.model_id = data.get("model_id", existing.model_id)
+        existing.tdp_watts = tdp
+        existing.eur_per_kwh_scaled = eur_scaled
+        existing.enabled = data.get("enabled", True)
+        existing.revision += 1
+        existing.updated_at = datetime.now(UTC)
+        session.add(existing)
+    else:
+        profile = NativeEnergyProfile(
+            resource_id=resource_id,
+            provider=data.get("provider", user.get("sub", "")),
+            model_id=data.get("model_id", resource_id),
+            tdp_watts=tdp,
+            eur_per_kwh_scaled=eur_scaled,
+            enabled=data.get("enabled", True),
+            revision=1,
+        )
+        session.add(profile)
+    session.commit()
+
+    return {
+        "resource_id": resource_id,
+        "status": "registered",
+        "tdp_watts": tdp,
+        "eur_per_kwh_scaled": eur_scaled,
+    }
+
+
+@router.post("/marketplace/native-energy/rate")
+async def publish_native_energy_rate(
+    request: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    user: MinerDep,
+) -> dict[str, Any]:
+    """Publish or update the global AIT/EUR rate for native energy quotes."""
+    data = request.get("rate") or request
+    scale = 10**18
+    ait_per_eur = data.get("ait_per_eur")
+    try:
+        ait_scaled = (
+            int(Decimal(str(ait_per_eur)) * scale) if ait_per_eur is not None else int(data.get("ait_per_eur_scaled", 0))
+        )
+    except Exception:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur is not a valid number") from None
+    if ait_scaled <= 0:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="ait_per_eur must be positive")
+
+    now = int(datetime.now(UTC).timestamp())
+    existing = session.get(NativeEnergyRate, 1)
+    if existing:
+        existing.ait_per_eur_scaled = ait_scaled
+        existing.version = existing.version + 1
+        existing.observed_at = data.get("observed_at", now)
+        existing.submitted_at = now
+        existing.source_kind = data.get("source_kind", "native_operator")
+        existing.enabled = data.get("enabled", True)
+        existing.updated_at = datetime.now(UTC)
+        session.add(existing)
+    else:
+        rate = NativeEnergyRate(
+            id=1,
+            ait_per_eur_scaled=ait_scaled,
+            version=1,
+            observed_at=data.get("observed_at", now),
+            submitted_at=now,
+            source_kind=data.get("source_kind", "native_operator"),
+            enabled=data.get("enabled", True),
+        )
+        session.add(rate)
+    session.commit()
+
+    return {
+        "ait_per_eur_scaled": ait_scaled,
+        "version": existing.version if existing else 1,
+        "status": "published",
     }
