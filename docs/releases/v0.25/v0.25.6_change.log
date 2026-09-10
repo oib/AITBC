@@ -90,6 +90,10 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
 - Admin-router wallet creation, cpuset cleanup, and BOND_SLASH operational notes (`df85fedc8`, `84f3120d3`, `b486147f1`, `e41b2d7e0`, `25a4eeee5`).
 - AWStats setup on `hub.aitbc` recorded (`3ae7ea266`).
 
+## Dependencies
+
+- Pin `tenseal` to `0.3.17` in `pyproject.toml`, `poetry.lock`, and `requirements.txt` to match the version running on `hub.aitbc` and `node2` (506ae9f4d).
+
 ## Known limitations / follow-ups
 
 - Multi-validator consensus source support is complete and live; attestation threshold can be raised from `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` to `2` after a longer observation window.
