@@ -29,7 +29,7 @@ def aitbc_edge_balance(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Get edge wallet balance from the coordinator API.."""
+    """Get edge wallet balance from the local edge API.."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -1158,7 +1158,7 @@ def aitbc_edge_transfer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Transfer edge tokens to another address with an optional note.."""
+    """Transfer edge tokens to another address with an optional note via the local edge API.."""
     options: dict[str, Any] = {}
     if to_address is not None:
         options["to-address"] = to_address
