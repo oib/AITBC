@@ -50,6 +50,12 @@ def _build_gpu_tx(
     if fee is None:
         fee = DEFAULT_TX_FEE_UNITS
 
+    # The blockchain RPC's TransactionRequest validator copies the top-level
+    # "to" and "amount" fields into payload (if absent) before verifying the
+    # signature, so the signed message must already contain them.
+    payload.setdefault("to", address)
+    payload.setdefault("amount", 0)
+
     tx: dict[str, Any] = {
         "from": address,
         "to": address,
