@@ -290,8 +290,10 @@ def _buy_native(
         error("Could not determine node wallet address from RPC")
         sys.exit(1)
 
+    from decimal import Decimal
+
     # Confirm the funding action.
-    charge_ait = breakdown["buyer_charge_units"] / 1e18
+    charge_ait = Decimal(str(breakdown["buyer_charge_units"])) / Decimal(str(parsed.settlement_unit_scale))
     if not yes:
         click.confirm(
             f"This will lock {charge_ait:.6f} AIT ({breakdown['buyer_charge_units']} units) "
@@ -300,8 +302,6 @@ def _buy_native(
         )
 
     # Build and sign the ESCROW_LOCK transaction locally.
-    from decimal import Decimal
-
     amount_ait = Decimal(str(charge_ait))
     lock_tx, signature = create_signed_escrow_lock(
         ctx,
