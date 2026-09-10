@@ -147,11 +147,11 @@ default_host: hub.example
 known_hosts: /etc/aitbc/ssh_known_hosts
 roles:
   hub: hub.example
-  customer: hub.example
+  customer: node0.example
   shop: shop.example
   follower: shop.example
-  customer2: replica.example
-  follower2: replica.example
+  customer2: hub1.example
+  follower2: hub1.example
 ```
 
 You can also inline it with `AITBC_MCP_HOSTS`:

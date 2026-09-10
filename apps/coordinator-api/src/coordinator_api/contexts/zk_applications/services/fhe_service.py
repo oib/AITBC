@@ -7,6 +7,8 @@ import numpy as np
 
 from aitbc.aitbc_logging import get_logger
 
+from coordinator_api.config import settings
+
 logger = get_logger(__name__)
 
 
@@ -326,28 +328,51 @@ class ConcreteMLProvider(FHEProvider):
 class FHEService:
     """Main FHE service for AITBC"""
 
-    def __init__(self) -> None:
-        self.providers: dict[str, FHEProvider] = {}
-        self.providers["mock"] = MockFHEProvider()
-        self.default_provider = "mock"
+    providers: dict[str, FHEProvider]
+    default_provider: str | None
+
+    def __init__(self, allow_mock: bool | None = None) -> None:
+        if allow_mock is None:
+            allow_mock = bool(settings.fhe_allow_mock)
+        self.providers = {}
+        if allow_mock:
+            self.providers["mock"] = MockFHEProvider()
+            self.default_provider = "mock"
+        else:
+            self.default_provider = None
         tenseal_provider: FHEProvider = TenSEALProvider()
         if tenseal_provider.available:
             self.providers["tenseal"] = tenseal_provider
             self.default_provider = "tenseal"
             logger.info("TenSEAL provider initialized and set as default")
         else:
-            logger.info("TenSEAL provider not available; using mock default")
+            logger.info("TenSEAL provider not available")
         concrete_provider: FHEProvider = ConcreteMLProvider()
         if concrete_provider.available:
             self.providers["concrete"] = concrete_provider
-            logger.info("Concrete ML provider initialized")
+            if self.default_provider != "tenseal":
+                self.default_provider = "concrete"
+                logger.info("Concrete ML provider initialized and set as default")
+            else:
+                logger.info("Concrete ML provider initialized")
         else:
             logger.info("Concrete ML provider not available (requires Python <3.13)")
+        if not allow_mock and self.default_provider is None:
+            logger.error(
+                "No real FHE provider is available and mock is disabled; "
+                "FHE endpoints will return 503 until a real backend such as TenSEAL is installed."
+            )
+        if allow_mock and self.default_provider == "mock":
+            logger.warning(
+                "FHE is using the plaintext MockFHEProvider. Install 'tenseal' to enable real homomorphic encryption."
+            )
         logger.info("Available FHE providers: %s", list(self.providers.keys()))
 
     def get_provider(self, provider_name: str | None = None) -> FHEProvider:
-        """Get FHE provider"""
+        """Get FHE provider."""
         provider_name = provider_name or self.default_provider
+        if provider_name is None:
+            raise RuntimeError("No FHE provider is configured; install 'tenseal' to enable FHE")
         if provider_name not in self.providers:
             available = list(self.providers.keys())
             raise ValueError(f"Unknown FHE provider: {provider_name}. Available providers: {available}")
