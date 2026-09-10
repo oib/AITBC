@@ -119,13 +119,13 @@ pip install -r "$REQ_FILE.filtered" || {
 # and it collided with pyproject's addopts, which unconditionally pass
 # --reruns (pytest-rerunfailures). Result: profile-installed nodes could not
 # run pytest at all; collection aborted with "unrecognized arguments". node0,
-# node2 and hub2 were all in that state.
+# node2 and hub1 (then hub2) were all in that state.
 #
 #   test tier -- every node. Small, and a node that cannot run its own tests
 #                cannot be verified after a deploy.
 #   dev  tier -- the IDE host and the designated dev nodes only. mypy, ruff,
 #                pre-commit, bandit, safety, pip-audit, ipython, types-*.
-#                Currently node2 and hub2 -- see docs/fleet-roles.md.
+#                Currently node2 and hub.aitbc (the former hub2) -- see docs/fleet-roles.md.
 #
 # Versions for the test tier come from requirements-dev.txt used as a
 # constraints file, so both tiers stay pinned to the same poetry.lock export.
