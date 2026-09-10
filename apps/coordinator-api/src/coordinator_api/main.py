@@ -348,6 +348,18 @@ def create_app() -> FastAPI:
             "Production environment requires auth_enabled=True and test_mode=False"
         )
 
+    # Fail closed: production FHE requires a real provider when mock is disabled
+    if settings.environment == "production" and not settings.fhe_allow_mock:
+        from .contexts.zk_applications.services.fhe_service import FHEService
+
+        fhe_service = FHEService()
+        try:
+            provider = fhe_service.get_provider()
+        except RuntimeError as exc:
+            raise RuntimeError("Production FHE is not available: no real provider and FHE_ALLOW_MOCK is false") from exc
+        if not provider.available:
+            raise RuntimeError("Production FHE provider is not available; install 'tenseal'")
+
     limiter = Limiter(key_func=get_remote_address)
 
     # Disable docs and redoc in production

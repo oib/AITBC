@@ -9,7 +9,8 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 | **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` |
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **node2** | SSH `node2` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
-| **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub + customer node** | full working repo; run hub services; live validation of AI jobs, escrow, marketplace; promoted 2026-09-10 from the former `hub2.aitbc` container |
+| **node0** | SSH `node0` (`/opt/aitbc`) | **customer / follower (gpu)** | primary customer node; `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid marketplace jobs run here |
+| **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub / proposer** | full working repo; run hub and proposer services; customer traffic is on `node0` |
 | **hub1.aitbc** | SSH `hub1.aitbc` (`/opt/aitbc`) | **follower/customer replica** | former hub, demoted 2026-09-10; pull-only, no commits |
 | **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | `/home/oib/windsurf/aitbc` is a partial staging checkout for notes and temporary scripts. `/opt/aitbc` is a non-active canonical clone (no `data/` or `venv/`, so no services run here); it is safe for gitea commits/pushes that do not require active node features. |
 
@@ -18,7 +19,7 @@ This file exists so future sessions do not accidentally edit the wrong copy of t
 The canonical, full AITBC repository is primarily on the two commit/push nodes, with a live follower deployment on `hub1.aitbc`:
 
 - `node2:/opt/aitbc` (shop/follower — commit and push to gitea)
-- `hub.aitbc:/opt/aitbc` (hub/customer — commit and push to gitea)
+- `hub.aitbc:/opt/aitbc` (hub/proposer — commit and push to gitea)
 - `hub1.aitbc:/opt/aitbc` (follower/customer replica — pull only; do not commit or push from here)
 
 Both remotes point to gitea as `origin`. `github` should remain a read-only reference on live nodes; the GitHub mirror is maintained from the IDE host `/opt/aitbc` using a dedicated, non-shared token.
@@ -88,7 +89,7 @@ Use the mount only for file inspection and text editing. Prefer to commit and pu
 1. Always start live work by SSHing to the correct node:
    ```bash
    ssh <shop-node>       # shop/follower work
-   ssh <hub-node>    # hub/customer work
+   ssh <hub-node>    # hub/proposer work
    ```
 2. Verify where you are before any `git` command:
    ```bash

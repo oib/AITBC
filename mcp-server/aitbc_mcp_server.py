@@ -83,11 +83,11 @@ def _load_hosts_config() -> dict[str, Any]:
         default_host: hub.example
         roles:
           hub: hub.example
-          customer: hub.example
+          customer: node0.example
           shop: shop.example
           follower: shop.example
-          customer2: replica.example
-          follower2: replica.example
+          customer2: hub1.example
+          follower2: hub1.example
     """
     global _HOSTS_CONFIG
     if _HOSTS_CONFIG is not None:
@@ -148,12 +148,12 @@ def _ssh_user() -> str:
 # Friendly site labels for the well-known roles in list_nodes. These are not
 # network info and do not change host resolution.
 _ROLE_SITES = {
-    "hub": "hub/customer node",
-    "customer": "hub/customer node",
-    "customer2": "hub1/customer replica",
+    "hub": "hub/proposer node",
+    "customer": "customer node (node0)",
+    "customer2": "customer replica (hub1)",
     "shop": "shop/follower node",
     "follower": "shop/follower node",
-    "follower2": "hub1/customer replica",
+    "follower2": "follower/customer replica (hub1)",
 }
 
 # Base SSH options: no interactive prompts, time out quickly. Host-key checking is

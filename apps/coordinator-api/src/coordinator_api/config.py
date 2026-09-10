@@ -61,6 +61,9 @@ class Settings(BaseAITBCConfig):
     app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
     port: int = Field(default=8203, description="Server port")
     environment: str = Field(default="development", description="Environment")
+    fhe_allow_mock: bool | None = Field(
+        default=None, description="Allow the plaintext MockFHEProvider; default is True in dev/test, False in production"
+    )
 
     @model_validator(mode="before")
     @classmethod
@@ -71,6 +74,18 @@ class Settings(BaseAITBCConfig):
             if env:
                 data["environment"] = env
         return data
+
+    @model_validator(mode="after")
+    def validate_fhe_allow_mock(self) -> "Settings":
+        """Default FHE mock allowance from environment; warn if enabled in production."""
+        if self.fhe_allow_mock is None:
+            self.fhe_allow_mock = not _is_production()
+        if _is_production() and self.fhe_allow_mock:
+            logger.warning(
+                "FHE_ALLOW_MOCK is enabled in production: the plaintext MockFHEProvider can be used. "
+                "Do not run confidential FHE workloads with this configuration."
+            )
+        return self
 
     audit_log_dir: str = Field(default=str(LOG_DIR / "audit"), description="Audit log directory")
     key_storage_dir: str = Field(default=str(REPO_DIR / "data" / "keys"), description="Key storage directory")

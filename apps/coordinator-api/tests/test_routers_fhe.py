@@ -155,3 +155,44 @@ class TestFHEIntegration:
         response = client.post("/v1/fhe/decrypt", json={"encrypted_id": result["encrypted_id"]})
         assert response.status_code == 200
         assert response.json()["plaintext"] == pytest.approx([1.0], rel=1e-2)
+
+
+@pytest.mark.unit
+class TestFHEFailClosed:
+    """Fail-closed behavior when no real provider is available."""
+
+    def _service_with_no_provider(self) -> FHEService:
+        """Return an FHEService with no registered providers."""
+        service = FHEService(allow_mock=False)
+        service.providers.clear()
+        service.default_provider = None
+        return service
+
+    def test_context_generate_returns_503_without_provider(self, client: TestClient):
+        """FHE endpoints return 503 when the default provider is missing."""
+        from coordinator_api.contexts.zk_applications.routers import fhe
+
+        _auth_headers(client)
+        original_service = fhe._service
+        fhe._service = self._service_with_no_provider()
+        try:
+            response = client.post("/v1/fhe/context/generate", json={"scheme": "ckks"})
+            assert response.status_code == 503
+        finally:
+            fhe._service = original_service
+
+    def test_fhe_health_unavailable_without_provider(self, client: TestClient):
+        """Health endpoint reports unavailable when no provider is active."""
+        from coordinator_api.contexts.zk_applications.routers import fhe
+
+        _auth_headers(client)
+        original_service = fhe._service
+        fhe._service = self._service_with_no_provider()
+        try:
+            response = client.get("/v1/fhe/health")
+            assert response.status_code == 200
+            data = response.json()
+            assert data["status"] == "unavailable"
+            assert data["fhe_available"] is False
+        finally:
+            fhe._service = original_service

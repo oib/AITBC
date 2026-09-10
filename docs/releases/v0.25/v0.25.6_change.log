@@ -97,7 +97,7 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
 ## Known limitations / follow-ups
 
 - Multi-validator consensus source support is complete and live; attestation threshold can be raised from `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` to `2` after a longer observation window.
-- `MockFHEProvider` is still registered alongside `tenseal`; a future release should restrict `mock` to non-production environments.
+- `MockFHEProvider` is now disabled by default in production: `FHE_ALLOW_MOCK` defaults to `True` in dev/test and `False` in production, FHE endpoints return `503` when no real provider is active, and coordinator-api refuses to start in production with `FHE_ALLOW_MOCK=false` and no TenSEAL/Concrete backend.
 
 ## MCP server typed CLI wrappers
 
