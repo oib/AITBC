@@ -254,3 +254,20 @@ def test_download_media_rejects_unsupported_schemes():
     """_download_media raises an error for unsupported URL schemes."""
     with pytest.raises(Exception, match="unsupported URL scheme"):
         production_miner._download_media("ftp://example.com/file.mp3", "/tmp/output.bin")
+
+
+@pytest.mark.unit
+@patch("production_miner.requests.post")
+def test_run_whisper_calls_local_service(mock_post, tmp_path):
+    """_run_whisper posts the audio file to the local Whisper service."""
+    mock_post.return_value.json.return_value = {"text": "hello world"}
+    mock_post.return_value.raise_for_status.return_value = None
+
+    audio = tmp_path / "audio.mp3"
+    audio.write_bytes(b"fake audio")
+    text = production_miner._run_whisper(str(audio), model="base")
+
+    assert text == "hello world"
+    mock_post.assert_called_once()
+    call_args = mock_post.call_args
+    assert call_args[0][0] == "http://127.0.0.1:8110/transcribe"
