@@ -99,9 +99,22 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
 
 - Add 28 dedicated, read-only MCP tools in `mcp-server/aitbc_mcp_cli_tools.py` that wrap common `aitbc` CLI subcommands for explorer, governance, crosschain, AI services, system, node, blockchain, monitor, analytics, bridge, and reputation. The tools are generated from the live CLI click objects, reuse the existing `_aitbc_cli_read_tool` helper, and pass `ruff`, `mypy`, and `pytest`.
 
+## CLI-to-MCP generator and full command coverage
+
+- Add scripts/dev/generate_mcp_cli_tools.py, a generator that walks the aitbc
+  Click command tree and emits typed MCP tools.
+- Generate mcp-server/aitbc_mcp_cli_tools_generated.py with 468 typed wrappers
+  covering the full safe + safeguarded CLI tree (2f557e277).
+- Add a generic read_aitbc_cli MCP tool for the long tail of read-only commands
+  (1b0bc1c1e).
+- The aitbc MCP server now exposes 712 tools (496 aitbc_* CLI-backed tools).
+
 ## Full commit list
 
 ```text
+2f557e277 feat(mcp): expand generator to all 590 CLI commands and generate 468 typed tools
+18717a9bb feat(mcp): add CLI-to-MCP generator and 122 auto-generated typed tools
+1b0bc1c1e feat(mcp): add generic read_aitbc_cli and support multi-value CLI options
 8306e4591 feat(mcp): add typed read-only CLI wrappers for market, wallet, ai, blockchain, node, system, explorer, governance, crosschain, bridge, reputation, monitor, and analytics
 4f56210af fix(rpc): normalize chain_id default and count lease subscribers as island peers
 ce3a4c363 fix(auth): re-export AdminOrClientDep in coordinator_api.auth
