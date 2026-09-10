@@ -5,7 +5,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, status
 from sqlmodel import Session
 
-from ....auth import ClientDep  # NEW: JWT auth
+from ....auth import AdminOrClientDep  # NEW: JWT auth
 
 # from ....deps import require_client_key  # OLD: API key auth (deprecated)
 from ....schemas import EscrowRelease, JobPaymentCreate, JobPaymentView, PaymentReceipt, RefundRequest
@@ -21,9 +21,9 @@ router = APIRouter(tags=["payments"])
 async def create_payment(
     payment_data: JobPaymentCreate,
     session: Annotated[Session, Depends(get_session)],
-    # OLD: user: ClientDep,
+    # OLD: user: AdminOrClientDep,
     # NEW: JWT auth with client role
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobPaymentView:
     """Create a payment for a job"""
     client_id = user["sub"]
@@ -38,7 +38,7 @@ async def create_payment(
 async def get_payment(
     payment_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobPaymentView:
     """Get payment details by ID"""
     client_id = user["sub"]
@@ -56,7 +56,7 @@ async def get_payment(
 async def get_job_payment(
     job_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> JobPaymentView:
     """Get payment information for a specific job"""
     client_id = user["sub"]
@@ -75,7 +75,7 @@ async def release_payment(
     payment_id: str,
     release_data: EscrowRelease,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Release payment from escrow (for completed jobs)"""
     client_id = user["sub"]
@@ -100,7 +100,7 @@ async def refund_payment(
     payment_id: str,
     refund_data: RefundRequest,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> dict[str, Any]:
     """Refund payment (for failed or cancelled jobs)"""
     client_id = user["sub"]
@@ -124,7 +124,7 @@ async def refund_payment(
 async def get_payment_receipt(
     payment_id: str,
     session: Annotated[Session, Depends(get_session)],
-    user: ClientDep,
+    user: AdminOrClientDep,
 ) -> PaymentReceipt:
     """Get payment receipt with verification status"""
     client_id = user["sub"]
@@ -158,15 +158,15 @@ async def get_payment_receipt(
 # Changes made:
 # 1. Import change:
 #    OLD: from ....deps import require_client_key
-#    NEW: from ....auth import ClientDep
+#    NEW: from ....auth import AdminOrClientDep
 #
 # 2. Dependency changes (7 endpoints):
-#    - create_payment: client_id -> user: ClientDep
-#    - get_payment: client_id -> user: ClientDep
-#    - get_job_payment: client_id -> user: ClientDep
-#    - release_payment: client_id -> user: ClientDep
-#    - refund_payment: client_id -> user: ClientDep
-#    - get_payment_receipt: client_id -> user: ClientDep
+#    - create_payment: client_id -> user: AdminOrClientDep
+#    - get_payment: client_id -> user: AdminOrClientDep
+#    - get_job_payment: client_id -> user: AdminOrClientDep
+#    - release_payment: client_id -> user: AdminOrClientDep
+#    - refund_payment: client_id -> user: AdminOrClientDep
+#    - get_payment_receipt: client_id -> user: AdminOrClientDep
 #
 # 3. Client ID extraction:
 #    Added: client_id = user["sub"] in each endpoint
