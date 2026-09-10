@@ -106,7 +106,7 @@ def _register_gpu(client, token, **overrides) -> str:
         json=payload,
     )
     assert resp.status_code == 200
-    return resp.json()["gpu_id"]
+    return str(resp.json()["gpu_id"])
 
 
 @pytest.fixture
@@ -174,6 +174,30 @@ def test_quote_gpu_creates_priced_non_dispatchable_job(client, client_token, db_
     db_session.commit()
     assert JobService(db_session).acquire_next_job(db_session.get(Miner, "miner_test")) is None
     assert job.state == "QUEUED"
+
+
+@pytest.mark.unit
+def test_quote_gpu_is_public(client, db_session, native_pricing, available_gpu):
+    """The quote endpoint is public so callers can price a rental before buying."""
+    _seed_energy(db_session)
+    resp = client.post(
+        "/v1/marketplace/gpu/quote",
+        json={
+            "buyer_id": BUYER,
+            "gpu_id": available_gpu,
+            "duration_hours": 0.05,
+            "gpu_count": 1,
+            "settlement_route": "native",
+        },
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert "job_id" in data
+    assert data.get("buyer_charge_ait")
+
+    job = db_session.get(Job, data["job_id"])
+    assert job is not None
+    assert job.payment_amount is not None
 
 
 @pytest.mark.unit
