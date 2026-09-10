@@ -37,12 +37,12 @@ def edge():
 )
 @click.pass_context
 def status(ctx):
-    """Get edge status from the coordinator API."""
-    config = get_config()
-
+    """Get edge status from the local edge API."""
     try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        status_data = http_client.get("/edge-gpu/metrics")
+        client = get_edge_client()
+        response = client.get("/v1/gpu/")
+        response.raise_for_status()
+        status_data = response.json()
         success("Edge Status:")
         output(status_data, ctx.obj.get("output_format", "table"))
     except NetworkError as e:
