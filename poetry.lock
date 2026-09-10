@@ -7986,34 +7986,30 @@ widechars = ["wcwidth"]
 
 [[package]]
 name = "tenseal"
-version = "0.3.16"
+version = "0.3.17"
 description = "A Library for Homomorphic Encryption Operations on Tensors"
 optional = true
-python-versions = "*"
+python-versions = ">=3.11"
 groups = ["main"]
 markers = "sys_platform == \"linux\" and platform_machine == \"x86_64\" and extra == \"fhe\""
 files = [
-    {file = "tenseal-0.3.16-cp310-cp310-macosx_13_0_x86_64.whl", hash = "sha256:f382f7ca733d6e47444aa693be5e7c55effd56d756bbd2337dd23bb371def9e9"},
-    {file = "tenseal-0.3.16-cp310-cp310-macosx_14_0_arm64.whl", hash = "sha256:da46b413add8fc2413cd874d22095fefe8672d4c397956787ccbdeea058b5011"},
-    {file = "tenseal-0.3.16-cp310-cp310-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:7add306c52ba1a2c7cd8307601fb8e1d04c520c9caec998a34d5bb6d4c5e1bcf"},
-    {file = "tenseal-0.3.16-cp310-cp310-win_amd64.whl", hash = "sha256:b7326397dae981fdb6efa471a81e341c2987cc1f5639c659b9f6a78dcfd4c8f5"},
-    {file = "tenseal-0.3.16-cp311-cp311-macosx_13_0_x86_64.whl", hash = "sha256:794b27425a8d46dd918119ee10ee8a1d06e4d48b155d7011807343dc8055871f"},
-    {file = "tenseal-0.3.16-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:0599fe98793084ccb2a2f10a9648d3aa2a199d86540e85de5a6693e48833d87d"},
-    {file = "tenseal-0.3.16-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:2815023756cb666369547d02cc6c4ec6fbe9971effa99015a4b0c0b8086669da"},
-    {file = "tenseal-0.3.16-cp311-cp311-win_amd64.whl", hash = "sha256:b89fd126d429b8cd2aa614e3bb5cf8c59199d739d5e22f5b534f651a05d20bed"},
-    {file = "tenseal-0.3.16-cp312-cp312-macosx_13_0_x86_64.whl", hash = "sha256:634911a38d90ca89f33f81088c83ccd62b7fe441e0d6f84ab801e411e3060915"},
-    {file = "tenseal-0.3.16-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:d5f0cce84f7a4c27324507867ff3c1495164f100570e88b62d72d4698560cd20"},
-    {file = "tenseal-0.3.16-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:20b52be596b0c3b6c77df021b91eafd8eda6ef79a2358748aec0ec32e77778cf"},
-    {file = "tenseal-0.3.16-cp312-cp312-win_amd64.whl", hash = "sha256:f77c3931eaca88364895c20144d22242a4eea7e20ae6623d1694cde5f45205dc"},
-    {file = "tenseal-0.3.16-cp313-cp313-macosx_13_0_x86_64.whl", hash = "sha256:884350410577ce355394e3bc557524b55689b47830d4aaf41d48295f5399ee84"},
-    {file = "tenseal-0.3.16-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:1cee5bf1acc69ddf23be2983e7dcfde1f7f7032dd51451dae8ea49f18e158321"},
-    {file = "tenseal-0.3.16-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:4d3941cafb9ded865ac1d7080304788c8789865bf68e6d229486872e5340fc82"},
-    {file = "tenseal-0.3.16-cp313-cp313-win_amd64.whl", hash = "sha256:490c76b5d081e9dec17c88003b045b43d30db738b8031cc1620a29f118504fb8"},
-    {file = "tenseal-0.3.16-cp39-cp39-macosx_13_0_x86_64.whl", hash = "sha256:854e89c8159a6b059bba68901659cde74a1549b768dfcc54169fe4bec49c7857"},
-    {file = "tenseal-0.3.16-cp39-cp39-macosx_14_0_arm64.whl", hash = "sha256:62f8516da04069b2dccc6328fc828bb1762400f08df6b51663a42e16a6120af3"},
-    {file = "tenseal-0.3.16-cp39-cp39-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:cfa5efcfa535f9a89d97eb5dcd6c16ae4eec21728a2f9361c6812ba1a497036f"},
-    {file = "tenseal-0.3.16-cp39-cp39-win_amd64.whl", hash = "sha256:fe8a547d14f5da3fa6bb117e23d6aa3c4b2a943313868cec5fe9b783598dd50e"},
+    {file = "tenseal-0.3.17-cp311-cp311-macosx_14_0_arm64.whl", hash = "sha256:df9725f111265303b3c739dd8a9656e354b3ecddba8ade8e907f28e6c7cc07cb"},
+    {file = "tenseal-0.3.17-cp311-cp311-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:d1cc2fa8ca7ea8c44813cac60534bff0eea7ada234a472f899c0a8734afc82b4"},
+    {file = "tenseal-0.3.17-cp311-cp311-win_amd64.whl", hash = "sha256:92764cb5fd74932136f04f00078c7d2256e16dabb009976e65889ae324f1b81b"},
+    {file = "tenseal-0.3.17-cp312-cp312-macosx_14_0_arm64.whl", hash = "sha256:1018706a75e5ba781f0867dbeb5c327d16d305773b27807cff63fd761e9dcb9c"},
+    {file = "tenseal-0.3.17-cp312-cp312-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:47499064d79a8b5159d93ae4b2118f12a22795d6e1cc962a64bda0d36ba26334"},
+    {file = "tenseal-0.3.17-cp312-cp312-win_amd64.whl", hash = "sha256:e6ec5e5abba2f46286b16f3379b8239d779c1b9c1568f371bbb5dc3974782c89"},
+    {file = "tenseal-0.3.17-cp313-cp313-macosx_14_0_arm64.whl", hash = "sha256:6ae0720bdd3dad01280676ecb9a904af7627fc03f625bc89d8375e6e0cf3cb67"},
+    {file = "tenseal-0.3.17-cp313-cp313-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:71a5623154d7c1327e93aa1bb056e97117f3e5474996e017ade2aaf18c57fb1c"},
+    {file = "tenseal-0.3.17-cp313-cp313-win_amd64.whl", hash = "sha256:170177c99e4c9df64ef976ac4d4cd17aef50fc8f1f78d4eac88643ff1053feb1"},
+    {file = "tenseal-0.3.17-cp314-cp314-macosx_14_0_arm64.whl", hash = "sha256:397a2b456cd44c37a3cd9cf6d8385423223081e782dd010e4a0e1fea59228cf7"},
+    {file = "tenseal-0.3.17-cp314-cp314-manylinux_2_27_x86_64.manylinux_2_28_x86_64.whl", hash = "sha256:637ac101c433f5d23cf12bebaab85c8c53d9f906fe7482265010748f48ec47e3"},
+    {file = "tenseal-0.3.17-cp314-cp314-win_amd64.whl", hash = "sha256:03586cb6e2bf40cedb6a0e19d48dcd744179b8f469061e153871192f067706d3"},
+    {file = "tenseal-0.3.17.tar.gz", hash = "sha256:3b444150bd400392e2672bdbb36f4df455178f4193bd0a00f9cb267400dd6f4f"},
 ]
+
+[package.dependencies]
+numpy = "*"
 
 [[package]]
 name = "tomli"
@@ -9362,4 +9358,4 @@ sqlcipher = ["sqlcipher3-binary"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"
-content-hash = "9ce9162ddb6b77ade620c3c75652fdae70d8c293565b40640ea4691b37c5923c"
+content-hash = "fdb44eee87f4431492c8c06970633a43c125e5756652fc7ea023a6324552e4e2"
