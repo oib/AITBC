@@ -12,6 +12,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 
+from ....auth import AdminOrClientDep
 from ....config import settings
 from ....schemas import (
     AccessLogQuery,
@@ -367,7 +368,10 @@ async def get_confidential_status(request: Request, ) -> dict[str, Any]:
 
 @router.post("/payments", response_model=ConfidentialPaymentView)
 @rate_limit(rate=20, per=60)
-async def create_confidential_payment(request: ConfidentialPaymentCreate) -> ConfidentialPaymentView:
+async def create_confidential_payment(
+    request: ConfidentialPaymentCreate,
+    _user: AdminOrClientDep,
+) -> ConfidentialPaymentView:
     """Receive a confidential payment envelope from the CLI.
 
     Fail-closed: without a real TEE this endpoint must not emit a 'settled'
