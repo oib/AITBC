@@ -107,13 +107,16 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
   covering the full safe + safeguarded CLI tree (2f557e277).
 - Add a generic read_aitbc_cli MCP tool for the long tail of read-only commands
   (1b0bc1c1e).
+- Split the generated tools into 69 group-specific modules in
+  mcp-server/aitbc_mcp_cli_tools_generated_GROUP.py, imported by the master
+  module, and keep them in sync with the mcp-cli-drift guard (c1e811728).
 - The aitbc MCP server now exposes 712 tools (496 aitbc_* CLI-backed tools).
 
 ## Full commit list
 
 ```text
-2f557e277 feat(mcp): expand generator to all 590 CLI commands and generate 468 typed tools
-18717a9bb feat(mcp): add CLI-to-MCP generator and 122 auto-generated typed tools
+c1e811728 refactor(mcp): split generated CLI tools into 69 group-specific modules
+2f557e277 feat(mcp): add CLI-to-MCP generator and 122 auto-generated typed tools
 1b0bc1c1e feat(mcp): add generic read_aitbc_cli and support multi-value CLI options
 8306e4591 feat(mcp): add typed read-only CLI wrappers for market, wallet, ai, blockchain, node, system, explorer, governance, crosschain, bridge, reputation, monitor, and analytics
 4f56210af fix(rpc): normalize chain_id default and count lease subscribers as island peers
