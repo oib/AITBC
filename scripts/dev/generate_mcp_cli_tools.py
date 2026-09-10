@@ -391,6 +391,9 @@ MONEY_TOKENS = {
 
 SKIP_OPTION_NAMES = {"help", "format", "output", "output_format", "output-format"}
 
+# Names we already use for MCP routing/safety parameters in every generated tool.
+RESERVED_PY_NAMES = {"role", "host", "timeout", "dry_run", "confirm"}
+
 
 def existing_tool_names(files: list[Path] | None = None) -> set[str]:
     """Return all existing @mcp.tool function names."""
@@ -498,12 +501,17 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
             flag = get_flag_name(param)
             if not flag:
                 continue
+            is_flag = getattr(param, "is_flag", False) and type(param.type).__name__ == "BoolParamType"
+            multiple = getattr(param, "multiple", False) or getattr(param, "nargs", 1) != 1
             choices = None
             if isinstance(param.type, click.Choice):
                 choices = list(param.type.choices)
             ptype = py_type(param, choices)
-            is_flag = getattr(param, "is_flag", False) and type(param.type).__name__ == "BoolParamType"
-            multiple = getattr(param, "multiple", False) or getattr(param, "nargs", 1) != 1
+            if multiple:
+                if choices:
+                    ptype = f"list[{ptype}]"
+                else:
+                    ptype = "list[str]"
             required = bool(param.required) and not is_flag
             help_text = (param.help or "").strip()
             if not help_text:
@@ -516,6 +524,10 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
                 while f"{py_name}_{suffix}" in seen_names:
                     suffix += 1
                 py_name = f"{py_name}_{suffix}"
+            if py_name in RESERVED_PY_NAMES:
+                py_name = f"{py_name}_opt"
+                while py_name in seen_names:
+                    py_name = f"{py_name}_"
             seen_names.add(py_name)
             is_money = ptype == "float" and any(t in MONEY_TOKENS for t in py_name.split("_"))
             if is_money:
@@ -539,6 +551,10 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
                 while f"{py_name}_{suffix}" in seen_names:
                     suffix += 1
                 py_name = f"{py_name}_{suffix}"
+            if py_name in RESERVED_PY_NAMES:
+                py_name = f"{py_name}_arg"
+                while py_name in seen_names:
+                    py_name = f"{py_name}_"
             seen_names.add(py_name)
             nargs = getattr(param, "nargs", 1)
             multiple = nargs == -1 or nargs > 1
