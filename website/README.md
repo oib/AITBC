@@ -19,6 +19,7 @@ website/
 ├── index.html              # Homepage — platform overview
 ├── explorer.html           # Blockchain explorer UI (NEW)
 ├── exchange.html           # ETH-AIT Bridge and token pricing
+├── fleet-status.html       # Live fleet status and consensus health
 ├── favicon.svg             # Site favicon (symlink to AITBC.svg)
 ├── AITBC.svg               # Logo
 ├── style.css               # Main stylesheet
