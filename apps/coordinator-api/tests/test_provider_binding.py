@@ -16,6 +16,7 @@ from aitbc_shared import JobPayment
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
 from coordinator_api.contexts.infrastructure.services.miners import MinerService
+from coordinator_api.contexts.marketplace.domain.gpu_marketplace import GPURegistry
 from coordinator_api.contexts.payments.provider_binding import miner_wallet_address, same_address
 from coordinator_api.schemas import JobCreate, MinerRegister
 
@@ -160,3 +161,119 @@ def test_same_address_never_matches_a_missing_address():
     assert not same_address(None, None)
     assert not same_address("", PROVIDER)
     assert same_address(PROVIDER, PROVIDER.lower())
+
+
+RESOURCE = "node2-rtx4060ti"
+GPU_MODEL = "NVIDIA GeForce RTX 4060 Ti"
+
+
+def _gpu_registry(db_session, *, miner_id: str, resource_id: str) -> GPURegistry:
+    """Register a GPU resource owned by ``miner_id``."""
+    gpu = GPURegistry(
+        id=f"gpu_{miner_id}",
+        miner_id=miner_id,
+        model=GPU_MODEL,
+        model_id=resource_id,
+        memory_gb=16,
+        cuda_version="8.9",
+        region="localhost",
+        price_per_hour=Decimal("0.05"),
+        status="available",
+        resource_id=resource_id,
+        protected=True,
+    )
+    db_session.add(gpu)
+    db_session.commit()
+    db_session.refresh(gpu)
+    return gpu
+
+
+def _protected_gpu_job(job_service, db_session, *, provider_address: str, resource_id: str) -> Job:
+    """Create an escrowed, protected gpu_compute job bound to a resource."""
+    req = JobCreate(
+        payload={
+            "type": "gpu_compute",
+            "task": "general_compute",
+            "duration_hours": 0.1,
+            "gpu_count": 1,
+        },
+        ttl_seconds=900,
+        payment_amount=Decimal("0.01"),
+        payment_currency="AITBC",
+    )
+    job = job_service.create_job(client_id="client1", req=req)
+    job.protected = True
+    job.resource_id = resource_id
+    job.model_id = resource_id
+    job.gpu_count = 1
+    job.duration_seconds = 360
+    # Constraints mirror the ones produced by the quote/buy path.
+    job.constraints = {"gpu": GPU_MODEL, "region": "localhost"}
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+
+    meta = {"provider_address": provider_address}
+    payment = JobPayment(
+        job_id=job.id,
+        amount=Decimal("0.01"),
+        currency="AITBC",
+        payment_method="aitbc_token",
+        status="escrowed",
+        meta_data=meta,
+    )
+    db_session.add(payment)
+    db_session.commit()
+    db_session.refresh(payment)
+    job.payment_id = payment.id
+    job.payment_status = payment.status
+    db_session.add(job)
+    db_session.commit()
+    db_session.refresh(job)
+    return job
+
+
+def _gpu_miner(db_session, *, miner_id: str, wallet: str | None, region: str = "localhost") -> Miner:
+    """Register a miner that advertises the RTX 4060 Ti in its capabilities."""
+    payload = MinerRegister(
+        capabilities={"gpus": [{"name": GPU_MODEL, "memory_mb": 16380}]},
+        concurrency=1,
+        region=region,
+        wallet_address=wallet,
+    )
+    miner = MinerService(db_session).register(miner_id, payload)
+    miner.status = "ONLINE"
+    miner.inflight = 0
+    db_session.add(miner)
+    db_session.commit()
+    db_session.refresh(miner)
+    return miner
+
+
+def test_protected_gpu_dispatch_requires_matching_resource(db_session, job_service):
+    """A miner must own the GPURegistry row for the job's resource to take it."""
+    _gpu_registry(db_session, miner_id="miner_owner", resource_id=RESOURCE)
+    job = _protected_gpu_job(job_service, db_session, provider_address=PROVIDER, resource_id=RESOURCE)
+    miner = _gpu_miner(db_session, miner_id="miner_owner", wallet=PROVIDER)
+
+    acquired = job_service.acquire_next_job(miner)
+    assert acquired is not None
+    assert acquired.id == job.id
+
+
+def test_protected_gpu_dispatch_refuses_non_owner(db_session, job_service):
+    """A miner with the same wallet but a different miner_id and no GPURegistry row is refused."""
+    _gpu_registry(db_session, miner_id="miner_owner", resource_id=RESOURCE)
+    _protected_gpu_job(job_service, db_session, provider_address=PROVIDER, resource_id=RESOURCE)
+    # Wallet matches the provider, but the GPU is registered to a different miner.
+    miner = _gpu_miner(db_session, miner_id="miner_other", wallet=PROVIDER)
+
+    assert job_service.acquire_next_job(miner) is None
+
+
+def test_protected_gpu_dispatch_refuses_missing_resource(db_session, job_service):
+    """A miner with no matching GPURegistry row is refused."""
+    _protected_gpu_job(job_service, db_session, provider_address=PROVIDER, resource_id=RESOURCE)
+    miner = _gpu_miner(db_session, miner_id="miner_no_gpu", wallet=PROVIDER)
+
+    assert job_service.acquire_next_job(miner) is None
