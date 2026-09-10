@@ -71,6 +71,16 @@
                 }
               }
             }
+          },
+          "503": {
+            "description": "TEE attestation is not enabled on this coordinator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
         }
       },
@@ -9462,15 +9472,33 @@
         "summary": "Create Confidential Payment",
         "description": "Receive a confidential payment envelope from the CLI.\n\nFail-closed: without a real TEE this endpoint must not emit a 'settled'\nreceipt. When ``CONFIDENTIAL_TEE_ENABLED`` is true the coordinator records\nthe envelope and returns a receipt; otherwise it returns 503 Service\nUnavailable so callers fall back to local simulated settlement.",
         "operationId": "create_confidential_payment_v1_confidential_payments_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
         "requestBody": {
+          "required": true,
           "content": {
             "application/json": {
               "schema": {
                 "$ref": "#/components/schemas/ConfidentialPaymentCreate"
               }
             }
-          },
-          "required": true
+          }
         },
         "responses": {
           "200": {
@@ -9489,6 +9517,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -19995,6 +20033,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "TEE attestation is not enabled on this coordinator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
