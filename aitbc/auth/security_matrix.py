@@ -90,7 +90,7 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/jobs": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/jobs/*": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/marketplace/gpu/purchase": AuthLevel.ADMIN_OR_CLIENT,
-    "/v1/marketplace/gpu/quote": AuthLevel.ADMIN_OR_CLIENT,
+    "/v1/marketplace/gpu/quote": AuthLevel.NONE,
     "/v1/marketplace/gpu/*/book": AuthLevel.ADMIN_OR_CLIENT,
     "/v1/marketplace/gpu/bid": AuthLevel.ADMIN_OR_CLIENT,
     # D2: the bare collection path needs its own entry. get_auth_level() tries an
