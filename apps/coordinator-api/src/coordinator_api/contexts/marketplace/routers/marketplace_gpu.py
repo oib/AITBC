@@ -324,7 +324,7 @@ async def register_gpu(
         model_id=gpu_specs.get("model_id"),
         memory_gb=gpu_specs.get("memory_gb", 0),
         cuda_version=cuda_version,
-        region="default",
+        region=gpu_specs.get("region", "localhost"),
         price_per_hour=price_per_hour,
         status="available",
         capabilities=[],
