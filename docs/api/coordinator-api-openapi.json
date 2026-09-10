@@ -3142,6 +3142,118 @@
         }
       }
     },
+    "/v1/marketplace/native-energy/profile": {
+      "post": {
+        "tags": [
+          "marketplace-gpu"
+        ],
+        "summary": "Register Native Energy Profile",
+        "description": "Register or update an AIT-native energy profile for a GPU resource.",
+        "operationId": "register_native_energy_profile_v1_marketplace_native_energy_profile_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Native Energy Profile V1 Marketplace Native Energy Profile Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "resource_id is required / eur_per_kwh is not a valid number / tdp_watts must be positive / eur_per_kwh must be positive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/marketplace/native-energy/rate": {
+      "post": {
+        "tags": [
+          "marketplace-gpu"
+        ],
+        "summary": "Publish Native Energy Rate",
+        "description": "Publish or update the global AIT/EUR rate for native energy quotes.",
+        "operationId": "publish_native_energy_rate_v1_marketplace_native_energy_rate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Request"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Publish Native Energy Rate V1 Marketplace Native Energy Rate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "ait_per_eur is not a valid number / ait_per_eur must be positive",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/marketplace/sync-offers": {
       "post": {
         "tags": [
