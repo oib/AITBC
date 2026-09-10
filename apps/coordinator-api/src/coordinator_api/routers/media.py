@@ -86,7 +86,13 @@ async def upload_media(
     }
     meta_path.write_text(json.dumps(meta))
 
-    download_url = str(request.url_for("download_media", token=token))
+    # Build a public download URL that respects any reverse-proxy path prefix
+    # (e.g. /c on hub.aitbc) so workers receive an externally routable URL.
+    prefix = request.headers.get("x-forwarded-prefix", "")
+    if prefix:
+        prefix = "/" + prefix.strip("/")
+    base = str(request.base_url).rstrip("/")
+    download_url = f"{base}{prefix}/v1/media/download/{token}"
     return {
         "success": True,
         "token": token,
