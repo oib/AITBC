@@ -118,7 +118,7 @@ def get_engine(chain_id: str = "") -> Engine:
                 module=sqlite3,
                 echo=False,
                 poolclass=NullPool,
-                connect_args={"check_same_thread": False},
+                connect_args={"check_same_thread": False, "timeout": 60.0},
             )
 
             # Set encryption key via connection event
@@ -152,7 +152,7 @@ def _set_sqlite_pragmas(dbapi_connection: Any, connection_record: Any) -> None:
     cursor.execute("PRAGMA cache_size=-64000")
     cursor.execute("PRAGMA temp_store=MEMORY")
     cursor.execute("PRAGMA mmap_size=30000000000")
-    cursor.execute("PRAGMA busy_timeout=10000")
+    cursor.execute("PRAGMA busy_timeout=60000")
     cursor.close()
 
 
@@ -162,7 +162,7 @@ _engine = create_engine(
     f"sqlite:///{settings.db_path}",
     echo=False,
     poolclass=NullPool,
-    connect_args={"check_same_thread": False},
+    connect_args={"check_same_thread": False, "timeout": 60.0},
 )
 
 
