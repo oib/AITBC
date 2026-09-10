@@ -154,6 +154,23 @@ def _island_members(island_manager: Any, island_id: str) -> list[dict[str, Any]]
     return members
 
 
+async def _subscriber_peer_count() -> int:
+    """Count active lease-tracker subscribers as island peers.
+
+    The island manager's ``peer_count`` only tracks P2P gossip peers, so it
+    stays at 0 even when followers are connected via the lease-based block
+    subscription. Counting subscribers here gives the operator a real view
+    of how many nodes are actively following this hub.
+    """
+    try:
+        from ..lease_tracker import lease_tracker
+
+        subscribers = await lease_tracker.get_valid_subscribers()
+        return len(subscribers)
+    except Exception:
+        return 0
+
+
 async def join_island(payload: JoinIslandRequest, request: Request | None = None) -> JoinIslandResponse:
     """
     Join an island for edge compute operations.
@@ -243,6 +260,7 @@ async def list_islands() -> dict[str, Any]:
         raise HTTPException(status_code=503, detail="Island manager not available")
 
     islands = island_manager.get_all_islands()
+    subscriber_count = await _subscriber_peer_count()
 
     return {
         "islands": [
@@ -253,7 +271,7 @@ async def list_islands() -> dict[str, Any]:
                 "chain_ids": island.chain_ids,
                 "status": island.status.value,
                 "role": getattr(island, "role", "unknown"),
-                "peer_count": island.peer_count,
+                "peer_count": island.peer_count + subscriber_count,
                 "is_hub": island.is_hub,
                 "joined_at": island.joined_at,
             }
@@ -277,6 +295,8 @@ async def get_island(island_id: str) -> dict[str, Any]:
     if island is None:
         raise HTTPException(status_code=404, detail=f"Island {island_id} not found")
 
+    subscriber_count = await _subscriber_peer_count()
+
     return {
         "island_id": island.island_id,
         "island_name": island.island_name,
@@ -284,7 +304,7 @@ async def get_island(island_id: str) -> dict[str, Any]:
         "chain_ids": island.chain_ids,
         "status": island.status.value,
         "role": getattr(island, "role", "unknown"),
-        "peer_count": island.peer_count,
+        "peer_count": island.peer_count + subscriber_count,
         "is_hub": island.is_hub,
         "joined_at": island.joined_at,
     }

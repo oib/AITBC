@@ -19,8 +19,9 @@ router = APIRouter(prefix="/consensus", tags=["consensus"])
 
 @router.get("/status", summary="Get consensus status")
 @rate_limit(rate=100, per=60)
-async def consensus_status_route(chain_id: str = "ait-hub") -> dict[str, Any]:
+async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
     """Get consensus mode, view, sequence, epoch, and fault tolerance."""
+    chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
         return {
             "mode": "PoA (single proposer)",
@@ -73,8 +74,9 @@ async def consensus_status_route(chain_id: str = "ait-hub") -> dict[str, Any]:
 
 @router.get("/validators", summary="List consensus validators")
 @rate_limit(rate=100, per=60)
-async def consensus_validators_route(chain_id: str = "ait-hub") -> dict[str, Any]:
+async def consensus_validators_route(chain_id: str | None = None) -> dict[str, Any]:
     """List active validators (address, stake, reputation, role, last_proposed)."""
+    chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
         return {"validators": [], "chain_id": chain_id, "multi_validator_enabled": False}
     try:
@@ -107,8 +109,9 @@ async def consensus_validators_route(chain_id: str = "ait-hub") -> dict[str, Any
 
 @router.get("/slashing-history", summary="Get slashing history")
 @rate_limit(rate=100, per=60)
-async def consensus_slashing_history_route(chain_id: str = "ait-hub") -> dict[str, Any]:
+async def consensus_slashing_history_route(chain_id: str | None = None) -> dict[str, Any]:
     """Get slashing events (validator, condition, amount, block height)."""
+    chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
         return {"slashing_events": [], "chain_id": chain_id, "multi_validator_enabled": False}
     try:
