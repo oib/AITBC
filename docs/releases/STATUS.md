@@ -1,6 +1,6 @@
 # AITBC Release Status Overview
 
-**Last updated:** 2026-09-03
+**Last updated:** 2026-09-10
 **Audit report:** [AUDIT.md](AUDIT.md)
 
 ## Release Status Table
@@ -66,6 +66,7 @@
 | v0.25.2 | CLI, docs, and test surface cleanup | ✅ Complete | See v0.25.2_change.log |
 | v0.25.3 | Escrow and settlement hardening | ✅ Complete | See v0.25.3_change.log |
 | v0.25.4 | Bridge, escrow/consensus hardening, GPU electricity-cost floor | ✅ Complete | See v0.25.4_change.log |
+| v0.25.6 | Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path | ✅ Complete | Chain ID / island peer fixes; multi-validator source validated; auth/coordinator/CLI/state/monitoring hardening; see v0.25.6_change.log |
 | v0.25.5 | Audit reconciliation: register fully closed, fleet hardening, dead-code removal | ✅ Complete | All 8 register lanes at 0 items; see v0.25.5_change.log |
 
 ## Security Audit Summary
