@@ -78,6 +78,8 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # Miner routes
     "/v1/miners/*": AuthLevel.MINER,
     "/v1/marketplace/gpu/register": AuthLevel.MINER,
+    "/v1/marketplace/native-energy/profile": AuthLevel.MINER,
+    "/v1/marketplace/native-energy/rate": AuthLevel.MINER,
     "/v1/marketplace/gpu/sell": AuthLevel.MINER,
     "/v1/marketplace/gpu/*/release": AuthLevel.MINER,
     "/v1/marketplace/gpu/*/confirm": AuthLevel.MINER,
