@@ -169,6 +169,14 @@ repos:
   # ~6s, and it fires on roughly a quarter of commits.
   - repo: local
     hooks:
+      - id: mcp-cli-drift
+        name: mcp-cli-drift
+        entry: bash scripts/ci/check-mcp-cli-drift.sh
+        language: system
+        pass_filenames: false
+        files: ^(cli/aitbc_cli/|mcp-server/aitbc_mcp_(server|cli_tools_generated)\.py|scripts/(dev/generate_mcp_cli_tools\.py|ci/check-mcp-cli-drift\.sh))
+        stages: [pre-commit]
+
       - id: openapi-drift
         name: openapi-specs-match-the-apps
         entry: bash scripts/ci/check-openapi-drift.sh
