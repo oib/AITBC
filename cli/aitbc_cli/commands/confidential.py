@@ -25,11 +25,19 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 
 def _api_client() -> AITBCHTTPClient | None:
-    """Return a client for the coordinator API if a URL is configured."""
+    """Return a client for the coordinator API if a URL is configured.
+
+    The coordinator API may be configured with a trailing ``/v1`` path
+    (e.g. ``https://hub/c/v1``). Since the endpoints below already start
+    with ``/v1/``, strip any trailing ``/v1`` to avoid doubling it.
+    """
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return None
+    url = url.rstrip("/")
+    if url.endswith("/v1"):
+        url = url[:-3]
     return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
 
 
