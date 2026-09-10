@@ -2,6 +2,7 @@
 
 import os
 import time
+from typing import Any
 
 import click
 import requests
@@ -122,15 +123,30 @@ def peers(ctx, rpc_url):
   aitbc network test --peer node-1 --rpc-url http://localhost:8202"""
 )
 @click.option("--peer", required=True, help="Peer address to test")
-@click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--rpc-url", default=None, help="Blockchain RPC URL")
 @click.pass_context
 def test(ctx, peer, rpc_url):
-    """Test connectivity to a specific peer address."""
+    """Test connectivity to a specific peer address.
+
+    By default the command probes the peer's public API gateway at
+    https://<peer>/health. If an explicit --rpc-url is given, it probes that
+    base URL's /health endpoint instead.
+    """
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/rpc/force-sync", json={"peer": peer})
-        output(result, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
-    except NetworkError as e:
+        base_url = rpc_url
+        if not base_url:
+            base_url = f"https://{peer}"
+        url = f"{base_url}/health"
+        resp = requests.get(url, timeout=10)
+        resp.raise_for_status()
+        try:
+            body: dict[str, Any] = resp.json()
+        except Exception:
+            body = {"status": resp.text}
+        body["peer"] = peer
+        body["endpoint"] = url
+        output(body, ctx.obj.get("output_format", "table"), title=f"Connectivity Test: {peer}")
+    except requests.RequestException as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error testing connectivity: {e}", from_exception=e)
@@ -246,7 +262,7 @@ def lease_status(ctx, node_id, rpc_url):
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.get(f"/rpc/subscription/lease-status?node_id={node_id}")
+        result = http_client.get(f"/rpc/lease/{node_id}")
         output(result, ctx.obj.get("output_format", "table"), title="Lease Status")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -269,7 +285,7 @@ def subscribers(ctx, chain_id, rpc_url):
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
         params = {"chain_id": chain_id} if chain_id else {}
-        result = http_client.get("/rpc/subscription/subscribers", params=params)
+        result = http_client.get("/rpc/subscribers", params=params)
         output(result, ctx.obj.get("output_format", "table"), title="Active Subscribers")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)
@@ -355,16 +371,13 @@ def gossip(ctx, rpc_url, topics):
         info = http_client.get("/rpc/network-info")
     except NetworkError as e:
         abort(ctx, f"Could not reach the RPC at {rpc_url}: {e}", from_exception=e)
-        return
     except Exception as e:
         abort(ctx, f"Error getting network info: {e}", from_exception=e)
-        return
 
     try:
         samples = _scrape_prom(f"{rpc_url.rstrip('/')}/metrics", 10)
     except Exception as e:
         abort(ctx, f"Error scraping {rpc_url}/metrics: {e}", from_exception=e)
-        return
 
     accepted = _sample_map(samples, "blockchain_gossip_auth_accepted_total", "address")
     rejected = _sample_map(samples, "blockchain_gossip_auth_rejected_total", "reason")
