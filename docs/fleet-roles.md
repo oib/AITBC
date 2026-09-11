@@ -1,11 +1,11 @@
-# Fleet roles: which hosts carry which dependency tier
+# Dependency tiers: which hosts get which requirements file
 
 ## The two tiers
 
 | tier | file | contents | who gets it |
 |---|---|---|---|
 | **test** | `requirements-test.txt` | pytest + asyncio/cov/mock/rerunfailures/timeout, coverage, fakeredis | **every** host |
-| **dev** | `requirements-dev.txt` | the above **plus** mypy, ruff, pre-commit, bandit, safety, pip-audit, ipython, `types-*` | IDE host + designated dev nodes only |
+| **dev** | `requirements-dev.txt` | the above **plus** mypy, ruff, pre-commit, bandit, safety, pip-audit, ipython, `types-*` | hosts marked as dev nodes |
 
 The test tier is not optional anywhere. `pyproject.toml`'s
 `[tool.pytest.ini_options] addopts` unconditionally passes `--reruns`, which
@@ -19,45 +19,32 @@ generated from `poetry.lock` by `scripts/ci/export-requirements.sh` — so the
 two tiers cannot drift apart. `tests/test_requirements_tiers.py` enforces both
 the subset relationship and the addopts/plugin correspondence.
 
-## Roster
-
-| host | role | GPU | dev tier | why |
-|---|---|---|---|---|
-| `at1` (IDE) | authoring, the only push point | — | **yes** | where code is written, linted, committed and mirrored |
-| `node0` | customer / follower, GPU | yes | no | primary customer node; `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid marketplace jobs run here |
-| `node1` | follower, GPU | yes | no | production follower |
-| `node2` | follower, GPU, service workhorse | yes | **yes** | runs the widest set of services (coordinator-api, marketplace, miner, pool-hub, edge, whisper, ffmpeg, hermes-agent), so it is the most representative place to reproduce and test integration behaviour |
-| `hub.aitbc` | public hub, proposer | no | **yes** | public-facing; promoted to primary hub on 2026-09-10 with 4 vCPU / 4 GB RAM; runs the block-production and hub service stack (customer traffic is on `node0`) |
-| `hub1.aitbc` | follower | no | no | former hub, demoted 2026-09-10; now a follower/customer replica with minimal services (formerly `hub2.aitbc`) |
-
-`hub.aitbc` (the former `hub2.aitbc` container) was promoted with 4 vCPU and 4 GB of RAM on
-2026-09-10 and now runs the full hub/proposer service stack. Customer traffic
-is handled by `node0`. `hub1.aitbc` (formerly `hub2.aitbc`) is the demoted
-former hub.
-
 ## How a host is marked
 
-Being a dev node is configuration, not hostname or hardware — `node2` is a dev
-node *and* an ordinary GPU follower, so the axes compose. Any one of these
-marks a host:
+Being a dev node is configuration, not hostname or hardware, and it is
+independent of a node's blockchain role — a host can be a dev node *and* an
+ordinary follower, so the axes compose. Any one of these marks a host:
 
 ```bash
-touch /etc/aitbc/dev-node                  # marker file (what the fleet uses)
+touch /etc/aitbc/dev-node                  # marker file
 AITBC_DEV_NODE=1                           # in /etc/aitbc/blockchain.env, or the environment
 ```
 
 `scripts/deployment/install-profiles.sh` installs the test tier unconditionally
-and the dev tier only when the marker is present. To change a host's role,
-add or remove the marker and re-run the installer.
+and the dev tier only when the marker is present. To change a host's tier, add
+or remove the marker and re-run the installer.
+
+Which hosts carry which tier is deployment-specific and deliberately not
+recorded here.
 
 ## History
 
 The profile installer exports with `poetry export --only main`, so for a long
 time the primary deployment path installed **no** test runner at all. That is
 the script's design, not drift — but it collided with the mandatory `--reruns`
-addopt, leaving `node0`, `node2` and `hub1` (then `hub2`) unable to run pytest in any form.
-`node1` and `hub.aitbc` were complete only because they happened to be
-provisioned through `deployment/setup.sh`'s fallback branch, which installed
-`requirements-dev.txt` wholesale (and did it with `|| warning`, so a failure
-there would have been silent too). The tier split exists so that neither the
-gap nor the silent-failure path can recur.
+addopt, leaving every host provisioned that way unable to run pytest in any
+form. The hosts that were complete were complete only by accident: they had
+been provisioned through `deployment/setup.sh`'s fallback branch, which
+installed `requirements-dev.txt` wholesale (and did it with `|| warning`, so a
+failure there would have been silent too). The tier split exists so that
+neither the gap nor the silent-failure path can recur.
