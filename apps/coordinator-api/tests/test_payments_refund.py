@@ -99,9 +99,9 @@ class TestPaymentServiceRefund:
         assert result is True
 
         assert mock_client.get.call_count == 2
-        mock_client.get.assert_any_call("http://localhost:8202/rpc/escrow/job-refund-1")
+        mock_client.get.assert_any_call("http://127.0.0.1:8202/rpc/escrow/job-refund-1")
         mock_client.get.assert_any_call(
-            "http://localhost:8202/rpc/transactions?transaction_type=ESCROW_REFUND&job_id=job-refund-1&limit=10"
+            "http://127.0.0.1:8202/rpc/transactions?transaction_type=ESCROW_REFUND&job_id=job-refund-1&limit=10"
         )
         mock_client.post.assert_not_called()
 
@@ -133,9 +133,9 @@ class TestPaymentServiceRefund:
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is True
 
-        mock_client.get.assert_called_once_with("http://localhost:8202/rpc/escrow/job-refund-2")
+        mock_client.get.assert_called_once_with("http://127.0.0.1:8202/rpc/escrow/job-refund-2")
         mock_client.post.assert_called_once_with(
-            "http://localhost:8202/rpc/escrow/job-refund-2/refund",
+            "http://127.0.0.1:8202/rpc/escrow/job-refund-2/refund",
             json={"reason": "test"},
         )
 
@@ -209,7 +209,7 @@ class TestPaymentServiceRefund:
         payment.transaction_hash = None
         payment_session.commit()
 
-        request = httpx.Request("GET", f"http://localhost:8202/rpc/escrow/{job_id}")
+        request = httpx.Request("GET", f"http://127.0.0.1:8202/rpc/escrow/{job_id}")
         response = httpx.Response(404, request=request)
         cause = httpx.HTTPStatusError("Not found", request=request, response=response)
         exc = NetworkError("GET request failed")
@@ -225,9 +225,9 @@ class TestPaymentServiceRefund:
         assert result is True
 
         assert mock_client.get.call_count == 2
-        mock_client.get.assert_any_call(f"http://localhost:8202/rpc/escrow/{job_id}")
+        mock_client.get.assert_any_call(f"http://127.0.0.1:8202/rpc/escrow/{job_id}")
         mock_client.get.assert_any_call(
-            f"http://localhost:8202/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10"
+            f"http://127.0.0.1:8202/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10"
         )
         mock_client.post.assert_not_called()
         refreshed = payment_session.get(JobPayment, payment_id)
