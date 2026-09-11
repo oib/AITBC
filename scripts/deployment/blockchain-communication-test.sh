@@ -6,13 +6,23 @@
 #
 
 set -euo pipefail
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+NODE3_HOST="${AITBC_NODE3_HOST:?set AITBC_NODE3_HOST to the address of node3}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
 # Configuration
-GENESIS_IP="10.1.223.93"
-FOLLOWER_IP="10.1.223.40"
-FOLLOWER2_IP="10.1.223.98"  # gitea-runner/aitbc2
+GENESIS_IP="${NODE0_HOST}"
+FOLLOWER_IP="${NODE1_HOST}"
+FOLLOWER2_IP="${NODE3_HOST}"  # gitea-runner/aitbc2
 PORT=8006
 CLI_PATH="${CLI_PATH:-aitbc}"
 LOG_DIR="/var/log/aitbc"

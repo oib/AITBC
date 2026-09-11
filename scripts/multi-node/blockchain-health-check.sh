@@ -7,6 +7,15 @@
 
 set -euo pipefail
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 LOG_DIR="/var/log/aitbc"
@@ -14,9 +23,9 @@ LOG_FILE="${LOG_DIR}/multi-node-health.log"
 
 # Node Configuration
 NODES=(
-    "aitbc:10.1.223.93"
-    "aitbc1:10.1.223.40"
-    "aitbc2:10.1.223.93"
+    "aitbc:${NODE0_HOST}"
+    "aitbc1:${NODE1_HOST}"
+    "aitbc2:${NODE0_HOST}"
 )
 
 RPC_PORT=8006

@@ -222,10 +222,10 @@ curl -s -X POST http://localhost:8108/wallets \
 ## Cross-Node Operations
 
 ### Key URLs (Use Hostname, NOT IP):
-- **aitbc1 Marketplace:** `http://aitbc1:8102` (NOT `10.1.223.93:8102`)
+- **aitbc1 Marketplace:** `http://aitbc1:8102` (use the hostname, not the IP)
 - **aitbc1 Coordinator:** `http://aitbc1:8203`
 - **aitbc1 Blockchain:** `http://aitbc1:8202`
-- **Redis (Cross-node Agent Discovery):** `10.1.223.93:6379`
+- **Redis (Cross-node Agent Discovery):** `aitbc1:6379`
 
 ### Verified Cross-Node Operations:
 - Topics created on localhost visible on aitbc1 (and vice versa)
@@ -273,7 +273,7 @@ cd /opt/aitbc && ./aitbc-cli marketplace --help
 
 ### 1. Using IP Instead of Hostname
 **Error:** Connection timeout or failure
-**Fix:** Use `aitbc1:8102`, NOT `10.1.223.93:8102`
+**Fix:** Use the hostname, `aitbc1:8102`, rather than the node's IP address
 
 ### 2. Agent Registration Required
 **Error:** `Invalid agent credentials` or `INVALID_AGENT`

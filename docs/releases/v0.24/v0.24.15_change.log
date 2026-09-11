@@ -8,7 +8,7 @@
   2. `aitbc1` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
   3. The `at1` Incus host reverse proxy for `aitbc1.bubuit.net`/`node1.aitbc.bubuit.net` was not enabled in sites-enabled.
 - **Actions:**
-  1. Updated `/etc/nginx/sites-enabled/aitbc-loadbalancer` on `aitbc1` to use `127.0.0.1:8202` and `10.1.223.40:8202`, and removed stale backup files from `sites-enabled`.
+  1. Updated `/etc/nginx/sites-enabled/aitbc-loadbalancer` on `aitbc1` to use `127.0.0.1:8202` and `<node1-ip>:8202`, and removed stale backup files from `sites-enabled`.
   2. User enabled `/etc/nginx/sites-available/node1.aitbc.bubuit.net.conf` on the `at1` Incus host and reloaded nginx; `node1.aitbc.bubuit.net` now resolves and terminates TLS with a valid Lets Encrypt certificate.
   3. Set `hub.aitbc` `default_peer_rpc_url=https://node1.aitbc.bubuit.net` in `/etc/aitbc/blockchain.env`.
   4. Temporarily set `MULTI_VALIDATOR_MIN_ATTESTATIONS=0` on both nodes, restarted both `aitbc-blockchain-node` services, and restored `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` after the first converged blocks.

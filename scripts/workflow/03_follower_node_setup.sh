@@ -6,6 +6,14 @@ set -euo pipefail
 
 
 # Source scenario configuration
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
@@ -77,7 +85,7 @@ set_env keystore_password_file /var/lib/aitbc/keystore/.password
 set_env db_path /var/lib/aitbc/data/ait-mainnet/chain.db
 set_env enable_block_production false
 set_env gossip_backend broadcast
-set_env gossip_broadcast_url redis://10.1.223.40:6379
+set_env gossip_broadcast_url redis://${NODE1_HOST}:6379
 set_env default_peer_rpc_url http://aitbc1:8202
 set_env p2p_bind_port 8200
 set_env trusted_proposers 0x2d7151D8b39Ba010d778c74af74383C8a3348B98

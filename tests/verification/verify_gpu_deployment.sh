@@ -2,6 +2,14 @@
 # Simple verification of GPU deployment in container
 set -euo pipefail
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+
 echo "🔍 Checking GPU deployment in AITBC container..."
 
 # Check if services exist
@@ -34,7 +42,7 @@ fi
 echo -e "\n4. Checking GPU registration from container..."
 ssh aitbc 'curl -s http://127.0.0.1:8091/miners/list 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(f\"Found {len(data.get(\"gpus\", []))} GPU(s)\")" 2>/dev/null || echo "Failed to get GPU list"'
 
-echo -e "\n5. Checking from host (10.1.223.93)..."
-curl -s http://10.1.223.93:8091/miners/list 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(f\"✅ From host: Found {len(data.get(\"gpus\", []))} GPU(s)\")" 2>/dev/null || echo "❌ Cannot access from host"
+echo -e "\n5. Checking from host (${NODE0_HOST})..."
+curl -s http://${NODE0_HOST}:8091/miners/list 2>/dev/null | python3 -c "import sys,json; data=json.load(sys.stdin); print(f\"✅ From host: Found {len(data.get(\"gpus\", []))} GPU(s)\")" 2>/dev/null || echo "❌ Cannot access from host"
 
 echo -e "\n✅ Verification complete!"

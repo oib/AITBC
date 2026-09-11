@@ -75,7 +75,7 @@
     rm -rf python-packages-workspace
     mkdir -p python-packages-workspace
     cd python-packages-workspace
-    git clone http://10.0.3.107:3000/oib/aitbc.git repo
+    git clone ${AITBC_GIT_REMOTE:?set AITBC_GIT_REMOTE to your Gitea clone URL} repo
 ```
 
 ### Improved (Outside Repo)
@@ -88,7 +88,7 @@
     rm -rf "$WORKSPACE_BASE"
     mkdir -p "$WORKSPACE_BASE"
     cd "$WORKSPACE_BASE"
-    git clone http://10.0.3.107:3000/oib/aitbc.git repo
+    git clone ${AITBC_GIT_REMOTE:?set AITBC_GIT_REMOTE to your Gitea clone URL} repo
     cd repo
 ```
 
@@ -122,7 +122,7 @@ setup_workspace() {
     local workspace_type="$1"
     local workspace_base="/var/lib/aitbc-workspaces"
     local workspace_dir="$workspace_base/$workspace_type"
-    local repo_url="http://10.0.3.107:3000/oib/aitbc.git"
+    local repo_url="${AITBC_GIT_REMOTE:?set AITBC_GIT_REMOTE to your Gitea clone URL}"
 
     echo "=== Setting up $workspace_type workspace ==="
 

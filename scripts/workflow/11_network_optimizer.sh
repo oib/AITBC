@@ -2,6 +2,14 @@
 # the network Optimization Script
 # Optimizes network configuration and performance
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+
 echo "=== the network Optimization ==="
 
 
@@ -20,7 +28,7 @@ fi
 echo "1. Current network status:"
 echo "   aitbc1 height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)"
 echo "   aitbc height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
-echo "   Network latency: $(ping -c 1 10.1.223.93 | grep "time=" | cut -d= -f2)"
+echo "   Network latency: $(ping -c 1 ${NODE0_HOST} | grep "time=" | cut -d= -f2)"
 
 # Optimize Redis configuration
 echo "2. Optimizing Redis configuration..."
@@ -67,17 +75,19 @@ sysctl -p
 
 # Setup monitoring
 echo "7. Setting up network monitoring..."
-cat > /opt/aitbc/scripts/network_monitor.sh << 'EOF'
+# Unquoted heredoc: the node address is resolved as the file is written.
+# Anything else that looks like a variable is escaped so it survives verbatim.
+cat > /opt/aitbc/scripts/network_monitor.sh << EOF
 #!/bin/bash
 # Network monitoring script
 echo "=== Network Monitor ==="
-echo "Time: $(date)"
-echo "aitbc1 height: $(curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height)"
-echo "aitbc height: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
-echo "Redis status: $(redis-cli ping)"
-echo "Network latency: $(ping -c 1 10.1.223.93 | grep "time=" | cut -d= -f2)"
-echo "Memory usage: $(free -h | grep Mem)"
-echo "CPU usage: $(top -bn1 | grep "Cpu(s)" | awk '{print $2}' | cut -d% -f1)%"
+echo "Time: \$(date)"
+echo "aitbc1 height: \$(curl -s \$BLOCKCHAIN_RPC/rpc/head | jq .height)"
+echo "aitbc height: \$(ssh aitbc 'curl -s \$BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "0"')"
+echo "Redis status: \$(redis-cli ping)"
+echo "Network latency: \$(ping -c 1 ${NODE0_HOST} | grep "time=" | cut -d= -f2)"
+echo "Memory usage: \$(free -h | grep Mem)"
+echo "CPU usage: \$(top -bn1 | grep "Cpu(s)" | awk '{print \$2}' | cut -d% -f1)%"
 echo "================================"
 EOF
 
