@@ -82,17 +82,13 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
         wallet_file = find_wallet_file(wallet_name)
         if wallet_file is None:
             error(f"Wallet '{wallet_name}' not found")
-            available = sorted(
-                {f.stem for d in search_dirs if d.exists() for f in d.glob("*.json")}
-            )
+            available = sorted({f.stem for d in search_dirs if d.exists() for f in d.glob("*.json")})
             error(f"Available wallets: {', '.join(available)}")
             error("Set AITBC_DEFAULT_WALLET env var or use --wallet to specify one")
             return None
     else:
         # 3. Fall back to first wallet found across all search directories
-        wallet_files = sorted(
-            {f for d in search_dirs if d.exists() for f in d.glob("*.json")}
-        )
+        wallet_files = sorted({f for d in search_dirs if d.exists() for f in d.glob("*.json")})
         if not wallet_files:
             error(f"No wallets found in {search_dirs}")
             error("Create a wallet first: aitbc wallet create")

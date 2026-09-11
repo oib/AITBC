@@ -73,9 +73,7 @@ class Job(SQLModel, table=True):
     model_id: str | None = Field(default=None, index=True)
     gpu_count: int | None = Field(default=None)
     duration_seconds: int | None = Field(default=None)
-    energy_quote_snapshot: dict[str, Any] | None = Field(
-        default=None, sa_column=Column(JSON, nullable=True)
-    )
+    energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
     # Completion tracking
     completed_at: datetime | None = Field(default=None)

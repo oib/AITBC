@@ -122,8 +122,11 @@ def main() -> int:
 
     if "--check" in sys.argv:
         current = target.read_text() if target.exists() else ""
+
         # Ignore the date line so a stale-by-a-day stamp is not a CI failure.
-        strip = lambda t: [line for line in t.splitlines() if not line.startswith("**Last Updated**")]
+        def strip(t):
+            return [line for line in t.splitlines() if not line.startswith("**Last Updated**")]
+
         if strip(current) != strip(content):
             print("MASTER_INDEX.md is out of date. Run: python3 scripts/docs/gen_master_index.py")
             return 1

@@ -114,9 +114,7 @@ def test_blockchain_fresh_db_migration(fresh_db):
         assert version is not None, "alembic_version table should have a row"
         assert version[0], "alembic_version should be non-empty"
         # Verify the escrow table was created (by c9a4f1e2b73d).
-        cursor = conn.execute(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name='escrow'"
-        )
+        cursor = conn.execute("SELECT name FROM sqlite_master WHERE type='table' AND name='escrow'")
         assert cursor.fetchone() is not None, "escrow table should exist"
     finally:
         conn.close()
