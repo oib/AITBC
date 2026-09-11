@@ -1277,6 +1277,7 @@ class MarketplaceService:
                     payment.status = "refund_pending"
                     payment.updated_at = datetime.utcnow()
                     self.session.add(payment)
+                    job.payment_status = "refund_pending"
 
             self.session.add(job)
             await self.session.commit()
@@ -1325,6 +1326,7 @@ class MarketplaceService:
                     payment.escrowed_at = datetime.utcnow()
                     payment.updated_at = datetime.utcnow()
                     self.session.add(payment)
+                    job.payment_status = "escrowed"
 
             self.session.add(job)
             await self.session.commit()
