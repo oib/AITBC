@@ -73,3 +73,4 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `workflow` — Workflow management commands. Subcommands: `list`, `run`, `status`, `stop`
 - `zk` — Zero-knowledge proof commands.. Subcommands: `circuits`, `health`, `verify`
 - `http` — Generic HTTP client for local AITBC services. Subcommands: `call`
+- `service` — Manage AITBC systemd services. Subcommands: `harden`
