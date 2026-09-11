@@ -1221,21 +1221,21 @@ class MarketplaceService:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """List marketplace jobs with optional filters."""
-        from sqlalchemy import select
+        from sqlalchemy import col, select
 
         try:
             stmt = select(MarketplaceJob)
             if buyer_address:
-                stmt = stmt.where(MarketplaceJob.buyer_address == canonical_address(buyer_address))
+                stmt = stmt.where(col(MarketplaceJob.buyer_address) == canonical_address(buyer_address))
             if provider_address:
-                stmt = stmt.where(MarketplaceJob.provider_address == canonical_address(provider_address))
+                stmt = stmt.where(col(MarketplaceJob.provider_address) == canonical_address(provider_address))
             if service_type:
-                stmt = stmt.where(MarketplaceJob.service_type == service_type)
+                stmt = stmt.where(col(MarketplaceJob.service_type) == service_type)
             if state:
-                stmt = stmt.where(MarketplaceJob.state == state)
+                stmt = stmt.where(col(MarketplaceJob.state) == state)
             if offer_id:
-                stmt = stmt.where(MarketplaceJob.offer_id == offer_id)
-            stmt = stmt.order_by(MarketplaceJob.created_at.desc()).limit(limit)
+                stmt = stmt.where(col(MarketplaceJob.offer_id) == offer_id)
+            stmt = stmt.order_by(col(MarketplaceJob.created_at).desc()).limit(limit)
 
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
@@ -1304,7 +1304,7 @@ class MarketplaceService:
             if job.state not in {"QUEUED", "RUNNING"}:
                 return self._job_to_dict(job)
 
-            if job.payload is None:
+            if not job.payload:
                 job.payload = {}
             job.payload["pinned"] = True
             if size is not None:
@@ -1421,10 +1421,10 @@ class MarketplaceService:
 
     async def get_marketplace_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an access token and return the job details."""
-        from sqlalchemy import select
+        from sqlalchemy import col, select
 
         try:
-            stmt = select(MarketplaceJob).where(MarketplaceJob.access_key == access_key)
+            stmt = select(MarketplaceJob).where(col(MarketplaceJob.access_key) == access_key)
             result = await self.session.execute(stmt)
             job = result.scalar_one_or_none()
             if not job:
@@ -1455,15 +1455,15 @@ class MarketplaceService:
 
     async def get_marketplace_job_usage(self, buyer_address: str, offer_id: str) -> int:
         """Return the total bytes of active IPFS storage for a buyer/offer pair."""
-        from sqlalchemy import select
+        from sqlalchemy import col, select
 
         try:
             stmt = (
                 select(MarketplaceJob)
-                .where(MarketplaceJob.buyer_address == canonical_address(buyer_address))
-                .where(MarketplaceJob.offer_id == offer_id)
-                .where(MarketplaceJob.service_type == "ipfs")
-                .where(MarketplaceJob.state.in_({"QUEUED", "RUNNING"}))
+                .where(col(MarketplaceJob.buyer_address) == canonical_address(buyer_address))
+                .where(col(MarketplaceJob.offer_id) == offer_id)
+                .where(col(MarketplaceJob.service_type) == "ipfs")
+                .where(col(MarketplaceJob.state).in_({"QUEUED", "RUNNING"}))
             )
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
