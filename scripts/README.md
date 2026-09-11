@@ -8,7 +8,7 @@ This directory contains scripts for managing the AITBC development environment, 
 Starts incus containers and AITBC systemd services on localhost.
 
 **Features:**
-- Starts incus containers: `aitbc` and `aitbc1`
+- Starts incus containers: `aitbc` and `<node1>`
 - Starts all local systemd services matching `aitbc-*`
 - Checks service health and port status
 - Tests health endpoints
@@ -23,7 +23,7 @@ Starts incus containers and AITBC systemd services on localhost.
 Stops incus containers and AITBC systemd services on localhost.
 
 **Features:**
-- Stops incus containers: `aitbc` and `aitbc1`
+- Stops incus containers: `aitbc` and `<node1>`
 - Stops all local systemd services matching `aitbc-*`
 - Verifies services are stopped
 - Provides colored output and status reporting
@@ -37,7 +37,7 @@ Stops incus containers and AITBC systemd services on localhost.
 Comprehensive startup script for the complete AITBC development environment.
 
 **Features:**
-- Starts incus containers: `aitbc` and `aitbc1`
+- Starts incus containers: `aitbc` and `<node1>`
 - Starts services inside containers
 - Starts all local systemd services matching `aitbc-*`
 - Tests connectivity to container services
@@ -68,7 +68,7 @@ Comprehensive startup script for the complete AITBC development environment.
 ### Required Containers:
 The scripts expect these incus containers to exist:
 - `aitbc`
-- `aitbc1`
+- `<node1>`
 
 ### Required Services:
 The scripts look for systemd services matching the pattern `aitbc-*`.
@@ -102,7 +102,7 @@ The scripts test these health endpoints:
 [INFO] Starting AITBC Development Environment...
 [INFO] Starting incus containers...
 [SUCCESS] Container aitbc started successfully
-[SUCCESS] Container aitbc1 started successfully
+[SUCCESS] Container <node1> started successfully
 [INFO] Starting AITBC systemd services on localhost...
 [SUCCESS] Service aitbc-coordinator-api started successfully
 [SUCCESS] Service aitbc-wallet-daemon started successfully
@@ -143,7 +143,7 @@ The scripts test these health endpoints:
    **Solution:** Create the incus containers first:
    ```bash
    incus launch images:ubuntu/22.04 aitbc
-   incus launch images:ubuntu/22.04 aitbc1
+   incus launch images:ubuntu/22.04 <node1>
    ```
 
 2. **Service not found:**
