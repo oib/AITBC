@@ -63,7 +63,7 @@ service_exists_in_container() {
     local service="$2"
     case $container in
         "aitbc")
-            ssh aitbc-cascade 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
+            ssh "$NODE1_CONTAINER_SSH" 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
             ;;
         "${NODE1_HOST}")
             ssh ${NODE1_CONTAINER_SSH} 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
@@ -80,7 +80,7 @@ is_service_running_in_container() {
     local service="$2"
     case $container in
         "aitbc")
-            ssh aitbc-cascade 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
+            ssh "$NODE1_CONTAINER_SSH" 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
             ;;
         "${NODE1_HOST}")
             ssh ${NODE1_CONTAINER_SSH} 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
@@ -96,7 +96,7 @@ get_container_ip() {
     local container="$1"
     case $container in
         "aitbc")
-            ssh aitbc-cascade "hostname -I | awk '{print \$1}'" 2>/dev/null || echo "N/A"
+            ssh "$NODE1_CONTAINER_SSH" "hostname -I | awk '{print \$1}'" 2>/dev/null || echo "N/A"
             ;;
         "${NODE1_HOST}")
             ssh ${NODE1_CONTAINER_SSH} "hostname -I | awk '{print \$1}'" 2>/dev/null || echo "N/A"
@@ -129,7 +129,7 @@ for container in "${containers[@]}"; do
 
     case $container in
         "aitbc")
-            if ssh aitbc-cascade "echo 'Container is accessible'" >/dev/null 2>&1; then
+            if ssh "$NODE1_CONTAINER_SSH" "echo 'Container is accessible'" >/dev/null 2>&1; then
                 print_success "Container $container is accessible via SSH"
             else
                 print_error "Container $container is not accessible via SSH"
@@ -252,16 +252,17 @@ ports=(
     "8001:Exchange API"
     "8002:Blockchain Node"
     "8003:Blockchain RPC"
-    "8080:Container Coordinator API"
-    "8081:Container Blockchain Node 1"
-    "8082:Container Exchange API"
-    "8083:Container Wallet Daemon"
-    "8084:Container Blockchain Node 2"
-    "8085:Container Explorer UI"
-    "8086:Container Marketplace"
-    "8087:Container Miner Dashboard"
-    "8088:Container Load Balancer"
-    "8089:Container Debug API"
+    "8201:API Gateway"
+    "8202:Blockchain RPC"
+    "8203:Coordinator API"
+    "8100:Blockchain Explorer API"
+    "8101:GPU Service"
+    "8102:Marketplace Service"
+    "8106:Exchange API"
+    "8107:Agent Coordinator"
+    "8108:Wallet Daemon"
+    "8111:Edge Service"
+    "8210:Pool Hub"
 )
 
 for port_info in "${ports[@]}"; do
@@ -310,13 +311,13 @@ done
 print_status "Testing health endpoints with location detection..."
 
 health_endpoints=(
-    "http://localhost:8000/health:Coordinator API"
-    "http://localhost:8001/health:Exchange API"
-    "http://localhost:8003/health:Blockchain RPC"
-    "http://localhost:8100/health:Blockchain Explorer"
-    "http://localhost:8005/health:Blockchain RPC 2"
-    "http://localhost:8080/health:Container Coordinator API"
-    "http://localhost:8083/health:Container Wallet Daemon"
+    "http://localhost:8201/health:API Gateway"
+    "http://localhost:8202/health:Blockchain RPC"
+    "http://localhost:8203/health:Coordinator API"
+    "http://localhost:8100/health:Blockchain Explorer API"
+    "http://localhost:8106/health:Exchange API"
+    "http://localhost:8108/health:Wallet Daemon"
+    "http://localhost:8210/health:Pool Hub"
 )
 
 for endpoint_info in "${health_endpoints[@]}"; do
@@ -352,10 +353,10 @@ for container in "${containers[@]}"; do
     container_ip="${container_ips[$container]}"
     case $container in
         "aitbc")
-            if ssh aitbc-cascade "echo 'Container is running'" >/dev/null 2>&1; then
+            if ssh "$NODE1_CONTAINER_SSH" "echo 'Container is running'" >/dev/null 2>&1; then
                 print_success "Container $container: RUNNING (SSH accessible)"
                 print_status "  IP: $container_ip"
-                print_status "  Access: ssh aitbc-cascade"
+                print_status "  Access: ssh "$NODE1_CONTAINER_SSH""
             else
                 print_error "Container $container: NOT ACCESSIBLE"
             fi
@@ -381,33 +382,29 @@ echo "  - Access services at their respective ports"
 echo ""
 print_status "Useful commands:"
 echo "  - Check all AITBC services: systemctl list-units | grep aitbc-"
-echo "  - Access aitbc container: ssh aitbc-cascade"
-echo "  - Access ${NODE1_HOST} container: ssh ${NODE1_CONTAINER_SSH}"
+echo "  - Access aitbc container: ssh ${NODE1_CONTAINER_SSH}"
 echo "  - View local service logs: journalctl -f -u <service-name>"
-echo "  - View container service logs: ssh aitbc-cascade 'journalctl -f -u <service-name>'"
-echo "  - Check container services: ssh aitbc-cascade 'systemctl status <service-name>'"
-echo "  - Check all services in aitbc: ssh aitbc-cascade 'systemctl list-units | grep aitbc-'"
-echo "  - Check all services in ${NODE1_HOST}: ssh ${NODE1_CONTAINER_SSH} 'systemctl list-units | grep aitbc-'"
+echo "  - View container service logs: ssh ${NODE1_CONTAINER_SSH} 'journalctl -f -u <service-name>'"
+echo "  - Check container services: ssh ${NODE1_CONTAINER_SSH} 'systemctl status <service-name>'"
+echo "  - Check all services in aitbc: ssh ${NODE1_CONTAINER_SSH} 'systemctl list-units | grep aitbc-'"
 echo "  - Stop all services: ./scripts/stop-aitbc-dev.sh"
 echo ""
 print_status "Debug specific issues:"
-echo "  - Debug aitbc coordinator: ssh aitbc-cascade 'systemctl status aitbc-coordinator-api'"
-echo "  - Debug ${NODE1_HOST} coordinator: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-coordinator-api'"
-echo "  - Debug aitbc wallet: ssh aitbc-cascade 'systemctl status aitbc-wallet-daemon'"
-echo "  - Debug aitbc blockchain 1: ssh aitbc-cascade 'systemctl status aitbc-blockchain-node-1'"
+echo "  - Debug aitbc coordinator: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-coordinator-api'"
+echo "  - Debug aitbc wallet: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-wallet-daemon'"
+echo "  - Debug aitbc blockchain 1: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-blockchain-node-1'"
 echo "  - Debug local blockchain 2: systemctl status aitbc-blockchain-node-2"
-echo "  - Debug aitbc exchange: ssh aitbc-cascade 'systemctl status aitbc-exchange-api'"
-echo ""
-print_status "Port Migration Commands:"
-echo "  - Update container coordinator to port 8080: ssh aitbc-cascade 'sudo systemctl edit aitbc-coordinator-api.service'"
-echo "  - Update container exchange to port 8082: ssh aitbc-cascade 'sudo systemctl edit aitbc-exchange-api.service'"
-echo "  - Update wallet daemon to port 8083: ssh aitbc-cascade 'sudo systemctl edit aitbc-wallet-daemon.service'"
-echo "  - Blockchain Node 2: Runs in container on port 8084 (not localhost)"
-echo "  - Blockchain Node 1: Use port 8081 (container)"
+echo "  - Debug aitbc exchange: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-exchange-api'"
 echo ""
 print_status "Service URLs:"
-echo "  - Coordinator API: http://localhost:8000"
-echo "  - Exchange API: http://localhost:8001"
-echo "  - Blockchain RPC: http://localhost:8003"
-echo "  - Container Services: http://localhost:8080-8089"
-echo "    - Blockchain Node 2: http://localhost:8084 (container only)"
+echo "  - API Gateway:     http://localhost:8201"
+echo "  - Blockchain RPC:  http://localhost:8202"
+echo "  - Coordinator API: http://localhost:8203"
+echo "  - Explorer API:    http://localhost:8100"
+echo "  - Exchange API:    http://localhost:8106"
+echo "  - Wallet Daemon:   http://localhost:8108"
+echo "  - Pool Hub:        http://localhost:8210"
+echo ""
+echo "  Ports come from docs/reference/SERVICE_PORTS.md, which is the single"
+echo "  source of truth. If you change one there, change it here too --"
+echo "  scripts/docs/check_ports.py only reads markdown tables, not this file."
