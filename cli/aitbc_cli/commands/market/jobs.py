@@ -830,6 +830,8 @@ def _run_hermes(
     default=300,
     help="Maximum wall-clock execution time in seconds for Hermes jobs",
 )
+@click.option("--days", type=int, default=1, help="Rental duration in days for IPFS hosting")
+@click.option("--pin/--no-pin", default=True, help="Pin the CID for IPFS hosting (default: pin)")
 @click.option("--track", is_flag=True, default=False, help="Create a coordinator job record after a successful run")
 @click.option("--proposer", "proposer_id", default=None, help="Hub proposer address for escrow (defaults to HUB_PROPOSER_ID)")
 @OUTPUT_FORMAT_OPTION
@@ -848,11 +850,13 @@ def run_job(
     resolution: str,
     bitrate: str,
     max_time: int,
+    days: int,
+    pin: bool,
     track: bool,
     proposer_id: str | None,
     output_format: str,
 ) -> None:
-    """Run a software offer (Ollama/Whisper/FFmpeg/Hermes) and pay metered escrow."""
+    """Run a software offer (Ollama/Whisper/FFmpeg/Hermes/IPFS) and pay metered escrow."""
     try:
         output_format = resolve_output_format(ctx, output_format)
         offer = _resolve_offer(ctx, offer_id_or_plugin_id)
@@ -926,8 +930,20 @@ def run_job(
                 node_wallet=node_wallet,
             )
         elif service_type == "ipfs":
-            error("IPFS hosting jobs are not supported via 'market run'. Use 'aitbc ipfs host' instead.")
-            raise click.Abort()
+            # Local import to avoid a circular module load with host.py.
+            from .host import _run_ipfs_hosting
+
+            _run_ipfs_hosting(
+                ctx,
+                offer_id_or_plugin_id,
+                prompt,
+                days,
+                pin,
+                release_immediately=True,
+                output_format=output_format,
+                track=track,
+                node_wallet=node_wallet,
+            )
         else:
             error(f"Service type '{service_type}' not yet supported via 'market run'")
             raise click.Abort()

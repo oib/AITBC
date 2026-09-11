@@ -620,19 +620,19 @@ def host_ipfs(
         "offer-id-or-plugin-id": offer_id_or_plugin_id,
         "cid-or-file": cid_or_file,
         "days": str(days),
-        "wallet": wallet,
     }
     if pin:
         subcommand_options["pin"] = None
     return _run_aitbc_cli_write(
         role,
         host,
-        "ipfs",
+        "market",
         "host",
         None,
         None,
         dry_run,
         confirm,
+        group_options={"wallet": wallet},
         subcommand_options=subcommand_options,
     )
 
@@ -728,6 +728,8 @@ def run_market_offer(
     codec: Annotated[str | None, Field(description="FFmpeg target codec (e.g. 'h264').")] = None,
     resolution: Annotated[str | None, Field(description="FFmpeg target resolution (e.g. '1080p').")] = None,
     bitrate: Annotated[str | None, Field(description="FFmpeg target bitrate (e.g. '5M').")] = None,
+    days: Annotated[int | None, Field(description="Rental duration in days for IPFS hosting.", ge=1)] = None,
+    pin: Annotated[bool, Field(description="Pin the CID for IPFS hosting.")] = True,
     track: Annotated[bool, Field(description="Create a coordinator job record.")] = False,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
@@ -740,7 +742,7 @@ def run_market_offer(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Run a software offer (Ollama/Whisper/FFmpeg) and pay metered escrow."""
+    """Run a software offer (Ollama/Whisper/FFmpeg/IPFS) and pay metered escrow."""
     subcommand_options: dict[str, str | None] = {}
     if max_tokens is not None:
         subcommand_options["max-tokens"] = str(max_tokens)
@@ -760,6 +762,10 @@ def run_market_offer(
         subcommand_options["resolution"] = resolution
     if bitrate is not None:
         subcommand_options["bitrate"] = bitrate
+    if days is not None:
+        subcommand_options["days"] = str(days)
+    if not pin:
+        subcommand_options["no-pin"] = None
     if track:
         subcommand_options["track"] = None
     subcommand_options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
@@ -776,6 +782,44 @@ def run_market_offer(
         group_options={"wallet": wallet},
         subcommand_options=subcommand_options,
         env={"AITBC_WALLET_DIR": DEFAULT_WALLET_DIR},
+    )
+
+
+@mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
+def download_market_ipfs(
+    cid: Annotated[str | None, Field(description="Free CID to retrieve.")] = None,
+    rental_id: Annotated[str | None, Field(description="Marketplace job ID for a paid rental.")] = None,
+    access_key: Annotated[str | None, Field(description="Rental access key.")] = None,
+    access_secret: Annotated[str | None, Field(description="Rental access secret.")] = None,
+    output: Annotated[str | None, Field(description="Output file path.")] = None,
+    role: Annotated[
+        NodeRole | None,
+        Field(description="Node role to run the command on."),
+    ] = None,
+    host: Annotated[
+        str | None,
+        Field(description="Override the host for this call."),
+    ] = None,
+) -> str:
+    """Download IPFS content by CID, marketplace job ID, or access token."""
+    subcommand_options: dict[str, str | None] = {}
+    if cid:
+        subcommand_options["cid"] = cid
+    if rental_id:
+        subcommand_options["rental-id"] = rental_id
+    if access_key:
+        subcommand_options["access-key"] = access_key
+    if access_secret:
+        subcommand_options["access-secret"] = access_secret
+    if output:
+        subcommand_options["output"] = output
+    return _aitbc_cli_read_tool(
+        role,
+        host,
+        "market",
+        "download",
+        group_options={},
+        subcommand_options=subcommand_options,
     )
 
 

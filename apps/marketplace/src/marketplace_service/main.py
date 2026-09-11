@@ -45,16 +45,20 @@ logger = get_logger(__name__)
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Marketplace Service."""
     from .services.ipfs_rental_sweeper import IpfsRentalSweeper
+    from .services.marketplace_job_sweeper import MarketplaceJobSweeper
 
     logger.info("Starting Marketplace Service")
     await init_db()
     sweeper = IpfsRentalSweeper()
+    job_sweeper = MarketplaceJobSweeper()
     await sweeper.start()
+    await job_sweeper.start()
     try:
         yield
     finally:
         logger.info("Shutting down Marketplace Service")
         await sweeper.stop()
+        await job_sweeper.stop()
 
 
 app = FastAPI(
@@ -668,6 +672,219 @@ async def get_ipfs_rental_token(
         return result
     except Exception as e:
         logger.error("Error in GET /v1/ipfs/rental/%s: %s: %s", access_key, type(e).__name__, str(e))
+        raise
+
+
+# ---------------------------------------------------------------------------
+# Marketplace jobs (v0.25.7 first-class IPFS and future software jobs)
+# ---------------------------------------------------------------------------
+
+
+@app.post("/v1/marketplace/jobs")
+async def create_marketplace_job(
+    job_data: dict[str, Any], svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
+    """Create a marketplace job and payment record."""
+    try:
+        logger.info("POST /v1/marketplace/jobs called with data keys: %s", job_data.keys())
+        result = await svc.create_marketplace_job(job_data)
+        logger.info("POST /v1/marketplace/jobs created job: %s", result.get("job_id"))
+        return result
+    except ValueError as e:
+        logger.info("Rejecting marketplace job creation: %s", e)
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/jobs: %s: %s", type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/marketplace/jobs")
+async def list_marketplace_jobs(
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    buyer_address: str | None = None,
+    provider_address: str | None = None,
+    service_type: str | None = None,
+    state: str | None = None,
+    offer_id: str | None = None,
+    limit: int = 100,
+) -> Any:
+    """List marketplace jobs."""
+    try:
+        logger.info("GET /v1/marketplace/jobs called")
+        return await svc.list_marketplace_jobs(
+            buyer_address=buyer_address,
+            provider_address=provider_address,
+            service_type=service_type,
+            state=state,
+            offer_id=offer_id,
+            limit=limit,
+        )
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/jobs: %s: %s", type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/marketplace/jobs/{job_id}")
+async def get_marketplace_job(job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
+    """Get a marketplace job by ID."""
+    try:
+        logger.info("GET /v1/marketplace/jobs/%s called", job_id)
+        result = await svc.get_marketplace_job(job_id)
+        if not result:
+            return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+        return result
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/jobs/%s: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.post("/v1/marketplace/jobs/{job_id}/cancel")
+async def cancel_marketplace_job(
+    job_id: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    cancel_data: dict[str, Any] | None = None,
+) -> Any:
+    """Cancel a marketplace job and request a refund."""
+    try:
+        cancel_data = cancel_data or {}
+        logger.info("POST /v1/marketplace/jobs/%s/cancel called", job_id)
+        result = await svc.cancel_marketplace_job(job_id, reason=cancel_data.get("reason", ""))
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/jobs/%s/cancel: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.post("/v1/marketplace/jobs/{job_id}/pin-confirm")
+async def confirm_marketplace_job_pin(
+    job_id: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    confirm_data: dict[str, Any] | None = None,
+) -> Any:
+    """Confirm that a job's content has been pinned."""
+    try:
+        confirm_data = confirm_data or {}
+        logger.info("POST /v1/marketplace/jobs/%s/pin-confirm called", job_id)
+        result = await svc.confirm_marketplace_job_pin(
+            job_id,
+            size=confirm_data.get("size"),
+            pin_tx_hash=confirm_data.get("pin_tx_hash"),
+            provider_confirmed=bool(confirm_data.get("provider_confirmed")),
+        )
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/jobs/%s/pin-confirm: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.post("/v1/marketplace/jobs/{job_id}/release")
+async def release_marketplace_job_payment(
+    job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
+    """Release the escrow payment for a marketplace job."""
+    try:
+        logger.info("POST /v1/marketplace/jobs/%s/release called", job_id)
+        result = await svc.release_marketplace_job_payment(job_id)
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/jobs/%s/release: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.post("/v1/marketplace/jobs/{job_id}/refund")
+async def refund_marketplace_job_payment(
+    job_id: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+    refund_data: dict[str, Any] | None = None,
+) -> Any:
+    """Refund the escrow payment for a marketplace job."""
+    try:
+        refund_data = refund_data or {}
+        logger.info("POST /v1/marketplace/jobs/%s/refund called", job_id)
+        result = await svc.refund_marketplace_job_payment(job_id, reason=refund_data.get("reason", ""))
+        return result
+    except ValueError as e:
+        return JSONResponse(status_code=400, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in POST /v1/marketplace/jobs/%s/refund: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/marketplace/jobs/{job_id}/access")
+async def get_marketplace_job_access(
+    job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
+    """Return the access metadata for a marketplace job (customer only)."""
+    try:
+        logger.info("GET /v1/marketplace/jobs/%s/access called", job_id)
+        job = await svc.get_marketplace_job(job_id)
+        if not job:
+            return JSONResponse(status_code=404, content={"error": f"Job not found: {job_id}"})
+        return {
+            "cid": job.get("payload", {}).get("cid"),
+            "ipfs_api": job.get("payload", {}).get("ipfs_api"),
+            "public_endpoint": job.get("payload", {}).get("public_endpoint"),
+            "access_key": job.get("payload", {}).get("access_key"),
+            "access_secret": job.get("payload", {}).get("access_secret"),
+            "expires_at": job.get("expires_at"),
+            "size": job.get("payload", {}).get("size"),
+        }
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/jobs/%s/access: %s: %s", job_id, type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/marketplace/access/{access_key}")
+async def get_marketplace_access_token(
+    access_key: str,
+    access_secret: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+) -> Any:
+    """Validate an access token and return the CID and retrieval metadata."""
+    try:
+        logger.info("GET /v1/marketplace/access/%s called", access_key)
+        result = await svc.get_marketplace_job_access_token(access_key, access_secret)
+        if not result:
+            return JSONResponse(status_code=404, content={"error": "Invalid, expired, or unknown access token"})
+        return result
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/access/%s: %s: %s", access_key, type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/marketplace/jobs/usage")
+async def get_marketplace_job_usage(
+    buyer_address: str,
+    offer_id: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+) -> Any:
+    """Return active storage usage in bytes for a buyer/offer pair."""
+    try:
+        logger.info("GET /v1/marketplace/jobs/usage called")
+        return {"buyer_address": buyer_address, "offer_id": offer_id, "used_bytes": await svc.get_marketplace_job_usage(buyer_address, offer_id)}
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/jobs/usage: %s: %s", type(e).__name__, str(e))
+        raise
+
+
+@app.get("/v1/marketplace/offer/{plugin_id}/health")
+async def get_software_offer_health(
+    plugin_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+) -> Any:
+    """Check the health of a software offer."""
+    try:
+        logger.info("GET /v1/marketplace/offer/%s/health called", plugin_id)
+        return await svc.check_software_offer_health(plugin_id)
+    except ValueError as e:
+        return JSONResponse(status_code=404, content={"error": str(e)})
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/offer/%s/health: %s: %s", plugin_id, type(e).__name__, str(e))
         raise
 
 
