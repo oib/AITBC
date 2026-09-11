@@ -10,6 +10,7 @@ This directory contains production deployment guides and procedures for the AITB
 - [Multi Server](multi-server.md) - Multi-server deployment
 - [Staging Environment](STAGING.md) - Staging environment setup and management
 - [Configuration](configuration.md) - Environment configuration
+- [Script environment variables](script-environment.md) - the `AITBC_*` variables the operational scripts read
 - [SSL/TLS Setup](ssl-tls-setup.md) - SSL/TLS configuration
 - [Health Checks](health-checks.md) - Service health monitoring
 - [Deployment Troubleshooting](deployment-troubleshooting.md) - Common deployment issues

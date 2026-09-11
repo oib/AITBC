@@ -216,3 +216,9 @@ netstat -tlnp | grep :800
 3. **Monitor logs** when troubleshooting issues
 4. **Stop services** when not in use to conserve resources
 5. **Run scripts from the project root** for proper path resolution
+
+## Environment variables
+
+The scripts in this tree take fleet addresses, service endpoints and deployment
+targets from `AITBC_*` environment variables rather than hardcoded hosts. See
+[docs/deployment/script-environment.md](../docs/deployment/script-environment.md).
