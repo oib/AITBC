@@ -1391,9 +1391,12 @@ class MarketplaceService:
             logger.error("Error in release_marketplace_job_payment: %s: %s", type(e).__name__, e)
             raise
 
-    async def refund_marketplace_job_payment(self, job_id: str, reason: str = "") -> dict[str, Any]:
+    async def refund_marketplace_job_payment(
+        self, job_id: str, reason: str = "", refund_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Refund the escrow for a failed or canceled marketplace job."""
         try:
+            refund_data = refund_data or {}
             job = await self.session.get(MarketplaceJob, job_id)
             if not job:
                 raise ValueError(f"Job not found: {job_id}")
@@ -1405,29 +1408,36 @@ class MarketplaceService:
             if not job.escrow_contract_id:
                 raise ValueError(f"Job {job_id} has no escrow_contract_id")
 
-            result = await self._rpc_client.refund_escrow(job.id)
-            if result and result.get("success"):
+            tx_hash = refund_data.get("tx_hash")
+            refunded_amount = refund_data.get("refunded_amount")
+            if not tx_hash:
+                result = await self._rpc_client.refund_escrow(job.id)
+                if not (result and result.get("success")):
+                    raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))
-                job.state = "REFUNDED"
-                job.payment_status = "refunded"
-                job.refund_tx_hash = tx_hash
-                job.error = reason or job.error
-                job.updated_at = datetime.utcnow()
+                refunded_amount = result.get("refunded_amount")
 
-                if payment:
-                    payment.status = "refunded"
-                    payment.refund_transaction_hash = tx_hash
-                    payment.refunded_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
-                    self.session.add(payment)
+            job.state = "REFUNDED"
+            job.payment_status = "refunded"
+            job.refund_tx_hash = tx_hash
+            if reason:
+                job.receipt = reason
+            job.updated_at = datetime.utcnow()
 
-                self.session.add(job)
-                await self.session.commit()
-                await self.session.refresh(job)
+            if payment:
+                payment.status = "refunded"
+                payment.refund_transaction_hash = tx_hash
+                payment.refunded_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
+                if refunded_amount is not None:
+                    payment.refunded_amount = Decimal(str(refunded_amount))
+                self.session.add(payment)
 
-                return self._job_to_dict(job)
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
 
-            raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
+            return self._job_to_dict(job)
         except Exception as e:
             await self.session.rollback()
             logger.error("Error in refund_marketplace_job_payment: %s: %s", type(e).__name__, e)
