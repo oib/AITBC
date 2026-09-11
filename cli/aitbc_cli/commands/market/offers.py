@@ -1110,8 +1110,6 @@ def offer_list(
         offers: list[dict[str, Any]] = []
         if isinstance(result, dict):
             offers = result.get("offers", result.get("data", [])) or []
-        elif isinstance(result, list):
-            offers = result
 
         filtered: list[dict[str, Any]] = []
         for offer in offers:
