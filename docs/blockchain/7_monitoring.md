@@ -148,8 +148,10 @@ Served by Coordinator API (8203) at `/v1/agents/integration/production/alerts`.
 
 > **Admin credentials required.** Every endpoint on this router carries
 > `AdminDep`. The router was mounted on 2026-09-11; before that it was
-> imported but never passed to `include_router()`, so these paths returned
-> 404 regardless of credentials.
+> imported but never passed to `include_router()`, so the paths were absent
+> from the OpenAPI schema entirely. Note that 8203 answers `401` for any
+> unauthenticated request regardless of whether the path exists, so a `401`
+> here is not evidence the route is mounted -- check `/openapi.json`.
 
 ### Verify Dashboard Access
 
