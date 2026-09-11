@@ -373,13 +373,13 @@ def host(
 
   aitbc market download --rental-id <job-id>
 
-  aitbc market download --access-key <k> --access-secret <s> --output /tmp/data.txt""",
+  aitbc market download --access-key <k> --access-secret <s> --output-path /tmp/data.txt""",
 )
 @click.option("--rental-id", "rental_id", help="Marketplace job ID for a paid rental")
 @click.option("--access-key", "access_key", help="Rental access key")
 @click.option("--access-secret", "access_secret", help="Rental access secret")
 @click.option("--cid", "cid", help="Free CID retrieval (bypasses access token)")
-@click.option("--output", "output_path", type=click.Path(), help="Write retrieved content to this path")
+@click.option("--output-path", "output_path", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
