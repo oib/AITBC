@@ -1268,7 +1268,8 @@ class MarketplaceService:
                 return self._job_to_dict(job)
 
             job.state = "CANCELED"
-            job.error = reason or "buyer_requested"
+            job.receipt = reason or "buyer_requested"
+            job.error = None
             job.updated_at = datetime.utcnow()
 
             payment = None
