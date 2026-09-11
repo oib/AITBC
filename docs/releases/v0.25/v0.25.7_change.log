@@ -35,13 +35,34 @@ v0.25.7 - First-class IPFS marketplace support
   - `apps/marketplace/tests/test_marketplace_job.py`
   - `apps/marketplace/tests/test_marketplace_job_sweeper.py`
 
-Live validation
----------------
+Fixes during live validation
+-----------------------------
 
-- node0: `aitbc market list` shows IPFS offer
+- Fixed `MarketplaceJobPayment.escrowed_at` initialization for payments created
+  with `status="escrowed"` so the sweeper sees them.
+- Re-ordered `/v1/marketplace/jobs/usage` before the dynamic `/v1/marketplace/jobs/{job_id}`
+  route so FastAPI matches the static path correctly.
+- Used `job.id` (not `escrow_contract_id`) for `release_escrow`/`refund_escrow`
+  RPC calls; the blockchain RPC resolves escrow by `job_id`.
+- `MarketplaceService.release_marketplace_job_payment` now accepts optional
+  `release_data` with `tx_hash`/`released_amount`, letting the customer release
+  on their local blockchain and sync state to the hub marketplace.
+- Added `released_amount` and `refunded_amount` columns to `MarketplaceJobPayment`.
+- Renamed `aitbc market download --output` to `--output-path` to avoid a
+  parameter collision with the `--output` format alias.
+- Updated mypy baseline and regenerated MCP wrappers for the new market subcommands.
+
+Live validation (2026-09-11)
+----------------------------
+
+- node0: `aitbc ipfs upload --file /tmp/market_ipfs_test2.txt --pin` -> CID
+- node0: `aitbc market list --service-type ipfs` shows IPFS offer
 - node0: `aitbc market run --offer-id-or-plugin-id ipfs-ipfs-host --prompt <cid> --days 1`
-- node0: `aitbc market host --offer-id ... --cid-or-file /tmp/voice.wav --days 3`
-- node2: verify `MarketplaceJob` and `JobPayment` rows
-- node0: `aitbc market download --rental-id <job-id>`
-- node0: `aitbc market cancel --job-id <job-id>`
-- hub: verify `ESCROW_LOCK` / `ESCROW_RELEASE` / `ESCROW_REFUND` txs
+  creates escrow, registers a `MarketplaceJob`, confirms pin, releases payment,
+  and returns a `RELEASED` job with tx_hash.
+- node0: `aitbc market download --rental-id <job-id> --output-path /tmp/...`
+  retrieves the hosted content.
+- node0: `aitbc market jobs --service-type ipfs` lists jobs with `RELEASED` payment.
+- node2: `MarketplaceJob` / `MarketplaceJobPayment` rows show `state=RELEASED`,
+  `payment_status=released`.
+- hub: `ESCROW_LOCK` and `ESCROW_RELEASE` transactions settled on chain.
