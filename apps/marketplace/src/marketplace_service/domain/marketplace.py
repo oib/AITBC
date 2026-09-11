@@ -186,6 +186,10 @@ class MarketplaceJobPayment(MarketplaceBase, table=True):
     transaction_hash: str | None = Field(default=None)
     refund_transaction_hash: str | None = Field(default=None)
 
+    # Settlement amounts for metered releases/refunds
+    released_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8), nullable=True))
+    refunded_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8), nullable=True))
+
     # Timestamps
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
