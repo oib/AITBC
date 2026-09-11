@@ -557,7 +557,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 - Receives blocks via lease-based subscription over RPC (WebSocket push)
 - Syncs genesis from hub
 
-**Example:** gitea-runner following both chains
+**Example:** `<node3>` following both chains
 
 ---
 

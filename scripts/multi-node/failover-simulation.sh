@@ -2,8 +2,7 @@
 #
 # Node Failover Simulation Script
 # Simulates node shutdown and verifies network continues operating
-# Uses RPC endpoints with SSH for remote nodes (aitbc1, gitea-runner)
-# Local node (aitbc) uses localhost
+# Uses RPC endpoints with SSH for the remote nodes; the local node uses localhost
 #
 
 # Don't use set -e - we handle errors manually
@@ -14,9 +13,9 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 # Node Configuration
 # Uses hostnames for direct HTTP access (no SSH needed)
 NODES=(
-    "aitbc:aitbc"
-    "aitbc1:aitbc1"
-    "gitea-runner:gitea-runner"
+    "node0:localhost"
+    "node1:${AITBC_NODE1_SSH:?set AITBC_NODE1_SSH to the ssh target for node1}"
+    "node3:${AITBC_NODE3_SSH:?set AITBC_NODE3_SSH to the ssh target for node3 (CI runner)}"
 )
 
 RPC_PORT=8006
