@@ -67,7 +67,7 @@
 | v0.25.3 | Escrow and settlement hardening | ✅ Complete | See v0.25.3_change.log |
 | v0.25.4 | Bridge, escrow/consensus hardening, GPU electricity-cost floor | ✅ Complete | See v0.25.4_change.log |
 | v0.25.6 | Multi-validator consensus hardening, auth & admin client fixes, CLI genesis tooling, and escrow v3 state path | ✅ Complete | Chain ID / island peer fixes; multi-validator source validated; auth/coordinator/CLI/state/monitoring hardening; see v0.25.6_change.log |
-| v0.25.7 | First-class IPFS marketplace support | 🚧 In Progress | Marketplace Job/Payment model, `aitbc market host/run` for IPFS, sweeper, MCP, agent SDK, migration; see v0.25.7_change.log |
+| v0.25.7 | First-class IPFS marketplace support | ✅ Complete | Marketplace Job/Payment model, `aitbc market host/run` for IPFS, sweeper, MCP, agent SDK, migration; live node0/node2 validation passed; see v0.25.7_change.log |
 | v0.25.5 | Audit reconciliation: register fully closed, fleet hardening, dead-code removal | ✅ Complete | All 8 register lanes at 0 items; see v0.25.5_change.log |
 
 ## Security Audit Summary
