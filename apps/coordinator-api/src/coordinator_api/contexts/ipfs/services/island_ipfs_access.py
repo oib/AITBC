@@ -7,7 +7,6 @@ only to paid, signature-proving island members.
 from __future__ import annotations
 
 import os
-import secrets
 import sqlite3
 from contextlib import closing
 from datetime import UTC, datetime
@@ -127,31 +126,34 @@ def is_ipfs_subscription_active(
 
 
 def _swarm_key_dir(island_id: str) -> Path:
-    """Directory where island IPFS swarm keys are stored."""
+    """Directory where island IPFS swarm keys are stored.
+
+    `island_id` arrives from the request body, so it is checked before it is
+    used as a path segment.
+    """
+    if not island_id or "/" in island_id or "\\" in island_id or island_id in (".", ".."):
+        raise PermissionError("Invalid island id")
     data_dir = Path(os.environ.get("AITBC_DATA_DIR", "/var/lib/aitbc/data"))
     return data_dir / "ipfs-island" / island_id
 
 
-def _generate_swarm_key() -> str:
-    """Generate a new 32-byte private swarm key in Kubo base16 format."""
-    return f"/key/swarm/psk/1.0.0/\n/base16/\n{secrets.token_hex(32)}\n"
-
-
 def get_island_swarm_key(island_id: str) -> str:
-    """Return the island swarm key, creating it if necessary.
+    """Return the island swarm key. Never creates one.
+
+    This used to generate and persist a key when the directory was empty, using
+    the island id from the request. An id naming no island therefore did not
+    fail -- it minted a second island whose key nobody else holds, and handed it
+    to the caller as if it were the real one. Provisioning belongs to
+    `aitbc-island-ipfs.service`, which writes the key once under
+    `ISLAND_IPFS_HUB=true`; a read must stay a read.
 
     The key is stored on disk and must be kept readable only by the hub.
     """
-    key_dir = _swarm_key_dir(island_id)
-    key_dir.mkdir(parents=True, exist_ok=True)
-    key_file = key_dir / "swarm.key"
-    if key_file.exists():
-        return key_file.read_text()
-    key = _generate_swarm_key()
-    key_file.write_text(key)
-    key_file.chmod(0o600)
-    logger.info("Generated new private IPFS swarm key for island %s at %s", island_id, key_file)
-    return key
+    key_file = _swarm_key_dir(island_id) / "swarm.key"
+    if not key_file.exists():
+        logger.warning("No swarm key on disk for island %s (%s)", island_id, key_file)
+        raise PermissionError("Unknown island")
+    return key_file.read_text()
 
 
 def verify_member_signature(
