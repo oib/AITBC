@@ -20,11 +20,11 @@ Get started immediately with these essential commands:
 
 ```bash
 # 1. Discover the Nemotron cloud offer
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | \
+curl -s https://shop.example.net/api/v1/marketplace/offer | \
   jq '.offers[] | select(.model=="nemotron-3-super:cloud") | {plugin_id, price, status}'
 
 # 2. Test direct inference (no blockchain needed)
-curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
+curl -s -X POST https://shop.example.net/ollama/api/generate \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nemotron-3-super:cloud",
@@ -34,7 +34,7 @@ curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
   }' | jq '.response'
 
 # 3. Check service health
-curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
+curl -s https://shop.example.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
 ```
 
 **Expected Results:**
@@ -51,7 +51,7 @@ This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron
 
 - AITBC CLI installed and configured
 - Wallet with sufficient AIT tokens
-- Network access to aitbc3.aitbc.bubuit.net
+- Network access to shop.example.net
 - **All services operational** (comprehensive fixes applied 2026-06-05)
 
 **Service Status Updates (2026-06-05)**:
@@ -73,10 +73,10 @@ Hub Node (Customer)              aitbc3 Node (Provider)
 
 **Access Routes**:
 
-- **Marketplace**: `https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer` (via API Gateway) ✅
-- **Plugin Discovery**: `https://aitbc3.aitbc.bubuit.net/api/v1/plugin/` (via API Gateway) ✅
-- **Ollama API**: `https://aitbc3.aitbc.bubuit.net/ollama/api/generate` (via nginx proxy) ✅ **WORKING**
-- **Coordinator**: `https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages` (via API Gateway) ✅
+- **Marketplace**: `https://shop.example.net/api/v1/marketplace/offer` (via API Gateway) ✅
+- **Plugin Discovery**: `https://shop.example.net/api/v1/plugin/` (via API Gateway) ✅
+- **Ollama API**: `https://shop.example.net/ollama/api/generate` (via nginx proxy) ✅ **WORKING**
+- **Coordinator**: `https://shop.example.net/api/v1/coordinator/v1/agent/messages` (via API Gateway) ✅
 
 **Current Service Status** (as of 2026-06-05):
 
