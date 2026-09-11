@@ -95,13 +95,6 @@ print_status "Restarting services..."
 incus exec $CONTAINER -- systemctl restart aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p
 incus exec $CONTAINER -- systemctl restart aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet
 
-# Install SSL certificate (Let's Encrypt)
-print_warning "SSL Certificate Setup:"
-echo "1. Ensure port 80/443 are forwarded to container IP (10.1.223.93)"
-echo "2. Run certbot in container:"
-echo "   incus exec $CONTAINER -- certbot --nginx -d $DOMAIN"
-echo ""
-
 echo ""
 print_status "✅ Deployment complete!"
 echo ""
@@ -113,7 +106,7 @@ echo "  🔗 API:             https://$DOMAIN/api/"
 echo "  ⛓️  Blockchain RPC:  https://$DOMAIN/rpc/"
 echo ""
 echo "📝 Next Steps:"
-echo "1. Forward ports 80/443 to container IP (10.1.223.93)"
-echo "2. Install SSL certificate:"
-echo "   incus exec $CONTAINER -- certbot --nginx -d $DOMAIN"
-echo "3. Test services at the URLs above"
+echo "1. Point the TLS terminator at this container and forward 80/443 to it."
+echo "   TLS is not terminated here -- this container serves cleartext and holds"
+echo "   no certificate. See docs/deployment/NETWORK_POLICY.md."
+echo "2. Test services at the URLs above"

@@ -153,15 +153,21 @@ configure_firewall() {
     fi
 }
 
-# Setup SSL/TLS security
-setup_ssl_security() {
-    log "Configuring SSL/TLS security..."
+# Install nginx response-security headers.
+#
+# This used to be gated on a Let's Encrypt certificate existing locally, which
+# meant it silently did nothing: AITBC obtains no certificates and terminates no
+# TLS -- that happens upstream, see docs/deployment/NETWORK_POLICY.md. The
+# headers are the part that was actually worth installing, so install them.
+#
+# Strict-Transport-Security is included because these responses are proxied to
+# the client through the terminator, so the header does reach a browser over
+# https. It has no effect on the cleartext hop.
+setup_security_headers() {
+    log "Installing nginx security headers..."
 
-    # Check SSL certificate
-    if [[ -f "/etc/letsencrypt/live/aitbc.bubuit.net/fullchain.pem" ]]; then
-        success "SSL certificate found and valid"
-
-        # Configure nginx security headers
+    if [[ -d /etc/nginx ]]; then
+        mkdir -p /etc/nginx/snippets
         cat > /etc/nginx/snippets/security-headers.conf << EOF
 # Security Headers
 add_header X-Frame-Options "SAMEORIGIN" always;
@@ -185,7 +191,7 @@ EOF
         nginx -t && systemctl reload nginx
         success "Nginx reloaded with security headers"
     else
-        error "SSL certificate not found - please obtain certificate first"
+        warning "nginx is not installed here - skipping security headers"
     fi
 }
 
@@ -275,7 +281,7 @@ main() {
     generate_api_keys
     update_production_env
     configure_firewall
-    setup_ssl_security
+    setup_security_headers
     setup_log_rotation
     setup_monitoring
     security_audit
@@ -288,7 +294,7 @@ main() {
     echo "   ✅ Secure API keys generated"
     echo "   ✅ Production environment configured"
     echo "   ✅ Firewall rules applied"
-    echo "   ✅ SSL/TLS security enhanced"
+    echo "   ✅ Nginx security headers installed"
     echo "   ✅ Log rotation configured"
     echo "   ✅ Health monitoring setup"
     echo
