@@ -30,7 +30,6 @@ docs/
 ├── getting-started/
 ├── governance/
 ├── infrastructure/
-├── LIVE_VALIDATION_DAYS/
 ├── marketplace/
 ├── meta/
 ├── mining/
@@ -49,7 +48,6 @@ docs/
 ├── FEATURES.md
 ├── fleet-roles.md
 ├── GLOSSARY.md
-├── LIVE_VALIDATION_SUMMARY.md
 ├── MASTER_INDEX.md
 ├── QUICK_REFERENCE.md
 ├── README.md
@@ -59,8 +57,8 @@ docs/
 
 ## Directory stats
 
-- **Top-level directories**: 33
-- **Markdown files under docs/**: 883
+- **Top-level directories**: 32
+- **Markdown files under docs/**: 863
 
 | Directory | Files | Description |
 |---|---|---|
@@ -84,7 +82,6 @@ docs/
 | [getting-started](getting-started/) | 31 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
-| [LIVE_VALIDATION_DAYS](LIVE_VALIDATION_DAYS/) | 19 | Per-day live validation logs for the public hub |
 | [marketplace](marketplace/) | 27 | Marketplace, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |

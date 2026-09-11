@@ -2,31 +2,33 @@
 
 This file exists so future sessions do not accidentally edit the wrong copy of the repo.
 
-## The four sites
+## The sites
+
+Which hosts fill which of these roles is deployment-specific and is not
+recorded in this repository. On the operator IDE host see
+`/home/oib/windsurf/aitbc/AGENTS.md` and `TOPOLOGY.md`.
 
 | site | host / path | role | what to do here |
 |---|---|---|---|
 | **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` |
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
-| **node2** | SSH `node2` (`/opt/aitbc`) | **shop node** | full working repo; run shop/follower services; commit and push to gitea |
-| **node0** | SSH `node0` (`/opt/aitbc`) | **customer / follower (gpu)** | primary customer node; `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid marketplace jobs run here |
-| **hub.aitbc** | SSH `hub.aitbc` (`/opt/aitbc`) | **hub / proposer** | full working repo; run hub and proposer services; customer traffic is on `node0` |
-| **hub1.aitbc** | SSH `hub1.aitbc` (`/opt/aitbc`) | **follower/customer replica** | former hub, demoted 2026-09-10; pull-only, no commits |
+| **shop node** | SSH target, `/opt/aitbc` | shop / follower | full working repo; run shop and follower services; commit and push to gitea |
+| **customer node** | SSH target, `/opt/aitbc` | customer / follower (gpu) | `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid marketplace jobs run here |
+| **hub node** | SSH target, `/opt/aitbc` | hub / proposer | full working repo; run hub and proposer services |
+| **replica** | SSH target, `/opt/aitbc` | follower / customer replica | pull-only, no commits |
 | **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | `/home/oib/windsurf/aitbc` is a partial staging checkout for notes and temporary scripts. `/opt/aitbc` is a non-active canonical clone (no `data/` or `venv/`, so no services run here); it is safe for gitea commits/pushes that do not require active node features. |
 
 ## Where the full repo lives
 
-The canonical, full AITBC repository is primarily on the two commit/push nodes, with a live follower deployment on `hub1.aitbc`:
-
-- `node2:/opt/aitbc` (shop/follower — commit and push to gitea)
-- `hub.aitbc:/opt/aitbc` (hub/proposer — commit and push to gitea)
-- `hub1.aitbc:/opt/aitbc` (follower/customer replica — pull only; do not commit or push from here)
+The canonical, full AITBC repository lives at `/opt/aitbc` on the commit/push
+nodes (the shop/follower and the hub/proposer), with a pull-only follower
+deployment on the replica. Do not commit or push from the replica.
 
 Both remotes point to gitea as `origin`. `github` should remain a read-only reference on live nodes; the GitHub mirror is maintained from the IDE host `/opt/aitbc` using a dedicated, non-shared token.
 
 > **Repository visibility note:** Gitea is the private, single-operator development repository. GitHub is the public mirror. AITBC software users other than the operator have no access to the Gitea instance, so deployment/setup scripts that must work for public users should continue to reference GitHub. Only the operator's live nodes and tooling should treat Gitea as the primary source of truth.
 >
-> **GitHub mirror policy (2026-08-24):** the public GitHub mirror is no longer pushed from `node2` or `hub.aitbc`. The only node that holds the GitHub token is the IDE host, in `/opt/aitbc`. Live nodes pull/fetch from Gitea and may keep a `github` remote for reference, but must not store GitHub credentials or push to GitHub.
+> **GitHub mirror policy (2026-08-24):** the public GitHub mirror is no longer pushed from any live node. The only host that holds the GitHub token is the IDE host, in `/opt/aitbc`. Live nodes pull/fetch from Gitea and may keep a `github` remote for reference, but must not store GitHub credentials or push to GitHub.
 
 `/home/oib/windsurf/aitbc` (this directory) is a partial local staging checkout used for notes, plans and temporary scripts.
 `/opt/aitbc` on the IDE host is a canonical clone at gitea `main` and is intentionally non-active: its `data/` and `venv/` directories have been removed so no AITBC service can start from it. It can be used for reading code, running local static checks, and for gitea commits/pushes that do not require live services or production data. Live work must still use `<shop-node>` or `<hub-node>`.
@@ -135,7 +137,7 @@ The GitHub token lives in memory (`git credential.helper cache`) or a secure hel
 
 Before touching anything, confirm at least one of these is true:
 
-- The path is `/opt/aitbc` **and** `hostname` returns `<shop-node>` or `<hub-node>.bubuit.net`.
+- The path is `/opt/aitbc` **and** `hostname` returns the shop or hub node name.
 - `git remote -v` shows `origin` = gitea.
 - `git branch --show-current` is `main` or `cli-docs-tests` (or another explicit feature branch), not a stale `cli-canonical`.
 
@@ -301,10 +303,10 @@ Agents should invoke commands as:
 ssh <node> 'bash -lc "your command"'
 ```
 
-This is mirrored on all five nodes: `hub.aitbc`, `node0`, `node1`,
-`node2`, `hub1.aitbc`. Note per-host quirks:
-- `hub1.aitbc` (formerly `hub2.aitbc`) did not have `fd-find`/`ripgrep` installed at all (not just a
-  missing symlink); both were installed from the stock Debian repo.
+This is mirrored on every node. Note per-host quirks:
+- At least one host did not have `fd-find`/`ripgrep` installed at all (not just
+  a missing symlink); both were installed from the stock Debian repo. Check
+  rather than assume.
 - Each host's `~/.profile` trailer (the extra `. "$HOME/.cargo/env"` /
   `. "$HOME/.local/bin/env"` lines) differs -- check what a host actually had
   before assuming another host's trailer applies to it.
@@ -370,18 +372,18 @@ auto-generated getter flattens the struct into that many return values and
 overflows the stack. Keep such mappings `internal` and expose an explicit
 `getX() returns (Struct memory)` -- returning the struct as one tuple is fine.
 
-**Hardhat (mocha) -- runs on node2 only.**
+**Hardhat (mocha) -- needs a host with a Node toolchain.**
 
 ```bash
-ssh node2 'bash -lc "cd /opt/aitbc/contracts && npx hardhat test"'   # 246 tests
+ssh <node> 'bash -lc "cd /opt/aitbc/contracts && npx hardhat test"'   # 246 tests
 ```
 
-node2 is the only host with a Node toolchain (24.20 / npm 11.16) and installed
-`node_modules`. The IDE host has no npm at all. This matters more than it
-looks: the Hardhat suites are the *only* coverage for `AgentStaking`,
-`PaymentProcessor` and `EscrowService`, which forge reports at or near 0% lines.
-If node2 is unavailable, those contracts are effectively untested, and CI does
-not run this suite.
+This needs Node (24.20 / npm 11.16) and installed `node_modules`, which in a
+typical deployment only one host has; the IDE host may have no npm at all. That
+matters more than it looks: the Hardhat suites are the *only* coverage for
+`AgentStaking`, `PaymentProcessor` and `EscrowService`, which forge reports at
+or near 0% lines. If that host is unavailable, those contracts are effectively
+untested, and CI does not run this suite.
 
 ## Wallet key mismatches
 
@@ -392,7 +394,7 @@ wallet unrelated to the original funds.
 
 Recommended response:
 
-1. Record the mismatch in `LIVE_VALIDATION_SUMMARY.md` under the relevant
+1. Record the mismatch in the IDE-local `LIVE_VALIDATION_SUMMARY.md` under the relevant
    scenario or finding.
 2. Check whether the original seed phrase, private key, or backup still exists
    on the node (e.g. `/var/lib/aitbc/wallets/`, `~/.aitbc/wallets/`, or the
@@ -426,57 +428,6 @@ over arbitrary SSH or shell commands.
 
 Use the typed MCP tools first. Drop to explicit SSH only when the MCP server
 itself is being debugged or a specific one-off command has no MCP wrapper.
-
-## CI runner (gitea-runner)
-
-The Gitea Actions runner is a separate Debian host reachable over SSH:
-
-```bash
-ssh gitea-runner
-```
-
-Key details from inspection:
-
-- Binary: `/opt/gitea-runner/act_runner`
-- Config: `/opt/gitea-runner/config.yaml`
-- Service: `gitea-runner.service`
-- Version: `act_runner v0.2.13`
-- Active label: `debian`
-- Capacity: `1`
-- Executor: host executor (`debian:host`)
-- Cached Python venvs: `/opt/gitea-runner/.cache/aitbc-venvs`
-- Work directory: `/opt/aitbc`
-- Python on host: `/usr/bin/python3` (3.13.5)
-
-Useful commands:
-
-```bash
-# Runner service status
-systemctl is-active gitea-runner
-systemctl status gitea-runner
-
-# Recent runner logs
-journalctl -u gitea-runner -n 50 --no-pager
-
-# Follow runner logs live
-journalctl -u gitea-runner -f
-
-# Inspect config (do not edit the runner token)
-cat /opt/gitea-runner/config.yaml
-
-# Restart the runner after config changes
-sudo systemctl restart gitea-runner
-
-# Test a workflow locally before pushing (stop daemon first to avoid cache races)
-sudo systemctl stop gitea-runner
-cd /opt/gitea-runner
-./act_runner exec -c /opt/gitea-runner/config.yaml \
-  -C /tmp/aitbc_ci2 \
-  -W .gitea/workflows/ci.yml \
-  -E push -i -self-hosted
-```
-
-The runner registration file `/opt/gitea-runner/.runner` contains a token. Treat it as secret and do not commit or copy it.
 
 ## Gitea CLI (`tea`)
 
@@ -529,5 +480,5 @@ tea open
 
 `AGENTS.md` is for workspace rules and conventions only.
 Open tasks, assignments and current state are tracked in `/home/oib/windsurf/aitbc/TASKLIST.md`.
-Live validation notes are tracked in `/home/oib/windsurf/aitbc/LIVE_VALIDATION_SUMMARY.md`.
+Live validation notes are tracked in `/home/oib/windsurf/aitbc/docs/LIVE_VALIDATION_SUMMARY.md`.
 These files are intentionally not tracked in the canonical shop-node / hub-node repository.
