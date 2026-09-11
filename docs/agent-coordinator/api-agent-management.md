@@ -6,8 +6,11 @@
 ## Base URL
 
 ```
-http://localhost:8107
+http://localhost:8107/v1
 ```
+
+The agent router has no prefix of its own, so `main.py` mounts it under `/v1`.
+Endpoint paths below are relative to this base URL.
 
 ## Authentication
 
@@ -73,7 +76,7 @@ Register a new agent with the coordinator.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:8107/agents/register \
+curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "agent-agent",
@@ -148,7 +151,7 @@ Discover agents based on filtering criteria.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:8107/agents/discover \
+curl -X POST http://localhost:8107/v1/agents/discover \
   -H "Content-Type: application/json" \
   -d '{
     "status": "active",
@@ -209,7 +212,7 @@ Retrieve detailed information about a specific agent.
 **Example:**
 
 ```bash
-curl http://localhost:8107/agents/agent-agent
+curl http://localhost:8107/v1/agents/agent-agent
 ```
 
 ### Update Agent Status
@@ -272,7 +275,7 @@ Update the status and load metrics of an agent.
 **Example:**
 
 ```bash
-curl -X PUT http://localhost:8107/agents/agent-agent/status \
+curl -X PUT http://localhost:8107/v1/agents/agent-agent/status \
   -H "Content-Type: application/json" \
   -d '{
     "status": "busy",

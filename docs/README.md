@@ -37,7 +37,7 @@ AITBC is under active development. Core blockchain, coordinator, wallet, marketp
 ## Navigation
 
 - [Master Index](MASTER_INDEX.md) — directory and key file catalog
-- [Audit](audit/DOCS_REFRESH_AUDIT.md) — current docs refresh status and remaining work
+- [Docs refresh audit](audit/DOCS_REFRESH_AUDIT.md) — closed record of the August 2026 refresh (historical)
 - [Service Ports](reference/SERVICE_PORTS.md) — authoritative port reference
 
 ---

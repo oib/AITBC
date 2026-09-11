@@ -47,8 +47,8 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 **Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
-| Blockchain RPC | 8006 | Main blockchain API + messaging |
-| Coordinator API | 8011 | Agent registry |
+| Blockchain RPC | 8202 | Main blockchain API + messaging |
+| Coordinator API | 8203 | Agent registry |
 | P2P Network | 7070 | Blockchain peer-to-peer |
 | Marketplace | 8102 | Marketplace operations |
 
@@ -62,8 +62,8 @@ ssh aitbc1 'systemctl status aitbc-blockchain-node.service'
 ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 
 # Check blockchain RPC health
-curl -s http://localhost:8006/health
-curl -s http://aitbc1:8006/health
+curl -s http://localhost:8202/health
+curl -s http://aitbc1:8202/health
 
 # Check P2P network status
 ss -tlnp | grep 7070
@@ -103,7 +103,7 @@ ssh aitbc1 'sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, h
 journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
 
 # Verify RPC endpoint is accessible
-curl -s http://aitbc1:8006/rpc/genesis_allocations?chain_id=ait-testnet
+curl -s http://aitbc1:8202/rpc/genesis_allocations?chain_id=ait-testnet
 ```
 
 **Solution - Force RPC Bootstrap:**
@@ -196,9 +196,9 @@ ssh aitbc1 'systemctl start aitbc-blockchain-node.service aitbc-blockchain-p2p.s
 ### 7. Communication Test
 ```bash
 # Verify all services are healthy
-curl -s http://localhost:8006/health
-curl -s http://aitbc1:8006/health
-curl -s http://localhost:8011/health
+curl -s http://localhost:8202/health
+curl -s http://aitbc1:8202/health
+curl -s http://localhost:8203/health
 curl -s http://localhost:8102/health
 
 # Check blockchain sync
@@ -315,7 +315,7 @@ journalctl -u aitbc-miner.service -n 20 | grep -i gpu
 1. **Duplicate P2P Node IDs:** Check for duplicate p2p_node_id in `/etc/aitbc/.env` - generate unique IDs
 2. **Btrfs CoW Corruption:** Disable CoW on `/var/lib/aitbc` with `chattr +C`
 3. **SQLite Corruption:** Enable WAL mode and check database integrity
-4. **Port Mismatches:** Coordinator API is on port 8011 (not 9001)
+4. **Port Mismatches:** Coordinator API is on port 8203 (not 9001)
 5. **Service Start Order:** Ensure P2P service starts before blockchain-node service
 6. **Network Connectivity:** Verify P2P port 7070 is open and accessible
 7. **Data Directory Permissions:** Ensure proper permissions on `/var/lib/aitbc/data`
@@ -324,7 +324,7 @@ journalctl -u aitbc-miner.service -n 20 | grep -i gpu
 - [ ] All blockchain services running
 - [ ] Blockchain heights match across nodes
 - [ ] P2P connections established (port 7070)
-- [ ] RPC endpoints responding (port 8006)
+- [ ] RPC endpoints responding (port 8202)
 - [ ] No duplicate P2P node IDs
 - [ ] Database integrity check passes
 - [ ] CoW disabled on data directory

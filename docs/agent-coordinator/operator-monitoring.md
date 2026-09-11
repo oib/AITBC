@@ -24,7 +24,7 @@ curl http://localhost:8107/health
 ### Task Distribution Stats
 
 ```bash
-curl http://localhost:8107/tasks/status
+curl http://localhost:8107/v1/tasks/status
 ```
 
 ### CLI Health Check

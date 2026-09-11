@@ -4,9 +4,9 @@ This section provides comprehensive documentation for all AITBC platform APIs.
 
 ## Available APIs
 
-- [Coordinator API](./coordinator/) - Job submission, management, and coordination
+- [Coordinator API](./coordinator-api-openapi.json) - Job submission, management, and coordination
 - [Blockchain Node API](./blockchain/) - Blockchain operations and queries
-- [Wallet Daemon API](./wallet/) - Wallet operations and key management
+- [Wallet Daemon API](./wallet-openapi.json) - Wallet operations and key management
 
 ## OpenAPI Specifications
 

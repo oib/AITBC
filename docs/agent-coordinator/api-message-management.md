@@ -6,8 +6,12 @@
 ## Base URL
 
 ```
-http://localhost:8107
+http://localhost:8107/api/v1/agent
 ```
+
+The message router declares its own `/api/v1/agent/messages` prefix, so it is
+mounted as-is rather than under `/v1`. Endpoint paths below are relative to this
+base URL.
 
 ## Message Management API
 
@@ -69,7 +73,7 @@ Send a message to a specific agent using a specified communication protocol.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:8107/messages/send \
+curl -X POST http://localhost:8107/api/v1/agent/messages/send \
   -H "Content-Type: application/json" \
   -d '{
     "receiver_id": "agent-agent",
@@ -129,7 +133,7 @@ Broadcast a message to multiple agents with optional filtering.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:8107/messages/broadcast \
+curl -X POST http://localhost:8107/api/v1/agent/messages/broadcast \
   -H "Content-Type: application/json" \
   -d '{
     "message_type": "broadcast",
@@ -186,14 +190,17 @@ Retrieve message history with optional filtering.
 **Example:**
 
 ```bash
-curl "http://localhost:8107/messages/history?sender_id=agent-1&limit=50"
+curl "http://localhost:8107/api/v1/agent/messages/history?sender_id=agent-1&limit=50"
 ```
 
 ### Get Specific Message
 
 Retrieve a specific message by ID.
 
-**Endpoint:** `GET /messages/{message_id}`
+**Endpoint:** `GET /messages/id/{message_id}`
+
+The `/id/` segment is required. `GET /messages/{agent_id}` is a different
+route that returns an agent's inbox.
 
 **URL Parameters:**
 
@@ -237,7 +244,7 @@ Retrieve a specific message by ID.
 **Example:**
 
 ```bash
-curl http://localhost:8107/messages/{message_id}
+curl http://localhost:8107/api/v1/agent/messages/id/{message_id}
 ```
 
 ## Related Topics

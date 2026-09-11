@@ -454,9 +454,9 @@ Governance Integration:
 ### **Technical Documentation**
 
 - Agent SDK Documentation
-- [Smart Contract API Reference](../contracts/api/)
+- [Smart Contract API Reference](../../contracts/)
 - [Governance Protocol Specification](../../agent/blockchain/governance.md)
-- [Security Audit Reports](../security/audits/)
+- [Security Audit Reports](../../security/)
 
 ### **Community Resources**
 

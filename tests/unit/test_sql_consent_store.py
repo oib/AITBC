@@ -47,6 +47,10 @@ def _db(monkeypatch):
     else:
         os.environ["DATABASE_ADAPTER"] = original_database_adapter
 
+    # Force the next caller to rebuild an engine against the restored DATABASE_URL.
+    _db_module._engine = None
+    _db_module._async_engine = None
+
     try:
         Path(db_path).unlink(missing_ok=True)
     except OSError:

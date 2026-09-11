@@ -75,6 +75,8 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 
 #### Agent Management (`routers/agents.py`)
 
+Mounted under `/v1`; paths below are relative to that.
+
 **Endpoints:**
 
 - `POST /agents/register` - Register new agent
@@ -83,6 +85,8 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 - `PUT /agents/{agent_id}/status` - Update agent status
 
 #### Task Management (`routers/tasks.py`)
+
+Mounted under `/v1`; paths below are relative to that.
 
 **Endpoints:**
 
@@ -156,7 +160,9 @@ AgentMessage:
 
 **Current Implementation Status:**
 
-**Implemented:**
+**Implemented:** (all under the message router's own `/api/v1/agent/messages`
+prefix -- note `/agents/service/...` belongs to this router, not to
+`routers/agents.py`)
 
 - `POST /messages/send` - Send messages (hardcoded to "hierarchical" protocol only)
 - `GET /load-balancer/stats` - Load balancer statistics
@@ -237,7 +243,7 @@ async def lifespan(app: FastAPI):
 
 ### Heartbeat
 
-1. Agent sends heartbeat (not yet implemented as endpoint)
+1. Agent sends heartbeat to `POST /v1/agents/{agent_id}/heartbeat` (`routers/agents.py`)
 2. Last heartbeat timestamp updated
 3. Health score recalculated
 4. Stale agents marked as inactive (configurable timeout)
@@ -397,7 +403,7 @@ redis-cli
 
 # Test API
 curl http://localhost:8107/health
-curl http://localhost:8107/tasks/status
+curl http://localhost:8107/v1/tasks/status
 ```
 
 ## Future Enhancements

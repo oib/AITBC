@@ -101,7 +101,6 @@ for router in ROUTERS:
 - `POST /validate` - Validate token
 - `POST /api-key/generate` - Generate API key
 - `POST /api-key/validate` - Validate API key
-- `POST /logout` - User logout
 
 **Full Paths:**
 
@@ -110,7 +109,8 @@ for router in ROUTERS:
 - `/api/v1/auth/validate`
 - `/api/v1/auth/api-key/generate`
 - `/api/v1/auth/api-key/validate`
-- `/api/v1/auth/logout`
+
+`auth.py` defines no `/logout` route; token invalidation is client-side.
 
 ### 4. Other Routers
 
