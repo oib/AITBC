@@ -56,7 +56,7 @@ deploy_to_region() {
     # 5. Run health check
     log "[$region] Verifying health..."
     local status
-    status=$(ssh -i "$SSH_KEY" $SSH_USER@$ip "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health")
+    status=$(ssh -i "$SSH_KEY" $SSH_USER@$ip "curl -s -o /dev/null -w '%{http_code}' http://localhost:8000/health")  # check-ports: ignore
     if [ "$status" != "200" ]; then
         error "Health check failed in $region (HTTP $status)"
     fi

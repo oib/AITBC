@@ -206,7 +206,7 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 - Miner logs: `journalctl -u aitbc-miner`
 - Blockchain logs: `journalctl -u aitbc-blockchain-node`
 - Pool hub metrics: `journalctl -u aitbc-pool-hub`
-- Prometheus metrics, where exposed, are on each service's `/metrics` path (e.g., `http://localhost:8203/metrics` for the coordinator).
+- Prometheus metrics, where exposed, are on each service's `/metrics` path (e.g., on the coordinator API at `http://localhost:8203/metrics`).
 
 ## See also
 

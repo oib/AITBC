@@ -24,7 +24,7 @@ Local FastAPI service that manages encrypted keys, signs transactions/receipts, 
 - Run the service locally:
 
   ```bash
-  poetry run uvicorn wallet_app.main:app --host 127.0.0.2 --port 8071 --reload
+  poetry run uvicorn wallet_app.main:app --host 127.0.0.2 --port 8108 --reload
   ```
 
 - REST receipt endpoints:

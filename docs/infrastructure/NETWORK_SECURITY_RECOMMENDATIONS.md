@@ -79,7 +79,10 @@ sudo firewall-cmd --reload
 
 ### Enable TLS for All Services
 
-AITBC services should be configured with TLS in production:
+AITBC services should be configured with TLS in production. The examples below are
+recommendations; they have not been verified as deployed on every live node. The
+operator must confirm HTTPS and certificate coverage before enabling HSTS or
+`includeSubDomains` for a real domain.
 
 **Coordinator API (8203):**
 
@@ -112,6 +115,8 @@ server {
     ssl_protocols TLSv1.2 TLSv1.3;
     ssl_ciphers HIGH:!aNULL:!MD5;
 
+    # HSTS is only safe once HTTPS is fully operational for the domain and all
+    # subdomains. Do not enable it on an HTTP-only or mixed-content site.
     add_header Strict-Transport-Security "max-age=31536000; includeSubDomains" always;
 
     location / {

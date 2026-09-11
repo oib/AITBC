@@ -26,21 +26,23 @@ NC='\033[0m' # No Color
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
 PYTHON_CMD="$VENV_DIR/bin/python"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 echo -e "${BLUE}🚀 AITBC PRODUCTION SERVICES DEPLOYMENT - PART 2${NC}"
 echo "=============================================="
-echo "Deploying production services to aitbc and ${NODE1_HOST}"
+echo "Deploying production services to ${NODE_ID} and ${NODE1_HOST}"
 echo ""
 
 # Step 3: Deploy to aitbc (localhost)
 echo -e "${CYAN}🚀 Step 3: Deploy to aitbc (localhost)${NC}"
 echo "======================================"
 
-# Test blockchain service on aitbc
-echo "Testing blockchain service on aitbc..."
+# Test blockchain service on the local node
+echo "Testing blockchain service on ${NODE_ID}..."
 cd /opt/aitbc
 source venv/bin/activate
-export NODE_ID=aitbc
+export NODE_ID=${NODE_ID}
 
 python production/services/blockchain.py > /opt/aitbc/production/logs/blockchain/blockchain_test.log 2>&1
 if [ $? -eq 0 ]; then
@@ -64,27 +66,27 @@ echo -e "${CYAN}🚀 Step 4: Deploy to ${NODE1_HOST} (remote)${NC}"
 echo "===================================="
 
 # Copy production setup to ${NODE1_HOST}
-echo "Copying production setup to aitbc1..."
+echo "Copying production setup to ${NODE1_ID}..."
 scp -r /opt/aitbc/production ${NODE1_HOST}:/opt/aitbc/
 scp -r /opt/aitbc/production/services ${NODE1_HOST}:/opt/aitbc/production/
 
 # Install dependencies on ${NODE1_HOST}
-echo "Installing dependencies on aitbc1..."
+echo "Installing dependencies on ${NODE1_ID}..."
 ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && pip install sqlalchemy psycopg2-binary redis celery fastapi uvicorn pydantic"
 
 # Test blockchain service on ${NODE1_HOST}
-echo "Testing blockchain service on aitbc1..."
-ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && python production/services/blockchain.py" > /tmp/aitbc1_blockchain_test.log 2>&1
+echo "Testing blockchain service on ${NODE1_ID}..."
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=${NODE1_ID} && python production/services/blockchain.py" > /tmp/${NODE1_ID}_blockchain_test.log 2>&1
 if [ $? -eq 0 ]; then
     echo "✅ Blockchain service test passed on ${NODE1_HOST}"
 else
     echo "❌ Blockchain service test failed on ${NODE1_HOST}"
-    cat /tmp/aitbc1_blockchain_test.log
+    cat /tmp/${NODE1_ID}_blockchain_test.log
 fi
 
 # Start marketplace service on ${NODE1_HOST}
-echo "Starting marketplace service on aitbc1..."
-ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && export MARKETPLACE_PORT=8102 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_aitbc1.log 2>&1 &"
+echo "Starting marketplace service on ${NODE1_ID}..."
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=${NODE1_ID} && export MARKETPLACE_PORT=8102 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_${NODE1_ID}.log 2>&1 &"
 
 echo "✅ Production services deployed to ${NODE1_HOST}"
 
@@ -102,7 +104,7 @@ curl -fsS http://localhost:8102/health | head -10 || echo "aitbc marketplace not
 
 # Test ${NODE1_HOST} marketplace service
 echo "Testing ${NODE1_HOST} marketplace service..."
-ssh ${NODE1_HOST} "curl -s http://localhost:8003/health" | head -10 || echo "${NODE1_HOST} marketplace not responding"
+ssh ${NODE1_HOST} "curl -s http://localhost:8102/health" | head -10 || echo "${NODE1_HOST} marketplace not responding"
 
 # Test blockchain connectivity between nodes
 echo "Testing blockchain connectivity..."
@@ -141,9 +143,9 @@ for node in ['aitbc', '${NODE1_HOST}']:
 echo -e "${CYAN}🖥️  Step 6: Production GPU Marketplace Test${NC}"
 echo "========================================"
 
-# Add GPU listing on aitbc
-echo "Adding GPU listing on aitbc..."
-curl -X POST http://localhost:8002/gpu/listings \
+# Add GPU listing to the marketplace on aitbc
+echo "Adding GPU listing to the AITBC marketplace on aitbc..."
+curl -X POST http://localhost:8102/gpu/listings \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "aitbc",
@@ -159,8 +161,8 @@ curl -X POST http://localhost:8002/gpu/listings \
   }' | head -5
 
 # Add GPU listing on ${NODE1_HOST}
-echo "Adding GPU listing on aitbc1..."
-ssh ${NODE1_HOST} "curl -X POST http://localhost:8003/gpu/listings \
+echo "Adding GPU listing to the AITBC marketplace on ${NODE1_ID}..."
+ssh ${NODE1_HOST} "curl -X POST http://localhost:8102/gpu/listings \
   -H 'Content-Type: application/json' \
   -d '{
     \"provider\": \"${NODE1_HOST}\",
@@ -178,10 +180,10 @@ ssh ${NODE1_HOST} "curl -X POST http://localhost:8003/gpu/listings \
 # Get marketplace stats from both nodes
 echo "Getting marketplace stats..."
 echo "aitbc stats:"
-curl -s http://localhost:8002/stats | head -5
+curl -s http://localhost:8102/stats | head -5
 
 echo "${NODE1_HOST} stats:"
-ssh ${NODE1_HOST} "curl -s http://localhost:8003/stats" | head -5
+ssh ${NODE1_HOST} "curl -s http://localhost:8102/stats" | head -5
 
 echo ""
 echo -e "${GREEN}🎉 PRODUCTION DEPLOYMENT COMPLETED!${NC}"

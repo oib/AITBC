@@ -20,7 +20,7 @@ BLOCK_TIME_SECONDS=2
 
 # RPC
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8080
+RPC_BIND_PORT=8202
 
 # Block Production
 MAX_BLOCK_SIZE_BYTES=1000000
@@ -57,7 +57,7 @@ pip install -e .
 ### Development
 
 ```bash
-uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8080 --reload
+uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8202 --reload
 ```
 
 ### Production
@@ -65,7 +65,7 @@ uvicorn aitbc_chain.app:app --host 127.0.0.1 --port 8080 --reload
 ```bash
 uvicorn aitbc_chain.app:app \
   --host 0.0.0.0 \
-  --port 8080 \
+  --port 8202 \
   --workers 1 \
   --timeout-keep-alive 30 \
   --access-log \
@@ -86,7 +86,7 @@ Type=simple
 User=aitbc
 WorkingDirectory=/opt/aitbc/apps/blockchain-node
 EnvironmentFile=/opt/aitbc/.env
-ExecStart=/opt/aitbc/venv/bin/uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8080 --workers 1
+ExecStart=/opt/aitbc/venv/bin/uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202 --workers 1
 Restart=always
 RestartSec=5
 
@@ -113,7 +113,7 @@ WantedBy=multi-user.target
 ### Health Check
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:8202/health
 ```
 
 ### Key Metrics

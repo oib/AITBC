@@ -52,6 +52,7 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/identity/register \
 ### Governance
 
 ```bash
+# Test governance endpoint via the blockchain RPC
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
   -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
@@ -60,15 +61,15 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
 ### GPU Resources
 
 ```bash
-# GPU registration
+# GPU registration via the blockchain RPC
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/gpu/register \
   -H "Content-Type: application/json" \
   -d '{"gpu_id": "GPU-test", "miner_id": "miner-001", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "registered_by": "<wallet_address>", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 
-# GPU query
+# GPU query via the blockchain RPC
 curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
 
-# GPU list
+# GPU list via the blockchain RPC
 curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
 ```
 

@@ -63,7 +63,7 @@ Create `.env.local`:
 ```env
 VITE_API_URL=http://localhost:8203
 VITE_WS_URL=ws://localhost:8203/ws
-VITE_EXPLORER_URL=http://localhost:8009
+VITE_EXPLORER_URL=http://localhost:8100
 VITE_NETWORK=mainnet
 ```
 

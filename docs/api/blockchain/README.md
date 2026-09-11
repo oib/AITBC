@@ -153,12 +153,12 @@ Retrieve network status and information.
 
 ```json
 {
-  "p2p_endpoint": "<node2>:8200",
+  "p2p_endpoint": "<node2>:7070",
   "p2p_node_id": "node-19b909970eeb4a6a87865dbb92c4b5dc",
   "chain_id": "ait-hub.aitbc.bubuit.net",
   "network_type": "open_island",
   "supported_chains": ["ait-hub.aitbc.bubuit.net"],
-  "connection_instructions": "Connect via P2P protocol to <node2>:8200",
+  "connection_instructions": "Connect via P2P protocol to <node2>:7070",
   "rpc_endpoint": "http://<node2>/rpc",
   "api_gateway": "http://<node2>/api",
   "contact_email": "andreas.fleckl@bubuit.net",
@@ -178,7 +178,7 @@ Retrieve list of connected peers (subscribers).
 [
   {
     "peer_id": "node-...",
-    "address": "192.168.1.100:8200",
+    "address": "192.168.1.100:7070",
     "last_seen": "2026-06-07T19:55:20Z"
   }
 ]

@@ -1,12 +1,12 @@
 #!/bin/bash
 # AITBC Comprehensive Services Test Script
-# Tests all services with new port logic implementation
+# Tests all services with current AITBC service ports
 
 set -euo pipefail
 
 echo "=== 🧪 AITBC Comprehensive Services Test ==="
 echo "Date: $(date)"
-echo "Testing all services with new port logic (8000-8003, 8010-8015)"
+echo "Testing all AITBC services with current port numbers"
 echo ""
 
 # Colors for output
@@ -69,19 +69,19 @@ echo "🔍 Core Services Testing"
 echo "====================="
 
 # Test Core Services
-test_service "Coordinator API (8000)" "http://localhost:8000/v1/health" '"status":"ok"'
+test_service "Coordinator API (8203)" "http://localhost:8203/v1/health" '"status":"ok"'
 test_service "Exchange API (8106)" "http://localhost:8106/" '"detail"'
-test_service "Blockchain RPC (8003)" "http://localhost:8003/rpc/head" '"height"'
+test_service "Blockchain RPC (8202)" "http://localhost:8202/rpc/head" '"height"'
 
 echo ""
 echo "🚀 Enhanced Services Testing"
 echo "=========================="
 
 # Test Enhanced Services
-test_service "Multimodal GPU (8101)" "http://localhost:8101/health" '"service":"gpu-multimodal"'
-test_service "GPU Multimodal (8203)" "http://localhost:8203/health" '"service":"gpu-multimodal"'
-test_service "Modality Optimization (8012)" "http://localhost:8012/health" '"service":"modality-optimization"'
-test_service "Adaptive Learning (8013)" "http://localhost:8013/health" '"service":"adaptive-learning"'
+test_service "GPU Service (8101)" "http://localhost:8101/health" '"service":"gpu"'
+test_service "Multi-Modal Agent (8020)" "http://localhost:8020/health" '"service":"multimodal-agent"'
+test_service "Modality Optimization (8021)" "http://localhost:8021/health" '"service":"modality-optimization"'
+test_service "Adaptive Learning (8012)" "http://localhost:8012/health" '"service":"adaptive-learning"'
 
 echo ""
 echo "🔧 Service Features Testing"
@@ -89,22 +89,22 @@ echo "========================="
 
 # Test Service Features
 test_service "GPU Status (8101)" "http://localhost:8101/gpu/status" '"gpu_available"'
-test_service "GPU Multimodal Features (8203)" "http://localhost:8203/gpu/multimodal" '"multimodal_capabilities"'
-test_service "Modality Optimization (8012)" "http://localhost:8012/optimization/modality" '"optimization_active"'
-test_service "Learning Status (8013)" "http://localhost:8013/learning/status" '"learning_active"'
+test_service "Multi-Modal Agent (8020)" "http://localhost:8020/multimodal/status" '"multimodal_capabilities"'
+test_service "Modality Optimization (8021)" "http://localhost:8021/optimization/modality" '"optimization_active"'
+test_service "Adaptive Learning (8012)" "http://localhost:8012/learning/status" '"learning_active"'
 
 echo ""
 echo "🌐 Port Availability Testing"
 echo "=========================="
 
 # Test Port Availability
-test_port "8000" "Coordinator API"
-test_port "8001" "Exchange API"
-test_port "8003" "Blockchain RPC"
-test_port "8010" "Multimodal GPU"
-test_port "8203" "GPU Multimodal"
-test_port "8012" "Modality Optimization"
-test_port "8013" "Adaptive Learning"
+test_port "8203" "Coordinator API"
+test_port "8106" "Exchange API"
+test_port "8202" "Blockchain RPC"
+test_port "8101" "GPU Service"
+test_port "8020" "Multi-Modal Agent"
+test_port "8021" "Modality Optimization"
+test_port "8012" "Adaptive Learning"
 
 echo ""
 echo "📊 Test Results Summary"
@@ -117,7 +117,7 @@ echo -e "Failed: ${RED}$FAILED${NC}"
 
 if [ $FAILED -eq 0 ]; then
     echo -e "${GREEN}🎉 All tests passed!${NC}"
-    echo "✅ AITBC services are fully operational with new port logic"
+    echo "✅ AITBC services are fully operational with current ports"
     exit 0
 else
     echo -e "${RED}❌ Some tests failed!${NC}"

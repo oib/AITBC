@@ -40,7 +40,9 @@ print_local() {
 print_status "AITBC Service Location Diagnostic"
 
 # Get container IPs
-containers=("aitbc" "aitbc1")
+LOCAL_CONTAINER="${AITBC_CONTAINER_NAME:-aitbc}"
+REMOTE_CONTAINER="${AITBC_NODE1_CONTAINER_NAME:-aitbc1}"
+containers=("$LOCAL_CONTAINER" "$REMOTE_CONTAINER")
 declare -A container_ips
 
 for container in "${containers[@]}"; do
@@ -63,9 +65,9 @@ if [ -n "$local_services" ]; then
             # Get port if possible
             port_info=""
             case $service_name in
-                *coordinator-api*) port_info=" (port 8001)" ;;
+                *coordinator-api*) port_info=" (port 8203)" ;;
                 *wallet*) port_info=" (port 8108)" ;;
-                *blockchain*) port_info=" (port 8003)" ;;
+                *blockchain-rpc*) port_info=" (port 8202)" ;;
             esac
             print_success "  ✅ $service_name: RUNNING$port_info"
         else
@@ -94,9 +96,9 @@ for container in "${containers[@]}"; do
                         # Get port if possible
                         port_info=""
                         case $service in
-                            *coordinator-api*) port_info=" (port 8001)" ;;
+                            *coordinator-api*) port_info=" (port 8203)" ;;
                             *wallet*) port_info=" (port 8108)" ;;
-                            *blockchain*) port_info=" (port 8003)" ;;
+                            *blockchain-rpc*) port_info=" (port 8202)" ;;
                         esac
                         print_success "    ✅ $service: RUNNING$port_info"
                     else
@@ -154,9 +156,9 @@ done
 echo ""
 print_status "Health Check Summary:"
 health_endpoints=(
-    "http://localhost:8001/health:Coordinator API"
-    "http://localhost:8002/health:Wallet Daemon"
-    "http://localhost:8003/health:Blockchain RPC"
+    "http://localhost:8203/health:Coordinator API"
+    "http://localhost:8108/health:Wallet Daemon"
+    "http://localhost:8202/health:Blockchain RPC"
 )
 
 for endpoint_info in "${health_endpoints[@]}"; do
