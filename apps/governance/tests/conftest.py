@@ -24,6 +24,7 @@ if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
 os.environ.pop("DB_TYPE", None)
+os.environ.pop("DATABASE_URL", None)
 
 
 @pytest.fixture
