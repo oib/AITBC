@@ -20,6 +20,21 @@ from fastapi.testclient import TestClient
 # tests with an unauthenticated local Redis and no override.
 _TEST_REDIS_URL = os.getenv("GOSSIP_BROADCAST_URL", "redis://localhost:6379/0")
 
+# Skip the whole module if the configured Redis is not reachable or rejects
+# authentication. This lets the suite run cleanly on hosts whose Redis is
+# password-protected and where the test URL has not been explicitly configured.
+try:
+    import redis  # noqa: E402
+
+    _redis = redis.Redis.from_url(_TEST_REDIS_URL, socket_connect_timeout=2)
+    _redis.ping()
+    _redis.close()
+except Exception:
+    pytestmark = pytest.mark.skip(
+        f"Redis at {_TEST_REDIS_URL} is not reachable or requires auth; "
+        "set GOSSIP_BROADCAST_URL to a reachable Redis instance to run these tests"
+    )
+
 # Hosts that set GOSSIP_BROADCAST_URL externally (e.g. hub.aitbc) point these
 # tests at a real, shared Redis instance carrying live production validator
 # gossip traffic, not an idle local one. Under that traffic a publish can

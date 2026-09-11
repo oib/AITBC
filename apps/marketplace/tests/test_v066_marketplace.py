@@ -111,7 +111,7 @@ class TestMarketplaceConfig:
     def test_config_has_correct_defaults(self):
         from marketplace_service.config import settings
 
-        assert settings.blockchain_rpc_url == "http://localhost:8202"
+        assert settings.blockchain_rpc_url == "http://127.0.0.1:8202"
         assert settings.default_chain_id == "ait-hub.aitbc.bubuit.net"
         assert "8107" in settings.agent_coordinator_url
 

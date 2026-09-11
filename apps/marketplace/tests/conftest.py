@@ -9,10 +9,16 @@ The tables still have to be created. `init_db()` runs in the FastAPI lifespan, w
 `TestClient(app)` never triggers.
 """
 
+import os
 import sys
 from pathlib import Path
 
 import pytest
+
+# V23-74: the deployed node may set DATABASE_URL/DB_TYPE to point at a live database.
+# Pop them so the test suite builds its own throwaway SQLite+aiosqlite database.
+os.environ.pop("DATABASE_URL", None)
+os.environ.pop("DB_TYPE", None)
 
 _SRC = str(Path(__file__).resolve().parent.parent / "src")
 if _SRC not in sys.path:
