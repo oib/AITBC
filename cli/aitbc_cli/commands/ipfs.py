@@ -10,6 +10,7 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+import secrets
 import sys
 import tempfile
 from datetime import UTC, datetime
@@ -25,11 +26,10 @@ from eth_utils import keccak
 from aitbc.crypto.crypto import sign_transaction_hash
 
 from ..config import _resolve_api_key, get_config
-from ..utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, success, warning
+from ..utils import DECIMAL, error, success, warning
 from ..utils.chain_id import get_chain_id
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.output import resolve_output_format
+from ..utils.http_client import AITBCHTTPClient, get_logger
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import wallet_dir
 from .transactions import _send_transaction_impl
@@ -289,7 +289,7 @@ def upload(ctx, file: str, pin: bool, name: str | None):
   aitbc ipfs download --cid Qm... --output /tmp/data.txt --wait"""
 )
 @click.option("--cid", "cid", required=False, help="The Cid.")
-@click.option("--output", type=click.Path(), help="Write retrieved content to this path")
+@click.option("--output", "output_path", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
 @click.option("--access-key", help="Deprecated; use `aitbc market download` instead")
 @click.option("--access-secret", help="Deprecated; use `aitbc market download` instead")
@@ -298,7 +298,7 @@ def upload(ctx, file: str, pin: bool, name: str | None):
 def download(
     ctx,
     cid: str | None,
-    output: str | None,
+    output_path: str | None,
     wait: bool,
     access_key: str | None,
     access_secret: str | None,
@@ -309,13 +309,10 @@ def download(
         warning("Paid IPFS retrieval has moved to `aitbc market download`.")
 
     if not cid:
-        error("Provide a CID, --rental-id, or --access-key/--access-secret")
+        error("Provide a CID")
         raise click.Abort()
 
-    # Prefer the daemon that was used for the rental.
-    ipfs_api = IPFS_API
-    if rental_id or access_key:
-        ipfs_api = (rental or token or {}).get("ipfs_api") or os.environ.get("IPFS_API_URL") or "http://127.0.0.1:5001"
+    ipfs_api = os.environ.get("IPFS_API_URL") or IPFS_API
 
     if _daemon_available(ipfs_api):
         try:
@@ -345,8 +342,8 @@ def download(
             raise click.Abort()
         data = cid_path.read_bytes()
 
-    if output:
-        out_path = Path(output)
+    if output_path:
+        out_path = Path(output_path)
         out_path.write_bytes(data)
         file_path = str(out_path)
     else:
@@ -617,7 +614,7 @@ def subscribe(
 @click.option("--api-key", help="Coordinator API key (default from config / AITBC_API_KEY / MINER_API_KEYS)")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
-@click.option("--output", type=click.Path(), help="Optional path to write the swarm.key")
+@click.option("--output", "output_path", type=click.Path(), help="Optional path to write the swarm.key")
 @click.option("--bootstrap", is_flag=True, help="Also print a bootstrap multiaddr for the hub island daemon")
 @click.pass_context
 def swarm_key(
@@ -630,7 +627,7 @@ def swarm_key(
     api_key: str | None,
     password: str | None,
     password_file: str | None,
-    output: str | None,
+    output_path: str | None,
     bootstrap: bool,
 ):
     """Request the swarm key for a subscribed island IPFS network.
@@ -693,11 +690,11 @@ def swarm_key(
 
     data = response.json()
     key = data.get("swarm_key", "")
-    if output:
-        out_path = Path(output)
+    if output_path:
+        out_path = Path(output_path)
         out_path.write_text(key)
         out_path.chmod(0o600)
-        success(f"Swarm key written to {output}")
+        success(f"Swarm key written to {output_path}")
 
     result_data: dict[str, Any] = {
         "island_id": data.get("island_id"),
