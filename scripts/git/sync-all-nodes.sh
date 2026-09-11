@@ -1,13 +1,15 @@
 #!/bin/bash
 # Multi-Node Git Sync Script for AITBC
-# Syncs git changes from genesis node to follower and gitea-runner nodes
+# Syncs git changes from the genesis node to the follower and CI runner nodes
 
 set -e
 
 REPO_DIR="/opt/aitbc"
 GITEA_REMOTE="origin"
-FOLLOWER_NODE="aitbc1"
-RUNNER_NODE="gitea-runner"
+# Fleet ssh targets. There is deliberately no default: this repository is
+# public, so the node names live in the operator's environment.
+FOLLOWER_NODE="${AITBC_NODE1_SSH:?set AITBC_NODE1_SSH to the ssh target for node1}"
+RUNNER_NODE="${AITBC_NODE3_SSH:?set AITBC_NODE3_SSH to the ssh target for node3 (CI runner)}"
 
 echo "=== AITBC Multi-Node Git Sync ==="
 echo "Starting sync from genesis node..."
@@ -56,13 +58,13 @@ else
 fi
 echo ""
 
-# Sync gitea-runner node
+# Sync CI runner node
 echo "=== Syncing Gitea-Runner Node ($RUNNER_NODE) ==="
 RUNNER_HASH=$(ssh $RUNNER_NODE "cd $REPO_DIR && git rev-parse HEAD" 2>/dev/null || echo "none")
 echo "Gitea-Runner HEAD: $RUNNER_HASH"
 
 if [ "$GENESIS_HASH" != "$RUNNER_HASH" ]; then
-    echo "Syncing gitea-runner node..."
+    echo "Syncing CI runner node..."
     ssh $RUNNER_NODE "cd $REPO_DIR && git fetch $GITEA_REMOTE && git reset --hard $GITEA_REMOTE/main"
     NEW_RUNNER_HASH=$(ssh $RUNNER_NODE "cd $REPO_DIR && git rev-parse HEAD")
     echo "✅ Gitea-Runner node synced: $NEW_RUNNER_HASH"

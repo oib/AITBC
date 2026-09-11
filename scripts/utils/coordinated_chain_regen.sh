@@ -3,8 +3,8 @@ set -euo pipefail
 
 CHAIN_ID="${CHAIN_ID:-ait-mainnet}"
 SERVICE_NAME="${SERVICE_NAME:-aitbc-blockchain-node.service}"
-LEADER="${LEADER:-aitbc1}"
-NODES_RAW="${NODES:-localhost aitbc1 gitea-runner}"
+LEADER="${LEADER:?set LEADER to the ssh target of the leader node}"
+NODES_RAW="${NODES:?set NODES to the space-separated ssh targets to regenerate}"
 UTILITY="${UTILITY:-/opt/aitbc/scripts/utils/chain_regen_node.py}"
 PYTHON_BIN="${PYTHON_BIN:-/opt/aitbc/venv/bin/python}"
 TIMESTAMP="${TIMESTAMP:-$(date -u +%Y%m%dT%H%M%SZ)}"

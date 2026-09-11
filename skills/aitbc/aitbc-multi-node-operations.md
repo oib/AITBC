@@ -12,7 +12,7 @@ category: operations
 Activate when user requests multi-node operations: git synchronization, service restart across nodes, blockchain state sync, or coordinated actions across the AITBC multi-node deployment.
 
 ## Purpose
-Synchronize git changes, coordinate blockchain state, and manage multi-node operations across genesis (aitbc/main node), follower (`<node1>`), and gitea-runner nodes.
+Synchronize git changes, coordinate blockchain state, and manage multi-node operations across genesis (aitbc/main node), follower (`<node1>`), and `<node3>` nodes.
 
 ## Node Architecture
 
@@ -20,7 +20,7 @@ Synchronize git changes, coordinate blockchain state, and manage multi-node oper
 |------|----------|------|--------|
 | Main Node | aitbc (localhost) | Primary development + blockchain | Direct |
 | Follower Node | `<node1>` | Secondary blockchain node | `ssh <node1>` |
-| CI/CD Node | gitea-runner | CI/CD runner (also hosts aitbc2 blockchain) | `ssh gitea-runner` |
+| CI/CD Node | `<node3>` | CI/CD runner (also hosts aitbc2 blockchain) | `ssh <node3>` |
 
 ## Port Reference (Same on All Nodes)
 
@@ -45,7 +45,7 @@ Before proceeding, verify:
 ```bash
 # Check SSH connectivity to all nodes
 ssh <node1> 'echo "SSH to <node1> working"'
-ssh gitea-runner 'echo "SSH to gitea-runner working"'
+ssh <node3> 'echo "SSH to <node3> working"'
 
 # Check git remotes
 cd /opt/aitbc && git remote -v
@@ -53,7 +53,7 @@ cd /opt/aitbc && git remote -v
 # Check service status on all nodes
 systemctl list-units --state=running | grep aitbc
 ssh <node1> 'systemctl list-units --state=running | grep aitbc'
-ssh gitea-runner 'systemctl list-units --state=running | grep aitbc'
+ssh <node3> 'systemctl list-units --state=running | grep aitbc'
 
 # Verify CLI accessible
 /opt/aitbc/aitbc-cli --version
@@ -67,7 +67,7 @@ ssh gitea-runner 'systemctl list-units --state=running | grep aitbc'
 cd /opt/aitbc
 echo "=== Main (aitbc) ===" && git status --short && git rev-parse --short HEAD
 echo "=== Follower (<node1>) ===" && ssh <node1> 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
-echo "=== Gitea-Runner ===" && ssh gitea-runner 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
+echo "=== node3 ===" && ssh <node3> 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
 ```
 
 ### Sync All Nodes from Main
@@ -79,8 +79,8 @@ git add . && git commit -m "feat: description" && git push origin main
 # 2. Pull on follower
 ssh <node1> 'cd /opt/aitbc && git pull origin main'
 
-# 3. Pull on gitea-runner
-ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
+# 3. Pull on <node3>
+ssh <node3> 'cd /opt/aitbc && git pull origin main'
 
 # 4. Verify sync
 # (use check status command above)
@@ -90,7 +90,7 @@ ssh gitea-runner 'cd /opt/aitbc && git pull origin main'
 ```bash
 # If git pull fails on remote node
 ssh <node1> 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
-ssh gitea-runner 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
+ssh <node3> 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
 ```
 
 ### Service Restart After Sync
@@ -98,13 +98,13 @@ ssh gitea-runner 'cd /opt/aitbc && git checkout --force . && git clean -fd && gi
 # Restart services that need code updates
 sudo systemctl restart aitbc-coordinator-api.service
 ssh <node1> 'sudo systemctl restart aitbc-coordinator-api.service'
-ssh gitea-runner 'sudo systemctl restart aitbc-blockchain-node.service'
+ssh <node3> 'sudo systemctl restart aitbc-blockchain-node.service'
 ```
 
 ### Check Blockchain Sync Across Nodes
 ```bash
 # Check block heights on all nodes
-for node in localhost <node1> gitea-runner; do
+for node in localhost <node1> <node3>; do
   echo "=== $node ==="
   if [ "$node" = "localhost" ]; then
     cd /opt/aitbc && ./aitbc-cli chain
@@ -117,7 +117,7 @@ done
 ### Check Service Status on All Nodes
 ```bash
 # Check blockchain services on all nodes
-for node in localhost <node1> gitea-runner; do
+for node in localhost <node1> <node3>; do
   echo "=== $node ==="
   if [ "$node" = "localhost" ]; then
     systemctl status aitbc-blockchain-node.service --no-pager
@@ -132,12 +132,12 @@ done
 # Restart blockchain services on all nodes
 sudo systemctl restart aitbc-blockchain-node.service
 ssh <node1> 'sudo systemctl restart aitbc-blockchain-node.service'
-ssh gitea-runner 'sudo systemctl restart aitbc-blockchain-node.service'
+ssh <node3> 'sudo systemctl restart aitbc-blockchain-node.service'
 
 # Verify services are running
 systemctl status aitbc-blockchain-node.service
 ssh <node1> 'systemctl status aitbc-blockchain-node.service'
-ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
+ssh <node3> 'systemctl status aitbc-blockchain-node.service'
 ```
 
 ## Common Pitfalls

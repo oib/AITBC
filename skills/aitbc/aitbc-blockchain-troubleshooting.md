@@ -15,7 +15,7 @@ Activate when user requests blockchain troubleshooting: sync issues, P2P problem
 Diagnose and troubleshoot AITBC blockchain issues including synchronization failures, P2P network problems, service failures, and data corruption.
 
 ## Prerequisites
-- SSH access to all nodes (aitbc, `<node1>`, gitea-runner)
+- SSH access to all nodes (aitbc, `<node1>`, `<node3>`)
 - Systemd services operational or accessible for debugging
 - Log access via `journalctl`
 - Data directory at `/var/lib/aitbc/`
@@ -26,12 +26,12 @@ Before proceeding, verify:
 ```bash
 # Check SSH connectivity
 ssh <node1> 'echo "SSH to <node1> working"'
-ssh gitea-runner 'echo "SSH to gitea-runner working"'
+ssh <node3> 'echo "SSH to <node3> working"'
 
 # Check service status on all nodes
 systemctl list-units --state=running | grep aitbc
 ssh <node1> 'systemctl list-units --state=running | grep aitbc'
-ssh gitea-runner 'systemctl list-units --state=running | grep aitbc'
+ssh <node3> 'systemctl list-units --state=running | grep aitbc'
 
 # Verify CLI accessible
 /opt/aitbc/aitbc-cli --version
@@ -59,7 +59,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 # Check service status on all nodes
 systemctl status aitbc-blockchain-node.service
 ssh <node1> 'systemctl status aitbc-blockchain-node.service'
-ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
+ssh <node3> 'systemctl status aitbc-blockchain-node.service'
 
 # Check blockchain RPC health
 curl -s http://localhost:8202/health
@@ -75,7 +75,7 @@ ssh <node1> 'ss -tlnp | grep 7070'
 # Check blockchain height on all nodes
 cd /opt/aitbc && ./aitbc-cli chain
 ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
-ssh gitea-runner 'cd /opt/aitbc && ./aitbc-cli chain'
+ssh <node3> 'cd /opt/aitbc && ./aitbc-cli chain'
 
 # Check mempool status
 cd /opt/aitbc && ./aitbc-cli mempool status
