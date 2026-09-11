@@ -2,25 +2,25 @@
 
 ## Consensus recovery — 2026-08-25
 
-- **Stall state:** `hub.aitbc` `/rpc/height` = 14547; `aitbc1` `/rpc/height` = 14548; both heads 7.5+ hours old. `hub.aitbc` logs showed `Selected proposer ... is not a local key, skipping proposal at height 14548` and periodic sync pulling from itself.
+- **Stall state:** `<hub-node>` `/rpc/height` = 14547; `<node1>` `/rpc/height` = 14548; both heads 7.5+ hours old. `<hub-node>` logs showed `Selected proposer ... is not a local key, skipping proposal at height 14548` and periodic sync pulling from itself.
 - **Root cause:**
-  1. `hub.aitbc` `default_peer_rpc_url` was `http://hub.aitbc.bubuit.net` (self-reference), so it could never learn `aitbc1`'s head over HTTP.
-  2. `aitbc1` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
-  3. The `at1` Incus host reverse proxy for `aitbc1.bubuit.net`/`node1.example.net` was not enabled in sites-enabled.
+  1. `<hub-node>` `default_peer_rpc_url` was `http://hub.aitbc.bubuit.net` (self-reference), so it could never learn `<node1>`'s head over HTTP.
+  2. `<node1>` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
+  3. The `<incus-host>` Incus host reverse proxy for `<node1-fqdn>`/`node1.example.net` was not enabled in sites-enabled.
 - **Actions:**
-  1. Updated `/etc/nginx/sites-enabled/aitbc-loadbalancer` on `aitbc1` to use `127.0.0.1:8202` and `<node1-ip>:8202`, and removed stale backup files from `sites-enabled`.
-  2. User enabled `/etc/nginx/sites-available/node1.example.net.conf` on the `at1` Incus host and reloaded nginx; `node1.example.net` now resolves and terminates TLS with a valid Lets Encrypt certificate.
-  3. Set `hub.aitbc` `default_peer_rpc_url=https://node1.example.net` in `/etc/aitbc/blockchain.env`.
+  1. Updated `/etc/nginx/sites-enabled/aitbc-loadbalancer` on `<node1>` to use `127.0.0.1:8202` and `<node1-ip>:8202`, and removed stale backup files from `sites-enabled`.
+  2. User enabled `/etc/nginx/sites-available/node1.example.net.conf` on the `<incus-host>` Incus host and reloaded nginx; `node1.example.net` now resolves and terminates TLS with a valid Lets Encrypt certificate.
+  3. Set `<hub-node>` `default_peer_rpc_url=https://node1.example.net` in `/etc/aitbc/blockchain.env`.
   4. Temporarily set `MULTI_VALIDATOR_MIN_ATTESTATIONS=0` on both nodes, restarted both `aitbc-blockchain-node` services, and restored `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` after the first converged blocks.
 - **Verification:**
-  - `hub.aitbc` pulled block 14548 from `aitbc1` over HTTPS; both heads converged at height 14550 with identical hashes.
+  - `<hub-node>` pulled block 14548 from `<node1>` over HTTPS; both heads converged at height 14550 with identical hashes.
   - The chain now advances every ~60s with `MultiValidatorPoA` round-robin selection; blocks 14563+ carry `block_metadata` with a valid cross-validator attestation signature (e.g. 14563 from `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` attested by `0x78046b9677c724FdF0af59c58439d67B210AD71b`; 14564 from `0x78046b9677c724FdF0af59c58439d67B210AD71b` attested by `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F`).
-  - `hub.aitbc` and `aitbc1` report the same head height and hash.
+  - `<hub-node>` and `<node1>` report the same head height and hash.
   - Extended independent verification (heights 14592–14612, 15 consecutive blocks) ran `verify_block_signature()` live on all three nodes; every proposer and attestation signature validated, with attestations exclusively from the non-proposing validator.
 - **Residual:**
   - `PBFTConsensus` is still not wired into production block production. A two-validator, `min-attestations=1` topology is not BFT and can stall if one validator is unreachable.
-  - `aitbc3` remains a passive follower, not a validator.
-  - `aitbc1` `BRIDGE_RELEASE_ENABLED=false` remains; the five pending bridge transfers are still pending and no `aitbc bridge confirm` was executed.
+  - `<node2>` remains a passive follower, not a validator.
+  - `<node1>` `BRIDGE_RELEASE_ENABLED=false` remains; the five pending bridge transfers are still pending and no `aitbc bridge confirm` was executed.
 
 ## TEE and ZK verification hardening (2026-08-25)
 
@@ -78,7 +78,7 @@
 - A TEE-gated job now releases escrow only when `tee_status == "verified"` and
   the attestation is `registered`.
 - Added alembic migration `5d8339a13a12` and updated `test_v024_tee_verification_trust.py`.
-- Live: deployed to `hub.aitbc` and `aitbc3`; `aitbc-coordinator-api` restarted.
+- Live: deployed to `<hub-node>` and `<node2>`; `aitbc-coordinator-api` restarted.
 
 ### ZK
 
@@ -102,5 +102,5 @@
   imply computation correctness.
 - Updated `.pre-commit-config.yaml` to exempt generated `.wasm` binaries from
   the large-file size gate.
-- Live: circuit artifacts and coordinator code pushed to Gitea from `aitbc3`;
-  deployment to `hub.aitbc` is pending recovery of the hub node.
+- Live: circuit artifacts and coordinator code pushed to Gitea from `<node2>`;
+  deployment to `<hub-node>` is pending recovery of the hub node.

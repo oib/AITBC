@@ -1,7 +1,7 @@
 # AITBC closed design cycle — current state, gaps, wish list
 
 **Date:** 2026-08-24
-**Scope:** live two-node network (`hub.aitbc` hub/customer + `aitbc3` shop/miner) on gitea `main`
+**Scope:** live two-node network (`<hub-node>` hub/customer + `<node2>` shop/miner) on gitea `main`
 **CLI:** `aitbc` 0.10.18 (`aitbc_cli.core.main:main`)
 **Unit system:** 1 AIT = 36_000_000 compute-units
 
@@ -17,8 +17,8 @@ Three roles, two config axes (`BLOCKCHAIN_MODE` × `MARKET_ROLE`):
 
 | Role | Typical node | Job |
 |------|--------------|-----|
-| **Hub** | `hub.aitbc` | Produce blocks, run coordinator / exchange / discovery / explorer |
-| **Shop** | `aitbc3` | Advertise GPUs, run miner + edge, execute jobs, publish marketplace offers |
+| **Hub** | `<hub-node>` | Produce blocks, run coordinator / exchange / discovery / explorer |
+| **Shop** | `<node2>` | Advertise GPUs, run miner + edge, execute jobs, publish marketplace offers |
 | **Client** | hub CLI or a follower | Hold AIT, submit jobs, trade, inspect results |
 
 A single machine can combine roles. Services are selected by `setup.sh` from those two axes (see `docs/getting-started/setup-service-selection.md`).
@@ -210,7 +210,7 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 |---|------|-----|
 | P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Shipped: `min_reputation` constraint, higher-reputation dispatch preference, and `--min-reputation` CLI flag (commit `fdbd17f5c`). Closes step 8. |
 | P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Shipped for CLI — `aitbc dashboard customer` and `aitbc dashboard shop` query live coordinator, wallet daemon, GPU discovery, and marketplace services. Web UI mock is outside the CLI repo. |
-| P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | Shipped: `docs/features/2-bridge-cross-chain.md` and `docs/releases/STATUS.md` now explicitly state the live bridge is a trusted custodian with `bridge_release_enabled=False`, and that multi-sig/Merkle features are implemented but disabled by default. Multi-sig + Merkle-proof enforcement was live-tested end-to-end 2026-08-24 on real hub↔`aitbc3`-island transfers, including negative-path rejections (missing proof, threshold not met, invalid signatures) — see `docs/releases/STATUS.md` "Bridge multi-signature and Merkle enforcement". Production defaults are unchanged: `bridge_multisig_enabled`/`bridge_require_merkle_proof` were returned to `False` after the validation window. |
+| P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | Shipped: `docs/features/2-bridge-cross-chain.md` and `docs/releases/STATUS.md` now explicitly state the live bridge is a trusted custodian with `bridge_release_enabled=False`, and that multi-sig/Merkle features are implemented but disabled by default. Multi-sig + Merkle-proof enforcement was live-tested end-to-end 2026-08-24 on real hub↔`<node2>`-island transfers, including negative-path rejections (missing proof, threshold not met, invalid signatures) — see `docs/releases/STATUS.md` "Bridge multi-signature and Merkle enforcement". Production defaults are unchanged: `bridge_multisig_enabled`/`bridge_require_merkle_proof` were returned to `False` after the validation window. |
 | P1.4 | Soak MultiValidatorPoA; drop single-proposer | Shipped — `MultiValidatorPoA` + PBFT are implemented and pass `test_multi_validator_poa_soak.py` (1000 rounds + partition). Live enablement is gated by `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in `blockchain.env`; operators must run [Scenario 51](./scenarios/51_multi_validator_poa_soak.md) before flipping the flag. |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Shipped: `aitbc node island join` now sets `aitbc:aitbc` 0600 on `island_credentials.json`; `aitbc market offer` error points to `node island join`. Closes step 11. |

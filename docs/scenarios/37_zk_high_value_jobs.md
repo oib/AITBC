@@ -92,7 +92,7 @@ computation is correct before escrow release.
 
 ## Live validation
 
-- Node: `hub.aitbc` customer + `aitbc3` shop/miner
+- Node: `<hub-node>` customer + `<node2>` shop/miner
 - Job ID: `cba4ceaddc194491b0822f0c4c3fb4b1`
 - Payment: `15 AIT` (above `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`)
 - Flags: `--zk-proof-required`

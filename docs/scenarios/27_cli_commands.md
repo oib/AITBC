@@ -70,7 +70,7 @@ aitbc pool-hub status
 aitbc pool-hub sla
 ```
 
-**Expected output:** live JSON from the hub (`status: ok`, `db`/`redis` flags) when discovery is configured. Simulated output is only acceptable if the hub URL cannot be resolved — on `aitbc3` it should be live (scenario 36).
+**Expected output:** live JSON from the hub (`status: ok`, `db`/`redis` flags) when discovery is configured. Simulated output is only acceptable if the hub URL cannot be resolved — on `<node2>` it should be live (scenario 36).
 
 ### Step 3: Mining (A8)
 

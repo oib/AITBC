@@ -153,14 +153,14 @@ Retrieve network status and information.
 
 ```json
 {
-  "p2p_endpoint": "aitbc3:8200",
+  "p2p_endpoint": "<node2>:8200",
   "p2p_node_id": "node-19b909970eeb4a6a87865dbb92c4b5dc",
   "chain_id": "ait-hub.aitbc.bubuit.net",
   "network_type": "open_island",
   "supported_chains": ["ait-hub.aitbc.bubuit.net"],
-  "connection_instructions": "Connect via P2P protocol to aitbc3:8200",
-  "rpc_endpoint": "http://aitbc3/rpc",
-  "api_gateway": "http://aitbc3/api",
+  "connection_instructions": "Connect via P2P protocol to <node2>:8200",
+  "rpc_endpoint": "http://<node2>/rpc",
+  "api_gateway": "http://<node2>/api",
   "contact_email": "andreas.fleckl@bubuit.net",
   "version": "0.4.3"
 }

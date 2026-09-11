@@ -41,7 +41,7 @@ The Pool Hub SLA/billing query builder now emits the `is_not` operator correctly
 
 ## Shop-chain fork recovery and live scenario follow-ups
 
-Replay of Scenario 34 on 2026-08-20 found the shop node (`aitbc3`) forked from the hub at height 6815 (local proposer `0x19e7e376…` vs hub genesis). Bulk sync then logged `Unhandled import case` on every next-height import because the parent was not the shop tip.
+Replay of Scenario 34 on 2026-08-20 found the shop node (`<node2>`) forked from the hub at height 6815 (local proposer `0x19e7e376…` vs hub genesis). Bulk sync then logged `Unhandled import case` on every next-height import because the parent was not the shop tip.
 
 - `import_block` now reports that case as `diverged=True` (`Divergent chain: next block parent … is not our head …`) instead of falling through.
 - Shop was reset with `scripts/ops/reset-follower-to-genesis.sh` (DB backups left on disk) and pull-synced back to hub height.
@@ -58,7 +58,7 @@ After the merges and restart on the hub node:
 
 ## Hub↔shop paid AI jobs and marketplace offers
 
-This batch of fixes completes the live two-node flow between `hub.aitbc` (customer) and `aitbc3` (shop/miner):
+This batch of fixes completes the live two-node flow between `<hub-node>` (customer) and `<node2>` (shop/miner):
 
 - `ESCROW_RELEASE` transactions are now signed with the genesis wallet key before being submitted to `POST /rpc/transactions/marketplace`, so paid AI jobs settle on-chain.
 - The blockchain RPC `/rpc/transactions` query and `get_chain_id()` now default an empty or missing `chain_id` to the node-configured `chain_id`.
@@ -72,12 +72,12 @@ This batch of fixes completes the live two-node flow between `hub.aitbc` (custom
 
 - `6200888ca` `fix(cli/agent-comm)`: `aitbc agent-comm` now uses the `/v1`
   coordinator mount after Hermes was renamed to agent. `register` and
-  `discover` work live from `aitbc3`.
+  `discover` work live from `<node2>`.
 - `2b8508c28` `fix(cli/wallet)`: `aitbc wallet unstake` surfaces the real
   RPC rejection body (e.g. stake lock expiry) instead of a generic 400.
 
 
-Continuing the live two-node validation on `aitbc3` and `hub.aitbc`:
+Continuing the live two-node validation on `<node2>` and `<hub-node>`:
 
 - `5886697ac` `fix(cli/transactions)`: `aitbc transactions status` and `pending` now fall back to the configured hub `blockchain_rpc_url` instead of `localhost:8202`.
 - `e4171eb0c` `fix(cli/messaging)`: `aitbc messaging topic` falls back to a deterministic simulated topic when the RPC is unavailable, matching `send`/`list`.
@@ -96,10 +96,10 @@ The following items from `TASKLIST.md` were completed during the v0.24.0 validat
 - `aitbc mining status/list` works on the shop node after blockchain RPC auth canonicalises bech32 addresses.
 - `aitbc market offer` 400s fixed: `my-agent-wallet` funded from genesis and offer re-published (`6b9ede797`).
 - `aitbc pool-hub` and hub URL resolution now fall back to `HUB_P2P_HOST` / `HUB_RPC_URL` on follower nodes.
-- `aitbc-blockchain-p2p` is installed and active on `aitbc3` after resetting the local PostgreSQL WAL and creating the `aitbc_mempool` database.
-- Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `hub.aitbc` to a clean working tree.
+- `aitbc-blockchain-p2p` is installed and active on `<node2>` after resetting the local PostgreSQL WAL and creating the `aitbc_mempool` database.
+- Canonicalized marketplace dirty edits (`escrow amount as string`, `wrap task_data`) and pulled `<hub-node>` to a clean working tree.
 - Documented wallet key mismatch recovery: note that mismatched keys cannot be safely regenerated without the original seed and recommend migration to a new wallet (`AGENTS.md`).
-- Scrubbed historical `.gitea_token.sh` from gitea history (done from `aitbc3`).
+- Scrubbed historical `.gitea_token.sh` from gitea history (done from `<node2>`).
 - Extended `docs/scenarios/34_hub_customer_node_e2e.md` with paid-job + escrow + GPU offer steps (`b18468450`).
 - Patched scenario 34 exchange paths and JWT import (`e8966aba1` on gitea `main`).
 - Simulated fallbacks made deterministic for `aitbc reputation` and `aitbc exchange-island` (`d6958ed00`).

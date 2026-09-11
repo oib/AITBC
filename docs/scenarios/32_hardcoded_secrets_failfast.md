@@ -56,7 +56,7 @@ aitbc security audit
 aitbc security scan
 ```
 
-**Expected output:** a passing audit (live aitbc3: score A+, 0 vulnerabilities). The audit is the operator-visible signal that production secrets are not defaults.
+**Expected output:** a passing audit (live `<node2>`: score A+, 0 vulnerabilities). The audit is the operator-visible signal that production secrets are not defaults.
 
 ### Step 2: Config check (redacted)
 

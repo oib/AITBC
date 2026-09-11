@@ -46,7 +46,7 @@ verified by the coordinator.
 ### Tools Required
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
-- Ollama or another AI service running on the shop (`aitbc3`)
+- Ollama or another AI service running on the shop (`<node2>`)
 - `COORDINATOR_ENABLE_ZK_VERIFICATION=true` on the hub
 
 ### Setup Required
@@ -60,7 +60,7 @@ verified by the coordinator.
 
 ### Step 1: Configure the high-value threshold
 
-On `hub.aitbc`, edit `/etc/aitbc/aitbc-coordinator-api.env`:
+On `<hub-node>`, edit `/etc/aitbc/aitbc-coordinator-api.env`:
 
 ```text
 COORDINATOR_ENABLE_ZK_VERIFICATION=true
@@ -160,7 +160,7 @@ After completing this scenario, you should be able to:
 ### Receipt contains a verified ZK proof
 
 ```bash
-ssh hub.aitbc
+ssh <hub-node>
 curl -s http://localhost:8203/v1/jobs/<job-id>/result | python3 -c "import sys,json; d=json.load(sys.stdin); print(d.get('receipt',{}).get('zk_status'))"
 ```
 
@@ -173,7 +173,7 @@ curl -s http://localhost:8203/health | python3 -c "import sys,json; d=json.load(
 ### Unit tests
 
 ```bash
-ssh aitbc3
+ssh <node2>
 cd /opt/aitbc
 PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src:/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src \
   /opt/aitbc/venv/bin/python3 -m pytest apps/coordinator-api/tests/test_zk_receipt.py -q -o addopts=""

@@ -55,7 +55,7 @@ aitbc security audit
 aitbc security scan
 ```
 
-**Expected output:** a score/report (live validation recorded A+ / 0 vulnerabilities on aitbc3). Must not crash under concurrent-looking sequential calls.
+**Expected output:** a score/report (live validation recorded A+ / 0 vulnerabilities on `<node2>`). Must not crash under concurrent-looking sequential calls.
 
 ### Step 2: Config / secret inspection
 

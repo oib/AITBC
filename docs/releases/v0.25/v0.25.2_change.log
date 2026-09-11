@@ -137,7 +137,7 @@ See the operator implementation plan and live reset checklist. After code upgrad
 #### Live validation (2026-09-03)
 
 - Deployed to all four validators at tip `a0d13df0d`; both services restarted on all four hosts together. Derived round window confirmed as 120 s on each (heartbeat 60 s), down from 300 s.
-- Host-level outage of `hub.aitbc`, `08:57:03`-`09:06:42` UTC (9 min 39 s), with **both** `aitbc-blockchain-node` and `aitbc-blockchain-rpc` stopped -- the case left untested on 2026-09-02, where hub's RPC stayed up.
+- Host-level outage of `<hub-node>`, `08:57:03`-`09:06:42` UTC (9 min 39 s), with **both** `aitbc-blockchain-node` and `aitbc-blockchain-rpc` stopped -- the case left untested on 2026-09-02, where hub's RPC stayed up.
   - Both heights hub owned at round 0 (4051, 4055) were taken over by node1 at round 1 after 122 s; every other height held 60-72 s. The chain never went more than 122 s without a block.
   - Quorum held at exactly 3 of 3 survivors throughout (`required=3, prepares=3, commits=3`). Zero `refusing a second block at height` warnings and zero commit-quorum timeouts.
   - Hub rejoined without intervention and proposed its own slot at 4059. All four converged at height 4059, hash `0xb0b1996e07119c51`, state root `0x50e75efff2f03fb4`.

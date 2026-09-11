@@ -250,7 +250,7 @@ All endpoints verified working through nginx reverse proxy with correct WebSocke
 
 ## Post-Deployment Fixes (Shop Node — 2026-06-20)
 
-After the v0.5.4 pull, the shop node (`aitbc3`, follower of `hub.aitbc.bubuit.net`) was found in an incorrect state: `MARKET_ROLE=customer` instead of `shop`, 10 hub-only services running, backup timer not installed, and several pre-existing code bugs. The following fixes were applied:
+After the v0.5.4 pull, the shop node (`<node2>`, follower of `hub.aitbc.bubuit.net`) was found in an incorrect state: `MARKET_ROLE=customer` instead of `shop`, 10 hub-only services running, backup timer not installed, and several pre-existing code bugs. The following fixes were applied:
 
 ### 15. Shop Node Role Configuration
 
@@ -400,7 +400,7 @@ End-to-end WebSocket block push verified through nginx:
 3. Block 30295 pushed through nginx WebSocket to test subscriber
 4. `DELETE /rpc/lease/{node_id}` → lease revoked
 
-The follower (`aitbc3`) now receives blocks via WebSocket push in real-time, with periodic pull sync as fallback.
+The follower (`<node2>`) now receives blocks via WebSocket push in real-time, with periodic pull sync as fallback.
 
 ### Known Issue: State Root Divergence (Follower) — RESOLVED
 
@@ -526,7 +526,7 @@ Hub:
 - Published `blockchain.env` contains no private keys
 - State snapshot endpoint live: 11 accounts, state root `0x885bc46a...`
 
-Follower (aitbc3):
+Follower (<node2>):
 - Receiving blocks via WebSocket push in real-time (verified: blocks 30305-30322+)
 - Lease active, heartbeats every 60s
 - Local height matches hub height

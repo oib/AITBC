@@ -162,7 +162,7 @@ escrow_release(job_id, actual_cost, job_tx_hash)
 - POST /register — Register new plugin
 - DELETE /plugins/{id} — Unregister plugin
 
-### Public Endpoints (aitbc3)
+### Public Endpoints (`<node2>`)
 
 - https://shop.example.net/whisper/health|transcribe|models
 - https://shop.example.net/plugin/plugins

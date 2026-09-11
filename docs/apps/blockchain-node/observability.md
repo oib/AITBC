@@ -36,4 +36,4 @@ Recent updates instrumented the gossip broker with Prometheus counters and gauge
 - `gossip_queue_size_by_topic` – instantaneous queue depth per topic.
 - `gossip_subscribers_by_topic`, `gossip_subscribers_total`, `gossip_broadcast_subscribers_total` – subscriber counts.
 
-These are also merged into the `/metrics` response so a central Prometheus on `aitbc3` can scrape them.
+These are also merged into the `/metrics` response so a central Prometheus on `<node2>` can scrape them.
