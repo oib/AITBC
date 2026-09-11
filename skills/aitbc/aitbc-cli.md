@@ -501,7 +501,7 @@ python3 cli/unified_cli.py agent register \
 
 **Default Keystore Directory:** `/var/lib/aitbc/keystore/`
 
-**Default Wallet Daemon URL:** `http://localhost:8003`
+**Default Wallet Daemon URL:** `http://localhost:8108`
 
 **CLI Version:** 2.1.0
 

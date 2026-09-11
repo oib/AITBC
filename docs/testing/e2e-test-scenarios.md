@@ -75,7 +75,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Prerequisites:**
 
-- Blockchain node running (port 8006)
+- Blockchain node running (port 8202)
 - Plugin registry running (port 8109)
 - CLI installed and configured
 
@@ -240,7 +240,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Prerequisites:**
 
-- Agent coordinator running (port 8080)
+- Agent coordinator running (port 8107)
 - Redis running
 - Agent daemon running
 

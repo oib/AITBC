@@ -78,7 +78,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
 | `--genesis-path` | Genesis config file path | `/var/lib/aitbc/data/ait-mainnet/genesis.json` |
 | `--force` | Force overwrite existing genesis | `False` |
 | `--register-service` | Register genesis wallet with wallet service | `False` |
-| `--service-url` | Wallet service URL | `http://localhost:8003` |
+| `--service-url` | Wallet service URL | `http://localhost:8108` |
 
 ## Workflow
 

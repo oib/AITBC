@@ -69,16 +69,16 @@ check_prerequisites() {
 
     # Check aitbc connectivity
     if curl -s http://127.0.0.1:8000/v1/health &> /dev/null; then
-        echo "✅ aitbc marketplace accessible (port 8000)"
+        echo "✅ aitbc marketplace accessible (port 8102)"
     else
-        echo "❌ aitbc marketplace not accessible (port 8000)"
+        echo "❌ aitbc marketplace not accessible (port 8102)"
     fi
 
     # Check ${NODE1_HOST} connectivity
     if curl -s http://127.0.0.1:8015/v1/health &> /dev/null; then
-        echo "✅ ${NODE1_HOST} marketplace accessible (port 8015)"
+        echo "✅ ${NODE1_HOST} marketplace accessible (port 8102)"
     else
-        echo "❌ ${NODE1_HOST} marketplace not accessible (port 8015)"
+        echo "❌ ${NODE1_HOST} marketplace not accessible (port 8102)"
     fi
 
     # Check Ollama
