@@ -236,7 +236,7 @@ from .host import cancel as market_cancel_cmd, download as market_download_cmd, 
 
 market.add_command(escrow.escrow)
 market.add_command(gpu_module.gpu)
-market.add_command(market_host_cmd)  # type: ignore[has-type]
-market.add_command(market_download_cmd)  # type: ignore[has-type]
-market.add_command(market_cancel_cmd)  # type: ignore[has-type]
-market.add_command(market_jobs_cmd)  # type: ignore[has-type]
+market.add_command(market_host_cmd)
+market.add_command(market_download_cmd)
+market.add_command(market_cancel_cmd)
+market.add_command(market_jobs_cmd)
