@@ -6,8 +6,11 @@
 ## Base URL
 
 ```
-http://localhost:8107
+http://localhost:8107/v1
 ```
+
+The task router has no prefix of its own, so `main.py` mounts it under `/v1`.
+Endpoint paths below are relative to this base URL.
 
 ## Task Management API
 
@@ -80,7 +83,7 @@ Submit a task for distribution to agents.
 **Example:**
 
 ```bash
-curl -X POST http://localhost:8107/tasks/submit \
+curl -X POST http://localhost:8107/v1/tasks/submit \
   -H "Content-Type: application/json" \
   -d '{
     "task_data": {
@@ -149,7 +152,7 @@ Get task distribution statistics and load balancer metrics.
 **Example:**
 
 ```bash
-curl http://localhost:8107/tasks/status
+curl http://localhost:8107/v1/tasks/status
 ```
 
 ## Related Topics

@@ -232,7 +232,7 @@ Run after each deployment:
 ./scripts/monitoring/health_check.sh --environment staging
 
 # API connectivity
-curl -f http://localhost:8000/health || exit 1
+curl -f http://localhost:8203/health || exit 1
 curl -f http://localhost:8100/health || exit 1
 curl -f http://localhost:8105/health || exit 1
 curl -f http://localhost:8202/health || exit 1
@@ -250,7 +250,7 @@ pytest tests/integration/ --environment=staging
 
 ```bash
 # Run load tests (k6 or locust)
-k6 run tests/load/test_coordinator.js --env STAGING_URL=http://localhost:8000
+k6 run tests/load/test_coordinator.js --env STAGING_URL=http://localhost:8203
 ```
 
 ## Monitoring
@@ -352,7 +352,7 @@ alembic upgrade <revision>
 ss -tlnp | grep -E '8000|8100|8105|8202'
 
 # Test connectivity
-curl -v http://localhost:8000/health
+curl -v http://localhost:8203/health
 ```
 
 ## Security Considerations

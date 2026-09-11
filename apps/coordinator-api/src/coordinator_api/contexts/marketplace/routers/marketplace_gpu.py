@@ -232,7 +232,7 @@ def _build_energy_quote(
         logger.error("Failed to read energy inputs for %s: %s", gpu.resource_id, exc)
         raise HTTPException(
             status_code=http_status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Could not read energy inputs: {exc}",
+            detail="Could not read energy inputs; refusing protected funding",
         ) from exc
 
     duration_seconds = int(duration_hours * 3600)
