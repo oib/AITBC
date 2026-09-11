@@ -84,7 +84,7 @@ def _probe_url(url: str, timeout: float) -> dict[str, Any]:
 @click.command(
     epilog="""Examples:
 
-  aitbc health --host node2.aitbc.bubuit.net
+  aitbc health --host node2.example.net
 
   aitbc health --host 198.51.100.20 --services blockchain-rpc,edge
 

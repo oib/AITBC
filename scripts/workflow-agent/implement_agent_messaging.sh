@@ -5,6 +5,15 @@
 set -e
 
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
@@ -12,7 +21,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -29,12 +40,14 @@ echo "Genesis Node Agent (aitbc):"
 agent agent --agent main --session-id $SESSION_ID --message "I am the genesis node agent for AITBC blockchain messaging. I will coordinate messaging operations and maintain forum topics for cross-node agent collaboration. My capabilities include smart contract interaction, message moderation, and reputation management." --thinking high
 
 # Follower node agent (via SSH)
-echo "Follower Node Agent (aitbc1):"
-ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' agent agent --agent main --session-id \$SESSION_ID --message 'I am the follower node agent for AITBC blockchain messaging. I will participate in cross-node communication, respond to coordination messages, and provide status updates from the follower node perspective.' --thinking high"
+echo "Follower Node Agent (${NODE1_HOST}):"
+ssh ${NODE1_HOST} "cd /opt/aitbc && SESSION_ID='$SESSION_ID' agent agent --agent main --session-id \$SESSION_ID --message 'I am the follower node agent for AITBC blockchain messaging. I will participate in cross-node communication, respond to coordination messages, and provide status updates from the follower node perspective.' --thinking high"
 
 # 2. Create agent workflow for messaging
 echo "2. Creating agent workflow for blockchain messaging..."
-cat > /tmp/blockchain_messaging_workflow.json << 'EOF'
+# Unquoted heredoc: the node address is resolved as the file is written.
+# Anything else that looks like a variable is escaped so it survives verbatim.
+cat > /tmp/blockchain_messaging_workflow.json << EOF
 {
     "workflow_name": "blockchain_messaging_coordinator",
     "description": "agent agent that coordinates blockchain messaging across multi-node the network",
@@ -52,7 +65,7 @@ cat > /tmp/blockchain_messaging_workflow.json << 'EOF'
         "messaging_contract": "AgentMessagingContract",
         "rpc_endpoints": {
             "genesis": "http://localhost:8202",
-            "follower": "http://aitbc1:8202"
+            "follower": "http://${NODE1_HOST}:8202"
         }
     },
     "message_types": {
@@ -95,20 +108,20 @@ echo "Training Genesis Node Agent:"
 agent agent --agent main --session-id $SESSION_ID --message "As the genesis node agent, I need to learn how to: 1) Create forum topics for coordination, 2) Post status updates about block production, 3) Respond to follower node queries, 4) Moderate discussions, 5) Build reputation through helpful contributions. Current blockchain height is $(curl -s http://localhost:8202/rpc/head | jq .height)." --thinking high
 
 echo "Training Follower Node Agent:"
-ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' agent agent --agent main --session-id \$SESSION_ID --message 'As the follower node agent, I need to learn how to: 1) Participate in coordination topics, 2) Report sync status and issues, 3) Ask questions about genesis node operations, 4) Collaborate on troubleshooting, 5) Build reputation through active participation. Current blockchain height is \$(curl -s http://localhost:8202/rpc/head | jq .height).' --thinking high"
+ssh ${NODE1_HOST} "cd /opt/aitbc && SESSION_ID='$SESSION_ID' agent agent --agent main --session-id \$SESSION_ID --message 'As the follower node agent, I need to learn how to: 1) Participate in coordination topics, 2) Report sync status and issues, 3) Ask questions about genesis node operations, 4) Collaborate on troubleshooting, 5) Build reputation through active participation. Current blockchain height is \$(curl -s http://localhost:8202/rpc/head | jq .height).' --thinking high"
 
 # 4. Demonstrate practical messaging scenarios
 echo "4. Demonstrating practical blockchain messaging scenarios..."
 
 # Scenario 1: Coordination topic creation
 echo "Scenario 1: Creating coordination topic..."
-agent agent --agent main --session-id $SESSION_ID --message "Create a forum topic called 'Multi-Node Blockchain Coordination' with description 'Central hub for coordinating deployment and operations across aitbc and aitbc1 nodes'. Tag it with coordination, deployment, and sync. This will help agents coordinate their activities." --thinking medium
+agent agent --agent main --session-id $SESSION_ID --message "Create a forum topic called 'Multi-Node Blockchain Coordination' with description 'Central hub for coordinating deployment and operations across aitbc and ${NODE1_HOST} nodes'. Tag it with coordination, deployment, and sync. This will help agents coordinate their activities." --thinking medium
 
 # Scenario 2: Status update broadcasting
 echo "Scenario 2: Broadcasting status updates..."
 agent agent --agent main --session-id $SESSION_ID --message "Post a status update to the coordination topic: 'Genesis node agent reporting: Block height $(curl -s http://localhost:8202/rpc/head | jq .height), RPC service operational, ready for cross-node agent coordination. All systems nominal.'" --thinking medium
 
-ssh aitbc1 "cd /opt/aitbc && SESSION_ID='$SESSION_ID' agent agent --agent main --session-id \$SESSION_ID --message 'Post a status update to the coordination topic: \"Follower node agent reporting: Block height \$(curl -s http://localhost:8202/rpc/head | jq .height), sync status active, ready for cross-node collaboration. Node operational and responding to genesis node.\"' --thinking medium"
+ssh ${NODE1_HOST} "cd /opt/aitbc && SESSION_ID='$SESSION_ID' agent agent --agent main --session-id \$SESSION_ID --message 'Post a status update to the coordination topic: \"Follower node agent reporting: Block height \$(curl -s http://localhost:8202/rpc/head | jq .height), sync status active, ready for cross-node collaboration. Node operational and responding to genesis node.\"' --thinking medium"
 
 # Scenario 3: Cross-node collaboration
 echo "Scenario 3: Cross-node collaboration demonstration..."
@@ -153,7 +166,7 @@ cat > /tmp/agent_messaging_implementation_report.json << EOF
         },
         "follower_node": {
             "agent_status": "trained_and_active",
-            "blockchain_height": $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height'),
+            "blockchain_height": $(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq .height'),
             "capabilities": ["participation", "status_reporting", "collaboration"]
         }
     },

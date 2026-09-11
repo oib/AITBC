@@ -6,6 +6,15 @@
 
 set -e
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -110,13 +119,13 @@ echo -e "${GREEN}✅ Localhost: ACTIVE${NC}"
 echo "   Status: Production ready"
 echo "   Agents: $(curl -s http://localhost:8006/health 2>/dev/null || echo "API not running")"
 
-# Check aitbc1 status
-if ssh aitbc1 'cd /opt/aitbc && test -f data/agent_registry.json' 2>/dev/null; then
-    echo -e "${GREEN}✅ aitbc1: ACTIVE${NC}"
+# Check ${NODE1_HOST} status
+if ssh ${NODE1_HOST} 'cd /opt/aitbc && test -f data/agent_registry.json' 2>/dev/null; then
+    echo -e "${GREEN}✅ ${NODE1_HOST}: ACTIVE${NC}"
     echo "   Status: Synchronized"
-    echo "   Last sync: $(ssh aitbc1 'cd /opt/aitbc && git log -1 --format=%cd' 2>/dev/null || echo "Unknown")"
+    echo "   Last sync: $(ssh ${NODE1_HOST} 'cd /opt/aitbc && git log -1 --format=%cd' 2>/dev/null || echo "Unknown")"
 else
-    echo -e "${YELLOW}⚠️  aitbc1: NEEDS SYNC${NC}"
+    echo -e "${YELLOW}⚠️  ${NODE1_HOST}: NEEDS SYNC${NC}"
 fi
 
 echo ""
@@ -126,7 +135,7 @@ echo "==============================="
 echo ""
 
 echo "1. 🔄 Sync Multi-Node Network"
-echo "   Command: ssh aitbc1 'cd /opt/aitbc && git pull && ./scripts/manage-services.sh start'"
+echo "   Command: ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull && ./scripts/manage-services.sh start'"
 echo ""
 
 echo "2. 📈 Scale Agent Operations"
@@ -148,12 +157,12 @@ echo ""
 echo -e "${CYAN}🎯 AUTOMATED PRODUCTION DEPLOYMENT${NC}"
 echo "=================================="
 
-# Deploy to aitbc1
+# Deploy to ${NODE1_HOST}
 echo "Deploying to aitbc1..."
-if ssh aitbc1 'cd /opt/aitbc && git pull origin main && ./scripts/manage-services.sh start' 2>/dev/null; then
-    echo -e "${GREEN}✅ aitbc1 deployment successful${NC}"
+if ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull origin main && ./scripts/manage-services.sh start' 2>/dev/null; then
+    echo -e "${GREEN}✅ ${NODE1_HOST} deployment successful${NC}"
 else
-    echo -e "${RED}❌ aitbc1 deployment failed${NC}"
+    echo -e "${RED}❌ ${NODE1_HOST} deployment failed${NC}"
 fi
 
 echo ""

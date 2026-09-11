@@ -1,6 +1,15 @@
 #!/bin/bash
 # Provision new AITBC node
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 NODE_NAME=$1
 if [ -z "$NODE_NAME" ]; then
     echo "Usage: $0 <node-name>"
@@ -18,8 +27,8 @@ mkdir -p /etc/aitbc
 mkdir -p /var/log/aitbc
 
 # Copy configuration
-scp aitbc1:/etc/aitbc/blockchain.env /etc/aitbc/
-scp aitbc1:/opt/aitbc/aitbc-cli-final /opt/aitbc/
+scp ${NODE1_HOST}:/etc/aitbc/blockchain.env /etc/aitbc/
+scp ${NODE1_HOST}:/opt/aitbc/aitbc-cli-final /opt/aitbc/
 
 # Pull code
 cd /opt/aitbc

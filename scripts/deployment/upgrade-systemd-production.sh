@@ -6,6 +6,15 @@
 
 set -euo pipefail
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -268,45 +277,45 @@ sleep 5
 curl -fsS http://localhost:8102/health | head -5 || echo "Marketplace service not ready"
 curl -s http://localhost:8007/health | head -5 || echo "Marketplace GPU endpoint not ready"
 
-# Step 7: Deploy to aitbc1
-echo -e "${CYAN}🚀 Step 7: Deploy to aitbc1${NC}"
+# Step 7: Deploy to ${NODE1_HOST}
+echo -e "${CYAN}🚀 Step 7: Deploy to ${NODE1_HOST}${NC}"
 echo "========================"
 
-# Copy production services to aitbc1
+# Copy production services to ${NODE1_HOST}
 echo "Copying production services to aitbc1..."
-scp -r /opt/aitbc/production aitbc1:/opt/aitbc/
-scp /opt/aitbc/systemd/aitbc-blockchain-node.service aitbc1:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-marketplace.service aitbc1:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-production-monitor.service aitbc1:/opt/aitbc/systemd/
+scp -r /opt/aitbc/production ${NODE1_HOST}:/opt/aitbc/
+scp /opt/aitbc/systemd/aitbc-blockchain-node.service ${NODE1_HOST}:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-marketplace.service ${NODE1_HOST}:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-production-monitor.service ${NODE1_HOST}:/opt/aitbc/systemd/
 
-# Update services for aitbc1 node
+# Update services for ${NODE1_HOST} node
 echo "Configuring services for aitbc1..."
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-blockchain-node.service"
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-marketplace.service"
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-production-monitor.service"
+ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-blockchain-node.service"
+ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-marketplace.service"
+ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-production-monitor.service"
 
-# Update ports for aitbc1
-ssh aitbc1 "sed -i 's/MARKETPLACE_PORT=8002/MARKETPLACE_PORT=8004/g' /opt/aitbc/systemd/aitbc-marketplace.service"
+# Update ports for ${NODE1_HOST}
+ssh ${NODE1_HOST} "sed -i 's/MARKETPLACE_PORT=8002/MARKETPLACE_PORT=8004/g' /opt/aitbc/systemd/aitbc-marketplace.service"
 
-# Deploy and start services on aitbc1
+# Deploy and start services on ${NODE1_HOST}
 echo "Starting services on aitbc1..."
-ssh aitbc1 "systemctl daemon-reload"
-ssh aitbc1 "systemctl enable aitbc-blockchain-node.service aitbc-marketplace.service aitbc-production-monitor.service"
-ssh aitbc1 "systemctl start aitbc-blockchain-node.service"
+ssh ${NODE1_HOST} "systemctl daemon-reload"
+ssh ${NODE1_HOST} "systemctl enable aitbc-blockchain-node.service aitbc-marketplace.service aitbc-production-monitor.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-blockchain-node.service"
 sleep 3
-ssh aitbc1 "systemctl start aitbc-marketplace.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-marketplace.service"
 sleep 3
-ssh aitbc1 "systemctl start aitbc-production-monitor.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-production-monitor.service"
 
-# Check aitbc1 services
-echo "Checking aitbc1 services..."
-ssh aitbc1 "systemctl status aitbc-blockchain-node.service --no-pager -l | head -5"
-ssh aitbc1 "systemctl status aitbc-marketplace.service --no-pager -l | head -5"
+# Check ${NODE1_HOST} services
+echo "Checking ${NODE1_HOST} services..."
+ssh ${NODE1_HOST} "systemctl status aitbc-blockchain-node.service --no-pager -l | head -5"
+ssh ${NODE1_HOST} "systemctl status aitbc-marketplace.service --no-pager -l | head -5"
 
-# Test aitbc1 endpoints
-echo "Testing aitbc1 endpoints..."
-ssh aitbc1 "curl -s http://localhost:8004/health | head -5" || echo "aitbc1 marketplace not ready"
-ssh aitbc1 "curl -s http://localhost:8008/health | head -5" || echo "aitbc1 marketplace GPU endpoint not ready"
+# Test ${NODE1_HOST} endpoints
+echo "Testing ${NODE1_HOST} endpoints..."
+ssh ${NODE1_HOST} "curl -s http://localhost:8004/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
+ssh ${NODE1_HOST} "curl -s http://localhost:8008/health | head -5" || echo "${NODE1_HOST} marketplace GPU endpoint not ready"
 
 echo ""
 echo -e "${GREEN}🎉 PRODUCTION SYSTEMD SERVICES UPGRADED!${NC}"
@@ -330,10 +339,10 @@ echo "   • aitbc (localhost):"
 echo "     - Blockchain: SystemD managed"
 echo "     - Marketplace: http://localhost:8002"
 echo "     - Marketplace GPU: http://localhost:8007"
-echo "   • aitbc1 (remote):"
+echo "   • ${NODE1_HOST} (remote):"
 echo "     - Blockchain: SystemD managed"
-echo "     - Marketplace: http://aitbc1:8004"
-echo "     - Marketplace GPU: http://aitbc1:8008"
+echo "     - Marketplace: http://${NODE1_HOST}:8004"
+echo "     - Marketplace GPU: http://${NODE1_HOST}:8008"
 echo ""
 echo "✅ Monitoring:"
 echo "   • SystemD journal: journalctl -u aitbc-*"

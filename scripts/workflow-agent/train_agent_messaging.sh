@@ -5,6 +5,15 @@
 set -e
 
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
@@ -12,7 +21,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -39,7 +50,9 @@ echo "- ./aitbc-cli agent list"
 
 # 4. Create a sample agent workflow
 echo "4. Creating sample agent workflow for blockchain messaging..."
-cat > /tmp/agent_messaging_workflow.json << 'EOF'
+# Unquoted heredoc: the node address is resolved as the file is written.
+# Anything else that looks like a variable is escaped so it survives verbatim.
+cat > /tmp/agent_messaging_workflow.json << EOF
 {
     "workflow_name": "blockchain_messaging_agent",
     "description": "Agent that uses AITBC smart contract for cross-node communication",
@@ -62,12 +75,12 @@ cat > /tmp/agent_messaging_workflow.json << 'EOF'
         "contract_address": "agent_messaging_contract",
         "rpc_endpoints": [
             "http://localhost:8202",
-            "http://aitbc1:8202"
+            "http://${NODE1_HOST}:8202"
         ]
     },
     "cross_node_strategy": {
         "primary_node": "aitbc",
-        "backup_node": "aitbc1",
+        "backup_node": "${NODE1_HOST}",
         "sync_topics": true,
         "replicate_messages": true
     }
@@ -84,9 +97,9 @@ agent agent --agent main --session-id $SESSION_ID --message "Teach me practical 
 echo "6. Demonstrating cross-node agent messaging..."
 echo "Current node status:"
 echo "- Genesis Node (aitbc): $(curl -s http://localhost:8202/rpc/head | jq .height)"
-echo "- Follower Node (aitbc1): $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')"
+echo "- Follower Node (${NODE1_HOST}): $(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq .height')"
 
-agent agent --agent main --session-id $SESSION_ID --message "We have a multi-node blockchain setup with genesis node at height $(curl -s http://localhost:8202/rpc/head | jq .height) and follower node at height $(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height). How can we use the smart contract messaging to coordinate between agents running on different nodes?" --thinking high
+agent agent --agent main --session-id $SESSION_ID --message "We have a multi-node blockchain setup with genesis node at height $(curl -s http://localhost:8202/rpc/head | jq .height) and follower node at height $(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq .height'). How can we use the smart contract messaging to coordinate between agents running on different nodes?" --thinking high
 
 # 7. Create training completion report
 echo "7. Creating training completion report..."
@@ -113,8 +126,8 @@ cat > /tmp/agent_messaging_training_report.json << EOF
     ],
     "blockchain_integration": {
         "chain_id": "ait-mainnet",
-        "nodes": ["aitbc", "aitbc1"],
-        "rpc_endpoints": ["http://localhost:8202", "http://aitbc1:8202"],
+        "nodes": ["aitbc", "${NODE1_HOST}"],
+        "rpc_endpoints": ["http://localhost:8202", "http://${NODE1_HOST}:8202"],
         "smart_contract": "AgentMessagingContract"
     },
     "next_steps": [
@@ -137,7 +150,7 @@ echo "=== Next Steps for Agent Implementation ==="
 echo "1. Create agent workflows using: ./aitbc-cli agent create --name messaging-agent --workflow-file /tmp/agent_messaging_workflow.json"
 echo "2. Execute agent workflows: ./aitbc-cli agent execute --name messaging-agent"
 echo "3. Monitor agent status: ./aitbc-cli agent status --name messaging-agent"
-echo "4. Test cross-node messaging between aitbc and aitbc1"
+echo "4. Test cross-node messaging between aitbc and ${NODE1_HOST}"
 
 echo ""
 echo "=== Agent Messaging Capabilities ==="

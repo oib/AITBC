@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Blockchain Communication Test Script
-# Tests communication between aitbc (genesis), aitbc1 (follower), and aitbc2 (gitea-runner) nodes
+# Tests communication between aitbc (genesis), ${NODE1_HOST} (follower), and aitbc2 (gitea-runner) nodes
 # All nodes run on port 8006 on different physical machines
 #
 
@@ -124,12 +124,12 @@ test_connectivity() {
         return 1
     fi
 
-    # Test follower node (aitbc1)
+    # Test follower node (${NODE1_HOST})
     log_debug "Testing follower node at ${FOLLOWER_IP}:${PORT}"
     if curl -f -s "http://${FOLLOWER_IP}:${PORT}/health" > /dev/null; then
-        log_success "Follower node (aitbc1) is reachable"
+        log_success "Follower node (${NODE1_HOST}) is reachable"
     else
-        log_error "Follower node (aitbc1) is NOT reachable"
+        log_error "Follower node (${NODE1_HOST}) is NOT reachable"
         return 1
     fi
 
@@ -145,9 +145,9 @@ test_connectivity() {
     # Test P2P connectivity
     log_debug "Testing P2P connectivity"
     if ${CLI_PATH} network test --peer "${FOLLOWER_IP}:${PORT}" > /dev/null 2>&1; then
-        log_success "P2P connectivity to aitbc1 is working"
+        log_success "P2P connectivity to ${NODE1_HOST} is working"
     else
-        log_warning "P2P connectivity to aitbc1 test failed (may not be critical)"
+        log_warning "P2P connectivity to ${NODE1_HOST} test failed (may not be critical)"
     fi
 
     if ${CLI_PATH} network test --peer "${FOLLOWER2_IP}:${PORT}" > /dev/null 2>&1; then
@@ -171,10 +171,10 @@ test_blockchain_status() {
     GENESIS_HEIGHT=$(NODE_URL="http://${GENESIS_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
     log_info "Genesis node block height: ${GENESIS_HEIGHT}"
 
-    # Get follower node (aitbc1) status
-    log_debug "Getting follower node (aitbc1) blockchain info"
+    # Get follower node (${NODE1_HOST}) status
+    log_debug "Getting follower node (${NODE1_HOST}) blockchain info"
     FOLLOWER_HEIGHT=$(NODE_URL="http://${FOLLOWER_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
-    log_info "Follower node (aitbc1) block height: ${FOLLOWER_HEIGHT}"
+    log_info "Follower node (${NODE1_HOST}) block height: ${FOLLOWER_HEIGHT}"
 
     # Get follower node (aitbc2/gitea-runner) status
     log_debug "Getting follower node (aitbc2/gitea-runner) blockchain info"
@@ -302,17 +302,17 @@ test_sync() {
         log_warning "Genesis node has uncommitted changes"
     fi
 
-    # Check git status on follower (aitbc1)
-    log_debug "Checking git status on follower node (aitbc1)"
-    FOLLOWER_STATUS=$(ssh aitbc1 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
+    # Check git status on follower (${NODE1_HOST})
+    log_debug "Checking git status on follower node (${NODE1_HOST})"
+    FOLLOWER_STATUS=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
 
     if [ "${FOLLOWER_STATUS}" = "error" ]; then
-        log_error "Git status check failed on follower node (aitbc1)"
+        log_error "Git status check failed on follower node (${NODE1_HOST})"
         return 1
     elif [ -z "${FOLLOWER_STATUS}" ]; then
-        log_success "Follower node (aitbc1) git status is clean"
+        log_success "Follower node (${NODE1_HOST}) git status is clean"
     else
-        log_warning "Follower node (aitbc1) has uncommitted changes"
+        log_warning "Follower node (${NODE1_HOST}) has uncommitted changes"
     fi
 
     # Check git status on follower (aitbc2/gitea-runner)
@@ -331,7 +331,7 @@ test_sync() {
     # Test git pull
     log_debug "Testing git pull from Gitea"
     git pull origin main --verbose >> "${LOG_FILE}" 2>&1
-    ssh aitbc1 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
+    ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
     ssh gitea-runner 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
 
     log_success "Git synchronization test completed"
