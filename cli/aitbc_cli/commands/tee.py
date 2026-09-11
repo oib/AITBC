@@ -246,9 +246,10 @@ def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, 
         policy = DualVerificationPolicy(mode=VerificationMode(mode), allowed_measurements=allowed)
         zk = None
         if zk_proof:
-            from aitbc.tee.verification import ZKProof
-
-            zk = ZKProof(zk_proof, verified=True)
+            # v0.14.4: fail-closed. There is no real ZK verifier backend yet, so
+            # accepting --zk-proof would make any arbitrary string verify as valid.
+            # Reject the flag until a verifier (verifying_key + proof_data) is wired.
+            abort(ctx, "ZK proof verification is not available without a real verifier backend")
         policy_ok = verify_with_policy(policy, att_quote, zk)
 
         result = {
