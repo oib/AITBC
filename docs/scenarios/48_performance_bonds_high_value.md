@@ -161,7 +161,7 @@ aitbc bond appeal <bond-id> --reason "dispute"
   `lock`, `release`, and `slash`.
 - `cli/tests/test_cli_comprehensive.py` + `test_cli_basic.py` — 33 passed
   (regression).
-- Live validation on `hub.aitbc` + `aitbc3`:
+- Live validation on `<hub-node>` + `<node2>`:
   - `aitbc bond create aitbc-miner-1 --amount 10 --required-amount 10` → active
     bond.
   - `aitbc bond status aitbc-miner-1` → `eligible: true`.

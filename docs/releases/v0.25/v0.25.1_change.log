@@ -7,11 +7,11 @@ This is a planning/follow-up document. It captures open work, design intent, and
 
 ## Live validation follow-ups
 
-- `aitbc` (<node0-ip>) resync after chain reset converged at height 77 with all nodes; head hash matches across `hub.aitbc`, `aitbc3`, `hub2.aitbc`, and `aitbc`.
+- `aitbc` (<node0-ip>) resync after chain reset converged at height 77 with all nodes; head hash matches across `<hub-node>`, `<node2>`, `<replica-node>`, and `aitbc`.
 - Wallet round-trip after 0x migration: `100 AIT` genesis → default send succeeded; balances consistent across RPC nodes.
 - Service health: all blockchain, RPC, wallet, coordinator, marketplace, miner, pool-hub, edge, GPU, trading, and governance services active on validated nodes.
-- `hub2.aitbc` recovery service still exits with `226/NAMESPACE`; non-critical.
-- `keystore.db` and `wallet_ledger.db` metadata migration from legacy `ait1`/`aitbc1` to `0x` was manual; future migrations should cover daemon databases.
+- `<replica-node>` recovery service still exits with `226/NAMESPACE`; non-critical.
+- `keystore.db` and `wallet_ledger.db` metadata migration from legacy `ait1`/`<node1>` to `0x` was manual; future migrations should cover daemon databases.
 - Stuck TEE job escrow refund validated end-to-end through `aitbc market escrow refund`.
 
 ## Open operational tasks
@@ -21,8 +21,8 @@ This is a planning/follow-up document. It captures open work, design intent, and
 - Generate replacement keys using `aitbc/crypto/signing.py` helpers (not generic `eth_keys`), migrate on-chain funds, update `/etc/aitbc/node.env` and `aitbc-coordinator-api.env`, and restart affected services one node at a time.
 - Requires explicit operator authorization and a documented fund-migration plan.
 
-### T2 — Enable bridge release on `aitbc1`
-- `aitbc1` currently has `BRIDGE_RELEASE_ENABLED=false`. Enable once the multi-validator chain is stable and the bridge validator set is refreshed.
+### T2 — Enable bridge release on `<node1>`
+- `<node1>` currently has `BRIDGE_RELEASE_ENABLED=false`. Enable once the multi-validator chain is stable and the bridge validator set is refreshed.
 - Reconcile `BRIDGE_MULTISIG_VALIDATORS` and threshold with the actual number of registered bridge signers.
 
 ### T3 — Validate and confirm pending bridge transfers

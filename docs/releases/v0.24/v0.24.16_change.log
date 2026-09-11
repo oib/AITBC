@@ -1,13 +1,13 @@
 # v0.24.16 — AI job lifecycle, dashboards, IPFS, and MCP server
 
-## ZK live service validation and aitbc3 startup fix (2026-08-25)
+## ZK live service validation and <node2> startup fix (2026-08-25)
 
-- Live `_attach_zk_proof` on `hub.aitbc` and `aitbc3`:
+- Live `_attach_zk_proof` on `<hub-node>` and `<node2>`:
   - ZK-required job with `model: "llama3.2:3b"` correctly returns
     `zk_status="unsupported_model"` and `computation_correct=False`.
   - ZK-required job with `model: "linear-1"` returns `zk_status="verified"`,
     `computation_correct=True`, and a `receipt_model` Groth16 proof.
-- Fixed `aitbc3` `aitbc-coordinator-api` startup crash caused by
+- Fixed `<node2>` `aitbc-coordinator-api` startup crash caused by
   `model_registry` calling `node`/Poseidon at module import time.
   `model_hash` is now computed lazily via `ModelCircuit.get_model_hash()`.
 - Both coordinators now restart cleanly and `/health` returns 200.
@@ -20,7 +20,7 @@
   (daemon + blockchain fallback) and override `payment_status` with the on-chain escrow state.
 - `cli/aitbc_cli/commands/market/escrow.py` exposes a shared `refund_escrow` helper used
   by `ai cancel --refund` as a blockchain refund fallback.
-- Live: pushed to Gitea, pulled on `hub.aitbc` and `aitbc3`;
+- Live: pushed to Gitea, pulled on `<hub-node>` and `<node2>`;
   `aitbc dashboard customer`/`shop` show canonical addresses and formatted AIT balances.
 
 ## Phase 4 — Agent and discovery UX (2026-08-26)
@@ -32,7 +32,7 @@
   `sudo systemctl start aitbc-agent-coordinator` message when the service is down.
 - `get_agent_status` now queries the coordinator and distinguishes a reachable
   coordinator that does not know the agent ("not registered") from an unreachable one.
-- Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
+- Live: pushed to Gitea and pulled on `<hub-node>` and `<node2>`;
   `aitbc agent status` without an agent_id resolves to the local default.
 
 ## Phase 5 — Dashboard and observability (2026-08-26)
@@ -48,7 +48,7 @@
   and `result_hash` in the payload.
 - Tracking is best-effort: if no client token is available, the command succeeds
   with a warning and skips the coordinator record.
-- Live: pushed to Gitea and pulled on `hub.aitbc` and `aitbc3`;
+- Live: pushed to Gitea and pulled on `<hub-node>` and `<node2>`;
   `aitbc market run ollama-llama3.2-3b hello --max-tokens 10000 --track`
   created a tracked job and `aitbc dashboard customer` displayed it.
 

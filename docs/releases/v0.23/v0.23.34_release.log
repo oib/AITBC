@@ -212,7 +212,7 @@ V23-88 fixed nine query parameters in `apps/marketplace` that FastAPI treated as
 
 ### [V23-90](change.log#L3777) — a diverged follower reported health four different ways for 46 hours · CONFIRMED → RESOLVED
 
-The hub's chain database was reset to genesis on 2026-08-15 at 11:12 local. The follower on `aitbc3` was at height 4,211 of the chain the hub had just discarded — its last import was block 4,211 at 11:12:01, and the hub's replacement block 1 is stamped 11:12:19.
+The hub's chain database was reset to genesis on 2026-08-15 at 11:12 local. The follower on `<node2>` was at height 4,211 of the chain the hub had just discarded — its last import was block 4,211 at 11:12:01, and the hub's replacement block 1 is stamped 11:12:19.
 
 ### [V23-91](change.log#L3952) — a ZK subsystem that reported four circuits and could not produce one proof · CONFIRMED → RESOLVED
 

@@ -342,8 +342,8 @@ For AITBC operations, the SOUL.md should define:
 - Verification-first mindset (test everything, trust nothing until proven)
 - AITBC operational knowledge (API endpoints, CLI commands, systemd services)
 - Code quality standards (no print statements, no bare excepts, follow patterns)
-- Multi-node awareness (aitbc main node + aitbc1 brother agent coordination)
-- Correct topology: agent runs on aitbc (main blockchain node), brother on aitbc1 (coordination node)
+- Multi-node awareness (aitbc main node + `<node1>` brother agent coordination)
+- Correct topology: agent runs on aitbc (main blockchain node), brother on `<node1>` (coordination node)
 - Brother SSHes to main node via `ssh aitbc`, not the reverse
 - Both nodes run the same model (OWL Alpha via OpenRouter) -- brother is NOT a different model
 

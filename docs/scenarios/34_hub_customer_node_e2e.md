@@ -192,7 +192,7 @@ Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab
 
 ### Step 9: GPU marketplace offer from the shop
 
-On `aitbc3` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
+On `<node2>` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
 
 ```bash
 aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
@@ -204,7 +204,7 @@ On the hub/customer:
 aitbc market list --service-type ollama
 ```
 
-**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `aitbc3`, plus an on-chain `GPU_MARKETPLACE` hash. Offers published by registered agents show a live trust score (e.g. `Rating: 0.68 trust`) instead of the local review count.
+**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `<node2>`, plus an on-chain `GPU_MARKETPLACE` hash. Offers published by registered agents show a live trust score (e.g. `Rating: 0.68 trust`) instead of the local review count.
 
 ### Step 10: Dashboard validation
 
@@ -214,7 +214,7 @@ Customer view (after `aitbc auth login --wallet default` on the hub):
 aitbc dashboard customer
 ```
 
-Shop view (on `aitbc3` as `aitbc`):
+Shop view (on `<node2>` as `aitbc`):
 
 ```bash
 aitbc dashboard shop
