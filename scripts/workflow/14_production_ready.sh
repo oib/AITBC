@@ -3,6 +3,14 @@ set -euo pipefail
 # AITBC Production Ready Script
 # Complete production deployment and verification
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+
 echo "=== AITBC Production Ready Deployment ==="
 
 
@@ -95,7 +103,7 @@ echo "   Sync difference: $((AITBC1_HEIGHT - AITBC_HEIGHT)) blocks"
 echo "5. Network Performance:"
 AITBC1_RPC_TIME=$(curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head)
 AITBC_RPC_TIME=$(ssh aitbc 'curl -w "%{time_total}" -s -o /dev/null $BLOCKCHAIN_RPC/rpc/head')
-NETWORK_LATENCY=$(ping -c 1 10.1.223.93 | grep "time=" | cut -d= -f2 | cut -d" " -f1)
+NETWORK_LATENCY=$(ping -c 1 ${NODE0_HOST} | grep "time=" | cut -d= -f2 | cut -d" " -f1)
 
 echo "   aitbc1 RPC time: ${AITBC1_RPC_TIME}s"
 echo "   aitbc RPC time: ${AITBC_RPC_TIME}s"

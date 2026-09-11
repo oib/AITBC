@@ -7,7 +7,7 @@ This is a planning/follow-up document. It captures open work, design intent, and
 
 ## Live validation follow-ups
 
-- `aitbc` (10.1.223.93) resync after chain reset converged at height 77 with all nodes; head hash matches across `hub.aitbc`, `aitbc3`, `hub2.aitbc`, and `aitbc`.
+- `aitbc` (<node0-ip>) resync after chain reset converged at height 77 with all nodes; head hash matches across `hub.aitbc`, `aitbc3`, `hub2.aitbc`, and `aitbc`.
 - Wallet round-trip after 0x migration: `100 AIT` genesis → default send succeeded; balances consistent across RPC nodes.
 - Service health: all blockchain, RPC, wallet, coordinator, marketplace, miner, pool-hub, edge, GPU, trading, and governance services active on validated nodes.
 - `hub2.aitbc` recovery service still exits with `226/NAMESPACE`; non-critical.

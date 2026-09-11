@@ -6,6 +6,14 @@
 
 
 # Source scenario configuration
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
@@ -110,10 +118,10 @@ test_gossip_backend_config() {
             return 1
         fi
 
-        if [ "$gossip_url" = "redis://10.1.223.93:6379" ]; then
+        if [ "$gossip_url" = "redis://${NODE0_HOST}:6379" ]; then
             log_success "gossip_broadcast_url configured on $node"
         else
-            log_error "gossip_broadcast_url=$gossip_url (expected redis://10.1.223.93:6379) on $node"
+            log_error "gossip_broadcast_url=$gossip_url (expected redis://${NODE0_HOST}:6379) on $node"
             return 1
         fi
     done
@@ -182,8 +190,8 @@ test_chain_configuration() {
 test_redis_subscribers() {
     log_test "Checking Redis subscriber count for chain topics"
 
-    local mainnet_subscribers=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
-    local testnet_subscribers=$(redis-cli -h 10.1.223.93 -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
+    local mainnet_subscribers=$(redis-cli -h ${NODE0_HOST} -p 6379 PUBSUB NUMSUB blocks.ait-mainnet | tail -n1)
+    local testnet_subscribers=$(redis-cli -h ${NODE0_HOST} -p 6379 PUBSUB NUMSUB blocks.ait-testnet | tail -n1)
 
     if [ "$mainnet_subscribers" = "3" ]; then
         log_success "blocks.ait-mainnet has 3 subscribers (correct)"

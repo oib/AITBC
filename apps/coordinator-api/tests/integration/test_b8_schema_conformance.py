@@ -14,6 +14,7 @@ or a model column was added without a migration.
 
 from __future__ import annotations
 
+import json
 import os
 import subprocess
 import sys
@@ -51,19 +52,37 @@ def _run_alembic(tmp_path: Path, *args: str) -> Path:
 
 
 def _get_model_columns() -> dict[str, set[str]]:
-    """Return {table_name: {column_names}} from the declared SQLModel metadata."""
-    # Keep this in lock-step with the 001_initial migration's model imports so the
-    # test compares the migration output against the schema the migration actually
-    # intends to create, not against whichever models happened to be loaded by the
-    # test collection order.
-    import coordinator_api.main  # noqa: F401
-    import coordinator_api.models.multitenant  # noqa: F401
-    from sqlmodel import SQLModel
+    """Return {table_name: {column_names}} from the declared SQLModel metadata.
 
-    tables: dict[str, set[str]] = {}
-    for table_name, table in SQLModel.metadata.tables.items():
-        tables[table_name] = {col.name for col in table.columns}
-    return tables
+    Runs in a fresh subprocess so other test modules that share the global
+    SQLModel.metadata registry do not pollute the declared model set.
+    """
+    script = """
+import json
+import coordinator_api.main  # noqa: F401
+import coordinator_api.models.multitenant  # noqa: F401
+from sqlmodel import SQLModel
+
+tables = {
+    name: sorted(col.name for col in table.columns)
+    for name, table in SQLModel.metadata.tables.items()
+}
+print(json.dumps(tables))
+"""
+    env = os.environ.copy()
+    env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
+    env["AITBC_SKIP_ENV_FILES"] = "1"
+    result = subprocess.run(
+        [sys.executable, "-c", script],
+        cwd=_COORDINATOR_ROOT,
+        env=env,
+        capture_output=True,
+        text=True,
+    )
+    if result.returncode != 0:
+        pytest.fail(f"failed to collect coordinator model columns:\n{result.stderr}")
+    tables = json.loads(result.stdout.strip().splitlines()[-1])
+    return {name: set(cols) for name, cols in tables.items()}
 
 
 def test_fresh_upgrade_head_matches_declared_models(tmp_path: Path):

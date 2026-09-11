@@ -7,6 +7,15 @@
 # ============================================================================
 
 # Set default values if not already set
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 AITBC_ENV="${AITBC_ENV:-development}"
 DEBUG_MODE="${DEBUG_MODE:-false}"
@@ -35,7 +44,7 @@ DEFAULT_NETWORK_SIZE="${DEFAULT_NETWORK_SIZE:-50}"
 DEFAULT_MAX_PEERS="${DEFAULT_MAX_PEERS:-50}"
 
 # Network configuration
-BOOTSTRAP_NODES="${BOOTSTRAP_NODES:-10.1.223.93:8000,10.1.223.40:8000}"
+BOOTSTRAP_NODES="${BOOTSTRAP_NODES:-${NODE0_HOST}:8000,${NODE1_HOST}:8000}"
 DISCOVERY_INTERVAL="${DISCOVERY_INTERVAL:-30}"
 HEARTBEAT_INTERVAL="${HEARTBEAT_INTERVAL:-60}"
 

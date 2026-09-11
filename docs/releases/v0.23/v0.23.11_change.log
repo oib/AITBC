@@ -38,7 +38,7 @@ git grep -n "AITBC_DEPLOY_SERVER" -- scripts/
 ```
 $ env -u AITBC_DEPLOY_SERVER bash scripts/deployment/deploy/deploy-to-server.sh
 deploy-to-server.sh: line 16: AITBC_DEPLOY_SERVER: set AITBC_DEPLOY_SERVER
-  (e.g. root@10.1.223.93) — there is no default target
+  (e.g. root@<node0-ip>) — there is no default target
 $ echo $?
 1
 ```

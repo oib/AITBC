@@ -6,6 +6,14 @@ set -euo pipefail
 
 
 # Source scenario configuration
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
@@ -89,4 +97,4 @@ echo "  Create wallet: ./04_create_wallet.sh"
 echo "  Send transaction: ./05_send_transaction.sh"
 echo
 echo "📚 Documentation: See workflow documentation for detailed information"
-echo "🌐 Web Interface: $BLOCKCHAIN_RPC (aitbc1) and http://10.1.223.40:${BLOCKCHAIN_RPC_PORT:-8202} (aitbc)"
+echo "🌐 Web Interface: $BLOCKCHAIN_RPC (aitbc1) and http://${NODE1_HOST}:${BLOCKCHAIN_RPC_PORT:-8202} (aitbc)"

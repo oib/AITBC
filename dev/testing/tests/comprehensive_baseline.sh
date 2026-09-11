@@ -1,12 +1,21 @@
 #!/bin/bash
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 echo "🚀 COMPREHENSIVE BASELINE TEST (Pre-Deployment)"
 echo "==============================================="
 
 sites=(
     "localhost|http://127.0.0.1:8000|http://127.0.0.1:9080"
-    "aitbc (Primary)|http://10.1.223.93:8000|http://10.1.223.93:8082"
-    "aitbc1 (Secondary)|http://10.1.223.40:8000|http://10.1.223.40:8082"
+    "aitbc (Primary)|http://${NODE0_HOST}:8000|http://${NODE0_HOST}:8082"
+    "aitbc1 (Secondary)|http://${NODE1_HOST}:8000|http://${NODE1_HOST}:8082"
 )
 
 for site in "${sites[@]}"; do

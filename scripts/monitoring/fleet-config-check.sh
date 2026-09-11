@@ -14,6 +14,19 @@
 
 set -euo pipefail
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the check
+# useless anywhere else and put internal addressing in a public repository.
+# They are optional: each is only an extra candidate to try after the names
+# below, so leaving them unset costs nothing wherever the names resolve.
+HUB1_HOST="${AITBC_HUB1_HOST:-}"
+HUB_HOST="${AITBC_HUB_HOST:-}"
+NODE0_HOST="${AITBC_NODE0_HOST:-}"
+NODE1_HOST="${AITBC_NODE1_HOST:-}"
+NODE2_HOST="${AITBC_NODE2_HOST:-}"
+
 if [ "$#" -gt 0 ]; then
     HOSTS="$*"
 else
@@ -25,11 +38,11 @@ fi
 # everywhere. Auto-probe candidate addresses per canonical host so the check
 # runs identically on the IDE and on any fleet node.
 declare -A HOST_CANDIDATES=(
-    [node0]="node0 10.1.223.93"
-    [node1]="node1 10.1.223.40"
-    [node2]="node2 10.1.223.136"
-    [hub]="hub.aitbc hub.aitbc.bubuit.net 192.168.100.10"
-    [hub1]="hub1.aitbc hub1.aitbc.bubuit.net 10.177.61.28"
+    [node0]="node0 ${NODE0_HOST}"
+    [node1]="node1 ${NODE1_HOST}"
+    [node2]="node2 ${NODE2_HOST}"
+    [hub]="hub.aitbc hub.aitbc.bubuit.net ${HUB_HOST}"
+    [hub1]="hub1.aitbc hub1.aitbc.bubuit.net ${HUB1_HOST}"
 )
 
 declare -A RESOLVED=()
@@ -180,10 +193,13 @@ echo "=== chain-head convergence (height + hash, two samples) ==="
 # surface peers already use — so this section runs from ANY host, fleet node
 # or IDE alike, with no ssh. (The env sections above stay ssh-based: reading
 # a host's env is dev-tier and fleet nodes have no inter-node ssh by design.)
+# The fleet nodes have no DNS of their own, so without AITBC_NODE*_HOST set
+# these fall back to the bare names and will read UNREACHABLE. That is the
+# honest outcome -- better than a hardcoded address that is wrong elsewhere.
 declare -A RPC_ENDPOINTS=(
-    [node0]="http://10.1.223.93:8202/rpc/status"
-    [node1]="http://10.1.223.40:8202/rpc/status"
-    [node2]="http://10.1.223.136:8202/rpc/status"
+    [node0]="http://${NODE0_HOST:-node0}:8202/rpc/status"
+    [node1]="http://${NODE1_HOST:-node1}:8202/rpc/status"
+    [node2]="http://${NODE2_HOST:-node2}:8202/rpc/status"
     [hub]="https://hub.aitbc.bubuit.net/rpc/status"
     [hub1]="https://hub1.aitbc.bubuit.net/rpc/status"
     [hub.aitbc]="https://hub.aitbc.bubuit.net/rpc/status"

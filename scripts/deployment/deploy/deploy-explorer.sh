@@ -10,7 +10,9 @@
 set -euo pipefail
 
 # No default. A deploy target is a decision, not a fallback.
-SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER (e.g. root@10.1.223.93) — there is no default target}"
+
+
+SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER (e.g. root@host.example.net) — there is no default target}"
 EXPLORER_DIR="${AITBC_EXPLORER_DIR:-/root/aitbc/apps/explorer-web}"
 NGINX_CONFIG="/etc/nginx/sites-available/aitbc"
 

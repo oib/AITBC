@@ -834,7 +834,7 @@ no hardcoded credentials, no insecure `random` for security purposes anywhere in
 - **OPS-17** *(Low)* `service-management/{fix-services,manage-services,run-local-services,stop-services}.sh`
   — four independent implementations of the same systemd start/stop logic with slightly
   different service lists; a service added to one is easily forgotten in the others.
-- **OPS-18** *(Low)* `sync/bulk_sync.sh:9-10` — hardcodes `GENESIS_NODE="10.1.223.40"` and
+- **OPS-18** *(Low)* `sync/bulk_sync.sh:9-10` — hardcodes `GENESIS_NODE="<node1-ip>"` and
   `GENESIS_PORT="8006"` with no env/flag override, unlike `multi-node/*`.
 - **OPS-19** *(Low)* `economics/harvest_yield.py:1-6` — a yield-harvesting script (moves and
   compounds funds) shipping in a production ops directory while documented as a skeleton that
