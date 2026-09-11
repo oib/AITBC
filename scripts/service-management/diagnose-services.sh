@@ -52,9 +52,9 @@ curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}/health" 2>/dev/
 
 echo ""
 echo "🌐 Remote Endpoints (via domain):"
-# The bare aitbc.bubuit.net does not resolve from an AITBC node -- this host is
-# aitbc3.aitbc.bubuit.net -- so this line reported "❌ Failed" everywhere it ran, which is
-# indistinguishable from the hub being down. The hub is hub.aitbc.bubuit.net and serves
+# The bare apex domain does not resolve from an AITBC node -- nodes carry their own
+# names -- so this line reported "❌ Failed" everywhere it ran, which is
+# indistinguishable from the hub being down. The hub serves
 # /api/health; /api/v1/* sits behind the gateway's auth and answers 401. HUB_URL and the
 # scenario file are the convention the workflow scripts already use.
 if [ -f /etc/aitbc/.env.scenario ]; then

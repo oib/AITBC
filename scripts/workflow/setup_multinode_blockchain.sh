@@ -20,7 +20,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -29,9 +31,14 @@ echo "This script will set up a complete multi-node blockchain network"
 echo "with aitbc1 as genesis authority and aitbc as follower node"
 echo
 
-# Check if running on aitbc1
-if [ "$(hostname)" != "aitbc1" ]; then
-  echo "Error: This script must be run on aitbc1 (genesis authority node)"
+# This must run on the genesis authority node. That used to be decided by
+# comparing `hostname` against one island's node name, which answered the
+# question only on that island. The keystore is what actually makes a host the
+# genesis authority, so test for that instead.
+GENESIS_KEYSTORE="${AITBC_GENESIS_KEYSTORE:-/var/lib/aitbc/keystore/genesis.json}"
+if [ ! -f "$GENESIS_KEYSTORE" ]; then
+  echo "Error: no genesis keystore at $GENESIS_KEYSTORE -- this is not the genesis" >&2
+  echo "   authority node. Set AITBC_GENESIS_KEYSTORE if it lives elsewhere." >&2
   exit 1
 fi
 

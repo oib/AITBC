@@ -5,6 +5,15 @@
 set -euo pipefail
 
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Source scenario configuration
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
@@ -12,7 +21,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -34,12 +45,12 @@ echo "=== aitbc height (localhost) ==="
 AITBC_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq -r '.height')
 echo $AITBC_HEIGHT
 
-echo "=== aitbc1 height (remote) ==="
-# Try to get aitbc1 height, but handle SSH issues gracefully
-if command -v ssh >/dev/null 2>&1 && ssh -o ConnectTimeout=5 aitbc1 'curl -s http://localhost:8202/rpc/head' >/dev/null 2>&1; then
-  AITBC1_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq -r ".height"')
+echo "=== ${NODE1_HOST} height (remote) ==="
+# Try to get ${NODE1_HOST} height, but handle SSH issues gracefully
+if command -v ssh >/dev/null 2>&1 && ssh -o ConnectTimeout=5 ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head' >/dev/null 2>&1; then
+  AITBC1_HEIGHT=$(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq -r ".height"')
 else
-  echo "SSH to aitbc1 not available - skipping remote check"
+  echo "SSH to ${NODE1_HOST} not available - skipping remote check"
   AITBC1_HEIGHT=$AITBC_HEIGHT
 fi
 echo $AITBC1_HEIGHT
@@ -83,9 +94,9 @@ else
 fi
 
 if [ "$(systemctl is-active aitbc-blockchain-node)" = "active" ] && [ "$(systemctl is-active aitbc-blockchain-rpc)" = "active" ]; then
-  echo "✅ aitbc1 services operational"
+  echo "✅ ${NODE1_HOST} services operational"
 else
-  echo "❌ aitbc1 services not operational"
+  echo "❌ ${NODE1_HOST} services not operational"
 fi
 
 if [ "$(ssh aitbc 'systemctl is-active aitbc-blockchain-node')" = "active" ] && [ "$(ssh aitbc 'systemctl is-active aitbc-blockchain-rpc')" = "active" ]; then

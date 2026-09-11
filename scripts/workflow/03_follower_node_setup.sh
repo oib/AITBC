@@ -20,7 +20,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -86,7 +88,7 @@ set_env db_path /var/lib/aitbc/data/ait-mainnet/chain.db
 set_env enable_block_production false
 set_env gossip_backend broadcast
 set_env gossip_broadcast_url redis://${NODE1_HOST}:6379
-set_env default_peer_rpc_url http://aitbc1:8202
+set_env default_peer_rpc_url http://${NODE1_HOST}:8202
 set_env p2p_bind_port 8200
 set_env trusted_proposers 0x2d7151D8b39Ba010d778c74af74383C8a3348B98
 
@@ -95,9 +97,9 @@ if ! grep -q "^p2p_node_id=" /etc/aitbc/node.env; then
     echo "p2p_node_id=node-$(cat /proc/sys/kernel/random/uuid | tr -d '-')" >> /etc/aitbc/node.env
 fi
 
-# Note: aitbc should sync genesis from aitbc1, not copy it
+# Note: aitbc should sync genesis from ${NODE1_HOST}, not copy it
 # The follower node will receive the genesis block via blockchain sync
-# ⚠️  DO NOT: scp aitbc1:/var/lib/aitbc/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
+# ⚠️  DO NOT: scp ${NODE1_HOST}:/var/lib/aitbc/data/ait-mainnet/genesis.json /var/lib/aitbc/data/ait-mainnet/
 # ✅ INSTEAD: Wait for automatic sync via blockchain protocol
 
 # Stop any existing services and clear old data

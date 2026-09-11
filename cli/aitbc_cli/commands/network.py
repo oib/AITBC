@@ -556,7 +556,7 @@ def _derive_sync_urls(url: str) -> dict[str, str]:
 
   aitbc network set-sync-source --url https://hub.aitbc.bubuit.net
 
-  aitbc network set-sync-source --url https://node2.aitbc.bubuit.net --env-file /etc/aitbc/aitbc-blockchain-node.env --no-restart""",
+  aitbc network set-sync-source --url https://node2.example.net --env-file /etc/aitbc/aitbc-blockchain-node.env --no-restart""",
 )
 @click.option("--url", "sync_url", required=True, help="New sync source URL (https:// or http://).")
 @click.option(
