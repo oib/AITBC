@@ -60,6 +60,16 @@ def test_tee_group_help(runner):
         assert cmd in result.output, f"Missing {cmd} in help output"
 
 
+def test_tee_group_registered_in_cli(runner):
+    """The tee group must be reachable from the top-level aitbc binary."""
+    from aitbc_cli.core.main import cli
+
+    result = runner.invoke(cli, ["tee", "--help"], obj={"output_format": "table"})
+    assert result.exit_code == 0, result.output
+    for cmd in ["attest", "keygen", "launch", "register", "status", "verify"]:
+        assert cmd in result.output, f"Missing {cmd} in top-level help"
+
+
 def test_tee_attest_posts_quote(runner, mock_client):
     """attest should generate a quote and POST it to /v1/tee/attestations."""
     from aitbc_cli.commands.tee import tee
@@ -213,3 +223,42 @@ def test_tee_verify_local(runner, monkeypatch):
 
     assert result.exit_code == 0
     assert "valid" in result.output.lower()
+
+
+def test_tee_verify_rejects_zk_proof(runner, monkeypatch):
+    """--zk-proof must fail closed without a real verifier backend."""
+    monkeypatch.setenv("TEE_ATTESTATION_ENABLED", "true")
+    from aitbc.tee.attestation import QuoteGenerator
+    from aitbc_cli.core.main import cli
+
+    quote = QuoteGenerator("enc-test", signing_key=b"secret").generate(quote_id="q1", enclave_id="enc-test", measurement="m1")
+    quote_b64 = quote.to_base64()
+
+    result = runner.invoke(
+        cli,
+        ["tee", "verify", "--quote", quote_b64, "--measurement", "m1", "--zk-proof", "anything"],
+        obj={"output_format": "table"},
+    )
+    assert result.exit_code != 0
+    assert "ZK proof verification is not available" in result.output
+
+
+def test_tee_verify_rejects_zk_only_and_both_modes(runner, monkeypatch):
+    """Without a ZK verifier backend, --mode zk_only and both are unsupported."""
+    monkeypatch.setenv("TEE_ATTESTATION_ENABLED", "true")
+    from aitbc.tee.attestation import QuoteGenerator
+    from aitbc_cli.core.main import cli
+
+    quote = QuoteGenerator("enc-test", signing_key=b"secret").generate(quote_id="q1", enclave_id="enc-test", measurement="m1")
+    quote_b64 = quote.to_base64()
+
+    for mode in ("zk_only", "both"):
+        result = runner.invoke(
+            cli,
+            ["tee", "verify", "--quote", quote_b64, "--measurement", "m1", "--mode", mode],
+            obj={"output_format": "table"},
+        )
+        # Fail-closed: the command must not succeed/return a valid proof.
+        assert not (result.exit_code == 0 and "valid" in result.output and "True" in result.output), (
+            f"{mode} should not produce a valid result without a ZK backend"
+        )

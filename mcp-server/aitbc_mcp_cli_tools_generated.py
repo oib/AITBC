@@ -67,6 +67,7 @@ import aitbc_mcp_cli_tools_generated_start  # noqa: F401
 import aitbc_mcp_cli_tools_generated_stop  # noqa: F401
 import aitbc_mcp_cli_tools_generated_sync  # noqa: F401
 import aitbc_mcp_cli_tools_generated_system  # noqa: F401
+import aitbc_mcp_cli_tools_generated_tee  # noqa: F401
 import aitbc_mcp_cli_tools_generated_trade  # noqa: F401
 import aitbc_mcp_cli_tools_generated_transactions  # noqa: F401
 import aitbc_mcp_cli_tools_generated_update  # noqa: F401
