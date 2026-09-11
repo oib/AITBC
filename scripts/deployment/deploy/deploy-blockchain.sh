@@ -122,24 +122,34 @@ print_status "Checking blockchain node status..."
 ssh "$AITBC_SSH_TARGET" "systemctl status blockchain-node blockchain-rpc --no-pager | grep -E 'Active:|Main PID:'"
 
 # Setup port forwarding
-print_status "Setting up port forwarding..."
-ssh "$AITBC_SSH_TARGET" << 'EOF'
-# Clear existing rules
+# The forwarding target used to be hardcoded to one island's container address.
+# It comes from AITBC_DNAT_TARGET now. The heredoc is quoted, so the value goes
+# to the remote shell through its environment rather than being expanded here.
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    print_status "Setting up port forwarding..."
+    ssh "$AITBC_SSH_TARGET" "AITBC_DNAT_TARGET='${AITBC_DNAT_TARGET}' bash -s" << 'EOF'
+set -e
 iptables -t nat -F PREROUTING 2>/dev/null || true
 iptables -t nat -F POSTROUTING 2>/dev/null || true
 
-# Add port forwarding for blockchain RPC
-iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
-iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
+iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT \
+    --to-destination "$AITBC_DNAT_TARGET:8202"
+iptables -t nat -A POSTROUTING -p tcp -d "$AITBC_DNAT_TARGET" --dport 8202 -j MASQUERADE
 
-# Save rules
 mkdir -p /etc/iptables
 iptables-save > /etc/iptables/rules.v4
 EOF
+else
+    echo "NOTE: AITBC_DNAT_TARGET is not set -- nothing is published from the" >&2
+    echo "      deployment host. Set it to the container's address on the bridge" >&2
+    echo "      if this host is meant to forward to it." >&2
+fi
 
 print_success "✅ Blockchain node deployed!"
 echo ""
-echo "Node RPC: http://192.168.100.10:8202"
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    echo "Node RPC: http://${AITBC_DNAT_TARGET}:8202"
+fi
 echo "External RPC: http://${AITBC_PUBLIC_HOST}:8202"
 echo ""
 echo "Next: Deploying blockchain explorer..."

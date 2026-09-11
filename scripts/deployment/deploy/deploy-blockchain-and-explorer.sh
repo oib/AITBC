@@ -172,28 +172,34 @@ print_status "Waiting for explorer to start..."
 sleep 3
 
 # Setup port forwarding
-print_status "Setting up port forwarding..."
-ssh "$AITBC_SSH_TARGET" << 'EOF'
-# Clear existing NAT rules
+# The forwarding target used to be hardcoded to one island's container address.
+# It comes from AITBC_DNAT_TARGET now. The heredoc is quoted, so the value goes
+# to the remote shell through its environment rather than being expanded here.
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    print_status "Setting up port forwarding..."
+    ssh "$AITBC_SSH_TARGET" "AITBC_DNAT_TARGET='${AITBC_DNAT_TARGET}' bash -s" << 'EOF'
+set -e
 iptables -t nat -F PREROUTING 2>/dev/null || true
 iptables -t nat -F POSTROUTING 2>/dev/null || true
 
-# Add port forwarding for blockchain RPC
-iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
-iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
+for port in 8202 3000; do
+    iptables -t nat -A PREROUTING -p tcp --dport "$port" -j DNAT \
+        --to-destination "$AITBC_DNAT_TARGET:$port"
+    iptables -t nat -A POSTROUTING -p tcp -d "$AITBC_DNAT_TARGET" --dport "$port" \
+        -j MASQUERADE
+done
 
-# Add port forwarding for explorer
-iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
-iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 3000 -j MASQUERADE
-
-# Save rules
 mkdir -p /etc/iptables
 iptables-save > /etc/iptables/rules.v4
 
-# Install iptables-persistent for persistence
 apt-get update
 apt-get install -y iptables-persistent
 EOF
+else
+    echo "NOTE: AITBC_DNAT_TARGET is not set -- nothing is published from the" >&2
+    echo "      deployment host. Set it to the container's address on the bridge" >&2
+    echo "      if this host is meant to forward to it." >&2
+fi
 
 # Check all services
 print_status "Checking all services..."
@@ -202,9 +208,11 @@ ssh "$AITBC_SSH_TARGET" "systemctl status blockchain-node blockchain-rpc blockch
 print_success "✅ Deployment complete!"
 echo ""
 echo "Services deployed:"
-echo "  - Blockchain Node RPC: http://192.168.100.10:8202"
-echo "  - Blockchain Explorer: http://192.168.100.10:3000"
-echo ""
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    echo "  - Blockchain Node RPC: http://${AITBC_DNAT_TARGET}:8202"
+    echo "  - Blockchain Explorer: http://${AITBC_DNAT_TARGET}:3000"
+    echo ""
+fi
 echo "External access:"
 echo "  - Blockchain Node RPC: http://${AITBC_PUBLIC_HOST}:8202"
 echo "  - Blockchain Explorer: http://${AITBC_PUBLIC_HOST}:3000"

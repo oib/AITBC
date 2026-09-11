@@ -77,15 +77,27 @@ print_status "Waiting for explorer to start..."
 sleep 3
 
 # Setup port forwarding for explorer
-print_status "Setting up port forwarding for explorer..."
-ssh "$AITBC_SSH_TARGET" << 'EOF'
-# Add port forwarding for explorer
-iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
-iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 3000 -j MASQUERADE
+#
+# The forwarding target used to be hardcoded to one island's container address.
+# It comes from AITBC_DNAT_TARGET now. The heredoc below is quoted, so the value
+# is handed to the remote shell through its environment rather than expanded
+# here -- expanding it here would send a literal that the remote never resolves.
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    print_status "Setting up port forwarding for explorer..."
+    ssh "$AITBC_SSH_TARGET" "AITBC_DNAT_TARGET='${AITBC_DNAT_TARGET}' bash -s" << 'EOF'
+set -e
+iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT \
+    --to-destination "$AITBC_DNAT_TARGET:3000"
+iptables -t nat -A POSTROUTING -p tcp -d "$AITBC_DNAT_TARGET" --dport 3000 -j MASQUERADE
 
-# Save rules
+mkdir -p /etc/iptables
 iptables-save > /etc/iptables/rules.v4
 EOF
+else
+    echo "NOTE: AITBC_DNAT_TARGET is not set -- nothing is published from the" >&2
+    echo "      deployment host. Set it to the container's address on the bridge" >&2
+    echo "      if this host is meant to forward to it." >&2
+fi
 
 # Check status
 print_status "Checking blockchain explorer status..."
@@ -93,7 +105,9 @@ ssh "$AITBC_SSH_TARGET" "systemctl status blockchain-explorer --no-pager | grep 
 
 print_success "✅ Blockchain explorer deployed!"
 echo ""
-echo "Explorer URL: http://192.168.100.10:3000"
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    echo "Explorer URL: http://${AITBC_DNAT_TARGET}:3000"
+fi
 echo "External URL: http://${AITBC_PUBLIC_HOST}:3000"
 echo ""
 echo "The explorer will automatically connect to the local blockchain node."
