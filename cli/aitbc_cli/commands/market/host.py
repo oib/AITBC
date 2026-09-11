@@ -12,9 +12,8 @@ from typing import Any
 
 import click
 
-from ...auth import AuthManager
 from ...config import get_config
-from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
+from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, success, warning
 from ...utils.address import to_canonical
 from ...utils.chain_id import get_chain_id
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
