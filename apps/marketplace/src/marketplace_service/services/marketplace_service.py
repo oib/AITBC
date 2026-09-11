@@ -468,7 +468,7 @@ class MarketplaceService:
 
     async def register_software_service(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register or update a software service"""
-        from datetime import UTC, datetime
+        from datetime import datetime
 
         from sqlalchemy import select
 
@@ -713,7 +713,7 @@ class MarketplaceService:
     async def mark_ratings_synced(self, rating_ids: list[str]) -> int:
         """Mark ratings as synced"""
         try:
-            from datetime import UTC, datetime
+            from datetime import datetime
 
             from sqlalchemy import select
 
@@ -732,7 +732,7 @@ class MarketplaceService:
     async def sync_ratings_from_remote(self, remote_ratings: list[dict[str, Any]]) -> dict[str, Any]:
         """Sync ratings from remote node"""
         try:
-            from datetime import UTC, datetime
+            from datetime import datetime
 
             from sqlalchemy import select
 
@@ -956,7 +956,7 @@ class MarketplaceService:
 
     async def register_ipfs_rental_token(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register an access token for a paid IPFS rental."""
-        from datetime import UTC, datetime
+        from datetime import datetime
 
         from sqlalchemy import select
 
@@ -1018,7 +1018,7 @@ class MarketplaceService:
 
     async def get_ipfs_rental_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an IPFS rental token and return its details."""
-        from datetime import UTC, datetime
+        from datetime import datetime
 
         from sqlalchemy import select
 
@@ -1194,8 +1194,6 @@ class MarketplaceService:
 
     async def get_marketplace_job(self, job_id: str) -> dict[str, Any] | None:
         """Get a MarketplaceJob by ID, including its payment."""
-        from sqlalchemy import select
-
         try:
             job = await self.session.get(MarketplaceJob, job_id)
             if not job:
