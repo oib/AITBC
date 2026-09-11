@@ -77,22 +77,25 @@ ssh "$AITBC_SSH_TARGET" "systemctl restart nginx && systemctl enable nginx"
 
 # Remove old iptables rules (optional)
 print_warning "Removing old iptables port forwarding rules (if they exist)..."
-ssh "$AITBC_SSH_TARGET" << 'EOF'
-# Flush existing NAT rules for AITBC ports
-iptables -t nat -D PREROUTING -p tcp --dport 8000 -j DNAT --to-destination 192.168.100.10:8000 2>/dev/null || true
-iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8000 -j MASQUERADE 2>/dev/null || true
-iptables -t nat -D PREROUTING -p tcp --dport 8081 -j DNAT --to-destination 192.168.100.10:8081 2>/dev/null || true
-iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8081 -j MASQUERADE 2>/dev/null || true
-iptables -t nat -D PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202 2>/dev/null || true
-iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE 2>/dev/null || true
-iptables -t nat -D PREROUTING -p tcp --dport 9080 -j DNAT --to-destination 192.168.100.10:9080 2>/dev/null || true
-iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 9080 -j MASQUERADE 2>/dev/null || true
-iptables -t nat -D PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000 2>/dev/null || true
-iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 3000 -j MASQUERADE 2>/dev/null || true
+# These rules can only be deleted if we know what they pointed at, so this step
+# needs AITBC_DNAT_TARGET. Without it there is nothing to match and the step is
+# skipped rather than silently doing nothing. The heredoc is quoted, so the
+# value reaches the remote shell through its environment.
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    ssh "$AITBC_SSH_TARGET" "AITBC_DNAT_TARGET='${AITBC_DNAT_TARGET}' bash -s" << 'EOF'
+for port in 8000 8081 8202 9080 3000; do
+    iptables -t nat -D PREROUTING -p tcp --dport "$port" -j DNAT \
+        --to-destination "$AITBC_DNAT_TARGET:$port" 2>/dev/null || true
+    iptables -t nat -D POSTROUTING -p tcp -d "$AITBC_DNAT_TARGET" --dport "$port" \
+        -j MASQUERADE 2>/dev/null || true
+done
 
-# Save iptables rules
 iptables-save > /etc/iptables/rules.v4 2>/dev/null || true
 EOF
+else
+    echo "NOTE: AITBC_DNAT_TARGET is not set -- skipping removal of legacy DNAT" >&2
+    echo "      rules, since there is no target to match them against." >&2
+fi
 
 # Wait for nginx to start
 sleep 2
