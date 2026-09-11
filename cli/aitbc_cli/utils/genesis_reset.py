@@ -3,6 +3,7 @@
 This is intentionally separate from the read-only ``genesis.py`` commands so
 that the destructive reset logic is isolated and can be reviewed independently.
 """
+
 from __future__ import annotations
 
 import json
@@ -17,11 +18,10 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
-import click
 from eth_account import Account
 from eth_keys import keys
 
-from . import error, output, success
+from . import error, success
 
 DEFAULT_CHAIN_ID = "ait-hub.aitbc.bubuit.net"
 DEFAULT_DATA_DIR = Path("/var/lib/aitbc/data")

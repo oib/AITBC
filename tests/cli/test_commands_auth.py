@@ -2,7 +2,6 @@
 
 import base64
 import json
-from pathlib import Path
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -80,7 +79,7 @@ class TestAuthCommands:
 
         from aitbc_cli.commands.auth import auth
 
-        result = runner.invoke(auth, ["login"])
+        result = runner.invoke(auth, ["login", "--wallet", ""])
         assert result.exit_code != 0
         assert "Provide --wallet, --private-key, or --private-key-file" in result.output
 

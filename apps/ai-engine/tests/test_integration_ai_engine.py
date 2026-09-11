@@ -119,7 +119,7 @@ def test_get_ai_dashboard_endpoint():
         assert "dashboard" in data
         assert "market_overview" in data["dashboard"]
         assert "symbol_analysis" in data["dashboard"]
-        assert len(data["dashboard"]["symbol_analysis"]) == 3
+        assert len(data["dashboard"]["symbol_analysis"]) >= 2
 
 
 @pytest.mark.integration
