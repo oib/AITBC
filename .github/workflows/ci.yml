@@ -30,7 +30,7 @@ jobs:
           python-version: '3.13.5'
 
       - name: Cache venv
-        uses: actions/cache@v4
+        uses: actions/cache@v6
         with:
           path: venv
           key: venv-${{ hashFiles('requirements.txt', 'pyproject.toml') }}
