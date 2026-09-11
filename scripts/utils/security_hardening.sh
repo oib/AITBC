@@ -139,8 +139,10 @@ configure_firewall() {
         ufw allow 443/tcp
 
         # Allow internal services (restricted to localhost)
+        # 8202 was 8082 here, a port nothing has listened on for some time, so the
+        # rule covered nothing and the actual RPC port was left unmentioned.
         ufw allow from 127.0.0.1 to any port 8203
-        ufw allow from 127.0.0.1 to any port 8082
+        ufw allow from 127.0.0.1 to any port 8202
 
         # Enable firewall
         ufw --force enable
