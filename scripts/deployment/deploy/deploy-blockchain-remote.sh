@@ -63,7 +63,7 @@ cat > .env << EOL
 CHAIN_ID=ait-devnet
 DB_PATH=./data/chain.db
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8082
+RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
 P2P_BIND_PORT=7070
 PROPOSER_KEY=proposer_key_$(date +%s)
@@ -114,7 +114,7 @@ User=root
 WorkingDirectory=/opt/blockchain-node
 Environment=PATH=/opt/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/blockchain-node/src:/opt/blockchain-node/scripts
-ExecStart=/opt/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8082
+ExecStart=/opt/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202
 Restart=always
 RestartSec=5
 
@@ -139,8 +139,8 @@ systemctl status blockchain-node blockchain-rpc --no-pager | head -15
 # Setup port forwarding if in container
 if [ "$(hostname)" = "aitbc" ]; then
     print_status "Setting up port forwarding..."
-    iptables -t nat -A PREROUTING -p tcp --dport 8082 -j DNAT --to-destination 192.168.100.10:8082
-    iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8082 -j MASQUERADE
+    iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
+    iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
     iptables-save > /etc/iptables/rules.v4
 fi
 

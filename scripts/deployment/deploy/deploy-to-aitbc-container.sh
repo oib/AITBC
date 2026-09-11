@@ -58,8 +58,8 @@ iptables -t nat -F PREROUTING 2>/dev/null || true
 iptables -t nat -F POSTROUTING 2>/dev/null || true
 
 # Forward blockchain RPC
-iptables -t nat -A PREROUTING -p tcp --dport 8082 -j DNAT --to-destination 192.168.100.10:8082
-iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8082 -j MASQUERADE
+iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
 
 # Forward explorer
 iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
@@ -76,9 +76,9 @@ incus exec aitbc -- systemctl status blockchain-node blockchain-rpc nginx --no-p
 print_success "✅ Deployment complete!"
 echo ""
 echo "Services in container aitbc:"
-echo "  - Blockchain Node RPC: http://192.168.100.10:8082"
+echo "  - Blockchain Node RPC: http://192.168.100.10:8202"
 echo "  - Blockchain Explorer: http://192.168.100.10:3000"
 echo ""
 echo "External access via ns3:"
-echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8082"
+echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8202"
 echo "  - Blockchain Explorer: http://aitbc.keisanki.net:3000"
