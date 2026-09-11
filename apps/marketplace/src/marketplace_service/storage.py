@@ -111,7 +111,9 @@ async def init_db() -> None:
         await conn.run_sync(marketplace_metadata.create_all)
         await conn.run_sync(lambda sync_conn: shared.create(sync_conn, checkfirst=True))
         for table in list(marketplace_metadata.sorted_tables) + [shared]:
-            await conn.run_sync(cast(Callable[[Any], None], lambda sync_conn, t=table: _ensure_table_columns_sync(sync_conn, t)))
+            await conn.run_sync(
+                cast(Callable[[Any], None], lambda sync_conn, t=table: _ensure_table_columns_sync(sync_conn, t))
+            )
     logger.info("Marketplace service database initialized")
 
 

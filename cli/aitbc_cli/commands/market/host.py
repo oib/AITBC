@@ -315,10 +315,7 @@ def _run_ipfs_hosting(
     output_record["access_key"] = access_key
     output_record["access_secret"] = access_secret
 
-    success(
-        f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; "
-        f"marketplace job {job_id}; escrow {contract_id}"
-    )
+    success(f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; marketplace job {job_id}; escrow {contract_id}")
     output(output_record, output_format, title="IPFS Marketplace Job")
     return output_record
 
@@ -511,7 +508,11 @@ def cancel(
         try:
             _marketplace_client().post(
                 f"/v1/marketplace/jobs/{job_id}/refund",
-                json={"tx_hash": tx_hash, "refunded_amount": refund_result.get("refunded_amount") if refund_result else None, "reason": reason},
+                json={
+                    "tx_hash": tx_hash,
+                    "refunded_amount": refund_result.get("refunded_amount") if refund_result else None,
+                    "reason": reason,
+                },
             )
         except NetworkError as e:
             warning(f"Could not sync marketplace refund: {e}")

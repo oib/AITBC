@@ -99,11 +99,15 @@ async def submit_job(
 ) -> JobView:
     req, quote = await _apply_offer_quote(req)
 
-    if not settings.tee_attestation_enabled and req.constraints and (
-        req.constraints.tee_attestation_required
-        or req.constraints.tee_enclave_id
-        or req.constraints.confidential
-        or req.constraints.required_enclave_measurement
+    if (
+        not settings.tee_attestation_enabled
+        and req.constraints
+        and (
+            req.constraints.tee_attestation_required
+            or req.constraints.tee_enclave_id
+            or req.constraints.confidential
+            or req.constraints.required_enclave_measurement
+        )
     ):
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,

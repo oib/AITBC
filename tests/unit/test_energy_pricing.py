@@ -292,9 +292,7 @@ def test_evaluate_quote_approved(base_profile: EnergyProfile, base_rate: EnergyR
     assert result.breakdown.provider_credit_units >= quote.net_energy_floor_units
 
 
-def test_evaluate_quote_buyer_cap_conflict(
-    base_profile: EnergyProfile, base_rate: EnergyRate
-) -> None:
+def test_evaluate_quote_buyer_cap_conflict(base_profile: EnergyProfile, base_rate: EnergyRate) -> None:
     quote = build_minimum_quote(
         profile=base_profile,
         rate=base_rate,
@@ -321,9 +319,7 @@ def test_evaluate_quote_buyer_cap_conflict(
     assert result.refusal_code == RefusalCode.BUYER_CAP_CONFLICT
 
 
-def test_evaluate_quote_hard_cap_conflict(
-    base_profile: EnergyProfile, base_rate: EnergyRate
-) -> None:
+def test_evaluate_quote_hard_cap_conflict(base_profile: EnergyProfile, base_rate: EnergyRate) -> None:
     quote = build_minimum_quote(
         profile=base_profile,
         rate=base_rate,
@@ -405,9 +401,7 @@ def test_evaluate_quote_stale_rate(base_profile: EnergyProfile, base_rate: Energ
     assert result.refusal_code == RefusalCode.STALE_RATE
 
 
-def test_evaluate_quote_profile_revision_mismatch(
-    base_profile: EnergyProfile, base_rate: EnergyRate
-) -> None:
+def test_evaluate_quote_profile_revision_mismatch(base_profile: EnergyProfile, base_rate: EnergyRate) -> None:
     quote = build_minimum_quote(
         profile=base_profile,
         rate=base_rate,
@@ -470,9 +464,7 @@ def test_evaluate_quote_below_floor(base_profile: EnergyProfile, base_rate: Ener
     assert result.refusal_code == RefusalCode.BELOW_FLOOR
 
 
-def test_canonical_json_deterministic_and_signature_independent(
-    base_profile: EnergyProfile, base_rate: EnergyRate
-) -> None:
+def test_canonical_json_deterministic_and_signature_independent(base_profile: EnergyProfile, base_rate: EnergyRate) -> None:
     quote = build_minimum_quote(
         profile=base_profile,
         rate=base_rate,
@@ -496,9 +488,7 @@ def test_canonical_json_deterministic_and_signature_independent(
     assert quote.digest_sha256() == quote_signed.digest_sha256()
 
 
-def test_quote_digest_changes_with_field(
-    base_profile: EnergyProfile, base_rate: EnergyRate
-) -> None:
+def test_quote_digest_changes_with_field(base_profile: EnergyProfile, base_rate: EnergyRate) -> None:
     quote1 = build_minimum_quote(
         profile=base_profile,
         rate=base_rate,

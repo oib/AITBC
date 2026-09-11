@@ -455,7 +455,7 @@ def submit(
             abort(
                 ctx,
                 "TEE attestation is not enabled. Remove --confidential, --tee-attestation-required, "
-                "--tee-enclave-id, and --enclave-measurement, or set TEE_ATTESTATION_ENABLED=true."
+                "--tee-enclave-id, and --enclave-measurement, or set TEE_ATTESTATION_ENABLED=true.",
             )
 
         if tee_attestation_required:

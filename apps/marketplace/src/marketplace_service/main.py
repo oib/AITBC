@@ -733,7 +733,11 @@ async def get_marketplace_job_usage(
     """Return active storage usage in bytes for a buyer/offer pair."""
     try:
         logger.info("GET /v1/marketplace/jobs/usage called")
-        return {"buyer_address": buyer_address, "offer_id": offer_id, "used_bytes": await svc.get_marketplace_job_usage(buyer_address, offer_id)}
+        return {
+            "buyer_address": buyer_address,
+            "offer_id": offer_id,
+            "used_bytes": await svc.get_marketplace_job_usage(buyer_address, offer_id),
+        }
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/jobs/usage: %s: %s", type(e).__name__, str(e))
         raise
@@ -836,9 +840,7 @@ async def refund_marketplace_job_payment(
 
 
 @app.get("/v1/marketplace/jobs/{job_id}/access")
-async def get_marketplace_job_access(
-    job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
-) -> Any:
+async def get_marketplace_job_access(job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Return the access metadata for a marketplace job (customer only)."""
     try:
         logger.info("GET /v1/marketplace/jobs/%s/access called", job_id)

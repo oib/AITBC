@@ -423,7 +423,9 @@ def status(ctx, service: str | None):
         if result.returncode in (0, 3):  # 3 is inactive
             click.echo(result.stdout)
             return
-        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"systemctl status failed for {service_name}")
+        raise click.ClickException(
+            result.stderr.strip() or result.stdout.strip() or f"systemctl status failed for {service_name}"
+        )
     except click.ClickException:
         raise
     except Exception as e:
@@ -480,7 +482,9 @@ def cat(ctx, service: str):
         if result.returncode == 0:
             click.echo(result.stdout)
             return
-        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"systemctl cat failed for {service_name}")
+        raise click.ClickException(
+            result.stderr.strip() or result.stdout.strip() or f"systemctl cat failed for {service_name}"
+        )
     except click.ClickException:
         raise
     except Exception as e:
@@ -508,7 +512,9 @@ def show(ctx, service: str, properties: str | None):
         if result.returncode == 0:
             click.echo(result.stdout)
             return
-        raise click.ClickException(result.stderr.strip() or result.stdout.strip() or f"systemctl show failed for {service_name}")
+        raise click.ClickException(
+            result.stderr.strip() or result.stdout.strip() or f"systemctl show failed for {service_name}"
+        )
     except click.ClickException:
         raise
     except Exception as e:
@@ -570,7 +576,11 @@ _ALLOWED_READ_PREFIXES = (
 
   aitbc system file --path /var/log/aitbc/coordinator.log""",
 )
-@click.option("--path", required=True, help="Absolute path to a file under /opt/aitbc, /etc/aitbc, /etc/systemd, /var/log/aitbc, or /var/lib/aitbc")
+@click.option(
+    "--path",
+    required=True,
+    help="Absolute path to a file under /opt/aitbc, /etc/aitbc, /etc/systemd, /var/log/aitbc, or /var/lib/aitbc",
+)
 @click.pass_context
 def read_file(ctx, path: str):
     """Read a remote AITBC configuration, log, or data file."""
