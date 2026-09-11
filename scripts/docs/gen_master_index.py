@@ -38,7 +38,6 @@ DESCRIPTIONS = {
     "getting-started": "New-user onboarding and setup",
     "governance": "Governance and voting documentation",
     "infrastructure": "Infrastructure and migration docs",
-    "LIVE_VALIDATION_DAYS": "Per-day live validation logs for the public hub",
     "marketplace": "Marketplace, exchange, and trading docs",
     "meta": "Documentation standards, template, and compliance",
     "mining": "Mining operations and GPU provider docs",

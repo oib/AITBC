@@ -306,6 +306,11 @@ scripts/deployment/nginx/*.local.conf
 # ===================
 # Infrastructure docs (contains sensitive network info)
 docs/infrastructure.md
+# Live validation logs. These are per-host operational records -- heights, IPs,
+# service state, which node was down when -- i.e. the fleet. They live on the
+# IDE host at /home/oib/windsurf/aitbc/docs/ and are not published.
+docs/LIVE_VALIDATION_DAYS/
+docs/LIVE_VALIDATION_SUMMARY.md
 # Workflow files (personal, change frequently)
 docs/1_project/3_currenttask.md
 docs/1_project/4_currentissue.md
