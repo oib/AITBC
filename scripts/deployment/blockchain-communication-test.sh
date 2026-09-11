@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Blockchain Communication Test Script
-# Tests communication between aitbc (genesis), ${NODE1_HOST} (follower), and aitbc2 (gitea-runner) nodes
+# Tests communication between aitbc (genesis), ${NODE1_HOST} (follower), and node3 (CI runner) nodes
 # All nodes run on port 8006 on different physical machines
 #
 
@@ -15,6 +15,7 @@ set -euo pipefail
 NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
 NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
 NODE3_HOST="${AITBC_NODE3_HOST:?set AITBC_NODE3_HOST to the address of node3}"
+NODE3_SSH="${AITBC_NODE3_SSH:?set AITBC_NODE3_SSH to the ssh target for node3 (CI runner)}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
@@ -22,7 +23,7 @@ REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 # Configuration
 GENESIS_IP="${NODE0_HOST}"
 FOLLOWER_IP="${NODE1_HOST}"
-FOLLOWER2_IP="${NODE3_HOST}"  # gitea-runner/aitbc2
+FOLLOWER2_IP="${NODE3_HOST}"  # node3, the CI runner
 PORT=8006
 CLI_PATH="${CLI_PATH:-aitbc}"
 LOG_DIR="/var/log/aitbc"
@@ -133,12 +134,12 @@ test_connectivity() {
         return 1
     fi
 
-    # Test follower node (aitbc2/gitea-runner)
-    log_debug "Testing follower node (aitbc2/gitea-runner) at ${FOLLOWER2_IP}:${PORT}"
+    # Test follower node (node3)
+    log_debug "Testing follower node (node3) at ${FOLLOWER2_IP}:${PORT}"
     if curl -f -s "http://${FOLLOWER2_IP}:${PORT}/health" > /dev/null; then
-        log_success "Follower node (aitbc2/gitea-runner) is reachable"
+        log_success "Follower node (node3) is reachable"
     else
-        log_error "Follower node (aitbc2/gitea-runner) is NOT reachable"
+        log_error "Follower node (node3) is NOT reachable"
         return 1
     fi
 
@@ -176,10 +177,10 @@ test_blockchain_status() {
     FOLLOWER_HEIGHT=$(NODE_URL="http://${FOLLOWER_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
     log_info "Follower node (${NODE1_HOST}) block height: ${FOLLOWER_HEIGHT}"
 
-    # Get follower node (aitbc2/gitea-runner) status
-    log_debug "Getting follower node (aitbc2/gitea-runner) blockchain info"
+    # Get follower node (node3) status
+    log_debug "Getting follower node (node3) blockchain info"
     FOLLOWER2_HEIGHT=$(NODE_URL="http://${FOLLOWER2_IP}:${PORT}" ${CLI_PATH} chain status 2>/dev/null | grep -oiE 'block height[: ]*[0-9]+' | grep -o '[0-9]*' || echo "0")
-    log_info "Follower node (aitbc2/gitea-runner) block height: ${FOLLOWER2_HEIGHT}"
+    log_info "Follower node (node3) block height: ${FOLLOWER2_HEIGHT}"
 
     # Compare heights
     HEIGHT_DIFF1=$((GENESIS_HEIGHT - FOLLOWER_HEIGHT))
@@ -315,24 +316,24 @@ test_sync() {
         log_warning "Follower node (${NODE1_HOST}) has uncommitted changes"
     fi
 
-    # Check git status on follower (aitbc2/gitea-runner)
-    log_debug "Checking git status on follower node (aitbc2/gitea-runner)"
-    FOLLOWER2_STATUS=$(ssh gitea-runner 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
+    # Check git status on follower (node3)
+    log_debug "Checking git status on follower node (node3)"
+    FOLLOWER2_STATUS=$(ssh "${NODE3_SSH}" 'cd /opt/aitbc && git status --porcelain 2>/dev/null' || echo "error")
 
     if [ "${FOLLOWER2_STATUS}" = "error" ]; then
-        log_error "Git status check failed on follower node (aitbc2/gitea-runner)"
+        log_error "Git status check failed on follower node (node3)"
         return 1
     elif [ -z "${FOLLOWER2_STATUS}" ]; then
-        log_success "Follower node (aitbc2/gitea-runner) git status is clean"
+        log_success "Follower node (node3) git status is clean"
     else
-        log_warning "Follower node (aitbc2/gitea-runner) has uncommitted changes"
+        log_warning "Follower node (node3) has uncommitted changes"
     fi
 
     # Test git pull
     log_debug "Testing git pull from Gitea"
     git pull origin main --verbose >> "${LOG_FILE}" 2>&1
     ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
-    ssh gitea-runner 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
+    ssh "${NODE3_SSH}" 'cd /opt/aitbc && git pull origin main --verbose' >> "${LOG_FILE}" 2>&1
 
     log_success "Git synchronization test completed"
     return 0

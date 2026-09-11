@@ -93,7 +93,7 @@ check_prerequisites() {
     echo ""
     echo "🏢 Checking container access..."
 
-    if ssh aitbc-cascade "echo 'SSH OK'" &> /dev/null; then
+    if ssh "${AITBC_NODE1_CONTAINER_SSH:?set AITBC_NODE1_CONTAINER_SSH to the ssh target for the container on node1}" "echo 'SSH OK'" &> /dev/null; then
         echo "✅ SSH access to aitbc container"
     else
         echo "❌ SSH access to aitbc container failed"

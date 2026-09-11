@@ -26,8 +26,8 @@ BLOCKCHAIN_RPC="http://localhost:8202"
 echo "📋 Step 1: Connect to container"
 echo "==============================="
 # Try to connect, but handle if container doesn't exist
-if ssh aitbc-cascade "echo '✅ Connected to container'" 2>/dev/null; then
-    CONTAINER="aitbc-cascade"
+if ssh "${CONTAINER_SSH:?set CONTAINER_SSH to the ssh target for the aitbc container}" "echo '✅ Connected to container'" 2>/dev/null; then
+    CONTAINER="${CONTAINER_SSH}"
 elif ssh aitbc "echo '✅ Connected to aitbc'" 2>/dev/null; then
     CONTAINER="aitbc"
 else

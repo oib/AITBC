@@ -22,7 +22,7 @@ Coordinate cross-node operations, synchronize blockchain state, and manage inter
 |------|----------|------|
 | Main Node | aitbc (localhost) | Primary development + blockchain |
 | Follower Node | `<node1>` | Secondary blockchain node |
-| CI/CD Node | gitea-runner | CI/CD runner |
+| CI/CD Node | `<node3>` | CI/CD runner |
 
 ## Prerequisites
 - SSH access configured between nodes with key-based authentication
@@ -35,7 +35,7 @@ Before proceeding, verify:
 ```bash
 # Check SSH connectivity
 ssh <node1> 'echo "SSH to <node1> working"'
-ssh gitea-runner 'echo "SSH to gitea-runner working"'
+ssh <node3> 'echo "SSH to <node3> working"'
 
 # Check service status on all nodes
 systemctl list-units --state=running | grep aitbc
