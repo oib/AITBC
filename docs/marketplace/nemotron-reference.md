@@ -11,8 +11,8 @@
 
    ```bash
    # Test API Gateway routing (should work via port 443)
-   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
-   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/plugin/ | jq '.offers[0].plugin_id'
+   curl -s https://shop.example.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
+   curl -s https://shop.example.net/api/v1/plugin/ | jq '.offers[0].plugin_id'
 
    # If API Gateway not responding, check service status:
    systemctl status aitbc-api-gateway
@@ -31,7 +31,7 @@
 
    ```bash
    # Check offer status (via API Gateway)
-   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
+   curl -s https://shop.example.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
 
    # Check local Ollama service (on aitbc3)
    curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
@@ -41,11 +41,11 @@
 
    ```bash
    # Test Ollama endpoint (now works)
-   curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags
+   curl -s https://shop.example.net/ollama/api/tags
    # Returns: model list including nemotron-3-super:cloud
 
    # Test inference (now works)
-   curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
+   curl -s -X POST https://shop.example.net/ollama/api/generate \
      -H "Content-Type: application/json" \
      -d '{"model":"nemotron-3-super:cloud","prompt":"test","stream":false}'
 
@@ -76,7 +76,7 @@
    ```bash
    # aitbc market run queries blockchain, not marketplace service
    # Use API Gateway calls instead:
-   curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer
+   curl -s https://shop.example.net/api/v1/marketplace/offer
    ```
 
 7. **Service Startup Issues (Fixed 2026-06-05)**
@@ -235,10 +235,10 @@ def sanitize_response(response):
 
 ```bash
 # ✅ Correct
-https://aitbc3.aitbc.bubuit.net/ollama/api/generate
+https://shop.example.net/ollama/api/generate
 
 # ❌ Never use HTTP
-http://aitbc3.aitbc.bubuit.net/ollama/api/generate
+http://shop.example.net/ollama/api/generate
 ```
 
 **Certificate Verification**: Ensure SSL certificate validation:
@@ -247,7 +247,7 @@ http://aitbc3.aitbc.bubuit.net/ollama/api/generate
 import requests
 
 response = requests.post(
-    "https://aitbc3.aitbc.bubuit.net/ollama/api/generate",
+    "https://shop.example.net/ollama/api/generate",
     json={"model": "nemotron-3-super:cloud", "prompt": "test"},
     verify=True  # Always verify SSL certificates
 )

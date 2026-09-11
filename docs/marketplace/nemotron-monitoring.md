@@ -40,13 +40,13 @@ aitbc wallet history
 
 ```bash
 # Benchmark response time
-time curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
+time curl -s -X POST https://shop.example.net/ollama/api/generate \
   -H "Content-Type: application/json" \
   -d '{"model":"nemotron-3-super:cloud","prompt":"What is AI?","stream":false,"options":{"num_predict":1000}}'
 
 # Test concurrent requests (parallel execution)
 for i in {1..5}; do
-  curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
+  curl -s -X POST https://shop.example.net/ollama/api/generate \
     -H "Content-Type: application/json" \
     -d '{"model":"nemotron-3-super:cloud","prompt":"Test '$i'","stream":false}' &
 done
@@ -66,13 +66,13 @@ wait
 
 ```bash
 # Check current service status
-curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
+curl -s https://shop.example.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
 
 # Monitor API response times
-watch -n 5 'curl -s -w "%{time_total}" https://aitbc3.aitbc.bubuit.net/ollama/api/tags -o /dev/null'
+watch -n 5 'curl -s -w "%{time_total}" https://shop.example.net/ollama/api/tags -o /dev/null'
 
 # Check marketplace offer status
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
+curl -s https://shop.example.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
 ```
 
 ### Cost Tracking
@@ -98,7 +98,7 @@ import json
 
 class UsageTracker:
     def __init__(self):
-        self.base_url = "https://aitbc3.aitbc.bubuit.net"
+        self.base_url = "https://shop.example.net"
         self.usage_log = []
 
     def track_inference(self, prompt, max_tokens=500):
