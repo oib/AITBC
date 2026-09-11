@@ -85,7 +85,7 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 
 | Flag | Default | Production Recommendation |
 |------|---------|--------------------------|
-| `bridge_release_enabled` | `True` (live since 2026-08-25) | **Trust-minimized mode** on `hub.aitbc` and `aitbc3`: `release_enabled=true`, `multisig_enabled=true`, `require_merkle_proof=true`. Fresh deployments should keep `False` until a multi-sig validator set and Merkle proof ingestion are operational. |
+| `bridge_release_enabled` | `True` (live since 2026-08-25) | **Trust-minimized mode** on `<hub-node>` and `<node2>`: `release_enabled=true`, `multisig_enabled=true`, `require_merkle_proof=true`. Fresh deployments should keep `False` until a multi-sig validator set and Merkle proof ingestion are operational. |
 | `bridge_multisig_enabled` | `False` | Enable for multi-validator networks |
 | `bridge_require_merkle_proof` | `False` | **Set to `True`** for production |
 | `bridge_block_signature_required` | `True` | Keep enabled |
@@ -94,62 +94,62 @@ See [AUDIT.md](AUDIT.md) for the full bridge security audit report.
 
 > **Escrow scope:** `escrow_enabled` now defaults to `True`. The job-payment escrow path (`/rpc/escrow/create` and `/escrow/{job_id}/release`) is live. Cross-chain bridge HTLC settlement is also gated by this flag; operators who want trust-minimized bridge operation should additionally enable `bridge_require_merkle_proof`, `bridge_multisig_enabled`, and `multi_validator_consensus_enabled` and complete a soak test.
 >
-> **Bridge security defaults (2026-08-25):** `bridge_release_enabled` is now `True` live on `hub.aitbc` and `aitbc3`; `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, and `require_merkle_proof: true`. However, a live consensus stall prevents safe confirmations: see the Open design-review gaps table and the bridge/live-validation section below.
+> **Bridge security defaults (2026-08-25):** `bridge_release_enabled` is now `True` live on `<hub-node>` and `<node2>`; `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, and `require_merkle_proof: true`. However, a live consensus stall prevents safe confirmations: see the Open design-review gaps table and the bridge/live-validation section below.
 >
-> **Bridge trust model — verified and documented (2026-08-25):** Merkle and multi-sig verification are implemented and live-enabled on `hub.aitbc` / `aitbc3`. Custodian mode remains the honest fallback. Bridge `confirm` should not be invoked while the two-validator chain is stalled; the safe path is to clear the consensus stall first. See `docs/security/bridge-custodian.md`.
+> **Bridge trust model — verified and documented (2026-08-25):** Merkle and multi-sig verification are implemented and live-enabled on `<hub-node>` / `<node2>`. Custodian mode remains the honest fallback. Bridge `confirm` should not be invoked while the two-validator chain is stalled; the safe path is to clear the consensus stall first. See `docs/security/bridge-custodian.md`.
 
 ## Trust root
 
-**Superseded 2026-08-24 (see below):** earlier the same day, "multi-key consensus" meant both validator keys living on this single hub node (documented in the original version of this section as local proposer rotation, not real distributed consensus). That is no longer the live topology — `aitbc1` (a separate, independently-administered host) is now a genuine second validator, not `aitbc3` as earlier text here said.
+**Superseded 2026-08-24 (see below):** earlier the same day, "multi-key consensus" meant both validator keys living on this single hub node (documented in the original version of this section as local proposer rotation, not real distributed consensus). That is no longer the live topology — `<node1>` (a separate, independently-administered host) is now a genuine second validator, not `<node2>` as earlier text here said.
 
 - One proposer produces a block at a time under round-robin `MultiValidatorPoA`; each block is written to that node's own SQLite `chain.db` and gossiped to the other.
-- Live env on `hub.aitbc` (`/etc/aitbc/blockchain.env`): `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `VALIDATOR_SET` = `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` and `0x78046b9677c724FdF0af59c58439d67B210AD71b`, `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`. Hub does not hold the private key for the second validator address anywhere on its filesystem — it lives only on `aitbc1`, which is the actual evidence this is now a real two-key, two-host setup and not co-located rotation.
-- Confirmed live 2026-08-24 17:38 CEST: `hub.aitbc` and `aitbc1` report the identical head (height 13774, same block hash) via cross-node gossip (Redis broker on hub, consumed and re-broadcast to aitbc1's WebSocket gossip endpoint) — this is real block propagation between two independently-operated processes, not a single node talking to itself.
-- **This is not yet BFT or fault-tolerant.** `PBFTConsensus` in `pbft.py` still is not wired into the block-production path; with a two-validator set and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`, either validator being unreachable can still stall the chain (see the incident below) — a third validator or an activated PBFT flow is still required for that property. `aitbc3` remains a passive follower and is not a validator in `VALIDATOR_SET`.
-- **Operational-hygiene gap addressed, partially:** the current `VALIDATOR_SET` keypair was written into `/etc/aitbc/node.env` (hub) and `/etc/aitbc/blockchain.env` by hand during same-day incident recovery and still exists nowhere in git history. Per-node backups of `/etc/aitbc` are now stored under `/var/lib/aitbc/secrets/etc-aitbc-<timestamp>.tar.gz` (`0600`, full `/etc/aitbc` tree) on hub, aitbc1, and aitbc3 -- independently confirmed present, correctly permissioned, and matching each host's live filesystem exactly. **They are not interchangeable, though: each node's tarball only ever contains the key material that already lived on that node**, so the line above ("the backup on any of the three nodes can be used to restore it") was wrong and is corrected here:
-  - Hub's tarball has the full keypair for validator `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` in `node.env`, plus the genesis/settlement keys (`GENESIS_PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `ESCROW_RELEASE_PRIVATE_KEY`) -- none of which exist in any form on aitbc1 or aitbc3.
-  - aitbc1's tarball has the private key for validator `0x78046b9677c724FdF0af59c58439d67B210AD71b`, but it lives in `aitbc-blockchain-node.env`, not `node.env`.
-  - aitbc3's tarball has neither active validator's private key -- only their public addresses, via `blockchain.env`'s `VALIDATOR_SET`. Its own `aitbc-blockchain-node.env` instead holds an unrelated bridge-admin key, and `island-secrets.json` holds a separate set of five unrelated keys.
+- Live env on `<hub-node>` (`/etc/aitbc/blockchain.env`): `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `VALIDATOR_SET` = `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` and `0x78046b9677c724FdF0af59c58439d67B210AD71b`, `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`. Hub does not hold the private key for the second validator address anywhere on its filesystem — it lives only on `<node1>`, which is the actual evidence this is now a real two-key, two-host setup and not co-located rotation.
+- Confirmed live 2026-08-24 17:38 CEST: `<hub-node>` and `<node1>` report the identical head (height 13774, same block hash) via cross-node gossip (Redis broker on hub, consumed and re-broadcast to <node1>'s WebSocket gossip endpoint) — this is real block propagation between two independently-operated processes, not a single node talking to itself.
+- **This is not yet BFT or fault-tolerant.** `PBFTConsensus` in `pbft.py` still is not wired into the block-production path; with a two-validator set and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`, either validator being unreachable can still stall the chain (see the incident below) — a third validator or an activated PBFT flow is still required for that property. `<node2>` remains a passive follower and is not a validator in `VALIDATOR_SET`.
+- **Operational-hygiene gap addressed, partially:** the current `VALIDATOR_SET` keypair was written into `/etc/aitbc/node.env` (hub) and `/etc/aitbc/blockchain.env` by hand during same-day incident recovery and still exists nowhere in git history. Per-node backups of `/etc/aitbc` are now stored under `/var/lib/aitbc/secrets/etc-aitbc-<timestamp>.tar.gz` (`0600`, full `/etc/aitbc` tree) on hub, <node1>, and <node2> -- independently confirmed present, correctly permissioned, and matching each host's live filesystem exactly. **They are not interchangeable, though: each node's tarball only ever contains the key material that already lived on that node**, so the line above ("the backup on any of the three nodes can be used to restore it") was wrong and is corrected here:
+  - Hub's tarball has the full keypair for validator `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` in `node.env`, plus the genesis/settlement keys (`GENESIS_PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `ESCROW_RELEASE_PRIVATE_KEY`) -- none of which exist in any form on <node1> or <node2>.
+  - <node1>'s tarball has the private key for validator `0x78046b9677c724FdF0af59c58439d67B210AD71b`, but it lives in `aitbc-blockchain-node.env`, not `node.env`.
+  - <node2>'s tarball has neither active validator's private key -- only their public addresses, via `blockchain.env`'s `VALIDATOR_SET`. Its own `aitbc-blockchain-node.env` instead holds an unrelated bridge-admin key, and `island-secrets.json` holds a separate set of five unrelated keys.
 
-  Net effect: if hub is lost, its validator key and the genesis/settlement keys are unrecoverable from either other node -- there is no backup redundancy for them at all. If aitbc1 is lost, its validator key is likewise not recoverable elsewhere. Only aitbc3's backup is currently redundant with anything, and it isn't protecting a validator key. Also: `/var/lib/aitbc/secrets` itself is `755` (`750`+setgid group `aitbc` on aitbc3) rather than `700` -- the directory listing is world-readable even though the `0600` tarballs inside it are not.
+  Net effect: if hub is lost, its validator key and the genesis/settlement keys are unrecoverable from either other node -- there is no backup redundancy for them at all. If <node1> is lost, its validator key is likewise not recoverable elsewhere. Only <node2>'s backup is currently redundant with anything, and it isn't protecting a validator key. Also: `/var/lib/aitbc/secrets` itself is `755` (`750`+setgid group `aitbc` on <node2>) rather than `700` -- the directory listing is world-readable even though the `0600` tarballs inside it are not.
 
 ## Multi-validator incident and key rotation — 2026-08-24
 
-`MULTI_VALIDATOR_CONSENSUS_ENABLED` was flipped on with `aitbc1` as a genuinely independent second validator (not the earlier same-node experiment described below). The chain stalled: hub stuck at height 13490 and `aitbc1` at 13491, no new block on either host for 21+ minutes. A same-day restart of `aitbc-blockchain-node.service` on both hosts did not recover it. Root cause, code-confirmed: (1) hub's gossip backend is Redis, host-local only, while `aitbc1`'s is WebSocket, and `aitbc1`'s WS handshake to hub failed with HTTP 502 because hub's nginx `/rpc/` block was missing `Upgrade`/`Connection: upgrade` headers; (2) hub's periodic HTTP sync pulled from itself (`default_source=http://hub.aitbc.bubuit.net`), so it could structurally never learn `aitbc1`'s head; (3) the "Forcing heartbeat block" fallback logged unconditionally but was immediately vetoed by the proposer-turn gate on the node whose turn it wasn't, so it could not break the deadlock.
+`MULTI_VALIDATOR_CONSENSUS_ENABLED` was flipped on with `<node1>` as a genuinely independent second validator (not the earlier same-node experiment described below). The chain stalled: hub stuck at height 13490 and `<node1>` at 13491, no new block on either host for 21+ minutes. A same-day restart of `aitbc-blockchain-node.service` on both hosts did not recover it. Root cause, code-confirmed: (1) hub's gossip backend is Redis, host-local only, while `<node1>`'s is WebSocket, and `<node1>`'s WS handshake to hub failed with HTTP 502 because hub's nginx `/rpc/` block was missing `Upgrade`/`Connection: upgrade` headers; (2) hub's periodic HTTP sync pulled from itself (`default_source=http://<hub-fqdn>`), so it could structurally never learn `<node1>`'s head; (3) the "Forcing heartbeat block" fallback logged unconditionally but was immediately vetoed by the proposer-turn gate on the node whose turn it wasn't, so it could not break the deadlock.
 
-Recovery was performed by rotating the validator keypair to the current `VALIDATOR_SET` above and restarting the service (16:15–16:16 CEST); blocks resumed rotating cleanly shortly after. The gossip-backend mismatch and self-referential sync source that caused the stall were not fixed in code — the key rotation worked around the symptom, not the root cause, so the same class of stall can recur. Fixing it for real means: adding `Upgrade`/`Connection: upgrade` to hub's nginx `/rpc/` block, and pointing hub's periodic sync `default_source` at `aitbc1` instead of itself.
+Recovery was performed by rotating the validator keypair to the current `VALIDATOR_SET` above and restarting the service (16:15–16:16 CEST); blocks resumed rotating cleanly shortly after. The gossip-backend mismatch and self-referential sync source that caused the stall were not fixed in code — the key rotation worked around the symptom, not the root cause, so the same class of stall can recur. Fixing it for real means: adding `Upgrade`/`Connection: upgrade` to hub's nginx `/rpc/` block, and pointing hub's periodic sync `default_source` at `<node1>` instead of itself.
 ### Consensus stall recurrence and recovery — 2026-08-25
 
-The same stall class recurred at height 14547/14548: `aitbc1` produced block 14548 but hub could not learn it because `hub.aitbc`'s `default_peer_rpc_url` was still `http://hub.aitbc.bubuit.net` (itself), and the `aitbc1` reverse proxy was not publicly reachable.
+The same stall class recurred at height 14547/14548: `<node1>` produced block 14548 but hub could not learn it because `<hub-node>`'s `default_peer_rpc_url` was still `http://<hub-fqdn>` (itself), and the `<node1>` reverse proxy was not publicly reachable.
 
 Recovery steps:
 
-1. Updated `aitbc1`'s active nginx site (`aitbc-loadbalancer`) to proxy `/rpc` to the blockchain node on `127.0.0.1:8202` instead of the dead `8006` backend.
-2. Enabled the reverse proxy on the `at1` Incus host for `node1.aitbc.bubuit.net`, terminating TLS and forwarding to the `aitbc1` container.
-3. Set `hub.aitbc` `default_peer_rpc_url=https://node1.aitbc.bubuit.net` in `/etc/aitbc/blockchain.env`.
-4. Restarted both `aitbc-blockchain-node` services. Hub pulled block 14548 from `aitbc1` and both heads converged at 14550.
+1. Updated `<node1>`'s active nginx site (`aitbc-loadbalancer`) to proxy `/rpc` to the blockchain node on `127.0.0.1:8202` instead of the dead `8006` backend.
+2. Enabled the reverse proxy on the `<incus-host>` Incus host for `<node1-fqdn>`, terminating TLS and forwarding to the `<node1>` container.
+3. Set `<hub-node>` `default_peer_rpc_url=https://<node1-fqdn>` in `/etc/aitbc/blockchain.env`.
+4. Restarted both `aitbc-blockchain-node` services. Hub pulled block 14548 from `<node1>` and both heads converged at 14550.
 5. Verified the chain advances every ~60s with round-robin proposers and each block carrying a valid cross-validator attestation in `block_metadata`.
 
 Current live topology:
 
 - `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`
-- `VALIDATOR_SET` = `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` (hub) and `0x78046b9677c724FdF0af59c58439d67B210AD71b` (`aitbc1`)
+- `VALIDATOR_SET` = `0xEb9F1F86FA4D6cacb4d97E0766679E602977e95F` (hub) and `0x78046b9677c724FdF0af59c58439d67B210AD71b` (`<node1>`)
 - `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` (restored)
-- Hub's `default_peer_rpc_url` = `https://node1.aitbc.bubuit.net`
-- `aitbc1`'s `gossip_websocket_url` = `wss://hub.aitbc.bubuit.net/rpc/gossip/ws`
+- Hub's `default_peer_rpc_url` = `https://<node1-fqdn>`
+- `<node1>`'s `gossip_websocket_url` = `wss://<hub-fqdn>/rpc/gossip/ws`
 
-**Residual gaps:** `PBFTConsensus` is still not wired into block production, so a two-validator, `min-attestations=1` setup remains non-BFT and can stall if either validator is unreachable. `aitbc3` remains a passive follower, not a validator.
+**Residual gaps:** `PBFTConsensus` is still not wired into block production, so a two-validator, `min-attestations=1` setup remains non-BFT and can stall if either validator is unreachable. `<node2>` remains a passive follower, not a validator.
 
 
 ### Earlier, superseded: local multi-key validation — 2026-08-24 (morning)
 
-Before the `aitbc1` deployment above, the hub was briefly activated with a two-validator `VALIDATOR_SET` (`ait1fe2d63...`, `ait1ffbda...`) with **both private keys held on the same hub node** — genuine round-robin proposer rotation with real per-block attestations, but not independent distributed consensus, since a single operator controlled both keys and `PBFTConsensus` was not wired into block production. This configuration was superseded within the same day by the real `aitbc1` deployment above and no longer reflects the live setup.
+Before the `<node1>` deployment above, the hub was briefly activated with a two-validator `VALIDATOR_SET` (`ait1fe2d63...`, `ait1ffbda...`) with **both private keys held on the same hub node** — genuine round-robin proposer rotation with real per-block attestations, but not independent distributed consensus, since a single operator controlled both keys and `PBFTConsensus` was not wired into block production. This configuration was superseded within the same day by the real `<node1>` deployment above and no longer reflects the live setup.
 
 - The coordinator will not create an on-chain escrow without a buyer-supplied `ESCROW_LOCK` signature. The `PAYMENT_BUYER_PRIVATE_KEY` fallback has been removed: the hub no longer signs the buyer's half of the escrow. In the default operator flow a priced job must be submitted with `buyer_lock_signature`, `buyer_lock_nonce`, and `buyer_lock_fee` (via `POST /v1/jobs` or `POST /v1/payments`), or the payment remains `pending`/`skipped` and the job is not dispatched.
 
 ## Bridge multi-signature and Merkle enforcement — 2026-08-24
 
-The cross-island bridge was activated with multi-signature and Merkle-proof enforcement on `hub.aitbc` and `aitbc3`.
+The cross-island bridge was activated with multi-signature and Merkle-proof enforcement on `<hub-node>` and `<node2>`.
 
 Configuration (`/etc/aitbc/blockchain.env` on both nodes):
 
@@ -195,9 +195,9 @@ Bugs found and fixed during validation:
 - `BlockHeaderRequest` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/bridge.py` was missing the `bridge_state_root` field, so ingested headers could not be used for Merkle proof verification. Added the field.
 - `BridgeValidatorMixin.register_validator` did not update `registered_at` on re-registration, causing `_check_validator_set_freshness` to reject otherwise valid validator sets. Updated `registered_at` to the current UTC time on re-registration.
 
-`BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc` and `aitbc3`; `aitbc1` (validator/follower) still has `BRIDGE_RELEASE_ENABLED=false`. Multi-signature and Merkle-proof enforcement remain configured and active in the code path. Five bridge transfers remain pending; no `aitbc bridge confirm` is run while the chain was stalled, and confirmation requires explicit authorization only after consensus is verified robust and transaction-sealing prerequisites are met.
+`BRIDGE_RELEASE_ENABLED=true` is live on `<hub-node>` and `<node2>`; `<node1>` (validator/follower) still has `BRIDGE_RELEASE_ENABLED=false`. Multi-signature and Merkle-proof enforcement remain configured and active in the code path. Five bridge transfers remain pending; no `aitbc bridge confirm` is run while the chain was stalled, and confirmation requires explicit authorization only after consensus is verified robust and transaction-sealing prerequisites are met.
 
-Honest assessment: the cryptographic enforcement was successfully activated and live-validated on real 1-compute-second hub→island transfers. The live cross-island bridge remains trust-minimised in design. The release path is enabled (`bridge_release_enabled=true`) on the hub/shop nodes, but the validator `aitbc1` is not yet configured for release, and the five pending transfers have not been confirmed pending a stable consensus and explicit authorization.
+Honest assessment: the cryptographic enforcement was successfully activated and live-validated on real 1-compute-second hub→island transfers. The live cross-island bridge remains trust-minimised in design. The release path is enabled (`bridge_release_enabled=true`) on the hub/shop nodes, but the validator `<node1>` is not yet configured for release, and the five pending transfers have not been confirmed pending a stable consensus and explicit authorization.
 
 
 ## Continuous integration
@@ -213,7 +213,7 @@ Honest assessment: the cryptographic enforcement was successfully activated and 
 |---|---|---|
 | The result is verifiable | **IMPROVED, NOT FULLY INDEPENDENT** | ZK and TEE gates now enforce stronger checks: `receipt_model` proves a committed deterministic model executed on committed input/output and `computation_correct` is only `True` when public signals match coordinator-derived values; TEE requires a registered enclave from an owner-locked allowlist and rejects `auto_attested` / unregistered / self-consistent quotes for release. The hardware-rooted half of TEE is deferred to release 2.0 until TEE-capable hardware is available (see [Deferred to v2.0](#deferred-to-v20--hardware-backed-tee)), so this row cannot improve before then. Both still depend on data supplied by the party being paid and do not establish an independent manufacturer/root-of-trust or semantic correctness of open-ended responses. |
 | A bad provider loses something | **HOLDS, LIVE TESTED** | A 50% `fraud` slash was exercised end-to-end in a previous session (operator dispute `refund` -> on-chain `BOND_SLASH` tx -> coordinator metadata updated). The `BondSlashingService` nonce lookup was also corrected to use the blockchain RPC `/rpc/accounts/{address}` endpoint (`fbb1fa54d`). |
-| Settlement is trust-minimised | **PARTIALLY HOLDS (live two-validator consensus recovered, not BFT)** | `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` with a real second, independently-keyed host (`aitbc1`) is live and recovered from the 2026-08-25 stall after fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. Blocks 14548+ advance every ~60s with round-robin proposers and valid cross-validator attestations in `block_metadata`. Independent live verification confirmed 15 consecutive blocks (14592–14612) with every proposer and attestation signature checking out and correctly attributed. `PBFTConsensus` is still not wired into production, and a two-validator, `min-attestations=1` setup can still stall if one validator is unreachable, so fault tolerance is not yet proven. Bridge multi-sig/Merkle enforcement is implemented and was live-tested; `bridge_release_enabled=true` on `hub.aitbc`/`aitbc3` but `aitbc1` (validator) still has `false`. Settlement is meaningfully less centralized than before, but not yet trust-minimised in a way this pass can certify as robust. |
+| Settlement is trust-minimised | **PARTIALLY HOLDS (live two-validator consensus recovered, not BFT)** | `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` with a real second, independently-keyed host (`<node1>`) is live and recovered from the 2026-08-25 stall after fixing `<hub-node>`'s sync source to `https://<node1-fqdn>` and exposing `<node1>` through the `<incus-host>` reverse proxy. Blocks 14548+ advance every ~60s with round-robin proposers and valid cross-validator attestations in `block_metadata`. Independent live verification confirmed 15 consecutive blocks (14592–14612) with every proposer and attestation signature checking out and correctly attributed. `PBFTConsensus` is still not wired into production, and a two-validator, `min-attestations=1` setup can still stall if one validator is unreachable, so fault tolerance is not yet proven. Bridge multi-sig/Merkle enforcement is implemented and was live-tested; `bridge_release_enabled=true` on `<hub-node>`/`<node2>` but `<node1>` (validator) still has `false`. Settlement is meaningfully less centralized than before, but not yet trust-minimised in a way this pass can certify as robust. |
 
 ## Deferred to v2.0 — hardware-backed TEE
 
@@ -235,7 +235,7 @@ the economic loop verdict below and in
 `docs/scenarios/46_tee_confidential_jobs.md`.
 
 **Blocking dependency.** No SGX/TDX-capable host in the fleet. All four validators
-(`hub.aitbc`, `hub1.aitbc` (formerly `hub2.aitbc`), `node1`, `node2`) are ordinary VMs with no enclave
+(`<hub-node>`, `<replica-node>`, `<node1>`, `<node2>`) are ordinary VMs with no enclave
 runtime — `aitbc tee launch` reports "no TEE runtime present". This is a hardware
 procurement dependency, not an engineering backlog item, so it carries no date.
 
@@ -254,11 +254,11 @@ keep treating simulated attestation as simulated.
 
 | Finding | Root cause | Fix | Status |
 |---|---|---|---|
-| D1 | `POST /v1/jobs/{job_id}/reject` slashed the provider bond at the 50% fraud rate on the customer's word alone, before anyone had ruled — the unilateral power the acceptance window exists to withhold, pointed the other way. | Slash moved to the refund branch of the admin ruling, and only after the refund has actually settled. `test_bond_slashing.py` covers reject, refund ruling, release ruling, and a refund that fails to settle. | **Closed 2026-08-24** — commit `650b1bb89`, live on hub.aitbc. Live-proven the same day: reject → dispute → admin refund ruling → on-chain `BOND_SLASH` (jobs `4b1ddf2d…`, `17b801d7…`, tx `0x40c37dd0…` confirmed at block 13102). |
-| D2 | G2 and G3 were enforced in code but inert in production. The visible half was `aitbc-miner-1` having no `wallet_address`; the hidden half was `POST /v1/payments` falling through the route security matrix to `AuthLevel.DENY` because `fnmatch("/v1/payments", "/v1/payments/*")` is `False`. | `MINER_WALLET_ADDRESS` set on `aitbc3` and registered in `capabilities`; bare `/v1/payments` (CLIENT) and `/v1/blocks` (CLIENT) entries added to `security_matrix.py`; `test_route_security_matrix.py` added. | **Closed 2026-08-24** — commit `870c109e9`, live on hub.aitbc. |
-| D3 | G1 binds an offer's price and payee at submission, but dispatch still matched on miner capabilities alone — an offer-bound job could be dispatched to any capable miner, not the quoted provider. | `Job` gained `offer_id`/`provider_address`; `_satisfies_constraints` now consults the quoted offer's provider before falling through to capability checks; fails closed if `provider_address` is missing. | **Closed 2026-08-24** — commit `d80c0dcd5`, live on hub.aitbc. Live-tested against offer `ollama-llama3.2-3b`: the gate correctly refused 4 real dispatch attempts because no online miner held the quoted wallet — the safety property holds, but a full offer→escrow→dispatch→execute→payout cycle has not yet completed live. |
-| D4 | `JobService.to_view` did one `session.get(JobPayment, ...)` per job, so `GET /v1/jobs`, `/v1/jobs/history`, and `POST /v1/miners/{id}/jobs` were N+1. | New `to_views()` batch-loads all `JobPayment` rows for the list in one `IN` query; the three list routers switched to it. | **Closed 2026-08-24** — commit `b2b52006c`, live on hub.aitbc. Shipped with zero test coverage; `apps/coordinator-api/tests/test_job_list_batch_loading.py` added same day to close that gap (functional parity with `to_view()`, per-job payment mapping, and a regression guard that fails if `to_views()` ever calls `session.get(JobPayment, ...)` again). |
-| D5 | Blockchain router proxy handlers imported `coordinator_api.contexts.blockchain.config` (does not exist) instead of `....config`. The import is function-local, so `except NetworkError` did not catch `ImportError` and every proxy route answered 500. | Imports corrected in all six handlers; block routes now return 404 for missing heights and 502 for unreachable nodes; transaction route now calls `/rpc/transaction/{hash}`; `test_blockchain_block_routes.py` added. | **Closed 2026-08-24** — commit `39b510c`, live on hub.aitbc. |
+| D1 | `POST /v1/jobs/{job_id}/reject` slashed the provider bond at the 50% fraud rate on the customer's word alone, before anyone had ruled — the unilateral power the acceptance window exists to withhold, pointed the other way. | Slash moved to the refund branch of the admin ruling, and only after the refund has actually settled. `test_bond_slashing.py` covers reject, refund ruling, release ruling, and a refund that fails to settle. | **Closed 2026-08-24** — commit `650b1bb89`, live on <hub-node>. Live-proven the same day: reject → dispute → admin refund ruling → on-chain `BOND_SLASH` (jobs `4b1ddf2d…`, `17b801d7…`, tx `0x40c37dd0…` confirmed at block 13102). |
+| D2 | G2 and G3 were enforced in code but inert in production. The visible half was `aitbc-miner-1` having no `wallet_address`; the hidden half was `POST /v1/payments` falling through the route security matrix to `AuthLevel.DENY` because `fnmatch("/v1/payments", "/v1/payments/*")` is `False`. | `MINER_WALLET_ADDRESS` set on `<node2>` and registered in `capabilities`; bare `/v1/payments` (CLIENT) and `/v1/blocks` (CLIENT) entries added to `security_matrix.py`; `test_route_security_matrix.py` added. | **Closed 2026-08-24** — commit `870c109e9`, live on <hub-node>. |
+| D3 | G1 binds an offer's price and payee at submission, but dispatch still matched on miner capabilities alone — an offer-bound job could be dispatched to any capable miner, not the quoted provider. | `Job` gained `offer_id`/`provider_address`; `_satisfies_constraints` now consults the quoted offer's provider before falling through to capability checks; fails closed if `provider_address` is missing. | **Closed 2026-08-24** — commit `d80c0dcd5`, live on <hub-node>. Live-tested against offer `ollama-llama3.2-3b`: the gate correctly refused 4 real dispatch attempts because no online miner held the quoted wallet — the safety property holds, but a full offer→escrow→dispatch→execute→payout cycle has not yet completed live. |
+| D4 | `JobService.to_view` did one `session.get(JobPayment, ...)` per job, so `GET /v1/jobs`, `/v1/jobs/history`, and `POST /v1/miners/{id}/jobs` were N+1. | New `to_views()` batch-loads all `JobPayment` rows for the list in one `IN` query; the three list routers switched to it. | **Closed 2026-08-24** — commit `b2b52006c`, live on <hub-node>. Shipped with zero test coverage; `apps/coordinator-api/tests/test_job_list_batch_loading.py` added same day to close that gap (functional parity with `to_view()`, per-job payment mapping, and a regression guard that fails if `to_views()` ever calls `session.get(JobPayment, ...)` again). |
+| D5 | Blockchain router proxy handlers imported `coordinator_api.contexts.blockchain.config` (does not exist) instead of `....config`. The import is function-local, so `except NetworkError` did not catch `ImportError` and every proxy route answered 500. | Imports corrected in all six handlers; block routes now return 404 for missing heights and 502 for unreachable nodes; transaction route now calls `/rpc/transaction/{hash}`; `test_blockchain_block_routes.py` added. | **Closed 2026-08-24** — commit `39b510c`, live on <hub-node>. |
 | D6 | `[tool.pytest.ini_options].pythonpath` listed fourteen app source directories but not `apps/blockchain-node/src`, though `mypy_path` had it. `apps/blockchain-node/tests` was uncollectable from the repo root because its `conftest.py` imports `aitbc_chain` at module scope. | Added `apps/blockchain-node/src` to `pythonpath` in `pyproject.toml`. | **Closed 2026-08-24** — commit `0117c2d`. 709 blockchain-node tests now run and pass from the repo root; `test_blockchain_client_paths.py` now executes and validates coordinator URLs against the real node route table. Root `tests/` suite still aborts on 4 pre-existing collection errors. |
 
 **TEE identity-pinning fix (2026-08-24, not previously in this table):** `QuoteGenerator` no longer derives a signing key from `enclave_id`, and the coordinator can pin verification to a registered `EnclaveIdentity` (commits `e464e662d`, `e74356605`, `6ef963746`, plus follow-up `8239e39ed` adding stable-key plumbing to `aitbc tee attest`/`keygen` and the miner). 38 tests pass live. Honestly incomplete: no live miner has been given a stable signing key yet (no `aitbc-miner.service` was running against the coordinator at fix time), so registry-pinning has no live caller — the mechanism is verified, not yet exercised by real production traffic.
@@ -296,10 +296,10 @@ These are the live-design verdicts that follow the economic-loop verification ab
 
 | Gap | Verdict | Notes |
 |---|---|---|
-| G3 — dispatch/acceptance-gate wiring | **LIVE** | `computation_correct` is wired and loaded; `aitbc-coordinator-api` on `hub.aitbc` was restarted and `/proc/<pid>/environ` confirms `BRIDGE_RELEASE_ENABLED=true`. A false value stamps `zk_status="computation_incorrect"` and `release_payment` fails closed before touching the blockchain client. |
-| G6 — settlement/trust-minimization | **PARTIALLY CLOSED (Option A live)** | MultiValidatorPoA now runs with four `0x`-format validators, all four private keys configured on `hub.aitbc`, `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`. Round-robin proposer rotation and cross-node sync were live-validated across blocks 1392-1399. A one-validator-down simulation (removed `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`) kept the chain advancing with the remaining three validators; the removed validator was then restored and the chain resumed four-validator round-robin. `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. The two-validator stall that recurred on 2026-08-25 was recovered by fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy. `PBFTConsensus` wiring and true BFT/fault tolerance remain open. |
+| G3 — dispatch/acceptance-gate wiring | **LIVE** | `computation_correct` is wired and loaded; `aitbc-coordinator-api` on `<hub-node>` was restarted and `/proc/<pid>/environ` confirms `BRIDGE_RELEASE_ENABLED=true`. A false value stamps `zk_status="computation_incorrect"` and `release_payment` fails closed before touching the blockchain client. |
+| G6 — settlement/trust-minimization | **PARTIALLY CLOSED (Option A live)** | MultiValidatorPoA now runs with four `0x`-format validators, all four private keys configured on `<hub-node>`, `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`. Round-robin proposer rotation and cross-node sync were live-validated across blocks 1392-1399. A one-validator-down simulation (removed `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`) kept the chain advancing with the remaining three validators; the removed validator was then restored and the chain resumed four-validator round-robin. `docs/operations/validator-key-rotation.md` and `docs/operations/validator-key-rotation.env.example` define a git-tracked template and a live-key-free runbook. The two-validator stall that recurred on 2026-08-25 was recovered by fixing `<hub-node>`'s sync source to `https://<node1-fqdn>` and exposing `<node1>` through the `<incus-host>` reverse proxy. `PBFTConsensus` wiring and true BFT/fault tolerance remain open. |
 | G5 — dispute-ruling paths | **RESIDUAL, LIVE-PROVEN** | Reject and dispute-ruling are now live-proven (not just test-covered), per the earlier correction — smaller residual gap than previously listed. |
-| Bridge — multi-sig/Merkle enforcement | **ENABLED, VALIDATORS REGISTERED** | `BRIDGE_RELEASE_ENABLED=true` is live on `hub.aitbc`, `aitbc3`, and `aitbc1`. `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, `require_merkle_proof: true`, `validators_configured: 2`, `validator_count: 2`, and `threshold: 2` on all three nodes. Two bridge validators are registered: the new hub proposer and the existing bridge-only key. No bridge transfers are pending after the 2026-08-27 reset; `bridge/health` shows `pending_transfer_count: 0` on all three nodes. T1/T9 were completed on 2026-08-31: `GENESIS_PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `BOND_SLASH_PRIVATE_KEY`, `ESCROW_RELEASE_PRIVATE_KEY`, and `PROPOSER_KEY` were replaced, balances were migrated, old bridge validators were inactivated, and logs/journal were cleared. |
+| Bridge — multi-sig/Merkle enforcement | **ENABLED, VALIDATORS REGISTERED** | `BRIDGE_RELEASE_ENABLED=true` is live on `<hub-node>`, `<node2>`, and `<node1>`. `aitbc bridge security-status` reports `release_enabled: true`, `multisig_enabled: true`, `require_merkle_proof: true`, `validators_configured: 2`, `validator_count: 2`, and `threshold: 2` on all three nodes. Two bridge validators are registered: the new hub proposer and the existing bridge-only key. No bridge transfers are pending after the 2026-08-27 reset; `bridge/health` shows `pending_transfer_count: 0` on all three nodes. T1/T9 were completed on 2026-08-31: `GENESIS_PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `BOND_SLASH_PRIVATE_KEY`, `ESCROW_RELEASE_PRIVATE_KEY`, and `PROPOSER_KEY` were replaced, balances were migrated, old bridge validators were inactivated, and logs/journal were cleared. |
 | G8 — doc debt | **CLOSED** | The `--show-deprecated` visibility gate is removed: `cli/aitbc_cli/core/validated_group.py` and `surface_policy.py` are deleted, `main.py` no longer filters the help surface, and canonical top-level groups are visible. `aitbc market` and `aitbc governance` are canonical; `aitbc marketplace` and `aitbc operations` (including `operations marketplace` and `operations governance`) are deprecated. `test_cli_surface.py` covers the visibility and deprecation behavior. Legacy `marketplace` subcommands remain invocable for backward compatibility. |
 
 ## Consensus recovery and bridge-validation hold (2026-08-25)
@@ -307,15 +307,15 @@ These are the live-design verdicts that follow the economic-loop verification ab
 Independent verification confirmed the bridge release flag is live and the
 two-validator chain recovered:
 
-- `hub.aitbc` `/proc/<pid>/environ` for `aitbc-coordinator-api` reads
+- `<hub-node>` `/proc/<pid>/environ` for `aitbc-coordinator-api` reads
   `BRIDGE_RELEASE_ENABLED=true` after an explicit post-config-edit restart.
-- The `default_peer_rpc_url` on `hub.aitbc` was changed to
-  `https://node1.aitbc.bubuit.net` and the `aitbc1` reverse proxy was enabled on
-  the `at1` Incus host.
-- After restarting both blockchain nodes, hub pulled block 14548 from `aitbc1`
+- The `default_peer_rpc_url` on `<hub-node>` was changed to
+  `https://<node1-fqdn>` and the `<node1>` reverse proxy was enabled on
+  the `<incus-host>` Incus host.
+- After restarting both blockchain nodes, hub pulled block 14548 from `<node1>`
   and the chain resumed advancing with round-robin proposers.
 - `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` was restored. All three live nodes
-  (`hub.aitbc`, `aitbc1`, `aitbc3`) now report the same head height and hash
+  (`<hub-node>`, `<node1>`, `<node2>`) now report the same head height and hash
   and every produced block carries a valid cross-validator attestation in
   `block_metadata`. Independent live verification ran `verify_block_signature()`
   against 15 consecutive blocks (heights 14592–14612) and confirmed every
@@ -331,22 +331,22 @@ larger root cause — `PBFTConsensus` not wired into production and a
 
 ## T5 / G6 multi-validator fault-tolerance validation — 2026-08-31
 
-Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `hub.aitbc`, `aitbc1`, and `aitbc3`.
+Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `<hub-node>`, `<node1>`, and `<node2>`.
 
 ### Validator set
 
 - Preserved proposer / validator-1: `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76` (also the bridge admin / proposer).
-- Generated three new extra validators on `hub.aitbc`:
+- Generated three new extra validators on `<hub-node>`:
   - `0x241D3e44d42b6d4c270d0231780913f14386d90C`
   - `0x65568673B3cf7D614Edd97a94b3Ff757246dAe22`
   - `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`
-- `VALIDATOR_SET` (public) and `VALIDATOR_KEYS` (private) updated on `hub.aitbc`.
-- Followers `aitbc1` and `aitbc3` received the public `VALIDATOR_SET` and `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`; `VALIDATOR_KEYS={}` and `PBFT_CONSENSUS_ENABLED=false`.
+- `VALIDATOR_SET` (public) and `VALIDATOR_KEYS` (private) updated on `<hub-node>`.
+- Followers `<node1>` and `<node2>` received the public `VALIDATOR_SET` and `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`; `VALIDATOR_KEYS={}` and `PBFT_CONSENSUS_ENABLED=false`.
 
 ### Configuration changes
 
 - `max_empty_block_interval=60` on all three nodes so empty blocks produce every 60 s during the test.
-- `AUTO_SYNC_THRESHOLD=0` on `aitbc1` and `aitbc3` so the SyncManager bulk-pulls for any positive height gap (previously small gaps were only handled by gossip/subscription, which missed blocks on restart).
+- `AUTO_SYNC_THRESHOLD=0` on `<node1>` and `<node2>` so the SyncManager bulk-pulls for any positive height gap (previously small gaps were only handled by gossip/subscription, which missed blocks on restart).
 - `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` (proposer + one attestation for the 4-validator set).
 
 ### Validation results
@@ -364,7 +364,7 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 
 ### One-validator-down simulation
 
-1. Removed validator `0x43641ca248D38406c52CF1D6B235948DF27bfCF0` from the active set and restarted `aitbc-blockchain-node` on `hub.aitbc`.
+1. Removed validator `0x43641ca248D38406c52CF1D6B235948DF27bfCF0` from the active set and restarted `aitbc-blockchain-node` on `<hub-node>`.
 2. Chain continued producing blocks with the remaining three validators.
 3. Restored the removed validator from a backup and restarted.
 4. Chain resumed four-validator round-robin production.
@@ -372,7 +372,7 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 ### Operational issues found
 
 - `aitbc-blockchain-rpc.service` can hang in `deactivating (stop-sigterm)`. During the test it failed to stop and the RPC port (8202) was not re-bound after `systemctl restart aitbc-blockchain-node.service`; the old `uvicorn aitbc_chain.app:app` process had to be killed with `kill -9` before the service could restart. A stale `aitbc_chain.main` process from 2026-08-27 (PIDs 612930/612932) was also still running and was killed.
-- Follower `aitbc1` initially missed the gossip push for block 1389 and, with the default `AUTO_SYNC_THRESHOLD=10`, did not bulk-pull small gaps, so it stayed one block behind until `AUTO_SYNC_THRESHOLD=0` was set. This suggests the SyncManager should bulk-pull any positive gap by default when no recent gossip block is received.
+- Follower `<node1>` initially missed the gossip push for block 1389 and, with the default `AUTO_SYNC_THRESHOLD=10`, did not bulk-pull small gaps, so it stayed one block behind until `AUTO_SYNC_THRESHOLD=0` was set. This suggests the SyncManager should bulk-pull any positive gap by default when no recent gossip block is received.
 
 ### Remaining open work
 
@@ -386,15 +386,15 @@ The live network was clarified and reconfigured as five distinct hosts:
 
 - `hub` — validator
 - `hub1` (formerly `hub2`) — validator
-- `node1` (formerly `aitbc1`) — validator
-- `node2` (formerly `aitbc3`) — validator
-- `node0` — follower
+- `<node1>` — validator
+- `<node2>` — validator
+- `<node0>` — follower
 
 Addresses are deliberately not listed here. This repository is public, and which
 address belongs to which host is operator-specific; keep that mapping in your own
 deployment notes.
 
-The four validators form a 3-of-4 quorum. `node0` does not produce blocks (`enable_block_production=false`) and participates only as a follower via the mesh gossip backend.
+The four validators form a 3-of-4 quorum. `<node0>` does not produce blocks (`enable_block_production=false`) and participates only as a follower via the mesh gossip backend.
 
 ### Work completed
 
@@ -403,29 +403,29 @@ The four validators form a 3-of-4 quorum. `node0` does not produce blocks (`enab
 - **Human-readable transaction-query logs:** `apps/blockchain-node/src/aitbc_chain/rpc/transactions.py` was updated (`c6d71d4fb7`).
 - **Nginx worker and WebSocket fixes:**
   - Added `worker_rlimit_nofile 8192`, `worker_connections 4096`, and `real_ip` config where applicable.
-  - Fixed `node0` nginx: renamed the active server block from the dead `aitbc.bubuit.net` to `node0.aitbc.bubuit.net`, corrected the `/rpc/` upstream from `8006` to `8202`, and added WebSocket upgrade headers to both `/rpc/` locations.
-  - Verified `wss://node0.aitbc.bubuit.net/rpc/gossip/ws` returns `101 Switching Protocols` through nginx.
-- **Node0 recovery:** `node0` was on old commit `33a0f8a28` and did not support `GOSSIP_BACKEND=mesh`. It was pulled to current `main`, its chain database was backed up and reset, `GOSSIP_BACKEND=mesh` was restored, and it resynced to the validator head. Its chain now follows the live network.
+  - Fixed `<node0>` nginx: renamed the active server block from a dead legacy name to `<node0-fqdn>`, corrected the `/rpc/` upstream from `8006` to `8202`, and added WebSocket upgrade headers to both `/rpc/` locations.
+  - Verified `wss://<node0-fqdn>/rpc/gossip/ws` returns `101 Switching Protocols` through nginx.
+- **Node0 recovery:** `<node0>` was on old commit `33a0f8a28` and did not support `GOSSIP_BACKEND=mesh`. It was pulled to current `main`, its chain database was backed up and reset, `GOSSIP_BACKEND=mesh` was restored, and it resynced to the validator head. Its chain now follows the live network.
 - **Node identity / DNS:**
-  - `aitbc3` is now `node2.aitbc.bubuit.net`; peer URLs and nginx configs were updated.
-  - `node0` is a separate fifth machine, not the former `aitbc3`.
+  - `<node2>` is now `<node2-fqdn>`; peer URLs and nginx configs were updated.
+  - `<node0>` is a separate fifth machine, not the former `<node2>`.
 - **Gossip package refactor:** the monolithic `apps/blockchain-node/src/aitbc_chain/gossip/broker.py` was split into a package:
   - `gossip/backends/base.py`, `in_memory.py`, `broadcast.py`, `websocket.py`, `mesh.py`
   - `gossip/_internal.py` for shared serialization/metrics helpers
   - thin `gossip/broker.py` and `gossip/__init__.py` preserving the public API
-  - 54 gossip tests passed on a `node2` temp checkout; Ruff was clean.
+  - 54 gossip tests passed on a `<node2>` temp checkout; Ruff was clean.
 
 ### Rolling pull/restart results
 
-A rolling `git pull` and restart was performed across `node0`, `node2`, `hub.aitbc`, `hub2.aitbc`, and `node1` (in that order) to load the new gossip package (`a620e1334`) without a chain stall.
+A rolling `git pull` and restart was performed across `<node0>`, `<node2>`, `<hub-node>`, `<replica-node>`, and `<node1>` (in that order) to load the new gossip package (`a620e1334`) without a chain stall.
 
 | Node | From commit | To commit | Services active | Final height |
 |---|---|---|---|---|
-| `node0` | `c6d71d4fb7` | `a620e1334` | `aitbc-blockchain-node`, `aitbc-blockchain-rpc` | 3183 |
-| `node2` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
-| `hub.aitbc` | `c6d71d4fb7` | `a620e1334` | both | 3183 |
-| `hub2.aitbc` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
-| `node1` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
+| `<node0>` | `c6d71d4fb7` | `a620e1334` | `aitbc-blockchain-node`, `aitbc-blockchain-rpc` | 3183 |
+| `<node2>` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
+| `<hub-node>` | `c6d71d4fb7` | `a620e1334` | both | 3183 |
+| `<replica-node>` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
+| `<node1>` | `cb8cfbf25e` | `a620e1334` | both | 3183 |
 
 All five nodes converged at height **3183** and continued producing new blocks. No `Unsupported gossip backend`, `ModuleNotFoundError`, or gossip WebSocket 404 errors were observed after the restarts.
 
@@ -442,6 +442,6 @@ All five nodes converged at height **3183** and continued producing new blocks. 
 - Implement genuine PBFT NEW-VIEW with prepared certificates.
 - Run a host-level validator outage test (network partition / power-off, not just `systemctl restart`).
 - Investigate and clean historical `chain.db.pre*` and `predeploy` backups.
-- Continue watching the stale node1 worker process (`aitbc_chain.main` / `uvicorn` hanging in `deactivating`).
+- Continue watching the stale <node1> worker process (`aitbc_chain.main` / `uvicorn` hanging in `deactivating`).
 - Consider reducing the 300-second round timeout after safety testing.
 - Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/v0.25/v0.25.2_change.log` on the shop node.
