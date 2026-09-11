@@ -51,6 +51,14 @@ Fixes during live validation
 - Renamed `aitbc market download --output` to `--output-path` to avoid a
   parameter collision with the `--output` format alias.
 - Updated mypy baseline and regenerated MCP wrappers for the new market subcommands.
+- `MarketplaceService.refund_marketplace_job_payment` now accepts optional
+  `refund_data` with `tx_hash`/`refunded_amount` and syncs customer-side refunds.
+- `aitbc market cancel` cancels the job, attempts an immediate customer-side
+  escrow refund, and syncs the resulting `refund_tx_hash` to the hub marketplace.
+- Cancel/refund reasons are stored in `job.receipt` as a JSON object, not in
+  `job.error`.
+- CLI release/refund sync looks up both `tx_hash` and `refund_tx_hash` keys from
+  the blockchain RPC response.
 
 Live validation (2026-09-11)
 ----------------------------
@@ -63,6 +71,11 @@ Live validation (2026-09-11)
 - node0: `aitbc market download --rental-id <job-id> --output-path /tmp/...`
   retrieves the hosted content.
 - node0: `aitbc market jobs --service-type ipfs` lists jobs with `RELEASED` payment.
+- node0: `aitbc market host --offer-id-or-plugin-id ipfs-ipfs-host --cid-or-file <cid> --days 1`
+  creates an escrowed, pin-confirmed `QUEUED` marketplace job.
+- node0: `aitbc market cancel --job-id <job-id>` cancels the job and refunds the
+  escrow, leaving `state=REFUNDED`, `payment_status=refunded`, and
+  `refund_tx_hash` recorded.
 - node2: `MarketplaceJob` / `MarketplaceJobPayment` rows show `state=RELEASED`,
   `payment_status=released`.
-- hub: `ESCROW_LOCK` and `ESCROW_RELEASE` transactions settled on chain.
+- hub: `ESCROW_LOCK`, `ESCROW_RELEASE` and `ESCROW_REFUND` transactions settled on chain.
