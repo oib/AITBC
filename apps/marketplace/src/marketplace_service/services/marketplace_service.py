@@ -1339,9 +1339,12 @@ class MarketplaceService:
             logger.error("Error in confirm_marketplace_job_pin: %s: %s", type(e).__name__, e)
             raise
 
-    async def release_marketplace_job_payment(self, job_id: str) -> dict[str, Any]:
+    async def release_marketplace_job_payment(
+        self, job_id: str, release_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
         """Release the escrow for a completed marketplace job."""
         try:
+            release_data = release_data or {}
             job = await self.session.get(MarketplaceJob, job_id)
             if not job:
                 raise ValueError(f"Job not found: {job_id}")
@@ -1353,28 +1356,35 @@ class MarketplaceService:
             if not job.escrow_contract_id:
                 raise ValueError(f"Job {job_id} has no escrow_contract_id")
 
-            result = await self._rpc_client.release_escrow(job.id)
-            if result and result.get("success"):
+            tx_hash = release_data.get("tx_hash")
+            released_amount = release_data.get("released_amount")
+            if not tx_hash:
+                result = await self._rpc_client.release_escrow(job.id)
+                if not (result and result.get("success")):
+                    raise ValueError(f"Escrow release failed for job {job_id}: {result}")
                 tx_hash = str(result.get("tx_hash", ""))
-                job.state = "RELEASED"
-                job.payment_status = "released"
-                job.tx_hash = tx_hash
-                job.updated_at = datetime.utcnow()
+                released_amount = result.get("released_amount")
 
-                if payment:
-                    payment.status = "released"
-                    payment.transaction_hash = tx_hash
-                    payment.released_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
-                    self.session.add(payment)
+            job.state = "RELEASED"
+            job.payment_status = "released"
+            job.tx_hash = tx_hash
+            job.completed_at = datetime.utcnow()
+            job.updated_at = datetime.utcnow()
 
-                self.session.add(job)
-                await self.session.commit()
-                await self.session.refresh(job)
+            if payment:
+                payment.status = "released"
+                payment.transaction_hash = tx_hash
+                payment.released_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
+                if released_amount is not None:
+                    payment.released_amount = Decimal(str(released_amount))
+                self.session.add(payment)
 
-                return self._job_to_dict(job)
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
 
-            raise ValueError(f"Escrow release failed for job {job_id}: {result}")
+            return self._job_to_dict(job)
         except Exception as e:
             await self.session.rollback()
             logger.error("Error in release_marketplace_job_payment: %s: %s", type(e).__name__, e)
