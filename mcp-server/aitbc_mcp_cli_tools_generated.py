@@ -63,6 +63,7 @@ import aitbc_mcp_cli_tools_generated_resource  # noqa: F401
 import aitbc_mcp_cli_tools_generated_restart  # noqa: F401
 import aitbc_mcp_cli_tools_generated_script  # noqa: F401
 import aitbc_mcp_cli_tools_generated_security  # noqa: F401
+import aitbc_mcp_cli_tools_generated_service  # noqa: F401
 import aitbc_mcp_cli_tools_generated_simulate  # noqa: F401
 import aitbc_mcp_cli_tools_generated_start  # noqa: F401
 import aitbc_mcp_cli_tools_generated_stop  # noqa: F401
