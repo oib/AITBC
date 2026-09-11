@@ -384,11 +384,15 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 
 The live network was clarified and reconfigured as five distinct hosts:
 
-- `hub.aitbc` — validator, IP `192.0.2.10`
-- `hub1.aitbc` (formerly `hub2.aitbc`) — validator, IP `203.0.113.28`
-- `redacted-host.example.invalid` (formerly `aitbc1`) — validator, IP `198.51.100.40`
-- `redacted-host.example.invalid` (formerly `aitbc3`) — validator, IP `198.51.100.136`
-- `redacted-host.example.invalid` — follower, IP `198.51.100.93`
+- `hub` — validator
+- `hub1` (formerly `hub2`) — validator
+- `node1` (formerly `aitbc1`) — validator
+- `node2` (formerly `aitbc3`) — validator
+- `node0` — follower
+
+Addresses are deliberately not listed here. This repository is public, and which
+address belongs to which host is operator-specific; keep that mapping in your own
+deployment notes.
 
 The four validators form a 3-of-4 quorum. `node0` does not produce blocks (`enable_block_production=false`) and participates only as a follower via the mesh gossip backend.
 

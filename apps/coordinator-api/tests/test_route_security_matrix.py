@@ -15,6 +15,8 @@ pass.
 from __future__ import annotations
 
 import fnmatch
+import json
+from pathlib import Path
 
 from aitbc.auth.security_matrix import ROUTE_SECURITY_MATRIX, AuthLevel, check_role_match, get_auth_level
 
@@ -37,16 +39,25 @@ def test_creating_a_payment_is_reachable_by_a_client():
 
 
 def test_every_registered_collection_path_is_registered_in_the_matrix():
-    """A route the app serves must not be reachable only through a wildcard sibling.
+    """A published route must not be reachable only through a wildcard sibling.
 
     This generalises the ``/v1/payments`` case: for every ``.../*`` pattern in the
-    matrix, if the app also serves the bare prefix as a real route, that prefix
-    needs its own entry or it is 403 for everyone.
+    matrix, if the app also serves the bare prefix as a real, published route,
+    that prefix needs its own entry or it is 403 to everyone.
+
+    The check is scoped to routes that appear in the committed OpenAPI spec so
+    that debug-only routes (which the spec deliberately omits) do not pollute
+    the production matrix assertion when ``DEBUG=true`` is set by another suite.
     """
+    spec = json.loads((Path(__file__).resolve().parents[3] / "docs" / "api" / "coordinator-api-openapi.json").read_text())
+    published = set(spec.get("paths", {}))
+
     served = {
         route.path
         for route in app.routes
-        if getattr(route, "path", "").startswith("/v1") and (getattr(route, "methods", set()) - {"HEAD", "OPTIONS"})
+        if getattr(route, "path", "").startswith("/v1")
+        and (getattr(route, "methods", set()) - {"HEAD", "OPTIONS"})
+        and route.path in published
     }
     orphans = sorted(
         prefix
@@ -56,4 +67,4 @@ def test_every_registered_collection_path_is_registered_in_the_matrix():
         if prefix in served and get_auth_level(prefix) is AuthLevel.DENY
     )
 
-    assert orphans == [], f"served routes reachable only via a wildcard sibling, so denied to everyone: {orphans}"
+    assert orphans == [], f"published routes reachable only via a wildcard sibling, so denied to everyone: {orphans}"

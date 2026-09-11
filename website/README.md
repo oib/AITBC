@@ -9,7 +9,6 @@ Deployed in the AITBC Incus container:
 | | |
 |---|---|
 | **Domain** | hub.aitbc.bubuit.net |
-| **Container IP** | 198.51.100.93 |
 | **Nginx Config** | `/etc/nginx/sites-enabled/aitbc` |
 
 ## File Structure
