@@ -183,14 +183,15 @@ done
 # Check common AITBC ports
 print_status "Checking AITBC service ports..."
 
+# Ports from docs/reference/SERVICE_PORTS.md, the single source of truth.
 ports=(
-    "8001:Coordinator API"
-    "8002:Wallet Daemon"
-    "8003:Blockchain RPC"
-    "8000:Coordinator API (alt)"
-    "8081:Blockchain Node 1"
-    "8082:Blockchain Node 2"
-    "8006:Coordinator API (dev)"
+    "8201:API Gateway"
+    "8202:Blockchain RPC"
+    "8203:Coordinator API"
+    "8100:Blockchain Explorer API"
+    "8106:Exchange API"
+    "8108:Wallet Daemon"
+    "8210:Pool Hub"
 )
 
 for port_info in "${ports[@]}"; do
@@ -208,9 +209,9 @@ done
 print_status "Testing health endpoints..."
 
 health_endpoints=(
-    "http://localhost:8001/health:Coordinator API"
-    "http://localhost:8002/health:Wallet Daemon"
-    "http://localhost:8003/health:Blockchain RPC"
+    "http://localhost:8203/health:Coordinator API"
+    "http://localhost:8108/health:Wallet Daemon"
+    "http://localhost:8202/health:Blockchain RPC"
 )
 
 for endpoint_info in "${health_endpoints[@]}"; do
@@ -245,21 +246,21 @@ for container in "${containers[@]}"; do
                 if [ "$cont" = "$container" ]; then
                     case $serv in
                         "aitbc-coordinator-api")
-                            if curl -s --max-time 3 "http://$container_ip:8001/health" >/dev/null 2>&1; then
+                            if curl -s --max-time 3 "http://$container_ip:8203/health" >/dev/null 2>&1; then
                                 print_success "    Coordinator API: HEALTHY"
                             else
                                 print_warning "    Coordinator API: NOT RESPONDING"
                             fi
                             ;;
                         "aitbc-wallet-daemon")
-                            if curl -s --max-time 3 "http://$container_ip:8002/health" >/dev/null 2>&1; then
+                            if curl -s --max-time 3 "http://$container_ip:8108/health" >/dev/null 2>&1; then
                                 print_success "    Wallet Daemon: HEALTHY"
                             else
                                 print_warning "    Wallet Daemon: NOT RESPONDING"
                             fi
                             ;;
                         "aitbc-blockchain-node")
-                            if curl -s --max-time 3 "http://$container_ip:8003/health" >/dev/null 2>&1; then
+                            if curl -s --max-time 3 "http://$container_ip:8202/health" >/dev/null 2>&1; then
                                 print_success "    Blockchain Node: HEALTHY"
                             else
                                 print_warning "    Blockchain Node: NOT RESPONDING"
@@ -288,6 +289,6 @@ echo "  - View container logs: incus exec aitbc -- journalctl -f -u aitbc-coordi
 echo "  - Stop all services: ./scripts/stop-aitbc-full.sh"
 echo ""
 print_status "Service URLs:"
-echo "  - Coordinator API: http://localhost:8001"
-echo "  - Wallet Daemon: http://localhost:8002"
-echo "  - Blockchain RPC: http://localhost:8003"
+echo "  - Coordinator API: http://localhost:8203"
+echo "  - Wallet Daemon:   http://localhost:8108"
+echo "  - Blockchain RPC:  http://localhost:8202"
