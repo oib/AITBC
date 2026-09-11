@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from decimal import Decimal
+
 import pytest
 from sqlmodel import SQLModel
 
@@ -37,7 +39,7 @@ async def test_create_marketplace_job(service: MarketplaceService) -> None:
 
     assert result["job_id"]
     assert result["service_type"] == "ipfs"
-    assert result["payment"]["amount"] == "1.5"
+    assert Decimal(result["payment"]["amount"]) == Decimal("1.5")
     assert result["payment_status"] == "escrowed"
 
 
