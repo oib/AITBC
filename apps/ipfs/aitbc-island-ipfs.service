@@ -14,6 +14,10 @@ Environment="ISLAND_IPFS_API_PORT=5002"
 Environment="ISLAND_IPFS_GATEWAY_PORT=8081"
 Environment="ISLAND_IPFS_SWARM_PORT=4002"
 Environment="ISLAND_IPFS_BOOTSTRAP="
+# Set both of these per host in /etc/aitbc/aitbc-island-ipfs.env. Announce must
+# name the address outside peers actually dial: a node behind a container proxy
+# or NAT only sees its private address and would otherwise advertise that.
+Environment="ISLAND_IPFS_ANNOUNCE="
 Environment="IPFS_TELEMETRY=off"
 EnvironmentFile=-/etc/aitbc/%N.env
 WorkingDirectory=/opt/aitbc/apps/ipfs
