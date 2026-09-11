@@ -482,3 +482,18 @@ tea open
 Open tasks, assignments and current state are tracked in `/home/oib/windsurf/aitbc/TASKLIST.md`.
 Live validation notes are tracked in `/home/oib/windsurf/aitbc/docs/LIVE_VALIDATION_SUMMARY.md`.
 These files are intentionally not tracked in the canonical shop-node / hub-node repository.
+
+## Marketplace service operational notes
+
+- The marketplace service needs `BLOCKCHAIN_RPC_API_KEY` in its environment
+  (e.g. `/etc/aitbc/aitbc-marketplace.env`) to call the escrow release/refund
+  endpoints. Set it to the same value the blockchain RPC uses and restart the
+  service: `sudo systemctl restart aitbc-marketplace`.
+- After code or route changes in `apps/marketplace/src/marketplace_service/`,
+  remove `__pycache__` and restart the service to ensure the new code is loaded.
+- Targeted marketplace verification:
+  ```bash
+  venv/bin/python -m pytest -q apps/marketplace/tests/test_marketplace_job.py apps/marketplace/tests/test_marketplace_job_sweeper.py
+  venv/bin/python -m mypy --show-error-codes apps/marketplace/src/marketplace_service/services/marketplace_service.py apps/marketplace/src/marketplace_service/main.py cli/aitbc_cli/commands/market/host.py
+  venv/bin/python -m ruff check apps/marketplace/src/marketplace_service/services/marketplace_service.py apps/marketplace/src/marketplace_service/main.py apps/marketplace/src/marketplace_service/domain/marketplace.py cli/aitbc_cli/commands/market/host.py apps/marketplace/tests/test_marketplace_job.py
+  ```
