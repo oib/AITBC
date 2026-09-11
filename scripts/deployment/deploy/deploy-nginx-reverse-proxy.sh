@@ -9,7 +9,6 @@ set -e
 source "$(dirname "$0")/deploy-env.sh"
 require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
 require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
-require_deploy_var AITBC_ACME_EMAIL "Set it to the email address to register the certificate with."
 
 
 echo "🚀 Deploying Nginx Reverse Proxy for AITBC"
@@ -37,10 +36,6 @@ print_error() {
 print_status "Checking nginx installation on host..."
 ssh "$AITBC_SSH_TARGET" "which nginx > /dev/null || (apt-get update && apt-get install -y nginx)"
 
-# Install certbot for SSL certificates
-print_status "Checking certbot installation..."
-ssh "$AITBC_SSH_TARGET" "which certbot > /dev/null || (apt-get update && apt-get install -y certbot python3-certbot-nginx)"
-
 # Copy nginx configuration
 print_status "Copying nginx configuration..."
 scp infra/nginx/nginx-aitbc-reverse-proxy.conf ${AITBC_SSH_TARGET}:/tmp/aitbc-reverse-proxy.conf
@@ -66,26 +61,15 @@ ln -sf /etc/nginx/sites-available/aitbc-reverse-proxy.conf /etc/nginx/sites-enab
 nginx -t
 EOF
 
-# Check if SSL certificate exists
-print_status "Checking SSL certificate..."
-if ! ssh "$AITBC_SSH_TARGET" "test -f /etc/letsencrypt/live/${AITBC_PUBLIC_HOST}/fullchain.pem"; then
-    print_warning "SSL certificate not found. Obtaining Let's Encrypt certificate..."
-
-    # Obtain SSL certificate
-    CERTBOT_CMD="certbot certonly --standalone \
-        -d ${AITBC_PUBLIC_HOST} -d api.${AITBC_PUBLIC_HOST} -d rpc.${AITBC_PUBLIC_HOST} \
-        --email ${AITBC_ACME_EMAIL} --agree-tos --non-interactive"
-
-    ssh "$AITBC_SSH_TARGET" "systemctl stop nginx 2>/dev/null || true
-${CERTBOT_CMD}
-systemctl start nginx"
-
-    if [ $? -ne 0 ]; then
-        print_error "Failed to obtain SSL certificate. Please run certbot manually:"
-        echo "${CERTBOT_CMD}"
-        exit 1
-    fi
-fi
+# TLS
+#
+# This script no longer obtains or installs a certificate. AITBC runs no ACME
+# client: certificates belong to whoever operates the TLS terminator, which is
+# outside this repository. See docs/deployment/NETWORK_POLICY.md and
+# docs/deployment/ssl-tls-setup.md.
+#
+# If the vhost just installed references a certificate path, that certificate
+# must already be present -- `nginx -t` above is what will tell you.
 
 # Restart nginx
 print_status "Restarting nginx..."

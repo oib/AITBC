@@ -1858,7 +1858,7 @@ main() {
     echo "    cp /opt/aitbc/examples/nginx/$_host_conf /etc/nginx/sites-available/aitbc-proxy"
     echo "    ln -sf /etc/nginx/sites-available/aitbc-proxy /etc/nginx/sites-enabled/aitbc-proxy"
     echo "    # Edit: replace YOUR_DOMAIN and CONTAINER_IP"
-    echo "    # Enable SSL: certbot --nginx -d YOUR_DOMAIN"
+    echo "    # TLS terminates upstream of this proxy; do not install a certificate here."
     echo ""
     echo "  See: /opt/aitbc/examples/nginx/README.md for full instructions"
 

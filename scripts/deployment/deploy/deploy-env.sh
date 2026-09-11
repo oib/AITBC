@@ -7,7 +7,6 @@
 #
 #   export AITBC_SSH_TARGET=my-host-root       # ssh/scp destination
 #   export AITBC_PUBLIC_HOST=aitbc.example.net # public FQDN, for TLS and URLs
-#   export AITBC_ACME_EMAIL=admin@example.net  # certbot registration address
 #
 # Source this file, then call require_deploy_var for whatever the script needs.
 
