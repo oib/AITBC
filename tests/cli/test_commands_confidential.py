@@ -6,7 +6,6 @@ settlement when the coordinator reports that confidential TEE is unavailable.
 
 from unittest.mock import MagicMock, patch
 
-import pytest
 from aitbc.exceptions import NetworkError
 
 
@@ -15,7 +14,7 @@ class TestConfidentialCommands:
 
     def test_confidential_send_falls_back_on_tee_disabled(self, runner):
         """``confidential send`` uses the local simulated result when the coordinator returns 503."""
-        from aitbc_cli.commands.confidential import confidential, send
+        from aitbc_cli.commands.confidential import confidential
 
         mock_client = MagicMock()
         mock_client.post.side_effect = NetworkError(

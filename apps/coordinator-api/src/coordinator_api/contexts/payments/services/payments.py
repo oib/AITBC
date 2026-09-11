@@ -62,7 +62,7 @@ _ZK_THRESHOLD_AIT = Decimal(os.getenv("COORDINATOR_ZK_HIGH_VALUE_THRESHOLD", "10
 _ZK_REQUIRE_PROOF = os.getenv("COORDINATOR_ZK_REQUIRE", "false").lower() == "true"
 
 
-def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session) -> tuple[Any, Any]:
+def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = None) -> tuple[Any, Any]:
     """Return the authoritative (profile, rate) for a quote from the energy oracle.
 
     Reads the on-chain ``IEnergyPricing`` contract at the quote's pinned EVM
@@ -74,6 +74,11 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session) -> tuple
     if settings.native_energy_pricing:
         from ...marketplace.services.native_energy import NativeEnergyOracle
 
+        if session is None:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="Native energy pricing requires a database session; refusing protected funding",
+            )
         try:
             native_oracle = NativeEnergyOracle(session)
             profile = native_oracle.get_profile(quote.resource_id)
@@ -1106,9 +1111,7 @@ class PaymentService:
             gpu.status = "available"
             self.session.add(gpu)
         booking = (
-            self.session.execute(
-                select(GPUBooking).where(GPUBooking.job_id == job.id, GPUBooking.status == "active").limit(1)
-            )
+            self.session.execute(select(GPUBooking).where(GPUBooking.job_id == job.id, GPUBooking.status == "active").limit(1))
             .scalars()
             .first()
         )
