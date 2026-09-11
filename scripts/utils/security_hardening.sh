@@ -125,33 +125,18 @@ EOF
     success "Production security settings applied"
 }
 
-# Configure firewall rules
-configure_firewall() {
-    log "Configuring firewall rules..."
-
-    # Check if ufw is available
-    if command -v ufw &> /dev/null; then
-        # Allow SSH
-        ufw allow 22/tcp
-
-        # Allow HTTP/HTTPS
-        ufw allow 80/tcp
-        ufw allow 443/tcp
-
-        # Allow internal services (restricted to localhost)
-        # 8202 was 8082 here, a port nothing has listened on for some time, so the
-        # rule covered nothing and the actual RPC port was left unmentioned.
-        ufw allow from 127.0.0.1 to any port 8203
-        ufw allow from 127.0.0.1 to any port 8202
-
-        # Enable firewall
-        ufw --force enable
-
-        success "Firewall configured with ufw"
-    else
-        warning "ufw not available, please configure firewall manually"
-    fi
-}
+# Firewall configuration is deliberately absent.
+#
+# This script used to run `ufw --force enable` here. AITBC services run in
+# containers whose perimeter is filtered by the container host, so a firewall
+# inside the guest is not where the boundary lives -- and the rules it installed
+# made that plain: `ufw allow from 127.0.0.1 to any port 8202` is a no-op,
+# because loopback traffic never traverses the filter it was written against.
+# Enabling ufw inside a guest mostly creates a second place to look when
+# something cannot reach something else.
+#
+# Perimeter filtering belongs to the host. See docs/deployment/NETWORK_POLICY.md
+# for which listeners are expected to be reachable from where.
 
 # Install nginx response-security headers.
 #
@@ -280,7 +265,6 @@ main() {
     check_root
     generate_api_keys
     update_production_env
-    configure_firewall
     setup_security_headers
     setup_log_rotation
     setup_monitoring
@@ -293,7 +277,6 @@ main() {
     echo "🔐 SECURITY SUMMARY:"
     echo "   ✅ Secure API keys generated"
     echo "   ✅ Production environment configured"
-    echo "   ✅ Firewall rules applied"
     echo "   ✅ Nginx security headers installed"
     echo "   ✅ Log rotation configured"
     echo "   ✅ Health monitoring setup"
