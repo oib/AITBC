@@ -5,10 +5,23 @@
 
 ## Overview
 
-AITBC runs **no host firewall**. Services are systemd units on bare hosts with no
-container network namespace, so **the bind address is the entire access control**.
-A service bound to `0.0.0.0` is reachable by anyone who can route to the host --
-there is no second layer that stops them.
+AITBC runs **no firewall inside the containers**. `node0`, `node1` and `node2` are
+Incus containers on the `10.1.223.0/24` bridge of the Incus host (`at1`);
+filtering happens on that host and at the provider perimeter, not in the guests.
+There are therefore two distinct planes, and they have different answers:
+
+- **From the internet -- filtered.** Verified 2026-09-11: on the public host
+  `hub.aitbc` (`152.53.242.245`) only `443` accepts from outside. `8201`, `8202`,
+  `8106`, `7070` and `9009` are all refused at the perimeter despite binding
+  `0.0.0.0` in the guest.
+- **Between containers and from the Incus host -- unfiltered.** Verified the same
+  day: `node2` reaches `node1` on `5432`, `8202` and `9009`, and `at1` reaches
+  `10.1.223.40` on the same ports. Nothing on the bridge is filtered.
+
+So **the bind address is the entire access control on the container plane**, which
+is the plane that decides blast radius after any single service is compromised.
+It is not what keeps a port off the internet -- the perimeter does that. Write
+bind decisions against lateral movement, not against internet exposure.
 
 This document defines which surfaces are *allowed* to be reachable. For the bind
 address each service *actually* comes up on, see
@@ -65,19 +78,21 @@ deciding that it should be: the default in most of these applications is
 ### Why not a firewall rule instead
 
 Earlier revisions of this document prescribed `ufw allow`/`ufw deny` rules and
-systemd `IPDeny=any`. Neither is in place:
+systemd `IPDeny=any`. Neither belongs in the guest:
 
-- There is no firewall on any fleet host, so `ufw` rules describe a control that
-  does not exist.
+- The containers run no firewall of their own. Filtering is the Incus host's job
+  and lives with it, so a `ufw` rule in a guest runbook edits a control that is
+  not administered there.
 - `IPDeny=` requires systemd 242+ and was reverted after it broke services.
 
-Until one of those changes, a `ufw` snippet in a runbook is worse than nothing --
-it reads as though the port is already contained. Bind the socket instead.
+A perimeter control does exist -- but it is not visible from inside the container
+and does not separate one container from another. Bind the socket; that is the
+only lever the guest actually holds.
 
-The same caution applies to the `# nosec B104` comments in the codebase. They
-justify a bind-all with "the real boundary is the firewall/reverse-proxy layer";
-for any service with no proxy in front of it on a firewall-less host, that
-boundary does not exist.
+The `# nosec B104` comments in the codebase justify a bind-all with "the real
+boundary is the firewall/reverse-proxy layer". That is true of the internet plane
+and false of the container plane: a bind-all service is reachable by every other
+container on the bridge, whether or not a proxy fronts it from outside.
 
 ## Known deviations
 
