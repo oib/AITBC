@@ -204,11 +204,28 @@ echo "7. 🌐 NETWORK PARTITION TESTING"
 echo "=============================="
 
 echo "Simulating network partition by blocking sync..."
-# Temporarily block sync port (if firewall available)
-if command -v ufw >/dev/null 2>&1; then
-    ufw --force enable >/dev/null 2>&1
-    ufw deny out to $FOLLOWER_NODE port 8200 >/dev/null 2>&1
-    echo "Network partition simulated"
+# This used to run `ufw --force enable` and leave it enabled: a consensus test
+# turned on a firewall the deployment does not otherwise use and never turned it
+# off again. It also denied port 8200 while the follower answers on
+# $FOLLOWER_PORT (8202), so nothing was ever actually blocked and the recovery
+# check below passed without a partition having happened.
+#
+# The partition is now a single OUTPUT rule against the real port, removed by a
+# trap so it cannot outlive the script even if a step in between fails.
+partition_rule=""
+drop_partition() {
+    if [ -n "$partition_rule" ]; then
+        # shellcheck disable=SC2086
+        iptables -D OUTPUT $partition_rule 2>/dev/null || true
+        partition_rule=""
+    fi
+}
+trap drop_partition EXIT INT TERM
+
+if command -v iptables >/dev/null 2>&1 &&
+   iptables -I OUTPUT -p tcp -d "$FOLLOWER_NODE" --dport "$FOLLOWER_PORT" -j DROP 2>/dev/null; then
+    partition_rule="-p tcp -d $FOLLOWER_NODE --dport $FOLLOWER_PORT -j DROP"
+    echo "Network partition simulated (OUTPUT drop to $FOLLOWER_NODE:$FOLLOWER_PORT)"
     sleep 3
 
     # Create transaction during partition
@@ -229,7 +246,7 @@ if command -v ufw >/dev/null 2>&1; then
     sleep 5
 
     # Restore network
-    ufw --force delete deny out to $FOLLOWER_NODE port 8200 >/dev/null 2>&1
+    drop_partition
     echo "Network partition restored"
 
     # Wait for sync recovery
@@ -238,7 +255,9 @@ if command -v ufw >/dev/null 2>&1; then
 
     # Check if nodes recovered consensus
     RECOVERY_HEIGHT_LOCAL=$(curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .height)
-    RECOVERY_HEIGHT_REMOTE=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/head | jq .height')
+    # Single quotes here meant $FOLLOWER_PORT reached the remote shell unexpanded,
+    # so the curl went to a URL with an empty port. Pass it through explicitly.
+    RECOVERY_HEIGHT_REMOTE=$(ssh "$FOLLOWER_NODE" "curl -s http://localhost:${FOLLOWER_PORT}/rpc/head | jq .height")
     RECOVERY_DIFF=$((RECOVERY_HEIGHT_LOCAL - RECOVERY_HEIGHT_REMOTE))
 
     if [ "$RECOVERY_DIFF" -le 10 ]; then
@@ -249,7 +268,8 @@ if command -v ufw >/dev/null 2>&1; then
         ((TESTS_FAILED++))
     fi
 else
-    echo -e "${YELLOW}⚠️ SKIP${NC}: Network partition test requires ufw"
+    echo -e "${YELLOW}⚠️ SKIP${NC}: Network partition test needs iptables and the"
+    echo "        privilege to add an OUTPUT rule. Nothing was changed."
 fi
 
 # 8. CONSENSUS DEBUGGING TOOLS
