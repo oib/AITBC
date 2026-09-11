@@ -120,10 +120,7 @@ class MarketplaceJobSweeper:
                 .where(col(MarketplaceJobPayment.status) == "escrowed")
                 .where(col(MarketplaceJobPayment.escrowed_at).is_not(None))
                 .where(col(MarketplaceJob.state).in_({"COMPLETED", "EXPIRED"}))
-                .where(
-                    (col(MarketplaceJob.expires_at).is_(None))
-                    | (col(MarketplaceJob.expires_at) < release_cutoff)
-                )
+                .where((col(MarketplaceJob.expires_at).is_(None)) | (col(MarketplaceJob.expires_at) < release_cutoff))
                 .limit(self.batch_size)
             )
             release_result = await session.execute(release_stmt)

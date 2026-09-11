@@ -19,12 +19,11 @@ def _sanitize_redis_url(url: str) -> str:
             netloc = parsed.hostname or ""
             if parsed.port:
                 netloc += f":{parsed.port}"
-            return urlunparse(
-                (parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment)
-            )
+            return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
     except Exception:
         pass
     return url
+
 
 from dataclasses import asdict, dataclass
 from enum import Enum

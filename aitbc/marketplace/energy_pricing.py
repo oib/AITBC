@@ -168,10 +168,7 @@ class FeePolicy:
 
     def __post_init__(self) -> None:
         if not MIN_FEE_BASIS_POINTS <= self.fee_basis_points <= MAX_FEE_BASIS_POINTS:
-            raise EnergyPricingError(
-                f"fee_basis_points must be between {MIN_FEE_BASIS_POINTS} "
-                f"and {MAX_FEE_BASIS_POINTS}"
-            )
+            raise EnergyPricingError(f"fee_basis_points must be between {MIN_FEE_BASIS_POINTS} and {MAX_FEE_BASIS_POINTS}")
         if self.fee_model not in (FeeModel.PROVIDER_DEDUCTED, FeeModel.BUYER_PAYS_ON_TOP):
             raise EnergyPricingError(f"invalid fee_model: {self.fee_model}")
 
@@ -231,9 +228,7 @@ class EnergyQuote:
             max_value=MAX_SETTLEMENT_UNIT_SCALE,
         )
         _require_positive_int(self.gpu_count, "gpu_count", max_value=MAX_GPU_COUNT)
-        _require_positive_int(
-            self.duration_seconds, "duration_seconds", max_value=MAX_DURATION_SECONDS
-        )
+        _require_positive_int(self.duration_seconds, "duration_seconds", max_value=MAX_DURATION_SECONDS)
         _require_positive_int(self.tdp_watts, "tdp_watts", max_value=MAX_TDP_WATTS)
         _require_scaled_positive(self.eur_per_kwh_scaled, "eur_per_kwh_scaled")
         if self.eur_per_kwh_scaled > FIXED_POINT_SCALE * MAX_EUR_PER_KWH_WHOLE:
@@ -429,9 +424,7 @@ def to_scaled(
     except (InvalidOperation, ValueError) as exc:
         raise EnergyPricingError(f"{name} is not a valid decimal: {exc}") from exc
     if not isinstance(dec, Decimal):
-        raise EnergyPricingError(
-            f"{name} must be Decimal or str, got {type(value).__name__}"
-        )
+        raise EnergyPricingError(f"{name} must be Decimal or str, got {type(value).__name__}")
     if not dec.is_finite() or dec <= 0:
         raise EnergyPricingError(f"{name} must be finite and positive: {dec}")
     exponent = dec.as_tuple().exponent
@@ -439,10 +432,7 @@ def to_scaled(
         raise EnergyPricingError(f"{name} has a non-finite Decimal exponent: {exponent}")
     if exponent < -18:
         if not allow_quantize:
-            raise EnergyPricingError(
-                f"{name} has more than 18 decimal places: {dec}; "
-                "quantize explicitly before scaling"
-            )
+            raise EnergyPricingError(f"{name} has more than 18 decimal places: {dec}; quantize explicitly before scaling")
         dec = dec.quantize(Decimal(1) / scale, rounding=ROUND_HALF_UP)
     return int(dec * scale)
 
@@ -470,9 +460,7 @@ def compute_energy_net_units(
     _require_scaled_positive(eur_per_kwh_scaled, "eur_per_kwh_scaled")
     _require_scaled_positive(ait_per_eur_scaled, "ait_per_eur_scaled")
     _require_positive_int(gpu_count, "gpu_count", max_value=MAX_GPU_COUNT)
-    _require_positive_int(
-        duration_seconds, "duration_seconds", max_value=MAX_DURATION_SECONDS
-    )
+    _require_positive_int(duration_seconds, "duration_seconds", max_value=MAX_DURATION_SECONDS)
     _require_positive_int(
         settlement_unit_scale,
         "settlement_unit_scale",
@@ -484,14 +472,7 @@ def compute_energy_net_units(
     if ait_per_eur_scaled > fixed_point_scale * MAX_AIT_PER_EUR_WHOLE:
         raise EnergyPricingError("ait_per_eur_scaled out of range")
 
-    numerator = (
-        tdp_watts
-        * eur_per_kwh_scaled
-        * ait_per_eur_scaled
-        * gpu_count
-        * duration_seconds
-        * settlement_unit_scale
-    )
+    numerator = tdp_watts * eur_per_kwh_scaled * ait_per_eur_scaled * gpu_count * duration_seconds * settlement_unit_scale
     denominator = WATTS_PER_KILOWATT * SECONDS_PER_HOUR * fixed_point_scale * fixed_point_scale
 
     # Detect numbers that would not fit in an OZ Math.mulDiv step. The product
@@ -515,9 +496,7 @@ def compute_native_gross_units(net_units: int, fee_basis_points: int) -> int:
         raise EnergyPricingError("fee_basis_points must be in [0, 10000)")
     if fee_basis_points == 0:
         return net_units
-    return (net_units * BASIS_POINTS + (BASIS_POINTS - fee_basis_points) - 1) // (
-        BASIS_POINTS - fee_basis_points
-    )
+    return (net_units * BASIS_POINTS + (BASIS_POINTS - fee_basis_points) - 1) // (BASIS_POINTS - fee_basis_points)
 
 
 def compute_evm_buyer_charge(principal_units: int, fee_basis_points: int) -> int:
@@ -630,9 +609,7 @@ def build_minimum_quote(
         raise EnergyPricingError("rate is disabled")
 
     fee_model = fee_model or (
-        FeeModel.PROVIDER_DEDUCTED
-        if settlement_route == SettlementRoute.NATIVE
-        else FeeModel.BUYER_PAYS_ON_TOP
+        FeeModel.PROVIDER_DEDUCTED if settlement_route == SettlementRoute.NATIVE else FeeModel.BUYER_PAYS_ON_TOP
     )
 
     net = compute_energy_net_units(
@@ -724,9 +701,7 @@ def evaluate_quote(
     if quote.eur_per_kwh_scaled != profile.eur_per_kwh_scaled:
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "eur_per_kwh mismatch")
     if quote.profile_revision != profile.revision:
-        return _refusal(
-            quote, RefusalCode.PROFILE_MISMATCH, "profile revision mismatch"
-        )
+        return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "profile revision mismatch")
     if quote.ait_per_eur_scaled != rate.ait_per_eur_scaled:
         return _refusal(quote, RefusalCode.RATE_MISMATCH, "ait_per_eur mismatch")
     if quote.rate_version != rate.version:

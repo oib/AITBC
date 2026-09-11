@@ -347,9 +347,7 @@ def _filter_tools(
         tools = [
             t
             for t in tools
-            if pat.search(t["name"])
-            or pat.search(t["description"])
-            or any(pat.search(tag) for tag in t["tags"])
+            if pat.search(t["name"]) or pat.search(t["description"]) or any(pat.search(tag) for tag in t["tags"])
         ]
 
     if read_only:

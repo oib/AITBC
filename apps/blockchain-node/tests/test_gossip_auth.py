@@ -4,6 +4,7 @@ These tests do not require Redis or an active node; they guard the topic
 matching logic that the public websocket handler uses to decide whether a
 topic requires validator authentication.
 """
+
 from __future__ import annotations
 
 import pytest

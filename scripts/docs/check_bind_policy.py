@@ -66,7 +66,7 @@ def bind_all_services(path: Path) -> dict[str, int]:
         m = BIND_ROW_RE.match(line)
         if not m or not BIND_ALL_RE.search(m.group(2)):
             continue
-        cells = [c for c in m.group(2).split("|")]
+        cells = list(m.group(2).split("|"))
         ports = [int(p.group(1)) for c in cells if (p := PORT_CELL_RE.match(c))]
         if ports:
             found[canon(m.group(1))] = ports[0]
@@ -113,27 +113,18 @@ def main() -> int:
     new = {n: p for n, p in unauthorized.items() if p not in acknowledged}
 
     if known:
-        print(
-            f"{len(known)} known deviation(s) still binding 0.0.0.0 "
-            f"(tracked in {POLICY_DOC}):"
-        )
+        print(f"{len(known)} known deviation(s) still binding 0.0.0.0 (tracked in {POLICY_DOC}):")
         for name, port in sorted(known.items(), key=lambda kv: kv[1]):
             print(f"  - {name} ({port})")
         print()
 
     if not new:
-        print(
-            f"Checked {len(bind_all)} bind-all service(s) against {POLICY_DOC}. "
-            "No unacknowledged exposures."
-        )
+        print(f"Checked {len(bind_all)} bind-all service(s) against {POLICY_DOC}. No unacknowledged exposures.")
         return 0
 
     unauthorized = new
 
-    print(
-        f"Checked {len(bind_all)} bind-all service(s). "
-        f"{len(unauthorized)} newly unauthorized by {POLICY_DOC}:\n"
-    )
+    print(f"Checked {len(bind_all)} bind-all service(s). {len(unauthorized)} newly unauthorized by {POLICY_DOC}:\n")
     for name, port in sorted(unauthorized.items(), key=lambda kv: kv[1]):
         print(f"  {name} ({port}) binds 0.0.0.0 but is not an authorized public surface")
     print(

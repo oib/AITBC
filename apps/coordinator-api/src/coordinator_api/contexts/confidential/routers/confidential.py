@@ -77,7 +77,8 @@ def get_access_controller() -> AccessController:
 @router.post("/transactions", response_model=ConfidentialTransactionView)
 @rate_limit(rate=20, per=60)
 async def create_confidential_transaction(
-    request_http: Request, request: ConfidentialTransactionCreate,
+    request_http: Request,
+    request: ConfidentialTransactionCreate,
 ) -> ConfidentialTransactionView:
     """Create a new confidential transaction with optional encryption"""
     try:
@@ -133,7 +134,8 @@ async def create_confidential_transaction(
 @router.get("/transactions/{transaction_id}", response_model=ConfidentialTransactionView)
 @rate_limit(rate=200, per=60)
 async def get_confidential_transaction(
-    request: Request, transaction_id: str,
+    request: Request,
+    transaction_id: str,
 ) -> ConfidentialTransactionView:
     """Get confidential transaction metadata (without decrypting sensitive data)"""
     try:
@@ -259,7 +261,8 @@ async def audit_access_confidential_data(
 @router.post("/keys/register", response_model=KeyRegistrationResponse)
 @rate_limit(rate=20, per=60)
 async def register_encryption_key(
-    request: Request, request_data: KeyRegistrationRequest,
+    request: Request,
+    request_data: KeyRegistrationRequest,
 ) -> KeyRegistrationResponse:
     """Register public key for confidential transactions"""
     try:
@@ -303,7 +306,8 @@ async def register_encryption_key(
 @router.post("/keys/rotate")
 @rate_limit(rate=20, per=60)
 async def rotate_encryption_key(
-    request: Request, participant_id: str,
+    request: Request,
+    participant_id: str,
 ) -> dict[str, Any]:
     """Rotate encryption keys for participant"""
     try:
@@ -332,7 +336,8 @@ async def rotate_encryption_key(
 @router.get("/access/logs", response_model=AccessLogResponse)
 @rate_limit(rate=200, per=60)
 async def get_access_logs(
-    request: Request, query: Annotated[AccessLogQuery, Depends()],
+    request: Request,
+    query: Annotated[AccessLogQuery, Depends()],
 ) -> AccessLogResponse:
     """Get access logs for confidential transactions"""
     try:
@@ -346,7 +351,9 @@ async def get_access_logs(
 
 @router.get("/status")
 @rate_limit(rate=1000, per=60)
-async def get_confidential_status(request: Request, ) -> dict[str, Any]:
+async def get_confidential_status(
+    request: Request,
+) -> dict[str, Any]:
     """Get status of confidential transaction system"""
     try:
         km = get_key_manager()

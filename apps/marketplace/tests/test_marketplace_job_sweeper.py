@@ -6,7 +6,6 @@ from datetime import UTC, datetime, timedelta
 
 import pytest
 
-from marketplace_service.domain.marketplace import MarketplaceJob, MarketplaceJobPayment
 from marketplace_service.services.marketplace_job_sweeper import MarketplaceJobSweeper
 from marketplace_service.services.marketplace_service import MarketplaceService
 from marketplace_service.storage import get_session_context

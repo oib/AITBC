@@ -773,6 +773,8 @@ class LiquidityDistribution(ChainBase, table=True):
     reward_per_share_after: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(28, 18), default=0))
     total_staked: int = Field(default=0, sa_column=Column(BigInteger, default=0))
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
 class IPFSSubscription(ChainBase, table=True):
     """On-chain IPFS subscription for island members.
 

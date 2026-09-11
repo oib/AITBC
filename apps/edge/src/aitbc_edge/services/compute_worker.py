@@ -119,9 +119,7 @@ async def _mark_request_status(
 ) -> None:
     """Load and update the status of a compute request."""
     async with get_session() as session:
-        result = await session.execute(
-            select(ComputeRequest).where(ComputeRequest.request_id == request_id)
-        )
+        result = await session.execute(select(ComputeRequest).where(ComputeRequest.request_id == request_id))
         request = result.scalar_one_or_none()
         if request is None:
             logger.warning("Request %s not found while updating status", request_id)
@@ -139,9 +137,7 @@ async def _mark_request_status(
 async def _execute_and_store(request_id: str) -> None:
     """Execute a queued request and persist the result."""
     async with get_session() as session:
-        result = await session.execute(
-            select(ComputeRequest).where(ComputeRequest.request_id == request_id)
-        )
+        result = await session.execute(select(ComputeRequest).where(ComputeRequest.request_id == request_id))
         request = result.scalar_one_or_none()
         if request is None:
             logger.warning("Request %s not found", request_id)
@@ -197,9 +193,7 @@ async def process_queued_requests() -> int:
     """Poll the queue and process all queued requests."""
     async with get_session() as session:
         result = await session.execute(
-            select(ComputeRequest)
-            .where(ComputeRequest.status == "queued")
-            .order_by(ComputeRequest.created_at)
+            select(ComputeRequest).where(ComputeRequest.status == "queued").order_by(ComputeRequest.created_at)
         )
         queued = list(result.scalars().all())
 
