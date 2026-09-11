@@ -51,15 +51,15 @@
 | v0.11.0 | Phase 4 & 2026 Roadmap Foundations | 🚧 Planned | OpenClaw autonomous economics, decentralized AI memory/storage, developer ecosystem & DAO grants, Phase 4 criteria, compliance modules |
 | v0.12.0 | OpenClaw Autonomous Economics | 🚧 Planned | Agent wallets/escrow, performance bonds, automated rebalancing, dynamic fee market, OpenClaw DAO economic governance |
 | v0.13.0 | Mature Autonomous Economic Infrastructure | 🚧 Planned | Automated staking/rebalancing, performance bond lifecycle, provider reinvestment, risk/solvency engine, cross-chain yield, slashing appeals |
-| v0.14.1 | TEE-Backed Verification & Confidential Compute (Phase 1) | ⏸️ Deferred to v2.0 | Simulated path (`SIMULATED_TEE=1`) is live and gated; real attestation deferred until TEE hardware is available — see [Deferred to v2.0](#deferred-to-v20--hardware-backed-tee) |
-| v0.14.2 | TEE-Backed Verification & Confidential Compute (Phase 2) | ⏸️ Deferred to v2.0 | ZK+TEE dual verification, confidential transactions, healthcare/finance reference enclaves; blocked on the same hardware dependency as v0.14.1 |
+| v0.14.1 | TEE/FHE-Backed Verification & Confidential Compute (Phase 1) | ⏸️ Deferred to v2.0 | Simulated path (`SIMULATED_TEE=1`) is live and gated; real attestation and FHE inference deferred until TEE/FHE hardware is available — see [Deferred to v2.0](#deferred-to-v20--hardware-backed-tee) |
+| v0.14.2 | TEE/FHE-Backed Verification & Confidential Compute (Phase 2) | ⏸️ Deferred to v2.0 | ZK+TEE/FHE dual verification, confidential transactions, healthcare/finance reference enclaves; blocked on the same TEE/FHE hardware dependency as v0.14.1 |
 | v0.15.1 | Compliance-Ready Modules (Phase 1) | 🚧 Planned | Policy framework, data classification, encryption, immutable audit logging, HIPAA |
 | v0.15.2 | Compliance-Ready Modules (Phase 2) | 🚧 Planned | Compliance containers/sub-networks, financial regulatory module, middleware, CLI |
 | v0.16.1 | Platform Builder Tooling (Phase 1) | 🚧 Planned | CLI config tool, developer registry, DAO grants, local dev helpers, builder docs |
 | v0.16.2 | Platform Builder Tooling (Phase 2) | 🚧 Planned | SDK, SDK reference docs, white-label/plugin architecture |
 | v0.17.0 | Accessibility & Theme Engine | 🚧 Planned | Light/dark/high-contrast/system modes, reduced motion, WCAG focus, user preference persistence |
 | v1.0.0 | Production readiness | 🚧 Planned | Requires all v0.5.16–v0.10.x complete |
-| v2.0.0 | Hardware-backed TEE attestation | 🚧 Planned (no date) | Holds the deferred v0.14.1/v0.14.2 scope. Cannot start until SGX/TDX-capable hardware is available to the fleet. |
+| v2.0.0 | Hardware-backed TEE/FHE attestation and confidential compute | 🚧 Planned (no date) | Holds the deferred v0.14.1/v0.14.2 scope. Cannot start until SGX/TDX and FHE-capable hardware is available to the fleet. |
 | v0.24.0 | Hub node development special | ✅ Complete | See [v0.24.0 overview](v0.24/v0.24.0_change.log); details split into v0.24.1–v0.24.18 |
 | v0.25.0 | On-chain liquidity, sync consolidation and MCP expansion | ✅ Complete | AIT-only on-chain liquidity pool, MCP server expansion; see v0.25.0_change.log |
 | v0.25.1 | Open follow-ups and design notes | ✅ Complete | Post-v0.25.0 live-validation gaps and operational tasks; see v0.25.1_change.log |
