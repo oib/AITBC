@@ -164,9 +164,9 @@ escrow_release(job_id, actual_cost, job_tx_hash)
 
 ### Public Endpoints (aitbc3)
 
-- https://aitbc3.aitbc.bubuit.net/whisper/health|transcribe|models
-- https://aitbc3.aitbc.bubuit.net/plugin/plugins
-- https://aitbc3.aitbc.bubuit.net/peertube/health|transcode
+- https://shop.example.net/whisper/health|transcribe|models
+- https://shop.example.net/plugin/plugins
+- https://shop.example.net/peertube/health|transcode
 
 ### Nginx Configuration
 

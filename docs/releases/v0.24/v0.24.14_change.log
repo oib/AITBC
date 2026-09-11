@@ -18,7 +18,7 @@
 ## Open design-review gaps (2026-08-25)
 
 - **G3 — dispatch/acceptance-gate wiring:** the ZK fix is live, but `computation_correct` is not yet wired into the job-acceptance gate, so a bad result is correctly detected but not yet blocked. Smallest remaining piece.
-- **G6 — settlement/trust-minimization:** the two-validator consensus stall recovered 2026-08-25 after fixing `hub.aitbc`'s sync source to `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse proxy; a validator key-rotation runbook now exists. `PBFTConsensus` is still not wired into production, so the live two-validator, `min-attestations=1` setup is not BFT and can still stall if one validator is unreachable.
+- **G6 — settlement/trust-minimization:** the two-validator consensus stall recovered 2026-08-25 after fixing `hub.aitbc`'s sync source to `https://node1.example.net` and exposing `aitbc1` through the `at1` reverse proxy; a validator key-rotation runbook now exists. `PBFTConsensus` is still not wired into production, so the live two-validator, `min-attestations=1` setup is not BFT and can still stall if one validator is unreachable.
 - **G5 — dispute-ruling paths:** reject and dispute-ruling are now live-proven, not just test-covered; residual gap is smaller than previously listed.
 - **Bridge — multi-sig/Merkle enforcement:** multi-sig/Merkle verification is live-enabled on `hub.aitbc` and `aitbc3` (`bridge_release_enabled=true`, `multisig_enabled=true`, `require_merkle_proof=true`); `aitbc1` (validator/follower) still has `bridge_release_enabled=false`. Five bridge transfers remain pending and no `aitbc bridge confirm` has been run.
 - **G8 — CLI surface gate removed, consolidation still open:** the `--show-deprecated` visibility gate was removed, so `aitbc --help` now shows all 67 top-level groups (tests pass). The underlying command overlaps (`market` / `marketplace` / `operations marketplace`, `governance` / `operations governance`) remain unconsolidated and are only smoke-tested via `--help`; the G8 closure is for visibility, not consolidation.
@@ -88,7 +88,7 @@
   `multisig_enabled: true`, `require_merkle_proof: true`,
   `trusted_custodian: false`.
 - The two-validator chain **recovered** after fixing `hub.aitbc`'s sync source to
-  `https://node1.aitbc.bubuit.net` and exposing `aitbc1` through the `at1` reverse
+  `https://node1.example.net` and exposing `aitbc1` through the `at1` reverse
   proxy. All three live nodes now advance every ~60s with matching heads (e.g.
   height 14588) and each produced block carries valid cross-validator
   `block_metadata`.
