@@ -1,6 +1,6 @@
-# How to Use aitbc3's Whisper Transcription Service
+# How to Use `<node2>`'s Whisper Transcription Service
 
-aitbc3 offers GPU-accelerated speech-to-text (Whisper base, CUDA) at **0.02 AIT per audio minute**.
+`<node2>` offers GPU-accelerated speech-to-text (Whisper base, CUDA) at **0.02 AIT per audio minute**.
 
 ---
 
@@ -65,7 +65,7 @@ aitbc market transcribe sw_offer_20260603125540_49d92c3c lecture.wav \
 ## 3. What happens under the hood
 
 1. `ffprobe` measures audio duration → estimates cost
-2. Escrow locked on aitbc3's blockchain node (buyer's funds held)
+2. Escrow locked on `<node2>`'s blockchain node (buyer's funds held)
 3. Audio uploaded to `http://shop.example.net/whisper/transcribe` via nginx (GPU inference on RTX 4060 Ti)
 4. Transcript returned — actual audio duration measured
 5. Metered escrow release: `actual_minutes × 0.02 AIT` → provider wallet
@@ -73,11 +73,11 @@ aitbc market transcribe sw_offer_20260603125540_49d92c3c lecture.wav \
 
 ---
 
-## 4. Expose Whisper publicly on aitbc3 (nginx setup)
+## 4. Expose Whisper publicly on `<node2>` (nginx setup)
 
 The offer's public endpoint (`http://shop.example.net/whisper`) is defined in `deployment/nginx-aitbc.conf`.
 
-On aitbc3, after `git pull`:
+On `<node2>`, after `git pull`:
 
 ```bash
 # Install/update nginx config
@@ -112,7 +112,7 @@ aitbc market list | grep whisper
 
 Tell the hub agent:
 
-> "Use `aitbc market transcribe` with offer ID `sw_offer_20260603125540_49d92c3c` to transcribe my audio file. The provider is aitbc3 (`0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F`), running Whisper base on an RTX 4060 Ti. Price is 0.02 AIT per audio minute. Payment is metered via blockchain escrow and released automatically after transcription."
+> "Use `aitbc market transcribe` with offer ID `sw_offer_20260603125540_49d92c3c` to transcribe my audio file. The provider is `<node2>` (`0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F`), running Whisper base on an RTX 4060 Ti. Price is 0.02 AIT per audio minute. Payment is metered via blockchain escrow and released automatically after transcription."
 
 The hub can also discover the offer programmatically:
 

@@ -53,7 +53,7 @@ curl -s https://shop.example.net/api/v1/marketplace/offer | jq '.offers[0].plugi
 curl -X POST https://shop.example.net/api/v1/coordinator/v1/agent/messages/send \
   -d '{"sender":"owl-hub","recipient":"owl-aitbc3","content":"Customer inquiry: Explain quantum computing","message_type":"direct"}'
 
-# 3. Shop agent on aitbc3 receives and processes
+# 3. Shop agent on <node2> receives and processes
 # Shop polls: curl https://shop.example.net/api/v1/coordinator/v1/agent/messages/owl-aitbc3
 # Shop calls Ollama locally: curl http://localhost:11434/api/generate ...
 # Shop sends response back to customer

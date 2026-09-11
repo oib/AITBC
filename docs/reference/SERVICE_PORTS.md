@@ -9,7 +9,7 @@
 
 ## Overview
 
-This document lists the ports used by live AITBC services. Other documentation should reference this file instead of duplicating port information. Ports are taken from the current systemd unit files and application source code on `hub.aitbc` and `aitbc3`.
+This document lists the ports used by live AITBC services. Other documentation should reference this file instead of duplicating port information. Ports are taken from the current systemd unit files and application source code on `<hub-node>` and `<node2>`.
 
 ## Public services (nginx-proxied)
 

@@ -385,7 +385,7 @@ During end-to-end verification, 5 issues were found in Agent B's work and fixed:
 
 ## ✅ End-to-End Verification
 
-All 20 tasks verified working on live node (`aitbc3`):
+All 20 tasks verified working on live node (`<node2>`):
 
 | Task | Test Command | Result |
 |------|-------------|--------|

@@ -7630,7 +7630,7 @@ on `GET` handlers — a `GET` that declares a request body — which is worth a 
 ### V23-90 — a diverged follower reported health four different ways for 46 hours · CONFIRMED → RESOLVED
 
 The hub's chain database was reset to genesis on 2026-08-15 at 11:12 local. The follower on
-`aitbc3` was at height 4,211 of the chain the hub had just discarded — its last import was block
+`<node2>` was at height 4,211 of the chain the hub had just discarded — its last import was block
 4,211 at 11:12:01, and the hub's replacement block 1 is stamped 11:12:19. It stayed at 4,211
 until an operator reset it by hand 46 hours later. The journal for that window holds 2,753
 `Fork detected`, 2,787 `Block import failed`, and **zero** imported blocks.
