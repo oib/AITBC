@@ -6,7 +6,22 @@ import asyncio
 import uuid
 
 import pytest
-from redis.asyncio import Redis
+
+# Skip the module when local Redis is not reachable or requires authentication.
+_REDIS_TEST_URL = "redis://localhost:6379/0"
+try:
+    import redis as _redis_sync  # noqa: F401
+
+    _redis = _redis_sync.Redis.from_url(_REDIS_TEST_URL, socket_connect_timeout=2)
+    _redis.ping()
+    _redis.close()
+    from redis.asyncio import Redis  # noqa: E402
+except Exception:
+    pytestmark = pytest.mark.skip(
+        f"Redis at {_REDIS_TEST_URL} is not reachable or requires auth; "
+        "configure a reachable Redis instance to run these tests"
+    )
+    Redis = None  # type: ignore[assignment,misc]
 
 from sqlalchemy.ext.asyncio import AsyncSession
 

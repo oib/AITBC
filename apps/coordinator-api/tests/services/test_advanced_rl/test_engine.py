@@ -2,7 +2,14 @@
 Tests for advanced RL engine
 """
 
+try:
+    import torch
+except ImportError:
+    torch = None
+
 import pytest
+
+pytestmark = pytest.mark.skipif(torch is None, reason="torch not installed or broken")
 
 
 @pytest.mark.unit
