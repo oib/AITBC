@@ -385,8 +385,8 @@ Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated 
 
 The live network was clarified and reconfigured as five distinct hosts:
 
-- `hub` — validator
-- `hub1` (formerly `hub2`) — validator
+- `hub` — validator (this is the host formerly called `hub2`; it was promoted on 2026-09-10)
+- `hub1` — validator (this is the host formerly called `hub`; it was demoted in the same change)
 - `<node1>` — validator
 - `<node2>` — validator
 - `<node0>` — follower
