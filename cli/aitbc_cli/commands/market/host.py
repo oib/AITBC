@@ -501,7 +501,7 @@ def cancel(
     except Exception as e:
         warning(f"Local escrow refund failed (sweeper will retry): {e}")
 
-    tx_hash = refund_result.get("tx_hash") if isinstance(refund_result, dict) else None
+    tx_hash = (refund_result.get("tx_hash") or refund_result.get("refund_tx_hash")) if isinstance(refund_result, dict) else None
     if not tx_hash:
         warning(f"Escrow refund did not return a tx_hash yet (job canceled; sweeper will retry): {refund_result}")
     else:
