@@ -172,9 +172,8 @@ cat > index.html << 'EOF'
         lucide.createIcons();
 
         // RPC URL - change based on environment
-        const RPC_URL = window.location.hostname === 'localhost' ?
-            'http://localhost:8082' :
-            'http://95.216.198.140:8082';
+        // Derived from wherever this page is served -- no hardcoded host.
+        const RPC_URL = `http://${window.location.hostname}:8082`;
 
         // Global state
         let currentData = {};
