@@ -47,7 +47,7 @@ repos:
 
   # Ruff: linting and formatting (replaces Black, isort, flake8, pydocstyle, pyupgrade)
   - repo: https://github.com/astral-sh/ruff-pre-commit
-    rev: v0.11.0
+    rev: v0.15.17
     hooks:
       - id: ruff
         args: [--fix, --unsafe-fixes, --exit-non-zero-on-fix]
