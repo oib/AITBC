@@ -91,7 +91,16 @@ way the internal tier does.
 
 The daemon writes these into the IPFS config itself
 (`apps/ipfs/island_ipfs_daemon.py`). Swarm binds all interfaces by design -- it
-needs inbound peers -- and also listens on UDP 4002 for QUIC.
+needs inbound peers.
+
+**TCP only, despite what the config says.** The daemon writes QUIC entries into
+`Addresses.Swarm` and runs with `IPFS_FORCE_PNET=1`, but Kubo does not support
+QUIC on a private network: it drops those transports without an error, so
+nothing ever binds UDP 4002. `ipfs swarm addrs listen` shows only
+`/ip4/<addr>/tcp/4002`. Do not announce a `udp/.../quic-v1` address for an
+island node and do not open UDP 4002 on a perimeter -- there is nothing behind
+it. The QUIC entries are left in place so they take effect if the private
+network is ever lifted.
 
 Binding `0.0.0.0` is not enough on its own. A node behind NAT or a container
 port-forward only sees its own private address, so with `Addresses.Announce`
