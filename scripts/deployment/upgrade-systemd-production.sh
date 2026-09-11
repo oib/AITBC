@@ -111,7 +111,7 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=aitbc
-Environment=MARKETPLACE_PORT=8002
+Environment=MARKETPLACE_PORT=8102
 Environment=WORKERS=4
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
@@ -294,8 +294,6 @@ ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/
 ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-marketplace.service"
 ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-production-monitor.service"
 
-# Update ports for ${NODE1_HOST}
-ssh ${NODE1_HOST} "sed -i 's/MARKETPLACE_PORT=8002/MARKETPLACE_PORT=8004/g' /opt/aitbc/systemd/aitbc-marketplace.service"
 
 # Deploy and start services on ${NODE1_HOST}
 echo "Starting services on aitbc1..."
@@ -337,12 +335,10 @@ echo ""
 echo "✅ Service Endpoints:"
 echo "   • aitbc (localhost):"
 echo "     - Blockchain: SystemD managed"
-echo "     - Marketplace: http://localhost:8002"
-echo "     - Marketplace GPU: http://localhost:8007"
+echo "     - Marketplace: http://localhost:8102"
 echo "   • ${NODE1_HOST} (remote):"
 echo "     - Blockchain: SystemD managed"
-echo "     - Marketplace: http://${NODE1_HOST}:8004"
-echo "     - Marketplace GPU: http://${NODE1_HOST}:8008"
+echo "     - Marketplace: http://${NODE1_HOST}:8102"
 echo ""
 echo "✅ Monitoring:"
 echo "   • SystemD journal: journalctl -u aitbc-*"

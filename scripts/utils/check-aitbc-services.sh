@@ -64,7 +64,7 @@ if [ -n "$local_services" ]; then
             port_info=""
             case $service_name in
                 *coordinator-api*) port_info=" (port 8001)" ;;
-                *wallet*) port_info=" (port 8002)" ;;
+                *wallet*) port_info=" (port 8108)" ;;
                 *blockchain*) port_info=" (port 8003)" ;;
             esac
             print_success "  ✅ $service_name: RUNNING$port_info"
@@ -95,7 +95,7 @@ for container in "${containers[@]}"; do
                         port_info=""
                         case $service in
                             *coordinator-api*) port_info=" (port 8001)" ;;
-                            *wallet*) port_info=" (port 8002)" ;;
+                            *wallet*) port_info=" (port 8108)" ;;
                             *blockchain*) port_info=" (port 8003)" ;;
                         esac
                         print_success "    ✅ $service: RUNNING$port_info"
@@ -117,7 +117,7 @@ done
 
 # Port scan summary
 print_status "Port Scan Summary:"
-ports=("8001:Coordinator API" "8002:Wallet Daemon" "8003:Blockchain RPC" "8203:Coordinator API (alt)")
+ports=("8203:Coordinator API" "8108:Wallet Daemon" "8202:Blockchain RPC")
 
 for port_info in "${ports[@]}"; do
     port=$(echo "$port_info" | cut -d: -f1)

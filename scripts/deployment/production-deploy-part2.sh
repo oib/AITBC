@@ -52,7 +52,7 @@ fi
 
 # Start marketplace service on aitbc
 echo "Starting marketplace service on aitbc..."
-export MARKETPLACE_PORT=8002
+export MARKETPLACE_PORT=8102
 nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace.log 2>&1 &
 MARKETPLACE_PID=$!
 echo "✅ Marketplace service started on aitbc (PID: $MARKETPLACE_PID)"
@@ -84,7 +84,7 @@ fi
 
 # Start marketplace service on ${NODE1_HOST}
 echo "Starting marketplace service on aitbc1..."
-ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && export MARKETPLACE_PORT=8003 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_aitbc1.log 2>&1 &"
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && export MARKETPLACE_PORT=8102 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_aitbc1.log 2>&1 &"
 
 echo "✅ Production services deployed to ${NODE1_HOST}"
 
@@ -188,8 +188,8 @@ echo -e "${GREEN}🎉 PRODUCTION DEPLOYMENT COMPLETED!${NC}"
 echo "=================================="
 echo ""
 echo "✅ Production services deployed to both nodes:"
-echo "   • aitbc (localhost): Blockchain + Marketplace (port 8002)"
-echo "   • ${NODE1_HOST} (remote): Blockchain + Marketplace (port 8003)"
+echo "   • aitbc (localhost): Blockchain + Marketplace (port 8102)"
+echo "   • ${NODE1_HOST} (remote): Blockchain + Marketplace (port 8102)"
 echo ""
 echo "✅ Production features:"
 echo "   • Real database persistence"
@@ -205,8 +205,8 @@ echo ""
 echo -e "${BLUE}🚀 Production system ready for real workloads!${NC}"
 echo ""
 echo "📊 Service URLs:"
-echo "   • aitbc marketplace: http://localhost:8002"
-echo "   • ${NODE1_HOST} marketplace: http://${NODE1_HOST}:8003"
+echo "   • aitbc marketplace: http://localhost:8102"
+echo "   • ${NODE1_HOST} marketplace: http://${NODE1_HOST}:8102"
 echo ""
 echo "📋 Logs:"
 echo "   • Blockchain: /opt/aitbc/production/logs/blockchain/"
