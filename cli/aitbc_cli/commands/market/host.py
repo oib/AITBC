@@ -15,7 +15,6 @@ import click
 from ...config import get_config
 from ...utils import OUTPUT_FORMAT_OPTION, error, info, output, success, warning
 from ...utils.address import to_canonical
-from ...utils.chain_id import get_chain_id
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.output import resolve_output_format as _resolve_output_format
 from ..ipfs import (
@@ -28,7 +27,7 @@ from ..ipfs import (
     _ipfs_swarm_connect,
     _is_cid,
 )
-from . import get_market_wallet, market
+from . import get_chain_id, get_market_wallet, market
 from .escrow import _escrow_create
 from .jobs import _resolve_offer, _track_coordinator_job
 
@@ -368,7 +367,7 @@ def host(
 @click.option("--access-key", "access_key", help="Rental access key")
 @click.option("--access-secret", "access_secret", help="Rental access secret")
 @click.option("--cid", "cid", help="Free CID retrieval (bypasses access token)")
-@click.option("--output", type=click.Path(), help="Write retrieved content to this path")
+@click.option("--output", "output_path", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
@@ -378,7 +377,7 @@ def download(
     access_key: str | None,
     access_secret: str | None,
     cid: str | None,
-    output: str | None,
+    output_path: str | None,
     wait: bool,
     output_format: str,
 ):
@@ -432,7 +431,7 @@ def download(
     except Exception as e:
         warning(f"Could not retrieve CID {cid}: {e}")
 
-    if data is None and not output:
+    if data is None and not output_path:
         error(f"CID not retrievable and no filesystem fallback: {cid}")
         raise click.Abort()
 
@@ -440,8 +439,8 @@ def download(
         error(f"Could not retrieve CID {cid}")
         raise click.Abort()
 
-    if output:
-        out_path = Path(output)
+    if output_path:
+        out_path = Path(output_path)
         out_path.write_bytes(data)
         file_path = str(out_path)
     else:
