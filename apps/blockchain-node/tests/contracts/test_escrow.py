@@ -349,7 +349,6 @@ class TestEscrowManager:
         assert "total_amount" in stats
         assert stats["total_contracts"] >= 5
 
-
     def test_protected_contract_release_enforces_floor(self):
         """Protected fixed-duration rentals pay the provider the frozen credit."""
         amount = Decimal("0.20307694")
