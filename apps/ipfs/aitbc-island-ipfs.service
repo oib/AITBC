@@ -19,6 +19,9 @@ Environment="ISLAND_IPFS_BOOTSTRAP="
 # or NAT only sees its private address and would otherwise advertise that.
 Environment="ISLAND_IPFS_ANNOUNCE="
 Environment="IPFS_TELEMETRY=off"
+# The wrapper reformats Kubo's output line by line; without this Python block-
+# buffers stdout and the journal stays empty until the buffer fills.
+Environment="PYTHONUNBUFFERED=1"
 EnvironmentFile=-/etc/aitbc/%N.env
 WorkingDirectory=/opt/aitbc/apps/ipfs
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/island_ipfs_daemon.py
