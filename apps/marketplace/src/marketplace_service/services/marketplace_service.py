@@ -3,8 +3,10 @@ Marketplace service for managing marketplace operations
 """
 
 import time
+from datetime import datetime
 from decimal import Decimal
 from typing import Any
+from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
@@ -15,7 +17,7 @@ from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus
 from aitbc.utils.units import ait_to_units
 
 from ..config import settings
-from ..domain.marketplace import Bid, MarketplaceOffer, ServiceRating, SoftwareService
+from ..domain.marketplace import Bid, MarketplaceJob, MarketplaceJobPayment, MarketplaceOffer, ServiceRating, SoftwareService
 from ..domain.offer_status import spellings_of, to_offer_status
 
 logger = get_logger(__name__)
@@ -485,7 +487,7 @@ class MarketplaceService:
                 for key, value in data.items():
                     if hasattr(existing, key) and value is not None:
                         setattr(existing, key, value)
-                existing.updated_at = datetime.now(UTC)
+                existing.updated_at = datetime.utcnow()
                 await self.session.commit()
                 await self.session.refresh(existing)
                 logger.info("Updated software service: %s", plugin_id)
@@ -719,7 +721,7 @@ class MarketplaceService:
             result = await self.session.execute(stmt)
             ratings = result.scalars().all()
             for rating in ratings:
-                rating.synced_at = datetime.now(UTC)
+                rating.synced_at = datetime.utcnow()
             await self.session.commit()
             logger.info("Marked %s ratings as synced", len(ratings))
             return len(ratings)
@@ -749,7 +751,7 @@ class MarketplaceService:
                     if remote_created > existing.created_at:
                         existing.rating = remote_rating["rating"]
                         existing.comment = remote_rating["comment"]
-                        existing.synced_at = datetime.now(UTC)
+                        existing.synced_at = datetime.utcnow()
                         updated_count += 1
                     else:
                         skipped_count += 1
@@ -761,7 +763,7 @@ class MarketplaceService:
                         reviewer_id=remote_rating["reviewer_id"],
                         comment=remote_rating["comment"],
                         created_at=datetime.fromisoformat(remote_rating["created_at"]),
-                        synced_at=datetime.now(UTC),
+                        synced_at=datetime.utcnow(),
                         source_node=remote_rating.get("source_node", "remote"),
                     )
                     self.session.add(new_rating)
@@ -993,16 +995,16 @@ class MarketplaceService:
                     existing.pinned = bool(data["pinned"])
                 if "expires_at" in data:
                     existing.expires_at = data["expires_at"]
-                existing.updated_at = datetime.now(UTC)
+                existing.updated_at = datetime.utcnow()
                 await self.session.commit()
                 await self.session.refresh(existing)
                 logger.info("Updated IPFS rental token: %s", access_key)
                 return self._ipfs_token_to_dict(existing)
             token = IpfsRentalToken(**data)
             if not token.created_at:
-                token.created_at = datetime.now(UTC)
+                token.created_at = datetime.utcnow()
             if not token.updated_at:
-                token.updated_at = datetime.now(UTC)
+                token.updated_at = datetime.utcnow()
             self.session.add(token)
             await self.session.commit()
             await self.session.refresh(token)
@@ -1033,7 +1035,7 @@ class MarketplaceService:
             if token.status != "active":
                 return None
             # Compare naive UTC datetimes; SQLite returns naive values.
-            if token.expires_at and token.expires_at < datetime.now(UTC).replace(tzinfo=None):
+            if token.expires_at and token.expires_at < datetime.utcnow().replace(tzinfo=None):
                 token.status = "expired"
                 await self.session.commit()
                 return None
@@ -1062,3 +1064,476 @@ class MarketplaceService:
             "created_at": token.created_at.isoformat() if token.created_at else None,
             "expires_at": token.expires_at.isoformat() if token.expires_at else None,
         }
+
+    # -------------------------------------------------------------------------
+    # MarketplaceJob / MarketplaceJobPayment (v0.25.7 first-class IPFS)
+    # -------------------------------------------------------------------------
+
+    def _job_to_dict(self, job: MarketplaceJob) -> dict[str, Any]:
+        """Serialize a MarketplaceJob."""
+        return {
+            "job_id": job.id,
+            "client_id": job.client_id,
+            "client_ref": job.client_ref,
+            "offer_id": job.offer_id,
+            "plugin_id": job.plugin_id,
+            "service_type": job.service_type,
+            "model": job.model,
+            "buyer_address": job.buyer_address,
+            "provider_address": job.provider_address,
+            "state": job.state,
+            "payload": job.payload,
+            "constraints": job.constraints,
+            "ttl_seconds": job.ttl_seconds,
+            "requested_at": job.requested_at.isoformat() if job.requested_at else None,
+            "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "error": job.error,
+            "result": job.result,
+            "receipt": job.receipt,
+            "access_key": job.access_key,
+            "payment_id": job.payment_id,
+            "payment_status": job.payment_status,
+            "payment_amount": str(job.payment_amount) if job.payment_amount is not None else None,
+            "payment_token": job.payment_token,
+            "escrow_contract_id": job.escrow_contract_id,
+            "tx_hash": job.tx_hash,
+            "refund_tx_hash": job.refund_tx_hash,
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+        }
+
+    def _payment_to_dict(self, payment: MarketplaceJobPayment) -> dict[str, Any]:
+        """Serialize a MarketplaceJobPayment."""
+        return {
+            "payment_id": payment.id,
+            "job_id": payment.job_id,
+            "amount": str(payment.amount),
+            "currency": payment.currency,
+            "status": payment.status,
+            "payment_method": payment.payment_method,
+            "escrow_address": payment.escrow_address,
+            "refund_address": payment.refund_address,
+            "transaction_hash": payment.transaction_hash,
+            "refund_transaction_hash": payment.refund_transaction_hash,
+            "created_at": payment.created_at.isoformat() if payment.created_at else None,
+            "updated_at": payment.updated_at.isoformat() if payment.updated_at else None,
+            "escrowed_at": payment.escrowed_at.isoformat() if payment.escrowed_at else None,
+            "released_at": payment.released_at.isoformat() if payment.released_at else None,
+            "refunded_at": payment.refunded_at.isoformat() if payment.refunded_at else None,
+            "expires_at": payment.expires_at.isoformat() if payment.expires_at else None,
+            "meta_data": payment.meta_data,
+        }
+
+    # Reuse _parse_iso_dt from the IPFS rental token helpers above.
+
+    async def create_marketplace_job(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a MarketplaceJob and MarketplaceJobPayment for a software job."""
+        try:
+            # Canonicalize addresses at creation so the DB always stores 0x EIP-55.
+            for addr_field in ("buyer_address", "provider_address"):
+                if data.get(addr_field):
+                    data[addr_field] = canonical_address(str(data[addr_field]))
+
+            job_id = data.get("id") or uuid4().hex
+            if not job_id:
+                raise ValueError("job_id is required")
+
+            # Normalize timestamps
+            for field in ("requested_at", "expires_at", "created_at", "updated_at"):
+                if field in data:
+                    data[field] = self._parse_iso_dt(data[field])
+
+            job = MarketplaceJob(**data)
+            job.id = job_id
+            if not job.requested_at:
+                job.requested_at = datetime.utcnow()
+            if not job.created_at:
+                job.created_at = datetime.utcnow()
+            if not job.updated_at:
+                job.updated_at = datetime.utcnow()
+
+            payment_data = data.get("payment") or {}
+            payment = MarketplaceJobPayment(
+                id=payment_data.get("id") or uuid4().hex,
+                job_id=job.id,
+                amount=Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0)))),
+                currency=payment_data.get("currency", "AITBC"),
+                status=payment_data.get("status", "pending"),
+                payment_method=payment_data.get("payment_method", "aitbc_token"),
+                escrow_address=payment_data.get("escrow_address"),
+                refund_address=payment_data.get("refund_address"),
+                transaction_hash=payment_data.get("transaction_hash"),
+                meta_data=payment_data.get("meta_data"),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                escrowed_at=payment_data.get("escrowed_at") and self._parse_iso_dt(payment_data["escrowed_at"]) or None,
+                expires_at=job.expires_at,
+            )
+
+            job.access_key = (job.payload or {}).get("access_key")
+            job.payment_id = payment.id
+            job.payment_amount = payment.amount
+            job.payment_status = payment.status
+
+            self.session.add(job)
+            self.session.add(payment)
+            await self.session.commit()
+            await self.session.refresh(job)
+            await self.session.refresh(payment)
+
+            logger.info("Created marketplace job %s", job.id)
+            return {
+                **self._job_to_dict(job),
+                "payment": self._payment_to_dict(payment),
+            }
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in create_marketplace_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def get_marketplace_job(self, job_id: str) -> dict[str, Any] | None:
+        """Get a MarketplaceJob by ID, including its payment."""
+        from sqlalchemy import select
+
+        try:
+            job = await self.session.get(MarketplaceJob, job_id)
+            if not job:
+                return None
+
+            payment: MarketplaceJobPayment | None = None
+            if job.payment_id:
+                payment = await self.session.get(MarketplaceJobPayment, job.payment_id)
+
+            return {
+                **self._job_to_dict(job),
+                "payment": self._payment_to_dict(payment) if payment else None,
+            }
+        except Exception as e:
+            logger.error("Error in get_marketplace_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def list_marketplace_jobs(
+        self,
+        buyer_address: str | None = None,
+        provider_address: str | None = None,
+        service_type: str | None = None,
+        state: str | None = None,
+        offer_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List marketplace jobs with optional filters."""
+        from sqlalchemy import select
+
+        try:
+            stmt = select(MarketplaceJob)
+            if buyer_address:
+                stmt = stmt.where(MarketplaceJob.buyer_address == canonical_address(buyer_address))
+            if provider_address:
+                stmt = stmt.where(MarketplaceJob.provider_address == canonical_address(provider_address))
+            if service_type:
+                stmt = stmt.where(MarketplaceJob.service_type == service_type)
+            if state:
+                stmt = stmt.where(MarketplaceJob.state == state)
+            if offer_id:
+                stmt = stmt.where(MarketplaceJob.offer_id == offer_id)
+            stmt = stmt.order_by(MarketplaceJob.created_at.desc()).limit(limit)
+
+            result = await self.session.execute(stmt)
+            jobs = list(result.scalars().all())
+
+            out = []
+            for job in jobs:
+                payment = None
+                if job.payment_id:
+                    payment = await self.session.get(MarketplaceJobPayment, job.payment_id)
+                out.append(
+                    {
+                        **self._job_to_dict(job),
+                        "payment": self._payment_to_dict(payment) if payment else None,
+                    }
+                )
+            return out
+        except Exception as e:
+            logger.error("Error in list_marketplace_jobs: %s: %s", type(e).__name__, e)
+            raise
+
+    async def cancel_marketplace_job(self, job_id: str, reason: str = "") -> dict[str, Any]:
+        """Cancel a marketplace job and mark its payment for refund."""
+        try:
+            job = await self.session.get(MarketplaceJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            if job.state in {"CANCELED", "REFUNDED", "RELEASED", "COMPLETED"}:
+                return self._job_to_dict(job)
+
+            job.state = "CANCELED"
+            job.error = reason or "buyer_requested"
+            job.updated_at = datetime.utcnow()
+
+            payment = None
+            if job.payment_id:
+                payment = await self.session.get(MarketplaceJobPayment, job.payment_id)
+                if payment and payment.status == "escrowed":
+                    payment.status = "refund_pending"
+                    payment.updated_at = datetime.utcnow()
+                    self.session.add(payment)
+
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in cancel_marketplace_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def confirm_marketplace_job_pin(
+        self,
+        job_id: str,
+        size: int | None = None,
+        pin_tx_hash: str | None = None,
+        provider_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        """Confirm a job has been pinned and optionally transition to RUNNING."""
+        try:
+            job = await self.session.get(MarketplaceJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            if job.state not in {"QUEUED", "RUNNING"}:
+                return self._job_to_dict(job)
+
+            if job.payload is None:
+                job.payload = {}
+            job.payload["pinned"] = True
+            if size is not None:
+                job.payload["size"] = size
+            if pin_tx_hash:
+                job.payload["pin_tx_hash"] = pin_tx_hash
+            if provider_confirmed:
+                job.payload["provider_confirmed"] = True
+
+            job.state = "RUNNING"
+            job.updated_at = datetime.utcnow()
+
+            payment = None
+            if job.payment_id:
+                payment = await self.session.get(MarketplaceJobPayment, job.payment_id)
+                if payment and payment.status == "pending":
+                    payment.status = "escrowed"
+                    payment.escrowed_at = datetime.utcnow()
+                    payment.updated_at = datetime.utcnow()
+                    self.session.add(payment)
+
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in confirm_marketplace_job_pin: %s: %s", type(e).__name__, e)
+            raise
+
+    async def release_marketplace_job_payment(self, job_id: str) -> dict[str, Any]:
+        """Release the escrow for a completed marketplace job."""
+        try:
+            job = await self.session.get(MarketplaceJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            payment: MarketplaceJobPayment | None = None
+            if job.payment_id:
+                payment = await self.session.get(MarketplaceJobPayment, job.payment_id)
+
+            if not job.escrow_contract_id:
+                raise ValueError(f"Job {job_id} has no escrow_contract_id")
+
+            result = await self._rpc_client.release_escrow(job.escrow_contract_id)
+            if result and result.get("success"):
+                tx_hash = str(result.get("tx_hash", ""))
+                job.state = "RELEASED"
+                job.payment_status = "released"
+                job.tx_hash = tx_hash
+                job.updated_at = datetime.utcnow()
+
+                if payment:
+                    payment.status = "released"
+                    payment.transaction_hash = tx_hash
+                    payment.released_at = datetime.utcnow()
+                    payment.updated_at = datetime.utcnow()
+                    self.session.add(payment)
+
+                self.session.add(job)
+                await self.session.commit()
+                await self.session.refresh(job)
+
+                return self._job_to_dict(job)
+
+            raise ValueError(f"Escrow release failed for job {job_id}: {result}")
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in release_marketplace_job_payment: %s: %s", type(e).__name__, e)
+            raise
+
+    async def refund_marketplace_job_payment(self, job_id: str, reason: str = "") -> dict[str, Any]:
+        """Refund the escrow for a failed or canceled marketplace job."""
+        try:
+            job = await self.session.get(MarketplaceJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            payment: MarketplaceJobPayment | None = None
+            if job.payment_id:
+                payment = await self.session.get(MarketplaceJobPayment, job.payment_id)
+
+            if not job.escrow_contract_id:
+                raise ValueError(f"Job {job_id} has no escrow_contract_id")
+
+            result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
+            if result and result.get("success"):
+                tx_hash = str(result.get("tx_hash", ""))
+                job.state = "REFUNDED"
+                job.payment_status = "refunded"
+                job.refund_tx_hash = tx_hash
+                job.error = reason or job.error
+                job.updated_at = datetime.utcnow()
+
+                if payment:
+                    payment.status = "refunded"
+                    payment.refund_transaction_hash = tx_hash
+                    payment.refunded_at = datetime.utcnow()
+                    payment.updated_at = datetime.utcnow()
+                    self.session.add(payment)
+
+                self.session.add(job)
+                await self.session.commit()
+                await self.session.refresh(job)
+
+                return self._job_to_dict(job)
+
+            raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in refund_marketplace_job_payment: %s: %s", type(e).__name__, e)
+            raise
+
+    async def get_marketplace_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
+        """Validate an access token and return the job details."""
+        from sqlalchemy import select
+
+        try:
+            stmt = select(MarketplaceJob).where(MarketplaceJob.access_key == access_key)
+            result = await self.session.execute(stmt)
+            job = result.scalar_one_or_none()
+            if not job:
+                return None
+
+            if (job.payload or {}).get("access_secret") != access_secret:
+                return None
+
+            if job.state in {"CANCELED", "REFUNDED", "FAILED"}:
+                return None
+
+            if job.expires_at and job.expires_at < datetime.utcnow():
+                job.state = "EXPIRED"
+                await self.session.commit()
+                return None
+
+            return {
+                "job_id": job.id,
+                "cid": job.payload.get("cid"),
+                "ipfs_api": job.payload.get("ipfs_api"),
+                "public_endpoint": job.payload.get("public_endpoint"),
+                "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+                "size": job.payload.get("size"),
+            }
+        except Exception as e:
+            logger.error("Error in get_marketplace_job_access_token: %s: %s", type(e).__name__, e)
+            raise
+
+    async def get_marketplace_job_usage(self, buyer_address: str, offer_id: str) -> int:
+        """Return the total bytes of active IPFS storage for a buyer/offer pair."""
+        from sqlalchemy import select
+
+        try:
+            stmt = (
+                select(MarketplaceJob)
+                .where(MarketplaceJob.buyer_address == canonical_address(buyer_address))
+                .where(MarketplaceJob.offer_id == offer_id)
+                .where(MarketplaceJob.service_type == "ipfs")
+                .where(MarketplaceJob.state.in_({"QUEUED", "RUNNING"}))
+            )
+            result = await self.session.execute(stmt)
+            jobs = list(result.scalars().all())
+            return sum(int(j.payload.get("size", 0) or 0) for j in jobs)
+        except Exception as e:
+            logger.error("Error in get_marketplace_job_usage: %s: %s", type(e).__name__, e)
+            raise
+
+    async def check_software_offer_health(self, plugin_id: str) -> dict[str, Any]:
+        """Check the health of a software offer."""
+        from sqlalchemy import select
+
+        try:
+            stmt = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
+            result = await self.session.execute(stmt)
+            service = result.scalar_one_or_none()
+            if not service:
+                raise ValueError(f"Service not found: {plugin_id}")
+
+            health_url = service.health_url or ""
+            if not health_url:
+                return {"healthy": False, "reason": "no health_url configured"}
+
+            if service.service_type == "ipfs" and "api/v0/version" in health_url:
+                try:
+                    import httpx
+
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.post(health_url)
+                        resp.raise_for_status()
+                        data = resp.json()
+
+                    peer_id = data.get("ID") or data.get("PeerID") or data.get("id") or ""
+                    version = data.get("Version") or data.get("version") or ""
+
+                    pinned_count = None
+                    try:
+                        pin_url = health_url.replace("/api/v0/version", "/api/v0/pin/ls")
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            pin_resp = await client.post(pin_url, params={"stream": "true"}, timeout=10.0)
+                            if pin_resp.status_code == 200:
+                                pins = [line for line in pin_resp.text.splitlines() if line.strip()]
+                                pinned_count = len(pins)
+                    except Exception:
+                        pass
+
+                    return {
+                        "healthy": True,
+                        "service_type": "ipfs",
+                        "version": version,
+                        "peer_id": peer_id,
+                        "pinned_count": pinned_count,
+                        "disk_usage_bytes": None,
+                        "quota_mb": service.disk_quota_mb,
+                    }
+                except Exception as e:
+                    return {"healthy": False, "service_type": "ipfs", "reason": str(e)}
+
+            # Generic HTTP health for other services
+            try:
+                import httpx
+
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(health_url)
+                    resp.raise_for_status()
+                return {"healthy": True, "service_type": service.service_type, "status_code": resp.status_code}
+            except Exception as e:
+                return {"healthy": False, "service_type": service.service_type, "reason": str(e)}
+        except Exception as e:
+            logger.error("Error in check_software_offer_health: %s: %s", type(e).__name__, e)
+            raise

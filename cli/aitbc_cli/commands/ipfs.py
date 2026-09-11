@@ -10,11 +10,9 @@ from __future__ import annotations
 import hashlib
 import json
 import os
-import secrets
 import sys
 import tempfile
-import uuid
-from datetime import UTC, datetime, timedelta
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
@@ -28,13 +26,11 @@ from aitbc.crypto.crypto import sign_transaction_hash
 
 from ..config import _resolve_api_key, get_config
 from ..utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, success, warning
-from ..utils.address import to_canonical
 from ..utils.chain_id import get_chain_id
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ..utils.output import resolve_output_format
 from ..utils.wallet import decrypt_private_key
-from ..utils.wallet_loader import load_wallet_for_payment
 from ..utils.wallet_paths import wallet_dir
 from .transactions import _send_transaction_impl
 
@@ -79,6 +75,22 @@ def _make_cid_path(cid: str) -> Path:
     return IPFS_DIR / cid
 
 
+def _hub_marketplace_client(timeout: int = 15) -> AITBCHTTPClient:
+    """Return an HTTP client for the hub marketplace service (shared with market commands)."""
+    config = get_config()
+    if config.marketplace_service_url and not config.marketplace_service_url.startswith("http://127.0.0.1"):
+        return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=timeout)
+    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    if hub_host.startswith(("http://", "https://")):
+        hub_url = hub_host.rstrip("/")
+    elif "localhost" in hub_host or "127.0.0.1" in hub_host:
+        hub_url = f"http://{hub_host}"
+    else:
+        # Public hubs are exposed over HTTPS unless the env explicitly says http://
+        hub_url = f"https://{hub_host}"
+    return AITBCHTTPClient(base_url=hub_url, timeout=timeout)
+
+
 def _daemon_available(ipfs_api: str = IPFS_API) -> bool:
     try:
         requests.post(f"{ipfs_api}/api/v0/id", timeout=2)
@@ -93,35 +105,18 @@ def _api_post(path: str, **kwargs: Any) -> requests.Response:
     return requests.post(f"{ipfs_api}{path}", timeout=timeout, **kwargs)
 
 
-# ---------------------------------------------------------------------------
-# IPFS rental storage
-# ---------------------------------------------------------------------------
-
-
-def _rentals_path() -> Path:
-    path = Path.home() / ".aitbc" / "ipfs_rentals.json"
-    path.parent.mkdir(parents=True, exist_ok=True)
-    return path
-
-
-def _load_rentals() -> list[dict[str, Any]]:
-    path = _rentals_path()
-    if not path.exists():
-        return []
-    try:
-        return cast(list, json.loads(path.read_text()))
-    except (json.JSONDecodeError, OSError):
-        return []
-
-
-def _save_rentals(rentals: list[dict[str, Any]]) -> None:
-    _rentals_path().write_text(json.dumps(rentals, indent=2))
-
-
-def _save_rental(rental: dict[str, Any]) -> None:
-    rentals = _load_rentals()
-    rentals.append(rental)
-    _save_rentals(rentals)
+def _is_cid(value: str) -> bool:
+    """Return True if value looks like an IPFS CID (v0 or v1)."""
+    value = value.strip()
+    if not value:
+        return False
+    # CIDv0 starts with Qm and is base58 (roughly 46 chars).
+    if value.startswith("Qm") and len(value) >= 46:
+        return True
+    # CIDv1 starts with bafy, bafk, bafz, etc.
+    if value.startswith("baf") and len(value) >= 59:
+        return True
+    return False
 
 
 def _ipfs_add_file(ipfs_api: str, file_path: Path) -> str | None:
@@ -189,21 +184,6 @@ def _ipfs_object_size(ipfs_api: str, cid: str) -> int | None:
     return None
 
 
-def _active_customer_ipfs_usage(buyer_address: str, offer_id: str) -> int:
-    """Sum the stored size of active rentals for the same buyer/offer."""
-    total = 0
-    for rental in _load_rentals():
-        if (
-            rental.get("buyer_address") == buyer_address
-            and rental.get("offer_id") == offer_id
-            and rental.get("status") == "active"
-        ):
-            size = rental.get("size")
-            if size:
-                total += int(size)
-    return total
-
-
 def _ipfs_swarm_connect(ipfs_api: str, multiaddr: str) -> bool:
     """Attempt to connect the local IPFS daemon to a provider multiaddr."""
     try:
@@ -217,34 +197,6 @@ def _ipfs_swarm_connect(ipfs_api: str, multiaddr: str) -> bool:
     except Exception as e:
         warning(f"Could not swarm connect to {multiaddr}: {e}")
         return False
-
-
-def _hub_marketplace_client(timeout: int = 15) -> AITBCHTTPClient:
-    """Return an HTTP client for the hub marketplace service."""
-    config = get_config()
-    if config.marketplace_service_url and not config.marketplace_service_url.startswith("http://127.0.0.1"):
-        return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=timeout)
-    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
-    if hub_host.startswith(("http://", "https://")):
-        hub_url = hub_host.rstrip("/")
-    elif "localhost" in hub_host or "127.0.0.1" in hub_host:
-        hub_url = f"http://{hub_host}"
-    else:
-        # Public hubs are exposed over HTTPS unless the env explicitly says http://
-        hub_url = f"https://{hub_host}"
-    return AITBCHTTPClient(base_url=hub_url, timeout=timeout)
-
-
-def _lookup_ipfs_rental(access_key: str, access_secret: str) -> dict[str, Any] | None:
-    """Validate an access token against the hub marketplace service."""
-    try:
-        client = _hub_marketplace_client()
-        result = client.get(f"/v1/marketplace/ipfs/rental/{access_key}", params={"access_secret": access_secret})
-        if result and not result.get("error"):
-            return result
-    except NetworkError as e:
-        logger.warning("Could not validate IPFS rental token on hub: %s", e)
-    return None
 
 
 @click.group(
@@ -339,9 +291,9 @@ def upload(ctx, file: str, pin: bool, name: str | None):
 @click.option("--cid", "cid", required=False, help="The Cid.")
 @click.option("--output", type=click.Path(), help="Write retrieved content to this path")
 @click.option("--wait", is_flag=True, default=False, help="Wait for the CID to become available on the network")
-@click.option("--access-key", help="Rental access key (looks up CID from hub)")
-@click.option("--access-secret", help="Rental access secret")
-@click.option("--rental-id", help="Local rental ID (looks up CID and validates access)")
+@click.option("--access-key", help="Deprecated; use `aitbc market download` instead")
+@click.option("--access-secret", help="Deprecated; use `aitbc market download` instead")
+@click.option("--rental-id", help="Deprecated; use `aitbc market download` instead")
 @click.pass_context
 def download(
     ctx,
@@ -352,36 +304,9 @@ def download(
     access_secret: str | None,
     rental_id: str | None,
 ):
-    """Download content by CID, access key, or rental ID and optionally write it to a file."""
-    rental: dict[str, Any] | None = None
-    token: dict[str, Any] | None = None
-
-    if rental_id:
-        rental = next((r for r in _load_rentals() if r.get("rental_id") == rental_id), None)
-        if not rental:
-            error(f"Rental '{rental_id}' not found")
-            raise click.Abort()
-        if rental.get("status") != "active":
-            error(f"Rental '{rental_id}' is not active")
-            raise click.Abort()
-        expires = rental.get("expires_at")
-        if expires and datetime.fromisoformat(expires) < datetime.now(UTC):
-            error(f"Rental '{rental_id}' has expired")
-            raise click.Abort()
-        cid = rental.get("cid")
-        if not cid:
-            error(f"Rental '{rental_id}' has no CID")
-            raise click.Abort()
-
-    if access_key and access_secret:
-        token = _lookup_ipfs_rental(access_key, access_secret)
-        if not token:
-            error("Invalid, expired, or unknown IPFS rental token")
-            raise click.Abort()
-        cid = token.get("cid")
-        if not cid:
-            error("Token has no CID")
-            raise click.Abort()
+    """Download content by CID and optionally write it to a file."""
+    if rental_id or access_key or access_secret:
+        warning("Paid IPFS retrieval has moved to `aitbc market download`.")
 
     if not cid:
         error("Provide a CID, --rental-id, or --access-key/--access-secret")
@@ -520,300 +445,9 @@ def list_items(ctx):
 
 
 # ---------------------------------------------------------------------------
-# Paid IPFS hosting rental commands
+# Paid IPFS hosting commands have moved to `aitbc market host`.
+# Free/local IPFS helpers remain here for upload, pin, list, and download.
 # ---------------------------------------------------------------------------
-
-
-@ipfs.command(
-    name="host",
-    epilog="""Examples:
-
-  aitbc ipfs host --offer-id-or-plugin-id offer-1 --cid-or-file Qm... --days 7
-
-  aitbc ipfs host --offer-id-or-plugin-id offer-1 --cid-or-file /tmp/data.txt --wallet wallet-1""",
-)
-@click.option("--offer-id-or-plugin-id", "offer_id_or_plugin_id", required=True, help="The Offer id or plugin id.")
-@click.option("--cid-or-file", "cid_or_file", required=True, help="The Cid or file.")
-@click.option("--days", type=int, default=1, help="Rental duration in days")
-@click.option("--wallet", "wallet_name", help="Wallet to pay for the rental")
-@click.option("--wallet-path", "wallet_path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--pin/--no-pin", default=True, help="Pin the CID after paying the rental")
-@OUTPUT_FORMAT_OPTION
-@click.pass_context
-def host(
-    ctx: click.Context,
-    offer_id_or_plugin_id: str,
-    cid_or_file: str,
-    days: int,
-    wallet_name: str | None,
-    wallet_path: str | None,
-    password: str | None,
-    pin: bool,
-    output_format: str,
-):
-    """Host IPFS content for a marketplace offer or plugin for a number of days."""
-    from .market.escrow import _escrow_create
-    from .market.jobs import _resolve_offer
-
-    output_format = resolve_output_format(ctx, output_format)
-
-    if days <= 0:
-        error("--days must be a positive integer")
-        raise click.Abort()
-
-    offer = _resolve_offer(ctx, offer_id_or_plugin_id)
-    if offer.get("service_type") != "ipfs":
-        error(f"Offer '{offer_id_or_plugin_id}' is not an IPFS hosting offer (service_type={offer.get('service_type')})")
-        raise click.Abort()
-    if offer.get("price_unit") != "per_day":
-        error(f"IPFS offer '{offer_id_or_plugin_id}' uses price_unit '{offer.get('price_unit')}'; expected 'per_day'")
-        raise click.Abort()
-
-    price = Decimal(str(offer.get("price", "0")))
-    total_cost = price * Decimal(days)
-    provider = to_canonical(offer.get("provider_address", ""))
-    if not provider:
-        error("Offer has no provider_address")
-        raise click.Abort()
-
-    # IPFS API: env wins, then the offer endpoint, then the island default.
-    ipfs_api = os.environ.get("IPFS_API_URL") or offer.get("endpoint") or "http://127.0.0.1:5002"
-    if not ipfs_api.startswith(("http://", "https://")):
-        # The offer may advertise a p2p multiaddr as public_endpoint; the
-        # actual pin/add call still goes to a local Kubo HTTP API.
-        ipfs_api = "http://127.0.0.1:5002"
-
-    public_endpoint = offer.get("public_endpoint") or ""
-
-    # Determine the object size as early as possible so we can enforce the
-    # per-customer disk quota before asking for the wallet password or
-    # uploading the file to the IPFS daemon.
-    file_path = Path(cid_or_file)
-    content_size: int | None = None
-    if file_path.exists() and file_path.is_file():
-        content_size = file_path.stat().st_size
-    else:
-        cid = cid_or_file.strip()
-        if not cid:
-            error("CID cannot be empty")
-            raise click.Abort()
-        content_size = _ipfs_object_size(ipfs_api, cid)
-
-    disk_quota_mb = offer.get("disk_quota_mb")
-    if disk_quota_mb:
-        quota_bytes = int(disk_quota_mb) * 1024 * 1024
-        item_size = content_size if content_size is not None else 0
-        if item_size > quota_bytes:
-            if content_size is None:
-                error(f"Could not determine size of {cid}; offer disk quota is {disk_quota_mb} MB per customer")
-            else:
-                error(
-                    f"Object size {item_size / (1024 * 1024):.2f} MB exceeds "
-                    f"the {disk_quota_mb} MB per-customer quota for this offer"
-                )
-            raise click.Abort()
-
-    # Load wallet and lock escrow.
-    buyer, private_key, wallet_id = load_wallet_for_payment(
-        ctx, wallet_name=wallet_name, wallet_path=wallet_path, password=password, require_private_key=True
-    )
-
-    used_bytes = _active_customer_ipfs_usage(buyer, offer.get("offer_id", offer_id_or_plugin_id))
-    if disk_quota_mb and used_bytes + item_size > quota_bytes:
-        error(
-            f"This upload would use {item_size / (1024 * 1024):.2f} MB and exceed "
-            f"the {disk_quota_mb} MB per-customer quota for this offer (already using {used_bytes / (1024 * 1024):.2f} MB)"
-        )
-        raise click.Abort()
-
-    # If a local file is supplied, add it to the IPFS daemon now.
-    if file_path.exists() and file_path.is_file():
-        cid = cast(str, _ipfs_add_file(ipfs_api, file_path))
-        if not cid:
-            error(f"Failed to add file to IPFS at {ipfs_api}")
-            raise click.Abort()
-        # Use the daemon's reported cumulative size when available.
-        daemon_size = _ipfs_object_size(ipfs_api, cid)
-        if daemon_size is not None:
-            content_size = daemon_size
-        success(f"Added file to IPFS: {cid}")
-
-    # Attempt to connect to the provider's public multiaddr so the island can replicate.
-    if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
-        _ipfs_swarm_connect(ipfs_api, public_endpoint)
-
-    job_id = f"ipfs_rental_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
-
-    contract_id = _escrow_create(ctx, job_id, buyer, provider, total_cost, get_config(), private_key)
-    if not contract_id:
-        error("Escrow creation failed; aborting rental")
-        raise click.Abort()
-
-    pinned = False
-    if pin:
-        pinned = _ipfs_pin_cid(ipfs_api, cid)
-        if not pinned:
-            error(
-                f"Failed to pin CID {cid} on {ipfs_api}. Escrow contract {contract_id} was created; release or refund it manually if needed."
-            )
-            raise click.Abort()
-
-    # Re-check the daemon-reported size after pin for the rental record.
-    if content_size is None:
-        content_size = _ipfs_object_size(ipfs_api, cid)
-
-    # Issue per-rental access credentials. These are the customer's login
-    # credentials for retrieving this CID from the hub.
-    access_key = secrets.token_urlsafe(16)
-    access_secret = secrets.token_urlsafe(32)
-
-    rental: dict[str, Any] = {
-        "rental_id": job_id,
-        "offer_id": offer.get("offer_id", offer_id_or_plugin_id),
-        "plugin_id": offer.get("plugin_id", ""),
-        "cid": cid,
-        "duration_days": days,
-        "total_cost_ait": str(round(total_cost, 6)),
-        "escrow_contract_id": contract_id,
-        "provider_address": provider,
-        "buyer_address": buyer,
-        "ipfs_api": ipfs_api,
-        "public_endpoint": public_endpoint,
-        "wallet_id": wallet_id,
-        "created_at": datetime.now(UTC).isoformat(),
-        "expires_at": (datetime.now(UTC) + timedelta(days=days)).isoformat(),
-        "pinned": pinned,
-        "status": "active",
-        "size": content_size,
-        "disk_quota_mb": disk_quota_mb,
-        "access_key": access_key,
-        "access_secret": access_secret,
-    }
-
-    # Register the token with the hub marketplace service so the customer can
-    # retrieve the CID from another node with just access_key + access_secret.
-    try:
-        client = _hub_marketplace_client()
-        client.post(
-            "/v1/marketplace/ipfs/rental-token",
-            json={
-                "access_key": access_key,
-                "access_secret": access_secret,
-                "rental_id": job_id,
-                "offer_id": offer.get("offer_id", offer_id_or_plugin_id),
-                "cid": cid,
-                "buyer_address": buyer,
-                "provider_address": provider,
-                "escrow_contract_id": contract_id,
-                "ipfs_api": ipfs_api,
-                "public_endpoint": public_endpoint,
-                "disk_quota_mb": disk_quota_mb,
-                "size": content_size,
-                "status": "active",
-                "expires_at": rental["expires_at"],
-            },
-        )
-        info("Registered IPFS rental token with hub")
-    except NetworkError as e:
-        warning(f"Could not register IPFS rental token with hub: {e}")
-
-    _save_rental(rental)
-
-    success(f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; escrow contract {contract_id}")
-    output(rental, output_format, title="IPFS Rental")
-
-
-@ipfs.command(
-    name="token",
-    epilog="""Examples:
-
-  aitbc ipfs token --rental-id rental-123
-
-  aitbc ipfs token --rental-id rental-123 --output json""",
-)
-@click.option("--rental-id", "rental_id", required=True, help="The Rental id.")
-@OUTPUT_FORMAT_OPTION
-@click.pass_context
-def token(ctx: click.Context, rental_id: str, output_format: str):
-    """Get an access token for an IPFS rental."""
-    output_format = resolve_output_format(ctx, output_format)
-    rental = next((r for r in _load_rentals() if r.get("rental_id") == rental_id), None)
-    if not rental:
-        error(f"Rental '{rental_id}' not found")
-        raise click.Abort()
-    if not rental.get("access_key"):
-        error(f"Rental '{rental_id}' has no access credentials")
-        raise click.Abort()
-    output(
-        {
-            "rental_id": rental.get("rental_id"),
-            "access_key": rental.get("access_key"),
-            "access_secret": rental.get("access_secret"),
-            "cid": rental.get("cid"),
-            "expires_at": rental.get("expires_at"),
-        },
-        output_format,
-        title="IPFS Rental Credentials",
-    )
-
-
-@ipfs.command(
-    name="rentals",
-    epilog="""Examples:
-
-  aitbc ipfs rentals
-
-  aitbc ipfs rentals --output json""",
-)
-@OUTPUT_FORMAT_OPTION
-@click.pass_context
-def rentals(ctx: click.Context, output_format: str):
-    """List all active IPFS rentals and their details."""
-    output_format = resolve_output_format(ctx, output_format)
-    items = _load_rentals()
-    output(items, output_format, title="IPFS Rentals")
-
-
-@ipfs.command(
-    name="unpin",
-    epilog="""Examples:
-
-  aitbc ipfs unpin --rental-id rental-123
-
-  aitbc ipfs unpin --rental-id rental-123 --refund --reason 'buyer_requested'""",
-)
-@click.option("--rental-id", "rental_id", required=True, help="The Rental id.")
-@click.option("--refund", is_flag=True, help="Refund the escrow for this rental")
-@click.option("--reason", default="buyer_requested", help="Reason for refund")
-@OUTPUT_FORMAT_OPTION
-@click.pass_context
-def unpin(ctx: click.Context, rental_id: str, refund: bool, reason: str, output_format: str):
-    """Unpin a CID and end an IPFS rental with an optional refund."""
-    from .market.escrow import refund_escrow
-
-    output_format = resolve_output_format(ctx, output_format)
-    rentals = _load_rentals()
-    rental = next((r for r in rentals if r.get("rental_id") == rental_id), None)
-    if not rental:
-        error(f"Rental '{rental_id}' not found")
-        raise click.Abort()
-
-    cid = rental.get("cid", "")
-    ipfs_api = rental.get("ipfs_api", "http://127.0.0.1:5002")
-    unpinned = _ipfs_unpin_cid(ipfs_api, cid)
-    if unpinned:
-        success(f"Unpinned {cid}")
-    else:
-        warning(f"Could not unpin {cid} on {ipfs_api}")
-
-    remaining = [r for r in rentals if r.get("rental_id") != rental_id]
-    _save_rentals(remaining)
-
-    if refund:
-        refund_escrow(ctx, rental_id, reason)
-
-    output({"rental_id": rental_id, "cid": cid, "unpinned": unpinned}, output_format)
 
 
 if __name__ == "__main__":
