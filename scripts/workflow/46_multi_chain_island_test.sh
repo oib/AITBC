@@ -2,7 +2,7 @@
 
 # AITBC Multi-Chain Island Architecture Test Script
 # Tests the multi-chain island architecture with gossip-based synchronization
-# Validates: aitbc (hub of ait-mainnet), aitbc1 (hub of ait-testnet), gitea-runner (member of both)
+# Validates: aitbc (hub of ait-mainnet), <node1> (hub of ait-testnet), gitea-runner (member of both)
 
 
 # Source scenario configuration
@@ -29,7 +29,7 @@ fi
 set -euo pipefail
 
 # Configuration
-AITBC1_HOST="aitbc1"
+AITBC1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
 AITBC_HOST="localhost"
 GITEA_RUNNER_HOST="gitea-runner"
 GENESIS_PORT="8202"
@@ -151,21 +151,21 @@ test_chain_configuration() {
         return 1
     fi
 
-    # aitbc1 should produce ait-testnet only
+    # <node1> should produce ait-testnet only
     local aitbc1_production=$(execute_on_node "$AITBC1_HOST" "grep block_production_chains /etc/aitbc/.env | cut -d'=' -f2")
     local aitbc1_supported=$(execute_on_node "$AITBC1_HOST" "grep supported_chains /etc/aitbc/.env | cut -d'=' -f2")
 
     if [ "$aitbc1_production" = "ait-testnet" ]; then
-        log_success "aitbc1 block_production_chains=ait-testnet (correct)"
+        log_success "<node1> block_production_chains=ait-testnet (correct)"
     else
-        log_error "aitbc1 block_production_chains=$aitbc1_production (expected ait-testnet)"
+        log_error "<node1> block_production_chains=$aitbc1_production (expected ait-testnet)"
         return 1
     fi
 
     if [ "$aitbc1_supported" = "ait-mainnet,ait-testnet" ]; then
-        log_success "aitbc1 supported_chains=ait-mainnet,ait-testnet (correct)"
+        log_success "<node1> supported_chains=ait-mainnet,ait-testnet (correct)"
     else
-        log_error "aitbc1 supported_chains=$aitbc1_supported (expected ait-mainnet,ait-testnet)"
+        log_error "<node1> supported_chains=$aitbc1_supported (expected ait-mainnet,ait-testnet)"
         return 1
     fi
 
@@ -236,21 +236,21 @@ test_block_production() {
         return 1
     fi
 
-    # Check aitbc1 is producing ait-testnet blocks
+    # Check <node1> is producing ait-testnet blocks
     local aitbc1_mainnet_blocks=$(execute_on_node "$AITBC1_HOST" "journalctl -u aitbc-blockchain-node --since '2 minutes ago' --no-pager | grep '\[BROADCAST\].*ait-mainnet' | wc -l")
     local aitbc1_testnet_blocks=$(execute_on_node "$AITBC1_HOST" "journalctl -u aitbc-blockchain-node --since '2 minutes ago' --no-pager | grep '\[BROADCAST\].*ait-testnet' | wc -l")
 
     if [ "$aitbc1_testnet_blocks" -gt 0 ]; then
-        log_success "aitbc1 produced $aitbc1_testnet_blocks ait-testnet blocks (correct)"
+        log_success "<node1> produced $aitbc1_testnet_blocks ait-testnet blocks (correct)"
     else
-        log_error "aitbc1 produced 0 ait-testnet blocks (expected >0)"
+        log_error "<node1> produced 0 ait-testnet blocks (expected >0)"
         return 1
     fi
 
     if [ "$aitbc1_mainnet_blocks" -eq 0 ]; then
-        log_success "aitbc1 produced 0 ait-mainnet blocks (correct - not a hub for mainnet)"
+        log_success "<node1> produced 0 ait-mainnet blocks (correct - not a hub for mainnet)"
     else
-        log_error "aitbc1 produced $aitbc1_mainnet_blocks ait-mainnet blocks (expected 0)"
+        log_error "<node1> produced $aitbc1_mainnet_blocks ait-mainnet blocks (expected 0)"
         return 1
     fi
 
@@ -282,13 +282,13 @@ test_cross_chain_sync() {
         return 1
     fi
 
-    # Check aitbc1 is receiving ait-mainnet blocks
+    # Check <node1> is receiving ait-mainnet blocks
     local aitbc1_received_mainnet=$(execute_on_node "$AITBC1_HOST" "journalctl -u aitbc-blockchain-node --since '2 minutes ago' --no-pager | grep 'Received block.*ait-mainnet' | wc -l")
 
     if [ "$aitbc1_received_mainnet" -gt 0 ]; then
-        log_success "aitbc1 received $aitbc1_received_mainnet ait-mainnet blocks via gossip (correct)"
+        log_success "<node1> received $aitbc1_received_mainnet ait-mainnet blocks via gossip (correct)"
     else
-        log_error "aitbc1 received 0 ait-mainnet blocks via gossip (expected >0)"
+        log_error "<node1> received 0 ait-mainnet blocks via gossip (expected >0)"
         return 1
     fi
 
@@ -350,16 +350,16 @@ test_blockchain_heights() {
     local aitbc1_mainnet_height=$(execute_on_node "$AITBC1_HOST" "sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db 'SELECT MAX(height) FROM blocks' 2>/dev/null || echo '0'")
     local gitea_mainnet_height=$(execute_on_node "$GITEA_RUNNER_HOST" "sqlite3 /var/lib/aitbc/data/ait-mainnet/chain.db 'SELECT MAX(height) FROM blocks' 2>/dev/null || echo '0'")
 
-    log_info "Mainnet heights - aitbc: $aitbc_mainnet_height, aitbc1: $aitbc1_mainnet_height, gitea-runner: $gitea_mainnet_height"
+    log_info "Mainnet heights - aitbc: $aitbc_mainnet_height, <node1>: $aitbc1_mainnet_height, gitea-runner: $gitea_mainnet_height"
 
     # Get testnet heights
     local aitbc_testnet_height=$(execute_on_node "$AITBC_HOST" "sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db 'SELECT MAX(height) FROM blocks' 2>/dev/null || echo '0'")
     local aitbc1_testnet_height=$(execute_on_node "$AITBC1_HOST" "sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db 'SELECT MAX(height) FROM blocks' 2>/dev/null || echo '0'")
     local gitea_testnet_height=$(execute_on_node "$GITEA_RUNNER_HOST" "sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db 'SELECT MAX(height) FROM blocks' 2>/dev/null || echo '0'")
 
-    log_info "Testnet heights - aitbc: $aitbc_testnet_height, aitbc1: $aitbc1_testnet_height, gitea-runner: $gitea_testnet_height"
+    log_info "Testnet heights - aitbc: $aitbc_testnet_height, <node1>: $aitbc1_testnet_height, gitea-runner: $gitea_testnet_height"
 
-    # aitbc and gitea-runner should have similar mainnet heights (aitbc1 may lag slightly)
+    # aitbc and gitea-runner should have similar mainnet heights (<node1> may lag slightly)
     local mainnet_diff=$((aitbc_mainnet_height - gitea_mainnet_height))
     if [ "$mainnet_diff" -lt 10 ]; then
         log_success "Mainnet heights in sync (diff: $mainnet_diff)"
@@ -367,7 +367,7 @@ test_blockchain_heights() {
         log_warning "Mainnet heights out of sync (diff: $mainnet_diff)"
     fi
 
-    # aitbc1 and gitea-runner should have similar testnet heights (aitbc may lag slightly)
+    # <node1> and gitea-runner should have similar testnet heights (aitbc may lag slightly)
     local testnet_diff=$((aitbc1_testnet_height - gitea_testnet_height))
     if [ "$testnet_diff" -lt 10 ]; then
         log_success "Testnet heights in sync (diff: $testnet_diff)"

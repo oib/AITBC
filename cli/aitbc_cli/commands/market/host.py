@@ -492,7 +492,7 @@ def cancel(
             raise click.Abort()
     except NetworkError as e:
         error(f"Marketplace cancel request failed: {e}")
-        raise click.Abort()
+        raise click.Abort() from None
 
     # Attempt an immediate on-chain refund through the customer blockchain and sync state.
     config = get_config()

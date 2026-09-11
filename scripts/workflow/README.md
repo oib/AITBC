@@ -13,7 +13,7 @@ This directory contains modular scripts for setting up and managing a multi-node
    - Installs CLI tool
    - Creates keystore and directories
 
-2. **02_genesis_authority_setup.sh** - Genesis authority node setup (aitbc1)
+2. **02_genesis_authority_setup.sh** - Genesis authority node setup (<node1>)
    - Pulls latest code
    - Configures genesis authority
    - Creates genesis block
@@ -75,7 +75,7 @@ echo "y" | ./setup_multinode_blockchain.sh
 ## Script Dependencies
 
 ### System Requirements
-- aitbc1 node (genesis authority)
+- <node1> node (genesis authority)
 - aitbc node (follower)
 - SSH access between nodes
 - Redis service running

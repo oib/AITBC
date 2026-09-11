@@ -24,7 +24,7 @@ def contract():
 
   aitbc contract deploy --contract-name MyContract
 
-  aitbc contract deploy --contract-name MyContract --rpc-url http://aitbc3:8202"""
+  aitbc contract deploy --contract-name MyContract --rpc-url http://node2.example.net:8202"""
 )
 @click.option("--contract-name", required=True, help="Contract name")
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")

@@ -240,7 +240,7 @@ def receive(
 
   aitbc agent-msg peers
 
-  aitbc agent-msg peers --coordinator-url http://hub.aitbc:8107"""
+  aitbc agent-msg peers --coordinator-url http://hub.example.net:8107"""
 )
 @click.option("--coordinator-url", default=None, help="Agent Coordinator URL (default: from config)")
 @click.pass_context

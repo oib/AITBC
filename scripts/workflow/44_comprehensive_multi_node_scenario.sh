@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # AITBC Comprehensive Multi-Node Scenario Orchestration
-# Executes end-to-end scenarios across all 3 nodes (aitbc1, aitbc, gitea-runner)
+# Executes end-to-end scenarios across all 3 nodes (<node1>, aitbc, gitea-runner)
 # Using all AITBC apps with real execution, verbose logging, and health checks
 
 
@@ -21,7 +21,7 @@ fi
 set -euo pipefail
 
 # Configuration
-AITBC1_HOST="aitbc1"
+AITBC1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
 AITBC_HOST="localhost"
 GITEA_RUNNER_HOST="gitea-runner"
 GENESIS_PORT="8202"
@@ -145,10 +145,10 @@ phase1_preflight_checks() {
     check_ssh_connectivity "$GITEA_RUNNER_HOST" || return 1
     log_success "SSH connectivity verified for all nodes"
 
-    # Check AITBC services on aitbc1
-    log_info "Checking AITBC services on aitbc1"
-    health_check "$AITBC1_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on aitbc1 may not be healthy"
-    health_check "$AITBC1_HOST" "coordinator-api" "8203" || log_warning "Coordinator API on aitbc1 may not be healthy"
+    # Check AITBC services on <node1>
+    log_info "Checking AITBC services on <node1>"
+    health_check "$AITBC1_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on <node1> may not be healthy"
+    health_check "$AITBC1_HOST" "coordinator-api" "8203" || log_warning "Coordinator API on <node1> may not be healthy"
 
     # Check AITBC services on localhost
     log_info "Checking AITBC services on localhost"
@@ -167,7 +167,7 @@ phase1_preflight_checks() {
     local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
 
-    log_info "Blockchain heights - aitbc1: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
+    log_info "Blockchain heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
 
     # Check CLI tools
     log_info "Checking CLI tools installation"
@@ -186,11 +186,11 @@ phase2_transaction_flow() {
     log_info "=== PHASE 2: COMPLETE TRANSACTION FLOW ==="
 
     # Check if genesis wallet exists
-    log_info "Checking genesis wallet on aitbc1"
+    log_info "Checking genesis wallet on <node1>"
     local genesis_wallets=$(execute_on_node "$AITBC1_HOST" "/opt/aitbc/aitbc-cli wallet list" 2>/dev/null || echo "")
 
     if echo "$genesis_wallets" | grep -q "aitbc1genesis"; then
-        log_success "Genesis wallet exists on aitbc1"
+        log_success "Genesis wallet exists on <node1>"
     else
         log_warning "Genesis wallet may not exist, creating..."
         execute_on_node "$AITBC1_HOST" "/opt/aitbc/aitbc-cli wallet create aitbc1genesis aitbc123" || log_error "Failed to create genesis wallet"
@@ -318,7 +318,7 @@ phase4_blockchain_sync_event_bridge() {
     local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
 
-    log_info "Current heights - aitbc1: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
+    log_info "Current heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
 
     # Trigger sync if needed
     local height_diff=$((aitbc1_height - aitbc_height))
@@ -422,7 +422,7 @@ phase9_final_verification() {
     local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
 
-    log_info "Final heights - aitbc1: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
+    log_info "Final heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
 
     # Check service health
     log_info "Final service health check"
@@ -439,7 +439,7 @@ phase9_final_verification() {
     echo "Timestamp: $(date)" | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"
     echo "Blockchain Heights:" | tee -a "$LOG_FILE"
-    echo "  aitbc1: $aitbc1_height" | tee -a "$LOG_FILE"
+    echo "  <node1>: $aitbc1_height" | tee -a "$LOG_FILE"
     echo "  aitbc: $aitbc_height" | tee -a "$LOG_FILE"
     echo "  gitea-runner: $gitea_height" | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"

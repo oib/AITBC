@@ -28,7 +28,7 @@ else
 fi
 echo "=== AITBC Multi-Node Blockchain Setup ==="
 echo "This script will set up a complete multi-node blockchain network"
-echo "with aitbc1 as genesis authority and aitbc as follower node"
+echo "with <node1> as genesis authority and aitbc as follower node"
 echo
 
 # This must run on the genesis authority node. That used to be decided by
@@ -67,7 +67,7 @@ echo "Step 1: Pre-Flight Setup"
 ./01_preflight_setup.sh
 echo
 
-echo "Step 2: Genesis Authority Setup (aitbc1)"
+echo "Step 2: Genesis Authority Setup (<node1>)"
 ./02_genesis_authority_setup.sh
 echo
 
@@ -91,7 +91,7 @@ echo
 echo "🎉 COMPLETE MULTI-NODE BLOCKCHAIN SETUP FINISHED!"
 echo
 echo "📋 Summary:"
-echo "✅ aitbc1: Genesis authority node running"
+echo "✅ <node1>: Genesis authority node running"
 echo "✅ aitbc: Follower node synchronized"
 echo "✅ Network: Multi-node blockchain operational"
 echo "✅ Transactions: Cross-node transfers working"
@@ -104,4 +104,4 @@ echo "  Create wallet: ./04_create_wallet.sh"
 echo "  Send transaction: ./05_send_transaction.sh"
 echo
 echo "📚 Documentation: See workflow documentation for detailed information"
-echo "🌐 Web Interface: $BLOCKCHAIN_RPC (aitbc1) and http://${NODE1_HOST}:${BLOCKCHAIN_RPC_PORT:-8202} (aitbc)"
+echo "🌐 Web Interface: $BLOCKCHAIN_RPC (<node1>) and http://${NODE1_HOST}:${BLOCKCHAIN_RPC_PORT:-8202} (aitbc)"

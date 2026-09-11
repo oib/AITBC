@@ -12,7 +12,7 @@ from fastapi.testclient import TestClient
 
 # These are integration tests against a real local Redis, not a mock -- they
 # exercise the actual broadcast backend end to end. ``GOSSIP_BROADCAST_URL``
-# is read here rather than hardcoded because some hosts (e.g. hub.aitbc) run
+# is read here rather than hardcoded because some hosts (e.g. the hub node) run
 # Redis with ``requirepass`` set, matching the credentials already present in
 # that host's own /etc/aitbc/*.env; a bare "redis://localhost:6379/0" only
 # ever worked by accident, on hosts whose local Redis happens to have no
@@ -35,7 +35,7 @@ except Exception:
         "set GOSSIP_BROADCAST_URL to a reachable Redis instance to run these tests"
     )
 
-# Hosts that set GOSSIP_BROADCAST_URL externally (e.g. hub.aitbc) point these
+# Hosts that set GOSSIP_BROADCAST_URL externally (e.g. the hub node) point these
 # tests at a real, shared Redis instance carrying live production validator
 # gossip traffic, not an idle local one. Under that traffic a publish can
 # occasionally take much longer than the couple hundred ms this normally

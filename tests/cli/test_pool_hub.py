@@ -59,7 +59,7 @@ class TestPoolHubCommands:
 
         from aitbc_cli.commands.pool_hub import pool_hub
 
-        result = runner.invoke(pool_hub, ["status", "--pool-hub-url", "http://aitbc3:8210"])
+        result = runner.invoke(pool_hub, ["status", "--pool-hub-url", "http://shop-node:8210"])
 
         assert result.exit_code == 0, result.output
-        assert mock_http_class.call_args.kwargs["base_url"] == "http://aitbc3:8210"
+        assert mock_http_class.call_args.kwargs["base_url"] == "http://shop-node:8210"

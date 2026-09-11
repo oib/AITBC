@@ -510,7 +510,7 @@ try:
 
   aitbc agent register --agent-id shop-agent
 
-  aitbc agent register --agent-id shop-agent --coordinator-url http://hub.aitbc:8107"""
+  aitbc agent register --agent-id shop-agent --coordinator-url http://hub.example.net:8107"""
     )
     @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
