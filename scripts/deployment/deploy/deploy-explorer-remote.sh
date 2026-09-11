@@ -163,7 +163,7 @@ cat > index.html << 'EOF'
 
     <footer class="bg-gray-800 text-white mt-12">
         <div class="container mx-auto px-4 py-6 text-center">
-            <p class="text-sm">AITBC Blockchain Explorer - Connected to node at http://localhost:8082</p>
+            <p class="text-sm">AITBC Blockchain Explorer</p>
         </div>
     </footer>
 
@@ -171,9 +171,11 @@ cat > index.html << 'EOF'
         // Initialize lucide icons
         lucide.createIcons();
 
-        // RPC URL - change based on environment
-        // Derived from wherever this page is served -- no hardcoded host.
-        const RPC_URL = `http://${window.location.hostname}:8082`;
+        // Same-origin. nginx (below) proxies /rpc/ to the node's RPC port, so the
+        // page never needs to know the node's address -- and never needs 8082 to
+        // be reachable from the browser, which it generally is not: the RPC port
+        // is bound on the container bridge, not published.
+        const RPC_URL = '';
 
         // Global state
         let currentData = {};
@@ -354,7 +356,8 @@ server {
         try_files \$uri \$uri/ =404;
     }
 
-    # CORS headers for API access
+    # RPC passthrough: keeps the explorer same-origin, so no CORS and no need
+    # to publish the node's RPC port to browsers.
     location /rpc/ {
         proxy_pass http://localhost:8082;
         proxy_set_header Host \$host;

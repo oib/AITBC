@@ -147,8 +147,9 @@ fi
 print_success "✅ Blockchain node deployed!"
 echo ""
 # Addresses are deployment-specific and deliberately not hardcoded here.
-# Set NODE_RPC_HOST / NODE_RPC_EXTERNAL for this host if you want them printed.
-echo "Node RPC:     http://${NODE_RPC_HOST:-127.0.0.1}:8082"
-echo "External RPC: ${NODE_RPC_EXTERNAL:-unset - export it to this node public address}"
+echo "Node RPC: http://${NODE_RPC_HOST:-127.0.0.1}:${RPC_BIND_PORT}"
+if [ -n "${NODE_RPC_EXTERNAL:-}" ]; then
+    echo "External: ${NODE_RPC_EXTERNAL}"
+fi
 echo ""
 echo "The node will automatically sync on startup."
