@@ -308,7 +308,7 @@ def _run_ipfs_hosting(
             result_hash=cid,
         )
 
-    output_record = marketplace_result or job_data
+    output_record = release_result if release_immediately and release_result and not release_result.get("error") else marketplace_result or job_data
     output_record["cid"] = cid
     output_record["days"] = days
     output_record["escrow_contract_id"] = contract_id
