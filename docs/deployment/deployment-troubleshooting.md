@@ -38,8 +38,9 @@ systemctl status postgresql
 # Test connection
 psql -h localhost -U aitbc -d aitbc
 
-# Check firewall
-ufw status | grep 5432
+# Confirm what the postmaster is bound to (expected: localhost only)
+sudo grep -E "^listen_addresses" /etc/postgresql/*/main/postgresql.conf
+ss -ltnp | grep 5432
 ```
 
 ## Port Conflicts
