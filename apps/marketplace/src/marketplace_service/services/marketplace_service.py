@@ -1224,19 +1224,20 @@ class MarketplaceService:
         from sqlalchemy import select
 
         try:
-            jc = MarketplaceJob.__table__.c
+            from sqlmodel import col, select
+
             stmt = select(MarketplaceJob)
             if buyer_address:
-                stmt = stmt.where(jc.buyer_address == canonical_address(buyer_address))
+                stmt = stmt.where(col(MarketplaceJob.buyer_address) == canonical_address(buyer_address))
             if provider_address:
-                stmt = stmt.where(jc.provider_address == canonical_address(provider_address))
+                stmt = stmt.where(col(MarketplaceJob.provider_address) == canonical_address(provider_address))
             if service_type:
-                stmt = stmt.where(jc.service_type == service_type)
+                stmt = stmt.where(col(MarketplaceJob.service_type) == service_type)
             if state:
-                stmt = stmt.where(jc.state == state)
+                stmt = stmt.where(col(MarketplaceJob.state) == state)
             if offer_id:
-                stmt = stmt.where(jc.offer_id == offer_id)
-            stmt = stmt.order_by(jc.created_at.desc()).limit(limit)
+                stmt = stmt.where(col(MarketplaceJob.offer_id) == offer_id)
+            stmt = stmt.order_by(col(MarketplaceJob.created_at).desc()).limit(limit)
 
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
@@ -1422,10 +1423,10 @@ class MarketplaceService:
 
     async def get_marketplace_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an access token and return the job details."""
-        from sqlalchemy import select
+        from sqlmodel import col, select
 
         try:
-            stmt = select(MarketplaceJob).where(MarketplaceJob.__table__.c.access_key == access_key)
+            stmt = select(MarketplaceJob).where(col(MarketplaceJob.access_key) == access_key)
             result = await self.session.execute(stmt)
             job = result.scalar_one_or_none()
             if not job:
@@ -1456,16 +1457,15 @@ class MarketplaceService:
 
     async def get_marketplace_job_usage(self, buyer_address: str, offer_id: str) -> int:
         """Return the total bytes of active IPFS storage for a buyer/offer pair."""
-        from sqlalchemy import select
+        from sqlmodel import col, select
 
         try:
-            jc = MarketplaceJob.__table__.c
             stmt = (
                 select(MarketplaceJob)
-                .where(jc.buyer_address == canonical_address(buyer_address))
-                .where(jc.offer_id == offer_id)
-                .where(jc.service_type == "ipfs")
-                .where(jc.state.in_({"QUEUED", "RUNNING"}))
+                .where(col(MarketplaceJob.buyer_address) == canonical_address(buyer_address))
+                .where(col(MarketplaceJob.offer_id) == offer_id)
+                .where(col(MarketplaceJob.service_type) == "ipfs")
+                .where(col(MarketplaceJob.state).in_({"QUEUED", "RUNNING"}))
             )
             result = await self.session.execute(stmt)
             jobs = list(result.scalars().all())
@@ -1476,10 +1476,10 @@ class MarketplaceService:
 
     async def check_software_offer_health(self, plugin_id: str) -> dict[str, Any]:
         """Check the health of a software offer."""
-        from sqlalchemy import select
-
         try:
-            stmt = select(SoftwareService).where(SoftwareService.__table__.c.plugin_id == plugin_id)
+            from sqlmodel import col, select
+
+            stmt = select(SoftwareService).where(col(SoftwareService.plugin_id) == plugin_id)
             result = await self.session.execute(stmt)
             service = result.scalar_one_or_none()
             if not service:
