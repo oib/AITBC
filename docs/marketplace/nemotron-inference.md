@@ -17,7 +17,7 @@ ESCROW_TX=$(aitbc wallet escrow-create \
 echo "Escrow TX: $ESCROW_TX"
 
 # 2. Send prompt to Ollama endpoint (fully operational)
-RESPONSE=$(curl -s -X POST https://aitbc3.aitbc.bubuit.net/ollama/api/generate \
+RESPONSE=$(curl -s -X POST https://shop.example.net/ollama/api/generate \
   -H "Content-Type: application/json" \
   -d '{
     "model": "nemotron-3-super:cloud",
@@ -47,19 +47,19 @@ This approach works well when you want the shop agent to handle the inference an
 
 ```bash
 # 1. Discover offer (working)
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
+curl -s https://shop.example.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
 
 # 2. Send message to shop agent (working)
-curl -X POST https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/send \
+curl -X POST https://shop.example.net/api/v1/coordinator/v1/agent/messages/send \
   -d '{"sender":"owl-hub","recipient":"owl-aitbc3","content":"Customer inquiry: Explain quantum computing","message_type":"direct"}'
 
 # 3. Shop agent on aitbc3 receives and processes
-# Shop polls: curl https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/owl-aitbc3
+# Shop polls: curl https://shop.example.net/api/v1/coordinator/v1/agent/messages/owl-aitbc3
 # Shop calls Ollama locally: curl http://localhost:11434/api/generate ...
 # Shop sends response back to customer
 
 # 4. Customer polls for response
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/owl-hub
+curl -s https://shop.example.net/api/v1/coordinator/v1/agent/messages/owl-hub
 ```
 
 ### Method C: CLI (Limited Functionality)
@@ -70,7 +70,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/api/v1/coordinator/v1/agent/messages/owl
 aitbc market run sw_offer_20260605110316_a343d309 "Explain quantum computing"
 
 # Alternative: Use marketplace service directly
-curl -s http://aitbc3.aitbc.bubuit.net:8102/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
+curl -s http://shop.example.net:8102/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
 ```
 
 ## Step 3: Monitor Usage and Costs

@@ -221,7 +221,7 @@ aitbc market sync-ratings [--remote-url <url>] [--limit <n>]
 **Example:**
 
 ```bash
-aitbc market sync-ratings --remote-url https://aitbc3.aitbc.bubuit.net/api --limit 100
+aitbc market sync-ratings --remote-url https://shop.example.net/api --limit 100
 ```
 
 ## Cross-Node Synchronization
@@ -309,7 +309,7 @@ sw_offer_   OLLAMA  llama3.2:3b        RTX 4090 [GPU 0]    0.05 AIT/h     ⭐ 4.
 
 ### Ratings Not Syncing
 
-1. Check remote URL is accessible: `curl https://aitbc3.aitbc.bubuit.net/api/health`
+1. Check remote URL is accessible: `curl https://shop.example.net/api/health`
 2. Verify ratings are unsynced: `curl http://localhost:8102/v1/marketplace/ratings/unsynced`
 3. Check sync logs: `journalctl -u aitbc-marketplace -f`
 
