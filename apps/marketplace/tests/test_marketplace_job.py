@@ -89,7 +89,7 @@ async def test_confirm_and_release_payment(service: MarketplaceService) -> None:
     released = await service.release_marketplace_job_payment(created["job_id"])
     assert released["state"] == "RELEASED"
     assert released["payment_status"] == "released"
-    assert released["tx_hash"] == "0xrelease_escrow-123"
+    assert released["tx_hash"] == f"0xrelease_{created['job_id']}"
 
 
 @pytest.mark.asyncio
@@ -118,4 +118,4 @@ async def test_cancel_and_refund(service: MarketplaceService) -> None:
     refunded = await service.refund_marketplace_job_payment(created["job_id"])
     assert refunded["state"] == "REFUNDED"
     assert refunded["payment_status"] == "refunded"
-    assert refunded["refund_tx_hash"] == "0xrefund_escrow-456"
+    assert refunded["refund_tx_hash"] == f"0xrefund_{created['job_id']}"
