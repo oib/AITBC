@@ -24,7 +24,8 @@ logger = get_logger(__name__)
 
 from ...auth import AuthManager
 
-from . import get_chain_id, get_market_wallet, get_next_nonce, market
+from . import get_chain_id, get_market_wallet, get_next_nonce
+from . import market  # type: ignore[has-type]
 from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 
 
