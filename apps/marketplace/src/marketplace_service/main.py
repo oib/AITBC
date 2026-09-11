@@ -724,6 +724,21 @@ async def list_marketplace_jobs(
         raise
 
 
+@app.get("/v1/marketplace/jobs/usage")
+async def get_marketplace_job_usage(
+    buyer_address: str,
+    offer_id: str,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
+) -> Any:
+    """Return active storage usage in bytes for a buyer/offer pair."""
+    try:
+        logger.info("GET /v1/marketplace/jobs/usage called")
+        return {"buyer_address": buyer_address, "offer_id": offer_id, "used_bytes": await svc.get_marketplace_job_usage(buyer_address, offer_id)}
+    except Exception as e:
+        logger.error("Error in GET /v1/marketplace/jobs/usage: %s: %s", type(e).__name__, str(e))
+        raise
+
+
 @app.get("/v1/marketplace/jobs/{job_id}")
 async def get_marketplace_job(job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]) -> Any:
     """Get a marketplace job by ID."""
@@ -855,21 +870,6 @@ async def get_marketplace_access_token(
         return result
     except Exception as e:
         logger.error("Error in GET /v1/marketplace/access/%s: %s: %s", access_key, type(e).__name__, str(e))
-        raise
-
-
-@app.get("/v1/marketplace/jobs/usage")
-async def get_marketplace_job_usage(
-    buyer_address: str,
-    offer_id: str,
-    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)],
-) -> Any:
-    """Return active storage usage in bytes for a buyer/offer pair."""
-    try:
-        logger.info("GET /v1/marketplace/jobs/usage called")
-        return {"buyer_address": buyer_address, "offer_id": offer_id, "used_bytes": await svc.get_marketplace_job_usage(buyer_address, offer_id)}
-    except Exception as e:
-        logger.error("Error in GET /v1/marketplace/jobs/usage: %s: %s", type(e).__name__, str(e))
         raise
 
 
