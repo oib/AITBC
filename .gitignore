@@ -325,38 +325,23 @@ apps/coordinator-api/.env
 !.yamllint.yaml
 
 # ===================
-# Deploy Scripts (hardcoded local paths & IPs)
+# Deploy Scripts
 # ===================
-scripts/deployment/*
-!scripts/deployment/*.example
-!scripts/deployment/deploy.sh
-!scripts/deployment/setup.sh
-!scripts/deployment/update.sh
-# The migration step shared by deploy.sh and update.sh. It carries no hardcoded host or IP,
-# which is what this section's blanket ignore is guarding against (V23-79).
-!scripts/deployment/run-migrations.sh
-!scripts/deployment/install-profiles.sh
-!scripts/deployment/validate-env.sh
-!scripts/deployment/create_aitbc_user.sh
-!scripts/deployment/unify_service_users.sh
-!scripts/deployment/aitbc-logrotate.conf
-!scripts/deployment/init_proposer.py
-# The deployment-target configuration shared by scripts/deployment/deploy/*.sh.
-# It defines the variables that replaced the hardcoded ssh alias and public
-# hostname those scripts used to carry, so it is the opposite of what this
-# section's blanket ignore guards against. Note that the ignore never protected
-# the repository here: every script under deploy/ was already tracked, so their
-# hardcoded identifiers were public regardless -- the rule only silently drops
-# *new* files, which is how this one needed `git add -f`.
-!scripts/deployment/deploy/deploy-env.sh
-scripts/ops/*
-!scripts/ops/*.sh
-scripts/release/*
-!scripts/release/*.example
-!scripts/release/check-v0.5.0.sh
-scripts/gpu/*
-!scripts/gpu/*.example
-!scripts/gpu/README.md
+# This section used to be `scripts/deployment/*` with fourteen `!` exceptions,
+# and the same shape again for scripts/ops, scripts/release and scripts/gpu.
+# It never protected anything: every file in those directories was already
+# tracked, and .gitignore has no effect on a tracked file, so the hardcoded
+# paths and IPs it was meant to be guarding against were public regardless.
+# All the rule actually did was silently drop *new* files from `git add` --
+# which is why adding one needed `git add -f`, and why a later commit here had
+# to fall back to `git add -u`.
+#
+# What genuinely must not be committed is named by pattern instead: see
+# "Deployment secrets" above (scripts/deployment/*.secret.*,
+# scripts/deployment/nginx/*.local.conf, scripts/gpu/*.local.py) and
+# "Infra Configs" below (nginx-aitbc*.conf and the helm prod values). A new
+# deployment script that carries a hardcoded host or credential is a review
+# problem, not something an ignore rule can fix.
 
 # ===================
 # Infra Configs (production IPs & secrets)
