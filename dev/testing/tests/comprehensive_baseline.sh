@@ -15,7 +15,7 @@ echo "==============================================="
 sites=(
     "localhost|http://127.0.0.1:8000|http://127.0.0.1:9080"
     "aitbc (Primary)|http://${NODE0_HOST}:8000|http://${NODE0_HOST}:8082"
-    "aitbc1 (Secondary)|http://${NODE1_HOST}:8000|http://${NODE1_HOST}:8082"
+    "<node1> (Secondary)|http://${NODE1_HOST}:8000|http://${NODE1_HOST}:8082"
 )
 
 for site in "${sites[@]}"; do

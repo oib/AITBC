@@ -8,7 +8,7 @@
         "output": "{\"status\":\"ok\",\"env\":\"dev\",\"python_version\":\"3.13.5\"}"
       },
       {
-        "test": "aitbc1 health check",
+        "test": "<node1> health check",
         "success": true,
         "output": "{\"status\":\"ok\",\"env\":\"dev\",\"python_version\":\"3.13.5\"}"
       },
@@ -23,7 +23,7 @@
         "output": "SSH_OK"
       },
       {
-        "test": "SSH to aitbc1 container",
+        "test": "SSH to <node1> container",
         "success": true,
         "output": "SSH_OK"
       }
@@ -35,7 +35,7 @@
         "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://198.51.100.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
       },
       {
-        "test": "aitbc1 marketplace offers",
+        "test": "<node1> marketplace offers",
         "success": true,
         "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://198.51.100.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
       },
@@ -45,7 +45,7 @@
         "output": "{\"totalOffers\":1,\"openCapacity\":16,\"averagePrice\":0.25,\"activeBids\":1}"
       },
       {
-        "test": "aitbc1 marketplace stats",
+        "test": "<node1> marketplace stats",
         "success": true,
         "output": "{\"totalOffers\":1,\"openCapacity\":16,\"averagePrice\":0.25,\"activeBids\":1}"
       }
@@ -79,12 +79,12 @@
         "output": "Dateisystem    Gr\u00f6\u00dfe Benutzt Verf. Verw% Eingeh\u00e4ngt auf\n/dev/sda1        17T    7,3T  9,2T   45% /\nnone            492K    4,0K  488K    1% /dev"
       },
       {
-        "test": "aitbc1 container memory",
+        "test": "<node1> container memory",
         "success": true,
         "output": "gesamt       benutzt     frei      gemns.  Puffer/Cache verf\u00fcgbar\nSpeicher:       62Gi       526Mi        61Gi        17Mi       1,2Gi        62Gi"
       },
       {
-        "test": "aitbc1 container disk",
+        "test": "<node1> container disk",
         "success": true,
         "output": "Dateisystem    Gr\u00f6\u00dfe Benutzt Verf. Verw% Eingeh\u00e4ngt auf\n/dev/sda1        17T    7,3T  9,2T   45% /\nnone            492K    4,0K  488K    1% /dev"
       }
