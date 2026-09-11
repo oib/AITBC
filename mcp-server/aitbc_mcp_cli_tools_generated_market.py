@@ -96,7 +96,7 @@ def aitbc_market_download(
     if cid is not None:
         options["cid"] = cid
     if output_path is not None:
-        options["output"] = output_path
+        options["output-path"] = output_path
     if wait:
         options["wait"] = None
     args = None
