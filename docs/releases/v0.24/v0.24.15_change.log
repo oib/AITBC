@@ -6,11 +6,11 @@
 - **Root cause:**
   1. `hub.aitbc` `default_peer_rpc_url` was `http://hub.aitbc.bubuit.net` (self-reference), so it could never learn `aitbc1`'s head over HTTP.
   2. `aitbc1` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
-  3. The `at1` Incus host reverse proxy for `aitbc1.bubuit.net`/`node1.aitbc.bubuit.net` was not enabled in sites-enabled.
+  3. The `at1` Incus host reverse proxy for `aitbc1.bubuit.net`/`node1.example.net` was not enabled in sites-enabled.
 - **Actions:**
   1. Updated `/etc/nginx/sites-enabled/aitbc-loadbalancer` on `aitbc1` to use `127.0.0.1:8202` and `<node1-ip>:8202`, and removed stale backup files from `sites-enabled`.
-  2. User enabled `/etc/nginx/sites-available/node1.aitbc.bubuit.net.conf` on the `at1` Incus host and reloaded nginx; `node1.aitbc.bubuit.net` now resolves and terminates TLS with a valid Lets Encrypt certificate.
-  3. Set `hub.aitbc` `default_peer_rpc_url=https://node1.aitbc.bubuit.net` in `/etc/aitbc/blockchain.env`.
+  2. User enabled `/etc/nginx/sites-available/node1.example.net.conf` on the `at1` Incus host and reloaded nginx; `node1.example.net` now resolves and terminates TLS with a valid Lets Encrypt certificate.
+  3. Set `hub.aitbc` `default_peer_rpc_url=https://node1.example.net` in `/etc/aitbc/blockchain.env`.
   4. Temporarily set `MULTI_VALIDATOR_MIN_ATTESTATIONS=0` on both nodes, restarted both `aitbc-blockchain-node` services, and restored `MULTI_VALIDATOR_MIN_ATTESTATIONS=1` after the first converged blocks.
 - **Verification:**
   - `hub.aitbc` pulled block 14548 from `aitbc1` over HTTPS; both heads converged at height 14550 with identical hashes.

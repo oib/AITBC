@@ -66,7 +66,7 @@ aitbc market transcribe sw_offer_20260603125540_49d92c3c lecture.wav \
 
 1. `ffprobe` measures audio duration → estimates cost
 2. Escrow locked on aitbc3's blockchain node (buyer's funds held)
-3. Audio uploaded to `http://aitbc3.aitbc.bubuit.net/whisper/transcribe` via nginx (GPU inference on RTX 4060 Ti)
+3. Audio uploaded to `http://shop.example.net/whisper/transcribe` via nginx (GPU inference on RTX 4060 Ti)
 4. Transcript returned — actual audio duration measured
 5. Metered escrow release: `actual_minutes × 0.02 AIT` → provider wallet
 6. On-chain TX confirms payment (visible on hub chain)
@@ -75,7 +75,7 @@ aitbc market transcribe sw_offer_20260603125540_49d92c3c lecture.wav \
 
 ## 4. Expose Whisper publicly on aitbc3 (nginx setup)
 
-The offer's public endpoint (`http://aitbc3.aitbc.bubuit.net/whisper`) is defined in `deployment/nginx-aitbc.conf`.
+The offer's public endpoint (`http://shop.example.net/whisper`) is defined in `deployment/nginx-aitbc.conf`.
 
 On aitbc3, after `git pull`:
 
@@ -88,9 +88,9 @@ sudo nginx -t && sudo systemctl reload nginx
 
 This exposes:
 
-- `http://aitbc3.aitbc.bubuit.net/whisper/transcribe` → `localhost:8110/transcribe`
-- `http://aitbc3.aitbc.bubuit.net/whisper/health` → `localhost:8110/health`
-- `http://aitbc3.aitbc.bubuit.net/ollama/api/generate` → `localhost:11434/api/generate`
+- `http://shop.example.net/whisper/transcribe` → `localhost:8110/transcribe`
+- `http://shop.example.net/whisper/health` → `localhost:8110/health`
+- `http://shop.example.net/ollama/api/generate` → `localhost:11434/api/generate`
 
 ---
 

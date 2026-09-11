@@ -16,7 +16,7 @@ import time
 from typing import Optional, Dict, Any
 
 class NemotronCloudClient:
-    def __init__(self, base_url="https://aitbc3.aitbc.bubuit.net", max_retries=3):
+    def __init__(self, base_url="https://shop.example.net", max_retries=3):
         self.base_url = base_url
         self.max_retries = max_retries
         self.session = requests.Session()
@@ -178,7 +178,7 @@ print("\nFull response completed.")
 
 ```python
 class RobustNemotronClient:
-    def __init__(self, base_url="https://aitbc3.aitbc.bubuit.net"):
+    def __init__(self, base_url="https://shop.example.net"):
         self.client = NemotronCloudClient(base_url)
         self.circuit_breaker = CircuitBreaker()
 
@@ -238,7 +238,7 @@ import requests
 import json
 
 class NemotronCloudClient:
-    def __init__(self, base_url="https://aitbc3.aitbc.bubuit.net"):
+    def __init__(self, base_url="https://shop.example.net"):
         self.base_url = base_url
         self.offer_id = "sw_offer_20260605110316_a343d309"
 

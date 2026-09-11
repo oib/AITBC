@@ -506,7 +506,7 @@ inspection updated the following conclusions:
   `redis.env` because they run no local Redis. This closes the last open register
   item.
 - **node0 block lag resolved.** `default_peer_rpc_url` in
-  `/etc/aitbc/blockchain.env` pointed to `https://node1.aitbc.bubuit.net` (a
+  `/etc/aitbc/blockchain.env` pointed to `https://node1.example.net` (a
   follower) instead of `https://hub.aitbc.bubuit.net`. On 8 Sep it was corrected,
   stale `SYNC_SOURCE_*` variables were removed, `BLOCK_TIME=5` was replaced with
   `BLOCK_TIME_SECONDS=60`, and `market_role` was set to `customer`.

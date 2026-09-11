@@ -115,7 +115,7 @@ Expected result:
 - The `aitbc-miner` default offer set is configured in
   `apps/miner/production_miner.py` (`DEFAULT_SOFTWARE_OFFERS`).
 - The CLI resolves the offer on-chain, then calls the provider's public
-  endpoint (e.g. `https://aitbc3.aitbc.bubuit.net/whisper`).
+  endpoint (e.g. `https://shop.example.net/whisper`).
 - `aitbc market offer` no longer requires an on-chain bond for software-only
   listings (hardware GPU bundles still require one if `MARKET_BOND_MIN_AMOUNT` is
   set above 0).

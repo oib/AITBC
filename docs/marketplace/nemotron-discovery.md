@@ -19,16 +19,16 @@ aitbc market list | grep ollama
 
 ```bash
 # Get all offers (via API Gateway)
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer | jq '.offers[]'
+curl -s https://shop.example.net/api/v1/marketplace/offer | jq '.offers[]'
 
 # Get specific offer details (via API Gateway)
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
+curl -s https://shop.example.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
 
 # Alternative: Plugin discovery endpoint
-curl -s https://aitbc3.aitbc.bubuit.net/api/v1/plugin/ | jq '.offers[]'
+curl -s https://shop.example.net/api/v1/plugin/ | jq '.offers[]'
 
 # Direct Ollama API (via nginx proxy) — NOW WORKING
-curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
+curl -s https://shop.example.net/ollama/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
 ```
 
 ### Expected Offer Details
@@ -42,7 +42,7 @@ curl -s https://aitbc3.aitbc.bubuit.net/ollama/api/tags | jq '.models[] | select
   "price_unit": "per_1k_tokens",
   "offer_id": "sw_offer_20260605110316_a343d309",
   "endpoint": "http://localhost:11434",
-  "public_endpoint": "https://aitbc3.aitbc.bubuit.net/ollama",
+  "public_endpoint": "https://shop.example.net/ollama",
   "gpu_name": "N/A (cloud)",
   "gpu_device": "N/A",
   "description": "NVIDIA Nemotron 3 Super via Ollama cloud proxy",
