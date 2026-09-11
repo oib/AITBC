@@ -84,6 +84,7 @@ aitbc --help
 | `workflow` | Workflow management commands | `list`, `run`, `status`, `stop` |
 | `zk` | Zero-knowledge proof commands. | `circuits`, `health`, `verify` |
 | `http` | Generic HTTP client for local AITBC services | `call` |
+| `service` | Manage AITBC systemd services | `harden` |
 
 ## Market
 
