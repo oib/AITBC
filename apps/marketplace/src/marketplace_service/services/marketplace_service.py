@@ -1221,10 +1221,8 @@ class MarketplaceService:
         limit: int = 100,
     ) -> list[dict[str, Any]]:
         """List marketplace jobs with optional filters."""
-        from sqlalchemy import select
-
         try:
-            from sqlmodel import col, select
+            from sqlmodel import col
 
             stmt = select(MarketplaceJob)
             if buyer_address:
@@ -1423,7 +1421,7 @@ class MarketplaceService:
 
     async def get_marketplace_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an access token and return the job details."""
-        from sqlmodel import col, select
+        from sqlmodel import col
 
         try:
             stmt = select(MarketplaceJob).where(col(MarketplaceJob.access_key) == access_key)
@@ -1457,7 +1455,7 @@ class MarketplaceService:
 
     async def get_marketplace_job_usage(self, buyer_address: str, offer_id: str) -> int:
         """Return the total bytes of active IPFS storage for a buyer/offer pair."""
-        from sqlmodel import col, select
+        from sqlmodel import col
 
         try:
             stmt = (
@@ -1477,7 +1475,7 @@ class MarketplaceService:
     async def check_software_offer_health(self, plugin_id: str) -> dict[str, Any]:
         """Check the health of a software offer."""
         try:
-            from sqlmodel import col, select
+            from sqlmodel import col
 
             stmt = select(SoftwareService).where(col(SoftwareService.plugin_id) == plugin_id)
             result = await self.session.execute(stmt)
