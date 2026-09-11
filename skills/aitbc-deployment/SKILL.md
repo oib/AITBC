@@ -37,7 +37,7 @@ After repo restructure, systemd service files and wrapper scripts moved from `sy
 
 ## Services
 
-### Coordinator API (port 8111)
+### Coordinator API (port 8203)
 ```bash
 # Install dependencies (use central requirements)
 cd /opt/aitbc && source venv/bin/activate
@@ -73,7 +73,7 @@ Without `/usr/bin`, nvidia-smi is not found and miner falls back to CPU-only on 
 - Body: `{"capabilities": {"cpu": true, "llm_inference": true}}` (dict, NOT list)
 - Result submission: `{"result": {...}, "metrics": {...}}` with `result` as top-level key
 
-### Edge API (port 8103)
+### Edge API (port 8111)
 ```bash
 ln -sf /opt/aitbc/apps/edge/aitbc-edge.service /etc/systemd/system/aitbc-edge.service
 systemctl daemon-reload && systemctl start aitbc-edge

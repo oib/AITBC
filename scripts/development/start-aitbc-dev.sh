@@ -248,10 +248,6 @@ done
 print_status "Checking AITBC service ports with location detection..."
 
 ports=(
-    "8000:Coordinator API"
-    "8001:Exchange API"
-    "8002:Blockchain Node"
-    "8003:Blockchain RPC"
     "8201:API Gateway"
     "8202:Blockchain RPC"
     "8203:Coordinator API"
@@ -407,4 +403,4 @@ echo "  - Pool Hub:        http://localhost:8210"
 echo ""
 echo "  Ports come from docs/reference/SERVICE_PORTS.md, which is the single"
 echo "  source of truth. If you change one there, change it here too --"
-echo "  scripts/docs/check_ports.py only reads markdown tables, not this file."
+echo "  scripts/docs/check_ports.py also reads the port array in this file."

@@ -93,7 +93,7 @@ BLOCKCHAIN_URL=http://localhost:8202
 BLOCKCHAIN_DATA_DIR=/tmp/blockchain-test
 
 # Wallet
-WALLET_DAEMON_URL=http://localhost:8081
+WALLET_DAEMON_URL=http://localhost:8108
 WALLET_DATA_DIR=/tmp/wallet-test
 
 # Marketplace

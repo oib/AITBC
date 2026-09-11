@@ -72,8 +72,8 @@ class AITBCServiceIntegration:
         self.service_endpoints = {
             "coordinator_api": "http://localhost:8000",
             "blockchain_rpc": "http://localhost:8006",
-            "exchange_service": "http://localhost:8001",
-            "marketplace": "http://localhost:8002",
+            "exchange_service": "http://localhost:8106",
+            "marketplace": "http://localhost:8102",
             "agent_registry": "http://localhost:8013"
         }
         self.session = None
