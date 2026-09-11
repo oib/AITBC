@@ -13,6 +13,8 @@ EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
 EnvironmentFile=/etc/aitbc/%N.env
+# Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
+Environment=TRADING_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python -m trading_service.main
 Restart=on-failure
 RestartSec=5

@@ -10,6 +10,10 @@ Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment="PYTHONPATH=/opt/aitbc"
 EnvironmentFile=-/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/node.env
+# Bind policy: proxied backend (docs/deployment/NETWORK_POLICY.md). Loopback is
+# correct only when nginx runs on THIS host; where it does not, override
+# EXPLORER_BIND_HOST in /etc/aitbc/node.env with the private interface address.
+Environment=EXPLORER_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/blockchain-explorer/main.py
 Restart=on-failure
 RestartSec=5

@@ -108,6 +108,18 @@ jobs:
       - name: CLI docs sync check
         run: bash scripts/ci/check-cli-docs.sh
 
+      - name: Docs link check
+        run: bash scripts/validate_docs.sh
+
+      - name: Docs master index drift check
+        run: python3 scripts/docs/gen_master_index.py --check
+
+      - name: Docs port consistency check
+        run: python3 scripts/docs/check_ports.py
+
+      - name: Service bind policy check
+        run: python3 scripts/docs/check_bind_policy.py
+
       - name: Live scenario dry-run
         env:
           WALLET_URL: http://127.0.0.1:1

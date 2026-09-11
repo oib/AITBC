@@ -31,7 +31,7 @@ exec_cmd = [
     "-m",
     "aitbc_chain.gossip.relay",
     "--host",
-    "0.0.0.0",  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    "0.0.0.0",  # nosec B104 - blockchain P2P is an authorized public surface: followers on other hosts gossip over the internet (docs/deployment/NETWORK_POLICY.md)
     "--port",
     "7070",
     "--access-log",
