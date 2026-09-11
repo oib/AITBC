@@ -86,9 +86,9 @@ The new `1 AIT = 36,000,000` scale keeps integer-on-the-wire accounting while su
 
 See the operator implementation plan and live reset checklist. After code upgrade, each follower needs a clean `chain.db` and `genesis.json` from the authoritative proposer before services are restarted.
 
-### TEE / Confidential compute
+### TEE / FHE / Confidential compute
 
-- TEE-backed verification requires real silicon (SGX/SEV/TPM) which is not available on any live node. The `aitbc tee` command group is therefore removed from the v0.25.2 CLI surface and deferred to the v2.0 / TEE roadmap (see `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`). The module and tests are kept in the repository for the future release.
+- TEE-backed verification and FHE-encrypted inference require real silicon / libraries (SGX/SEV/TPM and a production FHE provider such as TenSEAL or Concrete ML) which are not available on any live node. The `aitbc tee` command group and production confidential/FHE inference are therefore removed from the v0.25.2 CLI surface and deferred to the v2.0 / TEE/FHE roadmap (see `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`). The module and tests are kept in the repository for the future release.
 
 ### Escrow / ZkRefundSweeper follow-ups (2026-09-01)
 
