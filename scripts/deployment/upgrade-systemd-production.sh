@@ -25,6 +25,8 @@ NC='\033[0m' # No Color
 
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 echo -e "${BLUE}🔧 UPGRADING EXISTING SYSTEMD SERVICES${NC}"
 echo "=================================="
@@ -39,7 +41,7 @@ echo "=================================="
 cp /opt/aitbc/systemd/aitbc-blockchain-node.service /opt/aitbc/systemd/aitbc-blockchain-node.service.backup
 
 # Create production-grade blockchain service
-cat > /opt/aitbc/systemd/aitbc-blockchain-node.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-blockchain-node.service << EOF
 [Unit]
 Description=AITBC Production Blockchain Node
 After=network.target postgresql.service redis.service
@@ -51,13 +53,13 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
+Environment=NODE_ID=${NODE_ID}
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Production execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/blockchain_simple.py
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
@@ -98,7 +100,7 @@ echo "===================================="
 cp /opt/aitbc/systemd/aitbc-marketplace.service /opt/aitbc/systemd/aitbc-marketplace.service.backup
 
 # Create production-grade marketplace service
-cat > /opt/aitbc/systemd/aitbc-marketplace.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-marketplace.service << EOF
 [Unit]
 Description=AITBC Production Marketplace Service
 After=network.target aitbc-blockchain-node.service postgresql.service redis.service
@@ -110,7 +112,7 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
+Environment=NODE_ID=${NODE_ID}
 Environment=MARKETPLACE_PORT=8102
 Environment=WORKERS=4
 Environment=PYTHONPATH=/opt/aitbc/production/services
@@ -118,7 +120,7 @@ EnvironmentFile=/opt/aitbc/production/.env
 
 # Production execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/marketplace.py
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
@@ -154,14 +156,14 @@ echo "✅ Marketplace service upgraded to production-grade"
 # Step 3: GPU service unified into marketplace service
 echo -e "${CYAN}🖥️  Step 3: GPU Service${NC}"
 echo "=============================="
-echo "ℹ️  GPU marketplace functionality unified into aitbc-marketplace.service (port 8007)"
+echo "ℹ️  GPU service (port 8101) functionality unified into the AITBC marketplace service (port 8102)"
 echo "✅ GPU service handling included in marketplace service upgrade"
 
 # Step 4: Create production monitoring service
 echo -e "${CYAN}📊 Step 4: Create Production Monitoring${NC}"
 echo "======================================"
 
-cat > /opt/aitbc/systemd/aitbc-production-monitor.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-production-monitor.service << EOF
 [Unit]
 Description=AITBC Production Monitoring Service
 After=network.target aitbc-blockchain-node.service aitbc-marketplace.service
@@ -172,7 +174,7 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
+Environment=NODE_ID=${NODE_ID}
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
@@ -275,28 +277,29 @@ sleep 5
 # Was 8002 until V23-99. 8002 is aitbc-monitoring; it answers /health 200, so this
 # reported the marketplace ready whenever monitoring was up. Marketplace is 8102.
 curl -fsS http://localhost:8102/health | head -5 || echo "Marketplace service not ready"
-curl -s http://localhost:8007/health | head -5 || echo "Marketplace GPU endpoint not ready"
+# GPU service
+curl -s http://localhost:8101/health | head -5 || echo "GPU service endpoint not ready"
 
 # Step 7: Deploy to ${NODE1_HOST}
 echo -e "${CYAN}🚀 Step 7: Deploy to ${NODE1_HOST}${NC}"
 echo "========================"
 
 # Copy production services to ${NODE1_HOST}
-echo "Copying production services to aitbc1..."
+echo "Copying production services to ${NODE1_ID}..."
 scp -r /opt/aitbc/production ${NODE1_HOST}:/opt/aitbc/
 scp /opt/aitbc/systemd/aitbc-blockchain-node.service ${NODE1_HOST}:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-marketplace.service ${NODE1_HOST}:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-production-monitor.service ${NODE1_HOST}:/opt/aitbc/systemd/
 
 # Update services for ${NODE1_HOST} node
-echo "Configuring services for aitbc1..."
-ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-blockchain-node.service"
-ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-marketplace.service"
-ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-production-monitor.service"
+echo "Configuring services for ${NODE1_ID}..."
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-blockchain-node.service"
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-marketplace.service"
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-production-monitor.service"
 
 
 # Deploy and start services on ${NODE1_HOST}
-echo "Starting services on aitbc1..."
+echo "Starting services on ${NODE1_ID}..."
 ssh ${NODE1_HOST} "systemctl daemon-reload"
 ssh ${NODE1_HOST} "systemctl enable aitbc-blockchain-node.service aitbc-marketplace.service aitbc-production-monitor.service"
 ssh ${NODE1_HOST} "systemctl start aitbc-blockchain-node.service"
@@ -312,8 +315,9 @@ ssh ${NODE1_HOST} "systemctl status aitbc-marketplace.service --no-pager -l | he
 
 # Test ${NODE1_HOST} endpoints
 echo "Testing ${NODE1_HOST} endpoints..."
-ssh ${NODE1_HOST} "curl -s http://localhost:8004/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
-ssh ${NODE1_HOST} "curl -s http://localhost:8008/health | head -5" || echo "${NODE1_HOST} marketplace GPU endpoint not ready"
+ssh ${NODE1_HOST} "curl -s http://localhost:8102/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
+# GPU service
+ssh ${NODE1_HOST} "curl -s http://localhost:8101/health | head -5" || echo "${NODE1_HOST} GPU service endpoint not ready"
 
 echo ""
 echo -e "${GREEN}🎉 PRODUCTION SYSTEMD SERVICES UPGRADED!${NC}"

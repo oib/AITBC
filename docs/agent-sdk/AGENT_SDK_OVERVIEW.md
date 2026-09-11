@@ -1,6 +1,6 @@
 # AITBC Agent SDK Documentation
 
-> **Important:** This document uses port 8000 for the Coordinator API. The correct port is 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** The Coordinator API lives on port 8203. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ## Overview
 

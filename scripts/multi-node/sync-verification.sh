@@ -15,6 +15,8 @@ set -euo pipefail
 # Set them for your own deployment; there is deliberately no default.
 NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
 NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -34,12 +36,12 @@ if [ -n "${AITBC_NODES:-}" ]; then
     read -r -a NODES <<< "${AITBC_NODES}"
 else
     NODES=(
-        "aitbc:${NODE0_HOST}"
-        "aitbc1:${NODE1_HOST}"
+        "${NODE_ID}:${NODE0_HOST}"
+        "${NODE1_ID}:${NODE1_HOST}"
     )
 fi
 
-RPC_PORT=8006
+RPC_PORT=8202
 
 # Resolve a node target to a base URL. Anything containing "://" is already a URL and gets
 # no port appended -- the island is behind nginx on 443, not on RPC_PORT.

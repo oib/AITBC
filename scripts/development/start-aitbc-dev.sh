@@ -123,12 +123,13 @@ fi
 # Step 1: Check remote containers via SSH
 print_status "Checking remote containers via SSH..."
 
-containers=("aitbc" "${NODE1_HOST}")
+LOCAL_CONTAINER="${AITBC_CONTAINER_NAME:-aitbc}"
+containers=("$LOCAL_CONTAINER" "${NODE1_HOST}")
 for container in "${containers[@]}"; do
     print_status "Checking container: $container"
 
     case $container in
-        "aitbc")
+        "$LOCAL_CONTAINER")
             if ssh "$NODE1_CONTAINER_SSH" "echo 'Container is accessible'" >/dev/null 2>&1; then
                 print_success "Container $container is accessible via SSH"
             else

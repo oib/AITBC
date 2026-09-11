@@ -13,6 +13,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+LOCAL_CONTAINER="${AITBC_CONTAINER_NAME:-aitbc}"
+REMOTE_CONTAINER="${AITBC_NODE1_CONTAINER_NAME:-aitbc1}"
+
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
@@ -40,7 +43,7 @@ fix_sudoers() {
     # Create corrected sudoers file
     sudoers_file="/etc/sudoers.d/aitbc-dev"
 
-    cat > "$sudoers_file" << 'EOF'
+    cat > "$sudoers_file" << EOF
 # AITBC Development Sudoers Configuration
 # This file provides passwordless access for AITBC development operations
 
@@ -83,10 +86,10 @@ oib ALL=(root) NOPASSWD: /usr/bin/netstat -tlnp
 oib ALL=(root) NOPASSWD: /usr/bin/ss -tlnp
 
 # Container operations (existing)
-oib ALL=(root) NOPASSWD: /usr/bin/incus exec aitbc *
-oib ALL=(root) NOPASSWD: /usr/bin/incus exec aitbc1 *
-oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc *
-oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc1 *
+oib ALL=(root) NOPASSWD: /usr/bin/incus exec ${LOCAL_CONTAINER} *
+oib ALL=(root) NOPASSWD: /usr/bin/incus exec ${REMOTE_CONTAINER} *
+oib ALL=(root) NOPASSWD: /usr/bin/incus shell ${LOCAL_CONTAINER} *
+oib ALL=(root) NOPASSWD: /usr/bin/incus shell ${REMOTE_CONTAINER} *
 
 # User switching for service operations
 oib ALL=(aitbc) NOPASSWD: ALL

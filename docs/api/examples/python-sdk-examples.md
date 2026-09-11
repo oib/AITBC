@@ -116,7 +116,7 @@ a single `base_url` reaches only one of them:
 | Attribute | Served by | Base URL to use |
 |---|---|---|
 | `.wallet` | wallet daemon (`apps/wallet`) | the wallet daemon |
-| `.registry`, `get_grant_summary()`, `health()` | coordinator-api | `http://localhost:8203` |
+| `.registry`, `get_grant_summary()`, `health()` | coordinator API | `http://localhost:8203` |
 
 Construct one client per service if you need both.
 

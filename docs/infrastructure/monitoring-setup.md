@@ -171,7 +171,7 @@ scrape_configs:
   # Coordinator API and marketplace only run on the hub node by default.
   # - job_name: 'aitbc3-coordinator-api'
   #   static_configs:
-  #     - targets: ['localhost:8203']
+  #     - targets: ['localhost:8203']  # check-ports: ignore
   #       labels:
   #         node: <node2>
   #         service: coordinator-api

@@ -60,7 +60,9 @@ fi
 # Step 1: Start incus containers
 print_status "Starting incus containers..."
 
-containers=("aitbc" "aitbc1")
+LOCAL_CONTAINER="${AITBC_CONTAINER_NAME:-aitbc}"
+REMOTE_CONTAINER="${AITBC_NODE1_CONTAINER_NAME:-aitbc1}"
+containers=("$LOCAL_CONTAINER" "$REMOTE_CONTAINER")
 for container in "${containers[@]}"; do
     print_status "Starting container: $container"
 
@@ -89,12 +91,12 @@ sleep 10
 print_status "Starting AITBC services inside containers..."
 
 container_services=(
-    "aitbc:aitbc-coordinator-api"
-    "aitbc:aitbc-wallet-daemon"
-    "aitbc:aitbc-blockchain-node"
-    "aitbc1:aitbc-coordinator-api"
-    "aitbc1:aitbc-wallet-daemon"
-    "aitbc1:aitbc-blockchain-node"
+    "$LOCAL_CONTAINER:aitbc-coordinator-api"
+    "$LOCAL_CONTAINER:aitbc-wallet-daemon"
+    "$LOCAL_CONTAINER:aitbc-blockchain-node"
+    "$REMOTE_CONTAINER:aitbc-coordinator-api"
+    "$REMOTE_CONTAINER:aitbc-wallet-daemon"
+    "$REMOTE_CONTAINER:aitbc-blockchain-node"
 )
 
 for service_info in "${container_services[@]}"; do

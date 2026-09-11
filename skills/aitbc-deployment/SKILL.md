@@ -52,7 +52,7 @@ ln -sf /opt/aitbc/apps/coordinator-api/aitbc-coordinator-api.service /etc/system
 systemctl daemon-reload && systemctl start aitbc-coordinator-api
 
 # Verify
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 ```
 
 ### Production Miner

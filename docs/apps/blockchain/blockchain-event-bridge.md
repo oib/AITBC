@@ -56,7 +56,7 @@ Environment variables:
 ### Development
 
 ```bash
-poetry run uvicorn blockchain_event_bridge.main:app --reload --host 127.0.0.1 --port 8204
+poetry run uvicorn blockchain_event_bridge.main:app --reload --host 127.0.0.1 --port 8205
 ```
 
 ### Production (Systemd)

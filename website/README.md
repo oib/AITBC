@@ -60,16 +60,11 @@ credentials, and no node needs it to follow the chain.
 └─────────────────┘     │  ┌───────────┐  │     └─────────────────┘
                         │  │ /agent/*  │  │
                         │  │ /rpc/*    │  │     ┌─────────────────┐
-                        │  └─────┬─────┘  │────▶│  Agent Registry │
-                        │        │        │     │  (port 8204)    │
-                        │        └────┬───┘     └─────┬───────────┘
-                        │             │               │
-                        └─────────────┘               │
-                                                      ▼
-                                              ┌─────────────────┐
-                                              │  Blockchain RPC │
-                                              │  (port 8202)    │
-                                              └─────────────────┘
+                        │  └─────┬─────┘  │────▶│  Blockchain RPC │
+                        │        │        │     │  (port 8202)    │
+                        │        └────┬───┘     └─────────────────┘
+                        │             │
+                        └─────────────┘
 ```
 
 ## Testing
@@ -101,16 +96,16 @@ curl -I https://hub.aitbc.bubuit.net/agent/blockchain.env
 
 ## Troubleshooting
 
-**Agent API not responding:**
+**Blockchain RPC / agent endpoints not responding:**
 ```bash
 # Check service status
-sudo systemctl status aitbc-agent-registry.service
+sudo systemctl status aitbc-blockchain-rpc.service
 
 # Check logs
-sudo journalctl -u aitbc-agent-registry.service -f
+sudo journalctl -u aitbc-blockchain-rpc.service -f
 
 # Test directly
-curl http://127.0.0.1:8204/agent/health
+curl http://127.0.0.1:8202/health
 ```
 
 **Nginx config errors:**

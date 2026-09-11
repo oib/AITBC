@@ -117,7 +117,7 @@ echo "========================"
 
 echo -e "${GREEN}✅ Localhost: ACTIVE${NC}"
 echo "   Status: Production ready"
-echo "   Agents: $(curl -s http://localhost:8006/health 2>/dev/null || echo "API not running")"
+echo "   Agents: $(curl -s http://localhost:8107/health 2>/dev/null || echo "API not running")"
 
 # Check ${NODE1_HOST} status
 if ssh ${NODE1_HOST} 'cd /opt/aitbc && test -f data/agent_registry.json' 2>/dev/null; then
@@ -158,7 +158,7 @@ echo -e "${CYAN}🎯 AUTOMATED PRODUCTION DEPLOYMENT${NC}"
 echo "=================================="
 
 # Deploy to ${NODE1_HOST}
-echo "Deploying to aitbc1..."
+echo "Deploying to ${NODE1_HOST}..."
 if ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull origin main && ./scripts/manage-services.sh start' 2>/dev/null; then
     echo -e "${GREEN}✅ ${NODE1_HOST} deployment successful${NC}"
 else

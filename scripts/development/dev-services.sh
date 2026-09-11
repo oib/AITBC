@@ -43,10 +43,10 @@ case "${1:-help}" in
     "test")
         echo "🧪 Testing AITBC services..."
         echo "Testing Coordinator API..."
-        curl -s http://localhost:8000/health || echo "❌ Coordinator API not responding"
+        curl -s http://localhost:8203/health || echo "❌ Coordinator API not responding"
         echo ""
         echo "Testing Blockchain RPC..."
-        curl -s http://localhost:8006/health || echo "❌ Blockchain RPC not responding"
+        curl -s http://localhost:8202/health || echo "❌ Blockchain RPC not responding"
         echo ""
         echo "✅ Service test completed"
         ;;

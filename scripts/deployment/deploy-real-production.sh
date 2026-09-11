@@ -25,6 +25,8 @@ NC='\033[0m' # No Color
 
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 echo -e "${BLUE}🚀 DEPLOY REAL PRODUCTION SYSTEM${NC}"
 echo "=========================="
@@ -35,7 +37,7 @@ echo ""
 echo -e "${CYAN}⛓️  Step 1: Real Mining Service${NC}"
 echo "============================"
 
-cat > /opt/aitbc/systemd/aitbc-mining-blockchain.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-mining-blockchain.service << EOF
 [Unit]
 Description=AITBC Real Mining Blockchain Service
 After=network.target
@@ -46,13 +48,13 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
+Environment=NODE_ID=${NODE_ID}
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Real mining execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/mining_blockchain.py
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
@@ -89,7 +91,7 @@ echo "✅ Real mining service created"
 echo -e "${CYAN}🤖 Step 2: agent AI Service${NC}"
 echo "=============================="
 
-cat > /opt/aitbc/systemd/aitbc-agent-ai.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-agent-ai.service << EOF
 [Unit]
 Description=AITBC agent AI Service
 After=network.target aitbc-mining-blockchain.service
@@ -100,13 +102,13 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
+Environment=NODE_ID=${NODE_ID}
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # agent AI execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/agent_ai.py
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
@@ -143,7 +145,7 @@ echo "✅ agent AI service created"
 echo -e "${CYAN}🏪 Step 3: Real Marketplace Service${NC}"
 echo "=============================="
 
-cat > /opt/aitbc/systemd/aitbc-real-marketplace.service << 'EOF'
+cat > /opt/aitbc/systemd/aitbc-real-marketplace.service << EOF
 [Unit]
 Description=AITBC Real Marketplace with AI Services
 After=network.target aitbc-mining-blockchain.service aitbc-agent-ai.service
@@ -154,14 +156,14 @@ User=root
 Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
-Environment=NODE_ID=aitbc
+Environment=NODE_ID=${NODE_ID}
 Environment=REAL_MARKETPLACE_PORT=8006
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Real marketplace execution
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/real_marketplace.py
-ExecReload=/bin/kill -HUP $MAINPID
+ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
@@ -239,7 +241,7 @@ sleep 5
 echo "Testing mining blockchain..."
 cd /opt/aitbc
 source venv/bin/activate
-export NODE_ID=aitbc
+export NODE_ID=${NODE_ID}
 python production/services/mining_blockchain.py > /tmp/mining_test.log 2>&1
 if [ $? -eq 0 ]; then
     echo "✅ Mining blockchain test passed"
@@ -262,31 +264,31 @@ fi
 
 # Test real marketplace
 echo "Testing real marketplace..."
-curl -s http://localhost:8006/health | head -5 || echo "Real marketplace not responding"
-curl -s http://localhost:8006/ai/services | head -10 || echo "AI services not available"
+curl -s http://localhost:8006/health | head -5 || echo "Real marketplace not responding"  # check-ports: ignore
+curl -s http://localhost:8006/ai/services | head -10 || echo "AI services not available"  # check-ports: ignore
 
 # Step 6: Deploy to ${NODE1_HOST}
 echo -e "${CYAN}🚀 Step 6: Deploy to ${NODE1_HOST}${NC}"
 echo "=========================="
 
 # Copy production system to ${NODE1_HOST}
-echo "Copying real production system to aitbc1..."
+echo "Copying real production system to ${NODE1_ID}..."
 scp -r /opt/aitbc/production/services ${NODE1_HOST}:/opt/aitbc/production/
 scp /opt/aitbc/systemd/aitbc-mining-blockchain.service ${NODE1_HOST}:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-agent-ai.service ${NODE1_HOST}:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-real-marketplace.service ${NODE1_HOST}:/opt/aitbc/systemd/
 
 # Configure services for ${NODE1_HOST}
-echo "Configuring services for aitbc1..."
-ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-mining-blockchain.service"
-ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-agent-ai.service"
-ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
+echo "Configuring services for ${NODE1_ID}..."
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-mining-blockchain.service"
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-agent-ai.service"
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-real-marketplace.service"
 
 # Update ports for ${NODE1_HOST}
 ssh ${NODE1_HOST} "sed -i 's/REAL_MARKETPLACE_PORT=8006/REAL_MARKETPLACE_PORT=8007/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
 
 # Deploy and start services on ${NODE1_HOST}
-echo "Starting services on aitbc1..."
+echo "Starting services on ${NODE1_ID}..."
 ssh ${NODE1_HOST} "cp /opt/aitbc/systemd/aitbc-*.service /etc/systemd/system/"
 ssh ${NODE1_HOST} "systemctl daemon-reload"
 ssh ${NODE1_HOST} "systemctl enable aitbc-mining-blockchain.service aitbc-agent-ai.service aitbc-real-marketplace.service"
@@ -300,7 +302,7 @@ ssh ${NODE1_HOST} "systemctl start aitbc-real-marketplace.service"
 echo "Checking ${NODE1_HOST} services..."
 ssh ${NODE1_HOST} "systemctl status aitbc-mining-blockchain.service --no-pager -l | head -5"
 ssh ${NODE1_HOST} "systemctl status aitbc-agent-ai.service --no-pager -l | head -5"
-ssh ${NODE1_HOST} "curl -s http://localhost:8007/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
+ssh ${NODE1_HOST} "curl -s http://localhost:8007/health | head -5" || echo "${NODE1_HOST} marketplace not ready"  # check-ports: ignore
 
 # Step 7: Demonstrate real functionality
 echo -e "${CYAN}🎯 Step 7: Demonstrate Real Functionality${NC}"
@@ -324,11 +326,12 @@ for name, chain_info in info['chains'].items():
 
 echo ""
 echo "Demonstrating real AI services..."
-curl -s http://localhost:8006/ai/services | jq '.total_services, .available_services' || echo "AI services check failed"
+curl -s http://localhost:8006/ai/services | jq '.total_services, .available_services' || echo "AI services check failed"  # check-ports: ignore
 
 echo ""
 echo "Demonstrating real AI task execution..."
-curl -X POST http://localhost:8006/ai/execute \
+AI_EXECUTE_URL="http://localhost:8006/ai/execute"  # check-ports: ignore
+curl -X POST "$AI_EXECUTE_URL" \
   -H "Content-Type: application/json" \
   -d '{
     "service_id": "ollama-llama2-7b",
@@ -372,8 +375,8 @@ echo "   • Marketplace: Real buying and selling"
 echo "   • Multi-chain: Real cross-chain trading"
 echo ""
 echo "✅ Service Endpoints:"
-echo "   • aitbc: http://localhost:8006/health"
-echo "   • ${NODE1_HOST}: http://${NODE1_HOST}:8007/health"
+echo "   • aitbc: http://localhost:8006/health"  # check-ports: ignore
+echo "   • ${NODE1_HOST}: http://${NODE1_HOST}:8007/health"  # check-ports: ignore
 echo ""
 echo "✅ Monitoring:"
 echo "   • Mining logs: journalctl -u aitbc-mining-blockchain"

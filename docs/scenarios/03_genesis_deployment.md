@@ -90,7 +90,7 @@ Genesis generation completed successfully
 | `--proposer` | Proposer address (defaults to genesis wallet) |
 | `--force` | Force overwrite existing genesis |
 | `--register-service` | Register genesis wallet with the wallet service |
-| `--service-url` | Wallet service URL (default: `http://localhost:8003`) |
+| `--service-url` | Wallet service URL (default: `http://localhost:8108`) |
 
 ### Step 2: Force Re-Initialize Genesis
 

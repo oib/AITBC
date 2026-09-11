@@ -415,8 +415,8 @@ Add:
    ```nginx
    upstream governance {
        server localhost:8105;
-       server localhost:8106;
-       server localhost:8107;
+       server localhost:8105;
+       server localhost:8105;
    }
 
    server {

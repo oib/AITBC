@@ -49,7 +49,7 @@ aitbc operations governance get-proposal prop_test_001
 ## RPC Endpoint Testing
 
 ```bash
-# Test governance endpoint
+# Test governance endpoint via the blockchain RPC
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
   -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'

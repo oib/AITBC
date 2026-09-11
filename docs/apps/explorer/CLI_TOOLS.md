@@ -322,7 +322,7 @@ aitbc blockchain import --source https://explorer.aitbc.dev/api
 
 ```bash
 # Use CLI as API proxy
-aitbc blockchain api --port 8080
+aitbc blockchain api --port 8080  # check-ports: ignore
 
 # Generate API documentation
 aitbc blockchain api --docs

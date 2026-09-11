@@ -229,7 +229,7 @@ CHAIN_ID=ait-testnet
 RPC_BIND_HOST=0.0.0.0
 RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
-P2P_BIND_PORT=8200
+P2P_BIND_PORT=7070
 ENABLE_BLOCK_PRODUCTION=true
 BLOCK_TIME_SECONDS=6
 PROPOSER_ID=ait1<unique-proposer-id>
@@ -397,7 +397,7 @@ run_health_checks() {
         log "Checking API endpoints..."
 
         # Check blockchain RPC
-        if curl -sf http://localhost:8006/health > /dev/null 2>&1; then
+        if curl -sf http://localhost:8202/health > /dev/null 2>&1; then
             success "Blockchain RPC health check passed"
         else
             warning "Blockchain RPC health check failed"

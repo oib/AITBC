@@ -501,7 +501,7 @@ aitbc --config-file /path/to/config wallet list
 ### Service Integration
 ```bash
 # Custom API endpoint
-aitbc --url http://localhost:8000 blockchain status
+aitbc --url http://localhost:8203 blockchain status
 
 # Custom API key
 aitbc --api-key <key> exchange register --name "Exchange"
@@ -891,10 +891,10 @@ echo $PATH | grep aitbc
 aitbc --debug blockchain status
 
 # Test with custom URL
-aitbc --url http://localhost:8000 blockchain info
+aitbc --url http://localhost:8203 blockchain info
 
 # Check service endpoints
-curl http://localhost:8000/health
+curl http://localhost:8203/health
 ```
 
 ### Debug Mode

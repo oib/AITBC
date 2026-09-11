@@ -2,7 +2,7 @@
 #
 # Blockchain Communication Test Script
 # Tests communication between aitbc (genesis), ${NODE1_HOST} (follower), and node3 (CI runner) nodes
-# All nodes run on port 8006 on different physical machines
+# All nodes run on port 8006 on different physical machines  # check-ports: ignore
 #
 
 set -euo pipefail

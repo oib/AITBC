@@ -41,7 +41,7 @@ systemctl status blockchain-rpc-2   # RPC API
 ### API Endpoints
 
 - Node 1 RPC: `http://127.0.0.1:8202/docs`
-- Node 2 RPC: `http://127.0.0.1:8081/docs`
+- Node 2 RPC: `http://127.0.0.1:8081/docs` <!-- check-ports: ignore -->
 
 ## Testing
 

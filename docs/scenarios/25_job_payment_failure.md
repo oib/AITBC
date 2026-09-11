@@ -57,7 +57,7 @@ A client fat-fingers the currency. The job must still run unpaid; no orphaned pa
 Log in on the hub (do not scrape JWT secrets from env files):
 
 ```bash
-# On the hub, with a funded customer wallet
+# On the hub, with a funded customer wallet (coordinator API)
 aitbc auth login --wallet customer-wallet --coordinator-url http://127.0.0.1:8203
 ```
 

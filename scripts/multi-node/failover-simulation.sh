@@ -18,7 +18,7 @@ NODES=(
     "node3:${AITBC_NODE3_SSH:?set AITBC_NODE3_SSH to the ssh target for node3 (CI runner)}"
 )
 
-RPC_PORT=8006
+RPC_PORT=8202
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/failover-simulation.log"
 

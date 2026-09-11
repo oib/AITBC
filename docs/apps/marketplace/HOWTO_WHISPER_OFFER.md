@@ -11,8 +11,8 @@
 aitbc market list
 
 # Or query the plugin registry directly
-curl http://localhost:8109/plugins/whisper-base
-curl http://localhost:8109/plugins/whisper-base/offer   # latest offer_id only
+curl http://localhost:8109/plugins/whisper-base  # check-ports: ignore
+curl http://localhost:8109/plugins/whisper-base/offer   # latest offer_id only  # check-ports: ignore
 ```
 
 Latest confirmed offer on hub:
@@ -100,7 +100,7 @@ Offers are re-published on node restart. Always resolve the current one:
 
 ```bash
 # From plugin registry (live hub chain lookup)
-curl http://localhost:8109/plugins/whisper-base/offer
+curl http://localhost:8109/plugins/whisper-base/offer  # check-ports: ignore
 
 # Or from market list
 aitbc market list | grep whisper

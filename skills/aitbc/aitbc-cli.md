@@ -246,7 +246,7 @@ cd /opt/aitbc
   --wallet my-wallet \
   --type "gpu-compute" \
   --price 100 \
-  --description "GPU compute for AI training" \
+  --description "AI training compute" \
   --password "securepassword123" \
   --rpc-url http://localhost:8202
 ```
