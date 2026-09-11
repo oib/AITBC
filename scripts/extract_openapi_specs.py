@@ -37,7 +37,7 @@ api_keys_dir = tempfile.mkdtemp(prefix="aitbc-openapi-apikeys-")
 os.environ.setdefault("API_KEY_STORAGE_PATH", os.path.join(api_keys_dir, "api_keys.json"))
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
-os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
 # agent-coordinator refuses to start without these; the values are irrelevant to the
 # generated schema and never leave this process.
 # Both must be at least 32 characters or the apps refuse to construct their settings.
