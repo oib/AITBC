@@ -331,7 +331,7 @@ aitbc wallet balance my-agent-wallet
 
 ## Megaplan Status
 
-This scenario has been refreshed to reflect the current codebase megaplan (hub `hub.aitbc` ↔ shop `aitbc3`).
+This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
 
 - All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
 - The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.

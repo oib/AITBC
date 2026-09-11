@@ -57,7 +57,7 @@ The Nemotron-3-Super cloud offer provides:
 - **Model**: NVIDIA Nemotron 3 Super
 - **Hosting**: Cloud-based (no GPU required on your end)
 - **Pricing**: 0.01 AIT per 1,000 tokens
-- **Access**: Via Ollama cloud proxy through aitbc3
+- **Access**: Via Ollama cloud proxy through `<node2>`
 - **Status**: Active and operational
 
 ## Related Topics

@@ -1,6 +1,6 @@
 ---
 name: aitbc-service-recovery
-description: AITBC systemd service recovery — relink, restart, and debug all AITBC services on aitbc3
+description: AITBC systemd service recovery — relink, restart, and debug all AITBC services on `<node2>`
 category: devops
 ---
 
@@ -67,7 +67,7 @@ AGENT_AGENT_ID=owl-aitbc3
 | Port | Service |
 |------|---------|
 | 8006 | Blockchain RPC |
-| 8001 | aitbc3 P2P listener |
+| 8001 | `<node2>` P2P listener |
 | 7070 | Hub P2P (use in p2p_peers) |
 | 8010 | Exchange API |
 | 8011 | Coordinator API (Agent messaging) |

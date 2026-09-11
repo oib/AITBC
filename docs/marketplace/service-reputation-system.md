@@ -8,7 +8,7 @@ The AITBC Service Reputation System enables customers to rate and review softwar
 
 - **Rating Submission**: Customers can rate services on a 1-5 scale with optional comments
 - **Automatic Aggregation**: Average ratings and counts are calculated automatically
-- **Cross-Node Sync**: Ratings propagate between hub and aitbc3 nodes
+- **Cross-Node Sync**: Ratings propagate between hub and `<node2>` nodes
 - **Conflict Resolution**: Most recent rating wins when conflicts occur
 - **Audit Trail**: Sync metadata tracks rating origin and sync status
 - **CLI Integration**: Rating commands available via `aitbc market rate` and `aitbc market ratings`
@@ -228,7 +228,7 @@ aitbc market sync-ratings --remote-url https://shop.example.net/api --limit 100
 
 ### Architecture — Cross-Node Synchronization
 
-The reputation system supports cross-node rating synchronization between the hub's local marketplace and the aitbc3 software service registry.
+The reputation system supports cross-node rating synchronization between the hub's local marketplace and the `<node2>` software service registry.
 
 **Sync Flow:**
 
@@ -251,7 +251,7 @@ When the same rating (same service_id + reviewer_id) exists on both nodes:
 ### Sync Tracking
 
 - `synced_at`: Timestamp when rating was last synced to remote
-- `source_node`: Origin node identifier ("local", "hub", "aitbc3", etc.)
+- `source_node`: Origin node identifier ("local", "hub", "`<node2>`", etc.)
 - Ratings with `synced_at=NULL` are considered unsynced
 
 ## Rating Aggregation

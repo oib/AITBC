@@ -33,7 +33,7 @@
    # Check offer status (via API Gateway)
    curl -s https://shop.example.net/api/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.status'
 
-   # Check local Ollama service (on aitbc3)
+   # Check local Ollama service (on <node2>)
    curl -s http://localhost:11434/api/tags | jq '.models[] | select(.name=="nemotron-3-super:cloud")'
    ```
 
@@ -49,7 +49,7 @@
      -H "Content-Type: application/json" \
      -d '{"model":"nemotron-3-super:cloud","prompt":"test","stream":false}'
 
-   # Applied fix on aitbc3 host nginx (HTTP port 80 block):
+   # Applied fix on <node2> host nginx (HTTP port 80 block):
    # location /ollama/ {
    #     proxy_pass http://127.0.0.1:11434/;
    #     proxy_set_header Host "localhost";  # KEY FIX - Ollama rejects external Host
@@ -104,7 +104,7 @@
 
 - **"Offer not found"**: Check offer ID and marketplace status
 - **"Insufficient funds"**: Add AIT tokens to wallet
-- **"Service unavailable"**: Check aitbc3 service status
+- **"Service unavailable"**: Check `<node2>` service status
 - **"Escrow failed"**: Verify wallet configuration and network
 - **"Cannot import name 'MarketplaceBidRequest'"**: Fixed - removed deprecated imports
 - **"No such column: softwareservice.avg_rating"**: Fixed - added missing database columns
@@ -297,7 +297,7 @@ aitbc wallet escrow-status $ESCROW_TX
 
 For issues with:
 
-- **Marketplace**: Check aitbc3 status and network connectivity
+- **Marketplace**: Check `<node2>` status and network connectivity
 - **Payments**: Verify wallet configuration and balance
 - **API**: Review authentication and endpoint URLs
 

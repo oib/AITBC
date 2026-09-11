@@ -158,14 +158,14 @@ scrape_configs:
     static_configs:
       - targets: ['localhost:9009']
         labels:
-          node: aitbc3
+          node: <node2>
           service: blockchain-node
 
   - job_name: 'aitbc3-blockchain-rpc'
     static_configs:
       - targets: ['localhost:8202']
         labels:
-          node: aitbc3
+          node: <node2>
           service: blockchain-rpc
 
   # Coordinator API and marketplace only run on the hub node by default.
@@ -173,7 +173,7 @@ scrape_configs:
   #   static_configs:
   #     - targets: ['localhost:8203']
   #       labels:
-  #         node: aitbc3
+  #         node: <node2>
   #         service: coordinator-api
   #   metrics_path: '/prometheus'
   #   scrape_interval: 15s
@@ -182,15 +182,15 @@ scrape_configs:
   #   static_configs:
   #     - targets: ['localhost:8104']
   #       labels:
-  #         node: aitbc3
+  #         node: <node2>
   #         service: marketplace
   #   metrics_path: '/metrics'
   #   scrape_interval: 15s
 ```
 
-## Making Prometheus more useful on aitbc3
+## Making Prometheus more useful on `<node2>`
 
-Since `aitbc3` has more hardware than `hub`:
+Since `<node2>` has more hardware than `hub`:
 
 1. **Run Prometheus on the local node.** The default configuration scrapes only `localhost`. If a central view is needed later, deploy a separate central Prometheus with an explicit remote-write or federation plan.
 2. **Add recording rules** for expensive queries used in alerts and ad-hoc investigation:
@@ -201,10 +201,10 @@ Since `aitbc3` has more hardware than `hub`:
 3. **Expose process and chain metrics.** The blockchain node main process now serves `/metrics` on port `9009` via `AITBC_NODE_METRICS_PORT` and exports chain height, valid subscriber counts and broadcast-skip counters.
 4. **Promote operational log lines.** `BROADCAST SKIPPED` and similar events are now logged at `WARNING` and counted in `blockchain_poa_broadcast_skipped_total` so an agent sees both the event and the metric.
 5. **Run `prometheus-node-exporter` on every node.** System metrics are cheap and make it easy to distinguish code bugs from resource exhaustion.
-6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly. On aitbc3 this is configured in `/etc/default/prometheus` as:
+6. **Keep retention aligned with disk.** With 523M of history, check `node_filesystem_avail_bytes` and set `--storage.tsdb.retention.size` accordingly. On `<node2>` this is configured in `/etc/default/prometheus` as:
    ```
    ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
-   ``` On aitbc3 this is configured in `/etc/default/prometheus` as:
+   ``` On <node2> this is configured in `/etc/default/prometheus` as:
    ```
    ARGS="--storage.tsdb.retention.time=30d --storage.tsdb.retention.size=100GB"
    ```

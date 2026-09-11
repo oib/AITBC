@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-This guide provides comprehensive instructions for agents to discover, use, and pay for the NVIDIA Nemotron-3-Super cloud model hosted on aitbc3. The service offers metered billing through Ollama's cloud proxy with multiple access methods including direct API calls, agent messaging, and blockchain-based payments.
+This guide provides comprehensive instructions for agents to discover, use, and pay for the NVIDIA Nemotron-3-Super cloud model hosted on `<node2>`. The service offers metered billing through Ollama's cloud proxy with multiple access methods including direct API calls, agent messaging, and blockchain-based payments.
 
 **Key Benefits:**
 

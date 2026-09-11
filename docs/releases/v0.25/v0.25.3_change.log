@@ -41,7 +41,7 @@ This release completes the SyncManager work that was left open in `v0.25.2`: con
 
 ## 2026-08-31 — Key rotation and bridge re-registration
 
-As part of the authorized T1/T9 work, the live keys on `hub.aitbc`, `aitbc1`, and `aitbc3` were rotated:
+As part of the authorized T1/T9 work, the live keys on `<hub-node>`, `<node1>`, and `<node2>` were rotated:
 
 - `GENESIS_PRIVATE_KEY` / `GENESIS_WALLET_PRIVATE_KEY` / `BOND_SLASH_PRIVATE_KEY` / `ESCROW_RELEASE_PRIVATE_KEY` / `PROPOSER_KEY` replaced with fresh secp256k1 keys.
 - Old account balances were transferred to the new addresses on `ait-hub.aitbc.bubuit.net`.
@@ -59,20 +59,20 @@ As part of the authorized T1/T9 work, the live keys on `hub.aitbc`, `aitbc1`, an
 - `payments.py`: unbacked-escrow guard is restricted to `HELD_STATES` so pending payments are not incorrectly refunded.
 - `payments.py`: `release_payment` is now the single settlement choke point; it gates on `job.state == JobState.completed` and on `receipt["computation_correct"] is not False` before any chain call.
 - `test_payments_refund.py` updated to assert the corrected on-chain transaction lookup URLs.
-- Live smoke test on `hub.aitbc`:
+- Live smoke test on `<hub-node>`:
   - `llama3.2:3b` with TEE attestation released successfully (`payment_status=released`, tx `0x1c632b85...`).
   - `linear-1` with ZK + TEE attestation released successfully (`zk_status=verified` with a Groth16 proof, `payment_status=released`).
 
 ## 2026-08-31 — T5 / G6 multi-validator PoA fault-tolerance validation
 
-Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `hub.aitbc`, `aitbc1`, and `aitbc3`:
+Option A (pragmatic 4-validator multi-key PoA) was activated and live-validated on `<hub-node>`, `<node1>`, and `<node2>`:
 
 - Preserved proposer / validator-1: `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76`.
-- Generated three new validators on `hub.aitbc`:
+- Generated three new validators on `<hub-node>`:
   - `0x241D3e44d42b6d4c270d0231780913f14386d90C`
   - `0x65568673B3cf7D614Edd97a94b3Ff757246dAe22`
   - `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`
-- Live configuration: `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`, `max_empty_block_interval=60`; followers `aitbc1`/`aitbc3` use `AUTO_SYNC_THRESHOLD=0` to force bulk pull for any gap.
+- Live configuration: `MULTI_VALIDATOR_CONSENSUS_ENABLED=true`, `PBFT_CONSENSUS_ENABLED=false`, `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`, `max_empty_block_interval=60`; followers `<node1>`/`<node2>` use `AUTO_SYNC_THRESHOLD=0` to force bulk pull for any gap.
 - Round-robin proposer rotation verified for blocks 1392–1399 with four distinct proposers.
 - One-validator-down simulation: removed `0x43641ca248D38406c52CF1D6B235948DF27bfCF0`; chain continued with the remaining three validators (heights 1393–1395); restored and resumed four-validator round-robin.
 - Operational findings: `aitbc-blockchain-rpc` can hang in `deactivating (stop-sigterm)`, a stale `aitbc_chain.main` process remained from 2026-08-27, and `AUTO_SYNC_THRESHOLD=0` is required to force SyncManager bulk pull for small gaps.
@@ -85,7 +85,7 @@ PBFT / true BFT across independent validator hosts remains open.
 - `gossip/broker.py`: `BroadcastGossipBackend.shutdown` and `WebsocketGossipBackend.shutdown` cap task and websocket cleanup with `asyncio.wait_for`.
 - `app.py`: `lifespan` `finally` wraps `proposer.stop()`, `gossip_broker.shutdown()`, and `lease_tracker.stop()` in `asyncio.wait_for` with hard timeouts.
 - `aitbc-blockchain-rpc.service`: added `TimeoutStopSec=20` and `KillMode=mixed` as a hard ceiling.
-- Deployed on `hub.aitbc`, `aitbc3`, `aitbc1`, `hub2.aitbc`; `systemctl restart aitbc-blockchain-rpc` now completes in ~0.2s on all nodes.
+- Deployed on `<hub-node>`, `<node2>`, `<node1>`, `<replica-node>`; `systemctl restart aitbc-blockchain-rpc` now completes in ~0.2s on all nodes.
 
 ## 2026-08-31 — Escrow and payment self-lock / node-wallet hardening (7b7a61108)
 
@@ -116,14 +116,14 @@ PBFT / true BFT across independent validator hosts remains open.
 - It unwraps P2P-style `{"type": "new_transaction", "tx": {...}}` envelopes.
 - It skips `ping`/`pong` control messages and any payload missing `transaction.from`.
 - Invalid gossip messages are logged at `debug` instead of `error`, removing the repeated `transaction.from is required` log spam.
-- Deployed on `hub.aitbc`, `aitbc1`, `aitbc3`, `hub2.aitbc`.
+- Deployed on `<hub-node>`, `<node1>`, `<node2>`, `<replica-node>`.
 
 ## 2026-08-31 — Follower reset/resync and state-root validation re-enabled
 
-- `aitbc1` and `hub2.aitbc` were stopped, their existing `chain.db` files backed up, and replaced with the current `hub.aitbc` chain database.
-- `SYNC_STATE_ROOT_VALIDATION_ENABLED=true` was set in `/etc/aitbc/blockchain.env` on `aitbc1`, `aitbc3`, and `hub2.aitbc`.
+- `<node1>` and `<replica-node>` were stopped, their existing `chain.db` files backed up, and replaced with the current `<hub-node>` chain database.
+- `SYNC_STATE_ROOT_VALIDATION_ENABLED=true` was set in `/etc/aitbc/blockchain.env` on `<node1>`, `<node2>`, and `<replica-node>`.
 - `aitbc-blockchain-node` was restarted on all four nodes.
-- Verification: all four nodes (`hub.aitbc`, `aitbc1`, `aitbc3`, `hub2.aitbc`) converge at height **1545**, hash `0x8fb5dc60ec68f9cbcc3f871776a52e95fa31b6702adf0fdaab573a5fc562424c`, and block 1545 `state_root` `0x885f18922c1c09a0abeb16420df5b11b1f078ba96ac02bb47cf0a35ff33e8975`.
+- Verification: all four nodes (`<hub-node>`, `<node1>`, `<node2>`, `<replica-node>`) converge at height **1545**, hash `0x8fb5dc60ec68f9cbcc3f871776a52e95fa31b6702adf0fdaab573a5fc562424c`, and block 1545 `state_root` `0x885f18922c1c09a0abeb16420df5b11b1f078ba96ac02bb47cf0a35ff33e8975`.
 - No `state_root` mismatch or `BLOCK REJECTED` entries in the last two minutes of logs on any node.
 
 ## Unreleased — IPFS rental escrow lifecycle sweeper

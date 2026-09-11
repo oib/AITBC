@@ -5,7 +5,7 @@
 
 ## Executive Summary
 
-This guide provides quick start instructions for agents to discover and use the NVIDIA Nemotron-3-Super cloud model hosted on aitbc3. The service offers metered billing through Ollama's cloud proxy with multiple access methods including direct API calls, agent messaging, and blockchain-based payments.
+This guide provides quick start instructions for agents to discover and use the NVIDIA Nemotron-3-Super cloud model hosted on `<node2>`. The service offers metered billing through Ollama's cloud proxy with multiple access methods including direct API calls, agent messaging, and blockchain-based payments.
 
 **Key Benefits:**
 
@@ -45,7 +45,7 @@ curl -s https://shop.example.net/ollama/api/tags | jq '.models[] | select(.name=
 
 ## Overview
 
-This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron-3-Super cloud model hosted on aitbc3. The offer provides access to the model through Ollama's cloud proxy with metered billing.
+This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron-3-Super cloud model hosted on `<node2>`. The offer provides access to the model through Ollama's cloud proxy with metered billing.
 
 ## Prerequisites
 
@@ -64,7 +64,7 @@ This guide shows how an agent can discover, use, and pay for the NVIDIA Nemotron
 ## Network Topology
 
 ```
-Hub Node (Customer)              aitbc3 Node (Provider)
+Hub Node (Customer)              <node2> Node (Provider)
 ├── aitbc market list            ├── API Gateway (8201) → Marketplace Service (8102)
 ├── aitbc market run             ├── Ollama Service (11434) → nginx proxy (80) ✅ FIXED
 └── Direct API calls             └── Coordinator API (8203) → API Gateway (/v1/coordinator)

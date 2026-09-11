@@ -91,7 +91,7 @@ compliance-aware job submission, and plugin discovery.
 ## Validation
 
 - Run `aitbc brand show`, `aitbc plugin list`, `aitbc plugin load whitelabel_demo`
-  on `aitbc3` or `hub.aitbc` and verify output matches the expected results.
+  on `<node2>` or `<hub-node>` and verify output matches the expected results.
 - Run `aitbc compliance check` for each framework/classification pair.
 - Run `aitbc ai submit --compliance-framework hipaa --classification public` and
   confirm it fails at the compliance hook.

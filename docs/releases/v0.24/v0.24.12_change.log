@@ -15,7 +15,7 @@
     stale because the timestamp never advanced.
 
 - ops(bridge): live activation of multi-signature and Merkle-proof enforcement
-  - `/etc/aitbc/blockchain.env` on `hub.aitbc` and `aitbc3` set:
+  - `/etc/aitbc/blockchain.env` on `<hub-node>` and `<node2>` set:
     - `BRIDGE_RELEASE_ENABLED=true` during validation, then `false`
     - `BRIDGE_MULTISIG_ENABLED=true`
     - `BRIDGE_REQUIRE_MERKLE_PROOF=true`
@@ -30,7 +30,7 @@
   - Wait for the `BRIDGE_LOCK` transaction to be anchored in a hub block with a non-zero
     `bridge_state_root`.
   - Build a Merkle inclusion proof with `GET /rpc/bridge/transfer/{id}/proof`.
-  - Store the hub block header on `aitbc3` with an admin-signed
+  - Store the hub block header on `<node2>` with an admin-signed
     `POST /rpc/bridge/block-headers` request.
   - Confirm on `ait-shop-island` with `POST /rpc/bridge/confirm` using the confirmer
     signature, block proposer signature, validator attestation, and Merkle proof.

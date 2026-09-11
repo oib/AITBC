@@ -2,7 +2,7 @@
 
 ## P0 Phase 4 — Faucet on-ramp fix (2026-08-21)
 
-- `aitbc wallet fund` now calls `/rpc/faucet` (the old `/faucet` path was 404) and accepts bech32 (`aitbc1...`), `ait1...`, `0x...`, or raw hex addresses.
+- `aitbc wallet fund` now calls `/rpc/faucet` (the old `/faucet` path was 404) and accepts bech32 (`<node1>...`), `ait1...`, `0x...`, or raw hex addresses.
 - New `--amount-ait` option expresses the faucet amount in AIT; the CLI converts it to compute-seconds before the RPC call.
 - `faucet_request` and `create_account` in `apps/blockchain-node/src/aitbc_chain/rpc/accounts.py` use `canonical_address` so the node accepts the same address formats the CLI does.
 - Scenario 07 documents `aitbc wallet fund` as the on-ramp step.
@@ -49,6 +49,6 @@ A stuck failed TEE job (`febb20dde26342238196a3a99b57423e`) was refunded through
 - `PaymentService.refund_payment` is idempotent: if the on-chain escrow is already `refunded`, the coordinator DB is updated without resubmitting a transaction.
 - Loaded escrows use a deterministic `contract_id` derived from buyer/provider/job_id, so release/refund lookups stay stable across node restarts.
 
-Live validation on `hub.aitbc`:
+Live validation on `<hub-node>`:
 - `aitbc market escrow refund febb20dde26342238196a3a99b57423e` returned `success`, `contract_id=escrow_ba963aba0d3dd882`, and `refund_tx_hash=0x71df...7e7e8`.
 - Coordinator `job.payment_status` and `JobPayment.status` are now `refunded` with the same `refund_transaction_hash`.

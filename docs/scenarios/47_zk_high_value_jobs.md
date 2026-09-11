@@ -144,7 +144,7 @@ Expected: `state: COMPLETED`, `payment_status: released`, `zk_status: verified`,
 
 - `cli/tests/test_zk.py` — 5 tests covering `zk health`, `zk circuits`, and
   `zk verify` from both job receipts and explicit `--proof`/`--public-signals`.
-- Live validation on `hub.aitbc` + `aitbc3` produced a released escrow with
+- Live validation on `<hub-node>` + `<node2>` produced a released escrow with
   `zk_status: verified` and a full Groth16 `zk_proof` in the receipt.
 
 ## Notes

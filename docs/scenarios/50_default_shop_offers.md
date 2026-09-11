@@ -2,7 +2,7 @@
 
 ## Goal
 
-The shop (`aitbc3`) publishes default software offers for Whisper transcription,
+The shop (`<node2>`) publishes default software offers for Whisper transcription,
 FFmpeg video processing, and Ollama inference automatically when the miner
 starts. A customer on the hub can discover them with `aitbc market list`, then
 run paid jobs with `aitbc market transcribe`, `aitbc market process`, and
@@ -13,21 +13,21 @@ they were not in the miner's default shop loop.
 
 ## Preconditions
 
-- `aitbc3` has `aitbc-whisper` (port 8110), `aitbc-ffmpeg` (port 8230), and
+- `<node2>` has `aitbc-whisper` (port 8110), `aitbc-ffmpeg` (port 8230), and
   `aitbc-miner` running.
-- `aitbc3` has an Ollama model such as `llama3.2:3b`.
-- Nginx on `aitbc3` exposes `/whisper/`, `/ffmpeg/`, and `/ollama/` to the
+- `<node2>` has an Ollama model such as `llama3.2:3b`.
+- Nginx on `<node2>` exposes `/whisper/`, `/ffmpeg/`, and `/ollama/` to the
   public hostname.
-- The customer wallet on `hub.aitbc` has a non-zero `AIT` balance.
+- The customer wallet on `<hub-node>` has a non-zero `AIT` balance.
 
 ## Steps
 
 ### 1. Verify the shop published default offers
 
-On `aitbc3`, restart or watch the miner logs:
+On `<node2>`, restart or watch the miner logs:
 
 ```bash
-ssh aitbc3
+ssh <node2>
 sudo systemctl restart aitbc-miner
 journalctl -u aitbc-miner -n 40 --no-pager
 ```
@@ -42,7 +42,7 @@ Published default offer: ollama/llama3.2:3b
 
 ### 2. List the default offers from the hub
 
-On `hub.aitbc`:
+On `<hub-node>`:
 
 ```bash
 aitbc market list
@@ -59,7 +59,7 @@ Expected output includes active offers:
 Create or copy a short audio file and run:
 
 ```bash
-# on hub.aitbc
+# on <hub-node>
 ffmpeg -f lavfi -i "sine=frequency=1000:duration=30" -ac 1 /tmp/test_audio.wav -y
 aitbc market transcribe <whisper-offer-id> /tmp/test_audio.wav
 ```
@@ -76,7 +76,7 @@ Expected result:
 Create or copy a short video and run:
 
 ```bash
-# on hub.aitbc
+# on <hub-node>
 ffmpeg -f lavfi -i testsrc=duration=10:size=1280x720:rate=30 \
        -f lavfi -i sine=frequency=1000:duration=10 \
        -c:v libx264 -c:a aac /tmp/test_video.mp4 -y
