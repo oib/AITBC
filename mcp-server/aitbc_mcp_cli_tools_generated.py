@@ -40,6 +40,7 @@ import aitbc_mcp_cli_tools_generated_governance  # noqa: F401
 import aitbc_mcp_cli_tools_generated_gpu  # noqa: F401
 import aitbc_mcp_cli_tools_generated_gpu_onchain  # noqa: F401
 import aitbc_mcp_cli_tools_generated_grant  # noqa: F401
+import aitbc_mcp_cli_tools_generated_health  # noqa: F401
 import aitbc_mcp_cli_tools_generated_http  # noqa: F401
 import aitbc_mcp_cli_tools_generated_ipfs  # noqa: F401
 import aitbc_mcp_cli_tools_generated_list  # noqa: F401
