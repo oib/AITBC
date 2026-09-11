@@ -52,7 +52,7 @@ AITBC implements defense-in-depth security across multiple layers:
 
 | Control | Implementation | Mitigates |
 |---------|----------------|-----------|
-| TLS 1.3 | cert-manager + ingress | MITM, eavesdropping |
+| TLS 1.3 | Terminated on the proxy host (not by AITBC) | MITM, eavesdropping |
 | API Keys | X-API-Key header | Unauthorized access |
 | Rate Limiting | slowapi middleware | DDoS, abuse |
 | Network Policies | Kubernetes NetworkPolicy | Pod-to-pod attacks |
@@ -66,27 +66,16 @@ AITBC implements defense-in-depth security across multiple layers:
 
 #### TLS Termination
 
-```yaml
-# Ingress configuration with TLS
-apiVersion: networking.k8s.io/v1
-kind: Ingress
-metadata:
-  annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
-    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
-spec:
-  tls:
-  - hosts:
-    - aitbc.bubuit.net
-    secretName: api-tls
-```
+TLS terminates on the proxy host in front of the fleet, not on any AITBC
+service. Services speak cleartext HTTP on loopback or a container-internal
+address; none listens on `443`. See
+[Network Policy](../deployment/NETWORK_POLICY.md).
 
 #### Certificate Management
 
-- Uses cert-manager for automatic certificate provisioning
-- Supports Let's Encrypt for production
-- Internal CA for development environments
-- Automatic renewal 30 days before expiry
+Out of scope. AITBC provisions no certificates and runs no ACME client — see
+[SSL/TLS Configuration](ssl-tls-configuration.md). Certificates belong to
+whoever operates the terminator.
 
 ### API Security
 
@@ -141,13 +130,7 @@ Header: X-API-Key: aitbc_prod_ak_1a2b3c4d5e6f7g8h9i0j
 ingress:
   enabled: true
   annotations:
-    cert-manager.io/cluster-issuer: letsencrypt-prod
     nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
-    nginx.ingress.kubernetes.io/ssl-protocols: "TLSv1.3"
-  tls:
-    - secretName: coordinator-tls
-      hosts:
-        - aitbc.bubuit.net
 ```
 
 #### Blockchain Node RPC

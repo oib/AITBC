@@ -225,12 +225,10 @@ This document covers deployment procedures for the Governance Service, including
    sudo systemctl reload nginx
    ```
 
-4. **Configure SSL (Let's Encrypt):**
-
-   ```bash
-   sudo apt install certbot python3-certbot-nginx
-   sudo certbot --nginx -d governance.aitbc.bubuit.net
-   ```
+4. **TLS:** nothing to do here. The governance vhost serves cleartext and is
+   reached through the proxy host that terminates TLS for the fleet — see
+   [Network Policy](../deployment/NETWORK_POLICY.md). Do not add
+   `ssl_certificate` directives to this vhost or run an ACME client against it.
 
 ## Smart Contract Deployment
 
