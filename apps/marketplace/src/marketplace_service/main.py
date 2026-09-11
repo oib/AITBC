@@ -824,7 +824,9 @@ async def refund_marketplace_job_payment(
     try:
         refund_data = refund_data or {}
         logger.info("POST /v1/marketplace/jobs/%s/refund called", job_id)
-        result = await svc.refund_marketplace_job_payment(job_id, reason=refund_data.get("reason", ""))
+        result = await svc.refund_marketplace_job_payment(
+            job_id, reason=refund_data.get("reason", ""), refund_data=refund_data
+        )
         return result
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
