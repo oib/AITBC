@@ -90,16 +90,47 @@ write_env_database_url() {
     echo -e "${GREEN}✅ Wrote DATABASE_URL to ${env_file}${NC}"
 }
 
+# Function to pin PostgreSQL to the loopback interface.
+#
+# This is the default and it is what every DSN in this repository expects:
+# the coordinator, wallet, governance, pool-hub and mempool connection strings
+# are all localhost or 127.0.0.1. Nothing here connects to another host's
+# database, so there is no reason for the postmaster to be listening on the
+# container bridge -- and on a flat bridge, listening there means every other
+# container can reach 5432 with only pg_hba standing in the way.
+enforce_local_only() {
+    echo -e "${BLUE}Pinning PostgreSQL to localhost...${NC}"
+
+    sudo sed -i -E "s/^[[:space:]]*#?[[:space:]]*listen_addresses[[:space:]]*=.*/listen_addresses = 'localhost'/" \
+        /etc/postgresql/*/main/postgresql.conf
+
+    sudo systemctl reload postgresql.service 2>/dev/null || sudo systemctl restart postgresql.service
+
+    echo -e "${GREEN}✅ PostgreSQL listening on localhost only${NC}"
+}
+
 # Function to configure PostgreSQL for remote connections
 configure_remote_connections() {
     # No default: the CIDR allowed to reach PostgreSQL is deployment-specific,
     # and a wrong guess here opens the database to the wrong network.
     local network_cidr="${1:?pass the CIDR allowed to connect, e.g. 10.0.0.0/24}"
+    # Bind to one named address rather than '*'. On a flat container bridge the
+    # two are very different: '*' also picks up every other interface the
+    # container has, so a pg_hba mistake becomes reachable from everywhere
+    # instead of from one subnet.
+    local bind_addr="${2:?pass the address to bind, e.g. 10.0.0.7 (never '*')}"
+
+    if [ "$bind_addr" = "*" ] || [ "$bind_addr" = "0.0.0.0" ]; then
+        echo -e "${RED}Refusing to bind PostgreSQL to ${bind_addr}; pass a specific address${NC}" >&2
+        return 1
+    fi
 
     echo -e "${BLUE}Configuring PostgreSQL for remote connections...${NC}"
 
-    # Update listen_addresses
-    sudo sed -i "s/#listen_addresses = 'localhost'/listen_addresses = '*'/" /etc/postgresql/*/main/postgresql.conf 2>/dev/null || echo "listen_addresses already configured"
+    # Update listen_addresses. Keep localhost in the list so local clients and
+    # the maintenance scripts keep working.
+    sudo sed -i -E "s/^[[:space:]]*#?[[:space:]]*listen_addresses[[:space:]]*=.*/listen_addresses = 'localhost,${bind_addr}'/" \
+        /etc/postgresql/*/main/postgresql.conf
 
     # Add pg_hba.conf rule if not exists
     if ! sudo grep -q "${network_cidr}" /etc/postgresql/*/main/pg_hba.conf 2>/dev/null; then
@@ -218,14 +249,20 @@ echo "  - /etc/aitbc/aitbc-blockchain-p2p.env (MEMPOOL_DB_URL)"
 echo ""
 echo "Passwords stored in: $CREDENTIALS_DIR/postgres_<user>_password"
 echo ""
-echo "To configure PostgreSQL for remote connections, run:"
-echo "  $0 --remote-configure [network-cidr]"
-echo "  Example: $0 --remote-configure 10.0.0.0/24"
+echo "PostgreSQL listens on localhost only. Every DSN this repository ships"
+echo "expects that; remote access is opt-in and needs a reason."
+echo ""
+echo "To open it to one subnet anyway, run:"
+echo "  $0 --remote-configure <network-cidr> <bind-address>"
+echo "  Example: $0 --remote-configure 10.0.0.0/24 10.0.0.7"
 echo ""
 
-# Handle optional remote configuration
-if [[ -n "${1:-}" && "$1" == "--remote-configure" ]]; then
+# Pin the postmaster to loopback unless the caller explicitly asks otherwise.
+if [[ "${1:-}" == "--remote-configure" ]]; then
     network_cidr="${2:?pass the CIDR allowed to connect, e.g. 10.0.0.0/24}"
-    configure_remote_connections "$network_cidr"
+    bind_addr="${3:?pass the address to bind, e.g. 10.0.0.7 (never '*')}"
+    configure_remote_connections "$network_cidr" "$bind_addr"
+else
+    enforce_local_only
 fi
 true
