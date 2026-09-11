@@ -58,6 +58,12 @@ services:
 
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
+## Script environment variables
+
+The operational scripts under `scripts/` take their fleet addresses, endpoints
+and deployment targets from `AITBC_*` environment variables rather than
+hardcoded hosts. See [script-environment.md](./script-environment.md).
+
 ## See Also
 
 - [Prerequisites](../getting-started/installation/prerequisites.md) - System requirements
