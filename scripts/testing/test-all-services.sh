@@ -70,7 +70,7 @@ echo "====================="
 
 # Test Core Services
 test_service "Coordinator API (8000)" "http://localhost:8000/v1/health" '"status":"ok"'
-test_service "Exchange API (8001)" "http://localhost:8001/" '"detail"'
+test_service "Exchange API (8106)" "http://localhost:8106/" '"detail"'
 test_service "Blockchain RPC (8003)" "http://localhost:8003/rpc/head" '"height"'
 
 echo ""
@@ -78,7 +78,7 @@ echo "🚀 Enhanced Services Testing"
 echo "=========================="
 
 # Test Enhanced Services
-test_service "Multimodal GPU (8010)" "http://localhost:8010/health" '"service":"gpu-multimodal"'
+test_service "Multimodal GPU (8101)" "http://localhost:8101/health" '"service":"gpu-multimodal"'
 test_service "GPU Multimodal (8203)" "http://localhost:8203/health" '"service":"gpu-multimodal"'
 test_service "Modality Optimization (8012)" "http://localhost:8012/health" '"service":"modality-optimization"'
 test_service "Adaptive Learning (8013)" "http://localhost:8013/health" '"service":"adaptive-learning"'
@@ -88,7 +88,7 @@ echo "🔧 Service Features Testing"
 echo "========================="
 
 # Test Service Features
-test_service "GPU Status (8010)" "http://localhost:8010/gpu/status" '"gpu_available"'
+test_service "GPU Status (8101)" "http://localhost:8101/gpu/status" '"gpu_available"'
 test_service "GPU Multimodal Features (8203)" "http://localhost:8203/gpu/multimodal" '"multimodal_capabilities"'
 test_service "Modality Optimization (8012)" "http://localhost:8012/optimization/modality" '"optimization_active"'
 test_service "Learning Status (8013)" "http://localhost:8013/learning/status" '"learning_active"'

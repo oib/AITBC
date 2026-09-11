@@ -24,10 +24,10 @@ staging.aitbc.example.com
 ├── Blockchain Node (port 8202)
 │   ├── Separate blockchain network (staging chain ID)
 │   └── Separate genesis block
-├── Coordinator API (port 8000)
+├── Coordinator API (port 8203)
 │   ├── Separate PostgreSQL database
 │   └── Separate Redis instance
-├── Agent Coordinator (port 8100)
+├── Agent Coordinator (port 8107)
 │   ├── Separate configuration
 │   └── Test agent instances
 ├── Governance Service (port 8105)
@@ -90,8 +90,8 @@ DB_PASS=<secure_password_from_vault>
 REDIS_URL=redis://localhost:6379/2
 
 # Service Ports (can differ from production)
-COORDINATOR_API_PORT=8000
-AGENT_COORDINATOR_PORT=8100
+COORDINATOR_API_PORT=8203
+AGENT_COORDINATOR_PORT=8107
 GOVERNANCE_PORT=8105
 BLOCKCHAIN_NODE_PORT=8202
 
