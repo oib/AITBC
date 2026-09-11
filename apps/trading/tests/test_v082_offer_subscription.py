@@ -393,7 +393,7 @@ class TestCLICommands:
         runner = CliRunner()
         result = runner.invoke(trade, ["watch", "--help"])
         assert result.exit_code == 0
-        assert "Stream offer changes" in result.output
+        assert "Watch for new trading offers" in result.output
 
     def test_subscription_status_command_exists(self) -> None:
         from click.testing import CliRunner
@@ -403,7 +403,7 @@ class TestCLICommands:
         runner = CliRunner()
         result = runner.invoke(trade, ["subscription-status", "--help"])
         assert result.exit_code == 0
-        assert "subscription health" in result.output
+        assert "subscription status" in result.output.lower()
 
     def test_search_command_exists(self) -> None:
         from click.testing import CliRunner
@@ -413,7 +413,7 @@ class TestCLICommands:
         runner = CliRunner()
         result = runner.invoke(trade, ["search", "--help"])
         assert result.exit_code == 0
-        assert "search index" in result.output.lower()
+        assert "search trading offers" in result.output.lower()
 
 
 # ---------------------------------------------------------------------------

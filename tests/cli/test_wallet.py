@@ -192,10 +192,10 @@ class TestWalletCommands:
             mock_http_instance.post = mock_post
             yield mock_get_client
 
-    def test_balance_command(self, runner, temp_wallet, mock_config):
+    def test_balance_command(self, runner, temp_wallet):
         """Test wallet balance command"""
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "balance"], obj={"config": mock_config, "output": "json"}
+            wallet, ["--wallet-path", temp_wallet, "balance"], obj={"output_format": "json"}
         )
 
         assert result.exit_code == 0
