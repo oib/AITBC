@@ -487,12 +487,39 @@ def cancel(
         result = _marketplace_client().post(f"/v1/marketplace/jobs/{job_id}/cancel", json={"reason": reason})
         if result and not result.get("error"):
             success(f"Canceled marketplace job {job_id}")
-            output(result, output_format, title="Canceled Marketplace Job")
-            return
-        error(f"Could not cancel job {job_id}: {result}")
+        else:
+            error(f"Could not cancel job {job_id}: {result}")
+            raise click.Abort()
     except NetworkError as e:
         error(f"Marketplace cancel request failed: {e}")
-    raise click.Abort()
+        raise click.Abort()
+
+    # Attempt an immediate on-chain refund through the customer blockchain and sync state.
+    config = get_config()
+    rpc_url = _get_blockchain_rpc_url(config)
+    rpc_client = _get_rpc_client(config, rpc_url, timeout=20)
+    refund_result: dict[str, Any] | None = None
+    try:
+        refund_result = rpc_client.post(f"/rpc/escrow/{job_id}/refund", json={"reason": reason})
+    except Exception as e:
+        warning(f"Local escrow refund failed (sweeper will retry): {e}")
+
+    tx_hash = refund_result.get("tx_hash") if isinstance(refund_result, dict) else None
+    if tx_hash:
+        try:
+            _marketplace_client().post(
+                f"/v1/marketplace/jobs/{job_id}/refund",
+                json={"tx_hash": tx_hash, "refunded_amount": refund_result.get("refunded_amount") if refund_result else None, "reason": reason},
+            )
+        except NetworkError as e:
+            warning(f"Could not sync marketplace refund: {e}")
+
+    # Re-fetch the job to show the latest payment state.
+    try:
+        final = _marketplace_client().get(f"/v1/marketplace/jobs/{job_id}")
+    except NetworkError:
+        final = result
+    output(final or result, output_format, title="Canceled Marketplace Job")
 
 
 @market.command(
