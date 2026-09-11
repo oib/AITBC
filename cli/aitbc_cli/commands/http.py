@@ -113,7 +113,9 @@ def http():
 @click.option("--body", default=None, help="JSON object request body")
 @click.option("--url", default=None, help="Override the service base URL")
 @click.option("--api-key", default=None, help="API key (X-API-Key) header")
-@click.option("--auth", "auth_kind", type=click.Choice(["none", "miner"]), default="none", help="Use configured API key for auth")
+@click.option(
+    "--auth", "auth_kind", type=click.Choice(["none", "miner"]), default="none", help="Use configured API key for auth"
+)
 @click.option("--timeout", type=int, default=30, help="Request timeout in seconds")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
@@ -139,9 +141,7 @@ def call_http(
     else:
         base_url = _SERVICE_BASES.get(service)
         if not base_url:
-            raise click.ClickException(
-                f"Unknown service: {service}. Use --url or one of: {', '.join(sorted(_SERVICE_BASES))}"
-            )
+            raise click.ClickException(f"Unknown service: {service}. Use --url or one of: {', '.join(sorted(_SERVICE_BASES))}")
 
     query_params: dict[str, Any] | None = None
     if params:

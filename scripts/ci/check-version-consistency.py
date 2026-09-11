@@ -44,8 +44,7 @@ def _check_file(path: Path, pattern: str, expected: str, description: str, *, al
         bad = [m for m in matches if m != expected]
         if bad:
             print(
-                f"ERROR: Version mismatch in {description} ({path}): "
-                f"expected all {expected!r}, found inconsistent {bad[0]!r}",
+                f"ERROR: Version mismatch in {description} ({path}): expected all {expected!r}, found inconsistent {bad[0]!r}",
                 file=sys.stderr,
             )
             return False
@@ -54,8 +53,7 @@ def _check_file(path: Path, pattern: str, expected: str, description: str, *, al
     found = matches[0]
     if found != expected:
         print(
-            f"ERROR: Version mismatch in {description} ({path}): "
-            f"expected {expected!r}, found {found!r}",
+            f"ERROR: Version mismatch in {description} ({path}): expected {expected!r}, found {found!r}",
             file=sys.stderr,
         )
         return False

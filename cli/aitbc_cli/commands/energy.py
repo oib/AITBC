@@ -158,7 +158,6 @@ def provider_register(
         error("A private key is required to register an energy profile")
         sys.exit(1)
 
-
     # Build and submit the registerEnergyProfile call via the EVM client.
     # We use the IEnergyPricing ABI directly since it's a separate contract.
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
@@ -252,7 +251,9 @@ def provider_profile(ctx, resource_id, json_output):
 @click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
 @click.option("--json-output", is_flag=True, help="Output raw JSON")
 @click.pass_context
-def provider_rate(ctx, publish, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output):
+def provider_rate(
+    ctx, publish, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output
+):
     """Read or publish the AIT/EUR energy rate."""
     config = get_config()
     if not config.evm_rpc_url:

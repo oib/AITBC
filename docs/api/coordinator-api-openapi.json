@@ -15462,6 +15462,485 @@
         }
       }
     },
+    "/v1/agent-creativity/capabilities": {
+      "post": {
+        "tags": [
+          "agent-creativity"
+        ],
+        "summary": "Create Creative Capability",
+        "description": "Initialize a new creative capability for an agent",
+        "operationId": "create_creative_capability_v1_agent_creativity_capabilities_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/CreativeCapabilityCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/CreativeCapabilityResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent-creativity/capabilities/{capability_id}/enhance": {
+      "post": {
+        "tags": [
+          "agent-creativity"
+        ],
+        "summary": "Enhance Creativity",
+        "description": "Enhance a specific creative capability using specified algorithm",
+        "operationId": "enhance_creativity_v1_agent_creativity_capabilities__capability_id__enhance_post",
+        "parameters": [
+          {
+            "name": "capability_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Capability Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EnhanceCreativityRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Enhance Creativity V1 Agent Creativity Capabilities  Capability Id  Enhance Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent-creativity/capabilities/{capability_id}/evaluate": {
+      "post": {
+        "tags": [
+          "agent-creativity"
+        ],
+        "summary": "Evaluate Creation",
+        "description": "Evaluate a creative output and update agent capability metrics",
+        "operationId": "evaluate_creation_v1_agent_creativity_capabilities__capability_id__evaluate_post",
+        "parameters": [
+          {
+            "name": "capability_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Capability Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/EvaluateCreationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Evaluate Creation V1 Agent Creativity Capabilities  Capability Id  Evaluate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent-creativity/ideation/generate": {
+      "post": {
+        "tags": [
+          "agent-creativity"
+        ],
+        "summary": "Generate Ideas",
+        "description": "Generate innovative ideas using specialized ideation algorithms",
+        "operationId": "generate_ideas_v1_agent_creativity_ideation_generate_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdeationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Generate Ideas V1 Agent Creativity Ideation Generate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent-creativity/synthesis/cross-domain": {
+      "post": {
+        "tags": [
+          "agent-creativity"
+        ],
+        "summary": "Synthesize Cross Domain",
+        "description": "Synthesize concepts from multiple domains to create novel outputs",
+        "operationId": "synthesize_cross_domain_v1_agent_creativity_synthesis_cross_domain_post",
+        "parameters": [
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SynthesisRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Synthesize Cross Domain V1 Agent Creativity Synthesis Cross Domain Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agent-creativity/capabilities/{agent_id}": {
+      "get": {
+        "tags": [
+          "agent-creativity"
+        ],
+        "summary": "List Agent Creative Capabilities",
+        "description": "List all creative capabilities for a specific agent",
+        "operationId": "list_agent_creative_capabilities_v1_agent_creativity_capabilities__agent_id__get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CreativeCapability"
+                  },
+                  "title": "Response List Agent Creative Capabilities V1 Agent Creativity Capabilities  Agent Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/agent-identity/identities": {
       "post": {
         "tags": [
@@ -34803,6 +35282,307 @@
         "title": "CreateBountyRequest",
         "description": "Request to create a bounty"
       },
+      "CreativeCapability": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "title": "Id"
+          },
+          "capability_id": {
+            "type": "string",
+            "title": "Capability Id"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "creative_domain": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Creative Domain"
+          },
+          "capability_type": {
+            "type": "string",
+            "maxLength": 50,
+            "title": "Capability Type"
+          },
+          "originality_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Originality Score",
+            "default": 0.0
+          },
+          "novelty_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Novelty Score",
+            "default": 0.0
+          },
+          "aesthetic_quality": {
+            "type": "number",
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Aesthetic Quality",
+            "default": 0.0
+          },
+          "coherence_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Coherence Score",
+            "default": 0.0
+          },
+          "generation_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Generation Models"
+          },
+          "style_variety": {
+            "type": "integer",
+            "title": "Style Variety",
+            "default": 1
+          },
+          "output_quality": {
+            "type": "number",
+            "maximum": 5.0,
+            "minimum": 0.0,
+            "title": "Output Quality",
+            "default": 0.0
+          },
+          "creative_learning_rate": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Creative Learning Rate",
+            "default": 0.0
+          },
+          "style_adaptation": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Style Adaptation",
+            "default": 0.0
+          },
+          "cross_domain_transfer": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Cross Domain Transfer",
+            "default": 0.0
+          },
+          "creative_specializations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Creative Specializations"
+          },
+          "tool_proficiency": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Tool Proficiency"
+          },
+          "domain_knowledge": {
+            "additionalProperties": {
+              "type": "number"
+            },
+            "type": "object",
+            "title": "Domain Knowledge"
+          },
+          "creations_generated": {
+            "type": "integer",
+            "title": "Creations Generated",
+            "default": 0
+          },
+          "user_ratings": {
+            "items": {
+              "type": "number"
+            },
+            "type": "array",
+            "title": "User Ratings"
+          },
+          "expert_evaluations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Expert Evaluations"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "developing"
+          },
+          "certification_level": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Certification Level"
+          },
+          "last_evaluation": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Last Evaluation"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At"
+          },
+          "creative_profile_meta_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Creative Profile Meta Data"
+          },
+          "portfolio_samples": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "title": "Portfolio Samples"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capability_id",
+          "agent_id",
+          "creative_domain",
+          "capability_type"
+        ],
+        "title": "CreativeCapability",
+        "description": "Creative and specialized AI capabilities"
+      },
+      "CreativeCapabilityCreate": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "creative_domain": {
+            "type": "string",
+            "title": "Creative Domain",
+            "description": "e.g., artistic, design, innovation, scientific, narrative"
+          },
+          "capability_type": {
+            "type": "string",
+            "title": "Capability Type",
+            "description": "e.g., generative, compositional, analytical, innovative"
+          },
+          "generation_models": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Generation Models"
+          },
+          "initial_score": {
+            "type": "number",
+            "maximum": 1.0,
+            "minimum": 0.0,
+            "title": "Initial Score",
+            "default": 0.5
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "creative_domain",
+          "capability_type",
+          "generation_models"
+        ],
+        "title": "CreativeCapabilityCreate"
+      },
+      "CreativeCapabilityResponse": {
+        "properties": {
+          "capability_id": {
+            "type": "string",
+            "title": "Capability Id"
+          },
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "creative_domain": {
+            "type": "string",
+            "title": "Creative Domain"
+          },
+          "capability_type": {
+            "type": "string",
+            "title": "Capability Type"
+          },
+          "originality_score": {
+            "type": "number",
+            "title": "Originality Score"
+          },
+          "novelty_score": {
+            "type": "number",
+            "title": "Novelty Score"
+          },
+          "aesthetic_quality": {
+            "type": "number",
+            "title": "Aesthetic Quality"
+          },
+          "coherence_score": {
+            "type": "number",
+            "title": "Coherence Score"
+          },
+          "style_variety": {
+            "type": "integer",
+            "title": "Style Variety"
+          },
+          "creative_specializations": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Creative Specializations"
+          },
+          "status": {
+            "type": "string",
+            "title": "Status"
+          }
+        },
+        "type": "object",
+        "required": [
+          "capability_id",
+          "agent_id",
+          "creative_domain",
+          "capability_type",
+          "originality_score",
+          "novelty_score",
+          "aesthetic_quality",
+          "coherence_score",
+          "style_variety",
+          "creative_specializations",
+          "status"
+        ],
+        "title": "CreativeCapabilityResponse"
+      },
       "CrossChainMappingResponse": {
         "properties": {
           "id": {
@@ -35459,6 +36239,25 @@
         "title": "EncryptRequest",
         "description": "Request to encrypt data"
       },
+      "EnhanceCreativityRequest": {
+        "properties": {
+          "algorithm": {
+            "type": "string",
+            "title": "Algorithm",
+            "description": "divergent_thinking, conceptual_blending, morphological_analysis, lateral_thinking, bisociation",
+            "default": "divergent_thinking"
+          },
+          "training_cycles": {
+            "type": "integer",
+            "maximum": 1000.0,
+            "minimum": 1.0,
+            "title": "Training Cycles",
+            "default": 100
+          }
+        },
+        "type": "object",
+        "title": "EnhanceCreativityRequest"
+      },
       "EscrowRelease": {
         "properties": {
           "job_id": {
@@ -35488,6 +36287,34 @@
         ],
         "title": "EscrowRelease",
         "description": "Request to release escrow payment"
+      },
+      "EvaluateCreationRequest": {
+        "properties": {
+          "creation_data": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Creation Data"
+          },
+          "expert_feedback": {
+            "anyOf": [
+              {
+                "additionalProperties": {
+                  "type": "number"
+                },
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Expert Feedback"
+          }
+        },
+        "type": "object",
+        "required": [
+          "creation_data"
+        ],
+        "title": "EvaluateCreationRequest"
       },
       "ExchangePaymentRequest": {
         "properties": {
@@ -36944,6 +37771,49 @@
         ],
         "title": "IPFSUploadRequest",
         "description": "Request model for IPFS upload"
+      },
+      "IdeationRequest": {
+        "properties": {
+          "problem_statement": {
+            "type": "string",
+            "title": "Problem Statement"
+          },
+          "domain": {
+            "type": "string",
+            "title": "Domain"
+          },
+          "technique": {
+            "type": "string",
+            "title": "Technique",
+            "description": "scamper, triz, six_thinking_hats, first_principles, biomimicry",
+            "default": "scamper"
+          },
+          "num_ideas": {
+            "type": "integer",
+            "maximum": 20.0,
+            "minimum": 1.0,
+            "title": "Num Ideas",
+            "default": 5
+          },
+          "constraints": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Constraints"
+          }
+        },
+        "type": "object",
+        "required": [
+          "problem_statement",
+          "domain"
+        ],
+        "title": "IdeationRequest"
       },
       "IdentityStatus": {
         "type": "string",
@@ -41194,6 +42064,37 @@
         ],
         "title": "SubmitSolutionRequest",
         "description": "Request to submit a solution"
+      },
+      "SynthesisRequest": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id"
+          },
+          "primary_domain": {
+            "type": "string",
+            "title": "Primary Domain"
+          },
+          "secondary_domains": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Secondary Domains"
+          },
+          "synthesis_goal": {
+            "type": "string",
+            "title": "Synthesis Goal"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "primary_domain",
+          "secondary_domains",
+          "synthesis_goal"
+        ],
+        "title": "SynthesisRequest"
       },
       "TEEAttestation": {
         "properties": {
