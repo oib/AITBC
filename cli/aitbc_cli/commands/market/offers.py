@@ -1071,3 +1071,99 @@ def offer(
     except Exception as e:
         error(f"Error creating software offer: {e}")
         raise click.Abort() from e
+
+
+@market.command(
+    name="offer-list",
+    epilog="""Examples:
+
+  aitbc market offer-list
+
+  aitbc market offer-list --service-type ipfs --output json""",
+)
+@click.option("--service-type", "service_type", help="Filter by service type")
+@click.option("--status", "status", help="Filter by status (active/inactive)")
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def offer_list(
+    ctx: click.Context,
+    service_type: str | None,
+    status: str | None,
+    output_format: str,
+):
+    """List software offers published by this provider."""
+    try:
+        output_format = resolve_output_format(ctx, output_format)
+        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
+
+        config = get_config()
+        hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        if hub_host.startswith(("http://", "https://")):
+            hub_url = hub_host.rstrip("/")
+        elif "localhost" in hub_host or "127.0.0.1" in hub_host:
+            hub_url = f"http://{hub_host}"
+        else:
+            hub_url = f"https://{hub_host}"
+
+        client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = client.get("/v1/marketplace/offers")
+        offers: list[dict[str, Any]] = []
+        if isinstance(result, dict):
+            offers = result.get("offers", result.get("data", [])) or []
+        elif isinstance(result, list):
+            offers = result
+
+        filtered: list[dict[str, Any]] = []
+        for offer in offers:
+            if not isinstance(offer, dict):
+                continue
+            if offer.get("provider_address") != wallet_address:
+                continue
+            if service_type and offer.get("service_type") != service_type:
+                continue
+            if status and offer.get("status") != status:
+                continue
+            filtered.append(offer)
+
+        output(filtered, output_format, title="My Marketplace Offers")
+    except Exception as e:
+        error(f"Error listing offers: {e}")
+        raise click.Abort() from e
+
+
+@market.command(
+    name="offer-disable",
+    epilog="""Examples:
+
+  aitbc market offer-disable --plugin-id ipfs-ipfs-host""",
+)
+@click.option("--plugin-id", "plugin_id", required=True, help="Plugin ID to disable")
+@OUTPUT_FORMAT_OPTION
+@click.pass_context
+def offer_disable(
+    ctx: click.Context,
+    plugin_id: str,
+    output_format: str,
+):
+    """Disable/unregister a marketplace offer."""
+    try:
+        output_format = resolve_output_format(ctx, output_format)
+        config = get_config()
+        hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        if hub_host.startswith(("http://", "https://")):
+            hub_url = hub_host.rstrip("/")
+        elif "localhost" in hub_host or "127.0.0.1" in hub_host:
+            hub_url = f"http://{hub_host}"
+        else:
+            hub_url = f"https://{hub_host}"
+
+        client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = client.delete(f"/v1/marketplace/offer/{plugin_id}")
+        if result and not result.get("error"):
+            success(f"Disabled offer {plugin_id}")
+            output(result, output_format, title="Disabled Offer")
+            return
+        error(f"Could not disable offer {plugin_id}: {result}")
+    except Exception as e:
+        error(f"Error disabling offer: {e}")
+    raise click.Abort()
