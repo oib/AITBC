@@ -417,6 +417,9 @@ pythonpath = [
     "apps/pool-hub/src",
     "apps/trading/src",
     "apps/wallet/src",
+    # apps/memory is a deployed FastAPI app; its tests import `memory_app.main` at module
+    # scope, so the src directory must be on sys.path for collection to work.
+    "apps/memory/src",
 ]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
@@ -518,6 +521,15 @@ testpaths = [
     # mcp-server tests are standalone and exercise typed MCP tools without
     # needing a running node; keep them in the default collection.
     "mcp-server/tests",
+    # packages/py/* are separate packages with their own tests; they are installed as
+    # editable packages, so they only need to be listed in testpaths to be collected.
+    "packages/py/aitbc-agent-core/tests",
+    "packages/py/aitbc-agent-sdk/tests",
+    "packages/py/aitbc-crypto/tests",
+    "packages/py/aitbc-sdk/tests",
+    # apps/memory is a FastAPI service whose tests were not collected because neither
+    # the src nor the tests directory was in pythonpath/testpaths.
+    "apps/memory/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
