@@ -58,6 +58,7 @@ from .database_async import close_async_db
 from .exceptions import AITBCError, ErrorResponse
 from .routers import (
     admin,
+    agent_creativity,
     agent_integration_router,
     agent_performance,
     agent_router,
@@ -530,6 +531,12 @@ def create_app() -> FastAPI:
     # including the production/alerts endpoint referenced by docs/blockchain/7_monitoring.md
     # -- returned 404. All 15 of its endpoints carry AdminDep.
     app.include_router(agent_integration_router, prefix="/v1")
+    # Mounted 2026-09-11: same story as agent_integration_router above -- imported
+    # and exported from routers/__init__.py, never passed to include_router(), so all
+    # six /v1/agent-creativity/* paths returned 404. Its endpoints carried no auth
+    # dependency at all, so mounting it as it stood would have opened five
+    # unauthenticated writes; they now take AdminDep, matching agent_router.
+    app.include_router(agent_creativity, prefix="/v1")
     app.include_router(agent_identity, prefix="/v1")
     app.include_router(developer_platform, prefix="/v1")
     app.include_router(developer_registry, prefix="/v1")
