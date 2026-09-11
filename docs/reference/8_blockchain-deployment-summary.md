@@ -10,7 +10,7 @@ Successfully deployed two independent AITBC blockchain nodes on the same server 
 
 - **Location**: `/opt/blockchain-node`
 - **P2P Port**: 7070
-- **RPC Port**: 8082
+- **RPC Port**: 8202
 - **Database**: `/opt/blockchain-node/data/chain.db`
 - **Status**: ✅ Operational
 - **Chain Height**: 717,593+ (actively producing blocks)
@@ -40,7 +40,7 @@ systemctl status blockchain-rpc-2   # RPC API
 
 ### API Endpoints
 
-- Node 1 RPC: `http://127.0.0.1:8082/docs`
+- Node 1 RPC: `http://127.0.0.1:8202/docs`
 - Node 2 RPC: `http://127.0.0.1:8081/docs`
 
 ## Testing
@@ -114,7 +114,7 @@ To connect nodes in a production network:
 
 ### Common Issues
 
-1. **Port Conflicts**: Ensure ports 7070/7071 and 8081/8082 are available
+1. **Port Conflicts**: Ensure ports 7070/7071 and 8081/8202 are available
 2. **Permission Issues**: Check file permissions in `/opt/blockchain-node*`
 3. **Database Issues**: Remove/rename database to reset chain
 

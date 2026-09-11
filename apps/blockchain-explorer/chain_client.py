@@ -26,7 +26,6 @@ except ImportError:
 __all__ = [
     "BLOCKCHAIN_RPC_URLS",
     "DEFAULT_CHAIN",
-    "EXTERNAL_RPC_URL",
     "USE_DATA_LAYER",
     "get_data_layer",
     "normalize_block",
@@ -40,10 +39,14 @@ __all__ = [
 chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 BLOCKCHAIN_RPC_URLS = {
     chain_id: BLOCKCHAIN_RPC_URL,
-    "ait-mainnet": "http://aitbc.keisanki.net:8082",
+    # ait-mainnet previously pointed at a hardcoded host on port 8082. The RPC
+    # has been on 8202 for some time (aitbc.constants.BLOCKCHAIN_RPC_PORT), so
+    # every request against that entry failed. Point it at the local node by
+    # default and let a deployment that really does front a separate mainnet
+    # node override it.
+    "ait-mainnet": os.getenv("MAINNET_RPC_URL", BLOCKCHAIN_RPC_URL),
 }
 DEFAULT_CHAIN = chain_id
-EXTERNAL_RPC_URL = "http://aitbc.keisanki.net:8082"  # External access
 
 
 def normalize_block(data: dict[str, Any]) -> dict[str, Any]:
