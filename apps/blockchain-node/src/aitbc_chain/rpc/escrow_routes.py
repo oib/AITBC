@@ -936,7 +936,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             session.commit()
     except Exception as e:
         _logger.error("Failed to persist escrow to DB before lock: %s", e)
-        raise HTTPException(status_code=500, detail=f"Failed to persist escrow: {e}") from e
+        raise HTTPException(status_code=500, detail="Failed to persist escrow") from e
 
     lock_tx_hash = await _submit_lock_tx(tx_to_submit)
 

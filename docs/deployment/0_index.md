@@ -16,5 +16,5 @@ Deploy, operate, and maintain AITBC infrastructure.
 ## Related
 
 - Installation — Initial setup
-- [Security](../9_security/) — Security architecture and hardening
-- [Architecture](../6_architecture/) — System design docs
+- [Security](../security/) — Security architecture and hardening
+- [Architecture](../architecture/) — System design docs

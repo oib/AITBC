@@ -52,7 +52,8 @@ def _can_import(module: str) -> tuple[bool, str]:
     env = {
         "PYTHONPATH": ":".join(pp),
         "DEBUG": "false",
-        "APP_ENV": "testing",
+        "APP_ENV": "test",
+        "ENVIRONMENT": "test",
     }
     result = subprocess.run(
         [sys.executable, "-c", code],

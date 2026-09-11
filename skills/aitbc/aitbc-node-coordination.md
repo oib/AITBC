@@ -58,8 +58,9 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 **Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
-| Blockchain RPC | 8006 | Main blockchain API + messaging |
-| Coordinator API | 8011 | Agent registry |
+| Blockchain RPC | 8202 | Main blockchain API + messaging |
+| Coordinator API | 8203 | Jobs, marketplace, escrow (all `/v1/*`) |
+| Agent Coordinator | 8107 | Agent registry and discovery (all `/v1/*`) |
 | Marketplace | 8102 | Marketplace operations |
 | P2P Network | 7070 | Blockchain peer-to-peer |
 
@@ -72,12 +73,12 @@ systemctl status aitbc-blockchain-node.service
 ssh aitbc1 'systemctl status aitbc-blockchain-node.service'
 
 # Check RPC health
-curl -s http://localhost:8006/health
-curl -s http://aitbc1:8006/health
+curl -s http://localhost:8202/health
+curl -s http://aitbc1:8202/health
 
 # Check coordinator health
-curl -s http://localhost:8011/health
-curl -s http://aitbc1:8011/health
+curl -s http://localhost:8203/health
+curl -s http://aitbc1:8203/health
 ```
 
 ### Check Blockchain Sync Status
@@ -90,28 +91,35 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
 ### Cross-Node Messaging
 ```bash
 # Topics are shared across nodes via blockchain
-curl -s http://localhost:8006/topics
-curl -s http://aitbc1:8006/topics  # Same topics
+curl -s http://localhost:8202/topics
+curl -s http://aitbc1:8202/topics  # Same topics
 
 # Post message from either node
-curl -s -X POST http://localhost:8006/topics/{id}/messages \
+curl -s -X POST http://localhost:8202/topics/{id}/messages \
   -H "Content-Type: application/json" \
   -d '{"content":"message from main node"}'
 
-curl -s -X POST http://aitbc1:8006/topics/{id}/messages \
+curl -s -X POST http://aitbc1:8202/topics/{id}/messages \
   -H "Content-Type: application/json" \
   -d '{"content":"message from follower node"}'
 ```
 
 ### Cross-Node Agent Discovery
 ```bash
-# Register agent on coordinator
-curl -s -X POST http://localhost:8011/agents/register \
+# Register agent on the Agent Coordinator (port 8107, not the Coordinator API)
+# Note: "endpoints" is plural and is a map, not a string. A stray "endpoint"
+# key is silently dropped and the agent registers with no endpoints at all.
+curl -s -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"agent-main","agent_type":"worker","endpoint":"http://localhost:9997","capabilities":["marketplace","messaging"]}'
+  -d '{"agent_id":"agent-main","agent_type":"worker","capabilities":["marketplace","messaging"],"services":["task-execution"],"endpoints":{"http":"http://localhost:9997"}}'
 
-# List agents (same on all nodes via shared state)
-curl -s http://localhost:8011/agents
+# List agents (same on all nodes via shared state).
+# There is no GET /agents collection route; discovery is a POST with a filter.
+curl -s -X POST http://localhost:8107/v1/agents/discover \
+  -H "Content-Type: application/json" -d '{}'
+
+# Look up one agent by id
+curl -s http://localhost:8107/v1/agents/agent-main
 ```
 
 ### Check P2P Connectivity
@@ -130,15 +138,22 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
 1. **SSH Connectivity Issues:** Verify SSH keys are configured at `/root/.ssh/` for passwordless access
 2. **P2P Handshake Rejection:** Check for duplicate p2p_node_id, run `/opt/aitbc/scripts/utils/generate_unique_node_ids.py`
 3. **Service Restart Failures:** Check systemd logs: `journalctl -u aitbc-blockchain-node.service -n 50`
-4. **Port Confusion:** Coordinator API is on port 8011 (not 9001)
+4. **Port Confusion:** Two different "coordinators" exist. Agent registration
+   (`/v1/agents/register`) is the **Agent Coordinator on 8107** -- not 8203, and
+   not the historical 9001. The Coordinator API on 8203 serves jobs/marketplace/
+   escrow; its `/v1/agents/*` routes are workflows and executions only, with no
+   `/register`. Mind the prefix: the Agent Coordinator's agent and task routers
+   are mounted under `/v1`, but its auth, keys, messages and workflow routers
+   carry their own `/api/v1/agent/...` prefixes instead.
 5. **Using IP Instead of Hostname:** Use `aitbc1` not raw IP addresses
 
 ## Verification Checklist
 - [ ] SSH connectivity to all nodes verified
 - [ ] Blockchain heights match across nodes
 - [ ] P2P mesh network operational (port 7070)
-- [ ] RPC endpoints responding (port 8006)
-- [ ] Coordinator responding (port 8011)
+- [ ] RPC endpoints responding (port 8202)
+- [ ] Coordinator API responding (port 8203)
+- [ ] Agent Coordinator responding (port 8107)
 - [ ] Services running on all nodes
 - [ ] Node IDs unique (no duplicate p2p_node_id)
 

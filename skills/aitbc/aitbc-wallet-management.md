@@ -17,7 +17,7 @@ Create, list, import, export, and manage AITBC blockchain wallets with determini
 ## Prerequisites
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - Keystore directory at `/var/lib/aitbc/keystore/`
-- Wallet daemon running on port 8015 (localhost only)
+- Wallet daemon running on port 8108 (localhost only)
 - Default wallet password: from `/var/lib/aitbc/keystore/.genesis_password`
 
 ## Prerequisites Check
@@ -33,7 +33,7 @@ source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn
 /opt/aitbc/aitbc-cli --version
 
 # Check wallet daemon health
-curl -s http://localhost:8015/health
+curl -s http://localhost:8108/health
 
 # Verify keystore directory
 ls -la /var/lib/aitbc/keystore/
@@ -46,8 +46,8 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 **Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
-| Wallet Daemon | 8015 | Wallet API (localhost only) |
-| Blockchain RPC | 8006 | Balance checks via CLI |
+| Wallet Daemon | 8108 | Wallet API (localhost only) |
+| Blockchain RPC | 8202 | Balance checks via CLI |
 
 ## Operations
 
@@ -97,10 +97,10 @@ cd /opt/aitbc && ./aitbc-cli transactions --name <wallet_name> --limit <limit> -
 ### Wallet API (Direct)
 ```bash
 # List wallets via wallet daemon API
-curl -s http://localhost:8015/wallets
+curl -s http://localhost:8108/wallets
 
 # Get wallet balance via API
-curl -s http://localhost:8015/wallets/{wallet_name}/balance
+curl -s http://localhost:8108/wallets/{wallet_name}/balance
 ```
 
 ## Common Pitfalls

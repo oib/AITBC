@@ -29,12 +29,12 @@ This document defines the infrastructure requirements, service configuration, an
 | Service | Port | Purpose | Status |
 |---------|------|---------|--------|
 | Coordinator API | 8203 | Job management | Required |
-| Blockchain Node | 8080 | Blockchain RPC | Required |
-| Wallet Daemon | 8081 | Wallet management | Required |
+| Blockchain Node | 8202 | Blockchain RPC | Required |
+| Wallet Daemon | 8108 | Wallet management | Required |
 | GPU Miner | - | Job processing | Required |
 | Marketplace | 8102 | Service marketplace | Required |
-| Exchange | 8082 | Trading platform | Required |
-| Agent Coordinator | 8203 | Agent management | Required |
+| Exchange | 8106 | Trading platform | Required |
+| Agent Coordinator | 8107 | Agent management | Required |
 | PostgreSQL | 5432 | Database | Required |
 | Redis | 6379 | Cache | Required |
 
