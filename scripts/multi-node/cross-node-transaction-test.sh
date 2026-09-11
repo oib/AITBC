@@ -14,17 +14,19 @@ set -euo pipefail
 # Set them for your own deployment; there is deliberately no default.
 NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
 NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
 
 # Node Configuration
 NODES=(
-    "aitbc:${NODE0_HOST}"
-    "aitbc1:${NODE1_HOST}"
+    "${NODE_ID}:${NODE0_HOST}"
+    "${NODE1_ID}:${NODE1_HOST}"
 )
 
-RPC_PORT=8006
+RPC_PORT=8202
 CLI_PATH="${CLI_PATH:-${REPO_ROOT}/cli/aitbc_cli.py}"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="${LOG_DIR}/cross-node-transaction-test.log"

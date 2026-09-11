@@ -391,7 +391,7 @@ class AITBCExchangeClient:
     """Client for AITBC exchange service"""
 
     def __init__(self):
-        self.base_url = "http://localhost:8001"
+        self.base_url = "http://localhost:8106"
 
     async def get_market_data(self, symbol: str) -> Dict[str, Any]:
         """Get market data for symbol"""

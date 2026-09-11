@@ -5,9 +5,9 @@ description: Test and diagnose Agent agent autonomy features — distributed dec
 
 # Agent Autonomy Testing
 
-## Service: aitbc-coordinator-api (port 8011)
+## Service: aitbc-coordinator-api (port 8203)
 
-All endpoints at `http://localhost:8011/v1/agent/*` require `X-Api-Key` header.
+All endpoints at `http://localhost:8203/v1/agent/*` require `X-Api-Key` header.
 API key: read from `/run/aitbc/secrets/.env` → `COORDINATOR_API_KEY=value`
 
 ## Known Bugs (2026-06-02)
@@ -44,7 +44,7 @@ API key: read from `/run/aitbc/secrets/.env` → `COORDINATOR_API_KEY=value`
 
 ```bash
 KEY=$(grep COORDINATOR_API_KEY /run/aitbc/secrets/.env | cut -d= -f2)
-BASE=http://localhost:8011
+BASE=http://localhost:8203
 
 # Decision propose
 curl -s -X POST $BASE/v1/agent/decision/propose \

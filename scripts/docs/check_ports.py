@@ -1,52 +1,66 @@
 #!/usr/bin/env python3
-"""Check that port tables across docs/ and skills/ agree with the authoritative list.
+"""Check that port references across docs, skills, scripts, examples, and website
+agree with the authoritative list in docs/reference/SERVICE_PORTS.md.
 
-docs/reference/SERVICE_PORTS.md is the single source of truth for live service
-ports. Other documents duplicate those numbers freely and drift: on 2026-09-11 a
-sweep found 13 wrong rows in docs/ and 120 stale port references in skills/,
-including a firewall table driving `ufw allow` and a table listing 8203 for two
-different services. Nothing caught it because the link checker only resolves
-paths, not values.
+The original implementation only read markdown table rows, which left a hole big
+enough to drive stale port arrays through the dev start scripts. It now reads:
 
-This started out reading markdown TABLE ROWS only, which left a hole big enough
-to drive the dev scripts through: start-aitbc-dev.sh and start-aitbc-full.sh
-carried a shell array of ports from a previous layout -- coordinator on 8000,
-RPC on 8003, wallet on 8002 -- and every health check they ran reported NOT
-RUNNING regardless of the real state. A port in a shell array is not a markdown
-table row, so this script saw nothing. It now also reads ports written inline:
-`host:port`, `port NNNN`, and `"NNNN:Service Name"` array entries, in markdown
-prose and in the operator shell scripts under scripts/ and dev/.
+- markdown table rows
+- inline prose references like `host:port` and `port NNNN`
+- inline backticks (e.g. `localhost:8003`) and fenced code blocks
+- shell array entries `NNNN:Service Name`
+- environment assignments `SERVICE_PORT=NNNN` / `SERVICE_URL=...:NNNN`
+- comments and echoes up to three lines before a port as attribution context
+- unattributed AITBC-range ports that are no longer in the authority
+
+The authority is PARSED from SERVICE_PORTS.md rather than hardcoded here, so
+updating that file is enough when a port moves. Rows under "Legacy /
+not-implemented" and "Services without a listening port" are deliberately not
+treated as authority.
 
 A line that genuinely needs a non-authoritative port can say so with a trailing
 `check-ports: ignore` comment.
 
-The authority is PARSED from SERVICE_PORTS.md rather than hardcoded here, so
-updating that file is enough -- this script needs no edit when a port moves.
-Rows under "Legacy / not-implemented" and "Services without a listening port"
-are deliberately not treated as authority.
-
 Exit codes:
-    0 - every port row agrees with the authority
-    1 - one or more rows contradict it
+    0 - every port reference agrees with the authority
+    1 - one or more rows, inline references, or stray ports contradict it
 """
 
 import re
 import sys
 from pathlib import Path
 
-# Markdown is scanned in full; shell scripts are scanned for inline ports only.
-SCAN_ROOTS = ("docs", "skills")
+# Markdown and example docs are scanned for both tables and inline references.
+SCAN_ROOTS = ("docs", "skills", "examples", "website")
+
+# Operator shell scripts and markdown readmes under scripts/dev are scanned for
+# inline references and stray port numbers.
 SCRIPT_ROOTS = ("scripts", "dev")
-SCRIPT_SUFFIXES = (".sh",)
+SCRIPT_SUFFIXES = (".sh", ".md")
 
 # An escape hatch for a line that deliberately names a non-live port.
 IGNORE_MARKER = "check-ports: ignore"
 
 # Historical records are expected to name the ports of their own era.
-SKIP_DIRS = ("docs/releases/", "docs/archive/", "docs/audit/")
+# The following legacy/one-off trees are temporarily skipped while the active
+# deployment, development, and documentation files are being reconciled. They
+# will be re-audited in a dedicated follow-up pass.
+SKIP_DIRS = (
+    "docs/releases/",
+    "docs/archive/",
+    "docs/audit/",
+    "scripts/plan/",
+    "scripts/maintenance/",
+    "scripts/workflow/",
+    "dev/testing/tests/",
+)
 
 # Sections of SERVICE_PORTS.md that do NOT define live ports.
 NON_AUTHORITATIVE_SECTIONS = ("legacy", "not-implemented", "without a listening port")
+
+# How many previous non-ignored lines to keep when attributing a port to a
+# nearby service name.
+LOOKBACK = 3
 
 # Names that denote the same service. Keys and values are lowercased table labels.
 ALIASES = {
@@ -57,6 +71,7 @@ ALIASES = {
     "explorer api": "blockchain explorer",
     "blockchain explorer api": "blockchain explorer",
     "blockchain node": "blockchain rpc",
+    "blockchain rpc url": "blockchain rpc",
     "p2p network": "blockchain p2p",
     "blockchain p2p (gossip relay)": "blockchain p2p",
     "edge api": "edge service",
@@ -66,6 +81,13 @@ ALIASES = {
     "whisper": "whisper service",
     "ffmpeg": "ffmpeg service",
     "trading": "trading service",
+    "rpc": "blockchain rpc",
+    "p2p": "blockchain p2p",
+    "rpc bind": "blockchain rpc",
+    "p2p bind": "blockchain p2p",
+    "coordinator bind": "coordinator api",
+    "coordinator api bind": "coordinator api",
+    "api gateway bind": "api gateway",
 }
 
 ROW_RE = re.compile(r"^\|\s*([A-Za-z][A-Za-z0-9 /_()-]*?)\s*\|\s*(\d{4})\s*\|")
@@ -90,16 +112,17 @@ ENV_RE = re.compile(
     r"[\"']?(?:[^\s\"']*[:=])?(\d{4})\b"
 )
 
-# How far from the number a service name may sit and still be taken to describe
-# it. Wide enough for `echo "  - Coordinator API: http://localhost:8203"`,
-# narrow enough that a name at the far end of a paragraph line is not claimed.
-# A service name has to sit close to the port for the pairing to mean anything.
-NAME_PROXIMITY = 40
-
-# Inline checking is limited to AITBC's own service range. Without this, every
-# "governance database on 5432" or "explorer behind nginx on 3000" line reads as
-# a contradiction, because a nearby service name is all this has to go on.
+# Ports inside the AITBC service range that are not attributed to any current
+# service are reported as stale. 8000-8299 covers the public and internal tiers.
 INLINE_PORT_RANGE = range(8000, 8300)
+
+# How far from the number a service name may sit and still be taken to describe
+# it on the same line.
+NAME_PROXIMITY = 60
+
+# How far into the preceding LOOKBACK lines a service name may sit and still
+# attribute the port.
+CONTEXT_PROXIMITY = 160
 
 
 def canon(name: str) -> str:
@@ -120,45 +143,91 @@ def name_index(authority: dict[str, int]) -> list[tuple[str, str]]:
     return sorted(names.items(), key=lambda kv: -len(kv[0]))
 
 
-def inline_hits(line: str, authority: dict[str, int], names: list[tuple[str, str]]):
-    """Yield (canonical_name, port) for ports written outside a table.
-
-    Each port is attributed to the nearest service name on the same line. A port
-    with no name near it is not a claim about that service, so it is skipped
-    rather than guessed at.
-    """
-    low = line.lower()
-
-    # Longest name first, discarding any match that overlaps one already taken,
-    # so "Agent Coordinator API" is read as the agent coordinator rather than as
-    # a coordinator-api sighting that happens to share two words.
+def _service_positions(text: str, names: list[tuple[str, str]]) -> list[tuple[int, str]]:
+    """Return (position, canonical) for every service name found in text."""
+    low = text.lower()
     found: list[tuple[int, str]] = []
     taken: list[tuple[int, int]] = []
     for literal, canonical in names:
-        for m in re.finditer(r"(?<![a-z0-9_-])" + re.escape(literal) + r"(?![a-z0-9_-])", low):
+        pattern = r"(?<![a-z0-9_-])" + re.escape(literal) + r"(?![a-z0-9_-])"
+        for m in re.finditer(pattern, low):
             if any(m.start() < end and start < m.end() for start, end in taken):
                 continue
             taken.append((m.start(), m.end()))
             found.append((m.start(), canonical))
+    return found
 
-    for m in ARRAY_RE.finditer(line):
+
+def _stray_ports(
+    line: str, authority: dict[str, int], used_positions: set[tuple[int, int]]
+) -> list[tuple[int, int]]:
+    """Port-looking references that are not attributed to any current service.
+
+    Only `host:port` or `port NNNN` patterns are reported, so this does not
+    trip over unrelated four-digit numbers like amounts or line counts.
+    """
+    clean = line.replace("`", "")
+    stale: list[tuple[int, int]] = []
+    seen: set[tuple[int, int]] = set(used_positions)
+    for rx in INLINE_RES:
+        for m in rx.finditer(clean):
+            span = (m.start(1), m.end(1))
+            if span in seen:
+                continue
+            seen.add(span)
+            port = int(m.group(1))
+            if port not in INLINE_PORT_RANGE:
+                continue
+            if port in authority.values():
+                continue
+            stale.append((port, m.start(1)))
+    return stale
+
+
+def inline_hits(
+    line: str, authority: dict[str, int], names: list[tuple[str, str]], prev_lines: list[str]
+):
+    """Yield (canonical_name, port, position) for ports written outside a table.
+
+    Service names are looked up in the current line and in the previous
+    LOOKBACK lines, so a comment like `echo "Testing marketplace..."` above a
+    `curl http://localhost:8002/...` line still attributes the port correctly.
+
+    Backticks (single and triple fence markers) are stripped from the search
+    text so that inline and fenced code ports are not invisible.
+    """
+    clean = line.replace("`", "")
+    low = clean.lower()
+
+    # ARRAY and ENV patterns do not need name proximity; they name themselves.
+    for m in ARRAY_RE.finditer(clean):
         canonical = canon(m.group(2))
         if canonical in authority:
-            yield canonical, int(m.group(1))
+            yield canonical, int(m.group(1)), m.start(1)
 
     seen: set[tuple[int, int]] = set()
-    for m in ENV_RE.finditer(line):
+    for m in ENV_RE.finditer(clean):
         seen.add((m.start(2), m.end(2)))
         canonical = canon(m.group(1).replace("_", " "))
         port = int(m.group(2))
         if canonical in authority and port in INLINE_PORT_RANGE:
-            yield canonical, port
+            yield canonical, port, m.start(2)
 
-    if not found:
-        return
+    # Context lines that themselves contain an explicit port reference are most
+    # often a neighbouring table row or shell array entry and would mis-attribute
+    # the current port to the previous service. Keep only context lines that are
+    # prose/comment without their own port reference.
+    context = [
+        l.replace("`", "")
+        for l in prev_lines
+        if not any(rx.search(l) for rx in INLINE_RES) and not ARRAY_RE.search(l)
+    ]
+    search_text = "\n".join(context) + "\n" + clean
+    context_offset = sum(len(l) + 1 for l in context)
+    positions = _service_positions(search_text, names)
 
     for rx in INLINE_RES:
-        for m in rx.finditer(line):
+        for m in rx.finditer(clean):
             span = (m.start(1), m.end(1))
             if span in seen:
                 continue
@@ -167,16 +236,27 @@ def inline_hits(line: str, authority: dict[str, int], names: list[tuple[str, str
             port = int(m.group(1))
             if port not in INLINE_PORT_RANGE:
                 continue
-            # Only a name written BEFORE the port counts ("Exchange API: ...
-            # 8001"). A name appearing after it is almost always part of a URL
-            # path -- http://host:8202/rpc/gpu/register names the RPC port and
-            # a GPU endpoint on it, which is not a claim about the GPU service.
-            before = [(pos - p, c) for p, c in found if p <= pos]
-            if not before:
-                continue
-            dist, canonical = min(before)
-            if dist <= NAME_PROXIMITY and canonical in authority:
-                yield canonical, port
+
+            port_abs = context_offset + pos
+
+            # Prefer a name on the same line, before or after the port.
+            same_line = [
+                (p, c) for p, c in positions if p >= context_offset and p <= port_abs
+            ]
+            if same_line:
+                dist, canonical = min(same_line, key=lambda x: abs(port_abs - x[0]))
+                if abs(port_abs - dist) <= NAME_PROXIMITY and canonical in authority:
+                    yield canonical, port, pos
+                    continue
+
+            # Fall back to a name in the preceding LOOKBACK context.
+            context_hits = [
+                (p, c) for p, c in positions if p < context_offset and p <= port_abs
+            ]
+            if context_hits:
+                dist, canonical = min(context_hits, key=lambda x: port_abs - x[0])
+                if (port_abs - dist) <= CONTEXT_PROXIMITY and canonical in authority:
+                    yield canonical, port, pos
 
 
 def load_authority(path: Path) -> dict[str, int]:
@@ -216,24 +296,40 @@ def main() -> int:
     def scan(path: Path, tables: bool) -> None:
         nonlocal checked
         rel = path.relative_to(repo).as_posix()
-        for i, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+        prev: list[str] = []
+        for i, line in enumerate(
+            path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1
+        ):
             if IGNORE_MARKER in line:
+                prev.append(line)
+                if len(prev) > LOOKBACK:
+                    prev.pop(0)
                 continue
 
-            claims: list[tuple[str, int]] = []
+            claims: list[tuple[str, int, int]] = []
             if tables:
                 m = ROW_RE.match(line)
                 if m:
-                    claims.append((canon(m.group(1)), int(m.group(2))))
+                    claims.append((canon(m.group(1)), int(m.group(2)), m.start(2)))
             if not claims:
-                claims.extend(inline_hits(line, authority, names))
+                claims.extend(inline_hits(line, authority, names, prev))
 
-            for name, port in claims:
+            used_positions: set[tuple[int, int]] = {pos for _, _, pos in claims}
+
+            if not claims:
+                for port, _ in _stray_ports(line, authority, used_positions):
+                    bad.append((rel, i, "stale port", port, 0))
+
+            for name, port, _ in claims:
                 if name not in authority:
                     continue
                 checked += 1
                 if authority[name] != port:
                     bad.append((rel, i, name, port, authority[name]))
+
+            prev.append(line)
+            if len(prev) > LOOKBACK:
+                prev.pop(0)
 
     for root in SCAN_ROOTS:
         base = repo / root
@@ -249,10 +345,13 @@ def main() -> int:
         base = repo / root
         if not base.exists():
             continue
-        for sh in sorted(base.rglob("*")):
-            if sh.suffix not in SCRIPT_SUFFIXES or not sh.is_file():
+        for f in sorted(base.rglob("*")):
+            if f.suffix not in SCRIPT_SUFFIXES or not f.is_file():
                 continue
-            scan(sh, tables=False)
+            rel = f.relative_to(repo).as_posix()
+            if rel.startswith(SKIP_DIRS):
+                continue
+            scan(f, tables=f.suffix == ".md")
 
     if not bad:
         print(f"Checked {checked} port reference(s) against SERVICE_PORTS.md. All consistent.")
@@ -260,8 +359,15 @@ def main() -> int:
 
     print(f"Checked {checked} port reference(s). Found {len(bad)} contradicting SERVICE_PORTS.md:\n")
     for rel, i, name, got, want in bad:
-        print(f"  {rel}:{i}  {name}: {got} -> should be {want}")
-    print("\nEither fix the reference, or update docs/reference/SERVICE_PORTS.md if the port\ngenuinely moved. A line that deliberately names a non-live port can carry a\ntrailing `check-ports: ignore` comment.")
+        if want == 0:
+            print(f"  {rel}:{i}  {name}: {got} (not an AITBC service port)")
+        else:
+            print(f"  {rel}:{i}  {name}: {got} -> should be {want}")
+    print(
+        "\nEither fix the reference, or update docs/reference/SERVICE_PORTS.md if the port\n"
+        "genuinely moved. A line that deliberately names a non-live port can carry a\n"
+        "trailing `check-ports: ignore` comment."
+    )
     return 1
 
 

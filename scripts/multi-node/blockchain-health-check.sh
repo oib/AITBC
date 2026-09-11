@@ -1,7 +1,7 @@
 #!/bin/bash
 #
 # Multi-Node Blockchain Health Check Script
-# Checks health of all 3 blockchain nodes (aitbc, aitbc1, aitbc2)
+# Checks health of all 3 blockchain nodes (${NODE_ID}, ${NODE1_ID}, ${NODE2_ID})
 # Provides automatic remediation for failed services
 #
 
@@ -15,6 +15,10 @@ set -euo pipefail
 # Set them for your own deployment; there is deliberately no default.
 NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
 NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
+NODE2_ID="${AITBC_NODE2_ID:-aitbc2}"
+NODE2_HOST="${AITBC_NODE2_HOST:-$NODE0_HOST}"
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/../.." && pwd)"
@@ -23,12 +27,12 @@ LOG_FILE="${LOG_DIR}/multi-node-health.log"
 
 # Node Configuration
 NODES=(
-    "aitbc:${NODE0_HOST}"
-    "aitbc1:${NODE1_HOST}"
-    "aitbc2:${NODE0_HOST}"
+    "${NODE_ID}:${NODE0_HOST}"
+    "${NODE1_ID}:${NODE1_HOST}"
+    "${NODE2_ID}:${NODE2_HOST}"
 )
 
-RPC_PORT=8006
+RPC_PORT=8202
 # ponytail: default to localhost so ad-hoc runner checks pass; production multi-node must export REDIS_HOST
 REDIS_HOST="${REDIS_HOST:-127.0.0.1}"
 REDIS_PORT=6379

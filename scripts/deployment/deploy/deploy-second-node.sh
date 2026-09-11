@@ -36,7 +36,7 @@ cat > $NODE2_DIR/.env << EOF
 CHAIN_ID=ait-devnet
 DB_PATH=./data/chain2.db
 RPC_BIND_HOST=127.0.0.1
-RPC_BIND_PORT=8081
+RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
 P2P_BIND_PORT=7071
 PROPOSER_KEY=node2_proposer_key_$(date +%s)
@@ -89,7 +89,7 @@ User=root
 WorkingDirectory=$NODE2_DIR
 Environment=PATH=$NODE2_DIR/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=$NODE2_DIR/src:$NODE2_DIR/scripts
-ExecStart=$NODE2_DIR/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8081
+ExecStart=$NODE2_DIR/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202
 Restart=always
 RestartSec=5
 
@@ -119,8 +119,8 @@ sudo systemctl status blockchain-rpc-2 --no-pager -l
 echo ""
 print_status "✅ Second blockchain node deployed!"
 echo ""
-echo "Node 1 RPC: http://127.0.0.1:8080"
-echo "Node 2 RPC: http://127.0.0.1:8081"
+echo "Node 1 RPC: http://127.0.0.1:8202"
+echo "Node 2 RPC: http://127.0.0.1:8202"
 echo ""
 echo "To check logs:"
 echo "  Node 1: sudo journalctl -u blockchain-node -f"

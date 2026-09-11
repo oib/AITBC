@@ -10,14 +10,15 @@ from datetime import datetime
 import aiohttp
 from aiohttp import web
 
-# Regional endpoints configuration
+# Regional endpoints configuration. The edge_node values are example labels;
+# real deployments set them via AITBC_EDGE_* environment variables or config.
 regions = {
-    "us-east": {"url": "http://127.0.0.1:8203", "weight": 3, "healthy": True, "edge_node": "aitbc-edge-primary"},
-    "us-west": {"url": "http://127.0.0.1:8203", "weight": 2, "healthy": True, "edge_node": "edge-secondary"},
-    "eu-central": {"url": "http://127.0.0.1:8202", "weight": 2, "healthy": True, "edge_node": "localhost"},
-    "eu-west": {"url": "http://127.0.0.1:8203", "weight": 1, "healthy": True, "edge_node": "aitbc-edge-primary"},
-    "ap-southeast": {"url": "http://127.0.0.1:8203", "weight": 2, "healthy": True, "edge_node": "edge-secondary"},
-    "ap-northeast": {"url": "http://127.0.0.1:8202", "weight": 1, "healthy": True, "edge_node": "localhost"},
+    "us-east": {"url": "http://127.0.0.1:8203", "weight": 3, "healthy": True, "edge_node": "primary"},
+    "us-west": {"url": "http://127.0.0.1:8203", "weight": 2, "healthy": True, "edge_node": "secondary"},
+    "eu-central": {"url": "http://127.0.0.1:8202", "weight": 2, "healthy": True, "edge_node": "local"},
+    "eu-west": {"url": "http://127.0.0.1:8203", "weight": 1, "healthy": True, "edge_node": "primary"},
+    "ap-southeast": {"url": "http://127.0.0.1:8203", "weight": 2, "healthy": True, "edge_node": "secondary"},
+    "ap-northeast": {"url": "http://127.0.0.1:8202", "weight": 1, "healthy": True, "edge_node": "local"},
 }
 
 

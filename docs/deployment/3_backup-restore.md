@@ -219,7 +219,7 @@ curl -s http://localhost:8202/rpc/head
 
    # Verify API endpoints
    curl -s http://coordinator-api:8203/health
-   curl -s http://blockchain-node:8080/v1/health
+   curl -s http://blockchain-node:8202/v1/health
    ```
 
 ## Monitoring and Alerting

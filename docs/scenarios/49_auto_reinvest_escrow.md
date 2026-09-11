@@ -38,8 +38,7 @@ aitbc ai submit \
   --wallet "$WALLET" \
   --buyer-address "$CUSTOMER" \
   --provider-address "$PROVIDER" \
-  --coordinator-url http://127.0.0.1:8203 \
-  --wait --timeout 240
+  --coordinator-url http://127.0.0.1:8203 --wait --timeout 240  # check-ports: ignore
 ```
 
 The `--auto-reinvest-pct 50` flag is stored in `job.constraints.auto_reinvest_pct`

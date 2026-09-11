@@ -13,6 +13,9 @@ YELLOW='\033[1;33m'
 BLUE='\033[0;34m'
 NC='\033[0m'
 
+LOCAL_CONTAINER="${AITBC_CONTAINER_NAME:-aitbc}"
+REMOTE_CONTAINER="${AITBC_NODE1_CONTAINER_NAME:-aitbc1}"
+
 print_status() {
     echo -e "${GREEN}[INFO]${NC} $1"
 }
@@ -44,7 +47,7 @@ fix_sudoers() {
     # Create comprehensive AITBC sudoers file
     sudoers_file="/etc/sudoers.d/aitbc-dev"
 
-    cat > "$sudoers_file" << 'EOF'
+    cat > "$sudoers_file" << EOF
 # AITBC Development Sudoers Configuration
 # This file provides passwordless access for AITBC development operations
 
@@ -87,10 +90,10 @@ oib ALL=(root) NOPASSWD: /usr/bin/netstat -tlnp | grep :800*
 oib ALL=(root) NOPASSWD: /usr/bin/ss -tlnp | grep :800*
 
 # Container operations (existing)
-oib ALL=(root) NOPASSWD: /usr/bin/incus exec aitbc *
-oib ALL=(root) NOPASSWD: /usr/bin/incus exec aitbc1 *
-oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc *
-oib ALL=(root) NOPASSWD: /usr/bin/incus shell aitbc1 *
+oib ALL=(root) NOPASSWD: /usr/bin/incus exec ${LOCAL_CONTAINER} *
+oib ALL=(root) NOPASSWD: /usr/bin/incus exec ${REMOTE_CONTAINER} *
+oib ALL=(root) NOPASSWD: /usr/bin/incus shell ${LOCAL_CONTAINER} *
+oib ALL=(root) NOPASSWD: /usr/bin/incus shell ${REMOTE_CONTAINER} *
 
 # User switching for service operations
 oib ALL=(aitbc) NOPASSWD: ALL
@@ -188,10 +191,10 @@ case "${1:-help}" in
     "test")
         echo "🧪 Testing AITBC services..."
         echo "Testing Coordinator API..."
-        curl -s http://localhost:8000/health || echo "❌ Coordinator API not responding"
+        curl -s http://localhost:8203/health || echo "❌ Coordinator API not responding"
         echo ""
         echo "Testing Blockchain RPC..."
-        curl -s http://localhost:8006/health || echo "❌ Blockchain RPC not responding"
+        curl -s http://localhost:8202/health || echo "❌ Blockchain RPC not responding"
         echo ""
         echo "✅ Service test completed"
         ;;
@@ -261,8 +264,8 @@ export AITBC_DEBUG=1
 export AITBC_LOG_LEVEL=DEBUG
 
 # Service URLs
-export AITBC_COORDINATOR_URL=http://localhost:8000
-export AITBC_BLOCKCHAIN_RPC=http://localhost:8006
+export AITBC_COORDINATOR_URL=http://localhost:8203
+export AITBC_BLOCKCHAIN_RPC=http://localhost:8202
 export AITBC_WEB_UI=http://localhost:3000
 
 # Database paths
