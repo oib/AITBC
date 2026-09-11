@@ -96,7 +96,7 @@ cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 
 Edit `/etc/aitbc/node.env`:
 ```bash
-P2P_PEERS=hub.aitbc.bubuit.net:8001
+P2P_PEERS=hub.aitbc.bubuit.net:7070
 ```
 
 ## Service File Locations (Post-Restructure)
@@ -106,23 +106,23 @@ All systemd service files moved from `systemd/` to `apps/<service>/` on 2026-05-
 | Service | Service File | Port |
 |---------|-------------|------|
 | Blockchain Node | `apps/blockchain-node/aitbc-blockchain-node.service` | -- |
-| Blockchain RPC | `apps/blockchain-node/aitbc-blockchain-rpc.service` | 8006 |
-| Blockchain P2P | `apps/blockchain-node/aitbc-blockchain-p2p.service` | 8001 |
+| Blockchain RPC | `apps/blockchain-node/aitbc-blockchain-rpc.service` | 8202 |
+| Blockchain P2P | `apps/blockchain-node/aitbc-blockchain-p2p.service` | 7070 |
 | Blockchain Sync | `apps/blockchain-node/aitbc-blockchain-sync.service` | -- |
-| Coordinator API | `apps/coordinator-api/aitbc-coordinator-api.service` | 8011 |
-| Wallet | `apps/wallet/aitbc-wallet.service` | 8015 |
-| Exchange API | `apps/exchange/aitbc-exchange-api.service` | 8010 |
-| AI Engine | `apps/ai-engine/aitbc-ai.service` | -- |
-| AI Learning | `apps/ai-engine/aitbc-learning.service` | -- |
-| Multimodal | `apps/ai-engine/aitbc-multimodal.service` | -- |
-| GPU Service | `apps/gpu-service/aitbc-gpu.service` | -- |
-| Explorer | `apps/blockchain-explorer/aitbc-explorer.service` | -- |
+| Coordinator API | `apps/coordinator-api/aitbc-coordinator-api.service` | 8203 |
+| Wallet | `apps/wallet/aitbc-wallet.service` | 8108 |
+| Exchange API | `apps/exchange/aitbc-exchange-api.service` | 8106 |
+| AI Engine | `apps/ai-engine/aitbc-ai.service` | 8005 |
+| AI Learning | `apps/ai-engine/aitbc-learning.service` | 8012 |
+| Multimodal | `apps/ai-engine/aitbc-multimodal.service` | 8020 |
+| GPU Service | `apps/gpu-service/aitbc-gpu.service` | 8101 |
+| Explorer | `apps/blockchain-explorer/aitbc-explorer.service` | 8100 |
 | Marketplace | `apps/marketplace-service/aitbc-marketplace.service` | 8102 |
-| Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` | -- |
+| Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` | 8107 |
 | Agent | `apps/agent/aitbc-agent.service` | -- |
-| Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` | -- |
+| Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` | 8205 |
 | Plugin | `scripts/utils/aitbc-plugin.service` | -- |
-| Monitoring | `scripts/monitoring/aitbc-monitoring.service` | -- |
+| Monitoring | `scripts/monitoring/aitbc-monitoring.service` | 8002 |
 
 > **Removed:** `apps/agent-management` no longer exists in the checkout. Agent registry/SDK and lifecycle functionality now live in the CLI (`aitbc agent`, `cli/aitbc_cli/commands/agent_sdk.py`) and `apps/agent-coordinator`. There is no `aitbc-agent-registry.service` to deploy.
 
@@ -205,19 +205,19 @@ journalctl -u aitbc-coordinator-api -f
 
 ```bash
 # Check blockchain RPC
-curl http://localhost:8006/health
+curl http://localhost:8202/health
 
 # Check coordinator API
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 
 # Check wallet
-curl http://localhost:8015/health
+curl http://localhost:8108/health
 
 # Full health check
 /opt/aitbc/scripts/monitoring/health_check.sh
 
 # Sync status (follower nodes)
-curl -s http://localhost:8006/rpc/head | python3 -m json.tool
+curl -s http://localhost:8202/rpc/head | python3 -m json.tool
 curl -s <HUB_RPC_URL>/rpc/head | python3 -m json.tool
 ```
 

@@ -32,7 +32,7 @@ rm -f /etc/aitbc/credentials/proposer_id
 4. **Sync genesis from hub:**
 ```bash
 aitbc genesis sync-from-hub --force \
-  --rpc-url http://hub.aitbc.bubuit.net:8006 \
+  --rpc-url http://hub.aitbc.bubuit.net:8202 \
   --chain-id ait-hub.aitbc.bubuit.net
 ```
 
@@ -60,7 +60,7 @@ from aitbc_chain.sync import ChainSync
 
 async def run():
     s = ChainSync(session_factory=session_scope, chain_id=settings.chain_id)
-    n = await s.bulk_import_from('http://hub.aitbc.bubuit.net:8006')
+    n = await s.bulk_import_from('http://hub.aitbc.bubuit.net:8202')
     print(f'Imported {n} blocks')
 asyncio.run(run())
 "

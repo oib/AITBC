@@ -15,7 +15,7 @@ curl http://localhost:8203/health
 curl http://localhost:8102/health
 
 # Check wallet service health
-curl http://localhost:8071/health
+curl http://localhost:8108/health
 ```
 
 ## Systemd Service Status

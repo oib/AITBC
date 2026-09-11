@@ -21,7 +21,7 @@ PYTHON_CMD="$VENV_DIR/bin/python"
 echo -e "${BLUE}🚀 AITBC PRODUCTION-GRADE SETUP${NC}"
 echo "=========================="
 echo "Upgrading from demonstration to production system"
-echo "Nodes: aitbc (localhost) and aitbc1 (remote)"
+echo "Nodes: ${AITBC_NODE_ID:-aitbc} (localhost) and ${AITBC_NODE1_ID:-aitbc1} (remote)"
 echo ""
 
 # Step 1: Production Environment Setup
@@ -86,6 +86,9 @@ import os
 from pathlib import Path
 
 # Production Blockchain Configuration
+NODE_ID = os.environ.get('AITBC_NODE_ID', 'aitbc')
+NODE1_ID = os.environ.get('AITBC_NODE1_ID', 'aitbc1')
+
 BLOCKCHAIN_CONFIG = {
     'network': {
         'name': 'aitbc-mainnet',
@@ -96,19 +99,19 @@ BLOCKCHAIN_CONFIG = {
         'difficulty': 'auto'
     },
     'nodes': {
-        'aitbc': {
+        NODE_ID: {
             'host': 'localhost',
             'port': 8545,
             'rpc_port': 8545,
             'p2p_port': 30303,
-            'data_dir': '/opt/aitbc/production/data/blockchain/aitbc'
+            'data_dir': f'/opt/aitbc/production/data/blockchain/{NODE_ID}'
         },
-        'aitbc1': {
-            'host': 'aitbc1',
+        NODE1_ID: {
+            'host': os.environ.get('AITBC_NODE1_HOST', NODE1_ID),
             'port': 8545,
             'rpc_port': 8545,
             'p2p_port': 30303,
-            'data_dir': '/opt/aitbc/production/data/blockchain/aitbc1'
+            'data_dir': f'/opt/aitbc/production/data/blockchain/{NODE1_ID}'
         }
     },
     'security': {

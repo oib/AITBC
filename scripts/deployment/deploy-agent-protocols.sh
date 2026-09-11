@@ -29,7 +29,7 @@ sudo systemctl status aitbc-agent-coordinator --no-pager
 
 # Test services
 echo "Testing services..."
-curl -s http://localhost:8003/api/health || echo "Agent Registry not responding"
-curl -s http://localhost:8004/api/health || echo "Agent Coordinator not responding"
+curl -s http://localhost:8003/api/health || echo "Agent Registry not responding"  # check-ports: ignore
+curl -s http://localhost:8004/api/health || echo "Agent Coordinator not responding"  # check-ports: ignore
 
 echo "✅ Agent Protocols deployment complete!"

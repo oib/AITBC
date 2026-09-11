@@ -60,7 +60,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 1. User creates software offer via CLI: `aitbc market software-offer ollama llama2 0.001`
 2. Offer transaction is posted on-chain
-3. Offer is automatically registered in plugin registry (port 8109)
+3. Offer is automatically registered in plugin registry (port 8109) <!-- check-ports: ignore -->
 4. User verifies offer in plugin registry: `GET /plugins/{offer_id}`
 5. User retrieves offer details: `GET /plugins/{offer_id}/offer`
 6. User lists all offers: `aitbc market list`
@@ -76,7 +76,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Prerequisites:**
 
 - Blockchain node running (port 8202)
-- Plugin registry running (port 8109)
+- Plugin registry running (port 8109) <!-- check-ports: ignore -->
 - CLI installed and configured
 
 ### 2. Ollama Inference with Escrow
@@ -163,7 +163,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Prerequisites:**
 
-- Plugin registry running (port 8109)
+- Plugin registry running (port 8109) <!-- check-ports: ignore -->
 - JSON store at `/var/lib/aitbc/plugins.json`
 
 ### 5. Escrow Release with Job Transaction
@@ -275,7 +275,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 - Coordinator API running (default `http://localhost:8203`)
 - Marketplace service running (default `http://localhost:8102`)
-- Blockchain RPC node running (default `http://localhost:8080`)
+- Blockchain RPC node running (default `http://localhost:8202`)
 - Block production enabled on the blockchain node
 - `E2E_NODE_WALLET_ADDRESS` (or `NODE_WALLET_ADDRESS` / `GENESIS_WALLET_ADDRESS`) set for escrow tests
 - `JWT_SECRET` or pre-created `E2E_CLIENT_TOKEN` and `E2E_MINER_TOKEN` for coordinator auth

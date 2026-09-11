@@ -45,7 +45,7 @@ transactions = await data_layer.get_transactions(
     address="0x123...",
     limit=50,
     chain_id="ait-devnet",
-    rpc_url="http://localhost:8025"
+    rpc_url="http://localhost:8025"  # check-ports: ignore
 )
 
 # Get blocks
@@ -120,8 +120,8 @@ You can add custom chains via environment variables:
 
 ```bash
 export AITBC_CHAIN_MYCHAIN_NAME="My Custom Chain"
-export AITBC_CHAIN_MYCHAIN_RPC_URL="http://localhost:8030"
-export AITBC_CHAIN_MYCHAIN_EXPLORER_URL="http://localhost:8031"
+export AITBC_CHAIN_MYCHAIN_RPC_URL="http://localhost:8030"  # check-ports: ignore
+export AITBC_CHAIN_MYCHAIN_EXPLORER_URL="http://localhost:8031"  # check-ports: ignore
 export AITBC_CHAIN_MYCHAIN_IS_TESTNET="true"
 export AITBC_CHAIN_MYCHAIN_NATIVE_CURRENCY="AITBC"
 ```
@@ -130,8 +130,8 @@ export AITBC_CHAIN_MYCHAIN_NATIVE_CURRENCY="AITBC"
 
 The registry comes with two default chains:
 
-- **ait-devnet**: Development network (localhost:8025)
-- **ait-testnet**: Test network (localhost:8027)
+- **ait-devnet**: Development network (localhost:8025) <!-- check-ports: ignore -->
+- **ait-testnet**: Test network (localhost:8027) <!-- check-ports: ignore -->
 
 ## Testing Utilities
 

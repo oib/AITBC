@@ -79,21 +79,38 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 
 | Port | Service | Description |
 |------|---------|-------------|
-| 8203 | Coordinator API | Main API service |
-| 8001 | Exchange API | Trading functionality |
-| 8102 | Marketplace API | GPU compute marketplace |
-| 8015 | Wallet API | Digital wallet management |
-| 8006 | Blockchain RPC | Blockchain node RPC |
-| 7070 | P2P Network | Peer-to-peer networking |
+| 8201 | API Gateway | Customer-facing API entry point |
+| 8202 | Blockchain RPC | Blockchain node RPC |
+| 8203 | Coordinator API | Job/marketplace/escrow failover endpoint |
+| 8100 | Blockchain Explorer API | Block/transaction search |
+| 8101 | GPU Service | GPU compute service |
+| 8102 | Marketplace Service | GPU compute marketplace |
+| 8104 | Trading Service | Trading engine |
+| 8105 | Governance Service | Governance API |
+| 8106 | Exchange API | Trading functionality |
+| 8107 | Agent Coordinator | Agent messaging coordinator |
+| 8108 | Wallet Daemon | Digital wallet management |
+| 8110 | Whisper Service | Whisper messaging |
+| 8111 | Edge Service | Edge compute and dispatch |
+| 7070 | Blockchain P2P | Peer-to-peer gossip relay |
+| 8210 | Pool Hub | Pool hub API |
+| 8230 | FFmpeg Service | FFmpeg processing |
+| 8205 | Blockchain Event Bridge | Chain event streaming |
+| 8002 | Monitoring Service | Metrics collection |
+| 8005 | AI Engine | AI inference engine |
+| 8012 | Adaptive Learning | Learning service |
+| 8020 | Multi-Modal Agent | Multi-modal AI agent |
+| 8021 | Modality Optimization | Modality optimization service |
+| 8270 | Hermes Agent | Hermes agent service |
 
 ## 🔍 Health Endpoints
 
 The scripts test these health endpoints:
 - `http://localhost:8203/health` - Coordinator API
-- `http://localhost:8001/api/health` - Exchange API
+- `http://localhost:8106/api/health` - Exchange API
 - `http://localhost:8102/health` - Marketplace API
-- `http://localhost:8015/health` - Wallet API
-- `http://localhost:8006/health` - Blockchain RPC
+- `http://localhost:8108/health` - Wallet API
+- `http://localhost:8202/health` - Blockchain RPC
 
 ## 📝 Output Examples
 
@@ -115,21 +132,29 @@ The scripts test these health endpoints:
 ### Service Status:
 ```
 [INFO] Checking AITBC service ports...
-[SUCCESS] Coordinator API (port 8000): RUNNING
-[SUCCESS] Exchange API (port 8001): RUNNING
-[SUCCESS] Marketplace API (port 8002): RUNNING
-[SUCCESS] Wallet API (port 8003): RUNNING
-[SUCCESS] Explorer (port 8100): RUNNING
-[SUCCESS] Blockchain RPC (port 8006): RUNNING
-[SUCCESS] Web UI (port 8007): RUNNING
-[SUCCESS] GPU Service (port 8010): RUNNING
-[SUCCESS] Learning Service (port 8011): RUNNING
-[SUCCESS] Agent Coordinator (port 8012): RUNNING
-[SUCCESS] Agent Registry (port 8013): RUNNING
-[SUCCESS] agent Service (port 8014): RUNNING
-[SUCCESS] AI Service (port 8015): RUNNING
-[SUCCESS] Multimodal Service (port 8020): RUNNING
+[SUCCESS] API Gateway (port 8201): RUNNING
+[SUCCESS] Blockchain RPC (port 8202): RUNNING
+[SUCCESS] Coordinator API (port 8203): RUNNING
+[SUCCESS] Blockchain Explorer API (port 8100): RUNNING
+[SUCCESS] GPU Service (port 8101): RUNNING
+[SUCCESS] Marketplace Service (port 8102): RUNNING
+[SUCCESS] Trading Service (port 8104): RUNNING
+[SUCCESS] Governance Service (port 8105): RUNNING
+[SUCCESS] Exchange API (port 8106): RUNNING
+[SUCCESS] Agent Coordinator (port 8107): RUNNING
+[SUCCESS] Wallet Daemon (port 8108): RUNNING
+[SUCCESS] Whisper Service (port 8110): RUNNING
+[SUCCESS] Edge Service (port 8111): RUNNING
+[SUCCESS] Blockchain P2P (port 7070): RUNNING
+[SUCCESS] Pool Hub (port 8210): RUNNING
+[SUCCESS] FFmpeg Service (port 8230): RUNNING
+[SUCCESS] Blockchain Event Bridge (port 8205): RUNNING
+[SUCCESS] Monitoring Service (port 8002): RUNNING
+[SUCCESS] AI Engine (port 8005): RUNNING
+[SUCCESS] Adaptive Learning (port 8012): RUNNING
+[SUCCESS] Multi-Modal Agent (port 8020): RUNNING
 [SUCCESS] Modality Optimization (port 8021): RUNNING
+[SUCCESS] Hermes Agent (port 8270): RUNNING
 ```
 
 ## 🛠️ Troubleshooting

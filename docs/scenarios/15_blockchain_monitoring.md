@@ -272,7 +272,7 @@ Monitoring is observability tooling driven through the CLI/Explorer API; the age
 ```python
 import requests
 
-explorer = "http://localhost:8204"  # config.explorer_api_url
+explorer = "http://localhost:8100"  # config.explorer_api_url
 
 head = requests.get(f"{explorer}/api/chain/head", timeout=10).json()
 print(head["height"], head["hash"])

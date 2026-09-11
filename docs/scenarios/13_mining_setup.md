@@ -82,7 +82,7 @@ Threads: 4
 Status: started
 ```
 
-If the wallet is missing you'll see `Wallet 'miner-wallet' not found`. Point at a different node with `--rpc-url`:
+If the wallet is missing you'll see `Wallet 'miner-wallet' not found`. Point at a different node's blockchain RPC with `--rpc-url`:
 
 ```bash
 aitbc mining start miner-wallet --threads 4 --rpc-url http://node-2.local:8202

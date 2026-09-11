@@ -181,7 +181,7 @@ setup_environment_files() {
 CHAIN_ID=$CHAIN_ID
 SUPPORTED_CHAINS=$CHAIN_ID
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8006
+RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
 P2P_BIND_PORT=7070
 ENABLE_BLOCK_PRODUCTION=true
@@ -404,7 +404,7 @@ verify_deployment() {
     fi
 
     # Check RPC endpoint
-    if curl -s http://localhost:8006/rpc/head > /dev/null; then
+    if curl -s http://localhost:8202/rpc/head > /dev/null; then
         log_info "✓ RPC endpoint is accessible"
     else
         log_error "✗ RPC endpoint is not accessible"
@@ -412,7 +412,7 @@ verify_deployment() {
     fi
 
     # Check mempool endpoint
-    if curl -s http://localhost:8006/rpc/mempool > /dev/null; then
+    if curl -s http://localhost:8202/rpc/mempool > /dev/null; then
         log_info "✓ Mempool endpoint is accessible"
     else
         log_error "✗ Mempool endpoint is not accessible"
@@ -433,8 +433,8 @@ print_summary() {
     echo "Config: $ENV_FILE"
     echo ""
     echo "RPC Endpoints:"
-    echo "  - Head: http://localhost:8006/rpc/head"
-    echo "  - Mempool: http://localhost:8006/rpc/mempool"
+    echo "  - Head: http://localhost:8202/rpc/head"
+    echo "  - Mempool: http://localhost:8202/rpc/mempool"
     echo ""
     echo "Management Commands:"
     echo "  - Status: systemctl status $SERVICE_NAME"

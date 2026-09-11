@@ -17,10 +17,12 @@ NC='\033[0m' # No Color
 AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
 PYTHON_CMD="$VENV_DIR/bin/python"
+NODE_ID="${AITBC_NODE_ID:-aitbc}"
+NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 echo -e "${BLUE}🚀 AITBC PRODUCTION SERVICES DEPLOYMENT${NC}"
 echo "====================================="
-echo "Deploying production services to aitbc and aitbc1"
+echo "Deploying production services to ${NODE_ID} and ${NODE1_ID}"
 echo ""
 
 # Step 1: Create Production Blockchain Service

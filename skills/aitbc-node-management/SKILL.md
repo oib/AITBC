@@ -351,7 +351,7 @@ systemctl restart aitbc-blockchain-rpc
 ### Gossip Sync Monitoring
 
 ```bash
-watch -n5 'curl -s http://localhost:8006/rpc/head | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"Local: {d[\"height\"]}, tx: {d[\"tx_count\"]}\")"'
+watch -n5 'curl -s http://localhost:8202/rpc/head | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"Local: {d[\"height\"]}, tx: {d[\"tx_count\"]}\")"'
 journalctl -u aitbc-blockchain-p2p -f | grep -E "block|import|sync|peer"
 ```
 
@@ -471,7 +471,7 @@ systemctl daemon-reload
 systemctl start aitbc-edge
 ```
 
-The edge API uses SQLite (aiosqlite) for storage and runs on port 8103 by default.
+The edge API uses SQLite (aiosqlite) for storage and runs on port 8111 by default.
 
 ## Ollama Installation (Required for AI Inference)
 
@@ -502,10 +502,10 @@ When starting AITBC production services, start in this order:
 ```
 1. PostgreSQL + Redis         (databases + gossip network)
 2. Ollama (port 11434)        (AI runtime for inference)
-3. blockchain-node (port 8006) (blockchain data)
-4. blockchain-p2p (port 8001) (peer networking)
-5. blockchain-rpc (port 8006) (RPC API)
-6. coordinator-api (port 8011) (central orchestrator)
+3. blockchain-node            (blockchain data)
+4. blockchain-p2p (port 7070) (peer networking)
+5. blockchain-rpc (port 8202) (RPC API)
+6. coordinator-api (port 8203) (central orchestrator)
 7. production-miner           (needs Ollama + coordinator)
 ```
 
@@ -554,14 +554,14 @@ systemctl daemon-reload
 systemctl start aitbc-coordinator-api
 
 # Verify
-curl http://localhost:8011/health
+curl http://localhost:8203/health
 ```
 
 ## Monitoring
 
 ```bash
 # Chain status
-curl -s http://localhost:8006/rpc/head | python3 -m json.tool
+curl -s http://localhost:8202/rpc/head | python3 -m json.tool
 
 # Hub comparison
 curl -s <HUB_RPC_URL>/rpc/head | python3 -m json.tool
