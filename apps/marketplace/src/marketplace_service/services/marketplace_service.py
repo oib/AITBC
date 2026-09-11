@@ -1268,7 +1268,7 @@ class MarketplaceService:
                 return self._job_to_dict(job)
 
             job.state = "CANCELED"
-            job.receipt = reason or "buyer_requested"
+            job.receipt = {"reason": reason or "buyer_requested"}
             job.error = None
             job.updated_at = datetime.utcnow()
 
@@ -1421,7 +1421,7 @@ class MarketplaceService:
             job.payment_status = "refunded"
             job.refund_tx_hash = tx_hash
             if reason:
-                job.receipt = reason
+                job.receipt = {"reason": reason}
             job.updated_at = datetime.utcnow()
 
             if payment:
