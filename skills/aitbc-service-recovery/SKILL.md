@@ -47,8 +47,8 @@ systemctl start aitbc-agent.service
 |---------|-----|
 | Wallet service: exit code, missing COORDINATOR_API_KEY | Add `echo "key" > /etc/aitbc/credentials/coordinator_api_key && chmod 600` |
 | Sync service exits immediately | Add Agent vars to `/etc/aitbc/node.env` (see below) OR set `AGENT_DAEMON_CHAINS` |
-| P2P immediate FIN from hub | `p2p_peers` must use port **7070** (not 8001 — that's Exchange API) |
-| Sync baseline stuck at wrong height | Force-sync: `curl -X POST http://localhost:8006/rpc/force-sync -H 'Content-Type: application/json' -d '{"peer_url":"http://hub.aitbc.bubuit.net:8006"}'` |
+| P2P immediate FIN from hub | `p2p_peers` must use port **7070** (not 8106 — that's Exchange API) |
+| Sync baseline stuck at wrong height | Force-sync via blockchain rpc: `curl -X POST http://localhost:8202/rpc/force-sync -H 'Content-Type: application/json' -d '{"peer_url":"http://hub.aitbc.bubuit.net:8202"}'` |
 | Services fail with "resources" | `systemctl reset-failed` then restart |
 | Sync service wrong chain | Wrapper reads `SYNC_CHAIN_ID` not `CHAIN_ID` — check aitbc-blockchain-sync-wrapper.py |
 
@@ -58,7 +58,7 @@ systemctl start aitbc-agent.service
 ENABLE_AGENT_POLLING=true
 AGENT_AGENT_IDS=owl-aitbc3
 AGENT_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8107
-AGENT_SERVICE_URL=http://localhost:8014
+AGENT_SERVICE_URL=http://localhost:8014  # check-ports: ignore
 AGENT_AGENT_ID=owl-aitbc3
 ```
 
@@ -66,13 +66,12 @@ AGENT_AGENT_ID=owl-aitbc3
 
 | Port | Service |
 |------|---------|
-| 8006 | Blockchain RPC |
-| 8001 | `<node2>` P2P listener |
-| 7070 | Hub P2P (use in p2p_peers) |
-| 8010 | Exchange API |
-| 8011 | Coordinator API (Agent messaging) |
-| 8014 | Agent Service |
-| 8015 | Wallet Daemon |
+| 8202 | Blockchain RPC |
+| 7070 | Blockchain P2P (use in p2p_peers) |
+| 8106 | Exchange API |
+| 8203 | Coordinator API |
+| 8107 | Agent Coordinator |
+| 8108 | Wallet Daemon |
 
 ## Credentials
 

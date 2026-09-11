@@ -2,7 +2,7 @@
 
 **Last Updated:** 2026-05-28
 
-> **Important:** This document uses port 8003 for the wallet service. The correct port is 8015. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Important:** This document uses port 8108 for the wallet service. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 This guide explains how to use the unified genesis generation system for AITBC blockchain initialization.
 
@@ -62,7 +62,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
     --genesis-path /var/lib/aitbc/data/ait-mainnet/genesis.json \
     --force \
     --register-service \
-    --service-url http://localhost:8003
+    --service-url http://localhost:8108
 ```
 
 ### Command-Line Options
@@ -118,7 +118,7 @@ systemctl status aitbc-wallet-daemon.service
 python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
     --chain-id ait-mainnet \
     --register-service \
-    --service-url http://localhost:8003
+    --service-url http://localhost:8108
 ```
 
 ## Security Considerations
@@ -206,7 +206,7 @@ systemctl status aitbc-wallet-daemon.service
 systemctl start aitbc-wallet-daemon.service
 
 # Verify service URL
-curl http://localhost:8003/health
+curl http://localhost:8108/health
 ```
 
 ## Integration with Wallet Service
@@ -228,7 +228,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
     --chain-id ait-mainnet \
     --create-wallet \
     --register-service \
-    --service-url http://localhost:8003
+    --service-url http://localhost:8108
 ```
 
 The script will:
@@ -272,7 +272,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
 python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
     --chain-id ait-mainnet \
     --register-service \
-    --service-url http://localhost:8003
+    --service-url http://localhost:8108
 ```
 
 ## Output Files

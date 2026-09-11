@@ -20,7 +20,7 @@ systemctl status aitbc-wallet
 journalctl -u aitbc-wallet -n 50
 
 # Test wallet endpoint
-curl http://localhost:8071/health
+curl http://localhost:8108/health
 ```
 
 **Solutions:**
@@ -60,7 +60,7 @@ python -c "from aitbc_crypto import Wallet; w = Wallet(); print(w.address)"
 
 ```bash
 # Check wallet keys
-curl http://localhost:8071/v1/keys
+curl http://localhost:8108/v1/keys
 
 # Check transaction logs
 journalctl -u aitbc-wallet -n 50 | grep -i transaction
@@ -75,7 +75,7 @@ journalctl -u aitbc-wallet -n 50 | grep -i transaction
 ls -la /var/lib/aitbc/wallet/private_key
 
 # Regenerate keys if needed
-curl -X POST http://localhost:8071/v1/keys/regenerate
+curl -X POST http://localhost:8108/v1/keys/regenerate
 ```
 
 1. Check key permissions

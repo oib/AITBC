@@ -72,7 +72,7 @@ systemctl status aitbc-marketplace
 curl -s http://localhost:8203/health
 
 # Check blockchain node
-curl -s http://localhost:8080/v1/health
+curl -s http://localhost:8202/v1/health
 
 # Check marketplace
 curl -s http://localhost:8102/health

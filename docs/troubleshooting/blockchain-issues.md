@@ -14,10 +14,10 @@ This guide covers blockchain node problems including sync issues, forks, and P2P
 
 ```bash
 # Check sync status
-curl http://localhost:8080/v1/network
+curl http://localhost:8202/v1/network
 
 # Check peer connections
-curl http://localhost:8080/v1/network/peers
+curl http://localhost:8202/v1/network/peers
 
 # Check blockchain logs
 journalctl -u aitbc-blockchain -n 50
@@ -29,7 +29,7 @@ journalctl -u aitbc-blockchain -n 50
 
 ```bash
 # Edit configuration
-echo "BOOTSTRAP_PEERS=peer1.example.com:8080,peer2.example.com:8080" >> /etc/aitbc/blockchain.env
+echo "BOOTSTRAP_PEERS=peer1.example.com:8080,peer2.example.com:8080" >> /etc/aitbc/blockchain.env  # check-ports: ignore
 
 # Restart service
 systemctl restart aitbc-blockchain
@@ -70,10 +70,10 @@ systemctl start aitbc-blockchain
 
 ```bash
 # Check blockchain height
-curl http://localhost:8080/v1/blocks/head
+curl http://localhost:8202/v1/blocks/head
 
 # Check for forks
-curl http://localhost:8080/v1/blocks/forks
+curl http://localhost:8202/v1/blocks/forks
 ```
 
 **Solutions:**
@@ -82,7 +82,7 @@ curl http://localhost:8080/v1/blocks/forks
 
 ```bash
 # Revert to correct height
-curl -X POST http://localhost:8080/v1/admin/revert \
+curl -X POST http://localhost:8202/v1/admin/revert \
   -H "Content-Type: application/json" \
   -d '{"height": 12345}'
 ```

@@ -61,15 +61,15 @@ aitbc gpu-onchain allocations GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 ## RPC Endpoint Testing
 
 ```bash
-# Test GPU registration endpoint
+# Test GPU registration endpoint via the blockchain RPC
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/gpu/register \
   -H "Content-Type: application/json" \
   -d '{"gpu_id": "GPU-test", "miner_id": "miner-001", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "registered_by": "<wallet_address>", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 
-# Test GPU query endpoint
+# Test GPU query endpoint via the blockchain RPC
 curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
 
-# Test GPU list endpoint
+# Test GPU list endpoint via the blockchain RPC
 curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
 ```
 

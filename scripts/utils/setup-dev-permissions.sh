@@ -245,7 +245,7 @@ export AITBC_LOG_LEVEL=DEBUG
 
 # Service URLs (development)
 export AITBC_COORDINATOR_URL=http://localhost:8203
-export AITBC_BLOCKCHAIN_RPC=http://localhost:8006
+export AITBC_BLOCKCHAIN_RPC=http://localhost:8202
 export AITBC_WEB_UI=http://localhost:3000
 
 # Database (development)
