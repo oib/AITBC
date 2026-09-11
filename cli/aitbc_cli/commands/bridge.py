@@ -270,7 +270,7 @@ def confirm(ctx, transfer_id, confirmer, signature, confirmer_private_key, proof
 
   aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x...
 
-  aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x... --rpc-url http://aitbc3:8202/rpc"""
+  aitbc bridge unlock --transfer-id tx-123 --sender 0xAbc... --signature 0x... --rpc-url http://node2.example.net:8202/rpc"""
 )
 @click.option("--transfer-id", required=True, help="Transfer ID to refund")
 @click.option("--sender", required=True, help="Original sender address")
@@ -420,7 +420,7 @@ def balance(ctx, chain_id, rpc_url):
 
   aitbc bridge health
 
-  aitbc bridge health --rpc-url http://aitbc3:8202/rpc"""
+  aitbc bridge health --rpc-url http://node2.example.net:8202/rpc"""
 )
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
@@ -540,7 +540,7 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
 
   aitbc bridge oracle-status
 
-  aitbc bridge oracle-status --rpc-url http://aitbc3:8202/rpc""",
+  aitbc bridge oracle-status --rpc-url http://node2.example.net:8202/rpc""",
 )
 @click.option("--rpc-url", default="http://localhost:8202/rpc", help="Blockchain RPC URL")
 @click.pass_context
@@ -656,7 +656,7 @@ def sign_proof(ctx, proof_file, private_key, output):
 
   aitbc bridge store-header --proof-file /tmp/signed-proof.json --admin-private-key 0x...
 
-  aitbc bridge store-header --proof-file /tmp/signed-proof.json --admin-private-key 0x... --rpc-url http://aitbc3:8202/rpc""",
+  aitbc bridge store-header --proof-file /tmp/signed-proof.json --admin-private-key 0x... --rpc-url http://node2.example.net:8202/rpc""",
 )
 @click.option("--proof-file", required=True, type=click.Path(exists=True), help="Signed proof JSON file")
 @click.option("--admin-private-key", required=True, help="Private key of a configured bridge admin")
@@ -709,9 +709,9 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
     name="ingest-header",
     epilog="""Examples:
 
-  aitbc bridge ingest-header --source-rpc http://aitbc3:8202/rpc --height 100 --chain-id ait-mainnet
+  aitbc bridge ingest-header --source-rpc http://node2.example.net:8202/rpc --height 100 --chain-id ait-mainnet
 
-  aitbc bridge ingest-header --source-rpc http://aitbc3:8202/rpc --target-rpc http://hub.aitbc:8202/rpc --height 100""",
+  aitbc bridge ingest-header --source-rpc http://node2.example.net:8202/rpc --target-rpc http://hub.example.net:8202/rpc --height 100""",
 )
 @click.option("--source-rpc", default="http://localhost:8202/rpc", help="RPC URL of the source chain node")
 @click.option(
@@ -759,7 +759,7 @@ def ingest_header(ctx, source_rpc, target_rpc, height, chain_id, re_sign, privat
 
   aitbc bridge attest --header-file /tmp/header.json --private-key 0x...
 
-  aitbc bridge attest --source-rpc http://aitbc3:8202/rpc --height 100 --private-key 0x...""",
+  aitbc bridge attest --source-rpc http://node2.example.net:8202/rpc --height 100 --private-key 0x...""",
 )
 @click.option("--header-file", type=click.Path(exists=True), help="JSON file with a block header to attest")
 @click.option("--source-rpc", default=None, help="RPC URL to fetch the block from (alternative to --header-file)")

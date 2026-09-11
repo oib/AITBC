@@ -47,9 +47,9 @@ def agent_comm():
 @agent_comm.command(
     epilog="""Examples:
 
-  aitbc agent-comm register --agent-id agent-1 --name 'Shop Agent' --chain-id ait-mainnet --endpoint http://aitbc3:8107
+  aitbc agent-comm register --agent-id agent-1 --name 'Shop Agent' --chain-id ait-mainnet --endpoint http://node2.example.net:8107
 
-  aitbc agent-comm register --agent-id agent-2 --name 'Hub Agent' --chain-id ait-mainnet --endpoint http://hub.aitbc:8107 --capabilities gpu,storage"""
+  aitbc agent-comm register --agent-id agent-2 --name 'Hub Agent' --chain-id ait-mainnet --endpoint http://hub.example.net:8107 --capabilities gpu,storage"""
 )
 @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
 @click.option("--name", "name", required=True, help="Wallet name.")
