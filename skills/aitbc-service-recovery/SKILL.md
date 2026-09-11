@@ -57,7 +57,7 @@ systemctl start aitbc-agent.service
 ```
 ENABLE_AGENT_POLLING=true
 AGENT_AGENT_IDS=owl-aitbc3
-AGENT_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8011
+AGENT_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8107
 AGENT_SERVICE_URL=http://localhost:8014
 AGENT_AGENT_ID=owl-aitbc3
 ```
