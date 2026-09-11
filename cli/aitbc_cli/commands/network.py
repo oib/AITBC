@@ -1,8 +1,10 @@
 """Network commands for AITBC CLI"""
 
 import os
+import subprocess
 import time
 from typing import Any
+from urllib.parse import urlparse
 
 import click
 import requests
@@ -478,3 +480,143 @@ def gossip(ctx, rpc_url, topics):
         by_topic = _sample_map(samples, "blockchain_gossip_messages_published_total", "topic")
         rows = [{"topic": topic, "published": int(count)} for topic, count in sorted(by_topic.items())]
         output(rows or [{"topic": "(none)", "published": 0}], fmt, title="Published by Topic")
+
+
+def _set_env_value(env_file: str, key: str, value: str) -> bool:
+    """Update a KEY=VALUE line in an env file, preserving comments and order.
+
+    Returns True if the file was changed, False otherwise.
+    """
+    changed = False
+    new_lines: list[str] = []
+    found = False
+    try:
+        with open(env_file) as f:
+            lines = f.readlines()
+    except FileNotFoundError:
+        return False
+
+    for line in lines:
+        stripped = line.strip()
+        if stripped.startswith(f"{key}=") or stripped.startswith(f"{key} "):
+            new_lines.append(f"{key}={value}\n")
+            found = True
+            changed = True
+        else:
+            new_lines.append(line)
+
+    if not found:
+        new_lines.append(f"{key}={value}\n")
+        changed = True
+
+    with open(env_file, "w") as f:
+        f.writelines(new_lines)
+    return changed
+
+
+def _derive_sync_urls(url: str) -> dict[str, str]:
+    """Derive the env variable values needed for a new sync source URL."""
+    parsed = urlparse(url)
+    if not parsed.scheme or not parsed.netloc:
+        raise ValueError(f"Invalid URL: {url}")
+
+    # Base URL with scheme and host/port.
+    base = f"{parsed.scheme}://{parsed.netloc}"
+    if parsed.path and not parsed.path.rstrip("/").endswith("/rpc"):
+        # If user gave a path, keep it but strip a trailing /rpc segment.
+        path = parsed.path.rstrip("/")
+        if path.endswith("/rpc"):
+            base = f"{parsed.scheme}://{parsed.netloc}{path[:-4]}"
+        else:
+            base = f"{parsed.scheme}://{parsed.netloc}{path}"
+    base = base.rstrip("/")
+
+    # RPC endpoint: base + /rpc unless the URL already points at /rpc.
+    if url.rstrip("/").endswith("/rpc"):
+        rpc_url = url.rstrip("/")
+    else:
+        rpc_url = f"{base}/rpc"
+
+    # Discovery hostname: just the host (no scheme, no port).
+    host = parsed.hostname or parsed.netloc
+    if not host:
+        raise ValueError(f"Could not determine host from URL: {url}")
+
+    return {
+        "DEFAULT_PEER_RPC_URL": base,
+        "HUB_BLOCKCHAIN_RPC_URL": base,
+        "BLOCKCHAIN_RPC_URL": rpc_url,
+        "HUB_DISCOVERY_URL": host,
+    }
+
+
+@network.command(
+    name="set-sync-source",
+    epilog="""Examples:
+
+  aitbc network set-sync-source --url https://hub.aitbc.bubuit.net
+
+  aitbc network set-sync-source --url https://node2.aitbc.bubuit.net --env-file /etc/aitbc/aitbc-blockchain-node.env --no-restart""",
+)
+@click.option("--url", "sync_url", required=True, help="New sync source URL (https:// or http://).")
+@click.option(
+    "--env-file",
+    "env_file",
+    default="/etc/aitbc/node.env",
+    help="Environment file to update.",
+)
+@click.option(
+    "--restart/--no-restart",
+    "restart",
+    default=True,
+    help="Restart the blockchain node services after updating the env file.",
+)
+@click.pass_context
+def set_sync_source(ctx: click.Context, sync_url: str, env_file: str, restart: bool):
+    """Edit node.env and restart the blockchain node with a new sync source."""
+    try:
+        values = _derive_sync_urls(sync_url)
+    except ValueError as exc:
+        abort(ctx, str(exc))
+
+    if not os.path.exists(env_file):
+        abort(ctx, f"Environment file not found: {env_file}")
+
+    if not os.access(env_file, os.W_OK):
+        # Try to make it writable if we are root and it is owned by aitbc.
+        try:
+            os.chmod(env_file, 0o600)
+        except OSError as exc:
+            abort(ctx, f"Cannot write to {env_file}: {exc}")
+
+    updated: list[str] = []
+    for key, value in values.items():
+        if _set_env_value(env_file, key, value):
+            updated.append(f"{key}={value}")
+
+    if not updated:
+        output({"message": "No changes were needed.", "env_file": env_file}, ctx.obj.get("output_format", "table"))
+        return
+
+    result: dict[str, Any] = {
+        "env_file": env_file,
+        "updated": updated,
+        "restart": restart,
+    }
+
+    if restart:
+        services = ["aitbc-blockchain-node", "aitbc-blockchain-p2p", "aitbc-blockchain-rpc"]
+        try:
+            subprocess.run(
+                ["systemctl", "restart", *services],
+                check=True,
+                capture_output=True,
+                text=True,
+            )
+            result["services_restarted"] = services
+            result["status"] = "ok"
+        except subprocess.CalledProcessError as exc:
+            result["status"] = "error"
+            result["error"] = f"systemctl restart failed: {exc.stderr}"
+
+    output(result, ctx.obj.get("output_format", "table"), title="Sync Source Updated")
