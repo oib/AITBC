@@ -5,29 +5,23 @@
 
 ## Overview
 
-AITBC runs **no firewall inside the containers**. `node0`, `node1` and `node2` are
-Incus containers on the `10.1.223.0/24` bridge of the Incus host (`at1`);
-filtering happens on that host and at the provider perimeter, not in the guests.
-There are therefore two distinct planes, and they have different answers:
+AITBC services run in containers that carry **no firewall of their own**.
+Filtering is administered outside the guest -- at the container host and at the
+provider perimeter. That yields two planes, with different answers:
 
-- **From the internet -- filtered.** Verified 2026-09-11: on the public host
-  `hub.aitbc` (`152.53.242.245`) only `443` accepts from outside. `8201`, `8202`,
-  `8106`, `7070` and `9009` are all refused at the perimeter despite binding
-  `0.0.0.0` in the guest.
-- **Between containers and from the Incus host -- unfiltered.** Verified the same
-  day: `node2` reaches `node1` on `5432`, `8202` and `9009`, and `at1` reaches
-  `10.1.223.40` on the same ports. Nothing on the bridge is filtered.
+- **From the internet -- filtered.** Application ports are not exposed at the
+  perimeter; public reachability is limited to the surfaces listed below.
+- **Between co-located containers -- flat.** Containers on a shared bridge reach
+  each other unfiltered, and that bridge is not exclusive to AITBC: unrelated
+  services share it. A bind-all port is reachable by every one of them.
 
-So **the bind address is the entire access control on the container plane**, which
-is the plane that decides blast radius after any single service is compromised.
-It is not what keeps a port off the internet -- the perimeter does that. Write
-bind decisions against lateral movement, not against internet exposure.
+So **the bind address is the entire access control on the container plane**, and
+that plane decides blast radius once any single service is compromised. It is not
+what keeps a port off the internet -- the perimeter does that. Write bind
+decisions against lateral movement, not against internet exposure.
 
-This document defines which surfaces are *allowed* to be reachable. For the bind
-address each service *actually* comes up on, see
-[Service Ports Reference](../reference/SERVICE_PORTS.md) -- that file is the single
-source of truth for observed state, and this one is the policy it is checked against.
-Deliberately, the two do not duplicate each other.
+> Host names, addresses and bridge layout are deliberately absent from this
+> repository. Verify the live state against the operator's own topology notes.
 
 ## Authorized public surfaces
 
@@ -80,13 +74,13 @@ deciding that it should be: the default in most of these applications is
 Earlier revisions of this document prescribed `ufw allow`/`ufw deny` rules and
 systemd `IPDeny=any`. Neither belongs in the guest:
 
-- The containers run no firewall of their own. Filtering is the Incus host's job
-  and lives with it, so a `ufw` rule in a guest runbook edits a control that is
-  not administered there.
+- The containers run no firewall of their own. Filtering is administered outside
+  the guest, so a `ufw` rule in a guest runbook edits a control that does not
+  live there.
 - `IPDeny=` requires systemd 242+ and was reverted after it broke services.
 
 A perimeter control does exist -- but it is not visible from inside the container
-and does not separate one container from another. Bind the socket; that is the
+and does not separate one co-located container from another. Bind the socket; that is the
 only lever the guest actually holds.
 
 The `# nosec B104` comments in the codebase justify a bind-all with "the real
