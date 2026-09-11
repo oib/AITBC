@@ -1181,7 +1181,7 @@ if __name__ == "__main__":
 
     # Allow configuration via environment variable for multi-node deployments
     # Default to 0.0.0.0 to accept connections from other nodes
-    host = os.getenv("MARKETPLACE_BIND_HOST", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    host = os.getenv("MARKETPLACE_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     port = int(os.getenv("MARKETPLACE_BIND_PORT", "8102"))
 
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)

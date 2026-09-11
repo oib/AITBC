@@ -1,193 +1,137 @@
-# Network Policy Documentation
+# Network Policy
 
-**Last Updated:** 2026-06-19
-**Version:** v0.5.1
+**Last Updated:** 2026-09-11
+**Version:** 2.0
 
 ## Overview
 
-This document defines network binding requirements for AITBC services, specifying which services must bind to localhost (127.0.0.1) for security and which services can bind to all interfaces (0.0.0.0) for external access.
+AITBC runs **no host firewall**. Services are systemd units on bare hosts with no
+container network namespace, so **the bind address is the entire access control**.
+A service bound to `0.0.0.0` is reachable by anyone who can route to the host --
+there is no second layer that stops them.
 
-## Network Binding Requirements
+This document defines which surfaces are *allowed* to be reachable. For the bind
+address each service *actually* comes up on, see
+[Service Ports Reference](../reference/SERVICE_PORTS.md) -- that file is the single
+source of truth for observed state, and this one is the policy it is checked against.
+Deliberately, the two do not duplicate each other.
 
-### Services Binding to 127.0.0.1 (Localhost-Only)
+## Authorized public surfaces
 
-These services are internal and must only bind to localhost for security:
+Only these may be internet-reachable. Anything else on a public interface is a
+policy violation.
 
-| Service | Port | Purpose | Security Rationale |
-|---------|------|---------|-------------------|
-| coordinator-api | 8203 | Main REST API | Internal platform API, should be behind gateway |
-| blockchain-rpc | 8202 | Blockchain RPC | Internal blockchain access, should be behind gateway |
-| agent | 8107 | AI orchestration | Internal AI decision making, should be behind gateway |
-| ai-engine multimodal | 8020 | Multimodal AI processing | Internal AI processing, should be behind gateway |
-| ai-engine modality-optimization | 8021 | Modality optimization | Internal AI optimization, should be behind gateway |
-| ai-engine learning | 8012 | Adaptive learning | Internal AI learning, should be behind gateway |
+| Surface | Port | Where | Why |
+|---------|------|-------|-----|
+| nginx (TLS) | 443, 80 | TLS terminator host | The entire customer-facing surface; proxies `/api/`, `/rpc/`, `/c/`, `/explorer-api/` |
+| Blockchain P2P | 7070 | Hub | Followers on other hosts gossip over the public internet; registered via `aitbc node hub register --public-address <ip> --public-port 7070` |
+| IPFS Swarm | 4002 | Island hosts | Private-swarm IPFS needs inbound peer connections; TCP and UDP (QUIC) |
 
-### Services Binding to 0.0.0.0 (Exposed)
+`80` is permitted only to redirect to `443`, never to serve an application.
 
-These services are designed for external access and bind to all interfaces:
+## Proxied backends: private interface
 
-| Service | Port | Purpose | Security Considerations |
-|---------|------|---------|-------------------------|
-| api-gateway | 8201 | External API gateway | Designed for external access, needs rate limiting |
-| ai-engine ai | 8005 | AI inference endpoint | Designed for external AI inference access |
+TLS terminates on a *different host* from the services, so nginx reaches its
+backends over the private link. `127.0.0.1` would break the proxy; `0.0.0.0`
+would expose the backend directly. These bind the private interface address:
 
-### Services with No Explicit Bind (Default Behavior)
+| Service | Port |
+|---------|------|
+| API Gateway | 8201 |
+| Blockchain RPC | 8202 |
+| Blockchain Explorer | 8100 |
+| Coordinator API | 8203 |
 
-These services use their application defaults and should be audited:
+## Everything else: `127.0.0.1`
 
-| Service | Port | Default Bind | Required Action | Status |
-|---------|------|--------------|-----------------|--------|
-| marketplace | 8104 | Unknown | Audit and enforce 127.0.0.1 | ✅ Hardened (v0.5.1) |
-| exchange | 8106 | localhost (HTTPServer) | Audit and enforce 127.0.0.1 | ✅ Hardened (v0.5.1) |
-| gpu | 8101 | 0.0.0.0 (app default) | Audit and enforce 127.0.0.1 | ✅ Hardened (v0.5.1) |
-| edge | 8111 | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
-| governance | 8105 | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
-| trading | 8107 | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
-| wallet | 8108 | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
-| blockchain-node | 8202 | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
-| blockchain-p2p | Unknown | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
-| blockchain-sync | Unknown | Unknown | Audit and enforce 127.0.0.1 | ⏸️ Pending |
+Every other service is an internal caller's dependency and binds loopback. This
+is the whole internal tier plus the internal support services; see
+[Service Ports Reference](../reference/SERVICE_PORTS.md) for the current roster
+and the bind each one actually has today.
 
-## Security Hardening: IPDeny=any
-
-For all services binding to 127.0.0.1, add `IPDeny=any` to provide defense-in-depth:
+Set the bind **explicitly in the systemd unit** rather than relying on an
+application default. `apps/marketplace/aitbc-marketplace.service` is the pattern
+to copy:
 
 ```ini
-[Service]
-Type=simple
-# ... other configuration ...
-IPDeny=any
+Environment=MARKETPLACE_BIND_HOST=127.0.0.1
+Environment=MARKETPLACE_BIND_PORT=8102
 ```
 
-This directive prevents any network access from the service, even if the application is compromised or misconfigured.
+Relying on a code default is how a service ends up public without anyone
+deciding that it should be: the default in most of these applications is
+`0.0.0.0`, so an absent line is a decision to expose.
 
-## Implementation Steps
+### Why not a firewall rule instead
 
-### 1. Add IPDeny=any to Localhost-Only Services ⏸️ DEFERRED (systemd compatibility)
+Earlier revisions of this document prescribed `ufw allow`/`ufw deny` rules and
+systemd `IPDeny=any`. Neither is in place:
 
-**Status**: Deferred due to systemd compatibility issues
+- There is no firewall on any fleet host, so `ufw` rules describe a control that
+  does not exist.
+- `IPDeny=` requires systemd 242+ and was reverted after it broke services.
 
-- IPDeny=any requires systemd version 242+ (not available in current environment)
-- Attempted to add IPDeny=any caused service failures
-- Services affected: coordinator-api, blockchain-rpc, agent, multimodal, modality-optimization, learning
-- Resolution: Upgrade systemd or use alternative network isolation methods
+Until one of those changes, a `ufw` snippet in a runbook is worse than nothing --
+it reads as though the port is already contained. Bind the socket instead.
 
-**Alternative approaches**:
+The same caution applies to the `# nosec B104` comments in the codebase. They
+justify a bind-all with "the real boundary is the firewall/reverse-proxy layer";
+for any service with no proxy in front of it on a firewall-less host, that
+boundary does not exist.
 
-- Use firewall rules (iptables/nftables) for network isolation
-- Use network namespaces for service isolation
-- Implement application-level network restrictions
+## Known deviations
 
-### 2. Audit and Enforce Localhost Binding ✅ COMPLETED (v0.5.1)
+**None.** As of 2026-09-11 every service pins its bind explicitly in its systemd
+unit, and no service binds `0.0.0.0` except the authorized public surfaces above.
 
-For services with no explicit bind, added explicit localhost binding or environment variables:
+This section is kept deliberately. When a bind cannot be pinned in the change
+that introduces it, record it here with the reason -- the drift gate reads this
+table, warns on what it lists, and fails on anything it does not. An empty table
+means the gate now fails on *any* new bind-all service, which is the intended
+resting state.
 
-**Completed:**
+Two entries were closed by code changes rather than unit edits, and both are
+worth knowing about:
 
-- ✅ `apps/marketplace/aitbc-marketplace.service` - Added MARKETPLACE_BIND_HOST=127.0.0.1 + MARKETPLACE_BIND_PORT=8104
-- ✅ `apps/exchange/aitbc-exchange.service` - Already binds localhost via HTTPServer
-- ✅ `apps/gpu/aitbc-gpu.service` - Added GPU_BIND_HOST=127.0.0.1
-
-**Pending (deferred to v0.5.2):**
-
-- ⏸️ `apps/edge/aitbc-edge.service`
-- ⏸️ `apps/governance/aitbc-governance.service`
-- ⏸️ `apps/trading/aitbc-trading.service`
-- ⏸️ `apps/wallet/aitbc-wallet.service`
-- ⏸️ `apps/blockchain-node/aitbc-blockchain-node.service`
-- ⏸️ `apps/blockchain-node/aitbc-blockchain-p2p.service`
-- ⏸️ `apps/blockchain-node/aitbc-blockchain-sync.service`
-
-### 3. Audit Exposed Services ⏸️ PENDING
-
-For services binding to 0.0.0.0, ensure proper security:
-
-- ⏸️ `apps/api-gateway/aitbc-api-gateway.service` - Verify rate limiting and authentication
-- ⏸️ `apps/ai-engine/aitbc-ai.service` - Verify authentication and authorization
+- **Blockchain Explorer (8100)** hardcoded `host="0.0.0.0"` in `uvicorn.run()`
+  with no environment variable, so no unit could override it. It now reads
+  `EXPLORER_BIND_HOST` and defaults to loopback.
+- **Edge (8111)** used one setting as both the bind address and the endpoint it
+  advertised to `/rpc/edge/register`, so it registered itself at
+  `http://0.0.0.0:8111`. Bind and advertised address are now separate
+  (`APP_HOST` and `EDGE_ADVERTISE_HOST`).
 
 ## Verification
 
-### Check Service Bindings
+Check what is actually listening, on each host:
 
 ```bash
-# Check which services are listening on which ports
-sudo netstat -tlnp | grep LISTEN
-
-# Check systemd service configuration
-grep -r "host=" apps/*/*.service
-grep -r "127.0.0.1\|0.0.0.0" apps/*/*.service
+# Any AITBC service reachable from outside this host
+ss -ltnp | grep -E '0\.0\.0\.0:(70[0-9]{2}|8[0-2][0-9]{2})'
 ```
 
-### Check IPDeny=any Enforcement
+Every hit must correspond to a row in [Authorized public surfaces](#authorized-public-surfaces)
+or [Proxied backends](#proxied-backends-private-interface). Anything else is a finding.
+
+Note that several units load `EnvironmentFile=/etc/aitbc/%N.env`, which is not in
+this repository. A bind may be overridden there, in either direction -- so the
+repo defaults recorded in SERVICE_PORTS.md are a starting point for this check,
+never a substitute for running it.
 
 ```bash
-# Verify IPDeny=any is present in service files
-grep -r "IPDeny=any" apps/*/*.service
-
-# Verify service cannot make network connections
-# (This requires the service to be running)
-sudo -u aitbc-internal python -c "import socket; socket.socket().connect(('8.8.8.8', 53))"
+# Confirm a specific service's effective bind
+systemctl show aitbc-marketplace.service -p Environment
 ```
 
-### Test Service Accessibility
+## Drift control
 
-```bash
-# Test localhost-only services (should fail from external)
-curl http://localhost:8203/health  # Should work
-curl http://192.168.1.1:8203/health  # Should fail
-
-# Test exposed services (should work from external)
-curl http://localhost:8201/health  # Should work
-curl http://192.168.1.1:8201/health  # Should work
-```
-
-## Firewall Rules
-
-In addition to systemd hardening, ensure firewall rules enforce the network policy:
-
-```bash
-# Allow only api-gateway external access on port 8201
-sudo ufw allow 8201/tcp
-
-# Allow ai-engine external access on port 8005
-sudo ufw allow 8005/tcp
-
-# Block all other AITBC ports from external
-sudo ufw deny 8203/tcp  # coordinator-api
-sudo ufw deny 8202/tcp  # blockchain-rpc
-sudo ufw deny 8107/tcp  # agent
-# ... block other internal ports
-```
-
-## Monitoring
-
-### Monitor for Policy Violations
-
-Set up monitoring to detect:
-
-- Services binding to 0.0.0.0 without explicit authorization
-- Services making unexpected network connections
-- External access attempts to localhost-only services
-
-### Alerting
-
-Configure alerts for:
-
-- Service configuration changes (IPDeny=any removed)
-- Network binding changes (127.0.0.1 → 0.0.0.0)
-- Firewall rule changes
-
-## Compliance
-
-This network policy supports:
-
-- **Principle of Least Privilege**: Services only have the network access they need
-- **Defense in Depth**: Multiple layers of security (systemd + firewall)
-- **Audit Trail**: All network access is logged and monitored
-- **Zero Trust**: No service is trusted by default
+`scripts/docs/check_bind_policy.py` cross-checks the two documents: every service
+that SERVICE_PORTS.md records as binding `0.0.0.0` must be named as an authorized
+public surface here. Adding a bind-all service without a policy decision fails the
+check. It runs in pre-commit and in CI alongside the port consistency gate.
 
 ## References
 
-- [Systemd Security Hardening](../deployment/STAGING.md#systemd-hardening)
-- [Service Users](../deployment/SERVICE_USERS.md)
-- Secret Management
+- [Service Ports Reference](../reference/SERVICE_PORTS.md) -- observed ports and binds
+- [Dependencies](./DEPENDENCIES.md#port-exposure-policy) -- deployment prerequisites
+- [Service Users](./SERVICE_USERS.md) -- service account separation

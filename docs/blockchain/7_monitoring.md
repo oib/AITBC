@@ -144,18 +144,13 @@ curl http://localhost:8203/metrics
 
 ### Verify Alert History
 
-```bash
-# Get recent production alerts (requires admin key)
-curl -H "X-API-Key: your-admin-key" \
-  "http://localhost:8203/agents/integration/production/alerts?limit=10" | jq
-```
-
-Filter by severity:
-
-```bash
-curl -H "X-API-Key: your-admin-key" \
-  "http://localhost:8203/agents/integration/production/alerts?severity=critical" | jq
-```
+> **Not currently reachable.** The `/agents/integration/production/alerts`
+> endpoint is implemented in
+> `apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/agent_integration_router.py`
+> and exported from `routers/__init__.py`, but the router is never passed to
+> `include_router()`, so no application serves it. Use the Agent Coordinator's
+> alerts router on 8107 instead, or mount `agent_integration_router` in
+> `coordinator_api/main.py` if these routes are wanted on 8203.
 
 ### Verify Dashboard Access
 
@@ -203,7 +198,7 @@ If alerts are not being delivered:
    - Verify cooldown logic in `alert_dispatcher._is_suppressed()`
 
 3. **Check alert history**
-   - Use `/agents/integration/production/alerts` to see recent alert attempts
+   - `/agents/integration/production/alerts` is not mounted (see Verify Alert History above); read `delivery_status` from the dispatcher logs instead
    - Check `delivery_status` field: `sent`, `suppressed`, or `failed`
    - Check `error` field for failed deliveries
 

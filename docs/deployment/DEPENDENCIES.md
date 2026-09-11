@@ -219,42 +219,19 @@ appendfsync everysec
 
 ## Network Requirements
 
-### Firewall Rules
+### Port exposure policy
 
-**Required Ports:**
+AITBC runs no host firewall, so the bind address is the entire access control: a
+service on `0.0.0.0` is reachable by anyone who can route to the host.
 
-| Service | Port | Protocol | Direction | Purpose |
-|---------|------|----------|-----------|---------|
-| Coordinator API | 8000 | TCP | Inbound | API access |
-| Agent Coordinator | 8100 | TCP | Inbound | Agent communication |
-| Governance Service | 8105 | TCP | Inbound | Governance API |
-| Blockchain Node | 8202 | TCP | Inbound | Blockchain RPC |
-| Blockchain P2P | 8203 | TCP | Inbound/Outbound | P2P networking |
-| PostgreSQL | 5432 | TCP | Local only | Database |
-| Redis | 6379 | TCP | Local only | Cache |
-| Prometheus | 9090 | TCP | Local only | Metrics |
-| nginx | 80, 443 | TCP | Inbound | HTTP/HTTPS |
+Only nginx (443/80), Blockchain P2P (7070) and IPFS Swarm (4002) may be
+internet-reachable. Proxied backends bind the private interface; everything else
+binds `127.0.0.1`, set explicitly in the systemd unit rather than left to an
+application default.
 
-**UFW Configuration:**
-
-```bash
-# Allow SSH
-ufw allow 22/tcp
-
-# Allow HTTP/HTTPS
-ufw allow 80/tcp
-ufw allow 443/tcp
-
-# Allow AITBC services (restrict to VPN in production)
-ufw allow 8000/tcp
-ufw allow 8100/tcp
-ufw allow 8105/tcp
-ufw allow 8202/tcp
-ufw allow 8203/tcp
-
-# Enable firewall
-ufw enable
-```
+The full policy, the verification command and the drift gate live in
+[Network Policy](./NETWORK_POLICY.md). Current per-service binds are in
+[Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 ### DNS Requirements
 
@@ -355,7 +332,7 @@ systemctl start prometheus-node-exporter
 scrape_configs:
   - job_name: 'aitbc'
     static_configs:
-      - targets: ['localhost:8000', 'localhost:8100', 'localhost:8105', 'localhost:8202']
+      - targets: ['localhost:8203', 'localhost:8100', 'localhost:8105', 'localhost:8202']
 ```
 
 ## Backup Dependencies

@@ -4,6 +4,8 @@ AITBC Blockchain Explorer API
 Agent-first API for blockchain data access
 """
 
+import os
+
 import httpx
 import uvicorn
 from fastapi import FastAPI
@@ -53,4 +55,12 @@ async def health() -> dict[str, str]:
 
 
 if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8100, log_level="critical", access_log=False)  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    # Bind policy (docs/deployment/NETWORK_POLICY.md): this is a proxied backend.
+    # The bind was hardcoded to 0.0.0.0 with no way to override it, which on a
+    # firewall-less host published the explorer to anyone who could route here.
+    # It now defaults to loopback. Hosts whose nginx serves /explorer-api/ from a
+    # DIFFERENT machine must set EXPLORER_BIND_HOST to this host's private
+    # interface address -- loopback would break the proxy.
+    host = os.getenv("EXPLORER_BIND_HOST", "127.0.0.1")
+    port = int(os.getenv("EXPLORER_BIND_PORT", "8100"))
+    uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
