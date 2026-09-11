@@ -43,7 +43,7 @@ class TestBlockchainPaymentsIntegration:
             "refund_transaction_hash": None,
         }
 
-        from aitbc.auth import require_client
+        from aitbc.auth import require_admin_or_client
         from coordinator_api.contexts.blockchain.routers.blockchain import router as blockchain_router
         from coordinator_api.contexts.payments.routers.payments import router as payments_router
         from coordinator_api.storage import get_session
@@ -51,7 +51,7 @@ class TestBlockchainPaymentsIntegration:
         app = FastAPI()
         app.include_router(blockchain_router, prefix="/v1")
         app.include_router(payments_router, prefix="/v1")
-        app.dependency_overrides[require_client] = lambda: {"sub": "user1", "role": "client"}
+        app.dependency_overrides[require_admin_or_client] = lambda: {"sub": "user1", "role": "client"}
         app.dependency_overrides[get_session] = lambda: Mock()
         try:
             client = TestClient(app)

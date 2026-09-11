@@ -31,8 +31,9 @@ def test_creating_a_payment_is_reachable_by_a_client():
     """POST /v1/payments is how a client supplies the escrow lock; it must not be denied."""
     level = get_auth_level("/v1/payments")
 
-    assert level is AuthLevel.CLIENT
+    assert level is AuthLevel.ADMIN_OR_CLIENT
     assert check_role_match(level, "client")
+    assert check_role_match(level, "admin")
 
 
 def test_every_registered_collection_path_is_registered_in_the_matrix():
