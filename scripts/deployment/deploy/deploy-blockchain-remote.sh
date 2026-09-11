@@ -146,12 +146,9 @@ fi
 
 print_success "✅ Blockchain node deployed!"
 echo ""
-if [ "$(hostname)" = "aitbc" ]; then
-    echo "Node RPC: http://192.168.100.10:8082"
-    echo "External RPC: http://aitbc.keisanki.net:8082"
-else
-    echo "Node RPC: http://95.216.198.140:8082"
-    echo "External RPC: http://aitbc.keisanki.net:8082"
-fi
+# Addresses are deployment-specific and deliberately not hardcoded here.
+# Set NODE_RPC_HOST / NODE_RPC_EXTERNAL for this host if you want them printed.
+echo "Node RPC:     http://${NODE_RPC_HOST:-127.0.0.1}:8082"
+echo "External RPC: ${NODE_RPC_EXTERNAL:-unset - export it to this node public address}"
 echo ""
 echo "The node will automatically sync on startup."
