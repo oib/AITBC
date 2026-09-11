@@ -6,6 +6,15 @@
 
 set -euo pipefail
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -20,7 +29,7 @@ PYTHON_CMD="$VENV_DIR/bin/python"
 
 echo -e "${BLUE}🚀 AITBC PRODUCTION SERVICES DEPLOYMENT - PART 2${NC}"
 echo "=============================================="
-echo "Deploying production services to aitbc and aitbc1"
+echo "Deploying production services to aitbc and ${NODE1_HOST}"
 echo ""
 
 # Step 3: Deploy to aitbc (localhost)
@@ -50,34 +59,34 @@ echo "✅ Marketplace service started on aitbc (PID: $MARKETPLACE_PID)"
 
 echo "✅ Production services deployed to aitbc"
 
-# Step 4: Deploy to aitbc1 (remote)
-echo -e "${CYAN}🚀 Step 4: Deploy to aitbc1 (remote)${NC}"
+# Step 4: Deploy to ${NODE1_HOST} (remote)
+echo -e "${CYAN}🚀 Step 4: Deploy to ${NODE1_HOST} (remote)${NC}"
 echo "===================================="
 
-# Copy production setup to aitbc1
+# Copy production setup to ${NODE1_HOST}
 echo "Copying production setup to aitbc1..."
-scp -r /opt/aitbc/production aitbc1:/opt/aitbc/
-scp -r /opt/aitbc/production/services aitbc1:/opt/aitbc/production/
+scp -r /opt/aitbc/production ${NODE1_HOST}:/opt/aitbc/
+scp -r /opt/aitbc/production/services ${NODE1_HOST}:/opt/aitbc/production/
 
-# Install dependencies on aitbc1
+# Install dependencies on ${NODE1_HOST}
 echo "Installing dependencies on aitbc1..."
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && pip install sqlalchemy psycopg2-binary redis celery fastapi uvicorn pydantic"
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && pip install sqlalchemy psycopg2-binary redis celery fastapi uvicorn pydantic"
 
-# Test blockchain service on aitbc1
+# Test blockchain service on ${NODE1_HOST}
 echo "Testing blockchain service on aitbc1..."
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && python production/services/blockchain.py" > /tmp/aitbc1_blockchain_test.log 2>&1
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && python production/services/blockchain.py" > /tmp/aitbc1_blockchain_test.log 2>&1
 if [ $? -eq 0 ]; then
-    echo "✅ Blockchain service test passed on aitbc1"
+    echo "✅ Blockchain service test passed on ${NODE1_HOST}"
 else
-    echo "❌ Blockchain service test failed on aitbc1"
+    echo "❌ Blockchain service test failed on ${NODE1_HOST}"
     cat /tmp/aitbc1_blockchain_test.log
 fi
 
-# Start marketplace service on aitbc1
+# Start marketplace service on ${NODE1_HOST}
 echo "Starting marketplace service on aitbc1..."
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && export MARKETPLACE_PORT=8003 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_aitbc1.log 2>&1 &"
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=aitbc1 && export MARKETPLACE_PORT=8003 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_aitbc1.log 2>&1 &"
 
-echo "✅ Production services deployed to aitbc1"
+echo "✅ Production services deployed to ${NODE1_HOST}"
 
 # Step 5: Test Production Services
 echo -e "${CYAN}🧪 Step 5: Test Production Services${NC}"
@@ -91,9 +100,9 @@ sleep 5
 echo "Testing aitbc marketplace service..."
 curl -fsS http://localhost:8102/health | head -10 || echo "aitbc marketplace not responding"
 
-# Test aitbc1 marketplace service
-echo "Testing aitbc1 marketplace service..."
-ssh aitbc1 "curl -s http://localhost:8003/health" | head -10 || echo "aitbc1 marketplace not responding"
+# Test ${NODE1_HOST} marketplace service
+echo "Testing ${NODE1_HOST} marketplace service..."
+ssh ${NODE1_HOST} "curl -s http://localhost:8003/health" | head -10 || echo "${NODE1_HOST} marketplace not responding"
 
 # Test blockchain connectivity between nodes
 echo "Testing blockchain connectivity..."
@@ -106,7 +115,7 @@ import os
 sys.path.insert(0, '/opt/aitbc/production/services')
 
 # Test blockchain on both nodes
-for node in ['aitbc', 'aitbc1']:
+for node in ['aitbc', '${NODE1_HOST}']:
     try:
         os.environ['NODE_ID'] = node
         from blockchain import ProductionBlockchain
@@ -149,12 +158,12 @@ curl -X POST http://localhost:8002/gpu/listings \
     }
   }' | head -5
 
-# Add GPU listing on aitbc1
+# Add GPU listing on ${NODE1_HOST}
 echo "Adding GPU listing on aitbc1..."
-ssh aitbc1 "curl -X POST http://localhost:8003/gpu/listings \
+ssh ${NODE1_HOST} "curl -X POST http://localhost:8003/gpu/listings \
   -H 'Content-Type: application/json' \
   -d '{
-    \"provider\": \"aitbc1\",
+    \"provider\": \"${NODE1_HOST}\",
     \"gpu_type\": \"NVIDIA GeForce RTX 4060 Ti\",
     \"memory_gb\": 15,
     \"price_per_hour\": 32.0,
@@ -171,8 +180,8 @@ echo "Getting marketplace stats..."
 echo "aitbc stats:"
 curl -s http://localhost:8002/stats | head -5
 
-echo "aitbc1 stats:"
-ssh aitbc1 "curl -s http://localhost:8003/stats" | head -5
+echo "${NODE1_HOST} stats:"
+ssh ${NODE1_HOST} "curl -s http://localhost:8003/stats" | head -5
 
 echo ""
 echo -e "${GREEN}🎉 PRODUCTION DEPLOYMENT COMPLETED!${NC}"
@@ -180,7 +189,7 @@ echo "=================================="
 echo ""
 echo "✅ Production services deployed to both nodes:"
 echo "   • aitbc (localhost): Blockchain + Marketplace (port 8002)"
-echo "   • aitbc1 (remote): Blockchain + Marketplace (port 8003)"
+echo "   • ${NODE1_HOST} (remote): Blockchain + Marketplace (port 8003)"
 echo ""
 echo "✅ Production features:"
 echo "   • Real database persistence"
@@ -197,7 +206,7 @@ echo -e "${BLUE}🚀 Production system ready for real workloads!${NC}"
 echo ""
 echo "📊 Service URLs:"
 echo "   • aitbc marketplace: http://localhost:8002"
-echo "   • aitbc1 marketplace: http://aitbc1:8003"
+echo "   • ${NODE1_HOST} marketplace: http://${NODE1_HOST}:8003"
 echo ""
 echo "📋 Logs:"
 echo "   • Blockchain: /opt/aitbc/production/logs/blockchain/"
