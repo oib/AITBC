@@ -14,6 +14,8 @@ Environment="DATA_DIR=/var/lib/aitbc"
 EnvironmentFile=/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 EnvironmentFile=/etc/aitbc/node.env
+# Bridge-specific configuration migrated from the previous hub node.
+EnvironmentFile=/etc/aitbc/aitbc-bridge-monitor.env
 ExecStart=/opt/aitbc/venv/bin/python -m bridge_monitor.main
 Restart=on-failure
 RestartSec=5
