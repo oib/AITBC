@@ -14,6 +14,8 @@ Environment="WHISPER_DEVICE=cuda"
 Environment="WHISPER_COMPUTE_TYPE=float16"
 Environment="HF_HOME=/var/lib/aitbc/whisper-cache"
 Environment="TRANSFORMERS_CACHE=/var/lib/aitbc/whisper-cache"
+# Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
+Environment=WHISPER_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python main.py
 Restart=on-failure
 RestartSec=5

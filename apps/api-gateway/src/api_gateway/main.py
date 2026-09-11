@@ -286,4 +286,4 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
 if __name__ == "__main__":
     import uvicorn
 
-    uvicorn.run(app, host="0.0.0.0", port=8201, log_level="critical", access_log=False)  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    uvicorn.run(app, host="0.0.0.0", port=8201, log_level="critical", access_log=False)  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback

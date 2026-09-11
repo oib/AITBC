@@ -67,16 +67,15 @@ server {
     }
 
     location /marketplace/ {
-        proxy_pass http://127.0.0.1:8107/;
+        proxy_pass http://127.0.0.1:8102/;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
-
-    location / {
-        return 301 /marketplace/;
-    }
+    # No default root. Nothing is served at /; a redirect here into a proxied
+    # backend publishes that entire upstream service, which is how /marketplace/
+    # previously exposed the Agent Coordinator.
 }
 EOF
 }

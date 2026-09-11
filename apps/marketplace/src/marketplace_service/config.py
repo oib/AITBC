@@ -46,7 +46,7 @@ class Settings(ServiceSettings):
 
     # Service binding (kept for backward compat with MARKETPLACE_BIND_HOST/PORT env vars;
     # ServiceSettings also provides app_host/app_port)
-    marketplace_bind_host: str = "0.0.0.0"  # nosec B104
+    marketplace_bind_host: str = "0.0.0.0"  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     marketplace_bind_port: int = 8102
 
 

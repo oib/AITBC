@@ -15,7 +15,8 @@ Environment="PYTHONPATH=/opt/aitbc"
 Environment="BLOCKCHAIN_RPC_URL=http://localhost:8202"
 # Config: REDIS_URL moved to /etc/aitbc/%N.env (created at deploy time, not committed)
 EnvironmentFile=/etc/aitbc/%N.env
-ExecStart=/opt/aitbc/venv/bin/python -m apps.exchange.simple_exchange.server --port 8106
+# Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
+ExecStart=/opt/aitbc/venv/bin/python -m apps.exchange.simple_exchange.server --host 127.0.0.1 --port 8106
 ExecReload=/bin/kill -HUP $MAINPID
 Restart=on-failure
 RestartSec=5
