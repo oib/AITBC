@@ -144,13 +144,12 @@ curl http://localhost:8203/metrics
 
 ### Verify Alert History
 
-> **Not currently reachable.** The `/agents/integration/production/alerts`
-> endpoint is implemented in
-> `apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/agent_integration_router.py`
-> and exported from `routers/__init__.py`, but the router is never passed to
-> `include_router()`, so no application serves it. Use the Agent Coordinator's
-> alerts router on 8107 instead, or mount `agent_integration_router` in
-> `coordinator_api/main.py` if these routes are wanted on 8203.
+Served by Coordinator API (8203) at `/v1/agents/integration/production/alerts`.
+
+> **Admin credentials required.** Every endpoint on this router carries
+> `AdminDep`. The router was mounted on 2026-09-11; before that it was
+> imported but never passed to `include_router()`, so these paths returned
+> 404 regardless of credentials.
 
 ### Verify Dashboard Access
 
@@ -198,7 +197,7 @@ If alerts are not being delivered:
    - Verify cooldown logic in `alert_dispatcher._is_suppressed()`
 
 3. **Check alert history**
-   - `/agents/integration/production/alerts` is not mounted (see Verify Alert History above); read `delivery_status` from the dispatcher logs instead
+   - Query `/v1/agents/integration/production/alerts` on 8203 (admin credentials required), or read `delivery_status` from the dispatcher logs
    - Check `delivery_status` field: `sent`, `suppressed`, or `failed`
    - Check `error` field for failed deliveries
 
