@@ -130,29 +130,36 @@ This document covers deployment procedures for the Governance Service, including
    \q
    ```
 
-4. **Configure PostgreSQL for remote access (optional):**
+4. **Leave PostgreSQL on localhost.**
+
+   The governance service connects over loopback, so the postmaster does not
+   need to listen anywhere else. Confirm:
 
    ```bash
-   sudo nano /etc/postgresql/*/main/postgresql.conf
+   sudo grep -E "^listen_addresses" /etc/postgresql/*/main/postgresql.conf
    ```
-
-   Add:
 
    ```ini
-   listen_addresses = '*'
+   listen_addresses = 'localhost'
    ```
 
-5. **Configure pg_hba.conf:**
+   Nodes here are containers on a shared bridge. Binding to `'*'` publishes
+   5432 to every other container on that bridge, leaving `pg_hba.conf` as the
+   only thing between them and the database.
 
-   ```bash
-   sudo nano /etc/postgresql/*/main/pg_hba.conf
+5. **If remote access is genuinely required**, bind one named address rather
+   than `'*'`, and scope `pg_hba.conf` to the subnet that needs it:
+
+   ```ini
+   listen_addresses = 'localhost,10.0.0.7'
    ```
 
-   Add:
+   ```
+   host    aitbc_governance    aitbc_governance    10.0.0.0/24    scram-sha-256
+   ```
 
-   ```
-   host    aitbc_governance    aitbc_governance    0.0.0.0/0    md5
-   ```
+   Never `0.0.0.0/0`, and never `md5` -- `scram-sha-256` is the default on
+   PostgreSQL 14 and later, and `md5` downgrades it.
 
 6. **Restart PostgreSQL:**
 
