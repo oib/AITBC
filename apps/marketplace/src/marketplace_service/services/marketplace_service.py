@@ -1353,7 +1353,7 @@ class MarketplaceService:
             if not job.escrow_contract_id:
                 raise ValueError(f"Job {job_id} has no escrow_contract_id")
 
-            result = await self._rpc_client.release_escrow(job.escrow_contract_id)
+            result = await self._rpc_client.release_escrow(job.id)
             if result and result.get("success"):
                 tx_hash = str(result.get("tx_hash", ""))
                 job.state = "RELEASED"
@@ -1394,7 +1394,7 @@ class MarketplaceService:
             if not job.escrow_contract_id:
                 raise ValueError(f"Job {job_id} has no escrow_contract_id")
 
-            result = await self._rpc_client.refund_escrow(job.escrow_contract_id)
+            result = await self._rpc_client.refund_escrow(job.id)
             if result and result.get("success"):
                 tx_hash = str(result.get("tx_hash", ""))
                 job.state = "REFUNDED"
