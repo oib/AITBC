@@ -7,7 +7,7 @@ echo "🚀 Starting AITBC Agent Documentation Deployment Test"
 
 # Configuration
 DOCS_DIR="docs/11_agents"
-LIVE_SERVER="aitbc-cascade"
+LIVE_SERVER="${AITBC_LIVE_SERVER:?set AITBC_LIVE_SERVER to the ssh target for the docs host}"
 WEB_ROOT="/var/www/aitbc.bubuit.net/docs/agents"
 TEST_DIR="/tmp/aitbc-agent-docs-test"
 

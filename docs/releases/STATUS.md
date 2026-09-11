@@ -203,7 +203,7 @@ Honest assessment: the cryptographic enforcement was successfully activated and 
 
 ## Continuous integration
 
-- **Gitea Actions runner active:** the runner at `gitea-runner` is active and pulls `.gitea/workflows/ci.yml` on push to `main`.
+- **Gitea Actions runner active:** the CI runner is active and pulls `.gitea/workflows/ci.yml` on push to `main`.
 - **Workflow uses `make`:** `ci.yml` now invokes `make lint`, `make no-float-money`, `make typecheck`, `make test`, `make test-apps`, `make test-cli`, `make live-dry-run` and `make openapi-check`, so the gates match the `Makefile` and are reproducible both locally and on the runner.
 - **Ruff is present but not yet gating:** `make lint` runs `ruff check . --exit-zero` to report the existing backlog without failing the build; the remaining findings must be fixed before ruff can be made a hard gate.
 - **README badge fixed:** the old GitHub Actions badge (which pointed to a non-existent workflow) was replaced with a Gitea Actions badge.

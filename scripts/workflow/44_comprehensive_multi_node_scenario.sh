@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 # AITBC Comprehensive Multi-Node Scenario Orchestration
-# Executes end-to-end scenarios across all 3 nodes (<node1>, aitbc, gitea-runner)
+# Executes end-to-end scenarios across all 3 nodes (<node1>, aitbc, <node3>)
 # Using all AITBC apps with real execution, verbose logging, and health checks
 
 
@@ -23,7 +23,7 @@ set -euo pipefail
 # Configuration
 AITBC1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
 AITBC_HOST="localhost"
-GITEA_RUNNER_HOST="gitea-runner"
+GITEA_RUNNER_HOST="${AITBC_NODE3_SSH:?set AITBC_NODE3_SSH to the ssh target for node3 (CI runner)}"
 GENESIS_PORT="8202"
 LOG_DIR="/var/log/aitbc"
 LOG_FILE="$LOG_DIR/comprehensive_scenario_$(date +%Y%m%d_%H%M%S).log"
@@ -156,10 +156,10 @@ phase1_preflight_checks() {
     health_check "localhost" "coordinator-api" "8203" || log_warning "Coordinator API on localhost may not be healthy"
     # blockchain-event-bridge service not configured - skipping health check
 
-    # Check AITBC services on gitea-runner
-    log_info "Checking AITBC services on gitea-runner"
-    health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on gitea-runner may not be healthy"
-    health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8007" || log_warning "Blockchain node on gitea-runner may not be healthy"
+    # Check AITBC services on <node3>
+    log_info "Checking AITBC services on <node3>"
+    health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8202" || log_warning "Blockchain node on <node3> may not be healthy"
+    health_check "$GITEA_RUNNER_HOST" "blockchain-node" "8007" || log_warning "Blockchain node on <node3> may not be healthy"
 
     # Verify blockchain sync status
     log_info "Checking blockchain sync status across nodes"
@@ -167,7 +167,7 @@ phase1_preflight_checks() {
     local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
 
-    log_info "Blockchain heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
+    log_info "Blockchain heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, <node3>: $gitea_height"
 
     # Check CLI tools
     log_info "Checking CLI tools installation"
@@ -318,7 +318,7 @@ phase4_blockchain_sync_event_bridge() {
     local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
 
-    log_info "Current heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
+    log_info "Current heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, <node3>: $gitea_height"
 
     # Trigger sync if needed
     local height_diff=$((aitbc1_height - aitbc_height))
@@ -422,7 +422,7 @@ phase9_final_verification() {
     local aitbc_height=$(execute_on_node "localhost" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
     local gitea_height=$(execute_on_node "$GITEA_RUNNER_HOST" "curl -s $BLOCKCHAIN_RPC/rpc/head | jq -r .height" true 2>/dev/null || echo "0")
 
-    log_info "Final heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, gitea-runner: $gitea_height"
+    log_info "Final heights - <node1>: $aitbc1_height, aitbc: $aitbc_height, <node3>: $gitea_height"
 
     # Check service health
     log_info "Final service health check"
@@ -441,7 +441,7 @@ phase9_final_verification() {
     echo "Blockchain Heights:" | tee -a "$LOG_FILE"
     echo "  <node1>: $aitbc1_height" | tee -a "$LOG_FILE"
     echo "  aitbc: $aitbc_height" | tee -a "$LOG_FILE"
-    echo "  gitea-runner: $gitea_height" | tee -a "$LOG_FILE"
+    echo "  <node3>: $gitea_height" | tee -a "$LOG_FILE"
     echo "" | tee -a "$LOG_FILE"
     echo "Log file: $LOG_FILE" | tee -a "$LOG_FILE"
     echo "Error log: $ERROR_LOG" | tee -a "$LOG_FILE"
