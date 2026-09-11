@@ -266,6 +266,6 @@ async def run_hermes(request: HermesRunRequest):
 
 
 if __name__ == "__main__":
-    host = os.getenv("HERMES_BIND_HOST", "0.0.0.0")  # nosec B104 - systemd-only service; boundary is firewall/reverse-proxy
+    host = os.getenv("HERMES_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     port = int(os.getenv("HERMES_BIND_PORT", os.getenv("HERMES_PORT", "8270")))
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)

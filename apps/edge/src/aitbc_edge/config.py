@@ -19,7 +19,11 @@ class Settings(ServiceSettings):
 
     # Override defaults for edge service
     service_name: str = "aitbc-edge"
-    app_host: str = "0.0.0.0"  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    # Bind address only. This used to default to 0.0.0.0 AND double as the address
+    # advertised to /rpc/edge/register, so the service published itself at the
+    # meaningless "http://0.0.0.0:8111". The advertised address is now separate --
+    # see _register_edge_node_on_blockchain() in main.py. Override with APP_HOST.
+    app_host: str = "127.0.0.1"
     app_port: int = 8111
     api_prefix: str = "/v1"
 

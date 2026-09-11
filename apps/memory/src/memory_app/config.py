@@ -17,7 +17,7 @@ class Settings(ServiceSettings):
     model_config = SettingsConfigDict(env_file=".env", case_sensitive=False, extra="ignore")
 
     service_name: str = "aitbc-memory"
-    app_host: str = "0.0.0.0"  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    app_host: str = "0.0.0.0"  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     app_port: int = 8112
     api_prefix: str = "/v1"
 

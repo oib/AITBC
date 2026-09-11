@@ -56,7 +56,11 @@ async def _register_edge_node_on_blockchain() -> None:
     rpc_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
     payload = {
         "node_id": node_id,
-        "endpoint": f"http://{settings.app_host}:{settings.app_port}",
+        # The address OTHER hosts use to reach this node -- deliberately not
+        # settings.app_host, which is the local bind and is normally loopback.
+        # Defaults to this host's name; set EDGE_ADVERTISE_HOST where that does
+        # not resolve for peers.
+        "endpoint": f"http://{os.getenv('EDGE_ADVERTISE_HOST') or socket.gethostname()}:{settings.app_port}",
         "region": os.getenv("EDGE_REGION", ""),
         "gpu_count": 0,
         "total_vram": 0,
