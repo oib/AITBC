@@ -50,24 +50,29 @@ def get_chain_id_from_health(rpc_url: str, timeout: int = 5) -> str:
     Returns:
         The detected chain ID, or default if detection fails
     """
-    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout, max_retries=0)
-
-    # Try the blockchain RPC /proposer endpoint first: it works behind the
-    # public reverse proxy and returns both chain_id and supported_chains.
-    for endpoint in ("/rpc/proposer", "/health"):
-        try:
-            data = http_client.get(endpoint)
-            supported_chains = data.get("supported_chains") or []
-            if supported_chains:
-                first_chain = supported_chains[0] if isinstance(supported_chains, list) else str(supported_chains)
-                return str(first_chain)
-            chain_id = data.get("chain_id")
-            if chain_id:
-                return str(chain_id)
-        except NetworkError:
-            logger.debug("Network error detecting chain ID from %s", endpoint, exc_info=True)
-        except Exception:
-            logger.debug("Chain ID detection from %s failed", endpoint, exc_info=True)
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=timeout, max_retries=0)
+    except NetworkError:
+        logger.debug("Network error creating chain ID client for %s", rpc_url, exc_info=True)
+    except Exception:
+        logger.debug("Chain ID client creation for %s failed", rpc_url, exc_info=True)
+    else:
+        # Try the blockchain RPC /proposer endpoint first: it works behind the
+        # public reverse proxy and returns both chain_id and supported_chains.
+        for endpoint in ("/rpc/proposer", "/health"):
+            try:
+                data = http_client.get(endpoint)
+                supported_chains = data.get("supported_chains") or []
+                if supported_chains:
+                    first_chain = supported_chains[0] if isinstance(supported_chains, list) else str(supported_chains)
+                    return str(first_chain)
+                chain_id = data.get("chain_id")
+                if chain_id:
+                    return str(chain_id)
+            except NetworkError:
+                logger.debug("Network error detecting chain ID from %s", endpoint, exc_info=True)
+            except Exception:
+                logger.debug("Chain ID detection from %s failed", endpoint, exc_info=True)
 
     # Fallback to environment variable if detection fails
     import os
