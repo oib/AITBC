@@ -152,7 +152,7 @@ class TestNetworkCommands:
 
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
-        assert "/rpc/subscription/subscribers" in mock_client.get.call_args[0][0]
+        assert "/rpc/subscribers" in mock_client.get.call_args[0][0]
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_subscribe_command(self, mock_http_class, runner, mock_blockchain_rpc):
@@ -173,6 +173,62 @@ class TestNetworkCommands:
         assert "/rpc/subscribe" in args[0]
         assert kwargs["json"]["node_id"] == "test-node"
         assert kwargs["json"]["chain_id"] == "test-chain"
+
+
+    def test_network_set_sync_source_updates_env(self, runner, tmp_path):
+        """`set-sync-source` updates the env file with derived URLs."""
+        from aitbc_cli.commands.network import network
+
+        env_file = str(tmp_path / "node.env")
+        with open(env_file, "w") as f:
+            f.write("DEFAULT_PEER_RPC_URL=https://old.example.com\n")
+            f.write("BLOCKCHAIN_RPC_URL=https://old.example.com/rpc\n")
+
+        result = runner.invoke(
+            network,
+            ["set-sync-source", "--url", "https://node2.aitbc.bubuit.net", "--env-file", env_file, "--no-restart"],
+        )
+
+        assert result.exit_code == 0, result.output
+        updated = (tmp_path / "node.env").read_text()
+        assert "DEFAULT_PEER_RPC_URL=https://node2.aitbc.bubuit.net" in updated
+        assert "HUB_BLOCKCHAIN_RPC_URL=https://node2.aitbc.bubuit.net" in updated
+        assert "BLOCKCHAIN_RPC_URL=https://node2.aitbc.bubuit.net/rpc" in updated
+        assert "HUB_DISCOVERY_URL=node2.aitbc.bubuit.net" in updated
+
+    def test_network_set_sync_source_appends_missing_keys(self, runner, tmp_path):
+        """`set-sync-source` appends keys that are missing from the env file."""
+        from aitbc_cli.commands.network import network
+
+        env_file = str(tmp_path / "node.env")
+        with open(env_file, "w") as f:
+            f.write("NODE_ID=node2\n")
+
+        result = runner.invoke(
+            network,
+            ["set-sync-source", "--url", "https://hub.aitbc.bubuit.net", "--env-file", env_file, "--no-restart"],
+        )
+
+        assert result.exit_code == 0, result.output
+        updated = (tmp_path / "node.env").read_text()
+        assert "DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net" in updated
+        assert "HUB_DISCOVERY_URL=hub.aitbc.bubuit.net" in updated
+
+    def test_network_set_sync_source_rejects_invalid_url(self, runner, tmp_path):
+        """`set-sync-source` rejects a URL without scheme."""
+        from aitbc_cli.commands.network import network
+
+        env_file = str(tmp_path / "node.env")
+        with open(env_file, "w") as f:
+            f.write("DEFAULT_PEER_RPC_URL=https://old.example.com\n")
+
+        result = runner.invoke(
+            network,
+            ["set-sync-source", "--url", "not-a-url", "--env-file", env_file, "--no-restart"],
+        )
+
+        assert result.exit_code != 0
+        assert "Invalid URL" in (result.output + str(result.exception))
 
 
 if __name__ == "__main__":
