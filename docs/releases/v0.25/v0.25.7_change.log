@@ -1,0 +1,47 @@
+v0.25.7 - First-class IPFS marketplace support
+==============================================
+
+* Marketplace service
+  - Added `MarketplaceJob` and `MarketplaceJobPayment` models.
+  - Added `/v1/marketplace/jobs` CRUD routes, pin-confirm, release, refund,
+    access-token lookup, and buyer/offer usage endpoints.
+  - Added `MarketplaceJobSweeper` for escrow release/refund.
+  - Added `/v1/marketplace/offer/{plugin_id}/health` health checks.
+  - Legacy `IpfsRentalToken` endpoints remain read-only for one release.
+
+* CLI
+  - `aitbc market run` now supports IPFS.
+  - New `aitbc market host` for long-term IPFS rentals.
+  - New `aitbc market download`, `aitbc market cancel`, `aitbc market jobs`.
+  - New `aitbc market offer-list` and `aitbc market offer-disable`.
+  - `aitbc ipfs` keeps only free/local operations; paid hosting moved to
+    `aitbc market`.
+
+* MCP
+  - `host_ipfs` now invokes `aitbc market host`.
+  - `run_market_offer` supports `days` and `pin` for IPFS.
+  - Added `download_market_ipfs` MCP tool.
+
+* Agent SDK
+  - `IPFSOperations` gained `host_market_ipfs`, `download_market_ipfs`,
+    `list_market_ipfs_jobs`, and `cancel_market_ipfs_job` (sync and async).
+
+* Migration
+  - `scripts/migration/v0.25.7_migrate_ipfs_rentals.py` backfills
+    `MarketplaceJob`/`MarketplaceJobPayment` from legacy `IpfsRentalToken`
+    rows.
+
+* Tests
+  - `apps/marketplace/tests/test_marketplace_job.py`
+  - `apps/marketplace/tests/test_marketplace_job_sweeper.py`
+
+Live validation
+---------------
+
+- node0: `aitbc market list` shows IPFS offer
+- node0: `aitbc market run --offer-id-or-plugin-id ipfs-ipfs-host --prompt <cid> --days 1`
+- node0: `aitbc market host --offer-id ... --cid-or-file /tmp/voice.wav --days 3`
+- node2: verify `MarketplaceJob` and `JobPayment` rows
+- node0: `aitbc market download --rental-id <job-id>`
+- node0: `aitbc market cancel --job-id <job-id>`
+- hub: verify `ESCROW_LOCK` / `ESCROW_RELEASE` / `ESCROW_REFUND` txs

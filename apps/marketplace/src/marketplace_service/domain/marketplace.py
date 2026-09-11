@@ -40,10 +40,10 @@ class SoftwareService(MarketplaceBase, table=True):
     __tablename__ = "softwareservice"
 
     plugin_id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
-    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, hermes, cloud_ollama
+    service_type: str = Field(index=True)  # ollama, whisper, ffmpeg, hermes, ipfs, cloud_ollama
     model: str = Field(default="", index=True)
     price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
-    price_unit: str = Field(default="per_1k_tokens")  # per_1k_tokens, per_audio_min, per_processing_hour
+    price_unit: str = Field(default="per_1k_tokens")  # per_1k_tokens, per_audio_min, per_processing_hour, per_day, per_minute
     offer_id: str | None = Field(default=None, index=True)  # Live offer_id from hub
     endpoint: str = Field(default="")  # Local endpoint
     public_endpoint: str = Field(default="")  # Public endpoint
@@ -111,6 +111,91 @@ class IpfsRentalToken(MarketplaceBase, table=True):
     created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
     expires_at: datetime | None = Field(default=None)
     updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class MarketplaceJob(MarketplaceBase, table=True):
+    """Generic job record for a paid marketplace software service."""
+
+    __tablename__ = "marketplace_jobs"
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
+    client_id: str | None = Field(default=None, index=True)
+    client_ref: str | None = Field(default=None, index=True)
+
+    # Offer / service linkage
+    offer_id: str | None = Field(default=None, index=True)
+    plugin_id: str | None = Field(default=None, index=True)
+    service_type: str | None = Field(default=None, index=True)
+    model: str | None = Field(default=None)
+
+    # Parties
+    buyer_address: str | None = Field(default=None, index=True)
+    provider_address: str | None = Field(default=None, index=True)
+
+    # Lifecycle
+    state: str = Field(default="QUEUED", max_length=20, index=True)
+    payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    ttl_seconds: int = Field(default=2_592_000)
+    requested_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    expires_at: datetime | None = Field(default=None)
+    completed_at: datetime | None = Field(default=None)
+    error: str | None = Field(default=None)
+
+    # Result / receipt
+    result: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+    receipt: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+
+    # Access token for this job (e.g. IPFS access key)
+    access_key: str | None = Field(default=None, index=True)
+
+    # Payment denormalization (authoritative source is MarketplaceJobPayment)
+    payment_id: str | None = Field(default=None, index=True)
+    payment_status: str | None = Field(default=None, max_length=20)
+    payment_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(36, 18)))
+    payment_token: str | None = Field(default=None, max_length=42)
+
+    # Escrow linkage
+    escrow_contract_id: str | None = Field(default=None, index=True)
+    tx_hash: str | None = Field(default=None)
+    refund_tx_hash: str | None = Field(default=None)
+
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+
+
+class MarketplaceJobPayment(MarketplaceBase, table=True):
+    """Payment record for a MarketplaceJob."""
+
+    __tablename__ = "marketplace_job_payments"
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True, index=True)
+    job_id: str = Field(index=True)
+
+    # Payment details
+    amount: Decimal = Field(sa_column=Column(Numeric(20, 8), nullable=False))
+    currency: str = Field(default="AITBC", max_length=10)
+    status: str = Field(default="pending", max_length=20)
+    payment_method: str = Field(default="aitbc_token", max_length=20)
+
+    # Addresses
+    escrow_address: str | None = Field(default=None)
+    refund_address: str | None = Field(default=None)
+
+    # Transaction hashes
+    transaction_hash: str | None = Field(default=None)
+    refund_transaction_hash: str | None = Field(default=None)
+
+    # Timestamps
+    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    escrowed_at: datetime | None = Field(default=None)
+    released_at: datetime | None = Field(default=None)
+    refunded_at: datetime | None = Field(default=None)
+    expires_at: datetime | None = Field(default=None)
+
+    # Additional metadata
+    meta_data: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
 
 
 class ServiceRating(MarketplaceBase, table=True):
