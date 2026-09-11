@@ -11,6 +11,7 @@ from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
 
+from ....auth import AdminDep
 from ..domain.agent_performance import CreativeCapability
 from ....storage import get_session
 from ..services.creative_capabilities_service import (
@@ -76,7 +77,9 @@ class SynthesisRequest(BaseModel):
 
 @router.post("/capabilities", response_model=CreativeCapabilityResponse)
 async def create_creative_capability(
-    request: CreativeCapabilityCreate, session: Annotated[Session, Depends(get_session)]
+    request: CreativeCapabilityCreate,
+    user: AdminDep,
+    session: Annotated[Session, Depends(get_session)],
 ) -> CreativeCapabilityResponse:
     """Initialize a new creative capability for an agent"""
     engine = CreativityEnhancementEngine()
@@ -111,7 +114,10 @@ async def create_creative_capability(
 
 @router.post("/capabilities/{capability_id}/enhance")
 async def enhance_creativity(
-    capability_id: str, request: EnhanceCreativityRequest, session: Annotated[Session, Depends(get_session)]
+    capability_id: str,
+    request: EnhanceCreativityRequest,
+    user: AdminDep,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Enhance a specific creative capability using specified algorithm"""
     engine = CreativityEnhancementEngine()
@@ -134,7 +140,10 @@ async def enhance_creativity(
 
 @router.post("/capabilities/{capability_id}/evaluate")
 async def evaluate_creation(
-    capability_id: str, request: EvaluateCreationRequest, session: Annotated[Session, Depends(get_session)]
+    capability_id: str,
+    request: EvaluateCreationRequest,
+    user: AdminDep,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Evaluate a creative output and update agent capability metrics"""
     engine = CreativityEnhancementEngine()
@@ -156,7 +165,7 @@ async def evaluate_creation(
 
 
 @router.post("/ideation/generate")
-async def generate_ideas(request: IdeationRequest) -> dict[str, Any]:
+async def generate_ideas(request: IdeationRequest, user: AdminDep) -> dict[str, Any]:
     """Generate innovative ideas using specialized ideation algorithms"""
     ideation_engine = IdeationAlgorithm()
     try:
@@ -177,7 +186,9 @@ async def generate_ideas(request: IdeationRequest) -> dict[str, Any]:
 
 @router.post("/synthesis/cross-domain")
 async def synthesize_cross_domain(
-    request: SynthesisRequest, session: Annotated[Session, Depends(get_session)]
+    request: SynthesisRequest,
+    user: AdminDep,
+    session: Annotated[Session, Depends(get_session)],
 ) -> dict[str, Any]:
     """Synthesize concepts from multiple domains to create novel outputs"""
     integrator = CrossDomainCreativeIntegrator()
@@ -201,7 +212,9 @@ async def synthesize_cross_domain(
 
 @router.get("/capabilities/{agent_id}")
 async def list_agent_creative_capabilities(
-    agent_id: str, session: Annotated[Session, Depends(get_session)]
+    agent_id: str,
+    user: AdminDep,
+    session: Annotated[Session, Depends(get_session)],
 ) -> list[CreativeCapability]:
     """List all creative capabilities for a specific agent"""
     try:
