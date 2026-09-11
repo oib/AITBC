@@ -33,7 +33,7 @@
 # 2026-08-23: cli/ was never in APPS, so 154 source files went unchecked. Its
 # errors still leaked into the output whenever an app's import graph happened to
 # reach them, which made the gate non-deterministic: hub reported one cli error on
-# a warm cache and three on a cold one, aitbc3 reported none at all. Adding cli to
+# a warm cache and three on a cold one, <node2> reported none at all. Adding cli to
 # APPS makes the coverage explicit and the result reproducible.
 #
 # The errors that surfaced are recorded here rather than fixed, so the ratchet is
@@ -63,7 +63,7 @@
 #
 # aitbc/ was the same defect one layer down, and adding cli did not fix it. The
 # top-level package was not in APPS either, so whether it got checked depended on
-# whether it happened to be pip-installed on the host: aitbc3 has aitbc==0.10.18
+# whether it happened to be pip-installed on the host: <node2> has aitbc==0.10.18
 # with an aitbc.pth, so mypy resolved it in site-packages, called it third-party
 # and --ignore-missing-imports silenced it. hub has aitbc-cli and aitbc-shared but
 # no bare aitbc, so mypy resolved it from the working tree and checked it as

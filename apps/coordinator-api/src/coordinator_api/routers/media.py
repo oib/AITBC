@@ -87,7 +87,7 @@ async def upload_media(
     meta_path.write_text(json.dumps(meta))
 
     # Build a public download URL that respects any reverse-proxy path prefix
-    # (e.g. /c on hub.aitbc) so workers receive an externally routable URL.
+    # (e.g. /c on the hub node) so workers receive an externally routable URL.
     prefix = request.headers.get("x-forwarded-prefix", "")
     if prefix:
         prefix = "/" + prefix.strip("/")

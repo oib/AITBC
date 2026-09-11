@@ -71,7 +71,7 @@ def _resolve_private_key(
 
   aitbc auth login --wallet genesis
 
-  aitbc auth login --wallet genesis --coordinator-url http://hub.aitbc:8201"""
+  aitbc auth login --wallet genesis --coordinator-url http://hub.example.net:8201"""
 )
 @click.option("--wallet", default="default", show_default=True, help="Wallet name in AITBC_WALLET_DIR or ~/.aitbc/wallets/")
 @click.option("--password", help="Wallet password (or WALLET_PASSWORD env var)")

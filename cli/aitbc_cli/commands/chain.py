@@ -541,7 +541,7 @@ def backup(ctx, chain_id, path, compress, verify):
 
   aitbc blockchain restore --backup-file /tmp/backup.tar
 
-  aitbc blockchain restore --backup-file /tmp/backup.tar --node aitbc3"""
+  aitbc blockchain restore --backup-file /tmp/backup.tar --node node-2"""
 )
 @click.option("--backup-file", "backup_file", required=True, type=click.Path(exists=True), help="The Backup file.")
 @click.option("--node", help="Target node for restoration")
@@ -674,7 +674,7 @@ def monitor(ctx, chain_id, realtime, export, interval):
 
   aitbc blockchain sync-status
 
-  aitbc blockchain sync-status --chain-id ait-mainnet --node-url http://aitbc3:8202""",
+  aitbc blockchain sync-status --chain-id ait-mainnet --node-url http://node2.example.net:8202""",
 )
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
 @click.option("--all-chains", is_flag=True, help="Show status for all supported chains (default: node's configured chains)")
@@ -786,7 +786,7 @@ def start_cmd(ctx, chain_id, node_url, chain_type):
 
   aitbc blockchain stop --chain-id ait-mainnet
 
-  aitbc blockchain stop --chain-id ait-mainnet --node-url http://aitbc3:8202""",
+  aitbc blockchain stop --chain-id ait-mainnet --node-url http://node2.example.net:8202""",
 )
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL")
@@ -875,7 +875,7 @@ def consensus_group():
 
   aitbc blockchain consensus status
 
-  aitbc blockchain consensus status --chain-id ait-mainnet --node-url http://aitbc3:8202""",
+  aitbc blockchain consensus status --chain-id ait-mainnet --node-url http://node2.example.net:8202""",
 )
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
 @click.option("--chain-id", default="ait-hub", help="Chain ID to query consensus status for")

@@ -12,7 +12,7 @@ def dashboard_ctx_obj():
     config.wallet_daemon_url = "http://localhost:8108"
     config.gpu_service_url = "http://localhost:8101"
     config.hub_discovery_url = "hub.aitbc.bubuit.net"
-    config.node_id = "aitbc3"
+    config.node_id = "shop-node"
     config.chain_id = "ait-devnet"
     return {
         "output": "table",
@@ -101,7 +101,7 @@ class TestDashboardShop:
                             "status": "active",
                             "avg_rating": 4.0,
                             "rating_count": 2,
-                            "node_id": "aitbc3",
+                            "node_id": "shop-node",
                         }
                     ]
                 }
@@ -119,12 +119,12 @@ class TestDashboardShop:
 
         from aitbc_cli.commands.dashboard import shop
 
-        result = runner.invoke(shop, ["--miner-id", "aitbc3"], obj=dashboard_ctx_obj)
+        result = runner.invoke(shop, ["--miner-id", "shop-node"], obj=dashboard_ctx_obj)
 
         assert result.exit_code == 0, result.output
         assert "Shop Dashboard" in result.output
         assert "p1" in result.output
-        assert "aitbc3" in result.output
+        assert "shop-node" in result.output
 
 
 class TestShopAuth:

@@ -99,7 +99,7 @@ SKIP_DIRS = ("scripts/service-management/lib",)
 # so the first unreachable node would abort the script and hide every check after it. That
 # is the same defect V23-99 exists to fix, arriving from the other direction. Guarding the
 # twelve lines is the real repair and belongs with someone who can run a two-node topology;
-# these scripts ssh to `aitbc1` and cannot be exercised from a shop node. They do take -u.
+# these scripts ssh to `<node1>` and cannot be exercised from a shop node. They do take -u.
 SKIP_SETTINGS: dict[str, tuple[str, ...]] = {
     "scripts/deployment/update.sh": ("set -e",),
     "scripts/deployment/setup.sh": ("set -u", "set -o pipefail"),

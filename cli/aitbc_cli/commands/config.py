@@ -65,7 +65,7 @@ def get(ctx):
 @config.command(
     epilog="""Examples:
 
-  aitbc config set --key coordinator_api_url --value http://hub.aitbc:8201
+  aitbc config set --key coordinator_api_url --value http://hub.example.net:8201
 
   aitbc config set --key timeout --value 60 --global"""
 )
