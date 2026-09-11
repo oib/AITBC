@@ -63,7 +63,7 @@ class Settings(ServiceSettings):
     debug: bool = False
 
     # Server settings (standardized: AGENT_COORDINATOR_BIND_HOST/PORT, fallback to HOST/PORT for backward compatibility)
-    host: str = os.getenv("AGENT_COORDINATOR_BIND_HOST", os.getenv("HOST", "0.0.0.0"))  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+    host: str = os.getenv("AGENT_COORDINATOR_BIND_HOST", os.getenv("HOST", "0.0.0.0"))  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     port: int = int(os.getenv("AGENT_COORDINATOR_BIND_PORT", os.getenv("PORT", "8107")))
     workers: int = int(os.getenv("WORKERS", "1"))
 
@@ -105,13 +105,12 @@ class Settings(ServiceSettings):
         os.getenv("CORS_ORIGINS", "").split(",")
         if os.getenv("CORS_ORIGINS")
         else [
-            "http://localhost:8001",
-            "http://localhost:8011",
-            "http://localhost:8016",
+            # Legacy ports 8001/8011/8016 removed: 8001 was Exchange (now 8106) and
+            # 8010-8016 were the pre-migration service block (now 8101-8108). The
+            # same stale list was remediated in coordinator-api in v0.10.9; this
+            # copy was missed. Nothing binds them today, so trusting them as
+            # origins only grants standing access to whatever binds them next.
             "http://localhost:8107",
-            "http://127.0.0.1:8001",
-            "http://127.0.0.1:8011",
-            "http://127.0.0.1:8016",
             "http://127.0.0.1:8107",
         ]
     )

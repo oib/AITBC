@@ -15,6 +15,8 @@ EnvironmentFile=/etc/aitbc/node.env
 Environment=FFMPEG_PORT=8230
 Environment=FFMPEG_GPU_DEVICE=0
 Environment=FFMPEG_HW_ACCEL=cuda
+# Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
+Environment=FFMPEG_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ffmpeg/main.py
 Restart=on-failure
 RestartSec=5

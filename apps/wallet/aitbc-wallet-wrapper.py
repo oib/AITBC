@@ -28,7 +28,7 @@ access_log = os.getenv("ACCESS_LOG", "true").lower() in ("1", "true", "yes")
 # wallet bind configuration
 # Use WALLET_BIND_HOST for bind address (default: 0.0.0.0)
 # Use WALLET_BIND_PORT for port (default: 8108)
-bind_host = os.getenv("WALLET_BIND_HOST", "0.0.0.0")  # nosec B104 - intentional service bind-all; AITBC's systemd-only (Docker-free) services bind broadly by design, real boundary is the firewall/reverse-proxy layer
+bind_host = os.getenv("WALLET_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
 bind_port = os.getenv("WALLET_BIND_PORT", "8108")
 
 # Execute the actual service

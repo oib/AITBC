@@ -13,6 +13,8 @@ Environment="HERMES_HOME=/var/lib/aitbc/hermes"
 Environment="HOME=/var/lib/aitbc/hermes"
 Environment="HERMES_PORT=8270"
 EnvironmentFile=-/etc/aitbc/hermes.env
+# Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
+Environment=HERMES_BIND_HOST=127.0.0.1
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/hermes_agent/main.py
 Restart=on-failure
 RestartSec=5
