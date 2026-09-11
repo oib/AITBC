@@ -99,7 +99,7 @@
 <li><strong>Chain height</strong> is consistent at <strong>1479</strong> (<code>0x126b91fead...</code>) across all five nodes.</li>
 <li><strong>Mempool</strong> is empty (0 pending transactions) on all reachable endpoints.</li>
 <li><strong>Multi-validator consensus</strong> is active with <strong>4 validators</strong> (<code>hub.aitbc</code>, <code>node1</code>, <code>node2</code>, <code>hub1.aitbc</code>): <code>MultiValidatorPoA</code>, <code>active_validators: 4</code>, <code>total_validators: 4</code>, <code>fault_tolerance: 1</code>, <code>required_messages: 3</code> (computed live as <code>2f+1</code>), <code>min_attestations: 1</code> (crash-tolerance threshold actually enforced).</li>
-<li><strong>Bridge</strong> on <code>hub.aitbc</code> is <strong>misconfigured / masked</strong> (<code>aitbc-bridge-monitor</code> is <code>masked</code> and <code>inactive</code> because <code>BRIDGE_ETH_ADDRESS</code> is not set in any <code>/etc/aitbc/</code> env file; it crash-looped 4,812+ times before being stopped). Event-bridge still reports <code>bridge_running: true</code> because it is a separate service. Bridge endpoints are not exposed on <code>node0/1/2/hub1</code>.</li>
+<li><strong>Bridge</strong> on <code>hub.aitbc</code> is <strong>active and running</strong> as of 2026-09-11. The bridge configuration (including <code>BRIDGE_ETH_ADDRESS</code>, <code>BRIDGE_CONTRACT_ADDRESS</code>, and Ethereum RPC endpoint) was migrated from <code>hub1.aitbc</code> into <code>/etc/aitbc/aitbc-bridge-monitor.env</code>; the unit was unmasked and started successfully and is polling the configured Sepolia RPC.</li>
 <li><strong>IPFS</strong>: <code>ipfs.service</code> is <strong>active</strong> and <strong>enabled</strong> on <code>node0</code> and <code>node2</code>, both running Kubo <strong>0.43.0</strong> (repo version <strong>18</strong>) on the shared private swarm. The previous <code>0.24.0</code>/<code>0.43.0</code> skew was aligned by upgrading node0's binary and migrating its repo.</li>
 <li><strong>DNS / sync</strong>: <code>node0/1/2</code> no longer need <code>/etc/hosts</code> bypass; <code>getent hosts hub.aitbc.bubuit.net</code> resolves to <code>152.53.242.245</code>.</li>
 <li><strong>Coordinator auth</strong>: <code>hub.aitbc</code> <code>aitbc-coordinator-api</code> now loads <code>z-env-override.conf</code> and <code>admin-wallet-override.conf</code>, <code>ENVIRONMENT=production</code>, and all three key classes are present in the process.</li>
@@ -161,9 +161,9 @@
 </tr>
 <tr>
 <td>aitbc-bridge-monitor</td>
-<td>masked</td>
-<td style="text-align: right;">n/a</td>
-<td style="text-align: left;"><code>BRIDGE_ETH_ADDRESS</code> missing; unit masked until configured</td>
+<td>active</td>
+<td style="text-align: right;">8202</td>
+<td style="text-align: left;">Migrated from hub1.aitbc; polling Sepolia for ETH deposits and watching 0x0936...9B32</td>
 </tr>
 <tr>
 <td>aitbc-coordinator-api</td>
