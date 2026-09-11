@@ -4,6 +4,12 @@
 
 set -e
 
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
+require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
+
+
 echo "🔍 Deploying Blockchain Explorer"
 echo "================================="
 
@@ -22,12 +28,12 @@ print_warning() {
 
 # Copy explorer to container
 print_status "Copying blockchain explorer to container..."
-ssh ns3-root "rm -rf /opt/blockchain-explorer 2>/dev/null || true"
-scp -r apps/blockchain-explorer ns3-root:/opt/
+ssh "$AITBC_SSH_TARGET" "rm -rf /opt/blockchain-explorer 2>/dev/null || true"
+scp -r apps/blockchain-explorer ${AITBC_SSH_TARGET}:/opt/
 
 # Setup explorer in container
 print_status "Setting up blockchain explorer..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 cd /opt/blockchain-explorer
 
 # Create Python environment
@@ -39,7 +45,7 @@ EOF
 
 # Create systemd service for explorer
 print_status "Creating systemd service for blockchain explorer..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 cat > /etc/systemd/system/blockchain-explorer.service << EOL
 [Unit]
 Description=AITBC Blockchain Explorer
@@ -64,7 +70,7 @@ EOF
 
 # Start explorer
 print_status "Starting blockchain explorer..."
-ssh ns3-root "systemctl start blockchain-explorer"
+ssh "$AITBC_SSH_TARGET" "systemctl start blockchain-explorer"
 
 # Wait for explorer to start
 print_status "Waiting for explorer to start..."
@@ -72,7 +78,7 @@ sleep 3
 
 # Setup port forwarding for explorer
 print_status "Setting up port forwarding for explorer..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 # Add port forwarding for explorer
 iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
 iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 3000 -j MASQUERADE
@@ -83,12 +89,12 @@ EOF
 
 # Check status
 print_status "Checking blockchain explorer status..."
-ssh ns3-root "systemctl status blockchain-explorer --no-pager | grep -E 'Active:|Main PID:'"
+ssh "$AITBC_SSH_TARGET" "systemctl status blockchain-explorer --no-pager | grep -E 'Active:|Main PID:'"
 
 print_success "✅ Blockchain explorer deployed!"
 echo ""
 echo "Explorer URL: http://192.168.100.10:3000"
-echo "External URL: http://aitbc.keisanki.net:3000"
+echo "External URL: http://${AITBC_PUBLIC_HOST}:3000"
 echo ""
 echo "The explorer will automatically connect to the local blockchain node."
 echo "You can view blocks, transactions, and chain statistics."

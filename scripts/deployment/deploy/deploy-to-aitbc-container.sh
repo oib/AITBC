@@ -4,6 +4,12 @@
 
 set -e
 
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
+require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
+
+
 echo "🚀 AITBC Deployment in Incus Container"
 echo "======================================"
 echo "This will deploy inside the aitbc container"
@@ -22,10 +28,10 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Check if we're on ns3 host
+# Check if we're on the deployment server host
 if [ "$(hostname)" != "ns3" ]; then
-    print_warning "This script must be run on ns3 host"
-    echo "Run: ssh ns3-root"
+    print_warning "This script must be run on the deployment server host"
+    echo "Run: ssh $AITBC_SSH_TARGET"
     exit 1
 fi
 
@@ -80,5 +86,5 @@ echo "  - Blockchain Node RPC: http://192.168.100.10:8202"
 echo "  - Blockchain Explorer: http://192.168.100.10:3000"
 echo ""
 echo "External access via ns3:"
-echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8202"
-echo "  - Blockchain Explorer: http://aitbc.keisanki.net:3000"
+echo "  - Blockchain Node RPC: http://${AITBC_PUBLIC_HOST}:8202"
+echo "  - Blockchain Explorer: http://${AITBC_PUBLIC_HOST}:3000"

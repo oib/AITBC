@@ -4,6 +4,12 @@
 
 set -e
 
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
+require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
+
+
 echo "🚀 Deploying Blockchain Node and Explorer"
 echo "========================================"
 
@@ -22,12 +28,12 @@ print_warning() {
 
 # Copy blockchain node to container
 print_status "Copying blockchain node to container..."
-ssh ns3-root "rm -rf /opt/blockchain-node 2>/dev/null || true"
-scp -r apps/blockchain-node ns3-root:/opt/
+ssh "$AITBC_SSH_TARGET" "rm -rf /opt/blockchain-node 2>/dev/null || true"
+scp -r apps/blockchain-node ${AITBC_SSH_TARGET}:/opt/
 
 # Setup blockchain node in container
 print_status "Setting up blockchain node..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 cd /opt/blockchain-node
 
 # Create configuration
@@ -60,7 +66,7 @@ EOF
 
 # Create systemd service for blockchain node
 print_status "Creating systemd service for blockchain node..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 cat > /etc/systemd/system/blockchain-node.service << EOL
 [Unit]
 Description=AITBC Blockchain Node
@@ -105,7 +111,7 @@ EOF
 
 # Start blockchain node
 print_status "Starting blockchain node..."
-ssh ns3-root "systemctl start blockchain-node blockchain-rpc"
+ssh "$AITBC_SSH_TARGET" "systemctl start blockchain-node blockchain-rpc"
 
 # Wait for node to start
 print_status "Waiting for blockchain node to start..."
@@ -113,16 +119,16 @@ sleep 5
 
 # Check status
 print_status "Checking blockchain node status..."
-ssh ns3-root "systemctl status blockchain-node blockchain-rpc --no-pager | grep -E 'Active:|Main PID:'"
+ssh "$AITBC_SSH_TARGET" "systemctl status blockchain-node blockchain-rpc --no-pager | grep -E 'Active:|Main PID:'"
 
 # Copy explorer to container
 print_status "Copying blockchain explorer to container..."
-ssh ns3-root "rm -rf /opt/blockchain-explorer 2>/dev/null || true"
-scp -r apps/blockchain-explorer ns3-root:/opt/
+ssh "$AITBC_SSH_TARGET" "rm -rf /opt/blockchain-explorer 2>/dev/null || true"
+scp -r apps/blockchain-explorer ${AITBC_SSH_TARGET}:/opt/
 
 # Setup explorer in container
 print_status "Setting up blockchain explorer..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 cd /opt/blockchain-explorer
 
 # Create Python environment
@@ -134,7 +140,7 @@ EOF
 
 # Create systemd service for explorer
 print_status "Creating systemd service for blockchain explorer..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 cat > /etc/systemd/system/blockchain-explorer.service << EOL
 [Unit]
 Description=AITBC Blockchain Explorer
@@ -159,7 +165,7 @@ EOF
 
 # Start explorer
 print_status "Starting blockchain explorer..."
-ssh ns3-root "systemctl start blockchain-explorer"
+ssh "$AITBC_SSH_TARGET" "systemctl start blockchain-explorer"
 
 # Wait for explorer to start
 print_status "Waiting for explorer to start..."
@@ -167,7 +173,7 @@ sleep 3
 
 # Setup port forwarding
 print_status "Setting up port forwarding..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 # Clear existing NAT rules
 iptables -t nat -F PREROUTING 2>/dev/null || true
 iptables -t nat -F POSTROUTING 2>/dev/null || true
@@ -191,7 +197,7 @@ EOF
 
 # Check all services
 print_status "Checking all services..."
-ssh ns3-root "systemctl status blockchain-node blockchain-rpc blockchain-explorer --no-pager | grep -E 'Active:|Main PID:'"
+ssh "$AITBC_SSH_TARGET" "systemctl status blockchain-node blockchain-rpc blockchain-explorer --no-pager | grep -E 'Active:|Main PID:'"
 
 print_success "✅ Deployment complete!"
 echo ""
@@ -200,8 +206,8 @@ echo "  - Blockchain Node RPC: http://192.168.100.10:8202"
 echo "  - Blockchain Explorer: http://192.168.100.10:3000"
 echo ""
 echo "External access:"
-echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8202"
-echo "  - Blockchain Explorer: http://aitbc.keisanki.net:3000"
+echo "  - Blockchain Node RPC: http://${AITBC_PUBLIC_HOST}:8202"
+echo "  - Blockchain Explorer: http://${AITBC_PUBLIC_HOST}:3000"
 echo ""
 echo "The explorer is connected to the local blockchain node and will display"
 echo "real-time blockchain data including blocks and transactions."

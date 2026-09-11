@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Deploy blockchain node and explorer directly on ns3
+# Deploy blockchain node and explorer directly on the deployment server
 
 set -e
 
-echo "🚀 AITBC Direct Deployment on ns3"
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
+require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
+
+
+echo "🚀 AITBC Direct Deployment on the deployment server"
 echo "================================="
 
 # Colors
@@ -20,10 +26,10 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Check if we're on ns3
+# Check if we're on the deployment server
 if [ "$(hostname)" != "ns3" ] && [ "$(hostname)" != "aitbc" ]; then
-    print_warning "This script must be run on ns3 server"
-    echo "Run: ssh ns3-root"
+    print_warning "This script must be run on the deployment server"
+    echo "Run: ssh $AITBC_SSH_TARGET"
     echo "Then: cd /opt && ./deploy-direct.sh"
     exit 1
 fi
@@ -304,13 +310,13 @@ if [ "$(hostname)" = "aitbc" ]; then
     echo "  - Blockchain Explorer: http://192.168.100.10:3000"
     echo ""
     echo "External access:"
-    echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8202"
-    echo "  - Blockchain Explorer: http://aitbc.keisanki.net:3000"
+    echo "  - Blockchain Node RPC: http://${AITBC_PUBLIC_HOST}:8202"
+    echo "  - Blockchain Explorer: http://${AITBC_PUBLIC_HOST}:3000"
 else
     echo "  - Blockchain Node RPC: http://localhost:8202"
     echo "  - Blockchain Explorer: http://localhost:3000"
     echo ""
     echo "External access:"
-    echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8202"
-    echo "  - Blockchain Explorer: http://aitbc.keisanki.net:3000"
+    echo "  - Blockchain Node RPC: http://${AITBC_PUBLIC_HOST}:8202"
+    echo "  - Blockchain Explorer: http://${AITBC_PUBLIC_HOST}:3000"
 fi

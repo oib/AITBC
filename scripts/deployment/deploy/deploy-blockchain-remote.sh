@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Deploy blockchain node directly on ns3 server (build in place)
+# Deploy blockchain node directly on the deployment server (build in place)
 
 set -e
 
-echo "🚀 Deploying Blockchain Node on ns3 (Build in Place)"
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+# Runs on the deployment server itself, so AITBC_SSH_TARGET is optional here --
+# it only decorates the closing summary.
+
+
+echo "🚀 Deploying Blockchain Node on the deployment server (Build in Place)"
 echo "====================================================="
 
 # Colors
@@ -23,8 +29,8 @@ print_warning() {
 # Check if we're on the right server
 print_status "Checking server..."
 if [ "$(hostname)" != "ns3" ] && [ "$(hostname)" != "aitbc" ]; then
-    print_warning "This script should be run on ns3 server"
-    echo "Please run: ssh ns3-root"
+    print_warning "This script should be run on the deployment server"
+    echo "Please run: ssh $AITBC_SSH_TARGET"
     echo "Then: cd /opt && ./deploy-blockchain-remote.sh"
     exit 1
 fi
