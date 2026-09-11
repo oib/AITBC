@@ -243,10 +243,10 @@ aitbc-chain start --log-level debug
 Add A records for hub discovery:
 
 ```
-# hub.aitbc.bubuit.net
-redacted-host.example.invalid A 10.1.1.1
-redacted-host.example.invalid A 10.1.1.2
-redacted-host.example.invalid A 10.1.1.3
+# hub.example.net
+hub1.example.net A 10.1.1.1
+hub2.example.net A 10.1.1.2
+hub3.example.net A 10.1.1.3
 ```
 
 ## Next
