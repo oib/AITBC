@@ -1167,7 +1167,8 @@ class MarketplaceService:
                 meta_data=payment_data.get("meta_data"),
                 created_at=datetime.utcnow(),
                 updated_at=datetime.utcnow(),
-                escrowed_at=payment_data.get("escrowed_at") and self._parse_iso_dt(payment_data["escrowed_at"]) or None,
+                escrowed_at=payment_data.get("escrowed_at") and self._parse_iso_dt(payment_data["escrowed_at"])
+                or (datetime.utcnow() if payment_data.get("status") == "escrowed" else None),
                 expires_at=job.expires_at,
             )
 
