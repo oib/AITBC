@@ -1,7 +1,7 @@
 #!/bin/bash
 # Register Agent Agent with AITBC Agent Coordinator
 
-COORDINATOR_URL="http://localhost:9001"
+COORDINATOR_URL="${COORDINATOR_URL:-http://localhost:8107}"
 AGENT_ID="agent-agent"
 AGENT_TYPE="worker"
 CAPABILITIES='["data-processing", "analysis", "general", "debugging", "planning"]'
@@ -10,7 +10,7 @@ ENDPOINTS='{"http": "http://localhost:9002", "callback": "http://localhost:9002/
 
 echo "Registering Agent Agent with coordinator at $COORDINATOR_URL"
 
-curl -X POST "$COORDINATOR_URL/agents/register" \
+curl -X POST "$COORDINATOR_URL/v1/agents/register" \
   -H "Content-Type: application/json" \
   -d "{
     \"agent_id\": \"$AGENT_ID\",

@@ -103,7 +103,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Exchange | 8106 | `aitbc exchange-island`, `aitbc exchange` | `simple_exchange` + API key. Paths are `/api/orders`, not `/v1/exchange/*` |
 | Governance | 8105 | `aitbc governance`, `aitbc operations governance` | Dual CLI groups |
 | Agent coordinator | 8107 | `aitbc agent-comm`, `aitbc agent-msg` | Hub-only |
-| Trading | 8109 | `aitbc trade` | Inter-chain offers |
+| Trading | 8104 | `aitbc trade` | Inter-chain offers |
 | Event bridge | 8205 | `aitbc bridge start/stop` | Not the lock/confirm RPC |
 | IPFS surface | local files | `aitbc ipfs` | Filesystem CID store, not a real IPFS daemon |
 | Oracle | local files | `aitbc oracle` | Announces local CIDs |

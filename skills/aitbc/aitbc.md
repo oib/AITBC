@@ -30,12 +30,12 @@ Load this skill when:
 
 | Service | Port | Protocol | Notes |
 |---------|------|----------|-------|
-| Blockchain RPC | 8006 | HTTP | Main blockchain node API |
-| Coordinator API | 8011 | HTTP | Agent registry, all /v1/* routes |
+| Blockchain RPC | 8202 | HTTP | Main blockchain node API |
+| Coordinator API | 8203 | HTTP | Agent registry, all /v1/* routes |
 | Marketplace | 8102 | HTTP | Marketplace offers, bids, orders |
-| Wallet Daemon | 8015 | HTTP | Wallet management (localhost only) |
-| Exchange API | 8001 | HTTP | Trading (localhost only) |
-| Edge API | 8103 | HTTP | Edge compute operations |
+| Wallet Daemon | 8108 | HTTP | Wallet management (localhost only) |
+| Exchange API | 8106 | HTTP | Trading (localhost only) |
+| Edge API | 8111 | HTTP | Edge compute operations |
 
 **IMPORTANT:** Use `localhost` on aitbc (main node). Use `aitbc1` hostname (not IP) for cross-node calls.
 
@@ -101,18 +101,18 @@ curl -s http://localhost:8102/v1/marketplace/orders
 
 ### 2. Messaging API Operations
 
-Messaging runs on the blockchain RPC port (8006).
+Messaging runs on the blockchain RPC port (8202).
 
 #### List Topics (API)
 ```bash
-curl -s http://localhost:8006/topics
+curl -s http://localhost:8202/topics
 ```
 
 **Result:** Topic ID, title, total topics
 
 #### Create Topic (API)
 ```bash
-curl -s -X POST http://localhost:8006/topics \
+curl -s -X POST http://localhost:8202/topics \
   -H "Content-Type: application/json" \
   -d '{
     "title": "<title>",
@@ -122,7 +122,7 @@ curl -s -X POST http://localhost:8006/topics \
 
 #### Post Message to Topic (API)
 ```bash
-curl -s -X POST http://localhost:8006/topics/{topic_id}/messages \
+curl -s -X POST http://localhost:8202/topics/{topic_id}/messages \
   -H "Content-Type: application/json" \
   -d '{
     "content": "<message>"
@@ -133,62 +133,70 @@ curl -s -X POST http://localhost:8006/topics/{topic_id}/messages \
 
 ---
 
-### 3. Agent Registration (Coordinator API)
+### 3. Agent Registration (Agent Coordinator)
 
-Coordinator API is on port 8011.
+The agent registry is the **Agent Coordinator on port 8107**, not the
+Coordinator API on 8203. Every route is under `/v1`.
 
 #### Register Agent
 ```bash
-curl -s -X POST http://localhost:8011/agents/register \
+curl -s -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "<agent_id>",
     "agent_type": "worker",
-    "endpoint": "http://<host>:<port>",
-    "capabilities": ["marketplace", "messaging"]
+    "capabilities": ["marketplace", "messaging"],
+    "services": ["task-execution"],
+    "endpoints": {"http": "http://<host>:<port>"}
   }'
 ```
 
+`endpoints` is plural and is a map of name to URL. A singular `"endpoint"`
+string is not part of the schema; it is silently discarded and the agent
+registers with no endpoints.
+
 **Example (Verified):**
 ```bash
-curl -s -X POST http://localhost:8011/agents/register \
+curl -s -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"agent-aitbc","agent_type":"worker","endpoint":"http://localhost:9997","capabilities":["marketplace","messaging"]}'
+  -d '{"agent_id":"agent-aitbc","agent_type":"worker","capabilities":["marketplace","messaging"],"services":["task-execution"],"endpoints":{"http":"http://localhost:9997"}}'
 ```
 
 **Result:** `{"status":"success","message":"Agent X registered successfully",...}`
 
-**API Endpoint:** `POST http://localhost:8011/agents/register`
+**API Endpoint:** `POST http://localhost:8107/v1/agents/register`
 
 #### List Agents
+There is no `GET /agents` collection route. Use discovery with a filter body:
 ```bash
-curl -s http://localhost:8011/agents
+curl -s -X POST http://localhost:8107/v1/agents/discover \
+  -H "Content-Type: application/json" -d '{}'
 ```
 
 #### Get Agent Details
 ```bash
-curl -s http://localhost:8011/agents/{agent_id}
+curl -s http://localhost:8107/v1/agents/{agent_id}
 ```
 
 ---
 
 ### 4. Wallet API Operations
 
-Wallet daemon runs on port 8015 (localhost only).
+Wallet daemon runs on port 8108 (localhost only).
 
 #### List Wallets
 ```bash
-curl -s http://localhost:8015/wallets
+curl -s http://localhost:8108/wallets
 ```
 
 #### Get Wallet Balance
 ```bash
-curl -s http://localhost:8015/wallets/{wallet_name}/balance
+curl -s http://localhost:8108/wallets/{wallet_name}/balance
 ```
 
 #### Create Wallet
 ```bash
-curl -s -X POST http://localhost:8015/wallets \
+curl -s -X POST http://localhost:8108/wallets \
   -H "Content-Type: application/json" \
   -d '{
     "name": "<wallet_name>",
@@ -215,8 +223,8 @@ curl -s -X POST http://localhost:8015/wallets \
 
 ### Key URLs (Use Hostname, NOT IP):
 - **aitbc1 Marketplace:** `http://aitbc1:8102` (NOT `10.1.223.93:8102`)
-- **aitbc1 Coordinator:** `http://aitbc1:8011`
-- **aitbc1 Blockchain:** `http://aitbc1:8006`
+- **aitbc1 Coordinator:** `http://aitbc1:8203`
+- **aitbc1 Blockchain:** `http://aitbc1:8202`
 - **Redis (Cross-node Agent Discovery):** `10.1.223.93:6379`
 
 ### Verified Cross-Node Operations:
@@ -234,11 +242,11 @@ curl -s -X POST http://localhost:8015/wallets \
 systemctl list-units --type=service --state=running | grep aitbc
 
 # Health checks
-curl -s http://localhost:8006/health | jq .  # Blockchain node
-curl -s http://localhost:8011/health | jq .  # Coordinator
+curl -s http://localhost:8202/health | jq .  # Blockchain node
+curl -s http://localhost:8203/health | jq .  # Coordinator
 curl -s http://localhost:8102/health | jq .  # Marketplace
-curl -s http://localhost:8015/health | jq .  # Wallet daemon
-curl -s http://localhost:8001/health | jq .  # Exchange
+curl -s http://localhost:8108/health | jq .  # Wallet daemon
+curl -s http://localhost:8106/health | jq .  # Exchange
 ```
 
 ### Verify User Claims (Mandatory)
@@ -269,7 +277,7 @@ cd /opt/aitbc && ./aitbc-cli marketplace --help
 
 ### 2. Agent Registration Required
 **Error:** `Invalid agent credentials` or `INVALID_AGENT`
-**Fix:** Register agent first via `POST http://localhost:8011/agents/register`
+**Fix:** Register agent first via `POST http://localhost:8107/v1/agents/register`
 
 ### 3. Service Restart Required After Code Changes
 **Error:** New routes or endpoints return 404 after git pull
@@ -298,9 +306,9 @@ cd /opt/aitbc && ./aitbc-cli marketplace --help
 ### 9. Port Confusion
 **Error:** Calling wrong service
 **Fix:** See Port Reference table above. Common mistakes:
-- Coordinator is 8011 (not 9001)
-- Wallet is 8015 (separate from blockchain 8006)
-- Exchange is 8001 (localhost only)
+- Coordinator is 8203 (not 9001)
+- Wallet is 8108 (separate from blockchain 8202)
+- Exchange is 8106 (localhost only)
 
 ### 10. Double /v1 Prefix
 **Error:** Routes return 404 with /v1/v1/ prefix
@@ -315,11 +323,11 @@ cd /opt/aitbc && ./aitbc-cli marketplace --help
 Before using this skill, verify:
 - [ ] AITBC repo cloned: `ls /opt/aitbc`
 - [ ] Marketplace running: `curl -s http://localhost:8102/health`
-- [ ] Coordinator accessible: `curl -s http://localhost:8011/health`
-- [ ] Blockchain RPC accessible: `curl -s http://localhost:8006/health`
-- [ ] Wallet daemon accessible: `curl -s http://localhost:8015/health`
+- [ ] Coordinator accessible: `curl -s http://localhost:8203/health`
+- [ ] Blockchain RPC accessible: `curl -s http://localhost:8202/health`
+- [ ] Wallet daemon accessible: `curl -s http://localhost:8108/health`
 - [ ] Can list offers via API: `curl -s http://localhost:8102/v1/marketplace/offers`
-- [ ] Can register agent via API: `curl -s -X POST http://localhost:8011/agents/register`
+- [ ] Can register agent via API: `curl -s -X POST http://localhost:8107/v1/agents/register`
 
 ---
 
@@ -355,15 +363,15 @@ curl http://localhost:8102/v1/marketplace/bids
 curl http://localhost:8102/v1/marketplace/orders
 
 # MESSAGES (API)
-curl http://localhost:8006/topics
-curl -X POST http://localhost:8006/topics -H "Content-Type: application/json" -d '{"title":"...","content":"..."}'
+curl http://localhost:8202/topics
+curl -X POST http://localhost:8202/topics -H "Content-Type: application/json" -d '{"title":"...","content":"..."}'
 
 # AGENT REGISTER (API)
-curl -X POST http://localhost:8011/agents/register -H "Content-Type: application/json" -d '{"agent_id":"...","agent_type":"worker","endpoint":"...","capabilities":["marketplace","messaging"]}'
+curl -X POST http://localhost:8107/v1/agents/register -H "Content-Type: application/json" -d '{"agent_id":"...","agent_type":"worker","capabilities":["marketplace","messaging"],"services":["task-execution"],"endpoints":{"http":"..."}}'
 
 # WALLET OPS (API)
-curl http://localhost:8015/wallets
-curl http://localhost:8015/wallets/{name}/balance
+curl http://localhost:8108/wallets
+curl http://localhost:8108/wallets/{name}/balance
 ```
 
 **Note:** For CLI commands, use `./aitbc-cli`. See aitbc-cli.md skill.

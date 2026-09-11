@@ -29,8 +29,8 @@ class TestTradingSettings:
         from trading_service.config import Settings
 
         s = Settings()
-        assert s.blockchain_rpc_url == "http://localhost:8202"
-        assert s.bridge_rpc_url == "http://localhost:8202"
+        assert s.blockchain_rpc_url == "http://127.0.0.1:8202"
+        assert s.bridge_rpc_url == "http://127.0.0.1:8202"
         assert s.default_chain_id == "ait-hub"
         assert s.matching_enabled is True
         assert s.execution_timeout == 300

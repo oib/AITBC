@@ -59,7 +59,7 @@ Register agents on multiple nodes for distributed task distribution:
 
 ```bash
 # Register agent on node1
-curl -X POST http://node1:8107/agents/register \
+curl -X POST http://node1:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "node1-worker",
@@ -69,7 +69,7 @@ curl -X POST http://node1:8107/agents/register \
   }'
 
 # Register agent on node2
-curl -X POST http://node2:8107/agents/register \
+curl -X POST http://node2:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "node2-worker",

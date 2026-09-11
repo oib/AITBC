@@ -38,9 +38,9 @@ If behind a NAT, configure port forwarding:
 - External port 7070 → Internal IP:7070 (P2P)
 - External port 8202 → Internal IP:8202 (RPC)
 - External port 8203 → Internal IP:8203 (Coordinator API)
-- External port 8001 → Internal IP:8001 (Exchange)
+- External port 8106 → Internal IP:8106 (Exchange)
 - External port 8102 → Internal IP:8102 (Marketplace)
-- External port 8015 → Internal IP:8015 (Wallet)
+- External port 8108 → Internal IP:8108 (Wallet)
 
 ## Federated Mesh Architecture
 

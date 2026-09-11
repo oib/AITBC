@@ -2,8 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-08-13
-**Version**: 9.0 (post-boilerplate cleanup)
+**Last Updated**: 2026-09-11
 
 ---
 
@@ -14,7 +13,6 @@ docs/
 ├── agent/
 ├── agent-coordinator/
 ├── agent-sdk/
-├── agents/
 ├── api/
 ├── apps/
 ├── architecture/
@@ -32,13 +30,12 @@ docs/
 ├── getting-started/
 ├── governance/
 ├── infrastructure/
+├── LIVE_VALIDATION_DAYS/
 ├── marketplace/
 ├── meta/
 ├── mining/
-├── openapi/
-├── operations/
+├── ops/
 ├── reference/
-├── release/
 ├── releases/
 ├── scenarios/
 ├── security/
@@ -47,57 +44,56 @@ docs/
 ├── ui/
 ├── web/
 ├── CHANGELOG.md
+├── CONTRIBUTING.md
+├── DESIGN_CYCLE.md
 ├── FEATURES.md
+├── fleet-roles.md
 ├── GLOSSARY.md
+├── LIVE_VALIDATION_SUMMARY.md
 ├── MASTER_INDEX.md
 ├── QUICK_REFERENCE.md
 ├── README.md
-├── registry-id-allocation.md
-├── rule-ledger.yaml
 ├── support.md
 └── TYPE_CHECKING.md
 ```
 
 ## Directory stats
 
-- **Top-level directories**: 35
-- **Markdown files under docs/**: 938
+- **Top-level directories**: 33
+- **Markdown files under docs/**: 882
 
 | Directory | Files | Description |
 |---|---|---|
-| [agent](agent/) | 17 | Single agent integration and coordination |
-| [agent-coordinator](agent-coordinator/) | 21 | Agent coordinator service and API docs |
+| [agent](agent/) | 10 | Single agent integration and coordination |
+| [agent-coordinator](agent-coordinator/) | 20 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 14 | Agent SDK and communication guide |
-| [agents](agents/) | 19 | Agent documentation and integration assets |
-| [api](api/) | 9 | API integration and usage docs |
-| [apps](apps/) | 51 | Application catalog and per-app landing pages |
-| [architecture](architecture/) | 19 | System architecture and design patterns |
-| [archive](archive/) | 11 | Historical documents and archive |
+| [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
+| [apps](apps/) | 34 | Application catalog and per-app landing pages |
+| [architecture](architecture/) | 16 | System architecture and design patterns |
+| [archive](archive/) | 25 | Historical documents and archive |
 | [audit](audit/) | 1 | Documentation audit and refresh status |
-| [blockchain](blockchain/) | 18 | Blockchain node, consensus, networking |
-| [ci-cd](ci-cd/) | 3 | CI/CD pipeline and operations |
-| [cli](cli/) | 7 | Command-line interface reference |
-| [contracts](contracts/) | 12 | Smart contract and ZK verification docs |
-| [database](database/) | 6 | Database schema, RLS, and migration docs |
-| [deployment](deployment/) | 25 | Deployment and infrastructure setup |
+| [blockchain](blockchain/) | 17 | Blockchain node, consensus, networking |
+| [ci-cd](ci-cd/) | 2 | CI/CD pipeline and operations |
+| [cli](cli/) | 5 | Command-line interface reference |
+| [contracts](contracts/) | 13 | Smart contract and ZK verification docs |
+| [database](database/) | 5 | Database schema, RLS, and migration docs |
+| [deployment](deployment/) | 16 | Deployment and infrastructure setup |
 | [design](design/) | 1 | Design documents and decisions |
-| [development](development/) | 27 | Developer guides and workflow |
-| [features](features/) | 92 | Feature specifications and deep dives |
-| [getting-started](getting-started/) | 32 | New-user onboarding and setup |
+| [development](development/) | 31 | Developer guides and workflow |
+| [features](features/) | 91 | Feature specifications and deep dives |
+| [getting-started](getting-started/) | 31 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
-| [infrastructure](infrastructure/) | 12 | Infrastructure and migration docs |
+| [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
+| [LIVE_VALIDATION_DAYS](LIVE_VALIDATION_DAYS/) | 19 | Per-day live validation logs for the public hub |
 | [marketplace](marketplace/) | 27 | Marketplace, exchange, and trading docs |
-| [meta](meta/) | 20 | Documentation standards, template, and compliance |
+| [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [openapi](openapi/) | 0 | OpenAPI specs (code-generated, not narrative) |
-| [operations](operations/) | 20 | Operations, runbooks, and monitoring |
+| [ops](ops/) | 1 | Operational runbooks and key handling |
 | [reference](reference/) | 18 | Quick lookup: ports, glossary, FAQ |
-| [release](release/) | 3 | Current release planning docs |
-| [releases](releases/) | 322 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 37 | End-to-end usage scenarios |
-| [security](security/) | 44 | Security architecture and audits |
-| [specs](specs/) | 21 | Feature and epic specifications |
-| [testing](testing/) | 8 | Test suite and validation documentation |
+| [releases](releases/) | 314 | Release notes, changelogs, and status |
+| [scenarios](scenarios/) | 56 | End-to-end usage scenarios |
+| [security](security/) | 42 | Security architecture and audits |
+| [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
 | [ui](ui/) | 1 | User interface documentation |
 | [web](web/) | 1 | Website and rendered docs assets |
@@ -114,4 +110,5 @@ docs/
 
 ---
 
-*This index is auto-generated from the current docs/ tree after the boilerplate cleanup.*
+*Generated by `scripts/docs/gen_master_index.py`. Do not edit by hand —
+re-run the generator instead. Directory descriptions live in that script.*

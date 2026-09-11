@@ -6,8 +6,13 @@
 ## Base URL
 
 ```
-http://localhost:8107
+http://localhost:8107/api/v1/agent/messages
 ```
+
+Peer routes are defined inside the message router
+(`routers/messages.py`), so they inherit its `/api/v1/agent/messages` prefix
+rather than being mounted under `/v1`. Endpoint paths below are relative to this
+base URL.
 
 ## Peer Management API
 
@@ -45,7 +50,7 @@ Add a peer connection for an agent.
 **Example:**
 
 ```bash
-curl -X POST "http://localhost:8107/peers/add?agent_id=agent-1&peer_id=agent-2"
+curl -X POST "http://localhost:8107/api/v1/agent/messages/peers/add?agent_id=agent-1&peer_id=agent-2"
 ```
 
 ### Remove Peer Connection
@@ -82,7 +87,7 @@ Remove a peer connection for an agent.
 **Example:**
 
 ```bash
-curl -X POST "http://localhost:8107/peers/remove?agent_id=agent-1&peer_id=agent-2"
+curl -X POST "http://localhost:8107/api/v1/agent/messages/peers/remove?agent_id=agent-1&peer_id=agent-2"
 ```
 
 ### Get Agent Peers
@@ -118,7 +123,7 @@ Get all peers for a specific agent.
 **Example:**
 
 ```bash
-curl http://localhost:8107/peers/agent-1
+curl http://localhost:8107/api/v1/agent/messages/peers/agent-1
 ```
 
 ### Get All Peer Connections
@@ -153,7 +158,7 @@ Get all peer connections in the system.
 **Example:**
 
 ```bash
-curl http://localhost:8107/peers
+curl http://localhost:8107/api/v1/agent/messages/peers
 ```
 
 ## Related Topics

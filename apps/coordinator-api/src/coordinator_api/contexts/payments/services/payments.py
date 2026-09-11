@@ -92,7 +92,7 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = 
             )
             raise HTTPException(
                 status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                detail=f"Could not read native energy inputs: {exc}",
+                detail="Could not read native energy inputs; refusing protected funding",
             ) from exc
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
@@ -120,7 +120,7 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = 
         )
         raise HTTPException(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-            detail=f"Could not read authoritative energy inputs: {exc}",
+            detail="Could not read authoritative energy inputs; refusing protected funding",
         ) from exc
 
 

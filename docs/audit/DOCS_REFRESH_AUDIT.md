@@ -1,8 +1,21 @@
-# AITBC Documentation Refresh Audit
+# AITBC Documentation Refresh Audit (closed)
 
-**Last Updated:** 2026-08-14
-**Version:** 1.0
-**Baseline:** `main` at the current checkout
+**Status:** Closed — completed 2026-09-11.
+**Findings as of:** 2026-08-14. **Version:** 1.0
+**Baseline:** `main` as it stood on 2026-08-14.
+
+> This is a historical record of the August 2026 docs refresh, not current state.
+> Every finding below describes the tree as it was on 2026-08-14; file paths,
+> counts, and the link-checker baseline in it are all superseded. For the current
+> catalog see [MASTER_INDEX.md](../MASTER_INDEX.md), and for live component status
+> see [releases/STATUS.md](../releases/STATUS.md).
+>
+> **Outcome:** the main finding — 17 apps with no docs — is resolved; `docs/apps/`
+> now covers them. The port drift it identified was closed out on 2026-09-11 across
+> five files, along with eight further contradictions in `deployment/DEPENDENCIES.md`,
+> `deployment/NETWORK_POLICY.md`, and `testing/e2e-test-environment.md` that this
+> audit had not caught. Link validation and `MASTER_INDEX.md` drift are now enforced
+> by CI rather than tracked by hand here.
 
 ## Scope
 
@@ -91,7 +104,9 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 3. **Continuous validation**:
    - Re-run `bash scripts/validate_docs.sh` after every slice.
    - Run `npx markdownlint-cli docs/` on touched directories.
-   - Keep this audit updated as remediation completes.
+
+   *(Superseded: link validation and `MASTER_INDEX.md` drift now run as CI steps
+   on every PR, so they no longer need tracking in this document.)*
 
 ## Current baseline (post-cleanup, 2026-08-14)
 
@@ -121,5 +136,5 @@ Authoritative ports are in `docs/reference/SERVICE_PORTS.md`. Docs frequently re
 - [x] Whole `docs/` tree is markdownlint-clean.
 - [x] Internal `.md` links are valid.
 - [x] Root boilerplate removed from `.gitignore`, `.github/pull_request_template.md`, `.github/WORKFLOW_PATTERNS.md`, and `.github/scripts/check-skills-parity.sh`.
-- [~] Service-port single source of truth refreshed; remaining reconciliations tracked above.
+- [x] Service-port single source of truth refreshed (closed 2026-09-11; all port tables in current docs now agree with `reference/SERVICE_PORTS.md`).
 - [~] Some stale current docs archived; remaining hits are predominantly design/spec language and a few port tables.

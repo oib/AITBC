@@ -254,7 +254,7 @@ CREATE TABLE transaction (
 
 - [AIT Value Model](./ait-value-model.md) - AIT pricing and economic model
 - [Blockchain Architecture](../architecture/4_blockchain-node.md) - Technical implementation
-- [v0.24.0 Release Notes](../releases/v0.24.0/change.log) - Hard fork details
+- [v0.24.0 Release Notes](../releases/v0.24/v0.24.0_change.log) - Hard fork details
 
 ---
 
