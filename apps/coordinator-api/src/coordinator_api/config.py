@@ -58,7 +58,7 @@ class Settings(BaseAITBCConfig):
 
     # Override defaults for coordinator-api
     app_name: str = Field(default="AITBC Coordinator API", description="Application name")
-    app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     port: int = Field(default=8203, description="Server port")
     environment: str = Field(default="development", description="Environment")
     fhe_allow_mock: bool | None = Field(

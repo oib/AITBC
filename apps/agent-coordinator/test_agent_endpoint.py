@@ -89,4 +89,4 @@ async def execute_task(task: TaskMessage):
 
 if __name__ == "__main__":
     print("Starting test agent endpoint on port 9997...")
-    uvicorn.run(app, host="0.0.0.0", port=9997, log_level="info")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. AITBC runs no firewall, so this default is an accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    uvicorn.run(app, host="0.0.0.0", port=9997, log_level="info")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
