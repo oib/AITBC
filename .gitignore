@@ -341,6 +341,14 @@ scripts/deployment/*
 !scripts/deployment/unify_service_users.sh
 !scripts/deployment/aitbc-logrotate.conf
 !scripts/deployment/init_proposer.py
+# The deployment-target configuration shared by scripts/deployment/deploy/*.sh.
+# It defines the variables that replaced the hardcoded ssh alias and public
+# hostname those scripts used to carry, so it is the opposite of what this
+# section's blanket ignore guards against. Note that the ignore never protected
+# the repository here: every script under deploy/ was already tracked, so their
+# hardcoded identifiers were public regardless -- the rule only silently drops
+# *new* files, which is how this one needed `git add -f`.
+!scripts/deployment/deploy/deploy-env.sh
 scripts/ops/*
 !scripts/ops/*.sh
 scripts/release/*

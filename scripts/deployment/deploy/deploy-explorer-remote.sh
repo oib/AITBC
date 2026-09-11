@@ -1,10 +1,16 @@
 #!/bin/bash
 
-# Deploy blockchain explorer directly on ns3 server
+# Deploy blockchain explorer directly on the deployment server
 
 set -e
 
-echo "🔍 Deploying Blockchain Explorer on ns3"
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+# Runs on the deployment server itself, so AITBC_PUBLIC_HOST is optional here --
+# it only decorates the closing summary.
+
+
+echo "🔍 Deploying Blockchain Explorer on the deployment server"
 echo "======================================"
 
 # Colors
@@ -22,7 +28,7 @@ print_warning() {
 
 # Check if we're on the right server
 if [ "$(hostname)" != "ns3" ] && [ "$(hostname)" != "aitbc" ]; then
-    print_warning "This script should be run on ns3 server"
+    print_warning "This script should be run on the deployment server"
     exit 1
 fi
 
@@ -389,10 +395,8 @@ systemctl status nginx --no-pager | head -10
 print_success "✅ Blockchain explorer deployed!"
 echo ""
 echo "Explorer URL: http://localhost:3000"
-if [ "$(hostname)" = "aitbc" ]; then
-    echo "External URL: http://aitbc.keisanki.net:3000"
-else
-    echo "External URL: http://aitbc.keisanki.net:3000"
+if [ -n "${AITBC_PUBLIC_HOST:-}" ]; then
+    echo "External URL: http://${AITBC_PUBLIC_HOST}:3000"
 fi
 echo ""
 echo "The explorer is a static HTML site served by nginx."

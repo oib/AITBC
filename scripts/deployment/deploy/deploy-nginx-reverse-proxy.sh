@@ -5,6 +5,13 @@
 
 set -e
 
+# shellcheck source=scripts/deployment/deploy/deploy-env.sh
+source "$(dirname "$0")/deploy-env.sh"
+require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
+require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
+require_deploy_var AITBC_ACME_EMAIL "Set it to the email address to register the certificate with."
+
+
 echo "🚀 Deploying Nginx Reverse Proxy for AITBC"
 echo "=========================================="
 
@@ -26,31 +33,25 @@ print_error() {
     echo -e "${RED}[ERROR]${NC} $1"
 }
 
-# Check if we're on the host server
-if ! grep -q "ns3-root" ~/.ssh/config 2>/dev/null; then
-    print_error "ns3-root SSH configuration not found. Please add it to ~/.ssh/config"
-    exit 1
-fi
-
 # Install nginx on host if not already installed
 print_status "Checking nginx installation on host..."
-ssh ns3-root "which nginx > /dev/null || (apt-get update && apt-get install -y nginx)"
+ssh "$AITBC_SSH_TARGET" "which nginx > /dev/null || (apt-get update && apt-get install -y nginx)"
 
 # Install certbot for SSL certificates
 print_status "Checking certbot installation..."
-ssh ns3-root "which certbot > /dev/null || (apt-get update && apt-get install -y certbot python3-certbot-nginx)"
+ssh "$AITBC_SSH_TARGET" "which certbot > /dev/null || (apt-get update && apt-get install -y certbot python3-certbot-nginx)"
 
 # Copy nginx configuration
 print_status "Copying nginx configuration..."
-scp infra/nginx/nginx-aitbc-reverse-proxy.conf ns3-root:/tmp/aitbc-reverse-proxy.conf
+scp infra/nginx/nginx-aitbc-reverse-proxy.conf ${AITBC_SSH_TARGET}:/tmp/aitbc-reverse-proxy.conf
 
 # Backup existing nginx configuration
 print_status "Backing up existing nginx configuration..."
-ssh ns3-root "mkdir -p /etc/nginx/backup && cp -r /etc/nginx/sites-available/* /etc/nginx/backup/ 2>/dev/null || true"
+ssh "$AITBC_SSH_TARGET" "mkdir -p /etc/nginx/backup && cp -r /etc/nginx/sites-available/* /etc/nginx/backup/ 2>/dev/null || true"
 
 # Install the new configuration
 print_status "Installing nginx reverse proxy configuration..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 # Remove existing configurations
 rm -f /etc/nginx/sites-enabled/default
 rm -f /etc/nginx/sites-available/aitbc*
@@ -67,35 +68,32 @@ EOF
 
 # Check if SSL certificate exists
 print_status "Checking SSL certificate..."
-if ! ssh ns3-root "test -f /etc/letsencrypt/live/aitbc.keisanki.net/fullchain.pem"; then
+if ! ssh "$AITBC_SSH_TARGET" "test -f /etc/letsencrypt/live/${AITBC_PUBLIC_HOST}/fullchain.pem"; then
     print_warning "SSL certificate not found. Obtaining Let's Encrypt certificate..."
 
     # Obtain SSL certificate
-    ssh ns3-root << 'EOF'
-# Stop nginx temporarily
-systemctl stop nginx 2>/dev/null || true
+    CERTBOT_CMD="certbot certonly --standalone \
+        -d ${AITBC_PUBLIC_HOST} -d api.${AITBC_PUBLIC_HOST} -d rpc.${AITBC_PUBLIC_HOST} \
+        --email ${AITBC_ACME_EMAIL} --agree-tos --non-interactive"
 
-# Obtain certificate
-certbot certonly --standalone -d aitbc.keisanki.net -d api.aitbc.keisanki.net -d rpc.aitbc.keisanki.net --email admin@keisanki.net --agree-tos --non-interactive
-
-# Start nginx
-systemctl start nginx
-EOF
+    ssh "$AITBC_SSH_TARGET" "systemctl stop nginx 2>/dev/null || true
+${CERTBOT_CMD}
+systemctl start nginx"
 
     if [ $? -ne 0 ]; then
         print_error "Failed to obtain SSL certificate. Please run certbot manually:"
-        echo "certbot certonly --standalone -d aitbc.keisanki.net -d api.aitbc.keisanki.net -d rpc.aitbc.keisanki.net"
+        echo "${CERTBOT_CMD}"
         exit 1
     fi
 fi
 
 # Restart nginx
 print_status "Restarting nginx..."
-ssh ns3-root "systemctl restart nginx && systemctl enable nginx"
+ssh "$AITBC_SSH_TARGET" "systemctl restart nginx && systemctl enable nginx"
 
 # Remove old iptables rules (optional)
 print_warning "Removing old iptables port forwarding rules (if they exist)..."
-ssh ns3-root << 'EOF'
+ssh "$AITBC_SSH_TARGET" << 'EOF'
 # Flush existing NAT rules for AITBC ports
 iptables -t nat -D PREROUTING -p tcp --dport 8000 -j DNAT --to-destination 192.168.100.10:8000 2>/dev/null || true
 iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8000 -j MASQUERADE 2>/dev/null || true
@@ -120,21 +118,21 @@ print_status "Testing reverse proxy configuration..."
 echo ""
 
 # Test main domain
-if curl -s -o /dev/null -w "%{http_code}" https://aitbc.keisanki.net/health | grep -q "200"; then
-    print_status "✅ Main domain (aitbc.keisanki.net) - OK"
+if curl -s -o /dev/null -w "%{http_code}" https://${AITBC_PUBLIC_HOST}/health | grep -q "200"; then
+    print_status "✅ Main domain (${AITBC_PUBLIC_HOST}) - OK"
 else
-    print_error "❌ Main domain (aitbc.keisanki.net) - FAILED"
+    print_error "❌ Main domain (${AITBC_PUBLIC_HOST}) - FAILED"
 fi
 
 # Test API endpoint
-if curl -s -o /dev/null -w "%{http_code}" https://aitbc.keisanki.net/api/health | grep -q "200"; then
+if curl -s -o /dev/null -w "%{http_code}" https://${AITBC_PUBLIC_HOST}/api/health | grep -q "200"; then
     print_status "✅ API endpoint - OK"
 else
     print_warning "⚠️  API endpoint - Not responding (service may not be running)"
 fi
 
 # Test RPC endpoint
-if curl -s -o /dev/null -w "%{http_code}" https://aitbc.keisanki.net/rpc/head | grep -q "200"; then
+if curl -s -o /dev/null -w "%{http_code}" https://${AITBC_PUBLIC_HOST}/rpc/head | grep -q "200"; then
     print_status "✅ RPC endpoint - OK"
 else
     print_warning "⚠️  RPC endpoint - Not responding (blockchain node may not be running)"
@@ -144,14 +142,14 @@ echo ""
 print_status "🎉 Nginx reverse proxy deployment complete!"
 echo ""
 echo "Service URLs:"
-echo "  • Blockchain Explorer: https://aitbc.keisanki.net"
-echo "  • API: https://aitbc.keisanki.net/api/"
-echo "  • RPC: https://aitbc.keisanki.net/rpc/"
-echo "  • Exchange: https://aitbc.keisanki.net/exchange/"
+echo "  • Blockchain Explorer: https://${AITBC_PUBLIC_HOST}"
+echo "  • API: https://${AITBC_PUBLIC_HOST}/api/"
+echo "  • RPC: https://${AITBC_PUBLIC_HOST}/rpc/"
+echo "  • Exchange: https://${AITBC_PUBLIC_HOST}/exchange/"
 echo ""
 echo "Alternative URLs:"
-echo "  • API-only: https://api.aitbc.keisanki.net"
-echo "  • RPC-only: https://rpc.aitbc.keisanki.net"
+echo "  • API-only: https://api.${AITBC_PUBLIC_HOST}"
+echo "  • RPC-only: https://rpc.${AITBC_PUBLIC_HOST}"
 echo ""
 echo "Note: Make sure all services are running in the container:"
 echo "  • blockchain-explorer.service (port 3000)"
