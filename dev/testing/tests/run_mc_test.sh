@@ -27,7 +27,7 @@ sleep 3
 
 echo ""
 echo "4. Checking head of ait-testnet on aitbc (Primary):"
-ssh aitbc-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-testnet\" | jq ."
+ssh "${CONTAINER_SSH:?set CONTAINER_SSH to the ssh target for the aitbc container}" "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-testnet\" | jq ."
 
 echo ""
 echo "5. Checking head of ait-testnet on ${NODE1_HOST} (Secondary):"
@@ -35,4 +35,4 @@ ssh ${NODE1_CONTAINER_SSH} "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ai
 
 echo ""
 echo "6. Checking head of ait-devnet on aitbc (Should be 0 if no txs since genesis fixed):"
-ssh aitbc-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-devnet\" | jq ."
+ssh "${CONTAINER_SSH:?set CONTAINER_SSH to the ssh target for the aitbc container}" "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-devnet\" | jq ."
