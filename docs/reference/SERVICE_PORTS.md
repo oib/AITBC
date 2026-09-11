@@ -93,6 +93,21 @@ The daemon writes these into the IPFS config itself
 (`apps/ipfs/island_ipfs_daemon.py`). Swarm binds all interfaces by design -- it
 needs inbound peers -- and also listens on UDP 4002 for QUIC.
 
+Binding `0.0.0.0` is not enough on its own. A node behind NAT or a container
+port-forward only sees its own private address, so with `Addresses.Announce`
+empty it advertises an address no outside peer can dial. Set
+`ISLAND_IPFS_ANNOUNCE` to the multiaddr peers actually reach, and
+`ISLAND_IPFS_BOOTSTRAP` to the peers this node should dial -- both accept a
+comma-separated list, and both belong in `/etc/aitbc/aitbc-island-ipfs.env`
+rather than in the unit, since the value is per host:
+
+```
+ISLAND_IPFS_ANNOUNCE=/ip4/<public-ip>/tcp/4002
+ISLAND_IPFS_BOOTSTRAP=/ip4/<peer-public-ip>/tcp/4002/p2p/<peer-id>
+```
+
+Leave both empty for a node whose swarm address is already directly reachable.
+
 ## Services without a listening port
 
 | Service | Notes |
