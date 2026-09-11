@@ -1,13 +1,13 @@
 # AITBC systemd services
 
 > **Last Updated:** 2026-09-01
-> **Scope:** Live service inventory on hub (`hub.aitbc`) and shop/follower (`aitbc3`) nodes. For authoritative port numbers, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+> **Scope:** Service inventory by node role -- hub and shop/follower. For authoritative port numbers, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
 AITBC runs as a set of `systemd` units. Service startup, stop, restart, and health checks are performed with `systemctl` and `journalctl`; there are no `aitbc <service> start` CLI commands.
 
 ## Service inventory
 
-The exact units installed vary by node role. The hub runs the coordinator, customer-facing services and block production; the customer node is `node0`. The shop/follower runs the miner, pool hub, GPU and island services. A typical follower/customer replica (e.g. `hub1.aitbc`, formerly `hub2.aitbc`) runs a subset of the hub's blockchain services.
+The exact units installed vary by node role. The hub runs the coordinator, customer-facing services and block production. The shop/follower runs the miner, pool hub, GPU and island services. A follower/customer replica runs a subset of the hub's blockchain services. Which host holds which role is deployment-specific and is not recorded here.
 
 ### Core blockchain services (all node types)
 
@@ -19,7 +19,7 @@ The exact units installed vary by node role. The hub runs the coordinator, custo
 
 On the hub an additional `aitbc-blockchain-p2p.service` may run the gossip relay for followers. Followers do **not** run `aitbc-blockchain-p2p`; they subscribe to the hub via the RPC WebSocket.
 
-### Hub services (`hub.aitbc`)
+### Hub services
 
 | Unit | Purpose | Port | Health |
 |------|---------|------|--------|
@@ -35,7 +35,7 @@ On the hub an additional `aitbc-blockchain-p2p.service` may run the gossip relay
 | `aitbc-blockchain-event-bridge.service` | Blockchain event streaming | 8205 | `curl -s http://localhost:8205/health` |
 | `aitbc-bridge-monitor.service` | Bridge validator monitoring | — | `journalctl -u aitbc-bridge-monitor` |
 
-### Shop / island services (`aitbc3`)
+### Shop / island services
 
 | Unit | Purpose | Port | Health |
 |------|---------|------|--------|

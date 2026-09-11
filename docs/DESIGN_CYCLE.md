@@ -38,7 +38,7 @@ That is the cycle the software design should close. Everything else (bridge, exc
 
 ## 2. What works today (live, 2026-08-20/21)
 
-Proven on the two live nodes (see `LIVE_VALIDATION_SUMMARY.md` and scenario 34):
+Proven on the two live nodes (see the IDE-local `LIVE_VALIDATION_SUMMARY.md` and scenario 34):
 
 1. **Wallets.** `aitbc wallet create/list/balance/send/stake`. File wallets and daemon wallets merge in `wallet list`.
 2. **Chain.** Hub produces blocks (PoA). Shop follows over P2P (`aitbc-blockchain-p2p`). After a fork at height 6815, shop was reset and heads match.
