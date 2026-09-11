@@ -6,6 +6,14 @@
 set -euo pipefail
 
 # Source scenario configuration
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
@@ -41,11 +49,14 @@ else
 fi
 
 # Create nginx configuration for AITBC load balancing
-cat > /etc/nginx/sites-available/aitbc-loadbalancer << 'EOF'
+# The heredoc below is deliberately unquoted so NODE1_HOST and
+# BLOCKCHAIN_RPC_PORT are resolved as the file is written. nginx's own
+# runtime variables are escaped, so they reach the file intact.
+cat > /etc/nginx/sites-available/aitbc-loadbalancer << EOF
 # AITBC Load Balancer Configuration
 upstream aitbc_backend {
     server 127.0.0.1:${BLOCKCHAIN_RPC_PORT:-8202} weight=1 max_fails=3 fail_timeout=30s;
-    server 10.1.223.40:${BLOCKCHAIN_RPC_PORT:-8202} weight=1 max_fails=3 fail_timeout=30s;
+    server ${NODE1_HOST}:${BLOCKCHAIN_RPC_PORT:-8202} weight=1 max_fails=3 fail_timeout=30s;
 }
 
 server {
@@ -62,10 +73,10 @@ server {
     # Load balanced RPC endpoints
     location /rpc/ {
         proxy_pass http://aitbc_backend;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
 
         # Timeout settings
         proxy_connect_timeout 5s;
@@ -79,10 +90,10 @@ server {
     # Default route to RPC
     location / {
         proxy_pass http://aitbc_backend/rpc/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
 
         # Timeout settings
         proxy_connect_timeout 5s;
@@ -95,7 +106,7 @@ server {
         stub_status on;
         access_log off;
         allow 127.0.0.1;
-        allow 10.1.223.0/24;
+        allow ${AITBC_FLEET_CIDR:-127.0.0.1/32};
         deny all;
     }
 }
@@ -116,7 +127,9 @@ echo "========================"
 # Create cluster configuration
 mkdir -p /opt/aitbc/cluster
 
-cat > /opt/aitbc/cluster/cluster.conf << 'EOF'
+# Unquoted heredoc: the node address is resolved as the file is written.
+# Anything else that looks like a variable is escaped so it survives verbatim.
+cat > /opt/aitbc/cluster/cluster.conf << EOF
 # AITBC Cluster Configuration
 cluster_name: "aitbc-mainnet"
 cluster_id: "aitbc-cluster-001"
@@ -132,7 +145,7 @@ nodes:
 
   - name: "aitbc2"
     role: "follower"
-    host: "10.1.223.40"
+    host: "${NODE1_HOST}"
     port: 8202
     p2p_port: 8200
     priority: 50
@@ -276,7 +289,9 @@ echo "4. 🔥 SERVICE DISCOVERY"
 echo "===================="
 
 # Create service discovery configuration
-cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
+# Unquoted heredoc: the node address is resolved as the file is written.
+# Anything else that looks like a variable is escaped so it survives verbatim.
+cat > /opt/aitbc/cluster/service_discovery.json << EOF
 {
   "services": {
     "aitbc-blockchain": {
@@ -294,7 +309,7 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
         },
         {
           "id": "aitbc2",
-          "host": "10.1.223.40",
+          "host": "${NODE1_HOST}",
           "port": 8202,
           "role": "follower",
           "status": "active"
@@ -314,7 +329,7 @@ cat > /opt/aitbc/cluster/service_discovery.json << 'EOF'
         },
         {
           "id": "aitbc2",
-          "host": "10.1.223.40",
+          "host": "${NODE1_HOST}",
           "port": 8200,
           "role": "peer"
         }

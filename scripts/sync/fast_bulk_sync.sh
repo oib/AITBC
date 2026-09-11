@@ -2,7 +2,15 @@
 
 # Fast AITBC Bulk Sync - Optimized for large sync differences
 
-GENESIS_NODE="10.1.223.40"
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
+GENESIS_NODE="${NODE1_HOST}"
 GENESIS_PORT="8006"
 LOCAL_PORT="8006"
 MAX_SYNC_DIFF=100

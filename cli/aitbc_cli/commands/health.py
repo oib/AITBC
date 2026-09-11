@@ -86,7 +86,7 @@ def _probe_url(url: str, timeout: float) -> dict[str, Any]:
 
   aitbc health --host node2.aitbc.bubuit.net
 
-  aitbc health --host 10.1.223.136 --services blockchain-rpc,edge
+  aitbc health --host 198.51.100.20 --services blockchain-rpc,edge
 
   aitbc health --host https://hub.aitbc.bubuit.net"""
 )

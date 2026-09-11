@@ -7,6 +7,15 @@ set -euo pipefail
 set -e  # Exit on any error
 
 # Source scenario configuration
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 if [ -f "/etc/aitbc/.env.scenario" ]; then
     source /etc/aitbc/.env.scenario
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
@@ -28,8 +37,8 @@ echo "📈 Session 4.3: Advanced Economic Modeling"
 GENESIS_NODE="aitbc"
 FOLLOWER_NODE="aitbc1"
 LOCAL_RPC="http://localhost:8202"
-GENESIS_RPC="http://10.1.223.93:8202"
-FOLLOWER_RPC="http://10.1.223.40:8202"
+GENESIS_RPC="http://${NODE0_HOST}:8202"
+FOLLOWER_RPC="http://${NODE1_HOST}:8202"
 WALLET_PASSWORD="123"
 
 # Colors for output

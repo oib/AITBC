@@ -5,12 +5,21 @@
 
 set -e
 
+
+# Fleet node addresses.
+#
+# These were hardcoded to one island's private subnet, which made the script
+# useless anywhere else and put internal addressing in a public repository.
+# Set them for your own deployment; there is deliberately no default.
+NODE0_HOST="${AITBC_NODE0_HOST:?set AITBC_NODE0_HOST to the address of node0}"
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 echo "=== PHASE 2: NETWORK INFRASTRUCTURE SETUP ==="
 
 # Configuration
 NETWORK_DIR="/opt/aitbc/apps/blockchain-node/src/aitbc_chain/network"
 TEST_NODES=("node1" "node2" "node3" "node4" "node5")
-BOOTSTRAP_NODES=("10.1.223.93:8000" "10.1.223.40:8000")
+BOOTSTRAP_NODES=("${NODE0_HOST}:8000" "${NODE1_HOST}:8000")
 
 # Colors for output
 RED='\033[0;31m'
@@ -2433,14 +2442,16 @@ setup_test_network() {
     log_info "Setting up network infrastructure test environment..."
 
     # Create test network configuration
-    cat > "/opt/aitbc/config/network_test.json" << 'EOF'
+# Unquoted heredoc: the node address is resolved as the file is written.
+# Anything else that looks like a variable is escaped so it survives verbatim.
+    cat > "/opt/aitbc/config/network_test.json" << EOF
 {
     "network_name": "network-test",
     "discovery": {
         "bootstrap_nodes": [
-            "10.1.223.93:8000",
-            "10.1.223.40:8000",
-            "10.1.223.93:8001"
+            "${NODE0_HOST}:8000",
+            "${NODE1_HOST}:8000",
+            "${NODE0_HOST}:8001"
         ],
         "discovery_interval": 30,
         "peer_timeout": 300,

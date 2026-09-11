@@ -13,7 +13,9 @@
 set -euo pipefail
 
 # No default. A deploy target is a decision, not a fallback.
-SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER (e.g. root@10.1.223.93) — there is no default target}"
+
+
+SERVER="${AITBC_DEPLOY_SERVER:?set AITBC_DEPLOY_SERVER (e.g. root@host.example.net) — there is no default target}"
 PROJECT_DIR="${AITBC_DEPLOY_PROJECT_DIR:-/opt/aitbc}"
 STAGING_DIR="${PROJECT_DIR}.incoming"
 PREVIOUS_DIR="${PROJECT_DIR}.previous"
@@ -190,11 +192,14 @@ echo ""
 print_status "✅ Deployment complete!"
 echo ""
 echo "📋 Service URLs:"
-echo "  🌐 Server IP: 10.1.223.93"
-echo "  💱 Exchange:        http://10.1.223.93/exchange/"
-echo "  📊 Marketplace:     http://10.1.223.93/marketplace/"
-echo "  🔗 API:             http://10.1.223.93/api/"
-echo "  ⛓️  Blockchain RPC:  http://10.1.223.93/rpc/"
+# The summary describes the host just deployed to, so derive it from SERVER
+# rather than carrying a second copy of the address.
+SERVER_HOST="${SERVER##*@}"
+echo "  🌐 Server: ${SERVER_HOST}"
+echo "  💱 Exchange:        http://${SERVER_HOST}/exchange/"
+echo "  📊 Marketplace:     http://${SERVER_HOST}/marketplace/"
+echo "  🔗 API:             http://${SERVER_HOST}/api/"
+echo "  ⛓️  Blockchain RPC:  http://${SERVER_HOST}/rpc/"
 echo ""
 echo "🔒 Domain URLs (with SSL):"
 echo "  💱 Exchange:        https://aitbc.bubuit.net/exchange"

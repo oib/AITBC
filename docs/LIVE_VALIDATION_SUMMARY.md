@@ -33,7 +33,7 @@ To add a new day, create `LIVE_VALIDATION_DAYS/YYYY-MM-DD.md`.
 - Discovered and fixed a nonce-reuse bug when multiple `BOND_SLASH` transactions are submitted before the next block is mined:
   - `BondSlashingService._get_nonce` now uses a module-level `_slash_nonce` counter protected by `asyncio.Lock`.
   - Fix committed/pushed as `15d41decc` on gitea `main`, pulled to `hub.aitbc`, and `aitbc-coordinator-api` restarted.
-- `node1` (`aitbc1`, `10.1.223.40`) brought back online: confirmed follower mode, replaced the locally-ahead `chain.db` with a hub snapshot, fast-forwarded to gitea `main` (`15d41decc`), and synced to matching head height. Updated OS hostname from `aitbc1` to `node1` / `node1.aitbc.bubuit.net` and set `NODE_ID=node1`. All four nodes now converge.
+- `node1` (`aitbc1`, `<node1-ip>`) brought back online: confirmed follower mode, replaced the locally-ahead `chain.db` with a hub snapshot, fast-forwarded to gitea `main` (`15d41decc`), and synced to matching head height. Updated OS hostname from `aitbc1` to `node1` / `node1.aitbc.bubuit.net` and set `NODE_ID=node1`. All four nodes now converge.
 
 ## 2026-09-02 (continued) — PBFT mesh fault-tolerance, state-root corruption, and recovery
 

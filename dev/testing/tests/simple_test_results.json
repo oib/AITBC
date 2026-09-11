@@ -32,12 +32,12 @@
       {
         "test": "aitbc marketplace offers",
         "success": true,
-        "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://10.1.223.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
+        "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://198.51.100.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
       },
       {
         "test": "aitbc1 marketplace offers",
         "success": true,
-        "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://10.1.223.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
+        "output": "[{\"id\":\"23d95cb41fe54a118f6a6f644ff8c3b9\",\"provider\":\"at1-localhost\",\"capacity\":16,\"price\":0.25,\"sla\":\"Best-effort (dev node)\",\"status\":\"open\",\"created_at\":\"2026-02-14T15:45:00.620000Z\",\"gpu_model\":\"NVIDIA GeForce RTX 4060 Ti\",\"gpu_memory_gb\":16,\"gpu_count\":1,\"cuda_version\":\"12.6\",\"price_per_hour\":0.25,\"region\":\"EU-AT\",\"attributes\":{\"ollama_host\":\"http://198.51.100.1:11434\",\"models\":[\"gemma3:12b\",\"deepseek-r1:14b\",\"qwen2.5-coder:14b\",\"deepcoder:latest\",\"mistral:latest\",\"llama3.2:3b-instruct-q8_0\"],\"vram_mb\":16380,\"driver\":\"550.163.01\"}}]"
       },
       {
         "test": "aitbc marketplace stats",

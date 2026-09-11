@@ -92,7 +92,9 @@ write_env_database_url() {
 
 # Function to configure PostgreSQL for remote connections
 configure_remote_connections() {
-    local network_cidr=${1:-10.1.223.0/24}
+    # No default: the CIDR allowed to reach PostgreSQL is deployment-specific,
+    # and a wrong guess here opens the database to the wrong network.
+    local network_cidr="${1:?pass the CIDR allowed to connect, e.g. 10.0.0.0/24}"
 
     echo -e "${BLUE}Configuring PostgreSQL for remote connections...${NC}"
 
@@ -218,12 +220,12 @@ echo "Passwords stored in: $CREDENTIALS_DIR/postgres_<user>_password"
 echo ""
 echo "To configure PostgreSQL for remote connections, run:"
 echo "  $0 --remote-configure [network-cidr]"
-echo "  Example: $0 --remote-configure 10.1.223.0/24"
+echo "  Example: $0 --remote-configure 10.0.0.0/24"
 echo ""
 
 # Handle optional remote configuration
 if [[ -n "${1:-}" && "$1" == "--remote-configure" ]]; then
-    network_cidr=${2:-10.1.223.0/24}
+    network_cidr="${2:?pass the CIDR allowed to connect, e.g. 10.0.0.0/24}"
     configure_remote_connections "$network_cidr"
 fi
 true
