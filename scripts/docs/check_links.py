@@ -29,6 +29,7 @@ EXCLUDED_DOC_DIRS = ("docs/archive/",)
 SOURCE_SUFFIXES = frozenset(
     {
         ".py",
+        ".log",
         ".sh",
         ".sol",
         ".circom",
@@ -58,6 +59,7 @@ SOURCE_SUFFIXES = frozenset(
 
 LINK_RE = re.compile(r"(\[[^\]]*\]\()([^)]+)(\))")
 FENCE_RE = re.compile(r"^\s*(```|~~~)")
+INLINE_CODE_RE = re.compile(r"`[^`\n]*`")
 
 
 def strip_code_fences(text: str) -> str:
@@ -90,7 +92,7 @@ def main() -> int:
     checked = 0
 
     for src in scan_files:
-        text = strip_code_fences(src.read_text(errors="ignore"))
+        text = INLINE_CODE_RE.sub("", strip_code_fences(src.read_text(errors="ignore")))
         for m in LINK_RE.finditer(text):
             target = m.group(2).strip()
             base = target.split("#", 1)[0]

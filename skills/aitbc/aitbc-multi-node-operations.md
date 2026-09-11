@@ -29,8 +29,8 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 **Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
-| Blockchain RPC | 8006 | Main blockchain API |
-| Coordinator API | 8011 | Agent registry |
+| Blockchain RPC | 8202 | Main blockchain API |
+| Coordinator API | 8203 | Agent registry |
 | Marketplace | 8102 | Marketplace operations |
 | P2P Network | 7070 | Blockchain peer-to-peer |
 
@@ -147,7 +147,7 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 3. **SSH Connectivity Issues:** Verify SSH keys are configured at `/root/.ssh/` for passwordless access
 4. **Sync Partial Failure:** Identify which node failed and retry individually
 5. **Blockchain Height Mismatch:** Wait for sync to complete after service restart
-6. **Port Mismatches:** Coordinator API is on port 8011 (not 9001)
+6. **Port Mismatches:** Coordinator API is on port 8203 (not 9001)
 
 ## Verification Checklist
 - [ ] Git status consistent across all nodes
@@ -155,7 +155,7 @@ ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 - [ ] Services running on all nodes
 - [ ] Blockchain heights match across nodes
 - [ ] P2P connections established (port 7070)
-- [ ] RPC endpoints responding (port 8006)
+- [ ] RPC endpoints responding (port 8202)
 
 ## Git Remote Strategy
 - **Primary Remote:** `origin` (primary dev repo) - Daily development operations

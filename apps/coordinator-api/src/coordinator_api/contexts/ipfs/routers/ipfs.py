@@ -314,5 +314,5 @@ async def get_island_swarm_key(request: IslandSwarmKeyRequest) -> dict[str, Any]
         )
         raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
-        logging.getLogger(__name__).exception("Unhandled exception in swarm-key endpoint")
+        logging.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e

@@ -66,7 +66,7 @@ The Agent Coordinator also exposes a small HTTP API on port 8107. Common paths:
 
 ```bash
 # Register an agent directly
-curl -X POST http://localhost:8107/api/v1/agents/register \
+curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "my-agent", "endpoint": "http://my-node:8107"}'
 

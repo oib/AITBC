@@ -37,7 +37,7 @@ Configured in `TaskDistributor` class.
 ### Monitoring Queue Sizes
 
 ```bash
-curl http://localhost:8107/tasks/status | jq .stats.queue_sizes
+curl http://localhost:8107/v1/tasks/status | jq .stats.queue_sizes
 ```
 
 ## Resource Limits

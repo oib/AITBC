@@ -49,9 +49,9 @@ class TestRewardPolicyConstants:
         assert REWARD_PER_SHARE == 1000
         assert HALVING_INTERVAL == 210_000
         assert REWARD_EPOCH_LENGTH == 1_000
-        assert MAX_REWARD_PER_EPOCH == 100_000
-        assert MINIMUM_PAYOUT == 3_600
-        assert BASE_BLOCK_REWARD == 50_000
+        assert MAX_REWARD_PER_EPOCH == 100_000 * 10_000
+        assert MINIMUM_PAYOUT == 36_000_000
+        assert BASE_BLOCK_REWARD == 50_000 * 10_000
 
     def test_reward_policy_class_exists(self):
         from aitbc.rewards import RewardPolicy
@@ -130,7 +130,7 @@ class TestPoolHubSettings:
         from poolhub.settings import Settings
 
         settings = Settings()
-        assert settings.blockchain_rpc_url == "http://localhost:8202"
+        assert settings.blockchain_rpc_url == "http://127.0.0.1:8202"
         assert "8006" not in settings.blockchain_rpc_url
 
     def test_settings_default_chain_id(self):

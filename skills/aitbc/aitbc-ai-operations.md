@@ -47,8 +47,8 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 **Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
-| Blockchain RPC | 8006 | Default RPC URL for CLI |
-| Coordinator API | 8011 | Agent registry |
+| Blockchain RPC | 8202 | Default RPC URL for CLI |
+| Coordinator API | 8203 | Agent registry |
 | Marketplace | 8102 | GPU compute offers |
 
 ## Operations
@@ -61,12 +61,12 @@ cd /opt/aitbc && ./aitbc-cli ai-ops submit \
   --prompt <prompt> \
   --payment <payment> \
   --password <password> \
-  --rpc-url http://localhost:8006
+  --rpc-url http://localhost:8202
 ```
 
 ### Check AI Job Status
 ```bash
-cd /opt/aitbc && ./aitbc-cli ai-ops status --job-id <job_id> --rpc-url http://localhost:8006
+cd /opt/aitbc && ./aitbc-cli ai-ops status --job-id <job_id> --rpc-url http://localhost:8202
 ```
 
 ### Job Types
@@ -134,7 +134,7 @@ sudo systemctl start aitbc-coordinator-api.service
 sudo systemctl enable aitbc-coordinator-api.service
 
 # Test coordinator API health
-curl -s http://localhost:8011/health
+curl -s http://localhost:8203/health
 ```
 
 ### 4. Check Marketplace Service

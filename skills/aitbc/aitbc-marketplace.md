@@ -49,8 +49,8 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 | Service | Port | Notes |
 |---------|------|-------|
 | Marketplace | 8102 | Offers, bids, orders |
-| Blockchain RPC | 8006 | Default RPC for CLI |
-| Coordinator API | 8011 | Agent registration |
+| Blockchain RPC | 8202 | Default RPC for CLI |
+| Coordinator API | 8203 | Agent registration |
 
 ## Operations
 

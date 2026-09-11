@@ -97,6 +97,6 @@ Tokens are chain-specific and non-transferable between chains.
 
 - [CLI Guide](cli-guide.md) — Complete command reference
 - [Service Selection](../setup-service-selection.md) — Choose your node profile
-- [Multi-Chain Operations](../blockchain/cross-chain/) — Cross-chain functionality
-- [Security & Compliance](../security/) — Security framework
-- [Production Deployment](../deployment/) — Production setup
+- [Multi-Chain Operations](../../blockchain/7_multichain.md) — Cross-chain functionality
+- [Security & Compliance](../../security/) — Security framework
+- [Production Deployment](../../deployment/) — Production setup

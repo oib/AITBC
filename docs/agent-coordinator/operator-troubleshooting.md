@@ -87,7 +87,7 @@ aitbc-cli agent sdk list --status active
 1. Check task distributor status:
 
 ```bash
-curl http://localhost:8107/tasks/status
+curl http://localhost:8107/v1/tasks/status
 ```
 
 1. Verify agent capabilities match task requirements

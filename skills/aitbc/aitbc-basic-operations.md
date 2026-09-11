@@ -17,7 +17,7 @@ Test and validate AITBC basic CLI functionality, core blockchain operations, wal
 ## Prerequisites
 - AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
 - Python venv activated for CLI operations
-- Services running on ports 8011 (coordinator), 8001 (exchange), 8006 (blockchain RPC), 8102 (marketplace), 8015 (wallet)
+- Services running on ports 8203 (coordinator), 8106 (exchange), 8202 (blockchain RPC), 8102 (marketplace), 8108 (wallet)
 - Working directory: `/opt/aitbc`
 - Default test wallet: "genesis" with password from `/var/lib/aitbc/keystore/.genesis_password`
 
@@ -34,8 +34,8 @@ source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn
 /opt/aitbc/aitbc-cli --version
 
 # Check service health endpoints
-curl -s http://localhost:8006/health
-curl -s http://localhost:8011/health
+curl -s http://localhost:8202/health
+curl -s http://localhost:8203/health
 curl -s http://localhost:8102/health
 ```
 
@@ -48,11 +48,11 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 **Quick Reference:**
 | Service | Port | Notes |
 |---------|------|-------|
-| Blockchain RPC | 8006 | Main blockchain node |
-| Coordinator API | 8011 | Agent registry, /v1/* routes |
+| Blockchain RPC | 8202 | Main blockchain node |
+| Coordinator API | 8203 | Agent registry, /v1/* routes |
 | Marketplace | 8102 | Offers, bids, orders |
-| Wallet Daemon | 8015 | Wallet management (localhost only) |
-| Exchange API | 8001 | Trading (localhost only) |
+| Wallet Daemon | 8108 | Wallet management (localhost only) |
+| Exchange API | 8106 | Trading (localhost only) |
 
 ## Operations
 
@@ -91,20 +91,20 @@ cd /opt/aitbc && ./aitbc-cli analytics --type blocks --limit 10
 
 ### Service Health Checks
 ```bash
-# Check coordinator API (port 8011)
-curl -s http://localhost:8011/health
+# Check coordinator API (port 8203)
+curl -s http://localhost:8203/health
 
-# Check exchange API (port 8001)
-curl -s http://localhost:8001/health
+# Check exchange API (port 8106)
+curl -s http://localhost:8106/health
 
-# Check blockchain RPC (port 8006)
-curl -s http://localhost:8006/health
+# Check blockchain RPC (port 8202)
+curl -s http://localhost:8202/health
 
 # Check marketplace (port 8102)
 curl -s http://localhost:8102/health
 
-# Check wallet daemon (port 8015)
-curl -s http://localhost:8015/health
+# Check wallet daemon (port 8108)
+curl -s http://localhost:8108/health
 
 # List all running AITBC services
 systemctl list-units --type=service --state=running | grep aitbc
@@ -155,7 +155,7 @@ journalctl -u aitbc-blockchain-node.service -f
 ### 4. Common Service Failure Causes
 - **Missing dependencies:** Check Python venv and required packages
 - **Configuration errors:** Verify `/etc/aitbc/.env` and `/etc/aitbc/node.env` exist
-- **Port conflicts:** Check if ports 8006, 8011, 8102, 8015, 8001 are available
+- **Port conflicts:** Check if ports 8202, 8203, 8102, 8108, 8106 are available
 - **Database issues:** Verify `/var/lib/aitbc/data/` has proper permissions
 - **Keystore issues:** Check `/var/lib/aitbc/keystore/` exists and has correct permissions
 
@@ -172,9 +172,9 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 1. **CLI Not Found:** Ensure `/opt/aitbc/aitbc-cli` exists and is executable
 2. **Wallet Not Found:** Check wallet name spelling, verify keystore directory at `/var/lib/aitbc/keystore/`
 3. **Service Unreachable:** Verify services are running: `systemctl status aitbc-*`
-4. **Port Mismatch:** Coordinator API is on port 8011 (not 9000 or 9001)
+4. **Port Mismatch:** Coordinator API is on port 8203 (not 9000 or 9001)
 5. **Password Required:** Use password from `/var/lib/aitbc/keystore/.genesis_password` for genesis wallet
-6. **Wallet Daemon Separate:** Wallet daemon (port 8015) is separate from blockchain RPC (port 8006)
+6. **Wallet Daemon Separate:** Wallet daemon (port 8108) is separate from blockchain RPC (port 8202)
 
 ## Verification Checklist
 - [ ] CLI responds to `--version` and `--help`

@@ -25,7 +25,7 @@ Load this skill when:
 
 - AITBC software installed at `/opt/aitbc`
 - Python 3.13+ with required dependencies
-- Blockchain RPC service running (default: `http://localhost:8006`)
+- Blockchain RPC service running (default: `http://localhost:8202`)
 - Wallet keystore directory: `/var/lib/aitbc/keystore/`
 
 ## CLI Location
@@ -109,7 +109,7 @@ cd /opt/aitbc
   --amount 100.0 \
   --fee 10.0 \
   --password "securepassword123" \
-  --rpc-url http://localhost:8006
+  --rpc-url http://localhost:8202
 ```
 
 **Result:** Returns transaction hash
@@ -121,7 +121,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli balance --name my-wallet --rpc-url http://localhost:8006
+./aitbc-cli balance --name my-wallet --rpc-url http://localhost:8202
 ```
 
 **Result:** Returns balance, nonce, address
@@ -133,7 +133,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli transactions --name my-wallet --limit 10 --format table --rpc-url http://localhost:8006
+./aitbc-cli transactions --name my-wallet --limit 10 --format table --rpc-url http://localhost:8202
 ```
 
 ---
@@ -147,7 +147,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli chain --rpc-url http://localhost:8006
+./aitbc-cli chain --rpc-url http://localhost:8202
 ```
 
 **Result:** Chain ID, height, hash, timestamp, proposer ID, supported chains
@@ -171,7 +171,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli analytics --type blocks --limit 10 --rpc-url http://localhost:8006
+./aitbc-cli analytics --type blocks --limit 10 --rpc-url http://localhost:8202
 ```
 
 ---
@@ -185,7 +185,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli mine start --wallet my-wallet --threads 1 --rpc-url http://localhost:8006
+./aitbc-cli mine start --wallet my-wallet --threads 1 --rpc-url http://localhost:8202
 ```
 
 **Result:** Mining started with specified wallet
@@ -248,7 +248,7 @@ cd /opt/aitbc
   --price 100 \
   --description "GPU compute for AI training" \
   --password "securepassword123" \
-  --rpc-url http://localhost:8006
+  --rpc-url http://localhost:8202
 ```
 
 **Result:** Returns listing ID, provider, price, status
@@ -286,7 +286,7 @@ cd /opt/aitbc
   --prompt "Analyze this data" \
   --payment 50 \
   --password "securepassword123" \
-  --rpc-url http://localhost:8006
+  --rpc-url http://localhost:8202
 ```
 
 **Result:** Job ID, estimated time, payment amount
@@ -321,7 +321,7 @@ cd /opt/aitbc
 ./aitbc-cli agent list --status [active|completed|failed]
 ```
 
-**Note:** Uses coordinator API at `http://localhost:8011` for real agent discovery
+**Note:** Uses coordinator API at `http://localhost:8203` for real agent discovery
 
 #### Send Message to Agent
 ```bash
@@ -340,7 +340,7 @@ cd /opt/aitbc
   --message "Hello agent" \
   --wallet my-wallet \
   --password "securepassword123" \
-  --rpc-url http://localhost:8006
+  --rpc-url http://localhost:8202
 ```
 
 **Result:** Message sent via blockchain transaction, returns transaction hash
@@ -497,7 +497,7 @@ python3 cli/unified_cli.py agent register \
 
 ## Default Configuration
 
-**Default RPC URL:** `http://localhost:8006`
+**Default RPC URL:** `http://localhost:8202`
 
 **Default Keystore Directory:** `/var/lib/aitbc/keystore/`
 
@@ -587,8 +587,8 @@ python3 cli/unified_cli.py agent register \
 ./aitbc-cli send --from <name> --to <address> --amount <amount> --password <password>
 
 # Blockchain
-./aitbc-cli chain --rpc-url http://localhost:8006
-./aitbc-cli network --rpc-url http://localhost:8006
+./aitbc-cli chain --rpc-url http://localhost:8202
+./aitbc-cli network --rpc-url http://localhost:8202
 ./aitbc-cli analytics --type blocks --limit 10
 
 # Mining
