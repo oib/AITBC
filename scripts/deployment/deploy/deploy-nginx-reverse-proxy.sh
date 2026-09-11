@@ -101,8 +101,8 @@ iptables -t nat -D PREROUTING -p tcp --dport 8000 -j DNAT --to-destination 192.1
 iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8000 -j MASQUERADE 2>/dev/null || true
 iptables -t nat -D PREROUTING -p tcp --dport 8081 -j DNAT --to-destination 192.168.100.10:8081 2>/dev/null || true
 iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8081 -j MASQUERADE 2>/dev/null || true
-iptables -t nat -D PREROUTING -p tcp --dport 8082 -j DNAT --to-destination 192.168.100.10:8082 2>/dev/null || true
-iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8082 -j MASQUERADE 2>/dev/null || true
+iptables -t nat -D PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202 2>/dev/null || true
+iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE 2>/dev/null || true
 iptables -t nat -D PREROUTING -p tcp --dport 9080 -j DNAT --to-destination 192.168.100.10:9080 2>/dev/null || true
 iptables -t nat -D POSTROUTING -p tcp -d 192.168.100.10 --dport 9080 -j MASQUERADE 2>/dev/null || true
 iptables -t nat -D PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000 2>/dev/null || true
@@ -156,5 +156,5 @@ echo ""
 echo "Note: Make sure all services are running in the container:"
 echo "  • blockchain-explorer.service (port 3000)"
 echo "  • coordinator-api.service (port 8000)"
-echo "  • blockchain-rpc.service (port 8082)"
+echo "  • blockchain-rpc.service (port 8202)"
 echo "  • aitbc-exchange.service (port 9080)"

@@ -7,9 +7,9 @@ echo "==============================="
 
 # Test blockchain RPC
 echo "Testing blockchain RPC..."
-if curl -s http://aitbc.keisanki.net:8082/rpc/head > /dev/null; then
+if curl -s http://aitbc.keisanki.net:8202/rpc/head > /dev/null; then
     echo "✅ Blockchain RPC is accessible"
-    curl -s http://aitbc.keisanki.net:8082/rpc/head | jq '.height'
+    curl -s http://aitbc.keisanki.net:8202/rpc/head | jq '.height'
 else
     echo "❌ Blockchain RPC is not accessible"
 fi

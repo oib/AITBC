@@ -30,7 +30,7 @@ sudo cat > /opt/blockchain-node/.env << EOF
 CHAIN_ID=ait-devnet
 DB_PATH=./data/chain.db
 RPC_BIND_HOST=127.0.0.1
-RPC_BIND_PORT=8082
+RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
 P2P_BIND_PORT=7070
 PROPOSER_KEY=node1_proposer_key_$(date +%s)
