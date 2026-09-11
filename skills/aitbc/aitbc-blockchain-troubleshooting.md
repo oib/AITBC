@@ -15,7 +15,7 @@ Activate when user requests blockchain troubleshooting: sync issues, P2P problem
 Diagnose and troubleshoot AITBC blockchain issues including synchronization failures, P2P network problems, service failures, and data corruption.
 
 ## Prerequisites
-- SSH access to all nodes (aitbc, aitbc1, gitea-runner)
+- SSH access to all nodes (aitbc, `<node1>`, gitea-runner)
 - Systemd services operational or accessible for debugging
 - Log access via `journalctl`
 - Data directory at `/var/lib/aitbc/`
@@ -25,12 +25,12 @@ Diagnose and troubleshoot AITBC blockchain issues including synchronization fail
 Before proceeding, verify:
 ```bash
 # Check SSH connectivity
-ssh aitbc1 'echo "SSH to aitbc1 working"'
+ssh <node1> 'echo "SSH to <node1> working"'
 ssh gitea-runner 'echo "SSH to gitea-runner working"'
 
 # Check service status on all nodes
 systemctl list-units --state=running | grep aitbc
-ssh aitbc1 'systemctl list-units --state=running | grep aitbc'
+ssh <node1> 'systemctl list-units --state=running | grep aitbc'
 ssh gitea-runner 'systemctl list-units --state=running | grep aitbc'
 
 # Verify CLI accessible
@@ -58,32 +58,32 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 ```bash
 # Check service status on all nodes
 systemctl status aitbc-blockchain-node.service
-ssh aitbc1 'systemctl status aitbc-blockchain-node.service'
+ssh <node1> 'systemctl status aitbc-blockchain-node.service'
 ssh gitea-runner 'systemctl status aitbc-blockchain-node.service'
 
 # Check blockchain RPC health
 curl -s http://localhost:8202/health
-curl -s http://aitbc1:8202/health
+curl -s http://<node1>:8202/health
 
 # Check P2P network status
 ss -tlnp | grep 7070
-ssh aitbc1 'ss -tlnp | grep 7070'
+ssh <node1> 'ss -tlnp | grep 7070'
 ```
 
 ### 2. Blockchain Sync Issues
 ```bash
 # Check blockchain height on all nodes
 cd /opt/aitbc && ./aitbc-cli chain
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
+ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
 ssh gitea-runner 'cd /opt/aitbc && ./aitbc-cli chain'
 
 # Check mempool status
 cd /opt/aitbc && ./aitbc-cli mempool status
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli mempool status'
+ssh <node1> 'cd /opt/aitbc && ./aitbc-cli mempool status'
 
 # Check P2P connections
 cd /opt/aitbc && ./aitbc-cli network
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
+ssh <node1> 'cd /opt/aitbc && ./aitbc-cli network'
 ```
 
 ### 2.1 Genesis Block Mismatch Issues
@@ -97,13 +97,13 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
 ```bash
 # Check genesis block hashes across nodes
 sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, height, hash FROM block WHERE height=0"
-ssh aitbc1 'sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, height, hash FROM block WHERE height=0"'
+ssh <node1> 'sqlite3 /var/lib/aitbc/data/ait-testnet/chain.db "SELECT chain_id, height, hash FROM block WHERE height=0"'
 
 # Check RPC bootstrap logs
 journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
 
 # Verify RPC endpoint is accessible
-curl -s http://aitbc1:8202/rpc/genesis_allocations?chain_id=ait-testnet
+curl -s http://<node1>:8202/rpc/genesis_allocations?chain_id=ait-testnet
 ```
 
 **Solution - Force RPC Bootstrap:**
@@ -136,14 +136,14 @@ journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
 ```bash
 # Check P2P node IDs
 cat /etc/aitbc/.env | grep p2p_node_id
-ssh aitbc1 'cat /etc/aitbc/.env | grep p2p_node_id'
+ssh <node1> 'cat /etc/aitbc/.env | grep p2p_node_id'
 
 # Generate unique node IDs if duplicates found
 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
 
 # Restart blockchain services
 systemctl restart aitbc-blockchain-p2p.service
-ssh aitbc1 'systemctl restart aitbc-blockchain-p2p.service'
+ssh <node1> 'systemctl restart aitbc-blockchain-p2p.service'
 ```
 
 ### 4. Service Failures
@@ -151,11 +151,11 @@ ssh aitbc1 'systemctl restart aitbc-blockchain-p2p.service'
 # Check service logs
 journalctl -u aitbc-blockchain-node.service -n 100
 journalctl -u aitbc-blockchain-p2p.service -n 100
-ssh aitbc1 'journalctl -u aitbc-blockchain-node.service -n 100'
+ssh <node1> 'journalctl -u aitbc-blockchain-node.service -n 100'
 
 # Check application logs
 journalctl -u aitbc-blockchain-node.service -f  # Follow mode
-ssh aitbc1 'journalctl -u aitbc-blockchain-node.service -f'
+ssh <node1> 'journalctl -u aitbc-blockchain-node.service -f'
 ```
 
 ### 5. Data Corruption
@@ -177,7 +177,7 @@ sqlite3 /var/lib/aitbc/data/blockchain.db "PRAGMA journal_mode=WAL;"
 ```bash
 # Stop blockchain services
 systemctl stop aitbc-blockchain-node.service aitbc-blockchain-p2p.service
-ssh aitbc1 'systemctl stop aitbc-blockchain-node.service aitbc-blockchain-p2p.service'
+ssh <node1> 'systemctl stop aitbc-blockchain-node.service aitbc-blockchain-p2p.service'
 
 # Backup current data
 cp -r /var/lib/aitbc/data /var/lib/aitbc/data.backup
@@ -190,20 +190,20 @@ systemctl start aitbc-blockchain-node.service
 
 # Restart services
 systemctl start aitbc-blockchain-node.service aitbc-blockchain-p2p.service
-ssh aitbc1 'systemctl start aitbc-blockchain-node.service aitbc-blockchain-p2p.service'
+ssh <node1> 'systemctl start aitbc-blockchain-node.service aitbc-blockchain-p2p.service'
 ```
 
 ### 7. Communication Test
 ```bash
 # Verify all services are healthy
 curl -s http://localhost:8202/health
-curl -s http://aitbc1:8202/health
+curl -s http://<node1>:8202/health
 curl -s http://localhost:8203/health
 curl -s http://localhost:8102/health
 
 # Check blockchain sync
 cd /opt/aitbc && ./aitbc-cli chain
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
+ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
 ```
 
 ### 8. GPU Detection Validation

@@ -158,7 +158,7 @@ Blocks should resume with the configured `PROPOSER_ID` and the same chain state.
 
 ## Important: live enablement
 
-The live `/etc/aitbc/blockchain.env` on `aitbc3` and `hub.aitbc` contains:
+The live `/etc/aitbc/blockchain.env` on `<node2>` and `<hub-node>` contains:
 
 ```text
 MULTI_VALIDATOR_CONSENSUS_ENABLED=false

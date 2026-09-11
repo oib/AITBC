@@ -14,7 +14,7 @@ Complete guide for Agent agent to interact with AITBC (Agent Training Blockchain
 
 Load this skill when:
 - Need to interact with AITBC marketplace, coordinator, or messaging via API
-- Working with aitbc1 node or localhost AITBC instance
+- Working with `<node1>` node or localhost AITBC instance
 - Need to register agents via coordinator API
 - Need to test AITBC service operations or validate scenarios
 - Need cross-node operations verification
@@ -37,7 +37,7 @@ Load this skill when:
 | Exchange API | 8106 | HTTP | Trading (localhost only) |
 | Edge API | 8111 | HTTP | Edge compute operations |
 
-**IMPORTANT:** Use `localhost` on aitbc (main node). Use `aitbc1` hostname (not IP) for cross-node calls.
+**IMPORTANT:** Use `localhost` on aitbc (main node). Use `<node1>` hostname (not IP) for cross-node calls.
 
 ## Step-by-Step Instructions
 
@@ -222,13 +222,13 @@ curl -s -X POST http://localhost:8108/wallets \
 ## Cross-Node Operations
 
 ### Key URLs (Use Hostname, NOT IP):
-- **aitbc1 Marketplace:** `http://aitbc1:8102` (use the hostname, not the IP)
-- **aitbc1 Coordinator:** `http://aitbc1:8203`
-- **aitbc1 Blockchain:** `http://aitbc1:8202`
-- **Redis (Cross-node Agent Discovery):** `aitbc1:6379`
+- **`<node1>` Marketplace:** `http://`<node1>`:8102` (use the hostname, not the IP)
+- **`<node1>` Coordinator:** `http://`<node1>`:8203`
+- **`<node1>` Blockchain:** `http://`<node1>`:8202`
+- **Redis (Cross-node Agent Discovery):** `<node1>:6379`
 
 ### Verified Cross-Node Operations:
-- Topics created on localhost visible on aitbc1 (and vice versa)
+- Topics created on localhost visible on `<node1>` (and vice versa)
 - Agent registration on coordinator working
 - Cross-node agent discovery via shared Redis
 
@@ -273,7 +273,7 @@ cd /opt/aitbc && ./aitbc-cli marketplace --help
 
 ### 1. Using IP Instead of Hostname
 **Error:** Connection timeout or failure
-**Fix:** Use the hostname, `aitbc1:8102`, rather than the node's IP address
+**Fix:** Use the hostname, `<node1>:8102`, rather than the node's IP address
 
 ### 2. Agent Registration Required
 **Error:** `Invalid agent credentials` or `INVALID_AGENT`
@@ -333,7 +333,7 @@ Before using this skill, verify:
 
 ## Operations Matrix (All Verified)
 
-| Operation | localhost | aitbc1 | Status |
+| Operation | localhost | `<node1>` | Status |
 |-----------|-----------|--------|--------|
 | CREATE OFFER (API) | WORKS | WORKS | BOTH WORK |
 | LIST OFFERS (API) | WORKS | WORKS | BOTH WORK |

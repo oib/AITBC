@@ -74,7 +74,7 @@
   followers. The sender is debited and the nonce is incremented, but no
   bridge_lock account is created, and the tx nonce is not checked against the
   current sender nonce. This prevents the extra bridge_lock account that caused
-  the resynced aitbc3 state root to diverge from the hub.
+  the resynced <node2> state root to diverge from the hub.
 - fix(sync): re-enable state-root validation for push imports in
   `subscription_client.py` now that the hub proposer computes correct roots and
   pre-registered transactions are handled consistently.
@@ -140,13 +140,13 @@
     canonical block-header signature.
   - Validated end-to-end: lock on hub, block inclusion at height 12493,
     Merkle proof, block header + validator signature verification, and
-    release on aitbc3.
+    release on <node2>.
 
 2026-08-24 — Multi-validator / multi-key consensus
-- Activated `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` on `hub.aitbc` with a two-validator set and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`.
+- Activated `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` on `<hub-node>` with a two-validator set and `MULTI_VALIDATOR_MIN_ATTESTATIONS=1`.
 - Verified both `VALIDATOR_KEYS` derive to their declared `ait1` addresses before activation.
 - Observed round-robin proposer rotation from height 13282 and one attestation per block.
 - Fixed `bridge_state_root` and `chain_id` serialization in `poa.py` broadcast and `rpc/blocks.py` so followers can verify multi-validator blocks.
-- Restored `aitbc3` follower sync to the hub chain.
+- Restored `<node2>` follower sync to the hub chain.
 - Documented honest assessment: this is local multi-key rotation, not independent distributed consensus.
 - Fixed coordinator nonce routes in `payments.py` and `bond_slashing.py` to use `/rpc/accounts/{address}`.

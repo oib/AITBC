@@ -56,13 +56,13 @@ that SLA/billing data can be collected.
 
 ### Setup Required
 
-On the hub (`hub.aitbc`):
+On the hub (`<hub-node>`):
 
 - `aitbc-pool-hub.service` enabled and running
 - `/etc/aitbc/aitbc-pool-hub.env` with Postgres/Redis/shared secret
 - Nginx exposes `/pool-hub` to the public hostname
 
-On the shop (`aitbc3`):
+On the shop (`<node2>`):
 
 - `aitbc-miner.service` running
 - `/etc/aitbc/blockchain.env` has `HUB_POOL_HUB_URL=http://hub.aitbc.bubuit.net/pool-hub`
@@ -73,7 +73,7 @@ On the shop (`aitbc3`):
 
 ### Step 1: Hub-side CLI
 
-On `hub.aitbc`:
+On `<hub-node>`:
 
 ```bash
 aitbc pool-hub status
@@ -142,11 +142,11 @@ After completing this scenario, you should be able to:
 ## Validation
 
 ```bash
-# On hub.aitbc
+# On <hub-node>
 aitbc pool-hub status
 aitbc pool-hub sla
 
-# On aitbc3
+# On <node2>
 aitbc pool-hub status
 ```
 

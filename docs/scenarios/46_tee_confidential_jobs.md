@@ -135,7 +135,7 @@ Expected response:
   and local `verify`.
 - `cli/tests/test_ai_tee_submit.py` — 2 tests covering `--confidential` and
   `--enclave-measurement` payload construction.
-- Live validation on `hub.aitbc` + `aitbc3` produced a released escrow with
+- Live validation on `<hub-node>` + `<node2>` produced a released escrow with
   `tee_status: verified` and `confidential: true` in the job constraints.
 
 ## Notes

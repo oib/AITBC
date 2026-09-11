@@ -12,7 +12,7 @@ category: operations
 Activate when user requests cross-node operations: synchronization, coordination, messaging, or multi-node status checks.
 
 ## Purpose
-Coordinate cross-node operations, synchronize blockchain state, and manage inter-node messaging between genesis (aitbc) and follower (aitbc1) nodes.
+Coordinate cross-node operations, synchronize blockchain state, and manage inter-node messaging between genesis (aitbc) and follower (`<node1>`) nodes.
 
 **Note:** For git sync and service restart across all nodes, see aitbc-multi-node-operations.md. This skill focuses on runtime coordination.
 
@@ -21,7 +21,7 @@ Coordinate cross-node operations, synchronize blockchain state, and manage inter
 | Node | Hostname | Role |
 |------|----------|------|
 | Main Node | aitbc (localhost) | Primary development + blockchain |
-| Follower Node | aitbc1 | Secondary blockchain node |
+| Follower Node | `<node1>` | Secondary blockchain node |
 | CI/CD Node | gitea-runner | CI/CD runner |
 
 ## Prerequisites
@@ -34,12 +34,12 @@ Coordinate cross-node operations, synchronize blockchain state, and manage inter
 Before proceeding, verify:
 ```bash
 # Check SSH connectivity
-ssh aitbc1 'echo "SSH to aitbc1 working"'
+ssh <node1> 'echo "SSH to <node1> working"'
 ssh gitea-runner 'echo "SSH to gitea-runner working"'
 
 # Check service status on all nodes
 systemctl list-units --state=running | grep aitbc
-ssh aitbc1 'systemctl list-units --state=running | grep aitbc'
+ssh <node1> 'systemctl list-units --state=running | grep aitbc'
 
 # Check Python dependencies
 source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
@@ -70,36 +70,36 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 ```bash
 # Check service status on all nodes
 systemctl status aitbc-blockchain-node.service
-ssh aitbc1 'systemctl status aitbc-blockchain-node.service'
+ssh <node1> 'systemctl status aitbc-blockchain-node.service'
 
 # Check RPC health
 curl -s http://localhost:8202/health
-curl -s http://aitbc1:8202/health
+curl -s http://<node1>:8202/health
 
 # Check coordinator health
 curl -s http://localhost:8203/health
-curl -s http://aitbc1:8203/health
+curl -s http://<node1>:8203/health
 ```
 
 ### Check Blockchain Sync Status
 ```bash
 # Check blockchain height on all nodes
 cd /opt/aitbc && ./aitbc-cli chain
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli chain'
+ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
 ```
 
 ### Cross-Node Messaging
 ```bash
 # Topics are shared across nodes via blockchain
 curl -s http://localhost:8202/topics
-curl -s http://aitbc1:8202/topics  # Same topics
+curl -s http://<node1>:8202/topics  # Same topics
 
 # Post message from either node
 curl -s -X POST http://localhost:8202/topics/{id}/messages \
   -H "Content-Type: application/json" \
   -d '{"content":"message from main node"}'
 
-curl -s -X POST http://aitbc1:8202/topics/{id}/messages \
+curl -s -X POST http://<node1>:8202/topics/{id}/messages \
   -H "Content-Type: application/json" \
   -d '{"content":"message from follower node"}'
 ```
@@ -126,11 +126,11 @@ curl -s http://localhost:8107/v1/agents/agent-main
 ```bash
 # Check P2P port
 ss -tlnp | grep 7070
-ssh aitbc1 'ss -tlnp | grep 7070'
+ssh <node1> 'ss -tlnp | grep 7070'
 
 # Check network peers
 cd /opt/aitbc && ./aitbc-cli network
-ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
+ssh <node1> 'cd /opt/aitbc && ./aitbc-cli network'
 ```
 
 ## Common Pitfalls
@@ -145,7 +145,7 @@ ssh aitbc1 'cd /opt/aitbc && ./aitbc-cli network'
    `/register`. Mind the prefix: the Agent Coordinator's agent and task routers
    are mounted under `/v1`, but its auth, keys, messages and workflow routers
    carry their own `/api/v1/agent/...` prefixes instead.
-5. **Using IP Instead of Hostname:** Use `aitbc1` not raw IP addresses
+5. **Using IP Instead of Hostname:** Use `<node1>` not raw IP addresses
 
 ## Verification Checklist
 - [ ] SSH connectivity to all nodes verified

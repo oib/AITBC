@@ -432,7 +432,7 @@ curl http://127.0.0.1:8105/v1/governance/status
 - ✅ Fixed genesis block hash validation in `sync.py` — normalizes hashes missing `0x` prefix
 - ✅ Fixed double `/rpc` bug in `cli/aitbc_cli/commands/market.py` cancel fallback path
 
-**Result**: Follower node (aitbc3) now syncs via WebSocket push mode with automatic pull fallback. Sync latency reduced from ~30s (periodic poll) to <1s (real-time push).
+**Result**: Follower node (`<node2>`) now syncs via WebSocket push mode with automatic pull fallback. Sync latency reduced from ~30s (periodic poll) to <1s (real-time push).
 
 ## 🐛 Known Issues
 

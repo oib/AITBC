@@ -118,7 +118,7 @@ from the release.
 ## Validation
 
 - `cli/tests/test_cli_comprehensive.py` + `test_cli_basic.py` — 33 passed.
-- Live on `hub.aitbc` + `aitbc3`:
+- Live on `<hub-node>` + `<node2>`:
   - `aitbc ai submit --payment 5 --auto-reinvest-pct 50 --wait` → `COMPLETED`,
     `payment_status: released`, `reinvest_status: staked`, `reinvest_stake_id: 8`,
     `reinvest_amount: 2.43750000`.

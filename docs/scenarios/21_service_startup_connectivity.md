@@ -53,7 +53,7 @@ After an upgrade, restart the shop role and prove the inner loop services answer
 
 ### Setup Required
 
-- A shop node (`aitbc3`) with miner, edge, blockchain RPC, and coordinator deployed
+- A shop node (`<node2>`) with miner, edge, blockchain RPC, and coordinator deployed
 
 ---
 

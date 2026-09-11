@@ -151,7 +151,7 @@ curl -s -X POST https://hub.aitbc.bubuit.net/rpc/transactions/marketplace \
 ### Unit tests
 
 ```bash
-ssh aitbc3
+ssh <node2>
 cd /opt/aitbc
 python3 -m pytest apps/blockchain-node/tests/test_bond.py -q -o addopts=""
 ```

@@ -168,7 +168,7 @@ stale, converted to operator decisions, or verified as already resolved.
   (`ff6ef7634`): 3 files, 184 lines of dead code.
 - **D-2** — Mesh gossip auth: already implemented (challenge/response
   validator auth, topic gating, rate limiting). Finding was outdated.
-- **D-3** — hub.aitbc `MemoryMax` already raised to 1GB via drop-in override;
+- **D-3** — <hub-node> `MemoryMax` already raised to 1GB via drop-in override;
   mypy not installed on hub (pull-only node).
 - **D-4** — CI/test hygiene: 159 Hardhat tests pass, `make lint-strict` in
   GitHub Actions, `forge test` in Gitea CI.
@@ -177,7 +177,7 @@ stale, converted to operator decisions, or verified as already resolved.
 
 Items surfaced during the fleet audit, not part of the register:
 
-- **hub.aitbc connectivity** — transient CPU/IO stall (systemd-journald
+- **<hub-node> connectivity** — transient CPU/IO stall (systemd-journald
   watchdog timeout), self-resolved. Currently healthy.
 - **node2 `key-audit.json`** — false-positive `GENESIS_WALLET` mismatch fixed
   (`c16ccb95a8`): excluded `GENESIS_WALLET` from `NODE_WALLET_ADDRESS`
@@ -417,7 +417,7 @@ Items surfaced during the fleet audit, not part of the register:
 
 ## 2026-09-08 post-audit corrections
 
-A read-only Gitea Actions API audit (`tea api` on `hub.aitbc`) and live host
+A read-only Gitea Actions API audit (`tea api` on `<hub-node>`) and live host
 inspection updated the following conclusions:
 
 - **D-2 — Mesh gossip auth gap** is closed on `main` at `252469f3b` (same tree
@@ -436,10 +436,10 @@ inspection updated the following conclusions:
   what they add. The branch therefore carries no unmerged substance and is
   retirable.
 - **O-3 — `redis.env` is needed and wired 8 Sep.** The file exists on
-  `hub.aitbc` and `node2` and supplies `REDISCLI_AUTH` to
+  `<hub-node>` and `node2` and supplies `REDISCLI_AUTH` to
   `aitbc-cache-monitor.service` (EnvironmentFile is optional by design). The
   real gap was that the unit was never installed — `aitbc-cache-monitor.service`
-  and `.timer` are now installed and the timer is enabled on `hub.aitbc` and
+  and `.timer` are now installed and the timer is enabled on `<hub-node>` and
   `node2` (the two hosts running `redis-server`). First runs succeeded (hit rates
   100% / 98%). Node0, node1, and hub2 correctly have no `redis.env` because they
   run no local Redis. Status **closed**.
@@ -463,7 +463,7 @@ inspection updated the following conclusions:
 ## 2026-09-08 live env cleanup
 
 - Removed the dead `ENFORCE_STATE_ROOT_VALIDATION=true` line from
-  `/etc/aitbc/blockchain.env` on `node0`, `node1`, `node2`, and `hub2.aitbc`.
+  `/etc/aitbc/blockchain.env` on `node0`, `node1`, `node2`, and `<replica-node>`.
   The code no longer reads this variable (T2-2 deleted it); the real gate is
   `SYNC_STATE_ROOT_VALIDATION_ENABLED`. Backups kept as
   `/etc/aitbc/blockchain.env.bak-20260908-enforce`. No service restart was
@@ -485,14 +485,14 @@ inspection updated the following conclusions:
 ## 2026-09-08 continued — further reconciliations
 
 - **ENERGY_OPERATOR_ADDRESS resolved on hub.** A dedicated fleet-wide operator
-  keypair was generated on `hub.aitbc` and written to
+  keypair was generated on `<hub-node>` and written to
   `aitbc-coordinator-api.env`; the same pair was deployed to `node2`. The
-  chain-side `escrow_routes` gate was armed on `hub.aitbc` by adding
+  chain-side `escrow_routes` gate was armed on `<hub-node>` by adding
   `ENERGY_OPERATOR_ADDRESS` to `aitbc-blockchain-rpc.env` and restarting the RPC.
   `aitbc-coordinator-api` on both hosts restarted and returned health 200. Energy
   quotes now sign and verify instead of returning 503.
 - **BOND_SLASH_AUTHORITY_ADDRESS fleet split fixed (config-only).** The shared
-  private key was derived on `hub.aitbc` without printing its value; it controls
+  private key was derived on `<hub-node>` without printing its value; it controls
   `0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76`, the only working slash authority.
   `0xe738…d225` was hub's proposer address with no matching key. The operator
   chose config fix over rotation (transcript exposure = accepted risk).
@@ -500,7 +500,7 @@ inspection updated the following conclusions:
   (added on node0, corrected on node1/hub, already correct on node2/hub2). Rolling
   restarts applied; fleet converged at height 5265.
 - **O-3 — redis.env / cache monitor closed.** `aitbc-cache-monitor.service`
-  and its `.timer` were installed and enabled on `hub.aitbc` and `node2`. The
+  and its `.timer` were installed and enabled on `<hub-node>` and `node2`. The
   unit sources `/etc/aitbc/redis.env` for `REDISCLI_AUTH`; first runs returned
   100% (hub) and 98% (node2) hit rates. Node0, node1, and hub2 correctly have no
   `redis.env` because they run no local Redis. This closes the last open register

@@ -88,11 +88,11 @@ This release covers the 70 commits from `2b112f9f46` to `4f56210af1`. The headli
 - F3/F4/F5 remediation and 2026-09-09 validation notes (`163e249d0`, `362169a2b`, `d4144972d`, `e67e130ab`, `9b4ac089f`).
 - `MEGAPLAN.md` and `TASKLIST.md` untracked (`83bf08fa7`).
 - Admin-router wallet creation, cpuset cleanup, and BOND_SLASH operational notes (`df85fedc8`, `84f3120d3`, `b486147f1`, `e41b2d7e0`, `25a4eeee5`).
-- AWStats setup on `hub.aitbc` recorded (`3ae7ea266`).
+- AWStats setup on `<hub-node>` recorded (`3ae7ea266`).
 
 ## Dependencies
 
-- Pin `tenseal` to `0.3.17` in `pyproject.toml`, `poetry.lock`, and `requirements.txt` to match the version running on `hub.aitbc` and `node2` (506ae9f4d).
+- Pin `tenseal` to `0.3.17` in `pyproject.toml`, `poetry.lock`, and `requirements.txt` to match the version running on `<hub-node>` and `node2` (506ae9f4d).
 
 ## Known limitations / follow-ups
 
@@ -152,7 +152,7 @@ e3b723a11 fix(coordinator): Settings.environment also reads NODE_ENV
 86e2d65ec fix(cli, coordinator): restore admin-router access and warn on empty allowlist
 24d787863 feat(wallet): auto-import encrypted dict private keys
 a7165e308 fix: replace legacy 8011 defaults with 8203 coordinator API
-3ae7ea266 docs: record AWStats setup on hub.aitbc
+3ae7ea266 docs: record AWStats setup on <hub-node>
 cd91676a0 fix(cli): authenticate monitor sweepers as admin
 dcc111bea fix(ffmpeg): raise subprocess timeouts from 5s to 15s
 4f90b02fb feat(coordinator,cli): expose background sweepers read-only
