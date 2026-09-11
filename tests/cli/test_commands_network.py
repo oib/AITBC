@@ -186,15 +186,15 @@ class TestNetworkCommands:
 
         result = runner.invoke(
             network,
-            ["set-sync-source", "--url", "https://node2.aitbc.bubuit.net", "--env-file", env_file, "--no-restart"],
+            ["set-sync-source", "--url", "https://node2.example.net", "--env-file", env_file, "--no-restart"],
         )
 
         assert result.exit_code == 0, result.output
         updated = (tmp_path / "node.env").read_text()
-        assert "DEFAULT_PEER_RPC_URL=https://node2.aitbc.bubuit.net" in updated
-        assert "HUB_BLOCKCHAIN_RPC_URL=https://node2.aitbc.bubuit.net" in updated
-        assert "BLOCKCHAIN_RPC_URL=https://node2.aitbc.bubuit.net/rpc" in updated
-        assert "HUB_DISCOVERY_URL=node2.aitbc.bubuit.net" in updated
+        assert "DEFAULT_PEER_RPC_URL=https://node2.example.net" in updated
+        assert "HUB_BLOCKCHAIN_RPC_URL=https://node2.example.net" in updated
+        assert "BLOCKCHAIN_RPC_URL=https://node2.example.net/rpc" in updated
+        assert "HUB_DISCOVERY_URL=node2.example.net" in updated
 
     def test_network_set_sync_source_appends_missing_keys(self, runner, tmp_path):
         """`set-sync-source` appends keys that are missing from the env file."""

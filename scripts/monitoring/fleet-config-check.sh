@@ -22,6 +22,11 @@ set -euo pipefail
 # They are optional: each is only an extra candidate to try after the names
 # below, so leaving them unset costs nothing wherever the names resolve.
 HUB1_HOST="${AITBC_HUB1_HOST:-}"
+
+# The domain the fleet publishes under. It was hardcoded here, which named the
+# operator in a public repo and made the check point at their hosts from anyone
+# else's machine.
+AITBC_FLEET_DOMAIN="${AITBC_FLEET_DOMAIN:?set AITBC_FLEET_DOMAIN to the domain your fleet publishes under}"
 HUB_HOST="${AITBC_HUB_HOST:-}"
 NODE0_HOST="${AITBC_NODE0_HOST:-}"
 NODE1_HOST="${AITBC_NODE1_HOST:-}"
@@ -41,8 +46,8 @@ declare -A HOST_CANDIDATES=(
     [node0]="node0 ${NODE0_HOST}"
     [node1]="node1 ${NODE1_HOST}"
     [node2]="node2 ${NODE2_HOST}"
-    [hub]="hub.aitbc hub.aitbc.bubuit.net ${HUB_HOST}"
-    [hub1]="hub1.aitbc hub1.aitbc.bubuit.net ${HUB1_HOST}"
+    [hub]="hub.aitbc hub.${AITBC_FLEET_DOMAIN} ${HUB_HOST}"
+    [hub1]="hub1.aitbc hub1.${AITBC_FLEET_DOMAIN} ${HUB1_HOST}"
 )
 
 declare -A RESOLVED=()
@@ -200,10 +205,10 @@ declare -A RPC_ENDPOINTS=(
     [node0]="http://${NODE0_HOST:-node0}:8202/rpc/status"
     [node1]="http://${NODE1_HOST:-node1}:8202/rpc/status"
     [node2]="http://${NODE2_HOST:-node2}:8202/rpc/status"
-    [hub]="https://hub.aitbc.bubuit.net/rpc/status"
-    [hub1]="https://hub1.aitbc.bubuit.net/rpc/status"
-    [hub.aitbc]="https://hub.aitbc.bubuit.net/rpc/status"
-    [hub1.aitbc]="https://hub1.aitbc.bubuit.net/rpc/status"
+    [hub]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [hub1]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [hub.aitbc]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [hub1.aitbc]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
 )
 conv_bad=0
 sample_heads() {

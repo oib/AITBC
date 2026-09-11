@@ -7,8 +7,8 @@ them on cron. Everything it generated was aimed at things that are not there:
   any AITBC host -- they are ``aitbc-coordinator-api`` and ``aitbc-blockchain-node`` -- so
   the five-minute alert check raised two alerts on every run forever. Same two names
   V23-98 found in ``security_hardening.sh``.
-* ``https://aitbc.bubuit.net/api/v1/health``. That name does not resolve from a node (this
-  host is ``aitbc3.aitbc.bubuit.net``; the hub is ``hub.aitbc.bubuit.net``), and the
+* The bare apex ``/api/v1/health``. That name does not resolve from a node -- nodes carry
+  their own names, and the hub is a name of its own -- and the
   ``/v1/`` prefix is not a health path anywhere -- it 404s on the coordinator and 401s
   through the gateway. So the 200 the alert check compares against was unreachable by
   construction, and the failure arrived as the string "000" rather than as an error,

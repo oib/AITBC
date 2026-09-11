@@ -5,6 +5,19 @@
 
 set -euo pipefail
 
+
+# ssh target for the blockchain container on node1. This used to be a private
+# ~/.ssh/config alias, so the script only worked on one operator's workstation.
+NODE1_CONTAINER_SSH="${AITBC_NODE1_CONTAINER_SSH:?set AITBC_NODE1_CONTAINER_SSH to the ssh target for the container on node1}"
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Colors for output
 RED='\033[0;31m'
 GREEN='\033[0;32m'
@@ -52,8 +65,8 @@ service_exists_in_container() {
         "aitbc")
             ssh aitbc-cascade 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
             ;;
-        "aitbc1")
-            ssh aitbc1-cascade 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
+        "${NODE1_HOST}")
+            ssh ${NODE1_CONTAINER_SSH} 'systemctl list-unit-files 2>/dev/null | grep -q "^'"$service"'.service"' 2>/dev/null
             ;;
         *)
             return 1
@@ -69,8 +82,8 @@ is_service_running_in_container() {
         "aitbc")
             ssh aitbc-cascade 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
             ;;
-        "aitbc1")
-            ssh aitbc1-cascade 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
+        "${NODE1_HOST}")
+            ssh ${NODE1_CONTAINER_SSH} 'systemctl is-active --quiet '\''"$service"'\'' 2>/dev/null' 2>/dev/null
             ;;
         *)
             return 1
@@ -85,8 +98,8 @@ get_container_ip() {
         "aitbc")
             ssh aitbc-cascade "hostname -I | awk '{print \$1}'" 2>/dev/null || echo "N/A"
             ;;
-        "aitbc1")
-            ssh aitbc1-cascade "hostname -I | awk '{print \$1}'" 2>/dev/null || echo "N/A"
+        "${NODE1_HOST}")
+            ssh ${NODE1_CONTAINER_SSH} "hostname -I | awk '{print \$1}'" 2>/dev/null || echo "N/A"
             ;;
         *)
             echo "N/A"
@@ -110,7 +123,7 @@ fi
 # Step 1: Check remote containers via SSH
 print_status "Checking remote containers via SSH..."
 
-containers=("aitbc" "aitbc1")
+containers=("aitbc" "${NODE1_HOST}")
 for container in "${containers[@]}"; do
     print_status "Checking container: $container"
 
@@ -123,8 +136,8 @@ for container in "${containers[@]}"; do
                 exit 1
             fi
             ;;
-        "aitbc1")
-            if ssh aitbc1-cascade "echo 'Container is accessible'" >/dev/null 2>&1; then
+        "${NODE1_HOST}")
+            if ssh ${NODE1_CONTAINER_SSH} "echo 'Container is accessible'" >/dev/null 2>&1; then
                 print_success "Container $container is accessible via SSH"
             else
                 print_error "Container $container is not accessible via SSH"
@@ -347,11 +360,11 @@ for container in "${containers[@]}"; do
                 print_error "Container $container: NOT ACCESSIBLE"
             fi
             ;;
-        "aitbc1")
-            if ssh aitbc1-cascade "echo 'Container is running'" >/dev/null 2>&1; then
+        "${NODE1_HOST}")
+            if ssh ${NODE1_CONTAINER_SSH} "echo 'Container is running'" >/dev/null 2>&1; then
                 print_success "Container $container: RUNNING (SSH accessible)"
                 print_status "  IP: $container_ip"
-                print_status "  Access: ssh aitbc1-cascade"
+                print_status "  Access: ssh ${NODE1_CONTAINER_SSH}"
             else
                 print_error "Container $container: NOT ACCESSIBLE"
             fi
@@ -369,17 +382,17 @@ echo ""
 print_status "Useful commands:"
 echo "  - Check all AITBC services: systemctl list-units | grep aitbc-"
 echo "  - Access aitbc container: ssh aitbc-cascade"
-echo "  - Access aitbc1 container: ssh aitbc1-cascade"
+echo "  - Access ${NODE1_HOST} container: ssh ${NODE1_CONTAINER_SSH}"
 echo "  - View local service logs: journalctl -f -u <service-name>"
 echo "  - View container service logs: ssh aitbc-cascade 'journalctl -f -u <service-name>'"
 echo "  - Check container services: ssh aitbc-cascade 'systemctl status <service-name>'"
 echo "  - Check all services in aitbc: ssh aitbc-cascade 'systemctl list-units | grep aitbc-'"
-echo "  - Check all services in aitbc1: ssh aitbc1-cascade 'systemctl list-units | grep aitbc-'"
+echo "  - Check all services in ${NODE1_HOST}: ssh ${NODE1_CONTAINER_SSH} 'systemctl list-units | grep aitbc-'"
 echo "  - Stop all services: ./scripts/stop-aitbc-dev.sh"
 echo ""
 print_status "Debug specific issues:"
 echo "  - Debug aitbc coordinator: ssh aitbc-cascade 'systemctl status aitbc-coordinator-api'"
-echo "  - Debug aitbc1 coordinator: ssh aitbc1-cascade 'systemctl status aitbc-coordinator-api'"
+echo "  - Debug ${NODE1_HOST} coordinator: ssh ${NODE1_CONTAINER_SSH} 'systemctl status aitbc-coordinator-api'"
 echo "  - Debug aitbc wallet: ssh aitbc-cascade 'systemctl status aitbc-wallet-daemon'"
 echo "  - Debug aitbc blockchain 1: ssh aitbc-cascade 'systemctl status aitbc-blockchain-node-1'"
 echo "  - Debug local blockchain 2: systemctl status aitbc-blockchain-node-2"

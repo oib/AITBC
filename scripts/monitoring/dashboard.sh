@@ -6,6 +6,15 @@
 
 set -e
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -149,7 +158,7 @@ echo "1. Add Validator:     ./scripts/manage-services.sh add-validator <address>
 echo "2. Check Status:      ./scripts/manage-services.sh status"
 echo "3. Start Services:    ./scripts/manage-services.sh start"
 echo "4. View Logs:         tail -f logs/quick_deployment.log"
-echo "5. Deploy to aitbc1:  ssh aitbc1 'cd /opt/aitbc && git pull && ./scripts/manage-services.sh start'"
+echo "5. Deploy to ${NODE1_HOST}:  ssh ${NODE1_HOST} 'cd /opt/aitbc && git pull && ./scripts/manage-services.sh start'"
 
 echo ""
 
@@ -168,7 +177,7 @@ echo -e "${CYAN}🎯 RECOMMENDED NEXT STEPS${NC}"
 echo "================================"
 echo "1. Add more validators (target: 5+ for dev)"
 echo "2. Test consensus with different block heights"
-echo "3. Deploy to aitbc1 node for multi-node testing"
+echo "3. Deploy to ${NODE1_HOST} node for multi-node testing"
 echo "4. Configure agent registration"
 echo "5. Set up monitoring and alerting"
 

@@ -236,7 +236,7 @@ class ExternalOracleClient(OracleClient):
     """External oracle client that delegates verification to HTTP oracle endpoints (v0.7.4 §A1).
 
     Calls one or more external oracle endpoints (e.g.
-    ``https://oracle1.aitbc.bubuit.net``) to verify bridge proofs and
+    ``https://oracle.example.net``) to verify bridge proofs and
     check block finality. The oracle is expected to expose:
 
     - ``POST /v1/verify-proof`` — accepts ``{proof, block_header,

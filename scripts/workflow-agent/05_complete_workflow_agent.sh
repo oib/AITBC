@@ -21,7 +21,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -30,7 +32,7 @@ echo "=== Agent Complete Multi-Node Blockchain Workflow v4.0 ==="
 
 # Configuration
 GENESIS_NODE="aitbc"
-FOLLOWER_NODE="aitbc1"
+FOLLOWER_NODE="${NODE1_HOST}"
 LOCAL_RPC="http://localhost:8202"
 GENESIS_RPC="http://${NODE0_HOST}:8202"
 FOLLOWER_RPC="http://${NODE1_HOST}:8202"
@@ -130,12 +132,12 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
     echo "Checking aitbc node..."
     curl -fsS http://localhost:8202/health | jq .status
 
-    echo "Checking aitbc1 node..."
-    ssh aitbc1 'curl -fsS http://localhost:8202/health | jq .status'
+    echo "Checking ${NODE1_HOST} node..."
+    ssh ${NODE1_HOST} 'curl -fsS http://localhost:8202/health | jq .status'
 
     # Check sync status
     GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
-    FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')
+    FOLLOWER_HEIGHT=$(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq .height')
 
     echo "Sync Status: Genesis=$GENESIS_HEIGHT, Follower=$FOLLOWER_HEIGHT"
 
@@ -162,7 +164,7 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
 
     # Check node connectivity
     echo "Node Connectivity:"
-    ping -c 1 aitbc1 >/dev/null 2>&1 && echo "✅ aitbc1 reachable" || echo "❌ aitbc1 not reachable"
+    ping -c 1 ${NODE1_HOST} >/dev/null 2>&1 && echo "✅ ${NODE1_HOST} reachable" || echo "❌ ${NODE1_HOST} not reachable"
 
     # Check cross-node transactions
     echo "Cross-Node Transactions:"
@@ -200,7 +202,7 @@ agent execute --agent CoordinatorAgent --task performance_testing || {
     # Test RPC response times
     echo "Testing RPC response times..."
     time curl -s http://localhost:8202/rpc/head > /dev/null
-    time ssh aitbc1 'curl -s http://localhost:8202/rpc/head > /dev/null'
+    time ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head > /dev/null'
 
     # Test transaction speed
     cd /opt/aitbc
@@ -231,11 +233,11 @@ agent execute --agent CoordinatorAgent --task network_health_check || {
 
     # Check network connectivity
     echo "Network Connectivity:"
-    ping -c 1 aitbc1 >/dev/null 2>&1 && echo "✅ aitbc1 reachable" || echo "❌ aitbc1 not reachable"
+    ping -c 1 ${NODE1_HOST} >/dev/null 2>&1 && echo "✅ ${NODE1_HOST} reachable" || echo "❌ ${NODE1_HOST} not reachable"
 
     # Check blockchain sync
     GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height)
-    FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height')
+    FOLLOWER_HEIGHT=$(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq .height')
 
     if [ "$GENESIS_HEIGHT" -eq "$FOLLOWER_HEIGHT" ]; then
         echo "✅ Blockchain sync: Nodes are synchronized"
@@ -314,13 +316,13 @@ echo "=== Final Summary ==="
 # Display node status
 echo "📊 Node Status:"
 echo "aitbc (Genesis): $(curl -fsS http://localhost:8202/health | jq .status 2>/dev/null || echo 'Unknown')"
-echo "aitbc1 (Follower): $(ssh aitbc1 'curl -fsS http://localhost:8202/health | jq .status' 2>/dev/null || echo 'Unknown')"
+echo "${NODE1_HOST} (Follower): $(ssh ${NODE1_HOST} 'curl -fsS http://localhost:8202/health | jq .status' 2>/dev/null || echo 'Unknown')"
 
 # Display blockchain height
 echo ""
 echo "⛓️ Blockchain Status:"
 GENESIS_HEIGHT=$(curl -s http://localhost:8202/rpc/head | jq .height 2>/dev/null || echo "N/A")
-FOLLOWER_HEIGHT=$(ssh aitbc1 'curl -s http://localhost:8202/rpc/head | jq .height' 2>/dev/null || echo "N/A")
+FOLLOWER_HEIGHT=$(ssh ${NODE1_HOST} 'curl -s http://localhost:8202/rpc/head | jq .height' 2>/dev/null || echo "N/A")
 echo "Genesis Height: $GENESIS_HEIGHT"
 echo "Follower Height: $FOLLOWER_HEIGHT"
 
@@ -330,7 +332,7 @@ echo "💰 Wallet Status:"
 cd /opt/aitbc
 source venv/bin/activate
 GENESIS_WALLETS=$(./aitbc-cli wallet list | wc -l)
-FOLLOWER_WALLETS=$(ssh aitbc1 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list | wc -l')
+FOLLOWER_WALLETS=$(ssh ${NODE1_HOST} 'cd /opt/aitbc && source venv/bin/activate && ./aitbc-cli wallet list | wc -l')
 echo "Genesis Wallets: $GENESIS_WALLETS"
 echo "Follower Wallets: $FOLLOWER_WALLETS"
 
@@ -362,7 +364,7 @@ cat > "$FINAL_REPORT" << EOF
             "height": $GENESIS_HEIGHT,
             "wallets": $GENESIS_WALLETS
         },
-        "aitbc1": {
+        "${NODE1_HOST}": {
             "role": "follower",
             "status": "active",
             "height": $FOLLOWER_HEIGHT,

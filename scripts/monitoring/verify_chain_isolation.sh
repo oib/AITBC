@@ -4,6 +4,15 @@
 
 set -euo pipefail
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 DATA_DIR="/var/lib/aitbc/data"
 LOG_FILE="/var/log/aitbc/chain-isolation-verification.log"
 VIOLATION_COUNT=0
@@ -121,7 +130,7 @@ main() {
     log "=== Chain Isolation Verification Started ==="
 
     # Ask the node which chain it is on instead of guessing from its hostname.
-    # The previous version mapped the hostnames "aitbc" and "aitbc1" to
+    # The previous version mapped the hostnames "aitbc" and "${NODE1_HOST}" to
     # ait-mainnet/ait-testnet and fell back to ait-mainnet for anything else.
     # No host in the fleet is named either of those any more, and the live chain
     # is ait-hub.aitbc.bubuit.net -- so every node took the fallback and was
@@ -142,7 +151,7 @@ main() {
     check_database_isolation "$DATA_DIR/$expected_chain/chain.db" "$expected_chain"
 
     # The cross-node checks that used to live here shelled out to `ssh aitbc`
-    # and `ssh aitbc1` -- hosts that no longer exist -- and would in any case not
+    # and `ssh ${NODE1_HOST}` -- hosts that no longer exist -- and would in any case not
     # work from the sandboxed systemd unit that now runs this. Each node verifies
     # itself; the timer runs on all of them.
 

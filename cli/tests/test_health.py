@@ -41,7 +41,7 @@ def test_health_probes_requested_services(runner, monkeypatch):
 
     result = runner.invoke(
         cli,
-        ["health", "--host", "node2.aitbc.bubuit.net", "--services", "blockchain-rpc,edge"],
+        ["health", "--host", "node2.example.net", "--services", "blockchain-rpc,edge"],
         obj={"output_format": "table"},
     )
 

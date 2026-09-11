@@ -2,6 +2,8 @@
 Rating commands: rate, ratings, sync-ratings
 """
 
+import os
+
 import click
 
 from ...config import get_config
@@ -161,7 +163,15 @@ def ratings(ctx, service_id: str, limit: int, offset: int, marketplace_url: str)
 
   aitbc market sync-ratings --output json""",
 )
-@click.option("--remote-url", default="https://aitbc3.aitbc.bubuit.net/api", help="Remote marketplace service URL")
+# The default used to name one island's marketplace host, which sent every
+# other deployment's ratings to a stranger. There is no sensible default, so
+# the URL has to be given -- by flag or by AITBC_MARKETPLACE_URL.
+@click.option(
+    "--remote-url",
+    default=lambda: os.getenv("AITBC_MARKETPLACE_URL"),
+    required=True,
+    help="Remote marketplace service URL (default: $AITBC_MARKETPLACE_URL)",
+)
 @click.option("--limit", default=100, help="Number of ratings to sync")
 @click.pass_context
 def sync_ratings(ctx, remote_url: str, limit: int):

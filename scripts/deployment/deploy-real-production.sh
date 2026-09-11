@@ -6,6 +6,15 @@
 
 set -e
 
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Colors for output
 GREEN='\033[0;32m'
 RED='\033[0;31m'
@@ -256,42 +265,42 @@ echo "Testing real marketplace..."
 curl -s http://localhost:8006/health | head -5 || echo "Real marketplace not responding"
 curl -s http://localhost:8006/ai/services | head -10 || echo "AI services not available"
 
-# Step 6: Deploy to aitbc1
-echo -e "${CYAN}🚀 Step 6: Deploy to aitbc1${NC}"
+# Step 6: Deploy to ${NODE1_HOST}
+echo -e "${CYAN}🚀 Step 6: Deploy to ${NODE1_HOST}${NC}"
 echo "=========================="
 
-# Copy production system to aitbc1
+# Copy production system to ${NODE1_HOST}
 echo "Copying real production system to aitbc1..."
-scp -r /opt/aitbc/production/services aitbc1:/opt/aitbc/production/
-scp /opt/aitbc/systemd/aitbc-mining-blockchain.service aitbc1:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-agent-ai.service aitbc1:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-real-marketplace.service aitbc1:/opt/aitbc/systemd/
+scp -r /opt/aitbc/production/services ${NODE1_HOST}:/opt/aitbc/production/
+scp /opt/aitbc/systemd/aitbc-mining-blockchain.service ${NODE1_HOST}:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-agent-ai.service ${NODE1_HOST}:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-real-marketplace.service ${NODE1_HOST}:/opt/aitbc/systemd/
 
-# Configure services for aitbc1
+# Configure services for ${NODE1_HOST}
 echo "Configuring services for aitbc1..."
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-mining-blockchain.service"
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-agent-ai.service"
-ssh aitbc1 "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-mining-blockchain.service"
+ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-agent-ai.service"
+ssh ${NODE1_HOST} "sed -i 's/NODE_ID=aitbc/NODE_ID=aitbc1/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
 
-# Update ports for aitbc1
-ssh aitbc1 "sed -i 's/REAL_MARKETPLACE_PORT=8006/REAL_MARKETPLACE_PORT=8007/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
+# Update ports for ${NODE1_HOST}
+ssh ${NODE1_HOST} "sed -i 's/REAL_MARKETPLACE_PORT=8006/REAL_MARKETPLACE_PORT=8007/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
 
-# Deploy and start services on aitbc1
+# Deploy and start services on ${NODE1_HOST}
 echo "Starting services on aitbc1..."
-ssh aitbc1 "cp /opt/aitbc/systemd/aitbc-*.service /etc/systemd/system/"
-ssh aitbc1 "systemctl daemon-reload"
-ssh aitbc1 "systemctl enable aitbc-mining-blockchain.service aitbc-agent-ai.service aitbc-real-marketplace.service"
-ssh aitbc1 "systemctl start aitbc-mining-blockchain.service"
+ssh ${NODE1_HOST} "cp /opt/aitbc/systemd/aitbc-*.service /etc/systemd/system/"
+ssh ${NODE1_HOST} "systemctl daemon-reload"
+ssh ${NODE1_HOST} "systemctl enable aitbc-mining-blockchain.service aitbc-agent-ai.service aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-mining-blockchain.service"
 sleep 3
-ssh aitbc1 "systemctl start aitbc-agent-ai.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-agent-ai.service"
 sleep 3
-ssh aitbc1 "systemctl start aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-real-marketplace.service"
 
-# Check aitbc1 services
-echo "Checking aitbc1 services..."
-ssh aitbc1 "systemctl status aitbc-mining-blockchain.service --no-pager -l | head -5"
-ssh aitbc1 "systemctl status aitbc-agent-ai.service --no-pager -l | head -5"
-ssh aitbc1 "curl -s http://localhost:8007/health | head -5" || echo "aitbc1 marketplace not ready"
+# Check ${NODE1_HOST} services
+echo "Checking ${NODE1_HOST} services..."
+ssh ${NODE1_HOST} "systemctl status aitbc-mining-blockchain.service --no-pager -l | head -5"
+ssh ${NODE1_HOST} "systemctl status aitbc-agent-ai.service --no-pager -l | head -5"
+ssh ${NODE1_HOST} "curl -s http://localhost:8007/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
 
 # Step 7: Demonstrate real functionality
 echo -e "${CYAN}🎯 Step 7: Demonstrate Real Functionality${NC}"
@@ -353,7 +362,7 @@ echo "   • Payment processing via blockchain"
 echo ""
 echo "✅ Multi-Node Deployment:"
 echo "   • aitbc (localhost): Mining + AI + Marketplace (port 8006)"
-echo "   • aitbc1 (remote): Mining + AI + Marketplace (port 8007)"
+echo "   • ${NODE1_HOST} (remote): Mining + AI + Marketplace (port 8007)"
 echo "   • Cross-node coordination and trading"
 echo ""
 echo "✅ Real Economic Activity:"
@@ -364,7 +373,7 @@ echo "   • Multi-chain: Real cross-chain trading"
 echo ""
 echo "✅ Service Endpoints:"
 echo "   • aitbc: http://localhost:8006/health"
-echo "   • aitbc1: http://aitbc1:8007/health"
+echo "   • ${NODE1_HOST}: http://${NODE1_HOST}:8007/health"
 echo ""
 echo "✅ Monitoring:"
 echo "   • Mining logs: journalctl -u aitbc-mining-blockchain"

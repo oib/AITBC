@@ -1,4 +1,17 @@
 #!/bin/bash
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+# ssh target for the blockchain container on node1. This used to be a private
+# ~/.ssh/config alias, so the script only worked on one operator's workstation.
+NODE1_CONTAINER_SSH="${AITBC_NODE1_CONTAINER_SSH:?set AITBC_NODE1_CONTAINER_SSH to the ssh target for the container on node1}"
+
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 echo "=== Multi-Chain Capability Test ==="
 echo ""
 echo "1. Verify Health (Supported Chains):"
@@ -17,8 +30,8 @@ echo "4. Checking head of ait-testnet on aitbc (Primary):"
 ssh aitbc-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-testnet\" | jq ."
 
 echo ""
-echo "5. Checking head of ait-testnet on aitbc1 (Secondary):"
-ssh aitbc1-cascade "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-testnet\" | jq ."
+echo "5. Checking head of ait-testnet on ${NODE1_HOST} (Secondary):"
+ssh ${NODE1_CONTAINER_SSH} "curl -s \"http://127.0.0.1:8082/rpc/head?chain_id=ait-testnet\" | jq ."
 
 echo ""
 echo "6. Checking head of ait-devnet on aitbc (Should be 0 if no txs since genesis fixed):"

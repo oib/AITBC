@@ -1,10 +1,23 @@
 #!/bin/bash
 set -euo pipefail
+
+# ssh target for the blockchain container on node1. This used to be a private
+# ~/.ssh/config alias, so the script only worked on one operator's workstation.
+NODE1_CONTAINER_SSH="${AITBC_NODE1_CONTAINER_SSH:?set AITBC_NODE1_CONTAINER_SSH to the ssh target for the container on node1}"
+
+# Fleet node addresses.
+#
+# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
+# the script only ran on that workstation and named the fleet in a public
+# repository. Set them for your own deployment; there is deliberately no
+# default.
+NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
+
 # Master Test Runner for Multi-Site AITBC Testing
 
 echo "🚀 Multi-Site AITBC Test Suite Master Runner"
 echo "=========================================="
-echo "Testing localhost, aitbc, and aitbc1 with all CLI features"
+echo "Testing localhost, aitbc, and ${NODE1_HOST} with all CLI features"
 echo ""
 
 # Resolve project root (directory containing this script)
@@ -61,11 +74,11 @@ check_prerequisites() {
         echo "❌ aitbc marketplace not accessible (port 8000)"
     fi
 
-    # Check aitbc1 connectivity
+    # Check ${NODE1_HOST} connectivity
     if curl -s http://127.0.0.1:8015/v1/health &> /dev/null; then
-        echo "✅ aitbc1 marketplace accessible (port 8015)"
+        echo "✅ ${NODE1_HOST} marketplace accessible (port 8015)"
     else
-        echo "❌ aitbc1 marketplace not accessible (port 8015)"
+        echo "❌ ${NODE1_HOST} marketplace not accessible (port 8015)"
     fi
 
     # Check Ollama
@@ -86,10 +99,10 @@ check_prerequisites() {
         echo "❌ SSH access to aitbc container failed"
     fi
 
-    if ssh aitbc1-cascade "echo 'SSH OK'" &> /dev/null; then
-        echo "✅ SSH access to aitbc1 container"
+    if ssh ${NODE1_CONTAINER_SSH} "echo 'SSH OK'" &> /dev/null; then
+        echo "✅ SSH access to ${NODE1_HOST} container"
     else
-        echo "❌ SSH access to aitbc1 container failed"
+        echo "❌ SSH access to ${NODE1_HOST} container failed"
     fi
 
     echo ""
@@ -138,11 +151,11 @@ run_cli_tests() {
     }
 
     run_cli_test "chain:list:aitbc" aitbc chain list --node-url http://127.0.0.1:8202
-    run_cli_test "chain:list:aitbc1" aitbc chain list --node-url https://hub.aitbc.bubuit.net/rpc
+    run_cli_test "chain:list:${NODE1_HOST}" aitbc chain list --node-url https://hub.aitbc.bubuit.net/rpc
     run_cli_test "analytics:summary:aitbc" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
-    run_cli_test "analytics:summary:aitbc1" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
+    run_cli_test "analytics:summary:${NODE1_HOST}" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
     run_cli_test "marketplace:list:aitbc" aitbc market list
-    run_cli_test "marketplace:list:aitbc1" aitbc market list --service-type ollama
+    run_cli_test "marketplace:list:${NODE1_HOST}" aitbc market list --service-type ollama
     run_cli_test "system:check:blockchain-node" aitbc system check --service blockchain-node
     run_cli_test "system:check:gpu" aitbc system check --service gpu
     run_cli_test "system:check:marketplace" aitbc system check --service marketplace
@@ -202,9 +215,9 @@ main() {
     # Run scenario tests
     local scenarios=(
         "Scenario A: Localhost GPU Miner → aitbc Marketplace:$PROJECT_ROOT/test_scenario_a.sh"
-        "Scenario B: Localhost GPU Client → aitbc1 Marketplace:$PROJECT_ROOT/test_scenario_b.sh"
+        "Scenario B: Localhost GPU Client → ${NODE1_HOST} Marketplace:$PROJECT_ROOT/test_scenario_b.sh"
         "Scenario C: aitbc Container User Operations:$PROJECT_ROOT/test_scenario_c.sh"
-        "Scenario D: aitbc1 Container User Operations:$PROJECT_ROOT/test_scenario_d.sh"
+        "Scenario D: ${NODE1_HOST} Container User Operations:$PROJECT_ROOT/test_scenario_d.sh"
     )
 
     for scenario_info in "${scenarios[@]}"; do

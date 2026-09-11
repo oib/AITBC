@@ -22,7 +22,9 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
 else
     # Fallback to defaults
     export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
-    export SHOP_URL="${SHOP_URL:-https://aitbc3.aitbc.bubuit.net}"
+    # No default for the shop node: it used to name one island's host, which
+    # was wrong everywhere else and published that host in a public repo.
+    export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
@@ -35,7 +37,7 @@ echo "📈 Session 4.3: Advanced Economic Modeling"
 
 # Configuration
 GENESIS_NODE="aitbc"
-FOLLOWER_NODE="aitbc1"
+FOLLOWER_NODE="${NODE1_HOST}"
 LOCAL_RPC="http://localhost:8202"
 GENESIS_RPC="http://${NODE0_HOST}:8202"
 FOLLOWER_RPC="http://${NODE1_HOST}:8202"
@@ -187,7 +189,7 @@ curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(f\"Message posted: {d.get(\"message_id\", d.get(\"error\"))}\")" 2>/dev/null
 
 # Follower node responds with economic capabilities
-ssh aitbc1 "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-economics\\\", \\\"agent_address\\\": \\\"0x41B3BaE6eEa3A74273ef3961861ee58E12b6D855\\\", \\\"topic_id\\\": \\\"$TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for AI economics coordination. Specialized capabilities: CPU optimization (target 95% utilization), memory pricing strategies, market analysis, customer acquisition optimization. Current economic metrics: CPU utilization 78%, cost efficiency 18% improvement, market share 12%. Proposed coordination: Genesis handles GPU economics, follower handles CPU/memory economics and market analysis. Ready for distributed economic optimization.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && curl -sf -X POST http://localhost:8202/rpc/messaging/messages/post -H \"Content-Type: application/json\" -d \"{\\\"agent_id\\\": \\\"follower-economics\\\", \\\"agent_address\\\": \\\"0x41B3BaE6eEa3A74273ef3961861ee58E12b6D855\\\", \\\"topic_id\\\": \\\"$TOPIC_ID\\\", \\\"content\\\": \\\"Follower node ready for AI economics coordination. Specialized capabilities: CPU optimization (target 95% utilization), memory pricing strategies, market analysis, customer acquisition optimization. Current economic metrics: CPU utilization 78%, cost efficiency 18% improvement, market share 12%. Proposed coordination: Genesis handles GPU economics, follower handles CPU/memory economics and market analysis. Ready for distributed economic optimization.\\\"}\" | python3 -c \"import sys,json; d=json.load(sys.stdin); print(f\\\"Follower response posted: {d.get(\\\"message_id\\\", d.get(\\\"error\\\"))}\\\")\"" 2>/dev/null
 
 success "Cross-node economic coordination established"
 

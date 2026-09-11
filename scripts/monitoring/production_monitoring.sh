@@ -34,7 +34,7 @@ mkdir -p "$MONITORING_DIR"
 # wrong when these probes were written down as literals:
 #
 #   * the API URL. It was https://aitbc.bubuit.net/api/v1/health. That name does not
-#     resolve from this host (this is aitbc3.aitbc.bubuit.net), and where it does resolve
+#     resolve from a fleet node -- nodes have their own names, not the bare apex -- and
 #     the /v1/ prefix answers 401 from the coordinator's auth middleware, never 200 — so
 #     the 200 comparison below could not pass. Both spellings were also written
 #     `curl -s ... || echo "000"`, which turns a DNS failure into a recorded status code.
