@@ -18953,7 +18953,7 @@
             }
           },
           "500": {
-            "description": "escrow contract_id missing after create / Failed to persist escrow: {e}",
+            "description": "escrow contract_id missing after create / Failed to persist escrow",
             "content": {
               "application/json": {
                 "schema": {
