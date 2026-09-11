@@ -99,7 +99,11 @@ echo ""
 echo "4. Security Configuration Checks"
 check "Root login disabled" "grep '^PermitRootLogin no' /etc/ssh/sshd_config" "PermitRootLogin no"
 check "Password auth disabled" "grep '^PasswordAuthentication no' /etc/ssh/sshd_config" "PasswordAuthentication no"
-check "Firewall active" "ufw status | grep 'Status: active'" "Status: active"
+# There is deliberately no firewall check here. AITBC services run in containers
+# whose perimeter is filtered by the container host, so `ufw status` inside the
+# guest reports "inactive" on a correctly configured deployment -- this check
+# failed exactly when things were right. What matters instead is which addresses
+# the services bind, which the listener checks below cover.
 
 echo ""
 echo "5. File System Checks"

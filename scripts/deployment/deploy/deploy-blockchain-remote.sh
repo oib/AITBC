@@ -26,14 +26,9 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Check if we're on the right server
+# Check that this host can carry out a deployment (see deploy-env.sh).
 print_status "Checking server..."
-if [ "$(hostname)" != "ns3" ] && [ "$(hostname)" != "aitbc" ]; then
-    print_warning "This script should be run on the deployment server"
-    echo "Please run: ssh $AITBC_SSH_TARGET"
-    echo "Then: cd /opt && ./deploy-blockchain-remote.sh"
-    exit 1
-fi
+require_deploy_capabilities
 
 # Install dependencies if needed
 print_status "Installing dependencies..."
@@ -142,12 +137,10 @@ sleep 5
 print_status "Checking service status..."
 systemctl status blockchain-node blockchain-rpc --no-pager | head -15
 
-# Setup port forwarding if in container
-if [ "$(hostname)" = "aitbc" ]; then
-    print_status "Setting up port forwarding..."
-    iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
-    iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
-    iptables-save > /etc/iptables/rules.v4
+# Publish the RPC port from this host, if this host is the one that forwards.
+print_status "Setting up port forwarding..."
+if setup_dnat "${RPC_BIND_PORT}"; then
+    persist_dnat
 fi
 
 print_success "✅ Blockchain node deployed!"

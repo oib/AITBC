@@ -26,13 +26,8 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Check if we're on the deployment server
-if [ "$(hostname)" != "ns3" ] && [ "$(hostname)" != "aitbc" ]; then
-    print_warning "This script must be run on the deployment server"
-    echo "Run: ssh $AITBC_SSH_TARGET"
-    echo "Then: cd /opt && ./deploy-direct.sh"
-    exit 1
-fi
+# Check that this host can carry out a deployment (see deploy-env.sh).
+require_deploy_capabilities
 
 # Stop existing services
 print_status "Stopping existing services..."
@@ -282,16 +277,17 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
-# Setup port forwarding if in container
-if [ "$(hostname)" = "aitbc" ]; then
+# Publish the service ports from this host, if this host is the one that forwards.
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
     print_status "Setting up port forwarding..."
     iptables -t nat -F PREROUTING 2>/dev/null || true
     iptables -t nat -F POSTROUTING 2>/dev/null || true
-    iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
-    iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
-    iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
-    iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 3000 -j MASQUERADE
-    iptables-save > /etc/iptables/rules.v4
+    setup_dnat 8202
+    setup_dnat 3000
+    persist_dnat
+else
+    echo "NOTE: AITBC_DNAT_TARGET is not set -- nothing is published from this" >&2
+    echo "      host. The services below are reachable on this host only." >&2
 fi
 
 # Wait for services to start
@@ -305,9 +301,9 @@ systemctl status blockchain-node blockchain-rpc nginx --no-pager | grep -E 'Acti
 print_success "✅ Deployment complete!"
 echo ""
 echo "Services:"
-if [ "$(hostname)" = "aitbc" ]; then
-    echo "  - Blockchain Node RPC: http://192.168.100.10:8202"
-    echo "  - Blockchain Explorer: http://192.168.100.10:3000"
+if [ -n "${AITBC_DNAT_TARGET:-}" ]; then
+    echo "  - Blockchain Node RPC: http://${AITBC_DNAT_TARGET}:8202"
+    echo "  - Blockchain Explorer: http://${AITBC_DNAT_TARGET}:3000"
     echo ""
     echo "External access:"
     echo "  - Blockchain Node RPC: http://${AITBC_PUBLIC_HOST}:8202"

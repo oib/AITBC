@@ -20,12 +20,14 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Check if we're in the container
-if [ ! -f /proc/1/environ ] || ! grep -q container=lxc /proc/1/environ 2>/dev/null; then
-    if [ "$(hostname)" != "aitbc" ]; then
-        print_warning "This script must be run inside the aitbc container"
-        exit 1
-    fi
+# Check that we are inside a container.
+#
+# This used to fall back to comparing `hostname` against one island's container
+# name, which only ever mattered on that island. The /proc/1/environ test is the
+# part that actually answers the question, on anyone's machine.
+if [ ! -f /proc/1/environ ] || ! grep -qa container= /proc/1/environ 2>/dev/null; then
+    print_warning "This script must be run inside the target container"
+    exit 1
 fi
 
 # Stop existing services

@@ -26,11 +26,8 @@ print_warning() {
     echo -e "${YELLOW}[WARN]${NC} $1"
 }
 
-# Check if we're on the right server
-if [ "$(hostname)" != "ns3" ] && [ "$(hostname)" != "aitbc" ]; then
-    print_warning "This script should be run on the deployment server"
-    exit 1
-fi
+# Check that this host can carry out a deployment (see deploy-env.sh).
+require_deploy_capabilities
 
 # Create directory
 print_status "Creating blockchain explorer directory..."
@@ -381,12 +378,10 @@ rm -f /etc/nginx/sites-enabled/default
 nginx -t
 systemctl reload nginx
 
-# Setup port forwarding if in container
-if [ "$(hostname)" = "aitbc" ]; then
-    print_status "Setting up port forwarding..."
-    iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
-    iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 3000 -j MASQUERADE
-    iptables-save > /etc/iptables/rules.v4
+# Publish the explorer port from this host, if this host is the one that forwards.
+print_status "Setting up port forwarding..."
+if setup_dnat 3000; then
+    persist_dnat
 fi
 
 print_status "Checking nginx status..."
