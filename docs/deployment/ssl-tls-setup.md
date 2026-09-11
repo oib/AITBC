@@ -1,54 +1,28 @@
 # SSL/TLS Configuration
 
-This guide covers SSL/TLS setup for AITBC deployment using Let's Encrypt and manual certificates.
+**AITBC does not manage certificates.** There is no certbot dependency, no ACME
+client, and no renewal hook in any AITBC service or deployment script. Nothing in
+this repository obtains, installs, renews or reloads a certificate.
 
-## Let's Encrypt
+TLS is terminated in front of AITBC, on the proxy host described in
+[Network Policy](NETWORK_POLICY.md) — the only host that answers `443`. How that
+host obtains its certificates is an operator decision outside this repository's
+scope, and deliberately not documented here.
 
-```bash
-# Install certbot
-apt install -y certbot python3-certbot-nginx
+## What that means for a deployment
 
-# Obtain certificate
-certbot --nginx -d your-domain.com
-
-# Auto-renewal
-certbot renew --dry-run
-```
-
-## Manual Certificate
-
-```bash
-# Generate self-signed certificate
-openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
-  -keyout /etc/ssl/private/aitbc.key \
-  -out /etc/ssl/certs/aitbc.crt
-
-# Configure Nginx
-nano /etc/nginx/sites-available/aitbc
-```
-
-## Nginx SSL Configuration
-
-```nginx
-server {
-    listen 443 ssl http2;
-    server_name your-domain.com;
-
-    ssl_certificate /etc/ssl/certs/aitbc.crt;
-    ssl_certificate_key /etc/ssl/private/aitbc.key;
-    ssl_protocols TLSv1.2 TLSv1.3;
-    ssl_ciphers HIGH:!aNULL:!MD5;
-
-    location / {
-        proxy_pass http://coordinator;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-    }
-}
-```
+- AITBC services speak plain HTTP and bind to loopback or a container-internal
+  address. None of them listen on `443`, and none should be given a certificate.
+- Do not add `ssl_certificate` directives to a service's own nginx vhost. The
+  vhosts shipped under `infra/nginx/` proxy cleartext to the service and expect
+  TLS to have been handled upstream.
+- If a service needs to know it is being reached over TLS, read the forwarded
+  headers. Services are started with uvicorn's `--proxy-headers`.
+- Certificate expiry is monitored by whoever operates the terminator, not by
+  AITBC's own monitoring.
 
 ## See Also
 
-- [Security/SSL-TLS Configuration](../security/ssl-tls-configuration.md) - Detailed SSL/TLS guide
+- [Network Policy](NETWORK_POLICY.md) - Which ports are public, and where TLS terminates
 - [Single Server](single-server.md) - Nginx configuration
 - [Configuration](configuration.md) - Environment configuration

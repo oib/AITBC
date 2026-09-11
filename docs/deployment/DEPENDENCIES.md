@@ -63,7 +63,6 @@ This document lists all system-level dependencies required for deploying AITBC i
 | Software | Version | Purpose | Installation |
 |----------|---------|---------|--------------|
 | Node.js | 20+ | Frontend build tools | `apt install nodejs npm` |
-| certbot | Latest | SSL certificate management | `apt install certbot python3-certbot-nginx` |
 
 ### Development Tools (for deployment)
 
@@ -246,32 +245,14 @@ The full policy, the verification command and the drift gate live in
 
 ## SSL/TLS Certificates
 
-### Let's Encrypt (Recommended)
+AITBC has no certificate dependency. Nothing in this repository installs an ACME
+client, obtains a certificate or configures a renewal hook, and no AITBC service
+listens on `443`.
 
-```bash
-# Install certbot
-apt install certbot python3-certbot-nginx
-
-# Obtain certificate
-certbot --nginx -d api.aitbc.example.com -d blockchain.aitbc.example.com
-
-# Auto-renewal is configured by default
-certbot renew --dry-run
-```
-
-### Custom Certificates
-
-Place certificates in:
-
-- `/etc/ssl/certs/aitbc.crt`
-- `/etc/ssl/private/aitbc.key`
-
-Permissions:
-
-```bash
-chmod 644 /etc/ssl/certs/aitbc.crt
-chmod 600 /etc/ssl/private/aitbc.key
-```
+TLS terminates on the proxy host in front of the fleet; see
+[Network Policy](NETWORK_POLICY.md) for which surfaces are public and
+[SSL/TLS Configuration](ssl-tls-setup.md) for what that means when deploying.
+Certificates for that host are an operator concern, outside this repository.
 
 ## Storage Requirements
 
