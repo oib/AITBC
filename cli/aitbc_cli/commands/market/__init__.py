@@ -229,13 +229,14 @@ def market(ctx, market_wallet, market_wallet_path, market_password, market_passw
 
 
 # Import submodules to register all commands
-from . import escrow, exchange, jobs, offers, ratings, host
+from . import escrow, exchange, jobs, offers, ratings
 from .escrow import _escrow_create, _get_blockchain_rpc_url
 from . import gpu as gpu_module
+from .host import cancel as market_cancel_cmd, download as market_download_cmd, host as market_host_cmd, jobs as market_jobs_cmd
 
 market.add_command(escrow.escrow)
 market.add_command(gpu_module.gpu)
-market.add_command(host.host)
-market.add_command(host.download)
-market.add_command(host.cancel)
-market.add_command(host.jobs)
+market.add_command(market_host_cmd)  # type: ignore[has-type]
+market.add_command(market_download_cmd)  # type: ignore[has-type]
+market.add_command(market_cancel_cmd)  # type: ignore[has-type]
+market.add_command(market_jobs_cmd)  # type: ignore[has-type]
