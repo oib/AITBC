@@ -120,7 +120,18 @@ def _init_repo(repo: Path) -> None:
     _run([_ipfs_bin(), "init"], env={"IPFS_PATH": str(repo)})
 
 
-def _set_island_config(repo: Path, api_port: int, gateway_port: int, swarm_port: int) -> None:
+def _parse_multiaddrs(raw: str) -> list[str]:
+    """Split a comma- or whitespace-separated multiaddr list."""
+    return [part for part in re.split(r"[,\s]+", raw.strip()) if part]
+
+
+def _set_island_config(
+    repo: Path,
+    api_port: int,
+    gateway_port: int,
+    swarm_port: int,
+    announce: list[str] | None = None,
+) -> None:
     """Apply island-specific config directly to the Kubo config file.
 
     We edit the JSON config directly because `ipfs config --json` can fail
@@ -140,7 +151,10 @@ def _set_island_config(repo: Path, api_port: int, gateway_port: int, swarm_port:
             f"/ip4/0.0.0.0/udp/{swarm_port}/quic-v1",
             f"/ip4/0.0.0.0/udp/{swarm_port}/quic-v1/webtransport",
         ]
-        config["Addresses"]["Announce"] = []
+        # A node behind a NAT or a container proxy only ever sees its private
+        # address, so left empty it advertises something no outside peer can
+        # dial. Set ISLAND_IPFS_ANNOUNCE to the address peers actually reach.
+        config["Addresses"]["Announce"] = list(announce or [])
         config["AutoConf"] = {"Enabled": False}
         config["Gateway"] = config.get("Gateway", {})
         config["Gateway"]["PublicGateways"] = {}
@@ -170,11 +184,12 @@ def _write_swarm_key(repo: Path, key: str | None, allow_generate: bool = False) 
             )
 
 
-def _add_bootstrap(repo: Path, multiaddr: str) -> None:
+def _add_bootstrap(repo: Path, multiaddrs: list[str]) -> None:
     ipfs = _ipfs_bin()
     env = {"IPFS_PATH": str(repo)}
     _run([ipfs, "bootstrap", "rm", "all"], env=env, check=False)
-    _run([ipfs, "bootstrap", "add", multiaddr], env=env, check=False)
+    for multiaddr in multiaddrs:
+        _run([ipfs, "bootstrap", "add", multiaddr], env=env, check=False)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -185,7 +200,16 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--api-port", type=int, default=int(os.environ.get("ISLAND_IPFS_API_PORT", "5002")))
     parser.add_argument("--gateway-port", type=int, default=int(os.environ.get("ISLAND_IPFS_GATEWAY_PORT", "8081")))
     parser.add_argument("--swarm-port", type=int, default=int(os.environ.get("ISLAND_IPFS_SWARM_PORT", "4002")))
-    parser.add_argument("--bootstrap", default=os.environ.get("ISLAND_IPFS_BOOTSTRAP", ""), help="Hub multiaddr to bootstrap")
+    parser.add_argument(
+        "--bootstrap",
+        default=os.environ.get("ISLAND_IPFS_BOOTSTRAP", ""),
+        help="Hub multiaddr(s) to bootstrap, comma-separated",
+    )
+    parser.add_argument(
+        "--announce",
+        default=os.environ.get("ISLAND_IPFS_ANNOUNCE", ""),
+        help="Multiaddr(s) peers should dial to reach this node, comma-separated",
+    )
     parser.add_argument("--swarm-key", default=os.environ.get("ISLAND_SWARM_KEY", ""), help="Swarm key contents")
     parser.add_argument(
         "--hub", action="store_true", default=os.environ.get("ISLAND_IPFS_HUB", "").lower() in ("1", "true", "yes")
@@ -199,9 +223,12 @@ def main(argv: list[str] | None = None) -> int:
     repo = Path(args.repo) if args.repo else _repo_path(args.island_id)
     _init_repo(repo)
     _write_swarm_key(repo, args.swarm_key or None, allow_generate=args.hub)
-    _set_island_config(repo, args.api_port, args.gateway_port, args.swarm_port)
-    if args.bootstrap:
-        _add_bootstrap(repo, args.bootstrap)
+    _set_island_config(
+        repo, args.api_port, args.gateway_port, args.swarm_port, _parse_multiaddrs(args.announce)
+    )
+    bootstrap = _parse_multiaddrs(args.bootstrap)
+    if bootstrap:
+        _add_bootstrap(repo, bootstrap)
 
     cmd = [_ipfs_bin(), "daemon", "--enable-gc"]
     env = os.environ.copy()
