@@ -798,12 +798,14 @@ async def confirm_marketplace_job_pin(
 
 @app.post("/v1/marketplace/jobs/{job_id}/release")
 async def release_marketplace_job_payment(
-    job_id: str, svc: Annotated[MarketplaceService, Depends(get_marketplace_service)]
+    job_id: str,
+    release_data: dict[str, Any] | None = None,
+    svc: Annotated[MarketplaceService, Depends(get_marketplace_service)] = None,  # type: ignore[assignment]
 ) -> Any:
     """Release the escrow payment for a marketplace job."""
     try:
         logger.info("POST /v1/marketplace/jobs/%s/release called", job_id)
-        result = await svc.release_marketplace_job_payment(job_id)
+        result = await svc.release_marketplace_job_payment(job_id, release_data=release_data or {})
         return result
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})

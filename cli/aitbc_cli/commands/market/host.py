@@ -28,7 +28,7 @@ from ..ipfs import (
     _is_cid,
 )
 from . import get_chain_id, get_market_wallet, market
-from .escrow import _escrow_create
+from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 from .jobs import _resolve_offer, _track_coordinator_job
 
 logger = get_logger(__name__)
@@ -78,13 +78,25 @@ def _confirm_marketplace_pin(job_id: str, size: int | None = None) -> dict[str, 
         return None
 
 
-def _release_marketplace_payment(job_id: str) -> dict[str, Any] | None:
-    """Release escrow for a completed job."""
+def _release_marketplace_payment(ctx: click.Context, job_id: str) -> dict[str, Any] | None:
+    """Release escrow for a completed job via the customer blockchain, then sync the marketplace record."""
+    config = get_config()
+    rpc_url = _get_blockchain_rpc_url(config)
+    rpc_client = _get_rpc_client(config, rpc_url, timeout=20)
+    release_result: dict[str, Any] | None = None
+    try:
+        release_result = rpc_client.post(f"/rpc/escrow/{job_id}/release", json={})
+    except Exception as e:
+        warning(f"Local escrow release failed: {e}")
+    tx_hash = release_result.get("tx_hash") if isinstance(release_result, dict) else None
     try:
         client = _marketplace_client()
-        return client.post(f"/v1/marketplace/jobs/{job_id}/release")
+        return client.post(
+            f"/v1/marketplace/jobs/{job_id}/release",
+            json={"tx_hash": tx_hash, "released_amount": release_result.get("released_amount") if release_result else None},
+        )
     except NetworkError as e:
-        warning(f"Could not release marketplace payment: {e}")
+        warning(f"Could not sync marketplace release: {e}")
         return None
 
 
@@ -278,7 +290,7 @@ def _run_ipfs_hosting(
     _confirm_marketplace_pin(job_id, content_size)
 
     if release_immediately:
-        release_result = _release_marketplace_payment(job_id)
+        release_result = _release_marketplace_payment(ctx, job_id)
         if release_result and not release_result.get("error"):
             success(f"Released {total_cost:.4f} AIT to provider")
         else:
