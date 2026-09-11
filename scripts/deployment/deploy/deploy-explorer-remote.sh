@@ -172,7 +172,7 @@ cat > index.html << 'EOF'
         lucide.createIcons();
 
         // Same-origin. nginx (below) proxies /rpc/ to the node's RPC port, so the
-        // page never needs to know the node's address -- and never needs 8082 to
+        // page never needs to know the node's address -- and never needs 8202 to
         // be reachable from the browser, which it generally is not: the RPC port
         // is bound on the container bridge, not published.
         const RPC_URL = '';
@@ -359,7 +359,7 @@ server {
     # RPC passthrough: keeps the explorer same-origin, so no CORS and no need
     # to publish the node's RPC port to browsers.
     location /rpc/ {
-        proxy_pass http://localhost:8082;
+        proxy_pass http://localhost:8202;
         proxy_set_header Host \$host;
         proxy_set_header X-Real-IP \$remote_addr;
         proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;

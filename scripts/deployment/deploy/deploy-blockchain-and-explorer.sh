@@ -35,7 +35,7 @@ cat > .env << EOL
 CHAIN_ID=ait-devnet
 DB_PATH=./data/chain.db
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8082
+RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
 P2P_BIND_PORT=7070
 PROPOSER_KEY=proposer_key_$(date +%s)
@@ -91,7 +91,7 @@ User=root
 WorkingDirectory=/opt/blockchain-node
 Environment=PATH=/opt/blockchain-node/.venv/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/blockchain-node/src:/opt/blockchain-node/scripts
-ExecStart=/opt/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8082
+ExecStart=/opt/blockchain-node/.venv/bin/python3 -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202
 Restart=always
 RestartSec=5
 
@@ -173,8 +173,8 @@ iptables -t nat -F PREROUTING 2>/dev/null || true
 iptables -t nat -F POSTROUTING 2>/dev/null || true
 
 # Add port forwarding for blockchain RPC
-iptables -t nat -A PREROUTING -p tcp --dport 8082 -j DNAT --to-destination 192.168.100.10:8082
-iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8082 -j MASQUERADE
+iptables -t nat -A PREROUTING -p tcp --dport 8202 -j DNAT --to-destination 192.168.100.10:8202
+iptables -t nat -A POSTROUTING -p tcp -d 192.168.100.10 --dport 8202 -j MASQUERADE
 
 # Add port forwarding for explorer
 iptables -t nat -A PREROUTING -p tcp --dport 3000 -j DNAT --to-destination 192.168.100.10:3000
@@ -196,11 +196,11 @@ ssh ns3-root "systemctl status blockchain-node blockchain-rpc blockchain-explore
 print_success "✅ Deployment complete!"
 echo ""
 echo "Services deployed:"
-echo "  - Blockchain Node RPC: http://192.168.100.10:8082"
+echo "  - Blockchain Node RPC: http://192.168.100.10:8202"
 echo "  - Blockchain Explorer: http://192.168.100.10:3000"
 echo ""
 echo "External access:"
-echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8082"
+echo "  - Blockchain Node RPC: http://aitbc.keisanki.net:8202"
 echo "  - Blockchain Explorer: http://aitbc.keisanki.net:3000"
 echo ""
 echo "The explorer is connected to the local blockchain node and will display"
