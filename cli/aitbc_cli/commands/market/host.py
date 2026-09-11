@@ -505,7 +505,9 @@ def cancel(
         warning(f"Local escrow refund failed (sweeper will retry): {e}")
 
     tx_hash = refund_result.get("tx_hash") if isinstance(refund_result, dict) else None
-    if tx_hash:
+    if not tx_hash:
+        warning(f"Escrow refund did not return a tx_hash yet (job canceled; sweeper will retry): {refund_result}")
+    else:
         try:
             _marketplace_client().post(
                 f"/v1/marketplace/jobs/{job_id}/refund",
