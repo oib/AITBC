@@ -36,7 +36,7 @@ os.environ.setdefault("WALLET_DIR", f"{TMPDIR}/test_wallet")
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
 os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
-os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
 
 OUTPUT_DIR = REPO_ROOT / "docs" / "api"
 OUTPUT_DIR.mkdir(parents=True, exist_ok=True)
@@ -122,7 +122,7 @@ def main():
     os.environ.setdefault("WALLET_DIR", f"{TMPDIR}/test_wallet")
     os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
     os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
-    os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://localhost:8202")
+    os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
     os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
     os.environ.setdefault("MARKETPLACE_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
 
