@@ -47,7 +47,7 @@ Proven on the two live nodes (see the IDE-local `LIVE_VALIDATION_SUMMARY.md` and
 5. **GPU marketplace offers.** `aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0` writes a `GPU_MARKETPLACE` tx and a hub listing. `aitbc market list --service-type ollama` sees it.
 6. **Local GPU inventory.** `aitbc gpu list-gpus` / `aitbc gpu discover` against `aitbc-gpu` (8101).
 7. **Explorer / monitoring.** `aitbc explorer chain-head`, `aitbc explorer network-stats`.
-8. **Pool hub.** `aitbc pool-hub status` / `sla` work from hub and shop; the shop miner registers and heartbeats with the **hub** pool hub, so `miners_online` is now `1` (or more).
+8. **Pool hub.** `aitbc pool-hub status` / `sla` work from hub and shop. Deployment reality (2026-09-13): the shop miner heartbeats its **local** pool hub (`POOL_HUB_URL=127.0.0.1:8210` on node2), so node2’s instance is the live shop-side SLA view; hub’s instance keeps a stale registration from before the repoint. The doc’s earlier claim of hub-side heartbeating no longer matches the deployed env — if a single fleet SLA authority is wanted, miners would point at `https://hub.aitbc.bubuit.net/pool-hub` (proxy verified working). SLA collection is live: `POOLHUB_ENABLE_SLA_COLLECTION=true` on hub + node2, per-miner metrics/violations persist, and `sla --miner/--violations` plus `dashboard shop` render them.
 9. **Bridge health + input validation.** `aitbc bridge health`; malformed `lock`/`confirm` return HTTP 422.
 10. **Agent-stake / bounty economics (V23-42).** Operator-signed `/rpc/agent-staking/*` and `/rpc/bounty/*` routes live on hub. `POST /rpc/agent-staking/stake` debits a staker and creates an `agent_stake` row; `add`, `unbond`, `complete`, `performance`, `distribute`, and `claim-rewards` are wired. Bounty `deploy`/`submit`/`verify`/`dispute`/`expire` move real `Account.balance`. Live-validated 2026-08-24 with a funded test wallet.
 11. **Most beginner CLI groups** (`wallet`, `transactions`, `ai`, `mining`, `reputation`, `agent`, `agent-comm`, `ipfs`, `security`, `analytics`, `governance status`, `exchange-island` orderbook/rates) return live or honest-simulated data.
@@ -64,7 +64,7 @@ This is a **working inner loop**: a funded customer can buy a GPU inference job 
 | 1. Discover compute | Marketplace UI + CLI, reputation-ranked | `aitbc market list` reputation-sort live; `aitbc ai submit --min-reputation` live. Web UI still defaults to mock (P1.2 in progress). | Partial — P1.2 |
 | 2. Submit paid job | One CLI command, JWT or wallet-native auth | CLI wallet-signed JWT via `aitbc auth login`; `aitbc ai submit` falls back to it. `--api-key` still accepted. Web UI may require API key setup. | Done for CLI |
 | 3. Escrow | On by default, payment escrow live | Live paid jobs **do** escrow and release. `escrow_enabled` defaults to `True` and `STATUS.md` no longer lists `False` | Done |
-| 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to the **hub** pool hub; `aitbc pool-hub status` shows `miners_online > 0` from both nodes | Done |
+| 4. Match to miner | Stake + reputation + capacity | Shop miner registers and heartbeats to its **local** pool hub on node2 (`miners_online > 0` there); hub’s pool-hub is a second instance carrying the pre-repoint registration | Done |
 | 5. Execute | Ollama / Whisper / FFmpeg on edge | Ollama, Whisper and FFmpeg services are live; `aitbc market offer/run/transcribe/process` validated; default miner offers include all three. | Done |
 | 6. Verify result | ZK + TEE attestation | TEE: registered enclave allowlist, owner-locked registration, `auto_attested` removed; unregistered/self-consistent quotes are `self_consistent` and do **not** release. ZK: new `receipt_model` circuit proves a committed deterministic model (`linear-1`) executed on committed input and produced committed output; `computation_correct` is only `True` when public signals match coordinator-derived values. `receipt_public` remains a receipt-binding artifact and does not imply computation correctness. | Partial -- trust model improved; independent roots still future work |
 | 7. Settle | Signed `ESCROW_RELEASE` | Live, signed by the dedicated non-genesis settlement key `0x477737bd028eeb38350c58e62f7a766ac061ce2e`. Fee ~2.5%. Release is refused up front when the settlement key and `ESCROW_RELEASE_ADDRESS` disagree, and a release that does not settle on-chain now reports `success: false` / `settlement_status: unsettled` instead of a silent no-op. | Done (multi-party key ceremony still future work) |
@@ -94,7 +94,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Edge | 8111 | `aitbc edge` | |
 | Marketplace | 8102 / hub `/v1/marketplace` | `aitbc market`, `aitbc marketplace` | **`market`** = GPU/software bundles (live). **`marketplace`** = chain listings (separate, older) |
 | Explorer | 8100 | `aitbc explorer` | |
-| Pool hub | 8210 / `/pool-hub/` | `aitbc pool-hub` | |
+| Pool hub | 8210 / `/pool-hub/` | `aitbc pool-hub` | SLA collector runs every 300s when `POOLHUB_ENABLE_SLA_COLLECTION=true`; writes `sla_metrics`/`sla_violations`, opens+resolves violations on heartbeat uptime/response/completion thresholds |
 
 ### Live but beside the inner loop
 
