@@ -404,6 +404,43 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         except NetworkError as e:
             logger.warning("Marketplace service unavailable: %s", e)
 
+        # SLA standing from pool-hub (local instance first, then hub-resolved).
+        # Entirely optional: any failure leaves sla_data empty and the section
+        # renders as unavailable rather than breaking the dashboard.
+        sla_data: dict[str, Any] = {"status": "unavailable"}
+        try:
+            from .pool_hub import _default_pool_hub_url
+
+            pool_hub_urls = ["http://localhost:8210"]
+            resolved = _default_pool_hub_url()
+            if resolved not in pool_hub_urls:
+                pool_hub_urls.append(resolved)
+            for pool_hub_url in pool_hub_urls:
+                sla_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
+                # client.get() is annotated dict but returns whatever the
+                # endpoint produced -- /sla/violations and /sla/metrics are lists.
+                sla_status: Any = _safe_get(sla_client, "/v1/sla/status")
+                if not isinstance(sla_status, dict):
+                    continue
+                sla_data = dict(sla_status)
+                if miner_id:
+                    sla_violations: Any = _safe_get(
+                        sla_client, "/v1/sla/violations", {"miner_id": miner_id, "resolved": "false"}
+                    )
+                    if isinstance(sla_violations, list):
+                        sla_data["open_violations_for_miner"] = len(sla_violations)
+                    sla_metrics: Any = _safe_get(sla_client, f"/v1/sla/metrics/{miner_id}", {"hours": 24})
+                    if isinstance(sla_metrics, list):
+                        latest: dict[str, Any] = {}
+                        for m in sla_metrics:
+                            if isinstance(m, dict) and m.get("metric_type") not in latest:
+                                latest[m["metric_type"]] = m.get("metric_value")
+                        sla_data["latest_metrics_24h"] = latest
+                sla_data["pool_hub_url"] = pool_hub_url
+                break
+        except Exception as e:
+            logger.warning("SLA section unavailable: %s", e)
+
         # Shop wallet balances
         wallet_balances: list[dict[str, Any]] = []
         try:
@@ -459,6 +496,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 for job in (miner_jobs if isinstance(miner_jobs, list) else [])
             ],
             "marketplace_offers": offer_rows,
+            "sla": sla_data,
             "wallets": wallet_balances,
             "earnings": {
                 "total": miner_earnings.get("total_earnings", "N/A"),
