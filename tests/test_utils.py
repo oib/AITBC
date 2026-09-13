@@ -15,6 +15,7 @@ from aitbc.utils.env import (
     get_int_env_var,
     get_list_env_var,
     get_required_env_var,
+    is_production,
 )
 from aitbc.utils.json_utils import (
     flatten_json,
@@ -247,6 +248,49 @@ class TestEnv:
         """Test get_list_env_var with default"""
         result = get_list_env_var("NONEXISTENT_VAR", default=["a", "b"])
         assert result == ["a", "b"]
+
+
+class TestIsProduction:
+    """is_production() is the single resolver for ENVIRONMENT → APP_ENV → NODE_ENV.
+
+    Several services used to hand-roll narrower checks (ENVIRONMENT/APP_ENV only),
+    which left production guards inert on hosts that declare production solely
+    through NODE_ENV.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for var in ("ENVIRONMENT", "APP_ENV", "NODE_ENV"):
+            monkeypatch.delenv(var, raising=False)
+
+    def test_unset_is_not_production(self):
+        assert is_production() is False
+
+    @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
+    @pytest.mark.parametrize("value", ["production", "prod", "PRODUCTION", "Prod"])
+    def test_any_var_marks_production(self, monkeypatch, var, value):
+        monkeypatch.setenv(var, value)
+        assert is_production() is True
+
+    @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
+    def test_non_production_values(self, monkeypatch, var):
+        monkeypatch.setenv(var, "development")
+        assert is_production() is False
+
+    def test_environment_wins_over_node_env(self, monkeypatch):
+        monkeypatch.setenv("NODE_ENV", "production")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        assert is_production() is False
+
+    def test_app_env_wins_over_node_env(self, monkeypatch):
+        monkeypatch.setenv("NODE_ENV", "production")
+        monkeypatch.setenv("APP_ENV", "development")
+        assert is_production() is False
+
+    def test_environment_wins_over_app_env(self, monkeypatch):
+        monkeypatch.setenv("APP_ENV", "production")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        assert is_production() is False
 
 
 class TestJsonUtils:

@@ -14,20 +14,16 @@ from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
 from aitbc.constants import LOG_DIR, REPO_DIR
+from aitbc.utils.env import is_production
 from aitbc_shared import DatabaseConfig as BaseDatabaseConfig
 
 
 logger = logging.getLogger(__name__)
 
 
-def _get_env() -> str:
-    """Get the current environment, checking ENVIRONMENT, APP_ENV, then NODE_ENV."""
-    return os.getenv("ENVIRONMENT", os.getenv("APP_ENV", os.getenv("NODE_ENV", "development")))
-
-
 def _is_production() -> bool:
     """Check if running in a production environment."""
-    return _get_env() in ("production", "prod")
+    return is_production()
 
 
 class DatabaseConfig(BaseDatabaseConfig):
@@ -76,11 +72,11 @@ class Settings(BaseAITBCConfig):
     @model_validator(mode="before")
     @classmethod
     def _resolve_environment(cls, data: dict[str, Any]) -> dict[str, Any]:
-        """Keep Settings.environment in sync with _get_env() for NODE_ENV."""
+        """Keep Settings.environment in sync with the env vars is_production() reads."""
         if not data.get("environment"):
             env = os.getenv("ENVIRONMENT") or os.getenv("APP_ENV") or os.getenv("NODE_ENV")
             if env:
-                data["environment"] = env
+                data["environment"] = env.strip().lower()
         return data
 
     @model_validator(mode="after")
