@@ -352,6 +352,15 @@ def test_the_marketplace_offer_routes_document_their_404():
         ("post", "/v1/marketplace/offer/{service_id}/rate"),
         ("get", "/v1/marketplace/offer/{service_id}/ratings"),
         ("get", "/v1/marketplace/ipfs/rental/{access_key}"),
+        # Verified against main.py 2026-09-13 -- each handler returns a 404
+        # JSONResponse for a missing entity; the regenerated spec documented
+        # them ahead of this pin.
+        ("get", "/v1/marketplace/access/{access_key}"),
+        ("get", "/v1/marketplace/jobs/{job_id}"),
+        ("get", "/v1/marketplace/jobs/{job_id}/access"),
+        ("get", "/v1/marketplace/offer/{plugin_id}/health"),
+        ("post", "/v1/marketplace/jobs/{job_id}/cancel"),
+        ("post", "/v1/marketplace/jobs/{job_id}/pin-confirm"),
     }
     found = {(m.lower(), p) for p, m, op in _operations(spec) if "404" in op.get("responses", {})}
     assert not sorted(expected - found), f"still undocumented: {sorted(expected - found)}"
