@@ -285,7 +285,8 @@ def hire(
                     "agent": provider_wallet,
                     "amount": amount_units,
                     "timeout_seconds": timeout_seconds,
-                    "lock_tx": lock_tx,
+                    # Same shape market escrow uses: signature embedded in the tx.
+                    "lock_tx": {**lock_tx, "signature": lock_signature},
                     "lock_signature": lock_signature,
                 },
             },
