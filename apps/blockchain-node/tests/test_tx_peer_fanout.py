@@ -60,6 +60,63 @@ async def test_fanout_no_peers_is_noop(monkeypatch):
 
 
 @pytest.mark.anyio
+async def test_fanout_no_peers_warns(monkeypatch):
+    """An empty peer list must not look like a successful fan-out.
+
+    All other logging lives per-URL *inside* the loop, so with no peers the
+    helper produced no output at all — a tx submitted to a non-proposing host
+    was stranded in that host's local mempool with nothing to show for it.
+    """
+    warnings: list[str] = []
+
+    class RecordingLogger:
+        def warning(self, msg, *args):
+            warnings.append(msg % args if args else msg)
+
+    monkeypatch.setattr(aitbc_settings, "gossip_mesh_peer_urls", "")
+    monkeypatch.setattr(txmod, "_logger", RecordingLogger())
+
+    await txmod._fanout_transaction_to_peers("ait-test", {"from": "0xabc"})
+
+    assert len(warnings) == 1
+    assert "GOSSIP_MESH_PEER_URLS" in warnings[0]
+    assert "ait-test" in warnings[0]
+
+
+@pytest.mark.anyio
+async def test_fanout_with_peers_does_not_warn(monkeypatch):
+    """The skip warning must not fire when peers are configured."""
+    warnings: list[str] = []
+
+    class RecordingLogger:
+        def warning(self, msg, *args):
+            warnings.append(msg % args if args else msg)
+
+    class FakeBackend:
+        def __init__(self, url: str):
+            self.url = url
+
+        async def start(self) -> None:
+            pass
+
+        async def publish(self, topic: str, message: dict) -> None:
+            pass
+
+        async def shutdown(self) -> None:
+            pass
+
+    import aitbc_chain.gossip.backends.websocket as ws_mod
+
+    monkeypatch.setattr(aitbc_settings, "gossip_mesh_peer_urls", "ws://peer:8202/rpc/gossip/ws")
+    monkeypatch.setattr(ws_mod, "WebsocketGossipBackend", FakeBackend)
+    monkeypatch.setattr(txmod, "_logger", RecordingLogger())
+
+    await txmod._fanout_transaction_to_peers("ait-test", {"from": "0xabc"})
+
+    assert warnings == []
+
+
+@pytest.mark.anyio
 async def test_fanout_survives_peer_failure(monkeypatch):
     calls: list[str] = []
 
