@@ -9,6 +9,7 @@ import aitbc_mcp_cli_tools_generated_account  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_comm  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_msg  # noqa: F401
+import aitbc_mcp_cli_tools_generated_agent_task  # noqa: F401
 import aitbc_mcp_cli_tools_generated_agent_wallet  # noqa: F401
 import aitbc_mcp_cli_tools_generated_ai  # noqa: F401
 import aitbc_mcp_cli_tools_generated_analytics  # noqa: F401

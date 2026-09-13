@@ -22,6 +22,7 @@ from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
 import ipfs_pinning_sweeper
+import agent_task_executor
 
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")
 # Pool Hub runs on the hub node. Shop/follower miners may set HUB_POOL_HUB_URL
@@ -113,6 +114,10 @@ OFFER_PUBLISH_INTERVAL = 300
 # Provider-side IPFS hosting: pin CIDs for marketplace ipfs jobs assigned to
 # this miner so paid storage is actually stored locally (island daemon).
 IPFS_PIN_SWEEP_INTERVAL = int(os.environ.get("IPFS_PIN_SWEEP_INTERVAL", "120"))
+# Agent-to-agent paid delegation: poll the coordinator inbox for TaskRequest /
+# TaskAccept messages and execute them against the local services.
+AGENT_EXECUTOR_ENABLED = os.environ.get("AGENT_EXECUTOR_ENABLED", "false").lower() in ("true", "1", "yes")
+AGENT_EXECUTOR_SWEEP_INTERVAL = int(os.environ.get("AGENT_EXECUTOR_SWEEP_INTERVAL", "30"))
 AITBC_CLI = "/opt/aitbc/venv/bin/aitbc"
 
 
@@ -896,6 +901,7 @@ async def main():
     last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
     last_ipfs_sweep = 0.0
+    last_agent_sweep = 0.0
     # Set the initial publish time so the first loop iteration does not
     # immediately re-publish all default offers (time.time() - 0 is >> 300s).
     last_offer_publish = time.time()
@@ -917,6 +923,15 @@ async def main():
                 except Exception:
                     logger.exception("IPFS hosting sweep failed")
                 last_ipfs_sweep = current_time
+            if AGENT_EXECUTOR_ENABLED and current_time - last_agent_sweep >= AGENT_EXECUTOR_SWEEP_INTERVAL:
+                try:
+                    offer_map = {o["service_type"]: o for o in DEFAULT_SOFTWARE_OFFERS}
+                    stats = await asyncio.to_thread(agent_task_executor.sweep_once, MINER_WALLET_ADDRESS, offer_map)
+                    if any(stats.values()):
+                        logger.info("Agent executor sweep: %s", stats)
+                except Exception:
+                    logger.exception("Agent executor sweep failed")
+                last_agent_sweep = current_time
             if current_time - last_poll >= 3:
                 # Only poll if we have capacity; the coordinator also checks
                 # inflight, but a local guard avoids thundering-herd polls and

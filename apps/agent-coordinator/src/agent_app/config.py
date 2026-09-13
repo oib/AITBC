@@ -132,6 +132,7 @@ class Settings(ServiceSettings):
 
     # Blockchain integration (v0.6.5)
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
+    blockchain_rpc_api_key: str = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
     default_chain_id: str = os.getenv("DEFAULT_CHAIN_ID", "ait-hub")
     default_island_id: str = os.getenv("DEFAULT_ISLAND_ID", "")
 
@@ -139,6 +140,8 @@ class Settings(ServiceSettings):
     task_payment_escrow_enabled: bool = False
     # not-money: a duration in seconds; only the escrow it guards is money
     task_payment_timeout_seconds: float = 3600.0
+    # not-money: a duration in seconds; interval between expire_stale() sweeps (0 disables)
+    task_payment_sweep_seconds: float = float(os.getenv("TASK_PAYMENT_SWEEP_SECONDS", "60"))
     task_max_retries: int = 3
 
     # Agent TTL (v0.6.5 — configurable, was hardcoded in agent_discovery.py)

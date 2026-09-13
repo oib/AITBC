@@ -136,33 +136,37 @@ class PaymentEscrow:
         )
         return entry
 
-    def lock(self, escrow_id: str) -> EscrowEntry:
+    def lock(self, escrow_id: str, submitter: EscrowCallback | None = None) -> EscrowEntry:
         """Lock funds on-chain for an escrow.
 
-        Calls the lock_callback to submit a blockchain transaction.
+        Calls the lock_callback (or the per-call ``submitter`` override when
+        given) to submit a blockchain transaction.
         Raises ValueError if escrow not found or not in PENDING status.
         """
         entry = self._get_entry(escrow_id)
         if entry.status != EscrowStatus.PENDING:
             raise ValueError(f"Escrow {escrow_id} is not pending (status={entry.status})")
-        if self._lock_callback:
-            entry.tx_hash_lock = self._lock_callback(entry.chain_id, entry.requester, entry.agent, entry.amount)
+        callback = submitter or self._lock_callback
+        if callback:
+            entry.tx_hash_lock = callback(entry.chain_id, entry.requester, entry.agent, entry.amount)
         entry.status = EscrowStatus.LOCKED
         entry.locked_at = time.time()
         logger.info("Locked escrow %s (tx=%s)", escrow_id, entry.tx_hash_lock)
         return entry
 
-    def release(self, escrow_id: str) -> EscrowEntry:
+    def release(self, escrow_id: str, submitter: EscrowCallback | None = None) -> EscrowEntry:
         """Release funds to agent on task completion.
 
-        Calls the release_callback to submit a blockchain transaction.
+        Calls the release_callback (or the per-call ``submitter`` override when
+        given) to submit a blockchain transaction.
         Raises ValueError if escrow not found or not in LOCKED status.
         """
         entry = self._get_entry(escrow_id)
         if entry.status != EscrowStatus.LOCKED:
             raise ValueError(f"Escrow {escrow_id} is not locked (status={entry.status})")
-        if self._release_callback:
-            entry.tx_hash_release = self._release_callback(
+        callback = submitter or self._release_callback
+        if callback:
+            entry.tx_hash_release = callback(
                 entry.chain_id,
                 entry.requester,
                 entry.agent,
@@ -173,17 +177,19 @@ class PaymentEscrow:
         logger.info("Released escrow %s (tx=%s)", escrow_id, entry.tx_hash_release)
         return entry
 
-    def refund(self, escrow_id: str) -> EscrowEntry:
+    def refund(self, escrow_id: str, submitter: EscrowCallback | None = None) -> EscrowEntry:
         """Refund funds to requester on task failure/timeout.
 
-        Calls the refund_callback to submit a blockchain transaction.
+        Calls the refund_callback (or the per-call ``submitter`` override when
+        given) to submit a blockchain transaction.
         Raises ValueError if escrow not found or not in LOCKED status.
         """
         entry = self._get_entry(escrow_id)
         if entry.status != EscrowStatus.LOCKED:
             raise ValueError(f"Escrow {escrow_id} is not locked (status={entry.status})")
-        if self._refund_callback:
-            entry.tx_hash_refund = self._refund_callback(
+        callback = submitter or self._refund_callback
+        if callback:
+            entry.tx_hash_refund = callback(
                 entry.chain_id,
                 entry.agent,
                 entry.requester,
@@ -193,8 +199,15 @@ class PaymentEscrow:
         logger.info("Refunded escrow %s (tx=%s)", escrow_id, entry.tx_hash_refund)
         return entry
 
-    def expire_stale(self) -> list[EscrowEntry]:
+    def expire_stale(
+        self,
+        refund_submitter_for: Callable[[EscrowEntry], EscrowCallback | None] | None = None,
+    ) -> list[EscrowEntry]:
         """Expire and refund all escrows that have passed their timeout.
+
+        ``refund_submitter_for`` optionally supplies a per-entry refund
+        callback so on-chain escrows are refunded through the caller's
+        transaction path while bookkeeping-only escrows stay off-chain.
 
         Returns list of expired/refunded entries.
         """
@@ -203,12 +216,13 @@ class PaymentEscrow:
         for entry in self._escrows.values():
             if entry.status == EscrowStatus.LOCKED and entry.expires_at and now > entry.expires_at:
                 try:
-                    self.refund(entry.escrow_id)
+                    submitter = refund_submitter_for(entry) if refund_submitter_for else None
+                    self.refund(entry.escrow_id, submitter=submitter)
                     expired.append(entry)
                 except Exception as e:
+                    # Keep the entry LOCKED so the next sweep retries the
+                    # refund; a transient RPC failure must not strand funds.
                     logger.error("Failed to refund expired escrow %s: %s", entry.escrow_id, e)
-                    entry.status = EscrowStatus.EXPIRED
-                    expired.append(entry)
         return expired
 
     def get_escrow(self, escrow_id: str) -> EscrowEntry | None:
