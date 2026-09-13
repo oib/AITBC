@@ -431,17 +431,29 @@ echo "🧹 Removing stale boot dependencies..."
 # role filtering) the dependency survives in the target and resolves to nothing, so
 # every boot carries a Wants= on a unit that cannot load.
 #
-# Only entries systemd itself reports as not-found are removed, so a unit shipped
-# elsewhere in the search path stays untouched. This runs after the enable pass
-# above, which legitimately creates .wants/ entries of its own.
+# Removal is keyed on systemd's own view, never on guesswork: an entry goes only
+# if the unit reports LoadState=not-found, or if it is a service some timer
+# already triggers. A unit shipped elsewhere in the search path therefore stays
+# untouched. This runs after the enable pass above, which legitimately creates
+# .wants/ entries of its own.
 stale_wants=0
 if systemctl --version >/dev/null 2>&1; then
     for wants_link in "$ACTIVE_SYSTEMD_DIR"/*.wants/aitbc-*; do
         [[ -L "$wants_link" ]] || continue
         wants_unit=$(basename "$wants_link")
-        [[ "$(systemctl show -p LoadState --value "$wants_unit" 2>/dev/null)" == "not-found" ]] || continue
+        reason=""
+        if [[ "$(systemctl show -p LoadState --value "$wants_unit" 2>/dev/null)" == "not-found" ]]; then
+            reason="unresolvable"
+        elif [[ "$wants_unit" == *.service ]] &&
+             [[ -n "$(systemctl show -p TriggeredBy --value "$wants_unit" 2>/dev/null)" ]]; then
+            # Mirrors the enable pass above: for a timer-activated service the timer
+            # is the unit that belongs in the boot transaction, so a boot entry here
+            # adds a run at every boot on top of the schedule.
+            reason="timer-activated"
+        fi
+        [[ -n "$reason" ]] || continue
         if rm -f "$wants_link" 2>/dev/null; then
-            echo "    🗑️  Removed unresolvable: $(basename "$(dirname "$wants_link")")/$wants_unit"
+            echo "    🗑️  Removed $reason: $(basename "$(dirname "$wants_link")")/$wants_unit"
             stale_wants=$((stale_wants + 1))
         else
             echo "    ⚠️  Could not remove: $wants_link"
