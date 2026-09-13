@@ -34,6 +34,22 @@ logger = logging.getLogger(__name__)
 COMPRESSION_PREFIX = "GZ:"
 
 
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from a URL before logging (same convention as aitbc_chain)."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = f"{parsed.hostname or ''}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    except Exception:
+        pass
+    return url
+
+
 def _decode_payload(data: Any) -> Any:
     """Decode a Redis pub/sub message into a Python object.
 
@@ -124,9 +140,13 @@ class GossipClient:
                 self._redis = aioredis.Redis.from_url(self._redis_url, socket_timeout=5, socket_connect_timeout=5)
                 await asyncio.to_thread(lambda: None)  # yield
                 pong = await self._redis.ping()
-                logger.info("GossipClient connected to Redis (%s): ping=%s", self._redis_url, pong)
+                logger.info("GossipClient connected to Redis (%s): ping=%s", _sanitize_url(self._redis_url), pong)
             except Exception as e:
-                logger.warning("GossipClient Redis connection failed (%s), using in-memory fallback: %s", self._redis_url, e)
+                logger.warning(
+                    "GossipClient Redis connection failed (%s), using in-memory fallback: %s",
+                    _sanitize_url(self._redis_url),
+                    e,
+                )
                 self._redis = None
         self._started = True
 
