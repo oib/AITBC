@@ -515,27 +515,28 @@ def _set_env_value(env_file: str, key: str, value: str) -> bool:
 
 
 def _derive_sync_urls(url: str) -> dict[str, str]:
-    """Derive the env variable values needed for a new sync source URL."""
+    """Derive the env variable values needed for a new sync source URL.
+
+    Two adjacent variables use opposite conventions, so they are derived
+    separately rather than shared:
+
+    * ``BLOCKCHAIN_RPC_URL`` and ``DEFAULT_PEER_RPC_URL`` are bare origins --
+      every consumer appends its own ``/rpc/...`` path, and nothing strips a
+      trailing ``/rpc``. A value ending in ``/rpc`` produces ``/rpc/rpc/...``
+      requests, which 404.
+    * ``HUB_BLOCKCHAIN_RPC_URL`` carries the ``/rpc`` suffix, matching the
+      default built in ``config.py`` (``https://<hub_discovery_url>/rpc``).
+    """
     parsed = urlparse(url)
     if not parsed.scheme or not parsed.netloc:
         raise ValueError(f"Invalid URL: {url}")
 
-    # Base URL with scheme and host/port.
-    base = f"{parsed.scheme}://{parsed.netloc}"
-    if parsed.path and not parsed.path.rstrip("/").endswith("/rpc"):
-        # If user gave a path, keep it but strip a trailing /rpc segment.
-        path = parsed.path.rstrip("/")
-        if path.endswith("/rpc"):
-            base = f"{parsed.scheme}://{parsed.netloc}{path[:-4]}"
-        else:
-            base = f"{parsed.scheme}://{parsed.netloc}{path}"
-    base = base.rstrip("/")
-
-    # RPC endpoint: base + /rpc unless the URL already points at /rpc.
-    if url.rstrip("/").endswith("/rpc"):
-        rpc_url = url.rstrip("/")
-    else:
-        rpc_url = f"{base}/rpc"
+    # Base origin. Keep any path prefix the user gave, but drop a trailing
+    # /rpc segment so either form of the hub URL is accepted.
+    path = parsed.path.rstrip("/")
+    if path.endswith("/rpc"):
+        path = path[: -len("/rpc")]
+    base = f"{parsed.scheme}://{parsed.netloc}{path}".rstrip("/")
 
     # Discovery hostname: just the host (no scheme, no port).
     host = parsed.hostname or parsed.netloc
@@ -544,8 +545,8 @@ def _derive_sync_urls(url: str) -> dict[str, str]:
 
     return {
         "DEFAULT_PEER_RPC_URL": base,
-        "HUB_BLOCKCHAIN_RPC_URL": base,
-        "BLOCKCHAIN_RPC_URL": rpc_url,
+        "HUB_BLOCKCHAIN_RPC_URL": f"{base}/rpc",
+        "BLOCKCHAIN_RPC_URL": base,
         "HUB_DISCOVERY_URL": host,
     }
 
