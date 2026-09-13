@@ -111,7 +111,20 @@ async def _fanout_transaction_to_peers(chain_id: str, tx_data: dict[str, Any]) -
     from ..config import settings
     from ..gossip.backends.websocket import WebsocketGossipBackend
 
-    for url in settings.mesh_peer_url_list():
+    peer_urls = settings.mesh_peer_url_list()
+    if not peer_urls:
+        # The only logging below is per-URL inside the loop, so an empty peer
+        # list produced no output at all and was indistinguishable from a
+        # successful fan-out. Say it once: with no peers a tx submitted to a
+        # non-proposing host is stranded in that host's local mempool.
+        _logger.warning(
+            "tx fan-out skipped for chain %s: GOSSIP_MESH_PEER_URLS is empty, so this "
+            "transaction reaches a block only if this host proposes",
+            chain_id,
+        )
+        return
+
+    for url in peer_urls:
         backend = WebsocketGossipBackend(url)
         try:
             await backend.start()
@@ -188,8 +201,11 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
 
     try:
         mempool = get_mempool()
-        chain_id_arg = chain_id if chain_id else ""
-        pending_txs = mempool.get_pending_transactions(chain_id=chain_id_arg, limit=limit)
+        # Hand an unspecified chain through as None so the mempool applies its
+        # own settings.chain_id default. Coercing to "" defeated that default
+        # ("" is not None) and filtered on a chain_id no entry carries, so a
+        # populated mempool reported count: 0.
+        pending_txs = mempool.get_pending_transactions(chain_id=chain_id or None, limit=limit)
 
         return {"success": True, "transactions": pending_txs, "count": len(pending_txs)}
     except Exception as e:
