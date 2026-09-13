@@ -98,7 +98,7 @@ create_pre_restore_backup() {
             break
         fi
         sleep 2
-        ((retries--))
+        retries=$((retries - 1))
     done
 
     # Copy backup locally
@@ -166,7 +166,7 @@ perform_restore() {
             break
         fi
         sleep 2
-        ((retries--))
+        retries=$((retries - 1))
     done
 
     if [[ $retries -eq 0 ]]; then

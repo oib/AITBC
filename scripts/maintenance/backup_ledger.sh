@@ -73,7 +73,7 @@ wait_for_blockchain_node() {
             return 0
         fi
         sleep 2
-        ((retries--))
+        retries=$((retries - 1))
     done
 
     error "Blockchain node did not become ready within timeout"
