@@ -2,6 +2,9 @@
 
 from pathlib import Path
 
+import pytest
+from pydantic import ValidationError
+
 from aitbc.config import AITBCConfig, BaseAITBCConfig
 
 
@@ -91,3 +94,41 @@ class TestAITBCConfig:
         assert config.environment == "staging"
         assert config.host == "0.0.0.0"  # AITBCConfig default
         assert config.port == 8000  # AITBCConfig default
+
+
+class TestProductionSecretValidation:
+    """validate_secret_length uses the shared is_production() precedence.
+
+    It previously read APP_ENV only, so a production deployment declared through
+    ENVIRONMENT or NODE_ENV skipped the length/default checks on provided
+    secrets. Requiredness stays tied to the ``environment`` field (set by
+    ENVIRONMENT or an explicit value) — an explicit environment="development"
+    keeps the model validator inert while the env var drives the length check.
+    """
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for var in ("ENVIRONMENT", "APP_ENV", "NODE_ENV"):
+            monkeypatch.delenv(var, raising=False)
+
+    @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
+    def test_short_secret_rejected_in_production(self, monkeypatch, var):
+        monkeypatch.setenv(var, "production")
+        with pytest.raises(ValidationError, match="at least 32 characters"):
+            BaseAITBCConfig(secret_key="short", environment="development")
+
+    @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
+    def test_strong_secret_accepted_in_production(self, monkeypatch, var):
+        monkeypatch.setenv(var, "production")
+        config = BaseAITBCConfig(secret_key="s" * 32, jwt_secret="j" * 32, environment="development")
+        assert config.secret_key == "s" * 32
+
+    def test_short_secret_accepted_when_not_production(self):
+        config = BaseAITBCConfig(secret_key="short", environment="development")
+        assert config.secret_key == "short"
+
+    def test_missing_secret_passes_length_check_in_production(self, monkeypatch):
+        """Requiredness belongs to validate_production_settings, not the length check."""
+        monkeypatch.setenv("NODE_ENV", "production")
+        config = BaseAITBCConfig(environment="development")
+        assert config.secret_key in (None, "")
