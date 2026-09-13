@@ -290,9 +290,12 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
     fi
 done
 
-# Find all systemd service files in scripts directory
+# Find all systemd service files in scripts directory.
+# `*/aitbc-*` already covers utils/ and monitoring/; naming them again made the
+# loop process those nine files twice, inflating $linked_files and running the
+# enable pass on each of them a second time.
 echo "📁 Scanning scripts directory..."
-for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.timer "$REPO_SCRIPTS_DIR"/utils/aitbc-*.service "$REPO_SCRIPTS_DIR"/monitoring/aitbc-*.service; do
+for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.timer; do
     if [[ -f "$file" ]]; then
         filename=$(basename "$file")
         target="$ACTIVE_SYSTEMD_DIR/$filename"
