@@ -18,6 +18,7 @@ aitbc --help
 | `agent` | Agent SDK management commands | `cancel`, `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `job`, `jobs`, `list`, `register`, `register-identity`, `status`, `submit`, `subscribe`, `verify-identity`, `workflow` |
 | `agent-comm` | Cross-chain agent communication commands | `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status` |
 | `agent-msg` | Agent messaging commands (ping, send, receive, peers, request-coins). | `peers`, `ping`, `receive`, `request-coins`, `send` |
+| `agent-task` | Paid agent-to-agent task delegation (negotiation + escrow). | `hire`, `result`, `status` |
 | `agent-wallet` | Agent-owned wallet, staking, and rebalancing commands. | `balance`, `rebalance`, `stake` |
 | `ai` | AI job submission and inspection | `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit` |
 | `analytics` | Chain analytics and monitoring commands | `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary` |
