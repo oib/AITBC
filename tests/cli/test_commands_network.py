@@ -11,6 +11,23 @@ from unittest.mock import patch
 import pytest
 
 
+def _parse_env(path) -> dict[str, str]:
+    """Parse an env file into a dict so assertions are exact per key.
+
+    Substring assertions cannot be used here: ``BLOCKCHAIN_RPC_URL=<x>`` is a
+    substring of ``HUB_BLOCKCHAIN_RPC_URL=<x>``, so a wrong value for one key
+    can be satisfied by the other key's line.
+    """
+    values: dict[str, str] = {}
+    for line in path.read_text().splitlines():
+        line = line.strip()
+        if not line or line.startswith("#") or "=" not in line:
+            continue
+        key, _, value = line.partition("=")
+        values[key.strip()] = value.strip()
+    return values
+
+
 class TestNetworkCommands:
     """Test network command group"""
 
@@ -174,7 +191,6 @@ class TestNetworkCommands:
         assert kwargs["json"]["node_id"] == "test-node"
         assert kwargs["json"]["chain_id"] == "test-chain"
 
-
     def test_network_set_sync_source_updates_env(self, runner, tmp_path):
         """`set-sync-source` updates the env file with derived URLs."""
         from aitbc_cli.commands.network import network
@@ -190,11 +206,11 @@ class TestNetworkCommands:
         )
 
         assert result.exit_code == 0, result.output
-        updated = (tmp_path / "node.env").read_text()
-        assert "DEFAULT_PEER_RPC_URL=https://node2.example.net" in updated
-        assert "HUB_BLOCKCHAIN_RPC_URL=https://node2.example.net" in updated
-        assert "BLOCKCHAIN_RPC_URL=https://node2.example.net/rpc" in updated
-        assert "HUB_DISCOVERY_URL=node2.example.net" in updated
+        env = _parse_env(tmp_path / "node.env")
+        assert env["DEFAULT_PEER_RPC_URL"] == "https://node2.example.net"
+        assert env["BLOCKCHAIN_RPC_URL"] == "https://node2.example.net"
+        assert env["HUB_BLOCKCHAIN_RPC_URL"] == "https://node2.example.net/rpc"
+        assert env["HUB_DISCOVERY_URL"] == "node2.example.net"
 
     def test_network_set_sync_source_appends_missing_keys(self, runner, tmp_path):
         """`set-sync-source` appends keys that are missing from the env file."""
@@ -210,9 +226,10 @@ class TestNetworkCommands:
         )
 
         assert result.exit_code == 0, result.output
-        updated = (tmp_path / "node.env").read_text()
-        assert "DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net" in updated
-        assert "HUB_DISCOVERY_URL=hub.aitbc.bubuit.net" in updated
+        env = _parse_env(tmp_path / "node.env")
+        assert env["NODE_ID"] == "node2"
+        assert env["DEFAULT_PEER_RPC_URL"] == "https://hub.aitbc.bubuit.net"
+        assert env["HUB_DISCOVERY_URL"] == "hub.aitbc.bubuit.net"
 
     def test_network_set_sync_source_rejects_invalid_url(self, runner, tmp_path):
         """`set-sync-source` rejects a URL without scheme."""
@@ -229,6 +246,49 @@ class TestNetworkCommands:
 
         assert result.exit_code != 0
         assert "Invalid URL" in (result.output + str(result.exception))
+
+    def test_derive_sync_urls_rpc_url_is_a_bare_origin(self):
+        """BLOCKCHAIN_RPC_URL must never end in /rpc; HUB_BLOCKCHAIN_RPC_URL must.
+
+        Consumers of BLOCKCHAIN_RPC_URL append their own ``/rpc/...`` path and
+        nothing strips a trailing ``/rpc``, so a suffixed value produces
+        ``/rpc/rpc/...`` requests that 404. HUB_BLOCKCHAIN_RPC_URL uses the
+        opposite convention -- its default is built as
+        ``https://<HUB_DISCOVERY_URL>/rpc``.
+        """
+        from aitbc_cli.commands.network import _derive_sync_urls
+
+        for url in ("https://node2.example.net", "https://node2.example.net/rpc", "http://10.0.0.1:8202"):
+            values = _derive_sync_urls(url)
+            assert not values["BLOCKCHAIN_RPC_URL"].endswith("/rpc"), url
+            assert not values["DEFAULT_PEER_RPC_URL"].endswith("/rpc"), url
+            assert values["HUB_BLOCKCHAIN_RPC_URL"].endswith("/rpc"), url
+            assert values["HUB_BLOCKCHAIN_RPC_URL"] == f"{values['BLOCKCHAIN_RPC_URL']}/rpc", url
+            assert "://" not in values["HUB_DISCOVERY_URL"], url
+
+    def test_derive_sync_urls_accepts_either_url_form(self):
+        """A URL given with or without the /rpc suffix derives identical values."""
+        from aitbc_cli.commands.network import _derive_sync_urls
+
+        assert _derive_sync_urls("https://node2.example.net") == _derive_sync_urls("https://node2.example.net/rpc")
+        assert _derive_sync_urls("https://node2.example.net/rpc/") == _derive_sync_urls("https://node2.example.net")
+
+    def test_derive_sync_urls_keeps_path_prefix(self):
+        """A path prefix survives the /rpc strip instead of being dropped."""
+        from aitbc_cli.commands.network import _derive_sync_urls
+
+        values = _derive_sync_urls("https://gateway.example.net/aitbc/rpc")
+        assert values["BLOCKCHAIN_RPC_URL"] == "https://gateway.example.net/aitbc"
+        assert values["DEFAULT_PEER_RPC_URL"] == "https://gateway.example.net/aitbc"
+        assert values["HUB_BLOCKCHAIN_RPC_URL"] == "https://gateway.example.net/aitbc/rpc"
+        assert values["HUB_DISCOVERY_URL"] == "gateway.example.net"
+
+    def test_derive_sync_urls_strips_only_a_whole_rpc_segment(self):
+        """A host path merely ending in the letters 'rpc' is not truncated."""
+        from aitbc_cli.commands.network import _derive_sync_urls
+
+        values = _derive_sync_urls("https://gateway.example.net/myrpc")
+        assert values["BLOCKCHAIN_RPC_URL"] == "https://gateway.example.net/myrpc"
 
 
 if __name__ == "__main__":
