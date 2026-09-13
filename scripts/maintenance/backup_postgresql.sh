@@ -87,7 +87,7 @@ wait_for_postgresql() {
             return 0
         fi
         sleep 2
-        ((retries--))
+        retries=$((retries - 1))
     done
 
     error "PostgreSQL did not become ready within timeout"

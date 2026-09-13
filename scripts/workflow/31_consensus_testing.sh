@@ -55,11 +55,11 @@ run_test() {
 
     if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -75,11 +75,11 @@ run_test_verbose() {
 
     if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -107,10 +107,10 @@ echo "Sync difference: $SYNC_DIFF"
 
 if [ "$SYNC_DIFF" -le 5 ]; then
     echo -e "${GREEN}✅ PASS${NC}: Block height consensus within acceptable range"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ FAIL${NC}: Block height consensus gap too large ($SYNC_DIFF blocks)"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 3. GENESIS BLOCK CONSENSUS
@@ -262,10 +262,10 @@ if command -v iptables >/dev/null 2>&1 &&
 
     if [ "$RECOVERY_DIFF" -le 10 ]; then
         echo -e "${GREEN}✅ PASS${NC}: Network partition recovery successful"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ FAIL${NC}: Network partition recovery failed (diff: $RECOVERY_DIFF)"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: Network partition test needs iptables and the"

@@ -360,11 +360,11 @@ run_full_test() {
 
     local failed_tests=0
 
-    run_test "Connectivity Test" test_connectivity || ((failed_tests++))
-    run_test "Blockchain Status Test" test_blockchain_status || ((failed_tests++))
-    run_test "Transaction Test" test_transaction || ((failed_tests++))
-    run_test "Agent Messaging Test" test_agent_messaging || ((failed_tests++))
-    run_test "Synchronization Test" test_sync || ((failed_tests++))
+    run_test "Connectivity Test" test_connectivity || failed_tests=$((failed_tests + 1))
+    run_test "Blockchain Status Test" test_blockchain_status || failed_tests=$((failed_tests + 1))
+    run_test "Transaction Test" test_transaction || failed_tests=$((failed_tests + 1))
+    run_test "Agent Messaging Test" test_agent_messaging || failed_tests=$((failed_tests + 1))
+    run_test "Synchronization Test" test_sync || failed_tests=$((failed_tests + 1))
 
     log_info "Test suite completed with ${failed_tests} failures"
 

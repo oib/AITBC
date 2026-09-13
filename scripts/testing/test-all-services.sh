@@ -31,18 +31,18 @@ test_service() {
     if response=$(curl -s "$url" 2>/dev/null); then
         if [[ $response =~ $expected_pattern ]]; then
             echo -e "${GREEN}✅ PASS${NC}"
-            ((PASSED++))
+            PASSED=$((PASSED + 1))
             return 0
         else
             echo -e "${RED}❌ FAIL${NC} - Unexpected response"
             echo "  Expected: $expected_pattern"
             echo "  Got: $response"
-            ((FAILED++))
+            FAILED=$((FAILED + 1))
             return 1
         fi
     else
         echo -e "${RED}❌ FAIL${NC} - No response"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         return 1
     fi
 }
@@ -56,11 +56,11 @@ test_port() {
 
     if sudo netstat -tlnp 2>/dev/null | grep -q ":$port "; then
         echo -e "${GREEN}✅ PASS${NC}"
-        ((PASSED++))
+        PASSED=$((PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC} - Port not listening"
-        ((FAILED++))
+        FAILED=$((FAILED + 1))
         return 1
     fi
 }

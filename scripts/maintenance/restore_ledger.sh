@@ -166,7 +166,7 @@ perform_restore() {
 
         if [[ ${#ready_pods[@]} -eq 0 ]]; then
             sleep 5
-            ((retries--))
+            retries=$((retries - 1))
         fi
     done
 

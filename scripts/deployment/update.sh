@@ -738,7 +738,11 @@ restart_services() {
 
     local active_count=0
     for svc in "${services[@]}"; do
-        systemctl is-active --quiet "$svc" 2>/dev/null && ((active_count++))
+        # This loop measures how many services came back; an inactive one is the
+        # expected case it is counting, not an error, so do not let errexit see it.
+        if systemctl is-active --quiet "$svc" 2>/dev/null; then
+            active_count=$((active_count + 1))
+        fi
     done
     log "Services active after restart: ${active_count}/${#services[@]}"
 

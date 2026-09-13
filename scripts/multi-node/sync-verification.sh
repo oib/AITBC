@@ -358,13 +358,13 @@ main() {
     # Check chain ID consistency
     if ! check_chain_id_consistency; then
         log_error "Chain ID inconsistency detected - this is critical"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     # Check block synchronization
     if ! check_block_sync; then
         log_error "Block synchronization issue detected"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
 
         # Determine source and target nodes for remediation
         local max_height=0
@@ -396,14 +396,14 @@ main() {
         if [ "$height_diff" -gt "$SYNC_THRESHOLD" ]; then
             log_warning "Sync difference exceeds threshold (diff: ${height_diff} blocks)"
             log_warning "Skipping SSH-based remediation (requires SSH access to copy chain.db)"
-            ((total_failures++))
+            total_failures=$((total_failures + 1))
         fi
     fi
 
     # Check block hash consistency
     if ! check_block_hash_consistency; then
         log_error "Block hash inconsistency detected"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     log "=== Blockchain Synchronization Verification Completed ==="
