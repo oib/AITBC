@@ -24,11 +24,16 @@ from datetime import datetime, UTC
 from pathlib import Path
 
 import yaml
-from eth_account import Account as EthAccount
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps" / "blockchain-node" / "src"))
 
+from aitbc.utils.genesis_accounts import (
+    SERVICE_ACCOUNT_NAMES,
+    derived_key_error,
+    find_derived,
+    new_account,
+)
 from aitbc.utils.units import ait_to_units
 from aitbc_chain.config import ChainSettings
 from aitbc_chain.database import init_db, session_scope
@@ -36,8 +41,33 @@ from aitbc_chain.base_models import Account, Block
 from aitbc_chain.state.state_root_utils import compute_state_root_full
 
 
-def _derive_address(name: str) -> str:
-    return EthAccount.from_key(hashlib.sha256(name.encode()).digest()).address
+SERVICE_KEYS_FILE = Path("/var/lib/aitbc/keystore/service_accounts.json")
+
+ALLOW_DERIVED_ENV = "AITBC_ALLOW_DERIVED_GENESIS"
+
+
+def _service_accounts(keys_file: Path) -> dict[str, str]:
+    """Return {name: address} for the pre-funded service accounts.
+
+    Reuses ``keys_file`` when it already exists so that re-running this script
+    does not strand the balance of a previous run at keys nobody kept. Otherwise
+    mints a fresh keypair per account and writes the keys out at 0600 -- the
+    same custody the genesis and treasury keys get in setup_production.py.
+    """
+    if keys_file.exists():
+        stored = json.loads(keys_file.read_text())
+        print(f"[*] Reusing service account keys from {keys_file}")
+        return {name: entry["address"] for name, entry in stored.items()}
+
+    minted = {}
+    for name in SERVICE_ACCOUNT_NAMES:
+        private_hex, address = new_account()
+        minted[name] = {"address": address, "private_key": "0x" + private_hex}
+    keys_file.parent.mkdir(parents=True, exist_ok=True)
+    keys_file.write_text(json.dumps(minted, indent=2))
+    os.chmod(keys_file, 0o600)
+    print(f"[+] Minted {len(minted)} service account keys -> {keys_file} (0600, back this up)")
+    return {name: entry["address"] for name, entry in minted.items()}
 
 
 def _load_env(path: Path) -> dict[str, str]:
@@ -101,20 +131,16 @@ def main() -> int:
         allocations.append({"address": addr, "balance": ait_to_units(1_000_000), "nonce": 0})
     for addr, balance in sorted(service_balances.items()):
         allocations.append({"address": addr, "balance": balance, "nonce": 0})
-    for name in [
-        "aitbc1aiengine",
-        "aitbc1surveillance",
-        "aitbc1analytics",
-        "aitbc1marketplace",
-        "aitbc1enterprise",
-        "aitbc1multimodal",
-        "aitbc1zkproofs",
-        "aitbc1crosschain",
-        "aitbc1developer1",
-        "aitbc1developer2",
-        "aitbc1tester",
-    ]:
-        allocations.append({"address": _derive_address(name), "balance": ait_to_units(1_000_000), "nonce": 0})
+    for _name, addr in sorted(_service_accounts(SERVICE_KEYS_FILE).items()):
+        allocations.append({"address": addr, "balance": ait_to_units(1_000_000), "nonce": 0})
+
+    # Last gate before anything is committed. Catches a derivable address from
+    # any source -- a minted set is clean by construction, but wallets/ and the
+    # env-supplied addresses above are not under this script's control.
+    derived = find_derived(str(a["address"]) for a in allocations)
+    if derived and os.environ.get(ALLOW_DERIVED_ENV) != "1":
+        print("[!] " + derived_key_error(derived, override=ALLOW_DERIVED_ENV), file=sys.stderr)
+        return 1
 
     if data_dir.exists():
         ts = datetime.now(UTC).strftime("%Y%m%d-%H%M%S")

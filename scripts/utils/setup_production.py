@@ -2,7 +2,7 @@
 """
 Full production setup:
 - Generate keystore password file
-- Generate encrypted keystores for the genesis and treasury accounts
+- Generate encrypted keystores for the genesis, treasury and service accounts
 - Initialize production database with 0x allocations
 - Configure blockchain node .env for ait-mainnet
 - Restart services
@@ -13,7 +13,6 @@ No ``ait1`` or ``aitbc1`` prefix is used for address values.
 
 from __future__ import annotations
 
-import hashlib
 import json
 import os
 import secrets
@@ -30,6 +29,9 @@ _BLOCKCHAIN_SCRIPTS = Path(__file__).parent.parent / "apps" / "blockchain-node" 
 sys.path.insert(0, str(_BLOCKCHAIN_SCRIPTS))
 import keystore as _node_keystore
 
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+from aitbc.utils.genesis_accounts import derived_key_error, find_derived, new_account
+
 # Configuration
 CHAIN_ID = "ait-mainnet"
 DATA_DIR = Path("/var/lib/aitbc/data/ait-mainnet")
@@ -41,13 +43,24 @@ SERVICE_NODE = "aitbc-blockchain-node"
 SERVICE_RPC = "aitbc-blockchain-rpc"
 GENESIS_PROD_YAML = Path("/opt/aitbc/genesis_prod.yaml")
 
+ALLOW_DERIVED_ENV = "AITBC_ALLOW_DERIVED_GENESIS"
 
-def _derive_address(name: str) -> str:
-    """Return a deterministic 0x address derived from ``name``.
-
-    Used for system accounts that do not receive a dedicated keystore.
-    """
-    return Account.from_key(hashlib.sha256(name.encode()).digest()).address
+# Service accounts pre-funded at genesis, and what each one gets. These used to
+# be allocated at sha256(name) addresses, which put their private keys in the
+# public repository; each now receives a real keypair and its own keystore.
+SERVICE_ACCOUNT_BALANCES: dict[str, int] = {
+    "aitbc1aiengine": 2_000_000,
+    "aitbc1surveillance": 1_500_000,
+    "aitbc1analytics": 1_000_000,
+    "aitbc1marketplace": 2_000_000,
+    "aitbc1enterprise": 3_000_000,
+    "aitbc1multimodal": 1_500_000,
+    "aitbc1zkproofs": 1_000_000,
+    "aitbc1crosschain": 2_000_000,
+    "aitbc1developer1": 500_000,
+    "aitbc1developer2": 300_000,
+    "aitbc1tester": 200_000,
+}
 
 
 def run(cmd, check=True, capture_output=False):
@@ -78,27 +91,39 @@ def _write_keystore(name: str, private_hex: str, password: str, keystore_dir: Pa
     return out_file
 
 
+def _create_service_accounts(password: str, keystore_dir: Path) -> dict[str, str]:
+    """Mint a keypair and keystore per service account. Returns {name: address}."""
+    addresses: dict[str, str] = {}
+    for name in SERVICE_ACCOUNT_BALANCES:
+        private_hex, address = new_account()
+        _write_keystore(name, private_hex, password, keystore_dir)
+        addresses[name] = address
+        print(f"[+] {name}: {address}")
+    return addresses
+
+
 def _write_genesis_prod_yaml(
     genesis_address: str,
     treasury_address: str,
+    service_addresses: dict[str, str],
     output: Path,
 ) -> None:
     """Write a genesis_prod.yaml with 0x addresses and production balances."""
     accounts = [
         {"address": genesis_address, "balance": 10_000_000},
         {"address": treasury_address, "balance": 5_000_000},
-        {"address": _derive_address("aitbc1aiengine"), "balance": 2_000_000},
-        {"address": _derive_address("aitbc1surveillance"), "balance": 1_500_000},
-        {"address": _derive_address("aitbc1analytics"), "balance": 1_000_000},
-        {"address": _derive_address("aitbc1marketplace"), "balance": 2_000_000},
-        {"address": _derive_address("aitbc1enterprise"), "balance": 3_000_000},
-        {"address": _derive_address("aitbc1multimodal"), "balance": 1_500_000},
-        {"address": _derive_address("aitbc1zkproofs"), "balance": 1_000_000},
-        {"address": _derive_address("aitbc1crosschain"), "balance": 2_000_000},
-        {"address": _derive_address("aitbc1developer1"), "balance": 500_000},
-        {"address": _derive_address("aitbc1developer2"), "balance": 300_000},
-        {"address": _derive_address("aitbc1tester"), "balance": 200_000},
     ]
+    accounts += [
+        {"address": service_addresses[name], "balance": balance} for name, balance in SERVICE_ACCOUNT_BALANCES.items()
+    ]
+
+    # A genesis file is append-only in practice: once the chain is initialised
+    # from it, a bad address there is a balance nobody can take back. Check
+    # before writing rather than after.
+    derived = find_derived(str(a["address"]) for a in accounts)
+    if derived and os.environ.get(ALLOW_DERIVED_ENV) != "1":
+        sys.exit("[!] " + derived_key_error(derived, override=ALLOW_DERIVED_ENV))
+
     data = {"genesis": {"accounts": accounts}}
     output.parent.mkdir(parents=True, exist_ok=True)
     import yaml
@@ -166,8 +191,11 @@ def main():
     run(f"mkdir -p {DATA_DIR}")
     run(f"chown -R root:root {DATA_DIR}")
 
-    # 4. Write genesis_prod.yaml so init uses 0x addresses
-    _write_genesis_prod_yaml(genesis_addr, treasury_addr, GENESIS_PROD_YAML)
+    # 4. Generate the service account keystores, then write genesis_prod.yaml
+    print("\n=== Generating service account keystores ===")
+    service_addrs = _create_service_accounts(password, KEYS_DIR)
+
+    _write_genesis_prod_yaml(genesis_addr, treasury_addr, service_addrs, GENESIS_PROD_YAML)
     print(f"[+] Wrote {GENESIS_PROD_YAML}")
 
     # 5. Initialize DB
@@ -205,7 +233,7 @@ GOSSIP_BACKEND=memory
 
     print("\n[+] Production setup complete!")
     print(f"[+] Verify with: curl 'http://127.0.0.1:8006/head?chain_id={CHAIN_ID}' | jq")
-    print(f"[+] Keystore files in {KEYS_DIR} (encrypted, 600)")
+    print(f"[+] Keystore files in {KEYS_DIR} (encrypted, 600) -- including one per service account")
     print(f"[+] Private keys saved in {KEYS_DIR}/genesis_private_key.txt and treasury_private_key.txt (keep secure!)")
 
 

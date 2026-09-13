@@ -19,61 +19,80 @@ from pathlib import Path
 
 # Add the blockchain node src to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps/blockchain-node/src"))
+sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
+from aitbc.utils.genesis_accounts import derive_address, derived_key_error, find_derived
 from aitbc_chain.database import init_db, session_scope
 from aitbc_chain.mempool import init_mempool
 from aitbc_chain.models import Account, Block
 from sqlmodel import select
 
 
-def _derive_address(name: str) -> str:
-    """Return a deterministic EIP-55 0x address derived from `name`.
+GENESIS_PROD_YAML = Path("/opt/aitbc/genesis_prod.yaml")
 
-    This is only a fallback for local/dev use when no ``genesis_prod.yaml`` is
-    supplied. Production deployments should always provide a ``genesis_prod.yaml``
-    created by ``setup_production.py`` so that real, securely-generated keys are
-    used.
+ALLOW_DERIVED_FLAG = "--allow-derived-keys"
+
+
+def _derived_fallback() -> dict[str, int]:
+    """Allocations at sha256(name) addresses. Disposable local chains only.
+
+    Every private key here is computable from this file. Reachable only behind
+    an explicit opt-in; see load_allocations().
     """
-    from eth_account import Account
+    return {
+        derive_address("aitbc1genesis"): 10_000_000,
+        derive_address("aitbc1treasury"): 5_000_000,
+        derive_address("aitbc1aiengine"): 2_000_000,
+        derive_address("aitbc1surveillance"): 1_500_000,
+        derive_address("aitbc1analytics"): 1_000_000,
+        derive_address("aitbc1marketplace"): 2_000_000,
+        derive_address("aitbc1enterprise"): 3_000_000,
+        derive_address("aitbc1multimodal"): 1_500_000,
+        derive_address("aitbc1zkproofs"): 1_000_000,
+        derive_address("aitbc1crosschain"): 2_000_000,
+        derive_address("aitbc1developer1"): 500_000,
+        derive_address("aitbc1developer2"): 300_000,
+        derive_address("aitbc1tester"): 200_000,
+    }
 
-    return Account.from_key(hashlib.sha256(name.encode()).digest()).address
 
+def load_allocations(allow_derived: bool = False) -> dict[str, int]:
+    """Load the genesis allocation set, refusing publicly-derivable addresses.
 
-# Production allocations (loaded from genesis_prod.yaml if available, else fallback)
-ALLOCATIONS = {}
-
-
-def load_allocations() -> dict[str, int]:
-    yaml_path = Path("/opt/aitbc/genesis_prod.yaml")
-    if yaml_path.exists():
+    A missing genesis_prod.yaml used to fall through to _derived_fallback()
+    silently, so a production run that had lost its allocation file looked
+    exactly like a correct one and seeded the chain with keys anyone could
+    compute. Both that path and a yaml that already contains such an address are
+    now hard failures unless the caller opts in.
+    """
+    if GENESIS_PROD_YAML.exists():
         import yaml
 
-        with yaml_path.open() as f:
+        with GENESIS_PROD_YAML.open() as f:
             data = yaml.safe_load(f)
         allocations = {}
         for acc in data.get("genesis", {}).get("accounts", []):
             addr = acc["address"]
             balance = int(acc["balance"])
             allocations[addr] = balance
-        return allocations
+        if not allocations:
+            sys.exit(f"[!] {GENESIS_PROD_YAML} has no genesis.accounts entries; refusing to seed an empty chain.")
     else:
-        # Fallback deterministic 0x addresses derived from the legacy names.
-        # Do not use this for production; run setup_production.py first.
-        return {
-            _derive_address("aitbc1genesis"): 10_000_000,
-            _derive_address("aitbc1treasury"): 5_000_000,
-            _derive_address("aitbc1aiengine"): 2_000_000,
-            _derive_address("aitbc1surveillance"): 1_500_000,
-            _derive_address("aitbc1analytics"): 1_000_000,
-            _derive_address("aitbc1marketplace"): 2_000_000,
-            _derive_address("aitbc1enterprise"): 3_000_000,
-            _derive_address("aitbc1multimodal"): 1_500_000,
-            _derive_address("aitbc1zkproofs"): 1_000_000,
-            _derive_address("aitbc1crosschain"): 2_000_000,
-            _derive_address("aitbc1developer1"): 500_000,
-            _derive_address("aitbc1developer2"): 300_000,
-            _derive_address("aitbc1tester"): 200_000,
-        }
+        if not allow_derived:
+            sys.exit(
+                f"[!] {GENESIS_PROD_YAML} not found, and the derived-address fallback is not a\n"
+                f"    production allocation set -- its private keys are public. Run\n"
+                f"    scripts/utils/setup_production.py to generate real keys, or pass\n"
+                f"    {ALLOW_DERIVED_FLAG} for a disposable local chain."
+            )
+        print(f"[!] {GENESIS_PROD_YAML} not found; using derived addresses ({ALLOW_DERIVED_FLAG}).")
+        print("[!] Every private key in this allocation set is public. Local chains only.")
+        allocations = _derived_fallback()
+
+    derived = find_derived(allocations)
+    if derived and not allow_derived:
+        sys.exit("[!] " + derived_key_error(derived, override=ALLOW_DERIVED_FLAG))
+    return allocations
 
 
 def compute_genesis_hash(chain_id: str, timestamp: datetime) -> str:
@@ -128,6 +147,11 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--chain-id", default="ait-mainnet", help="Chain ID to initialize")
     parser.add_argument("--db-path", type=Path, help="Path to SQLite database (overrides config)")
+    parser.add_argument(
+        ALLOW_DERIVED_FLAG,
+        action="store_true",
+        help="Permit allocations at sha256(name) addresses whose private keys are public. Local chains only.",
+    )
     args = parser.parse_args()
 
     # Override environment for config
@@ -149,8 +173,8 @@ def main() -> None:
     init_mempool(backend="database", db_url=mempool_url, max_size=10000, min_fee=0)
     print(f"[*] Mempool initialized at {mempool_path}")
 
-    allocations = load_allocations()
-    proposer = next(iter(allocations)) if allocations else _derive_address("aitbc1genesis")
+    allocations = load_allocations(allow_derived=args.allow_derived_keys)
+    proposer = next(iter(allocations))
 
     # Create genesis block
     ensure_genesis_block(args.chain_id, proposer)
