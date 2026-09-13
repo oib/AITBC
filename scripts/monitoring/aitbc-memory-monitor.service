@@ -30,5 +30,7 @@ SystemCallFilter=@system-service
 ProtectKernelTunables=true
 ReadWritePaths=/var/log/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Deliberately no [Install] section. This is a oneshot activated by
+# aitbc-memory-monitor.timer, so the timer is the unit that belongs in the boot
+# transaction. A WantedBy=multi-user.target here would additionally pull the
+# oneshot in at every boot, on top of its schedule.
