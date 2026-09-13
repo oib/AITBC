@@ -93,12 +93,22 @@ def status(ctx, pool_hub_url):
 
   aitbc pool-hub sla
 
+  aitbc pool-hub sla --miner node2-gpu-01 --hours 48
+
+  aitbc pool-hub sla --violations --miner node2-gpu-01
+
+  aitbc pool-hub sla --violations --resolved
+
   aitbc pool-hub sla --pool-hub-url http://localhost:8210"""
 )
+@click.option("--miner", "miner_id", default=None, help="Show metric history for a specific miner")
+@click.option("--hours", default=24, type=click.IntRange(1, 168), show_default=True, help="Metric history window in hours")
+@click.option("--violations", is_flag=True, help="List SLA violations instead of the status summary")
+@click.option("--resolved", is_flag=True, help="With --violations: list resolved violations (default lists open ones)")
 @click.option("--pool-id", help="Specific pool ID")
 @click.option("--pool-hub-url", default=None, help="Pool Hub service URL")
 @click.pass_context
-def sla(ctx, pool_id, pool_hub_url):
+def sla(ctx, pool_id, miner_id, hours, violations, resolved, pool_hub_url):
     """Monitor pool hub SLA status across miners."""
     # Pool Hub tracks miners, not pools — it has no route that filters SLA by a
     # pool ID.  Rejecting the flag beats accepting it and returning unfiltered
@@ -108,8 +118,19 @@ def sla(ctx, pool_id, pool_hub_url):
     try:
         pool_hub_url = pool_hub_url or _default_pool_hub_url()
         http_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
-        sla_data = http_client.get("/v1/sla/status")
-        output(sla_data, ctx.obj.get("output_format", "table"), title="SLA Monitor")
+        output_format = ctx.obj.get("output_format", "table")
+        if violations:
+            params: dict = {"resolved": "true" if resolved else "false"}
+            if miner_id:
+                params["miner_id"] = miner_id
+            rows = http_client.get("/v1/sla/violations", params=params)
+            output(rows, output_format, title="SLA Violations (resolved)" if resolved else "SLA Violations (open)")
+        elif miner_id:
+            rows = http_client.get(f"/v1/sla/metrics/{miner_id}", params={"hours": hours})
+            output(rows, output_format, title=f"SLA metrics: {miner_id} (last {hours}h)")
+        else:
+            sla_data = http_client.get("/v1/sla/status")
+            output(sla_data, output_format, title="SLA Monitor")
     except NetworkError as e:
         abort(ctx, f"Pool Hub at {pool_hub_url} is unreachable: {e}", from_exception=e)
     except Exception as e:
