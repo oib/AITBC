@@ -17,8 +17,10 @@ import sys
 from datetime import datetime
 from pathlib import Path
 
-# Add the blockchain node src to path
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps/blockchain-node/src"))
+# Add the blockchain node src to path. resolve() first: parent.parent of a bare
+# __file__ is scripts/, and scripts/apps/blockchain-node/src does not exist, so
+# aitbc_chain below failed to import at all.
+sys.path.insert(0, str(Path(__file__).resolve().parents[2] / "apps/blockchain-node/src"))
 sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
 
 from aitbc.utils.genesis_accounts import derive_address, derived_key_error, find_derived
