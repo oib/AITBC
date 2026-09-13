@@ -51,4 +51,8 @@ def test_simple_block_import(local_node):
 
 
 if __name__ == "__main__":
+    from _write_guard import require_opt_in
+
+    require_opt_in(__file__)
+
     test_simple_block_import()

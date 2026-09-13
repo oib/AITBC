@@ -276,6 +276,10 @@ def test_block_import_complete(local_node, test_id):
 
 
 if __name__ == "__main__":
+    from _write_guard import require_opt_in
+
+    require_opt_in(__file__)
+
     from .conftest import DEFAULT_CHAIN_ID, DEFAULT_RPC_URL
 
     prefix = "test_block_import_complete"
