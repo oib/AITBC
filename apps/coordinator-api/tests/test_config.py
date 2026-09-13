@@ -167,6 +167,64 @@ class TestKeysAreNotHubCredentials:
             Settings()
 
 
+class TestLocalhostRpcGuard:
+    """Production rejects a localhost BLOCKCHAIN_RPC_URL unless explicitly opted in.
+
+    The fleet runs production declared through NODE_ENV only, and every node
+    deliberately uses its own local replica — so the guard must see NODE_ENV and
+    must honor the ALLOW_LOCAL_BLOCKCHAIN_RPC escape hatch.
+    """
+
+    PROD_KWARGS = {
+        "allow_origins": ["https://example.com"],
+        "secret_key": "s" * 32,
+        "jwt_secret": "j" * 32,
+        "client_api_keys": ["client-key-1234567890"],
+        "miner_api_keys": ["miner-key-1234567890"],
+        "admin_api_keys": ["admin-key-1234567890"],
+    }
+
+    @pytest.fixture(autouse=True)
+    def _clean_env(self, monkeypatch):
+        for var in ("ENVIRONMENT", "APP_ENV", "NODE_ENV", "ALLOW_LOCAL_BLOCKCHAIN_RPC"):
+            monkeypatch.delenv(var, raising=False)
+
+    @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
+    def test_localhost_rejected_in_production(self, monkeypatch, var):
+        from pydantic import ValidationError
+
+        from coordinator_api.config import Settings
+
+        monkeypatch.setenv(var, "production")
+        with pytest.raises(ValidationError, match="localhost in production"):
+            Settings(blockchain_rpc_url="http://127.0.0.1:8202", **self.PROD_KWARGS)
+
+    @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
+    def test_localhost_allowed_with_opt_in(self, monkeypatch, var):
+        from coordinator_api.config import Settings
+
+        monkeypatch.setenv(var, "production")
+        monkeypatch.setenv("ALLOW_LOCAL_BLOCKCHAIN_RPC", "1")
+        settings = Settings(blockchain_rpc_url="http://127.0.0.1:8202", **self.PROD_KWARGS)
+        assert settings.blockchain_rpc_url == "http://127.0.0.1:8202"
+
+    def test_environment_development_beats_node_env_production(self, monkeypatch):
+        """Precedence: an explicit non-production ENVIRONMENT wins over NODE_ENV."""
+        from coordinator_api.config import Settings
+
+        monkeypatch.setenv("NODE_ENV", "production")
+        monkeypatch.setenv("ENVIRONMENT", "development")
+        settings = Settings(blockchain_rpc_url="http://localhost:8202")
+        assert settings.blockchain_rpc_url == "http://localhost:8202"
+
+    def test_remote_url_needs_no_opt_in(self, monkeypatch):
+        from coordinator_api.config import Settings
+
+        monkeypatch.setenv("NODE_ENV", "production")
+        settings = Settings(blockchain_rpc_url="https://rpc.example.com", **self.PROD_KWARGS)
+        assert settings.blockchain_rpc_url == "https://rpc.example.com"
+
+
 def test_fhe_enabled_defaults_by_arch(monkeypatch):
     """fhe_enabled follows tenseal platform support unless explicitly set."""
     from coordinator_api import config as config_mod

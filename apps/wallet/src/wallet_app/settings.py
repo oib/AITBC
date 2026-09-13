@@ -7,6 +7,7 @@ from pydantic import Field, field_validator, model_validator
 from pydantic_settings import SettingsConfigDict
 
 from aitbc.constants import BLOCKCHAIN_RPC_URL, DATA_DIR
+from aitbc.utils.env import is_production
 from aitbc_shared import DatabaseConfig, ServiceSettings
 
 
@@ -52,8 +53,12 @@ class Settings(ServiceSettings):
     @classmethod
     def validate_blockchain_rpc_url(cls, v: str) -> str:
         if "localhost" in v or "127.0.0.1" in v:
-            env = os.getenv("ENVIRONMENT", os.getenv("APP_ENV", "dev"))
-            if env == "production":
+            if is_production() and os.getenv("ALLOW_LOCAL_BLOCKCHAIN_RPC", "").strip().lower() not in (
+                "1",
+                "true",
+                "yes",
+                "on",
+            ):
                 raise ValueError("BLOCKCHAIN_RPC_URL cannot be localhost in production")
         return v
 
