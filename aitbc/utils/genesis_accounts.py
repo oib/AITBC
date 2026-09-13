@@ -55,7 +55,7 @@ def derive_address(name: str) -> str:
     """
     from eth_account import Account
 
-    return Account.from_key(hashlib.sha256(name.encode()).digest()).address
+    return str(Account.from_key(hashlib.sha256(name.encode()).digest()).address)
 
 
 def new_account() -> tuple[str, str]:
