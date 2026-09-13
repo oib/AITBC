@@ -132,8 +132,8 @@ binds below are Debian package defaults, not a cross-node requirement.
 | Service | Port | Bind | Nodes | Notes |
 |---------|------|------|-------|-------|
 | PostgreSQL | 5432 | `127.0.0.1` / `::1` | all nodes | Local datastore for the `aitbc_*` databases; `listen_addresses = 'localhost'` |
-| Prometheus Server | 9090 | `*` (all) | customer, shop | Debian `prometheus.service` |
-| Prometheus Node Exporter | 9100 | `*` (all) | customer, shop | `prometheus-node-exporter.service` |
+| Prometheus Server | 9090 | `*` (all) | customer, shop, hub | Debian `prometheus.service`; hub instance is localhost-only -- it has no routed path to the other nodes |
+| Prometheus Node Exporter | 9100 | `*` (all) | customer, shop, hub | `prometheus-node-exporter.service` |
 | Prometheus Redis Exporter | 9121 | `*` (all) | customer | `prometheus-redis-exporter.service` |
 | Prometheus Postgres Exporter | 9187 | `*` (all) | customer | `prometheus-postgres-exporter.service` |
 | Kubo IPFS (public swarm) | 4001 | `0.0.0.0` / `[::]`, TCP+UDP | customer, shop | Local unit `/etc/systemd/system/ipfs.service` (`IPFS_PATH=/root/.ipfs`); the public swarm. Hub and replica run the repo-managed island daemon on 4002 instead -- see Island IPFS daemon above |
