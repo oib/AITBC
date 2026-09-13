@@ -159,10 +159,10 @@ EOF
 
             if [ "$result" = "true" ]; then
                 echo -e "   ${GREEN}✅${NC} Imported block $block_height"
-                ((batch_imported++))
+                batch_imported=$((batch_imported + 1))
             else
                 echo -e "   ${RED}❌${NC} Failed to import block $block_height"
-                ((batch_failed++))
+                batch_failed=$((batch_failed + 1))
             fi
         fi
     done

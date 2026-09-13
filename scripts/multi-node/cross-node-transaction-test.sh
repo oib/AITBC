@@ -285,7 +285,7 @@ main() {
             log_success "RPC reachable on ${node_name}"
         else
             log_error "RPC not reachable on ${node_name}"
-            ((total_failures++))
+            total_failures=$((total_failures + 1))
         fi
     done
 

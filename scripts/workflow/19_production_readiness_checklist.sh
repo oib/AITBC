@@ -36,17 +36,17 @@ WARNINGS=0
 # Helper functions
 check_pass() {
     echo -e "   ${GREEN}✅ PASS${NC}: $1"
-    ((PASSED++))
+    PASSED=$((PASSED + 1))
 }
 
 check_fail() {
     echo -e "   ${RED}❌ FAIL${NC}: $1"
-    ((FAILED++))
+    FAILED=$((FAILED + 1))
 }
 
 check_warn() {
     echo -e "   ${YELLOW}⚠️  WARN${NC}: $1"
-    ((WARNINGS++))
+    WARNINGS=$((WARNINGS + 1))
 }
 
 echo "1. 🔒 SECURITY VALIDATION"

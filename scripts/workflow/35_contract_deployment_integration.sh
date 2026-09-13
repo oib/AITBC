@@ -86,11 +86,11 @@ run_test() {
 
     if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -106,11 +106,11 @@ run_test_verbose() {
 
     if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -134,10 +134,10 @@ CONTRACT_ADDRESS=$(echo "$DEPLOY_RESULT" | jq -r .contract_address 2>/dev/null |
 
 if [ -n "$CONTRACT_ADDRESS" ] && [ "$CONTRACT_ADDRESS" != "null" ]; then
     echo -e "${GREEN}✅ Contract deployed at: $CONTRACT_ADDRESS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Contract deployment failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 2. CONTRACT EXECUTION TESTING
@@ -163,10 +163,10 @@ if [ -n "$CONTRACT_ADDRESS" ]; then
 
     if [ -n "$TX_HASH" ] && [ "$TX_HASH" != "null" ]; then
         echo -e "${GREEN}✅ Contract execution successful: $TX_HASH${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract execution failed${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to execute"
@@ -185,10 +185,10 @@ if [ -n "$CONTRACT_ADDRESS" ]; then
 
     if [ -n "$STATE_RESULT" ] && [ "$STATE_RESULT" != "null" ]; then
         echo -e "${GREEN}✅ Contract state query successful${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract state query failed${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to query"
@@ -251,10 +251,10 @@ if [ -n "$CONTRACT_ADDRESS" ]; then
 
     if [ -n "$FOLLOWER_CONTRACT" ] && [ "$FOLLOWER_CONTRACT" != "null" ]; then
         echo -e "${GREEN}✅ Contract available on follower node${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract not available on follower node${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to test"
@@ -287,10 +287,10 @@ echo "Marketplace contract result: $MARKET_CONTRACT_RESULT"
 
 if [ -n "$MARKET_CONTRACT_RESULT" ] && [ "$MARKET_CONTRACT_RESULT" != "null" ]; then
     echo -e "${GREEN}✅ Marketplace contract integration successful${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Marketplace contract integration failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 7. CONTRACT-AI SERVICE INTEGRATION
@@ -317,10 +317,10 @@ echo "AI analysis result: $AI_ANALYSIS_RESULT"
 if [ -n "$AI_ANALYSIS_RESULT" ] && [ "$AI_ANALYSIS_RESULT" != "null" ]; then
     AI_TASK_ID=$(echo "$AI_ANALYSIS_RESULT" | jq -r .job_id 2>/dev/null || echo "ai_task_$(date +%s)")
     echo -e "${GREEN}✅ AI contract analysis submitted: $AI_TASK_ID${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ AI contract analysis failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 8. CONTRACT PERFORMANCE TESTING
@@ -348,10 +348,10 @@ if [ -n "$CONTRACT_ADDRESS" ]; then
 
     if [ "$RESPONSE_TIME" -lt 2000 ]; then
         echo -e "${GREEN}✅ Contract performance acceptable (${RESPONSE_TIME}ms)${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract performance too slow (${RESPONSE_TIME}ms)${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract for performance testing"
@@ -369,40 +369,40 @@ echo "Verifying service health..."
 BLOCKCHAIN_HEALTH=$(curl -s http://localhost:$GENESIS_PORT/rpc/info)
 if [ -n "$BLOCKCHAIN_HEALTH" ]; then
     echo -e "${GREEN}✅ Blockchain service healthy${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Blockchain service unhealthy${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # AI service health
 AI_HEALTH=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats')
 if [ -n "$AI_HEALTH" ]; then
     echo -e "${GREEN}✅ AI service healthy${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ AI service unhealthy${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # Marketplace health
 MARKETPLACE_HEALTH=$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
 if [ -n "$MARKETPLACE_HEALTH" ]; then
     echo -e "${GREEN}✅ Marketplace service healthy${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Marketplace service unhealthy${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # Coordinator health
 COORDINATOR_HEALTH=$(curl -s http://localhost:$COORDINATOR_PORT/health/live)
 if [ -n "$COORDINATOR_HEALTH" ]; then
     echo -e "${GREEN}✅ Coordinator service healthy${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Coordinator service unhealthy${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 10. COMPREHENSIVE INTEGRATION REPORT

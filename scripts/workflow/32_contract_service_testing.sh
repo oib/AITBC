@@ -55,11 +55,11 @@ run_test() {
 
     if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -75,11 +75,11 @@ run_test_verbose() {
 
     if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -125,10 +125,10 @@ CONTRACT_ADDRESS=$(echo "$CONTRACT_RESULT" | jq -r .contract_address 2>/dev/null
 
 if [ "$CONTRACT_ADDRESS" != "unknown" ] && [ "$CONTRACT_ADDRESS" != "null" ]; then
     echo -e "${GREEN}✅ Contract deployed at: $CONTRACT_ADDRESS${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Contract deployment failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 2. CONTRACT EXECUTION TESTING
@@ -154,10 +154,10 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
 
     if [ "$TX_HASH" != "unknown" ] && [ "$TX_HASH" != "null" ]; then
         echo -e "${GREEN}✅ Contract execution successful: $TX_HASH${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract execution failed${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to execute"
@@ -176,10 +176,10 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
 
     if [ -n "$STATE_RESULT" ] && [ "$STATE_RESULT" != "null" ]; then
         echo -e "${GREEN}✅ Contract state query successful${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract state query failed${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to query"
@@ -215,10 +215,10 @@ if [ "$CONTRACT_ADDRESS" != "unknown" ]; then
 
     if [ -n "$FOLLOWER_CONTRACT" ] && [ "$FOLLOWER_CONTRACT" != "null" ]; then
         echo -e "${GREEN}✅ Contract available on follower node${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ Contract not available on follower node${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to test"
@@ -246,10 +246,10 @@ echo "Marketplace contract result: $MARKET_CONTRACT_RESULT"
 
 if [ -n "$MARKET_CONTRACT_RESULT" ] && [ "$MARKET_CONTRACT_RESULT" != "null" ]; then
     echo -e "${GREEN}✅ Marketplace contract interaction successful${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Marketplace contract interaction failed${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 7. CONTRACT SECURITY TESTING
@@ -295,10 +295,10 @@ echo "Contract call response time: ${RESPONSE_TIME}ms"
 
 if [ "$RESPONSE_TIME" -lt 1000 ]; then
     echo -e "${GREEN}✅ Contract performance acceptable (${RESPONSE_TIME}ms)${NC}"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}❌ Contract performance too slow (${RESPONSE_TIME}ms)${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 9. SERVICE HEALTH CHECK
@@ -321,10 +321,10 @@ for service in "${SERVICES[@]}"; do
 
     if [ -n "$HEALTH_RESULT" ] && [ "$HEALTH_RESULT" != "null" ]; then
         echo -e "${GREEN}✅ $service service healthy${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}❌ $service service unhealthy${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 done
 

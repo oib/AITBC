@@ -158,7 +158,7 @@ check_node_health() {
     for chain in "${CHAIN_ARRAY[@]}"; do
         chain=$(echo "$chain" | xargs)  # Trim whitespace
         if ! check_rpc_health "$node_name" "$node_ip" "$chain"; then
-            ((failures++))
+            failures=$((failures + 1))
             log_error "RPC endpoint unhealthy on ${node_name} for chain ${chain}"
         fi
     done
@@ -181,7 +181,7 @@ main() {
     # Check Redis connectivity (shared resource)
     if ! check_redis_connectivity; then
         log_error "Redis connectivity failed - this affects all nodes"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     # Check each node
@@ -195,7 +195,7 @@ main() {
         else
             failures=$?
             log_error "Node ${node_name} has ${failures} health issues"
-            ((total_failures+=failures))
+            total_failures=$((total_failures + failures))
         fi
 
         echo "" | tee -a "${LOG_FILE}"
