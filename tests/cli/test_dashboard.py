@@ -126,6 +126,72 @@ class TestDashboardShop:
         assert "p1" in result.output
         assert "shop-node" in result.output
 
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
+    @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.dashboard._auth_headers")
+    def test_shop_dashboard_renders_sla_section(self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj):
+        """The SLA section surfaces pool-hub status and this miner's open violations."""
+        mock_auth.return_value = {"Authorization": "Bearer token"}
+        mock_client = mock_client_class.return_value
+
+        def get_side_effect(path, **kwargs):
+            if path == "/v1/sla/status":
+                return {"status": "healthy", "active_violations": 0, "recent_metrics_count": 9}
+            if path == "/v1/sla/violations":
+                return []
+            if path == "/v1/sla/metrics/shop-node":
+                return [
+                    {
+                        "miner_id": "shop-node",
+                        "metric_type": "uptime_pct",
+                        "metric_value": 99.1,
+                        "threshold": 95.0,
+                        "is_violation": False,
+                        "timestamp": "2026-09-13T22:00:00",
+                    }
+                ]
+            return {}
+
+        mock_client.get.side_effect = get_side_effect
+        mock_client.post.return_value = {}
+
+        from aitbc_cli.commands.dashboard import shop
+
+        result = runner.invoke(shop, ["--miner-id", "shop-node"], obj=dashboard_ctx_obj)
+
+        assert result.exit_code == 0, result.output
+        assert '"sla"' in result.output
+        assert "healthy" in result.output
+        assert "uptime_pct" in result.output
+
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
+    @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.dashboard._auth_headers")
+    def test_shop_dashboard_survives_pool_hub_outage(
+        self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj
+    ):
+        """An unreachable pool-hub must degrade the SLA section, not break the dashboard."""
+        from aitbc_cli.utils.http_client import NetworkError
+
+        mock_auth.return_value = {"Authorization": "Bearer token"}
+        mock_client = mock_client_class.return_value
+
+        def get_side_effect(path, **kwargs):
+            if path.startswith("/v1/sla"):
+                raise NetworkError("connection refused")
+            return {}
+
+        mock_client.get.side_effect = get_side_effect
+        mock_client.post.return_value = {}
+
+        from aitbc_cli.commands.dashboard import shop
+
+        result = runner.invoke(shop, ["--miner-id", "shop-node"], obj=dashboard_ctx_obj)
+
+        assert result.exit_code == 0, result.output
+        assert "Shop Dashboard" in result.output
+        assert "unavailable" in result.output
+
 
 class TestShopAuth:
     def test_shop_auth_uses_miner_api_key_not_client_jwt(self, dashboard_ctx_obj, monkeypatch):

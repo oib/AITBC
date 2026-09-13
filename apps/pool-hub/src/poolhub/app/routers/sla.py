@@ -6,6 +6,7 @@ Provides endpoints for SLA metrics, capacity planning, and billing integration.
 from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 from typing import Annotated, Any
+from uuid import UUID
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field
@@ -24,20 +25,24 @@ router = APIRouter(prefix="/sla", tags=["SLA"])
 
 
 class SLAMetricResponse(BaseModel):
-    id: str
+    id: UUID
     miner_id: str
     metric_type: str
     metric_value: float
     threshold: float
     is_violation: bool
     timestamp: datetime
-    metadata: dict[str, str]
+    # The column is named ``meta_data`` -- plain ``metadata`` reads
+    # ``DeclarativeBase.metadata`` (a MetaData object) under from_attributes
+    # and fails validation. validation_alias reads the real attribute while
+    # serialization_alias keeps ``metadata`` as the JSON key.
+    metadata: dict[str, str] = Field(default_factory=dict, validation_alias="meta_data", serialization_alias="metadata")
 
     model_config = ConfigDict(from_attributes=True)
 
 
 class SLAViolationResponse(BaseModel):
-    id: str
+    id: UUID
     miner_id: str
     violation_type: str
     severity: str
@@ -50,7 +55,7 @@ class SLAViolationResponse(BaseModel):
 
 
 class CapacitySnapshotResponse(BaseModel):
-    id: str
+    id: UUID
     total_miners: int
     active_miners: int
     total_parallel_capacity: int
