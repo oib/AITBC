@@ -95,7 +95,11 @@ class ChainEscrowClient:
             "amount": str(units_to_ait(amount_units)),
         }
         if lock_tx:
-            body["lock_tx"] = lock_tx
+            # The endpoint takes the lock_tx path when present — the signature
+            # must be embedded in the tx or it is submitted unsigned.
+            body["lock_tx"] = (
+                {**lock_tx, "signature": lock_signature} if lock_signature and not lock_tx.get("signature") else lock_tx
+            )
         if lock_signature:
             body["lock_signature"] = lock_signature
         if lock_nonce is not None:
