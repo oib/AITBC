@@ -1,6 +1,8 @@
 #!/bin/bash
 # Enhanced AITBC Service Management for Development
 
+set -euo pipefail
+
 case "${1:-help}" in
     "start")
         echo "🚀 Starting AITBC services..."
@@ -26,11 +28,11 @@ case "${1:-help}" in
     "status")
         echo "📊 AITBC Services Status:"
         echo ""
-        sudo systemctl status aitbc-coordinator-api.service --no-pager -l
+        sudo systemctl status aitbc-coordinator-api.service --no-pager -l || true
         echo ""
-        sudo systemctl status aitbc-blockchain-node.service --no-pager -l
+        sudo systemctl status aitbc-blockchain-node.service --no-pager -l || true
         echo ""
-        sudo systemctl status aitbc-blockchain-rpc.service --no-pager -l
+        sudo systemctl status aitbc-blockchain-rpc.service --no-pager -l || true
         ;;
     "logs")
         echo "📋 AITBC Service Logs (Ctrl+C to exit):"
@@ -43,10 +45,10 @@ case "${1:-help}" in
     "test")
         echo "🧪 Testing AITBC services..."
         echo "Testing Coordinator API..."
-        curl -s http://localhost:8203/health || echo "❌ Coordinator API not responding"
+        curl -sf http://localhost:8203/health || echo "❌ Coordinator API not responding"
         echo ""
         echo "Testing Blockchain RPC..."
-        curl -s http://localhost:8202/health || echo "❌ Blockchain RPC not responding"
+        curl -sf http://localhost:8202/health || echo "❌ Blockchain RPC not responding"
         echo ""
         echo "✅ Service test completed"
         ;;

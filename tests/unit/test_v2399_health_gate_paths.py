@@ -80,25 +80,19 @@ NON_SPEC_HEALTH_PATHS: dict[int, set[str]] = {
 UNDECLARED_PORT_HEALTH_URLS: set[tuple[int, str]] = {
     (8000, "/health"),
     (8000, "/v1/health"),
-    (8001, "/api/health"),
-    (8001, "/health"),
     (8003, "/api/health"),
-    (8003, "/health"),
     (8004, "/api/health"),
-    (8004, "/health"),
-    (8005, "/health"),
     (8006, "/health"),
     (8007, "/health"),
-    (8008, "/health"),
-    (8010, "/health"),
     (8012, "/api/health"),
     (8012, "/health"),
     (8013, "/api/health"),
-    (8013, "/health"),
-    (8015, "/health"),
-    (8015, "/v1/health"),
     (8080, "/health"),
-    (8083, "/health"),
+    # 8020/8021 are aitbc-multimodal / aitbc-modality-optimization unit ports,
+    # but the ExecStart modules (src.app.services.*) are not committed to the
+    # tree -- nothing can actually bind them today.
+    (8020, "/health"),
+    (8021, "/health"),
     (9090, "/-/healthy"),
     (9093, "/-/healthy"),
 }
@@ -230,6 +224,7 @@ class TestHealthGatesCanFail:
     DASH_F_EXEMPT = {
         "scripts/gpu/README.md",  # documentation example, not a gate
         "scripts/README.md",  # documentation example, not a gate
+        "scripts/utils/update-docs.sh",  # only curl is inside a doc-generation heredoc
     }
 
     def test_every_declared_port_health_curl_uses_dash_f(self):

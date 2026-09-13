@@ -278,7 +278,7 @@ sleep 5
 # reported the marketplace ready whenever monitoring was up. Marketplace is 8102.
 curl -fsS http://localhost:8102/health | head -5 || echo "Marketplace service not ready"
 # GPU service
-curl -s http://localhost:8101/health | head -5 || echo "GPU service endpoint not ready"
+curl -sf http://localhost:8101/health | head -5 || echo "GPU service endpoint not ready"
 
 # Step 7: Deploy to ${NODE1_HOST}
 echo -e "${CYAN}🚀 Step 7: Deploy to ${NODE1_HOST}${NC}"
@@ -315,9 +315,9 @@ ssh ${NODE1_HOST} "systemctl status aitbc-marketplace.service --no-pager -l | he
 
 # Test ${NODE1_HOST} endpoints
 echo "Testing ${NODE1_HOST} endpoints..."
-ssh ${NODE1_HOST} "curl -s http://localhost:8102/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
+ssh ${NODE1_HOST} "curl -sf http://localhost:8102/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
 # GPU service
-ssh ${NODE1_HOST} "curl -s http://localhost:8101/health | head -5" || echo "${NODE1_HOST} GPU service endpoint not ready"
+ssh ${NODE1_HOST} "curl -sf http://localhost:8101/health | head -5" || echo "${NODE1_HOST} GPU service endpoint not ready"
 
 echo ""
 echo -e "${GREEN}🎉 PRODUCTION SYSTEMD SERVICES UPGRADED!${NC}"
