@@ -119,6 +119,29 @@ def test_build_gpu_capabilities(mock_arch, mock_cuda, mock_gpu):
 
 @pytest.mark.unit
 @patch("production_miner.get_gpu_info")
+@patch("production_miner.detect_cuda_version")
+def test_build_gpu_capabilities_max_concurrent_jobs_env(mock_cuda, mock_gpu, monkeypatch):
+    """MINER_MAX_CONCURRENT_JOBS controls the advertised concurrency ceiling."""
+    mock_gpu.return_value = {"name": "RTX 4090", "memory_total": 24576}
+    mock_cuda.return_value = "12.0"
+
+    monkeypatch.delenv("MINER_MAX_CONCURRENT_JOBS", raising=False)
+    assert production_miner.build_gpu_capabilities()["max_concurrent_jobs"] == 1
+
+    monkeypatch.setenv("MINER_MAX_CONCURRENT_JOBS", "4")
+    assert production_miner.build_gpu_capabilities()["max_concurrent_jobs"] == 4
+
+    # Clamped and fall-safe: a bogus or non-positive value must never
+    # advertise zero capacity to the coordinator.
+    monkeypatch.setenv("MINER_MAX_CONCURRENT_JOBS", "0")
+    assert production_miner.build_gpu_capabilities()["max_concurrent_jobs"] == 1
+
+    monkeypatch.setenv("MINER_MAX_CONCURRENT_JOBS", "bogus")
+    assert production_miner.build_gpu_capabilities()["max_concurrent_jobs"] == 1
+
+
+@pytest.mark.unit
+@patch("production_miner.get_gpu_info")
 def test_build_gpu_capabilities_no_gpu(mock_gpu):
     """Test building GPU capabilities when no GPU"""
     mock_gpu.return_value = None
