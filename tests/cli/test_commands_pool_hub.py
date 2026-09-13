@@ -146,6 +146,68 @@ class TestPoolHubCommands:
         assert result.exit_code != 0
         assert "simulated" not in result.output
 
+    @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
+    def test_pool_hub_sla_miner_metric_history(self, mock_http_class, runner, mock_blockchain_rpc):
+        """``sla --miner`` fetches the per-miner metric history endpoint."""
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = [
+            {
+                "miner_id": "miner-1",
+                "metric_type": "uptime_pct",
+                "metric_value": 99.5,
+                "threshold": 95.0,
+                "is_violation": False,
+                "timestamp": "2026-09-13T22:00:00",
+            }
+        ]
+
+        from aitbc_cli.commands.pool_hub import pool_hub
+
+        result = runner.invoke(pool_hub, ["sla", "--miner", "miner-1", "--hours", "48"])
+
+        assert result.exit_code == 0, result.output
+        mock_client.get.assert_called_once_with("/v1/sla/metrics/miner-1", params={"hours": 48})
+        assert "uptime_pct" in result.output
+
+    @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
+    def test_pool_hub_sla_violations_default_open(self, mock_http_class, runner, mock_blockchain_rpc):
+        """``sla --violations`` lists open violations by default."""
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = [
+            {
+                "miner_id": "miner-1",
+                "violation_type": "uptime_pct",
+                "severity": "critical",
+                "metric_value": 0.0,
+                "threshold": 95.0,
+                "resolved_at": None,
+                "created_at": "2026-09-13T22:00:00",
+            }
+        ]
+
+        from aitbc_cli.commands.pool_hub import pool_hub
+
+        result = runner.invoke(pool_hub, ["sla", "--violations"])
+
+        assert result.exit_code == 0, result.output
+        mock_client.get.assert_called_once_with("/v1/sla/violations", params={"resolved": "false"})
+        assert "critical" in result.output
+
+    @patch("aitbc_cli.commands.pool_hub.AITBCHTTPClient")
+    def test_pool_hub_sla_violations_miner_and_resolved(self, mock_http_class, runner, mock_blockchain_rpc):
+        """``sla --violations --miner X --resolved`` passes both filters through."""
+        mock_client = mock_http_class.return_value
+        mock_client.get.return_value = []
+
+        from aitbc_cli.commands.pool_hub import pool_hub
+
+        result = runner.invoke(pool_hub, ["sla", "--violations", "--miner", "miner-1", "--resolved"])
+
+        assert result.exit_code == 0, result.output
+        mock_client.get.assert_called_once_with(
+            "/v1/sla/violations", params={"resolved": "true", "miner_id": "miner-1"}
+        )
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
