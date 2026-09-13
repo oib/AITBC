@@ -181,7 +181,8 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     # Task submit carried the signed lock tx + payment fields
     submit = next(c for c in mock_client.post.call_args_list if c.args[0] == "/v1/tasks/submit")
     body = submit.kwargs["json"]
-    assert body["payment"]["lock_tx"] == {"type": "ESCROW_LOCK"}
+    assert body["payment"]["lock_tx"] == {"type": "ESCROW_LOCK", "signature": "sig"}
+    assert body["payment"]["lock_signature"] == "sig"
     assert body["payment"]["agent"] == "0xProvider"
     assert body["payment"]["requester"] == "0xBuyer"
     assert body["payment"]["amount"] == 1_800_000  # 0.05 AIT
