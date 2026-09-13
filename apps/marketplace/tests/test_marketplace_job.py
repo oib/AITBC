@@ -82,6 +82,10 @@ async def test_confirm_and_release_payment(service: MarketplaceService) -> None:
     await service.confirm_marketplace_job_pin(created["job_id"], size=100)
     fetched = await service.get_marketplace_job(created["job_id"])
     assert fetched["state"] == "RUNNING"
+    # payload is a plain JSON column: pin-confirm must reassign it, or the
+    # mutation is silently dropped at commit.
+    assert fetched["payload"]["pinned"] is True
+    assert fetched["payload"]["size"] == 100
 
     released = await service.release_marketplace_job_payment(created["job_id"])
     assert released["state"] == "RELEASED"
@@ -116,3 +120,29 @@ async def test_cancel_and_refund(service: MarketplaceService) -> None:
     assert refunded["state"] == "REFUNDED"
     assert refunded["payment_status"] == "refunded"
     assert refunded["refund_tx_hash"] == f"0xrefund_{created['job_id']}"
+
+
+@pytest.mark.asyncio
+async def test_confirm_pin_persists_provider_confirmed(service: MarketplaceService) -> None:
+    """provider_confirmed must land in the persisted payload.
+
+    Regression test: job.payload is a plain ``Column(JSON)`` -- mutating the
+    dict in place never reaches the database, so the provider's pin-confirm was
+    accepted (200) but the flag silently vanished.
+    """
+
+    created = await service.create_marketplace_job(
+        {
+            "service_type": "ipfs",
+            "buyer_address": "0x" + "11" * 20,
+            "provider_address": "0x" + "22" * 20,
+            "payload": {"cid": "QmTest", "size": 10},
+            "payment": {"amount": "0.1", "status": "escrowed"},
+        }
+    )
+
+    await service.confirm_marketplace_job_pin(created["job_id"], provider_confirmed=True)
+
+    fetched = await service.get_marketplace_job(created["job_id"])
+    assert fetched["state"] == "RUNNING"
+    assert fetched["payload"]["provider_confirmed"] is True
