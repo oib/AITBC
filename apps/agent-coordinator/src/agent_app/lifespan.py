@@ -18,6 +18,22 @@ logger = get_logger(__name__)
 _task_registry = TaskRegistry()
 
 
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from a URL before logging (same convention as aitbc_chain)."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = f"{parsed.hostname or ''}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    except Exception:
+        pass
+    return url
+
+
 async def expire_old_requests() -> None:
     """Background task to expire coin requests older than 30 days.
 
@@ -57,7 +73,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
     redis_url = os.getenv("REDIS_URL", "redis://localhost:6379/1")
     database_url = settings.database_url
-    logger.info("Using Redis URL: %s", redis_url)
+    logger.info("Using Redis URL: %s", _sanitize_url(redis_url))
     state.agent_registry = AgentRegistry(redis_url=redis_url)
     await state.agent_registry.start()
     state.discovery_service = AgentDiscoveryService(state.agent_registry)
