@@ -4,7 +4,7 @@
 # This script integrates AITBC development permissions with existing sudoers
 #
 
-set -e
+set -euo pipefail
 
 # Colors for output
 RED='\033[0;31m'
@@ -191,10 +191,10 @@ case "${1:-help}" in
     "test")
         echo "🧪 Testing AITBC services..."
         echo "Testing Coordinator API..."
-        curl -s http://localhost:8203/health || echo "❌ Coordinator API not responding"
+        curl -sf http://localhost:8203/health || echo "❌ Coordinator API not responding"
         echo ""
         echo "Testing Blockchain RPC..."
-        curl -s http://localhost:8202/health || echo "❌ Blockchain RPC not responding"
+        curl -sf http://localhost:8202/health || echo "❌ Blockchain RPC not responding"
         echo ""
         echo "✅ Service test completed"
         ;;
