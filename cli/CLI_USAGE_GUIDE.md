@@ -7,6 +7,7 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `agent` — Agent SDK management commands. Subcommands: `cancel`, `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `job`, `jobs`, `list`, `register`, `register-identity`, `status`, `submit`, `subscribe`, `verify-identity`, `workflow`
 - `agent-comm` — Cross-chain agent communication commands. Subcommands: `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status`
 - `agent-msg` — Agent messaging commands (ping, send, receive, peers, request-coins).. Subcommands: `peers`, `ping`, `receive`, `request-coins`, `send`
+- `agent-task` — Paid agent-to-agent task delegation (negotiation + escrow). Subcommands: `hire`, `result`, `status`
 - `agent-wallet` — Agent-owned wallet, staking, and rebalancing commands.. Subcommands: `balance`, `rebalance`, `stake`
 - `ai` — AI job submission and inspection. Subcommands: `accept`, `cancel`, `distribution-stats`, `jobs`, `pay`, `refund`, `refund-sweep`, `results`, `service`, `stats`, `status`, `submit`
 - `analytics` — Chain analytics and monitoring commands. Subcommands: `alerts`, `dashboard`, `monitor`, `optimize`, `predict`, `summary`

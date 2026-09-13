@@ -1,3 +1,4 @@
+import json
 import uuid
 from datetime import UTC, datetime
 from typing import Any
@@ -35,6 +36,7 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
 
         # v0.6.5: create payment escrow if payment provided and escrow enabled
         escrow_id: str | None = None
+        contract_id: str | None = None
         if request.payment and settings.task_payment_escrow_enabled and state.payment_escrow:
             try:
                 escrow = state.payment_escrow.create_escrow(
@@ -46,10 +48,29 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
                     fee=request.payment.fee,
                     timeout=request.payment.timeout_seconds,
                 )
-                state.payment_escrow.lock(escrow.escrow_id)
+                # v0.25: a buyer-signed lock_tx settles the escrow on-chain via
+                # /rpc/escrow/create; without it the lock stays bookkeeping-only.
+                submitter = None
+                if state.escrow_rpc and (request.payment.lock_tx or request.payment.lock_signature):
+                    from ..services.chain_escrow import make_lock_submitter
+
+                    submitter = make_lock_submitter(
+                        state.escrow_rpc,
+                        task_id,
+                        request.payment.lock_tx,
+                        request.payment.lock_signature,
+                    )
+                state.payment_escrow.lock(escrow.escrow_id, submitter=submitter)
                 escrow_id = escrow.escrow_id
+                if submitter is not None:
+                    contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
+                    if contract_id:
+                        escrow.metadata["contract_id"] = contract_id
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
+            except Exception as e:
+                logger.error("On-chain escrow lock failed for task %s: %s", task_id, e)
+                raise HTTPException(status_code=502, detail=f"On-chain escrow lock failed: {e}") from None
 
         await state.task_distributor.submit_task(
             request.task_data,
@@ -63,6 +84,7 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
             "task_id": task_id,
             "chain_id": chain_id,
             "escrow_id": escrow_id,
+            "contract_id": contract_id,
             "priority": request.priority,
             "submitted_at": datetime.now(UTC).isoformat(),
         }
@@ -203,21 +225,49 @@ async def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
 @router.post("/tasks/{task_id}/complete")
 @rate_limit(rate=50, per=60)
 async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
-    """Mark a task as complete — releases escrow payment to agent (v0.6.5)."""
+    """Mark a task as complete — releases escrow payment to agent (v0.6.5).
+
+    Optional JSON body ``{"amount_units": int}`` bills a partial amount of the
+    locked escrow; the unbilled remainder is refunded to the buyer on-chain.
+    """
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
     entry = state.payment_escrow.get_escrow_for_task(task_id)
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
+    amount_units: int | None = None
+    raw_body = await request.body()
+    if raw_body:
+        try:
+            body = json.loads(raw_body)
+            if isinstance(body, dict) and body.get("amount_units") is not None:
+                amount_units = int(body["amount_units"])
+                if amount_units <= 0 or amount_units > entry.amount:
+                    raise ValueError(f"amount_units must be in (0, {entry.amount}]")
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
     try:
-        state.payment_escrow.release(entry.escrow_id)
+        # On-chain release only when the lock actually settled on-chain;
+        # bookkeeping-only escrows stay off-chain.
+        submitter = None
+        if state.escrow_rpc and entry.tx_hash_lock:
+            from ..services.chain_escrow import make_release_submitter
+
+            submitter = make_release_submitter(state.escrow_rpc, task_id, amount_units=amount_units)
+        state.payment_escrow.release(entry.escrow_id, submitter=submitter)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
+    except Exception as e:
+        logger.error("On-chain escrow release failed for task %s: %s", task_id, e)
+        raise HTTPException(status_code=502, detail=f"On-chain escrow release failed: {e}") from None
     return {
         "status": "success",
         "message": f"Task {task_id} completed, payment released",
         "task_id": task_id,
         "escrow_id": entry.escrow_id,
+        "tx_hash_release": entry.tx_hash_release,
         "released_at": datetime.now(UTC).isoformat(),
     }
 
@@ -232,15 +282,57 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
     try:
-        state.payment_escrow.refund(entry.escrow_id)
+        submitter = None
+        if state.escrow_rpc and entry.tx_hash_lock:
+            from ..services.chain_escrow import make_refund_submitter
+
+            submitter = make_refund_submitter(state.escrow_rpc, task_id, reason="task_failed")
+        state.payment_escrow.refund(entry.escrow_id, submitter=submitter)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
+    except Exception as e:
+        logger.error("On-chain escrow refund failed for task %s: %s", task_id, e)
+        raise HTTPException(status_code=502, detail=f"On-chain escrow refund failed: {e}") from None
     return {
         "status": "success",
         "message": f"Task {task_id} failed, payment refunded",
         "task_id": task_id,
         "escrow_id": entry.escrow_id,
+        "tx_hash_refund": entry.tx_hash_refund,
         "refunded_at": datetime.now(UTC).isoformat(),
+    }
+
+
+@router.get("/tasks/{task_id}/escrow")
+@rate_limit(rate=200, per=60)
+async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
+    """Get the payment escrow for a task (v0.25)."""
+    if not state.payment_escrow:
+        raise HTTPException(status_code=503, detail="Payment escrow not available")
+    entry = state.payment_escrow.get_escrow_for_task(task_id)
+    if not entry:
+        raise HTTPException(status_code=404, detail="No escrow found for task")
+    return {
+        "status": "success",
+        "escrow": {
+            "escrow_id": entry.escrow_id,
+            "task_id": entry.task_id,
+            "chain_id": entry.chain_id,
+            "requester": entry.requester,
+            "agent": entry.agent,
+            "amount": entry.amount,
+            "fee": entry.fee,
+            "escrow_status": entry.status.value,
+            "tx_hash_lock": entry.tx_hash_lock,
+            "tx_hash_release": entry.tx_hash_release,
+            "tx_hash_refund": entry.tx_hash_refund,
+            "contract_id": entry.metadata.get("contract_id"),
+            "created_at": entry.created_at,
+            "locked_at": entry.locked_at,
+            "released_at": entry.released_at,
+            "expires_at": entry.expires_at,
+        },
+        "timestamp": datetime.now(UTC).isoformat(),
     }
 
 
@@ -250,7 +342,9 @@ async def expire_stale_escrows(request: Request) -> dict[str, Any]:
     """Expire and refund all stale escrows that have passed their timeout (v0.6.5)."""
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
-    expired = state.payment_escrow.expire_stale()
+    from ..lifespan import _escrow_refund_submitter
+
+    expired = state.payment_escrow.expire_stale(refund_submitter_for=_escrow_refund_submitter)
     return {
         "status": "success",
         "expired_count": len(expired),

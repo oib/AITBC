@@ -404,6 +404,16 @@
               }
             }
           },
+          "502": {
+            "description": "On-chain escrow lock failed: {e}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
             "description": "Task distributor not available",
             "content": {
@@ -677,7 +687,7 @@
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",
-        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).",
+        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.",
         "operationId": "complete_task_v1_tasks__task_id__complete_post",
         "parameters": [
           {
@@ -713,6 +723,16 @@
               }
             }
           },
+          "400": {
+            "description": "Invalid amount_units: {e}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "No escrow found for task",
             "content": {
@@ -725,6 +745,16 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "On-chain escrow release failed: {e}",
             "content": {
               "application/json": {
                 "schema": {
@@ -797,6 +827,78 @@
           },
           "409": {
             "description": "Conflict",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "On-chain escrow refund failed: {e}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Payment escrow not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/tasks/{task_id}/escrow": {
+      "get": {
+        "summary": "Get Task Escrow",
+        "description": "Get the payment escrow for a task (v0.25).",
+        "operationId": "get_task_escrow_v1_tasks__task_id__escrow_get",
+        "parameters": [
+          {
+            "name": "task_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Task Id"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Task Escrow V1 Tasks  Task Id  Escrow Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "No escrow found for task",
             "content": {
               "application/json": {
                 "schema": {
@@ -7329,6 +7431,31 @@
             "title": "Timeout Seconds",
             "description": "Escrow timeout",
             "default": 3600.0
+          },
+          "lock_tx": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lock Tx",
+            "description": "Buyer-signed ESCROW_LOCK transaction"
+          },
+          "lock_signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Lock Signature",
+            "description": "Signature over lock_tx"
           }
         },
         "type": "object",
@@ -7338,7 +7465,7 @@
           "agent"
         ],
         "title": "TaskPayment",
-        "description": "Payment details for task execution escrow (v0.6.5)."
+        "description": "Payment details for task execution escrow (v0.6.5).\n\n``lock_tx``/``lock_signature`` carry the buyer-signed ESCROW_LOCK\ntransaction (same shape ``market escrow`` submits to /rpc/escrow/create).\nWhen present, the coordinator locks the escrow on-chain; when absent the\nescrow is bookkeeping-only (no chain transaction)."
       },
       "TaskStatus": {
         "properties": {
