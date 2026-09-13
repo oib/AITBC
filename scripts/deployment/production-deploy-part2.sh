@@ -104,7 +104,7 @@ curl -fsS http://localhost:8102/health | head -10 || echo "aitbc marketplace not
 
 # Test ${NODE1_HOST} marketplace service
 echo "Testing ${NODE1_HOST} marketplace service..."
-ssh ${NODE1_HOST} "curl -s http://localhost:8102/health" | head -10 || echo "${NODE1_HOST} marketplace not responding"
+ssh ${NODE1_HOST} "curl -sf http://localhost:8102/health" | head -10 || echo "${NODE1_HOST} marketplace not responding"
 
 # Test blockchain connectivity between nodes
 echo "Testing blockchain connectivity..."
