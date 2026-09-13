@@ -79,7 +79,7 @@ way the internal tier does. The blockchain node metrics exporter (added
 | Multi-Modal Agent | 8020 | `127.0.0.1` | `aitbc-multimodal.service` | `apps/ai-engine` |
 | Modality Optimization | 8021 | `127.0.0.1` | `aitbc-modality-optimization.service` | `apps/ai-engine` |
 | Hermes Agent | 8270 | `127.0.0.1` | `aitbc-hermes-agent.service` | Pinned in unit via `HERMES_BIND_HOST` |
-| Blockchain Node Metrics | 9009 | `0.0.0.0` | `aitbc-blockchain-node.service` | `/metrics` from the chain main process; port via `AITBC_NODE_METRICS_PORT`. Bind is `("", port)` in `observability/exporters.py` -- no env override yet |
+| Blockchain Node Metrics | 9009 | `127.0.0.1` | `aitbc-blockchain-node.service` | `/metrics` from the chain main process; `AITBC_NODE_METRICS_HOST` pins the bind (`127.0.0.1` fleet-wide, Prometheus scrapes locally), `AITBC_NODE_METRICS_PORT` sets the port |
 
 ### Island IPFS daemon
 
@@ -190,7 +190,7 @@ The historical port migrations (e.g. wallet `8015` â†’ `8108`, exchange `8001` â
 - Modality Optimization: `apps/ai-engine/aitbc-modality-optimization.service` (`--host 127.0.0.1 --port 8021`)
 - Hermes Agent: `apps/hermes_agent/aitbc-hermes-agent.service` (`HERMES_PORT=8270`); bind from `apps/hermes_agent/main.py` (`HERMES_BIND_HOST` default `0.0.0.0`)
 - Island IPFS: `apps/ipfs/aitbc-island-ipfs.service` (`ISLAND_IPFS_{API,GATEWAY,SWARM}_PORT`)
-- Blockchain Node Metrics: `apps/blockchain-node/src/aitbc_chain/observability/exporters.py` (`AITBC_NODE_METRICS_PORT` default `9009`; bind hardcoded all-interfaces)
+- Blockchain Node Metrics: `apps/blockchain-node/src/aitbc_chain/observability/exporters.py` (`AITBC_NODE_METRICS_HOST` default `0.0.0.0`, `AITBC_NODE_METRICS_PORT` default `9009`)
 - Host platform services (PostgreSQL, Prometheus stack, Kubo, Postfix) are configured under `/etc/default/`, `/etc/postgresql/` and `/etc/systemd/system/` on the hosts, not in this repo
 
 ## Health check commands

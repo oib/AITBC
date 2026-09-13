@@ -74,13 +74,14 @@ def _initialize_prometheus() -> None:
     try:
         import os
 
+        host = os.environ.get("AITBC_NODE_METRICS_HOST", "0.0.0.0")
         port = int(os.environ.get("AITBC_NODE_METRICS_PORT", 9009))
-        server = ThreadingHTTPServer(("", port), _MetricsHandler)
+        server = ThreadingHTTPServer((host, port), _MetricsHandler)
         server.daemon_threads = True
         thread = threading.Thread(target=server.serve_forever, daemon=True)
         thread.start()
         _exporter_instances["prometheus"] = server
-        logger.info("Prometheus exporter started on port %s", port)
+        logger.info("Prometheus exporter started on %s:%s", host, port)
     except Exception as e:
         logger.warning("Failed to start Prometheus exporter: %s", e)
 
