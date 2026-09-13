@@ -191,9 +191,38 @@ class TestChainEscrowClient:
         assert seen["path"] == "/rpc/escrow/create"
         assert seen["body"]["job_id"] == "t-1"
         assert seen["body"]["amount"] == "2"  # 72M units = 2 AIT
-        assert seen["body"]["lock_tx"] == {"type": "ESCROW_LOCK"}
+        assert seen["body"]["lock_tx"] == {"type": "ESCROW_LOCK", "signature": "sig"}
         assert seen["api_key"] == "test-key"
         assert result["contract_id"] == "esc-1"
+
+    def test_create_embeds_signature_in_lock_tx(self):
+        seen = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["body"] = json.loads(request.read())
+            return httpx.Response(200, json={"contract_id": "c", "lock_tx_hash": "0x1"})
+
+        client = self._client(handler)
+        client.create(
+            job_id="t",
+            buyer="0xB",
+            provider="0xP",
+            amount_units=100,
+            lock_tx={"type": "ESCROW_LOCK"},
+            lock_signature="sig",
+        )
+        assert seen["body"]["lock_tx"]["signature"] == "sig"
+
+        # An already-signed tx is left untouched.
+        client.create(
+            job_id="t2",
+            buyer="0xB",
+            provider="0xP",
+            amount_units=100,
+            lock_tx={"type": "ESCROW_LOCK", "signature": "orig"},
+            lock_signature="other",
+        )
+        assert seen["body"]["lock_tx"]["signature"] == "orig"
 
     def test_lock_submitter_returns_tx_hash(self):
         def handler(request: httpx.Request) -> httpx.Response:
