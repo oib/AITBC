@@ -119,7 +119,16 @@ class MinerRepository:
         miner = await self._session.get(Miner, miner_id)
         if miner is None:
             return
-        miner.last_seen_at = dt.datetime.now(dt.UTC)
+        now = dt.datetime.now(dt.UTC)
+        miner.last_seen_at = now
+        # The SLA collector reads MinerStatus.last_heartbeat_at, not
+        # Miner.last_seen_at -- until now nothing wrote it, so every heartbeat
+        # updated last_seen_at while sla_metrics read uptime=0 forever.
+        status = await self._session.get(MinerStatus, miner_id)
+        if status is None:
+            status = MinerStatus(miner_id=miner_id)
+            self._session.add(status)
+        status.last_heartbeat_at = now
         await self._session.flush()
         await self._session.commit()
         await self._sync_miner_to_redis(miner_id)

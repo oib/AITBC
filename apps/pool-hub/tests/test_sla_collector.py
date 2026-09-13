@@ -13,10 +13,13 @@ from datetime import UTC, datetime, timedelta
 from decimal import Decimal
 
 import pytest
+from unittest.mock import AsyncMock
+
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import async_sessionmaker, create_async_engine
 
 from poolhub.models import Base, Feedback, MatchRequest, MatchResult, Miner, MinerStatus, SLAMetric, SLAViolation
+from poolhub.repositories.miner_repository import MinerRepository
 from poolhub.services.sla_collector import SLACollector, SLACollectorScheduler
 
 
@@ -175,6 +178,46 @@ async def test_scheduler_opens_session_per_pass_and_survives_errors(session_fact
 
     assert calls >= 2, "an exception in one pass must not kill the loop"
     assert scheduler._task is None
+
+
+async def test_touch_heartbeat_stamps_miner_status(session_factory):
+    """Regression: touch_heartbeat must write MinerStatus.last_heartbeat_at --
+    the column the SLA collector reads uptime from. It used to update only
+    Miner.last_seen_at, leaving every miner at uptime 0 forever."""
+    async with session_factory() as s:
+        s.add(_miner("miner-hb"))
+        s.add(MinerStatus(miner_id="miner-hb"))
+        await s.commit()
+
+    async with session_factory() as s:
+        repo = MinerRepository(s, AsyncMock())
+        await repo.touch_heartbeat("miner-hb")
+
+    async with session_factory() as s:
+        status = (await s.execute(select(MinerStatus).where(MinerStatus.miner_id == "miner-hb"))).scalar_one()
+        miner = (await s.execute(select(Miner).where(Miner.miner_id == "miner-hb"))).scalar_one()
+    assert status.last_heartbeat_at is not None
+    assert miner.last_seen_at is not None
+    # And the collector now reads the miner as fully up.
+    async with session_factory() as s:
+        results = await SLACollector(s).collect_all_miner_metrics()
+    assert results["violations_detected"] == 0
+    assert results["metrics_collected"][0]["uptime_pct"] == 100.0
+
+
+async def test_touch_heartbeat_creates_missing_status_row(session_factory):
+    """A miner registered without a MinerStatus row still gets one on heartbeat."""
+    async with session_factory() as s:
+        s.add(_miner("miner-new"))
+        await s.commit()
+
+    async with session_factory() as s:
+        repo = MinerRepository(s, AsyncMock())
+        await repo.touch_heartbeat("miner-new")
+
+    async with session_factory() as s:
+        status = (await s.execute(select(MinerStatus).where(MinerStatus.miner_id == "miner-new"))).scalar_one()
+    assert status.last_heartbeat_at is not None
 
 
 if __name__ == "__main__":
