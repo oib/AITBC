@@ -31,10 +31,26 @@ def _run_alembic(tmp_path: Path, *args: str) -> Path:
     """Run alembic and return the DB path that was used."""
     db_path = tmp_path / "test_conformance.db"
     env = os.environ.copy()
+    # The alembic subprocess imports coordinator_api.config.settings, which
+    # honours /etc/aitbc/*.env on live nodes. Skip env files and drop inherited
+    # database URLs so an earlier test's leaked DATABASE_URL/SQLITE_URL cannot
+    # redirect the migration -- _get_model_columns already does the same for
+    # its subprocess.
+    env["AITBC_SKIP_ENV_FILES"] = "1"
+    for var in (
+        "SQLITE_URL",
+        "MARKETPLACE_DATABASE_URL",
+        "DATABASE_ADAPTER",
+        "DB_TYPE",
+        "ENVIRONMENT",
+        "APP_ENV",
+        "NODE_ENV",
+    ):
+        env.pop(var, None)
     env["DATABASE_URL"] = f"sqlite:///{db_path}"
     env["PYTHONPATH"] = f"{_COORDINATOR_ROOT / 'src'}:{REPO_ROOT}"
-    env.setdefault("AUDIT_LOG_DIR", str(tmp_path / "audit"))
-    env.setdefault("TEST_MODE", "true")
+    env["AUDIT_LOG_DIR"] = str(tmp_path / "audit")
+    env["TEST_MODE"] = "true"
 
     cmd = [sys.executable, "-m", "alembic", *args]
     result = subprocess.run(
