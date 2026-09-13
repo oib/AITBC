@@ -64,11 +64,11 @@ run_test() {
 
     if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -84,11 +84,11 @@ run_test_verbose() {
 
     if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -153,10 +153,10 @@ if [ "$SKIP_REMOTE_TESTS" = false ]; then
 
     if [ $SYNC_DIFF -le 1 ]; then
         echo -e "${GREEN}[OK] Nodes are in sync${NC}"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}[FAIL] Nodes are out of sync${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 else
     echo "[WARN] Skipping cross-node sync tests (FOLLOWER_NODE not set)"
@@ -165,10 +165,10 @@ fi
 if [ "$SKIP_REMOTE_TESTS" = false ]; then
     if [ "$SYNC_DIFF" -lt 100 ]; then
         echo -e "${GREEN}[OK] PASS${NC}: Cross-node sync within acceptable range"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
     else
         echo -e "${RED}[FAIL] Cross-node sync gap too large ($SYNC_DIFF blocks)${NC}"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
     fi
 fi
 
@@ -247,10 +247,10 @@ echo "RPC response time: ${RESPONSE_TIME}ms"
 
 if [ "$RESPONSE_TIME" -lt 1000 ]; then
     echo -e "${GREEN}[OK] PASS${NC}: RPC response time acceptable (${RESPONSE_TIME}ms)"
-    ((TESTS_PASSED++))
+    TESTS_PASSED=$((TESTS_PASSED + 1))
 else
     echo -e "${RED}[FAIL] RPC response time too high (${RESPONSE_TIME}ms)${NC}"
-    ((TESTS_FAILED++))
+    TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
 # 10. SECURITY TESTS

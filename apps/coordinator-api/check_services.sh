@@ -124,7 +124,7 @@ total_services=${#SERVICES[@]}
 
 for service in "${!SERVICES[@]}"; do
     if systemctl is-active --quiet "$service.service"; then
-        ((active_services++))
+        active_services=$((active_services + 1))
     fi
 done
 

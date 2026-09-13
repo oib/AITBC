@@ -203,7 +203,7 @@ if [ -n "$AI_RESULT" ] && [ "$AI_RESULT" != "null" ] && [ "$AI_RESULT" != '{"det
         fi
 
         sleep 2
-        ((WAIT_COUNT++))
+        WAIT_COUNT=$((WAIT_COUNT + 1))
     done
 
     if [ "$WAIT_COUNT" -ge "$MAX_WAIT" ]; then

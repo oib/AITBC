@@ -73,14 +73,14 @@ check_sync() {
 # Run health checks
 FAILED_CHECKS=0
 
-check_service "aitbc-blockchain-node" || ((FAILED_CHECKS++))
-check_service "aitbc-blockchain-rpc" || ((FAILED_CHECKS++))
-check_rpc "$BLOCKCHAIN_RPC/rpc/info" || ((FAILED_CHECKS++))
-check_sync || ((FAILED_CHECKS++))
+check_service "aitbc-blockchain-node" || FAILED_CHECKS=$((FAILED_CHECKS + 1))
+check_service "aitbc-blockchain-rpc" || FAILED_CHECKS=$((FAILED_CHECKS + 1))
+check_rpc "$BLOCKCHAIN_RPC/rpc/info" || FAILED_CHECKS=$((FAILED_CHECKS + 1))
+check_sync || FAILED_CHECKS=$((FAILED_CHECKS + 1))
 
 # Check Redis if available
 if systemctl is-active redis >/dev/null 2>&1; then
-    check_service "redis" || ((FAILED_CHECKS++))
+    check_service "redis" || FAILED_CHECKS=$((FAILED_CHECKS + 1))
 fi
 
 # Exit with appropriate status

@@ -137,7 +137,7 @@ check_rpc_health() {
         IFS=':' read -r node_name node_ip <<< "$node_config"
 
         if curl -f -s --max-time 5 "http://${node_ip}:${RPC_PORT}/health" > /dev/null 2>&1; then
-            ((healthy_nodes++))
+            healthy_nodes=$((healthy_nodes + 1))
             available_nodes+=("$node_config")
         else
             log_warning "Node ${node_name} is unhealthy, will be excluded from test"
@@ -272,9 +272,9 @@ main() {
         local amount=1
 
         if submit_transaction "${STRESS_WALLET_NAME}" "${recipient}" "${amount}"; then
-            ((successful_transactions++))
+            successful_transactions=$((successful_transactions + 1))
         else
-            ((failed_transactions++))
+            failed_transactions=$((failed_transactions + 1))
             log_warning "Transaction ${i} failed"
         fi
 
@@ -294,7 +294,7 @@ main() {
 
     if [ "$error_rate" -gt "$ERROR_RATE_THRESHOLD" ]; then
         log_error "Error rate exceeds threshold: ${error_rate}% > ${ERROR_RATE_THRESHOLD}%"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     # Monitor performance
@@ -309,7 +309,7 @@ main() {
     local healthy_after_load=$(check_rpc_health)
     if [ "$healthy_after_load" -lt 2 ]; then
         log_warning "RPC health degraded after load (only ${healthy_after_load} healthy nodes)"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     # Verify consensus under load
@@ -320,7 +320,7 @@ main() {
     done
 
     if ! verify_consensus "${final_heights[@]}"; then
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     # Check if blocks increased

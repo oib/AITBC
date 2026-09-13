@@ -73,7 +73,7 @@ wait_for_redis() {
             return 0
         fi
         sleep 2
-        ((retries--))
+        retries=$((retries - 1))
     done
 
     error "Redis did not become ready within timeout"
@@ -102,7 +102,7 @@ perform_backup() {
             break
         fi
         sleep 2
-        ((retries--))
+        retries=$((retries - 1))
     done
 
     if [[ $retries -eq 0 ]]; then

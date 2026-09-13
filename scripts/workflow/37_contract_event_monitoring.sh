@@ -63,11 +63,11 @@ run_test() {
 
     if bash -c "$test_command" >/dev/null 2>&1; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }
@@ -83,11 +83,11 @@ run_test_verbose() {
 
     if bash -c "$test_command"; then
         echo -e "${GREEN}✅ PASS${NC}: $test_name"
-        ((TESTS_PASSED++))
+        TESTS_PASSED=$((TESTS_PASSED + 1))
         return 0
     else
         echo -e "${RED}❌ FAIL${NC}: $test_name"
-        ((TESTS_FAILED++))
+        TESTS_FAILED=$((TESTS_FAILED + 1))
         return 1
     fi
 }

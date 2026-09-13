@@ -56,7 +56,7 @@ CORE_TOTAL=${#CORE_DOMAIN_FILES[@]}
 for file in "${CORE_DOMAIN_FILES[@]}"; do
     if [ -f "$file" ]; then
         if ./venv/bin/mypy --ignore-missing-imports "$file" > /dev/null 2>&1; then
-            ((CORE_PASSING++))
+            CORE_PASSING=$((CORE_PASSING + 1))
             log_success "✓ $file"
         else
             log_error "✗ $file"

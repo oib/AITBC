@@ -123,7 +123,7 @@ main() {
     # Check Redis gossip backend
     if ! check_gossip_backend; then
         log_error "Gossip backend connectivity failed"
-        ((total_failures++))
+        total_failures=$((total_failures + 1))
     fi
 
     # Skip SSH-based node P2P checks
