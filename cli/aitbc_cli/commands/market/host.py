@@ -35,13 +35,22 @@ logger = get_logger(__name__)
 
 
 def _resolve_ipfs_api(offer: dict[str, Any]) -> str:
-    """Return the Kubo HTTP API URL to use for a given IPFS offer."""
-    ipfs_api = os.environ.get("IPFS_API_URL") or offer.get("endpoint") or "http://127.0.0.1:5002"
-    if not ipfs_api.startswith(("http://", "https://")):
-        # The offer may advertise a p2p multiaddr as public_endpoint; the
-        # actual pin/add call still goes to a local Kubo HTTP API.
-        ipfs_api = "http://127.0.0.1:5002"
-    return ipfs_api
+    """Return the HTTP API URL of the *buyer's* local IPFS daemon.
+
+    ``offer["endpoint"]`` is the provider's loopback address and is meaningless
+    to a remote buyer, so it is intentionally ignored: add/pin calls always go
+    to the buyer's own daemon. The island daemon listens on 5002; the removed
+    public Kubo used 5001.
+    """
+    env = os.environ.get("IPFS_API_URL")
+    if env:
+        return env
+    for candidate in ("http://127.0.0.1:5002", "http://127.0.0.1:5001"):
+        if _daemon_available(candidate):
+            return candidate
+    # Nothing reachable locally — return the island default and let the caller
+    # surface the connection error.
+    return "http://127.0.0.1:5002"
 
 
 def _marketplace_client() -> AITBCHTTPClient:
@@ -308,7 +317,11 @@ def _run_ipfs_hosting(
             result_hash=cid,
         )
 
-    output_record = release_result if release_immediately and release_result and not release_result.get("error") else marketplace_result or job_data
+    output_record = (
+        release_result
+        if release_immediately and release_result and not release_result.get("error")
+        else marketplace_result or job_data
+    )
     output_record["cid"] = cid
     output_record["days"] = days
     output_record["escrow_contract_id"] = contract_id
@@ -393,14 +406,18 @@ def download(
     """Download IPFS content by marketplace job, access token, or free CID."""
     output_format = _resolve_output_format(ctx, output_format)
 
-    ipfs_api = os.environ.get("IPFS_API_URL") or "http://127.0.0.1:5002"
+    # Retrieval always happens on the buyer's local daemon — the recorded
+    # ipfs_api may be the provider's loopback address or a stale endpoint.
+    ipfs_api = _resolve_ipfs_api({})
 
     if rental_id:
         try:
             result = _marketplace_client().get(f"/v1/marketplace/jobs/{rental_id}/access")
             if result and not result.get("error"):
                 cid = result.get("cid") or cid
-                ipfs_api = result.get("ipfs_api") or ipfs_api
+                public_endpoint = result.get("public_endpoint") or ""
+                if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
+                    _ipfs_swarm_connect(ipfs_api, public_endpoint)
         except NetworkError as e:
             warning(f"Could not resolve rental {rental_id}: {e}")
 
@@ -409,7 +426,9 @@ def download(
             result = _marketplace_client().get(f"/v1/marketplace/access/{access_key}", params={"access_secret": access_secret})
             if result and not result.get("error"):
                 cid = result.get("cid") or cid
-                ipfs_api = result.get("ipfs_api") or ipfs_api
+                public_endpoint = result.get("public_endpoint") or ""
+                if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
+                    _ipfs_swarm_connect(ipfs_api, public_endpoint)
         except NetworkError as e:
             warning(f"Could not resolve access token: {e}")
 
@@ -501,7 +520,9 @@ def cancel(
     except Exception as e:
         warning(f"Local escrow refund failed (sweeper will retry): {e}")
 
-    tx_hash = (refund_result.get("tx_hash") or refund_result.get("refund_tx_hash")) if isinstance(refund_result, dict) else None
+    tx_hash = (
+        (refund_result.get("tx_hash") or refund_result.get("refund_tx_hash")) if isinstance(refund_result, dict) else None
+    )
     if not tx_hash:
         warning(f"Escrow refund did not return a tx_hash yet (job canceled; sweeper will retry): {refund_result}")
     else:

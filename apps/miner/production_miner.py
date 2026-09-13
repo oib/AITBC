@@ -21,6 +21,8 @@ from aitbc.aitbc_logging import configure_logging, get_logger
 from aitbc.exceptions import NetworkError
 from aitbc.network import AITBCHTTPClient
 
+import ipfs_pinning_sweeper
+
 COORDINATOR_URL = os.environ.get("COORDINATOR_URL", "http://127.0.0.1:8107")
 # Pool Hub runs on the hub node. Shop/follower miners may set HUB_POOL_HUB_URL
 # to reach it, or fall back to a local pool-hub for hub deployments.
@@ -99,8 +101,18 @@ DEFAULT_SOFTWARE_OFFERS = [
         "unit": "per_1k_tokens",
         "description": "Default Ollama llama3.2:3b inference",
     },
+    {
+        "service_type": "ipfs",
+        "model": "ipfs-host",
+        "price": "0.01",
+        "unit": "per_day",
+        "description": "Island IPFS hosting",
+    },
 ]
 OFFER_PUBLISH_INTERVAL = 300
+# Provider-side IPFS hosting: pin CIDs for marketplace ipfs jobs assigned to
+# this miner so paid storage is actually stored locally (island daemon).
+IPFS_PIN_SWEEP_INTERVAL = int(os.environ.get("IPFS_PIN_SWEEP_INTERVAL", "120"))
 AITBC_CLI = "/opt/aitbc/venv/bin/aitbc"
 
 
@@ -883,6 +895,7 @@ async def main():
     last_heartbeat = 0.0
     last_pool_hub_heartbeat = 0.0
     last_poll = 0.0
+    last_ipfs_sweep = 0.0
     # Set the initial publish time so the first loop iteration does not
     # immediately re-publish all default offers (time.time() - 0 is >> 300s).
     last_offer_publish = time.time()
@@ -898,6 +911,12 @@ async def main():
             if current_time - last_offer_publish >= OFFER_PUBLISH_INTERVAL:
                 await asyncio.to_thread(publish_default_offers, models)
                 last_offer_publish = current_time
+            if current_time - last_ipfs_sweep >= IPFS_PIN_SWEEP_INTERVAL:
+                try:
+                    await asyncio.to_thread(ipfs_pinning_sweeper.sweep_once, MINER_WALLET_ADDRESS)
+                except Exception:
+                    logger.exception("IPFS hosting sweep failed")
+                last_ipfs_sweep = current_time
             if current_time - last_poll >= 3:
                 # Only poll if we have capacity; the coordinator also checks
                 # inflight, but a local guard avoids thundering-herd polls and
