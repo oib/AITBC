@@ -29,6 +29,13 @@ class MessageType(StrEnum):
     DIRECT = "direct"
     PEER_TO_PEER = "peer_to_peer"
     HIERARCHICAL = "hierarchical"
+    # Paid task-delegation protocol (v0.25): buyer/provider negotiation payloads
+    TASK_REQUEST = "task_request"
+    TASK_QUOTE = "task_quote"
+    TASK_ACCEPT = "task_accept"
+    TASK_REJECT = "task_reject"
+    TASK_RESULT = "task_result"
+    TASK_PAID = "task_paid"
 
 
 class Priority(StrEnum):

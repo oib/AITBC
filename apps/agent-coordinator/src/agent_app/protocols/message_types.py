@@ -7,6 +7,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
+from decimal import Decimal
 from enum import StrEnum
 from typing import Any
 
@@ -144,6 +145,105 @@ class ConsensusMessage(BaseModel):
     status: str = Field("pending", description="Consensus status")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TaskRequest(BaseModel):
+    """Paid task-delegation request (buyer agent → provider agent).
+
+    ``payload_ref`` is a content address (island IPFS CID) for the task input;
+    ``escrow_id`` correlates the request with the on-chain escrow created by
+    ``POST /v1/tasks/submit``.
+    """
+
+    task_id: str = Field(..., description="Unique task identifier")
+    service_type: str = Field(..., description="Requested service (whisper, ffmpeg, ollama, ipfs)")
+    model: str | None = Field(None, description="Model/variant to run (e.g. whisper base)")
+    payload_ref: str = Field(..., description="Content address of the task input (IPFS CID)")
+    max_price: Decimal = Field(..., description="Maximum price the buyer will pay (AIT)")
+    deadline: datetime | None = Field(None, description="Task deadline")
+    escrow_id: str | None = Field(None, description="Payment escrow created for this task")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TaskQuote(BaseModel):
+    """Provider quote in reply to a TaskRequest."""
+
+    task_id: str = Field(..., description="Task being quoted")
+    price: Decimal = Field(..., description="Quoted price (AIT)")
+    eta: float | None = Field(None, description="Estimated execution time in seconds")
+    offer_id: str | None = Field(None, description="Marketplace offer backing this quote")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TaskAccept(BaseModel):
+    """Buyer acceptance of a TaskQuote — authorizes execution."""
+
+    task_id: str = Field(..., description="Task being accepted")
+    offer_id: str | None = Field(None, description="Offer/quote being accepted")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TaskReject(BaseModel):
+    """Provider or buyer rejection of a task/quote."""
+
+    task_id: str = Field(..., description="Task being rejected")
+    reason: str = Field("", description="Rejection reason")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TaskResult(BaseModel):
+    """Provider execution result; ``result_ref`` is the island IPFS CID."""
+
+    task_id: str = Field(..., description="Completed task identifier")
+    status: str = Field(..., description="Result status (success/failed)")
+    result_ref: str | None = Field(None, description="Content address of the result (IPFS CID)")
+    result_hash: str | None = Field(None, description="SHA-256 of the result bytes")
+    error: str | None = Field(None, description="Error detail when status=failed")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class TaskPaid(BaseModel):
+    """Payment confirmation after escrow release."""
+
+    task_id: str = Field(..., description="Paid task identifier")
+    tx_hash: str | None = Field(None, description="On-chain escrow release transaction hash")
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+# Envelope ``message_type`` string → payload model for the paid-delegation
+# protocol. The strings match ``MessageType`` enum members in communication.py.
+TASK_MESSAGE_TYPES: dict[str, type[BaseModel]] = {
+    MessageType.TASK_REQUEST.value: TaskRequest,
+    MessageType.TASK_QUOTE.value: TaskQuote,
+    MessageType.TASK_ACCEPT.value: TaskAccept,
+    MessageType.TASK_REJECT.value: TaskReject,
+    MessageType.TASK_RESULT.value: TaskResult,
+    MessageType.TASK_PAID.value: TaskPaid,
+}
+
+
+def parse_task_payload(message_type: str, content: dict[str, Any]) -> BaseModel | None:
+    """Validate a delegation message payload against its typed schema.
+
+    Returns the parsed model, or ``None`` when ``message_type`` is not part of
+    the paid-delegation protocol. Raises ``pydantic.ValidationError`` for
+    malformed payloads of a known type.
+    """
+    model = TASK_MESSAGE_TYPES.get(message_type)
+    if model is None:
+        return None
+    return model.model_validate(content)
+
+
+def create_delegation_message(sender_id: str, receiver_id: str, payload: BaseModel) -> AgentMessage:
+    """Wrap a typed delegation payload in an AgentMessage envelope."""
+    message_type = MessageType(next(k for k, v in TASK_MESSAGE_TYPES.items() if v is type(payload)))
+    return AgentMessage(
+        sender_id=sender_id,
+        receiver_id=receiver_id,
+        message_type=message_type,
+        payload=payload.model_dump(mode="json"),
+    )
 
 
 class MessageRouter:
