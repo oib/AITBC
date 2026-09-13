@@ -134,6 +134,24 @@ class ChainEscrowClient:
         logger.info("On-chain escrow refunded: job_id=%s tx=%s", job_id, tx_hash)
         return str(tx_hash) if tx_hash else None
 
+    def node_wallet(self) -> str | None:
+        """Return the settlement node's wallet address (escrow custodian).
+
+        Read from the RPC ``/health`` endpoint — the same source
+        ``get_node_wallet`` uses. Older nodes report only ``proposer_id``.
+        """
+        try:
+            response = self._client.get("/health")
+            if response.status_code != 200:
+                return None
+            data = response.json()
+            if isinstance(data, dict):
+                wallet = data.get("node_wallet") or data.get("proposer_id")
+                return str(wallet) if wallet else None
+        except (httpx.HTTPError, ValueError):
+            pass
+        return None
+
 
 def make_lock_submitter(
     client: ChainEscrowClient,
