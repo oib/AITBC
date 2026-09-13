@@ -116,6 +116,11 @@ def is_ipfs_subscription_active(
             current_height,
         )
         return False
+    # used_bytes is never written on-chain -- no path increments it, so this
+    # gate is a dormant backstop. Live quota accounting happens at the
+    # marketplace layer: MarketplaceService.get_marketplace_job_usage sums
+    # active job sizes and `aitbc market host` rejects uploads that would
+    # exceed the offer's disk quota.
     if subscription["used_bytes"] >= subscription["quota_bytes"]:
         logger.info(
             "IPFS subscription quota exhausted for %s on %s (%s >= %s)",
