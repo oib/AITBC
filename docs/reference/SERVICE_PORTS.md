@@ -86,7 +86,7 @@ way the internal tier does. The blockchain node metrics exporter (added
 `aitbc-island-ipfs.service` runs a private-swarm IPFS daemon with three ports.
 It is deployed on the hub, replica, and shop nodes (the shop also runs a stock
 public Kubo on `4001` alongside it -- see Host platform services; the customer
-node runs only the public Kubo). The shop joined the island on 2026-09-13 via
+node runs no IPFS daemon at all). The shop joined the island on 2026-09-13 via
 the subscription-gated swarm-key flow
 (`aitbc ipfs island subscribe` + `aitbc ipfs island swarm-key`):
 
@@ -142,7 +142,7 @@ binds below are Debian package defaults, not a cross-node requirement.
 | Prometheus Node Exporter | 9100 | `*` (all) | customer, shop, hub | `prometheus-node-exporter.service` |
 | Prometheus Redis Exporter | 9121 | `*` (all) | customer | `prometheus-redis-exporter.service` |
 | Prometheus Postgres Exporter | 9187 | `*` (all) | customer | `prometheus-postgres-exporter.service` |
-| Kubo IPFS (public swarm) | 4001 | `0.0.0.0` / `[::]`, TCP+UDP | customer, shop | Local unit `/etc/systemd/system/ipfs.service` (`IPFS_PATH=/root/.ipfs`); the public swarm. Hub and replica run only the repo-managed island daemon on 4002; the shop runs both -- see Island IPFS daemon above |
+| Kubo IPFS (public swarm) | 4001 | `0.0.0.0` / `[::]`, TCP+UDP | shop | Local unit `/etc/systemd/system/ipfs.service` (`IPFS_PATH=/root/.ipfs`); the public swarm. Hub and replica run only the repo-managed island daemon on 4002; the shop runs both; the customer's was removed 2026-09-13 -- see Island IPFS daemon above |
 | Postfix | 25 | `0.0.0.0` / `[::]` | customer, shop, replica | Debian-default MTA (`inet_interfaces = all`); local delivery only. Also present on the non-AITBC infrastructure hosts |
 
 ## Services without a listening port
