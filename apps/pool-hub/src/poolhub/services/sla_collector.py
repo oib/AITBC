@@ -8,7 +8,7 @@ import contextlib
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from sqlalchemy import desc, func, select
+from sqlalchemy import desc, select
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker
 
 from aitbc.aitbc_logging import get_logger
@@ -17,6 +17,32 @@ from aitbc.async_tasks import create_task_with_logging
 from ..models import CapacitySnapshot, Feedback, MatchResult, Miner, MinerStatus, SLAMetric, SLAViolation
 
 logger = get_logger(__name__)
+
+
+def _as_utc(dt: datetime) -> datetime:
+    """Normalize a possibly-naive datetime to aware UTC.
+
+    SQLite drops tzinfo on DateTime(timezone=True) round-trips; Postgres keeps
+    it. Treat naive values as already-UTC rather than crashing the loop.
+    """
+    return dt if dt.tzinfo is not None else dt.replace(tzinfo=UTC)
+
+
+# Miners heartbeat every 15s (apps/miner/production_miner.py HEARTBEAT_INTERVAL).
+# Uptime stays 100% through a grace window of ~4 missed beats, then decays
+# linearly to 0% at DEAD — without the grace, a single late beat (>15s) reads
+# as <95% and every healthy miner flaps in and out of violation each cycle.
+_HEARTBEAT_GRACE_SECONDS = 60.0
+_HEARTBEAT_DEAD_SECONDS = 300.0
+
+
+def _uptime_from_heartbeat_age(age_seconds: float) -> float:
+    if age_seconds <= _HEARTBEAT_GRACE_SECONDS:
+        return 100.0
+    if age_seconds >= _HEARTBEAT_DEAD_SECONDS:
+        return 0.0
+    span = _HEARTBEAT_DEAD_SECONDS - _HEARTBEAT_GRACE_SECONDS
+    return max(0.0, min(100.0, (_HEARTBEAT_DEAD_SECONDS - age_seconds) / span * 100.0))
 
 
 class SLACollector:
@@ -51,8 +77,18 @@ class SLACollector:
         )
         self.db.add(sla_metric)
         await self.db.commit()
+        open_stmt = select(SLAViolation).where(
+            SLAViolation.miner_id == miner_id,
+            SLAViolation.violation_type == metric_type,
+            SLAViolation.resolved_at.is_(None),
+        )
+        open_violation = (await self.db.execute(open_stmt)).scalar_one_or_none()
         if is_violation:
-            await self._record_violation(miner_id, metric_type, metric_value, threshold, metadata)
+            if open_violation is None:
+                await self._record_violation(miner_id, metric_type, metric_value, threshold, metadata)
+        elif open_violation is not None:
+            open_violation.resolved_at = datetime.now(UTC)
+            await self.db.commit()
         logger.info(
             "Recorded SLA metric: miner=%s, type=%s, value=%s, violation=%s", miner_id, metric_type, metric_value, is_violation
         )
@@ -65,12 +101,8 @@ class SLACollector:
         if not miner_status:
             return 0.0
         if miner_status.last_heartbeat_at:
-            time_since_heartbeat = (datetime.now(UTC) - miner_status.last_heartbeat_at).total_seconds()
-            if time_since_heartbeat > 300:
-                uptime_pct = 0.0
-            else:
-                uptime_pct = 100.0 - time_since_heartbeat / 300.0 * 100.0
-                uptime_pct = max(0.0, min(100.0, uptime_pct))
+            age = (datetime.now(UTC) - _as_utc(miner_status.last_heartbeat_at)).total_seconds()
+            uptime_pct = _uptime_from_heartbeat_age(age)
         else:
             uptime_pct = 0.0
         miner_status.uptime_pct = uptime_pct
@@ -139,7 +171,10 @@ class SLACollector:
         self.db.add(snapshot)
         await self.db.commit()
         logger.info(
-            "Capacity snapshot: total=%s, active=%s, availability=%s%", total_miners, active_miners, capacity_availability_pct
+            "Capacity snapshot: total=%s, active=%s, availability=%.1f%%",
+            total_miners,
+            active_miners,
+            capacity_availability_pct,
         )
         return {
             "total_miners": total_miners,
@@ -212,6 +247,17 @@ class SLACollector:
         for mid in list(feedback_by_miner):
             feedback_by_miner[mid] = feedback_by_miner[mid][:100]
 
+        # Currently-open violations, keyed (miner_id, violation_type): a metric
+        # below threshold opens one violation only when none is open, and a
+        # recovered metric resolves it. Without this, every collection pass
+        # would append a fresh violation row for a persisting breach.
+        open_violations: dict[tuple[str, str], SLAViolation] = {
+            (v.miner_id, v.violation_type): v
+            for v in (await self.db.execute(select(SLAViolation).where(SLAViolation.resolved_at.is_(None)))).scalars().all()
+        }
+        violations_opened = 0
+        violations_resolved = 0
+
         # Aggregate in Python (no further DB round trips)
         for miner_id in miner_ids:
             try:
@@ -233,6 +279,47 @@ class SLACollector:
                     successful = sum(1 for f in fbs if f.outcome == "success")
                     completion_rate = successful / len(fbs) * 100.0
 
+                # Persist SLAMetric rows — the batched path used to compute
+                # values into `results` without ever writing sla_metrics, so
+                # /v1/sla/* stayed empty even with the scheduler enabled.
+                for metric_type, value in (
+                    ("uptime_pct", uptime),
+                    ("response_time_ms", response_time),
+                    ("completion_rate_pct", completion_rate),
+                ):
+                    if value is None:
+                        continue
+                    threshold = self.sla_thresholds.get(metric_type, 100.0)
+                    is_violation = self._check_violation(metric_type, value, threshold)
+                    self.db.add(
+                        SLAMetric(
+                            miner_id=miner_id,
+                            metric_type=metric_type,
+                            metric_value=value,
+                            threshold=threshold,
+                            is_violation=is_violation,
+                            timestamp=now,
+                            meta_data={"method": "collect_all"},
+                        )
+                    )
+                    key = (miner_id, metric_type)
+                    if is_violation and key not in open_violations:
+                        violation = SLAViolation(
+                            miner_id=miner_id,
+                            violation_type=metric_type,
+                            severity=self._violation_severity(metric_type, value, threshold),
+                            metric_value=value,
+                            threshold=threshold,
+                            created_at=now,
+                            meta_data={"method": "collect_all"},
+                        )
+                        self.db.add(violation)
+                        open_violations[key] = violation
+                        violations_opened += 1
+                    elif not is_violation and key in open_violations:
+                        open_violations[key].resolved_at = now
+                        violations_resolved += 1
+
                 results["metrics_collected"].append(
                     {
                         "miner_id": miner_id,
@@ -245,34 +332,28 @@ class SLACollector:
             except Exception as e:
                 logger.error("Failed to collect metrics for miner %s: %s", miner_id, e)
 
-        # Commit uptime updates in one transaction
+        # Single commit for uptime updates, metric rows, and violation changes
         await self.db.commit()
 
         capacity = await self.collect_capacity_availability()
         results["capacity"] = capacity
-        violation_stmt = (
-            select(func.count(SLAViolation.id))
-            .where(SLAViolation.resolved_at.is_(None))
-            .where(SLAViolation.created_at >= datetime.now(UTC) - timedelta(hours=1))
-        )
-        results["violations_detected"] = (await self.db.execute(violation_stmt)).scalar() or 0
+        results["violations_detected"] = violations_opened
+        results["violations_resolved"] = violations_resolved
         logger.info(
-            "SLA collection complete: processed=%s, violations=%s", results["miners_processed"], results["violations_detected"]
+            "SLA collection complete: processed=%s, violations_opened=%s, violations_resolved=%s",
+            results["miners_processed"],
+            violations_opened,
+            violations_resolved,
         )
         return results
 
     @staticmethod
     def _compute_uptime_from_status(status: MinerStatus | None) -> float:
         """Compute uptime percentage from a MinerStatus record (no DB access)."""
-        if not status:
+        if not status or not status.last_heartbeat_at:
             return 0.0
-        if status.last_heartbeat_at:
-            time_since_heartbeat = (datetime.now(UTC) - status.last_heartbeat_at).total_seconds()
-            if time_since_heartbeat > 300:
-                return 0.0
-            uptime_pct = 100.0 - time_since_heartbeat / 300.0 * 100.0
-            return max(0.0, min(100.0, uptime_pct))
-        return 0.0
+        age = (datetime.now(UTC) - _as_utc(status.last_heartbeat_at)).total_seconds()
+        return _uptime_from_heartbeat_age(age)
 
     async def get_sla_metrics(self, miner_id: str | None = None, hours: int = 24) -> list[SLAMetric]:
         """Get SLA metrics for a miner or all miners"""
@@ -306,16 +387,21 @@ class SLACollector:
             return value > threshold
         return False
 
+    @staticmethod
+    def _violation_severity(metric_type: str, metric_value: float, threshold: float) -> str:
+        """Severity for a violating metric — shared by the single-metric and
+        batched collection paths."""
+        if metric_type in ["uptime_pct", "completion_rate_pct"]:
+            return "critical" if metric_value < threshold * 0.8 else "high"
+        elif metric_type == "response_time_ms":
+            return "critical" if metric_value > threshold * 2 else "high"
+        return "medium"
+
     async def _record_violation(
         self, miner_id: str, metric_type: str, metric_value: float, threshold: float, metadata: dict[str, str] | None = None
     ) -> SLAViolation:
         """Record an SLA violation"""
-        if metric_type in ["uptime_pct", "completion_rate_pct"]:
-            severity = "critical" if metric_value < threshold * 0.8 else "high"
-        elif metric_type == "response_time_ms":
-            severity = "critical" if metric_value > threshold * 2 else "high"
-        else:
-            severity = "medium"
+        severity = self._violation_severity(metric_type, metric_value, threshold)
         violation = SLAViolation(
             miner_id=miner_id,
             violation_type=metric_type,

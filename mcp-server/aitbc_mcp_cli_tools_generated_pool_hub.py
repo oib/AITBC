@@ -20,6 +20,12 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_pool_hub_sla(
+    miner_id: Annotated[str | None, Field(description="Show metric history for a specific miner")],
+    hours: Annotated[str | None, Field(description="Metric history window in hours")],
+    violations: Annotated[bool | None, Field(description="List SLA violations instead of the status summary")],
+    resolved: Annotated[
+        bool | None, Field(description="With --violations: list resolved violations (default lists open ones)")
+    ],
     pool_id: Annotated[str | None, Field(description="Specific pool ID")],
     pool_hub_url: Annotated[str | None, Field(description="Pool Hub service URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
@@ -28,6 +34,14 @@ def aitbc_pool_hub_sla(
 ) -> str:
     """Monitor pool hub SLA status across miners.."""
     options: dict[str, Any] = {}
+    if miner_id is not None:
+        options["miner"] = miner_id
+    if hours is not None:
+        options["hours"] = hours
+    if violations:
+        options["violations"] = None
+    if resolved:
+        options["resolved"] = None
     if pool_id is not None:
         options["pool-id"] = pool_id
     if pool_hub_url is not None:
