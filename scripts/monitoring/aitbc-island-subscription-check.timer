@@ -1,0 +1,12 @@
+[Unit]
+Description=Check island IPFS subscription expiry daily
+Documentation=https://gitea.bubuit.net/oib/AITBC
+
+[Timer]
+OnCalendar=daily
+RandomizedDelaySec=3600
+Persistent=true
+Unit=aitbc-island-subscription-check.service
+
+[Install]
+WantedBy=timers.target

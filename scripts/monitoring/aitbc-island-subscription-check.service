@@ -1,0 +1,14 @@
+[Unit]
+Description=AITBC island IPFS subscription expiry check
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/aitbc-island-subscription-check.sh
+# Exits 1 when the on-chain island subscription is expired/missing,
+# 2 when the check itself could not complete.
+SyslogIdentifier=aitbc-island-sub-check
+
+NoNewPrivileges=true
+PrivateTmp=true
