@@ -91,9 +91,9 @@ container on the bridge, whether or not a proxy fronts it from outside.
 
 ## Known deviations
 
-| Service | Port | Reason |
-|---------|------|--------|
-| Blockchain Node Metrics | 9009 | Bind is hardcoded to all interfaces in `observability/exporters.py` (`AITBC_NODE_METRICS_PORT` sets the port only, no host override yet). Prometheus scrapes it locally; pinning to loopback needs a code change first |
+**None.** The last entry (Blockchain Node Metrics 9009) was closed by adding
+`AITBC_NODE_METRICS_HOST` to `observability/exporters.py` and pinning
+`127.0.0.1` fleet-wide; Prometheus scrapes it locally on every node.
 
 This section is kept deliberately. When a bind cannot be pinned in the change
 that introduces it, record it here with the reason -- the drift gate reads this
