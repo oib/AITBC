@@ -4,15 +4,6 @@
 
 set -euo pipefail
 
-
-# Fleet node addresses.
-#
-# These used to be ssh aliases from one operator's ~/.ssh/config, which meant
-# the script only ran on that workstation and named the fleet in a public
-# repository. Set them for your own deployment; there is deliberately no
-# default.
-NODE1_HOST="${AITBC_NODE1_HOST:?set AITBC_NODE1_HOST to the address of node1}"
-
 DATA_DIR="/var/lib/aitbc/data"
 LOG_FILE="/var/log/aitbc/chain-isolation-verification.log"
 VIOLATION_COUNT=0
@@ -59,7 +50,7 @@ check_database_isolation() {
         echo "$cross_chain_blocks" | while read -r line; do
             log_error "  $line"
         done
-        ((VIOLATION_COUNT++))
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
     else
         log_success "No cross-chain blocks in $chain_db"
     fi
@@ -72,7 +63,7 @@ check_database_isolation() {
         echo "$cross_chain_accounts" | while read -r line; do
             log_error "  $line"
         done
-        ((VIOLATION_COUNT++))
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
     else
         log_success "No cross-chain accounts in $chain_db"
     fi
@@ -85,7 +76,7 @@ check_database_isolation() {
         echo "$cross_chain_txs" | while read -r line; do
             log_error "  $line"
         done
-        ((VIOLATION_COUNT++))
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
     else
         log_success "No cross-chain transactions in $chain_db"
     fi
@@ -121,7 +112,7 @@ check_node_configuration() {
         log_success "$node_name supported_chains=$supported_chains (includes $expected_chain)"
     else
         log_error "$node_name supported_chains=$supported_chains (expected to include: $expected_chain)"
-        ((VIOLATION_COUNT++))
+        VIOLATION_COUNT=$((VIOLATION_COUNT + 1))
     fi
 }
 
@@ -130,7 +121,7 @@ main() {
     log "=== Chain Isolation Verification Started ==="
 
     # Ask the node which chain it is on instead of guessing from its hostname.
-    # The previous version mapped the hostnames "aitbc" and "${NODE1_HOST}" to
+    # The previous version mapped two hardcoded hostnames to
     # ait-mainnet/ait-testnet and fell back to ait-mainnet for anything else.
     # No host in the fleet is named either of those any more, and the live chain
     # is ait-hub.aitbc.bubuit.net -- so every node took the fallback and was
@@ -150,8 +141,8 @@ main() {
     check_node_configuration "$hostname" "/etc/aitbc/blockchain.env" "$expected_chain"
     check_database_isolation "$DATA_DIR/$expected_chain/chain.db" "$expected_chain"
 
-    # The cross-node checks that used to live here shelled out to `ssh aitbc`
-    # and `ssh ${NODE1_HOST}` -- hosts that no longer exist -- and would in any case not
+    # The cross-node checks that used to live here shelled out to other nodes
+    # over ssh -- hosts that no longer exist -- and would in any case not
     # work from the sandboxed systemd unit that now runs this. Each node verifies
     # itself; the timer runs on all of them.
 
