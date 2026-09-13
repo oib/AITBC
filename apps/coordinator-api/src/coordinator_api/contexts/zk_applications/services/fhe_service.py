@@ -286,6 +286,187 @@ class TenSEALProvider(FHEProvider):
         return EncryptedData(ciphertext=result.serialize(), context=a.context, shape=a.shape, dtype=a.dtype)
 
 
+class OpenFHEProvider(FHEProvider):
+    """OpenFHE-based FHE provider (CKKS/BFV via CryptoContext).
+
+    Scaffolded for the v2.0 confidential path. ``openfhe`` is not
+    pip-installable on the Debian fleet today (PyPI wheels target Ubuntu
+    LTS only), so this provider stays unavailable until the library is
+    packaged or built -- the import guard keeps that safe.
+    """
+
+    def __init__(self) -> None:
+        self.available = False
+        self.of: Any = None
+        try:
+            import openfhe as of
+
+            self.of = of
+            self.available = True
+            logger.info("OpenFHE provider initialized")
+        except ImportError as e:
+            logger.warning("OpenFHE not available: %s", e)
+
+    @staticmethod
+    def _serialize(obj: Any) -> bytes:
+        """Serialize an OpenFHE object to bytes via a temp file."""
+        import tempfile
+
+        import openfhe as of
+
+        with tempfile.NamedTemporaryFile() as tmp:
+            if not of.SerializeToFile(tmp.name, obj, of.BINARY):
+                raise RuntimeError("OpenFHE serialization failed")
+            tmp.seek(0)
+            return tmp.read()
+
+    @staticmethod
+    def _deserialize(data: bytes, kind: str) -> Any:
+        """Deserialize an OpenFHE object (context, key, ciphertext) from bytes."""
+        import tempfile
+
+        import openfhe as of
+
+        obj = {
+            "context": of.CryptoContext,
+            "public_key": of.PublicKey,
+            "secret_key": of.SecretKey,
+            "ciphertext": of.Ciphertext,
+        }[kind]()
+        with tempfile.NamedTemporaryFile() as tmp:
+            tmp.write(data)
+            tmp.flush()
+            success = of.DeserializeFromFile(tmp.name, obj, of.BINARY)
+        if not success:
+            raise RuntimeError(f"OpenFHE deserialization failed: {kind}")
+        return obj
+
+    def _load_context(self, context: FHEContext) -> tuple[Any, Any, Any]:
+        """Rehydrate CryptoContext, public key and secret key from a FHEContext."""
+        spec = context.provider_specific or {}
+        cc = self._deserialize(spec["crypto_context"], "context")
+        pk = self._deserialize(context.public_key, "public_key")
+        sk = self._deserialize(spec["secret_key"], "secret_key") if spec.get("secret_key") else None
+        return cc, pk, sk
+
+    def generate_context(self, scheme: str, **kwargs: Any) -> FHEContext:
+        """Generate an OpenFHE CryptoContext with a fresh keypair."""
+        if not self.available or self.of is None:
+            raise RuntimeError("OpenFHE provider is not available")
+        of = self.of
+        if scheme.lower() == "ckks":
+            params = of.CCParamsCKKSRNS()
+            params.SetMultiplicativeDepth(kwargs.get("multiplicative_depth", 2))
+            params.SetScalingModSize(kwargs.get("scaling_mod_size", 40))
+            params.SetBatchSize(kwargs.get("batch_size", 8))
+            params.SetRingDim(kwargs.get("poly_modulus_degree", 8192))
+        elif scheme.lower() == "bfv":
+            params = of.CCParamsBFVRNS()
+            params.SetMultiplicativeDepth(kwargs.get("multiplicative_depth", 2))
+        else:
+            raise ValueError(f"Unsupported scheme: {scheme}")
+        cc = of.GenCryptoContext(params)
+        for feature in (
+            of.PKESchemeFeature.PKE,
+            of.PKESchemeFeature.KEYSWITCH,
+            of.PKESchemeFeature.LEVELEDSHE,
+            of.PKESchemeFeature.ADVANCEDSHE,
+        ):
+            cc.Enable(feature)
+        kp = cc.KeyGen()
+        cc.EvalMultKeyGen(kp.secretKey)
+        cc.EvalSumKeyGen(kp.secretKey)
+        return FHEContext(
+            scheme=scheme,
+            poly_modulus_degree=kwargs.get("poly_modulus_degree", 8192),
+            coeff_modulus=kwargs.get("coeff_mod_bit_sizes", []),
+            scale=kwargs.get("scale", 2**40),
+            public_key=self._serialize(kp.publicKey),
+            private_key=self._serialize(kp.secretKey),
+            provider_specific={
+                "crypto_context": self._serialize(cc),
+                "secret_key": self._serialize(kp.secretKey),
+            },
+        )
+
+    def _plaintext(self, cc: Any, data: np.ndarray, scheme: str) -> Any:
+        flat = data.flatten().tolist()
+        if scheme.lower() == "ckks":
+            return cc.MakeCKKSPackedPlaintext([float(v) for v in flat])
+        return cc.MakePackedPlaintext([int(v) for v in flat])
+
+    def encrypt(self, data: np.ndarray, context: FHEContext) -> EncryptedData:
+        """Encrypt data with the context's public key."""
+        if not self.available:
+            raise RuntimeError("OpenFHE provider is not available")
+        cc, pk, _ = self._load_context(context)
+        ct = cc.Encrypt(pk, self._plaintext(cc, data, context.scheme))
+        return EncryptedData(ciphertext=self._serialize(ct), context=context, shape=data.shape, dtype=str(data.dtype))
+
+    def decrypt(self, encrypted_data: EncryptedData) -> np.ndarray:
+        """Decrypt ciphertext with the context's secret key."""
+        if not self.available:
+            raise RuntimeError("OpenFHE provider is not available")
+        cc, _, sk = self._load_context(encrypted_data.context)
+        if sk is None:
+            raise RuntimeError("FHEContext carries no secret key")
+        ct = self._deserialize(encrypted_data.ciphertext, "ciphertext")
+        pt = cc.Decrypt(sk, ct)
+        if encrypted_data.context.scheme.lower() == "ckks":
+            values = pt.GetRealPackedValue()
+        else:
+            values = pt.GetPackedValue()
+        n = int(np.prod(encrypted_data.shape))
+        return np.array(list(values)[:n], dtype=encrypted_data.dtype).reshape(encrypted_data.shape)
+
+    def encrypted_inference(self, model: dict[str, Any], encrypted_input: EncryptedData) -> EncryptedData:
+        """Encrypted dot-product + bias via EvalInnerProduct (CKKS)."""
+        if not self.available:
+            raise RuntimeError("OpenFHE provider is not available")
+        weights = model.get("weights")
+        biases = model.get("biases")
+        if weights is None or biases is None:
+            raise ValueError("Model must contain weights and biases")
+        cc, pk, _ = self._load_context(encrypted_input.context)
+        ct = self._deserialize(encrypted_input.ciphertext, "ciphertext")
+        weights_array = np.array(weights).flatten()
+        biases_array = np.array(biases).flatten()
+        pt_w = cc.MakeCKKSPackedPlaintext([float(v) for v in weights_array])
+        result = cc.EvalInnerProduct(ct, pt_w, len(weights_array))
+        pt_b = cc.MakeCKKSPackedPlaintext([float(v) for v in biases_array])
+        result = cc.EvalAdd(result, pt_b)
+        return EncryptedData(
+            ciphertext=self._serialize(result),
+            context=encrypted_input.context,
+            shape=(len(biases_array),),
+            dtype="float32",
+        )
+
+    def _load_ciphertext(self, encrypted_data: EncryptedData) -> tuple[Any, Any]:
+        cc, _, _ = self._load_context(encrypted_data.context)
+        return cc, self._deserialize(encrypted_data.ciphertext, "ciphertext")
+
+    def add(self, a: EncryptedData, b: EncryptedData) -> EncryptedData:
+        """Homomorphically add two encrypted vectors."""
+        if not self.available:
+            raise RuntimeError("OpenFHE provider is not available")
+        cc, ct_a = self._load_ciphertext(a)
+        _, ct_b = self._load_ciphertext(b)
+        return EncryptedData(
+            ciphertext=self._serialize(cc.EvalAdd(ct_a, ct_b)), context=a.context, shape=a.shape, dtype=a.dtype
+        )
+
+    def multiply_scalar(self, a: EncryptedData, scalar: float) -> EncryptedData:
+        """Homomorphically multiply an encrypted vector by a scalar."""
+        if not self.available:
+            raise RuntimeError("OpenFHE provider is not available")
+        cc, ct_a = self._load_ciphertext(a)
+        pt = cc.MakeCKKSPackedPlaintext([float(scalar)])
+        return EncryptedData(
+            ciphertext=self._serialize(cc.EvalMult(ct_a, pt)), context=a.context, shape=a.shape, dtype=a.dtype
+        )
+
+
 class ConcreteMLProvider(FHEProvider):
     """Concrete ML provider for neural network inference"""
 
@@ -340,11 +521,21 @@ class FHEService:
             self.default_provider = "mock"
         else:
             self.default_provider = None
+        openfhe_provider: FHEProvider = OpenFHEProvider()
+        if openfhe_provider.available:
+            self.providers["openfhe"] = openfhe_provider
+            self.default_provider = "openfhe"
+            logger.info("OpenFHE provider initialized and set as default")
+        else:
+            logger.info("OpenFHE provider not available")
         tenseal_provider: FHEProvider = TenSEALProvider()
         if tenseal_provider.available:
             self.providers["tenseal"] = tenseal_provider
-            self.default_provider = "tenseal"
-            logger.info("TenSEAL provider initialized and set as default")
+            if self.default_provider != "openfhe":
+                self.default_provider = "tenseal"
+                logger.info("TenSEAL provider initialized and set as default")
+            else:
+                logger.info("TenSEAL provider initialized")
         else:
             logger.info("TenSEAL provider not available")
         concrete_provider: FHEProvider = ConcreteMLProvider()
@@ -372,7 +563,7 @@ class FHEService:
         """Get FHE provider."""
         provider_name = provider_name or self.default_provider
         if provider_name is None:
-            raise RuntimeError("No FHE provider is configured; install 'tenseal' to enable FHE")
+            raise RuntimeError("No FHE provider is configured; install a real backend (tenseal or openfhe) to enable FHE")
         if provider_name not in self.providers:
             available = list(self.providers.keys())
             raise ValueError(f"Unknown FHE provider: {provider_name}. Available providers: {available}")
