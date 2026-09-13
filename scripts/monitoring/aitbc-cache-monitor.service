@@ -32,5 +32,7 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 ReadWritePaths=/var/log/aitbc
 
-[Install]
-WantedBy=multi-user.target
+# Deliberately no [Install] section. This is a oneshot activated by
+# aitbc-cache-monitor.timer, so the timer is the unit that belongs in the boot
+# transaction. A WantedBy=multi-user.target here would additionally pull the
+# oneshot in at every boot, on top of its schedule.
