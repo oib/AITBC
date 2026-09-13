@@ -415,6 +415,10 @@ api_keys.txt
 **/*secret*.yml
 **/*credential*.yaml
 **/*credential*.yml
+# The production genesis allocation set, written at 0600 by setup_production.py
+# and reset_chain_0x.py. Not secret-*named*, so anchor it by path: rooted, so it
+# only covers the generated file at the repo root and not a test fixture.
+/genesis_prod.yaml
 !*.example
 backups/*/config/
 backups/*/logs/
