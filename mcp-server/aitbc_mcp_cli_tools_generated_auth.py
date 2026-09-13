@@ -32,6 +32,9 @@ def aitbc_auth_login(
     wallet_address: Annotated[str | None, Field(description="Wallet address (defaults to address derived from private key)")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator API URL")],
     environment: Annotated[str | None, Field(description="Credential environment name")],
+    credential_name: Annotated[
+        str | None, Field(description="Name the credential is stored under (e.g. 'admin' for aitbc monitor sweepers)")
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -54,6 +57,8 @@ def aitbc_auth_login(
         options["coordinator-url"] = coordinator_url
     if environment is not None:
         options["environment"] = environment
+    if credential_name is not None:
+        options["credential-name"] = credential_name
     args = None
     command = _build_aitbc_cli_command(
         "auth",
@@ -89,6 +94,7 @@ def aitbc_auth_login(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_auth_logout(
     environment: Annotated[str | None, Field(description="Credential environment name")],
+    credential_name: Annotated[str | None, Field(description="Credential name to delete")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -99,6 +105,8 @@ def aitbc_auth_logout(
     options: dict[str, Any] = {}
     if environment is not None:
         options["environment"] = environment
+    if credential_name is not None:
+        options["credential-name"] = credential_name
     args = None
     command = _build_aitbc_cli_command(
         "auth",

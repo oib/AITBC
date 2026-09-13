@@ -80,6 +80,11 @@ def _resolve_private_key(
 @click.option("--wallet-address", help="Wallet address (defaults to address derived from private key)")
 @click.option("--coordinator-url", help="Coordinator API URL")
 @click.option("--environment", default="default", help="Credential environment name")
+@click.option(
+    "--credential-name",
+    default="client",
+    help="Name the credential is stored under (e.g. 'admin' for aitbc monitor sweepers)",
+)
 @click.pass_context
 def login(
     ctx,
@@ -90,6 +95,7 @@ def login(
     wallet_address: str | None,
     coordinator_url: str | None,
     environment: str,
+    credential_name: str,
 ):
     """Log in with a wallet-signed nonce and store a coordinator JWT."""
     config = get_config()
@@ -161,7 +167,7 @@ def login(
         return
 
     manager = AuthManager()
-    if manager.store_credential("client", token, environment=environment):
+    if manager.store_credential(credential_name, token, environment=environment):
         success(f"Logged in as {address}")
         masked = token[:8] + "..." + token[-4:] if len(token) > 12 else "******"
         output(
@@ -170,6 +176,7 @@ def login(
                 "token": masked,
                 "backend": manager.backend_name,
                 "environment": environment,
+                "credential": credential_name,
             },
             ctx.obj.get("output_format", "table"),
         )
@@ -204,11 +211,12 @@ def status(ctx, environment: str):
   aitbc auth logout --environment staging"""
 )
 @click.option("--environment", default="default", help="Credential environment name")
+@click.option("--credential-name", default="client", help="Credential name to delete")
 @click.pass_context
-def logout(ctx, environment: str):
+def logout(ctx, environment: str, credential_name: str):
     """Delete the stored coordinator credential for an environment."""
     manager = AuthManager()
-    if manager.delete_credential("client", environment=environment):
+    if manager.delete_credential(credential_name, environment=environment):
         success(f"Logged out of environment '{environment}'")
     else:
-        warning(f"No stored credential for 'client' in environment '{environment}'")
+        warning(f"No stored credential for '{credential_name}' in environment '{environment}'")
