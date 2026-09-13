@@ -51,8 +51,13 @@ server {
     listen 80;
     listen [::]:80;
 
-    # Get real client IP from proxy headers
+    # Get real client IP from proxy headers. Trust only the incus bridge
+    # gateway of whichever host terminates TLS in front of this container:
+    # ns3 fronts the replica (192.168.100.x), netcup fronts the hub
+    # (10.177.61.x). Listing both is safe -- only one can ever appear as
+    # the TCP peer on a given host.
     set_real_ip_from 192.168.100.1;
+    set_real_ip_from 10.177.61.1;
     real_ip_header X-Real-IP;
     real_ip_recursive on;
     server_name _;
