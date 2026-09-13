@@ -21,13 +21,21 @@ class AgentStatusUpdate(BaseModel):
 
 
 class TaskPayment(BaseModel):
-    """Payment details for task execution escrow (v0.6.5)."""
+    """Payment details for task execution escrow (v0.6.5).
+
+    ``lock_tx``/``lock_signature`` carry the buyer-signed ESCROW_LOCK
+    transaction (same shape ``market escrow`` submits to /rpc/escrow/create).
+    When present, the coordinator locks the escrow on-chain; when absent the
+    escrow is bookkeeping-only (no chain transaction).
+    """
 
     amount: int = Field(..., description="Payment amount in smallest units")
     fee: int = Field(0, description="Transaction fee")
     requester: str = Field(..., description="Requester address (pays for task)")
     agent: str = Field(..., description="Agent address (receives payment)")
     timeout_seconds: float = Field(3600.0, description="Escrow timeout")
+    lock_tx: dict[str, Any] | None = Field(None, description="Buyer-signed ESCROW_LOCK transaction")
+    lock_signature: str | None = Field(None, description="Signature over lock_tx")
 
 
 class TaskSubmission(BaseModel):

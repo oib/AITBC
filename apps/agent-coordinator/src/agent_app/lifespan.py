@@ -3,6 +3,7 @@ import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from datetime import UTC, datetime, timedelta
+from typing import Any
 
 from fastapi import FastAPI
 
@@ -60,6 +61,37 @@ async def expire_old_requests() -> None:
         await asyncio.sleep(3600)
 
 
+def _escrow_refund_submitter(entry: Any) -> Any:
+    """Return a chain refund submitter for escrows that locked on-chain.
+
+    Bookkeeping-only escrows (no ``tx_hash_lock``) get no submitter so their
+    refund stays off-chain.
+    """
+    if state.escrow_rpc is None or not entry.tx_hash_lock:
+        return None
+    from .services.chain_escrow import make_refund_submitter
+
+    return make_refund_submitter(state.escrow_rpc, entry.task_id, reason="expired")
+
+
+async def sweep_stale_escrows() -> None:
+    """Background task: expire/refund escrows past their timeout (v0.25).
+
+    Sleeps ``settings.task_payment_sweep_seconds`` between passes; 0 disables.
+    """
+    from .config import settings as _settings
+
+    while True:
+        try:
+            if state.payment_escrow:
+                expired = state.payment_escrow.expire_stale(refund_submitter_for=_escrow_refund_submitter)
+                if expired:
+                    logger.info("Expired %d stale escrow(s): %s", len(expired), [e.escrow_id for e in expired])
+        except Exception as e:
+            logger.error("Error sweeping stale escrows: %s", e)
+        await asyncio.sleep(max(_settings.task_payment_sweep_seconds, 5.0))
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting AITBC Agent Coordinator...")
@@ -104,10 +136,26 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     if settings.task_payment_escrow_enabled:
         from aitbc.crypto import PaymentEscrow
 
+        from .services.chain_escrow import ChainEscrowClient
+
         state.payment_escrow = PaymentEscrow(
             default_timeout=settings.task_payment_timeout_seconds,
         )
-        logger.info("Payment escrow enabled (timeout=%ss)", settings.task_payment_timeout_seconds)
+        # v0.25: on-chain escrow via the same /rpc/escrow/* routes the
+        # marketplace uses. The callbacks are built per call in the tasks
+        # router (the four-arg EscrowCallback signature can't carry the
+        # task_id/lock_tx context the chain endpoints need).
+        state.escrow_rpc = ChainEscrowClient(
+            settings.blockchain_rpc_url,
+            api_key=settings.blockchain_rpc_api_key or None,
+        )
+        logger.info(
+            "Payment escrow enabled (timeout=%ss, chain_rpc=%s)",
+            settings.task_payment_timeout_seconds,
+            _sanitize_url(settings.blockchain_rpc_url),
+        )
+        if settings.task_payment_sweep_seconds > 0:
+            _task_registry.create_task(sweep_stale_escrows, name="escrow_expiry_sweeper")
     else:
         logger.info("Payment escrow disabled (task_payment_escrow_enabled=False)")
 
@@ -126,4 +174,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         await state.message_storage.stop()
     if state.peer_storage:
         await state.peer_storage.stop()
+    if state.escrow_rpc:
+        state.escrow_rpc.close()
+        state.escrow_rpc = None
     logger.info("Agent Coordinator shut down")
