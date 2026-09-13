@@ -165,3 +165,20 @@ class TestKeysAreNotHubCredentials:
 
         with pytest.raises(ValidationError):
             Settings()
+
+
+def test_fhe_enabled_defaults_by_arch(monkeypatch):
+    """fhe_enabled follows tenseal platform support unless explicitly set."""
+    from coordinator_api import config as config_mod
+    from coordinator_api.config import Settings
+
+    monkeypatch.delenv("FHE_ENABLED", raising=False)
+    monkeypatch.setattr(config_mod.platform, "machine", lambda: "aarch64")
+    assert Settings().fhe_enabled is False
+
+    monkeypatch.setattr(config_mod.platform, "machine", lambda: "x86_64")
+    assert Settings().fhe_enabled is True
+
+    monkeypatch.setenv("FHE_ENABLED", "true")
+    monkeypatch.setattr(config_mod.platform, "machine", lambda: "aarch64")
+    assert Settings().fhe_enabled is True
