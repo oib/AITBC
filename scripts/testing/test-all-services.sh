@@ -69,7 +69,7 @@ echo "🔍 Core Services Testing"
 echo "====================="
 
 # Test Core Services
-test_service "Coordinator API (8203)" "http://localhost:8203/v1/health" '"status":"ok"'
+test_service "Coordinator API (8203)" "http://localhost:8203/health" '"status":"ok"'
 test_service "Exchange API (8106)" "http://localhost:8106/" '"detail"'
 test_service "Blockchain RPC (8202)" "http://localhost:8202/rpc/head" '"height"'
 
