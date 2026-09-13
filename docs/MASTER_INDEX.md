@@ -2,7 +2,7 @@
 
 **Complete catalog of all documentation files and directories**
 
-**Last Updated**: 2026-09-11
+**Last Updated**: 2026-09-14
 
 ---
 
@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 32
-- **Markdown files under docs/**: 863
+- **Markdown files under docs/**: 864
 
 | Directory | Files | Description |
 |---|---|---|
@@ -88,7 +88,7 @@ docs/
 | [ops](ops/) | 1 | Operational runbooks and key handling |
 | [reference](reference/) | 18 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
-| [scenarios](scenarios/) | 56 | End-to-end usage scenarios |
+| [scenarios](scenarios/) | 57 | End-to-end usage scenarios |
 | [security](security/) | 42 | Security architecture and audits |
 | [testing](testing/) | 7 | Test suite and validation documentation |
 | [troubleshooting](troubleshooting/) | 11 | Troubleshooting guides |
