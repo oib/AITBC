@@ -179,6 +179,21 @@ def detect_cuda_version() -> str | None:
     return None
 
 
+def _max_concurrent_jobs() -> int:
+    """Concurrent-job ceiling advertised to the coordinator.
+
+    Reads MINER_MAX_CONCURRENT_JOBS on every call so a capacity change only
+    needs a service restart. Values below 1 clamp to 1; an unparseable value
+    falls back to 1 -- a bogus env var must never zero out mining.
+    """
+    raw = os.environ.get("MINER_MAX_CONCURRENT_JOBS", "1")
+    try:
+        return max(1, int(raw))
+    except (TypeError, ValueError):
+        logger.warning("Invalid MINER_MAX_CONCURRENT_JOBS=%r; defaulting to 1", raw)
+        return 1
+
+
 def build_gpu_capabilities() -> dict:
     gpu_info = get_gpu_info()
     cuda_version = detect_cuda_version() or "unknown"
@@ -205,7 +220,7 @@ def build_gpu_capabilities() -> dict:
         "region": "localhost",
         "platform": "CUDA" if gpu_info else "CPU",
         "supported_tasks": ["inference", "training", "stable-diffusion", "llama", "transcribe", "reencode", "hermes"],
-        "max_concurrent_jobs": 1,
+        "max_concurrent_jobs": _max_concurrent_jobs(),
     }
 
 
