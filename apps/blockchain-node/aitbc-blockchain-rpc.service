@@ -14,6 +14,7 @@ Environment=RPC_BIND_PORT=8202
 EnvironmentFile=-/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/node.env
 EnvironmentFile=-/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/%N-override.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 # Consensus-signing secrets (VALIDATOR_KEYS, PROPOSER_KEY) — scoped to blockchain services only
 EnvironmentFile=-/etc/aitbc/validator-secrets.env

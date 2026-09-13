@@ -103,6 +103,8 @@ get_allowed_services() {
         aitbc-backup
         aitbc-trading
         aitbc-governance
+        aitbc-chain-isolation-monitor
+        aitbc-memory-monitor
     )
 
     # Hub-specific services (blockchain producer)
@@ -132,6 +134,8 @@ get_allowed_services() {
         aitbc-pool-hub
         aitbc-marketplace
         aitbc-hermes-agent
+        aitbc-whisper
+        aitbc-ffmpeg
     )
 
     if [ "$role_spec" = "all" ]; then
@@ -196,6 +200,26 @@ is_service_allowed() {
         systemctl cat redis-server.service >/dev/null 2>&1
         return
     fi
+    if [ "$basename" = "aitbc-island-ipfs" ]; then
+        # Island IPFS is island infrastructure, not a blockchain-mode or
+        # market-role service: it runs on the nodes forming the island
+        # (hub.aitbc and hub1.aitbc) whatever their hub/follower axis says.
+        # Gate on the env file the unit itself consumes, mirroring the
+        # cache-monitor/redis rule above, so a relink does not delete it.
+        [ -f /etc/aitbc/aitbc-island-ipfs.env ]
+        return
+    fi
+    # Per-node escape hatch for units the three role axes cannot express (e.g.
+    # a demoted hub that still serves the marketplace). /etc/aitbc/node.env may
+    # declare:   EXTRA_SERVICES="aitbc-marketplace aitbc-island-ipfs"
+    if [[ -z "${EXTRA_SERVICES+x}" && -f /etc/aitbc/node.env ]]; then
+        EXTRA_SERVICES=$(grep -E '^EXTRA_SERVICES=' /etc/aitbc/node.env | tail -1 | cut -d= -f2- | tr -d '"')
+    fi
+    for extra in ${EXTRA_SERVICES:-}; do
+        if [ "$basename" = "$extra" ]; then
+            return 0
+        fi
+    done
     if [ "$ROLE_FILTER" = "false" ]; then
         return 0  # Allow all
     fi
@@ -207,7 +231,7 @@ echo "🔍 Creating symbolic links for AITBC systemd files..."
 # Remove existing aitbc-* files and stale drop-in directories
 echo "🧹 Removing existing systemd files..."
 find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*" \( -type f -o -type l \) -delete 2>/dev/null || true
-find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*.d" -exec rm -rf {} + 2>/dev/null || true
+find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*.d" -type l -exec rm -rf {} + 2>/dev/null || true
 
 # Create symbolic links
 echo "🔗 Creating symbolic links..."
