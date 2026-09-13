@@ -1308,15 +1308,17 @@ class MarketplaceService:
             if job.state not in {"QUEUED", "RUNNING"}:
                 return self._job_to_dict(job)
 
-            if not job.payload:
-                job.payload = {}
-            job.payload["pinned"] = True
+            # payload is a plain JSON column: reassign, don't mutate in place,
+            # or SQLAlchemy never sees the change and the update is dropped.
+            payload = dict(job.payload or {})
+            payload["pinned"] = True
             if size is not None:
-                job.payload["size"] = size
+                payload["size"] = size
             if pin_tx_hash:
-                job.payload["pin_tx_hash"] = pin_tx_hash
+                payload["pin_tx_hash"] = pin_tx_hash
             if provider_confirmed:
-                job.payload["provider_confirmed"] = True
+                payload["provider_confirmed"] = True
+            job.payload = payload
 
             job.state = "RUNNING"
             job.updated_at = datetime.utcnow()
