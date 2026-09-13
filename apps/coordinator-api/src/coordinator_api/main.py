@@ -353,7 +353,7 @@ def create_app() -> FastAPI:
         )
 
     # Fail closed: production FHE requires a real provider when mock is disabled
-    if settings.environment == "production" and not settings.fhe_allow_mock:
+    if settings.environment == "production" and settings.fhe_enabled and not settings.fhe_allow_mock:
         from .contexts.zk_applications.services.fhe_service import FHEService
 
         fhe_service = FHEService()
@@ -471,13 +471,14 @@ def create_app() -> FastAPI:
         optional_routers.append("zk_proofs")
     except Exception as e:
         logger.warning("Failed to include ZK proofs router: %s", e)
-    try:
-        from .contexts.zk_applications.routers.fhe import router as fhe_router
+    if settings.fhe_enabled:
+        try:
+            from .contexts.zk_applications.routers.fhe import router as fhe_router
 
-        app.include_router(fhe_router, prefix="/v1")
-        optional_routers.append("fhe")
-    except Exception as e:
-        logger.warning("Failed to include FHE router: %s", e)
+            app.include_router(fhe_router, prefix="/v1")
+            optional_routers.append("fhe")
+        except Exception as e:
+            logger.warning("Failed to include FHE router: %s", e)
     try:
         from .contexts.blockchain.routers.oracle import router as oracle_router
 

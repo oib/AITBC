@@ -6,6 +6,7 @@ Provides environment-based adapter selection and consolidated settings.
 
 import logging
 import os
+import platform
 from typing import Annotated, Any
 
 from pydantic import Field, SecretStr, field_validator, model_validator
@@ -61,6 +62,10 @@ class Settings(BaseAITBCConfig):
     app_host: str = Field(default="0.0.0.0", description="Application host")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     port: int = Field(default=8203, description="Server port")
     environment: str = Field(default="development", description="Environment")
+    fhe_enabled: bool | None = Field(
+        default=None,
+        description="Mount /v1/fhe/* endpoints and require a real FHE provider in production; default follows tenseal platform support (x86_64 only)",
+    )
     fhe_allow_mock: bool | None = Field(
         default=None, description="Allow the plaintext MockFHEProvider; default is True in dev/test, False in production"
     )
@@ -81,6 +86,8 @@ class Settings(BaseAITBCConfig):
     @model_validator(mode="after")
     def validate_fhe_allow_mock(self) -> "Settings":
         """Default FHE mock allowance from environment; warn if enabled in production."""
+        if self.fhe_enabled is None:
+            self.fhe_enabled = platform.machine() == "x86_64"
         if self.fhe_allow_mock is None:
             self.fhe_allow_mock = not _is_production()
         if _is_production() and self.fhe_allow_mock:
