@@ -12,6 +12,8 @@ All fields are env-var overridable with the ``TRADING_`` prefix.
 """
 
 from __future__ import annotations
+
+import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from functools import lru_cache
@@ -67,9 +69,11 @@ class Settings(ServiceSettings):
     subscription_reconnect_interval_seconds: int = Field(default=60)  # re-establish gossip every 60s
     # v0.8.2 §B18: Gossip backend config (mirrors blockchain-node gossip settings)
     gossip_backend: str = Field(default="broadcast")  # "broadcast" (Redis pub/sub) | "memory"
-    gossip_broadcast_url: str = Field(default="redis://localhost:6379")
+    # The fleet ships a credentialed REDIS_URL in blockchain-secrets.env; fall back to it
+    # so these fields do not need TRADING_-prefixed duplicates of the same secret.
+    gossip_broadcast_url: str = Field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379"))
     # v0.8.2 §B19: Lease tracker Redis URL (defaults to gossip_broadcast_url)
-    lease_tracker_redis_url: str = Field(default="redis://localhost:6379")
+    lease_tracker_redis_url: str = Field(default_factory=lambda: os.getenv("REDIS_URL", "redis://localhost:6379"))
     # v0.8.2: Optional search index
     offer_search_index_enabled: bool = Field(default=False)
     offer_search_index_backend: str = Field(default="meilisearch")
