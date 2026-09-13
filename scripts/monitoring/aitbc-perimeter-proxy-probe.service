@@ -1,0 +1,19 @@
+[Unit]
+Description=AITBC incus perimeter proxy probe
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=incus.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/aitbc-perimeter-proxy-probe.sh
+# Exits 1 when a proxy device still fails after an auto-bounce, or incus is
+# unreachable. Results are logged via syslog tag aitbc-proxy-probe.
+SyslogIdentifier=aitbc-proxy-probe
+
+# Needs the incus socket (/var/lib/incus) and outbound TCP to probe ports, so
+# hardening stays light.
+NoNewPrivileges=true
+PrivateTmp=true
+ProtectKernelModules=true
+RestrictRealtime=true
+LockPersonality=true
