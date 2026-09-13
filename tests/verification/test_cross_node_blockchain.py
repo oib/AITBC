@@ -138,5 +138,9 @@ def run_cross_node_tests():
 
 
 if __name__ == "__main__":
+    from _write_guard import require_opt_in
+
+    require_opt_in(__file__)
+
     success = run_cross_node_tests()
     exit(0 if success else 1)

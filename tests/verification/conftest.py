@@ -30,12 +30,27 @@ really does write to production; applied repo-wide it silently turned off the te
 verify the protections. Hence ``_is_in_this_directory``.
 
 Set ``AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`` to run them, which makes running them a
-deliberate act. The rest of this directory -- the import-surface checks, the model
-validation, the localhost payment flow -- is ordinary and runs normally.
+deliberate act. The read-only rest of this directory -- the import-surface checks, the model
+validation, the coordinator health probes -- is ordinary and runs normally.
 
-The gated modules have been converted to target the local blockchain node by default and to
-sign blocks with a deterministic test key, so they no longer require production access. The
-gate remains as a safety net for any future file that names a live deployment host.
+**Naming a host was never the real signal -- writing is.** The gated modules were later
+converted to target the local node by default and to sign blocks with a deterministic test
+key. That took the hostname out of their source, which silently took them out of the gate,
+and left every ``POST`` exactly where it was. A plain ``pytest tests/`` then ran them against
+whichever node the runner happened to be standing on. One follower was forked 32 blocks deep
+by blocks this directory imported at ``head + 1``; every subsequent block from the real chain
+was rejected for an unknown parent, and the node only recovered when its database was
+replaced from a snapshot. "Points at production" had quietly become "points at you".
+
+So the gate keys on the behaviour instead. A module in this directory that issues any HTTP
+write -- ``.post``, ``.put``, ``.patch``, ``.delete`` -- is skipped whatever host it names,
+and the host match is kept alongside it to cover read-only probes against a live deployment.
+``localhost`` is not a safe default target here, just a different victim. Modules that only
+read are untouched.
+
+The rollback is opt-in as well: ``_reset_chain_db`` restores a pre-run copy of the chain
+database only when ``AITBC_VERIFICATION_ENABLE_RESET=1``. With the reset off -- the default --
+whatever these modules write stays written.
 """
 
 from __future__ import annotations
@@ -65,6 +80,13 @@ except Exception:  # pragma: no cover
 
 #: Hosts that are somebody's live deployment. Matched against module source, not resolved.
 PRODUCTION_HOST_RE = re.compile(r"\bbubuit\.net\b")
+
+#: An HTTP write of any shape: ``requests.post``, ``httpx.put``, ``self.client.delete``,
+#: ``await client.patch``. Matched against module source for the same reasons the host match
+#: is -- it reads the file instead of importing it, so nothing in a gated module executes, and
+#: it over-matches rather than under-matches. Over-matching here costs a skip that
+#: ``AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`` lifts; under-matching costs a forked node.
+HTTP_WRITE_RE = re.compile(r"\.(?:post|put|patch|delete)\s*\(")
 
 ALLOW_ENV = "AITBC_ALLOW_PRODUCTION_WRITE_TESTS"
 RESET_ENV = "AITBC_VERIFICATION_ENABLE_RESET"
@@ -106,27 +128,51 @@ def _names_production_host(path) -> bool:  # noqa: ANN001 - pytest hands us its 
         return True
 
 
+def _sends_http_writes(path) -> bool:  # noqa: ANN001 - pytest hands us its own path type
+    """Whether this file's source issues an HTTP write of any kind.
+
+    This is the predicate that actually matters: a module that POSTs blocks, jobs or miner
+    results changes state on whatever node it is aimed at, and aiming it at ``127.0.0.1``
+    makes the local node the thing it changes.
+    """
+    try:
+        return HTTP_WRITE_RE.search(path.read_text(encoding="utf-8", errors="ignore")) is not None
+    except OSError:
+        # Unreadable means unknown, and unknown is treated as writing.
+        return True
+
+
 def pytest_collection_modifyitems(config: pytest.Config, items: list[pytest.Item]) -> None:
     if os.environ.get(ALLOW_ENV) == "1":
         return
 
-    skip = pytest.mark.skip(
+    skip_writes = pytest.mark.skip(
         reason=(
-            f"Names a live deployment host and this directory's modules write to it "
-            f"(blocks, jobs, miner results). Set {ALLOW_ENV}=1 to run deliberately."
+            f"Sends HTTP writes (blocks, jobs, miner results) to whatever node it is pointed "
+            f"at, which by default is this one. Set {ALLOW_ENV}=1 to run deliberately."
         )
     )
+    skip_host = pytest.mark.skip(
+        reason=(f"Names a live deployment host and probes it. Set {ALLOW_ENV}=1 to run deliberately.")
+    )
 
-    gated: dict[str, bool] = {}
+    gated: dict[str, Any] = {}
     for item in items:
         path = getattr(item, "path", None)
         if path is None:
             continue
         key = str(path)
         if key not in gated:
-            gated[key] = _is_in_this_directory(path) and _names_production_host(path)
-        if gated[key]:
-            item.add_marker(skip)
+            marker = None
+            if _is_in_this_directory(path):
+                # Write behaviour first: it is the reason that survives a hostname change.
+                if _sends_http_writes(path):
+                    marker = skip_writes
+                elif _names_production_host(path):
+                    marker = skip_host
+            gated[key] = marker
+        if gated[key] is not None:
+            item.add_marker(gated[key])
 
 
 # ---------------------------------------------------------------------------
