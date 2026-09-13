@@ -25,12 +25,15 @@ logger = get_logger(__name__)
 
 
 def _to_ait_address(address: str) -> str:
-    """Normalise to the `ait1` spelling used in the chain DB."""
-    canonical = canonical_address(address)
-    body = canonical.removeprefix("0x")
-    if canonical.startswith("0x") and len(body) == 40:
-        return f"ait1{body}"
-    return canonical
+    """Normalise to the EIP-55 ``0x`` spelling stored in the chain DB.
+
+    ``ipfs_subscription.member_address`` is written verbatim from the
+    transaction's ``sender_addr``, which is the canonical ``0x`` form. The
+    legacy ``ait1`` spelling never matches those rows, so this helper now just
+    applies ``canonical_address``; the name is kept for readability at the two
+    call sites that refer to the "chain-side" spelling.
+    """
+    return canonical_address(address)
 
 
 def _chain_db_path(chain_id: str) -> Path:
