@@ -105,7 +105,8 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Agent coordinator | 8107 | `aitbc agent-comm`, `aitbc agent-msg` | Hub-only |
 | Trading | 8104 | `aitbc trade` | Inter-chain offers |
 | Event bridge | 8205 | `aitbc bridge start/stop` | Not the lock/confirm RPC |
-| IPFS surface | local files | `aitbc ipfs` | Filesystem CID store, not a real IPFS daemon |
+| IPFS surface | local files | `aitbc ipfs` | Filesystem CID store fallback; production runs the **island** Kubo daemon (`aitbc-island-ipfs`, private swarm :4002, API :5002), not the old public `aitbc-ipfs` |
+| IPFS hosting (marketplace) | island :4002/:5002 | `aitbc market host`, `aitbc market download` | First-class offer (`ipfs/ipfs-host`, per-day): buyer escrow → provider miner pins the CID on its island daemon → `provider_confirmed` on the job → unpin on terminal state. Per-customer disk quota enforced provider-side. |
 | Oracle | local files | `aitbc oracle` | Announces local CIDs |
 
 ### Partial / simulated / parked
@@ -226,7 +227,8 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 | P2.3 | Performance bonds + slashing (`aitbc bond`) | Shipped: `aitbc bond create/status/release`, `BOND_LOCK/RELEASE/SLASH` state transitions, marketplace offer bond enforcement, live-validated 2026-08-21. |
 | P2.4 | Auto reinvest (`aitbc reinvest`) from released escrow | Shipped: `aitbc reinvest policy/simulate`, `aitbc ai submit --auto-reinvest-pct`, and `agent_wallet rebalance` live; fully automatic reinvestment still manual. |
 | P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Shipped: `aitbc market offer whisper/ffmpeg/ollama`, `aitbc market transcribe/process/run`, default miner offers, live-validated. |
-| P2.6 | Real IPFS daemon behind `aitbc ipfs` (today: `/var/lib/aitbc/ipfs`) | Shipped: local Kubo HTTP API with filesystem fallback, `aitbc ipfs upload/download/pin/list`, cross-node download validated. |
+| P2.6 | Real IPFS daemon behind `aitbc ipfs` (today: `/var/lib/aitbc/ipfs`) | Shipped: local Kubo HTTP API with filesystem fallback, `aitbc ipfs upload/download/pin/list`, cross-node download validated. Production fleet runs `aitbc-island-ipfs` (private pnet swarm :4002, API :5002); the old public Kubo `aitbc-ipfs` (:4001/:5001) is retired. |
+| P2.9 | IPFS hosting as a first-class marketplace offer | Shipped: `ipfs/ipfs-host` offer auto-published by `production_miner`; `aitbc market host` escrows per-day payment and pins on the buyer's island daemon; `apps/miner/ipfs_pinning_sweeper.py` pins the CID on the provider's daemon, reports `provider_confirmed` via `/v1/marketplace/jobs/{id}/pin-confirm`, enforces the offer's `disk_quota_mb` provider-side, and unpins when the job leaves the active set. Live-validated hub→node2 2026-09-13 (host → provider pin → download → cancel → unpin). Note: on the hub node itself set `HUB_DISCOVERY_URL=http://127.0.0.1:8102` (hairpin NAT makes the public URL unreachable locally), and the escrow buyer must not be the node wallet. |
 | P2.7 | Compliance / plugin / white-label — only after P0/P1 | Shipped: `aitbc brand/plugin/compliance check/classify`, `--compliance-framework` gating, white-label plugins, scenario 43 and release changelog. |
 | P2.8 | Agent-stake / bounty economics with operator-signed on-chain locks | Shipped: `/rpc/agent-staking/*` and `/rpc/bounty/*` routes; real `Account.balance` debits/credits; operator signature auth; coordinator chain-first writes; create/add/unbond/complete and deploy/submit/verify/expire all live-validated 2026-08-24. |
 

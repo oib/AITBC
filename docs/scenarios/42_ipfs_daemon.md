@@ -11,16 +11,26 @@ content from each other.
 
 ## Preconditions
 
-- `aitbc-ipfs.service` is installed, enabled, and running.
+> **Production note (2026-09):** the fleet runs `aitbc-island-ipfs` — a Kubo
+> daemon on a private pnet swarm (swarm :4002, API `127.0.0.1:5002`, gateway
+> `127.0.0.1:8081`) gated by a shared `swarm.key`. The public `aitbc-ipfs`
+> daemon (:4001/:5001) this scenario originally targeted is retired; the steps
+> below still apply to any Kubo daemon — substitute the island API port where
+> needed. Paid hosting between nodes uses `aitbc market host` /
+> `aitbc market download` against an `ipfs`-service-type offer (see
+> `docs/DESIGN_CYCLE.md` P2.9).
+
+- `aitbc-island-ipfs.service` (or the legacy `aitbc-ipfs.service` on a dev node)
+  is installed, enabled, and running.
 - The Kubo binary is in `/usr/local/bin/ipfs`.
-- `IPFS_PATH=/var/lib/aitbc/ipfs-daemon` and `HOME=/var/lib/aitbc/ipfs-daemon`
-  are set in the service.
+- The island repo lives under `/var/lib/aitbc/data/ipfs-island/<island-id>`
+  with a `swarm.key` provisioned by the hub.
 
 ## Steps
 
 1. Start the daemon (if not already):
    ```bash
-   sudo systemctl start aitbc-ipfs
+   sudo systemctl start aitbc-island-ipfs   # legacy dev nodes: aitbc-ipfs
    ```
 
 2. Upload a file:
