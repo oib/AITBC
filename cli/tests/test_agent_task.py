@@ -137,6 +137,8 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     def fake_get(path, params=None):
         if path.startswith("/v1/agents/"):
             return {"agent": {"metadata": {"wallet": "0xProvider"}}}
+        if path == "/v1/tasks/escrow-config":
+            return {"status": "success", "settlement_wallet": "0xSettleNode"}
         return {"messages": []}
 
     def fake_post(path, json=None):
@@ -153,7 +155,7 @@ def test_hire_submits_signed_escrow(runner, mock_client):
             "aitbc_cli.commands.agent_task.load_wallet_for_payment",
             return_value=("0xBuyer", "privkey", "w1"),
         ),
-        patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")),
+        patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")) as mock_lock,
         patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
     ):
         result = runner.invoke(
@@ -192,3 +194,7 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     assert msg["content"]["payload_ref"] == "QmCID"
     assert msg["content"]["escrow_id"] == "esc-9"
     assert msg["encrypt"] is False
+
+    # The lock tx was signed to the coordinator's settlement wallet,
+    # not the buyer's local node wallet.
+    assert mock_lock.call_args.kwargs["node_wallet"] == "0xSettleNode"
