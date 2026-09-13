@@ -214,25 +214,58 @@ def hire(
     if not provider_wallet:
         raise click.Abort()
 
-    # 3. Buyer wallet + signed escrow lock for max_price.
+    # 3. Settlement wallet: the coordinator settles through its configured
+    #    blockchain RPC's node wallet. Ask the coordinator first (correct on
+    #    any node); fall back to the market convention — HUB_PROPOSER_ID, then
+    #    the local RPC's node wallet (right only when buyer == hub).
+    settlement_wallet = None
+    try:
+        esc_conf = client.get("/v1/tasks/escrow-config")
+        if isinstance(esc_conf, dict) and esc_conf.get("settlement_wallet"):
+            settlement_wallet = str(esc_conf["settlement_wallet"])
+    except Exception:
+        pass
+    rpc_url = _get_blockchain_rpc_url(config)
+    if not settlement_wallet:
+        settlement_wallet = getattr(config, "hub_proposer_id", None) or None
+    if not settlement_wallet:
+        from ..utils.escrow import get_node_wallet
+
+        try:
+            settlement_wallet = get_node_wallet(ctx, rpc_url)
+        except Exception:
+            settlement_wallet = None
+    if not settlement_wallet:
+        error(
+            "No escrow settlement wallet available — coordinator /v1/tasks/escrow-config unreachable and HUB_PROPOSER_ID unset"
+        )
+        raise click.Abort()
+
+    # 4. Buyer wallet + signed escrow lock for max_price.
     buyer_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet_name, password=password)
     if not private_key:
         error("Escrow lock requires a buyer wallet with a private key")
         raise click.Abort()
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    rpc_url = _get_blockchain_rpc_url(config)
     from ..utils.escrow import create_signed_escrow_lock
 
     try:
         lock_tx, lock_signature = create_signed_escrow_lock(
-            ctx, rpc_url, task_id, buyer_address, provider_wallet, max_price_ait, private_key
+            ctx,
+            rpc_url,
+            task_id,
+            buyer_address,
+            provider_wallet,
+            max_price_ait,
+            private_key,
+            node_wallet=settlement_wallet,
         )
     except Exception as e:
         error(f"Failed to build escrow lock transaction: {e}")
         raise click.Abort() from e
 
-    # 4. Submit task + payment: the coordinator locks the escrow on-chain.
+    # 5. Submit task + payment: the coordinator locks the escrow on-chain.
     amount_units = ait_to_units(max_price_ait)
     try:
         submission = client.post(

@@ -920,6 +920,47 @@
         }
       }
     },
+    "/v1/tasks/escrow-config": {
+      "get": {
+        "summary": "Get Escrow Config",
+        "description": "Escrow settlement parameters for buyers (v0.25).\n\nReturns the node wallet the coordinator settles escrows through, so a\nremote buyer can sign its ESCROW_LOCK to the right custodian without\nknowing the hub's local RPC topology. The address is public on-chain.",
+        "operationId": "get_escrow_config_v1_tasks_escrow_config_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Escrow Config V1 Tasks Escrow Config Get"
+                }
+              }
+            }
+          },
+          "502": {
+            "description": "Could not read settlement wallet from blockchain RPC",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "On-chain escrow not configured",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/tasks/escrow/expire-stale": {
       "post": {
         "summary": "Expire Stale Escrows",

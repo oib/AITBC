@@ -336,6 +336,28 @@ async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
     }
 
 
+@router.get("/tasks/escrow-config")
+@rate_limit(rate=200, per=60)
+async def get_escrow_config(request: Request) -> dict[str, Any]:
+    """Escrow settlement parameters for buyers (v0.25).
+
+    Returns the node wallet the coordinator settles escrows through, so a
+    remote buyer can sign its ESCROW_LOCK to the right custodian without
+    knowing the hub's local RPC topology. The address is public on-chain.
+    """
+    if not state.escrow_rpc:
+        raise HTTPException(status_code=503, detail="On-chain escrow not configured")
+    wallet = state.escrow_rpc.node_wallet()
+    if not wallet:
+        raise HTTPException(status_code=502, detail="Could not read settlement wallet from blockchain RPC")
+    return {
+        "status": "success",
+        "settlement_wallet": wallet,
+        "chain_id": settings.default_chain_id,
+        "timestamp": datetime.now(UTC).isoformat(),
+    }
+
+
 @router.post("/tasks/escrow/expire-stale")
 @rate_limit(rate=10, per=60)
 async def expire_stale_escrows(request: Request) -> dict[str, Any]:

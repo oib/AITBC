@@ -225,6 +225,21 @@ class TestChainEscrowClient:
         assert calls[1][0] == "/rpc/escrow/task-9/refund"
         assert calls[1][1]["reason"] == "task_failed"
 
+    def test_node_wallet_from_health(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            assert request.url.path == "/health"
+            return httpx.Response(200, json={"node_wallet": "0xNodeWallet", "status": "ok"})
+
+        client = self._client(handler)
+        assert client.node_wallet() == "0xNodeWallet"
+
+    def test_node_wallet_falls_back_to_proposer(self):
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"proposer_id": "0xProposer"})
+
+        client = self._client(handler)
+        assert client.node_wallet() == "0xProposer"
+
     def test_rpc_error_raises(self):
         def handler(request: httpx.Request) -> httpx.Response:
             return httpx.Response(400, json={"detail": "bad lock"})
