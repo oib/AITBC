@@ -1,0 +1,8 @@
+[Unit]
+Description=Re-attest the native AIT/EUR energy rate for GPU-rental quotes
+Documentation=https://gitea.bubuit.net/oib/AITBC
+After=aitbc-coordinator-api.service
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/native-energy-rate-refresh.sh
