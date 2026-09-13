@@ -33,6 +33,7 @@ policy violation.
 | nginx (TLS) | 443, 80 | TLS terminator host | The entire customer-facing surface; proxies `/api/`, `/rpc/`, `/c/`, `/explorer-api/` |
 | Blockchain P2P | 7070 | Hub | Followers on other hosts gossip over the public internet; registered via `aitbc node hub register --public-address <ip> --public-port 7070` |
 | IPFS Swarm | 4002 | Island hosts | Private-swarm IPFS needs inbound peer connections; TCP and UDP (QUIC) |
+| Kubo IPFS (public swarm) | 4001 | Customer/shop GPU nodes | The public-swarm Kubo daemon needs inbound peer connections (TCP and UDP); distinct from the repo-managed island daemon on 4002 |
 
 `80` is permitted only to redirect to `443`, never to serve an application.
 
@@ -90,8 +91,9 @@ container on the bridge, whether or not a proxy fronts it from outside.
 
 ## Known deviations
 
-**None.** As of 2026-09-11 every service pins its bind explicitly in its systemd
-unit, and no service binds `0.0.0.0` except the authorized public surfaces above.
+| Service | Port | Reason |
+|---------|------|--------|
+| Blockchain Node Metrics | 9009 | Bind is hardcoded to all interfaces in `observability/exporters.py` (`AITBC_NODE_METRICS_PORT` sets the port only, no host override yet). Prometheus scrapes it locally; pinning to loopback needs a code change first |
 
 This section is kept deliberately. When a bind cannot be pinned in the change
 that introduces it, record it here with the reason -- the drift gate reads this
