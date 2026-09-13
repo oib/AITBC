@@ -60,7 +60,9 @@ def test_db_url(postgres_container):
     original = os.environ.get("DATABASE_URL")
     os.environ["DATABASE_URL"] = postgres_container
     yield postgres_container
-    if original:
+    if original is None:
+        os.environ.pop("DATABASE_URL", None)
+    else:
         os.environ["DATABASE_URL"] = original
 
 
@@ -70,7 +72,9 @@ def test_redis_url(redis_container):
     original = os.environ.get("REDIS_URL")
     os.environ["REDIS_URL"] = redis_container
     yield redis_container
-    if original:
+    if original is None:
+        os.environ.pop("REDIS_URL", None)
+    else:
         os.environ["REDIS_URL"] = original
 
 
