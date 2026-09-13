@@ -11,6 +11,20 @@ import pytest
 import yaml
 
 
+@pytest.fixture(autouse=True)
+def _isolate_config_sources(monkeypatch, tmp_path):
+    monkeypatch.setattr(Path, "home", classmethod(lambda cls: tmp_path))
+    monkeypatch.setattr("config_data.load_dotenv", lambda: False)
+    for name in (
+        "AITBC_URL",
+        "AITBC_API_KEY",
+        "AITBC_ROLE",
+        "AITBC_BLOCKCHAIN_RPC_URL",
+        "AITBC_WALLET_URL",
+    ):
+        monkeypatch.delenv(name, raising=False)
+
+
 class TestConfig:
     """Test Config dataclass"""
 
@@ -49,6 +63,14 @@ class TestConfig:
         assert config.coordinator_url == "http://localhost:8203"  # Enforced to localhost
         assert config.api_key == "env_key"
         assert config.role == "client"
+
+    @pytest.mark.parametrize("url", ["http://localhost:8203", "http://127.0.0.1:8203"])
+    def test_config_local_env_url_preserved(self, monkeypatch, url):
+        from config_data import Config
+
+        monkeypatch.setenv("AITBC_URL", url)
+
+        assert Config().coordinator_url == url
 
     def test_validate_localhost_urls(self):
         """Test localhost URL validation - non-localhost URLs are forced to localhost"""
