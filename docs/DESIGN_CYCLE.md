@@ -52,6 +52,8 @@ Proven on the two live nodes (see the IDE-local `LIVE_VALIDATION_SUMMARY.md` and
 10. **Agent-stake / bounty economics (V23-42).** Operator-signed `/rpc/agent-staking/*` and `/rpc/bounty/*` routes live on hub. `POST /rpc/agent-staking/stake` debits a staker and creates an `agent_stake` row; `add`, `unbond`, `complete`, `performance`, `distribute`, and `claim-rewards` are wired. Bounty `deploy`/`submit`/`verify`/`dispute`/`expire` move real `Account.balance`. Live-validated 2026-08-24 with a funded test wallet.
 11. **Most beginner CLI groups** (`wallet`, `transactions`, `ai`, `mining`, `reputation`, `agent`, `agent-comm`, `ipfs`, `security`, `analytics`, `governance status`, `exchange-island` orderbook/rates) return live or honest-simulated data.
 
+12. **Paid agent-to-agent delegation.** `aitbc agent-task hire` (buyer) → registry discovery → `agent-msg` TaskRequest/Quote/Accept → buyer-signed escrow lock on-chain via the coordinator → provider executes (whisper/ffmpeg/ollama/ipfs) → TaskResult CID → ESCROW_RELEASE + TaskPaid. Partial billing: buyer locks `max_price`, provider bills its quote, chain refunds the remainder. Timeout path auto-refunds. Live-validated 2026-09-13 (hub1 → node2 whisper; see scenario 54).
+
 This is a **working inner loop**: a funded customer can buy a GPU inference job from a shop and the shop gets paid on-chain.
 
 ---
@@ -102,7 +104,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 |-------|------|-----|-------|
 | Exchange | 8106 | `aitbc exchange-island`, `aitbc exchange` | `simple_exchange` + API key. Paths are `/api/orders`, not `/v1/exchange/*` |
 | Governance | 8105 | `aitbc governance`, `aitbc operations governance` | Dual CLI groups |
-| Agent coordinator | 8107 | `aitbc agent-comm`, `aitbc agent-msg` | Hub-only |
+| Agent coordinator | 8107 | `aitbc agent-comm`, `aitbc agent-msg`, `aitbc agent-task` | Hub-only. Paid A2A delegation live (2026-09-13): typed TaskRequest/Quote/Accept/Result/Paid payloads ride `agent-msg`; `POST /v1/tasks/submit` locks a buyer-signed escrow via `/rpc/escrow/create`, provider executor (`AGENT_EXECUTOR_ENABLED` on the miner) quotes/executes and calls `/v1/tasks/{id}/complete` for the on-chain release; `escrow_expiry_sweeper` refunds unanswered tasks on timeout. `GET /v1/tasks/{id}/escrow` + `/v1/tasks/escrow-config` expose escrow state and the settlement wallet to remote buyers. |
 | Trading | 8104 | `aitbc trade` | Inter-chain offers |
 | Event bridge | 8205 | `aitbc bridge start/stop` | Not the lock/confirm RPC |
 | IPFS surface | local files | `aitbc ipfs` | Filesystem CID store fallback; production runs the **island** Kubo daemon (`aitbc-island-ipfs`, private swarm :4002, API :5002), not the old public `aitbc-ipfs` |
