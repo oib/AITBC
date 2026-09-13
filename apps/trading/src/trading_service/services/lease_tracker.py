@@ -23,6 +23,22 @@ logger = logging.getLogger(__name__)
 LEASE_PREFIX = "lease:offer_subscriber:"
 
 
+def _sanitize_url(url: str) -> str:
+    """Remove credentials from a URL before logging (same convention as aitbc_chain)."""
+    from urllib.parse import urlparse, urlunparse
+
+    try:
+        parsed = urlparse(url)
+        if parsed.username or parsed.password:
+            netloc = f"{parsed.hostname or ''}"
+            if parsed.port:
+                netloc += f":{parsed.port}"
+            return urlunparse((parsed.scheme, netloc, parsed.path, parsed.params, parsed.query, parsed.fragment))
+    except Exception:
+        pass
+    return url
+
+
 class OfferLeaseTracker:
     """Manages offer-subscriber leases in Redis with in-memory fallback."""
 
@@ -53,9 +69,13 @@ class OfferLeaseTracker:
                 self._redis_url, socket_timeout=5, socket_connect_timeout=5, decode_responses=True
             )
             pong = await self._redis.ping()
-            logger.info("OfferLeaseTracker connected to Redis (%s): ping=%s", self._redis_url, pong)
+            logger.info("OfferLeaseTracker connected to Redis (%s): ping=%s", _sanitize_url(self._redis_url), pong)
         except Exception as e:
-            logger.warning("OfferLeaseTracker Redis connection failed (%s), using in-memory fallback: %s", self._redis_url, e)
+            logger.warning(
+                "OfferLeaseTracker Redis connection failed (%s), using in-memory fallback: %s",
+                _sanitize_url(self._redis_url),
+                e,
+            )
             self._redis = None
         self._started = True
 
