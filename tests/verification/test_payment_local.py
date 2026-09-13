@@ -282,4 +282,8 @@ async def main():
 
 
 if __name__ == "__main__":
+    from _write_guard import require_opt_in
+
+    require_opt_in(__file__)
+
     asyncio.run(main())

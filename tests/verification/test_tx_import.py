@@ -65,4 +65,8 @@ def test_transaction_import(local_node, test_id):
 
 
 if __name__ == "__main__":
+    from _write_guard import require_opt_in
+
+    require_opt_in(__file__)
+
     test_transaction_import()
