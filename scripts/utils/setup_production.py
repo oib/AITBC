@@ -23,9 +23,13 @@ from pathlib import Path
 
 from eth_account import Account
 
-# Reuse the blockchain node's keystore encryption; insert the directory first
-# so we don't accidentally import scripts/utils/keystore.py.
-_BLOCKCHAIN_SCRIPTS = Path(__file__).parent.parent / "apps" / "blockchain-node" / "scripts"
+# Reuse the blockchain node's keystore encryption; insert that directory first so
+# we don't accidentally import scripts/utils/keystore.py, which exports a
+# different (Fernet, two-argument) encrypt_private_key. resolve() is required:
+# on a bare __file__, parent.parent is scripts/, and the scripts/apps/... path
+# that produced does not exist -- so the insert was a no-op, the wrong module
+# won, and _write_keystore() below died on the three-argument call.
+_BLOCKCHAIN_SCRIPTS = Path(__file__).resolve().parents[2] / "apps" / "blockchain-node" / "scripts"
 sys.path.insert(0, str(_BLOCKCHAIN_SCRIPTS))
 import keystore as _node_keystore
 
