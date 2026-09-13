@@ -356,6 +356,36 @@ else
 fi
 
 echo
+echo "⚙️  Enabling allowed units for boot..."
+# `ln -sf` alone leaves units in `linked` state — they start manually but are
+# not part of the boot transaction, so a reboot silently drops them. Enable
+# the role-allowed set: timers first (they are the activation units), then
+# services that carry an [Install] section. Services without [Install] are
+# skipped — that is expected for dependency-pulled helpers.
+if [[ "$ROLE_FILTER" == "false" ]]; then
+    # Here ALLOWED_SERVICES is the literal string "all", not a unit basename,
+    # and enabling every linked unit would put services this host may not be
+    # meant to run into the boot transaction. Skip rather than guess.
+    echo "    ℹ️  No role config — nothing enabled; set the role and re-run"
+else
+    for svc_base in $ALLOWED_SERVICES; do
+        for suffix in timer service; do
+            unit="${svc_base}.${suffix}"
+            unit_path="$ACTIVE_SYSTEMD_DIR/$unit"
+            [[ -e "$unit_path" ]] || continue
+            if [[ "$suffix" == "service" ]] && ! grep -q '^\[Install\]' "$unit_path"; then
+                continue
+            fi
+            if systemctl enable "$unit" >/dev/null 2>&1; then
+                echo "    ✅ Enabled: $unit"
+            else
+                echo "    ⚠️  Could not enable: $unit"
+            fi
+        done
+    done
+fi
+
+echo
 echo "📁 Deploying tmpfiles.d configurations..."
 if [[ -d "$REPO_CONFIG_DIR" ]]; then
     for file in "$REPO_CONFIG_DIR"/*.conf; do
