@@ -423,6 +423,42 @@ else
 fi
 
 echo
+echo "🧹 Removing stale boot dependencies..."
+# The sweep near the top only clears $ACTIVE_SYSTEMD_DIR itself. A unit that was
+# once enabled also left a symlink under <target>.wants/, and that entry names the
+# unit rather than the file -- systemd resolves the name against the unit search
+# path. Once the unit is no longer linked (a role change, or a service that predates
+# role filtering) the dependency survives in the target and resolves to nothing, so
+# every boot carries a Wants= on a unit that cannot load.
+#
+# Only entries systemd itself reports as not-found are removed, so a unit shipped
+# elsewhere in the search path stays untouched. This runs after the enable pass
+# above, which legitimately creates .wants/ entries of its own.
+stale_wants=0
+if systemctl --version >/dev/null 2>&1; then
+    for wants_link in "$ACTIVE_SYSTEMD_DIR"/*.wants/aitbc-*; do
+        [[ -L "$wants_link" ]] || continue
+        wants_unit=$(basename "$wants_link")
+        [[ "$(systemctl show -p LoadState --value "$wants_unit" 2>/dev/null)" == "not-found" ]] || continue
+        if rm -f "$wants_link" 2>/dev/null; then
+            echo "    🗑️  Removed unresolvable: $(basename "$(dirname "$wants_link")")/$wants_unit"
+            stale_wants=$((stale_wants + 1))
+        else
+            echo "    ⚠️  Could not remove: $wants_link"
+            ((error_count++))
+        fi
+    done
+    if [[ $stale_wants -gt 0 ]]; then
+        systemctl daemon-reload 2>/dev/null || true
+        echo "    ✅ Cleared $stale_wants stale boot dependencies"
+    else
+        echo "    ✅ None found"
+    fi
+else
+    echo "    ⏭️  systemctl unavailable, skipped"
+fi
+
+echo
 echo "📁 Deploying tmpfiles.d configurations..."
 if [[ -d "$REPO_CONFIG_DIR" ]]; then
     for file in "$REPO_CONFIG_DIR"/*.conf; do
