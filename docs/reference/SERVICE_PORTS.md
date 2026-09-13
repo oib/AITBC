@@ -2,8 +2,8 @@
 
 **Authoritative single source of truth for live AITBC service ports**
 
-**Last Updated**: 2026-09-11
-**Version**: 3.3
+**Last Updated**: 2026-09-13
+**Version**: 3.4
 
 ---
 
@@ -68,7 +68,8 @@ gate that holds it.
 These have systemd units and listen, but were absent from this reference until
 2026-09-11. The `apps/ai-engine` and monitoring units pin `--host 127.0.0.1`
 directly in their `ExecStart`; Hermes Agent now pins `HERMES_BIND_HOST` the same
-way the internal tier does.
+way the internal tier does. The blockchain node metrics exporter (added
+2026-09-13) is the exception: its bind is hardcoded all-interfaces.
 
 | Service | Port | Bind | Unit | Notes |
 |---------|------|------|------|-------|
@@ -78,6 +79,7 @@ way the internal tier does.
 | Multi-Modal Agent | 8020 | `127.0.0.1` | `aitbc-multimodal.service` | `apps/ai-engine` |
 | Modality Optimization | 8021 | `127.0.0.1` | `aitbc-modality-optimization.service` | `apps/ai-engine` |
 | Hermes Agent | 8270 | `127.0.0.1` | `aitbc-hermes-agent.service` | Pinned in unit via `HERMES_BIND_HOST` |
+| Blockchain Node Metrics | 9009 | `0.0.0.0` | `aitbc-blockchain-node.service` | `/metrics` from the chain main process; port via `AITBC_NODE_METRICS_PORT`. Bind is `("", port)` in `observability/exporters.py` -- no env override yet |
 
 ### Island IPFS daemon
 
@@ -117,11 +119,28 @@ ISLAND_IPFS_BOOTSTRAP=/ip4/<peer-public-ip>/tcp/4002/p2p/<peer-id>
 
 Leave both empty for a node whose swarm address is already directly reachable.
 
+## Host platform services
+
+Distro-level listeners observed on the AITBC hosts (fleet audit 2026-09-13).
+None of these are repo-managed units, but with no host firewall their bind
+addresses are their access control, so they belong in this reference too. The
+prometheus stack's scrape config targets `localhost` only -- the all-interface
+binds below are Debian package defaults, not a cross-node requirement.
+
+| Service | Port | Bind | Nodes | Notes |
+|---------|------|------|-------|-------|
+| PostgreSQL | 5432 | `127.0.0.1` / `::1` | all nodes | Local datastore for the `aitbc_*` databases; `listen_addresses = 'localhost'` |
+| Prometheus Server | 9090 | `*` (all) | customer, shop | Debian `prometheus.service` |
+| Prometheus Node Exporter | 9100 | `*` (all) | customer, shop | `prometheus-node-exporter.service` |
+| Prometheus Redis Exporter | 9121 | `*` (all) | customer | `prometheus-redis-exporter.service` |
+| Prometheus Postgres Exporter | 9187 | `*` (all) | customer | `prometheus-postgres-exporter.service` |
+| Kubo IPFS (public swarm) | 4001 | `0.0.0.0` / `[::]`, TCP+UDP | customer, shop | Local unit `/etc/systemd/system/ipfs.service` (`IPFS_PATH=/root/.ipfs`); the public swarm, distinct from the island private swarm on 4002 |
+| Postfix | 25 | `0.0.0.0` / `[::]` | customer, shop, replica | Debian-default MTA (`inet_interfaces = all`); local delivery only. Also present on the non-AITBC infrastructure hosts |
+
 ## Services without a listening port
 
 | Service | Notes |
 |---------|-------|
-| `aitbc-blockchain-node.service` | Runs the chain producer/follower logic; RPC is served by `aitbc-blockchain-rpc.service` on 8202. |
 | `aitbc-miner.service` | Polls the coordinator and pool hub for work; does not accept incoming connections. |
 | `aitbc-load-secrets.service` | One-shot unit that loads keystore secrets before other services start. |
 | `aitbc-backup.service` | One-shot scheduled backup script. |
@@ -163,6 +182,8 @@ The historical port migrations (e.g. wallet `8015` â†’ `8108`, exchange `8001` â
 - Modality Optimization: `apps/ai-engine/aitbc-modality-optimization.service` (`--host 127.0.0.1 --port 8021`)
 - Hermes Agent: `apps/hermes_agent/aitbc-hermes-agent.service` (`HERMES_PORT=8270`); bind from `apps/hermes_agent/main.py` (`HERMES_BIND_HOST` default `0.0.0.0`)
 - Island IPFS: `apps/ipfs/aitbc-island-ipfs.service` (`ISLAND_IPFS_{API,GATEWAY,SWARM}_PORT`)
+- Blockchain Node Metrics: `apps/blockchain-node/src/aitbc_chain/observability/exporters.py` (`AITBC_NODE_METRICS_PORT` default `9009`; bind hardcoded all-interfaces)
+- Host platform services (PostgreSQL, Prometheus stack, Kubo, Postfix) are configured under `/etc/default/`, `/etc/postgresql/` and `/etc/systemd/system/` on the hosts, not in this repo
 
 ## Health check commands
 
@@ -182,6 +203,10 @@ curl -s http://localhost:8102/health  # Marketplace
 curl -s http://localhost:8108/health  # Wallet
 curl -s http://localhost:8210/health  # Pool hub
 curl -s http://localhost:8230/health  # FFmpeg
+
+# Metrics / platform listeners
+curl -s http://localhost:9009/metrics   # Blockchain node metrics
+curl -s http://localhost:9090/-/healthy # Prometheus (where installed)
 ```
 
 ## Maintenance
