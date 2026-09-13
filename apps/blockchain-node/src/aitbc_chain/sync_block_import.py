@@ -707,6 +707,8 @@ class BlockImportMixin(SyncBase):
                     reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
                 )
         session.commit()
+        if transactions:
+            self._evict_included_from_mempool(transactions)
         self._reset_rejection_counter(self._chain_id)
         metrics_registry.increment("sync_blocks_accepted_total")
         sync_blocks_imported.inc()
@@ -724,6 +726,29 @@ class BlockImportMixin(SyncBase):
         return self._make_import_result(
             accepted=True, height=block_data["height"], block_hash=block_data["hash"], reason="Appended to chain"
         )
+
+    def _evict_included_from_mempool(self, transactions: list[dict[str, Any]]) -> None:
+        """Drop just-included transactions from the local mempool.
+
+        Only proposers drain the mempool (poa.py); on followers a confirmed
+        transaction would sit there until size-cap eviction, evicting real
+        pending txs ahead of dead ones. ``tx_hash`` is always populated by the
+        normalization loop above. Best-effort: a mempool failure must never
+        turn into a block-import failure.
+        """
+        try:
+            from .mempool import get_mempool
+
+            mempool = get_mempool()
+            evicted = 0
+            for tx in transactions:
+                tx_hash = tx.get("tx_hash")
+                if tx_hash and mempool.remove(tx_hash, self._chain_id):
+                    evicted += 1
+            if evicted:
+                logger.info("Evicted %s included transaction(s) from mempool", evicted)
+        except Exception as exc:
+            logger.warning("Mempool eviction after block import failed: %s", exc)
 
     def _describe_local_state_divergence(self, session: Session, parent_height: int) -> str | None:
         """Describe how our account state differs from the state root our own head records.
