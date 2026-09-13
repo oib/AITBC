@@ -44,12 +44,18 @@ def sqlite_async_db_path():
 def test_db_url(sqlite_db_path):
     """Override DATABASE_URL for tests."""
     original = os.environ.get("DATABASE_URL")
+    original_marketplace = os.environ.get("MARKETPLACE_DATABASE_URL")
     os.environ["DATABASE_URL"] = sqlite_db_path
     os.environ["MARKETPLACE_DATABASE_URL"] = sqlite_db_path
     yield sqlite_db_path
-    if original:
+    if original is None:
+        os.environ.pop("DATABASE_URL", None)
+    else:
         os.environ["DATABASE_URL"] = original
-        os.environ["MARKETPLACE_DATABASE_URL"] = original
+    if original_marketplace is None:
+        os.environ.pop("MARKETPLACE_DATABASE_URL", None)
+    else:
+        os.environ["MARKETPLACE_DATABASE_URL"] = original_marketplace
 
 
 @pytest.fixture(scope="function")
@@ -65,7 +71,9 @@ def test_redis_url():
     original = os.environ.get("REDIS_URL")
     os.environ["REDIS_URL"] = "redis://localhost:6379/1"
     yield "redis://localhost:6379/1"
-    if original:
+    if original is None:
+        os.environ.pop("REDIS_URL", None)
+    else:
         os.environ["REDIS_URL"] = original
 
 
