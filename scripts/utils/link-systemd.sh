@@ -237,6 +237,8 @@ find "$ACTIVE_SYSTEMD_DIR" -maxdepth 1 -name "aitbc-*.d" -type l -exec rm -rf {}
 echo "🔗 Creating symbolic links..."
 linked_files=0
 error_count=0
+# Unit names that were actually linked, which drives the enable pass below.
+LINKED_UNITS=()
 
 # Find all systemd service files in apps directory
 echo "📁 Scanning apps directory..."
@@ -259,6 +261,7 @@ for file in "$REPO_APPS_DIR"/*/aitbc-*.service "$REPO_APPS_DIR"/*/aitbc-*.timer;
         # Create symbolic link
         if ln -sf "$source" "$target" 2>/dev/null; then
             echo "    ✅ Successfully linked: $filename"
+            LINKED_UNITS+=("$filename")
         else
             echo "    ❌ Failed to link: $filename"
             ((error_count++))
@@ -308,6 +311,7 @@ for file in "$REPO_SCRIPTS_DIR"/*/aitbc-*.service "$REPO_SCRIPTS_DIR"/*/aitbc-*.
         # Create symbolic link
         if ln -sf "$source" "$target" 2>/dev/null; then
             echo "    ✅ Successfully linked: $filename"
+            LINKED_UNITS+=("$filename")
         else
             echo "    ❌ Failed to link: $filename"
             ((error_count++))
@@ -358,30 +362,60 @@ fi
 echo
 echo "⚙️  Enabling allowed units for boot..."
 # `ln -sf` alone leaves units in `linked` state — they start manually but are
-# not part of the boot transaction, so a reboot silently drops them. Enable
-# the role-allowed set: timers first (they are the activation units), then
-# services that carry an [Install] section. Services without [Install] are
-# skipped — that is expected for dependency-pulled helpers.
+# not part of the boot transaction, so a reboot silently drops them.
+#
+# This is driven off the units actually linked above, not off $ALLOWED_SERVICES:
+# is_service_allowed() is deliberately wider than the role list (EXTRA_SERVICES
+# from node.env, plus the aitbc-island-ipfs and aitbc-cache-monitor gates), so
+# keying on the role list left exactly those units linked but never enabled --
+# on a demoted hub that is most of what the node actually runs.
 if [[ "$ROLE_FILTER" == "false" ]]; then
-    # Here ALLOWED_SERVICES is the literal string "all", not a unit basename,
-    # and enabling every linked unit would put services this host may not be
-    # meant to run into the boot transaction. Skip rather than guess.
-    echo "    ℹ️  No role config — nothing enabled; set the role and re-run"
+    # Initial-setup mode links every unit in the repo. Enabling them all would
+    # put services this host may not be meant to run into the boot transaction,
+    # so leave the decision to a declared role.
+    echo "    ℹ️  No role config — nothing enabled; declare a role and re-run"
+elif [[ ${#LINKED_UNITS[@]} -eq 0 ]]; then
+    echo "    ℹ️  Nothing was linked — nothing to enable"
 else
-    for svc_base in $ALLOWED_SERVICES; do
-        for suffix in timer service; do
-            unit="${svc_base}.${suffix}"
-            unit_path="$ACTIVE_SYSTEMD_DIR/$unit"
-            [[ -e "$unit_path" ]] || continue
-            if [[ "$suffix" == "service" ]] && ! grep -q '^\[Install\]' "$unit_path"; then
-                continue
-            fi
-            if systemctl enable "$unit" >/dev/null 2>&1; then
-                echo "    ✅ Enabled: $unit"
-            else
-                echo "    ⚠️  Could not enable: $unit"
-            fi
-        done
+    enable_unit() {
+        if systemctl enable "$1" >/dev/null 2>&1; then
+            echo "    ✅ Enabled: $1"
+        else
+            echo "    ⚠️  Could not enable: $1"
+            ((error_count++))
+        fi
+    }
+
+    # Basenames that got a timer: for those, the timer is the activation unit.
+    timer_bases=" "
+    for unit in "${LINKED_UNITS[@]}"; do
+        if [[ "$unit" == *.timer ]]; then
+            timer_bases="${timer_bases}${unit%.timer} "
+        fi
+    done
+
+    # Timers first — enabling one is what puts the pair in the boot transaction.
+    for unit in "${LINKED_UNITS[@]}"; do
+        if [[ "$unit" == *.timer ]]; then
+            enable_unit "$unit"
+        fi
+    done
+
+    for unit in "${LINKED_UNITS[@]}"; do
+        [[ "$unit" == *.service ]] || continue
+        # A timer-activated oneshot must not also be wanted by multi-user.target:
+        # that adds a run at every boot on top of the schedule.
+        if [[ "$timer_bases" == *" ${unit%.service} "* ]]; then
+            echo "    ⏭️  Timer-activated, not enabled separately: $unit"
+            continue
+        fi
+        # No [Install] means systemctl enable cannot work. Expected for units
+        # something else pulls in as a dependency; report rather than fail.
+        if ! grep -q '^\[Install\]' "$ACTIVE_SYSTEMD_DIR/$unit"; then
+            echo "    ⏭️  No [Install] section, not enabled: $unit"
+            continue
+        fi
+        enable_unit "$unit"
     done
 fi
 
@@ -433,7 +467,7 @@ echo "🔍 To verify links:"
 echo "  ls -la /etc/systemd/system/aitbc-*"
 echo "  readlink /etc/systemd/system/aitbc-blockchain-node.service"
 
-# Exit code reflects both link and tmpfiles deployment errors
+# Exit code reflects link, enable and tmpfiles deployment errors
 if [[ $error_count -gt 0 ]]; then
     echo "⚠️  Script completed with $error_count error(s) and $linked_files file(s) linked"
     exit 1
