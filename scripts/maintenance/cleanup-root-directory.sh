@@ -33,7 +33,11 @@ mv genesis_brother_chain_1773403269.yaml data/ 2>/dev/null || echo "genesis_brot
 mv genesis_enhanced_devnet.yaml data/ 2>/dev/null || echo "genesis_enhanced_devnet.yaml not found"
 mv genesis_enhanced_local.yaml data/ 2>/dev/null || echo "genesis_enhanced_local.yaml not found"
 mv genesis_enhanced_template.yaml data/ 2>/dev/null || echo "genesis_enhanced_template.yaml not found"
-mv genesis_prod.yaml data/ 2>/dev/null || echo "genesis_prod.yaml not found"
+# genesis_prod.yaml is deliberately NOT moved. It is the live production
+# allocation set, and init_production_genesis.py, setup_production.py and
+# reset_chain_0x.py all hardcode /opt/aitbc/genesis_prod.yaml. Relocating it
+# here left those scripts reading a path that no longer existed. It stays out
+# of git via the /genesis_prod.yaml anchor in .gitignore instead.
 mv test_multichain_genesis.yaml data/ 2>/dev/null || echo "test_multichain_genesis.yaml not found"
 mv dummy.yaml data/ 2>/dev/null || echo "dummy.yaml not found"
 
