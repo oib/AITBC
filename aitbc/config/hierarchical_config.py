@@ -19,6 +19,7 @@ except ImportError:
 
 from ..aitbc_logging import get_logger
 from ..constants import CONFIG_DIR, DATA_DIR, ENV_FILE, LOG_DIR
+from ..utils.env import is_production
 
 logger = get_logger(__name__)
 
@@ -326,10 +327,8 @@ if HAS_PYDANTIC_SETTINGS:
             Only validates when a value is provided — the model_validator
             ``validate_production_settings`` handles the 'must be set' case.
             """
-            import os
-
             # In non-production, pass through None/empty without error
-            if os.getenv("APP_ENV", "development") != "production":
+            if not is_production():
                 return v
             # In production, only validate if a value was actually provided
             # (let validate_production_settings handle the missing-secret case)
