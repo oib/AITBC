@@ -103,9 +103,9 @@ The AITBC platform consists of 8 core components working together to provide a c
 
 ### CLI & Tooling
 
-- **AITBC CLI** - top-level command groups are shown by default (`aitbc --help`); hidden and deprecated groups can be listed with `aitbc --show-deprecated`
+- **AITBC CLI** - top-level command groups are shown by default (`aitbc --help`); deprecated groups are hidden from help but still invocable (`aitbc operations`)
   - Canonical groups include: `account`, `ai`, `auth`, `bond`, `bridge`, `config`, `market`, `node`, `transactions`, `wallet`, and others
-  - `aitbc market` is the default GPU/software marketplace command; the legacy `aitbc marketplace` group has been removed
+  - `aitbc market` is the default GPU/software marketplace command; the legacy `aitbc marketplace` group has been removed entirely
   - CI/CD via Gitea Actions, man page, shell completion
 
 ## Component Interactions
