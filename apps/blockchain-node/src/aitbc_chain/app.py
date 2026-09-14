@@ -145,7 +145,7 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
                     "duration_ms": round(duration * 1000, 2),
                 },
             )
-            return JSONResponse(status_code=503, content={"detail": f"Internal server error: {str(exc)}"})
+            return JSONResponse(status_code=503, content={"detail": "Internal server error"})
 
 
 @asynccontextmanager

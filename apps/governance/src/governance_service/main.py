@@ -74,9 +74,14 @@ async def ready() -> dict[str, str]:
         async with get_session() as session:
             await session.execute(text("SELECT 1"))
         return {"status": "ready", "service": "governance-service"}
-    except Exception as e:
-        logger.error("Readiness check failed: %s", e)
-        return JSONResponse(status_code=503, content={"status": "not_ready", "service": "governance-service", "error": str(e)})  # type: ignore[return-value]
+    except Exception:
+        # A failed dependency check carries the DSN -- host, port, user -- and
+        # /ready is unauthenticated, so the reason goes to the log, not the caller.
+        logger.exception("Readiness check failed")
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=503,
+            content={"status": "not_ready", "service": "governance-service", "error": "readiness check failed"},
+        )
 
 
 @app.get("/live")
@@ -220,9 +225,9 @@ async def execute_proposal(
         await svc.update_proposal_status(proposal_id, "executed")
         logger.info("Successfully executed proposal %s", proposal_id)
         return execution_result
-    except Exception as e:
-        logger.error("Error executing proposal %s: %s", proposal_id, e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Error executing proposal %s", proposal_id)
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/governance/params")
@@ -281,9 +286,9 @@ async def submit_transaction(
             status_code=400,
             content={"error": f"Invalid action: {action}. Only 'propose', 'vote', and 'execute' are supported"},
         )
-    except Exception as e:
-        logger.error("Transaction submission error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Transaction submission error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/transactions")
@@ -336,9 +341,9 @@ async def get_transactions(
         if island_id:
             transactions = [t for t in transactions if t.get("island_id") == island_id]
         return transactions
-    except Exception as e:
-        logger.error("Transaction query error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Transaction query error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 class StakeRequest(BaseModel):
@@ -374,9 +379,9 @@ async def stake_tokens(
             "unstakes_at": stake.unstakes_at.isoformat() if stake.unstakes_at else None,
             "voting_power": await svc.calculate_voting_power(staker_address),
         }
-    except Exception as e:
-        logger.error("Staking error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Staking error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/governance/voting-power/{address}")
@@ -385,9 +390,9 @@ async def get_voting_power_v2(address: str, svc: Annotated[GovernanceService, De
     try:
         voting_power = await svc.calculate_voting_power(address)
         return {"address": address, "voting_power": voting_power, "calculated_at": svc.get_current_timestamp()}
-    except Exception as e:
-        logger.error("Voting power calculation error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Voting power calculation error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 class DelegateRequest(BaseModel):
@@ -416,9 +421,9 @@ async def delegate_voting_power(
             "voting_power": amount,
             "created_at": delegation.created_at.isoformat() if delegation.created_at else None,
         }
-    except Exception as e:
-        logger.error("Delegation error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Delegation error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.post("/v1/governance/proposals/{proposal_id}/close")
@@ -440,9 +445,9 @@ async def close_proposal_endpoint(
         }
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
-    except Exception as e:
-        logger.error("Proposal close error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Proposal close error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.post("/v1/governance/proposals/{proposal_id}/execute")
@@ -464,9 +469,9 @@ async def execute_proposal_v2(
         }
     except ValueError as e:
         return JSONResponse(status_code=400, content={"error": str(e)})
-    except Exception as e:
-        logger.error("Proposal execution error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Proposal execution error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 # ============================================================================

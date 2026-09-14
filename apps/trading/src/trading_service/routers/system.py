@@ -35,9 +35,14 @@ async def ready() -> dict[str, str] | JSONResponse:
         async with get_session() as session:
             await session.execute(text("SELECT 1"))
         return {"status": "ready", "service": "trading"}
-    except Exception as e:
-        logger.error("Readiness check failed: %s", e)
-        return JSONResponse(status_code=503, content={"status": "not_ready", "service": "trading", "error": str(e)})
+    except Exception:
+        # A failed dependency check carries the DSN -- host, port, user -- and
+        # /ready is unauthenticated, so the reason goes to the log, not the caller.
+        logger.exception("Readiness check failed")
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "service": "trading", "error": "readiness check failed"},
+        )
 
 
 @router.get("/live")

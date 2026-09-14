@@ -155,9 +155,14 @@ async def ready() -> dict[str, str]:
 
             await session.execute(text("SELECT 1"))
         return {"status": "ready", "service": "gpu-service"}
-    except Exception as e:
-        logger.error("Readiness check failed: %s", e)
-        return JSONResponse(status_code=503, content={"status": "not_ready", "service": "gpu-service", "error": str(e)})  # type: ignore[return-value]
+    except Exception:
+        # A failed dependency check carries the DSN -- host, port, user -- and
+        # /ready is unauthenticated, so the reason goes to the log, not the caller.
+        logger.exception("Readiness check failed")
+        return JSONResponse(  # type: ignore[return-value]
+            status_code=503,
+            content={"status": "not_ready", "service": "gpu-service", "error": "readiness check failed"},
+        )
 
 
 @app.get("/live")
@@ -222,9 +227,9 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
             "total_reviews": gpu.total_reviews,
             "created_at": gpu.created_at.isoformat() if gpu.created_at else None,
         }
-    except Exception as e:
-        logger.error("Error getting GPU %s: %s", gpu_id, e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Error getting GPU %s", gpu_id)
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.delete("/v1/gpu/{gpu_id}")
@@ -246,10 +251,10 @@ async def delete_gpu(
         await session.delete(gpu)
         await session.commit()
         return {"message": f"GPU {gpu_id} deleted successfully"}
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Error deleting GPU %s: %s", gpu_id, e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Error deleting GPU %s", gpu_id)
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.put("/v1/gpu/{gpu_id}")
@@ -282,10 +287,10 @@ async def update_gpu(
             "status": gpu.status,
             "message": f"GPU {gpu_id} updated successfully",
         }
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Error updating GPU %s: %s", gpu_id, e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Error updating GPU %s", gpu_id)
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/marketplace/edge-gpu/profiles")
@@ -517,10 +522,10 @@ async def submit_transaction(
             return JSONResponse(
                 status_code=400, content={"error": f"Invalid action: {action}. Only 'offer' is currently supported"}
             )
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Transaction submission error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Transaction submission error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/transactions")
@@ -559,9 +564,9 @@ async def get_transactions(
         if island_id:
             transactions = [t for t in transactions if t.get("miner_id") == island_id]
         return transactions
-    except Exception as e:
-        logger.error("Transaction query error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Transaction query error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.post("/v1/gpu/register")
@@ -631,10 +636,10 @@ async def register_gpu(
             session.add(new_gpu)
             await session.commit()
         return {"gpu_id": gpu_id, "miner_id": miner_id, "status": "registered"}
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.exception("GPU registration error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("GPU registration error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.post("/v1/miners/register")
@@ -660,9 +665,9 @@ async def register_miner(
                 gpu.status = "online"
             await session.commit()
         return {"status": "ok", "miner_id": miner_id, "session_token": session_token, "gpu_count": len(existing_gpus)}
-    except Exception as e:
-        logger.error("Miner registration error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Miner registration error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.post("/v1/miners/heartbeat")
@@ -678,10 +683,10 @@ async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[Asy
         await session.execute(stmt)
         await session.commit()
         return {"status": "ok"}
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Heartbeat error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Heartbeat error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/miners/{miner_id}/gpus")
@@ -706,9 +711,9 @@ async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends
             }
             for gpu in gpus
         ]
-    except Exception as e:
-        logger.error("Get miner GPUs error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Get miner GPUs error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 # The miner job-dispatch loop is not implemented. These three endpoints read their inputs
@@ -780,10 +785,10 @@ async def deregister_miner(
         await session.execute(stmt)
         await session.commit()
         return {"status": "ok", "miner_id": miner_id, "message": "Miner deregistered"}
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Deregister miner error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Deregister miner error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 if __name__ == "__main__":
