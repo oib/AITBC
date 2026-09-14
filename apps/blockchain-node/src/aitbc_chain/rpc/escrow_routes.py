@@ -678,7 +678,11 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     f"escrow for job {job_id} is already locked on-chain with different parameters (tx {existing_lock_hash})"
                 ),
             ) from None
-        existing_contract = next((c for c in mgr.escrow_contracts.values() if c.job_id == job_id), None)
+        # ``_find_contract_id`` falls back to loading the contract from the DB
+        # row and finally to reconstructing row + contract from the on-chain
+        # lock, so a create whose response was lost after the lock landed still
+        # heals the local state here instead of returning contract_id=None.
+        existing_contract_id = await _find_contract_id(mgr, job_id)
         _logger.info(
             "ESCROW_LOCK already settled for job_id=%s (%s); returning existing escrow",
             job_id,
@@ -687,7 +691,7 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
         return {
             "success": True,
             "duplicate": True,
-            "contract_id": existing_contract.contract_id if existing_contract else None,
+            "contract_id": existing_contract_id,
             "job_id": job_id,
             "buyer": buyer,
             "provider": provider,
@@ -695,6 +699,30 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
             "lock_tx_hash": (existing_row.lock_tx_hash if existing_row and existing_row.lock_tx_hash else existing_lock_hash),
             "message": "escrow already locked",
         }
+
+    # No ESCROW_LOCK for this job_id reached the chain, so any contract or
+    # Escrow row still carrying the id is residue of a create whose lock
+    # submission failed -- or of a restart, since ``load_from_db`` revives every
+    # unsettled row. Drop it so the retry below is not rejected as a duplicate
+    # ("Invalid contract inputs") with no funds locked to show for it.
+    stale_contract_id = next((cid for cid, c in mgr.escrow_contracts.items() if c.job_id == job_id), None)
+    if stale_contract_id is not None:
+        mgr.escrow_contracts.pop(stale_contract_id, None)
+        mgr.active_contracts.discard(stale_contract_id)
+        mgr.disputed_contracts.discard(stale_contract_id)
+        _logger.info(
+            "Dropped stale escrow contract %s for job_id=%s: no ESCROW_LOCK on-chain",
+            stale_contract_id,
+            job_id,
+        )
+    try:
+        with session_scope() as session:
+            stale_row = session.get(Escrow, job_id)
+            if stale_row is not None and stale_row.released_at is None and stale_row.refunded_at is None:
+                session.delete(stale_row)
+                session.commit()
+    except Exception as e:
+        _logger.warning("Failed to drop stale escrow record for job_id=%s: %s", job_id, e)
 
     # E1: parse the energy quote up front so the lock_signature reconstruction
     # below can bind the quote id and digest into the payload. The signature
@@ -862,6 +890,21 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
     # buyer must already have an on-chain account (genesis allocation or previous transfer)
     # before the lock transaction can be admitted.
 
+    # The contract is created only after the submit below, so run its input
+    # validation up front: rejecting a bad address or a job_id that raced in
+    # after the cleanup once the lock is on-chain would leave money moved with
+    # no escrow behind it.
+    if not mgr._validate_contract_inputs(job_id, buyer, provider, amount_dec):
+        raise HTTPException(status_code=400, detail="Invalid contract inputs") from None
+
+    # Broadcast the lock *before* creating any local state. Doing it the other
+    # way left an orphan behind whenever the submit failed: the row sat at
+    # status="created" and the in-memory contract kept the job_id, so a
+    # same-job_id retry died on "Invalid contract inputs" with nothing on-chain.
+    # A submit whose response is lost after the tx landed stays safe -- the next
+    # create sees the settled lock via ``_find_existing_lock`` above.
+    lock_tx_hash = await _submit_lock_tx(tx_to_submit)
+
     success, message, contract_id = await mgr.create_contract(
         job_id=job_id,
         client_address=buyer,
@@ -876,11 +919,13 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
 
     amount_units = int(tx_to_submit.get("amount", 0)) if energy_kwargs else ait_to_units(amount_dec)
 
-    # Persist the Escrow DB record *before* broadcasting the lock transaction.
-    # If the lock is broadcast but the service drops the response, the chain has
-    # the funds but the DB has no record, leaving the escrow unreleasable and
-    # unrefundable. Writing the row first means a row always exists; the
-    # lock_tx_hash is updated after submission.
+    # Fund the in-memory contract now that the lock has been submitted.
+    await mgr.fund_contract(contract_id, lock_tx_hash)
+
+    # Persist the Escrow DB record only once the lock was accepted. If the
+    # process dies between submit and this write the row is missing, but the
+    # next create (or release/refund) rebuilds it from the on-chain lock via
+    # ``_reconstruct_escrow_from_chain`` — the funds are never orphaned.
     try:
         with session_scope() as session:
             for addr in (buyer, provider):
@@ -890,8 +935,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     session.add(Account(chain_id=_CHAIN_ID, address=ait_addr, balance=0, nonce=0))
             existing = session.get(Escrow, job_id)
             if existing:
-                existing.status = "created"
-                existing.lock_tx_hash = None
+                existing.status = "locked"
+                existing.lock_tx_hash = lock_tx_hash
                 existing.buyer = _to_canonical(buyer)
                 existing.provider = _to_canonical(provider)
                 existing.amount = amount_units
@@ -913,8 +958,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                     buyer=_to_canonical(buyer),
                     provider=_to_canonical(provider),
                     amount=amount_units,
-                    status="created",
-                    lock_tx_hash=None,
+                    status="locked",
+                    lock_tx_hash=lock_tx_hash,
                     **(
                         {
                             "protected": True,
@@ -935,24 +980,8 @@ async def create_escrow(body: dict[str, Any]) -> dict[str, Any]:
                 session.add(escrow_record)
             session.commit()
     except Exception as e:
-        _logger.error("Failed to persist escrow to DB before lock: %s", e)
+        _logger.error("Failed to persist escrow to DB after lock: %s", e)
         raise HTTPException(status_code=500, detail="Failed to persist escrow") from e
-
-    lock_tx_hash = await _submit_lock_tx(tx_to_submit)
-
-    # Fund the in-memory contract now that the lock has been submitted.
-    await mgr.fund_contract(contract_id, lock_tx_hash)
-
-    try:
-        with session_scope() as session:
-            record = session.get(Escrow, job_id)
-            if record:
-                record.status = "locked"
-                record.lock_tx_hash = lock_tx_hash
-                session.add(record)
-                session.commit()
-    except Exception as e:
-        _logger.warning("Failed to update Escrow lock_tx_hash for job %s: %s", job_id, e)
 
     _logger.info(
         "Escrow created and locked: contract_id=%s job_id=%s amount=%s tx=%s", contract_id, job_id, amount, lock_tx_hash
