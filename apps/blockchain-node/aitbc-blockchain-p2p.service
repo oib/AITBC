@@ -38,6 +38,11 @@ SystemCallArchitectures=native
 SystemCallFilter=@system-service
 # Security hardening (v0.5.0)
 ProtectSystem=strict
+# strict makes the whole filesystem read-only, /var included, so the rotating log
+# file configure_logging() opens needs an explicit hole. Without it the resolver
+# degrades to journal-only silently and the traceback of every logger.exception()
+# is lost -- which is the fault this was wired up to close.
+ReadWritePaths=/var/log/aitbc
 
 # Security hardening (v0.5.0)
 # WatchdogSec=30 # Disabled - requires application-level sd_notify support

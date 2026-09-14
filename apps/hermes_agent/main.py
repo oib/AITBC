@@ -26,7 +26,7 @@ from pydantic import BaseModel, Field  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 
-configure_logging(level="INFO", service_name="hermes_agent", to_file=True)
+configure_logging(level="INFO", service_name="hermes-agent", to_file=True)
 logger = get_logger(__name__)
 
 _HERMES_PATH: str | None = None

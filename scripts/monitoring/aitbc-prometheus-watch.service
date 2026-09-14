@@ -18,7 +18,9 @@ NoNewPrivileges=true
 PrivateTmp=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/tmp
+# ProtectSystem=strict makes /var read-only too, so the rotating log file needs an
+# explicit hole; without it configure_logging() falls back to journal-only.
+ReadWritePaths=/tmp /var/log/aitbc
 
 [Install]
 WantedBy=multi-user.target
