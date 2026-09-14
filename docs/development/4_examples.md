@@ -109,13 +109,16 @@ aitbc job download <job_id> --output ./results/
 
 ```bash
 # List available offers
-aitbc marketplace list --type image-classification
+aitbc market list --service-type ollama
 
-# Create offer as miner
-aitbc marketplace create-offer offer.yaml
+# Publish an offer as a provider (service type + model + price;
+# GPU details are auto-detected from nvidia-smi when omitted)
+aitbc market offer --service-type ollama --model-or-variant llama3.2:3b \
+  --price 0.001 --unit per_1k_tokens --gpu-device 0
 
-# Accept offer
-aitbc marketplace accept <offer_id> --job-id <job_id>
+# Run a paid job against an offer — there is no separate "accept"
+# step; `market run` takes the offer id and handles escrow itself
+aitbc market run --offer-id-or-plugin-id <offer_id> --prompt "classify this image"
 ```
 
 ## Complete Examples
