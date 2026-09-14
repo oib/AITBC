@@ -202,8 +202,8 @@ is_service_allowed() {
     fi
     if [ "$basename" = "aitbc-island-ipfs" ]; then
         # Island IPFS is island infrastructure, not a blockchain-mode or
-        # market-role service: it runs on the nodes forming the island
-        # (hub.aitbc and hub1.aitbc) whatever their hub/follower axis says.
+        # market-role service: it runs on whichever nodes form the island,
+        # whatever their hub/follower axis says.
         # Gate on the env file the unit itself consumes, mirroring the
         # cache-monitor/redis rule above, so a relink does not delete it.
         [ -f /etc/aitbc/aitbc-island-ipfs.env ]

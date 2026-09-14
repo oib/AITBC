@@ -491,8 +491,8 @@ amount:  100  fee: 10  type: TRANSFER  status: confirmed
 ### Lease Tracker with Client IP
 
 ```
-[INFO] [aitbc_chain.lease_tracker] Registered subscriber aitbc (ip=80.109.18.113) with transport=websocket, expiry=2026-06-22 13:00:57 UTC
-[INFO] [aitbc_chain.lease_tracker] Extended lease for aitbc (ip=80.109.18.113) to 2026-06-22 13:01:03 UTC
+[INFO] [aitbc_chain.lease_tracker] Registered subscriber aitbc (ip=<redacted>) with transport=websocket, expiry=2026-06-22 13:00:57 UTC
+[INFO] [aitbc_chain.lease_tracker] Extended lease for aitbc (ip=<redacted>) to 2026-06-22 13:01:03 UTC
 ```
 
 ### Journal Logging

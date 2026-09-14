@@ -109,7 +109,7 @@ to equal `identity_address`. This prevents a squatter binding *their* key to
 
 **Signing key vs wallet key.** Two options, both EVM-compatible:
 
-1. **Wallet key directly** — operator-run agents (CLI on hub1/node0) already
+1. **Wallet key directly** — operator-run agents (CLI on an operator host) already
    load wallet keystores (`load_wallet_for_payment`). Simplest; a compromised
    agent key = compromised funds.
 2. **Dedicated agent signing key** (recommended for daemons) — a secp256k1 key
@@ -126,7 +126,7 @@ to equal `identity_address`. This prevents a squatter binding *their* key to
 {
   "id": "msg_…",
   "sender_id": "aitbc-miner-1",
-  "receiver_id": "buyer-hub1.aitbc.bubuit.net",
+  "receiver_id": "buyer-agent.example.net",
   "message_type": "task_quote",
   "timestamp": "…",
   "payload": { … },

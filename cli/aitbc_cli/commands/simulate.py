@@ -231,7 +231,7 @@ def network(nodes, network_delay, failure_rate, seed):
     for i in range(nodes):
         node: dict[str, Any] = {
             "id": f"node_{i + 1}",
-            "address": f"10.1.223.{90 + i}",
+            "address": f"192.0.2.{10 + i}",  # RFC 5737 documentation range
             "status": "active",
             "height": 0,
             "connected_to": [],

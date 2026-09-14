@@ -31,7 +31,7 @@ after `timeout_seconds`.
   and `BLOCKCHAIN_RPC_API_KEY` set (env: `/etc/aitbc/aitbc-agent-coordinator.env`
   + `blockchain-secrets.env`). Nginx exposes `/api/v1/agent/messages/` and
   `/v1/` to the coordinator.
-- Provider node (node2): `aitbc-miner` running with `AGENT_EXECUTOR_ENABLED=true`
+- Provider node (`<node2>`): `aitbc-miner` running with `AGENT_EXECUTOR_ENABLED=true`
   (`/etc/aitbc/aitbc-miner.env`), `MINER_ID`/`MINER_WALLET_ADDRESS` set, and the
   local services healthy (whisper :8110, ffmpeg :8230, ollama :11434, island
   IPFS :5002).
@@ -41,7 +41,7 @@ after `timeout_seconds`.
 
 ## Live validation (2026-09-13)
 
-Run hub1 (buyer) → node2 (provider `aitbc-miner-1`), whisper, tone WAV:
+Run `<replica-node>` (buyer) → `<node2>` (provider `aitbc-miner-1`), whisper, tone WAV:
 
 - Payload `QmT2mAeBmYXtkdm5hZapZNhkhQJd4SNusJW6bun9L18ZpJ` on buyer daemon.
 - Escrow `a5888284` locked on-chain, `lock_tx 0xc367b881…` (job
@@ -122,7 +122,7 @@ aitbc agent-task status --task-id <task_id>
   coordinator's bookkeeping entry; `/rpc/escrow/{job_id}` on the chain is
   the settlement record.
 - Buyers on nodes without an island IPFS daemon cannot upload payloads or
-  fetch results (node0 currently lacks the daemon — deploy
+  fetch results (`<node0>` currently lacks the daemon — deploy
   `aitbc-island-ipfs` there before it can be a buyer).
 - The coordinator's `PaymentEscrow` store is in-memory: a coordinator
   restart loses bookkeeping entries. On-chain escrow records are unaffected;

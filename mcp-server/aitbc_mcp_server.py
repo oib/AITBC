@@ -149,11 +149,11 @@ def _ssh_user() -> str:
 # network info and do not change host resolution.
 _ROLE_SITES = {
     "hub": "hub/proposer node",
-    "customer": "customer node (node0)",
-    "customer2": "customer replica (hub1)",
+    "customer": "customer node",
+    "customer2": "customer replica",
     "shop": "shop/follower node",
     "follower": "shop/follower node",
-    "follower2": "follower/customer replica (hub1)",
+    "follower2": "follower/customer replica",
 }
 
 # Base SSH options: no interactive prompts, time out quickly. Host-key checking is
