@@ -35,11 +35,28 @@ MINER_KEY = "miner-" + "m" * 32
 
 @pytest.fixture
 def keys(monkeypatch):
-    """Both keys configured, as a hub running this actually would be."""
+    """Both keys configured, as a hub running this actually would be.
+
+    `require_miner_api_key` also consults `coordinator_api.config.settings`, and that
+    object is built at import from the whole ambient environment — not just the four
+    names below. Deployed nodes carry `NODE_ENV=production` in `/etc/aitbc/*.env`;
+    under it the import-time build refuses an unconfigured env (empty client/admin
+    key lists, localhost origins, a localhost RPC URL) before the values set here are
+    ever read, and the ValidationError reaches the test. The ambient inputs that
+    decide which validation branch the build lands in are therefore pinned too.
+    """
     monkeypatch.setenv("FOLLOWER_API_KEY", FOLLOWER_KEY)
     monkeypatch.setenv("COORDINATOR_API_KEY", HUB_KEY)
     monkeypatch.setenv("MINER_API_KEYS", MINER_KEY)
     monkeypatch.delenv("SECRET_KEY", raising=False)
+
+    # is_production() reads ENVIRONMENT before APP_ENV/NODE_ENV, so this masks a
+    # production-flagged host environment for the import-time Settings() build.
+    monkeypatch.setenv("ENVIRONMENT", "test")
+    # Validated in every environment, not just production: an ambient value that is
+    # malformed, too short, or equal to a hub credential breaks the same build.
+    for name in ("CLIENT_API_KEYS", "ADMIN_API_KEYS", "ALLOW_ORIGINS"):
+        monkeypatch.delenv(name, raising=False)
 
 
 # --- What the published key may do -------------------------------------------------------
