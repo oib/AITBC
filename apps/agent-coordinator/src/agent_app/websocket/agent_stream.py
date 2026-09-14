@@ -4,15 +4,20 @@ Provides real-time message delivery and presence tracking
 Includes automatic handler triggering for PING, REQUEST_COINS, etc.
 """
 
+from __future__ import annotations
+
 import json
 import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS, ait_to_units
 from collections.abc import Callable
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import TYPE_CHECKING, Any, cast
 
 from fastapi import WebSocket, WebSocketDisconnect
+
+if TYPE_CHECKING:
+    from ..services.agent_auth import AgentPrincipal
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto import TransactionService
@@ -49,8 +54,11 @@ class ConnectionManager:
         self.message_handlers: dict[str, list[Callable[[dict[str, Any], ConnectionManager, WebSocket], Any]]] = {}
         self.agent_inboxes: dict[str, list[dict[str, Any]]] = {}
         self.message_storage: Any | None = None
+        # v2.0 B1: the principal each connection authenticated as (auth_type only —
+        # the credential itself is never stored).
+        self.connection_auth: dict[str, str] = {}
 
-    async def connect(self, websocket: WebSocket, agent_id: str) -> None:
+    async def connect(self, websocket: WebSocket, agent_id: str, principal: AgentPrincipal | None = None) -> None:
         """Accept a WebSocket connection from an agent."""
         if agent_id in self.active_connections:
             # Close any stale connection with the same agent_id before replacing it,
@@ -64,7 +72,17 @@ class ConnectionManager:
         self.active_connections[agent_id] = websocket
         self.agent_topics[agent_id] = set()
         self.agent_inboxes[agent_id] = []
-        logger.info("Agent %s connected via WebSocket", agent_id)
+        if principal is not None:
+            self.connection_auth[agent_id] = principal.auth_type
+            logger.info(
+                "Agent %s connected via WebSocket (principal=%s auth_type=%s)",
+                agent_id,
+                principal.agent_id,
+                principal.auth_type,
+            )
+        else:
+            self.connection_auth.pop(agent_id, None)
+            logger.info("Agent %s connected via WebSocket", agent_id)
         await websocket.send_json(
             {
                 "type": "connection_established",
@@ -104,6 +122,7 @@ class ConnectionManager:
                     self.topic_subscriptions[topic].discard(agent_id)
             del self.agent_topics[agent_id]
         self.agent_inboxes.pop(agent_id, None)
+        self.connection_auth.pop(agent_id, None)
         logger.info("Agent %s disconnected from WebSocket", agent_id)
 
     async def send_personal_message(self, message: dict[str, Any], agent_id: str) -> bool:
@@ -157,7 +176,7 @@ class ConnectionManager:
         return self.topic_subscriptions.get(topic, set())
 
     def register_handler(
-        self, message_type: str, handler: Callable[[dict[str, Any], "ConnectionManager", WebSocket], Any]
+        self, message_type: str, handler: Callable[[dict[str, Any], ConnectionManager, WebSocket], Any]
     ) -> None:
         """Register a message handler for specific message type"""
         if message_type not in self.message_handlers:
@@ -202,9 +221,11 @@ class AgentStreamHandler:
     def __init__(self, connection_manager: ConnectionManager) -> None:
         self.connection_manager = connection_manager
 
-    async def handle_message_stream(self, websocket: WebSocket, agent_id: str) -> None:
+    async def handle_message_stream(
+        self, websocket: WebSocket, agent_id: str, principal: AgentPrincipal | None = None
+    ) -> None:
         """Handle WebSocket message stream for an agent"""
-        await self.connection_manager.connect(websocket, agent_id)
+        await self.connection_manager.connect(websocket, agent_id, principal)
         await self.connection_manager.deliver_queued_messages(agent_id)
         try:
             while True:
@@ -271,9 +292,11 @@ class AgentStreamHandler:
             logger.error("Error in message stream for %s: %s", agent_id, e)
             await self.connection_manager.disconnect(agent_id)
 
-    async def handle_presence_stream(self, websocket: WebSocket, agent_id: str) -> None:
+    async def handle_presence_stream(
+        self, websocket: WebSocket, agent_id: str, principal: AgentPrincipal | None = None
+    ) -> None:
         """Handle WebSocket presence stream for an agent"""
-        await self.connection_manager.connect(websocket, agent_id)
+        await self.connection_manager.connect(websocket, agent_id, principal)
         try:
             await websocket.send_json(
                 {
