@@ -7,7 +7,9 @@
 # Run this after any env change and before relying on per-node gates.
 #
 # Usage: fleet-config-check.sh [host ...]
-# Default hosts come from AITBC_FLEET_HOSTS or the standard fleet.
+# Hosts come from the arguments, else from AITBC_FLEET_HOSTS. There is no
+# built-in roster: a hardcoded one named the operator's hosts in a public
+# repository and was wrong for every other site.
 #
 # Mirrors systemd EnvironmentFile ordering: later files win, so the effective
 # value is the last match across blockchain.env then node.env.
@@ -35,19 +37,21 @@ NODE2_HOST="${AITBC_NODE2_HOST:-}"
 if [ "$#" -gt 0 ]; then
     HOSTS="$*"
 else
-    HOSTS="${AITBC_FLEET_HOSTS:-node0 node1 node2 hub hub1}"
+    HOSTS="${AITBC_FLEET_HOSTS:?set AITBC_FLEET_HOSTS to the hosts to check, or pass them as arguments}"
 fi
 
-# Host names are site-dependent: the IDE reaches hub/hub1 via ssh-config
-# aliases (hub.aitbc), fleet nodes via FQDNs, and neither scheme resolves
+# Host names are site-dependent: a canonical host may answer to a bare name,
+# to an ssh-config alias, or only to an FQDN, and no single scheme resolves
 # everywhere. Auto-probe candidate addresses per canonical host so the check
-# runs identically on the IDE and on any fleet node.
+# runs identically from a workstation and from any fleet node. Set the
+# *_ALIAS/*_HOST variables for whatever your site needs; unset ones cost
+# nothing, they are simply skipped as candidates.
 declare -A HOST_CANDIDATES=(
     [node0]="node0 ${NODE0_HOST}"
     [node1]="node1 ${NODE1_HOST}"
     [node2]="node2 ${NODE2_HOST}"
-    [hub]="hub.aitbc hub.${AITBC_FLEET_DOMAIN} ${HUB_HOST}"
-    [hub1]="hub1.aitbc hub1.${AITBC_FLEET_DOMAIN} ${HUB1_HOST}"
+    [hub]="${AITBC_HUB_ALIAS:-} hub.${AITBC_FLEET_DOMAIN} ${HUB_HOST}"
+    [hub1]="${AITBC_HUB1_ALIAS:-} hub1.${AITBC_FLEET_DOMAIN} ${HUB1_HOST}"
 )
 
 declare -A RESOLVED=()
@@ -207,8 +211,8 @@ declare -A RPC_ENDPOINTS=(
     [node2]="http://${NODE2_HOST:-node2}:8202/rpc/status"
     [hub]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
     [hub1]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
-    [hub.aitbc]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
-    [hub1.aitbc]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [${AITBC_HUB_ALIAS:-_unset_hub_alias}]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [${AITBC_HUB1_ALIAS:-_unset_hub1_alias}]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
 )
 conv_bad=0
 sample_heads() {

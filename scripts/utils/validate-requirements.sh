@@ -160,9 +160,9 @@ check_network() {
         WARNINGS+=("Ports ${OCCUPIED_PORTS[*]} are already in use (may be running services)")
     fi
 
-    # Note: AITBC containers use incus networking with firehol on at1 host
-    # This validation is for development environment only
-    echo -e "${BLUE}ℹ️  Note: Production containers use incus networking with firehol on at1 host${NC}"
+    # Note: production nodes run as containers and the container host owns
+    # the network path, so these port checks describe a development box only.
+    echo -e "${BLUE}ℹ️  Note: production nodes are containers; the container host owns the network path${NC}"
 
     echo -e "${GREEN}✅ Network requirements check passed${NC}"
 }
