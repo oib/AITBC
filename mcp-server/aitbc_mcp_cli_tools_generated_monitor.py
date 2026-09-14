@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -39,15 +40,11 @@ def aitbc_monitor_alerts(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Configure or query monitoring alerts by name, type, and threshold.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if alert_type is not None:
-        options["type"] = alert_type
-    if threshold is not None:
-        options["threshold"] = threshold
-    if webhook is not None:
-        options["webhook"] = webhook
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "alert_type": "type", "threshold": "threshold", "webhook": "webhook"},
+    )
     args = [action] if action is not None else []
     command = _build_aitbc_cli_command(
         "monitor",
@@ -131,9 +128,11 @@ def aitbc_monitor_campaigns(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List active or completed monitoring campaigns.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -154,9 +153,11 @@ def aitbc_monitor_history(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show historical monitoring data for a period.."""
-    options: dict[str, Any] = {}
-    if period is not None:
-        options["period"] = period
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"period": "period"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -179,9 +180,11 @@ def aitbc_monitor_sweepers(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the coordinator's background sweepers: which are enabled, and which are actually running.."""
-    options: dict[str, Any] = {}
-    if show_config:
-        options["config"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"show_config": "config"},
+        values={},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "monitor",
@@ -227,13 +230,11 @@ def aitbc_monitor_webhooks(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register, list, or remove monitoring webhooks.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if url is not None:
-        options["url"] = url
-    if events is not None:
-        options["events"] = events
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "url": "url", "events": "events"},
+    )
     args = [action] if action is not None else []
     command = _build_aitbc_cli_command(
         "monitor",

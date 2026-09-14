@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -53,9 +54,11 @@ def aitbc_config_check_keys(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check which environment API keys are configured and required.."""
-    options: dict[str, Any] = {}
-    if strict:
-        options["strict"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"strict": "strict"},
+        values={},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -98,9 +101,11 @@ def aitbc_config_edit(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Open the configuration file in the default editor.."""
-    options: dict[str, Any] = {}
-    if global_config:
-        options["global"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"global_config": "global"},
+        values={},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -185,9 +190,11 @@ def aitbc_config_export(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Export the configuration as YAML or JSON, with API keys redacted.."""
-    options: dict[str, Any] = {}
-    if global_config:
-        options["global"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"global_config": "global"},
+        values={},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -250,9 +257,11 @@ def aitbc_config_get_secret(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get a decoded secret value from the local secrets file.."""
-    options: dict[str, Any] = {}
-    if key is not None:
-        options["key"] = key
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"key": "key"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -297,13 +306,11 @@ def aitbc_config_import_config(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Import a configuration file into the local or global config.."""
-    options: dict[str, Any] = {}
-    if file_path is not None:
-        options["file-path"] = file_path
-    if merge:
-        options["merge"] = None
-    if global_config:
-        options["global"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"merge": "merge", "global_config": "global"},
+        values={"file_path": "file-path"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -344,9 +351,11 @@ def aitbc_config_path(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the path to the local or global configuration file.."""
-    options: dict[str, Any] = {}
-    if global_config:
-        options["global"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"global_config": "global"},
+        values={},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -369,9 +378,11 @@ def aitbc_config_profiles_delete(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Delete a saved configuration profile from the profiles directory.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -434,9 +445,11 @@ def aitbc_config_profiles_load(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Load a saved configuration profile into the current directory.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -479,9 +492,11 @@ def aitbc_config_profiles_save(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Save the current configuration as a named profile.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -526,13 +541,11 @@ def aitbc_config_set(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Set a configuration value in the local or global config file.."""
-    options: dict[str, Any] = {}
-    if key is not None:
-        options["key"] = key
-    if value is not None:
-        options["value"] = value
-    if global_config:
-        options["global"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"global_config": "global"},
+        values={"key": "key", "value": "value"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -576,11 +589,11 @@ def aitbc_config_set_secret(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Set an encoded secret value in the local secrets file.."""
-    options: dict[str, Any] = {}
-    if key is not None:
-        options["key"] = key
-    if value is not None:
-        options["value"] = value
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"key": "key", "value": "value"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",
@@ -644,11 +657,11 @@ def aitbc_config_unset(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Remove a configuration key from the local or global config file.."""
-    options: dict[str, Any] = {}
-    if key is not None:
-        options["key"] = key
-    if global_config:
-        options["global"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"global_config": "global"},
+        values={"key": "key"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "config",

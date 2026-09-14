@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -35,15 +36,11 @@ def aitbc_sync_bulk(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Bulk import blocks from a leader node to catch up quickly.."""
-    options: dict[str, Any] = {}
-    if source is not None:
-        options["source"] = source
-    if import_url is not None:
-        options["import-url"] = import_url
-    if batch_size is not None:
-        options["batch-size"] = batch_size
-    if poll_interval is not None:
-        options["poll-interval"] = poll_interval
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"source": "source", "import_url": "import-url", "batch_size": "batch-size", "poll_interval": "poll-interval"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "sync",
@@ -90,17 +87,11 @@ def aitbc_sync_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show synchronization status, block height, peer count, and hub divergence.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if hub_url is not None:
-        options["hub-url"] = hub_url
-    if gap_threshold is not None:
-        options["gap-threshold"] = gap_threshold
-    if alert:
-        options["alert"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"alert": "alert"},
+        values={"node_url": "node-url", "chain_id": "chain-id", "hub_url": "hub-url", "gap_threshold": "gap-threshold"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "sync",

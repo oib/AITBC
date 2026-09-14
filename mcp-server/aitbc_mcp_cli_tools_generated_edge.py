@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -53,9 +54,11 @@ def aitbc_edge_database_delete_db(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Delete an edge database by its ID.."""
-    options: dict[str, Any] = {}
-    if database_id is not None:
-        options["database-id"] = database_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"database_id": "database-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -98,9 +101,11 @@ def aitbc_edge_database_get_db(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get details of a specific edge database.."""
-    options: dict[str, Any] = {}
-    if database_id is not None:
-        options["database-id"] = database_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"database_id": "database-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -145,13 +150,11 @@ def aitbc_edge_database_init_db(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Initialize a new edge database on an island.."""
-    options: dict[str, Any] = {}
-    if database_id is not None:
-        options["database-id"] = database_id
-    if island_id is not None:
-        options["island-id"] = island_id
-    if capacity_gb is not None:
-        options["capacity-gb"] = capacity_gb
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"database_id": "database-id", "island_id": "island-id", "capacity_gb": "capacity-gb"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -194,9 +197,11 @@ def aitbc_edge_database_list_dbs(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List edge databases, optionally filtered by island.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"island_id": "island-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -239,9 +244,11 @@ def aitbc_edge_database_sync_db(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sync an edge database by its ID.."""
-    options: dict[str, Any] = {}
-    if database_id is not None:
-        options["database-id"] = database_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"database_id": "database-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -284,9 +291,11 @@ def aitbc_edge_gpu_get_gpu(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get details of a specific edge GPU.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -330,11 +339,11 @@ def aitbc_edge_gpu_gpu_metrics(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get metrics for a specific edge GPU.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -379,13 +388,11 @@ def aitbc_edge_gpu_list_gpus(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List available edge GPUs with optional architecture and memory filters.."""
-    options: dict[str, Any] = {}
-    if architecture is not None:
-        options["architecture"] = architecture
-    if edge_optimized:
-        options["edge-optimized"] = None
-    if min_memory_gb is not None:
-        options["min-memory-gb"] = min_memory_gb
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"edge_optimized": "edge-optimized"},
+        values={"architecture": "architecture", "min_memory_gb": "min-memory-gb"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -428,9 +435,11 @@ def aitbc_edge_gpu_remove_gpu(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Remove a GPU from the listing.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -473,9 +482,11 @@ def aitbc_edge_gpu_scan_gpus(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Scan GPUs for a miner by miner ID.."""
-    options: dict[str, Any] = {}
-    if miner_id is not None:
-        options["miner-id"] = miner_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"miner_id": "miner-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -518,9 +529,11 @@ def aitbc_edge_island_bridge(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request a bridge to another island.."""
-    options: dict[str, Any] = {}
-    if target_island_id is not None:
-        options["target-island-id"] = target_island_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"target_island_id": "target-island-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -561,9 +574,11 @@ def aitbc_edge_island_get(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get details of a specific edge island.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"island_id": "island-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -590,17 +605,11 @@ def aitbc_edge_island_join(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Join an island with the given ID, name, chain, and role.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
-    if island_name is not None:
-        options["island-name"] = island_name
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if role_opt is not None:
-        options["role"] = role_opt
-    if is_hub:
-        options["is-hub"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"is_hub": "is-hub"},
+        values={"island_id": "island-id", "island_name": "island-name", "chain_id": "chain-id", "role_opt": "role"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -643,9 +652,11 @@ def aitbc_edge_island_leave(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Leave an island by its ID.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"island_id": "island-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -708,9 +719,11 @@ def aitbc_edge_metrics_delete_metric(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Delete an edge metric by its ID.."""
-    options: dict[str, Any] = {}
-    if metric_id is not None:
-        options["metric-id"] = metric_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"metric_id": "metric-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -753,9 +766,11 @@ def aitbc_edge_metrics_get_metric(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get details of a specific edge metric.."""
-    options: dict[str, Any] = {}
-    if metric_id is not None:
-        options["metric-id"] = metric_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"metric_id": "metric-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -799,11 +814,11 @@ def aitbc_edge_metrics_list_metrics(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List edge metrics, optionally filtered by GPU.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -847,11 +862,11 @@ def aitbc_edge_metrics_record(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Record metrics for a GPU as a JSON object.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if metrics is not None:
-        options["metrics"] = metrics
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id", "metrics": "metrics"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -894,9 +909,11 @@ def aitbc_edge_serve_cancel_request(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cancel a compute request by its ID.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -939,9 +956,11 @@ def aitbc_edge_serve_get_request(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get details of a specific compute request.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -984,9 +1003,11 @@ def aitbc_edge_serve_get_result(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the result of a compute request by its ID.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -1030,11 +1051,11 @@ def aitbc_edge_serve_list_requests(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List compute requests, optionally filtered by GPU and status.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id", "status": "status"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -1082,19 +1103,18 @@ def aitbc_edge_serve_submit_request(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Submit a compute request to a GPU with model name and input data.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if model_name is not None:
-        options["model-name"] = model_name
-    if input_data is not None:
-        options["input-data"] = input_data
-    if priority is not None:
-        options["priority"] = priority
-    if job_id is not None:
-        options["job-id"] = job_id
-    if escrow_id is not None:
-        options["escrow-id"] = escrow_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "gpu_id": "gpu-id",
+            "model_name": "model-name",
+            "input_data": "input-data",
+            "priority": "priority",
+            "job_id": "job-id",
+            "escrow_id": "escrow-id",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",
@@ -1159,13 +1179,11 @@ def aitbc_edge_transfer(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Transfer edge tokens to another address with an optional note via the local edge API.."""
-    options: dict[str, Any] = {}
-    if to_address is not None:
-        options["to-address"] = to_address
-    if amount is not None:
-        options["amount"] = amount
-    if note is not None:
-        options["note"] = note
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"to_address": "to-address", "amount": "amount", "note": "note"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "edge",

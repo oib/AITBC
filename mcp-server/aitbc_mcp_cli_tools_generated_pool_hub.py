@@ -14,6 +14,7 @@ from pydantic import Field
 from aitbc_mcp_server import (
     NodeRole,
     _aitbc_cli_read_tool,
+    _collect_options,
     mcp,
 )
 
@@ -33,19 +34,11 @@ def aitbc_pool_hub_sla(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Monitor pool hub SLA status across miners.."""
-    options: dict[str, Any] = {}
-    if miner_id is not None:
-        options["miner"] = miner_id
-    if hours is not None:
-        options["hours"] = hours
-    if violations:
-        options["violations"] = None
-    if resolved:
-        options["resolved"] = None
-    if pool_id is not None:
-        options["pool-id"] = pool_id
-    if pool_hub_url is not None:
-        options["pool-hub-url"] = pool_hub_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"violations": "violations", "resolved": "resolved"},
+        values={"miner_id": "miner", "hours": "hours", "pool_id": "pool-id", "pool_hub_url": "pool-hub-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -66,9 +59,11 @@ def aitbc_pool_hub_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the pool hub health and status.."""
-    options: dict[str, Any] = {}
-    if pool_hub_url is not None:
-        options["pool-hub-url"] = pool_hub_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"pool_hub_url": "pool-hub-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

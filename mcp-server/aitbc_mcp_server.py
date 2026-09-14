@@ -580,6 +580,29 @@ def _safe_option_key(key: str) -> bool:
     return bool(re.match(r"^[A-Za-z0-9_-]+$", key))
 
 
+def _collect_options(
+    scope: dict[str, Any],
+    flags: dict[str, str],
+    values: dict[str, str],
+) -> dict[str, Any]:
+    """Collect CLI options from a generated tool's local scope.
+
+    ``scope`` is the caller's ``locals()`` mapping parameter names to values.
+    ``flags`` maps boolean-flag parameter names to CLI option names: a truthy
+    value emits the bare ``--flag`` (recorded as ``None``). ``values`` maps
+    value-option parameter names to CLI option names: any non-``None`` value is
+    recorded for ``--flag=value``.
+    """
+    options: dict[str, Any] = {}
+    for name, flag in flags.items():
+        if scope.get(name):
+            options[flag] = None
+    for name, flag in values.items():
+        if scope.get(name) is not None:
+            options[flag] = scope[name]
+    return options
+
+
 def _build_aitbc_cli_command(
     group: str,
     subcommand: str | list[str] | None = None,

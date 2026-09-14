@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_network_force_sync(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Force the local node to synchronize with the network.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -79,11 +82,11 @@ def aitbc_network_gossip(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show gossip websocket health: which validators have authenticated, and traffic.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if topics:
-        options["topics"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"topics": "topics"},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -128,13 +131,11 @@ def aitbc_network_heartbeat(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send a heartbeat to extend a subscription lease.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
-    if duration is not None:
-        options["duration"] = duration
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_id": "node-id", "duration": "duration", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -178,11 +179,11 @@ def aitbc_network_lease_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check the current lease status for a subscriber.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_id": "node-id", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -223,9 +224,11 @@ def aitbc_network_peers(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List connected peers and basic peer information.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -250,13 +253,11 @@ def aitbc_network_set_sync_source(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Edit node.env and restart the blockchain node with a new sync source.."""
-    options: dict[str, Any] = {}
-    if sync_url is not None:
-        options["url"] = sync_url
-    if env_file is not None:
-        options["env-file"] = env_file
-    if restart:
-        options["restart"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"restart": "restart"},
+        values={"sync_url": "url", "env_file": "env-file"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -297,9 +298,11 @@ def aitbc_network_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the current network and peer connectivity status.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -333,17 +336,17 @@ def aitbc_network_subscribe(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register this node as a follower for block subscription.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
-    if transport is not None:
-        options["transport"] = transport
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if duration is not None:
-        options["duration"] = duration
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "node_id": "node-id",
+            "transport": "transport",
+            "chain_id": "chain-id",
+            "duration": "duration",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -387,11 +390,11 @@ def aitbc_network_subscribers(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List all active subscribers, optionally filtered by chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",
@@ -435,11 +438,11 @@ def aitbc_network_test(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Test connectivity to a specific peer address.."""
-    options: dict[str, Any] = {}
-    if peer is not None:
-        options["peer"] = peer
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"peer": "peer", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "network",

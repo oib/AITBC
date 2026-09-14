@@ -181,6 +181,207 @@ def _resolve_payload_ref(ctx, payload: str) -> str | None:
     return cid
 
 
+def _parse_max_price(max_price: str) -> Decimal:
+    """Parse --max-price as a positive AIT amount or abort."""
+    try:
+        max_price_ait = Decimal(str(max_price))
+    except Exception:
+        error(f"Invalid --max-price: {max_price}")
+        raise click.Abort() from None
+    if max_price_ait <= 0:
+        error("--max-price must be positive")
+        raise click.Abort()
+    return max_price_ait
+
+
+def _settlement_wallet(client: AITBCHTTPClient, config, ctx, rpc_url: str) -> str | None:
+    """Resolve the escrow settlement wallet, or None when none is configured.
+
+    The coordinator settles through its configured blockchain RPC's node
+    wallet. Ask the coordinator first (correct on any node); fall back to the
+    market convention — HUB_PROPOSER_ID, then the local RPC's node wallet
+    (right only when buyer == hub).
+    """
+    settlement_wallet = None
+    try:
+        esc_conf = client.get("/v1/tasks/escrow-config")
+        if isinstance(esc_conf, dict) and esc_conf.get("settlement_wallet"):
+            settlement_wallet = str(esc_conf["settlement_wallet"])
+    except Exception:
+        pass
+    if not settlement_wallet:
+        settlement_wallet = getattr(config, "hub_proposer_id", None) or None
+    if not settlement_wallet:
+        from ..utils.escrow import get_node_wallet
+
+        try:
+            settlement_wallet = get_node_wallet(ctx, rpc_url)
+        except Exception:
+            settlement_wallet = None
+    return settlement_wallet
+
+
+def _buyer_signing(
+    ctx,
+    client: AITBCHTTPClient,
+    buyer_agent: str,
+    wallet_name: str | None,
+    password: str | None,
+    sign: bool,
+) -> tuple[str, str, tuple[str, str] | None, str | None]:
+    """Load the buyer wallet and derive the signing material for this hire.
+
+    Returns (buyer_address, private_key, signing, signing_key). The same wallet
+    signs every negotiation envelope (doc §4) and the X-Agent-* inbox-poll
+    headers. ``--no-sign`` keeps the unsigned behaviour for coordinators still
+    running with AGENT_MSG_SIGNATURE_MODE=disabled.
+    """
+    buyer_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet_name, password=password)
+    if not private_key:
+        error("Escrow lock requires a buyer wallet with a private key")
+        raise click.Abort()
+
+    signing = (buyer_address, private_key) if sign else None
+    signing_key = private_key if sign else None
+    if signing is not None:
+        # Soft check only: the coordinator still accepts while advisory, and a
+        # registry lookup failure must not block the escrowed hire.
+        binding_note = check_registry_binding(client, buyer_agent, buyer_address)
+        if binding_note:
+            warning(f"{binding_note} — signed envelopes may be rejected once the coordinator enforces")
+    return buyer_address, private_key, signing, signing_key
+
+
+def _submit_task(
+    ctx,
+    client: AITBCHTTPClient,
+    rpc_url: str,
+    task_id: str,
+    service_type: str,
+    model: str | None,
+    payload_ref: str,
+    to_agent: str,
+    buyer_agent: str,
+    buyer_address: str,
+    provider_wallet: str,
+    max_price_ait: Decimal,
+    private_key: str,
+    settlement_wallet: str,
+    timeout_seconds: float,
+) -> str:
+    """Build the signed escrow lock and POST /v1/tasks/submit; return the escrow id."""
+    from ..utils.escrow import create_signed_escrow_lock
+
+    try:
+        lock_tx, lock_signature = create_signed_escrow_lock(
+            ctx,
+            rpc_url,
+            task_id,
+            buyer_address,
+            provider_wallet,
+            max_price_ait,
+            private_key,
+            node_wallet=settlement_wallet,
+        )
+    except Exception as e:
+        error(f"Failed to build escrow lock transaction: {e}")
+        raise click.Abort() from e
+
+    amount_units = ait_to_units(max_price_ait)
+    try:
+        submission = client.post(
+            "/v1/tasks/submit",
+            json={
+                "task_data": {
+                    "task_id": task_id,
+                    "service_type": service_type,
+                    "model": model,
+                    "payload_ref": payload_ref,
+                    "to_agent": to_agent,
+                    "buyer_agent": buyer_agent,
+                },
+                "priority": "normal",
+                "payment": {
+                    "requester": buyer_address,
+                    "agent": provider_wallet,
+                    "amount": amount_units,
+                    "timeout_seconds": timeout_seconds,
+                    # Same shape market escrow uses: signature embedded in the tx.
+                    "lock_tx": {**lock_tx, "signature": lock_signature},
+                    "lock_signature": lock_signature,
+                },
+            },
+        )
+    except Exception as e:
+        error(f"Task submission failed: {e}")
+        raise click.Abort() from e
+    escrow_id = submission.get("escrow_id") if isinstance(submission, dict) else None
+    if not escrow_id:
+        error(f"Task submitted but no escrow was created — is TASK_PAYMENT_ESCROW_ENABLED on the coordinator? {submission}")
+        raise click.Abort()
+    return cast(str, escrow_id)
+
+
+def _wait_for_task_result(
+    ctx,
+    client: AITBCHTTPClient,
+    buyer_agent: str,
+    to_agent: str,
+    task_id: str,
+    escrow_id: str,
+    max_price_ait: Decimal,
+    signing: tuple[str, str] | None,
+    signing_key: str | None,
+    wait_seconds: float,
+) -> None:
+    """Poll the buyer inbox: auto-accept an affordable quote, then report the result."""
+    deadline = time.time() + wait_seconds
+    accepted = False
+    while time.time() < deadline:
+        found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
+        if "task_reject" in found:
+            error(f"Provider rejected the task: {found['task_reject'].get('reason', '')}")
+            return
+        if not accepted and "task_quote" in found:
+            quote = found["task_quote"]
+            try:
+                quoted = Decimal(str(quote.get("price", "0")))
+            except Exception:
+                quoted = max_price_ait
+            if quoted <= max_price_ait:
+                info(f"Quote received: {quoted} AIT — accepting")
+                _send_task_message(
+                    client,
+                    buyer_agent,
+                    to_agent,
+                    "task_accept",
+                    {"task_id": task_id, "escrow_id": escrow_id, "offer_id": quote.get("offer_id")},
+                    signing=signing,
+                )
+                accepted = True
+            else:
+                warning(f"Quote {quoted} exceeds max price — leaving escrow to expire")
+                return
+        if "task_result" in found:
+            result = found["task_result"]
+            paid = found.get("task_paid", {})
+            success(f"Task {task_id} finished: {result.get('status')}")
+            output(
+                {
+                    "task_id": task_id,
+                    "status": result.get("status"),
+                    "result_ref": result.get("result_ref"),
+                    "result_hash": result.get("result_hash"),
+                    "tx_hash": paid.get("tx_hash"),
+                },
+                ctx.obj.get("output_format", "table"),
+            )
+            return
+        time.sleep(5)
+    warning(f"Timed out waiting for result after {wait_seconds}s — escrow will refund on expiry")
+    output({"task_id": task_id, "escrow_id": escrow_id, "status": "waiting"}, ctx.obj.get("output_format", "table"))
+
+
 @click.group(
     name="agent-task",
     epilog="""Examples:
@@ -237,15 +438,7 @@ def hire(
     base_url = _coordinator_url(ctx, coordinator_url)
     client = AITBCHTTPClient(base_url=base_url, timeout=30)
     buyer_agent = _buyer_agent_id(from_agent)
-
-    try:
-        max_price_ait = Decimal(str(max_price))
-    except Exception:
-        error(f"Invalid --max-price: {max_price}")
-        raise click.Abort() from None
-    if max_price_ait <= 0:
-        error("--max-price must be positive")
-        raise click.Abort()
+    max_price_ait = _parse_max_price(max_price)
 
     # 1. Payload → CID on the buyer's island daemon.
     payload_ref = _resolve_payload_ref(ctx, payload)
@@ -257,105 +450,41 @@ def hire(
     if not provider_wallet:
         raise click.Abort()
 
-    # 3. Settlement wallet: the coordinator settles through its configured
-    #    blockchain RPC's node wallet. Ask the coordinator first (correct on
-    #    any node); fall back to the market convention — HUB_PROPOSER_ID, then
-    #    the local RPC's node wallet (right only when buyer == hub).
-    settlement_wallet = None
-    try:
-        esc_conf = client.get("/v1/tasks/escrow-config")
-        if isinstance(esc_conf, dict) and esc_conf.get("settlement_wallet"):
-            settlement_wallet = str(esc_conf["settlement_wallet"])
-    except Exception:
-        pass
+    # 3. Settlement wallet: see _settlement_wallet for the lookup order.
     rpc_url = _get_blockchain_rpc_url(config)
-    if not settlement_wallet:
-        settlement_wallet = getattr(config, "hub_proposer_id", None) or None
-    if not settlement_wallet:
-        from ..utils.escrow import get_node_wallet
-
-        try:
-            settlement_wallet = get_node_wallet(ctx, rpc_url)
-        except Exception:
-            settlement_wallet = None
+    settlement_wallet = _settlement_wallet(client, config, ctx, rpc_url)
     if not settlement_wallet:
         error(
             "No escrow settlement wallet available — coordinator /v1/tasks/escrow-config unreachable and HUB_PROPOSER_ID unset"
         )
         raise click.Abort()
 
-    # 4. Buyer wallet + signed escrow lock for max_price.
-    buyer_address, private_key, _ = load_wallet_for_payment(ctx, wallet_name=wallet_name, password=password)
-    if not private_key:
-        error("Escrow lock requires a buyer wallet with a private key")
-        raise click.Abort()
-
-    # The same wallet signs every negotiation envelope (doc §4) and the
-    # X-Agent-* inbox-poll headers. --no-sign keeps the unsigned behaviour for
-    # coordinators still running with AGENT_MSG_SIGNATURE_MODE=disabled.
-    signing = (buyer_address, private_key) if sign else None
-    signing_key = private_key if sign else None
-    if signing is not None:
-        # Soft check only: the coordinator still accepts while advisory, and a
-        # registry lookup failure must not block the escrowed hire.
-        binding_note = check_registry_binding(client, buyer_agent, buyer_address)
-        if binding_note:
-            warning(f"{binding_note} — signed envelopes may be rejected once the coordinator enforces")
+    # 4. Buyer wallet + signing material for the escrow lock and envelopes.
+    buyer_address, private_key, signing, signing_key = _buyer_signing(ctx, client, buyer_agent, wallet_name, password, sign)
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
-    from ..utils.escrow import create_signed_escrow_lock
-
-    try:
-        lock_tx, lock_signature = create_signed_escrow_lock(
-            ctx,
-            rpc_url,
-            task_id,
-            buyer_address,
-            provider_wallet,
-            max_price_ait,
-            private_key,
-            node_wallet=settlement_wallet,
-        )
-    except Exception as e:
-        error(f"Failed to build escrow lock transaction: {e}")
-        raise click.Abort() from e
 
     # 5. Submit task + payment: the coordinator locks the escrow on-chain.
-    amount_units = ait_to_units(max_price_ait)
-    try:
-        submission = client.post(
-            "/v1/tasks/submit",
-            json={
-                "task_data": {
-                    "task_id": task_id,
-                    "service_type": service_type,
-                    "model": model,
-                    "payload_ref": payload_ref,
-                    "to_agent": to_agent,
-                    "buyer_agent": buyer_agent,
-                },
-                "priority": "normal",
-                "payment": {
-                    "requester": buyer_address,
-                    "agent": provider_wallet,
-                    "amount": amount_units,
-                    "timeout_seconds": timeout_seconds,
-                    # Same shape market escrow uses: signature embedded in the tx.
-                    "lock_tx": {**lock_tx, "signature": lock_signature},
-                    "lock_signature": lock_signature,
-                },
-            },
-        )
-    except Exception as e:
-        error(f"Task submission failed: {e}")
-        raise click.Abort() from e
-    escrow_id = submission.get("escrow_id") if isinstance(submission, dict) else None
-    if not escrow_id:
-        error(f"Task submitted but no escrow was created — is TASK_PAYMENT_ESCROW_ENABLED on the coordinator? {submission}")
-        raise click.Abort()
+    escrow_id = _submit_task(
+        ctx,
+        client,
+        rpc_url,
+        task_id,
+        service_type,
+        model,
+        payload_ref,
+        to_agent,
+        buyer_agent,
+        buyer_address,
+        provider_wallet,
+        max_price_ait,
+        private_key,
+        settlement_wallet,
+        timeout_seconds,
+    )
     success(f"Task {task_id} submitted — escrow {escrow_id} locked on-chain ({max_price_ait} AIT)")
 
-    # 5. Send the TaskRequest negotiation message.
+    # 6. Send the TaskRequest negotiation message.
     request_msg = {
         "task_id": task_id,
         "service_type": service_type,
@@ -377,52 +506,10 @@ def hire(
         )
         return
 
-    # 6. Wait for quote → auto-accept → result.
-    deadline = time.time() + wait_seconds
-    accepted = False
-    while time.time() < deadline:
-        found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
-        if "task_reject" in found:
-            error(f"Provider rejected the task: {found['task_reject'].get('reason', '')}")
-            return
-        if not accepted and "task_quote" in found:
-            quote = found["task_quote"]
-            try:
-                quoted = Decimal(str(quote.get("price", "0")))
-            except Exception:
-                quoted = max_price_ait
-            if quoted <= max_price_ait:
-                info(f"Quote received: {quoted} AIT — accepting")
-                _send_task_message(
-                    client,
-                    buyer_agent,
-                    to_agent,
-                    "task_accept",
-                    {"task_id": task_id, "escrow_id": escrow_id, "offer_id": quote.get("offer_id")},
-                    signing=signing,
-                )
-                accepted = True
-            else:
-                warning(f"Quote {quoted} exceeds max price — leaving escrow to expire")
-                return
-        if "task_result" in found:
-            result = found["task_result"]
-            paid = found.get("task_paid", {})
-            success(f"Task {task_id} finished: {result.get('status')}")
-            output(
-                {
-                    "task_id": task_id,
-                    "status": result.get("status"),
-                    "result_ref": result.get("result_ref"),
-                    "result_hash": result.get("result_hash"),
-                    "tx_hash": paid.get("tx_hash"),
-                },
-                ctx.obj.get("output_format", "table"),
-            )
-            return
-        time.sleep(5)
-    warning(f"Timed out waiting for result after {wait_seconds}s — escrow will refund on expiry")
-    output({"task_id": task_id, "escrow_id": escrow_id, "status": "waiting"}, ctx.obj.get("output_format", "table"))
+    # 7. Wait for quote → auto-accept → result.
+    _wait_for_task_result(
+        ctx, client, buyer_agent, to_agent, task_id, escrow_id, max_price_ait, signing, signing_key, wait_seconds
+    )
 
 
 @agent_task.command()

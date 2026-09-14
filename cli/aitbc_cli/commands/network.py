@@ -350,6 +350,75 @@ def _sample_total(samples: _PromSamples, metric: str) -> float:
     return sum(val for _, val in samples.get(metric, []))
 
 
+def _gossip_peer_rows(
+    validators: list[dict[str, Any]],
+    accepted: dict[str, float],
+    live: dict[str, float],
+    have_gauge: bool,
+) -> list[dict[str, Any]]:
+    """One row per advertised validator, plus authenticated non-validators."""
+
+    def _is_connected(address: str) -> bool:
+        if have_gauge:
+            return live.get(address, 0) > 0
+        return accepted.get(address, 0) > 0
+
+    peer_rows = []
+    for validator in validators:
+        address = validator.get("address", "")
+        peer_rows.append(
+            {
+                "address": address,
+                "stake": validator.get("stake", ""),
+                "connected": "yes" if _is_connected(address) else "no",
+                "open": int(live.get(address, 0)) if have_gauge else "-",
+                "auth_ok": int(accepted.get(address, 0)),
+            }
+        )
+
+    # Peers that authenticated but are not in the advertised validator set.
+    known = {validator.get("address") for validator in validators}
+    for address in sorted(set(accepted) | set(live)):
+        if address not in known:
+            peer_rows.append(
+                {
+                    "address": address,
+                    "stake": "(not a validator)",
+                    "connected": "yes" if _is_connected(address) else "no",
+                    "open": int(live.get(address, 0)) if have_gauge else "-",
+                    "auth_ok": int(accepted.get(address, 0)),
+                }
+            )
+    return peer_rows
+
+
+def _gossip_report(
+    fmt: str,
+    summary: dict[str, Any],
+    peer_rows: list[dict[str, Any]],
+    rejections: list[dict[str, Any]],
+    samples: _PromSamples,
+    topics: bool,
+) -> None:
+    """Emit the gossip report: one JSON payload, or separate tables per section."""
+    if fmt == "json":
+        payload: dict[str, Any] = {"summary": summary, "peers": peer_rows, "auth_rejections": rejections}
+        if topics:
+            payload["topics"] = _sample_map(samples, "blockchain_gossip_messages_published_total", "topic")
+        output(payload, fmt, title="Gossip Status")
+        return
+
+    output(summary, fmt, title="Gossip Status")
+    if peer_rows:
+        output(peer_rows, fmt, title="Gossip Peers (inbound)")
+    if rejections:
+        output(rejections, fmt, title="Auth Rejections by Reason")
+    if topics:
+        by_topic = _sample_map(samples, "blockchain_gossip_messages_published_total", "topic")
+        rows = [{"topic": topic, "published": int(count)} for topic, count in sorted(by_topic.items())]
+        output(rows or [{"topic": "(none)", "published": 0}], fmt, title="Published by Topic")
+
+
 @network.command(
     epilog="""Examples:
 
@@ -402,38 +471,8 @@ def gossip(ctx, rpc_url, topics):
     have_gauge = "blockchain_gossip_authenticated_connections" in samples
     basis = "live connections" if have_gauge else "auth counters (no liveness gauge on this node)"
 
-    def _is_connected(address: str) -> bool:
-        if have_gauge:
-            return live.get(address, 0) > 0
-        return accepted.get(address, 0) > 0
-
     validators = info.get("validators") or []
-    peer_rows = []
-    for validator in validators:
-        address = validator.get("address", "")
-        peer_rows.append(
-            {
-                "address": address,
-                "stake": validator.get("stake", ""),
-                "connected": "yes" if _is_connected(address) else "no",
-                "open": int(live.get(address, 0)) if have_gauge else "-",
-                "auth_ok": int(accepted.get(address, 0)),
-            }
-        )
-
-    # Peers that authenticated but are not in the advertised validator set.
-    known = {validator.get("address") for validator in validators}
-    for address in sorted(set(accepted) | set(live)):
-        if address not in known:
-            peer_rows.append(
-                {
-                    "address": address,
-                    "stake": "(not a validator)",
-                    "connected": "yes" if _is_connected(address) else "no",
-                    "open": int(live.get(address, 0)) if have_gauge else "-",
-                    "auth_ok": int(accepted.get(address, 0)),
-                }
-            )
+    peer_rows = _gossip_peer_rows(validators, accepted, live, have_gauge)
 
     connected = sum(1 for row in peer_rows if row["connected"] == "yes")
     expected = max(len(validators) - 1, 0)
@@ -464,22 +503,7 @@ def gossip(ctx, rpc_url, topics):
 
     rejections = [{"reason": reason, "count": int(count)} for reason, count in sorted(rejected.items())]
 
-    if fmt == "json":
-        payload = {"summary": summary, "peers": peer_rows, "auth_rejections": rejections}
-        if topics:
-            payload["topics"] = _sample_map(samples, "blockchain_gossip_messages_published_total", "topic")
-        output(payload, fmt, title="Gossip Status")
-        return
-
-    output(summary, fmt, title="Gossip Status")
-    if peer_rows:
-        output(peer_rows, fmt, title="Gossip Peers (inbound)")
-    if rejections:
-        output(rejections, fmt, title="Auth Rejections by Reason")
-    if topics:
-        by_topic = _sample_map(samples, "blockchain_gossip_messages_published_total", "topic")
-        rows = [{"topic": topic, "published": int(count)} for topic, count in sorted(by_topic.items())]
-        output(rows or [{"topic": "(none)", "published": 0}], fmt, title="Published by Topic")
+    _gossip_report(fmt, summary, peer_rows, rejections, samples, topics)
 
 
 def _set_env_value(env_file: str, key: str, value: str) -> bool:

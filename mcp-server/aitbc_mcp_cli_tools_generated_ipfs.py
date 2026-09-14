@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -38,19 +39,17 @@ def aitbc_ipfs_download(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Download content by CID and optionally write it to a file.."""
-    options: dict[str, Any] = {}
-    if cid is not None:
-        options["cid"] = cid
-    if output_path is not None:
-        options["output"] = output_path
-    if wait:
-        options["wait"] = None
-    if access_key is not None:
-        options["access-key"] = access_key
-    if access_secret is not None:
-        options["access-secret"] = access_secret
-    if rental_id is not None:
-        options["rental-id"] = rental_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"wait": "wait"},
+        values={
+            "cid": "cid",
+            "output_path": "output",
+            "access_key": "access-key",
+            "access_secret": "access-secret",
+            "rental_id": "rental-id",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ipfs",
@@ -102,27 +101,22 @@ def aitbc_ipfs_island_subscribe(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Subscribe to a private island IPFS network.."""
-    options: dict[str, Any] = {}
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if to_address is not None:
-        options["to"] = to_address
-    if island_id is not None:
-        options["island-id"] = island_id
-    if duration is not None:
-        options["duration"] = duration
-    if quota is not None:
-        options["quota"] = quota
-    if amount is not None:
-        options["amount"] = amount
-    if fee is not None:
-        options["fee"] = fee
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "wallet_name": "wallet",
+            "to_address": "to",
+            "island_id": "island-id",
+            "duration": "duration",
+            "quota": "quota",
+            "amount": "amount",
+            "fee": "fee",
+            "password": "password",
+            "password_file": "password-file",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ipfs",
@@ -176,27 +170,21 @@ def aitbc_ipfs_island_swarm_key(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request the swarm key for a subscribed island IPFS network.."""
-    options: dict[str, Any] = {}
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if island_id is not None:
-        options["island-id"] = island_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if api_key is not None:
-        options["api-key"] = api_key
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if output_path is not None:
-        options["output"] = output_path
-    if bootstrap:
-        options["bootstrap"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"bootstrap": "bootstrap"},
+        values={
+            "wallet_name": "wallet",
+            "island_id": "island-id",
+            "coordinator_url": "coordinator-url",
+            "chain_id": "chain-id",
+            "rpc_url": "rpc-url",
+            "api_key": "api-key",
+            "password": "password",
+            "password_file": "password-file",
+            "output_path": "output",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ipfs",
@@ -259,9 +247,11 @@ def aitbc_ipfs_pin(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Pin content by CID on the local Kubo daemon or filesystem index.."""
-    options: dict[str, Any] = {}
-    if cid is not None:
-        options["cid"] = cid
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"cid": "cid"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ipfs",
@@ -306,13 +296,11 @@ def aitbc_ipfs_upload(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Upload a file to IPFS and return its CID.."""
-    options: dict[str, Any] = {}
-    if file is not None:
-        options["file"] = file
-    if pin:
-        options["pin"] = None
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"pin": "pin"},
+        values={"file": "file", "name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ipfs",
