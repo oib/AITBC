@@ -21,12 +21,17 @@ for `/etc/aitbc/*.env` see [configuration.md](./configuration.md) and
 | `AITBC_NODE3_HOST` | required where used | node3, in the p2p and blockchain-communication tests |
 | `AITBC_HUB_HOST` | optional | hub, in `fleet-config-check.sh` |
 | `AITBC_HUB1_HOST` | optional | second hub, in `fleet-config-check.sh` |
+| `AITBC_FLEET_HOSTS` | required unless hosts are passed as arguments | the roster `fleet-config-check.sh` checks, space-separated. There is no built-in list: a hardcoded one named one operator's hosts and was wrong for every other site. |
+| `AITBC_HUB_ALIAS` | optional | the ssh/short name the hub also answers to, so `fleet-config-check.sh` can match a host it was given by alias rather than by FQDN. |
+| `AITBC_HUB1_ALIAS` | optional | the same for the second hub. |
 
 A value is whatever `ssh` and `curl` can reach — an ssh_config alias, a
 hostname, or an address. Scripts that cannot do anything useful without one use
 `${AITBC_NODEn_HOST:?...}` and fail immediately with the variable name; the
-monitoring check uses `:-` instead and reports `UNREACHABLE`, because a
-half-configured fleet report is more useful than no report.
+monitoring check uses `:-` for the individual hosts and reports `UNREACHABLE`,
+because a half-configured fleet report is more useful than no report. It uses
+`:?` only for `AITBC_FLEET_HOSTS`, where an empty roster would report nothing at
+all.
 
 There is deliberately no default for any of these. A default would be one
 deployment's host, which is wrong everywhere else — that is the bug this whole
