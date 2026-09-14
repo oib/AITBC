@@ -40,9 +40,8 @@ check_system_memory() {
     echo "Available: $((total_mem - used_mem))MB"
 
     if [ $mem_percent -gt $ALERT_THRESHOLD ]; then
-        echo -e "${RED}ALERT: System memory usage is ${mem_percent}% (threshold: ${ALERT_THRESHOLD}%)${NC}"
-        log_message "ALERT" "System memory usage is ${mem_percent}% (threshold: ${ALERT_THRESHOLD}%)"
-        return 1
+        echo -e "${YELLOW}WARNING: System memory usage is ${mem_percent}% (threshold: ${ALERT_THRESHOLD}%)${NC}"
+        log_message "WARNING" "System memory usage is ${mem_percent}% (threshold: ${ALERT_THRESHOLD}%)"
     else
         echo -e "${GREEN}OK: System memory usage is ${mem_percent}%${NC}"
         log_message "INFO" "System memory usage is ${mem_percent}%"
@@ -74,11 +73,16 @@ check_service_memory() {
             usage_percent=$((memory_current * 100 / memory_max))
         fi
 
-        # Check if service is near limit
+        # Check if service is near limit. High usage is a warning, not a unit
+        # failure: % of MemoryMax counts reclaimable page cache and says nothing
+        # about pressure on its own -- ffmpeg sat at 94% of a 512M cap with
+        # every memory.events counter at 0. The kernel's own pressure counters
+        # (oom_kill below, and the max/high events logged alongside) are what
+        # mark a real problem, so usage never drives the exit code.
         if [ "$memory_max" != "18446744073709551615" ] && [ "$memory_max" != "infinity" ]; then
             if [ $usage_percent -gt 80 ]; then
-                echo -e "${RED}ALERT: $service - ${memory_current_mb}MB/${memory_max_mb}MB (${usage_percent}%)${NC}"
-                log_message "ALERT" "$service memory usage is ${usage_percent}% (${memory_current_mb}MB/${memory_max_mb}MB)"
+                echo -e "${YELLOW}WARNING: $service - ${memory_current_mb}MB/${memory_max_mb}MB (${usage_percent}%)${NC}"
+                log_message "WARNING" "$service memory usage is ${usage_percent}% (${memory_current_mb}MB/${memory_max_mb}MB)"
                 alert_count=$((alert_count + 1))
             elif [ $usage_percent -gt 60 ]; then
                 echo -e "${YELLOW}WARNING: $service - ${memory_current_mb}MB/${memory_max_mb}MB (${usage_percent}%)${NC}"
@@ -91,11 +95,8 @@ check_service_memory() {
         fi
     done
 
-    if [ $alert_count -gt 0 ]; then
-        return 1
-    else
-        return 0
-    fi
+    # Usage alerts are reported but never fail the unit -- see above.
+    return 0
 }
 
 # Function to check for OOM killer events
@@ -123,9 +124,18 @@ check_oom_events() {
         [ -r "$events" ] || continue
         found=1
 
-        local kills
+        local kills max_events
         kills=$(awk '/^oom_kill /{print $2}' "$events" 2>/dev/null)
+        max_events=$(awk '/^max /{print $2}' "$events" 2>/dev/null)
         [[ "$kills" =~ ^[0-9]+$ ]] || continue
+
+        # max>0 means the hard cap forced synchronous reclaim -- the thrashing
+        # signature a unit shows before it is ever killed. Report it as a
+        # warning so the pressure is visible without failing the unit.
+        if [[ "$max_events" =~ ^[0-9]+$ ]] && [ "$max_events" -gt 0 ]; then
+            echo -e "${YELLOW}WARNING: $unit hit its memory.max $max_events time(s)${NC}"
+            log_message "WARNING" "$unit hit memory.max $max_events time(s) (reclaim pressure)"
+        fi
 
         if [ "$kills" -gt 0 ]; then
             echo -e "${RED}ALERT: $unit has $kills OOM kill(s) recorded${NC}"
@@ -161,27 +171,23 @@ main() {
     # Create log directory if it doesn't exist
     mkdir -p "$(dirname "$LOG_FILE")"
 
-    # Run checks
-    local system_status=0
-    local service_status=0
-    local oom_status=0
-
-    check_system_memory || system_status=1
-    check_service_memory || service_status=1
-    check_oom_events || oom_status=2
+    # Run checks. Usage findings are warnings only; only a recorded OOM kill
+    # fails the unit, so a routine high-usage report does not put the timer's
+    # last service run into the failed-units list.
+    check_system_memory
+    check_service_memory
+    check_oom_events
+    local oom_status=$?
 
     echo ""
     echo "=== Summary ==="
-    if [ $service_status -eq 0 ] && [ $oom_status -eq 0 ]; then
+    if [ $oom_status -eq 0 ]; then
         echo -e "${GREEN}Service memory checks passed${NC}"
         log_message "INFO" "Service memory checks passed"
-        if [ $system_status -eq 1 ]; then
-            echo -e "${YELLOW}Note: System memory check failed (may be permission issue)${NC}"
-        fi
         exit 0
     else
-        echo -e "${RED}Memory alerts detected - check log file: $LOG_FILE${NC}"
-        log_message "ALERT" "Memory alerts detected"
+        echo -e "${RED}OOM kills recorded - check log file: $LOG_FILE${NC}"
+        log_message "ALERT" "OOM kills recorded"
         exit 1
     fi
 }
