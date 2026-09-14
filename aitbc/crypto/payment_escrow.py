@@ -11,6 +11,12 @@ blockchain: if no callback is supplied for a given action, the escrow
 state still advances and the corresponding ``tx_hash_*`` field is left
 as ``None``. This makes the utility trivially unit-testable without a
 running node.
+
+Durable bookkeeping is likewise opt-in: pass an ``EscrowStore`` to
+``PaymentEscrow`` and every mutation is written through to the store
+while previously persisted entries are reloaded at construction time
+(so a service restart does not strand on-chain locks). Without a store
+the manager stays purely in-memory.
 """
 
 from __future__ import annotations
@@ -21,7 +27,7 @@ import uuid
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from enum import StrEnum
-from typing import Any
+from typing import Any, Protocol
 
 logger = logging.getLogger(__name__)
 
@@ -55,11 +61,29 @@ class EscrowEntry:
     tx_hash_lock: str | None = None  # Blockchain tx hash for lock
     tx_hash_release: str | None = None  # Blockchain tx hash for release
     tx_hash_refund: str | None = None  # Blockchain tx hash for refund
+    contract_id: str | None = None  # On-chain escrow contract id (when locked via /rpc/escrow/create)
     metadata: dict[str, Any] = field(default_factory=dict)
 
 
 # Callback signature: (chain_id, from_addr, to_addr, amount) -> tx_hash
 EscrowCallback = Callable[[str, str, str, int], str]
+
+
+class EscrowStore(Protocol):
+    """Durable backend for escrow bookkeeping entries.
+
+    Implementations are synchronous and keyed by ``EscrowEntry.escrow_id``;
+    ``save`` is an upsert. The agent-coordinator ships a SQLite
+    implementation (``agent_app.storage.escrow_store.TaskEscrowStore``).
+    """
+
+    def save(self, entry: EscrowEntry) -> None:
+        """Insert or update the durable record for ``entry``."""
+        ...
+
+    def load_all(self) -> list[EscrowEntry]:
+        """Return every persisted entry, used to rehydrate on startup."""
+        ...
 
 
 class PaymentEscrow:
@@ -71,6 +95,10 @@ class PaymentEscrow:
     The actual blockchain transaction submission is delegated to a
     callback function provided by the caller (Agent B wires this to
     the blockchain RPC client).
+
+    When a ``store`` is supplied the in-memory dict acts as a write-through
+    cache: entries persisted by a previous process are loaded here and every
+    state transition is saved back, so bookkeeping survives restarts.
     """
 
     def __init__(
@@ -79,6 +107,7 @@ class PaymentEscrow:
         release_callback: EscrowCallback | None = None,
         refund_callback: EscrowCallback | None = None,
         default_timeout: float = 3600.0,
+        store: EscrowStore | None = None,
     ) -> None:
         """Initialize the payment escrow manager.
 
@@ -90,12 +119,26 @@ class PaymentEscrow:
             refund_callback: Called to refund funds to requester.
                 Args: (chain_id, from_addr, to_addr, amount). Returns tx_hash.
             default_timeout: Default escrow timeout in seconds (default 3600).
+            store: Optional durable backend; entries are reloaded from it at
+                construction and every mutation is written through to it.
         """
         self._escrows: dict[str, EscrowEntry] = {}
         self._lock_callback = lock_callback
         self._release_callback = release_callback
         self._refund_callback = refund_callback
         self._default_timeout = default_timeout
+        self._store = store
+        if store is not None:
+            try:
+                for persisted in store.load_all():
+                    self._escrows[persisted.escrow_id] = persisted
+            except Exception as e:
+                # Degrade to an empty view rather than refuse to start; the
+                # error is loud in the logs and on-chain state is unaffected.
+                logger.error("Failed to load persisted escrows: %s", e)
+            else:
+                if self._escrows:
+                    logger.info("Reloaded %d persisted escrow(s)", len(self._escrows))
 
     def create_escrow(
         self,
@@ -127,6 +170,7 @@ class PaymentEscrow:
             expires_at=expires_at,
         )
         self._escrows[escrow_id] = entry
+        self._persist(entry)
         logger.info(
             "Created escrow %s for task %s (amount=%d, chain=%s)",
             escrow_id,
@@ -151,6 +195,7 @@ class PaymentEscrow:
             entry.tx_hash_lock = callback(entry.chain_id, entry.requester, entry.agent, entry.amount)
         entry.status = EscrowStatus.LOCKED
         entry.locked_at = time.time()
+        self._persist(entry)
         logger.info("Locked escrow %s (tx=%s)", escrow_id, entry.tx_hash_lock)
         return entry
 
@@ -174,6 +219,7 @@ class PaymentEscrow:
             )
         entry.status = EscrowStatus.RELEASED
         entry.released_at = time.time()
+        self._persist(entry)
         logger.info("Released escrow %s (tx=%s)", escrow_id, entry.tx_hash_release)
         return entry
 
@@ -196,6 +242,7 @@ class PaymentEscrow:
                 entry.amount,
             )
         entry.status = EscrowStatus.REFUNDED
+        self._persist(entry)
         logger.info("Refunded escrow %s (tx=%s)", escrow_id, entry.tx_hash_refund)
         return entry
 
@@ -243,6 +290,25 @@ class PaymentEscrow:
     def get_escrows_by_status(self, status: EscrowStatus) -> list[EscrowEntry]:
         """Return all escrows with a given status."""
         return [e for e in self._escrows.values() if e.status == status]
+
+    def persist_entry(self, entry: EscrowEntry) -> None:
+        """Flush a caller-mutated entry (e.g. metadata/contract_id) to the store."""
+        self._escrows[entry.escrow_id] = entry
+        self._persist(entry)
+
+    def _persist(self, entry: EscrowEntry) -> None:
+        """Write ``entry`` through to the configured store (best effort).
+
+        A store failure is logged but never raised: the chain operation the
+        entry records has already happened, so failing the call would only
+        mislead the caller into retrying a settled transaction.
+        """
+        if self._store is None:
+            return
+        try:
+            self._store.save(entry)
+        except Exception as e:
+            logger.error("Failed to persist escrow %s: %s", entry.escrow_id, e)
 
     def _get_entry(self, escrow_id: str) -> EscrowEntry:
         """Get an escrow entry or raise ValueError."""

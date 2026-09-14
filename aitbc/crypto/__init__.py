@@ -42,7 +42,7 @@ from .key_recovery import (
     recover_key,
     verify_escrow_integrity,
 )
-from .payment_escrow import EscrowEntry, EscrowStatus, PaymentEscrow
+from .payment_escrow import EscrowEntry, EscrowStatus, EscrowStore, PaymentEscrow
 from .secrets import (
     SecretManager,
     generate_nonce,
@@ -85,6 +85,7 @@ __all__ = [
     # Payment escrow (v0.6.5)
     "EscrowEntry",
     "EscrowStatus",
+    "EscrowStore",
     "PaymentEscrow",
     "decrypt_private_key",
     # Crypto errors
