@@ -24,12 +24,16 @@ from typing import Any, Final
 #: diverge silently.
 AGENT_MSG_SIGNATURE_VERSION: Final = "aitbc-agent-msg-v1"
 
-#: Domain prefixes for the three signed object types. Message envelopes and
-#: registry identity claims live in different domains so a registration proof
-#: cannot be replayed as a message signature.
+#: Domain prefixes for the five signed object types. Message envelopes,
+#: registry identity claims, wallet-login claims and signed-request claims
+#: each live in their own domain so a proof made for one purpose cannot be
+#: replayed as another (a login signature is not a message signature, a
+#: per-request auth signature is not a login, and so on).
 AGENT_MSG_DOMAIN: Final = AGENT_MSG_SIGNATURE_VERSION
 AGENT_IDENTITY_DOMAIN: Final = "aitbc-agent-identity-v1"
 AGENT_ROTATION_DOMAIN: Final = "aitbc-agent-rotation-v1"
+AGENT_LOGIN_DOMAIN: Final = "aitbc-agent-login-v1"
+AGENT_REQ_DOMAIN: Final = "aitbc-agent-req-v1"
 
 
 def _canonical_json(payload: dict[str, Any]) -> bytes:
@@ -165,22 +169,118 @@ def verify_rotation_claim(claim: dict[str, Any], signature: str | None, expected
     return _matches(_recover(rotation_claim_digest(claim), signature), expected_address)
 
 
+# --- Wallet login claims (Phase B1 session auth) -----------------------------
+#
+# ``POST /api/v1/agent/auth/login`` exchanges a wallet signature for a JWT.
+# The claim binds the login to the agent_id, the wallet being authenticated,
+# the chain it operates on and a one-time server-issued nonce, so a captured
+# login signature cannot be replayed for a different agent/wallet/chain or
+# reused after the nonce is consumed.
+
+
+def login_claim(
+    agent_id: str,
+    wallet_address: str,
+    chain_id: str,
+    nonce: str,
+) -> dict[str, Any]:
+    """The canonical login claim the wallet key signs for a session token."""
+    return {
+        "agent_id": agent_id,
+        "wallet_address": wallet_address,
+        "chain_id": chain_id,
+        "nonce": nonce,
+    }
+
+
+def login_claim_digest(claim: dict[str, Any]) -> bytes:
+    return domain_digest(claim, AGENT_LOGIN_DOMAIN)
+
+
+def sign_login_claim(claim: dict[str, Any], private_key: str) -> str:
+    """Sign a login claim; returns the ``0x``-prefixed signature."""
+    return _sign_digest(login_claim_digest(claim), private_key)
+
+
+def recover_login_claim_signer(claim: dict[str, Any], signature: str | None) -> str | None:
+    """Recover the EIP-55 signer of a login claim, or ``None``."""
+    return _recover(login_claim_digest(claim), signature)
+
+
+def verify_login_claim(claim: dict[str, Any], signature: str | None, expected_address: str | None) -> bool:
+    """True iff ``signature`` over ``claim`` recovers to ``expected_address``."""
+    return _matches(recover_login_claim_signer(claim, signature), expected_address)
+
+
+# --- Signed-request claims (Phase B1 header auth) ----------------------------
+#
+# ``X-Agent-Signature`` authenticates a single HTTP request: the wallet key
+# signs ``{"agent_id","timestamp","nonce"}`` and the coordinator verifies the
+# signature against the registry-bound identity, then enforces the timestamp
+# skew window and nonce dedup itself (both are coordinator-side policy, not
+# part of the signed bytes beyond being covered by them).
+
+
+def request_claim(
+    agent_id: str,
+    timestamp: str,
+    nonce: str,
+) -> dict[str, Any]:
+    """The canonical per-request auth claim carried by the ``X-Agent-*`` headers."""
+    return {
+        "agent_id": agent_id,
+        "timestamp": timestamp,
+        "nonce": nonce,
+    }
+
+
+def request_claim_digest(claim: dict[str, Any]) -> bytes:
+    return domain_digest(claim, AGENT_REQ_DOMAIN)
+
+
+def sign_request_claim(claim: dict[str, Any], private_key: str) -> str:
+    """Sign a request claim; returns the ``0x``-prefixed signature."""
+    return _sign_digest(request_claim_digest(claim), private_key)
+
+
+def recover_request_claim_signer(claim: dict[str, Any], signature: str | None) -> str | None:
+    """Recover the EIP-55 signer of a request claim, or ``None``."""
+    return _recover(request_claim_digest(claim), signature)
+
+
+def verify_request_claim(claim: dict[str, Any], signature: str | None, expected_address: str | None) -> bool:
+    """True iff ``signature`` over ``claim`` recovers to ``expected_address``."""
+    return _matches(recover_request_claim_signer(claim, signature), expected_address)
+
+
 __all__ = [
     "AGENT_IDENTITY_DOMAIN",
+    "AGENT_LOGIN_DOMAIN",
     "AGENT_MSG_DOMAIN",
     "AGENT_MSG_SIGNATURE_VERSION",
+    "AGENT_REQ_DOMAIN",
     "AGENT_ROTATION_DOMAIN",
     "domain_digest",
     "envelope_digest",
     "identity_claim",
     "identity_claim_digest",
+    "login_claim",
+    "login_claim_digest",
     "recover_agent_envelope_signer",
+    "recover_login_claim_signer",
+    "recover_request_claim_signer",
+    "request_claim",
+    "request_claim_digest",
     "rotation_claim",
     "rotation_claim_digest",
     "sign_agent_envelope",
     "sign_identity_claim",
+    "sign_login_claim",
+    "sign_request_claim",
     "sign_rotation_claim",
     "verify_agent_envelope",
     "verify_identity_claim",
+    "verify_login_claim",
+    "verify_request_claim",
     "verify_rotation_claim",
 ]

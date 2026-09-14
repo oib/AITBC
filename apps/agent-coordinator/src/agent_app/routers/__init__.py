@@ -1,4 +1,5 @@
 from . import (
+    agent_auth,
     agents,
     ai,
     alerts,
@@ -25,6 +26,7 @@ ROUTERS = [
     ai.router,
     consensus.router,
     auth.router,
+    agent_auth.router,
     users.router,
     monitoring.router,
     alerts.router,
