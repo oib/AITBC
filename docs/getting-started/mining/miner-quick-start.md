@@ -56,14 +56,16 @@ aitbc optimize enable --agent-id my-gpu-agent \
 aitbc miner earnings --period daily
 aitbc miner earnings --period weekly
 
-# Marketplace integration
-aitbc marketplace offer create \
-  --miner-id my-gpu \
-  --gpu-model "RTX-4090" \
-  --gpu-memory "24GB" \
-  --price-per-hour "0.05" \
-  --models "gpt2,llama" \
-  --endpoint "http://localhost:11434"
+# Marketplace integration — publish a GPU-backed inference offer
+# (verifies the model exists on the local Ollama at :11434 first)
+aitbc market offer \
+  --service-type ollama \
+  --model-or-variant llama3.2:3b \
+  --price 0.001 \
+  --unit per_1k_tokens \
+  --gpu-name "RTX-4090" \
+  --gpu-device 0 \
+  --description "RTX-4090 Ollama inference"
 ```
 
 ## 5. Configuration Management

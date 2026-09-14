@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AITBC CLI provides a `governance` command group for interacting with the governance system. Commands support staking, delegation, voting, and proposal execution.
+The AITBC CLI provides a `governance` command group for interacting with the governance service (port 8105). Commands cover creating, voting on, closing, and executing proposals, plus service status and cross-chain propagation. Token staking lives under `aitbc wallet stake`, not in this group.
 
 ## Command Group
 
@@ -12,147 +12,41 @@ aitbc governance --help
 
 ## Commands
 
-### stake
+### propose
 
-Stake tokens for enhanced voting power.
+Create a governance proposal. The service assigns the proposal ID (`prop_<hex8>`); the caller does not choose it.
 
 ```bash
-aitbc governance stake --address <address> --amount <amount> --lock-days <days>
+aitbc governance propose --title <title> --description <desc> --proposer-id <id>
 ```
 
 **Options:**
 
-- `--address` (required): Staker wallet address
-- `--amount` (required): Amount of tokens to stake
-- `--lock-days` (optional): Lock period in days (default: 30, minimum: 30)
+- `--title` (required): Proposal title
+- `--description` (required): Proposal description
+- `--proposer-id` (required): Proposer profile ID
+- `--type` (optional): Proposal type (default: parameter_change)
+- `--category` (optional): Proposal category (default: general)
+- `--proposer-address` (optional): Proposer wallet address (for on-chain submission)
+- `--params` (optional): JSON-encoded parameters for parameter_change proposals
+- `--voting-days` (optional): Voting period in days (default: 7)
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance stake --address 0x1234567890abcdef --amount 1000 --lock-days 30
+aitbc governance propose --title "Lower tx fee" --description "Reduce the base fee" --category economics --proposer-id operator-1 --voting-days 7
 ```
 
 **Response:**
 
 ```json
 {
-  "stake_id": "uuid",
-  "staker_address": "0x1234567890abcdef",
-  "amount_staked": 1000,
-  "lock_period_days": 30,
-  "unstakes_at": "2026-07-07T00:00:00Z",
-  "voting_power": 2000
-}
-```
-
-**Error:**
-
-- Lock period must be at least 30 days
-
-### delegate
-
-Delegate voting power to another address.
-
-```bash
-aitbc governance delegate --delegator <address> --delegate <address> --amount <amount>
-```
-
-**Options:**
-
-- `--delegator` (required): Delegator wallet address
-- `--delegate` (required): Delegate wallet address
-- `--amount` (required): Amount of voting power to delegate
-- `--format` (optional): Output format (table/json, default: table)
-
-**Example:**
-
-```bash
-aitbc governance delegate --delegator 0x1234567890abcdef --delegate 0x0987654321fedcba --amount 500
-```
-
-**Response:**
-
-```json
-{
-  "delegation_id": "uuid",
-  "delegator_address": "0x1234567890abcdef",
-  "delegate_address": "0x0987654321fedcba",
-  "voting_power": 500,
-  "created_at": "2026-06-07T00:00:00Z"
-}
-```
-
-**Error:**
-
-- Insufficient voting power
-
-### execute
-
-Execute a passed proposal.
-
-```bash
-aitbc governance execute <proposal_id>
-```
-
-**Arguments:**
-
-- `proposal_id`: Proposal ID to execute
-
-**Options:**
-
-- `--format` (optional): Output format (table/json, default: table)
-
-**Example:**
-
-```bash
-aitbc governance execute prop_123
-```
-
-**Response:**
-
-```json
-{
-  "proposal_id": "prop_123",
-  "status": "executed",
-  "executed_at": "2026-06-15T00:00:00Z"
-}
-```
-
-**Errors:**
-
-- Proposal not found (404)
-- Proposal not in succeeded state (400)
-
-### voting-power
-
-Get voting power for an address.
-
-```bash
-aitbc governance voting-power <address>
-```
-
-**Arguments:**
-
-- `address`: Wallet address to query
-
-**Options:**
-
-- `--format` (optional): Output format (table/json, default: table)
-
-**Example:**
-
-```bash
-aitbc governance voting-power 0x1234567890abcdef
-```
-
-**Response:**
-
-```json
-{
-  "address": "0x1234567890abcdef",
-  "voting_power": 2000,
-  "calculated_at": 1717756800
+  "proposal_id": "prop_1a2b3c4d",
+  "title": "Lower tx fee",
+  "category": "economics",
+  "status": "active",
+  "voting_ends": "2026-09-21T00:00:00Z"
 }
 ```
 
@@ -161,128 +55,234 @@ aitbc governance voting-power 0x1234567890abcdef
 Vote on a governance proposal.
 
 ```bash
-aitbc governance vote <proposal_id> --vote <option> --wallet <wallet>
+aitbc governance vote --proposal-id <id> --voter-id <id> --vote <option>
 ```
-
-**Arguments:**
-
-- `proposal_id`: Proposal ID to vote on
 
 **Options:**
 
+- `--proposal-id` (required): Proposal ID to vote on
+- `--voter-id` (required): Voter profile ID
 - `--vote` (required): Vote option (for, against, abstain)
-- `--wallet` (required): Wallet name for signing
-- `--voting-power` (optional): Voting power to use (default: 0)
+- `--voter-address` (optional): Voter wallet address (for on-chain voting power)
+- `--voting-power` (optional): Voting power to use (default: 0; auto-calculated from on-chain balance if enabled)
 - `--reason` (optional): Vote reason
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance vote prop_123 --vote for --wallet mywallet --reason "Support this proposal"
+aitbc governance vote --proposal-id prop_1a2b3c4d --voter-id voter-1 --vote for --reason "Support this proposal"
 ```
 
 **Response:**
 
 ```json
 {
-  "vote_id": "uuid",
-  "proposal_id": "prop_123",
-  "voter_address": "0x1234567890abcdef",
+  "proposal_id": "prop_1a2b3c4d",
+  "voter_id": "voter-1",
   "vote_type": "for",
   "voting_power": 1000,
-  "reason": "Support this proposal",
-  "chain_id": "ait-hub.aitbc.bubuit.net"
+  "reason": "Support this proposal"
 }
 ```
 
-### proposal
+### list
 
-Create a governance proposal.
+List governance proposals with optional filters.
 
 ```bash
-aitbc governance proposal --proposal-id <id> --title <title> --description <desc> --wallet <wallet>
+aitbc governance list [--status <status>] [--category <category>] [--proposer-id <id>]
 ```
 
 **Options:**
 
-- `--proposal-id` (required): Unique proposal ID
-- `--title` (required): Proposal title
-- `--description` (required): Proposal description
-- `--category` (optional): Proposal category (default: general)
-- `--wallet` (required): Wallet name for signing
-- `--voting-days` (optional): Voting period in days (default: 7)
+- `--status` (optional): Filter by status (draft, active, succeeded, defeated, executed, cancelled)
+- `--category` (optional): Filter by category
+- `--proposer-id` (optional): Filter by proposer ID
 - `--format` (optional): Output format (table/json, default: table)
 
 **Example:**
 
 ```bash
-aitbc governance proposal --proposal-id prop_123 --title "Test Proposal" --description "Test description" --wallet mywallet --voting-days 7
+aitbc governance list --status active
+```
+
+### get
+
+Get details of a specific proposal.
+
+```bash
+aitbc governance get --proposal-id <id>
+```
+
+**Options:**
+
+- `--proposal-id` (required): Proposal ID to query
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance get --proposal-id prop_1a2b3c4d
 ```
 
 **Response:**
 
 ```json
 {
-  "proposal_id": "prop_123",
-  "proposer_address": "0x1234567890abcdef",
-  "title": "Test Proposal",
-  "description": "Test description",
-  "category": "general",
-  "voting_starts": "2026-06-07T00:00:00Z",
-  "voting_ends": "2026-06-14T00:00:00Z",
-  "chain_id": "ait-hub.aitbc.bubuit.net"
-}
-```
-
-### get-proposal
-
-Get a governance proposal from blockchain.
-
-```bash
-aitbc governance get-proposal <proposal_id>
-```
-
-**Arguments:**
-
-- `proposal_id`: Proposal ID to query
-
-**Options:**
-
-- `--format` (optional): Output format (table/json, default: table)
-
-**Example:**
-
-```bash
-aitbc governance get-proposal prop_123
-```
-
-**Response:**
-
-```json
-{
-  "proposal_id": "prop_123",
-  "proposer_address": "0x1234567890abcdef",
-  "title": "Test Proposal",
-  "description": "Test description",
+  "proposal_id": "prop_1a2b3c4d",
+  "proposer_id": "operator-1",
+  "title": "Lower tx fee",
+  "description": "Reduce the base fee",
   "status": "active",
-  "voting_starts": "2026-06-07T00:00:00Z",
-  "voting_ends": "2026-06-14T00:00:00Z"
+  "voting_ends": "2026-09-21T00:00:00Z"
 }
+```
+
+### status
+
+Show the global status of the governance system.
+
+```bash
+aitbc governance status
+```
+
+**Options:**
+
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance status --format json
+```
+
+### close
+
+Close a governance proposal and tally the final votes.
+
+```bash
+aitbc governance close --proposal-id <id>
+```
+
+**Options:**
+
+- `--proposal-id` (required): Proposal ID to close
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance close --proposal-id prop_1a2b3c4d
+```
+
+### execute
+
+Execute a passed proposal.
+
+```bash
+aitbc governance execute --proposal-id <id>
+```
+
+**Options:**
+
+- `--proposal-id` (required): Proposal ID to execute
+- `--executor-address` (optional): Executor wallet address (for on-chain execution)
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance execute --proposal-id prop_1a2b3c4d
+```
+
+**Response:**
+
+```json
+{
+  "proposal_id": "prop_1a2b3c4d",
+  "status": "executed",
+  "executed_at": "2026-09-21T00:00:00Z"
+}
+```
+
+**Errors:**
+
+- Proposal not found (404)
+- Proposal not in succeeded state (400)
+
+### propagate
+
+Propagate a proposal to target chains.
+
+```bash
+aitbc governance propagate --proposal-id <id> --target-chains <chain1,chain2>
+```
+
+**Options:**
+
+- `--proposal-id` (required): Proposal ID to propagate
+- `--target-chains` (required): Comma-separated list of target chain IDs
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-1,ait-side-2
+```
+
+### aggregate-votes
+
+Aggregate and tally cross-chain votes for a proposal.
+
+```bash
+aitbc governance aggregate-votes --proposal-id <id>
+```
+
+**Options:**
+
+- `--proposal-id` (required): Proposal ID
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d
+```
+
+### execute-cross-chain
+
+Execute a governance proposal across target chains.
+
+```bash
+aitbc governance execute-cross-chain --proposal-id <id>
+```
+
+**Options:**
+
+- `--proposal-id` (required): Proposal ID
+- `--format` (optional): Output format (table/json, default: table)
+
+**Example:**
+
+```bash
+aitbc governance execute-cross-chain --proposal-id prop_1a2b3c4d
 ```
 
 ## Configuration
 
-The CLI uses the following configuration from `~/.aitbc/config.toml`:
+The commands talk to the governance service REST API. The base URL comes from the
+`governance_service_url` config field (set via `GOVERNANCE_SERVICE_URL` in the
+environment, `.aitbc.yaml`, or `~/.aitbc/credentials.env`) and defaults to
+`http://localhost:8105`.
 
-```toml
-[governance]
-service_url = "http://localhost:8105"
-```
+## Profiles and Wallet Addresses
 
-## Wallet Integration
-
-Commands that require signing use the the wallet system:
+Commands identify actors by profile ID (`--proposer-id`, `--voter-id`), not by
+wallet name — this group takes no `--wallet` flag. Optional
+`--proposer-address`, `--voter-address`, and `--executor-address` fields carry
+wallet addresses used for on-chain submission and voting power. To look up an
+address:
 
 ```bash
 # List available wallets
@@ -302,7 +302,7 @@ aitbc wallet show mywallet
 Human-readable table output.
 
 ```bash
-aitbc governance voting-power 0x123... --format table
+aitbc governance list --format table
 ```
 
 ### JSON
@@ -310,7 +310,7 @@ aitbc governance voting-power 0x123... --format table
 Machine-readable JSON output.
 
 ```bash
-aitbc governance voting-power 0x123... --format json
+aitbc governance list --format json
 ```
 
 ## Error Handling
@@ -325,43 +325,36 @@ Common errors:
 
 ## Examples
 
-### Complete Staking Workflow
-
-```bash
-# Check current voting power
-aitbc governance voting-power 0x1234567890abcdef
-
-# Stake tokens
-aitbc governance stake --address 0x1234567890abcdef --amount 1000 --lock-days 30
-
-# Verify increased voting power
-aitbc governance voting-power 0x1234567890abcdef
-```
-
 ### Complete Proposal Workflow
 
 ```bash
-# Create proposal
-aitbc governance proposal --proposal-id prop_123 --title "Test" --description "Test" --wallet mywallet
+# Create proposal (the service assigns the prop_<hex8> id)
+aitbc governance propose --title "Lower tx fee" --description "Reduce the base fee" --proposer-id operator-1
 
 # Vote on proposal
-aitbc governance vote prop_123 --vote for --wallet mywallet
+aitbc governance vote --proposal-id prop_1a2b3c4d --voter-id voter-1 --vote for
 
-# Check proposal status
-aitbc governance get-proposal prop_123
+# Check proposal details
+aitbc governance get --proposal-id prop_1a2b3c4d
 
-# Execute proposal (after voting ends)
-aitbc governance execute prop_123
+# Close voting and tally
+aitbc governance close --proposal-id prop_1a2b3c4d
+
+# Execute proposal (after it passes)
+aitbc governance execute --proposal-id prop_1a2b3c4d
 ```
 
-### Delegation Workflow
+### Cross-Chain Workflow
 
 ```bash
-# Delegate voting power
-aitbc governance delegate --delegator 0x123... --delegate 0x456... --amount 500
+# Propagate to target chains
+aitbc governance propagate --proposal-id prop_1a2b3c4d --target-chains ait-side-1,ait-side-2
 
-# Check delegate's voting power
-aitbc governance voting-power 0x456...
+# Tally cross-chain votes
+aitbc governance aggregate-votes --proposal-id prop_1a2b3c4d
+
+# Execute across chains
+aitbc governance execute-cross-chain --proposal-id prop_1a2b3c4d
 ```
 
 ## Help
@@ -370,6 +363,6 @@ Get help for any command:
 
 ```bash
 aitbc governance --help
-aitbc governance stake --help
+aitbc governance propose --help
 aitbc governance vote --help
 ```
