@@ -23,6 +23,7 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
+from urllib.parse import urlparse
 
 import click
 
@@ -45,6 +46,15 @@ def _coordinator_url(ctx, coordinator_url: str | None) -> str:
     url = coordinator_url or os.environ.get("AGENT_COORDINATOR_URL") or get_config().agent_coordinator_url
     if not url:
         url = DEFAULT_COORDINATOR_URL
+    # Every call site in this module carries its own absolute path
+    # (``/v1/...``, ``/api/v1/agent/messages/...``), and nginx mounts those at
+    # the origin root — so reduce the configured URL to scheme://host[:port].
+    # ``get_config().agent_coordinator_url`` resolves via ``hub_agent_url()``,
+    # which includes the ``/api/v1/agent`` prefix and would produce doubled
+    # paths like ``/api/v1/agent/v1/agents/...`` (routed to the gateway → 401).
+    parsed = urlparse(str(url))
+    if parsed.scheme and parsed.netloc:
+        return f"{parsed.scheme}://{parsed.netloc}"
     return str(url).rstrip("/")
 
 
