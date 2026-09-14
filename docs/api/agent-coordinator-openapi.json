@@ -9,7 +9,7 @@
     "/v1/agents/register": {
       "post": {
         "summary": "Register Agent",
-        "description": "Register a new agent",
+        "description": "Register a new agent.\n\nIdentity binding (docs/agent-coordinator/agent-signed-envelopes.md \u00a73):\nsupplying ``identity_address`` + ``identity_proof`` binds the agent_id to\nthat secp256k1 wallet (the escrow payout address). Once bound, a plain\nre-registration must re-prove the *bound* key \u2014 anything else is a\nhijack attempt and gets 409; rotation goes through\n``PUT /v1/agents/{agent_id}/identity``. In ``enforce`` mode the attestation\nis mandatory; in ``advisory``/``disabled`` agents may still register\nunsigned with ``identity_address = null``.",
         "operationId": "register_agent_v1_agents_register_post",
         "requestBody": {
           "content": {
@@ -40,6 +40,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "invalid_identity_proof / identity_address and identity_proof are required when AGENT_MSG_SIGNATURE_MODE=enforce",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "agent_id is bound to an identity; re-registration requires identity_proof from the bound key (rotate via PUT /v1/agents/{agent_id}/identity)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -119,6 +139,60 @@
           },
           "503": {
             "description": "Agent registry not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/nonce": {
+      "get": {
+        "summary": "Issue Registration Nonce",
+        "description": "Issue a one-time 300s nonce for the registration identity claim (doc \u00a73).\n\nThe response echoes ``chain_id`` so the caller knows which value to put in\nthe claim it signs.",
+        "operationId": "issue_registration_nonce_v1_agents_nonce_get",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Agent ID",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Issue Registration Nonce V1 Agents Nonce Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -253,6 +327,108 @@
           },
           "500": {
             "description": "Failed to update agent status / Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Agent registry not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/agents/{agent_id}/identity": {
+      "put": {
+        "summary": "Rotate Agent Identity",
+        "description": "Rotate the identity bound to ``agent_id`` \u2014 the doc \u00a77 dual-proof scheme.\n\nRequires ``new_proof`` (the new key signing the registration claim, over a\nfresh one-time nonce) **and** ``rotation_proof`` (the currently bound key\nsigning ``{agent_id, old_address, new_address, timestamp}``). Both must\nverify; old messages keep verifying against their embedded ``signer``.",
+        "operationId": "rotate_agent_identity_v1_agents__agent_id__identity_put",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Agent Id"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/IdentityRotationRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Rotate Agent Identity V1 Agents  Agent Id  Identity Put"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "invalid_rotation_timestamp / stale_rotation_timestamp / invalid_identity_proof / invalid_rotation_proof",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Agent not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Agent has no bound identity; bind one via POST /v1/agents/register",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Failed to rotate identity / Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -1029,6 +1205,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6804,6 +6990,54 @@
             ],
             "title": "Island Id",
             "description": "Island ID this agent is on"
+          },
+          "identity_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Address",
+            "description": "secp256k1 identity/payout address to bind to agent_id"
+          },
+          "identity_proof": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Proof",
+            "description": "Signature by identity_address over the registration claim"
+          },
+          "identity_nonce": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Identity Nonce",
+            "description": "One-time nonce from GET /v1/agents/nonce"
+          },
+          "registered_at": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Registered At",
+            "description": "Client ISO timestamp covered by identity_proof"
           }
         },
         "type": "object",
@@ -7125,6 +7359,63 @@
         "type": "object",
         "title": "HTTPValidationError"
       },
+      "IdentityRotationRequest": {
+        "properties": {
+          "new_address": {
+            "type": "string",
+            "title": "New Address",
+            "description": "New secp256k1 identity/payout address"
+          },
+          "new_proof": {
+            "type": "string",
+            "title": "New Proof",
+            "description": "Signature by new_address over the registration claim"
+          },
+          "rotation_proof": {
+            "type": "string",
+            "title": "Rotation Proof",
+            "description": "Signature by the currently bound key over the rotation claim"
+          },
+          "identity_nonce": {
+            "type": "string",
+            "title": "Identity Nonce",
+            "description": "One-time nonce from GET /v1/agents/nonce covered by new_proof"
+          },
+          "registered_at": {
+            "type": "string",
+            "title": "Registered At",
+            "description": "Client ISO timestamp covered by new_proof"
+          },
+          "rotation_timestamp": {
+            "type": "string",
+            "title": "Rotation Timestamp",
+            "description": "Client ISO timestamp covered by rotation_proof"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id",
+            "description": "Chain ID covered by new_proof"
+          }
+        },
+        "type": "object",
+        "required": [
+          "new_address",
+          "new_proof",
+          "rotation_proof",
+          "identity_nonce",
+          "registered_at",
+          "rotation_timestamp"
+        ],
+        "title": "IdentityRotationRequest",
+        "description": "Dual-proof identity rotation for ``PUT /v1/agents/{agent_id}/identity`` (doc \u00a77).\n\n``new_proof`` is the new key's signature over the same registration claim\nshape used at registration (fresh one-time ``identity_nonce`` included).\n``rotation_proof`` is the *currently bound* key's signature over\n``{\"agent_id\",\"old_address\",\"new_address\",\"timestamp\"}``."
+      },
       "JoinRequest": {
         "properties": {
           "role": {
@@ -7372,6 +7663,60 @@
             ],
             "title": "Message Id",
             "description": "Client-provided message ID for idempotency"
+          },
+          "signer": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signer",
+            "description": "secp256k1 address that signed the envelope"
+          },
+          "signature": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Signature",
+            "description": "0x-prefixed signature over signing_payload()"
+          },
+          "signature_version": {
+            "type": "string",
+            "title": "Signature Version",
+            "description": "Envelope signature scheme",
+            "default": "aitbc-agent-msg-v1"
+          },
+          "timestamp": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Timestamp",
+            "description": "Client ISO-8601 timestamp covered by the signature"
+          },
+          "nonce": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Nonce",
+            "description": "Client nonce for (sender, nonce) replay dedup"
           }
         },
         "type": "object",

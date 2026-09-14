@@ -13,6 +13,34 @@ class AgentRegistrationRequest(BaseModel):
     # v0.6.5: chain/island awareness
     chain_id: str | None = Field(None, description="Chain ID this agent operates on")
     island_id: str | None = Field(None, description="Island ID this agent is on")
+    # v2.0 phase A: registry identity binding
+    # (docs/agent-coordinator/agent-signed-envelopes.md §3). identity_address is
+    # the secp256k1 wallet that receives this agent's escrow payouts;
+    # identity_proof signs the canonical claim
+    # {"agent_id","identity_address","chain_id","nonce","registered_at"} where
+    # nonce is a one-time value from GET /v1/agents/nonce.
+    identity_address: str | None = Field(None, description="secp256k1 identity/payout address to bind to agent_id")
+    identity_proof: str | None = Field(None, description="Signature by identity_address over the registration claim")
+    identity_nonce: str | None = Field(None, description="One-time nonce from GET /v1/agents/nonce")
+    registered_at: str | None = Field(None, description="Client ISO timestamp covered by identity_proof")
+
+
+class IdentityRotationRequest(BaseModel):
+    """Dual-proof identity rotation for ``PUT /v1/agents/{agent_id}/identity`` (doc §7).
+
+    ``new_proof`` is the new key's signature over the same registration claim
+    shape used at registration (fresh one-time ``identity_nonce`` included).
+    ``rotation_proof`` is the *currently bound* key's signature over
+    ``{"agent_id","old_address","new_address","timestamp"}``.
+    """
+
+    new_address: str = Field(..., description="New secp256k1 identity/payout address")
+    new_proof: str = Field(..., description="Signature by new_address over the registration claim")
+    rotation_proof: str = Field(..., description="Signature by the currently bound key over the rotation claim")
+    identity_nonce: str = Field(..., description="One-time nonce from GET /v1/agents/nonce covered by new_proof")
+    registered_at: str = Field(..., description="Client ISO timestamp covered by new_proof")
+    rotation_timestamp: str = Field(..., description="Client ISO timestamp covered by rotation_proof")
+    chain_id: str | None = Field(None, description="Chain ID covered by new_proof")
 
 
 class AgentStatusUpdate(BaseModel):
