@@ -39,6 +39,9 @@ def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> st
 
     Returns the ``contract_id`` the chain assigned, or ``None``.
     """
+    # Only called from _create_task_escrow, which returns early when
+    # state.payment_escrow is unset — re-narrow for mypy.
+    assert state.payment_escrow is not None
     submitter = None
     if state.escrow_rpc and (payment.lock_tx or payment.lock_signature):
         from ..services.chain_escrow import make_lock_submitter
@@ -57,7 +60,7 @@ def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> st
         )
         return None
     state.payment_escrow.lock(escrow.escrow_id, submitter=submitter)
-    contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
+    contract_id: str | None = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
     if contract_id:
         # EscrowEntry.contract_id is the store's durable column;
         # keep the metadata mirror for readers and flush both —

@@ -606,7 +606,7 @@ def _read_wallet_address(wallet: str) -> str | None:
         click.echo(f"Error reading wallet file: {e}")
         return None
 
-    wallet_address = wallet_data.get("address")
+    wallet_address: str | None = wallet_data.get("address")
     if not wallet_address:
         click.echo("Error: wallet file has no 'address' field.")
         return None
