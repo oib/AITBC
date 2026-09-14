@@ -15,6 +15,13 @@ Environment="HERMES_PORT=8270"
 EnvironmentFile=-/etc/aitbc/hermes.env
 # Bind policy: internal service, loopback only (docs/deployment/NETWORK_POLICY.md).
 Environment=HERMES_BIND_HOST=127.0.0.1
+# This is the one AITBC service that does not run as `aitbc`, and /var/log/aitbc is
+# aitbc:aitbc 0755 on every host -- so configure_logging()'s mkdir of its own
+# subdirectory fails with EACCES. That resolver is fail-soft by design (it runs at
+# import, and raising would stop the service), so the failure is silent: the unit
+# comes up healthy and writes nothing. The `+` prefix runs this one command as root,
+# outside the sandbox, and it touches only this service's own directory.
+ExecStartPre=+/usr/bin/install -d -o aitbc-hermes -g aitbc-hermes -m 0755 /var/log/aitbc/hermes-agent
 ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/hermes_agent/main.py
 Restart=on-failure
 RestartSec=5
