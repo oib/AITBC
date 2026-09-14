@@ -86,7 +86,11 @@ from .utils.cache import cache_manager
 from .utils.metrics import build_live_metrics_payload, metrics_collector
 from .utils.security import get_client_ip
 
-configure_logging(level=settings.log_level if hasattr(settings, "log_level") else "INFO")
+configure_logging(
+    level=settings.log_level if hasattr(settings, "log_level") else "INFO",
+    service_name="coordinator-api",
+    to_file=True,
+)
 logger = get_logger(__name__)
 
 ml_zk_proofs: APIRouter | None = None

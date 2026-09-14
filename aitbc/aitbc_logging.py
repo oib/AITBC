@@ -27,6 +27,8 @@ from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
+from . import constants
+
 
 class JournalFormatter(logging.Formatter):
     """Compact human-readable formatter for systemd journal output.
@@ -40,10 +42,15 @@ class JournalFormatter(logging.Formatter):
     """
 
     def format(self, record: logging.LogRecord) -> str:
-        # Suppress raw traceback printing by clearing exc_info on the record
-        # The exception is already captured in the message via logger.exception()
-        record.exc_info = None
-        record.exc_text = None
+        # Do NOT clear record.exc_info/exc_text here. This method returns an
+        # f-string and never calls super().format(), so the traceback is already
+        # absent from *this* handler's output -- but a LogRecord is shared by every
+        # handler on the logger, and configure_logging() registers the console
+        # handler first. Clearing it here therefore blanked the traceback for the
+        # file handler's StructuredFormatter too, so logger.exception() wrote a
+        # message with no "exception" key anywhere. That defeated the split this
+        # module's docstring describes: compact in the journal, full capture in
+        # the file.
         return f"[{record.levelname}] [{record.name}] {record.getMessage()}"
 
 
@@ -113,17 +120,37 @@ def _get_log_level() -> int:
 
 
 def _get_log_file_path(service_name: str) -> Path | None:
-    """Get log file path from environment."""
-    log_dir = os.getenv("LOG_DIR")
-    if not log_dir:
-        return None
+    """Resolve the rotating log file for a service, or None if it is unusable.
+
+    `LOG_DIR` in the environment wins; otherwise fall back to `constants.LOG_DIR`
+    (`/var/log/aitbc`, or `$AITBC_HOME/logs`). Only two units ever set `LOG_DIR`,
+    so honouring the variable alone meant `to_file=True` silently produced no file
+    for everything else -- the caller could not tell the difference between "file
+    logging is off" and "file logging is on but went nowhere".
+
+    Returns None rather than raising. This runs at import time in every service
+    main, so an unwritable directory must degrade to journal-only logging, not
+    abort startup.
+    """
+    log_dir = os.getenv("LOG_DIR") or str(constants.LOG_DIR)
     log_path = Path(log_dir)
     # Refuse relative/placeholder env values to avoid writing a log tree into
     # whatever directory happens to be the current working directory.
     if not log_path.is_absolute():
         return None
     service_path = log_path / service_name
-    service_path.mkdir(parents=True, exist_ok=True)
+    try:
+        service_path.mkdir(parents=True, exist_ok=True)
+    except OSError:
+        # No ReadWritePaths entry, read-only mount, wrong owner: log to the
+        # journal only. Cannot report this through logging -- we are configuring it.
+        return None
+    if not os.access(service_path, os.W_OK):
+        # mkdir(exist_ok=True) succeeds on a directory owned by someone else, so
+        # existence is not permission. Services run as `aitbc`; anything that ran
+        # this as root first leaves a root-owned directory behind, and without this
+        # check the handler constructor below would raise PermissionError at import.
+        return None
     return service_path / f"{service_name}.log"
 
 
@@ -157,16 +184,19 @@ def setup_logger(
             log_file = _get_log_file_path(service_name)
             if log_file:
                 file_handler: logging.Handler
-                if rotation == "daily":
-                    file_handler = logging.handlers.TimedRotatingFileHandler(
-                        log_file, when="midnight", interval=1, backupCount=max_files, encoding="utf-8"
-                    )
-                elif rotation == "size":
-                    file_handler = logging.handlers.RotatingFileHandler(
-                        log_file, maxBytes=10 * 1024 * 1024, backupCount=max_files, encoding="utf-8"
-                    )
-                else:
-                    file_handler = logging.FileHandler(log_file, encoding="utf-8")
+                try:
+                    if rotation == "daily":
+                        file_handler = logging.handlers.TimedRotatingFileHandler(
+                            log_file, when="midnight", interval=1, backupCount=max_files, encoding="utf-8"
+                        )
+                    elif rotation == "size":
+                        file_handler = logging.handlers.RotatingFileHandler(
+                            log_file, maxBytes=10 * 1024 * 1024, backupCount=max_files, encoding="utf-8"
+                        )
+                    else:
+                        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+                except OSError:
+                    return logger  # console-only; see _get_log_file_path
 
                 file_handler.setFormatter(StructuredFormatter(include_timestamp=True))
                 logger.addHandler(file_handler)
@@ -290,9 +320,14 @@ def configure_logging(
     if to_file and service_name:
         log_file = _get_log_file_path(service_name)
         if log_file:
-            file_handler = logging.handlers.TimedRotatingFileHandler(
-                log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8"
-            )
+            try:
+                file_handler = logging.handlers.TimedRotatingFileHandler(
+                    log_file, when="midnight", interval=1, backupCount=7, encoding="utf-8"
+                )
+            except OSError:
+                # Console-only rather than a service that will not start. Every caller
+                # of this runs it at import time; see _get_log_file_path.
+                return
             file_handler.setFormatter(StructuredFormatter(include_timestamp=True))
             root_logger.addHandler(file_handler)
 

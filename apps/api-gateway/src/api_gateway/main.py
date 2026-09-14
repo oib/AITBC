@@ -45,7 +45,7 @@ except ImportError:
 
     Limiter = _DummyLimiter  # type: ignore[assignment,misc]
     get_remote_address = _dummy_get_remote_address
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="api-gateway", to_file=True)
 logger = get_logger(__name__)
 if SLOWAPI_AVAILABLE:
     limiter: Limiter | None = Limiter(key_func=get_remote_address)
