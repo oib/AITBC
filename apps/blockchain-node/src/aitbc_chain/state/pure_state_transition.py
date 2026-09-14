@@ -16,6 +16,7 @@ Key design:
 
 from __future__ import annotations
 
+import os
 from dataclasses import dataclass
 from typing import Any, cast
 
@@ -36,7 +37,7 @@ def _escrow_address(job_id: str) -> str:
 
 def _escrow_settlement_authority() -> str | None:
     """Return the canonical settlement authority for v3 escrow releases/refunds."""
-    addr = settings.escrow_settlement_authority or ""
+    addr = settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")
     if not addr:
         return None
     return _to_ait_address(addr)
