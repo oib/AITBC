@@ -36,6 +36,7 @@ def aitbc_agent_task_hire(
     timeout_seconds: Annotated[float | None, Field(description="Escrow timeout in seconds")],
     wait: Annotated[bool | None, Field(description="Wait for the task result")],
     wait_seconds: Annotated[float | None, Field(description="Max time to wait for a result")],
+    sign: Annotated[bool | None, Field(description="Sign negotiation envelopes and inbox polls with the buyer wallet")],
     coordinator_url: Annotated[
         str | None, Field(description="Agent coordinator URL (default: $AGENT_COORDINATOR_URL or hub)")
     ],
@@ -69,6 +70,8 @@ def aitbc_agent_task_hire(
         options["wait"] = None
     if wait_seconds is not None:
         options["wait-seconds"] = wait_seconds
+    if sign:
+        options["sign"] = None
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = None
@@ -108,6 +111,9 @@ def aitbc_agent_task_result(
     task_id: Annotated[str, Field(description="Task identifier")],
     out_path: Annotated[str | None, Field(description="Output file path (default: print to stdout)")],
     from_agent: Annotated[str | None, Field(description="Buyer agent ID")],
+    wallet_name: Annotated[str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")],
+    password: Annotated[str | None, Field(description="Wallet password")],
+    sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -123,6 +129,12 @@ def aitbc_agent_task_result(
         options["out"] = out_path
     if from_agent is not None:
         options["from-agent"] = from_agent
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
+    if sign:
+        options["sign"] = None
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = None
@@ -161,6 +173,9 @@ def aitbc_agent_task_result(
 def aitbc_agent_task_status(
     task_id: Annotated[str, Field(description="Task identifier")],
     from_agent: Annotated[str | None, Field(description="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")],
+    wallet_name: Annotated[str | None, Field(description="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")],
+    password: Annotated[str | None, Field(description="Wallet password")],
+    sign: Annotated[bool | None, Field(description="Sign the inbox poll when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -172,6 +187,12 @@ def aitbc_agent_task_status(
         options["task-id"] = task_id
     if from_agent is not None:
         options["from-agent"] = from_agent
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
+    if sign:
+        options["sign"] = None
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = None

@@ -20,6 +20,7 @@ from aitbc.utils.validation import validate_address
 
 from ..config import get_config
 from ..utils import error, info, output, success
+from ..utils.agent_signing import load_signing_wallet, signed_request_headers
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -1095,17 +1096,28 @@ try:
     @click.option("--agent-id", help="Agent ID")
     @click.option("--limit", type=int, default=100, help="Maximum messages")
     @click.option("--unread-only", is_flag=True, help="Only unread messages")
+    @click.option(
+        "--wallet",
+        "wallet_name",
+        default=None,
+        help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
+    )
+    @click.option("--password", default=None, help="Wallet password")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def inbox(ctx, agent_id, limit, unread_only, coordinator_url, format):
+    def inbox(ctx, agent_id, limit, unread_only, wallet_name, password, coordinator_url, format):
         """View messages in a specified agent's inbox from the coordinator."""
         try:
             import requests
 
             agent_id = _resolve_agent_id(ctx, agent_id)
+            signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+            headers = signed_request_headers(agent_id, signing[1]) if signing else None
             params = {"agent_id": agent_id, "limit": limit, "unread_only": unread_only}
-            response = requests.get(f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, timeout=10)
+            response = requests.get(
+                f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, headers=headers, timeout=10
+            )
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title=f"Inbox for {agent_id}")
@@ -1125,16 +1137,30 @@ try:
     @click.option("--agent-id", required=True, help="Agent ID")
     @click.option("--topic", required=True, help="Topic to subscribe to")
     @click.option("--filter", help="Filter criteria (JSON string)")
+    @click.option(
+        "--wallet",
+        "wallet_name",
+        default=None,
+        help="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)",
+    )
+    @click.option("--password", default=None, help="Wallet password")
     @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def subscribe(ctx, agent_id, topic, filter, coordinator_url, format):
+    def subscribe(ctx, agent_id, topic, filter, wallet_name, password, coordinator_url, format):
         """Subscribe an agent to a message topic on the coordinator."""
         try:
             import requests
 
             data = {"agent_id": agent_id, "topic": topic, "filter": json.loads(filter) if filter else {}}
-            response = requests.post(f"{coordinator_url}/api/v1/agent/subscribe", json=data, timeout=10)
+            signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+            headers = signed_request_headers(agent_id, signing[1]) if signing else None
+            # Latent bug fixed: the coordinator mounts this route at
+            # /api/v1/agent/messages/subscribe (routers/messages.py), not
+            # /api/v1/agent/subscribe.
+            response = requests.post(
+                f"{coordinator_url}/api/v1/agent/messages/subscribe", json=data, headers=headers, timeout=10
+            )
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title="Subscription")
