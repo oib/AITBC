@@ -37,7 +37,7 @@ from .services.marketplace_service import MarketplaceService  # noqa: E402
 from .services.matching_service import MatchingService  # noqa: E402
 from .storage import get_session, init_db  # noqa: E402
 
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="marketplace", to_file=True)
 logger = get_logger(__name__)
 
 

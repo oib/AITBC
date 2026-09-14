@@ -26,7 +26,7 @@ from aitbc.middleware import (
 from .services.governance_service import GovernanceService
 from .storage import get_session, init_db
 
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="governance", to_file=True)
 logger = get_logger(__name__)
 
 

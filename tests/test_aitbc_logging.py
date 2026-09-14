@@ -4,14 +4,21 @@ Tests for enhanced logging module
 
 import json
 import logging
+import os
 from io import StringIO
 import sys
 
+import pytest
 
+
+from pathlib import Path
+
+from aitbc import constants
 from aitbc.aitbc_logging import (
     JournalFormatter,
     LogContext,
     StructuredFormatter,
+    _get_log_file_path,
     configure_logging,
     get_logger,
     log_context,
@@ -366,3 +373,122 @@ class TestBackwardCompatibility:
 
         # Clean up
         logger.removeHandler(handler)
+
+
+class TestTracebacksReachTheFile:
+    """The journal/file split is only real if the file actually gets the traceback.
+
+    `JournalFormatter.format()` used to clear `exc_info` and `exc_text` on the record
+    it was handed. That looked local -- it returns an f-string and never calls
+    `super().format()`, so its own output was unaffected either way -- but a LogRecord
+    is shared by every handler on the logger, and `configure_logging` registers the
+    console handler before the file handler. So the clearing ran first and the
+    StructuredFormatter downstream saw `exc_info = None`, emitting JSON with no
+    "exception" key. Every `logger.exception()` call on the fleet recorded a message
+    and discarded the stack, which is what made 500s undiagnosable from the logs.
+    """
+
+    def test_journal_formatter_does_not_clear_exc_info(self):
+        try:
+            raise ValueError("boom")
+        except ValueError:
+            record = logging.LogRecord(
+                name="t",
+                level=logging.ERROR,
+                pathname="t.py",
+                lineno=1,
+                msg="failed",
+                args=(),
+                exc_info=sys.exc_info(),
+            )
+
+        out = JournalFormatter().format(record)
+
+        # The journal line itself stays compact: one line, no traceback.
+        assert out == "[ERROR] [t] failed"
+        assert "Traceback" not in out
+        # ...but the record must survive intact for the next handler.
+        assert record.exc_info is not None
+        assert record.exc_info[0] is ValueError
+
+    def test_exception_survives_the_console_handler_and_reaches_the_json_file(self, tmp_path, monkeypatch):
+        """The regression guard proper: both handlers, in the order configure_logging uses."""
+        monkeypatch.setenv("LOG_DIR", str(tmp_path))
+        logger = logging.getLogger("test_traceback_to_file")
+        logger.handlers.clear()
+        logger.propagate = False
+        logger.setLevel(logging.INFO)
+
+        console = logging.StreamHandler(StringIO())
+        console.setFormatter(JournalFormatter())
+        logger.addHandler(console)  # first, as configure_logging does
+
+        log_file = tmp_path / "svc.log"
+        file_handler = logging.FileHandler(log_file, encoding="utf-8")
+        file_handler.setFormatter(StructuredFormatter(include_timestamp=True))
+        logger.addHandler(file_handler)
+
+        try:
+            raise ValueError("synthetic readiness failure")
+        except ValueError:
+            logger.exception("Readiness check failed")
+
+        file_handler.flush()
+        entry = json.loads(log_file.read_text().strip().splitlines()[-1])
+
+        assert entry["message"] == "Readiness check failed"
+        assert "exception" in entry, "traceback was lost before the file handler ran"
+        assert "ValueError: synthetic readiness failure" in entry["exception"]
+        assert "Traceback (most recent call last)" in entry["exception"]
+
+        logger.handlers.clear()
+
+
+class TestLogFilePathResolution:
+    """`to_file=True` must not silently produce no file.
+
+    Only `aitbc-miner` and `aitbc-monitoring` set `LOG_DIR` in their units, so honouring
+    the environment variable alone meant every other service asked for file logging and
+    got nothing, with no way to tell that apart from file logging being switched off.
+    """
+
+    def test_falls_back_to_constants_log_dir(self, monkeypatch):
+        monkeypatch.delenv("LOG_DIR", raising=False)
+
+        path = _get_log_file_path("svc")
+
+        assert path == Path(constants.LOG_DIR) / "svc" / "svc.log"
+
+    def test_env_var_wins_over_the_default(self, tmp_path, monkeypatch):
+        monkeypatch.setenv("LOG_DIR", str(tmp_path))
+
+        assert _get_log_file_path("svc") == tmp_path / "svc" / "svc.log"
+
+    def test_relative_value_is_refused(self, monkeypatch):
+        monkeypatch.setenv("LOG_DIR", "logs")
+
+        assert _get_log_file_path("svc") is None
+
+    def test_unwritable_directory_degrades_instead_of_raising(self, monkeypatch):
+        """This runs at import time in every service main, so it must never abort startup."""
+        monkeypatch.setenv("LOG_DIR", "/proc/aitbc-cannot-create-this")
+
+        assert _get_log_file_path("svc") is None
+
+    @pytest.mark.skipif(os.geteuid() == 0, reason="root bypasses the permission bits being tested")
+    def test_existing_but_unwritable_directory_is_refused(self, tmp_path, monkeypatch):
+        """Existence is not permission.
+
+        `mkdir(exist_ok=True)` succeeds on a directory owned by someone else, so the
+        mkdir guard alone lets execution reach the handler constructor, which then
+        raises PermissionError -- at import time, taking the service down. Services run
+        as `aitbc`; anything that ran as root first leaves exactly this state behind.
+        """
+        monkeypatch.setenv("LOG_DIR", str(tmp_path))
+        locked = tmp_path / "svc"
+        locked.mkdir()
+        locked.chmod(0o500)
+        try:
+            assert _get_log_file_path("svc") is None
+        finally:
+            locked.chmod(0o700)
