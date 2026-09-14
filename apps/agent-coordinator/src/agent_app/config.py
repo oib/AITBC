@@ -152,6 +152,22 @@ class Settings(ServiceSettings):
     # Provide a comma-separated list via the ISLAND_MEMBERS env var (or leave empty).
     island_members: list[str] = os.getenv("ISLAND_MEMBERS", "").split(",") if os.getenv("ISLAND_MEMBERS") else []
 
+    # v2.0 phase A: agent-message envelope signatures
+    # (docs/agent-coordinator/agent-signed-envelopes.md §5/§8). ``disabled`` is
+    # the in-code default — the hub flips to ``advisory``/``enforce`` via env.
+    agent_msg_signature_mode: str = os.getenv("AGENT_MSG_SIGNATURE_MODE", "disabled")
+    # not-money: a duration in seconds; the envelope timestamp tolerance
+    agent_msg_max_skew_seconds: int = int(os.getenv("AGENT_MSG_MAX_SKEW_SECONDS", "300"))
+
+    @field_validator("agent_msg_signature_mode")
+    @classmethod
+    def _validate_agent_msg_signature_mode(cls, v: str) -> str:
+        """AGENT_MSG_SIGNATURE_MODE is one of disabled|advisory|enforce."""
+        mode = str(v).strip().lower()
+        if mode not in ("disabled", "advisory", "enforce"):
+            raise ValueError("AGENT_MSG_SIGNATURE_MODE must be disabled, advisory or enforce")
+        return mode
+
     @field_validator("secret_key")
     @classmethod
     def _validate_secret_key(cls, v: str) -> str:
