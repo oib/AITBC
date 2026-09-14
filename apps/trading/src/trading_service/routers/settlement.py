@@ -94,10 +94,10 @@ async def lock_escrow(
             "source_timelock": escrow.get("source_timelock", 0),
             "dest_timelock": escrow.get("dest_timelock", 0),
         }
-    except Exception as e:
+    except Exception:
         await svc.session.rollback()
-        logger.error("Lock escrow failed for trade %s: %s", trade_id, e)
-        return JSONResponse(status_code=502, content={"error": f"Lock escrow failed: {e}"})
+        logger.exception("Lock escrow failed for trade %s", trade_id)
+        return JSONResponse(status_code=502, content={"error": "Lock escrow failed; no escrow was locked"})
 
 
 @router.post("/v1/trading/trades/{trade_id}/settle")
@@ -130,10 +130,10 @@ async def settle_trade(
         await svc.session.commit()
         await svc.session.refresh(trade)
         return {"trade_id": trade.trade_id, "escrow_id": trade.escrow_id, "result": result}
-    except Exception as e:
+    except Exception:
         await svc.session.rollback()
-        logger.error("Settle trade failed for trade %s: %s", trade_id, e)
-        return JSONResponse(status_code=502, content={"error": f"Settle trade failed: {e}"})
+        logger.exception("Settle trade failed for trade %s", trade_id)
+        return JSONResponse(status_code=502, content={"error": "Settle trade failed; the trade was not settled"})
 
 
 @router.get("/v1/trading/trades/{trade_id}/settlement-status")
