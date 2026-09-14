@@ -22,7 +22,18 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-whisper
-MemoryMax=1G
+# Memory caps, sized from measurement rather than from a round number. The loaded
+# model plus the CUDA context peaks near 1.2G before a single request arrives, and
+# each request adds roughly 1G per ten minutes of audio: faster-whisper decodes the
+# whole clip, and the endpoint reads the whole upload before touching it. The old
+# MemoryMax=1G did not fit even the idle floor, so the cgroup reclaimed continuously
+# (memory.events max=3121, 27k file refaults) while never being OOM-killed -- the
+# failure mode was permanent thrashing, which reads as "healthy" in systemctl status.
+# MemoryHigh is the throttling band: past it the kernel applies reclaim pressure and
+# an unusually long clip finishes slowly instead of dying. MemoryMax remains the
+# backstop, and bounds what an oversized upload can cost the rest of the host.
+MemoryHigh=2G
+MemoryMax=3G
 # Security hardening (v0.5.0)
 PrivateTmp=yes
 NoNewPrivileges=yes
