@@ -10,7 +10,6 @@ from __future__ import annotations
 
 import argparse
 import json
-import logging
 import os
 import re
 import signal
@@ -21,149 +20,20 @@ from typing import Any
 
 # systemd runs this as a bare script with no PYTHONPATH, and `aitbc` is not
 # installed into the venv, so the repo root has to go on the path before the
-# import below. Derived from __file__ rather than hardcoded, so a checkout
-# somewhere other than the deployment path still works.
-sys.path.insert(0, str(Path(__file__).resolve().parents[2]))
+# imports below. Derived from __file__ rather than hardcoded, so a checkout
+# somewhere other than the deployment path still works. The script's own
+# directory is already sys.path[0] when this runs as a script, but not when it
+# is loaded by path -- importlib.util.spec_from_file_location does not add it --
+# so `kubo_log` gets an entry of its own rather than relying on that.
+_HERE = Path(__file__).resolve()
+sys.path.insert(0, str(_HERE.parents[2]))
+sys.path.insert(0, str(_HERE.parent))
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from kubo_log import forward_line  # noqa: E402
 
 configure_logging(level="INFO", service_name="island-ipfs", to_file=True)
 logger = get_logger(__name__)
-
-
-# Kubo log parsing. The two regexes below are shared with apps/ipfs/ipfs-daemon.py;
-# what that script does with them is not -- it still prints, while this one hands
-# the parts to the logging module so the rotating file gets them too.
-KUBO_LOG_RE = re.compile(
-    r"^(?P<ts>\d{4}-\d{2}-\d{2}T\d{2}:\d{2}:\d{2}\.\d+[+-]\d{2}:?\d{2})\s+"
-    r"(?P<level>\w+)\s+"
-    r"(?P<component>\S+)\s+"
-    r"(?P<caller>\S+)\s+"
-    r"(?P<message>.*?)\s*"
-    r"(?P<attrs>\{.*\})?\s*$"
-)
-
-LOGFMT_RE = re.compile(r'([\w-]+)=("(?:\\.|[^"\\])*"|[^\s]+)')
-
-# Kubo's level vocabulary is Go's, not Python's: `warn` rather than `warning`, and
-# three separate panic levels. Translating it is what lets the rotating JSON file
-# record a real level per line instead of one baked into the message text.
-KUBO_LEVELS = {
-    "DEBUG": logging.DEBUG,
-    "INFO": logging.INFO,
-    "WARN": logging.WARNING,
-    "WARNING": logging.WARNING,
-    "ERROR": logging.ERROR,
-    "DPANIC": logging.CRITICAL,
-    "PANIC": logging.CRITICAL,
-    "FATAL": logging.CRITICAL,
-}
-
-_component_loggers: dict[str, logging.Logger] = {}
-
-
-def _component_logger(component: str) -> logging.Logger:
-    """Return a logger named after the Kubo subsystem that emitted the line.
-
-    `JournalFormatter` renders `[levelname] [logger name] message`, which is the
-    shape this wrapper used to assemble by hand, so naming the logger after the
-    component leaves the journal line it produces as it was.
-
-    The level is pinned on the logger instead of being left to the root, which
-    `configure_logging` sets to INFO. Python gates on the logger the call is made
-    on and then hands the record to every ancestor's handlers regardless of their
-    levels -- without this, a Kubo debug line the old `print()` forwarded would be
-    dropped.
-    """
-    component_logger = _component_loggers.get(component)
-    if component_logger is None:
-        component_logger = logging.getLogger(component)
-        component_logger.setLevel(logging.DEBUG)
-        _component_loggers[component] = component_logger
-    return component_logger
-
-
-def _component_from_source(source: str) -> str:
-    parts = source.split("/")
-    if len(parts) > 1 and "@" in parts[1]:
-        parts[1] = parts[1].split("@")[0]
-    if len(parts) >= 2:
-        comp = "/".join(parts[-2:])
-    else:
-        comp = source
-    return re.sub(r"\.go:\d+$", "", comp)
-
-
-def _parse_logfmt(line: str) -> dict[str, str] | None:
-    pairs: dict[str, str] = {}
-    for key, value in LOGFMT_RE.findall(line):
-        if value.startswith('"') and value.endswith('"'):
-            value = value[1:-1]
-        pairs[key] = value
-    if not pairs or "level" not in pairs or "msg" not in pairs:
-        return None
-    return pairs
-
-
-def _parse_line(line: str) -> tuple[str, str, str] | None:
-    """Split one line of Kubo output into (level, component, message).
-
-    Returns None for a line with nothing on it. This used to return the assembled
-    `[LEVEL] [component] message` string for `print()`; the three parts are kept
-    apart now so the level can reach the log record rather than only its text.
-    """
-    line = line.rstrip()
-    if not line:
-        return None
-
-    match = KUBO_LOG_RE.match(line)
-    if match:
-        level = match.group("level").upper()
-        component = match.group("component")
-        caller = match.group("caller")
-        message = match.group("message").rstrip()
-        attrs = match.group("attrs")
-
-        if attrs:
-            try:
-                data = json.loads(attrs)
-                extra = ", ".join(f"{k}={v!r}" for k, v in data.items())
-                message = f"{message}: {extra}"
-            except Exception:
-                message = f"{message} {attrs}"
-
-        if caller:
-            message = f"{caller}: {message}"
-
-        return level, component, message
-
-    logfmt = _parse_logfmt(line)
-    if logfmt:
-        level = logfmt.pop("level", "INFO").upper()
-        source = logfmt.pop("source", "")
-        message = logfmt.pop("msg", "")
-        logfmt.pop("time", None)
-        component = _component_from_source(source) if source else "ipfs"
-        extras = ", ".join(f"{k}={v!r}" for k, v in logfmt.items())
-        if extras:
-            message = f"{message}: {extras}"
-        if source:
-            message = f"{source}: {message}"
-        return level, component, message
-
-    return "INFO", "ipfs", line
-
-
-def _forward_line(line: str) -> None:
-    """Hand one line of Kubo output to the logging module."""
-    parsed = _parse_line(line)
-    if parsed is None:
-        return
-    level, component, message = parsed
-    # "%s" rather than the message itself as the format string: this is another
-    # process's output, and a literal % in it would otherwise raise inside
-    # LogRecord.getMessage() -- at which point the line is lost, not just mangled.
-    _component_logger(component).log(KUBO_LEVELS.get(level, logging.INFO), "%s", message)
 
 
 def _ipfs_bin() -> str:
@@ -322,7 +192,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         for raw in proc.stdout or []:
-            _forward_line(raw)
+            forward_line(raw)
     finally:
         proc.wait()
 
