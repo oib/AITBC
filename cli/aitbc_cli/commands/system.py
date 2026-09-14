@@ -216,7 +216,7 @@ def _check_http_health(host: str, port: int, path: str, method: str, timeout: in
 def _check_wallet_balance(config) -> dict[str, Any] | None:
     """Return a wallet summary row, or None if the wallet daemon is unreachable."""
     wallet_url = config.wallet_daemon_url or "http://127.0.0.1:8108"
-    client = AITBCHTTPClient(base_url=wallet_url, timeout=3, max_retries=0)
+    client = AITBCHTTPClient(base_url=wallet_url, timeout=3, max_retries=0, api_key=getattr(config, "wallet_api_key", None))
     try:
         wallets = client.get("/v1/wallets")
         items = wallets.get("items", []) if isinstance(wallets, dict) else wallets

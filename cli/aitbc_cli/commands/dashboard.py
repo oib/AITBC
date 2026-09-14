@@ -279,7 +279,7 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
 
         wallet_balances: list[dict[str, Any]] = []
         try:
-            wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10)
+            wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
             wallets_data = wallet_client.get("/v1/wallets") or {}
             wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
             chain_id = ctx.obj.get("chain_id") or "ait-devnet"
@@ -444,7 +444,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         # Shop wallet balances
         wallet_balances: list[dict[str, Any]] = []
         try:
-            wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10)
+            wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
             wallets_data = wallet_client.get("/v1/wallets") or {}
             wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
             chain_id = ctx.obj.get("chain_id") or "ait-devnet"

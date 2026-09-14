@@ -111,7 +111,7 @@ def get_wallet_address() -> str:
     # Try wallet service API first
     wallets: list[dict[str, Any]] = []
     try:
-        http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5)
+        http_client = AITBCHTTPClient(base_url="http://localhost:8108", timeout=5, api_key=get_config().wallet_api_key)
         response = http_client.get("/v1/wallets")
         wallets = response.get("items", []) if response else []
     except Exception as e:

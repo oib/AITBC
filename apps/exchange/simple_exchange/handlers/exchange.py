@@ -446,8 +446,10 @@ class ExchangeMixin:
         try:
             import httpx
 
+            from .wallet import wallet_auth_headers
+
             with httpx.Client(timeout=10) as client:
-                resp = client.get(f"{wallet_url}/v1/wallets", params={"address": address})
+                resp = client.get(f"{wallet_url}/v1/wallets", params={"address": address}, headers=wallet_auth_headers())
                 if resp.status_code == 200:
                     wallets = resp.json().get("wallets", [])
                     if wallets:
