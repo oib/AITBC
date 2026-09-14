@@ -581,7 +581,7 @@
             }
           },
           "502": {
-            "description": "On-chain escrow lock failed: {e}",
+            "description": "On-chain escrow lock failed; the task was not submitted",
             "content": {
               "application/json": {
                 "schema": {
@@ -930,7 +930,7 @@
             }
           },
           "502": {
-            "description": "On-chain escrow release failed: {e}",
+            "description": "On-chain escrow release failed; the payment was not released",
             "content": {
               "application/json": {
                 "schema": {
@@ -1012,7 +1012,7 @@
             }
           },
           "502": {
-            "description": "On-chain escrow refund failed: {e}",
+            "description": "On-chain escrow refund failed; the payment was not refunded",
             "content": {
               "application/json": {
                 "schema": {
