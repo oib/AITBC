@@ -58,12 +58,12 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 32
-- **Markdown files under docs/**: 864
+- **Markdown files under docs/**: 865
 
 | Directory | Files | Description |
 |---|---|---|
 | [agent](agent/) | 10 | Single agent integration and coordination |
-| [agent-coordinator](agent-coordinator/) | 20 | Agent coordinator service and API docs |
+| [agent-coordinator](agent-coordinator/) | 21 | Agent coordinator service and API docs |
 | [agent-sdk](agent-sdk/) | 14 | Agent SDK and communication guide |
 | [api](api/) | 7 | API integration, usage docs, and generated OpenAPI specs |
 | [apps](apps/) | 34 | Application catalog and per-app landing pages |
