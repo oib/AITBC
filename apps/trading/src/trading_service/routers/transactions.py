@@ -41,10 +41,10 @@ async def submit_transaction(transaction_data: dict[str, Any], session: Annotate
         else:
             return JSONResponse(status_code=400, content={"error": f"Invalid action: {action}"})
         return {"status": "success", "transaction_id": transaction_id}
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Transaction submission error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Transaction submission error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @router.get("/v1/transactions")
@@ -117,9 +117,9 @@ async def get_transactions(
         if island_id:
             transactions = [t for t in transactions if t.get("island_id") == island_id]
         return transactions
-    except Exception as e:
-        logger.error("Transaction query error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Transaction query error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @router.get("/v1/blocks")

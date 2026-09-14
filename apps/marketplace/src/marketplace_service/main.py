@@ -113,10 +113,13 @@ async def ready() -> Any:
 
             await session.execute(text("SELECT 1"))
         return {"status": "ready", "service": "marketplace-service"}
-    except Exception as e:
-        logger.error("Readiness check failed: %s", e)
+    except Exception:
+        # A failed dependency check carries the DSN -- host, port, user -- and
+        # /ready is unauthenticated, so the reason goes to the log, not the caller.
+        logger.exception("Readiness check failed")
         return JSONResponse(
-            status_code=503, content={"status": "not_ready", "service": "marketplace-service", "error": str(e)}
+            status_code=503,
+            content={"status": "not_ready", "service": "marketplace-service", "error": "readiness check failed"},
         )
 
 
@@ -1115,10 +1118,10 @@ async def submit_transaction(
             )
         await session.commit()
         return {"status": "success"}
-    except Exception as e:
+    except Exception:
         await session.rollback()
-        logger.error("Transaction submission error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+        logger.exception("Transaction submission error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 @app.get("/v1/transactions")
@@ -1171,9 +1174,9 @@ async def get_transactions(
         if island_id:
             transactions = [t for t in transactions if t.get("provider") == island_id]
         return transactions
-    except Exception as e:
-        logger.error("Transaction query error: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})
+    except Exception:
+        logger.exception("Transaction query error")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
 # ============================================================================
@@ -1254,9 +1257,9 @@ async def apply_marketplace_parameter(
             "applied_at": datetime.now(UTC).isoformat(),
             "message": f"Parameter {request.parameter_name} updated successfully",
         }
-    except Exception as e:
-        logger.error("Failed to apply parameter change: %s", e)
-        return JSONResponse(status_code=500, content={"error": str(e)})  # type: ignore[return-value]
+    except Exception:
+        logger.exception("Failed to apply parameter change")
+        return JSONResponse(status_code=500, content={"error": "Internal server error"})  # type: ignore[return-value]
 
 
 # ============================================================================
