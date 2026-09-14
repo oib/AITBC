@@ -1238,7 +1238,7 @@
           "agent-messaging"
         ],
         "summary": "Get Inbox",
-        "description": "Get agent's inbox",
+        "description": "Get agent's inbox. Enforce mode: only the bound principal (or an admin)\nmay read an agent's inbox; advisory/disabled keep the open read.",
         "operationId": "get_inbox_api_v1_agent_messages_inbox_get",
         "parameters": [
           {
@@ -1319,7 +1319,7 @@
           "agent-messaging"
         ],
         "summary": "Get Message History",
-        "description": "Get message history with optional filters",
+        "description": "Get message history with optional filters.\n\nEnforce mode: an authenticated non-admin principal may only read its own\nrecords \u2014 ``sender_id``/``receiver_id`` filters must equal its agent_id,\nand an unfiltered query returns only messages it is a party to (never\n``get_all_messages``). Admin principals keep the full view. Advisory and\ndisabled keep the historical open behaviour (mismatches are logged).",
         "operationId": "get_message_history_api_v1_agent_messages_history_get",
         "parameters": [
           {
@@ -1551,7 +1551,7 @@
           "agent-messaging"
         ],
         "summary": "Subscribe To Topic",
-        "description": "Subscribe agent to topic and persist the subscription.",
+        "description": "Subscribe agent to topic and persist the subscription.\n\nEnforce mode: only the bound principal (or an admin) may subscribe an\nagent; advisory/disabled keep the open behaviour.",
         "operationId": "subscribe_to_topic_api_v1_agent_messages_subscribe_post",
         "requestBody": {
           "content": {
@@ -1615,7 +1615,7 @@
           "agent-messaging"
         ],
         "summary": "Unsubscribe From Topic",
-        "description": "Unsubscribe agent from topic and remove the persisted subscription.",
+        "description": "Unsubscribe agent from topic and remove the persisted subscription.\n\nEnforce mode: only the bound principal (or an admin) may unsubscribe an\nagent; advisory/disabled keep the open behaviour.",
         "operationId": "unsubscribe_from_topic_api_v1_agent_messages_unsubscribe_post",
         "requestBody": {
           "content": {
@@ -1679,7 +1679,7 @@
           "agent-messaging"
         ],
         "summary": "Get Agent Subscriptions",
-        "description": "Get persisted topic subscriptions for an agent.",
+        "description": "Get persisted topic subscriptions for an agent.\n\nEnforce mode: only the bound principal (or an admin) may read an agent's\nsubscriptions; advisory/disabled keep the open behaviour.",
         "operationId": "get_agent_subscriptions_api_v1_agent_messages_subscriptions__agent_id__get",
         "parameters": [
           {
@@ -1818,7 +1818,7 @@
           "agent-messaging"
         ],
         "summary": "Get Message",
-        "description": "Get a specific message by ID",
+        "description": "Get a specific message by ID.\n\nEnforce mode: only a party to the message (sender or receiver \u2014 or an\nadmin) may read it; advisory/disabled keep the open read.",
         "operationId": "get_message_api_v1_agent_messages_id__message_id__get",
         "parameters": [
           {
@@ -1893,7 +1893,7 @@
           "agent-messaging"
         ],
         "summary": "Mark Message Read",
-        "description": "Mark a specific message as read.",
+        "description": "Mark a specific message as read.\n\nEnforce mode: only the message's receiver (or an admin) may mark it read \u2014\nthe read flag is the receiver's state, so the sender may not flip it;\nadvisory/disabled keep the open behaviour.",
         "operationId": "mark_message_read_api_v1_agent_messages_id__message_id__read_post",
         "parameters": [
           {
@@ -2528,7 +2528,7 @@
           "agent-messaging"
         ],
         "summary": "Get Messages For Agent Compatibility",
-        "description": "Get messages for agent - AgentDaemon compatibility route",
+        "description": "Get messages for agent - AgentDaemon compatibility route.\n\nEnforce mode: only the bound principal (or an admin) may read the agent's\nmessages; advisory/disabled keep the open read.",
         "operationId": "get_messages_for_agent_compatibility_api_v1_agent_messages__agent_id__get",
         "parameters": [
           {
@@ -4171,6 +4171,171 @@
           },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/auth/nonce": {
+      "post": {
+        "tags": [
+          "agent-auth"
+        ],
+        "summary": "Issue Login Nonce",
+        "description": "Issue a one-time 300 s nonce for the wallet-login claim.\n\nEchoes ``chain_id`` so the caller signs the same value the coordinator\nrebuilds (same convention as ``GET /v1/agents/nonce``).",
+        "operationId": "issue_login_nonce_api_v1_agent_auth_nonce_post",
+        "parameters": [
+          {
+            "name": "agent_id",
+            "in": "query",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "description": "Agent ID",
+              "title": "Agent Id"
+            },
+            "description": "Agent ID"
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Issue Login Nonce Api V1 Agent Auth Nonce Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/auth/login": {
+      "post": {
+        "tags": [
+          "agent-auth"
+        ],
+        "summary": "Agent Login",
+        "description": "Exchange a wallet signature over the login claim for an agent JWT.\n\nChecks, in order: agent registered \u2192 agent identity-bound \u2192 claimed wallet\nequals the bound identity \u2192 signature over\n``{\"agent_id\",\"wallet_address\",\"chain_id\",\"nonce\"}`` verifies against the\nbound identity \u2192 nonce is a live one-time value. The JWT it returns carries\n``agent_id`` + ``wallet`` claims with role ``agent`` and authenticates\nHTTP endpoints (``Authorization: Bearer``) and WebSocket streams\n(``?token=``).",
+        "operationId": "agent_login_api_v1_agent_auth_login_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/AgentLoginRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Agent Login Api V1 Agent Auth Login Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "agent_not_registered / agent_not_bound / wallet_mismatch / invalid_signature / \u2026",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Agent registry not available",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/v1/agent/auth/session": {
+      "get": {
+        "tags": [
+          "agent-auth"
+        ],
+        "summary": "Agent Session",
+        "description": "Return the authenticated principal \u2014 a probe for the Phase B1 credentials.",
+        "operationId": "agent_session_api_v1_agent_auth_session_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Agent Session Api V1 Agent Auth Session Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
             "content": {
               "application/json": {
                 "schema": {
@@ -6668,7 +6833,7 @@
           "websocket"
         ],
         "summary": "Websocket Status",
-        "description": "Get WebSocket listener status",
+        "description": "Get WebSocket listener status.\n\nv2.0 B1: requires any valid principal \u2014 agent JWT, signed ``X-Agent-*``\nheaders, the shared operator key (``X-Api-Key``/``?token=``/Bearer), or an\nadmin/operator JWT \u2014 in every signature mode.",
         "operationId": "websocket_status_api_v1_agent_ws_status_get",
         "responses": {
           "200": {
@@ -6679,6 +6844,16 @@
                   "additionalProperties": true,
                   "type": "object",
                   "title": "Response Websocket Status Api V1 Agent Ws Status Get"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Authentication required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -6925,6 +7100,51 @@
   },
   "components": {
     "schemas": {
+      "AgentLoginRequest": {
+        "properties": {
+          "agent_id": {
+            "type": "string",
+            "title": "Agent Id",
+            "description": "Registered, identity-bound agent ID"
+          },
+          "wallet_address": {
+            "type": "string",
+            "title": "Wallet Address",
+            "description": "Wallet the signature must recover to"
+          },
+          "nonce": {
+            "type": "string",
+            "title": "Nonce",
+            "description": "One-time nonce from POST /api/v1/agent/auth/nonce"
+          },
+          "signature": {
+            "type": "string",
+            "title": "Signature",
+            "description": "0x-prefixed secp256k1 signature over the login claim"
+          },
+          "chain_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Chain Id",
+            "description": "Chain ID covered by the claim (default: coordinator's)"
+          }
+        },
+        "type": "object",
+        "required": [
+          "agent_id",
+          "wallet_address",
+          "nonce",
+          "signature"
+        ],
+        "title": "AgentLoginRequest",
+        "description": "Wallet-login body: the signature covers the canonical login claim."
+      },
       "AgentRegistrationRequest": {
         "properties": {
           "agent_id": {
