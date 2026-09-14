@@ -1,9 +1,9 @@
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
@@ -17,11 +17,81 @@ from ..encryption import get_encryptor
 from ..models import BroadcastRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
+from ..services.agent_auth import AgentPrincipal, authorize_agent_scope, optional_agent
 from ..services.nonce_store import get_nonce_store
 from ..websocket import get_connection_manager
 
 logger = get_logger(__name__)
 router = APIRouter(prefix="/api/v1/agent/messages", tags=["agent-messaging"])
+
+# FastAPI dependency alias used across the read/subscribe endpoints below:
+# resolves the caller's principal if credentials are present, ``None``
+# otherwise. Scope enforcement is flag-driven via agent_msg_signature_mode.
+OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
+
+
+def _message_parties(message: dict[str, Any]) -> tuple[str | None, str | None]:
+    """``(sender, receiver)`` across the two record spellings (``sender`` /
+    ``sender_id``, ``recipient`` / ``receiver_id``) — same convention as
+    ``MessageStorage._extract_*``."""
+    return message.get("sender") or message.get("sender_id"), message.get("recipient") or message.get("receiver_id")
+
+
+def _authorize_message_party(principal: AgentPrincipal | None, message: dict[str, Any], action: str) -> None:
+    """Enforce-mode party check for message-id routes that carry no agent_id.
+
+    ``enforce``: the principal must be a party to the message — sender or
+    receiver for reads, receiver only for ``mark_read`` (the read flag is the
+    receiver's state). ``advisory``: mismatches log and pass. ``disabled`` and
+    admin principals are untouched.
+    """
+    mode = settings.agent_msg_signature_mode
+    if mode == "disabled":
+        return
+    if principal is None:
+        if mode == "enforce":
+            raise HTTPException(
+                status_code=401, detail="agent authentication required", headers={"WWW-Authenticate": "Bearer"}
+            )
+        return
+    if principal.is_admin:
+        return
+    sender, receiver = _message_parties(message)
+    allowed = principal.agent_id in (sender, receiver)
+    if action == "mark_read":
+        allowed = principal.agent_id == receiver
+    if not allowed:
+        if mode == "enforce":
+            raise HTTPException(status_code=403, detail="agent_mismatch")
+        logger.warning(
+            "agent_authz_mismatch action=%s principal=%s sender=%s receiver=%s mode=%s",
+            action,
+            principal.agent_id,
+            sender,
+            receiver,
+            mode,
+        )
+
+
+async def _agent_own_history(agent_id: str, limit: int, offset: int) -> tuple[list[dict[str, Any]], int]:
+    """``(page, known_total)`` of messages where ``agent_id`` is sender OR
+    receiver — the enforce-mode ``/history`` view for non-admin principals,
+    which must never widen to ``get_all_messages``."""
+    storage = state.message_storage
+    if storage is None:
+        raise HTTPException(status_code=503, detail="Message storage not available")
+    fetch = limit + offset
+    sent = await storage.get_messages_by_sender(agent_id, fetch, 0)
+    received = await storage.get_messages_by_receiver(agent_id, fetch, 0)
+    seen: set[str] = set()
+    merged: list[dict[str, Any]] = []
+    for message in sorted(sent + received, key=lambda m: str(m.get("timestamp", "")), reverse=True):
+        key = str(message.get("message_id") or message.get("id") or id(message))
+        if key in seen:
+            continue
+        seen.add(key)
+        merged.append(message)
+    return merged[offset : offset + limit], len(merged)
 
 
 class SendMessageRequest(BaseModel):
@@ -267,11 +337,14 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
 @rate_limit(rate=200, per=60)
 async def get_inbox(
     request: Request,
+    principal: OptionalAgent,
     agent_id: str = Query(..., description="Agent ID"),
     limit: int = Query(100, description="Maximum messages"),
     unread_only: bool = Query(False, description="Only unread messages"),
 ) -> dict[str, Any]:
-    """Get agent's inbox"""
+    """Get agent's inbox. Enforce mode: only the bound principal (or an admin)
+    may read an agent's inbox; advisory/disabled keep the open read."""
+    authorize_agent_scope(principal, agent_id, "inbox")
     try:
         if not state.message_storage:
             return {"agent_id": agent_id, "messages": [], "count": 0, "timestamp": datetime.now(UTC).isoformat()}
@@ -290,23 +363,49 @@ async def get_inbox(
 @rate_limit(rate=200, per=60)
 async def get_message_history(
     request: Request,
+    principal: OptionalAgent,
     sender_id: str | None = Query(None, description="Filter by sender ID"),
     receiver_id: str | None = Query(None, description="Filter by receiver ID"),
     limit: int = Query(100, description="Maximum number of messages"),
     offset: int = Query(0, description="Offset for pagination"),
 ) -> dict[str, Any]:
-    """Get message history with optional filters"""
+    """Get message history with optional filters.
+
+    Enforce mode: an authenticated non-admin principal may only read its own
+    records — ``sender_id``/``receiver_id`` filters must equal its agent_id,
+    and an unfiltered query returns only messages it is a party to (never
+    ``get_all_messages``). Admin principals keep the full view. Advisory and
+    disabled keep the historical open behaviour (mismatches are logged).
+    """
+    mode = settings.agent_msg_signature_mode
+    scoped_agent: str | None = None
+    if mode != "disabled" and principal is not None and not principal.is_admin:
+        scoped_agent = principal.agent_id
+        if sender_id is not None and sender_id != scoped_agent:
+            authorize_agent_scope(principal, sender_id, "history")
+        if receiver_id is not None and receiver_id != scoped_agent:
+            authorize_agent_scope(principal, receiver_id, "history")
+        if sender_id is None and receiver_id is None and mode == "advisory":
+            logger.warning(
+                "agent_authz_unscoped action=history principal=%s mode=%s — enforce would restrict to own records",
+                scoped_agent,
+                mode,
+            )
+    elif mode == "enforce" and principal is None:
+        authorize_agent_scope(principal, "", "history")
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")
-        if sender_id:
+        if scoped_agent is not None and sender_id is None and receiver_id is None and mode == "enforce":
+            messages, total = await _agent_own_history(scoped_agent, limit, offset)
+        elif sender_id:
             messages = await state.message_storage.get_messages_by_sender(sender_id, limit, offset)
+            total = await state.message_storage.get_message_count()
         elif receiver_id:
             messages = await state.message_storage.get_messages_by_receiver(receiver_id, limit, offset)
+            total = await state.message_storage.get_message_count()
         else:
             messages = await state.message_storage.get_all_messages(limit, offset)
-        total = 0
-        if state.message_storage:
             total = await state.message_storage.get_message_count()
         return {
             "status": "success",
@@ -366,8 +465,12 @@ async def discover_agents(
 
 @router.post("/subscribe")
 @rate_limit(rate=50, per=60)
-async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> dict[str, Any]:
-    """Subscribe agent to topic and persist the subscription."""
+async def subscribe_to_topic(request: Request, req: SubscribeRequest, principal: OptionalAgent) -> dict[str, Any]:
+    """Subscribe agent to topic and persist the subscription.
+
+    Enforce mode: only the bound principal (or an admin) may subscribe an
+    agent; advisory/disabled keep the open behaviour."""
+    authorize_agent_scope(principal, req.agent_id, "subscribe")
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")
@@ -400,8 +503,12 @@ async def subscribe_to_topic(request: Request, req: SubscribeRequest) -> dict[st
 
 @router.post("/unsubscribe")
 @rate_limit(rate=50, per=60)
-async def unsubscribe_from_topic(request: Request, req: SubscribeRequest) -> dict[str, Any]:
-    """Unsubscribe agent from topic and remove the persisted subscription."""
+async def unsubscribe_from_topic(request: Request, req: SubscribeRequest, principal: OptionalAgent) -> dict[str, Any]:
+    """Unsubscribe agent from topic and remove the persisted subscription.
+
+    Enforce mode: only the bound principal (or an admin) may unsubscribe an
+    agent; advisory/disabled keep the open behaviour."""
+    authorize_agent_scope(principal, req.agent_id, "unsubscribe")
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")
@@ -434,8 +541,12 @@ async def unsubscribe_from_topic(request: Request, req: SubscribeRequest) -> dic
 
 @router.get("/subscriptions/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_agent_subscriptions(request: Request, agent_id: str) -> dict[str, Any]:
-    """Get persisted topic subscriptions for an agent."""
+async def get_agent_subscriptions(request: Request, agent_id: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Get persisted topic subscriptions for an agent.
+
+    Enforce mode: only the bound principal (or an admin) may read an agent's
+    subscriptions; advisory/disabled keep the open behaviour."""
+    authorize_agent_scope(principal, agent_id, "subscriptions")
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")
@@ -530,14 +641,18 @@ async def broadcast_message(request_http: Request, request: BroadcastRequest) ->
 
 @router.get("/id/{message_id}")
 @rate_limit(rate=200, per=60)
-async def get_message(request: Request, message_id: str) -> dict[str, Any]:
-    """Get a specific message by ID"""
+async def get_message(request: Request, message_id: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Get a specific message by ID.
+
+    Enforce mode: only a party to the message (sender or receiver — or an
+    admin) may read it; advisory/disabled keep the open read."""
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")
         message = await state.message_storage.get_message(message_id)
         if not message:
             raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+        _authorize_message_party(principal, message, "get_message")
         return {"status": "success", "message": message, "timestamp": datetime.now(UTC).isoformat()}
     except HTTPException:
         raise
@@ -550,14 +665,19 @@ async def get_message(request: Request, message_id: str) -> dict[str, Any]:
 
 @router.post("/id/{message_id}/read")
 @rate_limit(rate=50, per=60)
-async def mark_message_read(request: Request, message_id: str) -> dict[str, Any]:
-    """Mark a specific message as read."""
+async def mark_message_read(request: Request, message_id: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Mark a specific message as read.
+
+    Enforce mode: only the message's receiver (or an admin) may mark it read —
+    the read flag is the receiver's state, so the sender may not flip it;
+    advisory/disabled keep the open behaviour."""
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")
         message = await state.message_storage.get_message(message_id)
         if not message:
             raise HTTPException(status_code=404, detail=f"Message {message_id} not found")
+        _authorize_message_party(principal, message, "mark_read")
         await state.message_storage.update_message_status(message_id, "read")
         return {
             "status": "success",
@@ -792,12 +912,16 @@ async def get_all_peers(request: Request) -> dict[str, Any]:
 
 @router.get("/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_messages_for_agent_compatibility(request: Request, agent_id: str) -> dict[str, Any]:
-    """Get messages for agent - AgentDaemon compatibility route"""
-    return await get_messages_for_agent(request, agent_id)
+async def get_messages_for_agent_compatibility(request: Request, agent_id: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Get messages for agent - AgentDaemon compatibility route.
+
+    Enforce mode: only the bound principal (or an admin) may read the agent's
+    messages; advisory/disabled keep the open read."""
+    return await get_messages_for_agent(request, agent_id, principal)
 
 
-async def get_messages_for_agent(request: Request, agent_id: str) -> dict[str, Any]:
+async def get_messages_for_agent(request: Request, agent_id: str, principal: AgentPrincipal | None = None) -> dict[str, Any]:
+    authorize_agent_scope(principal, agent_id, "inbox_compat")
     try:
         if not state.message_storage:
             return {"agent_id": agent_id, "count": 0, "messages": [], "timestamp": datetime.now(UTC).isoformat()}
