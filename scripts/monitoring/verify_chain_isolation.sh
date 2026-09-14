@@ -95,8 +95,8 @@ check_node_configuration() {
         return 0
     fi
 
-    # The fleet is inconsistent about the spelling: node0 uses lowercase
-    # supported_chains=, node1/node2/hub1 use SUPPORTED_CHAINS=, and hub declares
+    # Nodes are inconsistent about the spelling: some use lowercase
+    # supported_chains=, some use SUPPORTED_CHAINS=, and some declare
     # neither (only CHAIN_ID). Accept either, and treat "not declared" as
     # unknown rather than as a violation -- a missing key is a config gap, not
     # evidence that this node is serving someone else's chain.
