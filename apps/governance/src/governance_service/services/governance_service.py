@@ -765,7 +765,9 @@ class GovernanceService:
         if target_service == "marketplace" and settings.marketplace_api_key:
             headers["X-Api-Key"] = settings.marketplace_api_key
         if target_service == "poolhub" and settings.poolhub_api_key:
-            headers["X-Api-Key"] = settings.poolhub_api_key
+            # pool-hub authenticates this call on X-PoolHub-Key
+            # (apps/pool-hub .../routers/parameters.py), not X-Api-Key.
+            headers["X-PoolHub-Key"] = settings.poolhub_api_key
 
         try:
             async with httpx.AsyncClient(timeout=10.0) as client:
