@@ -137,9 +137,13 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         from aitbc.crypto import PaymentEscrow
 
         from .services.chain_escrow import ChainEscrowClient
+        from .storage.escrow_store import TaskEscrowStore
 
+        # Durable bookkeeping: escrows persist to the shared agent DB so a
+        # restart reloads LOCKED entries instead of stranding on-chain funds.
         state.payment_escrow = PaymentEscrow(
             default_timeout=settings.task_payment_timeout_seconds,
+            store=TaskEscrowStore(),
         )
         # v0.25: on-chain escrow via the same /rpc/escrow/* routes the
         # marketplace uses. The callbacks are built per call in the tasks
