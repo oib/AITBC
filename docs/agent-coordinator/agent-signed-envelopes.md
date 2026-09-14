@@ -210,7 +210,52 @@ Config flag `AGENT_MSG_SIGNATURE_MODE` (env `AGENT_MSG_SIGNATURE_MODE`),
 default `disabled` in code, staged via env per node. Hub's coordinator is the
 only enforcement point that matters while it is the sole coordinator.
 
-## 9. Implementation map (for v2.0 pickup)
+## 9. Phase B1 — session auth and principal binding
+
+Phase A authenticated *messages*; B1 authenticates *sessions and requests*
+with the same machinery. Two new domains keep the credentials disjoint from
+envelopes and from each other:
+
+* **`aitbc-agent-login-v1`** — wallet login. `POST /api/v1/agent/auth/nonce`
+  issues a one-time 300 s nonce; `POST /api/v1/agent/auth/login` takes
+  `{agent_id, wallet_address, nonce, signature}` where the signature covers
+  `{"agent_id","wallet_address","chain_id","nonce"}`. The coordinator requires
+  the signature to recover `wallet_address` **and** `wallet_address` to equal
+  the registry-bound `identity_address`, then consumes the nonce and issues a
+  JWT (`sub=agent_id`, `role=agent`, claims `agent_id` + `wallet`). Login is
+  mode-independent: it proves key possession in every signature mode.
+* **`aitbc-agent-req-v1`** — per-request auth. `X-Agent-Id`,
+  `X-Agent-Timestamp`, `X-Agent-Nonce`, `X-Agent-Signature` over
+  `{"agent_id","timestamp","nonce"}`; the coordinator verifies the signature
+  against the bound identity, enforces the `agent_msg_max_skew_seconds`
+  timestamp window and dedups `(agent_id, nonce)` through the nonce store.
+
+`services/agent_auth.py` resolves either credential (plus the shared
+`COORDINATOR_API_KEY`/`SECRET_KEY`, which maps to the fixed operator identity
+`hub-coordinator`, and admin/operator JWTs) to an `AgentPrincipal`.
+`optional_agent` never raises — absent or invalid credentials degrade to
+anonymous with a log line, keeping `disabled`/`advisory` byte-for-byte
+compatible. `require_agent` 401s instead (used by `GET
+/api/v1/agent/ws/status` and `GET /api/v1/agent/auth/session`, which accept
+any valid principal in every mode).
+
+**WebSocket binding.** `?token=` on `/messages/stream` and `/presence/stream`
+resolves to a principal; in `enforce` the `agent_id` query param must equal
+the principal's identity (the shared key may only open `hub-coordinator`
+streams — other agents connect with their own login JWT), in `advisory` a
+mismatch logs `ws_binding_mismatch` and is allowed, in `disabled` it is not
+checked.
+
+**Inbox/history authorization.** In `enforce`, `GET /inbox`, the `/{agent_id}`
+compat route, `GET /history`, `POST /id/{id}/read`, `GET /id/{id}`,
+`POST /subscribe`, `POST /unsubscribe` and `GET /subscriptions/{id}` require a
+principal and scope it to its own `agent_id` (message-id routes require the
+principal be a party — receiver-only for `mark_read`). Unfiltered `/history`
+for a non-admin principal returns only records it is a party to and never
+reaches `get_all_messages`; `is_admin` principals (operator key, admin JWT)
+keep the full view. `advisory` logs `agent_authz_mismatch` and allows.
+
+## 10. Implementation map (for v2.0 pickup)
 
 | File | Change |
 |---|---|
@@ -224,7 +269,7 @@ only enforcement point that matters while it is the sole coordinator.
 | `cli/aitbc_cli/commands/agent_task.py`, `agent.py` (`agent-msg`) | sign with wallet/dedicated key; `--no-verify` escape hatch for advisory debugging |
 | `apps/agent-coordinator/tests/` | spoofed sender rejected, tampered payload rejected, replay rejected, rotation honored, advisory-mode passthrough |
 
-## 10. Open questions
+## 11. Open questions
 
 - Should `agent_id` eventually *derive from* the identity address
   (`agent-<addr[:12]>`) instead of being a free string bound to it? Keeps one
