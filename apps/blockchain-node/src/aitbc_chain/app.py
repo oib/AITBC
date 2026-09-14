@@ -322,7 +322,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
 
 
 def create_app() -> FastAPI:
-    configure_logging(level="INFO")
+    configure_logging(level="INFO", service_name="blockchain-rpc", to_file=True)
     app = FastAPI(title="AITBC Blockchain Node", version="v0.2.2", lifespan=lifespan)
     app.add_middleware(RequestLoggingMiddleware)
     app.add_middleware(GZipMiddleware, minimum_size=1000)

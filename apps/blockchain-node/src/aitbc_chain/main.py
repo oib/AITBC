@@ -694,7 +694,7 @@ async def node_app() -> AsyncIterator[BlockchainNode]:
 def run() -> None:
     from aitbc.aitbc_logging import configure_logging
 
-    configure_logging(level="INFO")
+    configure_logging(level="INFO", service_name="blockchain-node", to_file=True)
     asyncio.run(_run())
 
 

@@ -31,7 +31,7 @@ from .config import settings  # noqa: E402
 from .services.edge_gpu_service import EdgeGPUService
 from .storage import get_session, init_db
 
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="gpu", to_file=True)
 logger = get_logger(__name__)
 
 # v0.6.6: Shared blockchain RPC client (chain-aware) and offer FSM
