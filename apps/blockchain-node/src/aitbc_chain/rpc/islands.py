@@ -110,6 +110,18 @@ def _build_join_credentials(
         data_dir / island_chain_id / "genesis.json",
         data_dir / "genesis.json",
     ]
+    if genesis_block_hash := _read_genesis_block_hash(genesis_candidates):
+        credentials["genesis_block_hash"] = genesis_block_hash
+
+    keystore_path = Path("/var/lib/aitbc/keystore/validator_keys.json")
+    if genesis_address := _read_first_validator_key(keystore_path):
+        credentials["genesis_address"] = genesis_address
+
+    return credentials
+
+
+def _read_genesis_block_hash(genesis_candidates: list[Path]) -> str:
+    """Return the first block hash from the first readable genesis.json."""
     for genesis_path in genesis_candidates:
         try:
             found = genesis_path.exists()
@@ -122,23 +134,24 @@ def _build_join_credentials(
                 genesis_data = json.load(f)
             blocks = genesis_data.get("blocks", [])
             if blocks:
-                credentials["genesis_block_hash"] = blocks[0].get("hash", "")
+                return str(blocks[0].get("hash", ""))
         except (OSError, json.JSONDecodeError):
             pass
         break
+    return ""
 
-    keystore_path = Path("/var/lib/aitbc/keystore/validator_keys.json")
+
+def _read_first_validator_key(keystore_path: Path) -> str:
+    """Return the first key id in validator_keys.json, or "" if unreadable."""
     try:
         if keystore_path.exists():
             with open(keystore_path) as f:
                 keys = json.load(f)
             for key_id in keys:
-                credentials["genesis_address"] = key_id
-                break
+                return str(key_id)
     except (OSError, json.JSONDecodeError):
         pass
-
-    return credentials
+    return ""
 
 
 def _island_members(island_manager: Any, island_id: str) -> list[dict[str, Any]]:
