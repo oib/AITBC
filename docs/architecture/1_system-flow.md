@@ -55,7 +55,7 @@ aitbc --api-key "$CLIENT_JWT" gpu list-gpus
 A shop publishes a GPU software offer with:
 
 ```bash
-aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
+aitbc market offer --service-type ollama --model-or-variant llama3.2:3b --price 0.001 --unit per_1k_tokens --gpu-device 0
 ```
 
 This first writes a `GPU_MARKETPLACE` transaction to the hub blockchain via `POST /rpc/transactions/marketplace`, then registers the offer in the local marketplace service (`http://localhost:8102/v1/marketplace/offer`) so it is discoverable from the hub.
@@ -68,7 +68,7 @@ aitbc --api-key "$CLIENT_JWT" ai submit \
   --model llama3.2:3b \
   --payment 1.0 \
   --wallet customer-wallet \
-  --buyer-address <customer-ait1-or-aitbc1> \
+  --buyer-address <customer-0x-address> \
   --provider-address <provider-address>
 ```
 
@@ -143,12 +143,12 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 |-----------|------|-----------|----------------|
 | aitbc CLI | — | — | User interface, credential store, job formatting |
 | aitbc auth | — | `aitbc auth login` | Wallet-signed JWT generation for coordinator access |
-| Blockchain node RPC | 8202 | `aitbc chain`, `aitbc explorer`, `aitbc transactions` | Blocks, accounts, transactions, `/escrow/*`, `/transactions/marketplace` |
+| Blockchain node RPC | 8202 | `aitbc blockchain`, `aitbc explorer`, `aitbc transactions` | Blocks, accounts, transactions, `/escrow/*`, `/transactions/marketplace` |
 | Coordinator API | 8203 | `aitbc ai`, `aitbc auth` (JWT via `--api-key` only) | Job submission, assignment, result collection, payment records |
 | Agent-coordinator | 8107 | `aitbc agent-comm`, `aitbc agent` | Agent messaging and orchestration (not the AI job miner) |
 | Wallet daemon | 8108 | `aitbc wallet`, `aitbc account` | Wallet operations and balance queries |
 | GPU service | 8101 | `aitbc gpu` | Local GPU discovery and resource management |
-| Marketplace | 8102 | `aitbc market`, `aitbc marketplace` | `market` = GPU/software offers; `marketplace` = chain listings |
+| Marketplace | 8102 | `aitbc market` | GPU/software offers, paid jobs, escrow, IPFS hosting |
 | Exchange | 8106 | `aitbc exchange-island` | Simple on-island exchange |
 | Pool hub | 8210 | `aitbc pool-hub` | Miner capacity, SLA, billing metrics |
 | Ollama | 11434 | — | AI model inference |
@@ -158,7 +158,7 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 - **Authentication:** `Authorization: Bearer <jwt>` is the working header. The `X-Api-Key` legacy header is still accepted by some services but the CLI uses the bearer token.
 - **Escrow:** The live path creates an on-chain escrow and releases it with a signed `ESCROW_RELEASE`. The release signer is the dedicated `ESCROW_RELEASE_PRIVATE_KEY`; genesis is only a logged fallback. The bridge is not involved in AI job escrow.
 - **Bridge:** Cross-chain bridge code exists but `bridge_multisig_enabled` and `bridge_require_merkle_proof` are `False` by default. See `docs/releases/STATUS.md` and P1.3 for the current trust model.
-- **Consensus:** The live hub currently runs single-validator Proof-of-Authority. MultiValidatorPoA/PBFT is behind the `multi_validator_consensus_enabled` flag; see P1.4.
+- **Consensus:** The live network runs MultiValidatorPoA with a 4-validator set. PBFT is implemented but disabled (`PBFT_CONSENSUS_ENABLED=false`).
 - **Dispatch:** Reputation data is exposed via `aitbc reputation` and used to satisfy `min_reputation` and prefer higher-reputation miners during dispatch. (P1.1 shipped.)
 
 ## Message flow timeline

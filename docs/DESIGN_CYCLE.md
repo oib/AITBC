@@ -1,7 +1,7 @@
 # AITBC closed design cycle — current state, gaps, wish list
 
 **Date:** 2026-08-24
-**Scope:** live two-node network (`<hub-node>` hub/customer + `<node2>` shop/miner) on gitea `main`
+**Scope:** live five-node network (`<hub-node>` hub + `<node2>` shop/miner + `<customer-node>` customer + two additional followers incl. `<replica-node>`) on gitea `main`
 **CLI:** `aitbc` 0.10.18 (`aitbc_cli.core.main:main`)
 **Unit system:** 1 AIT = 36_000_000 compute-units
 
@@ -44,7 +44,7 @@ Proven on the two live nodes (see the IDE-local `LIVE_VALIDATION_SUMMARY.md` and
 2. **Chain.** Hub produces blocks (PoA). Shop follows over P2P (`aitbc-blockchain-p2p`). After a fork at height 6815, shop was reset and heads match.
 3. **Unpaid jobs.** Hub `POST /v1/jobs` (or `aitbc ai submit`) → shop miner completes on Ollama (`llama3.2:3b`).
 4. **Paid jobs + escrow.** `aitbc --api-key $JWT ai submit --payment 1.0 --wallet genesis --provider-address …` → `payment_status: escrowed` → miner runs → `released` → `ESCROW_RELEASE` on-chain (0.975 AIT after fee).
-5. **GPU marketplace offers.** `aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0` writes a `GPU_MARKETPLACE` tx and a hub listing. `aitbc market list --service-type ollama` sees it.
+5. **GPU marketplace offers.** `aitbc market offer --service-type ollama --model-or-variant llama3.2:3b --price 0.001 --unit per_1k_tokens --gpu-device 0` writes a `GPU_MARKETPLACE` tx and a hub listing. `aitbc market list --service-type ollama` sees it.
 6. **Local GPU inventory.** `aitbc gpu list-gpus` / `aitbc gpu discover` against `aitbc-gpu` (8101).
 7. **Explorer / monitoring.** `aitbc explorer chain-head`, `aitbc explorer network-stats`.
 8. **Pool hub.** `aitbc pool-hub status` / `sla` work from hub and shop. Single authority (operator decision 2026-09-14): the shop miner registers and heartbeats the **hub** pool hub via `POOL_HUB_URL=https://hub.aitbc.bubuit.net/pool-hub`; `<node2>`’s local `aitbc-pool-hub` is stopped/disabled (unit symlink kept for re-enable). Hub’s collect pass shows `aitbc-miner-1` at `uptime_pct=100` and fleet status `healthy`; the pre-repoint stale registration and `test-miner-xyz` were deleted from the pool-hub DBs (no deregister API exists). SLA collection: `POOLHUB_ENABLE_SLA_COLLECTION=true` on hub, per-miner metrics/violations persist, and `sla --miner/--violations` plus `dashboard shop` render them.
@@ -87,14 +87,14 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 
 | Piece | Port / unit | CLI | Notes |
 |-------|-------------|-----|-------|
-| Blockchain node + RPC | 8202 | `aitbc chain`, `aitbc explorer`, `aitbc transactions` | Hub binds 8202 to localhost; public path is nginx |
+| Blockchain node + RPC | 8202 | `aitbc blockchain`, `aitbc explorer`, `aitbc transactions` | Hub binds 8202 to localhost; public path is nginx |
 | P2P / sync | 8200 | `aitbc network`, `aitbc sync` | Shop P2P now active |
 | Coordinator API | 8203 | `aitbc ai` | JWT Bearer required for jobs |
 | Wallet daemon | 8108 | `aitbc wallet`, `aitbc account` | |
 | Miner | systemd `aitbc-miner` | `aitbc mining` | Heartbeats to shop coordinator |
 | GPU service | 8101 | `aitbc gpu` | |
 | Edge | 8111 | `aitbc edge` | |
-| Marketplace | 8102 / hub `/v1/marketplace` | `aitbc market`, `aitbc marketplace` | **`market`** = GPU/software bundles (live). **`marketplace`** = chain listings (separate, older) |
+| Marketplace | 8102 / hub `/v1/marketplace` | `aitbc market` | GPU/software bundles (live). The `aitbc marketplace` chain-listings group has been removed from the CLI |
 | Explorer | 8100 | `aitbc explorer` | |
 | Pool hub | 8210 / `/pool-hub/` | `aitbc pool-hub` | Runs on **hub only** (single authority since 2026-09-14; `<node2>`'s local instance disabled). SLA collector runs every 300s when `POOLHUB_ENABLE_SLA_COLLECTION=true`; writes `sla_metrics`/`sla_violations`, opens+resolves violations on heartbeat uptime/response/completion thresholds |
 
@@ -103,7 +103,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Piece | Port | CLI | Notes |
 |-------|------|-----|-------|
 | Exchange | 8106 | `aitbc exchange-island`, `aitbc exchange` | `simple_exchange` + API key. Paths are `/api/orders`, not `/v1/exchange/*` |
-| Governance | 8105 | `aitbc governance`, `aitbc operations governance` | Dual CLI groups |
+| Governance | 8105 | `aitbc governance`, `aitbc operations governance` | `operations` is deprecated and hidden from `aitbc --help` |
 | Agent coordinator | 8107 | `aitbc agent-comm`, `aitbc agent-msg`, `aitbc agent-task` | Hub-only. Paid A2A delegation live (2026-09-13): typed TaskRequest/Quote/Accept/Result/Paid payloads ride `agent-msg`; `POST /v1/tasks/submit` locks a buyer-signed escrow via `/rpc/escrow/create`, provider executor (`AGENT_EXECUTOR_ENABLED` on the miner) quotes/executes and calls `/v1/tasks/{id}/complete` for the on-chain release; `escrow_expiry_sweeper` refunds unanswered tasks on timeout. `GET /v1/tasks/{id}/escrow` + `/v1/tasks/escrow-config` expose escrow state and the settlement wallet to remote buyers. |
 | Trading | 8104 | `aitbc trade` | Inter-chain offers |
 | Event bridge | 8205 | `aitbc bridge start/stop` | Not the lock/confirm RPC |
@@ -115,7 +115,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 
 | Piece | State |
 |-------|--------|
-| Multi-validator PoA / PBFT | Code present, default false; soak test added (1000 rounds + partition/PBFT). Single-proposer mode still active. |
+| Multi-validator PoA / PBFT | MultiValidatorPoA is the live consensus with a 4-validator set; PBFT implemented but disabled (`PBFT_CONSENSUS_ENABLED=false`). Soak test added (1000 rounds + partition/PBFT). |
 | Bridge merkle proofs / multi-sig | Implemented, production defaults false |
 | ZK circuits (`apps/zk-circuits`) | ~~Ceremony keys exist; not in job verification~~ Fixed — `receipt_public` receipt binding and new `receipt_model` deterministic model-execution proof are required for high-value jobs, live-validated 2026-08-25. `receipt_public` proves the miner's self-reported result fields hash consistently; `receipt_model` proves the committed model executed on the committed input produced the committed output. Open-ended LLM semantic correctness is not proven. |
 | TEE / confidential | ~~CLI `aitbc tee`, `aitbc confidential` — not in job pipeline~~ Fixed — TEE attestation is required and verified for confidential jobs (§3 step 6, §7 P2.2). Identity-pinning landed 2026-08-24 (`QuoteGenerator` no longer derives a key from `enclave_id`; the coordinator pins verification to a registered `EnclaveIdentity`) plus stable signing-key plumbing (`aitbc tee attest --key-file` / `keygen`). Still partial in practice: no live miner has registered a stable enclave key yet, so registry-pinning has no live caller and no production traffic has exercised a real (non-coordinator-self-attested) quote. The CLI front end is also gone: `aitbc tee` was deferred to release 2.0 in `9079fb74a` (1 Sep) and is no longer registered in `main.py`, so the commands named here cannot be run. |
@@ -148,11 +148,11 @@ CLI groups **without** a dedicated scenario (do not invent plays for them until 
 
 Duplicate CLI surfaces to be honest about:
 
-- `aitbc market` vs `aitbc marketplace` vs `aitbc operations marketplace`
-- `aitbc governance` vs `aitbc operations governance`
-- `aitbc ai` vs `aitbc operations ai`
+- `aitbc market` — the only market surface; `aitbc marketplace` (chain listings) was removed from the CLI and `aitbc operations` has no marketplace subgroup
+- `aitbc governance` vs `aitbc operations governance` (`operations` deprecated/hidden)
+- `aitbc ai` vs `aitbc operations ai` (`operations` deprecated/hidden)
 - `aitbc gpu` (local service) vs `aitbc gpu-onchain` vs `aitbc edge gpu`
-- `aitbc chain` vs `aitbc blockchain` — the *same* Click `Group` object registered twice under two top-level names (`cli/aitbc_cli/core/main.py`), not two implementations that happen to overlap. Found 2026-08-24; not yet collapsed to one name.
+- `aitbc blockchain` is the single registered chain group; `aitbc chain` is not registered (`cli/aitbc_cli/core/main.py`)
 
 Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `governance` for service status, `operations governance` only where the RPC vote path is required.
 
@@ -188,7 +188,7 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 
 13. ~~Architecture system-flow still shows `aitbc-cli.sh` and Tendermint 26657.~~ Fixed — `docs/architecture/1_system-flow.md` now reflects the live CLI → coordinator → miner → Ollama → escrow path, wallet-signed `aitbc auth login`, `ai submit --wait`, reputation dispatch, and the non-genesis settlement key.
 14. ~~`STATUS.md` escrow/bridge defaults disagree with the live paid-job path.~~ Fixed — `escrow_enabled` default is `True` in `config.py` and `STATUS.md`.
-15. ~~Dual command groups confuse operators (`market`/`marketplace`, `governance`/`operations governance`).~~ Fixed — `aitbc marketplace` and `aitbc operations` are now hidden from `aitbc --help`, their group docstrings mark them as legacy, and `cli/README.md`, `docs/scenarios/README.md`, and the top-level `--help` disambiguate the preferred command groups.
+15. ~~Dual command groups confuse operators (`market`/`marketplace`, `governance`/`operations governance`).~~ Fixed — `aitbc marketplace` has been removed from the CLI entirely, `aitbc operations` is deprecated and hidden from `aitbc --help`, and `cli/README.md`, `docs/scenarios/README.md`, and the top-level `--help` disambiguate the preferred command groups.
 16. ~~Many CLI groups simulate when the service is hub-only; scenarios must label **live vs simulated**.~~ Fixed — `docs/scenarios/README.md` now has a live-vs-simulated table, and scenarios 04, 06, 11, 12, 27, 33, 34, and 42 include a `> **Live vs. simulated:**` note.
 17. ~~Intermediate 21–35 were written as bug tickets (A3, B12…) not operator plays.~~ Fixed — `docs/scenarios/README.md` reframes 21–35 as operator hardening plays, adds an operator-play note to each scenario, and clarifies that A/B task ids are change-log cross-references, not bug-ticket reproductions.
 
@@ -214,7 +214,7 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 | P1.1 | Wire reputation into dispatch and `aitbc market list` sort | Shipped: `min_reputation` constraint, higher-reputation dispatch preference, and `--min-reputation` CLI flag (commit `fdbd17f5c`). Closes step 8. |
 | P1.2 | Customer and shop dashboards (job history, earnings, GPU util) talking to live APIs | Shipped for CLI — `aitbc dashboard customer` and `aitbc dashboard shop` query live coordinator, wallet daemon, GPU discovery, and marketplace services. Web UI mock is outside the CLI repo. |
 | P1.3 | Enable merkle proofs / multi-sig on bridge **or** document the hub as a trusted custodian | Shipped: `docs/features/2-bridge-cross-chain.md` and `docs/releases/STATUS.md` now explicitly state the live bridge is a trusted custodian with `bridge_release_enabled=False`, and that multi-sig/Merkle features are implemented but disabled by default. Multi-sig + Merkle-proof enforcement was live-tested end-to-end 2026-08-24 on real hub↔`<node2>`-island transfers, including negative-path rejections (missing proof, threshold not met, invalid signatures) — see `docs/releases/STATUS.md` "Bridge multi-signature and Merkle enforcement". Production defaults are unchanged: `bridge_multisig_enabled`/`bridge_require_merkle_proof` were returned to `False` after the validation window. |
-| P1.4 | Soak MultiValidatorPoA; drop single-proposer | Shipped — `MultiValidatorPoA` + PBFT are implemented and pass `test_multi_validator_poa_soak.py` (1000 rounds + partition). Live enablement is gated by `MULTI_VALIDATOR_CONSENSUS_ENABLED=false` in `blockchain.env`; operators must run [Scenario 51](./scenarios/51_multi_validator_poa_soak.md) before flipping the flag. |
+| P1.4 | Soak MultiValidatorPoA; drop single-proposer | Shipped — `MultiValidatorPoA` + PBFT are implemented and pass `test_multi_validator_poa_soak.py` (1000 rounds + partition). `MultiValidatorPoA` is now the live consensus with a 4-validator set; PBFT remains disabled (`PBFT_CONSENSUS_ENABLED=false`). [Scenario 51](./scenarios/51_multi_validator_poa_soak.md) covers the soak. |
 | P1.5 | `aitbc ai submit --wait` that polls until `released` and prints the escrow tx | Shipped: `--wait` with `--timeout` and `--poll-interval` (Phase 6) |
 | P1.6 | Island credential / secrets file ownership that works for `aitbc` as `aitbc` user | Shipped: `aitbc node island join` now sets `aitbc:aitbc` 0600 on `island_credentials.json`; `aitbc market offer` error points to `node island join`. Closes step 11. |
 | P1.7 | Governance e2e: `propose` → `vote` → `execute` changes a live parameter | Shipped: `propose -> vote -> close -> execute` validated end-to-end on hub; live parameter change recorded. |
