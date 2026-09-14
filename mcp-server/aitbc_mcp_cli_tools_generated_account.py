@@ -14,6 +14,7 @@ from pydantic import Field
 from aitbc_mcp_server import (
     NodeRole,
     _aitbc_cli_read_tool,
+    _collect_options,
     mcp,
 )
 
@@ -28,13 +29,11 @@ def aitbc_account_get(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Fetch on-chain information for a given account address, including balance and nonce.."""
-    options: dict[str, Any] = {}
-    if address is not None:
-        options["address"] = address
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"address": "address", "rpc_url": "rpc-url", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -56,11 +55,11 @@ def aitbc_account_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all known accounts from the blockchain RPC.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

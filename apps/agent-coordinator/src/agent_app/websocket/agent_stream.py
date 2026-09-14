@@ -240,67 +240,77 @@ class AgentStreamHandler:
         try:
             while True:
                 data = await websocket.receive_json()
-                message_type = data.get("type", "message")
-                payload = data.get("payload", {})
-                if message_type == "subscribe":
-                    topic = payload.get("topic")
-                    if topic:
-                        await self.connection_manager.subscribe(agent_id, topic)
-                        await websocket.send_json(
-                            {"type": "subscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
-                        )
-                elif message_type == "unsubscribe":
-                    topic = payload.get("topic")
-                    if topic:
-                        await self.connection_manager.unsubscribe(agent_id, topic)
-                        await websocket.send_json(
-                            {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
-                        )
-                elif message_type == "message":
-                    message_data = {
-                        "sender_id": agent_id,
-                        "content": payload.get("content", ""),
-                        "recipient_id": payload.get("recipient_id"),
-                        "timestamp": datetime.now(UTC).isoformat(),
-                    }
-                    handler_results = await self.connection_manager.trigger_handlers(message_data, websocket)
-                    await websocket.send_json(
-                        {
-                            "type": "handler_acknowledgment",
-                            "message_id": data.get("id"),
-                            "handler_results": handler_results,
-                            "timestamp": datetime.now(UTC).isoformat(),
-                        }
-                    )
-                    recipient_id = payload.get("recipient_id")
-                    if recipient_id:
-                        forward_data = {
-                            "type": "message",
-                            "sender_id": agent_id,
-                            "recipient_id": recipient_id,
-                            "content": payload.get("content"),
-                            "timestamp": datetime.now(UTC).isoformat(),
-                        }
-                        await self.connection_manager.send_personal_message(forward_data, recipient_id)
-                elif message_type == "broadcast":
-                    topic = payload.get("topic")
-                    broadcast_data = {
-                        "type": "broadcast",
-                        "sender_id": agent_id,
-                        "content": payload.get("content"),
-                        "topic": topic,
-                        "timestamp": datetime.now(UTC).isoformat(),
-                    }
-                    await self.connection_manager.broadcast(broadcast_data, topic)
-                elif message_type == "heartbeat":
-                    await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
-                else:
-                    logger.warning("Unknown message type: %s", message_type)
+                await self._dispatch_stream_message(websocket, agent_id, data)
         except WebSocketDisconnect:
             await self.connection_manager.disconnect(agent_id)
         except Exception as e:
             logger.error("Error in message stream for %s: %s", agent_id, e)
             await self.connection_manager.disconnect(agent_id)
+
+    async def _dispatch_stream_message(self, websocket: WebSocket, agent_id: str, data: dict[str, Any]) -> None:
+        """Handle one inbound stream message for ``agent_id``.
+
+        Dispatches on ``data["type"]``: subscribe/unsubscribe update the
+        topic maps and ack; ``message`` triggers handlers, acks, and forwards
+        to the recipient; ``broadcast`` fans out to the topic; ``heartbeat``
+        acks; anything else logs a warning.
+        """
+        message_type = data.get("type", "message")
+        payload = data.get("payload", {})
+        if message_type == "subscribe":
+            topic = payload.get("topic")
+            if topic:
+                await self.connection_manager.subscribe(agent_id, topic)
+                await websocket.send_json(
+                    {"type": "subscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
+                )
+        elif message_type == "unsubscribe":
+            topic = payload.get("topic")
+            if topic:
+                await self.connection_manager.unsubscribe(agent_id, topic)
+                await websocket.send_json(
+                    {"type": "unsubscription_confirmed", "topic": topic, "timestamp": datetime.now(UTC).isoformat()}
+                )
+        elif message_type == "message":
+            message_data = {
+                "sender_id": agent_id,
+                "content": payload.get("content", ""),
+                "recipient_id": payload.get("recipient_id"),
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+            handler_results = await self.connection_manager.trigger_handlers(message_data, websocket)
+            await websocket.send_json(
+                {
+                    "type": "handler_acknowledgment",
+                    "message_id": data.get("id"),
+                    "handler_results": handler_results,
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+            )
+            recipient_id = payload.get("recipient_id")
+            if recipient_id:
+                forward_data = {
+                    "type": "message",
+                    "sender_id": agent_id,
+                    "recipient_id": recipient_id,
+                    "content": payload.get("content"),
+                    "timestamp": datetime.now(UTC).isoformat(),
+                }
+                await self.connection_manager.send_personal_message(forward_data, recipient_id)
+        elif message_type == "broadcast":
+            topic = payload.get("topic")
+            broadcast_data = {
+                "type": "broadcast",
+                "sender_id": agent_id,
+                "content": payload.get("content"),
+                "topic": topic,
+                "timestamp": datetime.now(UTC).isoformat(),
+            }
+            await self.connection_manager.broadcast(broadcast_data, topic)
+        elif message_type == "heartbeat":
+            await websocket.send_json({"type": "heartbeat_ack", "timestamp": datetime.now(UTC).isoformat()})
+        else:
+            logger.warning("Unknown message type: %s", message_type)
 
     async def handle_presence_stream(
         self, websocket: WebSocket, agent_id: str, principal: AgentPrincipal | None = None

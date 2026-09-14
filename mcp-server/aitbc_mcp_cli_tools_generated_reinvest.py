@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,15 +37,16 @@ def aitbc_reinvest_policy(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show or record a reinvestment policy for an agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if staking_pct is not None:
-        options["staking-pct"] = staking_pct
-    if reserve_pct is not None:
-        options["reserve-pct"] = reserve_pct
-    if min_reinvest is not None:
-        options["min-reinvest"] = min_reinvest
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "staking_pct": "staking-pct",
+            "reserve_pct": "reserve-pct",
+            "min_reinvest": "min-reinvest",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "reinvest",
@@ -89,17 +91,17 @@ def aitbc_reinvest_simulate(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Simulate reinvestment actions for a given earnings amount.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if earnings is not None:
-        options["earnings"] = earnings
-    if budget_total is not None:
-        options["budget-total"] = budget_total
-    if staking_contract is not None:
-        options["staking-contract"] = staking_contract
-    if reserve_address is not None:
-        options["reserve-address"] = reserve_address
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "earnings": "earnings",
+            "budget_total": "budget-total",
+            "staking_contract": "staking-contract",
+            "reserve_address": "reserve-address",
+        },
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

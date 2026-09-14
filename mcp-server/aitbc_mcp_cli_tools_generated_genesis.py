@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -37,13 +38,11 @@ def aitbc_genesis_info(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the genesis block information for a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if data_dir is not None:
-        options["data-dir"] = data_dir
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "data_dir": "data-dir", "rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -72,21 +71,11 @@ def aitbc_genesis_init(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Initialize the genesis configuration and files for the local chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if create_wallet:
-        options["create-wallet"] = None
-    if password is not None:
-        options["password"] = password
-    if proposer is not None:
-        options["proposer"] = proposer
-    if force:
-        options["force"] = None
-    if register_service:
-        options["register-service"] = None
-    if service_url is not None:
-        options["service-url"] = service_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"create_wallet": "create-wallet", "force": "force", "register_service": "register-service"},
+        values={"chain_id": "chain-id", "password": "password", "proposer": "proposer", "service_url": "service-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "genesis",
@@ -134,15 +123,11 @@ def aitbc_genesis_sync_from_hub(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sync the genesis block from the hub for a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if data_dir is not None:
-        options["data-dir"] = data_dir
-    if force:
-        options["force"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"force": "force"},
+        values={"chain_id": "chain-id", "rpc_url": "rpc-url", "data_dir": "data-dir"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "genesis",
@@ -185,9 +170,11 @@ def aitbc_genesis_verify(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Verify the genesis block and configuration for a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "genesis",

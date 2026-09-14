@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -37,17 +38,17 @@ def aitbc_exchange_island_buy(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Buy AIT with a quote currency using an optional wallet and maximum price.."""
-    options: dict[str, Any] = {}
-    if ait_amount is not None:
-        options["ait-amount"] = ait_amount
-    if quote_currency is not None:
-        options["quote-currency"] = quote_currency
-    if max_price is not None:
-        options["max-price"] = max_price
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "ait_amount": "ait-amount",
+            "quote_currency": "quote-currency",
+            "max_price": "max-price",
+            "wallet": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange-island",
@@ -90,9 +91,11 @@ def aitbc_exchange_island_cancel(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cancel an exchange order by its order ID.."""
-    options: dict[str, Any] = {}
-    if order_id is not None:
-        options["order-id"] = order_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"order_id": "order-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange-island",
@@ -136,11 +139,11 @@ def aitbc_exchange_island_orderbook(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """View the order book for a supported trading pair.."""
-    options: dict[str, Any] = {}
-    if pair is not None:
-        options["pair"] = pair
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"pair": "pair", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange-island",
@@ -185,13 +188,11 @@ def aitbc_exchange_island_orders(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List exchange orders, optionally filtered by user, status, or pair.."""
-    options: dict[str, Any] = {}
-    if user is not None:
-        options["user"] = user
-    if status is not None:
-        options["status"] = status
-    if pair is not None:
-        options["pair"] = pair
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"user": "user", "status": "status", "pair": "pair"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange-island",
@@ -258,17 +259,17 @@ def aitbc_exchange_island_sell(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sell AIT for a quote currency using an optional wallet and minimum price.."""
-    options: dict[str, Any] = {}
-    if ait_amount is not None:
-        options["ait-amount"] = ait_amount
-    if quote_currency is not None:
-        options["quote-currency"] = quote_currency
-    if min_price is not None:
-        options["min-price"] = min_price
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "ait_amount": "ait-amount",
+            "quote_currency": "quote-currency",
+            "min_price": "min-price",
+            "wallet": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange-island",

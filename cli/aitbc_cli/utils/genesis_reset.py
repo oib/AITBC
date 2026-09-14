@@ -232,6 +232,85 @@ def _generate_wallet(
     return address, public_key_hex
 
 
+def _clear_wallet_dbs() -> None:
+    """Clear the wallet daemon DBs so they re-import from env/files on restart."""
+    wallet_db = Path("/var/lib/aitbc/data/wallet_ledger.db")
+    keystore_db = Path("/var/lib/aitbc/data/keystore.db")
+    for db in (wallet_db, keystore_db):
+        try:
+            if db.exists():
+                db.unlink()
+                success(f"Cleared old wallet daemon DB: {db}")
+        except Exception:
+            pass
+
+
+def _backup_env(etc_dir: Path, backup_root: Path) -> None:
+    """Back up /etc/aitbc into the reset backup directory."""
+    env_backup = backup_root / "etc-aitbc"
+    if etc_dir.exists():
+        shutil.copytree(etc_dir, env_backup, dirs_exist_ok=True)
+        success(f"Backed up env to {env_backup}")
+
+
+def _genesis_wallet(
+    new_wallet: bool,
+    etc_dir: Path,
+    wallet_dir: Path,
+    chain_id: str,
+    password: str | None,
+) -> tuple[str, str] | None:
+    """Generate or load the genesis wallet; returns (address, public_key).
+
+    Returns None when no wallet is configured and --new-wallet was not given —
+    the caller is responsible for restarting services before bailing out.
+    """
+    if new_wallet:
+        success("Generating new genesis wallet...")
+        address, public_key = _generate_wallet(etc_dir, wallet_dir, chain_id, password)
+        success(f"New genesis wallet: {address}")
+        return address, public_key
+
+    env = _load_env(etc_dir / "node.env")
+    address = env.get("GENESIS_ADDRESS") or _load_env(etc_dir / "blockchain.env").get("GENESIS_WALLET_ADDRESS", "")
+    if not address:
+        error("GENESIS_ADDRESS not set and --new-wallet not given. Use --new-wallet to generate one.")
+        return None
+    _ensure_wallet_import_password(etc_dir / "blockchain-secrets.env", password)
+    return address, ""
+
+
+def _run_reset_script(reset_script: Path, db_path: Path, chain_id: str) -> bool:
+    """Run reset_chain_0x.py against the chain DB. False on failure — the caller
+    is responsible for restarting services before bailing out."""
+    success("Running genesis reset script...")
+    env_override = {
+        "CHAIN_ID": chain_id,
+        "DB_PATH": str(db_path),
+    }
+    try:
+        r = _run_subprocess([sys.executable, str(reset_script)], env=env_override)
+        if r.returncode != 0:
+            error(f"reset_chain_0x.py failed:\n{r.stderr}")
+            return False
+        if r.stdout:
+            success(r.stdout)
+    except Exception as e:
+        error(f"Failed to run reset script: {e}")
+        return False
+    return True
+
+
+def _chown_chain_data(chain_data_dir: Path) -> None:
+    """Fix ownership of the new chain DB so the aitbc user can write it."""
+    try:
+        for item in chain_data_dir.rglob("*"):
+            _chown_aitbc(item)
+        _chown_aitbc(chain_data_dir)
+    except Exception:
+        pass
+
+
 def reset_genesis(
     chain_id: str | None,
     new_wallet: bool,
@@ -269,64 +348,26 @@ def reset_genesis(
     _stop_services()
 
     # Clear the wallet daemon DB so it re-imports from env/files on restart.
-    wallet_db = Path("/var/lib/aitbc/data/wallet_ledger.db")
-    keystore_db = Path("/var/lib/aitbc/data/keystore.db")
-    for db in (wallet_db, keystore_db):
-        try:
-            if db.exists():
-                db.unlink()
-                success(f"Cleared old wallet daemon DB: {db}")
-        except Exception:
-            pass
+    _clear_wallet_dbs()
 
     # Back up env.
-    env_backup = backup_root / "etc-aitbc"
-    if etc_dir.exists():
-        shutil.copytree(etc_dir, env_backup, dirs_exist_ok=True)
-        success(f"Backed up env to {env_backup}")
+    _backup_env(etc_dir, backup_root)
 
     # Generate or load wallet.
-    if new_wallet:
-        success("Generating new genesis wallet...")
-        address, public_key = _generate_wallet(etc_dir, wallet_dir, chain_id, password)
-        success(f"New genesis wallet: {address}")
-    else:
-        env = _load_env(etc_dir / "node.env")
-        address = env.get("GENESIS_ADDRESS") or _load_env(etc_dir / "blockchain.env").get("GENESIS_WALLET_ADDRESS", "")
-        if not address:
-            error("GENESIS_ADDRESS not set and --new-wallet not given. Use --new-wallet to generate one.")
-            _start_services()
-            return None
-        public_key = ""
-        _ensure_wallet_import_password(etc_dir / "blockchain-secrets.env", password)
+    wallet = _genesis_wallet(new_wallet, etc_dir, wallet_dir, chain_id, password)
+    if wallet is None:
+        _start_services()
+        return None
+    address, public_key = wallet
 
     # Run the genesis reset script.
-    success("Running genesis reset script...")
-    env_override = {
-        "CHAIN_ID": chain_id,
-        "DB_PATH": str(db_path),
-    }
-    try:
-        r = _run_subprocess([sys.executable, str(reset_script)], env=env_override)
-        if r.returncode != 0:
-            error(f"reset_chain_0x.py failed:\n{r.stderr}")
-            _start_services()
-            return None
-        if r.stdout:
-            success(r.stdout)
-    except Exception as e:
-        error(f"Failed to run reset script: {e}")
+    if not _run_reset_script(reset_script, db_path, chain_id):
         _start_services()
         return None
 
     # Fix ownership of the new chain DB so the aitbc user can write it.
     chain_data_dir = db_path.parent
-    try:
-        for item in chain_data_dir.rglob("*"):
-            _chown_aitbc(item)
-        _chown_aitbc(chain_data_dir)
-    except Exception:
-        pass
+    _chown_chain_data(chain_data_dir)
 
     # Restart services.
     success("Restarting services...")

@@ -109,19 +109,8 @@ def _release_marketplace_payment(ctx: click.Context, job_id: str) -> dict[str, A
         return None
 
 
-def _run_ipfs_hosting(
-    ctx: click.Context,
-    offer_id_or_plugin_id: str,
-    cid_or_file: str,
-    days: int,
-    pin: bool,
-    release_immediately: bool,
-    output_format: str,
-    track: bool = False,
-    node_wallet: str | None = None,
-) -> dict[str, Any]:
-    """Run an IPFS hosting job and return the job record."""
-    offer = _resolve_offer(ctx, offer_id_or_plugin_id)
+def _validate_ipfs_offer(offer: dict[str, Any], offer_id_or_plugin_id: str) -> None:
+    """Abort unless the offer is a per-day IPFS hosting offer."""
     if offer.get("service_type") != "ipfs":
         error(f"Offer '{offer_id_or_plugin_id}' is not an IPFS hosting offer (service_type={offer.get('service_type')})")
         raise click.Abort()
@@ -129,71 +118,84 @@ def _run_ipfs_hosting(
         error(f"IPFS offer '{offer_id_or_plugin_id}' uses price_unit '{offer.get('price_unit')}'; expected 'per_day'")
         raise click.Abort()
 
-    price = Decimal(str(offer.get("price", "0")))
-    total_cost = price * Decimal(days)
-    provider = to_canonical(offer.get("provider_address", ""))
-    if not provider:
-        error("Offer has no provider_address")
-        raise click.Abort()
 
-    ipfs_api = _resolve_ipfs_api(offer)
-    public_endpoint = offer.get("public_endpoint") or ""
+def _resolve_hosting_content(cid_or_file: str, ipfs_api: str) -> tuple[Path, str | None, int | None]:
+    """Resolve --cid-or-file to (file_path, cid, content_size).
 
-    # Determine content and size
+    A local file contributes its stat() size now and is uploaded later, after
+    the quota checks; a bare CID is validated and sized via the daemon.
+    """
     file_path = Path(cid_or_file)
     content_size: int | None = None
     if file_path.exists() and file_path.is_file():
-        content_size = file_path.stat().st_size
-        cid: str | None = None
-    else:
-        cid = cid_or_file.strip()
-        if not cid:
-            error("CID cannot be empty")
-            raise click.Abort()
-        if not _is_cid(cid):
-            error(f"Input '{cid_or_file}' is not a valid CID and not a local file")
-            raise click.Abort()
-        content_size = _ipfs_object_size(ipfs_api, cid)
+        return file_path, None, file_path.stat().st_size
 
-    disk_quota_mb = offer.get("disk_quota_mb")
-    if disk_quota_mb:
-        quota_bytes = int(disk_quota_mb) * 1024 * 1024
-        item_size = content_size if content_size is not None else 0
-        if item_size > quota_bytes:
-            if content_size is None:
-                error(f"Could not determine size; offer disk quota is {disk_quota_mb} MB per customer")
-            else:
-                error(
-                    f"Object size {item_size / (1024 * 1024):.2f} MB exceeds "
-                    f"the {disk_quota_mb} MB per-customer quota for this offer"
-                )
-            raise click.Abort()
+    cid = cid_or_file.strip()
+    if not cid:
+        error("CID cannot be empty")
+        raise click.Abort()
+    if not _is_cid(cid):
+        error(f"Input '{cid_or_file}' is not a valid CID and not a local file")
+        raise click.Abort()
+    content_size = _ipfs_object_size(ipfs_api, cid)
+    return file_path, cid, content_size
 
-    buyer, private_key, wallet_id = get_market_wallet(ctx, require_private_key=True)
 
-    # Check quota across active marketplace jobs.
+def _check_disk_quota(
+    disk_quota_mb: int | None,
+    content_size: int | None,
+    used_bytes: int | None = None,
+) -> None:
+    """Abort when the content would exceed the offer's per-customer disk quota.
+
+    With ``used_bytes=None`` only the per-item check runs (called before the
+    wallet is loaded); pass the buyer's current usage to also run the
+    cumulative check across their active marketplace jobs.
+    """
+    if not disk_quota_mb:
+        return
+    quota_bytes = int(disk_quota_mb) * 1024 * 1024
+    item_size = content_size if content_size is not None else 0
+    if item_size > quota_bytes:
+        if content_size is None:
+            error(f"Could not determine size; offer disk quota is {disk_quota_mb} MB per customer")
+        else:
+            error(
+                f"Object size {item_size / (1024 * 1024):.2f} MB exceeds "
+                f"the {disk_quota_mb} MB per-customer quota for this offer"
+            )
+        raise click.Abort()
+    if used_bytes is None:
+        return
+    if used_bytes + item_size > quota_bytes:
+        error(
+            f"This upload would use {item_size / (1024 * 1024):.2f} MB and exceed "
+            f"the {disk_quota_mb} MB per-customer quota for this offer "
+            f"(already using {used_bytes / (1024 * 1024):.2f} MB)"
+        )
+        raise click.Abort()
+
+
+def _buyer_used_bytes(buyer: str, offer_id: str) -> int:
+    """Bytes the buyer already has pinned across active marketplace jobs."""
     try:
         used_bytes_response = _marketplace_client().get(
             "/v1/marketplace/jobs/usage",
-            params={"buyer_address": buyer, "offer_id": offer.get("offer_id", offer_id_or_plugin_id)},
+            params={"buyer_address": buyer, "offer_id": offer_id},
         )
-        used_bytes = int(used_bytes_response.get("used_bytes", 0)) if used_bytes_response else 0
+        return int(used_bytes_response.get("used_bytes", 0)) if used_bytes_response else 0
     except Exception as e:
         logger.warning("Could not query active IPFS usage: %s", e)
-        used_bytes = 0
+        return 0
 
-    if disk_quota_mb:
-        quota_bytes = int(disk_quota_mb) * 1024 * 1024
-        item_size = content_size if content_size is not None else 0
-        if used_bytes + item_size > quota_bytes:
-            error(
-                f"This upload would use {item_size / (1024 * 1024):.2f} MB and exceed "
-                f"the {disk_quota_mb} MB per-customer quota for this offer "
-                f"(already using {used_bytes / (1024 * 1024):.2f} MB)"
-            )
-            raise click.Abort()
 
-    # Upload file to local Kubo if needed.
+def _upload_hosting_file(
+    file_path: Path,
+    cid: str | None,
+    content_size: int | None,
+    ipfs_api: str,
+) -> tuple[str, int | None]:
+    """Upload a local file to the buyer's daemon; return (cid, content_size)."""
     if file_path.exists() and file_path.is_file():
         cid = _ipfs_add_file(ipfs_api, file_path)
         if not cid:
@@ -207,6 +209,85 @@ def _run_ipfs_hosting(
     if not cid:
         error("No CID available for hosting")
         raise click.Abort()
+    return cid, content_size
+
+
+def _release_and_track(
+    ctx: click.Context,
+    job_id: str,
+    cid: str,
+    release_immediately: bool,
+    track: bool,
+    offer: dict[str, Any],
+    buyer: str,
+    provider: str,
+    total_cost: Decimal,
+) -> dict[str, Any] | None:
+    """Release escrow when asked and mirror the job to the coordinator when tracking.
+
+    Returns the release result (None unless ``release_immediately`` was set).
+    """
+    release_result: dict[str, Any] | None = None
+    if release_immediately:
+        release_result = _release_marketplace_payment(ctx, job_id)
+        if release_result and not release_result.get("error"):
+            success(f"Released {total_cost:.4f} AIT to provider")
+        else:
+            warning(f"Could not release payment immediately: {release_result}")
+
+    if track:
+        _track_coordinator_job(
+            ctx,
+            job_id,
+            offer,
+            buyer,
+            provider,
+            total_cost,
+            "ipfs",
+            result_hash=cid,
+        )
+    return release_result
+
+
+def _run_ipfs_hosting(
+    ctx: click.Context,
+    offer_id_or_plugin_id: str,
+    cid_or_file: str,
+    days: int,
+    pin: bool,
+    release_immediately: bool,
+    output_format: str,
+    track: bool = False,
+    node_wallet: str | None = None,
+) -> dict[str, Any]:
+    """Run an IPFS hosting job and return the job record."""
+    offer = _resolve_offer(ctx, offer_id_or_plugin_id)
+    _validate_ipfs_offer(offer, offer_id_or_plugin_id)
+
+    price = Decimal(str(offer.get("price", "0")))
+    total_cost = price * Decimal(days)
+    provider = to_canonical(offer.get("provider_address", ""))
+    if not provider:
+        error("Offer has no provider_address")
+        raise click.Abort()
+
+    ipfs_api = _resolve_ipfs_api(offer)
+    public_endpoint = offer.get("public_endpoint") or ""
+
+    # Determine content and size; a local file is uploaded only after the quota checks.
+    file_path, cid, content_size = _resolve_hosting_content(cid_or_file, ipfs_api)
+
+    disk_quota_mb = offer.get("disk_quota_mb")
+    _check_disk_quota(disk_quota_mb, content_size)
+
+    buyer, private_key, wallet_id = get_market_wallet(ctx, require_private_key=True)
+
+    # Check quota across active marketplace jobs.
+    used_bytes = _buyer_used_bytes(buyer, offer.get("offer_id", offer_id_or_plugin_id))
+    _check_disk_quota(disk_quota_mb, content_size, used_bytes)
+
+    # Upload file to local Kubo if needed.
+    cid, content_size = _upload_hosting_file(file_path, cid, content_size, ipfs_api)
 
     # Attempt to connect to the provider's public multiaddr so the island can replicate.
     if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
@@ -298,24 +379,7 @@ def _run_ipfs_hosting(
     # Confirm pin so the job transitions to RUNNING.
     _confirm_marketplace_pin(job_id, content_size)
 
-    if release_immediately:
-        release_result = _release_marketplace_payment(ctx, job_id)
-        if release_result and not release_result.get("error"):
-            success(f"Released {total_cost:.4f} AIT to provider")
-        else:
-            warning(f"Could not release payment immediately: {release_result}")
-
-    if track:
-        _track_coordinator_job(
-            ctx,
-            job_id,
-            offer,
-            buyer,
-            provider,
-            total_cost,
-            "ipfs",
-            result_hash=cid,
-        )
+    release_result = _release_and_track(ctx, job_id, cid, release_immediately, track, offer, buyer, provider, total_cost)
 
     output_record = (
         release_result
@@ -377,6 +441,75 @@ def host(
     )
 
 
+def _apply_access_result(ipfs_api: str, result: dict[str, Any] | None, cid: str | None) -> str | None:
+    """Take the CID from a marketplace access response and swarm-connect to the provider."""
+    if result and not result.get("error"):
+        cid = result.get("cid") or cid
+        public_endpoint = result.get("public_endpoint") or ""
+        if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
+            _ipfs_swarm_connect(ipfs_api, public_endpoint)
+    return cid
+
+
+def _resolve_download_cid(
+    ipfs_api: str,
+    rental_id: str | None,
+    access_key: str | None,
+    access_secret: str | None,
+    cid: str | None,
+) -> str | None:
+    """Resolve the CID to download from a marketplace rental or access token."""
+    if rental_id:
+        try:
+            result = _marketplace_client().get(f"/v1/marketplace/jobs/{rental_id}/access")
+            cid = _apply_access_result(ipfs_api, result, cid)
+        except NetworkError as e:
+            warning(f"Could not resolve rental {rental_id}: {e}")
+
+    if access_key and access_secret and not cid:
+        try:
+            result = _marketplace_client().get(f"/v1/marketplace/access/{access_key}", params={"access_secret": access_secret})
+            cid = _apply_access_result(ipfs_api, result, cid)
+        except NetworkError as e:
+            warning(f"Could not resolve access token: {e}")
+    return cid
+
+
+def _cat_ipfs(ipfs_api: str, cid: str, wait: bool) -> bytes | None:
+    """Retrieve CID content from the local daemon, optionally polling until it appears."""
+    try:
+        for _attempt in range(1, 60 if wait else 1):
+            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
+            if response.status_code == 200:
+                break
+            if not wait:
+                response.raise_for_status()
+                break
+            import time
+
+            time.sleep(2)
+        else:
+            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
+        response.raise_for_status()
+        return response.content
+    except Exception as e:
+        warning(f"Could not retrieve CID {cid}: {e}")
+        return None
+
+
+def _write_download(data: bytes, output_path: str | None) -> str:
+    """Write retrieved content to --output-path or a fresh temp file; return the path."""
+    if output_path:
+        out_path = Path(output_path)
+        out_path.write_bytes(data)
+        return str(out_path)
+    import tempfile
+
+    with tempfile.NamedTemporaryFile(delete=False, mode="wb") as tmp:
+        tmp.write(data)
+        return tmp.name
+
+
 @market.command(
     name="download",
     epilog="""Examples:
@@ -410,27 +543,7 @@ def download(
     # ipfs_api may be the provider's loopback address or a stale endpoint.
     ipfs_api = _resolve_ipfs_api({})
 
-    if rental_id:
-        try:
-            result = _marketplace_client().get(f"/v1/marketplace/jobs/{rental_id}/access")
-            if result and not result.get("error"):
-                cid = result.get("cid") or cid
-                public_endpoint = result.get("public_endpoint") or ""
-                if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
-                    _ipfs_swarm_connect(ipfs_api, public_endpoint)
-        except NetworkError as e:
-            warning(f"Could not resolve rental {rental_id}: {e}")
-
-    if access_key and access_secret and not cid:
-        try:
-            result = _marketplace_client().get(f"/v1/marketplace/access/{access_key}", params={"access_secret": access_secret})
-            if result and not result.get("error"):
-                cid = result.get("cid") or cid
-                public_endpoint = result.get("public_endpoint") or ""
-                if public_endpoint and not public_endpoint.startswith(("http://", "https://")):
-                    _ipfs_swarm_connect(ipfs_api, public_endpoint)
-        except NetworkError as e:
-            warning(f"Could not resolve access token: {e}")
+    cid = _resolve_download_cid(ipfs_api, rental_id, access_key, access_secret, cid)
 
     if not cid:
         error("Provide a CID, --rental-id, or --access-key/--access-secret")
@@ -440,24 +553,7 @@ def download(
         error(f"No reachable Kubo daemon at {ipfs_api}")
         raise click.Abort()
 
-    data: bytes | None = None
-    try:
-        for _attempt in range(1, 60 if wait else 1):
-            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
-            if response.status_code == 200:
-                break
-            if not wait:
-                response.raise_for_status()
-                break
-            import time
-
-            time.sleep(2)
-        else:
-            response = _api_post("/api/v0/cat", params={"arg": cid}, timeout=30, ipfs_api=ipfs_api)
-        response.raise_for_status()
-        data = response.content
-    except Exception as e:
-        warning(f"Could not retrieve CID {cid}: {e}")
+    data = _cat_ipfs(ipfs_api, cid, wait)
 
     if data is None and not output_path:
         error(f"CID not retrievable and no filesystem fallback: {cid}")
@@ -467,16 +563,7 @@ def download(
         error(f"Could not retrieve CID {cid}")
         raise click.Abort()
 
-    if output_path:
-        out_path = Path(output_path)
-        out_path.write_bytes(data)
-        file_path = str(out_path)
-    else:
-        import tempfile
-
-        with tempfile.NamedTemporaryFile(delete=False, mode="wb") as tmp:
-            tmp.write(data)
-            file_path = tmp.name
+    file_path = _write_download(data, output_path)
 
     output({"cid": cid, "file_path": file_path, "size": len(data)}, output_format, title="IPFS Download")
 

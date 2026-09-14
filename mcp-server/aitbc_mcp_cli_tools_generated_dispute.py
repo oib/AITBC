@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_dispute_active(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List every dispute still open for arbitration.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dispute",
@@ -83,13 +86,11 @@ def aitbc_dispute_arbitrator_authorize(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Grant or revoke arbitrator rights for an address (admin only).."""
-    options: dict[str, Any] = {}
-    if revoke:
-        options["revoke"] = None
-    if owner_signature is not None:
-        options["signature"] = owner_signature
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"revoke": "revoke"},
+        values={"owner_signature": "signature", "node_url": "node-url"},
+    )
     args = [arbitrator_address] if arbitrator_address is not None else []
     command = _build_aitbc_cli_command(
         "dispute",
@@ -130,9 +131,11 @@ def aitbc_dispute_arbitrator_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List every authorized arbitrator.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -156,9 +159,11 @@ def aitbc_dispute_arbitrator_queue(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List the disputes assigned to an arbitrator.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = [arbitrator_address] if arbitrator_address is not None else []
     command = _build_aitbc_cli_command(
         "dispute",
@@ -202,11 +207,11 @@ def aitbc_dispute_auto_adjudicate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Auto-resolve every dispute whose spot-check evidence proves a mismatch (S-3).."""
-    options: dict[str, Any] = {}
-    if assume_yes:
-        options["yes"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"assume_yes": "yes"},
+        values={"coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dispute",
@@ -253,17 +258,17 @@ def aitbc_dispute_evidence_add(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Submit evidence for a dispute.."""
-    options: dict[str, Any] = {}
-    if dispute_id is not None:
-        options["dispute-id"] = dispute_id
-    if evidence_hash is not None:
-        options["evidence-hash"] = evidence_hash
-    if evidence_type is not None:
-        options["evidence-type"] = evidence_type
-    if description is not None:
-        options["description"] = description
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "dispute_id": "dispute-id",
+            "evidence_hash": "evidence-hash",
+            "evidence_type": "evidence-type",
+            "description": "description",
+            "node_url": "node-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dispute",
@@ -305,9 +310,11 @@ def aitbc_dispute_evidence_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List the evidence submitted for a dispute.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = [dispute_id] if dispute_id is not None else []
     return _aitbc_cli_read_tool(
         role,
@@ -333,15 +340,11 @@ def aitbc_dispute_evidence_verify(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Verify or reject a piece of evidence (arbitrators only).."""
-    options: dict[str, Any] = {}
-    if dispute_id is not None:
-        options["dispute-id"] = dispute_id
-    if evidence_id is not None:
-        options["evidence-id"] = evidence_id
-    if reject:
-        options["reject"] = None
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"reject": "reject"},
+        values={"dispute_id": "dispute-id", "evidence_id": "evidence-id", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dispute",
@@ -387,19 +390,18 @@ def aitbc_dispute_file(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """File a new dispute against an agreement.."""
-    options: dict[str, Any] = {}
-    if agreement_id is not None:
-        options["agreement-id"] = agreement_id
-    if respondent is not None:
-        options["respondent"] = respondent
-    if dispute_type is not None:
-        options["dispute-type"] = dispute_type
-    if reason is not None:
-        options["reason"] = reason
-    if evidence_hash is not None:
-        options["evidence-hash"] = evidence_hash
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agreement_id": "agreement-id",
+            "respondent": "respondent",
+            "dispute_type": "dispute-type",
+            "reason": "reason",
+            "evidence_hash": "evidence-hash",
+            "node_url": "node-url",
+        },
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -421,9 +423,11 @@ def aitbc_dispute_get(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show one dispute with its evidence and votes.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = [dispute_id] if dispute_id is not None else []
     return _aitbc_cli_read_tool(
         role,
@@ -453,15 +457,11 @@ def aitbc_dispute_resolve(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Rule on a disputed job payment (operator or arbiter only).."""
-    options: dict[str, Any] = {}
-    if outcome is not None:
-        options["outcome"] = outcome
-    if reason is not None:
-        options["reason"] = reason
-    if assume_yes:
-        options["yes"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"assume_yes": "yes"},
+        values={"outcome": "outcome", "reason": "reason", "coordinator_url": "coordinator-url"},
+    )
     args = [job_id] if job_id is not None else []
     command = _build_aitbc_cli_command(
         "dispute",
@@ -505,9 +505,11 @@ def aitbc_dispute_user(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List the disputes an address is party to.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = [user_address] if user_address is not None else []
     command = _build_aitbc_cli_command(
         "dispute",
@@ -553,15 +555,11 @@ def aitbc_dispute_vote(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cast an arbitration vote on a dispute (arbitrators only).."""
-    options: dict[str, Any] = {}
-    if dispute_id is not None:
-        options["dispute-id"] = dispute_id
-    if vote is not None:
-        options["vote"] = vote
-    if reasoning is not None:
-        options["reasoning"] = reasoning
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"dispute_id": "dispute-id", "vote": "vote", "reasoning": "reasoning", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dispute",
@@ -603,9 +601,11 @@ def aitbc_dispute_votes(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the arbitration votes cast on a dispute.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = [dispute_id] if dispute_id is not None else []
     return _aitbc_cli_read_tool(
         role,

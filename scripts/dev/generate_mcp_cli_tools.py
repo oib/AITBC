@@ -489,6 +489,83 @@ def is_excluded_option(param: click.Option) -> bool:
     return name in SKIP_OPTION_NAMES or (param.hidden is True)
 
 
+def _unique_py_name(base: str, reserved_suffix: str, seen: set[str]) -> str:
+    """Return a collision-free, non-reserved parameter name and record it.
+
+    ``base`` is deduplicated against ``seen`` with a ``_N`` suffix; when the
+    result collides with a reserved MCP routing/safety name it becomes
+    ``{base}_{reserved_suffix}`` padded with ``_`` until unique.
+    """
+    py_name = base
+    if py_name in seen:
+        suffix = 2
+        while f"{py_name}_{suffix}" in seen:
+            suffix += 1
+        py_name = f"{py_name}_{suffix}"
+    if py_name in RESERVED_PY_NAMES:
+        py_name = f"{py_name}_{reserved_suffix}"
+        while py_name in seen:
+            py_name = f"{py_name}_"
+    seen.add(py_name)
+    return py_name
+
+
+def _parse_option(param: click.Option, order: int, seen_names: set[str]) -> dict[str, Any] | None:
+    """Extract one Click option into a param spec, or None when it is skipped."""
+    if is_excluded_option(param):
+        return None
+    flag = get_flag_name(param)
+    if not flag:
+        return None
+    is_flag = getattr(param, "is_flag", False) and type(param.type).__name__ == "BoolParamType"
+    multiple = getattr(param, "multiple", False) or getattr(param, "nargs", 1) != 1
+    choices = None
+    if isinstance(param.type, click.Choice):
+        choices = list(param.type.choices)
+    ptype = py_type(param, choices)
+    if multiple:
+        ptype = f"list[{ptype}]" if choices else "list[str]"
+    required = bool(param.required) and not is_flag
+    help_text = (param.help or "").strip()
+    if not help_text:
+        help_text = f"{flag} option"
+    base = param.name.replace("-", "_") if param.name else flag.replace("-", "_")
+    if base in SKIP_OPTION_NAMES:
+        return None
+    py_name = _unique_py_name(base, "opt", seen_names)
+    if ptype == "float" and any(t in MONEY_TOKENS for t in py_name.split("_")):
+        ptype = "Decimal"
+    return {
+        "py_name": py_name,
+        "flag": flag,
+        "type": ptype,
+        "is_flag": is_flag,
+        "multiple": multiple,
+        "required": required,
+        "help": help_text,
+        "order": order,
+    }
+
+
+def _parse_argument(param: click.Argument, order: int, seen_names: set[str]) -> dict[str, Any]:
+    """Extract one Click positional argument into a param spec."""
+    py_name = _unique_py_name((param.name or "arg").replace("-", "_"), "arg", seen_names)
+    nargs = getattr(param, "nargs", 1)
+    multiple = nargs == -1 or nargs > 1
+    ptype = "list[str]" if multiple else "str"
+    required = bool(getattr(param, "required", True)) and not multiple
+    if multiple:
+        required = False
+    return {
+        "py_name": py_name,
+        "type": ptype,
+        "multiple": multiple,
+        "required": required,
+        "help": f"Positional argument: {param.name}",
+        "order": order,
+    }
+
+
 def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
     """Extract parameters for one command."""
     options: list[dict[str, Any]] = []
@@ -496,82 +573,11 @@ def parse_command(cmd: click.Command, path: tuple[str, ...]) -> dict[str, Any]:
     seen_names: set[str] = set()
     for i, param in enumerate(cmd.params):
         if isinstance(param, click.Option):
-            if is_excluded_option(param):
-                continue
-            flag = get_flag_name(param)
-            if not flag:
-                continue
-            is_flag = getattr(param, "is_flag", False) and type(param.type).__name__ == "BoolParamType"
-            multiple = getattr(param, "multiple", False) or getattr(param, "nargs", 1) != 1
-            choices = None
-            if isinstance(param.type, click.Choice):
-                choices = list(param.type.choices)
-            ptype = py_type(param, choices)
-            if multiple:
-                if choices:
-                    ptype = f"list[{ptype}]"
-                else:
-                    ptype = "list[str]"
-            required = bool(param.required) and not is_flag
-            help_text = (param.help or "").strip()
-            if not help_text:
-                help_text = f"{flag} option"
-            py_name = param.name.replace("-", "_") if param.name else flag.replace("-", "_")
-            if py_name in SKIP_OPTION_NAMES:
-                continue
-            if py_name in seen_names:
-                suffix = 2
-                while f"{py_name}_{suffix}" in seen_names:
-                    suffix += 1
-                py_name = f"{py_name}_{suffix}"
-            if py_name in RESERVED_PY_NAMES:
-                py_name = f"{py_name}_opt"
-                while py_name in seen_names:
-                    py_name = f"{py_name}_"
-            seen_names.add(py_name)
-            is_money = ptype == "float" and any(t in MONEY_TOKENS for t in py_name.split("_"))
-            if is_money:
-                ptype = "Decimal"
-            options.append(
-                {
-                    "py_name": py_name,
-                    "flag": flag,
-                    "type": ptype,
-                    "is_flag": is_flag,
-                    "multiple": multiple,
-                    "required": required,
-                    "help": help_text,
-                    "order": i,
-                }
-            )
+            option = _parse_option(param, i, seen_names)
+            if option is not None:
+                options.append(option)
         elif isinstance(param, click.Argument):
-            py_name = (param.name or "arg").replace("-", "_")
-            if py_name in seen_names:
-                suffix = 2
-                while f"{py_name}_{suffix}" in seen_names:
-                    suffix += 1
-                py_name = f"{py_name}_{suffix}"
-            if py_name in RESERVED_PY_NAMES:
-                py_name = f"{py_name}_arg"
-                while py_name in seen_names:
-                    py_name = f"{py_name}_"
-            seen_names.add(py_name)
-            nargs = getattr(param, "nargs", 1)
-            multiple = nargs == -1 or nargs > 1
-            ptype = "list[str]" if multiple else "str"
-            required = bool(getattr(param, "required", True)) and not multiple
-            if multiple:
-                required = False
-            positional.append(
-                {
-                    "py_name": py_name,
-                    "type": ptype,
-                    "multiple": multiple,
-                    "required": required,
-                    "help": f"Positional argument: {param.name}",
-                    "order": i,
-                }
-            )
+            positional.append(_parse_argument(param, i, seen_names))
 
     return {
         "path": path,
@@ -595,16 +601,131 @@ def render_field(param: dict[str, Any], *, is_timeout: bool = False) -> str:
     return f"Field(description={quote(param['help'])}{extras})"
 
 
+def _render_signature(spec: dict[str, Any], func_name: str, read_only: bool) -> list[str]:
+    """Emit the def line, parameter list and docstring of one tool."""
+    all_params = build_param_schema(spec["positional"] + spec["options"])
+
+    lines: list[str] = [f"def {func_name}("]
+    for param in all_params:
+        ptype = param["type"]
+        if not param["required"]:
+            ptype = f"{ptype} | None"
+        lines.append(f"    {param['py_name']}: Annotated[{ptype}, {render_field(param)}],")
+    lines.append('    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,')
+    lines.append('    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,')
+    lines.append('    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,')
+    if not read_only:
+        lines.append('    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,')
+        lines.append('    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,')
+    lines.append(") -> str:")
+
+    # Docstring
+    path = spec["path"]
+    short_help = spec["help"].split("\n")[0] if spec["help"] else f"Run `aitbc {path_to_cli_name(path)}`."
+    lines.append(f'    """{short_help}."""')
+    return lines
+
+
+def _render_str_map(mapping: dict[str, str]) -> str:
+    """Render a ``dict[str, str]`` literal with double-quoted keys and values."""
+    return "{" + ", ".join(f"{quote(k)}: {quote(v)}" for k, v in mapping.items()) + "}"
+
+
+def _render_options_block(spec: dict[str, Any]) -> list[str]:
+    """Emit the ``options`` dict via a single ``_collect_options`` call.
+
+    ``locals()`` is passed so the helper can look each parameter up by name;
+    the flag/value maps use the python parameter names as keys.
+    """
+    if not spec["options"]:
+        return ["    options: dict[str, Any] = {}"]
+    flags = {p["py_name"]: p["flag"] for p in spec["options"] if p["is_flag"]}
+    values = {p["py_name"]: p["flag"] for p in spec["options"] if not p["is_flag"]}
+    return [
+        "    options: dict[str, Any] = _collect_options(",
+        "        locals(),",
+        f"        flags={_render_str_map(flags)},",
+        f"        values={_render_str_map(values)},",
+        "    )",
+    ]
+
+
+def _render_args_block(spec: dict[str, Any]) -> list[str]:
+    """Emit the ``args`` list built from the positional parameters."""
+    positional_names = [p["py_name"] for p in spec["positional"]]
+    if not positional_names:
+        return ["    args = None"]
+    if len(positional_names) == 1:
+        p = spec["positional"][0]
+        if p["multiple"]:
+            return [f"    args = {p['py_name']} or []"]
+        return [f"    args = [{p['py_name']}] if {p['py_name']} is not None else []"]
+    parts = []
+    for p in spec["positional"]:
+        if p["multiple"]:
+            parts.append(f"({p['py_name']} or [])")
+        else:
+            parts.append(f"([{p['py_name']}] if {p['py_name']} is not None else [])")
+    return ["    args = [] + " + " + ".join(parts)]
+
+
+def _subcommand_literal(path: tuple[str, ...]) -> str:
+    tokens = [quote(p) for p in path[1:]]
+    if tokens:
+        return "[" + ", ".join(tokens) + "]"
+    return "None"
+
+
+def _render_call_block(spec: dict[str, Any], read_only: bool) -> list[str]:
+    """Emit the read-only call or the safeguarded dry_run/confirm call."""
+    path = spec["path"]
+    group = quote(path[0])
+    subcommand = _subcommand_literal(path)
+
+    if read_only:
+        return [
+            "    return _aitbc_cli_read_tool(",
+            "        role,",
+            "        host,",
+            f"        {group},",
+            f"        subcommand={subcommand},",
+            "        args=args,",
+            "        options=options,",
+            "        timeout=timeout,",
+            "    )",
+        ]
+
+    lines = [
+        "    command = _build_aitbc_cli_command(",
+        f"        {group},",
+        f"        subcommand={subcommand},",
+        "        args=args,",
+        "        options=options,",
+        '        output_format="json",',
+        "    )",
+        "    if dry_run:",
+        '        return _json(_build_dry_run("Set dry_run=false to execute.", command))',
+        "    if not confirm:",
+        '        return _json({"error": "Confirmation required", "command": command, "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute."})',
+        "    target = _host_for_role(role, host)",
+        "    return _json(",
+        "        _run_aitbc_cli(",
+        "            target,",
+        f"            {group},",
+        f"            subcommand={subcommand},",
+        "            args=args,",
+        "            options=options,",
+        '            output_format="json",',
+        "            timeout=timeout,",
+        "        )",
+        "    )",
+    ]
+    return lines
+
+
 def render_function(spec: dict[str, Any], mode: str) -> list[str]:
     path = spec["path"]
     func_name = path_to_func_name(path)
-    group = quote(path[0])
-    subcommand_tokens = [quote(p) for p in path[1:]]
-    if subcommand_tokens:
-        subcommand = "[" + ", ".join(subcommand_tokens) + "]"
-    else:
-        subcommand = "None"
-
     read_only = spec["mode"] == "read_only"
 
     if read_only:
@@ -612,100 +733,21 @@ def render_function(spec: dict[str, Any], mode: str) -> list[str]:
     else:
         lines = ["@mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))"]
 
-    # Build parameter list
-    all_params = build_param_schema(spec["positional"] + spec["options"])
-
-    signature: list[str] = [f"def {func_name}("]
-    for param in all_params:
-        ptype = param["type"]
-        if not param["required"]:
-            ptype = f"{ptype} | None"
-        signature.append(f"    {param['py_name']}: Annotated[{ptype}, {render_field(param)}],")
-    signature.append('    role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,')
-    signature.append('    host: Annotated[str | None, Field(description="Override the host for this call.")] = None,')
-    signature.append('    timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,')
-    if not read_only:
-        signature.append('    dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,')
-        signature.append('    confirm: Annotated[bool, Field(description="Confirm the action.")] = False,')
-    signature.append(") -> str:")
-
-    # Docstring
-    short_help = spec["help"].split("\n")[0] if spec["help"] else f"Run `aitbc {path_to_cli_name(path)}`."
-    signature.append(f'    """{short_help}."""')
-
-    # Build options dict
-    signature.append("    options: dict[str, Any] = {}")
-    for param in spec["options"]:
-        if param["is_flag"]:
-            signature.append(f"    if {param['py_name']}:")
-            signature.append(f"        options[{quote(param['flag'])}] = None")
-        else:
-            signature.append(f"    if {param['py_name']} is not None:")
-            signature.append(f"        options[{quote(param['flag'])}] = {param['py_name']}")
-
-    # Build args list
-    positional_names = [p["py_name"] for p in spec["positional"]]
-    if positional_names:
-        if len(positional_names) == 1:
-            p = spec["positional"][0]
-            if p["multiple"]:
-                signature.append(f"    args = {p['py_name']} or []")
-            else:
-                signature.append(f"    args = [{p['py_name']}] if {p['py_name']} is not None else []")
-        else:
-            parts = []
-            for p in spec["positional"]:
-                if p["multiple"]:
-                    parts.append(f"({p['py_name']} or [])")
-                else:
-                    parts.append(f"([{p['py_name']}] if {p['py_name']} is not None else [])")
-            signature.append("    args = [] + " + " + ".join(parts))
-    else:
-        signature.append("    args = None")
-
-    # Call helper
-    if read_only:
-        signature.append("    return _aitbc_cli_read_tool(")
-        signature.append("        role,")
-        signature.append("        host,")
-        signature.append(f"        {group},")
-        signature.append(f"        subcommand={subcommand},")
-        signature.append("        args=args,")
-        signature.append("        options=options,")
-        signature.append("        timeout=timeout,")
-        signature.append("    )")
-    else:
-        signature.append("    command = _build_aitbc_cli_command(")
-        signature.append(f"        {group},")
-        signature.append(f"        subcommand={subcommand},")
-        signature.append("        args=args,")
-        signature.append("        options=options,")
-        signature.append('        output_format="json",')
-        signature.append("    )")
-        signature.append("    if dry_run:")
-        signature.append('        return _json(_build_dry_run("Set dry_run=false to execute.", command))')
-        signature.append("    if not confirm:")
-        signature.append(
-            '        return _json({"error": "Confirmation required", "command": command, "note": "This command may mutate state. Pass dry_run=false and confirm=true to execute."})'
-        )
-        signature.append("    target = _host_for_role(role, host)")
-        signature.append("    return _json(")
-        signature.append("        _run_aitbc_cli(")
-        signature.append("            target,")
-        signature.append(f"            {group},")
-        signature.append(f"            subcommand={subcommand},")
-        signature.append("            args=args,")
-        signature.append("            options=options,")
-        signature.append('            output_format="json",')
-        signature.append("            timeout=timeout,")
-        signature.append("        )")
-        signature.append("    )")
-
-    return lines + signature
+    lines += _render_signature(spec, func_name, read_only)
+    lines += _render_options_block(spec)
+    lines += _render_args_block(spec)
+    lines += _render_call_block(spec, read_only)
+    return lines
 
 
 def build_header(
-    mode: str, count: int, has_read_only: bool, has_safeguarded: bool, has_decimal: bool, has_literal: bool
+    mode: str,
+    count: int,
+    has_read_only: bool,
+    has_safeguarded: bool,
+    has_decimal: bool,
+    has_literal: bool,
+    has_options: bool,
 ) -> list[str]:
     imports = ["    NodeRole,"]
     if has_read_only:
@@ -715,6 +757,13 @@ def build_header(
             [
                 "    _build_aitbc_cli_command,",
                 "    _build_dry_run,",
+            ]
+        )
+    if has_options:
+        imports.append("    _collect_options,")
+    if has_safeguarded:
+        imports.extend(
+            [
                 "    _host_for_role,",
                 "    _json,",
                 "    _run_aitbc_cli,",
@@ -747,7 +796,7 @@ def build_header(
     ]
 
 
-def main() -> int:
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument(
         "--output",
@@ -776,13 +825,11 @@ def main() -> int:
         action="store_true",
         help="Write one module per top-level CLI group plus a master import module.",
     )
-    args = parser.parse_args()
+    return parser
 
-    if args.mode == "read_only":
-        args.mode = "safe"
 
-    existing = existing_tool_names()
-
+def _collect_specs(mode: str, existing: set[str]) -> list[dict[str, Any]]:
+    """Walk the CLI command tree and return the tool specs to emit for ``mode``."""
     results: list[dict[str, Any]] = []
     for result in walk_commands(cli):
         path = tuple(result["path"])
@@ -796,9 +843,9 @@ def main() -> int:
         spec = parse_command(result["command"], path)
         spec["mode"] = classify_command(path)
 
-        if args.mode == "safe" and spec["mode"] != "read_only":
+        if mode == "safe" and spec["mode"] != "read_only":
             continue
-        if args.mode == "safeguarded" and spec["mode"] == "skip":
+        if mode == "safeguarded" and spec["mode"] == "skip":
             continue
 
         func_name = path_to_func_name(path)
@@ -808,6 +855,16 @@ def main() -> int:
         results.append(spec)
 
     results.sort(key=lambda r: r["path"])
+    return results
+
+
+def main() -> int:
+    args = _build_parser().parse_args()
+
+    if args.mode == "read_only":
+        args.mode = "safe"
+
+    results = _collect_specs(args.mode, existing_tool_names())
 
     if args.split_by_group:
         return write_split_modules(results, args)
@@ -834,8 +891,9 @@ def render_module(mode: str, specs: list[dict[str, Any]]) -> str:
     has_safeguarded = any(spec["mode"] == "safeguarded" for spec in specs)
     has_decimal = any(p["type"] == "Decimal" for spec in specs for p in spec["options"] + spec["positional"])
     has_literal = any("Literal[" in p["type"] for spec in specs for p in spec["options"] + spec["positional"])
+    has_options = any(spec["options"] for spec in specs)
 
-    lines = build_header(mode, len(specs), has_read_only, has_safeguarded, has_decimal, has_literal)
+    lines = build_header(mode, len(specs), has_read_only, has_safeguarded, has_decimal, has_literal, has_options)
     for spec in specs:
         lines.extend(render_function(spec, mode))
         lines.append("")
