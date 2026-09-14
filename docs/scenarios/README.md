@@ -33,7 +33,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 05 | [Island Creation](./05_island_creation.md) | Create and join blockchain islands | `aitbc node island` |
 | 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the island exchange | `aitbc exchange-island` |
 | 07 | [AI Job Submission](./07_ai_job_submission.md) | Submit and monitor AI jobs | `aitbc ai` |
-| 08 | [Marketplace Bidding](./08_marketplace_bidding.md) | List and buy **chains** | `aitbc marketplace` |
+| 08 | [Marketplace Bidding](./08_marketplace_bidding.md) | List and buy **chains** — **stale, pending rework** | none (`aitbc marketplace` group removed) |
 | 09 | [GPU Listing](./09_gpu_listing.md) | Register local GPUs; on-chain GPU records | `aitbc gpu`, `aitbc gpu-onchain` |
 | 10 | [Agent SDK Identity](./10_agent_sdk_identity.md) | Create and configure agents | `aitbc agent` |
 | 11 | [IPFS Storage](./11_ipfs_storage.md) | Store and retrieve content-addressed artifacts | `aitbc ipfs`, `aitbc oracle` |
@@ -42,12 +42,12 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 14 | [Staking Basics](./14_staking_basics.md) | Stake and unstake tokens | `aitbc wallet` |
 | 15 | [Blockchain Monitoring](./15_blockchain_monitoring.md) | Dashboards, metrics, alerts | `aitbc monitor`, `aitbc explorer` |
 | 16 | [Agent Registration](./16_agent_registration.md) | Register on the coordinator network | `aitbc agent-comm` |
-| 17 | [Governance Voting](./17_governance_voting.md) | Propose and vote | `aitbc governance`, `aitbc operations governance` |
+| 17 | [Governance Voting](./17_governance_voting.md) | Propose and vote | `aitbc governance`, `aitbc operations governance` (deprecated/hidden) |
 | 18 | [Analytics Collection](./18_analytics_collection.md) | Summaries, monitoring, predictions | `aitbc analytics` |
 | 19 | [Security Setup](./19_security_setup.md) | Audit, scan, and patch | `aitbc security` |
 | 20 | [Cross-Chain Transfer](./20_cross_chain_transfer.md) | Swaps and bridge operations | `aitbc crosschain`, `aitbc bridge` |
 
-GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`, not `aitbc marketplace`. Scenario 08 is the older **chain listing** marketplace. Scenario 34 is the live shop-offer path.
+GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`. Scenario 08 targeted the old `aitbc marketplace` **chain-listing** group, which no longer exists in the CLI — the scenario is stale pending rework and its commands will not run. Scenario 34 is the live shop-offer path.
 
 ### Intermediate Scenarios (Live Operator Plays)
 

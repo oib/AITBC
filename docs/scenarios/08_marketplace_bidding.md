@@ -14,6 +14,16 @@ breadcrumb: Home > Scenarios > Marketplace Bidding
 
 ---
 
+> **Stale — pending rework.** This scenario drives the `aitbc marketplace` group
+> (`list`/`search`/`buy`/`complete`), which has been **removed from the CLI** — there
+> is no `aitbc marketplace` group in `aitbc` 0.10.18, and none of the commands below
+> will run. The `GlobalChainMarketplace` core module still exists in
+> `cli/aitbc_cli/core/marketplace.py` but exposes no command surface and no documented
+> service endpoint. The live marketplace path is `aitbc market` (GPU/software offers —
+> see [scenario 34](./34_hub_customer_node_e2e.md) and
+> [CLI_TOOLS.md](../apps/marketplace/CLI_TOOLS.md)). This file is kept for reference
+> until it is rewritten or retired.
+
 ## See Also
 
 - **Previous Scenario**: [AI Job Submission](./07_ai_job_submission.md)
@@ -63,7 +73,7 @@ A network operator wants to sell access to a private chain (e.g., a GPU-optimize
 
 ## Step-by-Step Workflow
 
-> **Argument shapes** (from `cli/aitbc_cli/commands/marketplace_cmd.py`): `list` takes six positional arguments (`chain_id`, `chain_name`, `chain_type`, `description`, `seller_id`, `price`) plus `--currency`, `--specs`, `--metadata`. `buy` takes positional `listing_id` and `buyer_id` plus `--payment`. `complete` takes positional `transaction_id` and `transaction_hash`.
+> **Argument shapes** (historical, from the removed `cli/aitbc_cli/commands/marketplace_cmd.py`): `list` takes six positional arguments (`chain_id`, `chain_name`, `chain_type`, `description`, `seller_id`, `price`) plus `--currency`, `--specs`, `--metadata`. `buy` takes positional `listing_id` and `buyer_id` plus `--payment`. `complete` takes positional `transaction_id` and `transaction_hash`.
 
 ### Step 1: List a chain for sale
 
@@ -171,7 +181,7 @@ Completed           2026-06-25 14:35:10
 
 ## Code Examples Using Agent SDK
 
-The marketplace flow is coordinated through the CLI's `GlobalChainMarketplace` core module. AI agents automate it by invoking the real `aitbc marketplace` commands. For programmatic access, the `aitbc_agent` SDK's `Agent` base class provides the HTTP client and identity used to interact with coordinator-mediated services.
+The marketplace flow is coordinated through the CLI's `GlobalChainMarketplace` core module. AI agents used to automate it by invoking the `aitbc marketplace` commands (now removed — see the stale notice above). For programmatic access, the `aitbc_agent` SDK's `Agent` base class provides the HTTP client and identity used to interact with coordinator-mediated services.
 
 ### Example 1: List, search, and buy via the CLI
 
@@ -265,8 +275,8 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ## Related Resources
 
-- Source: `cli/aitbc_cli/commands/marketplace_cmd.py` (list, buy, complete, search)
-- Core: `cli/aitbc_cli/core/marketplace.py` (`GlobalChainMarketplace`, `ChainType`, `MarketplaceStatus`)
+- Source: `cli/aitbc_cli/commands/marketplace_cmd.py` (list, buy, complete, search) — **removed**; no `aitbc marketplace` group remains
+- Core: `cli/aitbc_cli/core/marketplace.py` (`GlobalChainMarketplace`, `ChainType`, `MarketplaceStatus`) — still present, but not wired to any CLI group
 - [Next Scenario: GPU Listing](./09_gpu_listing.md)
 
 ---

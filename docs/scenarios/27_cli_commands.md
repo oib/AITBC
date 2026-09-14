@@ -131,7 +131,6 @@ diff /tmp/sim1.json /tmp/sim2.json && echo SIMULATION_DETERMINISTIC
 
 ```bash
 aitbc market --help
-aitbc marketplace --help
 aitbc governance --help
 aitbc operations governance --help
 ```
@@ -139,11 +138,11 @@ aitbc operations governance --help
 **Expected output:**
 
 - `aitbc market` is the GPU/software offer group used by shop providers and customers.
-- `aitbc marketplace` is the older global chain-listings group.
+- `aitbc marketplace` no longer exists — the old global chain-listings group has been removed from the CLI (`aitbc marketplace --help` returns an error).
 - `aitbc governance` queries the governance service on port 8105.
-- `aitbc operations governance` uses the blockchain RPC vote/proposal path.
+- `aitbc operations governance` uses the blockchain RPC vote/proposal path; the `operations` group is deprecated and hidden from `aitbc --help`.
 
-Scenarios choose the live group: `market` for GPU offers, `governance` for status, and `operations governance` only when the RPC vote path is required.
+Scenarios choose the live group: `market` for GPU offers and `governance` for proposals/voting; `operations governance` remains only for the few RPC-path operations (stake, delegate, voting-power) that have no canonical equivalent.
 
 ---
 
