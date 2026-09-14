@@ -286,3 +286,114 @@ class TestChainEscrowClient:
         submitter = make_release_submitter(client, "task-x")
         with pytest.raises(EscrowRPCError):
             submitter("c", "f", "t", 100)
+
+
+class TestEscrowCallerBinding:
+    """complete/fail must be signed by the escrow's provider wallet (entry.agent)."""
+
+    def _client(self, monkeypatch):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from agent_app import state
+        from agent_app.routers import tasks as tasks_router
+
+        escrow = PaymentEscrow()
+        monkeypatch.setattr(state, "payment_escrow", escrow)
+        monkeypatch.setattr(state, "escrow_rpc", None)
+        app = FastAPI()
+        app.include_router(tasks_router.router, prefix="/v1")
+        return TestClient(app), escrow
+
+    def _locked(self, escrow, task_id: str, agent: str, amount: int = 100):
+        entry = escrow.create_escrow(task_id=task_id, chain_id="c", requester="0xBuyer", agent=agent, amount=amount)
+        escrow.lock(entry.escrow_id)
+        return entry
+
+    def _sign(self, action: str, task_id: str, pk: str, signed_at: int | None = None, **extra):
+        from aitbc.crypto.crypto import sign_transaction_data
+
+        fields: dict = {"action": action, "task_id": task_id, "signed_at": signed_at or int(time.time())}
+        fields.update(extra)
+        return sign_transaction_data(fields, pk), fields["signed_at"]
+
+    def test_complete_signed_by_provider_releases(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        pk = generate_ethereum_private_key()
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-sig", derive_ethereum_address(pk))
+        sig, ts = self._sign("complete", "t-sig", pk, amount_units=30)
+        resp = client.post("/v1/tasks/t-sig/complete", json={"amount_units": 30, "signed_at": ts, "signature": sig})
+        assert resp.status_code == 200
+        entry = escrow.get_escrow_for_task("t-sig")
+        assert entry.status == EscrowStatus.RELEASED
+
+    def test_complete_wrong_signer_403(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        provider = derive_ethereum_address(generate_ethereum_private_key())
+        attacker = generate_ethereum_private_key()
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-bad", provider)
+        sig, ts = self._sign("complete", "t-bad", attacker, amount_units=30)
+        resp = client.post("/v1/tasks/t-bad/complete", json={"amount_units": 30, "signed_at": ts, "signature": sig})
+        assert resp.status_code == 403
+        assert escrow.get_escrow_for_task("t-bad").status == EscrowStatus.LOCKED
+
+    def test_complete_unsigned_403(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-nosig", derive_ethereum_address(generate_ethereum_private_key()))
+        resp = client.post("/v1/tasks/t-nosig/complete", json={"amount_units": 10})
+        assert resp.status_code == 403
+        assert escrow.get_escrow_for_task("t-nosig").status == EscrowStatus.LOCKED
+
+    def test_complete_tampered_amount_403(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        pk = generate_ethereum_private_key()
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-tamp", derive_ethereum_address(pk))
+        sig, ts = self._sign("complete", "t-tamp", pk, amount_units=30)
+        # Body claims a different amount than was signed.
+        resp = client.post("/v1/tasks/t-tamp/complete", json={"amount_units": 99, "signed_at": ts, "signature": sig})
+        assert resp.status_code == 403
+
+    def test_complete_stale_signed_at_403(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        pk = generate_ethereum_private_key()
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-stale", derive_ethereum_address(pk))
+        sig, ts = self._sign("complete", "t-stale", pk, signed_at=int(time.time()) - 3600)
+        resp = client.post("/v1/tasks/t-stale/complete", json={"signed_at": ts, "signature": sig})
+        assert resp.status_code == 403
+
+    def test_complete_unsigned_ok_when_no_agent(self, monkeypatch):
+        """Bookkeeping escrows without a bound provider stay callable (test path)."""
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-free", "")
+        resp = client.post("/v1/tasks/t-free/complete")
+        assert resp.status_code == 200
+
+    def test_fail_signed_by_provider_refunds(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        pk = generate_ethereum_private_key()
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-fail", derive_ethereum_address(pk))
+        sig, ts = self._sign("fail", "t-fail", pk)
+        resp = client.post("/v1/tasks/t-fail/fail", json={"signed_at": ts, "signature": sig})
+        assert resp.status_code == 200
+        assert escrow.get_escrow_for_task("t-fail").status == EscrowStatus.REFUNDED
+
+    def test_fail_unsigned_403(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        client, escrow = self._client(monkeypatch)
+        self._locked(escrow, "t-failnosig", derive_ethereum_address(generate_ethereum_private_key()))
+        resp = client.post("/v1/tasks/t-failnosig/fail")
+        assert resp.status_code == 403
+        assert escrow.get_escrow_for_task("t-failnosig").status == EscrowStatus.LOCKED

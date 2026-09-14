@@ -173,9 +173,56 @@ def _task_escrow_status(task_id: str) -> dict[str, Any] | None:
     return None
 
 
-def _complete_task(task_id: str, amount_units: int | None = None) -> dict[str, Any] | None:
+def _provider_signing_key(provider_wallet: str) -> str | None:
+    """Resolve the private key that proves control of the provider wallet.
+
+    The coordinator binds ``complete``/``fail`` to the escrow's ``agent``
+    address, so the signature must come from the provider wallet key. Sources,
+    in order: ``AGENT_EXECUTOR_SIGNING_KEY`` (hex private key), then
+    ``MINER_WALLET_KEY_FILE`` (default ``/var/lib/aitbc/wallets/default.json``)
+    whose stored address must match ``provider_wallet``.
+    """
+    key = os.environ.get("AGENT_EXECUTOR_SIGNING_KEY")
+    if key:
+        return key
+    key_file = os.environ.get("MINER_WALLET_KEY_FILE", "/var/lib/aitbc/wallets/default.json")
     try:
-        body = {"amount_units": amount_units} if amount_units is not None else None
+        data = json.loads(Path(key_file).read_text())
+        pk = data.get("private_key")
+        if not pk:
+            return None
+        from aitbc.crypto.crypto import derive_ethereum_address
+
+        if derive_ethereum_address(pk).lower() != provider_wallet.lower():
+            logger.warning("Signing key file %s does not match provider wallet %s", key_file, provider_wallet)
+            return None
+        return str(pk)
+    except Exception as e:
+        logger.warning("No provider signing key available: %s", e)
+        return None
+
+
+def _signed_body(action: str, task_id: str, provider_wallet: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
+    """Build the signed request body for escrow-bound task calls."""
+    signed_at = int(time.time())
+    signed: dict[str, Any] = {"action": action, "task_id": task_id, "signed_at": signed_at}
+    if extra:
+        signed.update(extra)
+    body = dict(signed)
+    key = _provider_signing_key(provider_wallet)
+    if key:
+        from aitbc.crypto.crypto import sign_transaction_data
+
+        body["signature"] = sign_transaction_data(signed, key)
+    else:
+        logger.warning("Calling %s on %s unsigned — coordinator will reject provider-bound escrows", action, task_id)
+    return body
+
+
+def _complete_task(task_id: str, provider_wallet: str, amount_units: int | None = None) -> dict[str, Any] | None:
+    try:
+        extra = {"amount_units": amount_units} if amount_units is not None else {"amount_units": 0}
+        body = _signed_body("complete", task_id, provider_wallet, extra)
         resp = requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/complete", json=body, timeout=HTTP_TIMEOUT)
         if resp.status_code == 200:
             data = resp.json()
@@ -186,9 +233,10 @@ def _complete_task(task_id: str, amount_units: int | None = None) -> dict[str, A
     return None
 
 
-def _fail_task(task_id: str) -> None:
+def _fail_task(task_id: str, provider_wallet: str) -> None:
     try:
-        requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/fail", timeout=HTTP_TIMEOUT)
+        body = _signed_body("fail", task_id, provider_wallet)
+        requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/fail", json=body, timeout=HTTP_TIMEOUT)
     except requests.RequestException as e:
         logger.warning("Task fail call error: %s", e)
 
@@ -406,7 +454,7 @@ def _handle_task_accept(
             "task_result",
             {"task_id": task_id, "status": "failed", "result_ref": None, "result_hash": None, "error": str(e)[:300]},
         )
-        _fail_task(task_id)
+        _fail_task(task_id, provider_wallet)
         return "failed"
 
     _send_message(
@@ -421,7 +469,7 @@ def _handle_task_accept(
         quote_units = ait_to_units(Decimal(str(quote["price"])))
     except Exception:
         pass
-    complete = _complete_task(task_id, amount_units=quote_units)
+    complete = _complete_task(task_id, provider_wallet, amount_units=quote_units)
     if complete:
         tx_hash = complete.get("tx_hash_release")
         _send_message(agent_id, buyer, "task_paid", {"task_id": task_id, "tx_hash": tx_hash})
