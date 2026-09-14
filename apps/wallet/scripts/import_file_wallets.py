@@ -17,6 +17,13 @@ if not IMPORT_PASSWORD:
     sys.exit(1)
 
 
+def _auth_headers() -> dict[str, str]:
+    """The daemon's /v1/wallets routes are admin-gated; it accepts
+    COORDINATOR_API_KEY when WALLET_API_KEY is unset."""
+    key = os.getenv("WALLET_API_KEY") or os.getenv("COORDINATOR_API_KEY", "")
+    return {"X-API-Key": key} if key else {}
+
+
 def import_wallets():
     if not WALLET_DIR.exists():
         print(f"Wallet directory not found: {WALLET_DIR}")
@@ -52,7 +59,7 @@ def import_wallets():
     # Check existing wallets
     existing = set()
     try:
-        r = httpx.get(f"{WALLET_DAEMON_URL}/v1/wallets", timeout=5)
+        r = httpx.get(f"{WALLET_DAEMON_URL}/v1/wallets", timeout=5, headers=_auth_headers())
         for w in r.json().get("items", []):
             existing.add(w["wallet_id"])
     except Exception:
@@ -98,7 +105,7 @@ def import_wallets():
                 },
             }
 
-            r = httpx.post(f"{WALLET_DAEMON_URL}/v1/wallets", json=payload, timeout=10)
+            r = httpx.post(f"{WALLET_DAEMON_URL}/v1/wallets", json=payload, timeout=10, headers=_auth_headers())
             if r.status_code in (200, 201):
                 result = r.json()
                 result.get("wallet", {})

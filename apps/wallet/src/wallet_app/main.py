@@ -21,6 +21,18 @@ configure_logging(level="INFO")
 logger = get_logger(__name__)
 
 
+def _daemon_auth_headers() -> dict[str, str]:
+    """Headers for the daemon's own loopback calls to its REST API.
+
+    Every /v1/wallets route is admin-gated, so these in-process bootstrap calls
+    have to present the same key any other caller would. Returns empty when auth
+    is switched off, which is the local-development case.
+    """
+    if not settings.auth_enabled or not settings.api_key:
+        return {}
+    return {"X-API-Key": settings.api_key}
+
+
 async def _import_genesis_wallet_from_env() -> None:
     """Auto-import genesis wallet from node.env into daemon on startup if not already present."""
     import httpx
@@ -45,7 +57,7 @@ async def _import_genesis_wallet_from_env() -> None:
         logger.warning("WALLET_IMPORT_PASSWORD not set, skipping genesis wallet auto-import")
         return
     try:
-        async with httpx.AsyncClient(timeout=5) as client:
+        async with httpx.AsyncClient(timeout=5, headers=_daemon_auth_headers()) as client:
             r = await client.get(f"{daemon_url}/v1/wallets")
             existing = {w["wallet_id"] for w in r.json().get("items", [])}
             if "genesis" in existing:
@@ -102,7 +114,7 @@ async def _import_file_wallets() -> None:
     retry_delay = 2
     for attempt in range(max_retries):
         try:
-            async with httpx.AsyncClient(timeout=5) as client:
+            async with httpx.AsyncClient(timeout=5, headers=_daemon_auth_headers()) as client:
                 r = await client.get(f"{daemon_url}/v1/wallets")
                 existing = {w["wallet_id"] for w in r.json().get("items", [])}
                 imported = 0
