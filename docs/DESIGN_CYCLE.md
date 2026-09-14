@@ -156,11 +156,9 @@ Duplicate CLI surfaces to be honest about:
 
 Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `governance` for service status, `operations governance` only where the RPC vote path is required.
 
-### CLI discoverability gate (`--show-deprecated`) — flagged 2026-08-24, not fixed
+### Deprecated/removed CLI surfaces — resolved
 
-`cli/aitbc_cli/core/surface_policy.py` defines a `VALIDATED_COMMANDS` allowlist of 15 top-level groups (`account`, `ai`, `auth`, `bond`, `bridge`, `config`, `list`, `market`, `node`, `start`, `stop`, `restart`, `transactions`, `version`, `wallet`). Everything else — roughly 52 of 67 registered groups, including several this file calls "Done" or "live" above (`governance`, `pool-hub`, `mining`, `reputation`, `explorer`, `sync`, `network`, `ipfs`, `security`, `analytics`, `agent`, `agent-comm`, `exchange-island`, `reinvest`…) — refuses to run by default ("... is deprecated and not live-validated") unless the operator passes `--show-deprecated` first. The underlying services are unaffected: `aitbc --show-deprecated pool-hub status` returns real live JSON. Only default CLI discoverability is broken relative to this file's own scenario instructions.
-
-This gate landed the same day as (and after) most of the "Done" claims in §2–§4 were last written, so those sections are not wrong about what the software does — they are silent about a flag now required to reach it. `--show-deprecated` itself is documented in exactly one line of `docs/cli/README.md`, and not at all in this file, `README.md`, or `docs/scenarios/README.md`. Until someone either widens `VALIDATED_COMMANDS` or every scenario/doc that names a now-gated command is updated to say so, treat any "Done"/"live" claim in §2–§4 above as requiring `--show-deprecated` unless the command is in the allowlist above.
+The `--show-deprecated` gate is gone: `cli/aitbc_cli/core/surface_policy.py` (and `validated_group.py`) no longer exist, there is no `VALIDATED_COMMANDS` allowlist, and every registered group runs without a flag — `aitbc pool-hub status` works as-is. What remains: the legacy `aitbc operations` group (`ai`, `agent`, `governance` subgroups) is `hidden=True, deprecated=True` in `cli/aitbc_cli/commands/operations.py` — still invocable, but hidden from `aitbc --help`; use the canonical `ai`/`agent`/`governance` groups instead. The `aitbc marketplace` group was removed from `cli/aitbc_cli/core/main.py` entirely — `aitbc market` is the only market surface. `cli/tests/test_cli_surface.py` covers the current surface.
 
 ---
 
