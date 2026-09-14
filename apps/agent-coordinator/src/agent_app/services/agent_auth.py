@@ -261,6 +261,9 @@ def authorize_agent_scope(principal: AgentPrincipal | None, agent_id: str, actio
     * ``enforce`` — no principal → 401; non-admin principal acting on another
       agent_id → 403. ``is_admin`` principals (operator key, admin JWT) bypass
       the match so hub tooling keeps working.
+
+    Advisory mode also logs ``admin_auth_missing`` when no principal resolved —
+    the Phase C operator signal for "this call would 401 under enforce".
     """
     mode = settings.agent_msg_signature_mode
     if mode == "disabled":
@@ -272,6 +275,7 @@ def authorize_agent_scope(principal: AgentPrincipal | None, agent_id: str, actio
                 detail="agent authentication required",
                 headers={"WWW-Authenticate": "Bearer"},
             )
+        logger.warning("admin_auth_missing action=%s agent_id=%s mode=%s — enforce would 401", action, agent_id, mode)
         return
     if principal.is_admin or principal.agent_id == agent_id:
         return
@@ -281,6 +285,69 @@ def authorize_agent_scope(principal: AgentPrincipal | None, agent_id: str, actio
         "agent_authz_mismatch action=%s agent_id=%s principal=%s auth_type=%s mode=%s",
         action,
         agent_id,
+        principal.agent_id,
+        principal.auth_type,
+        mode,
+    )
+
+
+def authorize_any_principal(principal: AgentPrincipal | None, action: str) -> None:
+    """Mode-gated "authenticated callers only" check for unscoped endpoints.
+
+    For routes that own no per-agent resource but must stop serving anonymous
+    callers once auth is switched on (``POST /v1/tasks/submit`` — a buyer agent
+    JWT, signed headers or the operator key all satisfy it).
+
+    * ``disabled`` — no-op (deployed default stays byte-for-byte compatible).
+    * ``advisory`` — a missing principal logs ``admin_auth_missing`` and passes.
+    * ``enforce`` — no principal → 401; any resolved principal passes.
+    """
+    mode = settings.agent_msg_signature_mode
+    if mode == "disabled" or principal is not None:
+        return
+    if mode == "enforce":
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="agent authentication required",
+            headers={"WWW-Authenticate": "Bearer"},
+        )
+    logger.warning("admin_auth_missing action=%s mode=%s — enforce would 401", action, mode)
+
+
+def authorize_admin_scope(principal: AgentPrincipal | None, action: str) -> None:
+    """Admin/operator-only gate for hub-control endpoints (Phase C).
+
+    Covers the coordinator's operator surface — broadcast, load-balancer
+    strategy/stats, peer add/remove/read, registry stats, escrow expiry sweep,
+    queue clear — which shipped unauthenticated.
+
+    * ``disabled`` — no-op (deployed default stays byte-for-byte compatible).
+    * ``advisory`` — a missing principal logs ``admin_auth_missing``; a
+      present-but-non-admin principal logs ``scope_mismatch``; both pass.
+    * ``enforce`` — no principal → 401; non-``is_admin`` principal → 403.
+      ``is_admin`` is held by the shared operator key and admin/operator JWTs
+      (and agent JWTs minted with role=admin); a regular agent principal does
+      not reach these routes.
+    """
+    mode = settings.agent_msg_signature_mode
+    if mode == "disabled":
+        return
+    if principal is None:
+        if mode == "enforce":
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="admin authentication required",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+        logger.warning("admin_auth_missing action=%s mode=%s — enforce would 401", action, mode)
+        return
+    if principal.is_admin:
+        return
+    if mode == "enforce":
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="admin_required")
+    logger.warning(
+        "scope_mismatch action=%s principal=%s auth_type=%s mode=%s — enforce would 403",
+        action,
         principal.agent_id,
         principal.auth_type,
         mode,
