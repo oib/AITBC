@@ -14,6 +14,8 @@ from typing import Any
 import click
 import httpx
 
+from aitbc.aitbc_logging import configure_logging
+
 from ..utils import error, output, success
 from ..utils.http_client import get_logger
 
@@ -158,6 +160,13 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
     if not watch:
         output(_present(_fetch()), ctx.obj["output_format"])
         return
+
+    # Watch mode is the one path in this CLI that runs as a long-lived service
+    # (aitbc-prometheus-watch), so it is the one path that should hold open a
+    # rotating file in the service log tree. Configuring it above this line would
+    # make every one-shot `aitbc prometheus alerts` -- run by whoever is at the
+    # keyboard -- try to create /var/log/aitbc/prometheus-watch as them.
+    configure_logging(level="INFO", service_name="prometheus-watch", to_file=True)
 
     seen: set[str] = set()
     try:
