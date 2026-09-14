@@ -10,7 +10,7 @@ from aitbc.rate_limiting import rate_limit
 
 from .. import state
 from ..config import settings
-from ..models import TaskSubmission
+from ..models import TaskPayment, TaskSubmission
 from ..routing.load_balancer import TaskPriority
 from ..services.agent_auth import (
     AgentPrincipal,
@@ -26,6 +26,78 @@ router = APIRouter()
 # Resolves the caller's principal if credentials are present, ``None``
 # otherwise — the mode-gated gates decide what ``None`` means per endpoint.
 OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
+
+
+def _lock_escrow_on_chain(escrow: Any, payment: TaskPayment, task_id: str) -> str | None:
+    """Anchor ``escrow`` on-chain when the submission carries a lock payload.
+
+    v0.25: a buyer-signed lock_tx settles the escrow on-chain via
+    /rpc/escrow/create. Without one there is no lock anchor — and Phase C
+    keeps the row PENDING instead of stamping a bookkeeping "locked" with no
+    funds behind it: the executor gates work on tx_hash_lock/contract_id, and
+    ``locked`` on the record must mean an on-chain anchor exists.
+
+    Returns the ``contract_id`` the chain assigned, or ``None``.
+    """
+    submitter = None
+    if state.escrow_rpc and (payment.lock_tx or payment.lock_signature):
+        from ..services.chain_escrow import make_lock_submitter
+
+        submitter = make_lock_submitter(
+            state.escrow_rpc,
+            task_id,
+            payment.lock_tx,
+            payment.lock_signature,
+        )
+    if submitter is None:
+        logger.info(
+            "Escrow %s for task %s left PENDING — submission carried no lock anchor",
+            escrow.escrow_id,
+            task_id,
+        )
+        return None
+    state.payment_escrow.lock(escrow.escrow_id, submitter=submitter)
+    contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
+    if contract_id:
+        # EscrowEntry.contract_id is the store's durable column;
+        # keep the metadata mirror for readers and flush both —
+        # without persist_entry the mutation dies at restart.
+        escrow.contract_id = contract_id
+        escrow.metadata["contract_id"] = contract_id
+        state.payment_escrow.persist_entry(escrow)
+    return contract_id
+
+
+def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) -> tuple[str | None, str | None, str | None]:
+    """Create the payment escrow for a submission (v0.6.5).
+
+    Returns ``(escrow_id, contract_id, escrow_status)`` — all ``None`` when
+    the submission carries no payment or escrow is disabled/unavailable."""
+    if not (request.payment and settings.task_payment_escrow_enabled and state.payment_escrow):
+        return None, None, None
+    try:
+        escrow = state.payment_escrow.create_escrow(
+            task_id=task_id,
+            chain_id=chain_id,
+            requester=request.payment.requester,
+            agent=request.payment.agent,
+            amount=request.payment.amount,
+            fee=request.payment.fee,
+            timeout=request.payment.timeout_seconds,
+        )
+        contract_id = _lock_escrow_on_chain(escrow, request.payment, task_id)
+        escrow_status = escrow.status.value
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
+    except Exception:
+        # The exception text is the only place the chain error survives now
+        # that it no longer goes out in the response, so log the traceback.
+        logger.exception("On-chain escrow lock failed for task %s", task_id)
+        raise HTTPException(
+            status_code=502,
+            detail="On-chain escrow lock failed; the task was not submitted",
+        ) from None
+    return escrow.escrow_id, contract_id, escrow_status
 
 
 @router.post("/tasks/submit")
@@ -56,64 +128,7 @@ async def submit_task(
         task_id = request.task_data.get("task_id", str(uuid.uuid4()))
 
         # v0.6.5: create payment escrow if payment provided and escrow enabled
-        escrow_id: str | None = None
-        contract_id: str | None = None
-        escrow_status: str | None = None
-        if request.payment and settings.task_payment_escrow_enabled and state.payment_escrow:
-            try:
-                escrow = state.payment_escrow.create_escrow(
-                    task_id=task_id,
-                    chain_id=chain_id,
-                    requester=request.payment.requester,
-                    agent=request.payment.agent,
-                    amount=request.payment.amount,
-                    fee=request.payment.fee,
-                    timeout=request.payment.timeout_seconds,
-                )
-                # v0.25: a buyer-signed lock_tx settles the escrow on-chain via
-                # /rpc/escrow/create. Without one there is no lock anchor — and
-                # Phase C keeps the row PENDING instead of stamping a
-                # bookkeeping "locked" with no funds behind it: the executor
-                # gates work on tx_hash_lock/contract_id, and ``locked`` on the
-                # record must mean an on-chain anchor exists.
-                submitter = None
-                if state.escrow_rpc and (request.payment.lock_tx or request.payment.lock_signature):
-                    from ..services.chain_escrow import make_lock_submitter
-
-                    submitter = make_lock_submitter(
-                        state.escrow_rpc,
-                        task_id,
-                        request.payment.lock_tx,
-                        request.payment.lock_signature,
-                    )
-                escrow_id = escrow.escrow_id
-                if submitter is not None:
-                    state.payment_escrow.lock(escrow.escrow_id, submitter=submitter)
-                    contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
-                    if contract_id:
-                        # EscrowEntry.contract_id is the store's durable column;
-                        # keep the metadata mirror for readers and flush both —
-                        # without persist_entry the mutation dies at restart.
-                        escrow.contract_id = contract_id
-                        escrow.metadata["contract_id"] = contract_id
-                        state.payment_escrow.persist_entry(escrow)
-                else:
-                    logger.info(
-                        "Escrow %s for task %s left PENDING — submission carried no lock anchor",
-                        escrow.escrow_id,
-                        task_id,
-                    )
-                escrow_status = escrow.status.value
-            except ValueError as e:
-                raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
-            except Exception:
-                # The exception text is the only place the chain error survives now
-                # that it no longer goes out in the response, so log the traceback.
-                logger.exception("On-chain escrow lock failed for task %s", task_id)
-                raise HTTPException(
-                    status_code=502,
-                    detail="On-chain escrow lock failed; the task was not submitted",
-                ) from None
+        escrow_id, contract_id, escrow_status = _create_task_escrow(request, task_id, chain_id)
 
         await state.task_distributor.submit_task(
             request.task_data,
@@ -372,6 +387,32 @@ async def _require_provider_signature(entry: Any, action: str, task_id: str, bod
     )
 
 
+async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None, dict[str, Any]]:
+    """Parse the optional JSON body of a ``complete`` call.
+
+    Returns ``(amount_units, body)``: ``body`` is the decoded dict (``{}``
+    when the body is empty or not a JSON object) for the signature checks,
+    and ``amount_units`` the validated partial-billing amount or ``None``.
+    """
+    amount_units: int | None = None
+    body: dict[str, Any] = {}
+    raw_body = await request.body()
+    if raw_body:
+        try:
+            parsed = json.loads(raw_body)
+            if isinstance(parsed, dict):
+                body = parsed
+                if body.get("amount_units") is not None:
+                    amount_units = int(body["amount_units"])
+                    if amount_units <= 0 or amount_units > entry.amount:
+                        raise ValueError(f"amount_units must be in (0, {entry.amount}]")
+        except HTTPException:
+            raise
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
+    return amount_units, body
+
+
 @router.post("/tasks/{task_id}/complete")
 @rate_limit(rate=50, per=60)
 async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
@@ -390,22 +431,7 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
     entry = state.payment_escrow.get_escrow_for_task(task_id)
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
-    amount_units: int | None = None
-    body: dict[str, Any] = {}
-    raw_body = await request.body()
-    if raw_body:
-        try:
-            parsed = json.loads(raw_body)
-            if isinstance(parsed, dict):
-                body = parsed
-                if body.get("amount_units") is not None:
-                    amount_units = int(body["amount_units"])
-                    if amount_units <= 0 or amount_units > entry.amount:
-                        raise ValueError(f"amount_units must be in (0, {entry.amount}]")
-        except HTTPException:
-            raise
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
+    amount_units, body = await _parse_complete_body(request, entry)
     await _require_provider_signature(entry, "complete", task_id, body)
     try:
         # On-chain release only when the lock actually settled on-chain;

@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -35,15 +36,11 @@ def aitbc_contract_call(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Call a method on a deployed smart contract with optional arguments.."""
-    options: dict[str, Any] = {}
-    if contract_address is not None:
-        options["contract-address"] = contract_address
-    if method is not None:
-        options["method"] = method
-    if args is not None:
-        options["args"] = args
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"contract_address": "contract-address", "method": "method", "args": "args", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "contract",
@@ -87,11 +84,11 @@ def aitbc_contract_deploy(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Deploy a named smart contract to the blockchain.."""
-    options: dict[str, Any] = {}
-    if contract_name is not None:
-        options["contract-name"] = contract_name
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"contract_name": "contract-name", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "contract",

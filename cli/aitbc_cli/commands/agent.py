@@ -100,6 +100,29 @@ def _ws_auth_token(
     return token
 
 
+def _default_wallet_name() -> str | None:
+    """Resolve the configured default wallet name.
+
+    Checks the AITBC_DEFAULT_WALLET env var first, then ``active_wallet`` in
+    ~/.aitbc/config.yaml. Returns None when neither is set.
+    """
+    wallet_name = os.environ.get("AITBC_DEFAULT_WALLET")
+    if wallet_name:
+        return wallet_name
+    config_file = Path.home() / ".aitbc" / "config.yaml"
+    if not config_file.exists():
+        return None
+    try:
+        import yaml
+
+        with open(config_file) as f:
+            config = yaml.safe_load(f)
+        return config.get("active_wallet") if isinstance(config, dict) else None
+    except Exception:
+        logger.debug("Failed to read active_wallet from config.yaml", exc_info=True)
+        return None
+
+
 def _resolve_wallet_address(wallet_name: str | None) -> str | None:
     """Resolve wallet address from local wallet files.
 
@@ -116,21 +139,7 @@ def _resolve_wallet_address(wallet_name: str | None) -> str | None:
 
     # Resolve wallet name if not explicitly given
     if not wallet_name:
-        # 1. Check AITBC_DEFAULT_WALLET env var
-        wallet_name = os.environ.get("AITBC_DEFAULT_WALLET")
-        # 2. Check config.yaml for active_wallet
-        if not wallet_name:
-            config_file = Path.home() / ".aitbc" / "config.yaml"
-            if config_file.exists():
-                try:
-                    import yaml
-
-                    with open(config_file) as f:
-                        config = yaml.safe_load(f)
-                        wallet_name = config.get("active_wallet") if isinstance(config, dict) else None
-                except Exception:
-                    logger.debug("Failed to read active_wallet from config.yaml", exc_info=True)
-                    pass
+        wallet_name = _default_wallet_name()
 
     if wallet_name:
         wallet_file = find_wallet_file(wallet_name)

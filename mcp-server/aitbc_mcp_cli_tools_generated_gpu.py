@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -44,7 +45,7 @@ def aitbc_gpu_discover(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def aitbc_gpu_list_gpus(
+def aitbc_gpu_list_gpus_cmd(
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -56,7 +57,7 @@ def aitbc_gpu_list_gpus(
     args = None
     command = _build_aitbc_cli_command(
         "gpu",
-        subcommand=["list-gpus"],
+        subcommand=["list-gpus-cmd"],
         args=args,
         options=options,
         output_format="json",
@@ -76,7 +77,7 @@ def aitbc_gpu_list_gpus(
         _run_aitbc_cli(
             target,
             "gpu",
-            subcommand=["list-gpus"],
+            subcommand=["list-gpus-cmd"],
             args=args,
             options=options,
             output_format="json",
@@ -96,11 +97,11 @@ def aitbc_gpu_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a GPU with the local GPU service, optionally with JSON specs.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if specs is not None:
-        options["specs"] = specs
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id", "specs": "specs"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu",
@@ -143,9 +144,11 @@ def aitbc_gpu_unregister(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Unregister or delete a GPU from the local GPU service.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu",
@@ -190,13 +193,11 @@ def aitbc_gpu_update(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Update GPU registration with new pricing or status.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if pricing is not None:
-        options["pricing"] = pricing
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id", "pricing": "pricing", "status": "status"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu",

@@ -18,6 +18,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -39,17 +40,11 @@ def aitbc_simulate_ai_jobs(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Simulate AI job submissions and completions.."""
-    options: dict[str, Any] = {}
-    if jobs is not None:
-        options["jobs"] = jobs
-    if models is not None:
-        options["models"] = models
-    if duration_range is not None:
-        options["duration-range"] = duration_range
-    if delay is not None:
-        options["delay"] = delay
-    if seed is not None:
-        options["seed"] = seed
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"jobs": "jobs", "models": "models", "duration_range": "duration-range", "delay": "delay", "seed": "seed"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "simulate",
@@ -95,15 +90,11 @@ def aitbc_simulate_blockchain(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Simulate blockchain block generation and transactions.."""
-    options: dict[str, Any] = {}
-    if blocks is not None:
-        options["blocks"] = blocks
-    if transactions is not None:
-        options["transactions"] = transactions
-    if delay is not None:
-        options["delay"] = delay
-    if seed is not None:
-        options["seed"] = seed
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"blocks": "blocks", "transactions": "transactions", "delay": "delay", "seed": "seed"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "simulate",
@@ -147,15 +138,11 @@ def aitbc_simulate_network(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Simulate network nodes, delays, and failure rates.."""
-    options: dict[str, Any] = {}
-    if nodes is not None:
-        options["nodes"] = nodes
-    if network_delay is not None:
-        options["network-delay"] = network_delay
-    if failure_rate is not None:
-        options["failure-rate"] = failure_rate
-    if seed is not None:
-        options["seed"] = seed
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"nodes": "nodes", "network_delay": "network-delay", "failure_rate": "failure-rate", "seed": "seed"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -182,17 +169,11 @@ def aitbc_simulate_price(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Simulate AIT price movements with configurable volatility.."""
-    options: dict[str, Any] = {}
-    if price is not None:
-        options["price"] = price
-    if volatility is not None:
-        options["volatility"] = volatility
-    if timesteps is not None:
-        options["timesteps"] = timesteps
-    if delay is not None:
-        options["delay"] = delay
-    if seed is not None:
-        options["seed"] = seed
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"price": "price", "volatility": "volatility", "timesteps": "timesteps", "delay": "delay", "seed": "seed"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "simulate",
@@ -235,9 +216,11 @@ def aitbc_simulate_result(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the results of a completed simulation.."""
-    options: dict[str, Any] = {}
-    if simulation_id is not None:
-        options["simulation-id"] = simulation_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"simulation_id": "simulation-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "simulate",
@@ -282,13 +265,11 @@ def aitbc_simulate_run(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a named simulation scenario with optional parameters.."""
-    options: dict[str, Any] = {}
-    if scenario is not None:
-        options["scenario"] = scenario
-    if params is not None:
-        options["params"] = params
-    if async_run:
-        options["async-run"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"async_run": "async-run"},
+        values={"scenario": "scenario", "params": "params"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "simulate",
@@ -329,9 +310,11 @@ def aitbc_simulate_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the status of a running simulation.."""
-    options: dict[str, Any] = {}
-    if simulation_id is not None:
-        options["simulation-id"] = simulation_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"simulation_id": "simulation-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -356,17 +339,17 @@ def aitbc_simulate_wallets(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Simulate wallet creation and transactions with configurable balance.."""
-    options: dict[str, Any] = {}
-    if wallets is not None:
-        options["wallets"] = wallets
-    if balance is not None:
-        options["balance"] = balance
-    if transactions is not None:
-        options["transactions"] = transactions
-    if amount_range is not None:
-        options["amount-range"] = amount_range
-    if seed is not None:
-        options["seed"] = seed
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "wallets": "wallets",
+            "balance": "balance",
+            "transactions": "transactions",
+            "amount_range": "amount-range",
+            "seed": "seed",
+        },
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

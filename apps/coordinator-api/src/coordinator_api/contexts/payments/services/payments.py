@@ -503,9 +503,20 @@ class PaymentService:
         meta["energy_is_protected"] = True
         payment.meta_data = meta
 
-        # Verify the on-chain transaction when an EVM RPC is configured.
-        # If no RPC is available (e.g. local dev), the payment is left
-        # pending for manual verification.
+        self._verify_evm_receipt(payment, payment_data, quote)
+
+    def _verify_evm_receipt(
+        self,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+        quote: EnergyQuote,
+    ) -> None:
+        """Verify the buyer-submitted EVM rental transaction's receipt.
+
+        Verify the on-chain transaction when an EVM RPC is configured.
+        If no RPC is available (e.g. local dev), the payment is left
+        pending for manual verification.
+        """
         rpc_url = settings.eth_rpc_url
         if not rpc_url:
             logger.warning(

@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -71,9 +72,11 @@ def aitbc_system_cat(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Display the systemd unit file for a service.."""
-    options: dict[str, Any] = {}
-    if service is not None:
-        options["service"] = service
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service": "service"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -94,9 +97,11 @@ def aitbc_system_check(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check AITBC systemd service health and active wallet balance.."""
-    options: dict[str, Any] = {}
-    if service is not None:
-        options["service"] = service
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service": "service"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -119,9 +124,11 @@ def aitbc_system_restart(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Restart a systemd service by name.."""
-    options: dict[str, Any] = {}
-    if service is not None:
-        options["service"] = service
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service": "service"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "system",
@@ -164,9 +171,11 @@ def aitbc_system_run_script(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run an allowed AITBC maintenance or monitoring script.."""
-    options: dict[str, Any] = {}
-    if path is not None:
-        options["path"] = path
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"path": "path"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "system",
@@ -208,11 +217,11 @@ def aitbc_system_show(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show systemd properties for a service.."""
-    options: dict[str, Any] = {}
-    if service is not None:
-        options["service"] = service
-    if properties is not None:
-        options["properties"] = properties
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service": "service", "properties": "properties"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -235,9 +244,11 @@ def aitbc_system_start(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Start a systemd service by name.."""
-    options: dict[str, Any] = {}
-    if service is not None:
-        options["service"] = service
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service": "service"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "system",
@@ -280,9 +291,11 @@ def aitbc_system_stop(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stop a systemd service by name.."""
-    options: dict[str, Any] = {}
-    if service is not None:
-        options["service"] = service
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service": "service"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "system",

@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,11 +34,11 @@ def aitbc_explorer_activity_timeline(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the daily transaction activity timeline for a period.."""
-    options: dict[str, Any] = {}
-    if period is not None:
-        options["period"] = period
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"period": "period", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -81,11 +82,11 @@ def aitbc_explorer_block_by_hash(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get a block by its hash on the specified chain.."""
-    options: dict[str, Any] = {}
-    if block_hash is not None:
-        options["block-hash"] = block_hash
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"block_hash": "block-hash", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -130,13 +131,11 @@ def aitbc_explorer_blocks_by_address(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get blocks containing transactions for a given address.."""
-    options: dict[str, Any] = {}
-    if address is not None:
-        options["address"] = address
-    if limit is not None:
-        options["limit"] = limit
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"address": "address", "limit": "limit", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -221,9 +220,11 @@ def aitbc_explorer_network_stats(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get network-wide statistics for a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -268,13 +269,11 @@ def aitbc_explorer_non_empty_blocks(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List non-empty blocks with optional limit, offset, and chain filters.."""
-    options: dict[str, Any] = {}
-    if limit is not None:
-        options["limit"] = limit
-    if offset is not None:
-        options["offset"] = offset
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"limit": "limit", "offset": "offset", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -318,11 +317,11 @@ def aitbc_explorer_provider_reputation(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get reputation information for a provider by ID.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"provider_id": "provider-id", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -367,13 +366,11 @@ def aitbc_explorer_search_transactions(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Search transactions for an address with a result limit.."""
-    options: dict[str, Any] = {}
-    if address is not None:
-        options["address"] = address
-    if limit is not None:
-        options["limit"] = limit
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"address": "address", "limit": "limit", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -417,11 +414,11 @@ def aitbc_explorer_top_addresses(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List the top addresses by balance on a chain.."""
-    options: dict[str, Any] = {}
-    if limit is not None:
-        options["limit"] = limit
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"limit": "limit", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",
@@ -465,11 +462,11 @@ def aitbc_explorer_transaction_by_hash(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get full transaction details by its hash.."""
-    options: dict[str, Any] = {}
-    if tx_hash is not None:
-        options["tx-hash"] = tx_hash
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"tx_hash": "tx-hash", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "explorer",

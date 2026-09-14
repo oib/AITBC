@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -37,17 +38,16 @@ def aitbc_energy_floor(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Compute the on-chain energy floor for given rental terms.."""
-    options: dict[str, Any] = {}
-    if resource_id is not None:
-        options["resource-id"] = resource_id
-    if gpu_count is not None:
-        options["gpu-count"] = gpu_count
-    if duration_seconds is not None:
-        options["duration-seconds"] = duration_seconds
-    if settlement_unit_scale is not None:
-        options["settlement-unit-scale"] = settlement_unit_scale
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"json_output": "json-output"},
+        values={
+            "resource_id": "resource-id",
+            "gpu_count": "gpu-count",
+            "duration_seconds": "duration-seconds",
+            "settlement_unit_scale": "settlement-unit-scale",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "energy",
@@ -111,11 +111,11 @@ def aitbc_energy_operator_verify(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Verify an energy quote's operator signature and freshness.."""
-    options: dict[str, Any] = {}
-    if quote_file is not None:
-        options["quote-file"] = quote_file
-    if check_oracle:
-        options["check-oracle"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"check_oracle": "check-oracle"},
+        values={"quote_file": "quote-file"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "energy",
@@ -157,11 +157,11 @@ def aitbc_energy_provider_profile(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Read a registered energy profile from the IEnergyPricing contract.."""
-    options: dict[str, Any] = {}
-    if resource_id is not None:
-        options["resource-id"] = resource_id
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"json_output": "json-output"},
+        values={"resource_id": "resource-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -192,25 +192,19 @@ def aitbc_energy_provider_rate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Read or publish the AIT/EUR energy rate.."""
-    options: dict[str, Any] = {}
-    if publish:
-        options["publish"] = None
-    if ait_per_eur is not None:
-        options["ait-per-eur"] = ait_per_eur
-    if observed_at is not None:
-        options["observed-at"] = observed_at
-    if source_kind is not None:
-        options["source-kind"] = source_kind
-    if wallet is not None:
-        options["wallet"] = wallet
-    if wallet_path is not None:
-        options["wallet-path"] = wallet_path
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"publish": "publish", "json_output": "json-output"},
+        values={
+            "ait_per_eur": "ait-per-eur",
+            "observed_at": "observed-at",
+            "source_kind": "source-kind",
+            "wallet": "wallet",
+            "wallet_path": "wallet-path",
+            "password": "password",
+            "password_file": "password-file",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "energy",
@@ -262,27 +256,21 @@ def aitbc_energy_provider_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a GPU energy profile on the IEnergyPricing contract.."""
-    options: dict[str, Any] = {}
-    if resource_id is not None:
-        options["resource-id"] = resource_id
-    if provider_address is not None:
-        options["provider-address"] = provider_address
-    if model_id is not None:
-        options["model-id"] = model_id
-    if tdp_watts is not None:
-        options["tdp-watts"] = tdp_watts
-    if eur_per_kwh is not None:
-        options["eur-per-kwh"] = eur_per_kwh
-    if wallet is not None:
-        options["wallet"] = wallet
-    if wallet_path is not None:
-        options["wallet-path"] = wallet_path
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"json_output": "json-output"},
+        values={
+            "resource_id": "resource-id",
+            "provider_address": "provider-address",
+            "model_id": "model-id",
+            "tdp_watts": "tdp-watts",
+            "eur_per_kwh": "eur-per-kwh",
+            "wallet": "wallet",
+            "wallet_path": "wallet-path",
+            "password": "password",
+            "password_file": "password-file",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "energy",

@@ -633,6 +633,40 @@ def _parse_content(message: dict[str, Any]) -> dict[str, Any] | None:
     return content if isinstance(content, dict) else None
 
 
+def _offer_reject_reason(
+    req: dict[str, Any],
+    service_type: str,
+    offer: dict[str, Any],
+    max_price: Decimal,
+) -> str | None:
+    """Offer-side rejection reason for a TaskRequest, or None when acceptable."""
+    if req.get("model") and offer.get("model") and req["model"] != offer["model"]:
+        return f"unsupported model {req['model']} (offer: {offer['model']})"
+    if not _service_ready(service_type):
+        return f"service {service_type} unavailable"
+    if max_price < Decimal(str(offer["price"])):
+        return f"max_price {max_price} below offer price {offer['price']}"
+    return None
+
+
+def _escrow_reject_reason(task_id: str, provider_wallet: str, offer: dict[str, Any]) -> str | None:
+    """Escrow-side rejection reason, or None when the lock pays this provider.
+
+    Verifies the buyer's escrow exists, is locked on-chain, and pays this
+    provider.
+    """
+    escrow = _task_escrow_status(task_id)
+    if not escrow or escrow.get("escrow_status") != "locked":
+        return "no locked escrow for task"
+    if not _escrow_lock_confirmed(escrow):
+        return "escrow lock not anchored on-chain (no tx_hash_lock/contract_id)"
+    if provider_wallet and escrow.get("agent", "").lower() != provider_wallet.lower():
+        return f"escrow pays {escrow.get('agent')}, not this provider"
+    if int(escrow.get("amount", 0)) < ait_to_units(Decimal(str(offer["price"]))):
+        return "escrow amount below offer price"
+    return None
+
+
 def _handle_task_request(
     message: dict[str, Any],
     req: dict[str, Any],
@@ -657,25 +691,10 @@ def _handle_task_request(
         )
         return "rejected"
 
-    reason = None
-    if req.get("model") and offer.get("model") and req["model"] != offer["model"]:
-        reason = f"unsupported model {req['model']} (offer: {offer['model']})"
-    elif not _service_ready(service_type):
-        reason = f"service {service_type} unavailable"
-    elif max_price < Decimal(str(offer["price"])):
-        reason = f"max_price {max_price} below offer price {offer['price']}"
-
+    reason = _offer_reject_reason(req, service_type, offer, max_price)
     # Verify the buyer's escrow exists, is locked on-chain, and pays this provider.
     if reason is None:
-        escrow = _task_escrow_status(task_id)
-        if not escrow or escrow.get("escrow_status") != "locked":
-            reason = "no locked escrow for task"
-        elif not _escrow_lock_confirmed(escrow):
-            reason = "escrow lock not anchored on-chain (no tx_hash_lock/contract_id)"
-        elif provider_wallet and escrow.get("agent", "").lower() != provider_wallet.lower():
-            reason = f"escrow pays {escrow.get('agent')}, not this provider"
-        elif int(escrow.get("amount", 0)) < ait_to_units(Decimal(str(offer["price"]))):
-            reason = "escrow amount below offer price"
+        reason = _escrow_reject_reason(task_id, provider_wallet, offer)
 
     if reason:
         logger.info("Rejecting task %s: %s", task_id, reason)
@@ -776,6 +795,47 @@ def _handle_task_accept(
     return "executed"
 
 
+def _process_inbox_message(
+    message: dict[str, Any],
+    done: list[str],
+    provider_wallet: str,
+    price_table: dict[str, dict[str, Any]],
+    state: dict[str, Any],
+    stats: dict[str, int],
+) -> None:
+    """Handle one unread inbox envelope: dedup, signature gate, dispatch."""
+    msg_id = str(message.get("message_id") or message.get("id") or "")
+    if not msg_id or msg_id in done:
+        return
+    # Inbound envelope verification (advisory): the coordinator stamps
+    # ``signature_status`` on stored records — a definitively invalid
+    # signature means a spoofed/tampered sender; drop it. ``verified`` and
+    # absent (unsigned / pre-Phase-A traffic) are processed as before.
+    if message.get("signature_status") == "invalid":
+        logger.warning("Dropping inbox message %s: signature_status=invalid", msg_id)
+        done.append(msg_id)
+        _mark_read(msg_id)
+        return
+    message_type = message.get("message_type", "")
+    content = _parse_content(message)
+    if content is None:
+        done.append(msg_id)
+        _mark_read(msg_id)
+        return
+
+    outcome = None
+    if message_type == "task_request":
+        outcome = _handle_task_request(message, content, AGENT_EXECUTOR_ID, provider_wallet, price_table, state)
+    elif message_type == "task_accept":
+        outcome = _handle_task_accept(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
+    elif message_type == "task_reject":
+        state["quotes"].pop(content.get("task_id", ""), None)
+    if outcome in stats:
+        stats[outcome] += 1
+    done.append(msg_id)
+    _mark_read(msg_id)
+
+
 def sweep_once(provider_wallet: str, price_table: dict[str, dict[str, Any]] | None = None) -> dict[str, int]:
     """One executor pass: register, poll inbox, handle pending messages.
 
@@ -793,36 +853,7 @@ def sweep_once(provider_wallet: str, price_table: dict[str, dict[str, Any]] | No
         logger.warning("Agent registration failed — continuing anyway")
 
     for message in _fetch_inbox(AGENT_EXECUTOR_ID):
-        msg_id = str(message.get("message_id") or message.get("id") or "")
-        if not msg_id or msg_id in done:
-            continue
-        # Inbound envelope verification (advisory): the coordinator stamps
-        # ``signature_status`` on stored records — a definitively invalid
-        # signature means a spoofed/tampered sender; drop it. ``verified`` and
-        # absent (unsigned / pre-Phase-A traffic) are processed as before.
-        if message.get("signature_status") == "invalid":
-            logger.warning("Dropping inbox message %s: signature_status=invalid", msg_id)
-            done.append(msg_id)
-            _mark_read(msg_id)
-            continue
-        message_type = message.get("message_type", "")
-        content = _parse_content(message)
-        if content is None:
-            done.append(msg_id)
-            _mark_read(msg_id)
-            continue
-
-        outcome = None
-        if message_type == "task_request":
-            outcome = _handle_task_request(message, content, AGENT_EXECUTOR_ID, provider_wallet, price_table, state)
-        elif message_type == "task_accept":
-            outcome = _handle_task_accept(message, content, AGENT_EXECUTOR_ID, provider_wallet, state)
-        elif message_type == "task_reject":
-            state["quotes"].pop(content.get("task_id", ""), None)
-        if outcome in stats:
-            stats[outcome] += 1
-        done.append(msg_id)
-        _mark_read(msg_id)
+        _process_inbox_message(message, done, provider_wallet, price_table, state, stats)
 
     _save_state(state)
     return stats

@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -39,21 +40,18 @@ def aitbc_gpu_onchain_allocate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Record a GPU allocation on the blockchain for a client.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if client_id is not None:
-        options["client-id"] = client_id
-    if duration_hours is not None:
-        options["duration-hours"] = duration_hours
-    if total_cost is not None:
-        options["total-cost"] = total_cost
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
-    if wait:
-        options["wait"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"wait": "wait"},
+        values={
+            "gpu_id": "gpu-id",
+            "client_id": "client-id",
+            "duration_hours": "duration-hours",
+            "total_cost": "total-cost",
+            "wallet": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu-onchain",
@@ -96,9 +94,11 @@ def aitbc_gpu_onchain_allocations(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Query on-chain allocations for a GPU.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu-onchain",
@@ -139,9 +139,11 @@ def aitbc_gpu_onchain_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all GPUs registered on the blockchain, optionally filtered by status.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -164,9 +166,11 @@ def aitbc_gpu_onchain_query(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Query a GPU's on-chain registration details.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"gpu_id": "gpu-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu-onchain",
@@ -219,29 +223,22 @@ def aitbc_gpu_onchain_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register GPU immutable specs on the blockchain with a signing wallet.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if miner_id is not None:
-        options["miner-id"] = miner_id
-    if model is not None:
-        options["model"] = model
-    if memory_gb is not None:
-        options["memory-gb"] = memory_gb
-    if cuda_version is not None:
-        options["cuda-version"] = cuda_version
-    if region is not None:
-        options["region"] = region
-    if capabilities is not None:
-        options["capabilities"] = capabilities
-    if price_per_hour is not None:
-        options["price-per-hour"] = price_per_hour
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
-    if wait:
-        options["wait"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"wait": "wait"},
+        values={
+            "gpu_id": "gpu-id",
+            "miner_id": "miner-id",
+            "model": "model",
+            "memory_gb": "memory-gb",
+            "cuda_version": "cuda-version",
+            "region": "region",
+            "capabilities": "capabilities",
+            "price_per_hour": "price-per-hour",
+            "wallet": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "gpu-onchain",

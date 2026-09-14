@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -31,9 +32,11 @@ def aitbc_wallet_address(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Display the public address of the active or named wallet.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -57,11 +60,11 @@ def aitbc_wallet_backup(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Export a wallet to a password-encrypted backup file at the given path.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if destination is not None:
-        options["destination"] = destination
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "destination": "destination"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -102,9 +105,11 @@ def aitbc_wallet_balance(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the AITBC balance of a wallet from the blockchain RPC.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -130,15 +135,11 @@ def aitbc_wallet_bridge_deposit(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Deposit ETH to the bridge and receive AITBC on the hub.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if wallet_name is not None:
-        options["wallet-name"] = wallet_name
-    if eth_rpc_url is not None:
-        options["eth-rpc-url"] = eth_rpc_url
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "wallet_name": "wallet-name", "eth_rpc_url": "eth-rpc-url", "password": "password"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -179,9 +180,11 @@ def aitbc_wallet_bridge_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the status of an AIT->ETH withdrawal.."""
-    options: dict[str, Any] = {}
-    if ait_tx_hash is not None:
-        options["ait-tx-hash"] = ait_tx_hash
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"ait_tx_hash": "ait-tx-hash"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -207,15 +210,11 @@ def aitbc_wallet_bridge_withdraw(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Burn AITBC on the hub to receive ETH at the given Ethereum address.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if eth_address is not None:
-        options["eth-address"] = eth_address
-    if wallet_name is not None:
-        options["wallet-name"] = wallet_name
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "eth_address": "eth-address", "wallet_name": "wallet-name", "password": "password"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -260,13 +259,11 @@ def aitbc_wallet_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new wallet with an optional type and password encryption.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if wallet_type is not None:
-        options["type"] = wallet_type
-    if no_encrypt:
-        options["no-encrypt"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"no_encrypt": "no-encrypt"},
+        values={"name": "name", "wallet_type": "type"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -311,13 +308,11 @@ def aitbc_wallet_earn(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Record earnings received for a completed job against the wallet.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if job_id is not None:
-        options["job-id"] = job_id
-    if desc is not None:
-        options["desc"] = desc
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "job_id": "job-id", "desc": "desc"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -360,9 +355,11 @@ def aitbc_wallet_export(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Export the active wallet to a JSON file at the given destination.."""
-    options: dict[str, Any] = {}
-    if destination is not None:
-        options["destination"] = destination
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"destination": "destination"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -426,11 +423,11 @@ def aitbc_wallet_liquidity_claim(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Claim accrued liquidity rewards for the given stake ID.."""
-    options: dict[str, Any] = {}
-    if stake_id is not None:
-        options["stake-id"] = stake_id
-    if fee is not None:
-        options["fee"] = fee
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"stake_id": "stake-id", "fee": "fee"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -476,15 +473,11 @@ def aitbc_wallet_liquidity_stake(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stake tokens into an on-chain liquidity pool to earn rewards.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if pool is not None:
-        options["pool"] = pool
-    if lock_days is not None:
-        options["lock-days"] = lock_days
-    if fee is not None:
-        options["fee"] = fee
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "pool": "pool", "lock_days": "lock-days", "fee": "fee"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -528,11 +521,11 @@ def aitbc_wallet_liquidity_unstake(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Withdraw a liquidity stake and its accumulated rewards.."""
-    options: dict[str, Any] = {}
-    if stake_id is not None:
-        options["stake-id"] = stake_id
-    if fee is not None:
-        options["fee"] = fee
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"stake_id": "stake-id", "fee": "fee"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -597,13 +590,11 @@ def aitbc_wallet_multisig_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a multi-signature wallet with a threshold and a list of signers.."""
-    options: dict[str, Any] = {}
-    if signers is not None:
-        options["signers"] = signers
-    if threshold is not None:
-        options["threshold"] = threshold
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"signers": "signers", "threshold": "threshold", "name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -649,15 +640,11 @@ def aitbc_wallet_multisig_propose(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Propose a multi-signature payment to a destination address.."""
-    options: dict[str, Any] = {}
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if to_address is not None:
-        options["to-address"] = to_address
-    if amount is not None:
-        options["amount"] = amount
-    if description is not None:
-        options["description"] = description
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"wallet_name": "wallet", "to_address": "to-address", "amount": "amount", "description": "description"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -702,13 +689,11 @@ def aitbc_wallet_multisig_sign(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sign a pending multi-signature transaction with the given signer address.."""
-    options: dict[str, Any] = {}
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if tx_id is not None:
-        options["tx-id"] = tx_id
-    if signer is not None:
-        options["signer"] = signer
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"wallet_name": "wallet", "tx_id": "tx-id", "signer": "signer"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -753,13 +738,11 @@ def aitbc_wallet_request_payment(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Generate a payment request to another address for a specific amount.."""
-    options: dict[str, Any] = {}
-    if to_address is not None:
-        options["to-address"] = to_address
-    if amount is not None:
-        options["amount"] = amount
-    if description is not None:
-        options["description"] = description
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"to_address": "to-address", "amount": "amount", "description": "description"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -804,13 +787,11 @@ def aitbc_wallet_restore(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Restore a wallet from a backup file with an optional force override.."""
-    options: dict[str, Any] = {}
-    if backup_path is not None:
-        options["backup-path"] = backup_path
-    if name is not None:
-        options["name"] = name
-    if force:
-        options["force"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"force": "force"},
+        values={"backup_path": "backup-path", "name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -857,17 +838,11 @@ def aitbc_wallet_send(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send AITBC tokens from the active wallet to another address.."""
-    options: dict[str, Any] = {}
-    if to_address is not None:
-        options["to-address"] = to_address
-    if amount is not None:
-        options["amount"] = amount
-    if fee is not None:
-        options["fee"] = fee
-    if password is not None:
-        options["password"] = password
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"to_address": "to-address", "amount": "amount", "fee": "fee", "password": "password", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -911,11 +886,11 @@ def aitbc_wallet_spend(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Record a manual spend transaction with an amount and description.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if description is not None:
-        options["description"] = description
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "description": "description"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -959,11 +934,11 @@ def aitbc_wallet_stake(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stake AITBC tokens on the blockchain for a configurable duration.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if duration is not None:
-        options["duration"] = duration
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "duration": "duration"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -1026,9 +1001,11 @@ def aitbc_wallet_switch(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Switch the active wallet context to a different locally stored wallet.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",
@@ -1070,11 +1047,11 @@ def aitbc_wallet_transactions(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List recent blockchain transactions for the active or named wallet.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "limit": "limit"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1097,9 +1074,11 @@ def aitbc_wallet_unstake(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Unstake tokens and withdraw the principal for the given stake ID.."""
-    options: dict[str, Any] = {}
-    if stake_id is not None:
-        options["stake-id"] = stake_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"stake_id": "stake-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "wallet",

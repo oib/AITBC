@@ -97,23 +97,14 @@ def _parse_section_bounds(lines: list[str], section: str) -> tuple[int, int] | N
     return start, end
 
 
-def _harden_unit(path: str, dry_run: bool, read_write_paths: str) -> dict[str, Any]:
-    """Apply the hermes sandbox pattern to one unit file.
+def _strip_managed_directives(section_lines: list[str]) -> tuple[list[str], str | None]:
+    """Drop directives we manage from a [Service] section.
 
-    Returns a summary of what changed.  In dry-run mode the file is not written.
+    Preserves an existing ReadWritePaths line — the operator's configured value
+    wins — and records it for the hardening block. Returns the filtered lines
+    (trailing blanks trimmed so a clean block can be appended) and the existing
+    ReadWritePaths value, if any.
     """
-    with open(path) as f:
-        lines = f.readlines()
-
-    bounds = _parse_section_bounds(lines, "Service")
-    if not bounds:
-        return {"path": path, "changed": False, "error": "no [Service] section"}
-
-    start, end = bounds
-    section_lines = lines[start:end]
-
-    # Remove existing hardening directives we are about to set, but preserve
-    # an existing ReadWritePaths value if the operator already configured one.
     existing_rwp: str | None = None
     new_section_lines: list[str] = []
     directive_pattern = re.compile(r"^\s*([A-Za-z0-9_]+)\s*=")
@@ -138,7 +129,11 @@ def _harden_unit(path: str, dry_run: bool, read_write_paths: str) -> dict[str, A
     while new_section_lines and new_section_lines[-1].strip() == "":
         new_section_lines.pop()
 
-    # Build the hardening block to append.
+    return new_section_lines, existing_rwp
+
+
+def _hardening_block(existing_rwp: str | None, read_write_paths: str) -> list[str]:
+    """Build the canonical hardening block appended to [Service]."""
     block: list[str] = []
     block.append("# AITBC security hardening (v0.5.0)\n")
     for key, value in HARDENING_DIRECTIVES.items():
@@ -149,8 +144,25 @@ def _harden_unit(path: str, dry_run: bool, read_write_paths: str) -> dict[str, A
         block.append(f"ReadWritePaths={read_write_paths}\n")
     block.append("# AITBC security hardening (v0.5.0)\n")
     block.append("# WatchdogSec=30 # Disabled - requires application-level sd_notify support\n")
+    return block
 
-    new_section = new_section_lines + ["\n"] + block
+
+def _harden_unit(path: str, dry_run: bool, read_write_paths: str) -> dict[str, Any]:
+    """Apply the hermes sandbox pattern to one unit file.
+
+    Returns a summary of what changed.  In dry-run mode the file is not written.
+    """
+    with open(path) as f:
+        lines = f.readlines()
+
+    bounds = _parse_section_bounds(lines, "Service")
+    if not bounds:
+        return {"path": path, "changed": False, "error": "no [Service] section"}
+
+    start, end = bounds
+    new_section_lines, existing_rwp = _strip_managed_directives(lines[start:end])
+
+    new_section = new_section_lines + ["\n"] + _hardening_block(existing_rwp, read_write_paths)
     new_lines = lines[:start] + new_section + lines[end:]
 
     changed = new_lines != lines
@@ -186,6 +198,48 @@ def _restart_services(services: list[str]) -> dict[str, Any]:
         return {"restarted": services, "status": "ok"}
     except subprocess.CalledProcessError as exc:
         return {"restarted": [], "status": "error", "error": exc.stderr.strip()}
+
+
+def _harden_targets(service_name: str | None, all_services: bool) -> list[str]:
+    """Resolve --service/--all into a list of unit file names."""
+    if all_services:
+        discovered = _discover_aitbc_services()
+        return [s for s in discovered if os.path.splitext(s)[0] not in EXCLUDED_FROM_ALL]
+    assert service_name is not None
+    name = service_name
+    return [name if name.endswith(".service") else f"{name}.service"]
+
+
+def _harden_results(
+    targets: list[str],
+    dry_run: bool,
+    read_write_paths: str,
+) -> tuple[list[dict[str, Any]], list[str]]:
+    """Harden each unit file; returns (per-unit results, units actually changed)."""
+    results: list[dict[str, Any]] = []
+    changed_units: list[str] = []
+    for unit in targets:
+        path = _service_unit_path(unit)
+        if not os.path.exists(path):
+            results.append({"unit": unit, "path": path, "changed": False, "error": "unit file not found"})
+            continue
+        summary = _harden_unit(path, dry_run, read_write_paths)
+        summary["unit"] = unit
+        results.append(summary)
+        if summary.get("changed") and not dry_run and not summary.get("error"):
+            changed_units.append(unit)
+    return results, changed_units
+
+
+def _maybe_restart(changed_units: list[str], no_restart: bool) -> dict[str, Any] | None:
+    """Reload systemd and restart the units that changed, unless --no-restart."""
+    if no_restart or not changed_units:
+        return None
+    try:
+        _daemon_reload()
+        return _restart_services([u.replace(".service", "") for u in changed_units])
+    except subprocess.CalledProcessError as exc:
+        return {"status": "error", "error": str(exc)}
 
 
 @click.group(
@@ -234,41 +288,17 @@ def harden(
     if service_name and all_services:
         abort(ctx, "Use either --service or --all, not both")
 
-    if all_services:
-        discovered = _discover_aitbc_services()
-        targets = [s for s in discovered if os.path.splitext(s)[0] not in EXCLUDED_FROM_ALL]
-    else:
-        assert service_name is not None
-        name = service_name
-        targets = [name if name.endswith(".service") else f"{name}.service"]
-
+    targets = _harden_targets(service_name, all_services)
     if not targets:
         abort(ctx, "No matching systemd unit files found in /etc/systemd/system")
 
-    results: list[dict[str, Any]] = []
-    changed_units: list[str] = []
-    for unit in targets:
-        path = _service_unit_path(unit)
-        if not os.path.exists(path):
-            results.append({"unit": unit, "path": path, "changed": False, "error": "unit file not found"})
-            continue
-        summary = _harden_unit(path, dry_run, read_write_paths)
-        summary["unit"] = unit
-        results.append(summary)
-        if summary.get("changed") and not dry_run and not summary.get("error"):
-            changed_units.append(unit)
+    results, changed_units = _harden_results(targets, dry_run, read_write_paths)
 
     if dry_run:
         output({"dry_run": True, "results": results}, ctx.obj.get("output_format", "table"))
         return
 
-    restart_summary: dict[str, Any] | None = None
-    if not no_restart and changed_units:
-        try:
-            _daemon_reload()
-            restart_summary = _restart_services([u.replace(".service", "") for u in changed_units])
-        except subprocess.CalledProcessError as exc:
-            restart_summary = {"status": "error", "error": str(exc)}
+    restart_summary = _maybe_restart(changed_units, no_restart)
 
     output(
         {"results": results, "restart": restart_summary},

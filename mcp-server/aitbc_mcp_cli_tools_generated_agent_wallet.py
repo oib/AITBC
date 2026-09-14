@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -31,9 +32,11 @@ def aitbc_agent_wallet_balance(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the wallet balance and allocation for a given agent ID.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -58,13 +61,11 @@ def aitbc_agent_wallet_rebalance(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Rebalance an agent wallet by reinvesting the specified earnings.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if earnings is not None:
-        options["earnings"] = earnings
-    if reinvest_pct is not None:
-        options["reinvest-pct"] = reinvest_pct
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "earnings": "earnings", "reinvest_pct": "reinvest-pct"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-wallet",
@@ -109,13 +110,11 @@ def aitbc_agent_wallet_stake(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stake AITBC on behalf of a specified agent ID.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if amount is not None:
-        options["amount"] = amount
-    if contract is not None:
-        options["contract"] = contract
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "amount": "amount", "contract": "contract"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-wallet",

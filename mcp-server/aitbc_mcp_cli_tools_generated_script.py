@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -31,9 +32,11 @@ def aitbc_script_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List available scripts in the script directory.."""
-    options: dict[str, Any] = {}
-    if script_dir is not None:
-        options["script-dir"] = script_dir
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"script_dir": "script-dir"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -57,11 +60,11 @@ def aitbc_script_run(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a script with optional arguments.."""
-    options: dict[str, Any] = {}
-    if script_path is not None:
-        options["script-path"] = script_path
-    if args is not None:
-        options["args"] = args
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"script_path": "script-path", "args": "args"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "script",

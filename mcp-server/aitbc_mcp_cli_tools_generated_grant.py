@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -37,17 +38,17 @@ def aitbc_grant_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new DAO grant proposal.."""
-    options: dict[str, Any] = {}
-    if developer_id is not None:
-        options["developer-id"] = developer_id
-    if title is not None:
-        options["title"] = title
-    if description is not None:
-        options["description"] = description
-    if requested_amount is not None:
-        options["requested-amount"] = requested_amount
-    if voting_days is not None:
-        options["voting-days"] = voting_days
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "developer_id": "developer-id",
+            "title": "title",
+            "description": "description",
+            "requested_amount": "requested-amount",
+            "voting_days": "voting-days",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "grant",
@@ -92,13 +93,11 @@ def aitbc_grant_disburse(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Disburse funds for a grant or a specific milestone.."""
-    options: dict[str, Any] = {}
-    if grant_id is not None:
-        options["grant-id"] = grant_id
-    if milestone_id is not None:
-        options["milestone-id"] = milestone_id
-    if amount is not None:
-        options["amount"] = amount
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"grant_id": "grant-id", "milestone_id": "milestone-id", "amount": "amount"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "grant",
@@ -142,15 +141,11 @@ def aitbc_grant_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List DAO grant proposals with optional status, developer, and pagination filters.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
-    if developer_id is not None:
-        options["developer-id"] = developer_id
-    if limit is not None:
-        options["limit"] = limit
-    if offset is not None:
-        options["offset"] = offset
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status", "developer_id": "developer-id", "limit": "limit", "offset": "offset"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -175,13 +170,11 @@ def aitbc_grant_vote(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cast a vote for, against, or abstain on a grant proposal.."""
-    options: dict[str, Any] = {}
-    if grant_id is not None:
-        options["grant-id"] = grant_id
-    if vote is not None:
-        options["vote"] = vote
-    if voting_power is not None:
-        options["voting-power"] = voting_power
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"grant_id": "grant-id", "vote": "vote", "voting_power": "voting-power"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "grant",

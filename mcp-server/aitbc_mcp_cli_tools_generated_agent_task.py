@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -47,33 +48,23 @@ def aitbc_agent_task_hire(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID.."""
-    options: dict[str, Any] = {}
-    if to_agent is not None:
-        options["to-agent"] = to_agent
-    if service_type is not None:
-        options["service-type"] = service_type
-    if model is not None:
-        options["model"] = model
-    if payload is not None:
-        options["payload"] = payload
-    if max_price is not None:
-        options["max-price"] = max_price
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if from_agent is not None:
-        options["from-agent"] = from_agent
-    if timeout_seconds is not None:
-        options["timeout"] = timeout_seconds
-    if wait:
-        options["wait"] = None
-    if wait_seconds is not None:
-        options["wait-seconds"] = wait_seconds
-    if sign:
-        options["sign"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"wait": "wait", "sign": "sign"},
+        values={
+            "to_agent": "to-agent",
+            "service_type": "service-type",
+            "model": "model",
+            "payload": "payload",
+            "max_price": "max-price",
+            "wallet_name": "wallet",
+            "password": "password",
+            "from_agent": "from-agent",
+            "timeout_seconds": "timeout",
+            "wait_seconds": "wait-seconds",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-task",
@@ -122,21 +113,18 @@ def aitbc_agent_task_result(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Fetch a finished task's result payload from island IPFS.."""
-    options: dict[str, Any] = {}
-    if task_id is not None:
-        options["task-id"] = task_id
-    if out_path is not None:
-        options["out"] = out_path
-    if from_agent is not None:
-        options["from-agent"] = from_agent
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if sign:
-        options["sign"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"sign": "sign"},
+        values={
+            "task_id": "task-id",
+            "out_path": "out",
+            "from_agent": "from-agent",
+            "wallet_name": "wallet",
+            "password": "password",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-task",
@@ -182,19 +170,17 @@ def aitbc_agent_task_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show escrow state and negotiation progress for a task.."""
-    options: dict[str, Any] = {}
-    if task_id is not None:
-        options["task-id"] = task_id
-    if from_agent is not None:
-        options["from-agent"] = from_agent
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if sign:
-        options["sign"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"sign": "sign"},
+        values={
+            "task_id": "task-id",
+            "from_agent": "from-agent",
+            "wallet_name": "wallet",
+            "password": "password",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,13 +34,11 @@ def aitbc_developer_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List registered developers with optional active-only, limit, and offset filters.."""
-    options: dict[str, Any] = {}
-    if active_only:
-        options["active-only"] = None
-    if limit is not None:
-        options["limit"] = limit
-    if offset is not None:
-        options["offset"] = offset
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"active_only": "active-only"},
+        values={"limit": "limit", "offset": "offset"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -65,15 +64,11 @@ def aitbc_developer_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a developer in the DAO grant registry with optional name, email, and GitHub handle.."""
-    options: dict[str, Any] = {}
-    if wallet_address is not None:
-        options["wallet-address"] = wallet_address
-    if name is not None:
-        options["name"] = name
-    if email is not None:
-        options["email"] = email
-    if github_handle is not None:
-        options["github-handle"] = github_handle
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"wallet_address": "wallet-address", "name": "name", "email": "email", "github_handle": "github-handle"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "developer",

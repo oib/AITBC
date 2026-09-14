@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -76,13 +77,11 @@ def aitbc_oracle_store(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Announce a CID for sale on the local data oracle.."""
-    options: dict[str, Any] = {}
-    if cid is not None:
-        options["cid"] = cid
-    if price is not None:
-        options["price"] = price
-    if description is not None:
-        options["description"] = description
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"cid": "cid", "price": "price", "description": "description"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "oracle",

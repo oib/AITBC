@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -35,13 +36,11 @@ def aitbc_agent_comm_collaborate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a multi-agent collaboration with a list of agent IDs.."""
-    options: dict[str, Any] = {}
-    if agent_ids is not None:
-        options["agent-ids"] = agent_ids
-    if collaboration_type is not None:
-        options["collaboration-type"] = collaboration_type
-    if governance is not None:
-        options["governance"] = governance
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_ids": "agent-ids", "collaboration_type": "collaboration-type", "governance": "governance"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -83,11 +82,11 @@ def aitbc_agent_comm_discover(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Discover active agents on a specific chain by chain ID.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if capabilities is not None:
-        options["capabilities"] = capabilities
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "capabilities": "capabilities"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -110,13 +109,11 @@ def aitbc_agent_comm_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List agents registered in the cross-chain network with optional filters.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if status is not None:
-        options["status"] = status
-    if capabilities is not None:
-        options["capabilities"] = capabilities
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "status": "status", "capabilities": "capabilities"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -138,11 +135,11 @@ def aitbc_agent_comm_monitor(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Monitor cross-chain agent communication in real time or at an interval.."""
-    options: dict[str, Any] = {}
-    if realtime:
-        options["realtime"] = None
-    if interval is not None:
-        options["interval"] = interval
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"realtime": "realtime"},
+        values={"interval": "interval"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -190,15 +187,11 @@ def aitbc_agent_comm_receive(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Receive queued messages for a receiver agent from the coordinator inbox.."""
-    options: dict[str, Any] = {}
-    if receiver_id is not None:
-        options["receiver-id"] = receiver_id
-    if limit is not None:
-        options["limit"] = limit
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"receiver_id": "receiver-id", "limit": "limit", "wallet_name": "wallet", "password": "password"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -255,27 +248,22 @@ def aitbc_agent_comm_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a new agent in the cross-chain network with its metadata and endpoint.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if name is not None:
-        options["name"] = name
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if endpoint is not None:
-        options["endpoint"] = endpoint
-    if capabilities is not None:
-        options["capabilities"] = capabilities
-    if reputation is not None:
-        options["reputation"] = reputation
-    if version is not None:
-        options["version"] = version
-    if agent_type is not None:
-        options["agent-type"] = agent_type
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "name": "name",
+            "chain_id": "chain-id",
+            "endpoint": "endpoint",
+            "capabilities": "capabilities",
+            "reputation": "reputation",
+            "version": "version",
+            "agent_type": "agent-type",
+            "wallet_name": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -320,13 +308,11 @@ def aitbc_agent_comm_reputation(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Update the reputation score for an agent based on an interaction result.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if interaction_result is not None:
-        options["interaction-result"] = interaction_result
-    if feedback is not None:
-        options["feedback"] = feedback
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "interaction_result": "interaction-result", "feedback": "feedback"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -383,27 +369,22 @@ def aitbc_agent_comm_send(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send a message from a sender to a receiver agent via the coordinator.."""
-    options: dict[str, Any] = {}
-    if sender_id is not None:
-        options["sender-id"] = sender_id
-    if receiver_id is not None:
-        options["receiver-id"] = receiver_id
-    if message_type is not None:
-        options["message-type"] = message_type
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if payload is not None:
-        options["payload"] = payload
-    if target_chain is not None:
-        options["target-chain"] = target_chain
-    if priority is not None:
-        options["priority"] = priority
-    if ttl is not None:
-        options["ttl"] = ttl
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "sender_id": "sender-id",
+            "receiver_id": "receiver-id",
+            "message_type": "message-type",
+            "chain_id": "chain-id",
+            "payload": "payload",
+            "target_chain": "target-chain",
+            "priority": "priority",
+            "ttl": "ttl",
+            "wallet_name": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -444,9 +425,11 @@ def aitbc_agent_comm_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get detailed status and metadata for a registered agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

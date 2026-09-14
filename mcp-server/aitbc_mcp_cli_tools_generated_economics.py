@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_economics_distributed(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run distributed cost optimization for the AITBC economy.."""
-    options: dict[str, Any] = {}
-    if cost_optimize:
-        options["cost-optimize"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"cost_optimize": "cost-optimize"},
+        values={},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "economics",
@@ -118,9 +121,11 @@ def aitbc_economics_model(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Run an economic model of the configured type.."""
-    options: dict[str, Any] = {}
-    if type is not None:
-        options["type"] = type
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"type": "type"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -147,17 +152,17 @@ def aitbc_economics_propose(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Submit an OpenClaw DAO economic parameter proposal.."""
-    options: dict[str, Any] = {}
-    if parameter is not None:
-        options["parameter"] = parameter
-    if current is not None:
-        options["current"] = current
-    if proposed is not None:
-        options["proposed"] = proposed
-    if unit is not None:
-        options["unit"] = unit
-    if proposer_id is not None:
-        options["proposer-id"] = proposer_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "parameter": "parameter",
+            "current": "current",
+            "proposed": "proposed",
+            "unit": "unit",
+            "proposer_id": "proposer-id",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "economics",
@@ -198,9 +203,11 @@ def aitbc_economics_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the status of an OpenClaw DAO economic parameter proposal by proposal ID.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -225,13 +232,11 @@ def aitbc_economics_vote(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Vote for, against, or abstain on an OpenClaw DAO economic parameter proposal.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
-    if vote is not None:
-        options["vote"] = vote
-    if voting_power is not None:
-        options["voting-power"] = voting_power
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id", "vote": "vote", "voting_power": "voting-power"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "economics",

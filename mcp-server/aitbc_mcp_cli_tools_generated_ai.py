@@ -18,6 +18,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,11 +37,11 @@ def aitbc_ai_accept(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Accept a completed AI job and release the escrowed payment.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -89,21 +90,18 @@ def aitbc_ai_cancel(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cancel an AI job and optionally refund the payment to the customer.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if refund:
-        options["refund"] = None
-    if reason is not None:
-        options["reason"] = reason
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"refund": "refund"},
+        values={
+            "job_id": "job-id",
+            "wallet": "wallet",
+            "password": "password",
+            "password_file": "password-file",
+            "reason": "reason",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -146,13 +144,11 @@ def aitbc_ai_jobs(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List AI jobs from the coordinator with optional status and limit filters.."""
-    options: dict[str, Any] = {}
-    if limit is not None:
-        options["limit"] = limit
-    if status is not None:
-        options["status"] = status
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"limit": "limit", "status": "status", "coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -186,31 +182,24 @@ def aitbc_ai_pay(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create an escrow payment for an existing AI job.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if wallet is not None:
-        options["wallet"] = wallet
-    if buyer_address is not None:
-        options["buyer-address"] = buyer_address
-    if provider_address is not None:
-        options["provider-address"] = provider_address
-    if offer_id is not None:
-        options["offer-id"] = offer_id
-    if offer_quantity is not None:
-        options["offer-quantity"] = offer_quantity
-    if currency is not None:
-        options["currency"] = currency
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "job_id": "job-id",
+            "wallet": "wallet",
+            "buyer_address": "buyer-address",
+            "provider_address": "provider-address",
+            "offer_id": "offer-id",
+            "offer_quantity": "offer-quantity",
+            "currency": "currency",
+            "coordinator_url": "coordinator-url",
+            "rpc_url": "rpc-url",
+            "chain_id": "chain-id",
+            "password": "password",
+            "password_file": "password-file",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -255,13 +244,11 @@ def aitbc_ai_refund(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Refund an escrowed payment for a failed or cancelled AI job.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if reason is not None:
-        options["reason"] = reason
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id", "reason": "reason", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -307,15 +294,11 @@ def aitbc_ai_refund_sweep(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Refund all client-owned AI jobs stuck in an incomplete state.."""
-    options: dict[str, Any] = {}
-    if limit is not None:
-        options["limit"] = limit
-    if reason is not None:
-        options["reason"] = reason
-    if dry_run_opt:
-        options["dry-run"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"dry_run_opt": "dry-run"},
+        values={"limit": "limit", "reason": "reason", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -359,11 +342,11 @@ def aitbc_ai_results(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the results of a completed AI job by job ID.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -407,11 +390,11 @@ def aitbc_ai_service_test(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Test an AI service endpoint by service name.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",
@@ -452,9 +435,11 @@ def aitbc_ai_stats(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show aggregate AI service statistics from the coordinator.."""
-    options: dict[str, Any] = {}
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -476,11 +461,11 @@ def aitbc_ai_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the current status of an AI job by job ID.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -543,73 +528,46 @@ def aitbc_ai_submit(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Submit a new AI job to the coordinator with a prompt and optional model.."""
-    options: dict[str, Any] = {}
-    if wallet is not None:
-        options["wallet"] = wallet
-    if job_type is not None:
-        options["type"] = job_type
-    if prompt is not None:
-        options["prompt"] = prompt
-    if model is not None:
-        options["model"] = model
-    if payment is not None:
-        options["payment"] = payment
-    if currency is not None:
-        options["currency"] = currency
-    if buyer_address is not None:
-        options["buyer-address"] = buyer_address
-    if provider_address is not None:
-        options["provider-address"] = provider_address
-    if offer_id is not None:
-        options["offer-id"] = offer_id
-    if offer_quantity is not None:
-        options["offer-quantity"] = offer_quantity
-    if acceptance_window is not None:
-        options["acceptance-window"] = acceptance_window
-    if min_reputation is not None:
-        options["min-reputation"] = min_reputation
-    if zk_proof_required:
-        options["zk-proof-required"] = None
-    if tee_attestation_required:
-        options["tee-attestation-required"] = None
-    if tee_enclave_id is not None:
-        options["tee-enclave-id"] = tee_enclave_id
-    if confidential:
-        options["confidential"] = None
-    if enclave_measurement is not None:
-        options["enclave-measurement"] = enclave_measurement
-    if auto_reinvest_pct is not None:
-        options["auto-reinvest-pct"] = auto_reinvest_pct
-    if bond_required:
-        options["bond-required"] = None
-    if min_bond_amount is not None:
-        options["min-bond-amount"] = min_bond_amount
-    if deterministic_decoding:
-        options["deterministic-decoding"] = None
-    if decode_seed is not None:
-        options["decode-seed"] = decode_seed
-    if input_url is not None:
-        options["input"] = input_url
-    if classification is not None:
-        options["classification"] = classification
-    if compliance_framework is not None:
-        options["compliance-framework"] = compliance_framework
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if wait:
-        options["wait"] = None
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
-    if poll_interval is not None:
-        options["poll-interval"] = poll_interval
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={
+            "zk_proof_required": "zk-proof-required",
+            "tee_attestation_required": "tee-attestation-required",
+            "confidential": "confidential",
+            "bond_required": "bond-required",
+            "deterministic_decoding": "deterministic-decoding",
+            "wait": "wait",
+        },
+        values={
+            "wallet": "wallet",
+            "job_type": "type",
+            "prompt": "prompt",
+            "model": "model",
+            "payment": "payment",
+            "currency": "currency",
+            "buyer_address": "buyer-address",
+            "provider_address": "provider-address",
+            "offer_id": "offer-id",
+            "offer_quantity": "offer-quantity",
+            "acceptance_window": "acceptance-window",
+            "min_reputation": "min-reputation",
+            "tee_enclave_id": "tee-enclave-id",
+            "enclave_measurement": "enclave-measurement",
+            "auto_reinvest_pct": "auto-reinvest-pct",
+            "min_bond_amount": "min-bond-amount",
+            "decode_seed": "decode-seed",
+            "input_url": "input",
+            "classification": "classification",
+            "compliance_framework": "compliance-framework",
+            "password": "password",
+            "password_file": "password-file",
+            "chain_id": "chain-id",
+            "rpc_url": "rpc-url",
+            "coordinator_url": "coordinator-url",
+            "timeout_opt": "timeout",
+            "poll_interval": "poll-interval",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "ai",

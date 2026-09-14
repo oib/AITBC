@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -40,13 +41,11 @@ def aitbc_tee_attest(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Attest a TEE enclave and verify its measurement.."""
-    options: dict[str, Any] = {}
-    if enclave_id is not None:
-        options["enclave-id"] = enclave_id
-    if measurement is not None:
-        options["measurement"] = measurement
-    if key_file is not None:
-        options["key-file"] = key_file
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"enclave_id": "enclave-id", "measurement": "measurement", "key_file": "key-file"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "tee",
@@ -89,9 +88,11 @@ def aitbc_tee_keygen(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Generate a new TEE enclave signing key.."""
-    options: dict[str, Any] = {}
-    if key_file is not None:
-        options["key-file"] = key_file
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"key_file": "key-file"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "tee",
@@ -135,11 +136,11 @@ def aitbc_tee_launch(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Launch a TEE enclave with a given image.."""
-    options: dict[str, Any] = {}
-    if enclave_id is not None:
-        options["enclave-id"] = enclave_id
-    if image is not None:
-        options["image"] = image
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"enclave_id": "enclave-id", "image": "image"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "tee",
@@ -189,13 +190,11 @@ def aitbc_tee_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a TEE enclave with its public key and optional agent ID.."""
-    options: dict[str, Any] = {}
-    if enclave_id is not None:
-        options["enclave-id"] = enclave_id
-    if public_key is not None:
-        options["public-key"] = public_key
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"enclave_id": "enclave-id", "public_key": "public-key", "agent_id": "agent-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "tee",
@@ -236,9 +235,11 @@ def aitbc_tee_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the status of a TEE enclave.."""
-    options: dict[str, Any] = {}
-    if enclave_id is not None:
-        options["enclave-id"] = enclave_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"enclave_id": "enclave-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -266,19 +267,18 @@ def aitbc_tee_verify(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Verify a TEE quote, attestation, or zero-knowledge proof.."""
-    options: dict[str, Any] = {}
-    if quote is not None:
-        options["quote"] = quote
-    if attestation_id is not None:
-        options["attestation-id"] = attestation_id
-    if job_id is not None:
-        options["job-id"] = job_id
-    if measurement is not None:
-        options["measurement"] = measurement
-    if zk_proof is not None:
-        options["zk-proof"] = zk_proof
-    if mode is not None:
-        options["mode"] = mode
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "quote": "quote",
+            "attestation_id": "attestation-id",
+            "job_id": "job-id",
+            "measurement": "measurement",
+            "zk_proof": "zk-proof",
+            "mode": "mode",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "tee",

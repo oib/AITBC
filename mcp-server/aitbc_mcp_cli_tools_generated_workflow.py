@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -55,13 +56,11 @@ def aitbc_workflow_run(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a workflow by name with optional configuration.."""
-    options: dict[str, Any] = {}
-    if workflow_name is not None:
-        options["workflow-name"] = workflow_name
-    if config is not None:
-        options["config"] = config
-    if dry_run_opt:
-        options["dry-run"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"dry_run_opt": "dry-run"},
+        values={"workflow_name": "workflow-name", "config": "config"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "workflow",
@@ -102,9 +101,11 @@ def aitbc_workflow_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the execution status of a workflow by name.."""
-    options: dict[str, Any] = {}
-    if workflow_name is not None:
-        options["workflow-name"] = workflow_name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"workflow_name": "workflow-name"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -127,9 +128,11 @@ def aitbc_workflow_stop(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stop a running workflow by its execution ID.."""
-    options: dict[str, Any] = {}
-    if workflow_name is not None:
-        options["workflow-name"] = workflow_name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"workflow_name": "workflow-name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "workflow",

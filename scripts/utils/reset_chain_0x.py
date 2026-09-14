@@ -45,6 +45,8 @@ SERVICE_KEYS_FILE = Path("/var/lib/aitbc/keystore/service_accounts.json")
 
 ALLOW_DERIVED_ENV = "AITBC_ALLOW_DERIVED_GENESIS"
 
+GENESIS_TIMESTAMP = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
+
 
 def _service_accounts(keys_file: Path) -> dict[str, str]:
     """Return {name: address} for the pre-funded service accounts.
@@ -99,23 +101,13 @@ def _compute_genesis_hash(chain_id: str, timestamp: datetime) -> str:
     return "0x" + hashlib.sha256(payload).hexdigest()
 
 
-def main() -> int:
-    chain_id = os.environ.get("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
-    db_path = Path(os.environ.get("DB_PATH", f"/var/lib/aitbc/data/{chain_id}/chain.db"))
-    data_dir = db_path.parent
-    genesis_json = data_dir / "genesis.json"
-
-    node_env = _load_env(Path("/etc/aitbc/node.env"))
-    blockchain_env = _load_env(Path("/etc/aitbc/blockchain.env"))
-    genesis_address = node_env.get("GENESIS_ADDRESS") or blockchain_env.get("GENESIS_WALLET_ADDRESS") or ""
-
-    if not genesis_address:
-        print("[!] GENESIS_ADDRESS not found in env", file=sys.stderr)
-        return 1
-
-    wallets = _wallet_addresses(Path("/var/lib/aitbc/wallets"))
-    wallets.discard(genesis_address)
-
+def _build_allocations(
+    node_env: dict[str, str],
+    blockchain_env: dict[str, str],
+    genesis_address: str,
+    wallets: set[str],
+) -> list[dict[str, object]]:
+    """Assemble genesis allocations: genesis, wallets, fee-payers, service accounts."""
     # Ensure service accounts have enough balance to pay fees on the first blocks.
     service_balances: dict[str, int] = {}
     escrow_release = node_env.get("ESCROW_RELEASE_ADDRESS", "")
@@ -133,6 +125,75 @@ def main() -> int:
         allocations.append({"address": addr, "balance": balance, "nonce": 0})
     for _name, addr in sorted(_service_accounts(SERVICE_KEYS_FILE).items()):
         allocations.append({"address": addr, "balance": ait_to_units(1_000_000), "nonce": 0})
+    return allocations
+
+
+def _seed_chain_db(chain_id: str, genesis_address: str, allocations: list[dict[str, object]]) -> tuple[str, str] | None:
+    """Insert accounts and block 0, then compute and store the state root.
+
+    Returns (block_hash, state_root), or None if the state root failed.
+    """
+    from sqlmodel import select
+
+    block_hash = _compute_genesis_hash(chain_id, GENESIS_TIMESTAMP)
+
+    with session_scope() as session:
+        for alloc in allocations:
+            session.add(
+                Account(
+                    chain_id=chain_id,
+                    address=alloc["address"],
+                    balance=alloc["balance"],
+                    nonce=0,
+                )
+            )
+        session.add(
+            Block(
+                chain_id=chain_id,
+                height=0,
+                hash=block_hash,
+                parent_hash="0x00",
+                proposer=genesis_address,
+                timestamp=GENESIS_TIMESTAMP,
+                tx_count=0,
+                state_root=None,
+            )
+        )
+        session.commit()
+        print(f"[+] Created block 0: {block_hash}")
+
+    with session_scope() as session:
+        state_root = compute_state_root_full(session, chain_id)
+        if not state_root:
+            print("[!] Failed to compute state root", file=sys.stderr)
+            return None
+        block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == 0)).one()
+        block.state_root = state_root
+        session.add(block)
+        session.commit()
+        print(f"[+] State root: {state_root}")
+
+    return block_hash, state_root
+
+
+def main() -> int:
+    chain_id = os.environ.get("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    db_path = Path(os.environ.get("DB_PATH", f"/var/lib/aitbc/data/{chain_id}/chain.db"))
+    data_dir = db_path.parent
+    genesis_json = data_dir / "genesis.json"
+
+    node_env = _load_env(Path("/etc/aitbc/node.env"))
+    blockchain_env = _load_env(Path("/etc/aitbc/blockchain.env"))
+    genesis_address = node_env.get("GENESIS_ADDRESS") or blockchain_env.get("GENESIS_WALLET_ADDRESS") or ""
+
+    if not genesis_address:
+        print("[!] GENESIS_ADDRESS not found in env", file=sys.stderr)
+        return 1
+
+    wallets = _wallet_addresses(Path("/var/lib/aitbc/wallets"))
+    wallets.discard(genesis_address)
+
+    allocations = _build_allocations(node_env, blockchain_env, genesis_address, wallets)
 
     # Last gate before anything is committed. Catches a derivable address from
     # any source -- a minted set is clean by construction, but wallets/ and the
@@ -163,46 +224,10 @@ def main() -> int:
     init_db()
     print("[+] Database initialized")
 
-    from sqlmodel import select
-
-    timestamp = datetime(2025, 1, 1, 0, 0, 0, tzinfo=UTC)
-    block_hash = _compute_genesis_hash(chain_id, timestamp)
-
-    with session_scope() as session:
-        for alloc in allocations:
-            session.add(
-                Account(
-                    chain_id=chain_id,
-                    address=alloc["address"],
-                    balance=alloc["balance"],
-                    nonce=0,
-                )
-            )
-        session.add(
-            Block(
-                chain_id=chain_id,
-                height=0,
-                hash=block_hash,
-                parent_hash="0x00",
-                proposer=genesis_address,
-                timestamp=timestamp,
-                tx_count=0,
-                state_root=None,
-            )
-        )
-        session.commit()
-        print(f"[+] Created block 0: {block_hash}")
-
-    with session_scope() as session:
-        state_root = compute_state_root_full(session, chain_id)
-        if not state_root:
-            print("[!] Failed to compute state root", file=sys.stderr)
-            return 1
-        block = session.exec(select(Block).where(Block.chain_id == chain_id, Block.height == 0)).one()
-        block.state_root = state_root
-        session.add(block)
-        session.commit()
-        print(f"[+] State root: {state_root}")
+    seeded = _seed_chain_db(chain_id, genesis_address, allocations)
+    if seeded is None:
+        return 1
+    block_hash, state_root = seeded
 
     genesis_data = {
         "chain_id": chain_id,
@@ -211,7 +236,7 @@ def main() -> int:
             "hash": block_hash,
             "parent_hash": "0x00",
             "proposer": "genesis",
-            "timestamp": timestamp.isoformat(),
+            "timestamp": GENESIS_TIMESTAMP.isoformat(),
             "tx_count": 0,
             "chain_id": chain_id,
             "state_root": state_root,
