@@ -35,6 +35,12 @@ unwritable, so a `ProtectSystem=strict` unit with no `ReadWritePaths` entry for
 `/var/log/aitbc` passes this scan and still writes nothing. Both units that were in
 that position (`aitbc-blockchain-p2p`, `aitbc-prometheus-watch`) now carry the
 entry; a new one needs it too.
+
+The service *user* is the same kind of blind spot. `/var/log/aitbc` is `aitbc:aitbc
+0755` on every host, so a unit running as anyone else cannot create its own
+subdirectory there and degrades to journal-only just as silently.
+`aitbc-hermes-agent` is the only one today (`User=aitbc-hermes`) and creates the
+directory from a root `ExecStartPre=+` in its unit file.
 """
 
 from __future__ import annotations
