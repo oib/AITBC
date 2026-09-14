@@ -23,7 +23,18 @@ RestartSec=5
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-ffmpeg
-MemoryMax=512M
+# Memory sizing, measured 2026-09-14 on node2 (the only host running this unit):
+# a 300 s 1080p job (229M upload, 190M output) OOM-killed the service under the
+# old MemoryMax=512M and again under a trial MemoryMax=1G -- main.py buffers the
+# whole upload, transcodes with a several-hundred-MB ffmpeg child, then reads the
+# whole output back for hashing, so per-request cost tracks upload size.
+# Under the values below the same job peaks at 1.16G with every memory.events
+# counter at 0. MemoryHigh throttles a job larger than that instead of killing
+# it; MemoryMax is the backstop. Note there is no upload-size guard in the app
+# (whisper has WHISPER_MAX_UPLOAD_MB; this service does not yet), so MemoryMax is
+# the only bound on what an oversized upload can cost the host.
+MemoryHigh=1536M
+MemoryMax=2G
 # Security hardening (v0.5.0)
 PrivateTmp=yes
 NoNewPrivileges=yes
