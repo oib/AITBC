@@ -1,8 +1,12 @@
 # Agent-signed message envelopes (v2.0 design)
 
-**Status:** design — **not implemented**. Deferred work item from the 2026-09-14
-operator decisions; this document is the agreed shape for when v2.0 picks it up.
-Do not treat anything here as live behavior.
+**Status:** design — **not implemented** for message envelopes. Deferred work
+item from the 2026-09-14 operator decisions; this document is the agreed shape
+for when v2.0 picks it up. One piece shipped early (commit `23ad910d6`,
+2026-09-14): `POST /v1/tasks/{id}/complete` and `/fail` now require a secp256k1
+signature from the escrow's provider wallet (`entry.agent`) over
+`{action, task_id, signed_at[, amount_units]}` — the money-moving REST calls are
+caller-bound even though message envelopes remain unsigned.
 
 **Applies to:** `apps/agent-coordinator` (`/api/v1/agent/messages/*`,
 `/v1/agents/*`), `apps/miner/agent_task_executor.py`,
@@ -213,6 +217,7 @@ only enforcement point that matters while it is the sole coordinator.
 | `aitbc/crypto/` | `sign_agent_envelope(dict) -> str`, `verify_agent_envelope(dict, sig, expected) -> bool` — thin wrappers over `signature_recovery` + canonical-JSON + domain prefix |
 | `protocols/communication.py` | `AgentMessage.signature/signer/signature_version`; `signing_payload()` returning the canonical signed dict |
 | `routers/messages.py` | `SendMessageRequest.signature/signer/signature_version`; ingress verify hook; `signature_status` in stored record and inbox/history responses |
+| `routers/tasks.py` | ✅ shipped (`23ad910d6`): `complete`/`fail` require `entry.agent` signature — the same `recover_signer` convention, without envelopes |
 | `routers/agents.py` + `routing/agent_discovery.py` | `identity_address` field, registration attestation, `PUT /{id}/identity` rotation |
 | `config.py` | `AGENT_MSG_SIGNATURE_MODE`, timestamp-skew constant |
 | `apps/miner/agent_task_executor.py` | sign outbound envelopes; verify inbound; ignore invalid |
