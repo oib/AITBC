@@ -11,9 +11,19 @@ Environment="HOME=/var/lib/aitbc/ipfs-daemon"
 Environment="GOLOG_LOG_LEVEL=info"
 Environment="GOLOG_LOG_FMT=nocolor"
 Environment="IPFS_BIN=/usr/local/bin/ipfs"
-ExecStart=/usr/bin/python3 /opt/aitbc/apps/ipfs/ipfs-daemon.py daemon --enable-gc
+# The venv interpreter, not the system one: the wrapper imports
+# aitbc.aitbc_logging to get its output into /var/log/aitbc, and /usr/bin/python3
+# cannot import the aitbc package at all -- aitbc/exceptions.py reaches for
+# aitbc_errors, which only the venv has. Same interpreter as aitbc-island-ipfs.
+WorkingDirectory=/opt/aitbc/apps/ipfs
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/apps/ipfs/ipfs-daemon.py daemon --enable-gc
 Restart=on-failure
 RestartSec=10
+# Same wrapper shape as aitbc-island-ipfs, where this was observed: systemd
+# signals the whole cgroup on stop/restart, so the Python wrapper sees its own
+# SIGTERM race Kubo's and exits 255. The exit is clean -- treat it as success,
+# or Restart=on-failure turns an ordinary stop into a restart loop.
+SuccessExitStatus=255
 StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-ipfs
