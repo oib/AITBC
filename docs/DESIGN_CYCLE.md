@@ -245,6 +245,6 @@ This gate landed the same day as (and after) most of the "Done" claims in §2–
 
 ---
 
-*Last updated: 2026-09-14 (paid agent-to-agent delegation live-validated — scenario 54; hub is the single pool-hub/SLA authority, node2's local instance disabled; stale `test-miner-xyz`/`ghost-provider` records cleaned. Deferred per operator: node0 island IPFS, agent-messaging authentication → v2.0.)*
+*Last updated: 2026-09-14 (paid agent-to-agent delegation live-validated — scenario 54; hub is the single pool-hub/SLA authority, node2's local instance disabled; stale `test-miner-xyz`/`ghost-provider` records cleaned. Deferred per operator: node0 island IPFS, agent-messaging authentication → v2.0, design in `docs/agent-coordinator/agent-signed-envelopes.md`.)*
 
 *Previous: 2026-08-25 (TEE enclave allowlist and `receipt_model` ZK model-execution proof live; P1.1, P1.5, P1.7, P2.1–P2.8 shipped; V23-42 agent-stake/bounty live-validated; pool-hub, escrow, and dispatch table refreshed)*
