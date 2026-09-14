@@ -279,7 +279,7 @@
     "/v1/agents/{agent_id}/status": {
       "put": {
         "summary": "Update Agent Status",
-        "description": "Update agent status",
+        "description": "Update agent status.\n\nPhase C agent-scoped: ``enforce`` requires a principal bound to\n``agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin;\n``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "update_agent_status_v1_agents__agent_id__status_put",
         "parameters": [
           {
@@ -453,7 +453,7 @@
     "/v1/agents/{agent_id}/heartbeat": {
       "post": {
         "summary": "Agent Heartbeat",
-        "description": "Receive heartbeat from agent",
+        "description": "Receive heartbeat from agent.\n\nPhase C agent-scoped: ``enforce`` requires a principal bound to\n``agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin;\n``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "agent_heartbeat_v1_agents__agent_id__heartbeat_post",
         "parameters": [
           {
@@ -525,7 +525,7 @@
     "/v1/tasks/submit": {
       "post": {
         "summary": "Submit Task",
-        "description": "Submit a task for distribution",
+        "description": "Submit a task for distribution.\n\nPhase C: in ``enforce`` mode the call must carry a resolvable credential \u2014\na buyer agent JWT, ``X-Agent-*`` signed headers or the shared operator key\n(``advisory`` logs ``admin_auth_missing`` and allows; ``disabled`` is a\nno-op). Any resolved principal may submit; payment escrows are bound to\nthe buyer by the lock transaction's own signature, not by this check.",
         "operationId": "submit_task_v1_tasks_submit_post",
         "requestBody": {
           "content": {
@@ -688,7 +688,7 @@
     "/v1/tasks/queues/{priority}/clear": {
       "post": {
         "summary": "Clear Queue",
-        "description": "Clear a priority queue",
+        "description": "Clear a priority queue.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "clear_queue_v1_tasks_queues__priority__clear_post",
         "parameters": [
           {
@@ -863,7 +863,7 @@
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",
-        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.\nRequires a signature from the escrow's provider wallet (``entry.agent``)\nover ``{\"action\",\"task_id\",\"signed_at\",\"amount_units\"}`` \u2014 only the party\nthat will be paid may release the escrow.",
+        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.\nRequires a signature from the escrow's provider wallet (``entry.agent``)\nover ``{\"action\",\"task_id\",\"signed_at\",\"amount_units\"}`` \u2014 only the party\nthat will be paid may release the escrow. The Phase-B3 ``agent_signature``\n(req-v1) form over ``{\"task_id\",\"amount_units\",\"timestamp\",\"nonce\"}`` is\naccepted equivalently \u2014 see ``_require_provider_signature``.",
         "operationId": "complete_task_v1_tasks__task_id__complete_post",
         "parameters": [
           {
@@ -955,7 +955,7 @@
     "/v1/tasks/{task_id}/fail": {
       "post": {
         "summary": "Fail Task",
-        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).\n\nRequires a signature from the escrow's provider wallet over\n``{\"action\",\"task_id\",\"signed_at\"}`` \u2014 the provider reports its own\nfailure. Buyer-side refunds happen via the escrow timeout sweeper, not\nthis endpoint.",
+        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).\n\nRequires a signature from the escrow's provider wallet over\n``{\"action\",\"task_id\",\"signed_at\"}`` \u2014 the provider reports its own\nfailure; the Phase-B3 ``agent_signature`` (req-v1) form over\n``{\"task_id\",\"reason\",\"timestamp\",\"nonce\"}`` is accepted equivalently.\nBuyer-side refunds happen via the escrow timeout sweeper, not\nthis endpoint.",
         "operationId": "fail_task_v1_tasks__task_id__fail_post",
         "parameters": [
           {
@@ -1140,7 +1140,7 @@
     "/v1/tasks/escrow/expire-stale": {
       "post": {
         "summary": "Expire Stale Escrows",
-        "description": "Expire and refund all stale escrows that have passed their timeout (v0.6.5).",
+        "description": "Expire and refund all stale escrows that have passed their timeout (v0.6.5).\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "expire_stale_escrows_v1_tasks_escrow_expire_stale_post",
         "responses": {
           "200": {
@@ -1744,7 +1744,7 @@
           "agent-messaging"
         ],
         "summary": "Broadcast Message",
-        "description": "Broadcast message to multiple agents",
+        "description": "Broadcast message to multiple agents.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a\nno-op. The stored sender stays the derived ``agent-coordinator`` \u2014 the\nbroadcast speaks as the coordinator, never as the caller.",
         "operationId": "broadcast_message_api_v1_agent_messages_broadcast_post",
         "requestBody": {
           "content": {
@@ -1968,7 +1968,7 @@
           "agent-messaging"
         ],
         "summary": "Get Load Balancer Stats",
-        "description": "Get load balancer statistics",
+        "description": "Get load balancer statistics.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "get_load_balancer_stats_api_v1_agent_messages_load_balancer_stats_get",
         "responses": {
           "200": {
@@ -2012,7 +2012,7 @@
           "agent-messaging"
         ],
         "summary": "Get Registry Stats",
-        "description": "Get agent registry statistics",
+        "description": "Get agent registry statistics.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "get_registry_stats_api_v1_agent_messages_registry_stats_get",
         "responses": {
           "200": {
@@ -2186,7 +2186,7 @@
           "agent-messaging"
         ],
         "summary": "Set Load Balancing Strategy",
-        "description": "Set load balancing strategy",
+        "description": "Set load balancing strategy.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "set_load_balancing_strategy_api_v1_agent_messages_load_balancer_strategy_put",
         "parameters": [
           {
@@ -2263,7 +2263,7 @@
           "agent-messaging"
         ],
         "summary": "Add Peer",
-        "description": "Add a peer connection for an agent",
+        "description": "Add a peer connection for an agent.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "add_peer_api_v1_agent_messages_peers_add_post",
         "parameters": [
           {
@@ -2341,7 +2341,7 @@
           "agent-messaging"
         ],
         "summary": "Remove Peer",
-        "description": "Remove a peer connection for an agent",
+        "description": "Remove a peer connection for an agent.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "remove_peer_api_v1_agent_messages_peers_remove_post",
         "parameters": [
           {
@@ -2419,7 +2419,7 @@
           "agent-messaging"
         ],
         "summary": "Get Agent Peers",
-        "description": "Get all peers for a specific agent",
+        "description": "Get all peers for a specific agent.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "get_agent_peers_api_v1_agent_messages_peers__agent_id__get",
         "parameters": [
           {
@@ -2484,7 +2484,7 @@
           "agent-messaging"
         ],
         "summary": "Get All Peers",
-        "description": "Get all peer connections in the system",
+        "description": "Get all peer connections in the system.\n\nPhase C admin/operator-only: ``enforce`` \u2192 401 without a principal, 403\nfor a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.",
         "operationId": "get_all_peers_api_v1_agent_messages_peers_get",
         "responses": {
           "200": {
@@ -2637,7 +2637,7 @@
           "agent-keys"
         ],
         "summary": "Register Public Key",
-        "description": "Register a public key for an agent.",
+        "description": "Register a public key for an agent.\n\nPhase C agent-scoped: ``enforce`` requires a principal bound to\n``req.agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin,\nand a non-admin principal must carry an ``identity_address`` binding \u2014 the\nregistered key is then stamped with the principal's bound identity so the\nrecord shows which wallet authorized it. ``advisory`` logs and allows;\n``disabled`` is a no-op.",
         "operationId": "register_public_key_api_v1_agent_keys_register_post",
         "requestBody": {
           "content": {
@@ -2674,6 +2674,16 @@
           },
           "400": {
             "description": "Invalid base64 public_key: {e}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "agent_identity_required",
             "content": {
               "application/json": {
                 "schema": {

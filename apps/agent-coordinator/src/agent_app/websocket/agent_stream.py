@@ -57,6 +57,10 @@ class ConnectionManager:
         # v2.0 B1: the principal each connection authenticated as (auth_type only —
         # the credential itself is never stored).
         self.connection_auth: dict[str, str] = {}
+        # Phase C: the principal's registry-bound wallet per connection — a
+        # public identity address, not a credential. ``request_coins_handler``
+        # binds the payout destination to it in enforce mode.
+        self.connection_wallets: dict[str, str] = {}
 
     async def connect(self, websocket: WebSocket, agent_id: str, principal: AgentPrincipal | None = None) -> None:
         """Accept a WebSocket connection from an agent."""
@@ -74,6 +78,10 @@ class ConnectionManager:
         self.agent_inboxes[agent_id] = []
         if principal is not None:
             self.connection_auth[agent_id] = principal.auth_type
+            if principal.wallet:
+                self.connection_wallets[agent_id] = principal.wallet
+            else:
+                self.connection_wallets.pop(agent_id, None)
             logger.info(
                 "Agent %s connected via WebSocket (principal=%s auth_type=%s)",
                 agent_id,
@@ -82,6 +90,7 @@ class ConnectionManager:
             )
         else:
             self.connection_auth.pop(agent_id, None)
+            self.connection_wallets.pop(agent_id, None)
             logger.info("Agent %s connected via WebSocket", agent_id)
         await websocket.send_json(
             {
@@ -123,6 +132,7 @@ class ConnectionManager:
             del self.agent_topics[agent_id]
         self.agent_inboxes.pop(agent_id, None)
         self.connection_auth.pop(agent_id, None)
+        self.connection_wallets.pop(agent_id, None)
         logger.info("Agent %s disconnected from WebSocket", agent_id)
 
     async def send_personal_message(self, message: dict[str, Any], agent_id: str) -> bool:
@@ -526,6 +536,20 @@ def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) 
         return f"req-{sender}-unknown"
 
 
+def _wallet_match(authenticated: str | None, requested: str) -> bool:
+    """True iff the requested payout address equals the authenticated wallet.
+
+    Comparison goes through ``canonical_address`` so EIP-55 case differences
+    cannot fail a legitimate match; a missing authenticated wallet or a
+    malformed requested address never matches.
+    """
+    if not authenticated or not requested:
+        return False
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    return canonical_address(authenticated) == canonical_address(requested)
+
+
 async def request_coins_handler(
     message: dict[str, Any], connection_manager: ConnectionManager, websocket: WebSocket
 ) -> dict[str, Any]:
@@ -549,6 +573,32 @@ async def request_coins_handler(
 
         if not wallet_address or wallet_address == "unknown":
             return {"action": "coin_request_failed", "error": "No wallet address provided"}
+
+        # Phase C: in enforce mode the requested payout address must equal the
+        # connection's authenticated wallet — the registry-bound identity the
+        # ``?token=`` principal proved it controls. An unauthenticated
+        # connection (or an operator principal, which carries no wallet) cannot
+        # name an address; advisory logs ``coin_wallet_mismatch`` and allows;
+        # disabled keeps the pre-auth behaviour.
+        from ..config import settings
+
+        mode = settings.agent_msg_signature_mode
+        if mode != "disabled":
+            auth_wallet = connection_manager.connection_wallets.get(sender)
+            if not _wallet_match(auth_wallet, wallet_address):
+                logger.warning(
+                    "coin_wallet_mismatch sender=%s auth_wallet=%s requested=%s mode=%s",
+                    sender,
+                    auth_wallet,
+                    wallet_address,
+                    mode,
+                )
+                if mode == "enforce":
+                    return {
+                        "action": "coin_request_failed",
+                        "error": "wallet_mismatch",
+                        "message": "wallet_address must equal the connection's authenticated wallet",
+                    }
 
         # Check if this sender has already received initial coins
         if _has_received_initial_coins(sender, wallet_address):

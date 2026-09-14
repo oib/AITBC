@@ -15,18 +15,24 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
-# agent_id -> {"public_key": bytes, "key_id": str, "created_at": str}
+# agent_id -> {"public_key": bytes, "key_id": str, "created_at": str,
+#              "identity_address": str | None}
 PUBLIC_KEY_REGISTRY: dict[str, dict[str, Any]] = {}
 
 
-def register_public_key(agent_id: str, public_key: bytes, key_id: str = "") -> bool:
-    """Register a public key for an agent."""
+def register_public_key(agent_id: str, public_key: bytes, key_id: str = "", identity_address: str | None = None) -> bool:
+    """Register a public key for an agent.
+
+    ``identity_address`` records which registry-bound wallet authorized the
+    registration (Phase C) — ``None`` for admin/operator and pre-auth writes.
+    """
     try:
         PUBLIC_KEY_REGISTRY[agent_id] = {
             "agent_id": agent_id,
             "public_key": public_key,
             "key_id": key_id or f"{agent_id}_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}",
             "created_at": datetime.now(UTC).isoformat(),
+            "identity_address": identity_address,
         }
         logger.info("Registered public key for agent %s", agent_id)
         return True

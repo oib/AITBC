@@ -1,7 +1,7 @@
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Query, Request
+from fastapi import APIRouter, Depends, HTTPException, Query, Request
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.agent_envelope import (
@@ -17,10 +17,15 @@ from .. import state
 from ..config import settings
 from ..models import AgentRegistrationRequest, AgentStatusUpdate, IdentityRotationRequest
 from ..routing.agent_discovery import create_agent_info
+from ..services.agent_auth import AgentPrincipal, authorize_agent_scope, optional_agent
 from ..services.nonce_store import REGISTRATION_NONCE_TTL_SECONDS, get_nonce_store
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+# Resolves the caller's principal if credentials are present, ``None``
+# otherwise — scope enforcement is flag-driven via agent_msg_signature_mode.
+OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 
 
 def _verify_identity_attestation(request: AgentRegistrationRequest, expected_address: str) -> bool:
@@ -201,8 +206,16 @@ async def get_agent(request: Request, agent_id: str) -> dict[str, Any]:
 
 @router.put("/agents/{agent_id}/status")
 @rate_limit(rate=50, per=60)
-async def update_agent_status(request: Request, agent_id: str, request_status: AgentStatusUpdate) -> dict[str, Any]:
-    """Update agent status"""
+async def update_agent_status(
+    request: Request, agent_id: str, request_status: AgentStatusUpdate, principal: OptionalAgent
+) -> dict[str, Any]:
+    """Update agent status.
+
+    Phase C agent-scoped: ``enforce`` requires a principal bound to
+    ``agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin;
+    ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_agent_scope(principal, agent_id, "agent_status")
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
@@ -310,8 +323,14 @@ async def rotate_agent_identity(request_http: Request, agent_id: str, request: I
 
 @router.post("/agents/{agent_id}/heartbeat")
 @rate_limit(rate=100, per=60)
-async def agent_heartbeat(request: Request, agent_id: str) -> dict[str, Any]:
-    """Receive heartbeat from agent"""
+async def agent_heartbeat(request: Request, agent_id: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Receive heartbeat from agent.
+
+    Phase C agent-scoped: ``enforce`` requires a principal bound to
+    ``agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin;
+    ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_agent_scope(principal, agent_id, "heartbeat")
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
