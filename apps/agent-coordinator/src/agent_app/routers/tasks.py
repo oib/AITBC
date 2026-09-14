@@ -78,29 +78,17 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
     the submission carries no payment or escrow is disabled/unavailable."""
     if not (request.payment and settings.task_payment_escrow_enabled and state.payment_escrow):
         return None, None, None
-    try:
-        escrow = state.payment_escrow.create_escrow(
-            task_id=task_id,
-            chain_id=chain_id,
-            requester=request.payment.requester,
-            agent=request.payment.agent,
-            amount=request.payment.amount,
-            fee=request.payment.fee,
-            timeout=request.payment.timeout_seconds,
-        )
-        contract_id = _lock_escrow_on_chain(escrow, request.payment, task_id)
-        escrow_status = escrow.status.value
-    except ValueError as e:
-        raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
-    except Exception:
-        # The exception text is the only place the chain error survives now
-        # that it no longer goes out in the response, so log the traceback.
-        logger.exception("On-chain escrow lock failed for task %s", task_id)
-        raise HTTPException(
-            status_code=502,
-            detail="On-chain escrow lock failed; the task was not submitted",
-        ) from None
-    return escrow.escrow_id, contract_id, escrow_status
+    escrow = state.payment_escrow.create_escrow(
+        task_id=task_id,
+        chain_id=chain_id,
+        requester=request.payment.requester,
+        agent=request.payment.agent,
+        amount=request.payment.amount,
+        fee=request.payment.fee,
+        timeout=request.payment.timeout_seconds,
+    )
+    contract_id = _lock_escrow_on_chain(escrow, request.payment, task_id)
+    return escrow.escrow_id, contract_id, escrow.status.value
 
 
 @router.post("/tasks/submit")
@@ -131,7 +119,18 @@ async def submit_task(
         task_id = request.task_data.get("task_id", str(uuid.uuid4()))
 
         # v0.6.5: create payment escrow if payment provided and escrow enabled
-        escrow_id, contract_id, escrow_status = _create_task_escrow(request, task_id, chain_id)
+        try:
+            escrow_id, contract_id, escrow_status = _create_task_escrow(request, task_id, chain_id)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
+        except Exception:
+            # The exception text is the only place the chain error survives now
+            # that it no longer goes out in the response, so log the traceback.
+            logger.exception("On-chain escrow lock failed for task %s", task_id)
+            raise HTTPException(
+                status_code=502,
+                detail="On-chain escrow lock failed; the task was not submitted",
+            ) from None
 
         await state.task_distributor.submit_task(
             request.task_data,
@@ -401,18 +400,13 @@ async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None
     body: dict[str, Any] = {}
     raw_body = await request.body()
     if raw_body:
-        try:
-            parsed = json.loads(raw_body)
-            if isinstance(parsed, dict):
-                body = parsed
-                if body.get("amount_units") is not None:
-                    amount_units = int(body["amount_units"])
-                    if amount_units <= 0 or amount_units > entry.amount:
-                        raise ValueError(f"amount_units must be in (0, {entry.amount}]")
-        except HTTPException:
-            raise
-        except ValueError as e:
-            raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
+        parsed = json.loads(raw_body)
+        if isinstance(parsed, dict):
+            body = parsed
+            if body.get("amount_units") is not None:
+                amount_units = int(body["amount_units"])
+                if amount_units <= 0 or amount_units > entry.amount:
+                    raise ValueError(f"amount_units must be in (0, {entry.amount}]")
     return amount_units, body
 
 
@@ -434,7 +428,10 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
     entry = state.payment_escrow.get_escrow_for_task(task_id)
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
-    amount_units, body = await _parse_complete_body(request, entry)
+    try:
+        amount_units, body = await _parse_complete_body(request, entry)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
     await _require_provider_signature(entry, "complete", task_id, body)
     try:
         # On-chain release only when the lock actually settled on-chain;
