@@ -6,6 +6,7 @@ implemented: funds go to a deterministic per-escrow address and the provider
 account is ensured.
 """
 
+from aitbc_chain.config import settings
 from aitbc_chain.state.pure_state_transition import _escrow_address, compute_state_delta
 from aitbc_chain.models import Account
 
@@ -264,3 +265,35 @@ def test_v2_escrow_release_uses_generic_path():
     assert delta.success
     assert delta.sender_balance_change == -11
     assert delta.recipient_balance_change == 10
+
+
+def test_v3_escrow_release_env_fallback_authority(monkeypatch):
+    """ESCROW_RELEASE_ADDRESS feeds the authority check when the settings field is empty."""
+    provider = "ait1provider"
+    wrong = "ait1wrong"
+    escrow_addr = _escrow_address("job-1")
+    account_map = {
+        wrong: Account(chain_id="test", address=wrong, balance=100, nonce=0),
+        escrow_addr: Account(chain_id="test", address=escrow_addr, balance=10, nonce=0),
+    }
+    tx = {
+        "from": wrong,
+        "to": provider,
+        "amount": 10,
+        "fee": 1,
+        "nonce": 0,
+        "type": "ESCROW_RELEASE",
+        "payload": {"job_id": "job-1"},
+    }
+    context = {
+        "job-1": {
+            "lock_version": 3,
+            "expected_beneficiary": provider,
+            "escrow_addr": escrow_addr,
+        }
+    }
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", "ait1authority")
+    delta = compute_state_delta(account_map, tx, "test", tx_hash="tx1", block_version=3, escrow_context=context)
+    assert not delta.success
+    assert "settlement authority" in delta.error
