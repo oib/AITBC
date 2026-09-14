@@ -111,27 +111,32 @@ def _build_join_credentials(
         data_dir / "genesis.json",
     ]
     for genesis_path in genesis_candidates:
-        if genesis_path.exists():
-            try:
-                with open(genesis_path) as f:
-                    genesis_data = json.load(f)
-                blocks = genesis_data.get("blocks", [])
-                if blocks:
-                    credentials["genesis_block_hash"] = blocks[0].get("hash", "")
-            except (OSError, json.JSONDecodeError):
-                pass
-            break
+        try:
+            found = genesis_path.exists()
+        except OSError:
+            continue
+        if not found:
+            continue
+        try:
+            with open(genesis_path) as f:
+                genesis_data = json.load(f)
+            blocks = genesis_data.get("blocks", [])
+            if blocks:
+                credentials["genesis_block_hash"] = blocks[0].get("hash", "")
+        except (OSError, json.JSONDecodeError):
+            pass
+        break
 
     keystore_path = Path("/var/lib/aitbc/keystore/validator_keys.json")
-    if keystore_path.exists():
-        try:
+    try:
+        if keystore_path.exists():
             with open(keystore_path) as f:
                 keys = json.load(f)
             for key_id in keys:
                 credentials["genesis_address"] = key_id
                 break
-        except (OSError, json.JSONDecodeError):
-            pass
+    except (OSError, json.JSONDecodeError):
+        pass
 
     return credentials
 
