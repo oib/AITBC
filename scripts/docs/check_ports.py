@@ -197,7 +197,6 @@ def inline_hits(
     text so that inline and fenced code ports are not invisible.
     """
     clean = line.replace("`", "")
-    low = clean.lower()
 
     # ARRAY and ENV patterns do not need name proximity; they name themselves.
     for m in ARRAY_RE.finditer(clean):
@@ -218,12 +217,12 @@ def inline_hits(
     # the current port to the previous service. Keep only context lines that are
     # prose/comment without their own port reference.
     context = [
-        l.replace("`", "")
-        for l in prev_lines
-        if not any(rx.search(l) for rx in INLINE_RES) and not ARRAY_RE.search(l)
+        prev.replace("`", "")
+        for prev in prev_lines
+        if not any(rx.search(prev) for rx in INLINE_RES) and not ARRAY_RE.search(prev)
     ]
     search_text = "\n".join(context) + "\n" + clean
-    context_offset = sum(len(l) + 1 for l in context)
+    context_offset = sum(len(prev) + 1 for prev in context)
     positions = _service_positions(search_text, names)
 
     for rx in INLINE_RES:
