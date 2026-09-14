@@ -4,6 +4,8 @@ from collections.abc import AsyncGenerator
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, async_sessionmaker, create_async_engine
 
+from aitbc.database.ssl_args import build_ssl_arg
+
 from .settings import settings
 
 _engine: AsyncEngine | None = None
@@ -13,11 +15,16 @@ _session_factory: async_sessionmaker[AsyncSession] | None = None
 def create_engine() -> AsyncEngine:
     global _engine, _session_factory
     if _engine is None:
+        # asyncpg TLS goes through connect_args -- a DSN cannot carry an
+        # SSLContext. `build_ssl_arg` resolves DB_SSLMODE/PGSSLMODE with a
+        # `prefer` default; it exists because asyncpg's own `~/.postgresql`
+        # lookups die under this unit's ProtectHome=yes sandbox.
         _engine = create_async_engine(
             settings.postgres_dsn,
             pool_size=settings.postgres_pool_max,
             max_overflow=0,
             pool_pre_ping=True,
+            connect_args={"ssl": build_ssl_arg()},
         )
         _session_factory = async_sessionmaker(
             bind=_engine,
