@@ -1,9 +1,9 @@
 import json
 import uuid
 from datetime import UTC, datetime
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, BackgroundTasks, HTTPException, Request
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Request
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -12,15 +12,36 @@ from .. import state
 from ..config import settings
 from ..models import TaskSubmission
 from ..routing.load_balancer import TaskPriority
+from ..services.agent_auth import (
+    AgentPrincipal,
+    authorize_admin_scope,
+    authorize_any_principal,
+    optional_agent,
+)
+from ..services.nonce_store import get_nonce_store
 
 logger = get_logger(__name__)
 router = APIRouter()
 
+# Resolves the caller's principal if credentials are present, ``None``
+# otherwise — the mode-gated gates decide what ``None`` means per endpoint.
+OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
+
 
 @router.post("/tasks/submit")
 @rate_limit(rate=50, per=60)
-async def submit_task(request_http: Request, request: TaskSubmission, background_tasks: BackgroundTasks) -> dict[str, Any]:
-    """Submit a task for distribution"""
+async def submit_task(
+    request_http: Request, request: TaskSubmission, background_tasks: BackgroundTasks, principal: OptionalAgent
+) -> dict[str, Any]:
+    """Submit a task for distribution.
+
+    Phase C: in ``enforce`` mode the call must carry a resolvable credential —
+    a buyer agent JWT, ``X-Agent-*`` signed headers or the shared operator key
+    (``advisory`` logs ``admin_auth_missing`` and allows; ``disabled`` is a
+    no-op). Any resolved principal may submit; payment escrows are bound to
+    the buyer by the lock transaction's own signature, not by this check.
+    """
+    authorize_any_principal(principal, "tasks_submit")
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
@@ -37,6 +58,7 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
         # v0.6.5: create payment escrow if payment provided and escrow enabled
         escrow_id: str | None = None
         contract_id: str | None = None
+        escrow_status: str | None = None
         if request.payment and settings.task_payment_escrow_enabled and state.payment_escrow:
             try:
                 escrow = state.payment_escrow.create_escrow(
@@ -49,7 +71,11 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
                     timeout=request.payment.timeout_seconds,
                 )
                 # v0.25: a buyer-signed lock_tx settles the escrow on-chain via
-                # /rpc/escrow/create; without it the lock stays bookkeeping-only.
+                # /rpc/escrow/create. Without one there is no lock anchor — and
+                # Phase C keeps the row PENDING instead of stamping a
+                # bookkeeping "locked" with no funds behind it: the executor
+                # gates work on tx_hash_lock/contract_id, and ``locked`` on the
+                # record must mean an on-chain anchor exists.
                 submitter = None
                 if state.escrow_rpc and (request.payment.lock_tx or request.payment.lock_signature):
                     from ..services.chain_escrow import make_lock_submitter
@@ -60,9 +86,9 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
                         request.payment.lock_tx,
                         request.payment.lock_signature,
                     )
-                state.payment_escrow.lock(escrow.escrow_id, submitter=submitter)
                 escrow_id = escrow.escrow_id
                 if submitter is not None:
+                    state.payment_escrow.lock(escrow.escrow_id, submitter=submitter)
                     contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
                     if contract_id:
                         # EscrowEntry.contract_id is the store's durable column;
@@ -71,6 +97,13 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
                         escrow.contract_id = contract_id
                         escrow.metadata["contract_id"] = contract_id
                         state.payment_escrow.persist_entry(escrow)
+                else:
+                    logger.info(
+                        "Escrow %s for task %s left PENDING — submission carried no lock anchor",
+                        escrow.escrow_id,
+                        task_id,
+                    )
+                escrow_status = escrow.status.value
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
             except Exception as e:
@@ -90,6 +123,7 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
             "chain_id": chain_id,
             "escrow_id": escrow_id,
             "contract_id": contract_id,
+            "escrow_status": escrow_status,
             "priority": request.priority,
             "submitted_at": datetime.now(UTC).isoformat(),
         }
@@ -138,8 +172,13 @@ async def get_queue_sizes(request: Request) -> dict[str, Any]:
 
 @router.post("/tasks/queues/{priority}/clear")
 @rate_limit(rate=50, per=60)
-async def clear_queue(request: Request, priority: str) -> dict[str, Any]:
-    """Clear a priority queue"""
+async def clear_queue(request: Request, priority: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Clear a priority queue.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "queues_clear")
     try:
         if not state.task_distributor:
             raise HTTPException(status_code=503, detail="Task distributor not available")
@@ -230,15 +269,73 @@ async def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
 _CALLER_SIG_MAX_SKEW_SECONDS = 300
 
 
-def _require_provider_signature(entry: Any, action: str, task_id: str, body: dict[str, Any]) -> None:
+async def _verify_agent_req_signature(agent: str, action: str, task_id: str, body: dict[str, Any]) -> None:
+    """Verify the Phase-B3 ``agent_signature`` (``aitbc-agent-req-v1``) form.
+
+    The claim is ``{"task_id","timestamp","nonce"}`` plus the action's binding
+    field — ``amount_units`` for ``complete`` (``or 0`` like the legacy form),
+    ``reason`` for ``fail`` when the body carries one. Anything the caller
+    asserts in those fields is covered by the signature; a stripped or
+    tampered field fails recovery. Timestamp freshness uses the same
+    ``agent_msg_max_skew_seconds`` window as ``X-Agent-*`` header auth, and the
+    nonce dedups under an ``escrow:<wallet>`` namespace so it cannot collide
+    with the ``(agent_id, nonce)`` header dedup — the executor sends the same
+    nonce in both places.
+    """
+    from aitbc.crypto.agent_envelope import recover_request_claim_signer
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    timestamp = body.get("timestamp")
+    nonce = body.get("nonce")
+    if not isinstance(timestamp, str) or not timestamp or not isinstance(nonce, str) or not nonce:
+        raise HTTPException(status_code=403, detail="agent_signature requires timestamp + nonce")
+    try:
+        signed_at = datetime.fromisoformat(timestamp)
+        if signed_at.tzinfo is None:
+            signed_at = signed_at.replace(tzinfo=UTC)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="Invalid timestamp") from None
+    if abs((datetime.now(UTC) - signed_at).total_seconds()) > settings.agent_msg_max_skew_seconds:
+        raise HTTPException(status_code=403, detail="Stale caller signature")
+    claim: dict[str, Any] = {"task_id": task_id, "timestamp": timestamp, "nonce": nonce}
+    if action == "complete":
+        claim["amount_units"] = body.get("amount_units") or 0
+    elif "reason" in body:
+        claim["reason"] = body.get("reason")
+    recovered = recover_request_claim_signer(claim, body.get("agent_signature"))
+    if recovered is None or canonical_address(recovered) != canonical_address(agent):
+        raise HTTPException(status_code=403, detail="Caller signature does not match escrow provider")
+    if not await get_nonce_store().check_request_nonce(f"escrow:{agent.lower()}", nonce, settings.agent_msg_max_skew_seconds):
+        raise HTTPException(status_code=403, detail="nonce_replayed")
+
+
+async def _require_provider_signature(entry: Any, action: str, task_id: str, body: dict[str, Any]) -> None:
     """Require the caller to prove control of the escrow's provider wallet.
 
-    ``entry.agent`` is the address the escrow pays; the request body must carry
-    ``signature`` + ``signed_at`` where the signature is a secp256k1 signature
-    over the canonical JSON of ``{"action", "task_id", "signed_at"}`` (plus
-    ``amount_units`` for ``complete``) — the ``recover_signer`` convention.
+    ``entry.agent`` is the address the escrow pays. Two signature forms are
+    accepted — either one must recover to that address:
+
+    * **legacy** (commit ``23ad910d6``): ``signature`` + ``signed_at``, a
+      ``recover_signer`` secp256k1 signature over the canonical JSON of
+      ``{"action","task_id","signed_at"}`` (plus ``amount_units`` for
+      ``complete``).
+    * **req-v1** (Phase B3): ``agent_signature`` + ``timestamp`` + ``nonce``,
+      over ``{"task_id","timestamp","nonce"[,"amount_units"|"reason"]}`` in the
+      ``aitbc-agent-req-v1`` domain — the same domain-separated scheme the
+      ``X-Agent-*`` headers use, carried in the body so the signed bytes cover
+      the action's own fields.
+
+    Accepting both is the reconciliation choice: the executor emits both forms
+    today (B3), the legacy check is the live contract other callers already
+    satisfy, and a req-v1-only caller is equally bound to the provider key —
+    neither form is weaker than the other, so the endpoint stays caller-bound
+    while the fleet migrates.
+
     Bookkeeping escrows with an empty ``agent`` stay callable unsigned (the
-    internal/test path); every escrow with a bound provider requires the proof.
+    internal/test path); every escrow with a bound provider requires one of
+    the two proofs. Semantics unchanged: ``complete`` and ``fail`` are both
+    provider-signed actions — the provider releases its own payment or reports
+    its own failure; buyer-side refunds arrive via the timeout sweeper.
     """
     from aitbc.crypto.crypto import recover_signer
 
@@ -247,20 +344,27 @@ def _require_provider_signature(entry: Any, action: str, task_id: str, body: dic
         return
     signature = body.get("signature")
     signed_at = body.get("signed_at")
-    if not isinstance(signature, str) or not signature or signed_at is None:
-        raise HTTPException(status_code=403, detail="Provider signature required (signature + signed_at)")
-    try:
-        skew = abs(datetime.now(UTC).timestamp() - float(signed_at))
-    except (TypeError, ValueError):
-        raise HTTPException(status_code=403, detail="Invalid signed_at") from None
-    if skew > _CALLER_SIG_MAX_SKEW_SECONDS:
-        raise HTTPException(status_code=403, detail="Stale caller signature")
-    signed: dict[str, Any] = {"action": action, "task_id": task_id, "signed_at": signed_at}
-    if action == "complete":
-        signed["amount_units"] = body.get("amount_units") or 0
-    recovered = recover_signer(signed, signature)
-    if not recovered or recovered.lower() != agent.lower():
+    if isinstance(signature, str) and signature and signed_at is not None:
+        try:
+            skew = abs(datetime.now(UTC).timestamp() - float(signed_at))
+        except (TypeError, ValueError):
+            raise HTTPException(status_code=403, detail="Invalid signed_at") from None
+        if skew > _CALLER_SIG_MAX_SKEW_SECONDS:
+            raise HTTPException(status_code=403, detail="Stale caller signature")
+        signed: dict[str, Any] = {"action": action, "task_id": task_id, "signed_at": signed_at}
+        if action == "complete":
+            signed["amount_units"] = body.get("amount_units") or 0
+        recovered = recover_signer(signed, signature)
+        if recovered and recovered.lower() == agent.lower():
+            return
         raise HTTPException(status_code=403, detail="Caller signature does not match escrow provider")
+    if body.get("agent_signature"):
+        await _verify_agent_req_signature(agent, action, task_id, body)
+        return
+    raise HTTPException(
+        status_code=403,
+        detail="Provider signature required (signature + signed_at, or agent_signature + timestamp + nonce)",
+    )
 
 
 @router.post("/tasks/{task_id}/complete")
@@ -272,7 +376,9 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
     locked escrow; the unbilled remainder is refunded to the buyer on-chain.
     Requires a signature from the escrow's provider wallet (``entry.agent``)
     over ``{"action","task_id","signed_at","amount_units"}`` — only the party
-    that will be paid may release the escrow.
+    that will be paid may release the escrow. The Phase-B3 ``agent_signature``
+    (req-v1) form over ``{"task_id","amount_units","timestamp","nonce"}`` is
+    accepted equivalently — see ``_require_provider_signature``.
     """
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
@@ -295,7 +401,7 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
             raise
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
-    _require_provider_signature(entry, "complete", task_id, body)
+    await _require_provider_signature(entry, "complete", task_id, body)
     try:
         # On-chain release only when the lock actually settled on-chain;
         # bookkeeping-only escrows stay off-chain.
@@ -327,7 +433,9 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
 
     Requires a signature from the escrow's provider wallet over
     ``{"action","task_id","signed_at"}`` — the provider reports its own
-    failure. Buyer-side refunds happen via the escrow timeout sweeper, not
+    failure; the Phase-B3 ``agent_signature`` (req-v1) form over
+    ``{"task_id","reason","timestamp","nonce"}`` is accepted equivalently.
+    Buyer-side refunds happen via the escrow timeout sweeper, not
     this endpoint.
     """
     if not state.payment_escrow:
@@ -344,7 +452,7 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
                 body = parsed
         except ValueError:
             body = {}
-    _require_provider_signature(entry, "fail", task_id, body)
+    await _require_provider_signature(entry, "fail", task_id, body)
     try:
         submitter = None
         if state.escrow_rpc and entry.tx_hash_lock:
@@ -424,8 +532,13 @@ async def get_escrow_config(request: Request) -> dict[str, Any]:
 
 @router.post("/tasks/escrow/expire-stale")
 @rate_limit(rate=10, per=60)
-async def expire_stale_escrows(request: Request) -> dict[str, Any]:
-    """Expire and refund all stale escrows that have passed their timeout (v0.6.5)."""
+async def expire_stale_escrows(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+    """Expire and refund all stale escrows that have passed their timeout (v0.6.5).
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "escrow_expire_stale")
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
     from ..lifespan import _escrow_refund_submitter

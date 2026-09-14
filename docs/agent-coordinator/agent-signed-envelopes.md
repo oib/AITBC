@@ -1,12 +1,27 @@
 # Agent-signed message envelopes (v2.0 design)
 
-**Status:** design — **not implemented** for message envelopes. Deferred work
-item from the 2026-09-14 operator decisions; this document is the agreed shape
-for when v2.0 picks it up. One piece shipped early (commit `23ad910d6`,
-2026-09-14): `POST /v1/tasks/{id}/complete` and `/fail` now require a secp256k1
-signature from the escrow's provider wallet (`entry.agent`) over
-`{action, task_id, signed_at[, amount_units]}` — the money-moving REST calls are
-caller-bound even though message envelopes remain unsigned.
+**Status:** partially implemented. Deferred work item from the 2026-09-14
+operator decisions; this document is the agreed shape and the landing record:
+
+* Phase A (`644201cfa`): envelope schema + `aitbc/crypto/agent_envelope.py`
+  helpers, `AGENT_MSG_SIGNATURE_MODE` (disabled|advisory|enforce),
+  registration attestation, identity rotation.
+* Phase B1 (`70029605c`): `services/agent_auth.py` principals — agent JWT
+  login (`/api/v1/agent/auth/{nonce,login}`), `X-Agent-*` signed-request
+  headers, WebSocket principal binding, enforce-mode scoping on
+  inbox/history/subscribe/read.
+* Phase B2 (`0a3fb256f`): the CLI signs envelopes and read requests
+  (`aitbc-agent-req-v1`).
+* Phase B3 (`4d838285d`): the executor signs envelopes; complete/fail emit
+  both the legacy `signature`/`signed_at` form and the req-v1
+  `agent_signature` body field.
+* Phase C (this phase): the remaining server-side authorization — see §9b.
+
+One piece shipped even earlier (commit `23ad910d6`, 2026-09-14):
+`POST /v1/tasks/{id}/complete` and `/fail` require a secp256k1 signature from
+the escrow's provider wallet (`entry.agent`) over
+`{action, task_id, signed_at[, amount_units]}` — the money-moving REST calls
+are caller-bound even though message envelopes were still unsigned.
 
 **Applies to:** `apps/agent-coordinator` (`/api/v1/agent/messages/*`,
 `/v1/agents/*`), `apps/miner/agent_task_executor.py`,
@@ -255,6 +270,65 @@ for a non-admin principal returns only records it is a party to and never
 reaches `get_all_messages`; `is_admin` principals (operator key, admin JWT)
 keep the full view. `advisory` logs `agent_authz_mismatch` and allows.
 
+## 9b. Phase C — server-side authorization and signature reconciliation
+
+Phase B authenticated callers on the messaging surface; Phase C extends the
+same principal machinery to the rest of the coordinator's control plane and
+reconciles the two escrow-call signature schemes.
+
+**Caller-binding on escrow complete/fail — two accepted forms.** The B3
+executor emits both a legacy `signature` (`recover_signer` over
+`{"action","task_id","signed_at"[,"amount_units"]}`, the live check since
+`23ad910d6`) and `agent_signature` (req-v1 over
+`{"task_id","timestamp","nonce","amount_units"|"reason"}`).
+`_require_provider_signature` accepts either — both recover `entry.agent`,
+so neither is weaker; accepting both keeps the endpoint caller-bound while
+the fleet migrates. The req-v1 form enforces the
+`agent_msg_max_skew_seconds` timestamp window and dedups the nonce under an
+`escrow:<wallet>` namespace (deliberately distinct from the `(agent_id,
+nonce)` header namespace — the executor sends one nonce in both places).
+Semantics are unchanged: complete and fail are both provider-signed actions;
+buyer-side refunds still arrive via the timeout sweeper.
+
+**Admin/operator gates.** `POST /api/v1/agent/messages/broadcast`,
+`PUT …/load-balancer/strategy`, `POST …/peers/add|remove`,
+`GET …/peers[/{agent_id}]`, `GET …/load-balancer/stats`,
+`GET …/registry/stats`, `POST /v1/tasks/escrow/expire-stale` and
+`POST /v1/tasks/queues/{priority}/clear` take an `optional_agent` principal.
+In `enforce`: no principal → 401, non-`is_admin` principal → 403 (`is_admin`
+is held by the shared operator key and admin/operator JWTs). In `advisory`:
+a missing principal logs `admin_auth_missing`, a non-admin one logs
+`scope_mismatch`, and the call is allowed. `disabled` changes nothing. The
+broadcast's stored `sender_id` stays the derived `agent-coordinator` — the
+call speaks as the coordinator, never as the authenticated caller.
+
+**Agent-scoped routes.** `PUT /v1/agents/{id}/status` and
+`POST /v1/agents/{id}/heartbeat` go through `authorize_agent_scope`:
+`enforce` requires the principal's `agent_id` to equal the path's (or an
+admin); `advisory` logs `admin_auth_missing` (anonymous) /
+`agent_authz_mismatch` (wrong agent) and allows. `POST
+/api/v1/agent/keys/register` adds one rule on top: a non-admin principal must
+carry an `identity_address` binding (every agent credential does; a bare user
+JWT does not), and the stored key record is stamped with that address so the
+key's provenance is auditable.
+
+**`POST /v1/tasks/submit`.** `enforce` requires any resolved principal (buyer
+agent JWT, signed headers, operator key). Separately — in every mode — a
+`payment` without a lock anchor (`lock_tx`/`lock_signature`) now leaves the
+escrow `pending` instead of stamping a bookkeeping `locked`: `locked` on the
+record means an on-chain anchor exists (`tx_hash_lock`/`contract_id`), which
+is exactly what the executor's acceptance gate checks. An anchorless payment
+therefore gets cleanly rejected at quote time rather than driving free work
+or a phantom release. The response gained an `escrow_status` field so the
+caller sees `pending` vs `locked` directly.
+
+**`REQUEST_COINS` over WebSocket.** `request_coins_handler` binds the payout
+destination to the connection's authenticated wallet (the registry-bound
+identity the `?token=` principal proved): `enforce` requires
+`wallet_address` to equal it — a connection without an authenticated wallet
+(including the operator principal) cannot name an address; `advisory` logs
+`coin_wallet_mismatch` and allows; `disabled` is unchanged.
+
 ## 10. Implementation map (for v2.0 pickup)
 
 | File | Change |
@@ -262,12 +336,15 @@ keep the full view. `advisory` logs `agent_authz_mismatch` and allows.
 | `aitbc/crypto/` | `sign_agent_envelope(dict) -> str`, `verify_agent_envelope(dict, sig, expected) -> bool` — thin wrappers over `signature_recovery` + canonical-JSON + domain prefix |
 | `protocols/communication.py` | `AgentMessage.signature/signer/signature_version`; `signing_payload()` returning the canonical signed dict |
 | `routers/messages.py` | `SendMessageRequest.signature/signer/signature_version`; ingress verify hook; `signature_status` in stored record and inbox/history responses |
-| `routers/tasks.py` | ✅ shipped (`23ad910d6`): `complete`/`fail` require `entry.agent` signature — the same `recover_signer` convention, without envelopes |
-| `routers/agents.py` + `routing/agent_discovery.py` | `identity_address` field, registration attestation, `PUT /{id}/identity` rotation |
+| `routers/tasks.py` | ✅ shipped (`23ad910d6` + Phase C): `complete`/`fail` require `entry.agent` proof — legacy `signature`/`signed_at` or req-v1 `agent_signature`; `submit` is principal-gated in enforce and stamps `pending` without a lock anchor; `expire-stale`/`queues/{p}/clear` are admin-gated |
+| `routers/agents.py` + `routing/agent_discovery.py` | ✅ shipped: `identity_address` field, registration attestation, `PUT /{id}/identity` rotation; Phase C: `PUT /{id}/status` + `POST /{id}/heartbeat` are agent-scoped |
 | `config.py` | `AGENT_MSG_SIGNATURE_MODE`, timestamp-skew constant |
 | `apps/miner/agent_task_executor.py` | sign outbound envelopes; verify inbound; ignore invalid |
 | `cli/aitbc_cli/commands/agent_task.py`, `agent.py` (`agent-msg`) | sign with wallet/dedicated key; `--no-verify` escape hatch for advisory debugging |
-| `apps/agent-coordinator/tests/` | spoofed sender rejected, tampered payload rejected, replay rejected, rotation honored, advisory-mode passthrough |
+| `routers/messages.py` admin surface | ✅ Phase C: `broadcast`, `load-balancer/*`, `peers/*`, `registry/stats` admin-gated in enforce |
+| `routers/keys.py` | ✅ Phase C: `keys/register` is agent-scoped and stamps the principal's bound `identity_address` |
+| `websocket/agent_stream.py` | ✅ Phase C: `REQUEST_COINS` binds `wallet_address` to the connection's authenticated wallet in enforce |
+| `apps/agent-coordinator/tests/` | spoofed sender rejected, tampered payload rejected, replay rejected, rotation honored, advisory-mode passthrough; Phase C: `test_phase_c_auth.py` covers the gates, both escrow signature forms and the coin-request wallet binding |
 
 ## 11. Open questions
 
