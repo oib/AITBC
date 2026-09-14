@@ -18,7 +18,7 @@ from .routers.sla import router as sla_router
 from .routers.ui import router as ui_router
 from .routers.validation import router as validation_router
 
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="pool-hub", to_file=True)
 logger = get_logger(__name__)
 
 

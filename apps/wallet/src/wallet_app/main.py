@@ -17,7 +17,7 @@ from .api_rest import router as receipts_router
 from .bridge import init_db, start_monitoring, start_withdrawal_monitoring
 from .settings import settings
 
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="wallet", to_file=True)
 logger = get_logger(__name__)
 
 
