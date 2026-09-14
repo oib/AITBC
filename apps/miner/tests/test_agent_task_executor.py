@@ -146,7 +146,7 @@ class TestExecution:
         monkeypatch.setattr(ate, "_ipfs_cat", lambda cid: b"audio-bytes")
         monkeypatch.setattr(ate, "_ipfs_add", lambda data, filename="r": "bafyResult")
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", lambda req, payload: b'{"text":"hello"}')
-        monkeypatch.setattr(ate, "_complete_task", lambda t, amount_units=None: {"tx_hash_release": "0xrel"})
+        monkeypatch.setattr(ate, "_complete_task", lambda t, w, amount_units=None: {"tx_hash_release": "0xrel"})
 
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["executed"] == 1
@@ -172,7 +172,7 @@ class TestExecution:
 
         monkeypatch.setitem(ate.SERVICE_HANDLERS, "whisper", boom)
         failed = []
-        monkeypatch.setattr(ate, "_fail_task", lambda t: failed.append(t))
+        monkeypatch.setattr(ate, "_fail_task", lambda t, w: failed.append(t))
         stats = ate.sweep_once(PROVIDER, PRICE_TABLE)
         assert stats["failed"] == 1
         assert failed == ["t-1"]
@@ -214,3 +214,69 @@ class TestServiceHandlers:
         monkeypatch.setattr(ate.requests, "post", fake_post)
         ate._exec_ipfs({"payload_ref": "QmPinned"}, b"")
         assert captured["params"]["arg"] == "QmPinned"
+
+
+class TestEscrowCallerSigning:
+    """complete/fail calls must carry a signature from the provider wallet key."""
+
+    def test_signed_body_recovers_provider(self, monkeypatch):
+        from aitbc.crypto.crypto import (
+            derive_ethereum_address,
+            generate_ethereum_private_key,
+            recover_signer,
+        )
+
+        pk = generate_ethereum_private_key()
+        addr = derive_ethereum_address(pk)
+        monkeypatch.setenv("AGENT_EXECUTOR_SIGNING_KEY", pk)
+        body = ate._signed_body("complete", "t-1", addr, {"amount_units": 5})
+        signed = {k: body[k] for k in ("action", "task_id", "signed_at", "amount_units")}
+        assert recover_signer(signed, body["signature"]) == addr
+
+    def test_signing_key_from_wallet_file(self, tmp_path, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        monkeypatch.delenv("AGENT_EXECUTOR_SIGNING_KEY", raising=False)
+        pk = generate_ethereum_private_key()
+        addr = derive_ethereum_address(pk)
+        wallet_file = tmp_path / "w.json"
+        wallet_file.write_text(json.dumps({"address": addr, "private_key": pk}))
+        monkeypatch.setenv("MINER_WALLET_KEY_FILE", str(wallet_file))
+        assert ate._provider_signing_key(addr) == pk
+
+    def test_signing_key_file_address_mismatch_rejected(self, tmp_path, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        monkeypatch.delenv("AGENT_EXECUTOR_SIGNING_KEY", raising=False)
+        pk = generate_ethereum_private_key()
+        wallet_file = tmp_path / "w.json"
+        wallet_file.write_text(json.dumps({"address": derive_ethereum_address(pk), "private_key": pk}))
+        monkeypatch.setenv("MINER_WALLET_KEY_FILE", str(wallet_file))
+        assert ate._provider_signing_key("0x" + "ab" * 20) is None
+
+    def test_no_key_sends_unsigned_with_warning(self, monkeypatch):
+        monkeypatch.delenv("AGENT_EXECUTOR_SIGNING_KEY", raising=False)
+        monkeypatch.setenv("MINER_WALLET_KEY_FILE", "/nonexistent/key.json")
+        body = ate._signed_body("fail", "t-1", PROVIDER)
+        assert "signature" not in body
+        assert body["action"] == "fail"
+
+    def test_complete_sends_signed_body(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key, recover_signer
+
+        pk = generate_ethereum_private_key()
+        addr = derive_ethereum_address(pk)
+        monkeypatch.setenv("AGENT_EXECUTOR_SIGNING_KEY", pk)
+        captured = {}
+
+        def fake_post(url, **kwargs):
+            captured["json"] = kwargs.get("json")
+            return _resp({"tx_hash_release": "0xabc"})
+
+        monkeypatch.setattr(ate.requests, "post", fake_post)
+        out = ate._complete_task("t-9", addr, amount_units=7)
+        assert out["tx_hash_release"] == "0xabc"
+        body = captured["json"]
+        signed = {k: body[k] for k in ("action", "task_id", "signed_at", "amount_units")}
+        assert signed == {"action": "complete", "task_id": "t-9", "signed_at": body["signed_at"], "amount_units": 7}
+        assert recover_signer(signed, body["signature"]) == addr
