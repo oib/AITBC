@@ -2,592 +2,262 @@
 
 ## Overview
 
-The enhanced AITBC CLI provides comprehensive marketplace tools for GPU computing, resource management, and global marketplace operations. This guide covers all CLI commands for marketplace participants.
+The `aitbc` CLI (0.10.18) exposes the marketplace through the top-level **`aitbc market`** group: GPU/software offers published by shop miners and backed by the coordinator, paid job execution with metered on-chain escrow, IPFS hosting rentals, protected fixed-duration GPU rentals, ratings, and the ETH↔AIT exchange bridge.
 
-## 🏪 Marketplace Command Group
+> **There is no `aitbc marketplace` command group.** The old global chain-listings group has been removed from the CLI; `aitbc market` is the only marketplace surface. The related `aitbc operations …` group still exists but is deprecated and hidden from `aitbc --help`.
 
-### Basic Marketplace Operations
-
-```bash
-# List all marketplace resources
-aitbc marketplace list
-
-# List available GPUs with details
-aitbc marketplace gpu list
-
-# List GPUs by region
-aitbc marketplace gpu list --region us-west
-
-# List GPUs by model
-aitbc marketplace gpu list --model rtx4090
-
-# List GPUs by price range
-aitbc marketplace gpu list --max-price 0.05
-```
-
-### GPU Offer Management
-
-#### Create GPU Offer
+All `aitbc market` subcommands share the group-level wallet options:
 
 ```bash
-# Basic GPU offer
-aitbc marketplace offer create \
-  --miner-id gpu_miner_123 \
-  --gpu-model "RTX-4090" \
-  --gpu-memory "24GB" \
-  --price-per-hour "0.05" \
-  --models "gpt2,llama" \
-  --endpoint "http://localhost:11434"
-
-# Advanced GPU offer with more options
-aitbc marketplace offer create \
-  --miner-id gpu_miner_456 \
-  --gpu-model "A100" \
-  --gpu-memory "40GB" \
-  --gpu-count 4 \
-  --price-per-hour "0.10" \
-  --models "gpt4,claude,llama2" \
-  --endpoint "http://localhost:11434" \
-  --region us-west \
-  --availability "24/7" \
-  --min-rental-duration 1h \
-  --max-rental-duration 168h \
-  --performance-tier "premium"
+aitbc market --wallet <name> <command> …
+aitbc market --wallet-path /path/to/wallet.json --password-file /path/to/pw <command> …
 ```
 
-#### List and Manage Offers
+The global `--output table|json|yaml|csv` option applies to most commands.
+
+## Marketplace Command Group (`aitbc market`)
+
+### Offers (provider/shop side)
+
+#### Publish an offer
+
+`aitbc market offer` lists a hardware and software bundle offer. `--service-type` is one of `ollama`, `whisper`, `ffmpeg`, `ipfs`, `hermes`. GPU details are auto-detected from `nvidia-smi` when omitted; a `--model-or-variant` ending in `:cloud` marks a cloud deployment; `ipfs` offers need no GPU.
 
 ```bash
-# List your offers
-aitbc marketplace offers --miner-id gpu_miner_123
+# Ollama inference offer, priced per 1k tokens (default unit)
+aitbc market offer --service-type ollama --model-or-variant llama3 --price 1.0
 
-# List all active offers
-aitbc marketplace offers --status active
+# Whisper transcription offer, priced per audio minute
+aitbc market offer --service-type whisper --model-or-variant base --price 0.5 --unit per_audio_min
 
-# Update offer pricing
-aitbc marketplace offer update \
-  --offer-id offer_789 \
-  --price-per-hour "0.06"
+# Hermes agent offer, priced per minute
+aitbc market offer --service-type hermes --model-or-variant default --price 0.1 --unit per_minute
 
-# Deactivate offer
-aitbc marketplace offer deactivate --offer-id offer_789
-
-# Reactivate offer
-aitbc marketplace offer activate --offer-id offer_789
-
-# Delete offer permanently
-aitbc marketplace offer delete --offer-id offer_789
+# IPFS hosting offer with a per-customer disk quota
+aitbc market offer --service-type ipfs --model-or-variant ipfs-host --price 0.2 --unit per_day --disk-quota-mb 100
 ```
 
-### GPU Rental Operations
+Other options: `--unit` (`per_1k_tokens`, `per_audio_min`, `per_gb`, `per_processing_hour`, `per_minute`, `per_day`), `--description`, `--context-window`, `--gpu-name`, `--gpu-device`, `--gpu-offer-id`.
 
-#### Rent GPU
+#### List and manage offers
 
 ```bash
-# Basic GPU rental
-aitbc marketplace gpu rent \
-  --gpu-id gpu_789 \
-  --duration 2h
+# List all marketplace offers (optionally filtered / sorted)
+aitbc market list
+aitbc market list --service-type ollama --status active
+aitbc market list --provider 0x…
+aitbc market list --sort reputation        # also: price | availability | default
+aitbc market list --mine                   # only offers from the local wallet/node
 
-# Advanced GPU rental
-aitbc marketplace gpu rent \
-  --gpu-id gpu_789 \
-  --duration 4h \
-  --auto-renew \
-  --max-budget 1.0
+# List software offers published by this provider
+aitbc market offer-list
+aitbc market offer-list --service-type ipfs --status active
 
-# Rent by specifications
-aitbc marketplace gpu rent \
-  --gpu-model "RTX-4090" \
-  --gpu-memory "24GB" \
-  --duration 2h \
-  --region us-west
+# Disable/unregister an offer by plugin ID
+aitbc market offer-disable --plugin-id ipfs-ipfs-host
 ```
 
-#### Manage Rentals
+There is no CLI command to re-enable a disabled offer or to update pricing in place — publish a new offer and disable the old one.
+
+### Running paid jobs (buyer side)
+
+#### `aitbc market run` — one command per service type
+
+Runs a software offer and pays metered escrow. What `--prompt` means depends on the offer's `service_type`: a text prompt for `ollama`, an audio file path for `whisper`, a video file path for `ffmpeg`, a prompt for `hermes`, and a CID-or-file for `ipfs` hosting.
 
 ```bash
-# List active rentals
-aitbc marketplace rentals --status active
+# Ollama inference
+aitbc market run --offer-id-or-plugin-id offer-1 --prompt 'hello' --max-tokens 256 --stream
 
-# List rental history
-aitbc marketplace rentals --history
+# Whisper transcription (prompt is an audio file path)
+aitbc market run --offer-id-or-plugin-id offer-1 --prompt /tmp/audio.mp3 --language en --task transcribe --transcript-format srt
 
-# Extend rental
-aitbc marketplace rental extend \
-  --rental-id rental_456 \
-  --additional-duration 2h
+# FFmpeg video processing (prompt is a video file path)
+aitbc market run --offer-id-or-plugin-id offer-1 --prompt /tmp/in.mp4 --media-format webm --codec vp9 --resolution 720p --bitrate 10M
 
-# Cancel rental
-aitbc marketplace rental cancel --rental-id rental_456
+# Hermes agent prompt
+aitbc market run --offer-id-or-plugin-id offer-1 --prompt 'explain quantum computing' --max-time 120
 
-# Monitor rental usage
-aitbc marketplace rental monitor --rental-id rental_456
+# IPFS hosting (prompt is a CID or local file)
+aitbc market run --offer-id-or-plugin-id ipfs-ipfs-host --prompt Qm… --days 7 --pin
+
+# Record the job on the coordinator after a successful run
+aitbc market run --offer-id-or-plugin-id offer-1 --prompt 'hello' --track --proposer 0x…
 ```
 
-### Order Management
+#### Convenience wrappers
 
 ```bash
-# List all orders
-aitbc marketplace orders
+# Whisper transcription
+aitbc market transcribe --offer-id-or-plugin-id offer-1 --audio-file /tmp/audio.mp3 \
+  [--language en] [--task translate] [--output-format text|srt|json]
 
-# List orders by status
-aitbc marketplace orders --status pending
-aitbc marketplace orders --status completed
-aitbc marketplace orders --status cancelled
+# FFmpeg video processing
+aitbc market process --offer-id-or-plugin-id offer-1 --input-file /tmp/in.mp4 \
+  [--output-container webm] [--codec vp9] [--resolution 720p] [--bitrate 10M]
 
-# List your orders
-aitbc marketplace orders --miner-id gpu_miner_123
-
-# Order details
-aitbc marketplace order details --order-id order_789
-
-# Accept order
-aitbc marketplace order accept --order-id order_789
-
-# Reject order
-aitbc marketplace order reject --order-id order_789 --reason "GPU unavailable"
-
-# Complete order
-aitbc marketplace order complete --order-id order_789
+# Hermes one-shot prompt
+aitbc market hermes --offer-id-or-plugin-id hermes-default --prompt 'write a python fibonacci function' \
+  [--max-time 120] [--track] [--proposer 0x…]
 ```
 
-### Review and Rating System
+### IPFS hosting rentals
 
 ```bash
-# Leave review for miner
-aitbc marketplace review create \
-  --miner-id gpu_miner_123 \
-  --rating 5 \
-  --comment "Excellent performance, fast response"
+# Host a CID or local file through an ipfs offer for N days
+aitbc market host --offer-id-or-plugin-id ipfs-ipfs-host --cid-or-file Qm… --days 7 [--no-pin]
 
-# Leave review for renter
-aitbc marketplace review create \
-  --renter-id client_456 \
-  --rating 4 \
-  --comment "Good experience, minor delay"
-
-# List reviews for miner
-aitbc marketplace reviews --miner-id gpu_miner_123
-
-# List reviews for renter
-aitbc marketplace reviews --renter-id client_456
-
-# List your reviews
-aitbc marketplace reviews --my-reviews
-
-# Update review
-aitbc marketplace review update \
-  --review-id review_789 \
-  --rating 5 \
-  --comment "Updated: Excellent after support"
+# Retrieve hosted content by rental job, access token, or free CID
+aitbc market download --rental-id <job-id>
+aitbc market download --access-key <key> --access-secret <secret> --output-path /tmp/data.txt
+aitbc market download --cid Qm… --wait
 ```
 
-### Global Marketplace Operations
+### Job and order bookkeeping
 
 ```bash
-# List global marketplace statistics
-aitbc marketplace global stats
+# List marketplace jobs (filterable)
+aitbc market jobs [--service-type ipfs] [--state active] [--buyer-address 0x…] [--offer-id …] [--limit 100]
 
-# List regions
-aitbc marketplace global regions
+# Check an order/job including its on-chain escrow state
+aitbc market status --order-id <order-or-job-id>
 
-# Region-specific operations
-aitbc marketplace global offers --region us-west
-aitbc marketplace global rentals --region europe
-
-# Cross-chain operations
-aitbc marketplace global cross-chain \
-  --source-chain ethereum \
-  --target-chain polygon \
-  --amount 100
-
-# Global analytics
-aitbc marketplace global analytics --period 24h
-aitbc marketplace global analytics --period 7d
+# Cancel an active marketplace job and request a refund
+aitbc market cancel --job-id <job-id> [--reason buyer_requested]
 ```
 
-## 🔍 Search and Filtering
-
-### Advanced Search
+### Price discovery
 
 ```bash
-# Search GPUs by multiple criteria
-aitbc marketplace gpu list \
-  --model rtx4090 \
-  --memory-min 16GB \
-  --price-max 0.05 \
-  --region us-west
-
-# Search offers by availability
-aitbc marketplace offers search \
-  --available-now \
-  --min-duration 2h
-
-# Search by performance tier
-aitbc marketplace gpu list --performance-tier premium
-aitbc marketplace gpu list --performance-tier standard
+# Match GPU bids with offers for price discovery
+aitbc market match [--output json]
 ```
 
-### Filtering and Sorting
+`aitbc market providers` exists but is a stub: it prints "GPU provider query via P2P network to be implemented" and suggests `aitbc gpu list-gpus` for local GPUs and `aitbc market list` for published offers.
+
+## Protected GPU Rentals (`aitbc market gpu`)
+
+Fixed-duration GPU rentals priced by an operator-signed energy quote (energy floor). Settlement rail is `native` (on-chain escrow) or `evm` (AIPowerRental contract).
 
 ```bash
-# Sort by price (lowest first)
-aitbc marketplace gpu list --sort price
+# Request an operator-signed quote (verified locally before display)
+aitbc market gpu quote --gpu-id <gpu-id> --buyer-id <client-id> \
+  [--duration-hours 4] [--gpu-count 1] [--max-ait 10] [--settlement native|evm] [--json-output]
 
-# Sort by performance (highest first)
-aitbc marketplace gpu list --sort performance --descending
+# Fund a quoted rental (requires the saved quote JSON and a signing wallet)
+aitbc market gpu buy --gpu-id <gpu-id> --buyer-id <client-id> --job-id <job-id-from-quote> \
+  --duration-hours 4 --energy-quote quote.json [--wallet <name>] [--yes] [--json-output]
 
-# Filter by availability
-aitbc marketplace gpu list --available-only
-
-# Filter by minimum rental duration
-aitbc marketplace gpu list --min-duration 4h
+# Inspect / settle / refund a rental
+aitbc market gpu status --job-id <job-id>
+aitbc market gpu release --job-id <job-id> [--yes]
+aitbc market gpu refund --job-id <job-id> [--reason …] [--wallet <name>] [--yes]
 ```
 
-## 📊 Analytics and Reporting
+## On-Chain Escrow (`aitbc market escrow`)
 
-### Usage Analytics
-
-```bash
-# Personal usage statistics
-aitbc marketplace analytics personal
-
-# Spending analytics
-aitbc marketplace analytics spending --period 30d
-
-# Earnings analytics (for miners)
-aitbc marketplace analytics earnings --period 7d
-
-# Performance analytics
-aitbc marketplace analytics performance --gpu-id gpu_789
-```
-
-### Marketplace Analytics
-
-```bash
-# Overall marketplace statistics
-aitbc marketplace analytics market
-
-# Regional analytics
-aitbc marketplace analytics regions
-
-# Model popularity analytics
-aitbc marketplace analytics models
-
-# Price trend analytics
-aitbc marketplace analytics prices --period 7d
-```
-
-## ⚙️ Configuration and Preferences
-
-### Marketplace Configuration
-
-```bash
-# Set default preferences
-aitbc marketplace config set default-region us-west
-aitbc marketplace config set max-price 0.10
-aitbc marketplace config set preferred-model rtx4090
-
-# Show configuration
-aitbc marketplace config show
-
-# Reset configuration
-aitbc marketplace config reset
-```
-
-### Notification Settings
-
-```bash
-# Enable notifications
-aitbc marketplace notifications enable --type price-alerts
-aitbc marketplace notifications enable --type rental-reminders
-
-# Set price alerts
-aitbc marketplace alerts create \
-  --type price-drop \
-  --gpu-model rtx4090 \
-  --target-price 0.04
-
-# Set rental reminders
-aitbc marketplace alerts create \
-  --type rental-expiry \
-  --rental-id rental_456 \
-  --reminder-time 30m
-```
-
-## 🔧 Advanced Operations
-
-### Batch Operations
-
-```bash
-# Batch offer creation from file
-aitbc marketplace batch-offers create --file offers.json
-
-# Batch rental management
-aitbc marketplace batch-rentals extend --file rentals.json
-
-# Batch price updates
-aitbc marketplace batch-prices update --file price_updates.json
-```
-
-### Automation Scripts
-
-```bash
-# Auto-renew rentals
-aitbc marketplace auto-renew enable --max-budget 10.0
-
-# Auto-accept orders (for miners)
-aitbc marketplace auto-accept enable --min-rating 4
-
-# Auto-price adjustment
-aitbc marketplace auto-price enable --strategy market-based
-```
-
-### Integration Tools
-
-```bash
-# Export data for analysis
-aitbc marketplace export --format csv --file marketplace_data.csv
-
-# Import offers from external source
-aitbc marketplace import --file external_offers.json
-
-# Sync with external marketplace
-aitbc marketplace sync --source external_marketplace
-```
-
-## 🌍 Global Marketplace Features
-
-### Multi-Region Operations
-
-```bash
-# List available regions
-aitbc marketplace global regions
-
-# Region-specific pricing
-aitbc marketplace global pricing --region us-west
-
-# Cross-region arbitrage
-aitbc marketplace global arbitrage --source-region us-west --target-region europe
-```
-
-### Cross-Chain Operations
-
-```bash
-# List supported chains
-aitbc marketplace global chains
-
-# Cross-chain pricing
-aitbc marketplace global pricing --chain polygon
-
-# Cross-chain transactions
-aitbc marketplace global transfer \
-  --amount 100 \
-  --from-chain ethereum \
-  --to-chain polygon
-```
-
-## 🛡️ Security and Trust
-
-### Trust Management
-
-```bash
-# Check trust score
-aitbc marketplace trust score --miner-id gpu_miner_123
-
-# Verify miner credentials
-aitbc marketplace verify --miner-id gpu_miner_123
-
-# Report suspicious activity
-aitbc marketplace report \
-  --type suspicious \
-  --target-id gpu_miner_123 \
-  --reason "Unusual pricing patterns"
-```
-
-### Dispute Resolution
-
-```bash
-# Create dispute
-aitbc marketplace dispute create \
-  --order-id order_789 \
-  --reason "Performance not as advertised"
-
-# List disputes
-aitbc marketplace disputes --status open
-
-# Respond to dispute
-aitbc marketplace dispute respond \
-  --dispute-id dispute_456 \
-  --response "Offering partial refund"
-```
-
-## � Blockchain Escrow (`market escrow`)
-
-Escrow is automatically created when you accept a bid (`market accept`). Use the `market escrow` subgroup to manage escrow manually.
-
-### Check Escrow State
+Escrow is created automatically when a paid marketplace job is funded (`market run`, `market host`, `market gpu buy`); these commands inspect or settle it manually.
 
 ```bash
 # Show on-chain escrow state for a job
-aitbc market escrow status <job_id>
+aitbc market escrow status --job-id job-123
+
+# Release escrowed funds to the provider after job completion
+aitbc market escrow release --job-id job-123
+
+# Refund escrowed funds back to the buyer
+aitbc market escrow refund --job-id job-123 --reason "provider_failed"
+
+# Create an escrow manually (signs the escrow lock with a wallet)
+aitbc market escrow create --job-id job-123 --buyer 0x… --provider 0x… [--amount 100] [--wallet <name>]
 ```
 
-Example output:
-
-```json
-{
-  "job_id": "bid-abc123",
-  "contract_id": "f3adfe6920c69422",
-  "state": "created",
-  "amount": "102.500",
-  "released_amount": "0",
-  "buyer": "0xabc...",
-  "provider": "0xdef...",
-  "created_at": "2026-06-03T09:39:56",
-  "released_at": null
-}
-```
-
-### Release Escrow (Provider Receives Payment)
-
-```bash
-# Release escrowed funds to provider after job completion
-aitbc market escrow release <job_id>
-```
-
-### Refund Escrow (Buyer Gets Refund)
-
-```bash
-# Refund escrowed funds back to buyer
-aitbc market escrow refund <job_id>
-
-# Refund with a reason
-aitbc market escrow refund <job_id> --reason "provider_failed"
-```
-
-### Escrow Lifecycle
-
-When you run `aitbc market accept <bid_id>`:
-
-1. Blockchain transaction is submitted
-2. Escrow is **automatically created** on the blockchain node
-3. Funds are locked until `escrow release` or `escrow refund` is called
+Escrow lifecycle:
 
 ```
-market accept <bid_id>
+market run / host / gpu buy
       │
-      ├─→ Blockchain TX: GPU_MARKETPLACE/accept
-      └─→ POST /rpc/escrow/create (auto, non-fatal)
-               │
-               ▼
-          state: created
-               │
-      ┌────────┴────────┐
-      ▼                 ▼
-market escrow      market escrow
-  release            refund
-      │                 │
-  provider           buyer
-  receives           refunded
+      ├─→ marketplace tx + POST /rpc/escrow/create
+      │          │
+      │          ▼
+      │     state: created (funds locked)
+      │          │
+      ┌─────────┴─────────┐
+      ▼                   ▼
+market escrow       market escrow
+  release             refund
+      │                   │
+  provider             buyer
+  receives             refunded
 ```
 
-## �📝 Best Practices
-
-### For Miners
-
-1. **Competitive Pricing**: Use `aitbc marketplace analytics prices` to set competitive rates
-2. **High Availability**: Keep offers active and update availability regularly
-3. **Good Reviews**: Provide excellent service to build reputation
-4. **Performance Monitoring**: Use `aitbc marketplace analytics performance` to track GPU performance
-
-### For Renters
-
-1. **Price Comparison**: Use `aitbc marketplace gpu list --sort price` to find best deals
-2. **Review Check**: Use `aitbc marketplace reviews --miner-id` before renting
-3. **Budget Management**: Set spending limits and track usage with analytics
-4. **Rental Planning**: Use auto-renew for longer projects
-
-### For Both
-
-1. **Security**: Enable two-factor authentication and monitor account activity
-2. **Notifications**: Set up alerts for important events
-3. **Data Backup**: Regularly export transaction history
-4. **Market Awareness**: Monitor market trends and adjust strategies
-
-## 🔗 Integration Examples
-
-### Script Integration
+## Ratings
 
 ```bash
-#!/bin/bash
-# Find best GPU for specific requirements
-BEST_GPU=$(aitbc marketplace gpu list \
-  --model rtx4090 \
-  --max-price 0.05 \
-  --available-only \
-  --output json | jq -r '.[0].gpu_id')
+# Rate a service offer on a 1–5 scale (reviewer defaults to wallet address)
+aitbc market rate --service-id offer-1 --rating 5 [--comment 'great service']
 
-echo "Best GPU found: $BEST_GPU"
+# View ratings for an offer
+aitbc market ratings --service-id offer-1 [--limit 20] [--offset 0]
 
-# Rent the GPU
-aitbc marketplace gpu rent \
-  --gpu-id $BEST_GPU \
-  --duration 4h \
-  --auto-renew
+# Sync ratings to/from a remote marketplace node (URL via --remote-url or AITBC_MARKETPLACE_URL)
+aitbc market sync-ratings --remote-url https://<remote-host>
 ```
 
-### API Integration
+## ETH↔AIT Exchange (`aitbc market exchange`)
+
+Bridge operations for marketplace payments:
 
 ```bash
-# Export marketplace data for external processing
-aitbc marketplace gpu list --output json > gpu_data.json
-
-# Process with external tools
-python process_gpu_data.py gpu_data.json
-
-# Import results back
-aitbc marketplace import --file processed_offers.json
+aitbc market exchange price                          # current ETH–AIT rate
+aitbc market exchange status                         # bridge service status
+aitbc market exchange list-deposits [--status confirmed] [--limit 50]
+aitbc market exchange mint-ait --deposit-id dep-123  # mint AIT for a verified ETH deposit
+aitbc market exchange deposit-eth --amount 0.1 [--ait-address 0x…] [--bridge-address 0x…] [--gas 30000]
+aitbc market exchange withdraw-eth --amount 0.1 --address 0x…   # admin only
 ```
 
-## 🆕 Migration from Legacy Commands
+## Related Command Groups
 
-If you're transitioning from legacy marketplace commands:
+- `aitbc gpu` — **local** GPU inventory on this node: `discover`, `register`, `update`, `unregister`, `list-gpus`.
+- `aitbc gpu-onchain` — on-chain GPU registry records (`query`, `list`, `allocations`).
+- `aitbc http call marketplace <path>` — raw marketplace service (port 8102) API for anything the CLI does not wrap.
+- `aitbc dispute` — separate top-level group for dispute filing, evidence, arbitration, and payment rulings.
 
-| Legacy Command | Enhanced CLI Command |
-|---------------|----------------------|
-| `aitbc marketplace list` | `aitbc marketplace list` |
-| `aitbc marketplace gpu list` | `aitbc marketplace gpu list` |
-| `aitbc marketplace rent` | `aitbc marketplace gpu rent` |
-| `aitbc marketplace offers` | `aitbc marketplace offers` |
+## Not in the CLI
 
-## 📞 Support and Help
+Some capabilities described by older versions of this guide have **no CLI equivalent** today:
 
-### Command Help
+- An order-acceptance workflow (`accept`/`reject`/`complete` lifecycle) — providers fulfill jobs through the coordinator/miner pipeline; buyers track them with `aitbc market jobs` and `aitbc market status`.
+- Marketplace analytics, personal spending/earnings reports, regional filters, and price-trend reports.
+- CLI-managed notification/alert rules, batch offer files, auto-renew/auto-accept automation, and data export/import — use `--output json` and standard tools for export.
+- Two-sided (renter→miner and miner→renter) review management — `aitbc market rate` only rates service offers, and there is no review update command.
+- The `aitbc marketplace` chain-listings group (`list`/`search`/`buy`/`complete`) — removed from the CLI entirely; the `GlobalChainMarketplace` core module remains in `cli/aitbc_cli/core/marketplace.py` with no command surface.
+
+## Best Practices
+
+### For Providers
+
+1. **Competitive pricing**: check `aitbc market list --sort price` and `aitbc market match` before publishing.
+2. **Keep offers accurate**: `aitbc market offer-list` + `offer-disable` to prune stale listings.
+3. **Reputation matters**: `aitbc market list --sort reputation` ranks by coordinator trust score — good ratings win jobs.
+
+### For Buyers
+
+1. **Compare before buying**: `aitbc market list --sort reputation` then `aitbc market ratings --service-id <id>`.
+2. **Track jobs**: `aitbc market jobs` / `aitbc market status --order-id <id>` / `aitbc market escrow status --job-id <id>`.
+3. **Verify escrow settlement**: `ESCROW_RELEASE` transactions settle on-chain; check with `aitbc market escrow status`.
+
+## Command Help
 
 ```bash
-# General help
-aitbc marketplace --help
-
-# Specific command help
-aitbc marketplace gpu list --help
-aitbc marketplace offer create --help
-```
-
-### Troubleshooting
-
-```bash
-# Check marketplace status
-aitbc marketplace status
-
-# Test connectivity
-aitbc marketplace test-connectivity
-
-# Debug mode
-aitbc marketplace --debug
+aitbc market --help
+aitbc market escrow --help
+aitbc market gpu --help
+aitbc market exchange --help
+aitbc market run --help
 ```
 
 ---
 
-*This guide covers all AITBC CLI marketplace tools for GPU computing, resource management, and global marketplace operations.*
+*This guide covers the real `aitbc market` surface in CLI 0.10.18. If `aitbc market --help` does not list a command, it does not exist.*

@@ -1,12 +1,18 @@
 # Governance Integration
 
-Agent agents can participate in on-chain governance by creating proposals and voting.
+Agent agents can participate in governance by creating proposals and voting.
 
 ## CLI Commands
 
-- `aitbc operations governance vote <proposal_id> --vote <for|against> --wallet <wallet>` - Cast vote
-- `aitbc operations governance proposal --proposal-id <id> --title <title> --description <desc> --wallet <wallet>` - Create proposal
-- `aitbc operations governance get-proposal <proposal_id>` - Query proposal details
+The canonical group is `aitbc governance` (governance service, port 8105):
+
+- `aitbc governance propose --title <title> --description <desc> --proposer-id <id>` - Create proposal (the service assigns the proposal ID)
+- `aitbc governance vote --proposal-id <id> --voter-id <voter> --vote <for|against|abstain>` - Cast vote
+- `aitbc governance get --proposal-id <id>` - Query proposal details
+- `aitbc governance list` - List proposals
+- `aitbc governance close --proposal-id <id>` / `aitbc governance execute --proposal-id <id>` - Close and execute
+
+> **Deprecated path:** the wallet-signed on-chain RPC commands (`aitbc operations governance proposal|vote|get-proposal|voting-power|stake|delegate|execute`) still work but the `aitbc operations` group is deprecated and hidden from `aitbc --help`. Prefer `aitbc governance`.
 
 ## RPC Endpoints
 
@@ -17,27 +23,28 @@ Agent agents can participate in on-chain governance by creating proposals and vo
 ## Usage Example
 
 ```bash
-# Create a governance proposal
-aitbc operations governance proposal \
-  --proposal-id prop_test_001 \
+# Create a governance proposal (service assigns the proposal ID)
+aitbc governance propose \
   --title "Test Proposal" \
   --description "Testing governance integration" \
   --category general \
-  --wallet my-agent-wallet \
+  --proposer-id my-agent-profile \
+  --proposer-address 0x... \
   --voting-days 7
 
-# Query the proposal
-aitbc operations governance get-proposal prop_test_001
+# Query the proposal (use the proposal_id returned by propose)
+aitbc governance get --proposal-id prop_test_001
 
 # Cast a vote on the proposal
-aitbc operations governance vote prop_test_001 \
+aitbc governance vote \
+  --proposal-id prop_test_001 \
+  --voter-id my-agent-profile \
+  --voter-address 0x... \
   --vote for \
-  --wallet my-agent-wallet \
-  --voting-power 100 \
   --reason "Testing vote functionality"
 
 # Query proposal again to see vote count updated
-aitbc operations governance get-proposal prop_test_001
+aitbc governance get --proposal-id prop_test_001
 ```
 
 ## Use Cases

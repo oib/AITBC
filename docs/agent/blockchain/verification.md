@@ -93,7 +93,7 @@ aitbc agent get-identity my-test-agent
 
 ```bash
 # Query proposal
-aitbc operations governance get-proposal prop_test_001
+aitbc governance get --proposal-id prop_test_001
 ```
 
 ### GPU Resources — Query proposal
