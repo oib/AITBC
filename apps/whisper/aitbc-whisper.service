@@ -23,15 +23,21 @@ StandardOutput=journal
 StandardError=journal
 SyslogIdentifier=aitbc-whisper
 # Memory caps, sized from measurement rather than from a round number. The loaded
-# model plus the CUDA context peaks near 1.2G before a single request arrives, and
-# each request adds roughly 1G per ten minutes of audio: faster-whisper decodes the
-# whole clip, and the endpoint reads the whole upload before touching it. The old
-# MemoryMax=1G did not fit even the idle floor, so the cgroup reclaimed continuously
-# (memory.events max=3121, 27k file refaults) while never being OOM-killed -- the
-# failure mode was permanent thrashing, which reads as "healthy" in systemctl status.
-# MemoryHigh is the throttling band: past it the kernel applies reclaim pressure and
-# an unusually long clip finishes slowly instead of dying. MemoryMax remains the
-# backstop, and bounds what an oversized upload can cost the rest of the host.
+# model and CUDA context hold ~730M resident; a request adds roughly 1G of
+# transient allocation per ten minutes of audio, because faster-whisper decodes
+# the whole clip and the endpoint reads the whole upload before touching it. Cost
+# tracks clip length, not concurrency -- parallel requests serialise on the model
+# and cost little more than the longest one of them alone.
+#
+# The old MemoryMax=1G left ~270M for a transient that wants ~1G, so the cgroup
+# reclaimed continuously rather than ever being OOM-killed: memory.events max=3121
+# and 27k file refaults, while systemctl reported the unit active and healthy.
+# Permanent thrashing is what a hard cap below the working set produces, and
+# nothing short of reading memory.events makes it visible.
+#
+# MemoryHigh is the throttling band: a ten-minute clip peaks near 1.34G, so 2G
+# means an unusually long one is slowed by reclaim instead of killed. MemoryMax is
+# the backstop, and bounds what an oversized upload can cost the rest of the host.
 MemoryHigh=2G
 MemoryMax=3G
 # Security hardening (v0.5.0)
