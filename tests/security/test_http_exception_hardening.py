@@ -1,4 +1,10 @@
-"""Security hardening tests for HTTPException 5xx detail strings."""
+"""Security hardening tests for 5xx response bodies.
+
+A 5xx body is written for an untrusted caller. The exception that caused it is
+not: it carries DSNs, RPC URLs, addresses and internal paths, and these services
+are reachable from the internet through the hub containers' nginx. So the rule
+is that the caught exception goes to the log and never to the response.
+"""
 
 import ast
 from pathlib import Path
@@ -166,4 +172,107 @@ def test_5xx_error_paths_log_and_return_generic_detail(service_name: str) -> Non
                 continue
             if not _has_prior_exception_log_in_handler(handler, raise_node):
                 failures.append(f"{py_file}:{raise_node.lineno}: hardened 5xx raise lacks preceding logging.exception call")
+    assert not failures, "\n".join(failures)
+
+
+RESPONSE_FACTORIES = frozenset(
+    {"JSONResponse", "ORJSONResponse", "UJSONResponse", "PlainTextResponse", "HTMLResponse", "Response"}
+)
+
+
+def _is_response_construct(node: ast.expr) -> bool:
+    """True for a Starlette/FastAPI response object built in a `return`, not raised."""
+    if not isinstance(node, ast.Call):
+        return False
+    func = node.func
+    if isinstance(func, ast.Name):
+        return func.id in RESPONSE_FACTORIES
+    if isinstance(func, ast.Attribute):
+        return func.attr in RESPONSE_FACTORIES
+    return False
+
+
+def _is_http_exception_construct(node: ast.expr) -> bool:
+    if not isinstance(node, ast.Call):
+        return False
+    return (isinstance(node.func, ast.Name) and node.func.id == "HTTPException") or (
+        isinstance(node.func, ast.Attribute) and node.func.attr == "HTTPException"
+    )
+
+
+def _five_xx_constructs(tree: ast.AST) -> list[ast.Call]:
+    """Every call building a 5xx response, whether it is raised or returned."""
+    found: list[ast.Call] = []
+    for node in ast.walk(tree):
+        if not isinstance(node, ast.Call):
+            continue
+        if not (_is_http_exception_construct(node) or _is_response_construct(node)):
+            continue
+        status = next((kw.value for kw in node.keywords if kw.arg == "status_code"), None)
+        if status is not None and _is_5xx_status(status):
+            found.append(node)
+    return found
+
+
+def _enclosing_exception_names(node: ast.AST, parents: dict[ast.AST, ast.AST]) -> set[str]:
+    """The names bound by the `except ... as <name>` handlers this node sits inside."""
+    names: set[str] = set()
+    current: ast.AST | None = node
+    while current is not None:
+        if isinstance(current, ast.ExceptHandler) and current.name:
+            names.add(current.name)
+        current = parents.get(current)
+    return names
+
+
+def _services_with_5xx_response() -> list[str]:
+    """Discover services that build a 5xx response by any of the two routes."""
+    services: set[str] = set()
+    for service_dir in sorted(APPS_DIR.iterdir()):
+        if not service_dir.is_dir():
+            continue
+        for py_file in service_dir.rglob("*.py"):
+            try:
+                tree = ast.parse(py_file.read_text(encoding="utf-8"))
+            except Exception:  # pragma: no cover
+                continue
+            if _five_xx_constructs(tree):
+                services.add(service_dir.name)
+                break
+    return sorted(services)
+
+
+@pytest.mark.parametrize("service_name", _services_with_5xx_response())
+def test_no_5xx_response_carries_the_caught_exception(service_name: str) -> None:
+    """No 5xx body references the exception its handler caught.
+
+    Wider than test_no_5xx_raw_exception_detail in two directions, and narrower
+    in one that matters. Wider: it sees `return JSONResponse(...)` as well as
+    `raise HTTPException(...)` -- 30 sites across six services returned the
+    exception that way, invisible to a check that only walks `raise` -- and it
+    matches any reference to the bound name, not just the two spellings
+    `str(e)` and f-string, so `e.args`, `repr(exc)` and `{"error": e}` are
+    findings too.
+
+    Narrower: it fires only when the interpolated name is bound by an enclosing
+    `except ... as`, so an f-string naming the service being proxied is not a
+    finding. That distinction is the whole reason this is a separate rule --
+    without it the api-gateway circuit-breaker messages, which interpolate a
+    route name the caller supplied in the first place, would have to be
+    allowlisted by hand.
+    """
+    failures: list[str] = []
+    for py_file in _service_py_files(service_name):
+        try:
+            tree = ast.parse(py_file.read_text(encoding="utf-8"))
+        except Exception:  # pragma: no cover
+            continue
+        parents = _parent_map(tree)
+        for call in _five_xx_constructs(tree):
+            bound = _enclosing_exception_names(call, parents)
+            if not bound:
+                continue
+            leaked = sorted({n.id for n in ast.walk(call) if isinstance(n, ast.Name) and n.id in bound})
+            if leaked:
+                failures.append(f"{py_file}:{call.lineno}: 5xx body references the caught exception ({', '.join(leaked)})")
     assert not failures, "\n".join(failures)
