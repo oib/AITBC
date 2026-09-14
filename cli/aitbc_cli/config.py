@@ -61,6 +61,16 @@ class CLIConfig(BaseAITBCConfig):
         alias="BLOCKCHAIN_RPC_API_KEY",
         description="API key for the blockchain RPC (escrow routes require this)",
     )
+    wallet_api_key: str | None = Field(
+        default=None,
+        alias="WALLET_API_KEY",
+        description="API key for the wallet daemon (its /v1/wallets routes are admin-gated)",
+    )
+    coordinator_api_key: str | None = Field(
+        default=None,
+        alias="COORDINATOR_API_KEY",
+        description="Coordinator API key; the wallet daemon accepts it when WALLET_API_KEY is unset",
+    )
     prometheus_url: str = Field(default="http://127.0.0.1:9090", description="Prometheus base URL for CLI queries")
     explorer_api_url: str = Field(default="http://localhost:8100", description="Blockchain Explorer API URL")
 
@@ -138,6 +148,19 @@ class CLIConfig(BaseAITBCConfig):
         if v.endswith("/rpc"):
             return v[:-3].rstrip("/")
         return v
+
+    @model_validator(mode="after")
+    def _default_wallet_api_key(self) -> "CLIConfig":
+        """Fall back to COORDINATOR_API_KEY for the wallet daemon.
+
+        The daemon does exactly this in apps/wallet/src/wallet_app/settings.py
+        (set_api_key_default), so a host that sets only COORDINATOR_API_KEY still
+        authenticates. Both keys live in /etc/aitbc/blockchain-secrets.env, which
+        is already one of _cli_env_files().
+        """
+        if self.wallet_api_key is None:
+            self.wallet_api_key = self.coordinator_api_key
+        return self
 
     @model_validator(mode="after")
     def _resolve_hub_only_urls(self) -> "CLIConfig":

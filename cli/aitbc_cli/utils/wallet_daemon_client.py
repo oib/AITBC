@@ -74,7 +74,12 @@ class WalletDaemonClient:
 
     def _get_http_client(self) -> AITBCHTTPClient:
         """Create HTTP client with appropriate settings"""
-        return AITBCHTTPClient(base_url=self.base_url, timeout=self.timeout, headers={"Content-Type": "application/json"})
+        return AITBCHTTPClient(
+            base_url=self.base_url,
+            timeout=self.timeout,
+            headers={"Content-Type": "application/json"},
+            api_key=getattr(self.config, "wallet_api_key", None),
+        )
 
     def is_available(self) -> bool:
         """Check if wallet daemon is available and responsive"""
