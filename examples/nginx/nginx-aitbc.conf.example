@@ -142,6 +142,13 @@ server {
 
     # Wallet endpoints are served by the wallet daemon, not agent-coordinator.
     location /v1/wallets {
+        # The wallet daemon gates every write route behind X-API-Key, but the
+        # list and balance reads are ungated by design for local tooling. Keep
+        # this prefix off the public vhost: in-process consumers talk to the
+        # daemon directly on its loopback port and never traverse nginx.
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
         proxy_pass http://wallet_service/v1/wallets;
         proxy_set_header Host $host;
         add_header Access-Control-Allow-Origin * always;
