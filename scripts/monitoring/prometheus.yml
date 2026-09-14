@@ -1,7 +1,7 @@
 # Prometheus Configuration for AITBC Monitoring
 #
 # This is a sample configuration. The live file is /etc/prometheus/prometheus.yml
-# on the node that runs the central Prometheus instance (recommended: aitbc3).
+# on the node that runs the central Prometheus instance (recommended: node2).
 
 global:
   scrape_interval: 15s
@@ -32,19 +32,19 @@ scrape_configs:
     static_configs:
       - targets: ['127.0.0.1:9100']
 
-  # aitbc3 (shop/follower) services
-  # The blockchain node main process exposes chain-level metrics on AITBC_NODE_METRICS_PORT.
-  - job_name: 'blockchain-node'
+  # node2 (shop/follower) services
+  - job_name: 'node2-blockchain-rpc'
     static_configs:
       - targets: ['localhost:8202']
     metrics_path: '/metrics'
     scrape_interval: 15s
 
-  - job_name: 'aitbc3-blockchain-node'
+  # The blockchain node main process exposes chain-level metrics on AITBC_NODE_METRICS_PORT.
+  - job_name: 'node2-blockchain-node'
     static_configs:
       - targets: ['127.0.0.1:9009']
         labels:
-          node: aitbc3
+          node: node2
           service: blockchain-node
     metrics_path: '/metrics'
     scrape_interval: 15s
@@ -68,30 +68,30 @@ scrape_configs:
     scrape_interval: 15s
 
   # Coordinator API and marketplace only run on the hub node by default.
-  # - job_name: 'aitbc3-coordinator-api'
+  # - job_name: 'node2-coordinator-api'
   #   static_configs:
   #     - targets: ['127.0.0.1:8203']
   #       labels:
-  #         node: aitbc3
+  #         node: node2
   #         service: coordinator-api
   #   metrics_path: '/prometheus'
   #   scrape_interval: 15s
   #
-  # - job_name: 'aitbc3-marketplace'
+  # - job_name: 'node2-marketplace'
   #   static_configs:
   #     - targets: ['127.0.0.1:8104']
   #       labels:
-  #         node: aitbc3
+  #         node: node2
   #         service: marketplace
   #   metrics_path: '/metrics'
   #   scrape_interval: 15s
 
   # Optional local services — enable only if they are running on this node.
-  # - job_name: 'aitbc3-pool-hub'
+  # - job_name: 'node2-pool-hub'
   #   static_configs:
   #     - targets: ['127.0.0.1:8210']
   #       labels:
-  #         node: aitbc3
+  #         node: node2
   #         service: pool-hub
   #   metrics_path: '/metrics'
   #   scrape_interval: 15s
