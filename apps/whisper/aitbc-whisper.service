@@ -24,10 +24,10 @@ StandardError=journal
 SyslogIdentifier=aitbc-whisper
 # Memory caps, sized from measurement rather than from a round number. The loaded
 # model and CUDA context hold ~730M resident; a request adds roughly 1G of
-# transient allocation per ten minutes of audio, because faster-whisper decodes
-# the whole clip and the endpoint reads the whole upload before touching it. Cost
-# tracks clip length, not concurrency -- parallel requests serialise on the model
-# and cost little more than the longest one of them alone.
+# transient allocation per ten minutes of audio, because faster-whisper decodes the
+# whole clip before transcribing any of it. Cost tracks clip length, not
+# concurrency -- parallel requests serialise on the model and cost little more than
+# the longest one of them alone.
 #
 # The old MemoryMax=1G left ~270M for a transient that wants ~1G, so the cgroup
 # reclaimed continuously rather than ever being OOM-killed: memory.events max=3121
@@ -37,7 +37,10 @@ SyslogIdentifier=aitbc-whisper
 #
 # MemoryHigh is the throttling band: a ten-minute clip peaks near 1.34G, so 2G
 # means an unusually long one is slowed by reclaim instead of killed. MemoryMax is
-# the backstop, and bounds what an oversized upload can cost the rest of the host.
+# the backstop. What keeps a caller from aiming at it is the endpoint's own limits,
+# WHISPER_MAX_UPLOAD_MB=100 and WHISPER_MAX_AUDIO_MINUTES=15: the longest accepted
+# clip costs ~2.2G all told, which crosses MemoryHigh and cannot reach MemoryMax.
+# Those two and these are one setting in three places -- raise them together.
 MemoryHigh=2G
 MemoryMax=3G
 # Security hardening (v0.5.0)
