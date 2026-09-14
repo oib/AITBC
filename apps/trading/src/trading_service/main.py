@@ -38,7 +38,7 @@ from .services.lease_tracker import OfferLeaseTracker
 from .state import set_gossip_client, set_lease_tracker, shutdown
 from .storage import init_db
 
-configure_logging(level="INFO")
+configure_logging(level="INFO", service_name="trading", to_file=True)
 logger = get_logger(__name__)
 
 
