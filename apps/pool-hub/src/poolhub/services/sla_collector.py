@@ -255,79 +255,15 @@ class SLACollector:
             (v.miner_id, v.violation_type): v
             for v in (await self.db.execute(select(SLAViolation).where(SLAViolation.resolved_at.is_(None)))).scalars().all()
         }
-        violations_opened = 0
-        violations_resolved = 0
+        violation_counts = {"opened": 0, "resolved": 0}
 
         # Aggregate in Python (no further DB round trips)
         for miner_id in miner_ids:
             try:
-                # Uptime from status
-                uptime = self._compute_uptime_from_status(status_map.get(miner_id))
-                ms = status_map.get(miner_id)
-                if ms:
-                    ms.uptime_pct = uptime
-
-                # Response time from match results
-                mrs = match_by_miner.get(miner_id, [])
-                response_times = [r.eta_ms for r in mrs if r.eta_ms is not None]
-                response_time: float | None = sum(response_times) / len(response_times) if response_times else None
-
-                # Completion rate from feedback
-                fbs = feedback_by_miner.get(miner_id, [])
-                completion_rate: float | None = None
-                if fbs:
-                    successful = sum(1 for f in fbs if f.outcome == "success")
-                    completion_rate = successful / len(fbs) * 100.0
-
-                # Persist SLAMetric rows — the batched path used to compute
-                # values into `results` without ever writing sla_metrics, so
-                # /v1/sla/* stayed empty even with the scheduler enabled.
-                for metric_type, value in (
-                    ("uptime_pct", uptime),
-                    ("response_time_ms", response_time),
-                    ("completion_rate_pct", completion_rate),
-                ):
-                    if value is None:
-                        continue
-                    threshold = self.sla_thresholds.get(metric_type, 100.0)
-                    is_violation = self._check_violation(metric_type, value, threshold)
-                    self.db.add(
-                        SLAMetric(
-                            miner_id=miner_id,
-                            metric_type=metric_type,
-                            metric_value=value,
-                            threshold=threshold,
-                            is_violation=is_violation,
-                            timestamp=now,
-                            meta_data={"method": "collect_all"},
-                        )
-                    )
-                    key = (miner_id, metric_type)
-                    if is_violation and key not in open_violations:
-                        violation = SLAViolation(
-                            miner_id=miner_id,
-                            violation_type=metric_type,
-                            severity=self._violation_severity(metric_type, value, threshold),
-                            metric_value=value,
-                            threshold=threshold,
-                            created_at=now,
-                            meta_data={"method": "collect_all"},
-                        )
-                        self.db.add(violation)
-                        open_violations[key] = violation
-                        violations_opened += 1
-                    elif not is_violation and key in open_violations:
-                        open_violations[key].resolved_at = now
-                        violations_resolved += 1
-
-                results["metrics_collected"].append(
-                    {
-                        "miner_id": miner_id,
-                        "uptime_pct": uptime,
-                        "response_time_ms": response_time,
-                        "completion_rate_pct": completion_rate,
-                    }
+                entry = self._collect_one_miner(
+                    miner_id, now, status_map, match_by_miner, feedback_by_miner, open_violations, violation_counts
                 )
+                results["metrics_collected"].append(entry)
                 results["miners_processed"] += 1
             except Exception as e:
                 logger.error("Failed to collect metrics for miner %s: %s", miner_id, e)
@@ -337,15 +273,109 @@ class SLACollector:
 
         capacity = await self.collect_capacity_availability()
         results["capacity"] = capacity
-        results["violations_detected"] = violations_opened
-        results["violations_resolved"] = violations_resolved
+        results["violations_detected"] = violation_counts["opened"]
+        results["violations_resolved"] = violation_counts["resolved"]
         logger.info(
             "SLA collection complete: processed=%s, violations_opened=%s, violations_resolved=%s",
             results["miners_processed"],
-            violations_opened,
-            violations_resolved,
+            violation_counts["opened"],
+            violation_counts["resolved"],
         )
         return results
+
+    def _collect_one_miner(
+        self,
+        miner_id: str,
+        now: datetime,
+        status_map: dict[str, MinerStatus],
+        match_by_miner: dict[str, list[MatchResult]],
+        feedback_by_miner: dict[str, list[Feedback]],
+        open_violations: dict[tuple[str, str], SLAViolation],
+        violation_counts: dict[str, int],
+    ) -> dict[str, Any]:
+        """Aggregate one miner's metrics and persist SLAMetric/violation rows.
+
+        Returns the ``metrics_collected`` entry for this miner. Violation
+        counters are accumulated in ``violation_counts`` so a mid-miner failure
+        keeps the same counts the inline loop would have produced.
+        """
+        # Uptime from status
+        uptime = self._compute_uptime_from_status(status_map.get(miner_id))
+        ms = status_map.get(miner_id)
+        if ms:
+            ms.uptime_pct = uptime
+
+        # Response time from match results
+        mrs = match_by_miner.get(miner_id, [])
+        response_times = [r.eta_ms for r in mrs if r.eta_ms is not None]
+        response_time: float | None = sum(response_times) / len(response_times) if response_times else None
+
+        # Completion rate from feedback
+        fbs = feedback_by_miner.get(miner_id, [])
+        completion_rate: float | None = None
+        if fbs:
+            successful = sum(1 for f in fbs if f.outcome == "success")
+            completion_rate = successful / len(fbs) * 100.0
+
+        # Persist SLAMetric rows — the batched path used to compute
+        # values into `results` without ever writing sla_metrics, so
+        # /v1/sla/* stayed empty even with the scheduler enabled.
+        for metric_type, value in (
+            ("uptime_pct", uptime),
+            ("response_time_ms", response_time),
+            ("completion_rate_pct", completion_rate),
+        ):
+            self._persist_batched_metric(miner_id, metric_type, value, now, open_violations, violation_counts)
+
+        return {
+            "miner_id": miner_id,
+            "uptime_pct": uptime,
+            "response_time_ms": response_time,
+            "completion_rate_pct": completion_rate,
+        }
+
+    def _persist_batched_metric(
+        self,
+        miner_id: str,
+        metric_type: str,
+        value: float | None,
+        now: datetime,
+        open_violations: dict[tuple[str, str], SLAViolation],
+        violation_counts: dict[str, int],
+    ) -> None:
+        """Add one SLAMetric row and open/resolve its violation in place."""
+        if value is None:
+            return
+        threshold = self.sla_thresholds.get(metric_type, 100.0)
+        is_violation = self._check_violation(metric_type, value, threshold)
+        self.db.add(
+            SLAMetric(
+                miner_id=miner_id,
+                metric_type=metric_type,
+                metric_value=value,
+                threshold=threshold,
+                is_violation=is_violation,
+                timestamp=now,
+                meta_data={"method": "collect_all"},
+            )
+        )
+        key = (miner_id, metric_type)
+        if is_violation and key not in open_violations:
+            violation = SLAViolation(
+                miner_id=miner_id,
+                violation_type=metric_type,
+                severity=self._violation_severity(metric_type, value, threshold),
+                metric_value=value,
+                threshold=threshold,
+                created_at=now,
+                meta_data={"method": "collect_all"},
+            )
+            self.db.add(violation)
+            open_violations[key] = violation
+            violation_counts["opened"] += 1
+        elif not is_violation and key in open_violations:
+            open_violations[key].resolved_at = now
+            violation_counts["resolved"] += 1
 
     @staticmethod
     def _compute_uptime_from_status(status: MinerStatus | None) -> float:

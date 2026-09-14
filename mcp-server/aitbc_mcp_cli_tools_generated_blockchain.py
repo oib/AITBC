@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -34,11 +35,11 @@ def aitbc_blockchain_add(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Add a chain to a specific node.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if node_id is not None:
-        options["node-id"] = node_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "node_id": "node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -84,15 +85,11 @@ def aitbc_blockchain_backup(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Back up chain data to a directory with optional compression and verify.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if path is not None:
-        options["path"] = path
-    if compress:
-        options["compress"] = None
-    if verify:
-        options["verify"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"compress": "compress", "verify": "verify"},
+        values={"chain_id": "chain-id", "path": "path"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -134,11 +131,11 @@ def aitbc_blockchain_block(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get a block by height from a node.."""
-    options: dict[str, Any] = {}
-    if block_height is not None:
-        options["height"] = block_height
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"block_height": "height", "node_url": "node-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -162,11 +159,11 @@ def aitbc_blockchain_consensus_slashing_history(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show slashing events with validator, condition, amount, and block height.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -208,11 +205,11 @@ def aitbc_blockchain_consensus_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show consensus mode, view, sequence, epoch, and fault tolerance for a chain.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -234,11 +231,11 @@ def aitbc_blockchain_consensus_validators(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List active validators with address, stake, reputation, role, and last proposed.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -263,13 +260,11 @@ def aitbc_blockchain_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new chain from a JSON configuration file.."""
-    options: dict[str, Any] = {}
-    if config_file is not None:
-        options["config-file"] = config_file
-    if node is not None:
-        options["node"] = node
-    if dry_run_opt:
-        options["dry-run"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"dry_run_opt": "dry-run"},
+        values={"config_file": "config-file", "node": "node"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -314,13 +309,11 @@ def aitbc_blockchain_delete(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Delete a chain permanently after confirmation.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if force:
-        options["force"] = None
-    if confirm_opt:
-        options["confirm"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"force": "force", "confirm_opt": "confirm"},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -361,9 +354,11 @@ def aitbc_blockchain_height(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the current blockchain height from a node.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -386,13 +381,11 @@ def aitbc_blockchain_info(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get detailed information and optional metrics about a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if detailed:
-        options["detailed"] = None
-    if metrics:
-        options["metrics"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"detailed": "detailed", "metrics": "metrics"},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -416,11 +409,11 @@ def aitbc_blockchain_instances(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List all chain instances on the local node.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
-    if island is not None:
-        options["island"] = island
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url", "island": "island"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -470,17 +463,11 @@ def aitbc_blockchain_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all available chains with optional type, island, and sorting filters.."""
-    options: dict[str, Any] = {}
-    if chain_type is not None:
-        options["type"] = chain_type
-    if show_private:
-        options["show-private"] = None
-    if sort is not None:
-        options["sort"] = sort
-    if island is not None:
-        options["island"] = island
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"show_private": "show-private"},
+        values={"chain_type": "type", "sort": "sort", "island": "island", "node_url": "node-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -507,17 +494,11 @@ def aitbc_blockchain_migrate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Migrate a chain between two nodes with optional dry-run and verify.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if from_node is not None:
-        options["from-node"] = from_node
-    if to_node is not None:
-        options["to-node"] = to_node
-    if dry_run_opt:
-        options["dry-run"] = None
-    if verify:
-        options["verify"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"dry_run_opt": "dry-run", "verify": "verify"},
+        values={"chain_id": "chain-id", "from_node": "from-node", "to_node": "to-node"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -562,13 +543,11 @@ def aitbc_blockchain_remove(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Remove a chain from a specific node, optionally migrating first.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if node_id is not None:
-        options["node-id"] = node_id
-    if migrate:
-        options["migrate"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"migrate": "migrate"},
+        values={"chain_id": "chain-id", "node_id": "node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -613,13 +592,11 @@ def aitbc_blockchain_restore(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Restore a chain from a backup file on a target node.."""
-    options: dict[str, Any] = {}
-    if backup_file is not None:
-        options["backup-file"] = backup_file
-    if node is not None:
-        options["node"] = node
-    if verify:
-        options["verify"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"verify": "verify"},
+        values={"backup_file": "backup-file", "node": "node"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -664,13 +641,11 @@ def aitbc_blockchain_start(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Start a secondary chain on the local node.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if node_url is not None:
-        options["node-url"] = node_url
-    if chain_type is not None:
-        options["type"] = chain_type
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "node_url": "node-url", "chain_type": "type"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",
@@ -712,11 +687,11 @@ def aitbc_blockchain_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the status and optional details or metrics of a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if detailed:
-        options["detailed"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"detailed": "detailed"},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -740,11 +715,11 @@ def aitbc_blockchain_stop(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stop a secondary chain on the local node.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "blockchain",

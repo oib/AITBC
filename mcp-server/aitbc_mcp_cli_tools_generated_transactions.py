@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,15 +37,16 @@ def aitbc_transactions_batch(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send multiple transactions from a JSON batch file.."""
-    options: dict[str, Any] = {}
-    if transactions_file is not None:
-        options["transactions-file"] = transactions_file
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "transactions_file": "transactions-file",
+            "password": "password",
+            "password_file": "password-file",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "transactions",
@@ -90,15 +92,11 @@ def aitbc_transactions_estimate_fee(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Estimate the transaction fee for a transfer.."""
-    options: dict[str, Any] = {}
-    if from_wallet is not None:
-        options["from"] = from_wallet
-    if to_address is not None:
-        options["to"] = to_address
-    if amount is not None:
-        options["amount"] = amount
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"from_wallet": "from", "to_address": "to", "amount": "amount", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "transactions",
@@ -141,9 +139,11 @@ def aitbc_transactions_pending(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the list of pending transactions from the node.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "transactions",
@@ -186,13 +186,11 @@ def aitbc_transactions_search(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Search transactions by address or node ID.."""
-    options: dict[str, Any] = {}
-    if address is not None:
-        options["address"] = address
-    if limit is not None:
-        options["limit"] = limit
-    if use_explorer:
-        options["use-explorer"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_explorer": "use-explorer"},
+        values={"address": "address", "limit": "limit"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -224,27 +222,21 @@ def aitbc_transactions_send(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send a transaction from one wallet to another.."""
-    options: dict[str, Any] = {}
-    if from_wallet is not None:
-        options["from"] = from_wallet
-    if to_address is not None:
-        options["to"] = to_address
-    if amount is not None:
-        options["amount"] = amount
-    if fee is not None:
-        options["fee"] = fee
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if tx_type is not None:
-        options["type"] = tx_type
-    if payload is not None:
-        options["payload"] = payload
-    if use_explorer:
-        options["use-explorer"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_explorer": "use-explorer"},
+        values={
+            "from_wallet": "from",
+            "to_address": "to",
+            "amount": "amount",
+            "fee": "fee",
+            "password": "password",
+            "password_file": "password-file",
+            "rpc_url": "rpc-url",
+            "tx_type": "type",
+            "payload": "payload",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "transactions",
@@ -287,13 +279,11 @@ def aitbc_transactions_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the status of a transaction by its hash.."""
-    options: dict[str, Any] = {}
-    if tx_hash is not None:
-        options["tx-hash"] = tx_hash
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if use_explorer:
-        options["use-explorer"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"use_explorer": "use-explorer"},
+        values={"tx_hash": "tx-hash", "rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

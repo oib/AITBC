@@ -86,6 +86,26 @@ def _audit_json(path: Path, data: Any) -> list[dict[str, Any]]:
     return results
 
 
+def _find_declared_address(base: str, text: str) -> str | None:
+    """Find the declared address variable matching a key variable's base name."""
+    for aline in text.splitlines():
+        am = re.match(rf"^\s*{re.escape(base)}_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
+        if am:
+            return am.group(1)
+        # also try GENESIS_ADDRESS for GENESIS_PRIVATE_KEY / GENESIS_WALLET_PRIVATE_KEY
+        if base.upper() in ("GENESIS", "GENESIS_WALLET"):
+            gm = re.match(r"^\s*GENESIS_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
+            if gm:
+                return gm.group(1)
+        # and NODE_WALLET_ADDRESS for any *_WALLET_PRIVATE_KEY — but not
+        # for GENESIS_WALLET, which is a different wallet from NODE_WALLET.
+        if base.upper().endswith("WALLET") and base.upper() not in ("GENESIS", "GENESIS_WALLET"):
+            nm = re.match(r"^\s*NODE_WALLET_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
+            if nm:
+                return nm.group(1)
+    return None
+
+
 def _audit_env(path: Path, text: str) -> list[dict[str, Any]]:
     results: list[dict[str, Any]] = []
     # find any key variable name with PRIVATE_KEY or WALLET_KEY or PROPOSER_KEY
@@ -105,25 +125,7 @@ def _audit_env(path: Path, text: str) -> list[dict[str, Any]]:
             continue
         # find a matching address variable: remove _KEY / _PRIVATE_KEY suffix and look for _ADDRESS
         base = re.sub(r"(_PRIVATE_KEY|_KEY)$", "", key_name)
-        declared_raw = None
-        for aline in text.splitlines():
-            am = re.match(rf"^\s*{re.escape(base)}_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
-            if am:
-                declared_raw = am.group(1)
-                break
-            # also try GENESIS_ADDRESS for GENESIS_PRIVATE_KEY / GENESIS_WALLET_PRIVATE_KEY
-            if base.upper() in ("GENESIS", "GENESIS_WALLET"):
-                gm = re.match(r"^\s*GENESIS_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
-                if gm:
-                    declared_raw = gm.group(1)
-                    break
-            # and NODE_WALLET_ADDRESS for any *_WALLET_PRIVATE_KEY — but not
-            # for GENESIS_WALLET, which is a different wallet from NODE_WALLET.
-            if base.upper().endswith("WALLET") and base.upper() not in ("GENESIS", "GENESIS_WALLET"):
-                nm = re.match(r"^\s*NODE_WALLET_ADDRESS\s*=\s*(\S+)\s*$", aline, re.IGNORECASE)
-                if nm:
-                    declared_raw = nm.group(1)
-                    break
+        declared_raw = _find_declared_address(base, text)
         declared = _normalize_address(declared_raw)
         results.append(
             {

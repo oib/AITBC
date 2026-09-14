@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -34,11 +35,11 @@ def aitbc_market_cancel(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cancel an active marketplace job and request a refund.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if reason is not None:
-        options["reason"] = reason
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id", "reason": "reason"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -86,19 +87,17 @@ def aitbc_market_download(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Download IPFS content by marketplace job, access token, or free CID.."""
-    options: dict[str, Any] = {}
-    if rental_id is not None:
-        options["rental-id"] = rental_id
-    if access_key is not None:
-        options["access-key"] = access_key
-    if access_secret is not None:
-        options["access-secret"] = access_secret
-    if cid is not None:
-        options["cid"] = cid
-    if output_path is not None:
-        options["output-path"] = output_path
-    if wait:
-        options["wait"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"wait": "wait"},
+        values={
+            "rental_id": "rental-id",
+            "access_key": "access-key",
+            "access_secret": "access-secret",
+            "cid": "cid",
+            "output_path": "output-path",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -146,19 +145,18 @@ def aitbc_market_escrow_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create an on-chain escrow for a job with buyer, provider, and optional amount.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if buyer is not None:
-        options["buyer"] = buyer
-    if provider is not None:
-        options["provider"] = provider
-    if amount is not None:
-        options["amount"] = amount
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "job_id": "job-id",
+            "buyer": "buyer",
+            "provider": "provider",
+            "amount": "amount",
+            "wallet_name": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -202,11 +200,11 @@ def aitbc_market_escrow_refund(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Refund escrow back to the buyer.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if reason is not None:
-        options["reason"] = reason
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id", "reason": "reason"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -249,9 +247,11 @@ def aitbc_market_escrow_release(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Release escrow funds to the provider after job completion.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -294,9 +294,11 @@ def aitbc_market_escrow_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check the on-chain escrow state for a job.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -346,15 +348,11 @@ def aitbc_market_exchange_deposit_eth(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Deposit Sepolia ETH to the bridge and mint AIT.."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if ait_address is not None:
-        options["ait-address"] = ait_address
-    if bridge_address is not None:
-        options["bridge-address"] = bridge_address
-    if gas_limit is not None:
-        options["gas"] = gas_limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "ait_address": "ait-address", "bridge_address": "bridge-address", "gas_limit": "gas"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -398,11 +396,11 @@ def aitbc_market_exchange_list_deposits(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List ETH deposits and their status.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -445,9 +443,11 @@ def aitbc_market_exchange_mint_ait(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Mint AIT tokens for a verified ETH deposit.."""
-    options: dict[str, Any] = {}
-    if deposit_id is not None:
-        options["deposit-id"] = deposit_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"deposit_id": "deposit-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -553,11 +553,11 @@ def aitbc_market_exchange_withdraw_eth(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Withdraw ETH from the bridge wallet (admin only).."""
-    options: dict[str, Any] = {}
-    if amount is not None:
-        options["amount"] = amount
-    if address is not None:
-        options["address"] = address
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"amount": "amount", "address": "address"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -612,33 +612,23 @@ def aitbc_market_gpu_buy(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Fund a quoted GPU rental (native escrow or EVM contract).."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if buyer_id is not None:
-        options["buyer-id"] = buyer_id
-    if job_id is not None:
-        options["job-id"] = job_id
-    if duration_hours is not None:
-        options["duration-hours"] = duration_hours
-    if settlement is not None:
-        options["settlement"] = settlement
-    if wallet is not None:
-        options["wallet"] = wallet
-    if wallet_path is not None:
-        options["wallet-path"] = wallet_path
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if energy_quote is not None:
-        options["energy-quote"] = energy_quote
-    if max_ait is not None:
-        options["max-ait"] = max_ait
-    if yes:
-        options["yes"] = None
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"yes": "yes", "json_output": "json-output"},
+        values={
+            "gpu_id": "gpu-id",
+            "buyer_id": "buyer-id",
+            "job_id": "job-id",
+            "duration_hours": "duration-hours",
+            "settlement": "settlement",
+            "wallet": "wallet",
+            "wallet_path": "wallet-path",
+            "password": "password",
+            "password_file": "password-file",
+            "energy_quote": "energy-quote",
+            "max_ait": "max-ait",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -687,21 +677,18 @@ def aitbc_market_gpu_quote(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request an operator-signed energy quote for a GPU rental.."""
-    options: dict[str, Any] = {}
-    if gpu_id is not None:
-        options["gpu-id"] = gpu_id
-    if buyer_id is not None:
-        options["buyer-id"] = buyer_id
-    if duration_hours is not None:
-        options["duration-hours"] = duration_hours
-    if gpu_count is not None:
-        options["gpu-count"] = gpu_count
-    if max_ait is not None:
-        options["max-ait"] = max_ait
-    if settlement is not None:
-        options["settlement"] = settlement
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"json_output": "json-output"},
+        values={
+            "gpu_id": "gpu-id",
+            "buyer_id": "buyer-id",
+            "duration_hours": "duration-hours",
+            "gpu_count": "gpu-count",
+            "max_ait": "max-ait",
+            "settlement": "settlement",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -751,23 +738,18 @@ def aitbc_market_gpu_refund(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request a refund for a GPU rental.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if wallet is not None:
-        options["wallet"] = wallet
-    if wallet_path is not None:
-        options["wallet-path"] = wallet_path
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if reason is not None:
-        options["reason"] = reason
-    if yes:
-        options["yes"] = None
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"yes": "yes", "json_output": "json-output"},
+        values={
+            "job_id": "job-id",
+            "wallet": "wallet",
+            "wallet_path": "wallet-path",
+            "password": "password",
+            "password_file": "password-file",
+            "reason": "reason",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -812,13 +794,11 @@ def aitbc_market_gpu_release(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Release escrow funds to the provider after rental completion.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if yes:
-        options["yes"] = None
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"yes": "yes", "json_output": "json-output"},
+        values={"job_id": "job-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -862,11 +842,11 @@ def aitbc_market_gpu_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check the status of a GPU rental and its escrow.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if json_output:
-        options["json-output"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"json_output": "json-output"},
+        values={"job_id": "job-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -913,17 +893,16 @@ def aitbc_market_hermes(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a one-shot Hermes Agent prompt via a software offer and pay metered escrow.."""
-    options: dict[str, Any] = {}
-    if offer_id_or_plugin_id is not None:
-        options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
-    if prompt is not None:
-        options["prompt"] = prompt
-    if max_time is not None:
-        options["max-time"] = max_time
-    if track:
-        options["track"] = None
-    if proposer_id is not None:
-        options["proposer"] = proposer_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"track": "track"},
+        values={
+            "offer_id_or_plugin_id": "offer-id-or-plugin-id",
+            "prompt": "prompt",
+            "max_time": "max-time",
+            "proposer_id": "proposer",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -970,17 +949,16 @@ def aitbc_market_host(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Host IPFS content through a marketplace offer for a number of days.."""
-    options: dict[str, Any] = {}
-    if offer_id_or_plugin_id is not None:
-        options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
-    if cid_or_file is not None:
-        options["cid-or-file"] = cid_or_file
-    if days is not None:
-        options["days"] = days
-    if pin:
-        options["pin"] = None
-    if proposer_id is not None:
-        options["proposer-id"] = proposer_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"pin": "pin"},
+        values={
+            "offer_id_or_plugin_id": "offer-id-or-plugin-id",
+            "cid_or_file": "cid-or-file",
+            "days": "days",
+            "proposer_id": "proposer-id",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1025,17 +1003,17 @@ def aitbc_market_jobs(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List marketplace jobs.."""
-    options: dict[str, Any] = {}
-    if service_type is not None:
-        options["service-type"] = service_type
-    if state is not None:
-        options["state"] = state
-    if buyer_address is not None:
-        options["buyer-address"] = buyer_address
-    if offer_id is not None:
-        options["offer-id"] = offer_id
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "service_type": "service-type",
+            "state": "state",
+            "buyer_address": "buyer-address",
+            "offer_id": "offer-id",
+            "limit": "limit",
+        },
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1065,17 +1043,11 @@ def aitbc_market_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List blockchain marketplace offers and bids, optionally filtered.."""
-    options: dict[str, Any] = {}
-    if provider is not None:
-        options["provider"] = provider
-    if status is not None:
-        options["status"] = status
-    if service_type is not None:
-        options["service-type"] = service_type
-    if sort is not None:
-        options["sort"] = sort
-    if mine:
-        options["mine"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"mine": "mine"},
+        values={"provider": "provider", "status": "status", "service_type": "service-type", "sort": "sort"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1132,27 +1104,22 @@ def aitbc_market_offer(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List a hardware and software bundle offer in the marketplace.."""
-    options: dict[str, Any] = {}
-    if service_type is not None:
-        options["service-type"] = service_type
-    if model_or_variant is not None:
-        options["model-or-variant"] = model_or_variant
-    if price is not None:
-        options["price"] = price
-    if unit is not None:
-        options["unit"] = unit
-    if description is not None:
-        options["description"] = description
-    if context_window is not None:
-        options["context-window"] = context_window
-    if gpu_name is not None:
-        options["gpu-name"] = gpu_name
-    if gpu_device is not None:
-        options["gpu-device"] = gpu_device
-    if gpu_offer_id is not None:
-        options["gpu-offer-id"] = gpu_offer_id
-    if disk_quota_mb is not None:
-        options["disk-quota-mb"] = disk_quota_mb
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "service_type": "service-type",
+            "model_or_variant": "model-or-variant",
+            "price": "price",
+            "unit": "unit",
+            "description": "description",
+            "context_window": "context-window",
+            "gpu_name": "gpu-name",
+            "gpu_device": "gpu-device",
+            "gpu_offer_id": "gpu-offer-id",
+            "disk_quota_mb": "disk-quota-mb",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1195,9 +1162,11 @@ def aitbc_market_offer_disable(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Disable/unregister a marketplace offer.."""
-    options: dict[str, Any] = {}
-    if plugin_id is not None:
-        options["plugin-id"] = plugin_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"plugin_id": "plugin-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1241,11 +1210,11 @@ def aitbc_market_offer_list(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List software offers published by this provider.."""
-    options: dict[str, Any] = {}
-    if service_type is not None:
-        options["service-type"] = service_type
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service_type": "service-type", "status": "status"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1293,19 +1262,18 @@ def aitbc_market_process(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Process a video using an FFmpeg software offer and pay metered escrow.."""
-    options: dict[str, Any] = {}
-    if offer_id_or_plugin_id is not None:
-        options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
-    if input_file is not None:
-        options["input-file"] = input_file
-    if output_container is not None:
-        options["output-container"] = output_container
-    if codec is not None:
-        options["codec"] = codec
-    if resolution is not None:
-        options["resolution"] = resolution
-    if bitrate is not None:
-        options["bitrate"] = bitrate
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "offer_id_or_plugin_id": "offer-id-or-plugin-id",
+            "input_file": "input-file",
+            "output_container": "output-container",
+            "codec": "codec",
+            "resolution": "resolution",
+            "bitrate": "bitrate",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1372,17 +1340,17 @@ def aitbc_market_rate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Rate a marketplace service offer on a 1-5 scale.."""
-    options: dict[str, Any] = {}
-    if service_id is not None:
-        options["service-id"] = service_id
-    if rating is not None:
-        options["rating"] = rating
-    if comment is not None:
-        options["comment"] = comment
-    if reviewer_id is not None:
-        options["reviewer-id"] = reviewer_id
-    if marketplace_url is not None:
-        options["marketplace-url"] = marketplace_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "service_id": "service-id",
+            "rating": "rating",
+            "comment": "comment",
+            "reviewer_id": "reviewer-id",
+            "marketplace_url": "marketplace-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1426,15 +1394,11 @@ def aitbc_market_ratings(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """View ratings for a marketplace service offer.."""
-    options: dict[str, Any] = {}
-    if service_id is not None:
-        options["service-id"] = service_id
-    if limit is not None:
-        options["limit"] = limit
-    if offset is not None:
-        options["offset"] = offset
-    if marketplace_url is not None:
-        options["marketplace-url"] = marketplace_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"service_id": "service-id", "limit": "limit", "offset": "offset", "marketplace_url": "marketplace-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1472,39 +1436,25 @@ def aitbc_market_run(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a software offer (Ollama/Whisper/FFmpeg/Hermes/IPFS) and pay metered escrow.."""
-    options: dict[str, Any] = {}
-    if offer_id_or_plugin_id is not None:
-        options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
-    if prompt is not None:
-        options["prompt"] = prompt
-    if max_tokens is not None:
-        options["max-tokens"] = max_tokens
-    if stream:
-        options["stream"] = None
-    if language is not None:
-        options["language"] = language
-    if task is not None:
-        options["task"] = task
-    if fmt is not None:
-        options["transcript-format"] = fmt
-    if media_format is not None:
-        options["media-format"] = media_format
-    if codec is not None:
-        options["codec"] = codec
-    if resolution is not None:
-        options["resolution"] = resolution
-    if bitrate is not None:
-        options["bitrate"] = bitrate
-    if max_time is not None:
-        options["max-time"] = max_time
-    if days is not None:
-        options["days"] = days
-    if pin:
-        options["pin"] = None
-    if track:
-        options["track"] = None
-    if proposer_id is not None:
-        options["proposer"] = proposer_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"stream": "stream", "pin": "pin", "track": "track"},
+        values={
+            "offer_id_or_plugin_id": "offer-id-or-plugin-id",
+            "prompt": "prompt",
+            "max_tokens": "max-tokens",
+            "language": "language",
+            "task": "task",
+            "fmt": "transcript-format",
+            "media_format": "media-format",
+            "codec": "codec",
+            "resolution": "resolution",
+            "bitrate": "bitrate",
+            "max_time": "max-time",
+            "days": "days",
+            "proposer_id": "proposer",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1545,9 +1495,11 @@ def aitbc_market_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the status of a GPU order including on-chain escrow.."""
-    options: dict[str, Any] = {}
-    if order_id is not None:
-        options["order-id"] = order_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"order_id": "order-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -1571,11 +1523,11 @@ def aitbc_market_sync_ratings(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sync ratings to and from a remote marketplace node.."""
-    options: dict[str, Any] = {}
-    if remote_url is not None:
-        options["remote-url"] = remote_url
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"remote_url": "remote-url", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",
@@ -1622,17 +1574,17 @@ def aitbc_market_transcribe(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Transcribe audio using a Whisper software offer and pay metered escrow.."""
-    options: dict[str, Any] = {}
-    if offer_id_or_plugin_id is not None:
-        options["offer-id-or-plugin-id"] = offer_id_or_plugin_id
-    if audio_file is not None:
-        options["audio-file"] = audio_file
-    if language is not None:
-        options["language"] = language
-    if task is not None:
-        options["task"] = task
-    if fmt is not None:
-        options["output-format"] = fmt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "offer_id_or_plugin_id": "offer-id-or-plugin-id",
+            "audio_file": "audio-file",
+            "language": "language",
+            "task": "task",
+            "fmt": "output-format",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "market",

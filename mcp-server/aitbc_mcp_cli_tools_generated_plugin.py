@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -35,13 +36,11 @@ def aitbc_plugin_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a brand plugin skeleton that PluginManager can load.."""
-    options: dict[str, Any] = {}
-    if plugin_type is not None:
-        options["type"] = plugin_type
-    if name is not None:
-        options["name"] = name
-    if output_dir is not None:
-        options["output"] = output_dir
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"plugin_type": "type", "name": "name", "output_dir": "output"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "plugin",
@@ -82,9 +81,11 @@ def aitbc_plugin_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all available brand plugins in the plugin directory.."""
-    options: dict[str, Any] = {}
-    if plugins_dir is not None:
-        options["plugins-dir"] = plugins_dir
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"plugins_dir": "plugins-dir"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -108,11 +109,11 @@ def aitbc_plugin_load(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Load and display a brand plugin by name.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if plugins_dir is not None:
-        options["plugins-dir"] = plugins_dir
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "plugins_dir": "plugins-dir"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "plugin",

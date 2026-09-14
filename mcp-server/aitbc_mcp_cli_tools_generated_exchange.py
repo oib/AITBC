@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,15 +37,11 @@ def aitbc_exchange_add_liquidity(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Add liquidity to a trading pair on the specified side.."""
-    options: dict[str, Any] = {}
-    if pair is not None:
-        options["pair"] = pair
-    if amount is not None:
-        options["amount"] = amount
-    if side is not None:
-        options["side"] = side
-    if exchange is not None:
-        options["exchange"] = exchange
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"pair": "pair", "amount": "amount", "side": "side", "exchange": "exchange"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange",
@@ -92,19 +89,18 @@ def aitbc_exchange_create_pair(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new trading pair on a registered exchange with precision and minimum order size.."""
-    options: dict[str, Any] = {}
-    if base_asset is not None:
-        options["base-asset"] = base_asset
-    if quote_asset is not None:
-        options["quote-asset"] = quote_asset
-    if exchange is not None:
-        options["exchange"] = exchange
-    if min_order_size is not None:
-        options["min-order-size"] = min_order_size
-    if price_precision is not None:
-        options["price-precision"] = price_precision
-    if quantity_precision is not None:
-        options["quantity-precision"] = quantity_precision
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "base_asset": "base-asset",
+            "quote_asset": "quote-asset",
+            "exchange": "exchange",
+            "min_order_size": "min-order-size",
+            "price_precision": "price-precision",
+            "quantity_precision": "quantity-precision",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange",
@@ -168,15 +164,11 @@ def aitbc_exchange_monitor(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Monitor exchange trading activity across registered pairs and exchanges.."""
-    options: dict[str, Any] = {}
-    if pair is not None:
-        options["pair"] = pair
-    if exchange is not None:
-        options["exchange"] = exchange
-    if real_time:
-        options["real-time"] = None
-    if interval is not None:
-        options["interval"] = interval
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"real_time": "real-time"},
+        values={"pair": "pair", "exchange": "exchange", "interval": "interval"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -203,17 +195,11 @@ def aitbc_exchange_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a new exchange integration with API credentials and optional sandbox mode.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if api_key is not None:
-        options["api-key"] = api_key
-    if secret_key is not None:
-        options["secret-key"] = secret_key
-    if sandbox:
-        options["sandbox"] = None
-    if description is not None:
-        options["description"] = description
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"sandbox": "sandbox"},
+        values={"name": "name", "api_key": "api-key", "secret_key": "secret-key", "description": "description"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange",
@@ -260,17 +246,17 @@ def aitbc_exchange_start_trading(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Start trading for a specific pair with optional initial price and liquidity.."""
-    options: dict[str, Any] = {}
-    if pair is not None:
-        options["pair"] = pair
-    if price is not None:
-        options["price"] = price
-    if base_liquidity is not None:
-        options["base-liquidity"] = base_liquidity
-    if quote_liquidity is not None:
-        options["quote-liquidity"] = quote_liquidity
-    if exchange is not None:
-        options["exchange"] = exchange
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "pair": "pair",
+            "price": "price",
+            "base_liquidity": "base-liquidity",
+            "quote_liquidity": "quote-liquidity",
+            "exchange": "exchange",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "exchange",
@@ -311,9 +297,11 @@ def aitbc_exchange_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the status and configuration of a specific registered exchange.."""
-    options: dict[str, Any] = {}
-    if exchange_name is not None:
-        options["exchange-name"] = exchange_name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"exchange_name": "exchange-name"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

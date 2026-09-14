@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -34,13 +35,11 @@ def aitbc_deploy_deploy_brand(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Deploy a white-label brand configuration to a target network and storage directory.."""
-    options: dict[str, Any] = {}
-    if config_path is not None:
-        options["config"] = config_path
-    if network is not None:
-        options["network"] = network
-    if storage is not None:
-        options["storage"] = storage
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"config_path": "config", "network": "network", "storage": "storage"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "deploy",

@@ -17,6 +17,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -83,23 +84,20 @@ def aitbc_trade_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new inter-chain trade between source and destination chains.."""
-    options: dict[str, Any] = {}
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if dest_chain is not None:
-        options["dest-chain"] = dest_chain
-    if sender is not None:
-        options["sender"] = sender
-    if recipient is not None:
-        options["recipient"] = recipient
-    if amount is not None:
-        options["amount"] = amount
-    if offer_id is not None:
-        options["offer-id"] = offer_id
-    if price is not None:
-        options["price"] = price
-    if quantity is not None:
-        options["quantity"] = quantity
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "source_chain": "source-chain",
+            "dest_chain": "dest-chain",
+            "sender": "sender",
+            "recipient": "recipient",
+            "amount": "amount",
+            "offer_id": "offer-id",
+            "price": "price",
+            "quantity": "quantity",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -149,23 +147,20 @@ def aitbc_trade_discover(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Discover trading offers across chains with optional filters.."""
-    options: dict[str, Any] = {}
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if dest_chain is not None:
-        options["dest-chain"] = dest_chain
-    if service_type is not None:
-        options["service-type"] = service_type
-    if min_price is not None:
-        options["min-price"] = min_price
-    if max_price is not None:
-        options["max-price"] = max_price
-    if region is not None:
-        options["region"] = region
-    if gpu_model is not None:
-        options["gpu-model"] = gpu_model
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "source_chain": "source-chain",
+            "dest_chain": "dest-chain",
+            "service_type": "service-type",
+            "min_price": "min-price",
+            "max_price": "max-price",
+            "region": "region",
+            "gpu_model": "gpu-model",
+            "limit": "limit",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -251,9 +246,11 @@ def aitbc_trade_health(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check the health of inter-chain trading for a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -298,13 +295,11 @@ def aitbc_trade_history(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the history of inter-chain trades between source and destination chains.."""
-    options: dict[str, Any] = {}
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if dest_chain is not None:
-        options["dest-chain"] = dest_chain
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"source_chain": "source-chain", "dest_chain": "dest-chain", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -350,15 +345,11 @@ def aitbc_trade_list(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List inter-chain trades with optional filters.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if dest_chain is not None:
-        options["dest-chain"] = dest_chain
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status", "source_chain": "source-chain", "dest_chain": "dest-chain", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -403,13 +394,11 @@ def aitbc_trade_lock_escrow(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Lock escrow for a trade on the settlement node.."""
-    options: dict[str, Any] = {}
-    if trade_id is not None:
-        options["trade-id"] = trade_id
-    if node_url is not None:
-        options["node-url"] = node_url
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"trade_id": "trade-id", "node_url": "node-url", "timeout_opt": "timeout"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -538,11 +527,11 @@ def aitbc_trade_refund(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Refund a trade on the settlement node.."""
-    options: dict[str, Any] = {}
-    if trade_id is not None:
-        options["trade-id"] = trade_id
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"trade_id": "trade-id", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -586,11 +575,11 @@ def aitbc_trade_register_chain(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a new chain for inter-chain trading.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if endpoint is not None:
-        options["endpoint"] = endpoint
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "endpoint": "endpoint"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -638,19 +627,18 @@ def aitbc_trade_search(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Search trading offers with a query.."""
-    options: dict[str, Any] = {}
-    if query is not None:
-        options["query"] = query
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if service_type is not None:
-        options["service-type"] = service_type
-    if min_price is not None:
-        options["min-price"] = min_price
-    if max_price is not None:
-        options["max-price"] = max_price
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "query": "query",
+            "chain_id": "chain-id",
+            "service_type": "service-type",
+            "min_price": "min-price",
+            "max_price": "max-price",
+            "limit": "limit",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -695,13 +683,11 @@ def aitbc_trade_settle(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Settle a trade with a secret.."""
-    options: dict[str, Any] = {}
-    if trade_id is not None:
-        options["trade-id"] = trade_id
-    if secret is not None:
-        options["secret"] = secret
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"trade_id": "trade-id", "secret": "secret", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -745,11 +731,11 @@ def aitbc_trade_settlement_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the settlement status of a trade.."""
-    options: dict[str, Any] = {}
-    if trade_id is not None:
-        options["trade-id"] = trade_id
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"trade_id": "trade-id", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -792,9 +778,11 @@ def aitbc_trade_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the status of a specific trade.."""
-    options: dict[str, Any] = {}
-    if trade_id is not None:
-        options["trade-id"] = trade_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"trade_id": "trade-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -881,13 +869,11 @@ def aitbc_trade_sync(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sync trading data for a chain and service type.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if service_type is not None:
-        options["service-type"] = service_type
-    if force:
-        options["force"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"force": "force"},
+        values={"chain_id": "chain-id", "service_type": "service-type"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",
@@ -977,19 +963,18 @@ def aitbc_trade_watch(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Watch for new trading offers matching filters.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if service_type is not None:
-        options["service-type"] = service_type
-    if min_price is not None:
-        options["min-price"] = min_price
-    if max_price is not None:
-        options["max-price"] = max_price
-    if region is not None:
-        options["region"] = region
-    if gpu_model is not None:
-        options["gpu-model"] = gpu_model
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "chain_id": "chain-id",
+            "service_type": "service-type",
+            "min_price": "min-price",
+            "max_price": "max-price",
+            "region": "region",
+            "gpu_model": "gpu-model",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "trade",

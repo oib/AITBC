@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_operations_agent_deregister(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Deregister an agent by its ID.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -76,9 +79,11 @@ def aitbc_operations_agent_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List registered agents, optionally filtered by status.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -106,19 +111,18 @@ def aitbc_operations_agent_message(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send a message to an agent via a blockchain transaction.."""
-    options: dict[str, Any] = {}
-    if agent is not None:
-        options["agent"] = agent
-    if message is not None:
-        options["message"] = message
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
-    if password_file is not None:
-        options["password-file"] = password_file
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent": "agent",
+            "message": "message",
+            "wallet": "wallet",
+            "password": "password",
+            "password_file": "password-file",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -162,11 +166,11 @@ def aitbc_operations_agent_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register an agent with a status.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if status is not None:
-        options["status"] = status
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "status": "status"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -209,9 +213,11 @@ def aitbc_operations_ai_cancel(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cancel an AI job by its ID.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -252,9 +258,11 @@ def aitbc_operations_ai_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the status of one or all AI jobs.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -281,17 +289,17 @@ def aitbc_operations_ai_submit_job(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Submit an AI job with wallet, type, prompt, and payment.."""
-    options: dict[str, Any] = {}
-    if wallet_name is not None:
-        options["wallet-name"] = wallet_name
-    if job_type is not None:
-        options["job-type"] = job_type
-    if prompt is not None:
-        options["prompt"] = prompt
-    if payment is not None:
-        options["payment"] = payment
-    if model is not None:
-        options["model"] = model
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "wallet_name": "wallet-name",
+            "job_type": "job-type",
+            "prompt": "prompt",
+            "payment": "payment",
+            "model": "model",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -336,13 +344,11 @@ def aitbc_operations_governance_delegate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Delegate voting power from one address to another.."""
-    options: dict[str, Any] = {}
-    if delegator is not None:
-        options["delegator"] = delegator
-    if delegate is not None:
-        options["delegate"] = delegate
-    if amount is not None:
-        options["amount"] = amount
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"delegator": "delegator", "delegate": "delegate", "amount": "amount"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -385,9 +391,11 @@ def aitbc_operations_governance_execute(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Execute a passed governance proposal on the blockchain.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -430,9 +438,11 @@ def aitbc_operations_governance_get_proposal(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get a governance proposal from the blockchain.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -486,21 +496,19 @@ def aitbc_operations_governance_proposal(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a governance proposal on the blockchain.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
-    if title is not None:
-        options["title"] = title
-    if description is not None:
-        options["description"] = description
-    if category is not None:
-        options["category"] = category
-    if params is not None:
-        options["params"] = params
-    if wallet is not None:
-        options["wallet"] = wallet
-    if voting_days is not None:
-        options["voting-days"] = voting_days
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "proposal_id": "proposal-id",
+            "title": "title",
+            "description": "description",
+            "category": "category",
+            "params": "params",
+            "wallet": "wallet",
+            "voting_days": "voting-days",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -545,13 +553,11 @@ def aitbc_operations_governance_stake(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stake tokens for enhanced voting power.."""
-    options: dict[str, Any] = {}
-    if address is not None:
-        options["address"] = address
-    if amount is not None:
-        options["amount"] = amount
-    if lock_days is not None:
-        options["lock-days"] = lock_days
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"address": "address", "amount": "amount", "lock_days": "lock-days"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -598,17 +604,17 @@ def aitbc_operations_governance_vote(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cast a vote on a governance proposal using a wallet.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
-    if vote is not None:
-        options["vote"] = vote
-    if wallet is not None:
-        options["wallet"] = wallet
-    if voting_power is not None:
-        options["voting-power"] = voting_power
-    if reason is not None:
-        options["reason"] = reason
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "proposal_id": "proposal-id",
+            "vote": "vote",
+            "wallet": "wallet",
+            "voting_power": "voting-power",
+            "reason": "reason",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",
@@ -651,9 +657,11 @@ def aitbc_operations_governance_voting_power(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get voting power for a blockchain address.."""
-    options: dict[str, Any] = {}
-    if address is not None:
-        options["address"] = address
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"address": "address"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "operations",

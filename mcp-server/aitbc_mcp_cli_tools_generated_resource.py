@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -43,25 +44,21 @@ def aitbc_resource_allocate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Allocate CPU, memory, GPU, and storage resources for an agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if cpu_cores is not None:
-        options["cpu-cores"] = cpu_cores
-    if memory_gb is not None:
-        options["memory-gb"] = memory_gb
-    if gpu_count is not None:
-        options["gpu-count"] = gpu_count
-    if gpu_memory_gb is not None:
-        options["gpu-memory-gb"] = gpu_memory_gb
-    if storage_gb is not None:
-        options["storage-gb"] = storage_gb
-    if network_bandwidth is not None:
-        options["network-bandwidth"] = network_bandwidth
-    if optimization_target is not None:
-        options["optimization-target"] = optimization_target
-    if priority is not None:
-        options["priority"] = priority
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "cpu_cores": "cpu-cores",
+            "memory_gb": "memory-gb",
+            "gpu_count": "gpu-count",
+            "gpu_memory_gb": "gpu-memory-gb",
+            "storage_gb": "storage-gb",
+            "network_bandwidth": "network-bandwidth",
+            "optimization_target": "optimization-target",
+            "priority": "priority",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "resource",
@@ -123,19 +120,18 @@ def aitbc_resource_optimize(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Optimize an agent's performance for a specific target metric.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if target_metric is not None:
-        options["target-metric"] = target_metric
-    if optimization_type is not None:
-        options["optimization-type"] = optimization_type
-    if current_accuracy is not None:
-        options["current-accuracy"] = current_accuracy
-    if current_latency is not None:
-        options["current-latency"] = current_latency
-    if current_throughput is not None:
-        options["current-throughput"] = current_throughput
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "target_metric": "target-metric",
+            "optimization_type": "optimization-type",
+            "current_accuracy": "current-accuracy",
+            "current_latency": "current-latency",
+            "current_throughput": "current-throughput",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "resource",

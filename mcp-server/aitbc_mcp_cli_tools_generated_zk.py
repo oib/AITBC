@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_zk_circuits(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List available zero-knowledge circuits and their verification status.."""
-    options: dict[str, Any] = {}
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "zk",
@@ -76,9 +79,11 @@ def aitbc_zk_health(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the zero-knowledge proof service health.."""
-    options: dict[str, Any] = {}
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -105,17 +110,17 @@ def aitbc_zk_verify(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Verify a zero-knowledge proof against a circuit and public signals.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
-    if proof is not None:
-        options["proof"] = proof
-    if public_signals is not None:
-        options["public-signals"] = public_signals
-    if circuit is not None:
-        options["circuit"] = circuit
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "job_id": "job-id",
+            "proof": "proof",
+            "public_signals": "public-signals",
+            "circuit": "circuit",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "zk",

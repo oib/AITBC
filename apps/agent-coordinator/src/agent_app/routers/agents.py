@@ -49,6 +49,44 @@ async def _consume_identity_nonce(agent_id: str, nonce: str | None) -> None:
         raise HTTPException(status_code=403, detail="invalid_identity_nonce")
 
 
+async def _resolve_registration_identity(
+    request: AgentRegistrationRequest, bound_address: str | None
+) -> tuple[str | None, str | None]:
+    """Resolve ``(identity_address, registered_proof)`` for a registration.
+
+    Three cases: ``bound_address`` set → re-registration must re-prove the
+    bound key or 409; ``request.identity_address`` set → verify the
+    attestation and bind the canonical form; neither → ``(None, None)``
+    unless ``enforce`` mode makes the attestation mandatory.
+    """
+    if bound_address is not None:
+        same_identity = request.identity_address is not None and canonical_address(
+            request.identity_address
+        ) == canonical_address(bound_address)
+        if not same_identity or not _verify_identity_attestation(request, bound_address):
+            raise HTTPException(
+                status_code=409,
+                detail="agent_id is bound to an identity; re-registration requires identity_proof from the bound key (rotate via PUT /v1/agents/{agent_id}/identity)",
+            )
+        await _consume_identity_nonce(request.agent_id, request.identity_nonce)
+        return bound_address, request.identity_proof
+    if request.identity_address is not None:
+        try:
+            identity_address = canonical_address(request.identity_address, strict=True)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="identity_address is not an EVM address (0x + 40 hex)") from None
+        if not _verify_identity_attestation(request, identity_address):
+            raise HTTPException(status_code=403, detail="invalid_identity_proof")
+        await _consume_identity_nonce(request.agent_id, request.identity_nonce)
+        return identity_address, request.identity_proof
+    if settings.agent_msg_signature_mode == "enforce":
+        raise HTTPException(
+            status_code=403,
+            detail="identity_address and identity_proof are required when AGENT_MSG_SIGNATURE_MODE=enforce",
+        )
+    return None, None
+
+
 @router.post("/agents/register")
 @rate_limit(rate=50, per=60)
 async def register_agent(request_http: Request, request: AgentRegistrationRequest) -> dict[str, Any]:
@@ -69,35 +107,7 @@ async def register_agent(request_http: Request, request: AgentRegistrationReques
 
         existing = await state.agent_registry.get_agent_by_id(request.agent_id)
         bound_address = existing.identity_address if existing else None
-        identity_address: str | None = None
-        registered_proof: str | None = None
-
-        if bound_address is not None:
-            same_identity = request.identity_address is not None and canonical_address(
-                request.identity_address
-            ) == canonical_address(bound_address)
-            if not same_identity or not _verify_identity_attestation(request, bound_address):
-                raise HTTPException(
-                    status_code=409,
-                    detail="agent_id is bound to an identity; re-registration requires identity_proof from the bound key (rotate via PUT /v1/agents/{agent_id}/identity)",
-                )
-            await _consume_identity_nonce(request.agent_id, request.identity_nonce)
-            identity_address = bound_address
-            registered_proof = request.identity_proof
-        elif request.identity_address is not None:
-            try:
-                identity_address = canonical_address(request.identity_address, strict=True)
-            except ValueError:
-                raise HTTPException(status_code=422, detail="identity_address is not an EVM address (0x + 40 hex)") from None
-            if not _verify_identity_attestation(request, identity_address):
-                raise HTTPException(status_code=403, detail="invalid_identity_proof")
-            await _consume_identity_nonce(request.agent_id, request.identity_nonce)
-            registered_proof = request.identity_proof
-        elif settings.agent_msg_signature_mode == "enforce":
-            raise HTTPException(
-                status_code=403,
-                detail="identity_address and identity_proof are required when AGENT_MSG_SIGNATURE_MODE=enforce",
-            )
+        identity_address, registered_proof = await _resolve_registration_identity(request, bound_address)
 
         try:
             agent_info = create_agent_info(
@@ -241,6 +251,49 @@ async def update_agent_status(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _check_rotation_timestamp(rotation_timestamp: str) -> None:
+    """Validate the rotation claim's timestamp — it bounds how long a captured
+    rotation stays valid (same skew window as message envelopes)."""
+    try:
+        rotated_at = datetime.fromisoformat(rotation_timestamp)
+        if rotated_at.tzinfo is None:
+            rotated_at = rotated_at.replace(tzinfo=UTC)
+    except ValueError:
+        raise HTTPException(status_code=403, detail="invalid_rotation_timestamp") from None
+    if abs((datetime.now(UTC) - rotated_at).total_seconds()) > settings.agent_msg_max_skew_seconds:
+        raise HTTPException(status_code=403, detail="stale_rotation_timestamp")
+
+
+def _verify_rotation_proofs(
+    agent_id: str,
+    agent: Any,
+    request: IdentityRotationRequest,
+    old_address: str,
+    new_address: str,
+) -> None:
+    """Verify the doc §7 dual proofs: ``new_proof`` (new key over the
+    registration claim) and ``rotation_proof`` (bound key over the rotation
+    claim). Raises 403 on either failure."""
+    new_claim = identity_claim(
+        agent_id=agent_id,
+        identity_address=request.new_address,
+        chain_id=request.chain_id or agent.chain_id or "",
+        nonce=request.identity_nonce,
+        registered_at=request.registered_at,
+    )
+    if not verify_identity_claim(new_claim, request.new_proof, new_address):
+        raise HTTPException(status_code=403, detail="invalid_identity_proof")
+
+    rot_claim = rotation_claim(
+        agent_id=agent_id,
+        old_address=old_address,
+        new_address=request.new_address,
+        timestamp=request.rotation_timestamp,
+    )
+    if not verify_rotation_claim(rot_claim, request.rotation_proof, old_address):
+        raise HTTPException(status_code=403, detail="invalid_rotation_proof")
+
+
 @router.put("/agents/{agent_id}/identity")
 @rate_limit(rate=50, per=60)
 async def rotate_agent_identity(request_http: Request, agent_id: str, request: IdentityRotationRequest) -> dict[str, Any]:
@@ -270,35 +323,8 @@ async def rotate_agent_identity(request_http: Request, agent_id: str, request: I
         if new_address == canonical_address(old_address):
             raise HTTPException(status_code=422, detail="new_address equals the bound identity; re-register instead")
 
-        # The rotation claim's timestamp bounds how long a captured rotation
-        # stays valid (same skew window as message envelopes).
-        try:
-            rotated_at = datetime.fromisoformat(request.rotation_timestamp)
-            if rotated_at.tzinfo is None:
-                rotated_at = rotated_at.replace(tzinfo=UTC)
-        except ValueError:
-            raise HTTPException(status_code=403, detail="invalid_rotation_timestamp") from None
-        if abs((datetime.now(UTC) - rotated_at).total_seconds()) > settings.agent_msg_max_skew_seconds:
-            raise HTTPException(status_code=403, detail="stale_rotation_timestamp")
-
-        new_claim = identity_claim(
-            agent_id=agent_id,
-            identity_address=request.new_address,
-            chain_id=request.chain_id or agent.chain_id or "",
-            nonce=request.identity_nonce,
-            registered_at=request.registered_at,
-        )
-        if not verify_identity_claim(new_claim, request.new_proof, new_address):
-            raise HTTPException(status_code=403, detail="invalid_identity_proof")
-
-        rot_claim = rotation_claim(
-            agent_id=agent_id,
-            old_address=old_address,
-            new_address=request.new_address,
-            timestamp=request.rotation_timestamp,
-        )
-        if not verify_rotation_claim(rot_claim, request.rotation_proof, old_address):
-            raise HTTPException(status_code=403, detail="invalid_rotation_proof")
+        _check_rotation_timestamp(request.rotation_timestamp)
+        _verify_rotation_proofs(agent_id, agent, request, old_address, new_address)
 
         await _consume_identity_nonce(agent_id, request.identity_nonce)
 

@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,17 +37,11 @@ def aitbc_service_harden(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Apply the aitbc-hermes systemd sandbox pattern to AITBC services.."""
-    options: dict[str, Any] = {}
-    if service_name is not None:
-        options["service"] = service_name
-    if all_services:
-        options["all"] = None
-    if read_write_paths is not None:
-        options["read-write-paths"] = read_write_paths
-    if no_restart:
-        options["no-restart"] = None
-    if dry_run_opt:
-        options["dry-run"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"all_services": "all", "no_restart": "no-restart", "dry_run_opt": "dry-run"},
+        values={"service_name": "service", "read_write_paths": "read-write-paths"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "service",

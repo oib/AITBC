@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_agent_cancel(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Cancel a running AI job on the coordinator by job ID.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -121,11 +124,11 @@ def aitbc_agent_config_export(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Export a named agent's configuration to a JSON file.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if output_path is not None:
-        options["output-path"] = output_path
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "output_path": "output-path"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -169,11 +172,11 @@ def aitbc_agent_config_get(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get configuration value or the full configuration for a named agent.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if key is not None:
-        options["key"] = key
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "key": "key"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -217,11 +220,11 @@ def aitbc_agent_config_import(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Import agent configuration from a JSON file.."""
-    options: dict[str, Any] = {}
-    if file_path is not None:
-        options["file-path"] = file_path
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"file_path": "file-path", "name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -266,13 +269,11 @@ def aitbc_agent_config_set(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Set a configuration key and value for a named agent.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if key is not None:
-        options["key"] = key
-    if value is not None:
-        options["value"] = value
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "key": "key", "value": "value"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -315,9 +316,11 @@ def aitbc_agent_config_validate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Validate the configuration of a named agent against the schema.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -369,27 +372,21 @@ def aitbc_agent_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new agent and register it in the local agent directory.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if agent_type is not None:
-        options["type"] = agent_type
-    if compute_type is not None:
-        options["compute-type"] = compute_type
-    if gpu_memory is not None:
-        options["gpu-memory"] = gpu_memory
-    if models is not None:
-        options["models"] = models
-    if performance is not None:
-        options["performance"] = performance
-    if max_jobs is not None:
-        options["max-jobs"] = max_jobs
-    if specialization is not None:
-        options["specialization"] = specialization
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if auto_detect:
-        options["auto-detect"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"auto_detect": "auto-detect"},
+        values={
+            "name": "name",
+            "agent_type": "type",
+            "compute_type": "compute-type",
+            "gpu_memory": "gpu-memory",
+            "models": "models",
+            "performance": "performance",
+            "max_jobs": "max-jobs",
+            "specialization": "specialization",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -436,17 +433,17 @@ def aitbc_agent_discover_agents(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Search remote agents by capability, type, and minimum health score.."""
-    options: dict[str, Any] = {}
-    if capability is not None:
-        options["capability"] = capability
-    if agent_type is not None:
-        options["agent-type"] = agent_type
-    if min_health is not None:
-        options["min-health"] = min_health
-    if limit is not None:
-        options["limit"] = limit
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "capability": "capability",
+            "agent_type": "agent-type",
+            "min_health": "min-health",
+            "limit": "limit",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -489,9 +486,11 @@ def aitbc_agent_get_identity(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get an agent's on-chain identity record for the given ID.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -539,19 +538,17 @@ def aitbc_agent_inbox(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """View messages in a specified agent's inbox from the coordinator.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if limit is not None:
-        options["limit"] = limit
-    if unread_only:
-        options["unread-only"] = None
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"unread_only": "unread-only"},
+        values={
+            "agent_id": "agent-id",
+            "limit": "limit",
+            "wallet_name": "wallet",
+            "password": "password",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -572,9 +569,11 @@ def aitbc_agent_job(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get specific AI job details from the coordinator API.."""
-    options: dict[str, Any] = {}
-    if job_id is not None:
-        options["job-id"] = job_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"job_id": "job-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -596,11 +595,11 @@ def aitbc_agent_jobs(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List AI jobs from the coordinator API with optional status filters.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status", "limit": "limit"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -621,9 +620,11 @@ def aitbc_agent_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all local agents configured in the agent directory.."""
-    options: dict[str, Any] = {}
-    if agent_dir is not None:
-        options["agent-dir"] = agent_dir
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_dir": "agent-dir"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -647,11 +648,11 @@ def aitbc_agent_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a local agent with the coordinator by agent ID.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -697,15 +698,16 @@ def aitbc_agent_register_identity(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register an agent's identity and address on the blockchain.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if agent_address is not None:
-        options["agent-address"] = agent_address
-    if display_name is not None:
-        options["display-name"] = display_name
-    if agent_type is not None:
-        options["agent-type"] = agent_type
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "agent_address": "agent-address",
+            "display_name": "display-name",
+            "agent_type": "agent-type",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -747,11 +749,11 @@ def aitbc_agent_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the current status and health of a specified agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -776,13 +778,11 @@ def aitbc_agent_submit(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Submit a new AI job task to the coordinator API.."""
-    options: dict[str, Any] = {}
-    if task is not None:
-        options["task"] = task
-    if model is not None:
-        options["model"] = model
-    if priority is not None:
-        options["priority"] = priority
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"task": "task", "model": "model", "priority": "priority"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -832,19 +832,18 @@ def aitbc_agent_subscribe(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Subscribe an agent to a message topic on the coordinator.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if topic is not None:
-        options["topic"] = topic
-    if filter is not None:
-        options["filter"] = filter
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "topic": "topic",
+            "filter": "filter",
+            "wallet_name": "wallet",
+            "password": "password",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -888,11 +887,11 @@ def aitbc_agent_verify_identity(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Verify an agent's identity using a verifier address on the blockchain.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if verifier_address is not None:
-        options["verifier-address"] = verifier_address
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id", "verifier_address": "verifier-address"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -938,15 +937,16 @@ def aitbc_agent_workflow_create_workflow(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new multi-step workflow from a steps definition file.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if description is not None:
-        options["description"] = description
-    if steps_file is not None:
-        options["steps-file"] = steps_file
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "name": "name",
+            "description": "description",
+            "steps_file": "steps-file",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -991,13 +991,11 @@ def aitbc_agent_workflow_execute(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Execute a previously created workflow with the given input file.."""
-    options: dict[str, Any] = {}
-    if workflow_id is not None:
-        options["workflow-id"] = workflow_id
-    if input_file is not None:
-        options["input-file"] = input_file
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"workflow_id": "workflow-id", "input_file": "input-file", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -1040,9 +1038,11 @@ def aitbc_agent_workflow_list_workflows(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List all workflows registered with the coordinator.."""
-    options: dict[str, Any] = {}
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",
@@ -1086,11 +1086,11 @@ def aitbc_agent_workflow_workflow_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get the current execution status of a workflow by workflow ID.."""
-    options: dict[str, Any] = {}
-    if workflow_id is not None:
-        options["workflow-id"] = workflow_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"workflow_id": "workflow-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent",

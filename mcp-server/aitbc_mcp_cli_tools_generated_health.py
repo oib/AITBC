@@ -14,6 +14,7 @@ from pydantic import Field
 from aitbc_mcp_server import (
     NodeRole,
     _aitbc_cli_read_tool,
+    _collect_options,
     mcp,
 )
 
@@ -30,13 +31,11 @@ def aitbc_health(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Probe AITBC service health endpoints on a remote host.."""
-    options: dict[str, Any] = {}
-    if host_opt is not None:
-        options["host"] = host_opt
-    if services is not None:
-        options["services"] = services
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"host_opt": "host", "services": "services", "timeout_opt": "timeout"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

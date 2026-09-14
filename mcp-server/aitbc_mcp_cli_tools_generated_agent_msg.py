@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -31,9 +32,11 @@ def aitbc_agent_msg_peers(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List the peers currently known to the Agent Coordinator.."""
-    options: dict[str, Any] = {}
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -71,19 +74,18 @@ def aitbc_agent_msg_ping(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Ping a remote agent via WebSocket and wait for its PONG reply.."""
-    options: dict[str, Any] = {}
-    if agent is not None:
-        options["agent"] = agent
-    if sender is not None:
-        options["sender"] = sender
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent": "agent",
+            "sender": "sender",
+            "coordinator_url": "coordinator-url",
+            "timeout_opt": "timeout",
+            "wallet": "wallet",
+            "password": "password",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-msg",
@@ -134,21 +136,17 @@ def aitbc_agent_msg_receive(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Receive messages from the Agent Coordinator inbox for the configured agent.."""
-    options: dict[str, Any] = {}
-    if from_agent is not None:
-        options["from-agent"] = from_agent
-    if limit is not None:
-        options["limit"] = limit
-    if unread_only:
-        options["unread-only"] = None
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if sign:
-        options["sign"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"unread_only": "unread-only", "sign": "sign"},
+        values={
+            "from_agent": "from-agent",
+            "limit": "limit",
+            "wallet_name": "wallet",
+            "password": "password",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-msg",
@@ -206,19 +204,18 @@ def aitbc_agent_msg_request_coins(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request free AIT tokens from the hub via WebSocket for the configured wallet.."""
-    options: dict[str, Any] = {}
-    if wallet is not None:
-        options["wallet"] = wallet
-    if amount is not None:
-        options["amount"] = amount
-    if sender is not None:
-        options["sender"] = sender
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if password is not None:
-        options["password"] = password
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "wallet": "wallet",
+            "amount": "amount",
+            "sender": "sender",
+            "coordinator_url": "coordinator-url",
+            "password": "password",
+            "timeout_opt": "timeout",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "agent-msg",
@@ -277,29 +274,21 @@ def aitbc_agent_msg_send(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send a direct or broadcast message to another agent through the coordinator.."""
-    options: dict[str, Any] = {}
-    if from_agent is not None:
-        options["from-agent"] = from_agent
-    if to_agent is not None:
-        options["to-agent"] = to_agent
-    if priority is not None:
-        options["priority"] = priority
-    if message_id is not None:
-        options["message-id"] = message_id
-    if message_type is not None:
-        options["message-type"] = message_type
-    if ttl is not None:
-        options["ttl"] = ttl
-    if encrypt:
-        options["encrypt"] = None
-    if wallet_name is not None:
-        options["wallet"] = wallet_name
-    if password is not None:
-        options["password"] = password
-    if sign:
-        options["sign"] = None
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"encrypt": "encrypt", "sign": "sign"},
+        values={
+            "from_agent": "from-agent",
+            "to_agent": "to-agent",
+            "priority": "priority",
+            "message_id": "message-id",
+            "message_type": "message-type",
+            "ttl": "ttl",
+            "wallet_name": "wallet",
+            "password": "password",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = [message] if message is not None else []
     command = _build_aitbc_cli_command(
         "agent-msg",

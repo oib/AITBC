@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -39,21 +40,19 @@ def aitbc_bridge_attest(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sign a block header as a bridge validator and store it as a bridge header.."""
-    options: dict[str, Any] = {}
-    if header_file is not None:
-        options["header-file"] = header_file
-    if source_rpc is not None:
-        options["source-rpc"] = source_rpc
-    if height is not None:
-        options["height"] = height
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if private_key is not None:
-        options["private-key"] = private_key
-    if proposer is not None:
-        options["proposer"] = proposer
-    if target_rpc is not None:
-        options["target-rpc"] = target_rpc
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "header_file": "header-file",
+            "source_rpc": "source-rpc",
+            "height": "height",
+            "chain_id": "chain-id",
+            "private_key": "private-key",
+            "proposer": "proposer",
+            "target_rpc": "target-rpc",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -95,11 +94,11 @@ def aitbc_bridge_balance(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the total locked bridge balance for a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -127,19 +126,18 @@ def aitbc_bridge_confirm(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Confirm and release a cross-chain bridge transfer using a proof file.."""
-    options: dict[str, Any] = {}
-    if transfer_id is not None:
-        options["transfer-id"] = transfer_id
-    if confirmer is not None:
-        options["confirmer"] = confirmer
-    if signature is not None:
-        options["signature"] = signature
-    if confirmer_private_key is not None:
-        options["confirmer-private-key"] = confirmer_private_key
-    if proof_file is not None:
-        options["proof-file"] = proof_file
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "transfer_id": "transfer-id",
+            "confirmer": "confirmer",
+            "signature": "signature",
+            "confirmer_private_key": "confirmer-private-key",
+            "proof_file": "proof-file",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -180,9 +178,11 @@ def aitbc_bridge_health(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Check the bridge service health and connected node status.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -213,21 +213,18 @@ def aitbc_bridge_ingest_header(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Fetch a block header from a source node and store it as a bridge header.."""
-    options: dict[str, Any] = {}
-    if source_rpc is not None:
-        options["source-rpc"] = source_rpc
-    if target_rpc is not None:
-        options["target-rpc"] = target_rpc
-    if height is not None:
-        options["height"] = height
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if re_sign:
-        options["re-sign"] = None
-    if private_key is not None:
-        options["private-key"] = private_key
-    if proposer is not None:
-        options["proposer"] = proposer
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"re_sign": "re-sign"},
+        values={
+            "source_rpc": "source-rpc",
+            "target_rpc": "target-rpc",
+            "height": "height",
+            "chain_id": "chain-id",
+            "private_key": "private-key",
+            "proposer": "proposer",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -279,27 +276,22 @@ def aitbc_bridge_lock(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Lock funds for a cross-chain bridge transfer.."""
-    options: dict[str, Any] = {}
-    if target_chain is not None:
-        options["target-chain"] = target_chain
-    if sender is not None:
-        options["sender"] = sender
-    if recipient is not None:
-        options["recipient"] = recipient
-    if amount is not None:
-        options["amount"] = amount
-    if asset is not None:
-        options["asset"] = asset
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if signature is not None:
-        options["signature"] = signature
-    if wallet_name is not None:
-        options["wallet-name"] = wallet_name
-    if wallet_password is not None:
-        options["wallet-password"] = wallet_password
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "target_chain": "target-chain",
+            "sender": "sender",
+            "recipient": "recipient",
+            "amount": "amount",
+            "asset": "asset",
+            "source_chain": "source-chain",
+            "signature": "signature",
+            "wallet_name": "wallet-name",
+            "wallet_password": "wallet-password",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -342,9 +334,11 @@ def aitbc_bridge_oracle_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get bridge oracle and verification status.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -388,11 +382,11 @@ def aitbc_bridge_pending(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List pending bridge transfers, optionally filtered by chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -439,17 +433,17 @@ def aitbc_bridge_proof(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Build a Merkle proof for a locked bridge transfer.."""
-    options: dict[str, Any] = {}
-    if transfer_id is not None:
-        options["transfer-id"] = transfer_id
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if block_height is not None:
-        options["block-height"] = block_height
-    if block_hash is not None:
-        options["block-hash"] = block_hash
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "transfer_id": "transfer-id",
+            "source_chain": "source-chain",
+            "block_height": "block-height",
+            "block_hash": "block-hash",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -501,23 +495,20 @@ def aitbc_bridge_register_validator(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register a bridge validator for multi-sig operations on a chain.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if address is not None:
-        options["address"] = address
-    if public_key is not None:
-        options["public-key"] = public_key
-    if private_key is not None:
-        options["private-key"] = private_key
-    if admin_private_key is not None:
-        options["admin-private-key"] = admin_private_key
-    if admin_address is not None:
-        options["admin-address"] = admin_address
-    if epoch is not None:
-        options["epoch"] = epoch
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "chain_id": "chain-id",
+            "address": "address",
+            "public_key": "public-key",
+            "private_key": "private-key",
+            "admin_private_key": "admin-private-key",
+            "admin_address": "admin-address",
+            "epoch": "epoch",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -560,9 +551,11 @@ def aitbc_bridge_security_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get bridge security status, multi-sig configuration, and threshold.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -609,11 +602,11 @@ def aitbc_bridge_sign_proof(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Sign a bridge proof with one or more validator private keys.."""
-    options: dict[str, Any] = {}
-    if proof_file is not None:
-        options["proof-file"] = proof_file
-    if private_key is not None:
-        options["private-key"] = private_key
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proof_file": "proof-file", "private_key": "private-key"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -697,11 +690,11 @@ def aitbc_bridge_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get bridge service status or a specific transfer status.."""
-    options: dict[str, Any] = {}
-    if transfer_id is not None:
-        options["transfer-id"] = transfer_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"transfer_id": "transfer-id", "rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -769,15 +762,16 @@ def aitbc_bridge_store_header(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Store a bridge block header on the target node from a signed proof.."""
-    options: dict[str, Any] = {}
-    if proof_file is not None:
-        options["proof-file"] = proof_file
-    if admin_private_key is not None:
-        options["admin-private-key"] = admin_private_key
-    if admin_address is not None:
-        options["admin-address"] = admin_address
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "proof_file": "proof-file",
+            "admin_private_key": "admin-private-key",
+            "admin_address": "admin-address",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",
@@ -823,15 +817,11 @@ def aitbc_bridge_unlock(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Refund or cancel a pending bridge transfer.."""
-    options: dict[str, Any] = {}
-    if transfer_id is not None:
-        options["transfer-id"] = transfer_id
-    if sender is not None:
-        options["sender"] = sender
-    if signature is not None:
-        options["signature"] = signature
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"transfer_id": "transfer-id", "sender": "sender", "signature": "signature", "rpc_url": "rpc-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bridge",

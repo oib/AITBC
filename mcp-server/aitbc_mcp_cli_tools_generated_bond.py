@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,15 +37,11 @@ def aitbc_bond_appeal(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Appeal a slashing decision for a bond with optional evidence.."""
-    options: dict[str, Any] = {}
-    if bond_id is not None:
-        options["bond-id"] = bond_id
-    if reason is not None:
-        options["reason"] = reason
-    if evidence is not None:
-        options["evidence"] = evidence
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"bond_id": "bond-id", "reason": "reason", "evidence": "evidence", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bond",
@@ -91,17 +88,17 @@ def aitbc_bond_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create or top-up a provider's performance bond.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if amount is not None:
-        options["amount"] = amount
-    if required_amount is not None:
-        options["required-amount"] = required_amount
-    if bond_id is not None:
-        options["bond-id"] = bond_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "provider_id": "provider-id",
+            "amount": "amount",
+            "required_amount": "required-amount",
+            "bond_id": "bond-id",
+            "coordinator_url": "coordinator-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bond",
@@ -145,11 +142,11 @@ def aitbc_bond_lock(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Lock a provider's bond while a high-value job is in flight.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bond",
@@ -193,11 +190,11 @@ def aitbc_bond_release(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Release a previously locked provider bond.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bond",
@@ -242,13 +239,11 @@ def aitbc_bond_slash(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Slash a provider's bond with an optional reason.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if reason is not None:
-        options["reason"] = reason
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"provider_id": "provider-id", "reason": "reason", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bond",
@@ -290,11 +285,11 @@ def aitbc_bond_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show a provider's bond eligibility status.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"provider_id": "provider-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -320,15 +315,11 @@ def aitbc_bond_top_up(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Top up a provider's performance bond.."""
-    options: dict[str, Any] = {}
-    if provider_id is not None:
-        options["provider-id"] = provider_id
-    if amount is not None:
-        options["amount"] = amount
-    if bond_id is not None:
-        options["bond-id"] = bond_id
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"provider_id": "provider-id", "amount": "amount", "bond_id": "bond-id", "coordinator_url": "coordinator-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bond",

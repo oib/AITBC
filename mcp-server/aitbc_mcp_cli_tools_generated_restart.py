@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -36,11 +37,11 @@ def aitbc_restart(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Restart all AITBC services for the current (or selected) role."""
-    options: dict[str, Any] = {}
-    if dry_run_opt:
-        options["dry-run"] = None
-    if role_opt is not None:
-        options["role"] = role_opt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"dry_run_opt": "dry-run"},
+        values={"role_opt": "role"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "restart",

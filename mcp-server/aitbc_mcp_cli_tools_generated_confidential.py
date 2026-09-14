@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -31,9 +32,11 @@ def aitbc_confidential_balance(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show a confidential wallet balance proof.."""
-    options: dict[str, Any] = {}
-    if wallet_id is not None:
-        options["wallet-id"] = wallet_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"wallet_id": "wallet-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -58,13 +61,11 @@ def aitbc_confidential_send(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Send a confidential amount from a wallet to a recipient.."""
-    options: dict[str, Any] = {}
-    if wallet_id is not None:
-        options["wallet-id"] = wallet_id
-    if recipient_id is not None:
-        options["recipient-id"] = recipient_id
-    if amount is not None:
-        options["amount"] = amount
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"wallet_id": "wallet-id", "recipient_id": "recipient-id", "amount": "amount"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "confidential",
