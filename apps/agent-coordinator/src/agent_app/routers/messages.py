@@ -17,7 +17,7 @@ from ..encryption import get_encryptor
 from ..models import BroadcastRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
-from ..services.agent_auth import AgentPrincipal, authorize_agent_scope, optional_agent
+from ..services.agent_auth import AgentPrincipal, authorize_admin_scope, authorize_agent_scope, optional_agent
 from ..services.nonce_store import get_nonce_store
 from ..websocket import get_connection_manager
 
@@ -569,8 +569,15 @@ async def get_agent_subscriptions(request: Request, agent_id: str, principal: Op
 
 @router.post("/broadcast")
 @rate_limit(rate=50, per=60)
-async def broadcast_message(request_http: Request, request: BroadcastRequest) -> dict[str, Any]:
-    """Broadcast message to multiple agents"""
+async def broadcast_message(request_http: Request, request: BroadcastRequest, principal: OptionalAgent) -> dict[str, Any]:
+    """Broadcast message to multiple agents.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a
+    no-op. The stored sender stays the derived ``agent-coordinator`` — the
+    broadcast speaks as the coordinator, never as the caller.
+    """
+    authorize_admin_scope(principal, "broadcast")
     try:
         if not state.communication_manager:
             raise HTTPException(status_code=503, detail="Communication manager not available")
@@ -696,8 +703,13 @@ async def mark_message_read(request: Request, message_id: str, principal: Option
 
 @router.get("/load-balancer/stats")
 @rate_limit(rate=200, per=60)
-async def get_load_balancer_stats(request: Request) -> dict[str, Any]:
-    """Get load balancer statistics"""
+async def get_load_balancer_stats(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+    """Get load balancer statistics.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "load_balancer_stats")
     try:
         if not state.load_balancer:
             raise HTTPException(status_code=503, detail="Load balancer not available")
@@ -712,8 +724,13 @@ async def get_load_balancer_stats(request: Request) -> dict[str, Any]:
 
 @router.get("/registry/stats")
 @rate_limit(rate=200, per=60)
-async def get_registry_stats(request: Request) -> dict[str, Any]:
-    """Get agent registry statistics"""
+async def get_registry_stats(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+    """Get agent registry statistics.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "registry_stats")
     try:
         if not state.agent_registry:
             raise HTTPException(status_code=503, detail="Agent registry not available")
@@ -773,9 +790,14 @@ async def get_agents_by_capability(request: Request, capability: str) -> dict[st
 @router.put("/load-balancer/strategy")
 @rate_limit(rate=50, per=60)
 async def set_load_balancing_strategy(
-    request: Request, strategy: str = Query(..., description="Load balancing strategy")
+    request: Request, principal: OptionalAgent, strategy: str = Query(..., description="Load balancing strategy")
 ) -> dict[str, Any]:
-    """Set load balancing strategy"""
+    """Set load balancing strategy.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "load_balancer_strategy")
     try:
         if not state.load_balancer:
             raise HTTPException(status_code=503, detail="Load balancer not available")
@@ -803,10 +825,16 @@ async def set_load_balancing_strategy(
 @rate_limit(rate=50, per=60)
 async def add_peer(
     request: Request,
+    principal: OptionalAgent,
     agent_id: str = Query(..., description="Agent ID"),
     peer_id: str = Query(..., description="Peer agent ID"),
 ) -> dict[str, Any]:
-    """Add a peer connection for an agent"""
+    """Add a peer connection for an agent.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "peers_add")
     try:
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
@@ -834,10 +862,16 @@ async def add_peer(
 @rate_limit(rate=50, per=60)
 async def remove_peer(
     request: Request,
+    principal: OptionalAgent,
     agent_id: str = Query(..., description="Agent ID"),
     peer_id: str = Query(..., description="Peer agent ID"),
 ) -> dict[str, Any]:
-    """Remove a peer connection for an agent"""
+    """Remove a peer connection for an agent.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "peers_remove")
     try:
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
@@ -863,8 +897,13 @@ async def remove_peer(
 
 @router.get("/peers/{agent_id}")
 @rate_limit(rate=200, per=60)
-async def get_agent_peers(request: Request, agent_id: str) -> dict[str, Any]:
-    """Get all peers for a specific agent"""
+async def get_agent_peers(request: Request, agent_id: str, principal: OptionalAgent) -> dict[str, Any]:
+    """Get all peers for a specific agent.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "peers_get")
     try:
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")
@@ -887,8 +926,13 @@ async def get_agent_peers(request: Request, agent_id: str) -> dict[str, Any]:
 
 @router.get("/peers")
 @rate_limit(rate=200, per=60)
-async def get_all_peers(request: Request) -> dict[str, Any]:
-    """Get all peer connections in the system"""
+async def get_all_peers(request: Request, principal: OptionalAgent) -> dict[str, Any]:
+    """Get all peer connections in the system.
+
+    Phase C admin/operator-only: ``enforce`` → 401 without a principal, 403
+    for a non-admin one; ``advisory`` logs and allows; ``disabled`` is a no-op.
+    """
+    authorize_admin_scope(principal, "peers_list")
     try:
         if not state.peer_storage:
             raise HTTPException(status_code=503, detail="Peer storage not available")

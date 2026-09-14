@@ -2,20 +2,26 @@
 
 from __future__ import annotations
 
-from typing import Any
+from typing import Annotated, Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
+from ..config import settings
 from ..encryption import public_keys
+from ..services.agent_auth import AgentPrincipal, authorize_agent_scope, optional_agent
 
 logger = get_logger(__name__)
 
 router = APIRouter(prefix="/api/v1/agent/keys", tags=["agent-keys"])
+
+# Resolves the caller's principal if credentials are present, ``None``
+# otherwise — scope enforcement is flag-driven via agent_msg_signature_mode.
+OptionalAgent = Annotated[AgentPrincipal | None, Depends(optional_agent)]
 
 
 class RegisterKeyRequest(BaseModel):
@@ -64,8 +70,27 @@ async def get_public_key(request: Request, agent_id: str) -> KeyResponse | JSONR
 
 @router.post("/register")
 @rate_limit(rate=50, per=60)
-async def register_public_key(request: Request, req: RegisterKeyRequest) -> dict[str, Any]:
-    """Register a public key for an agent."""
+async def register_public_key(request: Request, req: RegisterKeyRequest, principal: OptionalAgent) -> dict[str, Any]:
+    """Register a public key for an agent.
+
+    Phase C agent-scoped: ``enforce`` requires a principal bound to
+    ``req.agent_id`` (agent JWT or ``X-Agent-*`` signed headers) or an admin,
+    and a non-admin principal must carry an ``identity_address`` binding — the
+    registered key is then stamped with the principal's bound identity so the
+    record shows which wallet authorized it. ``advisory`` logs and allows;
+    ``disabled`` is a no-op.
+    """
+    authorize_agent_scope(principal, req.agent_id, "keys_register")
+    if (
+        settings.agent_msg_signature_mode == "enforce"
+        and principal is not None
+        and not principal.is_admin
+        and not principal.wallet
+    ):
+        # A principal with no bound identity (a bare user JWT) cannot authorise
+        # an agent's key registration — the binding is what ties key to wallet.
+        raise HTTPException(status_code=403, detail="agent_identity_required")
+
     import base64
 
     try:
@@ -73,7 +98,8 @@ async def register_public_key(request: Request, req: RegisterKeyRequest) -> dict
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Invalid base64 public_key: {e}") from e
 
-    success = public_keys.register_public_key(req.agent_id, public_key_bytes, req.key_id)
+    identity_address = principal.wallet if principal is not None and not principal.is_admin else None
+    success = public_keys.register_public_key(req.agent_id, public_key_bytes, req.key_id, identity_address=identity_address)
     if not success:
         raise HTTPException(status_code=500, detail="Failed to register public key")
 
