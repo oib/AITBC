@@ -12,6 +12,17 @@ from .base import BaseHandler
 WALLET_SERVICE_URL = os.getenv("WALLET_SERVICE_URL", "http://localhost:8108")
 
 
+def wallet_auth_headers() -> dict[str, str]:
+    """Auth headers for the wallet daemon.
+
+    Its /v1/wallets routes are admin-gated, and the daemon accepts
+    COORDINATOR_API_KEY when WALLET_API_KEY is unset. Both are in
+    /etc/aitbc/blockchain-secrets.env, which this unit already loads.
+    """
+    key = os.getenv("WALLET_API_KEY") or os.getenv("COORDINATOR_API_KEY", "")
+    return {"X-API-Key": key} if key else {}
+
+
 class WalletAPIHandler(BaseHandler):
     """Handle wallet API requests"""
 
@@ -33,7 +44,11 @@ class WalletAPIHandler(BaseHandler):
                 import httpx
 
                 with httpx.Client(timeout=10) as client:
-                    resp = client.get(f"{WALLET_SERVICE_URL}/v1/wallets", params={"address": address})
+                    resp = client.get(
+                        f"{WALLET_SERVICE_URL}/v1/wallets",
+                        params={"address": address},
+                        headers=wallet_auth_headers(),
+                    )
                     if resp.status_code == 200:
                         data = resp.json()
                         wallets = data.get("wallets", [])
@@ -94,7 +109,11 @@ class WalletAPIHandler(BaseHandler):
                 import httpx
 
                 with httpx.Client(timeout=10) as client:
-                    resp = client.get(f"{WALLET_SERVICE_URL}/v1/wallets", params={"address": address})
+                    resp = client.get(
+                        f"{WALLET_SERVICE_URL}/v1/wallets",
+                        params={"address": address},
+                        headers=wallet_auth_headers(),
+                    )
                     if resp.status_code == 200:
                         wallet_data = resp.json()
                         wallets = wallet_data.get("wallets", [])
