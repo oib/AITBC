@@ -29,15 +29,14 @@ logger = get_logger(__name__)
 # Module-level keystore path (patchable in tests)
 KEYSTORE_PATH = "/var/lib/aitbc/keystore/validator_keys.json"
 
-# The blockchain RPC mounts every router under /rpc (and /v1); it serves nothing
-# at a bare /account, /transaction or /transactions. AITBCHTTPClient adds no
-# prefix of its own and calls raise_for_status(), so a bare path 404s and
-# surfaces as NetworkError -- buy/sell/cancel aborted, and orderbook/rates/orders
-# fell through to their simulated-data fallbacks and presented invented prices as
-# real. Path every call through these constants instead.
-ACCOUNT_PATH = "/rpc/account"
-TX_SUBMIT_PATH = "/rpc/transaction"
-TX_QUERY_PATH = "/rpc/transactions"
+# get_rpc_endpoint() returns a base URL that already ends in /rpc -- both the
+# island-credentials value ("{scheme}://{host}/rpc") and the blockchain_rpc_url
+# fallback normalise that way. The blockchain RPC mounts every router under
+# /rpc (and /v1), so appending another /rpc produces /rpc/rpc/... and 404/503s.
+# Path constants below are therefore relative to the /rpc-mounted router root.
+ACCOUNT_PATH = "/account"
+TX_SUBMIT_PATH = "/transaction"
+TX_QUERY_PATH = "/transactions"
 
 
 def _transaction_rows(response: Any) -> list[dict[str, Any]]:
