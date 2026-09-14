@@ -17,6 +17,17 @@ negotiation metadata, not secrets):
     agent  → POST /v1/tasks/{task_id}/complete  (escrow release on-chain)
     agent  → TaskPaid {task_id, tx_hash}
 
+Signing (docs/agent-coordinator/agent-signed-envelopes.md, Phase A/B): when a
+signing key is configured the executor binds ``AGENT_EXECUTOR_ID`` to the miner
+wallet at registration (``identity_address`` + ``identity_proof``), signs every
+outbound envelope (``aitbc-agent-msg-v1``), and attaches ``X-Agent-*``
+signed-request headers plus a ``agent_signature`` body field on the escrow
+calls (``aitbc-agent-req-v1``). Key custody: ``AGENT_SIGNING_KEY`` (hex private
+key) or the established ``AGENT_EXECUTOR_SIGNING_KEY`` / ``MINER_WALLET_KEY_FILE``
+miner wallet file; the derived address must equal ``MINER_WALLET_ADDRESS`` when
+that env var is set. With no key configured the executor runs exactly as
+before, unsigned (advisory mode).
+
 Enablement: ``AGENT_EXECUTOR_ENABLED=true`` in the miner env.
 """
 
@@ -26,6 +37,7 @@ import hashlib
 import json
 import os
 import time
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -85,22 +97,187 @@ def _save_state(state: dict[str, Any]) -> None:
         logger.warning("Could not persist executor state: %s", e)
 
 
+# --- Signing key custody -----------------------------------------------------
+#
+# The executor signs outbound envelopes, read requests and escrow calls with
+# the miner wallet key — the operator decision is identity_address == payout
+# wallet. Resolution order follows the established miner pattern:
+# ``AGENT_SIGNING_KEY`` (hex private key) → ``AGENT_EXECUTOR_SIGNING_KEY``
+# (same, legacy name) → ``MINER_WALLET_KEY_FILE`` (JSON wallet file with
+# ``private_key``/``address``, default ``/var/lib/aitbc/wallets/default.json``).
+# The material is resolved once per configuration and cached; tests change the
+# env between cases, so the cache key is the resolved input tuple.
+
+#: Domain prefix for signed *requests* (read/mutation calls carried in
+#: ``X-Agent-*`` headers and the escrow-call ``agent_signature``). The
+#: coordinator-side verifier for this domain lands in a later phase.
+AGENT_REQ_DOMAIN = "aitbc-agent-req-v1"
+
+_signing_cache_inputs: tuple[Any, ...] | None = None
+_signing_cache_value: tuple[str | None, str | None] = (None, None)
+_warned_unsigned = False
+
+
+def _warn_unsigned_once() -> None:
+    global _warned_unsigned
+    if not _warned_unsigned:
+        logger.warning(
+            "No agent signing key configured (AGENT_SIGNING_KEY / AGENT_EXECUTOR_SIGNING_KEY / "
+            "MINER_WALLET_KEY_FILE) — agent traffic is UNSIGNED; the coordinator accepts it in "
+            "advisory mode only"
+        )
+        _warned_unsigned = True
+
+
+def _signing_material(provider_wallet: str = "") -> tuple[str | None, str | None]:
+    """Resolve ``(private_key, derived_address)`` for agent signing, or ``(None, None)``.
+
+    When ``MINER_WALLET_ADDRESS`` is set in the environment it must equal the
+    derived address — a mismatch is a misconfigured key and fails fast. A
+    mismatch against the call-site ``provider_wallet`` only disables signing
+    for that call (never sign as a different identity than the escrow agent).
+    """
+    global _signing_cache_inputs, _signing_cache_value
+    env_key = (os.environ.get("AGENT_SIGNING_KEY") or os.environ.get("AGENT_EXECUTOR_SIGNING_KEY") or "").strip()
+    key_file = os.environ.get("MINER_WALLET_KEY_FILE", "/var/lib/aitbc/wallets/default.json")
+    wallet_env = os.environ.get("MINER_WALLET_ADDRESS", "").strip()
+    inputs = (env_key, key_file, wallet_env, provider_wallet)
+    if inputs == _signing_cache_inputs:
+        return _signing_cache_value
+
+    key = env_key or None
+    if key is None:
+        try:
+            data = json.loads(Path(key_file).read_text())
+            if data.get("private_key"):
+                key = str(data["private_key"])
+        except Exception:
+            key = None
+
+    if key is None:
+        _warn_unsigned_once()
+        result: tuple[str | None, str | None] = (None, None)
+    else:
+        from aitbc.crypto.crypto import derive_ethereum_address
+        from aitbc.crypto.signature_recovery import canonical_address
+
+        try:
+            address = derive_ethereum_address(key)
+        except Exception as e:
+            logger.error("Configured agent signing key is invalid (%s) — running unsigned", e)
+            result = (None, None)
+        else:
+            if wallet_env and canonical_address(wallet_env) != canonical_address(address):
+                raise RuntimeError(
+                    f"MINER_WALLET_ADDRESS ({wallet_env}) does not match the configured agent signing "
+                    f"key, which derives {address} — refusing to run with a mismatched identity"
+                )
+            if provider_wallet and canonical_address(provider_wallet) != canonical_address(address):
+                logger.warning(
+                    "Agent signing key derives %s but the provider wallet is %s — not signing this call",
+                    address,
+                    provider_wallet,
+                )
+                result = (None, None)
+            else:
+                result = (key, address)
+    _signing_cache_inputs = inputs
+    _signing_cache_value = result
+    return result
+
+
+def _provider_signing_key(provider_wallet: str) -> str | None:
+    """Private key proving control of the provider wallet (compat wrapper)."""
+    key, _address = _signing_material(provider_wallet)
+    return key
+
+
+def _sign_req_payload(payload: dict[str, Any], private_key: str) -> str:
+    """secp256k1 over ``keccak256("aitbc-agent-req-v1:" + canonical_json(payload))``."""
+    from aitbc.crypto.agent_envelope import domain_digest
+    from aitbc.crypto.crypto import sign_transaction_hash
+
+    return "0x" + sign_transaction_hash(domain_digest(payload, AGENT_REQ_DOMAIN).hex(), private_key).removeprefix("0x")
+
+
+def _agent_request_headers(agent_id: str, timestamp: str | None = None, nonce: str | None = None) -> dict[str, str]:
+    """Fresh ``X-Agent-*`` signed-request headers; empty dict when unsigned.
+
+    A new nonce + timestamp are generated per call unless supplied, so the
+    sweep loop cannot replay-collide on the coordinator's ``(agent, nonce)``
+    dedup. The signature covers ``{"agent_id","timestamp","nonce"}`` in the
+    ``aitbc-agent-req-v1`` domain.
+    """
+    key, _address = _signing_material()
+    if not key:
+        return {}
+    from aitbc.crypto import generate_nonce
+
+    ts = timestamp or datetime.now(UTC).isoformat()
+    nc = nonce or generate_nonce(16)
+    return {
+        "X-Agent-Id": agent_id,
+        "X-Agent-Signature": _sign_req_payload({"agent_id": agent_id, "timestamp": ts, "nonce": nc}, key),
+        "X-Agent-Timestamp": ts,
+        "X-Agent-Nonce": nc,
+    }
+
+
 # --- Coordinator helpers ----------------------------------------------------
 
 
 def _send_message(sender: str, recipient: str, message_type: str, content: dict[str, Any]) -> bool:
-    """Send a negotiation message via the coordinator REST API (unencrypted)."""
+    """Send a negotiation message via the coordinator REST API (unencrypted).
+
+    With a signing key configured the request is a Phase-A signed envelope:
+    ``signature`` covers every ``SendMessageRequest`` field (the server's
+    ``signing_payload()`` is ``model_dump(exclude={"signature"})``), so the
+    full field set — including defaults like ``priority``/``message_id`` — is
+    sent verbatim.
+    """
+    key, address = _signing_material()
+    if key and address:
+        from aitbc.crypto import generate_nonce
+        from aitbc.crypto.agent_envelope import AGENT_MSG_SIGNATURE_VERSION, sign_agent_envelope
+
+        body: dict[str, Any] = {
+            "sender": sender,
+            "recipient": recipient,
+            "content": content,
+            "message_type": message_type,
+            "encrypt": False,
+            "priority": "normal",
+            "ttl": 3600,
+            "message_id": None,
+            "signer": address,
+            "signature_version": AGENT_MSG_SIGNATURE_VERSION,
+            "timestamp": datetime.now(UTC).isoformat(),
+            "nonce": generate_nonce(16),
+        }
+        try:
+            body["signature"] = sign_agent_envelope(body, key)
+        except Exception as e:
+            logger.error("Envelope signing failed (%s) — sending unsigned", e)
+            body.pop("signer", None)
+            body.pop("signature_version", None)
+            body.pop("timestamp", None)
+            body.pop("nonce", None)
+            body.pop("message_id", None)
+            body.pop("priority", None)
+    else:
+        _warn_unsigned_once()
+        body = {
+            "sender": sender,
+            "recipient": recipient,
+            "content": content,
+            "message_type": message_type,
+            "encrypt": False,
+            "ttl": 3600,
+        }
     try:
         resp = requests.post(
             f"{COORDINATOR_URL}/api/v1/agent/messages/send",
-            json={
-                "sender": sender,
-                "recipient": recipient,
-                "content": content,
-                "message_type": message_type,
-                "encrypt": False,
-                "ttl": 3600,
-            },
+            json=body,
             timeout=HTTP_TIMEOUT,
         )
         if resp.status_code != 200:
@@ -116,6 +293,7 @@ def _mark_read(message_id: str) -> None:
     try:
         requests.post(
             f"{COORDINATOR_URL}/api/v1/agent/messages/id/{message_id}/read",
+            headers=_agent_request_headers(AGENT_EXECUTOR_ID),
             timeout=HTTP_TIMEOUT,
         )
     except requests.RequestException:
@@ -127,6 +305,7 @@ def _fetch_inbox(agent_id: str, limit: int = 100) -> list[dict[str, Any]]:
         resp = requests.get(
             f"{COORDINATOR_URL}/api/v1/agent/messages/inbox",
             params={"agent_id": agent_id, "limit": str(limit), "unread_only": "true"},
+            headers=_agent_request_headers(agent_id),
             timeout=HTTP_TIMEOUT,
         )
         if resp.status_code != 200:
@@ -139,23 +318,107 @@ def _fetch_inbox(agent_id: str, limit: int = 100) -> list[dict[str, Any]]:
         return []
 
 
+def _fetch_registration_nonce(agent_id: str) -> dict[str, str] | None:
+    """One-time 300 s nonce (+ chain_id) for the registration identity claim."""
+    try:
+        resp = requests.get(
+            f"{COORDINATOR_URL}/v1/agents/nonce",
+            params={"agent_id": agent_id},
+            timeout=HTTP_TIMEOUT,
+        )
+        if resp.status_code == 200:
+            data = resp.json()
+            if isinstance(data, dict) and data.get("nonce"):
+                return {"nonce": str(data["nonce"]), "chain_id": str(data.get("chain_id") or "")}
+    except (requests.RequestException, ValueError):
+        pass
+    return None
+
+
+def _bound_identity(agent_id: str) -> str | None:
+    """The ``identity_address`` the registry has bound to ``agent_id``, if any."""
+    try:
+        resp = requests.get(f"{COORDINATOR_URL}/v1/agents/{agent_id}", timeout=HTTP_TIMEOUT)
+        if resp.status_code == 200:
+            agent = resp.json().get("agent")
+            if isinstance(agent, dict):
+                bound = agent.get("identity_address")
+                return str(bound) if bound else None
+    except (requests.RequestException, ValueError):
+        pass
+    return None
+
+
 def _register_agent(agent_id: str, wallet: str, services: list[str]) -> bool:
-    """Register/refresh this executor's agent identity on the coordinator."""
+    """Register/refresh this executor's agent identity on the coordinator.
+
+    With a signing key, the request carries the §3 identity attestation:
+    ``identity_address`` (the miner wallet = payout address) plus an
+    ``identity_proof`` over the canonical claim ``{"agent_id",
+    "identity_address", "chain_id", "nonce", "registered_at"}`` where ``nonce``
+    is the one-time value from ``GET /v1/agents/nonce``.
+    """
+    body: dict[str, Any] = {
+        "agent_id": agent_id,
+        "agent_type": "worker",
+        "capabilities": ["paid_delegation"],
+        "services": services,
+        "endpoints": {},
+        "metadata": {"wallet": wallet, "role": "provider-executor"},
+    }
+    key, address = _signing_material(wallet)
+    if key and address:
+        nonce_info = _fetch_registration_nonce(agent_id)
+        if nonce_info:
+            from aitbc.crypto.agent_envelope import identity_claim, sign_identity_claim
+
+            registered_at = datetime.now(UTC).isoformat()
+            claim = identity_claim(
+                agent_id=agent_id,
+                identity_address=address,
+                chain_id=nonce_info["chain_id"],
+                nonce=nonce_info["nonce"],
+                registered_at=registered_at,
+            )
+            body.update(
+                {
+                    "identity_address": address,
+                    "identity_proof": sign_identity_claim(claim, key),
+                    "identity_nonce": nonce_info["nonce"],
+                    "registered_at": registered_at,
+                    "chain_id": nonce_info["chain_id"],
+                }
+            )
+        else:
+            logger.warning("No registration nonce from coordinator — registering without identity proof")
     try:
         resp = requests.post(
             f"{COORDINATOR_URL}/v1/agents/register",
-            json={
-                "agent_id": agent_id,
-                "agent_type": "worker",
-                "capabilities": ["paid_delegation"],
-                "services": services,
-                "endpoints": {},
-                "metadata": {"wallet": wallet, "role": "provider-executor"},
-            },
+            json=body,
             timeout=HTTP_TIMEOUT,
         )
         if resp.status_code == 200:
             return True
+        if resp.status_code == 409:
+            # Bound agent re-registrations must re-prove the *bound* key. The
+            # registry lookup disambiguates: bound to our key/wallet is benign
+            # (identity already ours); bound to a foreign key is a hijack
+            # signal — rotate via PUT /v1/agents/{id}/identity instead.
+            bound = _bound_identity(agent_id)
+            ours = {a for a in (address, wallet) if a}
+            if bound and ours:
+                from aitbc.crypto.signature_recovery import canonical_address
+
+                if canonical_address(bound) in {canonical_address(a) for a in ours}:
+                    logger.info("Agent %s already bound to our identity %s — re-registration not needed", agent_id, bound)
+                    return True
+            logger.error(
+                "Agent %s is bound to a different identity (%s) — refusing to re-register; "
+                "rotate identity explicitly if this key change is intended",
+                agent_id,
+                bound,
+            )
+            return False
         logger.warning("Agent registration failed: %s %s", resp.status_code, resp.text[:200])
     except requests.RequestException as e:
         logger.warning("Agent registration unreachable: %s", e)
@@ -173,47 +436,57 @@ def _task_escrow_status(task_id: str) -> dict[str, Any] | None:
     return None
 
 
-def _provider_signing_key(provider_wallet: str) -> str | None:
-    """Resolve the private key that proves control of the provider wallet.
+def _escrow_lock_confirmed(escrow: dict[str, Any] | None) -> bool:
+    """True only when the lock is anchored on-chain.
 
-    The coordinator binds ``complete``/``fail`` to the escrow's ``agent``
-    address, so the signature must come from the provider wallet key. Sources,
-    in order: ``AGENT_EXECUTOR_SIGNING_KEY`` (hex private key), then
-    ``MINER_WALLET_KEY_FILE`` (default ``/var/lib/aitbc/wallets/default.json``)
-    whose stored address must match ``provider_wallet``.
+    ``escrow_status == "locked"`` alone is not enough: a bookkeeping-only row
+    (no ``tx_hash_lock`` and no ``contract_id``) has no funds behind it and
+    must not drive free work.
     """
-    key = os.environ.get("AGENT_EXECUTOR_SIGNING_KEY")
-    if key:
-        return key
-    key_file = os.environ.get("MINER_WALLET_KEY_FILE", "/var/lib/aitbc/wallets/default.json")
-    try:
-        data = json.loads(Path(key_file).read_text())
-        pk = data.get("private_key")
-        if not pk:
-            return None
-        from aitbc.crypto.crypto import derive_ethereum_address
-
-        if derive_ethereum_address(pk).lower() != provider_wallet.lower():
-            logger.warning("Signing key file %s does not match provider wallet %s", key_file, provider_wallet)
-            return None
-        return str(pk)
-    except Exception as e:
-        logger.warning("No provider signing key available: %s", e)
-        return None
+    if not escrow:
+        return False
+    return bool(escrow.get("tx_hash_lock") or escrow.get("contract_id"))
 
 
-def _signed_body(action: str, task_id: str, provider_wallet: str, extra: dict[str, Any] | None = None) -> dict[str, Any]:
-    """Build the signed request body for escrow-bound task calls."""
+def _signed_body(
+    action: str,
+    task_id: str,
+    provider_wallet: str,
+    extra: dict[str, Any] | None = None,
+    req_fields: dict[str, Any] | None = None,
+) -> dict[str, Any]:
+    """Build the signed request body for escrow-bound task calls.
+
+    Two signatures coexist while the coordinator migrates:
+
+    * ``signature`` — the *live* check (commit 23ad910d6): ``recover_signer``
+      over ``{"action","task_id","signed_at"[,"amount_units"]}``. Kept verbatim
+      so today's coordinator still accepts the call.
+    * ``agent_signature`` — the Phase-B signed-request field: secp256k1 over
+      ``{"task_id", <amount_units|reason>, "timestamp","nonce"}`` in the
+      ``aitbc-agent-req-v1`` domain. Server-side verification lands in a later
+      phase; the fields are emitted now.
+    """
     signed_at = int(time.time())
     signed: dict[str, Any] = {"action": action, "task_id": task_id, "signed_at": signed_at}
     if extra:
         signed.update(extra)
     body = dict(signed)
-    key = _provider_signing_key(provider_wallet)
+    if req_fields:
+        body.update(req_fields)
+    key, _address = _signing_material(provider_wallet)
     if key:
+        from aitbc.crypto import generate_nonce
         from aitbc.crypto.crypto import sign_transaction_data
 
         body["signature"] = sign_transaction_data(signed, key)
+        timestamp = datetime.now(UTC).isoformat()
+        nonce = generate_nonce(16)
+        req_payload: dict[str, Any] = {"task_id": task_id, "timestamp": timestamp, "nonce": nonce}
+        req_payload.update(req_fields if req_fields is not None else (extra or {}))
+        body["timestamp"] = timestamp
+        body["nonce"] = nonce
+        body["agent_signature"] = _sign_req_payload(req_payload, key)
     else:
         logger.warning("Calling %s on %s unsigned — coordinator will reject provider-bound escrows", action, task_id)
     return body
@@ -223,7 +496,14 @@ def _complete_task(task_id: str, provider_wallet: str, amount_units: int | None 
     try:
         extra = {"amount_units": amount_units} if amount_units is not None else {"amount_units": 0}
         body = _signed_body("complete", task_id, provider_wallet, extra)
-        resp = requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/complete", json=body, timeout=HTTP_TIMEOUT)
+        headers = _agent_request_headers(
+            AGENT_EXECUTOR_ID,
+            timestamp=body.get("timestamp") if isinstance(body.get("timestamp"), str) else None,
+            nonce=body.get("nonce") if isinstance(body.get("nonce"), str) else None,
+        )
+        resp = requests.post(
+            f"{COORDINATOR_URL}/v1/tasks/{task_id}/complete", json=body, headers=headers, timeout=HTTP_TIMEOUT
+        )
         if resp.status_code == 200:
             data = resp.json()
             return data if isinstance(data, dict) else None
@@ -233,10 +513,16 @@ def _complete_task(task_id: str, provider_wallet: str, amount_units: int | None 
     return None
 
 
-def _fail_task(task_id: str, provider_wallet: str) -> None:
+def _fail_task(task_id: str, provider_wallet: str, reason: str | None = None) -> None:
     try:
-        body = _signed_body("fail", task_id, provider_wallet)
-        requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/fail", json=body, timeout=HTTP_TIMEOUT)
+        req_fields = {"reason": reason or "execution_failed"}
+        body = _signed_body("fail", task_id, provider_wallet, req_fields=req_fields)
+        headers = _agent_request_headers(
+            AGENT_EXECUTOR_ID,
+            timestamp=body.get("timestamp") if isinstance(body.get("timestamp"), str) else None,
+            nonce=body.get("nonce") if isinstance(body.get("nonce"), str) else None,
+        )
+        requests.post(f"{COORDINATOR_URL}/v1/tasks/{task_id}/fail", json=body, headers=headers, timeout=HTTP_TIMEOUT)
     except requests.RequestException as e:
         logger.warning("Task fail call error: %s", e)
 
@@ -379,11 +665,13 @@ def _handle_task_request(
     elif max_price < Decimal(str(offer["price"])):
         reason = f"max_price {max_price} below offer price {offer['price']}"
 
-    # Verify the buyer's escrow exists, is locked, and pays this provider.
+    # Verify the buyer's escrow exists, is locked on-chain, and pays this provider.
     if reason is None:
         escrow = _task_escrow_status(task_id)
         if not escrow or escrow.get("escrow_status") != "locked":
             reason = "no locked escrow for task"
+        elif not _escrow_lock_confirmed(escrow):
+            reason = "escrow lock not anchored on-chain (no tx_hash_lock/contract_id)"
         elif provider_wallet and escrow.get("agent", "").lower() != provider_wallet.lower():
             reason = f"escrow pays {escrow.get('agent')}, not this provider"
         elif int(escrow.get("amount", 0)) < ait_to_units(Decimal(str(offer["price"]))):
@@ -432,10 +720,18 @@ def _handle_task_accept(
     service_type = req.get("service_type", "")
     handler = SERVICE_HANDLERS.get(service_type)
 
-    # Verify the escrow exists and locks payment to this provider wallet.
+    # Verify the escrow exists, is locked on-chain, and locks payment to this
+    # provider wallet — a bookkeeping-only "locked" row must not drive free work.
     escrow = _task_escrow_status(task_id)
     if not escrow or escrow.get("escrow_status") != "locked":
         logger.warning("Task %s accepted but escrow is not locked (%s) — skipping", task_id, escrow)
+        return None
+    if not _escrow_lock_confirmed(escrow):
+        logger.warning(
+            "Task %s accepted but the lock has no on-chain anchor (tx_hash_lock/contract_id empty: %s) — skipping",
+            task_id,
+            escrow,
+        )
         return None
     if provider_wallet and escrow.get("agent", "").lower() != provider_wallet.lower():
         logger.warning("Task %s escrow agent %s != our wallet %s — skipping", task_id, escrow.get("agent"), provider_wallet)
@@ -454,7 +750,7 @@ def _handle_task_accept(
             "task_result",
             {"task_id": task_id, "status": "failed", "result_ref": None, "result_hash": None, "error": str(e)[:300]},
         )
-        _fail_task(task_id, provider_wallet)
+        _fail_task(task_id, provider_wallet, reason=str(e)[:200])
         return "failed"
 
     _send_message(
@@ -499,6 +795,15 @@ def sweep_once(provider_wallet: str, price_table: dict[str, dict[str, Any]] | No
     for message in _fetch_inbox(AGENT_EXECUTOR_ID):
         msg_id = str(message.get("message_id") or message.get("id") or "")
         if not msg_id or msg_id in done:
+            continue
+        # Inbound envelope verification (advisory): the coordinator stamps
+        # ``signature_status`` on stored records — a definitively invalid
+        # signature means a spoofed/tampered sender; drop it. ``verified`` and
+        # absent (unsigned / pre-Phase-A traffic) are processed as before.
+        if message.get("signature_status") == "invalid":
+            logger.warning("Dropping inbox message %s: signature_status=invalid", msg_id)
+            done.append(msg_id)
+            _mark_read(msg_id)
             continue
         message_type = message.get("message_type", "")
         content = _parse_content(message)
