@@ -31,6 +31,12 @@ from aitbc.utils.units import ait_to_units
 
 from ..config import get_config
 from ..utils import error, info, output, success, warning
+from ..utils.agent_signing import (
+    check_registry_binding,
+    load_signing_wallet,
+    sign_send_envelope,
+    signed_request_headers,
+)
 from ..utils.http_client import AITBCHTTPClient, get_logger
 from ..utils.wallet_loader import load_wallet_for_payment
 from .ipfs import _daemon_available, _ipfs_add_file, _is_cid
@@ -64,31 +70,51 @@ def _buyer_agent_id(from_agent: str | None) -> str:
 
 
 def _send_task_message(
-    client: AITBCHTTPClient, sender: str, recipient: str, message_type: str, content: dict[str, Any]
+    client: AITBCHTTPClient,
+    sender: str,
+    recipient: str,
+    message_type: str,
+    content: dict[str, Any],
+    signing: tuple[str, str] | None = None,
 ) -> dict[str, Any] | None:
+    """POST a task negotiation message, optionally as a §4 signed envelope.
+
+    ``signing`` is ``(signer_address, private_key)`` — the buyer wallet in
+    ``hire``. When it is ``None`` the message goes out unsigned, which the
+    coordinator still accepts while AGENT_MSG_SIGNATURE_MODE is
+    disabled/advisory.
+    """
+    body: dict[str, Any] = {
+        "sender": sender,
+        "recipient": recipient,
+        "content": content,
+        "message_type": message_type,
+        "encrypt": False,
+        "ttl": 3600,
+    }
+    if signing is not None:
+        address, private_key = signing
+        body = sign_send_envelope(body, address, private_key)
     try:
-        return client.post(
-            "/api/v1/agent/messages/send",
-            json={
-                "sender": sender,
-                "recipient": recipient,
-                "content": content,
-                "message_type": message_type,
-                "encrypt": False,
-                "ttl": 3600,
-            },
-        )
+        return client.post("/api/v1/agent/messages/send", json=body)
     except Exception as e:
         warning(f"Failed to send {message_type}: {e}")
         return None
 
 
-def _inbox(client: AITBCHTTPClient, agent_id: str, unread_only: bool = False, limit: int = 100) -> list[dict[str, Any]]:
+def _inbox(
+    client: AITBCHTTPClient,
+    agent_id: str,
+    unread_only: bool = False,
+    limit: int = 100,
+    signing_key: str | None = None,
+) -> list[dict[str, Any]]:
     params: dict[str, Any] = {"agent_id": agent_id, "limit": limit}
     if unread_only:
         params["unread_only"] = "true"
+    headers = signed_request_headers(agent_id, signing_key) if signing_key else None
     try:
-        data = client.get("/api/v1/agent/messages/inbox", params=params)
+        data = client.get("/api/v1/agent/messages/inbox", params=params, headers=headers)
     except Exception as e:
         warning(f"Inbox poll failed: {e}")
         return []
@@ -182,6 +208,12 @@ def agent_task():
 @click.option("--timeout", "timeout_seconds", type=float, default=1800.0, show_default=True, help="Escrow timeout in seconds")
 @click.option("--wait/--no-wait", default=True, show_default=True, help="Wait for the task result")
 @click.option("--wait-seconds", type=float, default=900.0, show_default=True, help="Max time to wait for a result")
+@click.option(
+    "--sign/--no-sign",
+    default=True,
+    show_default=True,
+    help="Sign negotiation envelopes and inbox polls with the buyer wallet",
+)
 @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: $AGENT_COORDINATOR_URL or hub)")
 @click.pass_context
 def hire(
@@ -197,6 +229,7 @@ def hire(
     timeout_seconds: float,
     wait: bool,
     wait_seconds: float,
+    sign: bool,
     coordinator_url: str | None,
 ):
     """Hire a provider agent: escrow locks on-chain, task runs, result returns as a CID."""
@@ -256,6 +289,18 @@ def hire(
     if not private_key:
         error("Escrow lock requires a buyer wallet with a private key")
         raise click.Abort()
+
+    # The same wallet signs every negotiation envelope (doc §4) and the
+    # X-Agent-* inbox-poll headers. --no-sign keeps the unsigned behaviour for
+    # coordinators still running with AGENT_MSG_SIGNATURE_MODE=disabled.
+    signing = (buyer_address, private_key) if sign else None
+    signing_key = private_key if sign else None
+    if signing is not None:
+        # Soft check only: the coordinator still accepts while advisory, and a
+        # registry lookup failure must not block the escrowed hire.
+        binding_note = check_registry_binding(client, buyer_agent, buyer_address)
+        if binding_note:
+            warning(f"{binding_note} — signed envelopes may be rejected once the coordinator enforces")
 
     task_id = f"atask_{datetime.now(UTC).strftime('%Y%m%d%H%M%S')}_{uuid.uuid4().hex[:8]}"
     from ..utils.escrow import create_signed_escrow_lock
@@ -320,7 +365,7 @@ def hire(
         "deadline": None,
         "escrow_id": escrow_id,
     }
-    if not _send_task_message(client, buyer_agent, to_agent, "task_request", request_msg):
+    if not _send_task_message(client, buyer_agent, to_agent, "task_request", request_msg, signing=signing):
         error("Escrow is locked but TaskRequest delivery failed — use `agent-task status` to inspect")
         raise click.Abort()
     info(f"TaskRequest sent to {to_agent}")
@@ -336,7 +381,7 @@ def hire(
     deadline = time.time() + wait_seconds
     accepted = False
     while time.time() < deadline:
-        found = _find_task_messages(_inbox(client, buyer_agent), task_id)
+        found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
         if "task_reject" in found:
             error(f"Provider rejected the task: {found['task_reject'].get('reason', '')}")
             return
@@ -354,6 +399,7 @@ def hire(
                     to_agent,
                     "task_accept",
                     {"task_id": task_id, "escrow_id": escrow_id, "offer_id": quote.get("offer_id")},
+                    signing=signing,
                 )
                 accepted = True
             else:
@@ -382,13 +428,29 @@ def hire(
 @agent_task.command()
 @click.option("--task-id", "task_id", required=True, help="Task identifier")
 @click.option("--from-agent", "from_agent", default=None, help="Buyer agent ID (default: $AGENT_ID or buyer-<hostname>)")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")
+@click.option("--password", default=None, help="Wallet password")
+@click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the inbox poll when a wallet is configured")
 @click.option("--coordinator-url", default=None, help="Agent coordinator URL")
 @click.pass_context
-def status(ctx, task_id: str, from_agent: str | None, coordinator_url: str | None):
+def status(
+    ctx,
+    task_id: str,
+    from_agent: str | None,
+    wallet_name: str | None,
+    password: str | None,
+    sign: bool,
+    coordinator_url: str | None,
+):
     """Show escrow state and negotiation progress for a task."""
     base_url = _coordinator_url(ctx, coordinator_url)
     client = AITBCHTTPClient(base_url=base_url, timeout=15)
     buyer_agent = _buyer_agent_id(from_agent)
+
+    signing_key = None
+    if sign:
+        wallet = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        signing_key = wallet[1] if wallet else None
 
     escrow: dict[str, Any] | None = None
     try:
@@ -397,7 +459,7 @@ def status(ctx, task_id: str, from_agent: str | None, coordinator_url: str | Non
     except Exception as e:
         warning(f"Escrow lookup failed: {e}")
 
-    found = _find_task_messages(_inbox(client, buyer_agent), task_id)
+    found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
     output(
         {
             "task_id": task_id,
@@ -413,15 +475,32 @@ def status(ctx, task_id: str, from_agent: str | None, coordinator_url: str | Non
 @click.option("--task-id", "task_id", required=True, help="Task identifier")
 @click.option("--out", "out_path", default=None, help="Output file path (default: print to stdout)")
 @click.option("--from-agent", "from_agent", default=None, help="Buyer agent ID")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet signing the inbox poll (default: $AITBC_DEFAULT_WALLET)")
+@click.option("--password", default=None, help="Wallet password")
+@click.option("--sign/--no-sign", default=True, show_default=True, help="Sign the inbox poll when a wallet is configured")
 @click.option("--coordinator-url", default=None, help="Agent coordinator URL")
 @click.pass_context
-def result(ctx, task_id: str, out_path: str | None, from_agent: str | None, coordinator_url: str | None):
+def result(
+    ctx,
+    task_id: str,
+    out_path: str | None,
+    from_agent: str | None,
+    wallet_name: str | None,
+    password: str | None,
+    sign: bool,
+    coordinator_url: str | None,
+):
     """Fetch a finished task's result payload from island IPFS."""
     base_url = _coordinator_url(ctx, coordinator_url)
     client = AITBCHTTPClient(base_url=base_url, timeout=15)
     buyer_agent = _buyer_agent_id(from_agent)
 
-    found = _find_task_messages(_inbox(client, buyer_agent), task_id)
+    signing_key = None
+    if sign:
+        wallet = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        signing_key = wallet[1] if wallet else None
+
+    found = _find_task_messages(_inbox(client, buyer_agent, signing_key=signing_key), task_id)
     task_result = found.get("task_result")
     if not task_result or not task_result.get("result_ref"):
         error(f"No result for task {task_id} yet (status: {task_result.get('status') if task_result else 'pending'})")

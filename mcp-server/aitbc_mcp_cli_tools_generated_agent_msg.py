@@ -57,6 +57,13 @@ def aitbc_agent_msg_ping(
         ),
     ],
     timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a PONG reply")],
+    wallet: Annotated[
+        str | None,
+        Field(
+            description="Wallet to authenticate the stream with (mints an agent JWT via the coordinator login endpoint when --sender is bound to it)"
+        ),
+    ],
+    password: Annotated[str | None, Field(description="Password for --wallet")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -73,6 +80,10 @@ def aitbc_agent_msg_ping(
         options["coordinator-url"] = coordinator_url
     if timeout_opt is not None:
         options["timeout"] = timeout_opt
+    if wallet is not None:
+        options["wallet"] = wallet
+    if password is not None:
+        options["password"] = password
     args = None
     command = _build_aitbc_cli_command(
         "agent-msg",
@@ -110,6 +121,11 @@ def aitbc_agent_msg_receive(
     from_agent: Annotated[str | None, Field(description="Agent ID whose inbox to read (default: $AGENT_ID)")],
     limit: Annotated[int | None, Field(description="Number of messages to return")],
     unread_only: Annotated[bool | None, Field(description="Only return unread messages")],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
+    sign: Annotated[bool | None, Field(description="Sign the request when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -125,6 +141,12 @@ def aitbc_agent_msg_receive(
         options["limit"] = limit
     if unread_only:
         options["unread-only"] = None
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
+    if sign:
+        options["sign"] = None
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = None
@@ -175,6 +197,7 @@ def aitbc_agent_msg_request_coins(
             description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.aitbc.bubuit.net/agent (default: from config agent_coordinator_url)"
         ),
     ],
+    password: Annotated[str | None, Field(description="Password for --wallet when it also authenticates the stream")],
     timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a response")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -192,6 +215,8 @@ def aitbc_agent_msg_request_coins(
         options["sender"] = sender
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
+    if password is not None:
+        options["password"] = password
     if timeout_opt is not None:
         options["timeout"] = timeout_opt
     args = None
@@ -236,6 +261,14 @@ def aitbc_agent_msg_send(
     message_type: Annotated[str | None, Field(description="Message type")],
     ttl: Annotated[int | None, Field(description="Time to live in seconds")],
     encrypt: Annotated[bool | None, Field(description="Encrypt the message")],
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity"
+        ),
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
+    sign: Annotated[bool | None, Field(description="Sign the envelope when a wallet is configured")],
     coordinator_url: Annotated[str | None, Field(description="Agent Coordinator URL (default: from config)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -259,6 +292,12 @@ def aitbc_agent_msg_send(
         options["ttl"] = ttl
     if encrypt:
         options["encrypt"] = None
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
+    if sign:
+        options["sign"] = None
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = [message] if message is not None else []
