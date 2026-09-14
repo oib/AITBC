@@ -23,7 +23,7 @@ AITBC uses three environment configuration files:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NODE_ID` | Yes | - | Unique identifier for this node (e.g., `aitbc`, `aitbc1`, `aitbc2`) |
+| `NODE_ID` | Yes | - | Unique identifier for this node (e.g., `hub`, `node1`, `node2`) |
 | `p2p_node_id` | Yes | - | Unique P2P network identity. Format: `node-<uuid>` |
 | `proposer_id` | Yes* | - | PoA proposer address. Format: `0x<address>` |
 | `enable_block_production` | No | `true` | Set `false` on follower nodes to prevent forks |
@@ -56,7 +56,7 @@ AITBC uses three environment configuration files:
 # This file contains variables unique to this node
 
 # Node Identity
-NODE_ID=aitbc
+NODE_ID=hub
 
 # P2P Configuration
 p2p_node_id=node-ad4e9170aea04a349469d17758de7b27
@@ -82,7 +82,7 @@ enable_block_production=true
 # This file contains variables unique to this node
 
 # Node Identity
-NODE_ID=aitbc2
+NODE_ID=node2
 
 # P2P identity (kept for uniqueness, not used for follower gossip)
 p2p_node_id=node-7af14c549bab473d9deb4ca8ab4bdcde
@@ -542,7 +542,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 - `auto_sync_enabled=false` (for its own chain)
 - Creates genesis block locally
 
-**Example:** aitbc for ait-mainnet, aitbc1 for ait-testnet
+**Example:** `hub` for ait-mainnet, `node1` for ait-testnet
 
 ### Follower Node
 

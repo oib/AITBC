@@ -39,7 +39,7 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 **Solutions:**
 
 - Each address can only vote once per proposal
-- Check existing votes: `aitbc operations governance get-proposal <proposal_id>`
+- Check existing votes: `aitbc governance get --proposal-id <proposal_id>` (or `aitbc governance list` to see tallies)
 - Use a different wallet address if needed
 
 ### Proposal not found

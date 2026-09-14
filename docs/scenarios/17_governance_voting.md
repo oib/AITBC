@@ -27,8 +27,8 @@ breadcrumb: Home > Scenarios > Governance Voting
 
 This scenario demonstrates two real CLI surfaces:
 
-- `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `close`, `execute`, `list`, `get`, `status`).
-- `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed proposal/vote path.
+- `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `close`, `execute`, `list`, `get`, `status`). This is the canonical group.
+- `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed path. The `aitbc operations` group is **deprecated and hidden** from `aitbc --help`; it is kept here only for `voting-power`/`stake`/`delegate`, which have no `aitbc governance` equivalent.
 
 Live two-node validation so far has proven `aitbc governance status`. Treat propose/vote/execute as command-shaped plays against a running governance service; they are not yet a closed on-chain parameter-change cycle (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) P1.7).
 
@@ -39,8 +39,8 @@ A network participant wants to propose a parameter change (e.g., adjusting the b
 ### What You'll Learn
 
 - How to inspect the live governance service with `aitbc governance status`
-- How to propose and vote through `aitbc governance` (service) and `aitbc operations governance` (RPC)
-- How to stake and delegate voting power
+- How to propose, vote, and execute through `aitbc governance` (canonical service path)
+- How to stake and delegate voting power via the deprecated `aitbc operations governance` RPC path (no canonical equivalent)
 - How to execute a passed proposal
 
 ### Live operator setup
@@ -79,29 +79,28 @@ aitbc governance list
 
 **Expected output:** an operational summary from port 8105 (live on the hub). An empty proposal list is fine.
 
-### Step 1: Create a Governance Proposal (RPC path)
+### Step 1: Create a Governance Proposal
 
-Create a new proposal on the blockchain. The `proposal` subcommand requires a proposal ID, title, description, and a wallet name for signing. The category defaults to `general` and the voting period defaults to 7 days.
+Create a new proposal via the governance service. `aitbc governance propose` takes a title, description, and a proposer profile ID; the service assigns the proposal ID. The category defaults to `general` and the voting period defaults to 7 days.
 
 ```bash
-aitbc operations governance proposal \
-    --proposal-id prop-001 \
+aitbc governance propose \
     --title "Increase Block Gas Limit to 30M" \
     --description "Proposal to raise the block gas limit from 15M to 30M to support higher throughput" \
+    --type "parameter_change" \
     --category "parameter_change" \
-    --wallet mywallet \
+    --proposer-id mywallet \
+    --proposer-address 0xabc123... \
     --voting-days 7
 ```
 
-**Expected output:**
+**Expected output** (the returned `proposal_id` is used by all later steps):
 
 ```
-Proposal created: prop-001
-
 Proposal ID          prop-001
-Proposer Address     0xabc123...
 Title                Increase Block Gas Limit to 30M
 Category             parameter_change
+Type                 parameter_change
 Voting Starts        2026-06-25T10:00:00Z
 Voting Ends          2026-07-02T10:00:00Z
 Status               active
@@ -112,7 +111,7 @@ Status               active
 Check the current state of a proposal, including vote tallies and status.
 
 ```bash
-aitbc operations governance get-proposal prop-001
+aitbc governance get --proposal-id prop-001
 ```
 
 **Expected output:**
@@ -133,14 +132,15 @@ Total Voting Power   0
 
 ### Step 3: Cast a Vote
 
-Vote on a proposal using a wallet for signing. The `--vote` option accepts `for`, `against`, or `abstain`.
+Vote on a proposal through the governance service. The `--vote` option accepts `for`, `against`, or `abstain`; `--voter-address` binds the vote to an on-chain wallet for voting power.
 
 ```bash
 # Vote in favor of the proposal
-aitbc operations governance vote prop-001 \
+aitbc governance vote \
+    --proposal-id prop-001 \
+    --voter-id mywallet \
+    --voter-address 0xabc123... \
     --vote for \
-    --wallet mywallet \
-    --voting-power 1000 \
     --reason "Higher gas limit improves throughput for AI workloads"
 ```
 
@@ -150,28 +150,31 @@ aitbc operations governance vote prop-001 \
 Vote 'for' cast for proposal prop-001
 
 Proposal ID       prop-001
+Voter ID          mywallet
 Voter Address     0xabc123...
 Vote Type         for
-Voting Power      1000
 Reason            Higher gas limit improves throughput for AI workloads
 Status            accepted
 ```
 
 ```bash
-# Vote against the proposal with a different wallet
-aitbc operations governance vote prop-001 \
+# Vote against the proposal with a different voter
+aitbc governance vote \
+    --proposal-id prop-001 \
+    --voter-id otherwallet \
+    --voter-address 0xdef456... \
     --vote against \
-    --wallet otherwallet \
-    --voting-power 500 \
     --reason "Concerned about state bloat"
 ```
 
 ### Step 4: Check Voting Power
 
+> **Deprecated group:** steps 4–6 use `aitbc operations governance`, which is deprecated and hidden from `aitbc --help`. `voting-power`, `stake`, and `delegate` have no `aitbc governance` equivalent; they talk to the blockchain RPC directly.
+
 Query the voting power for a specific address before casting a vote.
 
 ```bash
-aitbc operations governance voting-power 0xabc123def456...
+aitbc operations governance voting-power --address 0xabc123def456...
 ```
 
 **Expected output:**
@@ -234,7 +237,7 @@ Status              delegated
 After the voting period ends (or quorum and approval are reached early), close the proposal so it transitions to `succeeded` or `defeated`:
 
 ```bash
-aitbc governance close prop-001
+aitbc governance close --proposal-id prop-001
 ```
 
 **Expected output:**
@@ -254,7 +257,7 @@ Abstain Votes       100
 Once the voting period ends and the proposal passes, execute it to enact the changes.
 
 ```bash
-aitbc operations governance execute prop-001
+aitbc governance execute --proposal-id prop-001
 ```
 
 **Expected output:**
@@ -292,29 +295,29 @@ async def main():
     # Register the agent first
     await agent.register()
 
-    # Create a governance proposal via the real aitbc CLI
+    # Create a governance proposal via the real aitbc CLI (service assigns the ID)
     result = subprocess.run(
         [
-            "aitbc", "operations", "governance", "proposal",
-            "--proposal-id", "prop-002",
+            "aitbc", "governance", "propose",
             "--title", "Reduce Transaction Fee to 0.001 AIT",
             "--description", "Lower fees to encourage microtransactions",
-            "--category", "parameter_change",
-            "--wallet", "mywallet",
+            "--type", "parameter_change",
+            "--proposer-id", "mywallet",
             "--voting-days", "5",
             "--format", "json",
         ],
         capture_output=True, text=True,
     )
     print("Proposal created:", result.stdout)
+    proposal_id = json.loads(result.stdout)["proposal_id"]
 
     # Cast a vote via the real aitbc CLI
     vote_result = subprocess.run(
         [
-            "aitbc", "operations", "governance", "vote", "prop-002",
+            "aitbc", "governance", "vote",
+            "--proposal-id", proposal_id,
+            "--voter-id", "mywallet",
             "--vote", "for",
-            "--wallet", "mywallet",
-            "--voting-power", "500",
             "--reason", "Lower fees benefit AI microtransactions",
             "--format", "json",
         ],
@@ -338,8 +341,8 @@ def get_proposal_status(proposal_id: str) -> dict:
     """Fetch proposal details via the real aitbc CLI."""
     result = subprocess.run(
         [
-            "aitbc", "operations", "governance", "get-proposal",
-            proposal_id, "--format", "json",
+            "aitbc", "governance", "get",
+            "--proposal-id", proposal_id, "--format", "json",
         ],
         capture_output=True, text=True,
     )
@@ -363,7 +366,7 @@ def wait_for_proposal_pass(proposal_id: str, timeout: int = 300) -> bool:
 
 # Usage
 if wait_for_proposal_pass("prop-002"):
-    subprocess.run(["aitbc", "operations", "governance", "execute", "prop-002"])
+    subprocess.run(["aitbc", "governance", "execute", "--proposal-id", "prop-002"])
     print("Proposal executed!")
 ```
 
@@ -374,8 +377,8 @@ if wait_for_proposal_pass("prop-002"):
 After completing this scenario, you should be able to:
 
 - Inspect the live governance service with `aitbc governance status` / `list`
-- Create proposals and cast votes with `aitbc operations governance` (RPC) or `aitbc governance propose` / `vote` (service)
-- Stake tokens and delegate voting power
+- Create proposals and cast votes with `aitbc governance propose` / `vote` (canonical service path)
+- Stake tokens and delegate voting power via the deprecated `aitbc operations governance` RPC path
 - Execute a passed proposal
 
 ---
@@ -387,7 +390,7 @@ Verify that the governance workflow completed successfully:
 ```bash
 aitbc governance status
 aitbc governance list
-aitbc operations governance get-proposal prop-001
+aitbc governance get --proposal-id prop-001
 ```
 
 ---

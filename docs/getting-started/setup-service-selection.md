@@ -18,8 +18,8 @@ Both axes are evaluated independently and their service lists are merged. This m
 |----------------|-------------|----------|-------|
 | hub | customer | base + hub | 18 |
 | hub | shop | base + hub + shop | 23 |
-| follower | customer | base + follower | 10 |
-| follower | shop | base + follower + shop | 16 |
+| follower | customer | base + follower | 9 |
+| follower | shop | base + follower + shop | 15 |
 
 ### Base Services (All Nodes)
 
@@ -59,8 +59,9 @@ In addition to base services, follower nodes get:
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `aitbc-blockchain-sync` | — | Syncs blocks from hub via lease-based subscription |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
+
+Block sync from the hub (lease-based subscription) is handled by `aitbc-blockchain-node` itself; the separate `aitbc-blockchain-sync` unit was removed in `5f98fad8b2`.
 
 ### Shop Services (MARKET_ROLE=shop)
 

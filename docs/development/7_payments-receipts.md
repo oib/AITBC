@@ -67,12 +67,15 @@ Visit [Explorer → Receipts](https://aitbc.bubuit.net/explorer/#/receipts) to s
 
 ### CLI
 
-```bash
-# List your receipts
-./aitbc-cli.sh receipts
+There is no dedicated `aitbc receipts` command. Query the coordinator API through the generic HTTP pivot (`aitbc http call`) or with `curl`:
 
-# Get specific receipt
-./aitbc-cli.sh receipt <receipt_id>
+```bash
+# List receipts (optionally filter by job)
+aitbc http call coordinator-api v1/explorer/receipts
+aitbc http call coordinator-api v1/explorer/receipts --params '{"job_id": "job-abc123"}'
+
+# Get a job's signed receipt (requires a client credential)
+aitbc http call coordinator-api v1/jobs/job-abc123/receipt --api-key <client-key>
 ```
 
 ### API

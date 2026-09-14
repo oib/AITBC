@@ -54,7 +54,7 @@ journalctl -u aitbc-prometheus-watch -f
 
 The blockchain node main process exposes `/metrics` on `AITBC_NODE_METRICS_PORT` (default `9009`). The RPC process and the coordinator API also expose `/metrics` (or `/prometheus`) on their normal ports. Key series to watch:
 
-**Note on RPC metrics.** The RPC process imports Python modules that define node-only gauges such as `blockchain_block_height`, `blockchain_poa_valid_subscribers` and `blockchain_sync_lag_blocks`, but it does not update them. Those series are zero or stale on the RPC target, so `scripts/monitoring/prometheus.yml` drops them with `metric_relabel_configs` on the `aitbc3-blockchain-rpc` job. The canonical values are scraped from the node target on port `9009`.
+**Note on RPC metrics.** The RPC process imports Python modules that define node-only gauges such as `blockchain_block_height`, `blockchain_poa_valid_subscribers` and `blockchain_sync_lag_blocks`, but it does not update them. Those series are zero or stale on the RPC target, so `scripts/monitoring/prometheus.yml` drops them with `metric_relabel_configs` on the `node2-blockchain-rpc` job. The canonical values are scraped from the node target on port `9009`.
 
 - `blockchain_block_height` - current block height.
 - `blockchain_poa_valid_subscribers{chain_id}` - number of valid subscribers at block broadcast time.
@@ -154,14 +154,14 @@ scrape_configs:
       - targets: ['localhost:9100']
 
   # Blockchain node main process metrics (chain height, subscribers, broadcast skipped)
-  - job_name: 'aitbc3-blockchain-node'
+  - job_name: 'node2-blockchain-node'
     static_configs:
       - targets: ['localhost:9009']
         labels:
           node: <node2>
           service: blockchain-node
 
-  - job_name: 'aitbc3-blockchain-rpc'
+  - job_name: 'node2-blockchain-rpc'
     static_configs:
       - targets: ['localhost:8202']
         labels:
@@ -169,7 +169,7 @@ scrape_configs:
           service: blockchain-rpc
 
   # Coordinator API and marketplace only run on the hub node by default.
-  # - job_name: 'aitbc3-coordinator-api'
+  # - job_name: 'node2-coordinator-api'
   #   static_configs:
   #     - targets: ['localhost:8203']  # check-ports: ignore
   #       labels:
@@ -178,7 +178,7 @@ scrape_configs:
   #   metrics_path: '/prometheus'
   #   scrape_interval: 15s
   #
-  # - job_name: 'aitbc3-marketplace'
+  # - job_name: 'node2-marketplace'
   #   static_configs:
   #     - targets: ['localhost:8104']
   #       labels:
