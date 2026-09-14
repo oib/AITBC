@@ -42,7 +42,7 @@
             }
           },
           "503": {
-            "description": "Service Unavailable",
+            "description": "readiness check failed",
             "content": {
               "application/json": {
                 "schema": {
@@ -2595,7 +2595,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -2703,7 +2703,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -2804,7 +2804,7 @@
             }
           },
           "500": {
-            "description": "Internal Server Error",
+            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
