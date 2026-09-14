@@ -11,8 +11,6 @@ import sys
 import pytest
 
 
-from pathlib import Path
-
 from aitbc import constants
 from aitbc.aitbc_logging import (
     JournalFormatter,
@@ -452,12 +450,21 @@ class TestLogFilePathResolution:
     got nothing, with no way to tell that apart from file logging being switched off.
     """
 
-    def test_falls_back_to_constants_log_dir(self, monkeypatch):
+    def test_falls_back_to_constants_log_dir(self, tmp_path, monkeypatch):
+        """With no LOG_DIR in the environment, the constant is used.
+
+        `constants.LOG_DIR` is redirected at tmp_path rather than asserted against
+        its real value, because `_get_log_file_path` creates the directory it
+        returns. Reading the real constant here would have this test mkdir into
+        `/var/log/aitbc` on whatever host runs it -- and as root, which leaves a
+        root-owned directory that the `aitbc` service user then cannot write to.
+        That is not hypothetical: an earlier revision of this test did exactly
+        that on a live host.
+        """
         monkeypatch.delenv("LOG_DIR", raising=False)
+        monkeypatch.setattr(constants, "LOG_DIR", tmp_path)
 
-        path = _get_log_file_path("svc")
-
-        assert path == Path(constants.LOG_DIR) / "svc" / "svc.log"
+        assert _get_log_file_path("svc") == tmp_path / "svc" / "svc.log"
 
     def test_env_var_wins_over_the_default(self, tmp_path, monkeypatch):
         monkeypatch.setenv("LOG_DIR", str(tmp_path))
