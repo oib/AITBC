@@ -106,9 +106,14 @@ async def submit_task(
                 escrow_status = escrow.status.value
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
-            except Exception as e:
-                logger.error("On-chain escrow lock failed for task %s: %s", task_id, e)
-                raise HTTPException(status_code=502, detail=f"On-chain escrow lock failed: {e}") from None
+            except Exception:
+                # The exception text is the only place the chain error survives now
+                # that it no longer goes out in the response, so log the traceback.
+                logger.exception("On-chain escrow lock failed for task %s", task_id)
+                raise HTTPException(
+                    status_code=502,
+                    detail="On-chain escrow lock failed; the task was not submitted",
+                ) from None
 
         await state.task_distributor.submit_task(
             request.task_data,
@@ -413,9 +418,12 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
         state.payment_escrow.release(entry.escrow_id, submitter=submitter)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
-    except Exception as e:
-        logger.error("On-chain escrow release failed for task %s: %s", task_id, e)
-        raise HTTPException(status_code=502, detail=f"On-chain escrow release failed: {e}") from None
+    except Exception:
+        logger.exception("On-chain escrow release failed for task %s", task_id)
+        raise HTTPException(
+            status_code=502,
+            detail="On-chain escrow release failed; the payment was not released",
+        ) from None
     return {
         "status": "success",
         "message": f"Task {task_id} completed, payment released",
@@ -462,9 +470,12 @@ async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
         state.payment_escrow.refund(entry.escrow_id, submitter=submitter)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
-    except Exception as e:
-        logger.error("On-chain escrow refund failed for task %s: %s", task_id, e)
-        raise HTTPException(status_code=502, detail=f"On-chain escrow refund failed: {e}") from None
+    except Exception:
+        logger.exception("On-chain escrow refund failed for task %s", task_id)
+        raise HTTPException(
+            status_code=502,
+            detail="On-chain escrow refund failed; the payment was not refunded",
+        ) from None
     return {
         "status": "success",
         "message": f"Task {task_id} failed, payment refunded",
