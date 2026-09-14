@@ -10,6 +10,7 @@ from enum import StrEnum
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.agent_envelope import AGENT_MSG_SIGNATURE_VERSION
 
 from ..websocket import get_connection_manager
 
@@ -61,6 +62,13 @@ class AgentMessage:
     correlation_id: str | None = None
     reply_to: str | None = None
     ttl: int = 300
+    # v2.0 phase A: signed-envelope fields (docs/agent-coordinator/agent-signed-envelopes.md).
+    # ``signature`` is secp256k1 over keccak256("aitbc-agent-msg-v1:" + canonical_json(
+    # signing_payload())) by the key behind ``signer``.
+    signer: str | None = None
+    signature: str | None = None
+    signature_version: str = AGENT_MSG_SIGNATURE_VERSION
+    nonce: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert message to dictionary"""
@@ -75,7 +83,17 @@ class AgentMessage:
             "correlation_id": self.correlation_id,
             "reply_to": self.reply_to,
             "ttl": self.ttl,
+            "signer": self.signer,
+            "signature": self.signature,
+            "signature_version": self.signature_version,
+            "nonce": self.nonce,
         }
+
+    def signing_payload(self) -> dict[str, Any]:
+        """The canonical signed dict: the full envelope minus ``signature`` (doc §4)."""
+        payload = self.to_dict()
+        payload.pop("signature", None)
+        return payload
 
     @classmethod
     def from_dict(cls, data: dict[str, Any]) -> "AgentMessage":

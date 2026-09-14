@@ -29,6 +29,13 @@ except ImportError:
 logger = get_logger(__name__)
 
 
+def _same_address(a: str, b: str) -> bool:
+    """Case-insensitive EVM address comparison (EIP-55-insensitive)."""
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    return canonical_address(a) == canonical_address(b)
+
+
 class AgentStatus(StrEnum):
     """Agent status enumeration"""
 
@@ -73,6 +80,11 @@ class AgentInfo:
     # v0.6.5: chain/island awareness
     chain_id: str = ""
     island_id: str = ""
+    # v2.0 phase A: cryptographic binding agent_id -> payout wallet
+    # (docs/agent-coordinator/agent-signed-envelopes.md §3). ``registered_proof``
+    # keeps the attestation that established the binding for audit.
+    identity_address: str | None = None
+    registered_proof: str | None = None
 
     def to_dict(self) -> dict[str, Any]:
         """Convert to dictionary"""
@@ -92,6 +104,8 @@ class AgentInfo:
             "tags": list(self.tags),
             "chain_id": self.chain_id,
             "island_id": self.island_id,
+            "identity_address": self.identity_address,
+            "registered_proof": self.registered_proof,
         }
 
     @classmethod
@@ -104,6 +118,9 @@ class AgentInfo:
         data["tags"] = set(data.get("tags", []))
         data.setdefault("chain_id", "")
         data.setdefault("island_id", "")
+        # Records written before v2.0 phase A predate the identity fields.
+        data.setdefault("identity_address", None)
+        data.setdefault("registered_proof", None)
         return cls(**data)
 
 
@@ -151,9 +168,28 @@ class AgentRegistry:
         logger.info("Agent registry stopped")
 
     async def register_agent(self, agent_info: AgentInfo) -> bool:
-        """Register a new agent"""
+        """Register a new agent.
+
+        The router verifies any identity attestation before calling this; the
+        guard under the lock closes the remaining race: once an agent_id is
+        bound to an ``identity_address`` a plain re-registration can neither
+        clear it (legacy callers keep working, the binding is preserved) nor
+        rebind it to a different key — that requires ``update_agent_identity``
+        behind the dual-proof rotation endpoint.
+        """
         try:
             async with self._lock:
+                existing = self.agents.get(agent_info.agent_id)
+                if existing is not None and existing.identity_address:
+                    if agent_info.identity_address is None:
+                        agent_info.identity_address = existing.identity_address
+                        agent_info.registered_proof = existing.registered_proof
+                    elif not _same_address(agent_info.identity_address, existing.identity_address):
+                        logger.error(
+                            "Refusing to rebind identity of agent %s outside the rotation endpoint",
+                            agent_info.agent_id,
+                        )
+                        return False
                 self.agents[agent_info.agent_id] = agent_info
                 self._update_indexes(agent_info)
             await self._save_agent_to_redis(agent_info)
@@ -162,6 +198,27 @@ class AgentRegistry:
             return True
         except Exception as e:
             logger.error("Error registering agent %s: %s", agent_info.agent_id, e)
+            return False
+
+    async def update_agent_identity(self, agent_id: str, identity_address: str, registered_proof: str) -> bool:
+        """Rebind ``agent_id`` to ``identity_address`` after rotation proofs verify.
+
+        The router authenticates the dual-proof scheme (doc §7) before calling
+        this; this method only performs the locked swap and persistence.
+        """
+        try:
+            async with self._lock:
+                agent = self.agents.get(agent_id)
+                if agent is None:
+                    logger.warning("Agent %s not found for identity update", agent_id)
+                    return False
+                agent.identity_address = identity_address
+                agent.registered_proof = registered_proof
+            await self._save_agent_to_redis(agent)
+            logger.info("Agent %s identity rotated to %s", agent_id, identity_address)
+            return True
+        except Exception as e:
+            logger.error("Error updating identity for agent %s: %s", agent_id, e)
             return False
 
     async def unregister_agent(self, agent_id: str) -> bool:
@@ -517,6 +574,8 @@ def create_agent_info(
     endpoints: dict[str, str],
     chain_id: str = "",
     island_id: str = "",
+    identity_address: str | None = None,
+    registered_proof: str | None = None,
 ) -> AgentInfo:
     """Create agent information"""
     return AgentInfo(
@@ -531,4 +590,6 @@ def create_agent_info(
         registration_time=datetime.now(UTC),
         chain_id=chain_id,
         island_id=island_id,
+        identity_address=identity_address,
+        registered_proof=registered_proof,
     )

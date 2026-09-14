@@ -19,6 +19,22 @@ from .signature_recovery import (
     normalize_signature,
     recover_address,
 )
+
+# v2.0 phase A: domain-separated agent-message envelopes and registry identity
+# claims (docs/agent-coordinator/agent-signed-envelopes.md).
+from .agent_envelope import (
+    AGENT_MSG_SIGNATURE_VERSION,
+    envelope_digest,
+    identity_claim,
+    recover_agent_envelope_signer,
+    rotation_claim,
+    sign_agent_envelope,
+    sign_identity_claim,
+    sign_rotation_claim,
+    verify_agent_envelope,
+    verify_identity_claim,
+    verify_rotation_claim,
+)
 from .crypto import (
     decrypt_private_key,
     derive_ethereum_address,
@@ -71,6 +87,18 @@ __all__ = [
     "SignatureMalformed",
     "normalize_signature",
     "recover_address",
+    # Agent signed envelopes / registry identity (v2.0 phase A)
+    "AGENT_MSG_SIGNATURE_VERSION",
+    "envelope_digest",
+    "identity_claim",
+    "recover_agent_envelope_signer",
+    "rotation_claim",
+    "sign_agent_envelope",
+    "sign_identity_claim",
+    "sign_rotation_claim",
+    "verify_agent_envelope",
+    "verify_identity_claim",
+    "verify_rotation_claim",
     "APIKeyManager",
     # Secret management
     "SecretManager",

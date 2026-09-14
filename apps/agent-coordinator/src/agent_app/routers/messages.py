@@ -7,13 +7,17 @@ from fastapi import APIRouter, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.agent_envelope import AGENT_MSG_SIGNATURE_VERSION, recover_agent_envelope_signer
+from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.rate_limiting import rate_limit
 
 from .. import state
+from ..config import settings
 from ..encryption import get_encryptor
 from ..models import BroadcastRequest
 from ..protocols.communication import MessageType
 from ..routing.load_balancer import LoadBalancingStrategy
+from ..services.nonce_store import get_nonce_store
 from ..websocket import get_connection_manager
 
 logger = get_logger(__name__)
@@ -31,6 +35,19 @@ class SendMessageRequest(BaseModel):
     priority: str = Field(default="normal", description="Message priority")
     ttl: int = Field(default=300, description="Time to live in seconds")
     message_id: str | None = Field(default=None, description="Client-provided message ID for idempotency")
+    # v2.0 phase A signed-envelope fields
+    # (docs/agent-coordinator/agent-signed-envelopes.md §4). ``signature`` is
+    # secp256k1 over keccak256("aitbc-agent-msg-v1:" + canonical_json(
+    # signing_payload())) — i.e. it covers every field here, not just content.
+    signer: str | None = Field(default=None, description="secp256k1 address that signed the envelope")
+    signature: str | None = Field(default=None, description="0x-prefixed signature over signing_payload()")
+    signature_version: str = Field(default=AGENT_MSG_SIGNATURE_VERSION, description="Envelope signature scheme")
+    timestamp: str | None = Field(default=None, description="Client ISO-8601 timestamp covered by the signature")
+    nonce: str | None = Field(default=None, description="Client nonce for (sender, nonce) replay dedup")
+
+    def signing_payload(self) -> dict[str, Any]:
+        """Canonical signed dict — every request field except ``signature``."""
+        return self.model_dump(exclude={"signature"})
 
 
 class SubscribeRequest(BaseModel):
@@ -46,6 +63,76 @@ def _coerce_bool(value: Any) -> bool:
     if isinstance(value, bool):
         return value
     return str(value).lower() in ("true", "1", "yes")
+
+
+async def _verify_message_signature(req: SendMessageRequest) -> tuple[str, str | None]:
+    """Verify an envelope signature per agent-signed-envelopes.md §5.
+
+    Returns ``(signature_status, failure_reason)``. ``signature_status`` —
+    ``verified`` | ``invalid`` | ``unsigned`` — is stamped on the stored
+    record; the reason feeds the ``msg_sig_verify=fail`` log line and becomes
+    the 403 detail in enforce mode.
+    """
+    if not req.signature or not req.signer:
+        return "unsigned", "missing_signature"
+    if req.signature_version != AGENT_MSG_SIGNATURE_VERSION:
+        return "invalid", "unknown_signature_version"
+    recovered = recover_agent_envelope_signer(req.signing_payload(), req.signature)
+    if recovered is None or canonical_address(recovered) != canonical_address(req.signer):
+        return "invalid", "invalid_signature"
+    agent = None
+    if state.agent_registry:
+        try:
+            agent = await state.agent_registry.get_agent_by_id(req.sender)
+        except Exception as e:
+            logger.warning("Registry lookup for sender %s failed: %s", req.sender, e)
+    if agent is None or not agent.identity_address:
+        return "invalid", "unbound_sender"
+    if canonical_address(agent.identity_address) != canonical_address(recovered):
+        return "invalid", "identity_mismatch"
+    if not req.timestamp:
+        return "invalid", "missing_timestamp"
+    try:
+        sent_at = datetime.fromisoformat(req.timestamp)
+        if sent_at.tzinfo is None:
+            sent_at = sent_at.replace(tzinfo=UTC)
+    except ValueError:
+        return "invalid", "stale_timestamp"
+    window = max(settings.agent_msg_max_skew_seconds, req.ttl)
+    if abs((datetime.now(UTC) - sent_at).total_seconds()) > window:
+        return "invalid", "stale_timestamp"
+    if req.nonce and not await get_nonce_store().check_message_nonce(req.sender, req.nonce, window):
+        return "invalid", "nonce_replayed"
+    return "verified", None
+
+
+def _stamp_envelope_fields(message_data: dict[str, Any], req: SendMessageRequest, signature_status: str | None) -> None:
+    """Persist the signed-envelope fields on the stored/delivered record.
+
+    The RSA-encrypted record already owns the flat ``signature``/``nonce``
+    keys, so there the envelope values go under ``envelope_*``; the plaintext
+    path uses the doc's flat names. ``signature_status`` is coordinator-stamped
+    (never signed) and ``client_timestamp`` keeps the signed timestamp distinct
+    from the record's own ``timestamp``.
+    """
+    rsa_owned = "signature" in message_data
+
+    def _put(key: str, value: Any) -> None:
+        if value is not None:
+            message_data[key] = value
+
+    _put("signer", req.signer)
+    _put("signature_version", req.signature_version)
+    _put("client_timestamp", req.timestamp)
+    _put("ttl", req.ttl)
+    if rsa_owned:
+        _put("envelope_signature", req.signature)
+        _put("envelope_nonce", req.nonce)
+    else:
+        _put("signature", req.signature)
+        _put("nonce", req.nonce)
+    if signature_status is not None:
+        message_data["signature_status"] = signature_status
 
 
 @router.post("/send")
@@ -74,10 +161,29 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
                         "encrypted": _coerce_bool(existing.get("encrypted", "False")),
                         "ws_delivered": _coerce_bool(existing.get("ws_delivered", "False")),
                         "message_status": existing.get("status", "unknown"),
+                        "signature_status": existing.get("signature_status"),
                         "sent_at": existing.get("sent_at", ""),
                     }
             except Exception as e:
                 logger.warning("Could not check idempotency for %s: %s", message_id, e)
+
+        # Phase A envelope verification (agent-signed-envelopes.md §5):
+        # advisory verifies-and-logs and stamps ``signature_status``; enforce
+        # rejects. ``disabled`` (the in-code default) changes nothing.
+        signature_mode = settings.agent_msg_signature_mode
+        signature_status: str | None = None
+        if signature_mode != "disabled":
+            signature_status, sig_fail_reason = await _verify_message_signature(req)
+            if signature_status != "verified":
+                logger.warning(
+                    "msg_sig_verify=fail sender=%s reason=%s message_id=%s mode=%s",
+                    req.sender,
+                    sig_fail_reason,
+                    message_id,
+                    signature_mode,
+                )
+                if signature_mode == "enforce":
+                    raise HTTPException(status_code=403, detail=sig_fail_reason or "invalid_signature")
 
         encryptor = get_encryptor()
         message_content = {
@@ -111,6 +217,8 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
         message_data.setdefault("message_type", req.message_type)
         message_data.setdefault("priority", req.priority)
 
+        _stamp_envelope_fields(message_data, req, signature_status)
+
         # Try real-time WebSocket delivery first; fall back to storage.
         ws_delivered = False
         if req.recipient:
@@ -143,6 +251,7 @@ async def send_encrypted_message(request: Request, req: SendMessageRequest) -> d
             "encrypted": req.encrypt,
             "ws_delivered": ws_delivered,
             "message_status": status,
+            "signature_status": signature_status,
             "sent_at": sent_at,
         }
     except HTTPException:
