@@ -65,7 +65,12 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
                 if submitter is not None:
                     contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
                     if contract_id:
+                        # EscrowEntry.contract_id is the store's durable column;
+                        # keep the metadata mirror for readers and flush both —
+                        # without persist_entry the mutation dies at restart.
+                        escrow.contract_id = contract_id
                         escrow.metadata["contract_id"] = contract_id
+                        state.payment_escrow.persist_entry(escrow)
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
             except Exception as e:
@@ -385,7 +390,7 @@ async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
             "tx_hash_lock": entry.tx_hash_lock,
             "tx_hash_release": entry.tx_hash_release,
             "tx_hash_refund": entry.tx_hash_refund,
-            "contract_id": entry.metadata.get("contract_id"),
+            "contract_id": entry.contract_id or entry.metadata.get("contract_id"),
             "created_at": entry.created_at,
             "locked_at": entry.locked_at,
             "released_at": entry.released_at,
