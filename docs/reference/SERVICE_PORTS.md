@@ -84,7 +84,11 @@ way the internal tier does. The blockchain node metrics exporter (added
 ### Island IPFS daemon
 
 `aitbc-island-ipfs.service` runs a private-swarm IPFS daemon with three ports.
-It is deployed on the hub, replica, and shop nodes. The shop joined the island
+It is deployed on all five fleet nodes: the hub and replica (the island's
+public bootstrap peers), the shop, and both remaining LAN followers — node0
+and node1 both joined 2026-09-14 as outbound-only members that
+reach the island through outbound dials to `ISLAND_IPFS_BOOTSTRAP` alone. The
+shop joined the island
 on 2026-09-13 via the subscription-gated swarm-key flow
 (`aitbc ipfs island subscribe` + `aitbc ipfs island swarm-key`). No node runs
 a public-swarm Kubo anymore -- the hand-installed `ipfs.service` on `4001` was
