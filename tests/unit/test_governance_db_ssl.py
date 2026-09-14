@@ -1,11 +1,12 @@
 """Unit tests for the governance database's TLS configuration.
 
-`storage._build_ssl_arg` exists because of an outage, not because of a feature
+`aitbc.database.ssl_args.build_ssl_arg` exists because of an outage, not because of a feature
 request: under `ProtectHome=yes`, asyncpg's own sslmode handling stats
 `~/.postgresql/...` and lets the resulting `PermissionError` escape, so
 governance could not open a connection at all on a host whose service user's
 home lives under /home. The host was patched with a `PGSSLMODE=disable` that
-the repo knew nothing about; these tests pin the in-repo replacement.
+the repo knew nothing about; these tests pin the in-repo replacement,
+shared via `aitbc.database.ssl_args` since pool-hub needed the same protection.
 
 Two properties are worth a test here. The resolution *order*, because a rebuilt
 host that loses its environment file must still land somewhere safe; and the
@@ -21,6 +22,8 @@ import ssl
 import pytest
 
 from governance_service import storage
+
+from aitbc.database import ssl_args
 
 ENCRYPT_ONLY = ("allow", "prefer", "require")
 VERIFYING = ("verify-ca", "verify-full")
@@ -39,30 +42,30 @@ def _clear_ssl_env(monkeypatch: pytest.MonkeyPatch) -> None:
 
 def test_default_is_asyncpg_default() -> None:
     """Unconfigured must mean "what asyncpg would have done", never a downgrade."""
-    assert storage._resolve_sslmode() == "prefer"
+    assert ssl_args.resolve_sslmode() == "prefer"
 
 
 def test_db_sslmode_wins_over_pgsslmode(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("PGSSLMODE", "disable")
     monkeypatch.setenv("DB_SSLMODE", "require")
-    assert storage._resolve_sslmode() == "require"
+    assert ssl_args.resolve_sslmode() == "require"
 
 
 def test_pgsslmode_is_honoured_on_its_own(monkeypatch: pytest.MonkeyPatch) -> None:
     """The fleet already carries PGSSLMODE; adopting it is what makes this a no-op deploy."""
     monkeypatch.setenv("PGSSLMODE", "disable")
-    assert storage._resolve_sslmode() == "disable"
+    assert ssl_args.resolve_sslmode() == "disable"
 
 
 def test_empty_value_counts_as_unset(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DB_SSLMODE", "")
     monkeypatch.setenv("PGSSLMODE", "require")
-    assert storage._resolve_sslmode() == "require"
+    assert ssl_args.resolve_sslmode() == "require"
 
 
 def test_value_is_normalised(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DB_SSLMODE", "  VERIFY_FULL ")
-    assert storage._resolve_sslmode() == "verify-full"
+    assert ssl_args.resolve_sslmode() == "verify-full"
 
 
 # --- context construction --------------------------------------------------
@@ -71,13 +74,13 @@ def test_value_is_normalised(monkeypatch: pytest.MonkeyPatch) -> None:
 def test_disable_yields_false(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DB_SSLMODE", "disable")
     # `is False`, not merely falsy: asyncpg distinguishes False from None.
-    assert storage._build_ssl_arg() is False
+    assert ssl_args.build_ssl_arg() is False
 
 
 @pytest.mark.parametrize("mode", ENCRYPT_ONLY)
 def test_encrypting_modes_do_not_verify(mode: str, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DB_SSLMODE", mode)
-    context = storage._build_ssl_arg()
+    context = ssl_args.build_ssl_arg()
     assert isinstance(context, ssl.SSLContext)
     assert context.verify_mode is ssl.CERT_NONE
     assert context.check_hostname is False
@@ -86,7 +89,7 @@ def test_encrypting_modes_do_not_verify(mode: str, monkeypatch: pytest.MonkeyPat
 @pytest.mark.parametrize(("mode", "checks_hostname"), [("verify-ca", False), ("verify-full", True)])
 def test_verifying_modes_require_a_certificate(mode: str, checks_hostname: bool, monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setenv("DB_SSLMODE", mode)
-    context = storage._build_ssl_arg()
+    context = ssl_args.build_ssl_arg()
     assert isinstance(context, ssl.SSLContext)
     assert context.verify_mode is ssl.CERT_REQUIRED
     assert context.check_hostname is checks_hostname
@@ -96,7 +99,7 @@ def test_unknown_mode_is_an_error(monkeypatch: pytest.MonkeyPatch) -> None:
     """Better to refuse to start than to guess at a security setting."""
     monkeypatch.setenv("DB_SSLMODE", "verify-everything")
     with pytest.raises(ValueError, match="verify-everything"):
-        storage._build_ssl_arg()
+        ssl_args.build_ssl_arg()
 
 
 # --- the regression itself -------------------------------------------------
@@ -111,8 +114,8 @@ def test_asyncpg_never_receives_a_mode_string(mode: str, monkeypatch: pytest.Mon
     `"require"` and the outage is back, TLS settings notwithstanding.
     """
     monkeypatch.setenv("DB_SSLMODE", mode)
-    assert isinstance(storage._build_ssl_arg(), (bool, ssl.SSLContext))
-    assert not isinstance(storage._build_ssl_arg(), str)
+    assert isinstance(ssl_args.build_ssl_arg(), (bool, ssl.SSLContext))
+    assert not isinstance(ssl_args.build_ssl_arg(), str)
 
 
 @pytest.mark.parametrize("mode", ALL_MODES)
@@ -128,7 +131,7 @@ def test_no_mode_touches_the_home_directory(mode: str, monkeypatch: pytest.Monke
 
     monkeypatch.setattr(pathlib.Path, "home", staticmethod(_refuse))
     monkeypatch.setenv("DB_SSLMODE", mode)
-    storage._build_ssl_arg()
+    ssl_args.build_ssl_arg()
 
 
 # --- wiring ----------------------------------------------------------------
