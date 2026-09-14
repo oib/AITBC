@@ -517,6 +517,8 @@ class PaymentService:
         If no RPC is available (e.g. local dev), the payment is left
         pending for manual verification.
         """
+        # Callers reject missing evm_tx_hash before this runs — re-narrow for mypy.
+        assert payment_data.evm_tx_hash is not None
         rpc_url = settings.eth_rpc_url
         if not rpc_url:
             logger.warning(
