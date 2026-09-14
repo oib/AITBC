@@ -13,6 +13,10 @@ from datetime import UTC, datetime, timedelta
 import pytest
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
+# `agent_app.routers` below builds a JWTHandler at import; its secret resolution
+# raises on hosts whose env files flag production (`NODE_ENV=production` in
+# /etc/aitbc/blockchain.env) without a JWT_SECRET in the process env.
+os.environ.setdefault("JWT_SECRET", "test-secret-for-agent-coordinator-tests" * 2)
 
 pytest.importorskip("fastapi", reason="agent-coordinator app dependencies not installed")
 
