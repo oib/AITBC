@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -40,21 +41,19 @@ def aitbc_http_call(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Call an AITBC HTTP endpoint by service name and path.."""
-    options: dict[str, Any] = {}
-    if method is not None:
-        options["method"] = method
-    if params is not None:
-        options["params"] = params
-    if body is not None:
-        options["body"] = body
-    if url is not None:
-        options["url"] = url
-    if api_key is not None:
-        options["api-key"] = api_key
-    if auth_kind is not None:
-        options["auth"] = auth_kind
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "method": "method",
+            "params": "params",
+            "body": "body",
+            "url": "url",
+            "api_key": "api-key",
+            "auth_kind": "auth",
+            "timeout_opt": "timeout",
+        },
+    )
     args = [] + ([service] if service is not None else []) + ([path] if path is not None else [])
     command = _build_aitbc_cli_command(
         "http",

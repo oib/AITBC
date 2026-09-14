@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -32,11 +33,11 @@ def aitbc_analytics_alerts(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """View performance alerts filtered by severity and time range.."""
-    options: dict[str, Any] = {}
-    if severity is not None:
-        options["severity"] = severity
-    if hours is not None:
-        options["hours"] = hours
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"severity": "severity", "hours": "hours"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -59,13 +60,11 @@ def aitbc_analytics_monitor(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Monitor chain performance in real time or take a single snapshot.."""
-    options: dict[str, Any] = {}
-    if realtime:
-        options["realtime"] = None
-    if interval is not None:
-        options["interval"] = interval
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"realtime": "realtime"},
+        values={"interval": "interval", "chain_id": "chain-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -88,9 +87,11 @@ def aitbc_analytics_optimize(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get optimization recommendations for one chain or all chains.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "analytics",
@@ -134,11 +135,11 @@ def aitbc_analytics_predict(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Predict future chain performance for a single chain or all chains.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if hours is not None:
-        options["hours"] = hours
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "hours": "hours"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "analytics",

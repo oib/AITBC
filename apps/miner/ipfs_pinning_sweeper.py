@@ -191,6 +191,126 @@ def _job_quota_mb(job: dict[str, Any]) -> int:
         return 100
 
 
+def _pin_new_job(
+    job: dict[str, Any],
+    job_id: str,
+    cid: str,
+    usage_by_buyer: dict[str, int],
+    state: dict[str, dict[str, Any]],
+    result: dict[str, int],
+) -> bool:
+    """Pin a CID for a job not yet tracked in state. True when pinned.
+
+    Provider-side quota enforcement: the marketplace checks usage at purchase
+    time, but a crafted request could bypass the CLI, so the provider re-checks
+    before spending its own disk. Jobs that are already provider-confirmed skip
+    the gate -- the pin is recovery after state loss, not new spend.
+    """
+    buyer = str(job.get("buyer_address") or "")
+    quota_bytes = _job_quota_mb(job) * 1024 * 1024
+    if not _pin_confirmed(job) and _job_size(job) and usage_by_buyer.get(buyer, 0) > quota_bytes:
+        result["skipped_quota"] += 1
+        logger.warning(
+            "Skipping pin for job %s: buyer %s active usage %s exceeds %s MB quota",
+            job_id,
+            buyer,
+            usage_by_buyer.get(buyer, 0),
+            _job_quota_mb(job),
+        )
+        return False
+    if not _pin_cid(cid):
+        result["errors"] += 1
+        return False
+    size = _object_size(cid)
+    if size is not None and not _pin_confirmed(job):
+        declared = _job_size(job)
+        actual_total = usage_by_buyer.get(buyer, 0) - declared + size
+        if actual_total > quota_bytes:
+            # The declared size under-reported the content; reclaim the
+            # disk and leave the job unconfirmed rather than hosting
+            # beyond the offer's per-customer quota.
+            _unpin_cid(cid)
+            result["skipped_quota"] += 1
+            logger.warning(
+                "Unpinned job %s: measured usage %s exceeds %s MB quota for buyer %s",
+                job_id,
+                actual_total,
+                _job_quota_mb(job),
+                buyer,
+            )
+            return False
+    state[job_id] = {
+        "cid": cid,
+        "size": size,
+        "pinned_at": datetime.now(UTC).isoformat(),
+    }
+    result["pinned"] += 1
+    return True
+
+
+def _pin_active_job(
+    job: dict[str, Any],
+    marketplace_url: str,
+    usage_by_buyer: dict[str, int],
+    state: dict[str, dict[str, Any]],
+    result: dict[str, int],
+) -> None:
+    """Pin one active job's CID (quota-checked) and confirm it if needed."""
+    job_id = _job_id(job)
+    cid = _job_cid(job)
+    if not job_id or not cid:
+        return
+    if job_id in state and _pin_confirmed(job):
+        return
+    if job_id not in state and not _pin_new_job(job, job_id, cid, usage_by_buyer, state, result):
+        return
+    size = state[job_id].get("size")
+    if not _pin_confirmed(job):
+        if _confirm_pin(marketplace_url, job_id, size):
+            result["confirmed"] += 1
+
+
+def _pin_active_jobs(
+    active_jobs: list[dict[str, Any]],
+    marketplace_url: str,
+    state: dict[str, dict[str, Any]],
+    result: dict[str, int],
+) -> None:
+    """Pin every active job's CID, enforcing the per-buyer disk quota."""
+    # Per-buyer usage across active jobs, for the provider-side quota check.
+    usage_by_buyer: dict[str, int] = {}
+    for job in active_jobs:
+        buyer = str(job.get("buyer_address") or "")
+        usage_by_buyer[buyer] = usage_by_buyer.get(buyer, 0) + _job_size(job)
+
+    for job in active_jobs:
+        _pin_active_job(job, marketplace_url, usage_by_buyer, state, result)
+
+
+def _unpin_stale_jobs(
+    state: dict[str, dict[str, Any]],
+    active_jobs: list[dict[str, Any]],
+    result: dict[str, int],
+) -> None:
+    """Reclaim disk for jobs that left the active set (terminal or gone)."""
+    active_ids = {_job_id(j) for j in active_jobs}
+    # CIDs still referenced by an active job must not be unpinned even if a
+    # sibling job that shared the CID reached a terminal state.
+    active_cids = {cid for cid in map(_job_cid, active_jobs) if cid}
+
+    for job_id, entry in list(state.items()):
+        if job_id in active_ids:
+            continue
+        cid = entry.get("cid")
+        if cid and cid not in active_cids:
+            if _unpin_cid(cid):
+                result["unpinned"] += 1
+            else:
+                result["errors"] += 1
+                continue  # keep the state entry so we retry the unpin
+        del state[job_id]
+
+
 def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[str, int]:
     """Run one provider-side pin sweep. Returns counters for logging/tests."""
     result = {"pinned": 0, "confirmed": 0, "unpinned": 0, "skipped_quota": 0, "errors": 0}
@@ -212,90 +332,8 @@ def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[st
         return result
 
     active_jobs = [j for j in jobs if str(j.get("state", "")).upper() in ACTIVE_STATES]
-    active_ids = {_job_id(j) for j in active_jobs}
-    # CIDs still referenced by an active job must not be unpinned even if a
-    # sibling job that shared the CID reached a terminal state.
-    active_cids = {cid for cid in (_job_cid(j) for j in active_jobs) if cid}
-
-    # Per-buyer usage across active jobs, for the provider-side quota check.
-    usage_by_buyer: dict[str, int] = {}
-    for job in active_jobs:
-        buyer = str(job.get("buyer_address") or "")
-        usage_by_buyer[buyer] = usage_by_buyer.get(buyer, 0) + _job_size(job)
-
-    for job in active_jobs:
-        job_id = _job_id(job)
-        cid = _job_cid(job)
-        if not job_id or not cid:
-            continue
-        already = job_id in state
-        if already and _pin_confirmed(job):
-            continue
-
-        if not already:
-            # Provider-side quota enforcement: the marketplace checks usage at
-            # purchase time, but a crafted request could bypass the CLI, so the
-            # provider re-checks before spending its own disk. Jobs that are
-            # already provider-confirmed skip the gate -- the pin is recovery
-            # after state loss, not new spend.
-            buyer = str(job.get("buyer_address") or "")
-            quota_bytes = _job_quota_mb(job) * 1024 * 1024
-            if not _pin_confirmed(job) and _job_size(job) and usage_by_buyer.get(buyer, 0) > quota_bytes:
-                result["skipped_quota"] += 1
-                logger.warning(
-                    "Skipping pin for job %s: buyer %s active usage %s exceeds %s MB quota",
-                    job_id,
-                    buyer,
-                    usage_by_buyer.get(buyer, 0),
-                    _job_quota_mb(job),
-                )
-                continue
-            if not _pin_cid(cid):
-                result["errors"] += 1
-                continue
-            size = _object_size(cid)
-            if size is not None and not _pin_confirmed(job):
-                declared = _job_size(job)
-                actual_total = usage_by_buyer.get(buyer, 0) - declared + size
-                if actual_total > quota_bytes:
-                    # The declared size under-reported the content; reclaim the
-                    # disk and leave the job unconfirmed rather than hosting
-                    # beyond the offer's per-customer quota.
-                    _unpin_cid(cid)
-                    result["skipped_quota"] += 1
-                    logger.warning(
-                        "Unpinned job %s: measured usage %s exceeds %s MB quota for buyer %s",
-                        job_id,
-                        actual_total,
-                        _job_quota_mb(job),
-                        buyer,
-                    )
-                    continue
-            state[job_id] = {
-                "cid": cid,
-                "size": size,
-                "pinned_at": datetime.now(UTC).isoformat(),
-            }
-            result["pinned"] += 1
-        else:
-            size = state[job_id].get("size")
-
-        if not _pin_confirmed(job):
-            if _confirm_pin(marketplace_url, job_id, size):
-                result["confirmed"] += 1
-
-    # Reclaim disk for jobs that left the active set (terminal or gone).
-    for job_id, entry in list(state.items()):
-        if job_id in active_ids:
-            continue
-        cid = entry.get("cid")
-        if cid and cid not in active_cids:
-            if _unpin_cid(cid):
-                result["unpinned"] += 1
-            else:
-                result["errors"] += 1
-                continue  # keep the state entry so we retry the unpin
-        del state[job_id]
+    _pin_active_jobs(active_jobs, marketplace_url, state, result)
+    _unpin_stale_jobs(state, active_jobs, result)
 
     _save_state(state_path, state)
     if any(result.values()):

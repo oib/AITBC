@@ -158,9 +158,7 @@ def _service_positions(text: str, names: list[tuple[str, str]]) -> list[tuple[in
     return found
 
 
-def _stray_ports(
-    line: str, authority: dict[str, int], used_positions: set[tuple[int, int]]
-) -> list[tuple[int, int]]:
+def _stray_ports(line: str, authority: dict[str, int], used_positions: set[tuple[int, int]]) -> list[tuple[int, int]]:
     """Port-looking references that are not attributed to any current service.
 
     Only `host:port` or `port NNNN` patterns are reported, so this does not
@@ -184,9 +182,112 @@ def _stray_ports(
     return stale
 
 
-def inline_hits(
-    line: str, authority: dict[str, int], names: list[tuple[str, str]], prev_lines: list[str]
+def _array_hits(clean: str, authority: dict[str, int]):
+    """Yield (canonical, port, position) for `NNNN:Service Name` array entries.
+
+    Array entries name their service, so they need no proximity guess.
+    """
+    for m in ARRAY_RE.finditer(clean):
+        canonical = canon(m.group(2))
+        if canonical in authority:
+            yield canonical, int(m.group(1)), m.start(1)
+
+
+def _env_hits(clean: str, authority: dict[str, int]) -> tuple[list[tuple[str, int, int]], set[tuple[int, int]]]:
+    """Return (hits, claimed digit spans) for `SERVICE_URL|PORT|ENDPOINT=NNNN`.
+
+    Like array entries, env assignments name their own service. The returned
+    spans keep the generic inline pass from double-counting the same digits.
+    """
+    hits: list[tuple[str, int, int]] = []
+    seen: set[tuple[int, int]] = set()
+    for m in ENV_RE.finditer(clean):
+        seen.add((m.start(2), m.end(2)))
+        canonical = canon(m.group(1).replace("_", " "))
+        port = int(m.group(2))
+        if canonical in authority and port in INLINE_PORT_RANGE:
+            hits.append((canonical, port, m.start(2)))
+    return hits, seen
+
+
+def _context_lines(prev_lines: list[str]) -> list[str]:
+    """Previous LOOKBACK lines usable as attribution context.
+
+    Context lines that themselves contain an explicit port reference are most
+    often a neighbouring table row or shell array entry and would mis-attribute
+    the current port to the previous service. Keep only context lines that are
+    prose/comment without their own port reference.
+    """
+    return [
+        prev.replace("`", "")
+        for prev in prev_lines
+        if not any(rx.search(prev) for rx in INLINE_RES) and not ARRAY_RE.search(prev)
+    ]
+
+
+def _nearest_same_line(
+    port_abs: int,
+    context_offset: int,
+    positions: list[tuple[int, str]],
+    authority: dict[str, int],
+) -> str | None:
+    """Prefer a name on the same line, before or after the port."""
+    same_line = [(p, c) for p, c in positions if context_offset <= p <= port_abs]
+    if not same_line:
+        return None
+    dist, canonical = min(same_line, key=lambda x: abs(port_abs - x[0]))
+    if abs(port_abs - dist) <= NAME_PROXIMITY and canonical in authority:
+        return canonical
+    return None
+
+
+def _nearest_context(
+    port_abs: int,
+    context_offset: int,
+    positions: list[tuple[int, str]],
+    authority: dict[str, int],
+) -> str | None:
+    """Fall back to a name in the preceding LOOKBACK context."""
+    context_hits = [(p, c) for p, c in positions if p < context_offset and p <= port_abs]
+    if not context_hits:
+        return None
+    dist, canonical = min(context_hits, key=lambda x: port_abs - x[0])
+    if (port_abs - dist) <= CONTEXT_PROXIMITY and canonical in authority:
+        return canonical
+    return None
+
+
+def _inline_port_hits(
+    clean: str,
+    context_offset: int,
+    positions: list[tuple[int, str]],
+    authority: dict[str, int],
+    seen: set[tuple[int, int]],
 ):
+    """Yield (canonical, port, position) for `host:port` / `port NNNN` spans.
+
+    ``seen`` carries digit spans already claimed by ENV matches and is updated
+    so the two INLINE_RES patterns do not double-count the same digits.
+    """
+    for rx in INLINE_RES:
+        for m in rx.finditer(clean):
+            span = (m.start(1), m.end(1))
+            if span in seen:
+                continue
+            seen.add(span)
+            pos = m.start(1)
+            port = int(m.group(1))
+            if port not in INLINE_PORT_RANGE:
+                continue
+            port_abs = context_offset + pos
+            canonical = _nearest_same_line(port_abs, context_offset, positions, authority) or _nearest_context(
+                port_abs, context_offset, positions, authority
+            )
+            if canonical is not None:
+                yield canonical, port, pos
+
+
+def inline_hits(line: str, authority: dict[str, int], names: list[tuple[str, str]], prev_lines: list[str]):
     """Yield (canonical_name, port, position) for ports written outside a table.
 
     Service names are looked up in the current line and in the previous
@@ -199,63 +300,16 @@ def inline_hits(
     clean = line.replace("`", "")
 
     # ARRAY and ENV patterns do not need name proximity; they name themselves.
-    for m in ARRAY_RE.finditer(clean):
-        canonical = canon(m.group(2))
-        if canonical in authority:
-            yield canonical, int(m.group(1)), m.start(1)
+    yield from _array_hits(clean, authority)
+    env_hits, seen = _env_hits(clean, authority)
+    yield from env_hits
 
-    seen: set[tuple[int, int]] = set()
-    for m in ENV_RE.finditer(clean):
-        seen.add((m.start(2), m.end(2)))
-        canonical = canon(m.group(1).replace("_", " "))
-        port = int(m.group(2))
-        if canonical in authority and port in INLINE_PORT_RANGE:
-            yield canonical, port, m.start(2)
-
-    # Context lines that themselves contain an explicit port reference are most
-    # often a neighbouring table row or shell array entry and would mis-attribute
-    # the current port to the previous service. Keep only context lines that are
-    # prose/comment without their own port reference.
-    context = [
-        prev.replace("`", "")
-        for prev in prev_lines
-        if not any(rx.search(prev) for rx in INLINE_RES) and not ARRAY_RE.search(prev)
-    ]
+    context = _context_lines(prev_lines)
     search_text = "\n".join(context) + "\n" + clean
     context_offset = sum(len(prev) + 1 for prev in context)
     positions = _service_positions(search_text, names)
 
-    for rx in INLINE_RES:
-        for m in rx.finditer(clean):
-            span = (m.start(1), m.end(1))
-            if span in seen:
-                continue
-            seen.add(span)
-            pos = m.start(1)
-            port = int(m.group(1))
-            if port not in INLINE_PORT_RANGE:
-                continue
-
-            port_abs = context_offset + pos
-
-            # Prefer a name on the same line, before or after the port.
-            same_line = [
-                (p, c) for p, c in positions if p >= context_offset and p <= port_abs
-            ]
-            if same_line:
-                dist, canonical = min(same_line, key=lambda x: abs(port_abs - x[0]))
-                if abs(port_abs - dist) <= NAME_PROXIMITY and canonical in authority:
-                    yield canonical, port, pos
-                    continue
-
-            # Fall back to a name in the preceding LOOKBACK context.
-            context_hits = [
-                (p, c) for p, c in positions if p < context_offset and p <= port_abs
-            ]
-            if context_hits:
-                dist, canonical = min(context_hits, key=lambda x: port_abs - x[0])
-                if (port_abs - dist) <= CONTEXT_PROXIMITY and canonical in authority:
-                    yield canonical, port, pos
+    yield from _inline_port_hits(clean, context_offset, positions, authority, seen)
 
 
 def load_authority(path: Path) -> dict[str, int]:
@@ -275,61 +329,82 @@ def load_authority(path: Path) -> dict[str, int]:
     return ports
 
 
-def main() -> int:
-    repo = Path(__file__).resolve().parents[2]
-    authority_file = repo / "docs" / "reference" / "SERVICE_PORTS.md"
-    if not authority_file.exists():
-        print(f"Authority file missing: {authority_file}")
-        return 1
+def _remember(prev: list[str], line: str) -> None:
+    """Keep the last LOOKBACK lines as attribution context."""
+    prev.append(line)
+    if len(prev) > LOOKBACK:
+        prev.pop(0)
 
-    authority = load_authority(authority_file)
-    if not authority:
-        print(f"Parsed no ports from {authority_file} -- has its table format changed?")
-        return 1
 
-    names = name_index(authority)
+def _line_claims(
+    line: str,
+    tables: bool,
+    authority: dict[str, int],
+    names: list[tuple[str, str]],
+    prev: list[str],
+) -> list[tuple[str, int, int]]:
+    """(canonical, port, position) claims made by one line."""
+    claims: list[tuple[str, int, int]] = []
+    if tables:
+        m = ROW_RE.match(line)
+        if m:
+            claims.append((canon(m.group(1)), int(m.group(2)), m.start(2)))
+    if not claims:
+        claims.extend(inline_hits(line, authority, names, prev))
+    return claims
 
-    bad: list[tuple[str, int, str, int, int]] = []
+
+def _audit_line(
+    rel: str,
+    i: int,
+    line: str,
+    claims: list[tuple[str, int, int]],
+    authority: dict[str, int],
+    bad: list[tuple[str, int, str, int, int]],
+) -> int:
+    """Check one line's claims against the authority.
+
+    Contradictions and stray ports are appended to ``bad``; returns the number
+    of references checked.
+    """
     checked = 0
+    used_positions: set[tuple[int, int]] = {pos for _, _, pos in claims}
+    if not claims:
+        for port, _ in _stray_ports(line, authority, used_positions):
+            bad.append((rel, i, "stale port", port, 0))
+    for name, port, _ in claims:
+        if name not in authority:
+            continue
+        checked += 1
+        if authority[name] != port:
+            bad.append((rel, i, name, port, authority[name]))
+    return checked
 
-    def scan(path: Path, tables: bool) -> None:
-        nonlocal checked
-        rel = path.relative_to(repo).as_posix()
-        prev: list[str] = []
-        for i, line in enumerate(
-            path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1
-        ):
-            if IGNORE_MARKER in line:
-                prev.append(line)
-                if len(prev) > LOOKBACK:
-                    prev.pop(0)
-                continue
 
-            claims: list[tuple[str, int, int]] = []
-            if tables:
-                m = ROW_RE.match(line)
-                if m:
-                    claims.append((canon(m.group(1)), int(m.group(2)), m.start(2)))
-            if not claims:
-                claims.extend(inline_hits(line, authority, names, prev))
+def _scan_file(
+    path: Path,
+    tables: bool,
+    repo: Path,
+    authority: dict[str, int],
+    names: list[tuple[str, str]],
+    bad: list[tuple[str, int, str, int, int]],
+) -> int:
+    """Scan one file; returns how many port references were checked."""
+    rel = path.relative_to(repo).as_posix()
+    prev: list[str] = []
+    checked = 0
+    for i, line in enumerate(path.read_text(encoding="utf-8", errors="ignore").splitlines(), 1):
+        if IGNORE_MARKER in line:
+            _remember(prev, line)
+            continue
+        claims = _line_claims(line, tables, authority, names, prev)
+        checked += _audit_line(rel, i, line, claims, authority, bad)
+        _remember(prev, line)
+    return checked
 
-            used_positions: set[tuple[int, int]] = {pos for _, _, pos in claims}
 
-            if not claims:
-                for port, _ in _stray_ports(line, authority, used_positions):
-                    bad.append((rel, i, "stale port", port, 0))
-
-            for name, port, _ in claims:
-                if name not in authority:
-                    continue
-                checked += 1
-                if authority[name] != port:
-                    bad.append((rel, i, name, port, authority[name]))
-
-            prev.append(line)
-            if len(prev) > LOOKBACK:
-                prev.pop(0)
-
+def _doc_files(repo: Path, authority_file: Path):
+    """Markdown files under SCAN_ROOTS (tables + inline references)."""
     for root in SCAN_ROOTS:
         base = repo / root
         if not base.exists():
@@ -338,8 +413,11 @@ def main() -> int:
             rel = md.relative_to(repo).as_posix()
             if rel.startswith(SKIP_DIRS) or md == authority_file:
                 continue
-            scan(md, tables=True)
+            yield md, True
 
+
+def _script_files(repo: Path):
+    """Shell scripts and readmes under SCRIPT_ROOTS (inline references)."""
     for root in SCRIPT_ROOTS:
         base = repo / root
         if not base.exists():
@@ -350,8 +428,17 @@ def main() -> int:
             rel = f.relative_to(repo).as_posix()
             if rel.startswith(SKIP_DIRS):
                 continue
-            scan(f, tables=f.suffix == ".md")
+            yield f, f.suffix == ".md"
 
+
+def _iter_files(repo: Path, authority_file: Path):
+    """Yield (path, tables) for every file in the audit, docs before scripts."""
+    yield from _doc_files(repo, authority_file)
+    yield from _script_files(repo)
+
+
+def _report(bad: list[tuple[str, int, str, int, int]], checked: int) -> int:
+    """Print the audit result; return the process exit code."""
     if not bad:
         print(f"Checked {checked} port reference(s) against SERVICE_PORTS.md. All consistent.")
         return 0
@@ -368,6 +455,26 @@ def main() -> int:
         "trailing `check-ports: ignore` comment."
     )
     return 1
+
+
+def main() -> int:
+    repo = Path(__file__).resolve().parents[2]
+    authority_file = repo / "docs" / "reference" / "SERVICE_PORTS.md"
+    if not authority_file.exists():
+        print(f"Authority file missing: {authority_file}")
+        return 1
+
+    authority = load_authority(authority_file)
+    if not authority:
+        print(f"Parsed no ports from {authority_file} -- has its table format changed?")
+        return 1
+
+    names = name_index(authority)
+    bad: list[tuple[str, int, str, int, int]] = []
+    checked = 0
+    for path, tables in _iter_files(repo, authority_file):
+        checked += _scan_file(path, tables, repo, authority, names, bad)
+    return _report(bad, checked)
 
 
 if __name__ == "__main__":

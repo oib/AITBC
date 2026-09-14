@@ -94,6 +94,39 @@ async def _agent_own_history(agent_id: str, limit: int, offset: int) -> tuple[li
     return merged[offset : offset + limit], len(merged)
 
 
+def _resolve_history_scope(
+    principal: AgentPrincipal | None,
+    sender_id: str | None,
+    receiver_id: str | None,
+    mode: str,
+) -> str | None:
+    """Resolve which agent_id a ``/history`` caller is scoped to, if any.
+
+    Enforce/advisory modes scope an authenticated non-admin principal to its
+    own records: mismatched ``sender_id``/``receiver_id`` filters go through
+    ``authorize_agent_scope`` (403 in enforce, logged in advisory) and an
+    unfiltered advisory query logs ``agent_authz_unscoped``. ``enforce`` with
+    no principal delegates to ``authorize_agent_scope`` for the 401. Returns
+    the principal's agent_id when scoped, ``None`` otherwise.
+    """
+    if mode != "disabled" and principal is not None and not principal.is_admin:
+        scoped_agent = principal.agent_id
+        if sender_id is not None and sender_id != scoped_agent:
+            authorize_agent_scope(principal, sender_id, "history")
+        if receiver_id is not None and receiver_id != scoped_agent:
+            authorize_agent_scope(principal, receiver_id, "history")
+        if sender_id is None and receiver_id is None and mode == "advisory":
+            logger.warning(
+                "agent_authz_unscoped action=history principal=%s mode=%s — enforce would restrict to own records",
+                scoped_agent,
+                mode,
+            )
+        return scoped_agent
+    if mode == "enforce" and principal is None:
+        authorize_agent_scope(principal, "", "history")
+    return None
+
+
 class SendMessageRequest(BaseModel):
     """Request to send encrypted message"""
 
@@ -135,6 +168,47 @@ def _coerce_bool(value: Any) -> bool:
     return str(value).lower() in ("true", "1", "yes")
 
 
+async def _sender_bound_identity(sender: str, recovered: str) -> str | None:
+    """Check the sender's registry-bound identity against the recovered signer.
+
+    Returns the failure reason (``unbound_sender`` | ``identity_mismatch``)
+    or ``None`` when the recovered key matches the bound identity.
+    """
+    agent = None
+    if state.agent_registry:
+        try:
+            agent = await state.agent_registry.get_agent_by_id(sender)
+        except Exception as e:
+            logger.warning("Registry lookup for sender %s failed: %s", sender, e)
+    if agent is None or not agent.identity_address:
+        return "unbound_sender"
+    if canonical_address(agent.identity_address) != canonical_address(recovered):
+        return "identity_mismatch"
+    return None
+
+
+async def _check_envelope_freshness(req: SendMessageRequest) -> str | None:
+    """Check the envelope timestamp skew and nonce replay.
+
+    Returns the failure reason (``missing_timestamp`` | ``stale_timestamp`` |
+    ``nonce_replayed``) or ``None`` when the envelope is fresh.
+    """
+    if not req.timestamp:
+        return "missing_timestamp"
+    try:
+        sent_at = datetime.fromisoformat(req.timestamp)
+        if sent_at.tzinfo is None:
+            sent_at = sent_at.replace(tzinfo=UTC)
+    except ValueError:
+        return "stale_timestamp"
+    window = max(settings.agent_msg_max_skew_seconds, req.ttl)
+    if abs((datetime.now(UTC) - sent_at).total_seconds()) > window:
+        return "stale_timestamp"
+    if req.nonce and not await get_nonce_store().check_message_nonce(req.sender, req.nonce, window):
+        return "nonce_replayed"
+    return None
+
+
 async def _verify_message_signature(req: SendMessageRequest) -> tuple[str, str | None]:
     """Verify an envelope signature per agent-signed-envelopes.md §5.
 
@@ -150,29 +224,12 @@ async def _verify_message_signature(req: SendMessageRequest) -> tuple[str, str |
     recovered = recover_agent_envelope_signer(req.signing_payload(), req.signature)
     if recovered is None or canonical_address(recovered) != canonical_address(req.signer):
         return "invalid", "invalid_signature"
-    agent = None
-    if state.agent_registry:
-        try:
-            agent = await state.agent_registry.get_agent_by_id(req.sender)
-        except Exception as e:
-            logger.warning("Registry lookup for sender %s failed: %s", req.sender, e)
-    if agent is None or not agent.identity_address:
-        return "invalid", "unbound_sender"
-    if canonical_address(agent.identity_address) != canonical_address(recovered):
-        return "invalid", "identity_mismatch"
-    if not req.timestamp:
-        return "invalid", "missing_timestamp"
-    try:
-        sent_at = datetime.fromisoformat(req.timestamp)
-        if sent_at.tzinfo is None:
-            sent_at = sent_at.replace(tzinfo=UTC)
-    except ValueError:
-        return "invalid", "stale_timestamp"
-    window = max(settings.agent_msg_max_skew_seconds, req.ttl)
-    if abs((datetime.now(UTC) - sent_at).total_seconds()) > window:
-        return "invalid", "stale_timestamp"
-    if req.nonce and not await get_nonce_store().check_message_nonce(req.sender, req.nonce, window):
-        return "invalid", "nonce_replayed"
+    identity_failure = await _sender_bound_identity(req.sender, recovered)
+    if identity_failure is not None:
+        return "invalid", identity_failure
+    freshness_failure = await _check_envelope_freshness(req)
+    if freshness_failure is not None:
+        return "invalid", freshness_failure
     return "verified", None
 
 
@@ -378,21 +435,7 @@ async def get_message_history(
     disabled keep the historical open behaviour (mismatches are logged).
     """
     mode = settings.agent_msg_signature_mode
-    scoped_agent: str | None = None
-    if mode != "disabled" and principal is not None and not principal.is_admin:
-        scoped_agent = principal.agent_id
-        if sender_id is not None and sender_id != scoped_agent:
-            authorize_agent_scope(principal, sender_id, "history")
-        if receiver_id is not None and receiver_id != scoped_agent:
-            authorize_agent_scope(principal, receiver_id, "history")
-        if sender_id is None and receiver_id is None and mode == "advisory":
-            logger.warning(
-                "agent_authz_unscoped action=history principal=%s mode=%s — enforce would restrict to own records",
-                scoped_agent,
-                mode,
-            )
-    elif mode == "enforce" and principal is None:
-        authorize_agent_scope(principal, "", "history")
+    scoped_agent = _resolve_history_scope(principal, sender_id, receiver_id, mode)
     try:
         if not state.message_storage:
             raise HTTPException(status_code=503, detail="Message storage not available")

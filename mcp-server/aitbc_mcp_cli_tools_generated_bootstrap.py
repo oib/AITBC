@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,11 +34,11 @@ def aitbc_bootstrap_bootstrap_env(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Generate a starter .env file and validate it, optionally overwriting an existing one.."""
-    options: dict[str, Any] = {}
-    if output_path is not None:
-        options["output"] = output_path
-    if overwrite:
-        options["overwrite"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"overwrite": "overwrite"},
+        values={"output_path": "output"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "bootstrap",

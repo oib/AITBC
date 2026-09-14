@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -34,13 +35,11 @@ def aitbc_platform_init_platform(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Initialize a white-label platform brand manifest in the output directory.."""
-    options: dict[str, Any] = {}
-    if name is not None:
-        options["name"] = name
-    if template is not None:
-        options["template"] = template
-    if output_dir is not None:
-        options["output"] = output_dir
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"name": "name", "template": "template", "output_dir": "output"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "platform",

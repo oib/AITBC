@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -37,17 +38,17 @@ def aitbc_node_add(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Add a new node to the local configuration.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
-    if endpoint is not None:
-        options["endpoint"] = endpoint
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
-    if max_connections is not None:
-        options["max-connections"] = max_connections
-    if retry_count is not None:
-        options["retry-count"] = retry_count
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "node_id": "node-id",
+            "endpoint": "endpoint",
+            "timeout_opt": "timeout",
+            "max_connections": "max-connections",
+            "retry_count": "retry-count",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -91,11 +92,11 @@ def aitbc_node_bridge_approve(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Approve a bridge request from another island.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
-    if approving_node_id is not None:
-        options["approving-node-id"] = approving_node_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id", "approving_node_id": "approving-node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -181,11 +182,11 @@ def aitbc_node_bridge_reject(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Reject a bridge request from another island.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
-    if reason is not None:
-        options["reason"] = reason
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id", "reason": "reason"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -228,9 +229,11 @@ def aitbc_node_bridge_request(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request a bridge to another island.."""
-    options: dict[str, Any] = {}
-    if target_island_id is not None:
-        options["target-island-id"] = target_island_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"target_island_id": "target-island-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -316,11 +319,11 @@ def aitbc_node_chain_start(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Start a new parallel chain instance.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if chain_type is not None:
-        options["chain-type"] = chain_type
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id", "chain_type": "chain-type"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -363,9 +366,11 @@ def aitbc_node_chain_stop(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Stop a running parallel chain instance.."""
-    options: dict[str, Any] = {}
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -409,11 +414,11 @@ def aitbc_node_chains(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List chains hosted on all nodes or a specific node.."""
-    options: dict[str, Any] = {}
-    if show_private:
-        options["show-private"] = None
-    if node_id is not None:
-        options["node-id"] = node_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"show_private": "show-private"},
+        values={"node_id": "node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -456,9 +461,11 @@ def aitbc_node_hub_list_hubs(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List all registered hubs from Redis.."""
-    options: dict[str, Any] = {}
-    if redis_url is not None:
-        options["redis-url"] = redis_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"redis_url": "redis-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -504,15 +511,16 @@ def aitbc_node_hub_register(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Register this node as a hub.."""
-    options: dict[str, Any] = {}
-    if public_address is not None:
-        options["public-address"] = public_address
-    if public_port is not None:
-        options["public-port"] = public_port
-    if redis_url is not None:
-        options["redis-url"] = redis_url
-    if hub_discovery_url is not None:
-        options["hub-discovery-url"] = hub_discovery_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "public_address": "public-address",
+            "public_port": "public-port",
+            "redis_url": "redis-url",
+            "hub_discovery_url": "hub-discovery-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -556,11 +564,11 @@ def aitbc_node_hub_unregister(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Unregister this node as a hub.."""
-    options: dict[str, Any] = {}
-    if redis_url is not None:
-        options["redis-url"] = redis_url
-    if hub_discovery_url is not None:
-        options["hub-discovery-url"] = hub_discovery_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"redis_url": "redis-url", "hub_discovery_url": "hub-discovery-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -601,9 +609,11 @@ def aitbc_node_info(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get detailed information about a configured node.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_id": "node-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -628,13 +638,11 @@ def aitbc_node_island_create(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new island with optional ID, name, and chain.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
-    if island_name is not None:
-        options["island-name"] = island_name
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"island_id": "island-id", "island_name": "island-name", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -676,11 +684,11 @@ def aitbc_node_island_health(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show health status of connected islands.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
-    if show_all:
-        options["all"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"show_all": "all"},
+        values={"node_url": "node-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -704,11 +712,11 @@ def aitbc_node_island_island_info(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get detailed information for an island.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"island_id": "island-id", "node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -758,19 +766,17 @@ def aitbc_node_island_join(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Join an existing island by ID, name, and chain.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
-    if island_name is not None:
-        options["island-name"] = island_name
-    if chain_id is not None:
-        options["chain-id"] = chain_id
-    if hub is not None:
-        options["hub"] = hub
-    if is_hub:
-        options["is-hub"] = None
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"is_hub": "is-hub"},
+        values={
+            "island_id": "island-id",
+            "island_name": "island-name",
+            "chain_id": "chain-id",
+            "hub": "hub",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -813,9 +819,11 @@ def aitbc_node_island_leave(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Leave an island by its ID.."""
-    options: dict[str, Any] = {}
-    if island_id is not None:
-        options["island-id"] = island_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"island_id": "island-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -856,9 +864,11 @@ def aitbc_node_island_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List all known islands (alias for list-islands).."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -881,9 +891,11 @@ def aitbc_node_island_list_islands(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List all known islands from the node's island manager.."""
-    options: dict[str, Any] = {}
-    if node_url is not None:
-        options["node-url"] = node_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_url": "node-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -946,9 +958,11 @@ def aitbc_node_node_info(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get detailed information about a configured node.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_id": "node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -992,11 +1006,11 @@ def aitbc_node_remove(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Remove a node from the local configuration.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
-    if force:
-        options["force"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"force": "force"},
+        values={"node_id": "node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",
@@ -1039,9 +1053,11 @@ def aitbc_node_test(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Test connectivity to a specific node.."""
-    options: dict[str, Any] = {}
-    if node_id is not None:
-        options["node-id"] = node_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"node_id": "node-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "node",

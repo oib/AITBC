@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -34,11 +35,11 @@ def aitbc_coin_requests_approve(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Approve a pending coin transfer request by request ID.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
-    if reason is not None:
-        options["reason"] = reason
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id", "reason": "reason"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "coin-requests",
@@ -81,9 +82,11 @@ def aitbc_coin_requests_execute(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Execute an approved coin transfer request by submitting a signed transaction.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "coin-requests",
@@ -125,11 +128,11 @@ def aitbc_coin_requests_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List coin transfer requests with optional status and sender filters.."""
-    options: dict[str, Any] = {}
-    if status is not None:
-        options["status"] = status
-    if sender is not None:
-        options["sender"] = sender
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"status": "status", "sender": "sender"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -154,13 +157,11 @@ def aitbc_coin_requests_reconcile(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check executed coin requests against the chain and report or annotate discrepancies.."""
-    options: dict[str, Any] = {}
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if annotate:
-        options["annotate"] = None
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"annotate": "annotate"},
+        values={"rpc_url": "rpc-url", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "coin-requests",
@@ -204,11 +205,11 @@ def aitbc_coin_requests_reject(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Reject a pending coin transfer request with a required reason.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
-    if reason is not None:
-        options["reason"] = reason
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id", "reason": "reason"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "coin-requests",
@@ -254,15 +255,11 @@ def aitbc_coin_requests_reopen(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Clear a request's transaction hash so it can be executed again.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
-    if force:
-        options["force"] = None
-    if chain_id is not None:
-        options["chain-id"] = chain_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"force": "force"},
+        values={"request_id": "request-id", "rpc_url": "rpc-url", "chain_id": "chain-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "coin-requests",
@@ -309,17 +306,17 @@ def aitbc_coin_requests_request(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Request a one-time initial coin grant from the hub for a local wallet.."""
-    options: dict[str, Any] = {}
-    if wallet is not None:
-        options["wallet"] = wallet
-    if amount is not None:
-        options["amount"] = amount
-    if sender is not None:
-        options["sender"] = sender
-    if recipient is not None:
-        options["recipient"] = recipient
-    if request_id is not None:
-        options["request-id"] = request_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "wallet": "wallet",
+            "amount": "amount",
+            "sender": "sender",
+            "recipient": "recipient",
+            "request_id": "request-id",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "coin-requests",
@@ -360,9 +357,11 @@ def aitbc_coin_requests_show(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show details of a specific coin transfer request.."""
-    options: dict[str, Any] = {}
-    if request_id is not None:
-        options["request-id"] = request_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"request_id": "request-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

@@ -15,6 +15,7 @@ from aitbc_mcp_server import (
     NodeRole,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,11 +34,11 @@ def aitbc_dashboard_customer(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the customer dashboard with jobs, payments, and wallet balances.."""
-    options: dict[str, Any] = {}
-    if limit is not None:
-        options["limit"] = limit
-    if wallet_limit is not None:
-        options["wallet-limit"] = wallet_limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"limit": "limit", "wallet_limit": "wallet-limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dashboard",
@@ -81,11 +82,11 @@ def aitbc_dashboard_shop(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the shop dashboard with GPUs, offers, jobs, and earnings.."""
-    options: dict[str, Any] = {}
-    if miner_id is not None:
-        options["miner-id"] = miner_id
-    if limit is not None:
-        options["limit"] = limit
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"miner_id": "miner-id", "limit": "limit"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "dashboard",

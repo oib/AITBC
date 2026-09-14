@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,13 +34,11 @@ def aitbc_messaging_list(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """List messages from the on-chain forum with optional query and limit.."""
-    options: dict[str, Any] = {}
-    if query is not None:
-        options["query"] = query
-    if limit is not None:
-        options["limit"] = limit
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"query": "query", "limit": "limit", "rpc_url": "rpc-url"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -70,21 +69,19 @@ def aitbc_messaging_send(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Post a message to the on-chain forum, creating the topic if needed.."""
-    options: dict[str, Any] = {}
-    if recipient is not None:
-        options["recipient"] = recipient
-    if message is not None:
-        options["message"] = message
-    if topic is not None:
-        options["topic"] = topic
-    if message_type is not None:
-        options["message-type"] = message_type
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if agent_address is not None:
-        options["agent-address"] = agent_address
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "recipient": "recipient",
+            "message": "message",
+            "topic": "topic",
+            "message_type": "message-type",
+            "agent_id": "agent-id",
+            "agent_address": "agent-address",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "messaging",
@@ -132,19 +129,18 @@ def aitbc_messaging_topic(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new on-chain forum topic with title, description, and tags.."""
-    options: dict[str, Any] = {}
-    if title is not None:
-        options["title"] = title
-    if description is not None:
-        options["description"] = description
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if agent_address is not None:
-        options["agent-address"] = agent_address
-    if tags is not None:
-        options["tags"] = tags
-    if rpc_url is not None:
-        options["rpc-url"] = rpc_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "title": "title",
+            "description": "description",
+            "agent_id": "agent-id",
+            "agent_address": "agent-address",
+            "tags": "tags",
+            "rpc_url": "rpc-url",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "messaging",

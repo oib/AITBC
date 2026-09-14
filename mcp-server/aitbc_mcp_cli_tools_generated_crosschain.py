@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -37,17 +38,17 @@ def aitbc_crosschain_bridge(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a cross-chain bridge transaction for tokens to a target chain.."""
-    options: dict[str, Any] = {}
-    if source_chain is not None:
-        options["source-chain"] = source_chain
-    if target_chain is not None:
-        options["target-chain"] = target_chain
-    if token is not None:
-        options["token"] = token
-    if amount is not None:
-        options["amount"] = amount
-    if recipient is not None:
-        options["recipient"] = recipient
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "source_chain": "source-chain",
+            "target_chain": "target-chain",
+            "token": "token",
+            "amount": "amount",
+            "recipient": "recipient",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "crosschain",
@@ -90,9 +91,11 @@ def aitbc_crosschain_bridge_status(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Check the status of a cross-chain bridge transaction by bridge ID.."""
-    options: dict[str, Any] = {}
-    if bridge_id is not None:
-        options["bridge-id"] = bridge_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"bridge_id": "bridge-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "crosschain",
@@ -162,23 +165,20 @@ def aitbc_crosschain_swap(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a cross-chain token swap from one chain to another.."""
-    options: dict[str, Any] = {}
-    if from_chain is not None:
-        options["from-chain"] = from_chain
-    if to_chain is not None:
-        options["to-chain"] = to_chain
-    if from_token is not None:
-        options["from-token"] = from_token
-    if to_token is not None:
-        options["to-token"] = to_token
-    if amount is not None:
-        options["amount"] = amount
-    if min_amount is not None:
-        options["min-amount"] = min_amount
-    if slippage is not None:
-        options["slippage"] = slippage
-    if address is not None:
-        options["address"] = address
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "from_chain": "from-chain",
+            "to_chain": "to-chain",
+            "from_token": "from-token",
+            "to_token": "to-token",
+            "amount": "amount",
+            "min_amount": "min-amount",
+            "slippage": "slippage",
+            "address": "address",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "crosschain",

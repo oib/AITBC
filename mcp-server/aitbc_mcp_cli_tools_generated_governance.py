@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -33,9 +34,11 @@ def aitbc_governance_aggregate_votes(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Aggregate and tally cross-chain votes for a proposal.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",
@@ -78,9 +81,11 @@ def aitbc_governance_close(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Close a governance proposal and tally the final votes.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",
@@ -124,11 +129,11 @@ def aitbc_governance_execute(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Execute an approved governance proposal on-chain.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
-    if executor_address is not None:
-        options["executor-address"] = executor_address
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id", "executor_address": "executor-address"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",
@@ -171,9 +176,11 @@ def aitbc_governance_execute_cross_chain(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Execute a governance proposal across target chains.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",
@@ -214,9 +221,11 @@ def aitbc_governance_get(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get details of a specific governance proposal.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -240,11 +249,11 @@ def aitbc_governance_propagate(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Propagate a governance proposal to a comma-separated list of target chains.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
-    if target_chains is not None:
-        options["target-chains"] = target_chains
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"proposal_id": "proposal-id", "target_chains": "target-chains"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",
@@ -294,23 +303,20 @@ def aitbc_governance_propose(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new governance proposal with title, description, and optional category.."""
-    options: dict[str, Any] = {}
-    if title is not None:
-        options["title"] = title
-    if description is not None:
-        options["description"] = description
-    if proposal_type is not None:
-        options["type"] = proposal_type
-    if category is not None:
-        options["category"] = category
-    if proposer_id is not None:
-        options["proposer-id"] = proposer_id
-    if proposer_address is not None:
-        options["proposer-address"] = proposer_address
-    if params is not None:
-        options["params"] = params
-    if voting_days is not None:
-        options["voting-days"] = voting_days
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "title": "title",
+            "description": "description",
+            "proposal_type": "type",
+            "category": "category",
+            "proposer_id": "proposer-id",
+            "proposer_address": "proposer-address",
+            "params": "params",
+            "voting_days": "voting-days",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",
@@ -360,19 +366,18 @@ def aitbc_governance_vote(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Vote for, against, or abstain on a governance proposal.."""
-    options: dict[str, Any] = {}
-    if proposal_id is not None:
-        options["proposal-id"] = proposal_id
-    if voter_id is not None:
-        options["voter-id"] = voter_id
-    if vote is not None:
-        options["vote"] = vote
-    if voter_address is not None:
-        options["voter-address"] = voter_address
-    if reason is not None:
-        options["reason"] = reason
-    if voting_power is not None:
-        options["voting-power"] = voting_power
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "proposal_id": "proposal-id",
+            "voter_id": "voter-id",
+            "vote": "vote",
+            "voter_address": "voter-address",
+            "reason": "reason",
+            "voting_power": "voting-power",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "governance",

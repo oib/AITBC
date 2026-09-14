@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -42,23 +43,20 @@ def aitbc_auth_login(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Log in with a wallet-signed nonce and store a coordinator JWT.."""
-    options: dict[str, Any] = {}
-    if wallet is not None:
-        options["wallet"] = wallet
-    if password is not None:
-        options["password"] = password
-    if private_key is not None:
-        options["private-key"] = private_key
-    if private_key_file is not None:
-        options["private-key-file"] = private_key_file
-    if wallet_address is not None:
-        options["wallet-address"] = wallet_address
-    if coordinator_url is not None:
-        options["coordinator-url"] = coordinator_url
-    if environment is not None:
-        options["environment"] = environment
-    if credential_name is not None:
-        options["credential-name"] = credential_name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "wallet": "wallet",
+            "password": "password",
+            "private_key": "private-key",
+            "private_key_file": "private-key-file",
+            "wallet_address": "wallet-address",
+            "coordinator_url": "coordinator-url",
+            "environment": "environment",
+            "credential_name": "credential-name",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "auth",
@@ -102,11 +100,11 @@ def aitbc_auth_logout(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Delete the stored coordinator credential for an environment.."""
-    options: dict[str, Any] = {}
-    if environment is not None:
-        options["environment"] = environment
-    if credential_name is not None:
-        options["credential-name"] = credential_name
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"environment": "environment", "credential_name": "credential-name"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "auth",
@@ -147,9 +145,11 @@ def aitbc_auth_status(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show the stored authentication credentials for an environment.."""
-    options: dict[str, Any] = {}
-    if environment is not None:
-        options["environment"] = environment
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"environment": "environment"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,

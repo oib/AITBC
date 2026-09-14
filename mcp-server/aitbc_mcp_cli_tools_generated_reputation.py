@@ -18,6 +18,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -35,9 +36,11 @@ def aitbc_reputation_create_profile(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Create a new reputation profile for an agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "reputation",
@@ -88,25 +91,21 @@ def aitbc_reputation_feedback(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Add community feedback for an agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
-    if reviewer_id is not None:
-        options["reviewer-id"] = reviewer_id
-    if overall is not None:
-        options["overall"] = overall
-    if performance is not None:
-        options["performance"] = performance
-    if communication is not None:
-        options["communication"] = communication
-    if reliability is not None:
-        options["reliability"] = reliability
-    if value is not None:
-        options["value"] = value
-    if text is not None:
-        options["text"] = text
-    if tag is not None:
-        options["tag"] = tag
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={
+            "agent_id": "agent-id",
+            "reviewer_id": "reviewer-id",
+            "overall": "overall",
+            "performance": "performance",
+            "communication": "communication",
+            "reliability": "reliability",
+            "value": "value",
+            "text": "text",
+            "tag": "tag",
+        },
+    )
     args = None
     command = _build_aitbc_cli_command(
         "reputation",
@@ -167,9 +166,11 @@ def aitbc_reputation_profile(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Get the reputation profile for an agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -192,9 +193,11 @@ def aitbc_reputation_trust_score(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Get a detailed trust score breakdown for an agent.."""
-    options: dict[str, Any] = {}
-    if agent_id is not None:
-        options["agent-id"] = agent_id
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"agent_id": "agent-id"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "reputation",

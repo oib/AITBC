@@ -16,6 +16,7 @@ from aitbc_mcp_server import (
     _aitbc_cli_read_tool,
     _build_aitbc_cli_command,
     _build_dry_run,
+    _collect_options,
     _host_for_role,
     _json,
     _run_aitbc_cli,
@@ -34,15 +35,11 @@ def aitbc_prometheus_alerts(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Show current Prometheus alerts and optionally watch for firing alerts.."""
-    options: dict[str, Any] = {}
-    if prometheus_url is not None:
-        options["prometheus-url"] = prometheus_url
-    if watch:
-        options["watch"] = None
-    if interval is not None:
-        options["interval"] = interval
-    if emit:
-        options["emit"] = None
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={"watch": "watch", "emit": "emit"},
+        values={"prometheus_url": "prometheus-url", "interval": "interval"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -64,11 +61,11 @@ def aitbc_prometheus_check(
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
     """Validate Prometheus config and rules with promtool.."""
-    options: dict[str, Any] = {}
-    if config_path is not None:
-        options["config"] = config_path
-    if rules_path is not None:
-        options["rules"] = rules_path
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"config_path": "config", "rules_path": "rules"},
+    )
     args = None
     return _aitbc_cli_read_tool(
         role,
@@ -94,15 +91,11 @@ def aitbc_prometheus_query(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Run a PromQL query against Prometheus.."""
-    options: dict[str, Any] = {}
-    if expr is not None:
-        options["expr"] = expr
-    if prometheus_url is not None:
-        options["prometheus-url"] = prometheus_url
-    if time is not None:
-        options["time"] = time
-    if timeout_opt is not None:
-        options["timeout"] = timeout_opt
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"expr": "expr", "prometheus_url": "prometheus-url", "time": "time", "timeout_opt": "timeout"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "prometheus",
@@ -145,9 +138,11 @@ def aitbc_prometheus_rules(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """List loaded Prometheus recording and alerting rules.."""
-    options: dict[str, Any] = {}
-    if prometheus_url is not None:
-        options["prometheus-url"] = prometheus_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"prometheus_url": "prometheus-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "prometheus",
@@ -190,9 +185,11 @@ def aitbc_prometheus_series(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the count of currently loaded metric series for cardinality.."""
-    options: dict[str, Any] = {}
-    if prometheus_url is not None:
-        options["prometheus-url"] = prometheus_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"prometheus_url": "prometheus-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "prometheus",
@@ -235,9 +232,11 @@ def aitbc_prometheus_targets(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Show the health of every Prometheus scrape target.."""
-    options: dict[str, Any] = {}
-    if prometheus_url is not None:
-        options["prometheus-url"] = prometheus_url
+    options: dict[str, Any] = _collect_options(
+        locals(),
+        flags={},
+        values={"prometheus_url": "prometheus-url"},
+    )
     args = None
     command = _build_aitbc_cli_command(
         "prometheus",
