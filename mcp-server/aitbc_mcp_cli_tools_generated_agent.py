@@ -529,6 +529,10 @@ def aitbc_agent_inbox(
     agent_id: Annotated[str | None, Field(description="Agent ID")],
     limit: Annotated[int | None, Field(description="Maximum messages")],
     unread_only: Annotated[bool | None, Field(description="Only unread messages")],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -542,6 +546,10 @@ def aitbc_agent_inbox(
         options["limit"] = limit
     if unread_only:
         options["unread-only"] = None
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = None
@@ -812,6 +820,10 @@ def aitbc_agent_subscribe(
     agent_id: Annotated[str, Field(description="Agent ID")],
     topic: Annotated[str, Field(description="Topic to subscribe to")],
     filter: Annotated[str | None, Field(description="Filter criteria (JSON string)")],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     coordinator_url: Annotated[str | None, Field(description="Agent coordinator URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -827,6 +839,10 @@ def aitbc_agent_subscribe(
         options["topic"] = topic
     if filter is not None:
         options["filter"] = filter
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
     if coordinator_url is not None:
         options["coordinator-url"] = coordinator_url
     args = None

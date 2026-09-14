@@ -179,18 +179,26 @@ def aitbc_agent_comm_network(
 def aitbc_agent_comm_receive(
     receiver_id: Annotated[str, Field(description="The Receiver id.")],
     limit: Annotated[int | None, Field(description="Maximum number of messages to return")],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Receive queued messages for a receiver agent from the coordinator.."""
+    """Receive queued messages for a receiver agent from the coordinator inbox.."""
     options: dict[str, Any] = {}
     if receiver_id is not None:
         options["receiver-id"] = receiver_id
     if limit is not None:
         options["limit"] = limit
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -233,6 +241,13 @@ def aitbc_agent_comm_register(
     reputation: Annotated[float | None, Field(description="Initial reputation score")],
     version: Annotated[str | None, Field(description="Agent version")],
     agent_type: Annotated[str | None, Field(description="Agent type (worker, specialist, etc.)")],
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); signs the registration claim"
+        ),
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -257,6 +272,10 @@ def aitbc_agent_comm_register(
         options["version"] = version
     if agent_type is not None:
         options["agent-type"] = agent_type
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",
@@ -350,13 +369,20 @@ def aitbc_agent_comm_send(
     target_chain: Annotated[str | None, Field(description="Target chain for cross-chain messages")],
     priority: Annotated[int | None, Field(description="Message priority (1-10)")],
     ttl: Annotated[int | None, Field(description="Time to live in seconds")],
+    wallet_name: Annotated[
+        str | None,
+        Field(
+            description="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity"
+        ),
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Send a message from a sender to a receiver agent on a specific chain.."""
+    """Send a message from a sender to a receiver agent via the coordinator.."""
     options: dict[str, Any] = {}
     if sender_id is not None:
         options["sender-id"] = sender_id
@@ -374,6 +400,10 @@ def aitbc_agent_comm_send(
         options["priority"] = priority
     if ttl is not None:
         options["ttl"] = ttl
+    if wallet_name is not None:
+        options["wallet"] = wallet_name
+    if password is not None:
+        options["password"] = password
     args = None
     command = _build_aitbc_cli_command(
         "agent-comm",

@@ -7,6 +7,17 @@ from unittest.mock import MagicMock, patch
 import pytest
 from click.testing import CliRunner
 
+pytest.importorskip("eth_account", reason="envelope signing tests need eth-account")
+
+from eth_account import Account  # noqa: E402
+
+_TEST_KEY = "0x" + "42" * 32
+
+
+def _real_wallet():
+    """A real secp256k1 account so hire's envelope signing genuinely runs."""
+    return Account.from_key(_TEST_KEY)
+
 
 @pytest.fixture
 def runner():
@@ -51,7 +62,7 @@ def test_hire_help(runner):
 def test_status_outputs_escrow_and_negotiation(runner, mock_client):
     from aitbc_cli.commands.agent_task import agent_task
 
-    def fake_get(path, params=None):
+    def fake_get(path, params=None, headers=None):
         if path == "/v1/tasks/t-1/escrow":
             return {"status": "success", "escrow": {"task_id": "t-1", "escrow_status": "locked"}}
         if path == "/api/v1/agent/messages/inbox":
@@ -85,7 +96,7 @@ def test_result_fetches_cid(runner, mock_client, tmp_path):
 
     from aitbc_cli.commands.agent_task import agent_task
 
-    def fake_get(path, params=None):
+    def fake_get(path, params=None, headers=None):
         if path == "/api/v1/agent/messages/inbox":
             return {
                 "messages": [
@@ -134,14 +145,16 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     """hire: uploads payload, signs lock, submits task+payment, sends TaskRequest."""
     from aitbc_cli.commands.agent_task import agent_task
 
-    def fake_get(path, params=None):
+    wallet = _real_wallet()
+
+    def fake_get(path, params=None, headers=None):
         if path.startswith("/v1/agents/"):
             return {"agent": {"metadata": {"wallet": "0xProvider"}}}
         if path == "/v1/tasks/escrow-config":
             return {"status": "success", "settlement_wallet": "0xSettleNode"}
         return {"messages": []}
 
-    def fake_post(path, json=None):
+    def fake_post(path, json=None, headers=None):
         if path == "/v1/tasks/submit":
             return {"status": "success", "escrow_id": "esc-9", "task_id": json["task_data"]["task_id"]}
         return {"status": "success", "message_id": "m-1"}
@@ -153,7 +166,7 @@ def test_hire_submits_signed_escrow(runner, mock_client):
         patch("aitbc_cli.commands.agent_task._resolve_payload_ref", return_value="QmCID"),
         patch(
             "aitbc_cli.commands.agent_task.load_wallet_for_payment",
-            return_value=("0xBuyer", "privkey", "w1"),
+            return_value=(wallet.address, wallet.key.hex(), "w1"),
         ),
         patch("aitbc_cli.utils.escrow.create_signed_escrow_lock", return_value=({"type": "ESCROW_LOCK"}, "sig")) as mock_lock,
         patch("aitbc_cli.commands.agent_task._get_blockchain_rpc_url", return_value="http://rpc.local:8202"),
@@ -184,17 +197,25 @@ def test_hire_submits_signed_escrow(runner, mock_client):
     assert body["payment"]["lock_tx"] == {"type": "ESCROW_LOCK", "signature": "sig"}
     assert body["payment"]["lock_signature"] == "sig"
     assert body["payment"]["agent"] == "0xProvider"
-    assert body["payment"]["requester"] == "0xBuyer"
+    assert body["payment"]["requester"] == wallet.address
     assert body["payment"]["amount"] == 1_800_000  # 0.05 AIT
 
-    # TaskRequest went to the provider agent
+    # TaskRequest went to the provider agent as a signed envelope (Phase B2 §4)
     send = next(c for c in mock_client.post.call_args_list if c.args[0] == "/api/v1/agent/messages/send")
-    msg = send.kwargs["json"]
+    msg = dict(send.kwargs["json"])
     assert msg["message_type"] == "task_request"
     assert msg["recipient"] == "aitbc-miner-1"
     assert msg["content"]["payload_ref"] == "QmCID"
     assert msg["content"]["escrow_id"] == "esc-9"
     assert msg["encrypt"] is False
+
+    from aitbc.crypto.agent_envelope import AGENT_MSG_SIGNATURE_VERSION, verify_agent_envelope
+
+    assert msg["signer"] == wallet.address
+    assert msg["signature_version"] == AGENT_MSG_SIGNATURE_VERSION
+    assert msg["timestamp"] and msg["nonce"]
+    signature = msg.pop("signature")
+    assert verify_agent_envelope(msg, signature, wallet.address)
 
     # The lock tx was signed to the coordinator's settlement wallet,
     # not the buyer's local node wallet.

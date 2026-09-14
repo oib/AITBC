@@ -1,11 +1,19 @@
 """Cross-chain agent communication commands for AITBC CLI"""
 
+import json
 from datetime import datetime
 from typing import Any
 
 import click
 
-from ..utils import output, success
+from ..utils import info, output, success
+from ..utils.agent_signing import (
+    check_registry_binding,
+    identity_attestation_fields,
+    load_signing_wallet,
+    sign_send_envelope,
+    signed_request_headers,
+)
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, get_logger
 
@@ -59,8 +67,15 @@ def agent_comm():
 @click.option("--reputation", default=0.5, help="Initial reputation score")
 @click.option("--version", default="1.0.0", help="Agent version")
 @click.option("--agent-type", default="worker", help="Agent type (worker, specialist, etc.)")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); signs the registration claim",
+)
+@click.option("--password", default=None, help="Wallet password")
 @click.pass_context
-def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version, agent_type):
+def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, version, agent_type, wallet_name, password):
     """Register a new agent in the cross-chain network with its metadata and endpoint."""
     try:
         cap_list = [c.strip() for c in capabilities.split(",")] if capabilities else []
@@ -80,6 +95,16 @@ def register(ctx, agent_id, name, chain_id, endpoint, capabilities, reputation, 
             "chain_id": chain_id,
             "island_id": "",
         }
+        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        if signing is not None:
+            # Phase A §3: bind agent_id to the wallet's secp256k1 identity by
+            # signing the canonical registration claim over a one-time nonce.
+            address, private_key = signing
+            payload.update(identity_attestation_fields(client, agent_id, address, chain_id, private_key))
+            # Keep the metadata convention too — agent-task resolves provider
+            # payout wallets from registry metadata.
+            payload["metadata"]["wallet"] = address
+            info(f"Binding agent identity to wallet {address}")
         result = client.post("/v1/agents/register", json=payload)
         if result.get("status") == "success":
             success(f"Agent {agent_id} registered successfully!")
@@ -311,13 +336,55 @@ def network(ctx, output_format):
 @click.option("--target-chain", help="Target chain for cross-chain messages")
 @click.option("--priority", default=5, help="Message priority (1-10)")
 @click.option("--ttl", default=3600, help="Time to live in seconds")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet signing the message envelope (default: $AITBC_DEFAULT_WALLET); must be the sender's bound identity",
+)
+@click.option("--password", default=None, help="Wallet password")
 @click.pass_context
-def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_chain, priority, ttl):
-    """Send a message from a sender to a receiver agent on a specific chain."""
-    output(
-        {"message": "Agent-to-agent send is not available via the coordinator API"},
-        ctx.obj.get("output_format", "table"),
-    )
+def send(ctx, sender_id, receiver_id, message_type, chain_id, payload, target_chain, priority, ttl, wallet_name, password):
+    """Send a message from a sender to a receiver agent via the coordinator.
+
+    Maps to ``POST /api/v1/agent/messages/send`` — the coordinator routes the
+    envelope to the receiver's inbox (and across chains via its routing table).
+    """
+    try:
+        try:
+            parsed: Any = json.loads(payload)
+        except json.JSONDecodeError:
+            parsed = {"message": payload}
+        content = parsed if isinstance(parsed, dict) else {"payload": parsed}
+        if target_chain:
+            content.setdefault("target_chain", target_chain)
+        content.setdefault("chain_id", chain_id)
+
+        client = _agent_client(ctx)
+        body: dict[str, Any] = {
+            "sender": sender_id,
+            "recipient": receiver_id,
+            "content": content,
+            "message_type": message_type,
+            "encrypt": False,
+            # SendMessageRequest.priority is a string field; keep the 1-10
+            # value as a string rather than dropping it.
+            "priority": str(priority),
+            "ttl": int(ttl),
+        }
+        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        if signing is not None:
+            # The coordinator only marks a signed envelope `verified` when the
+            # signer equals the sender's bound identity_address — check first
+            # so the failure is guidance, not a 403.
+            binding_error = check_registry_binding(client, sender_id, signing[0])
+            if binding_error:
+                abort(ctx, binding_error)
+            body = sign_send_envelope(body, signing[0], signing[1])
+        result = client.post("/api/v1/agent/messages/send", json=body)
+        output(result, ctx.obj.get("output_format", "table"))
+    except Exception as e:
+        abort(ctx, f"Error sending message: {str(e)}", from_exception=e)
 
 
 @agent_comm.command(
@@ -392,13 +459,26 @@ def monitor(ctx, realtime, interval):
 )
 @click.option("--receiver-id", "receiver_id", required=True, help="The Receiver id.")
 @click.option("--limit", default=10, help="Maximum number of messages to return")
+@click.option(
+    "--wallet",
+    "wallet_name",
+    default=None,
+    help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
+)
+@click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def receive(ctx, receiver_id, limit, format):
-    """Receive queued messages for a receiver agent from the coordinator."""
+def receive(ctx, receiver_id, limit, wallet_name, password, format):
+    """Receive queued messages for a receiver agent from the coordinator inbox.
+
+    Reads ``GET /api/v1/agent/messages/inbox`` — the old
+    ``/v1/agents/{id}/messages`` route does not exist on the coordinator.
+    """
     try:
         client = _agent_client(ctx)
-        result = client.get(f"/v1/agents/{receiver_id}/messages", params={"limit": limit})
+        signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+        headers = signed_request_headers(receiver_id, signing[1]) if signing else None
+        result = client.get("/api/v1/agent/messages/inbox", params={"agent_id": receiver_id, "limit": limit}, headers=headers)
         output(result, _fmt(ctx, format))
     except Exception as e:
         output({"message": f"Error receiving messages: {e}"}, _fmt(ctx, format))
