@@ -687,7 +687,7 @@
     "/v1/tasks/{task_id}/complete": {
       "post": {
         "summary": "Complete Task",
-        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.",
+        "description": "Mark a task as complete \u2014 releases escrow payment to agent (v0.6.5).\n\nOptional JSON body ``{\"amount_units\": int}`` bills a partial amount of the\nlocked escrow; the unbilled remainder is refunded to the buyer on-chain.\nRequires a signature from the escrow's provider wallet (``entry.agent``)\nover ``{\"action\",\"task_id\",\"signed_at\",\"amount_units\"}`` \u2014 only the party\nthat will be paid may release the escrow.",
         "operationId": "complete_task_v1_tasks__task_id__complete_post",
         "parameters": [
           {
@@ -779,7 +779,7 @@
     "/v1/tasks/{task_id}/fail": {
       "post": {
         "summary": "Fail Task",
-        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).",
+        "description": "Mark a task as failed \u2014 refunds escrow payment to requester (v0.6.5).\n\nRequires a signature from the escrow's provider wallet over\n``{\"action\",\"task_id\",\"signed_at\"}`` \u2014 the provider reports its own\nfailure. Buyer-side refunds happen via the escrow timeout sweeper, not\nthis endpoint.",
         "operationId": "fail_task_v1_tasks__task_id__fail_post",
         "parameters": [
           {

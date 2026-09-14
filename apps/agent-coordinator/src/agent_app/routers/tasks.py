@@ -65,8 +65,7 @@ async def submit_task(request_http: Request, request: TaskSubmission, background
                 if submitter is not None:
                     contract_id = submitter.last_response.get("contract_id")  # type: ignore[attr-defined]
                     if contract_id:
-                        escrow.contract_id = contract_id
-                        state.payment_escrow.persist_entry(escrow)
+                        escrow.metadata["contract_id"] = contract_id
             except ValueError as e:
                 raise HTTPException(status_code=400, detail=f"Escrow error: {e}") from None
             except Exception as e:
@@ -223,6 +222,42 @@ async def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
     }
 
 
+_CALLER_SIG_MAX_SKEW_SECONDS = 300
+
+
+def _require_provider_signature(entry: Any, action: str, task_id: str, body: dict[str, Any]) -> None:
+    """Require the caller to prove control of the escrow's provider wallet.
+
+    ``entry.agent`` is the address the escrow pays; the request body must carry
+    ``signature`` + ``signed_at`` where the signature is a secp256k1 signature
+    over the canonical JSON of ``{"action", "task_id", "signed_at"}`` (plus
+    ``amount_units`` for ``complete``) — the ``recover_signer`` convention.
+    Bookkeeping escrows with an empty ``agent`` stay callable unsigned (the
+    internal/test path); every escrow with a bound provider requires the proof.
+    """
+    from aitbc.crypto.crypto import recover_signer
+
+    agent = (entry.agent or "").strip()
+    if not agent:
+        return
+    signature = body.get("signature")
+    signed_at = body.get("signed_at")
+    if not isinstance(signature, str) or not signature or signed_at is None:
+        raise HTTPException(status_code=403, detail="Provider signature required (signature + signed_at)")
+    try:
+        skew = abs(datetime.now(UTC).timestamp() - float(signed_at))
+    except (TypeError, ValueError):
+        raise HTTPException(status_code=403, detail="Invalid signed_at") from None
+    if skew > _CALLER_SIG_MAX_SKEW_SECONDS:
+        raise HTTPException(status_code=403, detail="Stale caller signature")
+    signed: dict[str, Any] = {"action": action, "task_id": task_id, "signed_at": signed_at}
+    if action == "complete":
+        signed["amount_units"] = body.get("amount_units") or 0
+    recovered = recover_signer(signed, signature)
+    if not recovered or recovered.lower() != agent.lower():
+        raise HTTPException(status_code=403, detail="Caller signature does not match escrow provider")
+
+
 @router.post("/tasks/{task_id}/complete")
 @rate_limit(rate=50, per=60)
 async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
@@ -230,6 +265,9 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
 
     Optional JSON body ``{"amount_units": int}`` bills a partial amount of the
     locked escrow; the unbilled remainder is refunded to the buyer on-chain.
+    Requires a signature from the escrow's provider wallet (``entry.agent``)
+    over ``{"action","task_id","signed_at","amount_units"}`` — only the party
+    that will be paid may release the escrow.
     """
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
@@ -237,18 +275,22 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
     amount_units: int | None = None
+    body: dict[str, Any] = {}
     raw_body = await request.body()
     if raw_body:
         try:
-            body = json.loads(raw_body)
-            if isinstance(body, dict) and body.get("amount_units") is not None:
-                amount_units = int(body["amount_units"])
-                if amount_units <= 0 or amount_units > entry.amount:
-                    raise ValueError(f"amount_units must be in (0, {entry.amount}]")
+            parsed = json.loads(raw_body)
+            if isinstance(parsed, dict):
+                body = parsed
+                if body.get("amount_units") is not None:
+                    amount_units = int(body["amount_units"])
+                    if amount_units <= 0 or amount_units > entry.amount:
+                        raise ValueError(f"amount_units must be in (0, {entry.amount}]")
         except HTTPException:
             raise
         except ValueError as e:
             raise HTTPException(status_code=400, detail=f"Invalid amount_units: {e}") from None
+    _require_provider_signature(entry, "complete", task_id, body)
     try:
         # On-chain release only when the lock actually settled on-chain;
         # bookkeeping-only escrows stay off-chain.
@@ -276,12 +318,28 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
 @router.post("/tasks/{task_id}/fail")
 @rate_limit(rate=50, per=60)
 async def fail_task(request: Request, task_id: str) -> dict[str, Any]:
-    """Mark a task as failed — refunds escrow payment to requester (v0.6.5)."""
+    """Mark a task as failed — refunds escrow payment to requester (v0.6.5).
+
+    Requires a signature from the escrow's provider wallet over
+    ``{"action","task_id","signed_at"}`` — the provider reports its own
+    failure. Buyer-side refunds happen via the escrow timeout sweeper, not
+    this endpoint.
+    """
     if not state.payment_escrow:
         raise HTTPException(status_code=503, detail="Payment escrow not available")
     entry = state.payment_escrow.get_escrow_for_task(task_id)
     if not entry:
         raise HTTPException(status_code=404, detail="No escrow found for task")
+    body: dict[str, Any] = {}
+    raw_body = await request.body()
+    if raw_body:
+        try:
+            parsed = json.loads(raw_body)
+            if isinstance(parsed, dict):
+                body = parsed
+        except ValueError:
+            body = {}
+    _require_provider_signature(entry, "fail", task_id, body)
     try:
         submitter = None
         if state.escrow_rpc and entry.tx_hash_lock:
@@ -327,7 +385,7 @@ async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
             "tx_hash_lock": entry.tx_hash_lock,
             "tx_hash_release": entry.tx_hash_release,
             "tx_hash_refund": entry.tx_hash_refund,
-            "contract_id": entry.contract_id,
+            "contract_id": entry.metadata.get("contract_id"),
             "created_at": entry.created_at,
             "locked_at": entry.locked_at,
             "released_at": entry.released_at,
