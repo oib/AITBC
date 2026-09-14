@@ -97,6 +97,7 @@ def list_wallets(
     request: Request,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
     ledger: Annotated[SQLiteLedgerAdapter, Depends(get_ledger)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> WalletListResponse:
     descriptors = []
     for record in keystore.list_records():
@@ -169,6 +170,7 @@ async def create_wallet(
 def get_wallet_balance(
     wallet_id: str,
     keystore: Annotated[PersistentKeystoreService, Depends(get_keystore)],
+    _admin: Annotated[None, Depends(require_admin_api_key)],
 ) -> dict[str, Any]:
     import httpx as _httpx
 
