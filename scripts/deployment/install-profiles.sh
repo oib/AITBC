@@ -118,8 +118,8 @@ pip install -r "$REQ_FILE.filtered" || {
 # installed a test runner. That is not drift -- it is what this script does --
 # and it collided with pyproject's addopts, which unconditionally pass
 # --reruns (pytest-rerunfailures). Result: profile-installed nodes could not
-# run pytest at all; collection aborted with "unrecognized arguments". node0,
-# node2 and hub1 (then hub2) were all in that state.
+# run pytest at all; collection aborted with "unrecognized arguments". Every
+# profile-installed node was in that state.
 #
 #   test tier -- every node. Small, and a node that cannot run its own tests
 #                cannot be verified after a deploy.
