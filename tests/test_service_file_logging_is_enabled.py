@@ -74,6 +74,7 @@ SERVICE_ENTRYPOINTS = {
     # one read `hermes_agent` until the entry was added, which would have given it
     # the only log directory on the fleet that did not match its unit name.
     "apps/hermes_agent/main.py": "hermes-agent",
+    "apps/ipfs/ipfs-daemon.py": "ipfs",
     "apps/ipfs/island_ipfs_daemon.py": "island-ipfs",
     "apps/marketplace/src/marketplace_service/main.py": "marketplace",
     "apps/pool-hub/src/poolhub/app/main.py": "pool-hub",
