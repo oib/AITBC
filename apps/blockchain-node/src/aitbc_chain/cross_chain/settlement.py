@@ -96,9 +96,16 @@ def _get_chain_height(chain_id: str) -> int:
         return int(head.height)
 
 
-def _escrow_to_dict(record: CrossChainEscrowRecord) -> dict:
-    """Serialize a CrossChainEscrowRecord to a plain dict."""
-    return {
+def _escrow_to_dict(record: CrossChainEscrowRecord, *, include_secret: bool = False) -> dict:
+    """Serialize a CrossChainEscrowRecord to a plain dict.
+
+    The HTLC preimage (``secret``) is only included when ``include_secret`` is
+    set — i.e. the create response to the escrow's own initiator. Public reads
+    (``GET /settlement/{id}``) must never expose it: the preimage is what the
+    destination leg is claimed with, and leaking it before settlement lets any
+    reader front-run the release.
+    """
+    result = {
         "escrow_id": record.escrow_id,
         "trade_id": record.trade_id,
         "source_chain": record.source_chain,
@@ -109,7 +116,6 @@ def _escrow_to_dict(record: CrossChainEscrowRecord) -> dict:
         "asset": record.asset,
         "status": record.status,
         "secret_hash": record.secret_hash,
-        "secret": record.secret,
         "source_timelock": record.source_timelock,
         "dest_timelock": record.dest_timelock,
         "source_lock_tx_hash": record.source_lock_tx_hash,
@@ -123,6 +129,9 @@ def _escrow_to_dict(record: CrossChainEscrowRecord) -> dict:
         "settled_at": record.settled_at.timestamp() if record.settled_at else 0.0,
         "refunded_at": record.refunded_at.timestamp() if record.refunded_at else 0.0,
     }
+    if include_secret:
+        result["secret"] = record.secret
+    return result
 
 
 def _proof_to_dict(record: EscrowProofRecord) -> dict:
@@ -343,7 +352,7 @@ class CrossChainSettlementService:
             timeout_seconds,
         )
 
-        result = _escrow_to_dict(record)
+        result = _escrow_to_dict(record, include_secret=True)
         return result
 
     async def lock_escrow(self, escrow_id: str) -> dict:

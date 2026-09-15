@@ -256,6 +256,34 @@ class TestSettlementService:
         secrets = {generate_secret() for _ in range(100)}
         assert len(secrets) == 100
 
+    def test_escrow_to_dict_never_leaks_preimage(self):
+        """_escrow_to_dict must not expose the HTLC preimage by default.
+
+        GET /settlement/{escrow_id} is unauthenticated; returning ``secret``
+        there leaks the preimage before settlement and lets any reader
+        front-run the destination-leg claim. Only the create response to the
+        initiator (``include_secret=True``) may carry it.
+        """
+        from aitbc_chain.cross_chain.settlement import _escrow_to_dict
+
+        record = CrossChainEscrowRecord(
+            escrow_id="esc_test",
+            trade_id="trade_test",
+            source_chain="a",
+            dest_chain="b",
+            sender="0xsender",
+            recipient="0xrecipient",
+            amount=1,
+            asset="AITBC",
+            status="locked",
+            secret_hash="0" * 64,
+            secret=generate_secret(),
+        )
+        public = _escrow_to_dict(record)
+        assert "secret" not in public
+        assert public["secret_hash"] == "0" * 64
+        assert _escrow_to_dict(record, include_secret=True)["secret"] == record.secret
+
     def test_timelock_validation(self):
         """Invalid timelocks rejected."""
         # Valid timelocks: dest expires before source with sufficient margin
