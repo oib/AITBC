@@ -203,7 +203,7 @@ def status(ctx, agent_id: str | None, status_filter: str | None, limit: int):
     if status_filter:
         params["status"] = status_filter
     try:
-        rows = _client().get("/v1/agent-performance/resources", params=params)
+        rows: Any = _client().get("/v1/agent-performance/resources", params=params)
         if not isinstance(rows, list):
             rows = [rows] if rows else []
         output(

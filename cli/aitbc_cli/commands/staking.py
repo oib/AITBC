@@ -79,7 +79,7 @@ Use `aitbc wallet staking-info` to find the stake IDs of your active stakes."""
 @click.option("--wallet-name", "wallet_name", help="Name of the wallet to unstake into")
 @click.option("--wallet-path", "wallet_path", help="Direct path to wallet file (overrides --wallet-name)")
 @click.option("--rpc-url", "rpc_url", help="Blockchain RPC URL (overrides config)")
-@click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
+@click.option("--stake-id", "stake_id", required=True, help="Numeric stake ID returned by 'stake'.")
 @click.pass_context
 def unstake(ctx, wallet_name: str | None, wallet_path: str | None, rpc_url: str | None, stake_id: str):
     """Unstake tokens once the lock period ends and withdraw the principal."""
