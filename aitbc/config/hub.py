@@ -110,6 +110,7 @@ def hub_coordinator_url() -> str | None:
     explicit = os.getenv("HUB_COORDINATOR_URL") or os.getenv("COORDINATOR_API_URL")
     if explicit:
         return explicit.rstrip("/")
-    # The coordinator-api is mounted under /v1 in the service. Public nginx
-    # can proxy it at /v1 or at a dedicated path; default to /v1.
-    return hub_service_url("v1")
+    # The coordinator-api mounts its routers under /v1, but public nginx only
+    # proxies the service at /c/v1 — a bare /v1 hits the API gateway, so
+    # POST /v1/auth/nonce 404s there (GAP-18).
+    return hub_service_url("c/v1")

@@ -65,7 +65,7 @@ class TestConfigCommands:
 
     def test_set_coordinator_url(self, runner, mock_config, tmp_path):
         """Test setting coordinator URL"""
-        with runner.isolated_filesystem():
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
             result = runner.invoke(
                 config,
                 ["set", "--key", "agent_coordinator_url", "--value", "http://new:8000"],
@@ -75,16 +75,62 @@ class TestConfigCommands:
             assert result.exit_code == 0
             assert "Agent coordinator URL set to: http://new:8000" in result.output
 
-            # Verify file was created in current directory
-            config_file = Path.cwd() / ".aitbc.yaml"
+            # No .aitbc.yaml in the isolated cwd, so the write lands on the
+            # stable per-user file — never a CWD-dependent shadow (GAP-39).
+            assert not (Path.cwd() / ".aitbc.yaml").exists()
+            config_file = tmp_path / ".aitbc.yaml"
             assert config_file.exists()
             with open(config_file) as f:
                 saved_config = yaml.safe_load(f)
             assert saved_config["agent_coordinator_url"] == "http://new:8000"
 
-    def test_set_api_key(self, runner, mock_config):
+    def test_set_updates_existing_cwd_config(self, runner, mock_config, tmp_path):
+        """An existing ./.aitbc.yaml is the loaded config — set writes it in place."""
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
+            cwd_config = Path.cwd() / ".aitbc.yaml"
+            cwd_config.write_text(yaml.dump({"timeout": 15}))
+
+            result = runner.invoke(
+                config,
+                ["set", "--key", "agent_coordinator_url", "--value", "http://new:8000"],
+                obj={"config": mock_config, "output": "table"},
+            )
+
+            assert result.exit_code == 0
+            saved = yaml.safe_load(cwd_config.read_text())
+            assert saved["agent_coordinator_url"] == "http://new:8000"
+            assert saved["timeout"] == 15
+            assert not (tmp_path / ".aitbc.yaml").exists()
+
+    def test_set_exchange_service_url(self, runner, mock_config, tmp_path):
+        """``config set`` accepts exchange_service_url (GAP-38)."""
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
+            result = runner.invoke(
+                config,
+                ["set", "--key", "exchange_service_url", "--value", "http://127.0.0.1:8202/rpc"],
+                obj={"config": mock_config, "output": "table"},
+            )
+
+            assert result.exit_code == 0
+            saved = yaml.safe_load((tmp_path / ".aitbc.yaml").read_text())
+            assert saved["exchange_service_url"] == "http://127.0.0.1:8202/rpc"
+
+    def test_set_legacy_coordinator_url_key(self, runner, mock_config, tmp_path):
+        """The legacy ``coordinator_url`` key still maps to coordinator_api_url."""
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
+            result = runner.invoke(
+                config,
+                ["set", "--key", "coordinator_url", "--value", "http://legacy:8203"],
+                obj={"config": mock_config, "output": "table"},
+            )
+
+            assert result.exit_code == 0
+            saved = yaml.safe_load((tmp_path / ".aitbc.yaml").read_text())
+            assert saved["coordinator_api_url"] == "http://legacy:8203"
+
+    def test_set_api_key(self, runner, mock_config, tmp_path):
         """Test setting API key"""
-        with runner.isolated_filesystem():
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
             result = runner.invoke(
                 config,
                 ["set", "--key", "api_key", "--value", "new_test_key_12345"],
@@ -94,9 +140,9 @@ class TestConfigCommands:
             assert result.exit_code == 0
             assert "API key set (use --global to set permanently)" in result.output
 
-    def test_set_timeout(self, runner, mock_config):
+    def test_set_timeout(self, runner, mock_config, tmp_path):
         """Test setting timeout"""
-        with runner.isolated_filesystem():
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
             result = runner.invoke(
                 config, ["set", "--key", "timeout", "--value", "45"], obj={"config": mock_config, "output": "table"}
             )
@@ -148,10 +194,9 @@ class TestConfigCommands:
         monkeypatch.delenv("EDITOR", raising=False)
         monkeypatch.delenv("VISUAL", raising=False)
 
-        # Change to the tmp_path directory
-        with runner.isolated_filesystem(temp_dir=tmp_path):
-            # The actual config file will be in the current working directory
-            actual_config_file = Path.cwd() / ".aitbc.yaml"
+        # No ./.aitbc.yaml exists, so the target is the per-user file.
+        with runner.isolated_filesystem(temp_dir=tmp_path), patch("pathlib.Path.home", return_value=tmp_path):
+            actual_config_file = tmp_path / ".aitbc.yaml"
 
             result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output": "json"})
 
@@ -169,8 +214,8 @@ class TestConfigCommands:
         monkeypatch.delenv("VISUAL", raising=False)
         monkeypatch.setenv("EDITOR", "code -w")
 
-        with runner.isolated_filesystem(temp_dir=tmp_path):
-            actual_config_file = Path.cwd() / ".aitbc.yaml"
+        with runner.isolated_filesystem(temp_dir=tmp_path), patch("pathlib.Path.home", return_value=tmp_path):
+            actual_config_file = tmp_path / ".aitbc.yaml"
 
             result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output": "json"})
 
@@ -218,9 +263,9 @@ class TestConfigCommands:
             # File should be deleted
             assert not local_config.exists()
 
-    def test_reset_no_config(self, runner, mock_config):
+    def test_reset_no_config(self, runner, mock_config, tmp_path):
         """Test reset when no config file exists"""
-        with runner.isolated_filesystem():
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
             result = runner.invoke(config, ["reset"], obj={"config": mock_config, "output": "json"})
 
             assert result.exit_code == 0
@@ -286,9 +331,9 @@ class TestConfigCommands:
             data = yaml.safe_load(result.output)
             assert data == {}
 
-    def test_export_no_config(self, runner, mock_config):
+    def test_export_no_config(self, runner, mock_config, tmp_path):
         """Test export when no config file exists"""
-        with runner.isolated_filesystem():
+        with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
             result = runner.invoke(config, ["export"], obj={"config": mock_config, "output": "json"})
 
             assert result.exit_code != 0
@@ -301,9 +346,10 @@ class TestConfigCommands:
         import_data = {"coordinator_url": "http://imported:8000", "timeout": 90}
         import_file.write_text(yaml.dump(import_data))
 
-        with runner.isolated_filesystem(temp_dir=tmp_path):
-            # The config file will be created in the current directory
-            actual_config_file = Path.cwd() / ".aitbc.yaml"
+        with runner.isolated_filesystem(temp_dir=tmp_path), patch("pathlib.Path.home", return_value=tmp_path):
+            # No ./.aitbc.yaml in the isolated cwd, so the import targets the
+            # per-user file.
+            actual_config_file = tmp_path / ".aitbc.yaml"
 
             result = runner.invoke(
                 config, ["import-config", "--file-path", str(import_file)], obj={"config": mock_config, "output": "table"}
@@ -327,9 +373,9 @@ class TestConfigCommands:
 
         tmp_path / ".aitbc.yaml"
 
-        with runner.isolated_filesystem(temp_dir=tmp_path):
-            # The config file will be created in the current directory
-            actual_config_file = Path.cwd() / ".aitbc.yaml"
+        with runner.isolated_filesystem(temp_dir=tmp_path), patch("pathlib.Path.home", return_value=tmp_path):
+            # The config file will be created at the per-user path.
+            actual_config_file = tmp_path / ".aitbc.yaml"
 
             result = runner.invoke(
                 config, ["import-config", "--file-path", str(import_file)], obj={"config": mock_config, "output": "table"}
@@ -542,3 +588,79 @@ class TestConfigCommands:
 
             assert result.exit_code == 0
             assert profile_file.exists()  # Should still exist
+
+
+class TestConfigFileLoading:
+    """get_config()/default_config_path() — which file is read and which keys load."""
+
+    def test_default_config_path_prefers_cwd_when_present(self, tmp_path, monkeypatch):
+        from aitbc_cli.config import default_config_path
+
+        monkeypatch.delenv("AITBC_CONFIG_FILE", raising=False)
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+        monkeypatch.chdir(tmp_path)
+        (tmp_path / ".aitbc.yaml").write_text("timeout: 5\n")
+
+        assert default_config_path() == tmp_path / ".aitbc.yaml"
+
+    def test_default_config_path_falls_back_to_home(self, tmp_path, monkeypatch):
+        from aitbc_cli.config import default_config_path
+
+        monkeypatch.delenv("AITBC_CONFIG_FILE", raising=False)
+        workdir = tmp_path / "work"
+        workdir.mkdir()
+        home = tmp_path / "home"
+        home.mkdir()
+        monkeypatch.setattr(Path, "home", classmethod(lambda cls: home))
+        monkeypatch.chdir(workdir)
+
+        assert default_config_path() == home / ".aitbc.yaml"
+
+    def test_default_config_path_honours_env_var(self, tmp_path, monkeypatch):
+        from aitbc_cli.config import default_config_path
+
+        cfg = tmp_path / "custom.yaml"
+        monkeypatch.setenv("AITBC_CONFIG_FILE", str(cfg))
+
+        assert default_config_path() == cfg
+
+    def test_get_config_reads_all_supported_keys(self, tmp_path, monkeypatch):
+        """Every key ``config set`` accepts must load back via get_config (GAP-38)."""
+        from aitbc_cli.config import get_config
+
+        monkeypatch.delenv("AITBC_CONFIG_FILE", raising=False)
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(
+            yaml.dump(
+                {
+                    "exchange_service_url": "http://127.0.0.1:8202/rpc",
+                    "coordinator_api_url": "http://coord:8203/v1",
+                    "agent_coordinator_url": "http://agent:8107",
+                    "marketplace_service_url": "http://market:8102",
+                    "edge_api_port": 8111,
+                    "timeout": 42,
+                }
+            )
+        )
+
+        config_obj = get_config(str(cfg))
+
+        assert config_obj.exchange_service_url == "http://127.0.0.1:8202/rpc"
+        assert config_obj.coordinator_api_url == "http://coord:8203/v1"
+        assert config_obj.agent_coordinator_url == "http://agent:8107"
+        assert config_obj.marketplace_service_url == "http://market:8102"
+        assert config_obj.edge_api_port == 8111
+        assert config_obj.timeout == 42
+        assert config_obj.config_file == str(cfg)
+
+    def test_get_config_maps_legacy_coordinator_url(self, tmp_path, monkeypatch):
+        from aitbc_cli.config import get_config
+
+        monkeypatch.delenv("AITBC_CONFIG_FILE", raising=False)
+        cfg = tmp_path / "cfg.yaml"
+        cfg.write_text(yaml.dump({"coordinator_url": "http://legacy:8203"}))
+
+        config_obj = get_config(str(cfg))
+        assert config_obj.coordinator_api_url == "http://legacy:8203"
