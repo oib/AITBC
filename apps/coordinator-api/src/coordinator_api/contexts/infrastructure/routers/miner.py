@@ -369,29 +369,6 @@ async def poll(
     return job  # type: ignore[no-any-return]
 
 
-def _attach_reinvest_info(session: Session, job: Job, receipt: dict[str, Any] | None) -> None:
-    """P2.4: surface reinvestment stake id on the receipt for CLI visibility."""
-    if receipt is None or not job.payment_id:
-        return
-    try:
-        from aitbc_shared import JobPayment
-
-        payment = session.get(JobPayment, job.payment_id)
-        if payment and payment.meta_data:
-            reinvest_stake_id = payment.meta_data.get("reinvest_stake_id")
-            reinvest_amount = payment.meta_data.get("reinvest_amount")
-            if reinvest_stake_id or reinvest_amount:
-                receipt_with_reinvest = dict(receipt)
-                receipt_with_reinvest["reinvest_status"] = payment.meta_data.get("reinvest_status", "staked")
-                if reinvest_stake_id:
-                    receipt_with_reinvest["reinvest_stake_id"] = reinvest_stake_id
-                if reinvest_amount:
-                    receipt_with_reinvest["reinvest_amount"] = reinvest_amount
-                job.receipt = receipt_with_reinvest
-    except Exception as e:
-        logger.warning("Could not attach reinvestment info to receipt: %s", e)
-
-
 async def _maybe_slash_bond(session: Session, job: Job, condition: str, evidence: str) -> None:
     """G5: slash the miner's bond when a bonded job fails verification."""
     if not (job.constraints and job.constraints.get("bond_required")):
@@ -401,7 +378,7 @@ async def _maybe_slash_bond(session: Session, job: Job, condition: str, evidence
     await BondSlashingService(session).slash(job, SlashingCondition(condition), evidence)
 
 
-async def _settle_completed_job(session: Session, payment_service: Any, job: Job, receipt: dict[str, Any] | None) -> bool:
+async def _settle_completed_job(session: Session, payment_service: Any, job: Job) -> bool:
     """Open the customer's acceptance window, or pay the provider now (G3).
 
     Releasing inside this request made the provider the only party to the settlement:
@@ -421,7 +398,6 @@ async def _settle_completed_job(session: Session, payment_service: Any, job: Job
         )
         if released:
             job.payment_status = "released"
-            _attach_reinvest_info(session, job, receipt)
             session.add(job)
             session.commit()
             logger.info("Auto-released payment %s for completed job %s", job.payment_id, job.id)
@@ -572,7 +548,7 @@ async def submit_result(
                 await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
                 success = False
             else:
-                success = await _settle_completed_job(session, payment_service, job, receipt)
+                success = await _settle_completed_job(session, payment_service, job)
         elif _zk_required_for(job, payment_amount) and not _computation_is_correct(receipt, job):
             zk_status = (receipt or {}).get("zk_status")
             job.error = f"ZK proof required before escrow release (status: {zk_status})"
@@ -581,7 +557,7 @@ async def submit_result(
             await _maybe_slash_bond(session, job, "bad_result", f"ZK proof failed: {zk_status}")
             success = False
         else:
-            success = await _settle_completed_job(session, payment_service, job, receipt)
+            success = await _settle_completed_job(session, payment_service, job)
         if not success:
             logger.error("Failed to settle payment %s for job %s", job.payment_id, job.id)
     miner_service.release(

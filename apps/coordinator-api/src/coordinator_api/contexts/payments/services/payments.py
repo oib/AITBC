@@ -1090,6 +1090,22 @@ class PaymentService:
                         meta["reinvest_amount"] = str(reinvest_amount)
                     meta["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
                     payment.meta_data = meta
+                    # Mirror onto the denormalised job receipt so the JobView and
+                    # the CLI can show it. The JobReceipt payload is the signed
+                    # record and is not touched; job.receipt is only a display
+                    # copy. Doing it here rather than in the miner-result router
+                    # is what matters: the release may equally come from the
+                    # acceptance sweeper, the client-accept route, the admin
+                    # retry, or the reconciler, and none of those ran the router
+                    # helper (GAP-43).
+                    if job.receipt:
+                        receipt_with_reinvest = dict(job.receipt)
+                        receipt_with_reinvest["reinvest_status"] = meta["reinvest_status"]
+                        if reinvest_stake_id:
+                            receipt_with_reinvest["reinvest_stake_id"] = meta["reinvest_stake_id"]
+                        if reinvest_amount:
+                            receipt_with_reinvest["reinvest_amount"] = meta["reinvest_amount"]
+                        job.receipt = receipt_with_reinvest
                 escrow = (
                     self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
                 )

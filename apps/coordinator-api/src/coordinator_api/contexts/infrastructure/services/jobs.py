@@ -262,8 +262,12 @@ class JobService:
         offer_price_unit: str | None = None
         offer_quantity: Decimal | None = None
         acceptance_deadline: datetime | None = None
-        if payment and payment.meta_data:
-            meta = payment.meta_data
+        # The payment's meta_data is the settlement record: release_payment writes
+        # the reinvest outcome there on every release path, while the receipt only
+        # carries it when the row was patched after the fact (GAP-43 -- a release
+        # via the acceptance sweeper left the receipt, and so this view, null).
+        meta: dict[str, Any] = payment.meta_data if payment and payment.meta_data else {}
+        if meta:
             # G3: a held payment tells the customer how long they have to object.
             acceptance_deadline = deadline_from(meta)
             offer_id = meta.get("offer_id") or offer_id
@@ -305,8 +309,8 @@ class JobService:
             tee_status=receipt.get("tee_status"),
             tee_attestation_id=receipt.get("tee_attestation_id"),
             auto_reinvest_pct=(job.constraints or {}).get("auto_reinvest_pct"),
-            reinvest_status=receipt.get("reinvest_status"),
-            reinvest_stake_id=receipt.get("reinvest_stake_id"),
+            reinvest_status=meta.get("reinvest_status") or receipt.get("reinvest_status"),
+            reinvest_stake_id=meta.get("reinvest_stake_id") or receipt.get("reinvest_stake_id"),
             acceptance_deadline=acceptance_deadline,
         )
 

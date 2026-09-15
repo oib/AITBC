@@ -64,6 +64,11 @@ class TaskPayment(BaseModel):
     timeout_seconds: float = Field(3600.0, description="Escrow timeout")
     lock_tx: dict[str, Any] | None = Field(None, description="Buyer-signed ESCROW_LOCK transaction")
     lock_signature: str | None = Field(None, description="Signature over lock_tx")
+    # P2.4/GAP-43: forwarded to the chain at release time; the chain stakes that
+    # share of the released amount for the escrow's recorded provider.
+    auto_reinvest_pct: float | None = Field(
+        None, ge=0, le=100, description="Percentage of released payment to auto-stake as reinvestment"
+    )
 
 
 class TaskSubmission(BaseModel):
