@@ -177,6 +177,107 @@ class TestWalletCommands:
         assert result.exit_code == 0, result.output
         assert "already exists" in result.output
 
+    @staticmethod
+    def _write_wallet_file(path, address_override=None):
+        """Write an unencrypted wallet file with real key material."""
+        import json
+
+        from eth_account import Account
+        from eth_keys import keys
+
+        account = Account.create()
+        public_key = keys.PrivateKey(bytes(account.key)).public_key.to_hex()
+        path.write_text(
+            json.dumps(
+                {
+                    "wallet_id": path.stem,
+                    "type": "hd",
+                    "address": address_override or account.address,
+                    "public_key": public_key,
+                    "private_key": account.key.hex(),
+                    "created_at": "2024-01-01T00:00:00Z",
+                    "balance": 0,
+                    "transactions": [],
+                }
+            )
+        )
+        return account.address
+
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id", return_value="test-chain")
+    @patch("aitbc_cli.commands.wallet.get_config")
+    def test_wallet_info_integrity_ok(self, mock_get_config, mock_get_chain_id, mock_adapter_class, runner, tmp_path):
+        """``wallet info`` reports integrity ok when address matches key material."""
+        mock_get_config.return_value.blockchain_rpc_url = "http://localhost:8202"
+
+        wallet_path = tmp_path / "good.json"
+        address = self._write_wallet_file(wallet_path)
+
+        from aitbc_cli.commands.wallet import wallet
+
+        result = runner.invoke(wallet, ["--wallet-path", str(wallet_path), "info"])
+
+        assert result.exit_code == 0, result.output
+        assert '"integrity": "ok"' in result.output
+        assert address in result.output
+
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id", return_value="test-chain")
+    @patch("aitbc_cli.commands.wallet.get_config")
+    def test_wallet_info_integrity_mismatch_warns(
+        self, mock_get_config, mock_get_chain_id, mock_adapter_class, runner, tmp_path
+    ):
+        """A corrupted stored address is flagged, not displayed as valid."""
+        mock_get_config.return_value.blockchain_rpc_url = "http://localhost:8202"
+
+        wallet_path = tmp_path / "bad.json"
+        self._write_wallet_file(wallet_path, address_override="0x00000000000000000000000000000000deadbeef")
+
+        from aitbc_cli.commands.wallet import wallet
+
+        result = runner.invoke(wallet, ["--wallet-path", str(wallet_path), "info"])
+
+        assert result.exit_code == 0, result.output
+        assert "MISMATCH" in result.output
+        assert "does not match its key material" in result.output
+
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id", return_value="test-chain")
+    @patch("aitbc_cli.commands.wallet.get_config")
+    def test_wallet_info_name_option(self, mock_get_config, mock_get_chain_id, mock_adapter_class, runner, tmp_path):
+        """``wallet info --name`` queries a non-active wallet in the wallet dir."""
+        mock_get_config.return_value.blockchain_rpc_url = "http://localhost:8202"
+
+        active_path = tmp_path / "active.json"
+        self._write_wallet_file(active_path)
+        other_path = tmp_path / "other.json"
+        other_address = self._write_wallet_file(other_path)
+
+        from aitbc_cli.commands.wallet import wallet
+
+        result = runner.invoke(wallet, ["--wallet-path", str(active_path), "info", "--name", "other"])
+
+        assert result.exit_code == 0, result.output
+        assert other_address in result.output
+        assert '"name": "other"' in result.output
+
+    @patch("aitbc_cli.utils.dual_mode_wallet_adapter.DualModeWalletAdapter")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id", return_value="test-chain")
+    @patch("aitbc_cli.commands.wallet.get_config")
+    def test_wallet_info_name_not_found(self, mock_get_config, mock_get_chain_id, mock_adapter_class, runner, tmp_path):
+        """``wallet info --name`` errors when the named wallet does not exist."""
+        mock_get_config.return_value.blockchain_rpc_url = "http://localhost:8202"
+
+        active_path = tmp_path / "active.json"
+        self._write_wallet_file(active_path)
+
+        from aitbc_cli.commands.wallet import wallet
+
+        result = runner.invoke(wallet, ["--wallet-path", str(active_path), "info", "--name", "missing"])
+
+        assert result.exit_code == 0, result.output
+        assert "not found" in result.output
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

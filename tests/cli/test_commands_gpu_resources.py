@@ -145,6 +145,143 @@ class TestGPUResourcesCommands:
         # NetworkError is caught and reported via error(), exit code stays 0.
         assert result.exit_code == 0, result.output
 
+    @patch("aitbc_cli.utils.gpu_onchain.wait_for_tx")
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_register")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_register_wait_reports_mined(
+        self, mock_get_config, mock_chain_health, mock_submit, mock_wait, runner, mock_config, cli_obj
+    ):
+        """``gpu-onchain register --wait`` reports the mined block height."""
+        mock_get_config.return_value = mock_config
+        mock_submit.return_value = {"transaction_hash": "0xabc123"}
+        mock_wait.return_value = {"block_height": 7210, "tx_hash": "0xabc123"}
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(
+            gpu,
+            [
+                "register",
+                "--gpu-id",
+                "gpu-0",
+                "--miner-id",
+                "miner-0",
+                "--model",
+                "RTX 4090",
+                "--memory-gb",
+                "24",
+                "--price-per-hour",
+                "10",
+                "--wallet",
+                "w1",
+                "--wait",
+            ],
+            obj=cli_obj,
+        )
+
+        assert result.exit_code == 0, result.output
+        mock_wait.assert_called_once()
+        assert mock_wait.call_args[0][1] == "0xabc123"
+        assert "7210" in result.output
+
+    @patch("aitbc_cli.utils.gpu_onchain.wait_for_tx", return_value=None)
+    @patch("aitbc_cli.utils.gpu_onchain.submit_gpu_register")
+    @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health", return_value="test-chain")
+    @patch("aitbc_cli.commands.gpu_resources.get_config")
+    def test_gpu_register_wait_timeout_reports_unmined(
+        self, mock_get_config, mock_chain_health, mock_submit, mock_wait, runner, mock_config, cli_obj
+    ):
+        """``gpu-onchain register --wait`` reports mined=false on timeout instead of crashing."""
+        mock_get_config.return_value = mock_config
+        mock_submit.return_value = {"transaction_hash": "0xabc123"}
+
+        from aitbc_cli.commands.gpu_resources import gpu
+
+        result = runner.invoke(
+            gpu,
+            [
+                "register",
+                "--gpu-id",
+                "gpu-0",
+                "--miner-id",
+                "miner-0",
+                "--model",
+                "RTX 4090",
+                "--memory-gb",
+                "24",
+                "--price-per-hour",
+                "10",
+                "--wallet",
+                "w1",
+                "--wait",
+            ],
+            obj=cli_obj,
+        )
+
+        assert result.exit_code == 0, result.output
+        assert '"mined": false' in result.output
+
+
+class TestWaitForTx:
+    """Tests for the ``wait_for_tx`` confirmation poll (GAP-41 regression).
+
+    ``/rpc/transaction/{hash}`` 404s while the tx is still in the mempool; the
+    old implementation ran those polls through ``AITBCHTTPClient`` whose
+    circuit breaker opened after five 404s. The poll now uses plain requests.
+    """
+
+    def test_wait_for_tx_returns_on_mined(self):
+        """A mined transaction (200 + block_height) is returned immediately."""
+        from unittest.mock import MagicMock
+
+        from aitbc_cli.utils.gpu_onchain import wait_for_tx
+
+        mined = MagicMock()
+        mined.status_code = 200
+        mined.json.return_value = {"tx_hash": "0xabc", "block_height": 42}
+
+        with patch("requests.get", side_effect=[_not_found(), _not_found(), mined]) as mock_get:
+            result = wait_for_tx("http://node:8202", "0xabc", timeout=5.0, poll_interval=0.01)
+
+        assert result == {"tx_hash": "0xabc", "block_height": 42}
+        assert mock_get.call_count == 3
+        assert mock_get.call_args[0][0] == "http://node:8202/rpc/transaction/0xabc"
+
+    def test_wait_for_tx_tolerates_pending_404s(self):
+        """Sustained 404s must not trip a circuit breaker — poll until timeout."""
+        from aitbc_cli.utils.gpu_onchain import wait_for_tx
+
+        with patch("requests.get", side_effect=_always_not_found) as mock_get:
+            result = wait_for_tx("http://node:8202", "0xabc", timeout=0.15, poll_interval=0.01)
+
+        assert result is None
+        # More than the old circuit-breaker threshold of 5 failures.
+        assert mock_get.call_count > 5
+
+    def test_wait_for_tx_tolerates_connection_errors(self):
+        """Transient connection errors are interim failures, not a poll abort."""
+        import requests as _requests
+
+        from aitbc_cli.utils.gpu_onchain import wait_for_tx
+
+        with patch("requests.get", side_effect=_requests.ConnectionError("refused")):
+            result = wait_for_tx("http://node:8202", "0xabc", timeout=0.1, poll_interval=0.01)
+
+        assert result is None
+
+
+def _not_found():
+    from unittest.mock import MagicMock
+
+    resp = MagicMock()
+    resp.status_code = 404
+    return resp
+
+
+def _always_not_found(*args, **kwargs):
+    return _not_found()
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

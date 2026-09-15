@@ -3,14 +3,33 @@
 import click
 from click import echo
 
+from ..config import get_config
 from ..core.chain_manager import ChainManager, ChainNotFoundError
-from ..core.config import load_multichain_config
+from ..core.config import NodeConfig, load_multichain_config
 from ..models.chain import ChainType
 from ..utils import OUTPUT_FORMAT_OPTION, error, output, resolve_output_format, success
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
 logger = get_logger(__name__)
+
+
+def _load_chain_manager(node_urls: tuple[str, ...] = ()) -> ChainManager:
+    """Build a ChainManager over the multichain node registry.
+
+    ``--node-url`` values are added to the registry read from
+    ``~/.aitbc/multichain_config.yaml``, and when no nodes are configured at
+    all the CLI's configured blockchain RPC URL is used — so the commands work
+    on a stock node instead of reporting "No chains found" against an empty or
+    stale registry.
+    """
+    config = load_multichain_config()
+    for url in node_urls:
+        config.nodes[url] = NodeConfig(id=url, endpoint=url)
+    if not config.nodes:
+        endpoint = getattr(get_config(), "blockchain_rpc_url", "") or "http://127.0.0.1:8202"
+        config.nodes["local-rpc"] = NodeConfig(id="local-rpc", endpoint=endpoint)
+    return ChainManager(config)
 
 
 @click.group(
@@ -44,7 +63,11 @@ def chain():
     default=None,
     help="List attached islands when used without a value; with a value, filter chains by island ID (substring match on chain ID).",
 )
-@click.option("--node-url", default="http://127.0.0.1:8202", help="Local node RPC URL (used with --island)")
+@click.option(
+    "--node-url",
+    default="http://127.0.0.1:8202",
+    help="Local node RPC URL (used with --island, and as the chain source when no multichain nodes are configured)",
+)
 @click.pass_context
 def list(ctx, chain_type, show_private, sort, island, node_url):
     """List all available chains with optional type, island, and sorting filters."""
@@ -83,6 +106,10 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
 
     try:
         config = load_multichain_config()
+        if not config.nodes:
+            # No multichain registry configured — fall back to the local node
+            # RPC so `blockchain list` still reports real chains.
+            config.nodes["local-rpc"] = NodeConfig(id="local-rpc", endpoint=node_url)
         chain_manager = ChainManager(config)
 
         # Get chains
@@ -130,16 +157,23 @@ def list(ctx, chain_type, show_private, sort, island, node_url):
 
   aitbc blockchain status --chain-id ait-mainnet
 
+  aitbc blockchain status --node-url http://node2:8202
+
   aitbc blockchain status --chain-id ait-mainnet --detailed --metrics"""
 )
 @click.option("--chain-id", help="Specific chain ID to check status (shows all if not specified)")
+@click.option(
+    "--node-url",
+    "node_urls",
+    multiple=True,
+    help="Blockchain RPC URL of a node to query (repeatable); falls back to the configured blockchain_rpc_url when no nodes are known",
+)
 @click.option("--detailed", is_flag=True, help="Show detailed status information")
 @click.pass_context
-def status(ctx, chain_id, detailed):
+def status(ctx, chain_id, detailed, node_urls):
     """Check the status and optional details or metrics of a chain."""
     try:
-        config = load_multichain_config()
-        chain_manager = ChainManager(config)
+        chain_manager = _load_chain_manager(node_urls)
 
         import asyncio
 
@@ -173,7 +207,13 @@ def status(ctx, chain_id, detailed):
             chains = asyncio.run(chain_manager.list_chains())
 
             if not chains:
-                output({"message": "No chains found"}, ctx.obj.get("output_format", "table"))
+                output(
+                    {
+                        "message": "No chains found",
+                        "hint": "pass --node-url <blockchain-rpc-url> or configure nodes in ~/.aitbc/multichain_config.yaml",
+                    },
+                    ctx.obj.get("output_format", "table"),
+                )
                 return
 
             status_list = []
