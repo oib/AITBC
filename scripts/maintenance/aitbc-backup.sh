@@ -64,6 +64,24 @@ for pg_db in "${PG_DBS[@]}"; do
         pg_user="poolhub"
     fi
 
+    # The mempool has no service or env file of its own -- it belongs to
+    # blockchain-node, which selects its backend via MEMPOOL_DB_URL. That URL is
+    # sqlite on every host in this fleet, so the aitbc_mempool database exists
+    # (setup_postgresql_databases.sh creates it unconditionally) but nothing ever
+    # writes to it. Dumping it is pointless, and the stale role password made the
+    # attempt fail nightly. Skip unless the node is actually pointed at postgres.
+    if [ "$pg_db" = "aitbc_mempool" ]; then
+        pg_env="/etc/aitbc/blockchain.env"
+        mempool_url=$(grep "^MEMPOOL_DB_URL=" "$pg_env" 2>/dev/null | cut -d= -f2- || true)
+        case "$mempool_url" in
+            postgres*) ;;
+            *)
+                log "PostgreSQL backup skipped for ${pg_db}: MEMPOOL_DB_URL is not postgres, so this database is unused"
+                continue
+                ;;
+        esac
+    fi
+
     if [ -f "$pg_creds" ]; then
         pg_pw=$(cat "$pg_creds")
     elif [ -f "$pg_env" ]; then
@@ -71,6 +89,10 @@ for pg_db in "${PG_DBS[@]}"; do
         # aitbc-pool-hub stores its DSN in POOLHUB_POSTGRES_DSN
         if [ -z "$pg_pw" ]; then
             pg_pw=$(grep "^POOLHUB_POSTGRES_DSN=" "$pg_env" 2>/dev/null | cut -d= -f2- | sed -E 's|^[^/]+://[^:]*:([^@]+)@.*$|\1|' || true)
+        fi
+        # The mempool DSN carries its own credentials; blockchain.env has no DB_PASS.
+        if [ -z "$pg_pw" ] && [ "$pg_db" = "aitbc_mempool" ]; then
+            pg_pw=$(grep "^MEMPOOL_DB_URL=" "$pg_env" 2>/dev/null | cut -d= -f2- | sed -E 's|^[^/]+://[^:]*:([^@]+)@.*$|\1|' || true)
         fi
     fi
 
@@ -95,6 +117,11 @@ for pg_db in "${PG_DBS[@]}"; do
             chmod 600 "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"
             log "PostgreSQL backup: OK for ${pg_db} ($(du -sh "${BACKUP_DIR}/postgres_${pg_db}.sql.gz" | cut -f1))"
         else
+            # pipefail makes the pipeline report pg_dump's failure, but gzip has
+            # already created the output file -- an empty 20-byte archive that
+            # looks like a backup in a directory listing. Remove it so a failed
+            # dump leaves no artifact to mistake for one.
+            rm -f "${BACKUP_DIR}/postgres_${pg_db}.sql.gz"
             error "PostgreSQL backup FAILED for ${pg_db}"
         fi
     fi
