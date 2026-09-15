@@ -157,7 +157,13 @@ class ChainSettings(BaseSettings):
     mempool_backend: str = "database"  # "database" or "memory" (database recommended for persistence)
     mempool_db_url: str = ""  # PostgreSQL URL for mempool (set via MEMPOOL_DB_URL env var - no hardcoded credentials)
     mempool_max_size: int = 10_000
-    mempool_eviction_interval: int = 60  # seconds
+    mempool_eviction_interval: int = 60  # seconds between staleness sweeps
+    # How long an entry may sit unmined before the sweeper drops it. A follower
+    # never proposes, so nothing drains its mempool; a transaction submitted
+    # there whose peer fan-out failed would otherwise sit forever, and the
+    # sqlite backend means it survives restarts. Generous by design -- this is a
+    # garbage collector for stranded entries, not a fee-pressure mechanism.
+    mempool_entry_ttl: int = 3600  # seconds; 0 disables the sweeper
 
     # Circuit breaker
     circuit_breaker_threshold: int = 5  # failures before opening

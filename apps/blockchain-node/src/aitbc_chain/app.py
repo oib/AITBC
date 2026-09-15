@@ -148,6 +148,50 @@ class RequestLoggingMiddleware(BaseHTTPMiddleware):
             return JSONResponse(status_code=503, content={"detail": "Internal server error"})
 
 
+async def _sweep_mempool_forever() -> None:
+    """Periodically drop mempool entries that have aged past the TTL.
+
+    Capacity eviction only fires at mempool_max_size, and drain() only runs when
+    this host proposes a block. A follower does neither, so a transaction whose
+    peer fan-out failed sits in its mempool indefinitely -- and with the sqlite
+    backend, across restarts too. This is the only path that reclaims those.
+    """
+    from .mempool import get_mempool
+
+    interval = max(1, settings.mempool_eviction_interval)
+    ttl = settings.mempool_entry_ttl
+    while True:
+        await asyncio.sleep(interval)
+        try:
+            removed = get_mempool().evict_expired(ttl)
+            if removed:
+                _app_logger.info("Mempool sweeper evicted %d entries older than %ds", removed, ttl)
+        except asyncio.CancelledError:
+            raise
+        except Exception as e:
+            # A sweep failure must never end the loop; the next tick retries.
+            _app_logger.warning("Mempool sweep failed: %s", e)
+
+
+def _start_mempool_sweeper() -> "asyncio.Task[None]| None":
+    """Start the staleness sweeper, unless the TTL disables it.
+
+    Owned by the RPC app rather than main.py: aitbc-blockchain-rpc runs with
+    --workers 1, so exactly one sweeper exists per host, and both processes
+    share the same mempool store -- a second sweeper would only double-count
+    the eviction metrics.
+    """
+    if settings.mempool_entry_ttl <= 0:
+        _app_logger.info("Mempool staleness sweeper disabled (mempool_entry_ttl <= 0)")
+        return None
+    _app_logger.info(
+        "Mempool staleness sweeper started: ttl=%ds interval=%ds",
+        settings.mempool_entry_ttl,
+        settings.mempool_eviction_interval,
+    )
+    return create_task_with_logging(_sweep_mempool_forever(), name="mempool-sweeper")
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     init_db()
@@ -287,6 +331,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     except Exception as e:
         _app_logger.error("Failed to start lease tracker in RPC service: %s", e)
 
+    mempool_sweeper = _start_mempool_sweeper()
+
     try:
         yield
     finally:
@@ -294,6 +340,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         # The backends are responsible for fast cleanup; the waits here are a
         # safety net for any component that still blocks.
         async def _shutdown() -> None:
+            if mempool_sweeper is not None:
+                mempool_sweeper.cancel()
+                try:
+                    await asyncio.wait_for(mempool_sweeper, timeout=2.0)
+                except (asyncio.CancelledError, asyncio.TimeoutError):
+                    pass
             for proposer in proposers:
                 try:
                     await asyncio.wait_for(proposer.stop(), timeout=10.0)

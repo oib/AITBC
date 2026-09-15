@@ -174,6 +174,27 @@ class InMemoryMempool:
         del chain_transactions[lowest.tx_hash]
         metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
 
+    def evict_expired(self, max_age: float) -> int:
+        """Drop entries older than ``max_age`` seconds, across every chain.
+
+        Capacity eviction only fires at max_size, which a stranded follower
+        never reaches, so age is the only thing that reclaims those entries.
+        """
+        if max_age <= 0:
+            return 0
+        cutoff = time.time() - max_age
+        removed = 0
+        with self._lock:
+            for chain_id, chain_transactions in self._transactions.items():
+                stale = [h for h, t in chain_transactions.items() if t.received_at < cutoff]
+                for tx_hash in stale:
+                    del chain_transactions[tx_hash]
+                    metrics_registry.increment(f"mempool_evictions_total_{chain_id}")
+                removed += len(stale)
+            if removed:
+                metrics_registry.set_gauge("mempool_size", float(self._total_size()))
+        return removed
+
 
 class DatabaseMempool:
     """PostgreSQL-backed mempool for persistence and cross-service sharing."""
@@ -455,6 +476,34 @@ class DatabaseMempool:
                 session.commit()
                 removed = result.rowcount if result.rowcount is not None else 0
             self._update_gauge(chain_id)
+        return removed
+
+    def evict_expired(self, max_age: float) -> int:
+        """Delete entries older than ``max_age`` seconds, across every chain.
+
+        Entries here outlive the process, so a strand that a restart would have
+        cleared in the in-memory backend persists until something removes it.
+        """
+        if max_age <= 0:
+            return 0
+        cutoff = time.time() - max_age
+        with self._lock:
+            with Session(self._engine) as session:
+                stale_chains = session.exec(
+                    select(MempoolEntry.chain_id).where(MempoolEntry.received_at < cutoff)  # type: ignore[arg-type]
+                ).all()
+                if not stale_chains:
+                    return 0
+                result = session.exec(
+                    delete(MempoolEntry).where(MempoolEntry.received_at < cutoff)  # type: ignore[arg-type]
+                )
+                session.commit()
+                removed = result.rowcount if result.rowcount is not None else len(stale_chains)
+            for chain_id in set(stale_chains):
+                metrics_registry.increment(
+                    f"mempool_evictions_total_{chain_id}", float(stale_chains.count(chain_id))
+                )
+                self._update_gauge(chain_id)
         return removed
 
     def size(self, chain_id: str | None = None) -> int:
