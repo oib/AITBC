@@ -7,7 +7,7 @@ def test_resource_group_has_current_subcommands():
     """The resource group exposes the coordinator-backed commands."""
     from aitbc_cli.commands.resource import resource
 
-    assert set(resource.commands) == {"allocate", "optimize"}
+    assert set(resource.commands) == {"allocate", "deallocate", "optimize", "status"}
 
 
 def test_resource_allocate_command(runner):
