@@ -71,6 +71,7 @@ def test_no_reviews_reads_as_unrated():
 
 def _run(fmt: str, offers: list[dict] | None):
     client = Mock()
+
     def _get(path, **kw):
         return {"offers": offers} if "marketplace/offer" in path else {"error": "no profile"}
 
