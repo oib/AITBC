@@ -11869,6 +11869,132 @@
         }
       }
     },
+    "/v1/services/{name}": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Get a service's status",
+        "description": "Return catalog details + availability for one service type.",
+        "operationId": "get_service_v1_services__name__get",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Service V1 Services  Name  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown service '{name}'; known types: {[s['type'] for s in _service_catalog()]}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/services/{name}/test": {
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Test a service's availability",
+        "description": "Registry-level availability check for a service type.\n\nConfirms the type is registered in the coordinator catalog and reports\nits declared capabilities. This is not a workload execution \u2014 the typed\n``/services/<type>/<action>`` endpoints run real jobs.",
+        "operationId": "test_service_v1_services__name__test_post",
+        "parameters": [
+          {
+            "name": "name",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Name"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Test Service V1 Services  Name  Test Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Unknown service '{name}'; known types: {[s['type'] for s in _service_catalog()]}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/auth/nonce": {
       "post": {
         "tags": [
