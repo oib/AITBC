@@ -9,6 +9,7 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
+from sqlalchemy import desc
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
@@ -356,7 +357,7 @@ async def list_resource_allocations(
 ) -> list[ResourceAllocationResponse]:
     """List resource allocations, optionally filtered by agent or status"""
     try:
-        stmt = select(ResourceAllocation).order_by(ResourceAllocation.created_at.desc()).limit(limit)
+        stmt = select(ResourceAllocation).order_by(desc(ResourceAllocation.created_at)).limit(limit)  # type: ignore[arg-type]
         if agent_id:
             stmt = stmt.where(ResourceAllocation.agent_id == agent_id)
         if status:
