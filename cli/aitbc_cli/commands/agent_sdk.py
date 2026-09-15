@@ -34,6 +34,51 @@ def get_agent_config_dir() -> Path:
     return config_dir
 
 
+# --- Coordinator URL resolution -------------------------------------------------
+#
+# Every command here talks to one service, the agent-coordinator, but it is
+# reachable under two path shapes and that has to stay. The hub's nginx mounts
+# it twice on purpose:
+#
+#     location /agent/v1/            -> proxy_pass .../v1/
+#     location /agent/api/v1/agent/  -> proxy_pass .../api/v1/agent/
+#
+# so `/v1/...` carries agents, jobs, tasks and swarm while `/api/v1/agent/...`
+# carries messages and workflows. Both are live; neither prefix can be dropped.
+# What the configured base must NOT do is anticipate either one --
+# `agent_coordinator_url` is `https://<hub>/agent`, the mount point, and each
+# call site appends its own shape. Reducing it to an origin breaks both.
+#
+# These two helpers are the only place that knows any of this. The `/v1` surface
+# is reached as an AITBCHTTPClient base plus a "/v1/..." endpoint; the
+# `/api/v1/agent` surface goes through `requests`, so it needs a built URL. No
+# call site concatenates a prefix itself.
+
+_LOCAL_COORDINATOR_URL = "http://localhost:8107"
+
+
+def resolve_coordinator_url(coordinator_url: str | None = None) -> str:
+    """Return the coordinator base: explicit option, then config, then localhost.
+
+    The localhost fallback is last, not first. Seven commands used to carry it
+    as a click default, which silently won over the configured hub URL and made
+    them unusable anywhere the coordinator is not running locally -- which is
+    every host but the hub.
+    """
+    if coordinator_url:
+        return coordinator_url.rstrip("/")
+    config = get_config()
+    configured = getattr(config, "agent_coordinator_url", None)
+    if configured:
+        return str(configured).rstrip("/")
+    return _LOCAL_COORDINATOR_URL
+
+
+def coordinator_agent_api_url(path: str, coordinator_url: str | None = None) -> str:
+    """Build a URL on the coordinator's ``/api/v1/agent`` surface (messages, workflows)."""
+    return f"{resolve_coordinator_url(coordinator_url)}/api/v1/agent/{path.lstrip('/')}"
+
+
 def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url: str | None = None) -> dict:
     """Create a new agent using the Agent SDK"""
     if Agent is None:
@@ -63,7 +108,7 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
             "address": agent.identity.address,
             "agent_type": agent_type,
             "capabilities": capabilities,
-            "coordinator_url": coordinator_url or (config.agent_coordinator_url if config else ""),
+            "coordinator_url": resolve_coordinator_url(coordinator_url),
         }
 
         with open(config_file, "w") as f:
@@ -105,9 +150,7 @@ async def register_agent(
     ``signing`` is ``(wallet_address, private_key)``; when given, the request
     carries the identity attestation the coordinator requires in enforce mode
     (nonce + proof binding the agent to the wallet)."""
-    if coordinator_url is None:
-        config = get_config()
-        coordinator_url = config.agent_coordinator_url
+    coordinator_url = resolve_coordinator_url(coordinator_url)
 
     try:
         config_dir = get_agent_config_dir()
@@ -236,11 +279,15 @@ def _resolve_agent_id(ctx, agent_id: str | None) -> str:
     return ""
 
 
-def _check_agent_coordinator(coordinator_url: str, ctx: Any | None = None) -> bool:
+def _check_agent_coordinator(coordinator_url: str | None, ctx: Any | None = None) -> bool:
     """Probe the agent coordinator. If it is not reachable, print a helpful message and exit cleanly."""
     try:
-        client = AITBCHTTPClient(base_url=coordinator_url, timeout=2)
-        client.get("/health")
+        # Not "/health": the coordinator serves it, but nginx mounts nothing at
+        # /agent/health, so probing it reported every remote coordinator as down.
+        # /v1/tasks/status is a cheap GET that exists on both the proxied mount
+        # and a direct localhost coordinator.
+        client = AITBCHTTPClient(base_url=resolve_coordinator_url(coordinator_url), timeout=2)
+        client.get("/v1/tasks/status")
         return True
     except Exception:
         info("The agent-coordinator service is not running. Start it with: `sudo systemctl start aitbc-agent-coordinator`")
@@ -249,9 +296,7 @@ def _check_agent_coordinator(coordinator_url: str, ctx: Any | None = None) -> bo
 
 def get_agent_status(agent_id: str, coordinator_url: str | None = None) -> dict:
     """Get status information for an agent, preferring the coordinator."""
-    if not coordinator_url:
-        config = get_config()
-        coordinator_url = getattr(config, "agent_coordinator_url", None) or "http://localhost:8107"
+    coordinator_url = resolve_coordinator_url(coordinator_url)
     try:
         client = AITBCHTTPClient(base_url=coordinator_url, timeout=5)
         data = client.get(f"/v1/agents/{agent_id}") or {}
@@ -460,7 +505,7 @@ try:
     @click.option("--performance", type=float, default=0.8, help="Performance score (0.0-1.0)")
     @click.option("--max-jobs", type=int, default=1, help="Maximum concurrent jobs")
     @click.option("--specialization", help="Agent specialization")
-    @click.option("--coordinator-url", help="Coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Coordinator URL (default: config agent_coordinator_url)")
     @click.option("--auto-detect", is_flag=True, help="Auto-detect capabilities")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
@@ -771,7 +816,7 @@ try:
   aitbc agent status --agent-id shop-agent --output json"""
     )
     @click.option("--agent-id", "agent_id", required=False, help="The Agent id.")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def status(ctx, agent_id, coordinator_url, format):
@@ -971,11 +1016,12 @@ try:
     @click.option("--agent-type", help="Filter by agent type")
     @click.option("--min-health", type=float, default=0.0, help="Minimum health score")
     @click.option("--limit", type=int, default=50, help="Maximum results")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def agents(ctx, capability, agent_type, min_health, limit, coordinator_url, format):
         """Search remote agents by capability, type, and minimum health score."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         if not _check_agent_coordinator(coordinator_url, ctx):
             return
         try:
@@ -1034,11 +1080,12 @@ try:
         help="Wallet signing the inbox request headers (default: $AITBC_DEFAULT_WALLET)",
     )
     @click.option("--password", default=None, help="Wallet password")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def inbox(ctx, agent_id, limit, unread_only, wallet_name, password, coordinator_url, format):
         """View messages in a specified agent's inbox from the coordinator."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
@@ -1047,7 +1094,7 @@ try:
             headers = signed_request_headers(agent_id, signing[1]) if signing else None
             params = {"agent_id": agent_id, "limit": limit, "unread_only": unread_only}
             response = requests.get(
-                f"{coordinator_url}/api/v1/agent/messages/inbox", params=params, headers=headers, timeout=10
+                coordinator_agent_api_url("messages/inbox", coordinator_url), params=params, headers=headers, timeout=10
             )
             response.raise_for_status()
             result = response.json()
@@ -1075,11 +1122,12 @@ try:
         help="Wallet signing the subscribe request headers (default: $AITBC_DEFAULT_WALLET)",
     )
     @click.option("--password", default=None, help="Wallet password")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def subscribe(ctx, agent_id, topic, filter, wallet_name, password, coordinator_url, format):
         """Subscribe an agent to a message topic on the coordinator."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
@@ -1090,7 +1138,7 @@ try:
             # /api/v1/agent/messages/subscribe (routers/messages.py), not
             # /api/v1/agent/subscribe.
             response = requests.post(
-                f"{coordinator_url}/api/v1/agent/messages/subscribe", json=data, headers=headers, timeout=10
+                coordinator_agent_api_url("messages/subscribe", coordinator_url), json=data, headers=headers, timeout=10
             )
             response.raise_for_status()
             result = response.json()
@@ -1125,11 +1173,12 @@ try:
     @click.option("--name", required=True, help="Workflow name")
     @click.option("--description", help="Workflow description")
     @click.option("--steps-file", required=True, type=click.Path(exists=True), help="JSON file with workflow steps")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def create_workflow(ctx, name, description, steps_file, coordinator_url, format):
         """Create a new multi-step workflow from a steps definition file."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
@@ -1137,7 +1186,7 @@ try:
                 steps = json.load(f)
 
             data = {"name": name, "description": description or "", "steps": steps, "created_by": "cli"}
-            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows", json=data, timeout=10)
+            response = requests.post(coordinator_agent_api_url("workflows", coordinator_url), json=data, timeout=10)
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title="Created Workflow")
@@ -1161,11 +1210,12 @@ try:
     )
     @click.option("--workflow-id", required=True, help="Workflow ID")
     @click.option("--input-file", type=click.Path(exists=True), help="JSON file with input parameters")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def execute(ctx, workflow_id, input_file, coordinator_url, format):
         """Execute a previously created workflow with the given input file."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
@@ -1175,7 +1225,7 @@ try:
                     input_params = json.load(f)
 
             data = {"input_parameters": input_params}
-            response = requests.post(f"{coordinator_url}/api/v1/agent/workflows/{workflow_id}/execute", json=data, timeout=10)
+            response = requests.post(coordinator_agent_api_url(f"workflows/{workflow_id}/execute", coordinator_url), json=data, timeout=10)
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title="Workflow Execution")
@@ -1198,15 +1248,16 @@ try:
   aitbc agent workflow status --workflow-id wf-123 --output json"""
     )
     @click.option("--workflow-id", required=True, help="Workflow ID")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def workflow_status(ctx, workflow_id, coordinator_url, format):
         """Get the current execution status of a workflow by workflow ID."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
-            response = requests.get(f"{coordinator_url}/api/v1/agent/workflows/{workflow_id}/status", timeout=10)
+            response = requests.get(coordinator_agent_api_url(f"workflows/{workflow_id}/status", coordinator_url), timeout=10)
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title=f"Workflow Status: {workflow_id}")
@@ -1223,15 +1274,16 @@ try:
 
   aitbc agent workflow list-workflows --limit 20"""
     )
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Agent coordinator URL")
+    @click.option("--coordinator-url", default=None, help="Agent coordinator URL (default: config agent_coordinator_url)")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
     def list_workflows(ctx, coordinator_url, format):
         """List all workflows registered with the coordinator."""
+        coordinator_url = resolve_coordinator_url(coordinator_url)
         try:
             import requests
 
-            response = requests.get(f"{coordinator_url}/api/v1/agent/workflows", timeout=10)
+            response = requests.get(coordinator_agent_api_url("workflows", coordinator_url), timeout=10)
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title="Workflows")
