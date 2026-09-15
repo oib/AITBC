@@ -90,7 +90,7 @@ def _render(message: Any, format: str) -> str:
         return json.dumps(message, indent=2, default=str)
 
     body = [[row.get(h, "") for h in headers] for row in rows]
-    return cast(str, tabulate(body, headers=headers, tablefmt="grid"))
+    return tabulate(body, headers=headers, tablefmt="grid")
 
 
 def output(message, format=None, title=None, **kwargs):

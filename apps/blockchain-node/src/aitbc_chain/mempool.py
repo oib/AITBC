@@ -489,9 +489,7 @@ class DatabaseMempool:
         cutoff = time.time() - max_age
         with self._lock:
             with Session(self._engine) as session:
-                stale_chains = session.exec(
-                    select(MempoolEntry.chain_id).where(MempoolEntry.received_at < cutoff)  # type: ignore[arg-type]
-                ).all()
+                stale_chains = session.exec(select(MempoolEntry.chain_id).where(MempoolEntry.received_at < cutoff)).all()
                 if not stale_chains:
                     return 0
                 result = session.exec(
