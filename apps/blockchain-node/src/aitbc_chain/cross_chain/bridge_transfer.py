@@ -601,9 +601,7 @@ class BridgeTransferMixin(BridgeBase):
             # the mempool entry carries no ``payload`` key, so the sealed row
             # has ``payload={}`` and the column is the only reliable marker.
             lock_txs = [
-                tx
-                for tx in block.transactions
-                if (tx.type or (tx.payload or {}).get("type", "")).upper() == "BRIDGE_LOCK"
+                tx for tx in block.transactions if (tx.type or (tx.payload or {}).get("type", "")).upper() == "BRIDGE_LOCK"
             ]
             transfer_ids = [tx.tx_hash for tx in lock_txs]
             records = session.exec(
@@ -892,6 +890,34 @@ class BridgeTransferMixin(BridgeBase):
                     seen.add(chain)
         return sorted(seen)
 
+    def _chain_db_ready(self, chain_id: str) -> bool:
+        """True when this node holds an initialized bridge store for ``chain_id``.
+
+        ``bridge_supported_chains`` may list chains produced by other nodes;
+        opening a session for one of those creates an empty chain DB with no
+        tables, and every finalizer pass would then spam errors. Probe once,
+        mark the chain unavailable, and let the finalizer skip it — transfers
+        targeting it keep their honest non-terminal state.
+        """
+        unavailable = getattr(self, "_unavailable_bridge_chains", None)
+        if unavailable is None:
+            unavailable = self._unavailable_bridge_chains = set()
+        if chain_id in unavailable:
+            return False
+        try:
+            with self._session_for(chain_id) as session:
+                session.exec(select(CrossChainTransfer.transfer_id).limit(1)).first()
+            return True
+        except Exception as e:
+            unavailable.add(chain_id)
+            logger.info(
+                "Bridge store for chain %s is not initialized on this node (%s); "
+                "skipping it in finalizer passes — transfers targeting it stay pending",
+                chain_id,
+                e,
+            )
+            return False
+
     def _sync_local_chain_headers(self, chain_id: str) -> int:
         """Store bridge block headers for locally known blocks of ``chain_id``.
 
@@ -928,14 +954,12 @@ class BridgeTransferMixin(BridgeBase):
             else:
                 start_height = int(last_stored) + 1
             new_blocks = session.exec(
-                select(Block)
-                .where(Block.chain_id == chain_id, Block.height >= start_height)  # type: ignore[attr-defined]
-                .order_by(Block.height.asc())  # type: ignore[attr-defined]
+                select(Block).where(Block.chain_id == chain_id, Block.height >= start_height).order_by(Block.height.asc())  # type: ignore[attr-defined]
             ).all()
         stored = 0
         for block in new_blocks:
             try:
-                self.store_block_header(
+                self.store_block_header(  # type: ignore[attr-defined]
                     {
                         "chain_id": block.chain_id,
                         "height": block.height,
@@ -966,6 +990,16 @@ class BridgeTransferMixin(BridgeBase):
         relayed = 0
         pending = [t for t in self.list_pending_transfers(chain_id) if t.source_chain == chain_id]
         for transfer in pending:
+            if not self._chain_db_ready(transfer.target_chain):
+                # The release must be written to the target chain's store;
+                # when this node does not host it, the transfer keeps its
+                # honest pending/locked state instead of erroring each pass.
+                logger.debug(
+                    "Bridge relayer: target store for %s unavailable here; %s stays pending",
+                    transfer.target_chain,
+                    transfer.transfer_id[:16],
+                )
+                continue
             try:
                 proof = self.build_proof(transfer.transfer_id, source_chain=chain_id)
             except ValueError as e:
@@ -1013,6 +1047,8 @@ class BridgeTransferMixin(BridgeBase):
 
     def _finalizer_pass(self, chain_id: str, relayer_enabled: bool) -> None:
         """Run one finalizer pass for a single chain: header sync, relay, finalize."""
+        if not self._chain_db_ready(chain_id):
+            return
         try:
             stored = self._sync_local_chain_headers(chain_id)
             if stored:
