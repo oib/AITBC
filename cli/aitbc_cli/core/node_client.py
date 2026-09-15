@@ -312,7 +312,7 @@ class NodeClient:
 
         return ChainInfo(
             id=chain_data.get("chain_id", chain_data.get("id", "unknown")),
-            type=ChainType(chain_data.get("chain_type", "topic")),
+            type=ChainType(chain_data.get("chain_type", chain_data.get("type", "topic"))),
             purpose=chain_data.get("purpose", "unknown"),
             name=chain_data.get("name", "Unnamed Chain"),
             description=chain_data.get("description"),
