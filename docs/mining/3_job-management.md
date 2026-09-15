@@ -5,31 +5,25 @@ Accept and complete jobs on the the network.
 ## Overview
 
 Jobs are assigned to miners based on GPU availability, price, and reputation.
+On a miner node, job polling, acceptance, execution, and result submission are
+handled automatically by the `aitbc-miner` service (`production_miner.py`),
+which polls the coordinator API for work. The CLI is used to inspect jobs and
+handle failures/refunds.
 
-## Accept Jobs
-
-### Manual Acceptance
-
-```bash
-aitbc miner jobs --available
-aitbc miner accept --job-id <JOB_ID>
-```
-
-### Auto-Accept
+## Daemon Operation
 
 ```bash
-aitbc miner auto-accept enable --max-concurrent 4
+# Start / stop the job-polling miner daemon
+sudo systemctl start aitbc-miner
+sudo systemctl stop aitbc-miner
+
+# Follow its logs
+journalctl -u aitbc-miner -f
 ```
 
-### Auto-Accept Settings
-
-```bash
-# Set GPU requirements
-aitbc miner auto-accept --gpu v100 --gpu-count 1-4
-
-# Set price range
-aitbc miner auto-accept --min-price 0.08 --max-price 0.12
-```
+Job polling and acceptance are automatic once the daemon is running — there is
+no separate `accept`/`auto-accept` CLI step on the miner side. Concurrency and
+GPU targeting are configured in the service environment.
 
 ## Job States
 
@@ -47,48 +41,40 @@ aitbc miner auto-accept --min-price 0.08 --max-price 0.12
 ### Check Status
 
 ```bash
-aitbc miner job-status --job-id <JOB_ID>
+aitbc ai status --job-id <JOB_ID>
 ```
 
-### Watch Progress
+### List Jobs
 
 ```bash
-aitbc miner watch --job-id <JOB_ID>
+# Recent jobs (optionally filter by state)
+aitbc ai jobs --status running --limit 20
 ```
 
-### List Active Jobs
+### Fetch Results
 
 ```bash
-aitbc miner jobs --active
-```
-
-## Complete Jobs
-
-### Manual Completion
-
-```bash
-aitbc miner complete --job-id <JOB_ID>
-```
-
-### Upload Results
-
-```bash
-aitbc miner upload --job-id <JOB_ID> --path ./results
+aitbc ai results --job-id <JOB_ID>
 ```
 
 ## Handle Failures
 
-### Retry Job
+### Cancel a Job
 
 ```bash
-aitbc miner retry --job-id <JOB_ID>
+aitbc ai cancel --job-id <JOB_ID> --wallet my-miner-wallet
 ```
 
-### Report Issue
+### Refund an Escrowed Payment
 
 ```bash
-aitbc miner report --job-id <JOB_ID> --reason "gpu-error"
+aitbc ai refund --job-id <JOB_ID> --reason gpu-error
 ```
+
+### Retry
+
+Failed jobs are retried by resubmitting or letting the daemon pick the job up
+again; watch `journalctl -u aitbc-miner` for retry activity.
 
 ## Next
 

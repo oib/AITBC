@@ -48,7 +48,7 @@ A client fat-fingers the currency. The job must still run unpaid; no orphaned pa
 
 ### Setup Required
 
-- Coordinator API reachable (`aitbc config set coordinator_api_url http://127.0.0.1:8203` on the hub, or the public nginx path)
+- Coordinator API reachable (`aitbc config set --key coordinator_api_url --value http://127.0.0.1:8203` on the hub, or the public nginx path)
 
 ---
 

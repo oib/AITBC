@@ -70,7 +70,7 @@ Use a test wallet that can sign. Prefer tiny amounts on a non-production wallet.
 aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 1
 aitbc transactions send --from <wallet> --to <addr> --amount 0.001 --fee 2
 aitbc transactions pending
-aitbc transactions status <tx-hash>
+aitbc transactions status --tx-hash <tx-hash>
 ```
 
 **Expected output:** both hashes appear; higher fee is not evicted in favor of a newer low fee. Exact eviction is only visible when the mempool is at `max_size`.

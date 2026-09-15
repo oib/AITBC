@@ -93,7 +93,7 @@ Do not assume shop can `curl` hub LAN ports.
 
 ```bash
 aitbc config show
-aitbc config set coordinator_api_url http://hub.aitbc.bubuit.net/c/v1
+aitbc config set --key coordinator_api_url --value http://hub.aitbc.bubuit.net/c/v1
 ```
 
 On a follower, set hub discovery in `/etc/aitbc/node.env` (`HUB_DISCOVERY_URL`, `HUB_RPC_URL`, `HUB_P2P_HOST`). `aitbc config set` currently knows `coordinator_api_url`, `agent_coordinator_url`, `api_key`, `timeout` — other URLs come from those env files.
@@ -142,7 +142,7 @@ aitbc bridge lock --target-chain "" --sender 0xabc --recipient 0xdef --amount 10
 ### Step 7: Exchange from CLI
 
 ```bash
-aitbc exchange-island orderbook AIT/ETH --limit 10
+aitbc exchange-island orderbook --pair AIT/ETH --limit 10
 aitbc exchange-island orders --status open
 ```
 
@@ -181,8 +181,8 @@ aitbc ai results --job-id "$JOB_ID"
 On the shop (or any CLI that talks to the hub wallet/RPC):
 
 ```bash
-aitbc wallet balance test-wallet-3
-aitbc wallet transactions test-wallet-3
+aitbc wallet balance --name test-wallet-3
+aitbc wallet transactions --name test-wallet-3
 aitbc account get --address 0xA54B82312beb65D0E90c21717ea372396991Fa36
 ```
 
@@ -195,7 +195,7 @@ Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab
 On `<node2>` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
 
 ```bash
-aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
+aitbc market offer --service-type ollama --model-or-variant llama3.2:3b --price 0.001 --unit per_1k_tokens --gpu-device 0
 ```
 
 On the hub/customer:

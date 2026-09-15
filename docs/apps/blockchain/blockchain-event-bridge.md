@@ -101,26 +101,24 @@ blockchain-event-bridge/
 
 ## CLI Commands
 
-The blockchain event bridge service includes CLI commands for management and monitoring:
+The blockchain event bridge service is managed through the `aitbc bridge` CLI
+group and systemd:
 
 ```bash
-# Health check
-aitbc-cli bridge health
+# Start / stop the event bridge service (wraps systemd)
+aitbc bridge start
+aitbc bridge stop
 
-# Get Prometheus metrics
-aitbc-cli bridge metrics
+# Service health and detailed status
+systemctl status aitbc-blockchain-event-bridge
+aitbc system check
 
-# Get detailed service status
-aitbc-cli bridge status
+# List pending bridge transfers
+aitbc bridge pending --chain-id <chain-id>
 
-# Show current configuration
-aitbc-cli bridge config
-
-# Restart the service (via systemd)
-aitbc-cli bridge restart
+# Check a specific transfer
+aitbc bridge status --transfer-id <transfer-id>
 ```
-
-All commands support `--test-mode` flag for testing without connecting to the service.
 
 ## Testing
 

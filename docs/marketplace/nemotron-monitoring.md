@@ -9,13 +9,13 @@
 
 ```bash
 # Monitor escrow status
-aitbc wallet escrow-status $ESCROW_TX
+aitbc market escrow status --job-id $JOB_ID
 
 # Check wallet balance
 aitbc wallet balance
 
 # View transaction history
-aitbc wallet history
+aitbc wallet transactions --limit 20
 ```
 
 ### Cost Calculation
@@ -82,10 +82,10 @@ curl -s https://shop.example.net/api/v1/marketplace/offer/ollama-nemotron-3-supe
 aitbc wallet balance
 
 # Check transaction history for Nemotron usage
-aitbc wallet history | grep -i nemotron
+aitbc wallet transactions --limit 50 | grep -i nemotron
 
 # Track escrow payments
-aitbc wallet escrow-list | grep nemotron
+aitbc market jobs --limit 100 | grep nemotron
 ```
 
 ### Usage Analytics

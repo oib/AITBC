@@ -71,7 +71,7 @@ Create an agent with a name, type, and capabilities. The CLI generates an RSA ke
 
 ```bash
 # Create a provider agent that offers inference on a 24GB GPU
-aitbc agent create my-provider \
+aitbc agent create --name my-provider \
   --type provider \
   --compute-type inference \
   --gpu-memory 24 \
@@ -127,7 +127,7 @@ my-consumer   consumer   0x9f8e7d6c5b4a3928f1e0d2c3b4a5968778695a4b   /home/agen
 Query the coordinator for an agent's status, reputation, and last-seen timestamp.
 
 ```bash
-aitbc agent status agent_a1b2c3d4 --format table
+aitbc agent status --agent-id agent_a1b2c3d4 --format table
 ```
 
 **Expected output:**
@@ -149,7 +149,7 @@ Message            Agent status retrieved (simulated)
 Register the agent with the coordinator. The default coordinator URL is `http://localhost:8107`; override with `--coordinator-url`.
 
 ```bash
-aitbc agent register agent_a1b2c3d4 --coordinator-url http://localhost:8203 --format table
+aitbc agent register --agent-id agent_a1b2c3d4 --coordinator-url http://localhost:8203 --format table
 ```
 
 **Expected output:**
@@ -171,7 +171,7 @@ Message            Agent registered successfully (simulated)
 Record the agent's identity on the blockchain so it can be discovered and verified by other participants. Requires the agent's address (bech32) and a display name.
 
 ```bash
-aitbc agent register-identity agent_a1b2c3d4 0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4 \
+aitbc agent register-identity --agent-id agent_a1b2c3d4 --agent-address 0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a1b2c3d4 \
   --display-name "My Provider Agent" \
   --agent-type provider \
   --format json
@@ -194,10 +194,10 @@ aitbc agent register-identity agent_a1b2c3d4 0x1a2b3c4d5e6f7890a1b2c3d4e5f67890a
 
 ```bash
 # Fetch the on-chain identity record
-aitbc agent get-identity agent_a1b2c3d4 --format table
+aitbc agent get-identity --agent-id agent_a1b2c3d4 --format table
 
 # Verify the identity with a verifier address
-aitbc agent verify-identity agent_a1b2c3d4 0xverifieraddress123 --format json
+aitbc agent verify-identity --agent-id agent_a1b2c3d4 --verifier-address 0xverifieraddress123 --format json
 ```
 
 ### Step 7: Manage agent configuration
@@ -206,16 +206,16 @@ Set, get, and validate configuration values on the agent's local JSON file.
 
 ```bash
 # Set a configuration value (JSON values are parsed; plain strings are stored as-is)
-aitbc agent config-set my-provider pricing_model '{"base_rate": 0.075, "currency": "AIT"}'
+aitbc agent config-set --name my-provider --key pricing_model --value '{"base_rate": 0.075, "currency": "AIT"}'
 
 # Retrieve a single key
-aitbc agent config-get my-provider --key pricing_model --format table
+aitbc agent config-get --name my-provider --key pricing_model --format table
 
 # Retrieve the full configuration
-aitbc agent config-get my-provider --format table
+aitbc agent config-get --name my-provider --format table
 
 # Validate the configuration (checks required fields and capabilities structure)
-aitbc agent config-validate my-provider
+aitbc agent config-validate --name my-provider
 ```
 
 **Expected output (validate):**
@@ -232,10 +232,10 @@ Move an agent configuration between machines.
 
 ```bash
 # Export to a file
-aitbc agent config-export my-provider ./my-provider-backup.json
+aitbc agent config-export --name my-provider --output-path ./my-provider-backup.json
 
 # Import on another machine (optionally override the name)
-aitbc agent config-import ./my-provider-backup.json --name my-provider-restored
+aitbc agent config-import --file-path ./my-provider-backup.json --name my-provider-restored
 ```
 
 **Expected output (export):**
@@ -381,10 +381,10 @@ Verify the agent identity and configuration are consistent:
 ```bash
 # The agent config file should exist and validate
 aitbc agent list
-aitbc agent config-validate my-provider
+aitbc agent config-validate --name my-provider
 
 # The on-chain identity should be retrievable
-aitbc agent get-identity agent_a1b2c3d4
+aitbc agent get-identity --agent-id agent_a1b2c3d4
 
 # The agent should be discoverable via the agent-coordinator
 aitbc agent discover agents --capability inference --coordinator-url http://localhost:8107

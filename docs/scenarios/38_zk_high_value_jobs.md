@@ -68,10 +68,12 @@ COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10
 COORDINATOR_ZK_REQUIRE=true
 ```
 
-Restart the coordinator:
+Restart the coordinator (the CLI normalises `coordinator-api` to the
+`aitbc-coordinator-api.service` unit; it shells out to `systemctl` under the
+hood):
 
 ```bash
-sudo systemctl restart aitbc-coordinator-api
+aitbc system restart --service coordinator-api
 ```
 
 If the coordinator runs under systemd with `MemoryDenyWriteExecute=yes`, Node
@@ -85,7 +87,7 @@ cat <<EOF | sudo tee /etc/systemd/system/aitbc-coordinator-api.service.d/overrid
 MemoryDenyWriteExecute=no
 EOF
 sudo systemctl daemon-reload
-sudo systemctl restart aitbc-coordinator-api
+aitbc system restart --service coordinator-api
 ```
 
 ### Step 2: Submit a high-value job with ZK proof required

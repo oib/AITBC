@@ -92,10 +92,10 @@ Register a GPU by ID. Specs are auto-discovered if `--specs` is omitted; otherwi
 
 ```bash
 # Auto-discovered specs
-aitbc gpu register gpu-0
+aitbc gpu register --gpu-id gpu-0
 
 # Explicit specs override
-aitbc gpu register gpu-0 --specs '{"model": "RTX 4090", "memory_gb": 24, "cuda_version": "12.4"}'
+aitbc gpu register --gpu-id gpu-0 --specs '{"model": "RTX 4090", "memory_gb": 24, "cuda_version": "12.4"}'
 ```
 
 **Expected output:**
@@ -110,10 +110,10 @@ gpu-0       RTX 4090     24            0.0500 AIT       available
 
 ```bash
 # List all locally registered GPUs
-aitbc gpu list
+aitbc gpu list-gpus
 
 # Update pricing and status
-aitbc gpu update gpu-0 --pricing '{"price_per_hour": 0.075}' --status active
+aitbc gpu update --gpu-id gpu-0 --pricing '{"price_per_hour": 0.075}' --status active
 ```
 
 **Expected output (list):**
@@ -166,13 +166,13 @@ aitbc gpu-onchain register \
 
 ```bash
 # Query a single GPU's on-chain record
-aitbc gpu-onchain query gpu-0 --format table
+aitbc gpu-onchain query --gpu-id gpu-0 --format table
 
 # List all GPUs on-chain, filter by status
 aitbc gpu-onchain list --status active --format table
 
 # Query allocation history for a GPU
-aitbc gpu-onchain allocations gpu-0
+aitbc gpu-onchain allocations --gpu-id gpu-0
 ```
 
 **Expected output (list):**
@@ -216,7 +216,7 @@ aitbc gpu-onchain allocate \
 Remove a GPU from the local GPU service (does not affect the on-chain record).
 
 ```bash
-aitbc gpu unregister gpu-1
+aitbc gpu unregister --gpu-id gpu-1
 ```
 
 **Expected output:**
@@ -356,14 +356,14 @@ Verify both the local and on-chain GPU state:
 
 ```bash
 # Local GPU service registry
-aitbc gpu list
+aitbc gpu list-gpus
 
 # On-chain GPU registry
 aitbc gpu-onchain list --status active
-aitbc gpu-onchain query gpu-0
+aitbc gpu-onchain query --gpu-id gpu-0
 
 # Allocation history
-aitbc gpu-onchain allocations gpu-0
+aitbc gpu-onchain allocations --gpu-id gpu-0
 
 # Coordinator resource status
 aitbc resource status

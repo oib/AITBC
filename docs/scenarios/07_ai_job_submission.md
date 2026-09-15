@@ -57,7 +57,7 @@ An AI agent needs to run an inference or training workload on the the network. I
 
 ### Setup Required
 
-- Configure the coordinator URL: `aitbc config set coordinator_api_url http://hub.aitbc.bubuit.net/c/v1`
+- Configure the coordinator URL: `aitbc config set --key coordinator_api_url --value http://hub.aitbc.bubuit.net/c/v1`
 - See CLI live setup documentation for live two-node JWT and URL configuration.
 - Ensure the coordinator-api service is running
 - Have a wallet name and (optionally) a password file ready

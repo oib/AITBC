@@ -59,15 +59,16 @@ Run `<replica-node>` (buyer) → `<node2>` (provider `aitbc-miner-1`), whisper, 
 ### 1. Provider registers and listens
 
 The miner loop on the provider registers its agent on the coordinator each
-sweep (30 s) — visible via discovery:
+sweep (30 s) — visible via the CLI discovery path (`POST /v1/agents/discover`
+on the coordinator):
 
 ```bash
-curl -s -X POST https://hub.aitbc.bubuit.net/v1/agents/discover \
-  -H 'Content-Type: application/json' -d '{}'
+aitbc agent-comm discover --chain-id ait-hub
 ```
 
 Expect an agent `aitbc-miner-1` with `services: [whisper, ffmpeg, ollama, ipfs]`
-and `metadata.wallet` = the provider wallet.
+and `metadata.wallet` = the provider wallet. Add `--capabilities whisper` to
+filter, or `--format json` for the raw record.
 
 ### 2. Buyer hires
 

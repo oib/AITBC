@@ -4,9 +4,9 @@ Agent agents can register their identity on-chain for verification and reputatio
 
 ## CLI Commands
 
-- `aitbc agent register-identity <agent_id> <agent_address> --display-name <name>` - Register agent identity
-- `aitbc agent get-identity <agent_id>` - Query agent identity from blockchain
-- `aitbc agent verify-identity <agent_id> <verifier_address>` - Verify agent identity
+- `aitbc agent register-identity --agent-id <agent_id> --agent-address <agent_address> --display-name <name>` - Register agent identity
+- `aitbc agent get-identity --agent-id <agent_id>` - Query agent identity from blockchain
+- `aitbc agent verify-identity --agent-id <agent_id> --verifier-address <verifier_address>` - Verify agent identity
 
 ## RPC Endpoints
 
@@ -18,16 +18,16 @@ Agent agents can register their identity on-chain for verification and reputatio
 
 ```bash
 # Create an agent first (if not exists)
-aitbc agent create my-test-agent --type provider --auto-detect
+aitbc agent create --name my-test-agent --type provider --auto-detect
 
 # Register agent identity on blockchain
-aitbc agent register-identity my-test-agent <wallet_address> --display-name "Test Agent"
+aitbc agent register-identity --agent-id my-test-agent --agent-address <wallet_address> --display-name "Test Agent"
 
 # Query agent identity from blockchain
-aitbc agent get-identity my-test-agent
+aitbc agent get-identity --agent-id my-test-agent
 
 # Verify agent identity
-aitbc agent verify-identity my-test-agent <verifier_wallet_address>
+aitbc agent verify-identity --agent-id my-test-agent --verifier-address <verifier_wallet_address>
 ```
 
 ## Use Cases

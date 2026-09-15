@@ -254,11 +254,11 @@ aitbc explorer non-empty-blocks --limit 3
 
 ### Step 7: Drill into a block or transaction
 
-`aitbc explorer block <height>` and `aitbc explorer transaction <tx_hash>` (alias of `transaction-by-hash`) give full details. `--chain-id` optional.
+`aitbc explorer block --height <height>` and `aitbc explorer transaction --tx-hash <tx_hash>` (alias of `transaction-by-hash`) give full details. `--chain-id` optional.
 
 ```bash
-aitbc explorer block 128452
-aitbc explorer transaction 0xdeadbeef...
+aitbc explorer block --height 128452
+aitbc explorer transaction --tx-hash 0xdeadbeef...
 ```
 
 ---

@@ -71,9 +71,9 @@ Run `aitbc wallet info` for the wallet in question:
 aitbc wallet info --name suspect-wallet
 ```
 
-Compare the printed `address` with the address the node expects, e.g. from `ESCROW_RELEASE_ADDRESS`, a coordinator config, or `aitbc wallet list`.
+`wallet info` performs an address/key integrity check: it derives the address from the stored `private_key` and reports `integrity: ok`, `integrity: MISMATCH`, or `integrity: unverified` (when no key is stored). Compare the printed `address` with the address the node expects, e.g. from `ESCROW_RELEASE_ADDRESS`, a coordinator config, or `aitbc wallet list`.
 
-If the addresses differ, the stored private key does not control the expected address. Do **not** attempt to "fix" this by deriving a key from the address.
+If the addresses differ — or `wallet info` reports `integrity: MISMATCH` — the stored private key does not control the expected address. Do **not** attempt to "fix" this by deriving a key from the address.
 
 ### Step 2: Record the mismatch
 
@@ -101,10 +101,19 @@ Look for an original backup in the places that are documented for the node:
 
 If the original seed or private key is found:
 
-1. Create a new wallet file with the correct key:
+1. Import it. `aitbc wallet import-wallet` imports a wallet **JSON file**
+   (`--file-path`), not a raw key — there is no `--private-key` option. Either
+   restore an existing backup:
 
    ```bash
-   aitbc wallet import-wallet --name recovered-wallet --private-key 0x...
+   aitbc wallet restore --backup-path /path/to/original-backup.json --name recovered-wallet
+   ```
+
+   or assemble a wallet file that carries the recovered `private_key` (same
+   JSON schema `wallet backup`/`wallet export` produce) and import it:
+
+   ```bash
+   aitbc wallet import-wallet --file-path /path/to/recovered-wallet.json --name recovered-wallet
    ```
 
 2. Verify the address matches the expected one:
@@ -124,7 +133,7 @@ If the original seed or private key is **not** found, the funds controlled by th
 
    ```bash
    aitbc wallet create --name fresh-wallet
-   aitbc wallet backup --name fresh-wallet --output /secure/backup/path/fresh-wallet.json
+   aitbc wallet backup --name fresh-wallet --destination /secure/backup/path/fresh-wallet.json
    ```
 
 2. Derive or copy the new address into the relevant config (`ESCROW_RELEASE_ADDRESS`, coordinator wallet, etc.).
@@ -148,7 +157,7 @@ For a customer or provider wallet, run a small test transaction to prove the add
 
 - `aitbc wallet info` for the recovered or replacement wallet matches the expected address.
 - The relevant service config (`blockchain.env`, coordinator env, etc.) points at the correct wallet.
-- A test `aitbc wallet balance` or `aitbc ai submit` succeeds with the corrected wallet.
+- A test `aitbc wallet balance --name recovered-wallet` or `aitbc ai submit --wallet recovered-wallet` succeeds with the corrected wallet.
 - The mismatch is recorded in the operator live-validation log.
 
 ---

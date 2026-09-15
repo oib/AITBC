@@ -30,7 +30,7 @@ curl http://localhost:8107/v1/tasks/status
 ### CLI Health Check
 
 ```bash
-aitbc-cli ai status
+aitbc ai stats
 ```
 
 ## Service Status
@@ -55,28 +55,34 @@ journalctl -u aitbc-agent-coordinator.service -n 100
 
 ## Agent Monitoring
 
-### List All Agents
+### List Local Agents
 
 ```bash
-aitbc-cli agent sdk list
+aitbc agent list
 ```
 
-### List Active Agents Only
+### List Coordinator-Registered Agents
 
 ```bash
-aitbc-cli agent sdk list --status active
+aitbc agent discover agents
+```
+
+### Filter Agents by Type or Capability
+
+```bash
+aitbc agent discover agents --agent-type provider --min-health 0.5
 ```
 
 ### Check Specific Agent
 
 ```bash
-aitbc-cli agent sdk status --agent-id my-agent
+aitbc agent status --agent-id my-agent
 ```
 
 ### Monitor Distribution Stats
 
 ```bash
-aitbc-cli ai distribution-stats
+aitbc ai distribution-stats
 ```
 
 ## Redis Monitoring

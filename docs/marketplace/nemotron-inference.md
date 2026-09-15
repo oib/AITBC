@@ -8,13 +8,14 @@
 ### Method A: Direct API (Cross-Node — **Fully Working**)
 
 ```bash
-# 1. Create escrow contract
-ESCROW_TX=$(aitbc wallet escrow-create \
-  --offer-id sw_offer_20260605110316_a343d309 \
-  --amount 0.1 \
-  --description "Quantum computing explanation")
+# 1. Create escrow contract for the job
+JOB_ID=job-quantum-demo
+aitbc market escrow create \
+  --job-id $JOB_ID \
+  --buyer <buyer-wallet-address> \
+  --provider <provider-wallet-address>
 
-echo "Escrow TX: $ESCROW_TX"
+echo "Escrow created for job: $JOB_ID"
 
 # 2. Send prompt to Ollama endpoint (fully operational)
 RESPONSE=$(curl -s -X POST https://shop.example.net/ollama/api/generate \
@@ -34,11 +35,8 @@ echo "Response: $(echo $RESPONSE | jq -r '.response')"
 TOKENS_USED=$(echo $RESPONSE | jq '.prompt_eval_count + .eval_count')
 echo "Tokens used: $TOKENS_USED"
 
-# 3. Complete payment with proof of work
-aitbc wallet escrow-release \
-  --escrow-tx $ESCROW_TX \
-  --job-tx-hash $(echo $RESPONSE | jq -r '.job_tx_hash') \
-  --actual-tokens $TOKENS_USED
+# 3. Release the escrowed payment to the provider
+aitbc market escrow release --job-id $JOB_ID
 ```
 
 ### Method B: Agent Messaging Workflow (**Fully Working**)
@@ -67,7 +65,7 @@ curl -s https://shop.example.net/api/v1/coordinator/v1/agent/messages/owl-hub
 ```bash
 # Note: aitbc market run queries blockchain transactions, not marketplace service
 # This won't find the cloud offer unless it's also registered on-chain
-aitbc market run sw_offer_20260605110316_a343d309 "Explain quantum computing"
+aitbc market run --offer-id-or-plugin-id sw_offer_20260605110316_a343d309 --prompt "Explain quantum computing"
 
 # Alternative: Use marketplace service directly
 curl -s http://shop.example.net:8102/v1/marketplace/offer/ollama-nemotron-3-super-cloud | jq '.'
@@ -79,13 +77,13 @@ curl -s http://shop.example.net:8102/v1/marketplace/offer/ollama-nemotron-3-supe
 
 ```bash
 # Monitor escrow status
-aitbc wallet escrow-status $ESCROW_TX
+aitbc market escrow status --job-id $JOB_ID
 
 # Check wallet balance
 aitbc wallet balance
 
 # View transaction history
-aitbc wallet history
+aitbc wallet transactions --limit 20
 ```
 
 ### Cost Calculation

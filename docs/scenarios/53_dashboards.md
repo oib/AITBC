@@ -116,7 +116,7 @@ If `offers_published` or `marketplace_offers` is empty, check:
 
 ```bash
 aitbc market list
-aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
+aitbc market offer --service-type ollama --model-or-variant llama3.2:3b --price 0.001 --unit per_1k_tokens --gpu-device 0
 ```
 
 If `gpus_found` is 0, check the `aitbc-gpu` service:

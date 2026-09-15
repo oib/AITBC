@@ -118,7 +118,7 @@ Legend: **live** = running on hub and/or shop · **partial** = code complete, fl
 | Multi-validator PoA / PBFT | MultiValidatorPoA is the live consensus with a 4-validator set; PBFT implemented but disabled (`PBFT_CONSENSUS_ENABLED=false`). Soak test added (1000 rounds + partition/PBFT). |
 | Bridge merkle proofs / multi-sig | Implemented, production defaults false |
 | ZK circuits (`apps/zk-circuits`) | ~~Ceremony keys exist; not in job verification~~ Fixed — `receipt_public` receipt binding and new `receipt_model` deterministic model-execution proof are required for high-value jobs, live-validated 2026-08-25. `receipt_public` proves the miner's self-reported result fields hash consistently; `receipt_model` proves the committed model executed on the committed input produced the committed output. Open-ended LLM semantic correctness is not proven. |
-| TEE / confidential | ~~CLI `aitbc tee`, `aitbc confidential` — not in job pipeline~~ Fixed — TEE attestation is required and verified for confidential jobs (§3 step 6, §7 P2.2). Identity-pinning landed 2026-08-24 (`QuoteGenerator` no longer derives a key from `enclave_id`; the coordinator pins verification to a registered `EnclaveIdentity`) plus stable signing-key plumbing (`aitbc tee attest --key-file` / `keygen`). Still partial in practice: no live miner has registered a stable enclave key yet, so registry-pinning has no live caller and no production traffic has exercised a real (non-coordinator-self-attested) quote. The CLI front end is also gone: `aitbc tee` was deferred to release 2.0 in `9079fb74a` (1 Sep) and is no longer registered in `main.py`, so the commands named here cannot be run. |
+| TEE / confidential | ~~CLI `aitbc tee`, `aitbc confidential` — not in job pipeline~~ Fixed — TEE attestation is required and verified for confidential jobs (§3 step 6, §7 P2.2). Identity-pinning landed 2026-08-24 (`QuoteGenerator` no longer derives a key from `enclave_id`; the coordinator pins verification to a registered `EnclaveIdentity`) plus stable signing-key plumbing (`aitbc tee attest --key-file` / `keygen`). Still partial in practice: no live miner has registered a stable enclave key yet, so registry-pinning has no live caller and no production traffic has exercised a real (non-coordinator-self-attested) quote. The `aitbc tee` group is registered again in `main.py` (scenarios 39/44/46); hardware-backed attestation remains deferred — current validation uses the simulated/self-consistency paths. |
 | Agent SDK IPFS/oracle | Wraps `aitbc ipfs` / `aitbc oracle` |
 | Messaging | `aitbc messaging` often simulated on shop |
 | Bond / reinvest / economics / grants / plugin / platform / compliance | CLI groups exist; roadmap v0.11–v0.16 |
@@ -144,14 +144,14 @@ There are **36** scenario files under `docs/scenarios/` plus this design note.
 | 34, 36 | Two-node product path | Yes (`ai`, `market`, `wallet`, `bridge`, `exchange-island`, `pool-hub`) |
 | 35 | Background-task logging | `aitbc system` / `aitbc agent-comm` + journal validation |
 
-CLI groups **without** a dedicated scenario (do not invent plays for them until they are in the live loop): `bond`, `bootstrap`, `cluster`, `coin-requests`, `confidential`, `contract`, `deploy`, `developer`, `economics`, `grant`, `performance`, `platform`, `plugin`, `reinvest`, `resource`, `script`, `tee`, `trade`, `workflow`.
+CLI groups **without** a dedicated scenario (do not invent plays for them until they are in the live loop): `bond`, `bootstrap`, `cluster`, `coin-requests`, `confidential`, `contract`, `deploy`, `developer`, `economics`, `grant`, `performance`, `platform`, `plugin`, `reinvest`, `resource`, `script`, `trade`, `workflow`. (`tee` is registered and covered by scenarios 39/44/46; `bond` by 37/48.)
 
 Duplicate CLI surfaces to be honest about:
 
 - `aitbc market` — the only market surface; `aitbc marketplace` (chain listings) was removed from the CLI and `aitbc operations` has no marketplace subgroup
 - `aitbc governance` vs `aitbc operations governance` (`operations` deprecated/hidden)
 - `aitbc ai` vs `aitbc operations ai` (`operations` deprecated/hidden)
-- `aitbc gpu` (local service) vs `aitbc gpu-onchain` vs `aitbc edge gpu`
+- `aitbc gpu` (local service) vs `aitbc gpu-onchain` (on-chain records) vs `aitbc edge` (edge service proxy)
 - `aitbc blockchain` is the single registered chain group; `aitbc chain` is not registered (`cli/aitbc_cli/core/main.py`)
 
 Scenarios use the **live** group: `market` for shop GPU offers, `ai` for jobs, `governance` for service status, `operations governance` only where the RPC vote path is required.
@@ -223,7 +223,7 @@ The `--show-deprecated` gate is gone: `cli/aitbc_cli/core/surface_policy.py` (an
 | # | Wish | Why |
 |---|------|-----|
 | P2.1 | ZK proof required for high-value jobs (circuits already in tree) | Shipped: `receipt_public` receipt binding + new `receipt_model` deterministic model-execution proof, `model_registry`, `generate_model_proof`/`verify_model_proof` public-signal binding, `--zk-proof-required` gating, live-validated 2026-08-25. |
-| P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Shipped: registered enclave allowlist, owner-locked registration, `auto_attested` removed, `self_consistent` vs `verified` distinction, `--tee-attestation-required`/`--confidential` gating, live-validated 2026-08-25. CLI surface deferred to release 2.0 in `9079fb74a`: `cli/aitbc_cli/commands/tee.py` still ships but is unregistered, so `aitbc tee` does not exist on the current CLI. |
+| P2.2 | TEE attestation path (`aitbc tee`) for confidential jobs | Shipped: registered enclave allowlist, owner-locked registration, `auto_attested` removed, `self_consistent` vs `verified` distinction, `--tee-attestation-required`/`--confidential` gating, live-validated 2026-08-25. `cli/aitbc_cli/commands/tee.py` is registered in `main.py` again (`aitbc tee` exists); hardware-backed attestation is still deferred to release 2.0 — simulated/self-consistency paths are what the CLI exercises today. |
 | P2.3 | Performance bonds + slashing (`aitbc bond`) | Shipped: `aitbc bond create/status/release`, `BOND_LOCK/RELEASE/SLASH` state transitions, marketplace offer bond enforcement, live-validated 2026-08-21. |
 | P2.4 | Auto reinvest (`aitbc reinvest`) from released escrow | Shipped: `aitbc reinvest policy/simulate`, `aitbc ai submit --auto-reinvest-pct`, and `agent_wallet rebalance` live; fully automatic reinvestment still manual. |
 | P2.5 | Whisper / FFmpeg in the default shop offer set (`aitbc market offer whisper` / `ffmpeg`) | Shipped: `aitbc market offer whisper/ffmpeg/ollama`, `aitbc market transcribe/process/run`, default miner offers, live-validated. |
