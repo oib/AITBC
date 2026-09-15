@@ -49,6 +49,8 @@ class TestMessagingCommands:
     def test_messaging_send_command(self, mock_http_class, runner, mock_blockchain_rpc):
         """``messaging send`` posts a forum message via the mocked RPC."""
         mock_client = mock_http_class.return_value
+        # "general" resolves to an existing topic, so send posts exactly once.
+        mock_client.get.return_value = {"topics": [{"title": "general", "topic_id": "topic_general"}]}
         mock_client.post.return_value = {"status": "sent", "message_id": "test123"}
 
         from aitbc_cli.commands.messaging import messaging
