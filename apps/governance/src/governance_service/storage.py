@@ -5,6 +5,7 @@ Database session management for Governance service
 import os
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
+from urllib.parse import quote
 
 from sqlalchemy.ext.asyncio import AsyncEngine, AsyncSession, create_async_engine
 
@@ -33,8 +34,12 @@ def _build_database_url() -> str:
         host = os.getenv("DB_HOST", "localhost")
         port = os.getenv("DB_PORT", "5432")
         name = os.getenv("DB_NAME", "aitbc_governance")
-        user = os.getenv("DB_USER", "aitbc")
-        password = os.getenv("DB_PASS", "")
+        # User and password sit inside the URL's userinfo, so a value containing
+        # `@`, `/`, or `:` would silently corrupt the host/name the driver ends
+        # up dialling. Percent-encode them (`safe=""` quotes the reserved set);
+        # the driver decodes before authenticating.
+        user = quote(os.getenv("DB_USER", "aitbc"), safe="")
+        password = quote(os.getenv("DB_PASS", ""), safe="")
         return f"postgresql+asyncpg://{user}:{password}@{host}:{port}/{name}"
     return os.getenv("DATABASE_URL", f"sqlite+aiosqlite:///{DATA_DIR}/data/governance_service.db")
 
