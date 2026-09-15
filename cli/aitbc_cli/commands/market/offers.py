@@ -689,6 +689,46 @@ def _provider_rating(offers: list[dict[str, Any]]) -> str:
     return f"{weighted / reviews:.1f} ({reviews} reviews)"
 
 
+def _backfill_trust_scores(
+    http_client: AITBCHTTPClient, coordinator_url: str, grouped: dict[str, list[dict[str, Any]]]
+) -> None:
+    """Fetch each provider's coordinator trust score once and share it across its offers.
+
+    Reputation is one HTTP call per lookup, so ask once per provider rather
+    than once per offer the way `market list` does.
+    """
+    for provider_offers in grouped.values():
+        probe = provider_offers[0]
+        _reputation_for_offer(http_client, coordinator_url, probe)
+        if probe.get("trust_score") is not None:
+            for offer in provider_offers[1:]:
+                offer["trust_score"] = probe["trust_score"]
+
+
+def _provider_rows(grouped: dict[str, list[dict[str, Any]]]) -> list[dict[str, Any]]:
+    """Build one display row per provider from its grouped offers."""
+    rows = []
+    for provider, provider_offers in sorted(grouped.items()):
+        active = [o for o in provider_offers if _is_active(o.get("status"))]
+        services = sorted({str(o.get("service_type") or "?") for o in provider_offers})
+        gpus = sorted({str(o.get("gpu_name")) for o in provider_offers if o.get("gpu_name")})
+        endpoint = next((str(o.get("public_endpoint") or o.get("endpoint") or "") for o in provider_offers), "")
+        node_id = next((str(o.get("node_id") or "") for o in provider_offers if o.get("node_id")), "")
+        rows.append(
+            {
+                "Provider": provider,
+                "Node ID": node_id or "N/A",
+                "Services": ", ".join(services),
+                "Offers": len(provider_offers),
+                "Active": len(active),
+                "GPU": ", ".join(gpus) or "N/A",
+                "Endpoint": endpoint or "N/A",
+                "Rating": _provider_rating(provider_offers),
+            }
+        )
+    return rows
+
+
 @market.command(
     epilog="""Examples:
 
@@ -737,35 +777,10 @@ def providers(ctx, output_format: str):
 
         grouped = _group_by_provider(offers)
 
-        # Reputation is one HTTP call per lookup, so ask once per provider rather
-        # than once per offer the way `market list` does.
         coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
-        for provider_offers in grouped.values():
-            probe = provider_offers[0]
-            _reputation_for_offer(http_client, coordinator_url, probe)
-            if probe.get("trust_score") is not None:
-                for offer in provider_offers[1:]:
-                    offer["trust_score"] = probe["trust_score"]
+        _backfill_trust_scores(http_client, coordinator_url, grouped)
 
-        rows = []
-        for provider, provider_offers in sorted(grouped.items()):
-            active = [o for o in provider_offers if _is_active(o.get("status"))]
-            services = sorted({str(o.get("service_type") or "?") for o in provider_offers})
-            gpus = sorted({str(o.get("gpu_name")) for o in provider_offers if o.get("gpu_name")})
-            endpoint = next((str(o.get("public_endpoint") or o.get("endpoint") or "") for o in provider_offers), "")
-            node_id = next((str(o.get("node_id") or "") for o in provider_offers if o.get("node_id")), "")
-            rows.append(
-                {
-                    "Provider": provider,
-                    "Node ID": node_id or "N/A",
-                    "Services": ", ".join(services),
-                    "Offers": len(provider_offers),
-                    "Active": len(active),
-                    "GPU": ", ".join(gpus) or "N/A",
-                    "Endpoint": endpoint or "N/A",
-                    "Rating": _provider_rating(provider_offers),
-                }
-            )
+        rows = _provider_rows(grouped)
 
         output(rows, fmt, title="Marketplace Providers")
         if fmt not in ("json", "yaml", "csv"):

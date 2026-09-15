@@ -7,7 +7,7 @@ def test_resource_commands_are_current():
     """The resource command surface matches the agent-performance API."""
     from aitbc_cli.commands.resource import resource
 
-    assert set(resource.commands) == {"allocate", "optimize"}
+    assert set(resource.commands) == {"allocate", "deallocate", "optimize", "status"}
 
 
 def test_resource_commands_reject_missing_requirements(runner):

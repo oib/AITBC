@@ -39,6 +39,19 @@ def _tabular_rows(message: Any) -> list[dict[str, Any]] | None:
     return None
 
 
+def _render_csv(rows: list[dict[str, Any]], headers: list[str]) -> str:
+    """Render flat records as CSV."""
+    import csv
+    import io
+
+    buf = io.StringIO()
+    writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore")
+    writer.writeheader()
+    for row in rows:
+        writer.writerow({h: row.get(h, "") for h in headers})
+    return buf.getvalue().rstrip("\n")
+
+
 def _render(message: Any, format: str) -> str:
     """Serialize structured data in the requested format.
 
@@ -74,15 +87,7 @@ def _render(message: Any, format: str) -> str:
                 headers.append(key)
 
     if format == "csv":
-        import csv
-        import io
-
-        buf = io.StringIO()
-        writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore")
-        writer.writeheader()
-        for row in rows:
-            writer.writerow({h: row.get(h, "") for h in headers})
-        return buf.getvalue().rstrip("\n")
+        return _render_csv(rows, headers)
 
     try:
         from tabulate import tabulate

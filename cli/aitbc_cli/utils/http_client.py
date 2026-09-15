@@ -119,6 +119,46 @@ def auth_headers(
     return headers
 
 
+def _error_detail_messages(details: list[Any]) -> list[str]:
+    """Flatten a coordinator ``error.details`` list into ``field: message`` strings."""
+    msgs = []
+    for d in details:
+        if isinstance(d, dict) and d.get("message"):
+            field = d.get("field")
+            msgs.append(f"{field}: {d['message']}" if field and field != "body" else str(d["message"]))
+        elif isinstance(d, str):
+            msgs.append(d)
+    return msgs
+
+
+def _detail_from_body(body: dict[str, Any]) -> str | None:
+    """Pull a human-readable error string out of a decoded response body."""
+    detail = body.get("detail")
+    if isinstance(detail, str) and detail:
+        return detail
+    # FastAPI validation errors: [{"loc": [...], "msg": "..."}]
+    if isinstance(detail, list) and detail:
+        first = detail[0]
+        if isinstance(first, dict) and first.get("msg"):
+            loc = ".".join(str(p) for p in first.get("loc", []) if p not in ("body",))
+            return f"{loc}: {first['msg']}" if loc else str(first["msg"])
+    # Coordinator error envelope:
+    # {"error": {"code": ..., "message": ..., "details": [{"field","message"}]}}
+    err = body.get("error")
+    if isinstance(err, dict):
+        details = err.get("details")
+        if isinstance(details, list) and details:
+            msgs = _error_detail_messages(details)
+            if msgs:
+                return "; ".join(msgs)
+        msg = err.get("message")
+        if isinstance(msg, str) and msg:
+            return msg
+    elif isinstance(err, str) and err:
+        return err
+    return None
+
+
 def http_error_detail(exc: BaseException) -> str | None:
     """Extract the FastAPI ``detail`` message from a wrapped HTTP error.
 
@@ -136,35 +176,7 @@ def http_error_detail(exc: BaseException) -> str | None:
             except Exception:
                 return None
             if isinstance(body, dict):
-                detail = body.get("detail")
-                if isinstance(detail, str) and detail:
-                    return detail
-                # FastAPI validation errors: [{"loc": [...], "msg": "..."}]
-                if isinstance(detail, list) and detail:
-                    first = detail[0]
-                    if isinstance(first, dict) and first.get("msg"):
-                        loc = ".".join(str(p) for p in first.get("loc", []) if p not in ("body",))
-                        return f"{loc}: {first['msg']}" if loc else str(first["msg"])
-                # Coordinator error envelope:
-                # {"error": {"code": ..., "message": ..., "details": [{"field","message"}]}}
-                err = body.get("error")
-                if isinstance(err, dict):
-                    details = err.get("details")
-                    if isinstance(details, list) and details:
-                        msgs = []
-                        for d in details:
-                            if isinstance(d, dict) and d.get("message"):
-                                field = d.get("field")
-                                msgs.append(f"{field}: {d['message']}" if field and field != "body" else str(d["message"]))
-                            elif isinstance(d, str):
-                                msgs.append(d)
-                        if msgs:
-                            return "; ".join(msgs)
-                    msg = err.get("message")
-                    if isinstance(msg, str) and msg:
-                        return msg
-                elif isinstance(err, str) and err:
-                    return err
+                return _detail_from_body(body)
             return None
         seen = seen.__cause__ or seen.__context__
     return None
