@@ -405,6 +405,8 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
             detail=(f"Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}"),
         ) from e
 
+    release_available, release_reason = bridge.release_availability(str(from_chain))
+
     return {
         "success": True,
         "swap_id": swap_id,
@@ -427,6 +429,8 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
         "status": transfer.status.value,
         "from_tx_hash": transfer.source_tx_hash,
         "to_tx_hash": None,
+        "release_available": release_available,
+        "release_note": release_reason,
         "created_at": datetime.now(UTC).isoformat(),
         "completed_at": None,
         "settlement": "bridge",
@@ -533,6 +537,7 @@ async def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any
     )
     bridge = _get_bridge()
     fee_units = amount_units * getattr(bridge, "BRIDGE_FEE_BASIS_POINTS", 10) // 10000
+    release_available, release_reason = bridge.release_availability(str(source_chain))
     return {
         "success": True,
         "bridge_id": transfer.transfer_id,
@@ -549,6 +554,8 @@ async def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any
         "status": transfer.status.value,
         "source_tx_hash": transfer.source_tx_hash,
         "target_tx_hash": None,
+        "release_available": release_available,
+        "release_note": release_reason,
         "created_at": (transfer.lock_time or datetime.now(UTC)).isoformat(),
         "completed_at": None,
     }

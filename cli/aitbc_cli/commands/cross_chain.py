@@ -267,6 +267,8 @@ def swap(
                 "Total Fees": swap_result.get("total_fees"),
                 "Status": swap_result.get("status"),
                 "Source Tx Hash": swap_result.get("from_tx_hash"),
+                "Release Available": swap_result.get("release_available"),
+                "Release Note": swap_result.get("release_note"),
             },
             ctx.obj["output_format"],
         )
@@ -449,6 +451,8 @@ def bridge(
                 "Bridge Fee": bridge_result.get("bridge_fee"),
                 "Status": bridge_result.get("status"),
                 "Source Tx Hash": bridge_result.get("source_tx_hash"),
+                "Release Available": bridge_result.get("release_available"),
+                "Release Note": bridge_result.get("release_note"),
             },
             ctx.obj["output_format"],
         )
