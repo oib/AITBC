@@ -25,7 +25,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_unstake(
-    stake_id: Annotated[str, Field(description="Stake ID.")],
+    stake_id: Annotated[str, Field(description="Numeric stake ID returned by 'stake'.")],
     wallet_name: Annotated[str | None, Field(description="Name of the wallet to unstake into")],
     wallet_path: Annotated[str | None, Field(description="Direct path to wallet file (overrides --wallet-name)")],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL (overrides config)")],

@@ -50,7 +50,7 @@ aitbc --help
 | `gpu-onchain` | GPU resource tracking commands (on-chain) | `allocate`, `allocations`, `list`, `query`, `register` |
 | `grant` | DAO grant proposal commands. | `create`, `disburse`, `list`, `vote` |
 | `health` | Probe remote AITBC service health endpoints. |  |
-| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `island`, `list`, `pin`, `upload` |
+| `ipfs` | Local content-addressed storage (IPFS-compatible surface). | `download`, `island`, `list`, `pin`, `unpin`, `upload` |
 | `list` | Legacy wallet list alias |  |
 | `market` | GPU and software offers published by shop miners | `cancel`, `download`, `escrow`, `exchange`, `gpu`, `hermes`, `host`, `jobs`, `list`, `match`, `offer`, `offer-disable`, `offer-list`, `process`, `providers`, `rate`, `ratings`, `run`, `status`, `sync-ratings`, `transcribe` |
 | `messaging` | Messaging system and forum operations | `list`, `send`, `topic` |
@@ -67,7 +67,7 @@ aitbc --help
 | `prometheus` | Query Prometheus and inspect scrape targets, rules, and alerts. | `alerts`, `check`, `query`, `rules`, `series`, `targets` |
 | `reinvest` | Autonomous reinvestment and capacity planning commands. | `policy`, `simulate` |
 | `reputation` | Reputation management commands | `create-profile`, `feedback`, `leaderboard`, `metrics`, `profile`, `trust-score` |
-| `resource` | Manage agent resource allocations via coordinator-api | `allocate`, `optimize` |
+| `resource` | Manage agent resource allocations via coordinator-api | `allocate`, `deallocate`, `optimize`, `status` |
 | `restart` | Restart all AITBC services for the current (or selected) role |  |
 | `script` | Script execution and management | `list`, `run` |
 | `security` | Security audit and monitoring | `audit`, `patch`, `scan` |
@@ -75,7 +75,7 @@ aitbc --help
 | `start` | Start all AITBC services for the current (or selected) role |  |
 | `stop` | Stop all AITBC services for the current (or selected) role |  |
 | `sync` | Blockchain synchronization utilities | `bulk`, `status` |
-| `system` | System management commands | `architect`, `audit`, `cat`, `check`, `config`, `cron`, `file`, `logs`, `restart`, `run-script`, `show`, `start`, `status`, `stop` |
+| `system` | System management commands | `architect`, `audit`, `cat`, `check`, `config`, `cron`, `env-set`, `file`, `logs`, `restart`, `run-script`, `show`, `start`, `status`, `stop` |
 | `tee` | Trusted Execution Environment (TEE) enclave commands | `attest`, `keygen`, `launch`, `register`, `status`, `verify` |
 | `trade` | Inter-chain trading operations | `chains`, `create`, `discover`, `get`, `health`, `history`, `list`, `lock-escrow`, `match`, `match-all`, `refund`, `register-chain`, `search`, `settle`, `settlement-status`, `status`, `subscription-status`, `sync`, `sync-status`, `watch` |
 | `transactions` | Transaction management commands | `batch`, `estimate-fee`, `pending`, `search`, `send`, `status` |
