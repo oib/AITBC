@@ -95,6 +95,7 @@ def send(
     poster_address = _resolve_poster(agent_address, "AGENT_ADDRESS", recipient)
     if not poster_id or not poster_address:
         abort(ctx, "--agent-id or AGENT_ID, or --recipient, is required")
+    assert poster_id is not None and poster_address is not None  # abort() raises; narrow for mypy
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
