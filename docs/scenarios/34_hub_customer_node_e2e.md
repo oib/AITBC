@@ -120,6 +120,8 @@ aitbc exchange-island rates
 
 **Expected output:** chain head, bridge healthy, wallets listed, exchange rates or a labeled simulated fallback.
 
+> **Island prerequisite:** `exchange-island` commands need island credentials (`~/.aitbc/island_credentials.json`) on customer/follower nodes — run `aitbc node island join` first, or the command errors `Island credentials not found`. On the hub no join is required. The orderbook is `sim_*`-seeded on this fleet: the API is live but the book entries are simulated.
+
 ### Step 5: Unpaid job
 
 ```bash
@@ -163,7 +165,11 @@ aitbc ai submit --prompt "Cross-node paid job test" \
 
 **Expected output:** `payment_status: escrowed`, then `COMPLETED` with `payment_status: pending_acceptance` while the customer acceptance window is open.
 
-Release the escrow explicitly with the new `accept` command:
+> **`--wait` auto-accepts:** when the job reaches `COMPLETED` with payment `escrowed`/`pending_acceptance`, the wait loop already POSTs `/v1/jobs/{id}/accept` — the explicit step below is for jobs submitted *without* `--wait` (or when the auto-accept fails). Running `ai accept` on an already-accepted job is a no-op/conflict, not an error in the flow.
+>
+> **Known telemetry gap:** `--buyer-address` is carried in the escrow payload but the job record currently reports `buyer_address: null` — the flag is honored on-chain, the listing just doesn't echo it.
+
+Release the escrow explicitly (needed only for non-`--wait` submissions) with the `accept` command:
 
 ```bash
 aitbc ai accept --job-id "$JOB_ID"
@@ -226,6 +232,8 @@ aitbc dashboard shop
 
 With `COORDINATOR_ENABLE_ZK_VERIFICATION=true` and `COORDINATOR_ZK_HIGH_VALUE_THRESHOLD=10`, a paid job above the threshold receives a verified ZK receipt proof before escrow release. You can also force a proof with `--zk-proof-required`.
 
+> **Circuit coverage matters:** the only registered circuit is `linear-1` (trivial y=2x+1). `--model llama3.2:3b --zk-proof-required` returns `zk_status: unsupported_model`, escrows, then **ESCROW_REFUND**s — and because the threshold is 10, *any* paid job ≥10 AIT on an unregistered model auto-refunds the same way. Use `linear-1` for this step; that combination was verified live (`zk_status: verified`, real Groth16 proof).
+
 On the hub:
 
 ```bash
@@ -233,7 +241,7 @@ aitbc ai submit --prompt "High-value ZK test" \
   --payment 15 \
   --wallet default \
   --provider-address 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F \
-  --model llama3.2:3b \
+  --model linear-1 \
   --zk-proof-required \
   --wait --timeout 300
 ```
