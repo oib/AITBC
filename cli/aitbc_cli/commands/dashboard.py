@@ -121,15 +121,47 @@ def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None 
         return None
 
 
-def _safe_post(client: AITBCHTTPClient, path: str, json: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _http_status(exc: BaseException) -> int | None:
+    """Return the HTTP status code from a NetworkError cause chain, if present."""
+    cur: BaseException | None = exc
+    for _ in range(5):
+        if cur is None:
+            return None
+        status = getattr(getattr(cur, "response", None), "status_code", None)
+        if isinstance(status, int):
+            return status
+        cur = cur.__cause__ or cur.__context__
+    return None
+
+
+def _with_query(path: str, params: dict[str, Any] | None) -> str:
+    """Append ``params`` to ``path`` as a query string (client.post takes no params arg)."""
+    if not params:
+        return path
+    from urllib.parse import urlencode
+
+    sep = "&" if "?" in path else "?"
+    return f"{path}{sep}{urlencode(params)}"
+
+
+def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+    """POST ``path``, retrying as GET when the peer only allows GET (405).
+
+    The coordinator-api registers the miner job/earnings reads as POST, but a
+    dashboard can point at a deployment or proxy where they are GET-only; on a
+    405 we retry as GET with the same params in the query string.
+    """
     try:
-        return client.post(path, json=json)
+        return client.post(_with_query(path, params))
     except NetworkError as e:
-        logger.warning("Dashboard POST %s failed: %s", path, e)
-        return None
+        if _http_status(e) != 405:
+            logger.warning("Dashboard POST %s failed: %s", path, e)
+            return None
+        logger.debug("POST %s not allowed; retrying as GET", path)
     except Exception as e:
         logger.warning("Dashboard POST %s failed: %s", path, e)
         return None
+    return _safe_get(client, path, params=params)
 
 
 def _blockchain_balance(rpc_url: str, address: str, chain_id: str) -> tuple[int, int, str]:
@@ -155,7 +187,9 @@ def _live_wallet_balance(
     balance: Any = "N/A"
     fallback = False
     try:
-        balance_data = wallet_client.get(f"/v1/chains/{chain_id}/wallets/{wallet_id}/balance") or {}
+        # The wallet daemon's balance route is /v1/wallets/{id}/balance; the
+        # /v1/chains/{chain}/wallets/... tree is commented out in api_rest.py.
+        balance_data = wallet_client.get(f"/v1/wallets/{wallet_id}/balance") or {}
         balance = balance_data.get("balance", "N/A")
     except Exception:
         fallback = True
@@ -361,22 +395,30 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         miner_jobs: list[dict[str, Any]] = []
         miner_earnings: dict[str, Any] = {}
         if miner_id:
-            jobs_resp = _safe_post(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
+            jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
             if jobs_resp:
                 miner_jobs = cast(list[dict[str, Any]], jobs_resp.get("jobs", jobs_resp.get("items", [])))
-            earnings_resp = _safe_post(coord_client, f"/v1/miners/{miner_id}/earnings")
+            earnings_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/earnings")
             if earnings_resp:
                 miner_earnings = earnings_resp if isinstance(earnings_resp, dict) else {}
 
         _enrich_jobs_with_escrow(miner_jobs, blockchain_rpc_url)
 
-        # GPUs on this node
-        gpu_data: dict[str, Any] = {}
-        try:
-            gpu_client = AITBCHTTPClient(base_url=config.gpu_service_url or "http://localhost:8101", timeout=10)
-            gpu_data = gpu_client.get("/v1/gpu/discover") or {}
-        except NetworkError as e:
-            logger.warning("GPU service unavailable: %s", e)
+        # GPUs on this node. /v1/gpu/discover returns the nvidia-smi spec of the
+        # first local GPU as a flat dict ({} when none), not a {"gpus": [...]}
+        # wrapper; /v1/miners/{id}/gpus lists the GPUs this miner registered
+        # with the GPU service.
+        gpus: list[dict[str, Any]] = []
+        gpu_client = AITBCHTTPClient(base_url=config.gpu_service_url or "http://localhost:8101", timeout=10)
+        if miner_id:
+            registered: Any = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus")
+            if isinstance(registered, list):
+                gpus.extend(g for g in registered if isinstance(g, dict))
+        discovered = _safe_get(gpu_client, "/v1/gpu/discover") or {}
+        if isinstance(discovered, dict) and discovered.get("model"):
+            known = {(g.get("model"), g.get("memory_gb")) for g in gpus}
+            if (discovered.get("model"), discovered.get("memory_gb")) not in known:
+                gpus.append(discovered)
 
         # Marketplace offers published by this shop
         offer_rows: list[dict[str, Any]] = []
@@ -404,17 +446,19 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         except NetworkError as e:
             logger.warning("Marketplace service unavailable: %s", e)
 
-        # SLA standing from pool-hub (local instance first, then hub-resolved).
-        # Entirely optional: any failure leaves sla_data empty and the section
-        # renders as unavailable rather than breaking the dashboard.
+        # SLA standing from pool-hub. The resolved URL (POOL_HUB_URL /
+        # HUB_POOL_HUB_URL env, then the hub's /pool-hub path on shop/follower
+        # nodes, then localhost on the hub) is probed first; the local instance
+        # is only a fallback. Entirely optional: any failure leaves sla_data
+        # empty and the section renders as unavailable rather than breaking the
+        # dashboard.
         sla_data: dict[str, Any] = {"status": "unavailable"}
         try:
-            from .pool_hub import _default_pool_hub_url
+            from .pool_hub import DEFAULT_POOL_HUB_URL, _default_pool_hub_url
 
-            pool_hub_urls = ["http://localhost:8210"]
-            resolved = _default_pool_hub_url()
-            if resolved not in pool_hub_urls:
-                pool_hub_urls.append(resolved)
+            pool_hub_urls = [_default_pool_hub_url()]
+            if DEFAULT_POOL_HUB_URL not in pool_hub_urls:
+                pool_hub_urls.append(DEFAULT_POOL_HUB_URL)
             for pool_hub_url in pool_hub_urls:
                 sla_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
                 # client.get() is annotated dict but returns whatever the
@@ -475,7 +519,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 "network_jobs_failed": jobs_metrics.get("failed", 0),
                 "miners_total": miners_metrics.get("total", 0),
                 "miners_online": miners_metrics.get("online", 0),
-                "gpus_found": len(gpu_data.get("gpus", []) if isinstance(gpu_data, dict) else gpu_data),
+                "gpus_found": len(gpus),
                 "offers_published": len(offer_rows),
                 "shop_assigned_jobs": len(miner_jobs),
                 "wallets": len(wallet_balances),
@@ -494,6 +538,14 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                     "Created": str(job.get("requested_at") or job.get("created_at"))[:19],
                 }
                 for job in (miner_jobs if isinstance(miner_jobs, list) else [])
+            ],
+            "gpus": [
+                {
+                    "Model": g.get("model") or g.get("name") or "N/A",
+                    "Memory GB": g.get("memory_gb", "N/A"),
+                    "Status": g.get("status") or "detected",
+                }
+                for g in gpus
             ],
             "marketplace_offers": offer_rows,
             "sla": sla_data,

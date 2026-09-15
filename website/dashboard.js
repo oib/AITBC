@@ -5,7 +5,7 @@
  * proxy and degrades gracefully when a service is down.
  */
 
-const AITBC = window.AITBC_CONFIG || { chainId: 'ait-hub.aitbc.bubuit.net' };
+const AITBC = window.AITBC_CONFIG || { chainId: 'ait-hub.aitbc.bubuit.net', explorerApiUrl: '/explorer-api' };
 
 async function apiGet(path) {
     try {
@@ -27,6 +27,21 @@ async function apiPost(path, body) {
         console.error(`POST ${path} failed:`, e);
         return null;
     }
+}
+
+async function apiPostOrGet(path, params) {
+    // The coordinator-api registers the miner job/earnings reads as POST, but a
+    // deployment or proxy may expose them GET-only; retry as GET on a 405.
+    try {
+        const res = await fetch(path, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(params || {}) });
+        if (res.ok) return await res.json();
+        if (res.status !== 405) throw new Error(`HTTP ${res.status}`);
+    } catch (e) {
+        console.error(`POST ${path} failed:`, e);
+        return null;
+    }
+    const query = params ? (path.includes('?') ? '&' : '?') + new URLSearchParams(params).toString() : '';
+    return apiGet(path + query);
 }
 
 function formatDate(ts) {
@@ -52,6 +67,35 @@ function renderTable(containerId, rows, columns) {
 function setText(id, text) {
     const el = document.getElementById(id);
     if (el) el.textContent = text;
+}
+
+function formatAit(units) {
+    // The chain settles in compute-units: 1 AIT = 36,000,000 units.
+    const ait = Number(units) / 36000000;
+    if (!isFinite(ait)) return 'N/A';
+    return `${parseFloat(ait.toFixed(8))} AIT`;
+}
+
+async function loadAddressRows(limit) {
+    // /v1/wallets and /v1/chains/.../balance are admin-gated on the wallet
+    // daemon and loopback-only on the public vhost, so a browser can never
+    // reach them. Show the public view instead: the most active on-chain
+    // addresses from the explorer, with live balances from the public RPC.
+    const explorerBase = AITBC.explorerApiUrl || '/explorer-api';
+    const data = await apiGet(`${explorerBase}/api/analytics/top-addresses?chain_id=${AITBC.chainId}&limit=${limit}`) || {};
+    const entries = Array.isArray(data) ? data : (data.addresses || []);
+    const rows = [];
+    for (const entry of entries.slice(0, limit)) {
+        if (!entry || typeof entry !== 'object') continue;
+        const address = entry.address || 'N/A';
+        const account = address !== 'N/A' ? await apiGet(`/rpc/account/${encodeURIComponent(address)}`) : null;
+        rows.push({
+            address: address,
+            balance: account && account.balance != null ? formatAit(account.balance) : 'N/A',
+            txs: entry.transaction_count != null ? entry.transaction_count : 'N/A',
+        });
+    }
+    return rows;
 }
 
 // ---------- Customer dashboard ----------
@@ -92,26 +136,15 @@ async function loadCustomerDashboard() {
         { label: 'Created', key: 'created' },
     ]);
 
-    // Payments are reflected in the job payment_status column and wallet daemon.
-    // Wallet data may not be reachable from the browser if not proxied.
-    const walletData = await apiGet('/v1/wallets') || {};
-    const wallets = Array.isArray(walletData) ? walletData : (walletData.items || []);
-    const walletRows = [];
-    for (const w of wallets.slice(0, 10)) {
-        if (!w || typeof w !== 'object') continue;
-        const walletId = w.wallet_id || w.id || 'N/A';
-        const bal = await apiGet(`/v1/chains/${AITBC.chainId}/wallets/${walletId}/balance`) || {};
-        walletRows.push({
-            wallet: walletId,
-            address: w.address || (w.metadata || {}).address || 'N/A',
-            balance: bal.balance != null ? `${bal.balance} AIT` : 'N/A',
-        });
-    }
+    // Payments are reflected in the job payment_status column. The wallet
+    // daemon's routes are admin-gated and loopback-only on the public vhost,
+    // so the panel lists the most active on-chain addresses instead.
+    const walletRows = await loadAddressRows(10);
     setText('cust-wallet-count', walletRows.length);
     renderTable('cust-wallets-table', walletRows, [
-        { label: 'Wallet', key: 'wallet' },
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
+        { label: 'Transactions', key: 'txs' },
     ]);
 }
 
@@ -137,7 +170,7 @@ async function loadShopDashboard() {
     setText('shop-miners-total', minersMetrics.total || 0);
     setText('shop-miners-online', minersMetrics.online || 0);
 
-    const jobsResp = await apiPost(`/v1/miners/${encodeURIComponent(minerId)}/jobs`, { limit: 20 }) || {};
+    const jobsResp = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/jobs?limit=20`) || {};
     const assignedJobs = Array.isArray(jobsResp) ? jobsResp : (jobsResp.jobs || jobsResp.items || []);
     const jobRows = assignedJobs.map(job => ({
         id: job.job_id || job.id || 'N/A',
@@ -155,19 +188,28 @@ async function loadShopDashboard() {
         { label: 'Created', key: 'created' },
     ]);
 
-    const earnings = await apiPost(`/v1/miners/${encodeURIComponent(minerId)}/earnings`) || {};
+    const earnings = await apiPostOrGet(`/v1/miners/${encodeURIComponent(minerId)}/earnings`) || {};
     setText('shop-earnings-total', earnings.total_earnings != null ? earnings.total_earnings : 'N/A');
     setText('shop-earnings-paid', earnings.paid_earnings != null ? earnings.paid_earnings : 'N/A');
     setText('shop-earnings-pending', earnings.pending_earnings != null ? earnings.pending_earnings : 'N/A');
 
-    const gpuData = await apiGet('/v1/gpu/discover') || {};
-    const gpus = Array.isArray(gpuData) ? gpuData : (gpuData.gpus || []);
+    // /v1/gpu/discover returns the nvidia-smi spec of the first local GPU as a
+    // flat object ({} when none), not a {gpus: [...]} wrapper; the GPUs this
+    // miner registered with the GPU service come from /v1/miners/{id}/gpus.
+    const gpus = [];
+    const registered = await apiGet(`/v1/miners/${encodeURIComponent(minerId)}/gpus`);
+    if (Array.isArray(registered)) gpus.push(...registered.filter(g => g && typeof g === 'object'));
+    const discovered = await apiGet('/v1/gpu/discover');
+    if (discovered && !Array.isArray(discovered) && discovered.model) {
+        const known = new Set(gpus.map(g => `${g.model}|${g.memory_gb}`));
+        if (!known.has(`${discovered.model}|${discovered.memory_gb}`)) gpus.push(discovered);
+    }
     setText('shop-gpu-count', gpus.length);
     renderTable('shop-gpus-table', gpus.map(g => ({
-        name: g.name || g.model || 'N/A',
-        device: g.device || g.device_id || 'N/A',
-        memory: g.memory || g.memory_total || 'N/A',
-        status: g.status || 'N/A',
+        name: g.model || g.name || 'N/A',
+        device: g.id || g.uuid || g.device || g.device_id || 'N/A',
+        memory: g.memory_gb != null ? `${g.memory_gb} GB` : (g.memory || g.memory_total || 'N/A'),
+        status: g.status || 'detected',
     })), [
         { label: 'GPU', key: 'name' },
         { label: 'Device', key: 'device' },
@@ -193,23 +235,11 @@ async function loadShopDashboard() {
         { label: 'Rating', key: 'rating' },
     ]);
 
-    const walletData = await apiGet('/v1/wallets') || {};
-    const wallets = Array.isArray(walletData) ? walletData : (walletData.items || []);
-    const walletRows = [];
-    for (const w of wallets.slice(0, 5)) {
-        if (!w || typeof w !== 'object') continue;
-        const walletId = w.wallet_id || w.id || 'N/A';
-        const bal = await apiGet(`/v1/chains/${AITBC.chainId}/wallets/${walletId}/balance`) || {};
-        walletRows.push({
-            wallet: walletId,
-            address: w.address || (w.metadata || {}).address || 'N/A',
-            balance: bal.balance != null ? `${bal.balance} AIT` : 'N/A',
-        });
-    }
+    const walletRows = await loadAddressRows(5);
     setText('shop-wallet-count', walletRows.length);
     renderTable('shop-wallets-table', walletRows, [
-        { label: 'Wallet', key: 'wallet' },
         { label: 'Address', key: 'address' },
         { label: 'Balance', key: 'balance' },
+        { label: 'Transactions', key: 'txs' },
     ]);
 }
