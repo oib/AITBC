@@ -5,8 +5,6 @@ Commands for trading AIT coin against ETH on the island exchange
 
 import hashlib
 import json
-import os
-import socket
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
@@ -610,14 +608,19 @@ def orders(ctx, user: str | None, status: str | None, pair: str | None):
 @exchange_island.command(
     epilog="""Examples:
 
-  aitbc exchange-island cancel --order-id order-123
+  aitbc exchange-island cancel --order-id order-123 --wallet wallet-1
 
-  aitbc exchange-island cancel --order-id order-123 --output json"""
+  aitbc exchange-island cancel --order-id order-123 --wallet wallet-1 --output json"""
 )
 @click.option("--order-id", "order_id", required=True, help="The Order id.")
+@click.option("--wallet", default=None, help="Wallet name or file path for signing")
+@click.option("--password", default=None, help="Wallet password")
 @click.pass_context
-def cancel(ctx, order_id: str):
-    """Cancel an exchange order by its order ID."""
+def cancel(ctx, order_id: str, wallet: str | None, password: str | None):
+    """Cancel an exchange order by its order ID.
+
+    Submits a signed EXCHANGE transaction — the wallet must be the order's
+    owner (buy/sell set user_id to the wallet address)."""
     try:
         # Load island credentials
         credentials = safe_load_credentials()
@@ -627,40 +630,40 @@ def cancel(ctx, order_id: str):
         chain_id = get_chain_id()
         island_id = get_island_id()
 
-        # Get local node ID
-        hostname = socket.gethostname()
-        local_address = socket.gethostbyname(hostname)
-        p2p_port = credentials.get("credentials", {}).get("p2p_port", 8001)
+        address, private_key, _wallet_name = load_wallet_for_payment(ctx, wallet, password=password)
+        if not private_key:
+            abort(ctx, f"Wallet '{_wallet_name}' has no usable private key; use a file wallet with --wallet")
+            return
 
-        keystore_path = KEYSTORE_PATH
-        if os.path.exists(keystore_path):
-            with open(keystore_path) as f:
-                keys = json.load(f)
-                public_key_pem = None
-                for _key_id, key_data in keys.items():
-                    public_key_pem = key_data.get("public_key_pem")
-                    break
-                if public_key_pem:
-                    content = f"{hostname}:{local_address}:{p2p_port}:{public_key_pem}"
-                    local_node_id = hashlib.sha256(content.encode()).hexdigest()
+        http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
+        account = http_client.get(f"{ACCOUNT_PATH}/{address}", params={"chain_id": chain_id})
+        nonce = account.get("nonce", 0)
 
-        # Create cancel transaction
-        cancel_data = {
-            "type": "exchange",
+        cancel_payload: dict[str, Any] = {
             "action": "cancel",
             "order_id": order_id,
-            "user_id": local_node_id,
+            "user_id": address,
             "status": "cancelled",
             "cancelled_at": datetime.now().isoformat(),
             "island_id": island_id,
             "chain_id": chain_id,
         }
+        tx_data: dict[str, Any] = {
+            "from": address,
+            "to": address,
+            "amount": 0,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": nonce,
+            "type": "EXCHANGE",
+            "chain_id": chain_id,
+            "payload": cancel_payload,
+        }
+        tx_data["signature"] = _sign_exchange_tx(tx_data, private_key)
 
-        # Submit transaction to blockchain
         try:
-            http_client = AITBCHTTPClient(base_url=rpc_endpoint, timeout=10)
-            _ = http_client.post(TX_SUBMIT_PATH, json=cancel_data)
-            success(f"Order {order_id} cancelled successfully!")
+            resp = http_client.post(TX_SUBMIT_PATH, json=tx_data)
+            tx_hash = resp.get("tx_hash") or resp.get("transaction_hash") or ""
+            success(f"Order {order_id} cancelled successfully!" + (f" tx: {tx_hash}" if tx_hash else ""))
         except NetworkError as e:
             abort(ctx, f"Network error submitting transaction: {e}", from_exception=e)
 
