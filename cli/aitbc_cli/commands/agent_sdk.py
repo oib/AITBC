@@ -84,7 +84,6 @@ def create_agent(name: str, agent_type: str, capabilities: dict, coordinator_url
     if Agent is None:
         return {"error": "Agent SDK not available. Install from packages/py/aitbc-agent-sdk"}
 
-    config = get_config()
     try:
         if agent_type == "provider":
             agent = ComputeProvider.create_provider(
