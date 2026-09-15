@@ -549,6 +549,40 @@ def _unit_env_file(service_name: str) -> Path | None:
     return fallback if fallback.exists() else None
 
 
+def _parse_env_assignments(assignments: tuple[str, ...]) -> list[tuple[str, str]]:
+    """Validate and split ``KEY=VALUE`` arguments, preserving order."""
+    parsed: list[tuple[str, str]] = []
+    for item in assignments:
+        key, sep, value = item.partition("=")
+        if not sep:
+            raise click.ClickException(f"Invalid assignment '{item}' — expected KEY=VALUE")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            raise click.ClickException(f"Invalid environment variable name '{key}'")
+        if "\n" in value or "\r" in value:
+            raise click.ClickException(f"Value for {key} must be a single line")
+        parsed.append((key, value))
+    return parsed
+
+
+def _merge_env_lines(lines: list[str], parsed: list[tuple[str, str]]) -> list[str]:
+    """Rewrite existing ``KEY=`` lines in place and append the keys not present."""
+    remaining = dict(parsed)
+    out_lines: list[str] = []
+    for line in lines:
+        m = re.match(r"^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)=", line)
+        if m and m.group(2) in remaining:
+            key = m.group(2)
+            newline = "\n" if line.endswith("\n") else ""
+            out_lines.append(f"{m.group(1)}{key}={remaining.pop(key)}{newline}")
+        else:
+            out_lines.append(line)
+    for key, value in remaining.items():
+        if out_lines and not out_lines[-1].endswith("\n"):
+            out_lines[-1] += "\n"
+        out_lines.append(f"{key}={value}\n")
+    return out_lines
+
+
 @system.command(
     "env-set",
     epilog="""Examples:
@@ -574,16 +608,7 @@ def env_set(ctx, service: str, assignments: tuple[str, ...], no_restart: bool, e
     if not assignments:
         raise click.ClickException("At least one KEY=VALUE assignment is required")
 
-    parsed: list[tuple[str, str]] = []
-    for item in assignments:
-        key, sep, value = item.partition("=")
-        if not sep:
-            raise click.ClickException(f"Invalid assignment '{item}' — expected KEY=VALUE")
-        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
-            raise click.ClickException(f"Invalid environment variable name '{key}'")
-        if "\n" in value or "\r" in value:
-            raise click.ClickException(f"Value for {key} must be a single line")
-        parsed.append((key, value))
+    parsed = _parse_env_assignments(assignments)
 
     env_path = Path(env_file_override) if env_file_override else _unit_env_file(service_name)
     if env_path is None:
@@ -597,20 +622,7 @@ def env_set(ctx, service: str, assignments: tuple[str, ...], no_restart: bool, e
     except OSError as e:
         raise click.ClickException(f"Cannot read {env_path}: {e}") from e
 
-    remaining = dict(parsed)
-    out_lines: list[str] = []
-    for line in lines:
-        m = re.match(r"^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)=", line)
-        if m and m.group(2) in remaining:
-            key = m.group(2)
-            newline = "\n" if line.endswith("\n") else ""
-            out_lines.append(f"{m.group(1)}{key}={remaining.pop(key)}{newline}")
-        else:
-            out_lines.append(line)
-    for key, value in remaining.items():
-        if out_lines and not out_lines[-1].endswith("\n"):
-            out_lines[-1] += "\n"
-        out_lines.append(f"{key}={value}\n")
+    out_lines = _merge_env_lines(lines, parsed)
 
     try:
         env_path.write_text("".join(out_lines))

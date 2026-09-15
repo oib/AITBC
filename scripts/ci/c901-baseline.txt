@@ -104,13 +104,12 @@
       1 cli/aitbc_cli/commands/analytics.py
       1 cli/aitbc_cli/commands/auth.py
       1 cli/aitbc_cli/commands/coin_requests.py
-      1 cli/aitbc_cli/commands/config.py
       2 cli/aitbc_cli/commands/dashboard.py
       1 cli/aitbc_cli/commands/energy.py
       1 cli/aitbc_cli/commands/exchange_island.py
       1 cli/aitbc_cli/commands/genesis.py
       1 cli/aitbc_cli/commands/http.py
-      3 cli/aitbc_cli/commands/ipfs.py
+      2 cli/aitbc_cli/commands/ipfs.py
       1 cli/aitbc_cli/commands/market/__init__.py
       1 cli/aitbc_cli/commands/market/escrow.py
       2 cli/aitbc_cli/commands/market/exchange.py

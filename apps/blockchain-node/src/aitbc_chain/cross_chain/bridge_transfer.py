@@ -901,7 +901,8 @@ class BridgeTransferMixin(BridgeBase):
         """
         unavailable = getattr(self, "_unavailable_bridge_chains", None)
         if unavailable is None:
-            unavailable = self._unavailable_bridge_chains = set()
+            self._unavailable_bridge_chains: set[str] = set()
+            unavailable = self._unavailable_bridge_chains
         if chain_id in unavailable:
             return False
         try:
