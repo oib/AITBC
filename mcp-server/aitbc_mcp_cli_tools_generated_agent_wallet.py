@@ -109,7 +109,7 @@ def aitbc_agent_wallet_stake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stake AITBC on behalf of a specified agent ID.."""
+    """Simulate staking AITBC on behalf of an agent ID (no on-chain transaction).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

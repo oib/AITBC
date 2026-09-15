@@ -3,8 +3,8 @@
 **Level**: Beginner
 **Prerequisites**: Scenario 01 Wallet Basics
 **Estimated Time**: 25 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-09-15
+**Version**: 1.3
 
 ## Navigation Path
 
@@ -25,7 +25,7 @@ breadcrumb: Home > Scenarios > Staking Basics
 
 ## Scenario Overview
 
-This scenario shows how an AI agent stakes and unstakes the network tokens to earn staking rewards and liquidity-pool yield. The staking commands live on the `aitbc wallet` group (registered directly in `cli/aitbc_cli/commands/wallet/staking.py` via `@wallet.command(...)`), so the real invocation paths are `aitbc wallet stake`, `aitbc wallet unstake`, `aitbc wallet staking-info`, `aitbc wallet liquidity-stake`, and `aitbc wallet liquidity-unstake` — not a `wallet staking` subgroup. On-chain staking posts to the blockchain RPC (`/rpc/staking/stake`, `/rpc/staking/unstake`); liquidity staking is recorded in the local wallet file with APY tiers.
+This scenario shows how an AI agent stakes and unstakes the network tokens to earn staking rewards and liquidity-pool yield. The staking commands live on the `aitbc wallet` group (registered directly in `cli/aitbc_cli/commands/wallet/staking.py` via `@wallet.command(...)`), so the real invocation paths are `aitbc wallet stake`, `aitbc wallet unstake`, `aitbc wallet staking-info`, `aitbc wallet liquidity-stake`, and `aitbc wallet liquidity-unstake` — not a `wallet staking` subgroup. The three write paths are also exposed as top-level commands: `aitbc stake`, `aitbc unstake`, and `aitbc liquidity-stake` delegate to the same wallet-signed implementations. On-chain staking posts signed requests to the blockchain RPC (`/rpc/staking/stake`, `/rpc/staking/unstake`); liquidity staking signs and submits real `LIQUIDITY_DEPOSIT` / `LIQUIDITY_WITHDRAW` transactions to `/rpc/transaction`.
 
 ### Use Case
 
@@ -33,10 +33,10 @@ An agent holding the network tokens wants to (1) lock some tokens on-chain for a
 
 ### What You'll Learn
 
-- Stake tokens on-chain with `aitbc wallet stake --amount <amount> --duration <days>`
+- Stake tokens on-chain with `aitbc stake --amount <amount> --duration <days>` (equivalently `aitbc wallet stake`)
 - View on-chain staking info with `aitbc wallet staking-info`
-- Unstake by stake ID with `aitbc wallet unstake --stake-id <stake_id>`
-- Stake into a liquidity pool with `aitbc wallet liquidity-stake --amount <amount> --pool <name> --lock-days <int>`
+- Unstake by stake ID with `aitbc unstake --stake-id <stake_id>` (equivalently `aitbc wallet unstake`)
+- Stake into a liquidity pool with `aitbc liquidity-stake --amount <amount> --pool <name> --lock-days <int>` (equivalently `aitbc wallet liquidity-stake`)
 - Withdraw from a liquidity pool with `aitbc wallet liquidity-unstake --stake-id <stake_id>`
 
 ---
@@ -67,9 +67,11 @@ All commands below are grounded in `cli/aitbc_cli/commands/wallet/staking.py`. T
 
 ### Step 1: Stake tokens on-chain
 
-`aitbc wallet stake --amount <amount>` posts `{address, amount (wei), lock_days, chain_id}` to `POST /rpc/staking/stake`. `amount` is a float in AITBC; `--duration` is the lock in days (default `30`).
+`aitbc stake --amount <amount>` (or `aitbc wallet stake`) signs `{address, amount (compute units), chain_id, action: "stake"}` with the wallet key and posts `{address, amount, lock_days, chain_id, signature}` to `POST /rpc/staking/stake`. `--duration` is the lock in days (default `30`); `--wallet-name`/`--wallet-path`/`--rpc-url` are accepted directly.
 
 ```bash
+aitbc stake --wallet-name staker --amount 100.0 --duration 90
+# equivalent grouped form:
 aitbc wallet --wallet-name staker stake --amount 100.0 --duration 90
 ```
 
@@ -118,9 +120,11 @@ active_stakes:
 
 ### Step 3: Unstake on-chain
 
-`aitbc wallet unstake --stake-id <stake_id>` posts `{address, stake_id, chain_id}` to `POST /rpc/staking/unstake`. The `stake_id` is the integer returned from `stake` / shown in `staking-info`.
+`aitbc unstake --stake-id <stake_id>` (or `aitbc wallet unstake`) signs `{address, stake_id, chain_id, action: "unstake"}` and posts to `POST /rpc/staking/unstake`. The `stake_id` is the integer returned from `stake` / shown in `staking-info`. Before submitting, the command pre-flights `GET /rpc/staking/<address>` and refuses with a clear message when the stake is unknown/inactive or still inside its lock window; the node enforces the same rules and returns HTTP 400 `Lock period not expired` as the authoritative backstop.
 
 ```bash
+aitbc unstake --wallet-name staker --stake-id 7
+# equivalent grouped form:
 aitbc wallet --wallet-name staker unstake --stake-id 7
 ```
 
@@ -134,32 +138,36 @@ amount: 100
 transaction_hash: 0x4d81...
 status: withdrawn
 chain_id: ait-hub.aitbc.bubuit.net
+locked_until: 2026-09-23T12:00:00Z
 ```
+
+If the lock is still active the command exits non-zero with
+`Cannot unstake: stake 7 is still locked until <locked_until> — the lock (unbonding) period has not expired`.
 
 ### Step 4: Stake into a liquidity pool
 
-`aitbc wallet liquidity-stake --amount <amount>` records a liquidity stake in the local wallet file. Options: `--pool` (default `main`), `--lock-days` (default `0`). APY tiers (from source): `>=90` days → 12% platinum, `>=30` → 8% gold, `>=7` → 5% silver, else 3% bronze. The wallet must have sufficient `balance`.
+`aitbc liquidity-stake --amount <amount>` (or `aitbc wallet liquidity-stake`) signs and submits a real `LIQUIDITY_DEPOSIT` transaction to `POST /rpc/transaction`. Options: `--pool` (default `main`), `--lock-days` (default `0`, enforced on-chain via `locked_until`), `--fee` (default `0.01` AIT). The deposit moves the balance when the transaction is included in a block; a convenience record tagged with the transaction hash is cached in the local wallet file.
 
 ```bash
+aitbc liquidity-stake --wallet-name staker --amount 50.0 --pool main --lock-days 90
+# equivalent grouped form:
 aitbc wallet --wallet-name staker liquidity-stake --amount 50.0 --pool main --lock-days 90
 ```
 
 **Expected output:**
 
 ```
-Staked 50.0 AITBC into 'main' pool (platinum tier, 12.0% APY)
-stake_id: liq_a1b2c3d4e5f6
+Submitted liquidity deposit of 50.0 AIT to pool 'main' (tx=0x71ab...)
+transaction_hash: 0x71ab...
 pool: main
 amount: 50.0
-apy: 12.0
-tier: platinum
 lock_days: 90
-new_balance: 350.0
+fee: 0.01
 ```
 
 ### Step 5: Withdraw from a liquidity pool
 
-`aitbc wallet liquidity-unstake --stake-id <stake_id>` finds the active liquidity record, enforces the lock period, computes rewards as `principal * (apy/100) * (days_staked/365)`, marks the record completed, and credits `principal + rewards` to the wallet balance.
+`aitbc wallet liquidity-unstake --stake-id <stake_id>` signs and submits a `LIQUIDITY_WITHDRAW` transaction to `POST /rpc/transaction`. The chain enforces the lock: the state transition rejects the withdrawal until the position's `locked_until` has passed, then returns principal plus accrued rewards to the wallet address when the transaction is included in a block. `aitbc wallet liquidity-claim` submits a `LIQUIDITY_CLAIM` for rewards without touching principal.
 
 ```bash
 aitbc wallet --wallet-name staker liquidity-unstake --stake-id liq_a1b2c3d4e5f6
@@ -168,18 +176,13 @@ aitbc wallet --wallet-name staker liquidity-unstake --stake-id liq_a1b2c3d4e5f6
 **Expected output:**
 
 ```
-Withdrawn 51.500000 AITBC (principal: 50.0, rewards: 1.500000)
+Submitted liquidity unstake for stake liq_a1b2c3d4e5f6 (tx=0x8c20...)
+transaction_hash: 0x8c20...
 stake_id: liq_a1b2c3d4e5f6
-pool: main
-principal: 50.0
-rewards: 1.5
-total_returned: 51.5
-days_staked: 91.25
-apy: 12.0
-new_balance: 401.5
+fee: 0.01
 ```
 
-If the lock hasn't expired you'll see `Stake is locked until <unlock_date>` and the command exits non-zero.
+If the lock hasn't expired the node rejects the transaction (HTTP 400 `Lock period not expired`-style error) and the command exits non-zero.
 
 ---
 
@@ -209,11 +212,11 @@ def run(*args: str) -> str:
     return subprocess.run(["aitbc", "wallet", "--wallet-name", "staker", *args],
                           capture_output=True, text=True, check=True).stdout
 
-print(run("stake", "100.0", "--duration", "90"))
+print(run("stake", "--amount", "100.0", "--duration", "90"))
 print(run("staking-info"))
-print(run("unstake", "7"))
-print(run("liquidity-stake", "50.0", "--pool", "main", "--lock-days", "90"))
-print(run("liquidity-unstake", "liq_a1b2c3d4e5f6"))
+print(run("unstake", "--stake-id", "7"))
+print(run("liquidity-stake", "--amount", "50.0", "--pool", "main", "--lock-days", "90"))
+print(run("liquidity-unstake", "--stake-id", "liq_a1b2c3d4e5f6"))
 ```
 
 ---
@@ -222,11 +225,11 @@ print(run("liquidity-unstake", "liq_a1b2c3d4e5f6"))
 
 After completing this scenario, you should be able to:
 
-- Stake AITBC on-chain for a chosen lock duration and receive a stake ID
+- Stake AITBC on-chain for a chosen lock duration and receive a stake ID and transaction hash
 - Inspect active on-chain stakes for your wallet
-- Unstake by stake ID once the lock period allows
-- Stake into a liquidity pool with APY-tiered lock periods
-- Withdraw liquidity stakes with accrued rewards
+- Unstake by stake ID once the lock period allows, with the lock expiry surfaced in output
+- Submit a real on-chain `LIQUIDITY_DEPOSIT` for pool staking
+- Withdraw liquidity stakes on-chain once `locked_until` has passed
 
 ---
 
@@ -239,7 +242,7 @@ aitbc wallet --wallet-name staker staking-info
 # Wallet balance reflects stake/unstake activity
 aitbc wallet --wallet-name staker balance
 
-# Liquidity records are stored in the wallet file
+# Liquidity deposits cache a convenience record (with the on-chain tx hash) in the wallet file
 python -c "import json,pathlib; d=json.load(pathlib.Path.home()/'.aitbc'/'wallets'/'staker.json'); print(len(d.get('liquidity',[])), 'liquidity records')"
 ```
 
@@ -264,5 +267,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-09-15*
+*Version: 1.3*

@@ -1071,7 +1071,7 @@ def aitbc_wallet_transactions(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_wallet_unstake(
-    stake_id: Annotated[str, Field(description="Stake ID.")],
+    stake_id: Annotated[str, Field(description="Numeric stake ID returned by 'stake'.")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
