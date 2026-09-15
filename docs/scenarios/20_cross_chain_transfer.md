@@ -56,7 +56,7 @@ An agent needs to transfer tokens from one chain to another — either via a cro
 ### Setup Required
 
 - A running blockchain node reachable at `http://localhost:8202` (RPC)
-- The exchange service reachable and configured in the AITBC config
+- A file wallet with a funded account on the source chain — `crosschain swap` and `crosschain bridge` sign the lock request with the wallet's private key (the same signing convention as `aitbc transactions send`)
 - For SDK atomic swaps: a deployed `CrossChainAtomicSwap` contract and the `ContractConfig` set up
 
 ### Security Model for This Scenario
@@ -68,6 +68,20 @@ The bridge commands in this scenario exercise the **trusted-custodian bridge pat
 - `bridge_require_merkle_proof = False` (Merkle inclusion proof not required)
 
 The bridge supports a trust-minimized mode with multi-sig, Merkle proofs, and block-header verification, but those layers must be explicitly enabled and supplied with a validator set and source-chain block headers. Operators can inspect the current bridge security posture with `aitbc bridge security-status`.
+
+### What "Real" Means Here (GAP-47)
+
+`crosschain swap` and `crosschain bridge` submit a **signed `BRIDGE_LOCK` transaction** on the source chain. The `from_tx_hash`/`source_tx_hash` they print is the real hash of that on-chain transaction — it is also the bridge `transfer_id`. Settlement then follows the genuine bridge lifecycle:
+
+| Status | Meaning |
+|---|---|
+| `pending` | Lock transaction submitted, awaiting block seal/finality |
+| `locked` | Funds locked on the source chain |
+| `confirmed` | Release recorded on the target chain, awaiting seal |
+| `completed` | Release transaction sealed on the target chain |
+| `failed` / `refunded` | Real failure or refund path |
+
+A swap or bridge that cannot yet settle — because the lock is not sealed, finality is pending, or release infrastructure (`bridge_release_enabled`, validators, headers) is not configured — reports the honest intermediate state. The CLI never prints a `completed` status the bridge did not reach. `--wait` polls the real status endpoint until a terminal state or `--timeout`.
 
 ---
 
@@ -85,23 +99,19 @@ aitbc crosschain rates
 aitbc crosschain rates --from-chain ait-hub --to-chain ait-devnet
 ```
 
-**Expected output (all rates):**
+**Expected output (no rates configured):**
 
 ```
-Cross-chain exchange rates:
+Cross-chain swap rates (operator-configured):
 
-+------------+------------+------------+
-| From Chain | To Chain   | Rate       |
-+============+============+============+
-| ait-hub    | ait-devnet | 1.050000   |
-| ait-hub    | ait-testnet| 1.100000   |
-| ait-devnet | ait-hub    | 0.952381   |
-+------------+------------+------------+
+No configured swap rates; same-asset pairs settle at parity (1.0)
 ```
+
+Rates come from the node's `cross_chain_swap_rates` setting (e.g. `ait-hub::ait-devnet=1.05`). There is no cross-chain AMM, so pairs without a configured rate are refused rather than priced from a fabricated table; same-asset pairs always settle at parity.
 
 ### Step 2: Create a Cross-Chain Swap
 
-Initiate a token swap between two chains. The `--from-chain`, `--to-chain`, `--from-token`, `--to-token`, and `--amount` options are required. Slippage tolerance defaults to 0.01 (1%).
+Initiate a token swap between two chains. The `--from-chain`, `--to-chain`, `--from-token`, `--to-token`, and `--amount` options are required; `--amount` is in AIT and is converted to compute-units for the signed lock. Slippage tolerance defaults to 0.01 (1%). The wallet named by `--wallet` (or the configured default wallet) signs the request; same-asset pairs settle at parity (rate 1.0), other pairs need an operator-configured rate in `cross_chain_swap_rates`.
 
 ```bash
 aitbc crosschain swap \
@@ -111,23 +121,33 @@ aitbc crosschain swap \
     --to-token AIT \
     --amount 100 \
     --slippage 0.02 \
-    --address 0xabc123def456789...
+    --wallet wallet-1 \
+    --wait
 ```
 
 **Expected output:**
 
 ```
-Cross-chain swap created successfully!
+Cross-chain swap locked on the source chain
 
 Swap ID           swap_abc123
+Transfer ID       0x9f2c...        # real BRIDGE_LOCK transaction hash
 From Chain        ait-hub
 To Chain          ait-devnet
 Amount            100
-Expected Amount   103.5
-Rate              1.05
-Total Fees        1.5
+Expected Amount   100
+Rate              1.0
+Total Fees        0.1
 Status            pending
+Source Tx Hash    0x9f2c...
+
+Track swap with: aitbc crosschain status --swap-id swap_abc123
+Swap status: ⏳ pending — lock submitted, awaiting block seal/finality
+Swap status: ✓ confirmed — release recorded on target chain, awaiting seal
+Swap status: ✅ completed — released on target chain
 ```
+
+If the release path is not configured on the target side, `--wait` ends with the honest non-terminal state (e.g. `pending`/`locked`) instead of a fabricated `completed`.
 
 ### Step 3: Check Swap Status
 
@@ -140,23 +160,27 @@ aitbc crosschain status --swap-id swap_abc123
 **Expected output:**
 
 ```
-Swap Status: pending
+⏳ pending — lock submitted, awaiting block seal/finality
 
 Swap ID           swap_abc123
+Transfer ID       0x9f2c...
 From Chain        ait-hub
 To Chain          ait-devnet
 From Token        AIT
 To Token          AIT
 Amount            100
-Expected Amount   103.5
+Expected Amount   100
 Actual Amount     -
 Status            pending
+Lock Block Height -
 Created At        2026-06-25T10:00:00Z
 Completed At      -
-Bridge Fee        1.5
-From Tx Hash      0xfrom123...
+Bridge Fee        0.1
+From Tx Hash      0x9f2c...        # real BRIDGE_LOCK tx hash
 To Tx Hash        -
 ```
+
+`From Tx Hash` is the genuine on-chain lock transaction hash — queryable via the normal transaction/explorer endpoints. `To Tx Hash` only appears once a real release transaction exists on the target chain.
 
 ### Step 4: List Cross-Chain Swaps
 
@@ -194,48 +218,60 @@ aitbc crosschain bridge \
     --target-chain ait-devnet \
     --token AIT \
     --amount 500 \
+    --wallet wallet-1 \
     --recipient 0xrecipient789...
 ```
 
 **Expected output:**
 
 ```
-Cross-chain bridge created successfully!
+Cross-chain bridge lock submitted
 
-Bridge ID         bridge_xyz789
+Bridge ID         0x9f2c...        # transfer id == real source tx hash
 Source Chain      ait-hub
 Target Chain      ait-devnet
 Token             AIT
 Amount            500
-Bridge Fee        5.0
+Bridge Fee        0.5
 Status            pending
+Source Tx Hash    0x9f2c...
+
+Track bridge with: aitbc crosschain bridge-status --bridge-id 0x9f2c...
 ```
 
 ### Step 6: Check Bridge Transaction Status
 
-Track the bridge transaction using the bridge ID.
+Track the bridge transaction using the bridge ID (the transfer id, equal to the source lock transaction hash). `--wait` polls until a terminal state.
 
 ```bash
-aitbc crosschain bridge-status --bridge-id bridge_xyz789
+aitbc crosschain bridge-status --bridge-id 0x9f2c... --wait
 ```
 
 **Expected output:**
 
 ```
-Bridge Status: pending
+⏳ pending — lock submitted, awaiting block seal/finality
 
-Bridge ID           bridge_xyz789
+Bridge ID           0x9f2c...
 Source Chain        ait-hub
 Target Chain        ait-devnet
-Token               AIT
+Asset               AIT
 Amount              500
+Sender              0xsender...
 Recipient Address   0xrecipient789...
 Status              pending
+Lock Sealed         False
+Lock Block Height   -
 Created At          2026-06-25T10:05:00Z
 Completed At        -
-Bridge Fee          5.0
-Source Tx Hash      0xsrc123...
+Source Tx Hash      0x9f2c...
 Target Tx Hash      -
+```
+
+Once the lock is sealed and reaches finality, the node's bridge relayer confirms it automatically (when `bridge_relayer_enabled` and `bridge_release_enabled` are on). To relay a pending transfer manually — fetch its real Merkle proof and submit it to `/rpc/bridge/confirm` — use:
+
+```bash
+aitbc crosschain confirm --transfer-id 0x9f2c... --wallet wallet-1
 ```
 
 ### Step 7: View Liquidity Pools and Trading Stats
@@ -502,8 +538,8 @@ aitbc crosschain status --swap-id swap_abc123
 # Check bridge service is running
 aitbc bridge status
 
-# Verify bridge transaction status
-aitbc crosschain bridge-status --bridge-id bridge_xyz789
+# Verify bridge transaction status (bridge-id == transfer id == source lock tx hash)
+aitbc crosschain bridge-status --bridge-id 0x9f2c...
 
 # Confirm liquidity pools are visible
 aitbc crosschain pools
@@ -530,5 +566,5 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-09-15*
+*Version: 1.3 — GAP-47: swap/bridge now submit signed real BRIDGE_LOCK transactions; statuses come from the genuine bridge lifecycle (`pending`/`locked`/`confirmed`/`completed`/`failed`/`refunded`), `--wait` polls real status, and `crosschain confirm` relays a pending transfer with its Merkle proof.*
