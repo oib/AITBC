@@ -173,7 +173,7 @@ async def _sweep_mempool_forever() -> None:
             _app_logger.warning("Mempool sweep failed: %s", e)
 
 
-def _start_mempool_sweeper() -> "asyncio.Task[None]| None":
+def _start_mempool_sweeper() -> asyncio.Task[None] | None:
     """Start the staleness sweeper, unless the TTL disables it.
 
     Owned by the RPC app rather than main.py: aitbc-blockchain-rpc runs with
