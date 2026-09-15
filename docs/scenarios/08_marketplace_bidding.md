@@ -393,4 +393,4 @@ CLI; `market providers` was a stub; `match` counted rows that carried no offer.
 ---
 
 *Last updated: 2026-09-15*
-*Version: 2.0*
+*Version: 2.1*
