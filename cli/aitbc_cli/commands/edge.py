@@ -10,7 +10,7 @@ import click
 import httpx
 
 from ..config import get_config
-from ..utils import DECIMAL, error, info, output, success, warning
+from ..utils import DECIMAL, error, info, output, resolve_output_format, success, warning
 from ..utils.http_client import NetworkError, get_logger
 
 # Initialize logger
@@ -45,7 +45,7 @@ def status(ctx):
         response.raise_for_status()
         status_data = response.json()
         success("Edge Status:")
-        output(status_data, ctx.obj.get("output_format", "table"))
+        output(status_data, resolve_output_format(ctx))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
@@ -68,7 +68,7 @@ def balance(ctx):
         response.raise_for_status()
         balance_data = response.json()
         success("Edge Wallet Balance:")
-        output(balance_data, ctx.obj.get("output_format", "table"))
+        output(balance_data, resolve_output_format(ctx))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
@@ -98,7 +98,7 @@ def transfer(ctx, to_address: str, amount: Decimal, note: str | None):
         response.raise_for_status()
         result = response.json()
         success(f"Transfer of {amount} to {to_address} submitted")
-        output(result, ctx.obj.get("output_format", "table"))
+        output(result, resolve_output_format(ctx))
     except NetworkError as e:
         error(f"Network error: {e}")
     except Exception as e:
@@ -143,7 +143,8 @@ def island():
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
 @click.option("--role", default="compute-provider", help="Island role")
 @click.option("--is-hub", is_flag=True, help="Mark as hub node")
-def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: bool):
+@click.pass_context
+def join(ctx, island_id: str, island_name: str, chain_id: str, role: str, is_hub: bool):
     """Join an island with the given ID, name, chain, and role."""
     try:
         client = get_edge_client()
@@ -156,7 +157,7 @@ def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: boo
 
         if result.get("success"):
             success(f"Successfully joined island {island_id}")
-            output(result)
+            output(result, resolve_output_format(ctx))
         else:
             error(f"Failed to join island: {result.get('message', 'Unknown error')}")
     except Exception as e:
@@ -169,7 +170,8 @@ def join(island_id: str, island_name: str, chain_id: str, role: str, is_hub: boo
   aitbc edge island leave --island-id island-1"""
 )
 @click.option("--island-id", "island_id", required=True, help="The Island id.")
-def leave(island_id: str):
+@click.pass_context
+def leave(ctx, island_id: str):
     """Leave an island by its ID."""
     try:
         client = get_edge_client()
@@ -179,7 +181,7 @@ def leave(island_id: str):
 
         if result.get("success"):
             success(f"Successfully left island {island_id}")
-            output(result)
+            output(result, resolve_output_format(ctx))
         else:
             error(f"Failed to leave island: {result.get('message', 'Unknown error')}")
     except Exception as e:
@@ -194,7 +196,8 @@ def leave(island_id: str):
 
   aitbc edge island list --output json""",
 )
-def list_islands():
+@click.pass_context
+def list_islands(ctx):
     """List all registered edge islands and their basic info."""
     try:
         client = get_edge_client()
@@ -204,7 +207,7 @@ def list_islands():
 
         islands = result.get("islands", [])
         if islands:
-            output(islands)
+            output(islands, resolve_output_format(ctx))
         else:
             info("No islands found")
     except Exception as e:
@@ -219,14 +222,15 @@ def list_islands():
   aitbc edge island get --island-id island-1 --output json"""
 )
 @click.option("--island-id", "island_id", required=True, help="The Island id.")
-def get(island_id: str):
+@click.pass_context
+def get(ctx, island_id: str):
     """Get details of a specific edge island."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/islands/{island_id}")
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting island details: {str(e)}")
 
@@ -239,7 +243,8 @@ def get(island_id: str):
   aitbc edge island bridge --target-island-id island-2 --output json"""
 )
 @click.option("--target-island-id", "target_island_id", required=True, help="The Target island id.")
-def bridge(target_island_id: str):
+@click.pass_context
+def bridge(ctx, target_island_id: str):
     """Request a bridge to another island."""
     try:
         client = get_edge_client()
@@ -249,7 +254,7 @@ def bridge(target_island_id: str):
 
         if result.get("success"):
             success(f"Bridge request submitted to {target_island_id}")
-            output(result)
+            output(result, resolve_output_format(ctx))
         else:
             error(f"Failed to request bridge: {result.get('message', 'Unknown error')}")
     except Exception as e:
@@ -278,7 +283,8 @@ def gpu():
 @click.option("--architecture", help="Filter by GPU architecture")
 @click.option("--edge-optimized", is_flag=True, help="Filter edge-optimized GPUs")
 @click.option("--min-memory-gb", type=int, help="Minimum memory in GB")
-def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int | None):
+@click.pass_context
+def list_gpus(ctx, architecture: str | None, edge_optimized: bool, min_memory_gb: int | None):
     """List available edge GPUs with optional architecture and memory filters."""
     try:
         client = get_edge_client()
@@ -296,7 +302,7 @@ def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int
 
         gpus = result.get("gpus", [])
         if gpus:
-            output(gpus)
+            output(gpus, resolve_output_format(ctx))
         else:
             info("No GPUs found")
     except Exception as e:
@@ -311,14 +317,15 @@ def list_gpus(architecture: str | None, edge_optimized: bool, min_memory_gb: int
   aitbc edge gpu get-gpu --gpu-id gpu-1 --output json"""
 )
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
-def get_gpu(gpu_id: str):
+@click.pass_context
+def get_gpu(ctx, gpu_id: str):
     """Get details of a specific edge GPU."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/gpu/{gpu_id}")
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting GPU details: {str(e)}")
 
@@ -349,7 +356,8 @@ def remove_gpu(gpu_id: str):
   aitbc edge gpu scan-gpus --miner-id miner-1 --output json"""
 )
 @click.option("--miner-id", "miner_id", required=True, help="The Miner id.")
-def scan_gpus(miner_id: str):
+@click.pass_context
+def scan_gpus(ctx, miner_id: str):
     """Scan GPUs for a miner by miner ID."""
     try:
         client = get_edge_client()
@@ -357,7 +365,7 @@ def scan_gpus(miner_id: str):
         response.raise_for_status()
         result = response.json()
         success(f"GPU scan initiated for miner {miner_id}")
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error scanning GPUs: {str(e)}")
 
@@ -371,14 +379,15 @@ def scan_gpus(miner_id: str):
 )
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.option("--limit", type=int, default=100, help="Number of metrics to return")
-def gpu_metrics(gpu_id: str, limit: int):
+@click.pass_context
+def gpu_metrics(ctx, gpu_id: str, limit: int):
     """Get metrics for a specific edge GPU."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/gpu/{gpu_id}/metrics", params={"limit": limit})
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting GPU metrics: {str(e)}")
 
@@ -403,7 +412,8 @@ def database():
 @click.option("--database-id", "database_id", required=True, help="The Database id.")
 @click.option("--island-id", "island_id", required=True, help="The Island id.")
 @click.option("--capacity-gb", "capacity_gb", required=True, type=int, help="The Capacity gb.")
-def init_db(database_id: str, island_id: str, capacity_gb: int):
+@click.pass_context
+def init_db(ctx, database_id: str, island_id: str, capacity_gb: int):
     """Initialize a new edge database on an island."""
     try:
         client = get_edge_client()
@@ -415,7 +425,7 @@ def init_db(database_id: str, island_id: str, capacity_gb: int):
 
         if result.get("success"):
             success(f"Database {database_id} initialized")
-            output(result)
+            output(result, resolve_output_format(ctx))
         else:
             error(f"Failed to initialize database: {result.get('message', 'Unknown error')}")
     except Exception as e:
@@ -430,7 +440,8 @@ def init_db(database_id: str, island_id: str, capacity_gb: int):
   aitbc edge database list-dbs --island-id island-1"""
 )
 @click.option("--island-id", help="Filter by island ID")
-def list_dbs(island_id: str | None):
+@click.pass_context
+def list_dbs(ctx, island_id: str | None):
     """List edge databases, optionally filtered by island."""
     try:
         client = get_edge_client()
@@ -444,7 +455,7 @@ def list_dbs(island_id: str | None):
 
         databases = result.get("databases", [])
         if databases:
-            output(databases)
+            output(databases, resolve_output_format(ctx))
         else:
             info("No databases found")
     except Exception as e:
@@ -459,14 +470,15 @@ def list_dbs(island_id: str | None):
   aitbc edge database get-db --database-id db-1 --output json"""
 )
 @click.option("--database-id", "database_id", required=True, help="The Database id.")
-def get_db(database_id: str):
+@click.pass_context
+def get_db(ctx, database_id: str):
     """Get details of a specific edge database."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/database/{database_id}")
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting database details: {str(e)}")
 
@@ -495,7 +507,8 @@ def delete_db(database_id: str):
   aitbc edge database sync-db --database-id db-1"""
 )
 @click.option("--database-id", "database_id", required=True, help="The Database id.")
-def sync_db(database_id: str):
+@click.pass_context
+def sync_db(ctx, database_id: str):
     """Sync an edge database by its ID."""
     try:
         client = get_edge_client()
@@ -520,7 +533,7 @@ def sync_db(database_id: str):
             warning(f"Database {database_id}: {result.get('message', 'simulated sync, no data transferred')}")
         else:
             success(f"Database {database_id} synced")
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error syncing database: {str(e)}")
 
@@ -550,7 +563,10 @@ def serve():
 @click.option("--priority", default="normal", help="Request priority")
 @click.option("--job-id", "job_id", default=None, help="Job ID for edge servers that verify escrow")
 @click.option("--escrow-id", "escrow_id", default=None, help="Legacy escrow ID for payment verification")
-def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str, job_id: str | None, escrow_id: str | None):
+@click.pass_context
+def submit_request(
+    ctx, gpu_id: str, model_name: str, input_data: str, priority: str, job_id: str | None, escrow_id: str | None
+):
     """Submit a compute request to a GPU with model name and input data."""
     try:
         import json
@@ -573,7 +589,7 @@ def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str,
 
         if result.get("success"):
             success(f"Compute request {result.get('request_id')} submitted")
-            output(result)
+            output(result, resolve_output_format(ctx))
         else:
             error(f"Failed to submit request: {result.get('message', 'Unknown error')}")
     except Exception as e:
@@ -589,7 +605,8 @@ def submit_request(gpu_id: str, model_name: str, input_data: str, priority: str,
 )
 @click.option("--gpu-id", help="Filter by GPU ID")
 @click.option("--status", help="Filter by status")
-def list_requests(gpu_id: str | None, status: str | None):
+@click.pass_context
+def list_requests(ctx, gpu_id: str | None, status: str | None):
     """List compute requests, optionally filtered by GPU and status."""
     try:
         client = get_edge_client()
@@ -605,7 +622,7 @@ def list_requests(gpu_id: str | None, status: str | None):
 
         requests = result.get("requests", [])
         if requests:
-            output(requests)
+            output(requests, resolve_output_format(ctx))
         else:
             info("No requests found")
     except Exception as e:
@@ -620,14 +637,15 @@ def list_requests(gpu_id: str | None, status: str | None):
   aitbc edge serve get-request --request-id req-123 --output json"""
 )
 @click.option("--request-id", "request_id", required=True, help="The Request id.")
-def get_request(request_id: str):
+@click.pass_context
+def get_request(ctx, request_id: str):
     """Get details of a specific compute request."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/serve/requests/{request_id}")
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting request details: {str(e)}")
 
@@ -658,14 +676,15 @@ def cancel_request(request_id: str):
   aitbc edge serve get-result --request-id req-123 --output json"""
 )
 @click.option("--request-id", "request_id", required=True, help="The Request id.")
-def get_result(request_id: str):
+@click.pass_context
+def get_result(ctx, request_id: str):
     """Get the result of a compute request by its ID."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/serve/requests/{request_id}/result")
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting result: {str(e)}")
 
@@ -691,7 +710,8 @@ def metrics():
 )
 @click.option("--gpu-id", "gpu_id", required=True, help="The Gpu id.")
 @click.option("--metrics", "metrics", required=True, help="The Metrics.")
-def record(gpu_id: str, metrics: str):
+@click.pass_context
+def record(ctx, gpu_id: str, metrics: str):
     """Record metrics for a GPU as a JSON object."""
     try:
         import json
@@ -703,7 +723,7 @@ def record(gpu_id: str, metrics: str):
 
         if result.get("success"):
             success(f"Metrics {result.get('metric_id')} recorded")
-            output(result)
+            output(result, resolve_output_format(ctx))
         else:
             error(f"Failed to record metrics: {result.get('message', 'Unknown error')}")
     except Exception as e:
@@ -719,7 +739,8 @@ def record(gpu_id: str, metrics: str):
 )
 @click.option("--gpu-id", help="Filter by GPU ID")
 @click.option("--limit", type=int, default=100, help="Number of metrics to return")
-def list_metrics(gpu_id: str | None, limit: int):
+@click.pass_context
+def list_metrics(ctx, gpu_id: str | None, limit: int):
     """List edge metrics, optionally filtered by GPU."""
     try:
         client = get_edge_client()
@@ -733,7 +754,7 @@ def list_metrics(gpu_id: str | None, limit: int):
 
         metrics = result.get("metrics", [])
         if metrics:
-            output(metrics)
+            output(metrics, resolve_output_format(ctx))
         else:
             info("No metrics found")
     except Exception as e:
@@ -748,14 +769,15 @@ def list_metrics(gpu_id: str | None, limit: int):
   aitbc edge metrics get-metric --metric-id metric-123 --output json"""
 )
 @click.option("--metric-id", "metric_id", required=True, help="The Metric id.")
-def get_metric(metric_id: str):
+@click.pass_context
+def get_metric(ctx, metric_id: str):
     """Get details of a specific edge metric."""
     try:
         client = get_edge_client()
         response = client.get(f"/v1/metrics/{metric_id}")
         response.raise_for_status()
         result = response.json()
-        output(result)
+        output(result, resolve_output_format(ctx))
     except Exception as e:
         error(f"Error getting metric details: {str(e)}")
 
