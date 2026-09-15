@@ -9,7 +9,6 @@ import pytest
 def gov_ctx_obj():
     return {
         "output_format": "json",
-        "output_format": "json",
         "url": None,
         "api_key": None,
         "verbose": 0,
