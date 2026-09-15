@@ -44,6 +44,7 @@ import aitbc_mcp_cli_tools_generated_grant  # noqa: F401
 import aitbc_mcp_cli_tools_generated_health  # noqa: F401
 import aitbc_mcp_cli_tools_generated_http  # noqa: F401
 import aitbc_mcp_cli_tools_generated_ipfs  # noqa: F401
+import aitbc_mcp_cli_tools_generated_liquidity_stake  # noqa: F401
 import aitbc_mcp_cli_tools_generated_list  # noqa: F401
 import aitbc_mcp_cli_tools_generated_market  # noqa: F401
 import aitbc_mcp_cli_tools_generated_messaging  # noqa: F401
@@ -66,6 +67,7 @@ import aitbc_mcp_cli_tools_generated_script  # noqa: F401
 import aitbc_mcp_cli_tools_generated_security  # noqa: F401
 import aitbc_mcp_cli_tools_generated_service  # noqa: F401
 import aitbc_mcp_cli_tools_generated_simulate  # noqa: F401
+import aitbc_mcp_cli_tools_generated_stake  # noqa: F401
 import aitbc_mcp_cli_tools_generated_start  # noqa: F401
 import aitbc_mcp_cli_tools_generated_stop  # noqa: F401
 import aitbc_mcp_cli_tools_generated_sync  # noqa: F401
@@ -73,6 +75,7 @@ import aitbc_mcp_cli_tools_generated_system  # noqa: F401
 import aitbc_mcp_cli_tools_generated_tee  # noqa: F401
 import aitbc_mcp_cli_tools_generated_trade  # noqa: F401
 import aitbc_mcp_cli_tools_generated_transactions  # noqa: F401
+import aitbc_mcp_cli_tools_generated_unstake  # noqa: F401
 import aitbc_mcp_cli_tools_generated_update  # noqa: F401
 import aitbc_mcp_cli_tools_generated_version  # noqa: F401
 import aitbc_mcp_cli_tools_generated_wallet  # noqa: F401

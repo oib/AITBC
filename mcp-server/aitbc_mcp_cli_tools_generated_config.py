@@ -444,7 +444,7 @@ def aitbc_config_profiles_load(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Load a saved configuration profile into the current directory.."""
+    """Load a saved configuration profile into the active config file.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

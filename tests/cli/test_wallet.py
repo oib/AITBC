@@ -433,8 +433,9 @@ class TestWalletCommands:
         assert str(data["stake_id"]) == str(stake_id)
 
     def test_unstake_invalid_id(self, runner, temp_wallet, mock_config):
-        """Test unstaking with invalid stake ID — CLI delegates to blockchain RPC."""
-        # v0.5.17 B6: Stake ID validation is now done by blockchain RPC.
+        """Test unstaking with an invalid stake ID — rejected before any RPC call."""
+        # Malformed (non-numeric) stake IDs fail client-side; unknown numeric
+        # IDs are still rejected by the blockchain RPC itself.
         result = runner.invoke(
             wallet,
             ["--wallet-path", temp_wallet, "unstake", "--stake-id", "nonexistent_id"],

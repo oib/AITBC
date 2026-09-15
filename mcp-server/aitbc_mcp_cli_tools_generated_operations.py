@@ -552,7 +552,7 @@ def aitbc_operations_governance_stake(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Stake tokens for enhanced voting power.."""
+    """Stake tokens for enhanced voting power (governance-service record).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
