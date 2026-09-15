@@ -270,6 +270,16 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
             # the marketplace CLI which does not manage wallet private keys (V23-90).
             if not sender:
                 raise HTTPException(status_code=400, detail="Sender required")
+            # Enforce the value-zero premise the exemption rests on: consensus has no
+            # GPU_MARKETPLACE branch, so an unsigned offer carrying an amount falls
+            # through to the generic transfer and debits `sender` — an address the
+            # caller does not control — with no signature anywhere in the path.
+            try:
+                offer_amount = int(tx_data.get("amount", 0) or 0)
+            except (TypeError, ValueError):
+                raise HTTPException(status_code=400, detail="transaction.amount must be an integer") from None
+            if offer_amount != 0:
+                raise HTTPException(status_code=403, detail="Offer transactions must have amount=0")
             # P2.5: software service offers (Whisper, FFmpeg, Ollama) do not require a prior
             # on-chain bond to list; hardware bundle offers still do if the bond minimum is set.
             if is_hardware_offer:

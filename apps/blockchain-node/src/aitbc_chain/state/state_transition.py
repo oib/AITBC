@@ -51,6 +51,13 @@ if _BOND_BURN_ADDRESS:
 else:
     _BOND_BURN_ADDRESS = canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
+# Transaction types that are forbidden from carrying value at consensus level.
+# GPU_MARKETPLACE is included because every legitimate action (offer,
+# software_offer, software_job, cancel, rating) is a value-zero record; there is
+# no dedicated branch for it in apply_transaction, so a nonzero amount would
+# execute as a plain transfer.
+_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKETPLACE"})
+
 
 def _governance_executors(session: Session, chain_id: str) -> frozenset[str] | None:
     """Authorized GOVERNANCE_EXECUTE senders from the on-chain
@@ -441,9 +448,9 @@ class StateTransition:
                     False,
                     f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor",
                 )
-        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE"} and value != 0:
+        if tx_type in _ZERO_VALUE_TX_TYPES and value != 0:
             return (False, f"{tx_type} transactions must have value=0, got {value}")
-        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE"}:
+        if tx_type in _ZERO_VALUE_TX_TYPES:
             total_cost = fee
         else:
             total_cost = value + fee
@@ -703,7 +710,7 @@ class StateTransition:
                     # Override the recipient for the balance update below.
                     recipient_addr = escrow_addr
         sender_account = session.get(Account, (chain_id, sender_addr))
-        if tx_type in {"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE"}:
+        if tx_type in _ZERO_VALUE_TX_TYPES:
             total_cost = fee
         else:
             total_cost = value + fee
