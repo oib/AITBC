@@ -211,7 +211,9 @@ class TestWalletCommands:
         # This test verifies the command handles a non-existent wallet gracefully.
         wallet_path = str(tmp_path / "new_wallet.json")
         result = runner.invoke(
-            wallet, ["--wallet-path", wallet_path, "balance"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            wallet,
+            ["--wallet-path", wallet_path, "balance"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
         # Balance command should not crash — it may return 0 or an error about no on-chain account
         assert result.exit_code in (0, 1)
@@ -279,7 +281,9 @@ class TestWalletCommands:
     def test_address_command(self, runner, temp_wallet, mock_config):
         """Test address command"""
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "address"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            wallet,
+            ["--wallet-path", temp_wallet, "address"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -288,7 +292,11 @@ class TestWalletCommands:
 
     def test_stats_command(self, runner, temp_wallet, mock_config):
         """Test wallet statistics"""
-        result = runner.invoke(wallet, ["--wallet-path", temp_wallet, "stats"], obj={"config": mock_config, "output": "json", "output_format": "json"})
+        result = runner.invoke(
+            wallet,
+            ["--wallet-path", temp_wallet, "stats"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
+        )
 
         assert result.exit_code == 0
         data = extract_json_from_output(result.output)
@@ -454,7 +462,9 @@ class TestWalletCommands:
 
         # Check staking info
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "staking-info"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            wallet,
+            ["--wallet-path", temp_wallet, "staking-info"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -547,7 +557,9 @@ class TestWalletCommands:
         # v0.5.17 B6: Rewards are tracked locally in the wallet file; stake commands
         # use daemon RPC but rewards summary reads the local file.
         result = runner.invoke(
-            wallet, ["--wallet-path", temp_wallet, "rewards"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            wallet,
+            ["--wallet-path", temp_wallet, "rewards"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
         # Rewards command may return 0 or 1 depending on wallet state
         assert result.exit_code in (0, 1)
