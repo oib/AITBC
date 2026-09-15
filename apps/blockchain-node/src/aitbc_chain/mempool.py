@@ -500,9 +500,7 @@ class DatabaseMempool:
                 session.commit()
                 removed = result.rowcount if result.rowcount is not None else len(stale_chains)
             for chain_id in set(stale_chains):
-                metrics_registry.increment(
-                    f"mempool_evictions_total_{chain_id}", float(stale_chains.count(chain_id))
-                )
+                metrics_registry.increment(f"mempool_evictions_total_{chain_id}", float(stale_chains.count(chain_id)))
                 self._update_gauge(chain_id)
         return removed
 
