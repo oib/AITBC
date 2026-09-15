@@ -601,7 +601,9 @@ class BridgeTransferMixin(BridgeBase):
             # the mempool entry carries no ``payload`` key, so the sealed row
             # has ``payload={}`` and the column is the only reliable marker.
             lock_txs = [
-                tx for tx in block.transactions if (tx.type or (tx.payload or {}).get("type", "")).upper() == "BRIDGE_LOCK"
+                tx
+                for tx in block.transactions
+                if (tx.type or (tx.payload or {}).get("type", "")).upper() == "BRIDGE_LOCK"
             ]
             transfer_ids = [tx.tx_hash for tx in lock_txs]
             records = session.exec(
@@ -1003,30 +1005,33 @@ class BridgeTransferMixin(BridgeBase):
         )
         while True:
             try:
-                chains = self._known_chains()
-                for chain_id in chains:
-                    try:
-                        stored = self._sync_local_chain_headers(chain_id)
-                        if stored:
-                            logger.debug("Stored %s bridge headers for chain %s", stored, chain_id)
-                    except Exception:
-                        logger.exception("Bridge header sync failed for chain %s", chain_id)
-                    if relayer_enabled:
-                        try:
-                            relayed = self._relay_pending_transfers(chain_id)
-                            if relayed:
-                                logger.info("Relayed %s bridge transfers on chain %s", relayed, chain_id)
-                        except Exception:
-                            logger.exception("Bridge relayer failed for chain %s", chain_id)
-                    try:
-                        count = self._finalize_confirmed_transfers(chain_id)
-                        if count:
-                            logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
-                    except Exception:
-                        logger.exception("Bridge finalizer failed for chain %s", chain_id)
+                for chain_id in self._known_chains():
+                    self._finalizer_pass(chain_id, relayer_enabled)
             except Exception:
                 logger.exception("Bridge release finalizer loop failed")
             await asyncio.sleep(interval)
+
+    def _finalizer_pass(self, chain_id: str, relayer_enabled: bool) -> None:
+        """Run one finalizer pass for a single chain: header sync, relay, finalize."""
+        try:
+            stored = self._sync_local_chain_headers(chain_id)
+            if stored:
+                logger.debug("Stored %s bridge headers for chain %s", stored, chain_id)
+        except Exception:
+            logger.exception("Bridge header sync failed for chain %s", chain_id)
+        if relayer_enabled:
+            try:
+                relayed = self._relay_pending_transfers(chain_id)
+                if relayed:
+                    logger.info("Relayed %s bridge transfers on chain %s", relayed, chain_id)
+            except Exception:
+                logger.exception("Bridge relayer failed for chain %s", chain_id)
+        try:
+            count = self._finalize_confirmed_transfers(chain_id)
+            if count:
+                logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
+        except Exception:
+            logger.exception("Bridge finalizer failed for chain %s", chain_id)
 
     def _build_transfer_from_record(self, record: CrossChainTransfer, proof: dict[str, Any] | None = None) -> BridgeTransfer:
         """Build BridgeTransfer from database record."""
