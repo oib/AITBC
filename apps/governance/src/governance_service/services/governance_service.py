@@ -178,6 +178,7 @@ class GovernanceService:
         if proposal.status == ProposalStatus.DRAFT:
             proposal.status = ProposalStatus.ACTIVE
 
+        submission_failed = False
         if settings.enable_onchain_submission and settings.proposer_private_key:
             try:
                 from aitbc.governance.onchain import build_proposal_tx
@@ -217,6 +218,7 @@ class GovernanceService:
                 # proposal being recorded. It does, however, leave the proposal without a
                 # block height — and execute_proposal refuses to execute such a proposal,
                 # because the timelock cannot be verified without one. Warn accordingly.
+                submission_failed = True
                 import logging
 
                 logging.getLogger(__name__).warning(
@@ -228,11 +230,13 @@ class GovernanceService:
                 )
 
         # V23-18 off-chain fallback: the mempool-admission response carries no
-        # block_height even when on-chain submission succeeds, so any proposal
+        # block_height even when on-chain submission succeeds, so a proposal
         # still missing a height — submission off, or on but the tx is only
         # queued — queries the chain directly and records voting_ends_block so
-        # the timelock can be measured from the end of voting.
-        if proposal.block_height is None:
+        # the timelock can be measured from the end of voting. A submission that
+        # *failed* is deliberately excluded: its missing heights are what block
+        # the proposal from executing while require_execution_timelock is set.
+        if proposal.block_height is None and not submission_failed:
             try:
                 proposal.block_height = await self._blockchain.get_block_height(proposal.chain_id)
                 voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
