@@ -400,9 +400,7 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
         _logger.error("Swap record persist failed for transfer %s: %s", transfer.transfer_id, e)
         raise HTTPException(
             status_code=500,
-            detail=(
-                f"Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}"
-            ),
+            detail=(f"Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}"),
         ) from e
 
     return {
@@ -435,7 +433,7 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
 
 @router.get("/cross-chain/swap/{swap_id}", summary="Get cross-chain swap status")
 @rate_limit(rate=100, per=60)
-async def get_cross_chain_swap(swap_id: str) -> dict[str, Any]:
+async def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]:
     """Return the real status of a cross-chain swap."""
     bridge = _get_bridge()
     swap = None
@@ -443,9 +441,7 @@ async def get_cross_chain_swap(swap_id: str) -> dict[str, Any]:
         try:
             with bridge._session_for(chain_id) as session:
                 record = session.exec(
-                    select(CrossChainSwap).where(
-                        (CrossChainSwap.swap_id == swap_id) | (CrossChainSwap.transfer_id == swap_id)
-                    )
+                    select(CrossChainSwap).where((CrossChainSwap.swap_id == swap_id) | (CrossChainSwap.transfer_id == swap_id))
                 ).first()
         except Exception:
             continue
@@ -554,7 +550,7 @@ async def create_cross_chain_bridge(request: Request, bridge_data: dict[str, Any
 
 @router.get("/cross-chain/bridge/{bridge_id}", summary="Get cross-chain bridge status")
 @rate_limit(rate=100, per=60)
-async def get_cross_chain_bridge(bridge_id: str) -> dict[str, Any]:
+async def get_cross_chain_bridge(request: Request, bridge_id: str) -> dict[str, Any]:
     """Return the real status of a cross-chain bridge transfer.
 
     ``bridge_id`` is the transfer id (identical to the source lock tx hash).
@@ -610,9 +606,7 @@ async def get_cross_chain_stats(request: Request) -> dict[str, Any]:
                     if transfer.transfer_id in seen_transfers:
                         continue
                     seen_transfers.add(transfer.transfer_id)
-                    entry = bridge_stats.setdefault(
-                        transfer.status, {"status": transfer.status, "count": 0, "volume": 0}
-                    )
+                    entry = bridge_stats.setdefault(transfer.status, {"status": transfer.status, "count": 0, "volume": 0})
                     entry["count"] += 1
                     entry["volume"] += transfer.amount
         except Exception:
