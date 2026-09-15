@@ -54,7 +54,7 @@ class TestConfigCommands:
     def test_show_config(self, mock_get_config, runner, mock_config):
         """Test showing current configuration"""
         mock_get_config.return_value = mock_config
-        result = runner.invoke(config, ["show"], obj={"config": mock_config, "output_format": "json"})
+        result = runner.invoke(config, ["show"], obj={"config": mock_config, "output": "json", "output_format": "json"})
 
         assert result.exit_code == 0
         data = json.loads(result.output)
@@ -153,7 +153,7 @@ class TestConfigCommands:
     def test_set_invalid_timeout(self, runner, mock_config):
         """Test setting invalid timeout"""
         result = runner.invoke(
-            config, ["set", "--key", "timeout", "--value", "invalid"], obj={"config": mock_config, "output_format": "json"}
+            config, ["set", "--key", "timeout", "--value", "invalid"], obj={"config": mock_config, "output": "json", "output_format": "json"}
         )
 
         assert result.exit_code != 0
@@ -162,7 +162,7 @@ class TestConfigCommands:
     def test_set_invalid_key(self, runner, mock_config):
         """Test setting invalid configuration key"""
         result = runner.invoke(
-            config, ["set", "--key", "invalid_key", "--value", "value"], obj={"config": mock_config, "output_format": "json"}
+            config, ["set", "--key", "invalid_key", "--value", "value"], obj={"config": mock_config, "output": "json", "output_format": "json"}
         )
 
         assert result.exit_code != 0
@@ -198,7 +198,7 @@ class TestConfigCommands:
         with runner.isolated_filesystem(temp_dir=tmp_path), patch("pathlib.Path.home", return_value=tmp_path):
             actual_config_file = tmp_path / ".aitbc.yaml"
 
-            result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output_format": "json"})
+            result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output": "json", "output_format": "json"})
 
             assert result.exit_code == 0
             # Verify editor was called
@@ -217,7 +217,7 @@ class TestConfigCommands:
         with runner.isolated_filesystem(temp_dir=tmp_path), patch("pathlib.Path.home", return_value=tmp_path):
             actual_config_file = tmp_path / ".aitbc.yaml"
 
-            result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output_format": "json"})
+            result = runner.invoke(config, ["edit"], obj={"config": mock_config, "output": "json", "output_format": "json"})
 
             assert result.exit_code == 0
             mock_run.assert_called_once()
@@ -239,7 +239,7 @@ class TestConfigCommands:
             local_config = Path.cwd() / ".aitbc.yaml"
             shutil.copy2(temp_config_file, local_config)
 
-            result = runner.invoke(config, ["reset"], obj={"config": mock_config, "output_format": "json"}, input="n\n")
+            result = runner.invoke(config, ["reset"], obj={"config": mock_config, "output": "json", "output_format": "json"}, input="n\n")
 
             assert result.exit_code == 0
             # File should still exist
@@ -266,7 +266,7 @@ class TestConfigCommands:
     def test_reset_no_config(self, runner, mock_config, tmp_path):
         """Test reset when no config file exists"""
         with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
-            result = runner.invoke(config, ["reset"], obj={"config": mock_config, "output_format": "json"})
+            result = runner.invoke(config, ["reset"], obj={"config": mock_config, "output": "json", "output_format": "json"})
 
             assert result.exit_code == 0
             assert "No configuration file found" in result.output
@@ -334,7 +334,7 @@ class TestConfigCommands:
     def test_export_no_config(self, runner, mock_config, tmp_path):
         """Test export when no config file exists"""
         with runner.isolated_filesystem(), patch("pathlib.Path.home", return_value=tmp_path):
-            result = runner.invoke(config, ["export"], obj={"config": mock_config, "output_format": "json"})
+            result = runner.invoke(config, ["export"], obj={"config": mock_config, "output": "json", "output_format": "json"})
 
             assert result.exit_code != 0
             assert "No configuration file found" in result.output
@@ -422,7 +422,7 @@ class TestConfigCommands:
     def test_import_nonexistent_file(self, runner, mock_config):
         """Test importing non-existent file"""
         result = runner.invoke(
-            config, ["import-config", "--file-path", "/nonexistent/file.yaml"], obj={"config": mock_config, "output_format": "json"}
+            config, ["import-config", "--file-path", "/nonexistent/file.yaml"], obj={"config": mock_config, "output": "json", "output_format": "json"}
         )
 
         assert result.exit_code != 0
@@ -583,7 +583,7 @@ class TestConfigCommands:
             mock_home.return_value = tmp_path
 
             result = runner.invoke(
-                config, ["profiles", "delete", "--name", "keep_me"], obj={"config": mock_config, "output_format": "json"}, input="n\n"
+                config, ["profiles", "delete", "--name", "keep_me"], obj={"config": mock_config, "output": "json", "output_format": "json"}, input="n\n"
             )
 
             assert result.exit_code == 0
