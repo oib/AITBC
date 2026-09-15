@@ -6,7 +6,6 @@ Sets up environment, initializes genesis if needed, and starts the node.
 
 from __future__ import annotations
 
-import hashlib
 import os
 import subprocess
 import sys
@@ -14,35 +13,42 @@ from pathlib import Path
 
 from eth_account import Account
 
-# Deterministic 0x address for the genesis proposer; matches _derive_address("aitbc1genesis").
-PROPOSER_ID = Account.from_key(hashlib.sha256(b"aitbc1genesis").digest()).address
-
 # Configuration
 CHAIN_ID = "ait-mainnet"
 DATA_DIR = Path("/var/lib/aitbc/data/ait-mainnet")
 DB_PATH = DATA_DIR / "chain.db"
-KEYS_DIR = Path("/var/lib/aitbc/keystore")
 
-# Check for proposer key in keystore
-PROPOSER_KEY_FILE = KEYS_DIR / "aitbc1genesis.json"
-if not PROPOSER_KEY_FILE.exists():
-    print(f"[!] Proposer keystore not found at {PROPOSER_KEY_FILE}")
-    print("    Run scripts/keystore.py to generate it first.")
+# The proposer identity is config-driven: PROPOSER_KEY / PROPOSER_ID come from
+# the node environment (/etc/aitbc/node.env on the fleet). This launcher used to
+# derive the id from sha256("aitbc1genesis") -- a retired host-name key whose
+# address (0xEe10...) is not the address the fleet proposes under -- and to
+# require a keystore file of the same retired name. Both made the script refuse
+# or misidentify every node it ran on.
+proposer_key = os.getenv("PROPOSER_KEY")
+if not proposer_key:
+    print("[!] PROPOSER_KEY environment variable not set.")
+    print("    Set PROPOSER_KEY to the hex private key of this node's proposer (see /etc/aitbc/node.env).")
+    sys.exit(1)
+
+# PROPOSER_ID is whatever the configured key controls. A PROPOSER_ID that
+# disagrees with it is a config error: the node would sign blocks under the key
+# while naming another identity, so refuse rather than pick one silently.
+try:
+    derived_proposer_id = Account.from_key(proposer_key.strip()).address
+except Exception:
+    print("[!] PROPOSER_KEY is not a valid secp256k1 private key.")
+    sys.exit(1)
+
+proposer_id = os.getenv("PROPOSER_ID", derived_proposer_id)
+if proposer_id.strip().lower() != derived_proposer_id.lower():
+    print(f"[!] PROPOSER_ID={proposer_id} does not match the configured PROPOSER_KEY (which controls {derived_proposer_id}).")
     sys.exit(1)
 
 # Set environment variables
 os.environ["CHAIN_ID"] = CHAIN_ID
 os.environ["SUPPORTED_CHAINS"] = CHAIN_ID
 os.environ["DB_PATH"] = str(DB_PATH)
-os.environ["PROPOSER_ID"] = PROPOSER_ID
-# PROPOSER_KEY will be read from keystore by the node? Currently .env expects hex directly.
-# We can read the keystore, decrypt, and set PROPOSER_KEY, but the node doesn't support that out of box.
-# So we require that PROPOSER_KEY is set in .env file manually after key generation.
-# This script will check for PROPOSER_KEY env var or fail with instructions.
-if not os.getenv("PROPOSER_KEY"):
-    print("[!] PROPOSER_KEY environment variable not set.")
-    print("    Please edit /opt/aitbc/apps/blockchain-node/.env and set PROPOSER_KEY to the hex private key of aitbc1genesis.")
-    sys.exit(1)
+os.environ["PROPOSER_ID"] = proposer_id
 
 # Ensure data directory
 DATA_DIR.mkdir(parents=True, exist_ok=True)
