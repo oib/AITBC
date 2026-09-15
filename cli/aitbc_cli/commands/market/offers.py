@@ -656,24 +656,123 @@ def match(ctx, output_format: str):
         raise click.Abort() from e
 
 
+def _group_by_provider(offers: list[dict[str, Any]]) -> dict[str, list[dict[str, Any]]]:
+    """Bucket offers by the identity that sells them.
+
+    provider_address is the wallet for a software offer and the miner id for a
+    hardware one, so it is the only key both shapes always carry; node_id is the
+    fallback for a listing that predates it.
+    """
+    grouped: dict[str, list[dict[str, Any]]] = {}
+    for offer in offers:
+        provider = str(offer.get("provider_address") or offer.get("node_id") or "unknown")
+        grouped.setdefault(provider, []).append(offer)
+    return grouped
+
+
+def _provider_rating(offers: list[dict[str, Any]]) -> str:
+    """Summarize a provider's standing from the offers it has listed.
+
+    Coordinator trust score first when any offer carries one -- it is the
+    canonical figure -- otherwise the marketplace star average, weighted by how
+    many reviews each offer actually has so a single 5-star listing does not
+    outvote a well-reviewed one.
+    """
+    scored = [o for o in offers if o.get("trust_score") is not None]
+    if scored:
+        best = max(float(o["trust_score"]) for o in scored)
+        return f"{best / 1000:.2f} trust"
+    reviews = sum(int(o.get("rating_count", 0) or 0) for o in offers)
+    if not reviews:
+        return "unrated"
+    weighted = sum(float(o.get("avg_rating", 0) or 0) * int(o.get("rating_count", 0) or 0) for o in offers)
+    return f"{weighted / reviews:.1f} ({reviews} reviews)"
+
+
 @market.command(
     epilog="""Examples:
 
   aitbc market providers
 
-  aitbc market providers --output json"""
+  aitbc market providers --format json"""
 )
+@OUTPUT_FORMAT_OPTION
 @click.pass_context
-def providers(ctx):
-    """Query island members for available GPU providers."""
+def providers(ctx, output_format: str):
+    """List the providers behind the live marketplace offers.
+
+    The per-offer views are `market list` and `market match`; this is the same
+    population collapsed to one row per seller, which is what you want when
+    choosing who to buy from rather than what to buy.
+    """
     try:
-        # Load CLI config
-        _ = get_config()
+        fmt = resolve_output_format(ctx, output_format)
+        config = get_config()
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
-        # Query P2P network for providers
-        info("Note: GPU provider query via P2P network to be implemented")
-        info("Use 'aitbc gpu list' to see local registered GPUs")
+        offers: list[dict[str, Any]] = []
+        try:
+            result = http_client.get("/v1/marketplace/offer")
+            offers = (result or {}).get("offers") or []
+        except NetworkError as e:
+            logger.warning("Marketplace service not available: %s", e)
 
+        if not offers:
+            # Fall back to the chain. The match endpoint returns listings only,
+            # and its projection names the seller differently.
+            try:
+                result = http_client.get("/rpc/transactions/marketplace/match")
+                offers = [
+                    {**m, "provider_address": m.get("seller"), "status": "active"}
+                    for m in _purchasable_matches((result or {}).get("matches", []))
+                ]
+            except NetworkError as e:
+                error(f"Network error: {e}")
+                raise click.Abort() from e
+
+        if not offers:
+            info("No providers are listing offers right now.")
+            return
+
+        grouped = _group_by_provider(offers)
+
+        # Reputation is one HTTP call per lookup, so ask once per provider rather
+        # than once per offer the way `market list` does.
+        coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
+        for provider_offers in grouped.values():
+            probe = provider_offers[0]
+            _reputation_for_offer(http_client, coordinator_url, probe)
+            if probe.get("trust_score") is not None:
+                for offer in provider_offers[1:]:
+                    offer["trust_score"] = probe["trust_score"]
+
+        rows = []
+        for provider, provider_offers in sorted(grouped.items()):
+            active = [o for o in provider_offers if _is_active(o.get("status"))]
+            services = sorted({str(o.get("service_type") or "?") for o in provider_offers})
+            gpus = sorted({str(o.get("gpu_name")) for o in provider_offers if o.get("gpu_name")})
+            endpoint = next((str(o.get("public_endpoint") or o.get("endpoint") or "") for o in provider_offers), "")
+            node_id = next((str(o.get("node_id") or "") for o in provider_offers if o.get("node_id")), "")
+            rows.append(
+                {
+                    "Provider": provider,
+                    "Node ID": node_id or "N/A",
+                    "Services": ", ".join(services),
+                    "Offers": len(provider_offers),
+                    "Active": len(active),
+                    "GPU": ", ".join(gpus) or "N/A",
+                    "Endpoint": endpoint or "N/A",
+                    "Rating": _provider_rating(provider_offers),
+                }
+            )
+
+        output(rows, fmt, title="Marketplace Providers")
+        if fmt not in ("json", "yaml", "csv"):
+            success(f"Total: {len(rows)} provider(s), {len(offers)} offer(s)")
+
+    except click.Abort:
+        raise
     except Exception as e:
         error(f"Error querying GPU providers: {str(e)}")
         raise click.Abort() from e
