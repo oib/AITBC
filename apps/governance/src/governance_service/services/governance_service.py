@@ -131,7 +131,7 @@ class GovernanceService:
                 text(
                     """INSERT INTO governance_profiles
                     (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
-                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, NOW(), NULL)
+                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, CURRENT_TIMESTAMP, NULL)
                     ON CONFLICT (profile_id) DO NOTHING"""
                 ),
                 {"profile_id": proposer_id, "user_id": proposer_id},
@@ -289,7 +289,7 @@ class GovernanceService:
                 text(
                     """INSERT INTO governance_profiles
                     (profile_id, user_id, role, voting_power, delegated_power, total_votes_cast, proposals_created, proposals_passed, delegate_to, joined_at, last_voted_at)
-                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, NOW(), NULL)
+                    VALUES (:profile_id, :user_id, 'MEMBER', 0, 0, 0, 0, 0, NULL, CURRENT_TIMESTAMP, NULL)
                     ON CONFLICT (profile_id) DO NOTHING"""
                 ),
                 {"profile_id": voter_id, "user_id": voter_id},
