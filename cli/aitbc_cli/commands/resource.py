@@ -2,15 +2,19 @@
 
 Wired to the coordinator-api ``/v1/agent-performance`` endpoints:
 - ``allocate`` → POST /v1/agent-performance/resources/allocate
+- ``status`` → GET /v1/agent-performance/resources
+- ``deallocate`` → POST /v1/agent-performance/resources/{id}/deallocate
 - ``optimize`` → POST /v1/agent-performance/optimize
 """
+
+from typing import Any
 
 import click
 
 from ..config import get_config
 from ..utils import error, output, success
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger, service_root_url
 
 logger = get_logger(__name__)
 
@@ -31,13 +35,18 @@ _PERFORMANCE_METRICS = [
 
 def _client() -> AITBCHTTPClient:
     config = get_config()
-    return AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=30)
+    base_url = service_root_url(config.coordinator_api_url, "http://localhost:8203")
+    return AITBCHTTPClient(base_url=base_url, timeout=30, **auth_client_kwargs(config_key=config.api_key))
 
 
 @click.group(
     epilog="""Examples:
 
   aitbc resource allocate --agent-id agent-1 --cpu-cores 4 --memory-gb 16
+
+  aitbc resource status --agent-id agent-1
+
+  aitbc resource deallocate alloc_12345 --force
 
   aitbc resource optimize --agent-id agent-1 --target-metric latency"""
 )
@@ -167,4 +176,81 @@ def optimize(
         ctx.exit(1)
     except Exception as e:
         error(f"Optimization failed: {e}")
+        ctx.exit(1)
+
+
+@resource.command(
+    epilog="""Examples:
+
+  aitbc resource status
+
+  aitbc resource status --agent-id agent-1 --status allocated"""
+)
+@click.option("--agent-id", help="Filter by agent ID")
+@click.option(
+    "--status",
+    "status_filter",
+    type=click.Choice(["pending", "allocated", "active", "released", "completed", "failed"]),
+    help="Filter by allocation status",
+)
+@click.option("--limit", type=int, default=50, help="Max allocations to list")
+@click.pass_context
+def status(ctx, agent_id: str | None, status_filter: str | None, limit: int):
+    """List resource allocations from the coordinator API."""
+    params: dict[str, Any] = {"limit": limit}
+    if agent_id:
+        params["agent_id"] = agent_id
+    if status_filter:
+        params["status"] = status_filter
+    try:
+        rows = _client().get("/v1/agent-performance/resources", params=params)
+        if not isinstance(rows, list):
+            rows = [rows] if rows else []
+        output(
+            [
+                {
+                    "Allocation": r.get("allocation_id"),
+                    "Agent": r.get("agent_id"),
+                    "Status": r.get("status"),
+                    "CPU": r.get("cpu_cores"),
+                    "Mem (GB)": r.get("memory_gb"),
+                    "GPU": r.get("gpu_count"),
+                    "Allocated": (r.get("allocated_at") or "")[:19],
+                }
+                for r in rows
+            ],
+            ctx.obj.get("output_format", "table"),
+            title="Resource Allocations",
+        )
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)
+    except Exception as e:
+        error(f"Failed to list allocations: {e}")
+        ctx.exit(1)
+
+
+@resource.command(
+    epilog="""Examples:
+
+  aitbc resource deallocate alloc_12345
+
+  aitbc resource deallocate alloc_12345 --force"""
+)
+@click.argument("allocation_id")
+@click.option("--force", is_flag=True, help="Deallocate without confirmation")
+@click.pass_context
+def deallocate(ctx, allocation_id: str, force: bool):
+    """Release a resource allocation by its allocation ID."""
+    if not force:
+        click.confirm(f"Release allocation {allocation_id}?", abort=True)
+    try:
+        result = _client().post(f"/v1/agent-performance/resources/{allocation_id}/deallocate")
+        success(f"Allocation {allocation_id} released (status: {result.get('status', 'released')})")
+        output(result, ctx.obj.get("output_format", "table"))
+    except NetworkError as e:
+        error(f"Network error: {e}")
+        ctx.exit(1)
+    except Exception as e:
+        error(f"Deallocation failed: {e}")
         ctx.exit(1)

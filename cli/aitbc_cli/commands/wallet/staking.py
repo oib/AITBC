@@ -269,20 +269,27 @@ def unstake(ctx, stake_id: str):
     name="staking-info",
     epilog="""Examples:
 
-  aitbc wallet staking-info""",
+  aitbc wallet staking-info
+
+  aitbc wallet staking-info --address 0x1234...""",
 )
+@click.option("--address", "address_override", default=None, help="Query this address instead of the active wallet")
 @click.pass_context
-def staking_info(ctx):
+def staking_info(ctx, address_override: str | None):
     """Show current staking information and rewards from the blockchain RPC."""
     wallet_name = ctx.obj["wallet_name"]
     wallet_path = ctx.obj["wallet_path"]
 
-    if not wallet_path.exists():
-        error(f"Wallet '{wallet_name}' not found")
-        return
+    if address_override:
+        sender_address = address_override
+        wallet_name = "(by address)"
+    else:
+        if not wallet_path.exists():
+            error(f"Wallet '{wallet_name}' not found")
+            return
 
-    wallet_data = _load_wallet(wallet_path, wallet_name)
-    sender_address = wallet_data["address"]
+        wallet_data = _load_wallet(wallet_path, wallet_name)
+        sender_address = wallet_data["address"]
 
     hex_address = canonical_address(sender_address)
     if not validate_address(hex_address):
