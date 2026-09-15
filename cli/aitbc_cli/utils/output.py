@@ -14,18 +14,91 @@ import click
 from click import echo, secho
 
 
+def _is_scalar(value: Any) -> bool:
+    return value is None or isinstance(value, str | int | float | bool)
+
+
+def _tabular_rows(message: Any) -> list[dict[str, Any]] | None:
+    """Return ``message`` as a list of flat records, or None if it is not tabular.
+
+    A table needs rows of scalars. Anything else -- a nested structure, a bare
+    scalar, a ragged mix -- is rendered as JSON instead, which is the honest
+    answer for data that has no columns.
+    """
+    if isinstance(message, dict):
+        if all(_is_scalar(v) for v in message.values()):
+            # A flat mapping is one record shown as Field/Value rather than as a
+            # single very wide row.
+            return [{"Field": k, "Value": v} for k, v in message.items()]
+        return None
+    if isinstance(message, list) and message:
+        if all(isinstance(row, dict) and all(_is_scalar(v) for v in row.values()) for row in message):
+            return cast(list[dict[str, Any]], message)
+        if all(_is_scalar(row) for row in message):
+            return [{"Value": row} for row in message]
+    return None
+
+
+def _render(message: Any, format: str) -> str:
+    """Serialize structured data in the requested format.
+
+    Until 2026-09-15 this function had a single branch for every format: the
+    else-arm was commented "Table format -- just JSON for now". So `table`,
+    `yaml` and `csv` were accepted by OUTPUT_FORMAT_OPTION on roughly every
+    command in the CLI and all three silently produced JSON.
+    """
+    import json
+
+    if format == "json":
+        return json.dumps(message, indent=2, default=str)
+
+    if format == "yaml":
+        try:
+            import yaml
+
+            return cast(str, yaml.safe_dump(message, sort_keys=False, default_flow_style=False)).rstrip("\n")
+        except ImportError:
+            return json.dumps(message, indent=2, default=str)
+
+    rows = _tabular_rows(message)
+    if rows is None:
+        # Not tabular: JSON is the only faithful rendering.
+        return json.dumps(message, indent=2, default=str)
+
+    # Union of keys in order of first appearance, so a row missing a field still
+    # lines up under the right column instead of shifting the rest.
+    headers: list[str] = []
+    for row in rows:
+        for key in row:
+            if key not in headers:
+                headers.append(key)
+
+    if format == "csv":
+        import csv
+        import io
+
+        buf = io.StringIO()
+        writer = csv.DictWriter(buf, fieldnames=headers, extrasaction="ignore")
+        writer.writeheader()
+        for row in rows:
+            writer.writerow({h: row.get(h, "") for h in headers})
+        return buf.getvalue().rstrip("\n")
+
+    try:
+        from tabulate import tabulate
+    except ImportError:
+        return json.dumps(message, indent=2, default=str)
+
+    body = [[row.get(h, "") for h in headers] for row in rows]
+    return cast(str, tabulate(body, headers=headers, tablefmt="grid"))
+
+
 def output(message, format=None, title=None, **kwargs):
     """Print a regular output message (handles strings and structured data)"""
     if not isinstance(message, str):
-        import json
-
-        if format == "json" or format == "yaml":
-            message = json.dumps(message, indent=2)
-        else:
-            # Table format — just JSON for now
-            message = json.dumps(message, indent=2)
-    # JSON/YAML output is meant to be machine-readable; do not wrap it in a title.
-    if title and format not in ("json", "yaml"):
+        message = _render(message, format or "table")
+    # JSON/YAML/CSV output is meant to be machine-readable; do not wrap it in a title.
+    if title and format not in ("json", "yaml", "csv"):
         echo(f"\n{title}")
         echo("=" * len(title))
     echo(message, **kwargs)
