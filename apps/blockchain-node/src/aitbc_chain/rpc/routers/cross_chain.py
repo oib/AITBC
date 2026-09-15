@@ -193,6 +193,8 @@ def _find_transfer(bridge: Any, transfer_id: str) -> Any | None:
     if transfer is not None:
         return transfer
     for chain_id in bridge._known_chains():
+        if not bridge._chain_db_ready(chain_id):
+            continue
         transfer = bridge.get_transfer(transfer_id, chain_id=chain_id)
         if transfer is not None:
             return transfer
@@ -438,6 +440,8 @@ async def get_cross_chain_swap(request: Request, swap_id: str) -> dict[str, Any]
     bridge = _get_bridge()
     swap = None
     for chain_id in bridge._known_chains():
+        if not bridge._chain_db_ready(chain_id):
+            continue
         try:
             with bridge._session_for(chain_id) as session:
                 record = session.exec(
@@ -464,6 +468,8 @@ async def list_cross_chain_swaps(
     seen: set[str] = set()  # a swap row is only stored on its source chain, but
     # dedupe anyway so multi-chain scans over a shared store can't repeat it
     for chain_id in bridge._known_chains():
+        if not bridge._chain_db_ready(chain_id):
+            continue
         try:
             with bridge._session_for(chain_id) as session:
                 query = select(CrossChainSwap)
@@ -592,6 +598,8 @@ async def get_cross_chain_stats(request: Request) -> dict[str, Any]:
     seen_transfers: set[str] = set()
     total_volume_units = 0
     for chain_id in bridge._known_chains():
+        if not bridge._chain_db_ready(chain_id):
+            continue
         try:
             with bridge._session_for(chain_id) as session:
                 for swap in session.exec(select(CrossChainSwap)).all():
