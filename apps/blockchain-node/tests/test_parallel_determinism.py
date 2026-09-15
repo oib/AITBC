@@ -16,7 +16,9 @@ from sqlalchemy.pool import StaticPool
 from sqlmodel import Session
 
 from aitbc.parallel import DependencyGraph, ParallelExecutor
+from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Account, Block
+from sqlmodel import select
 from aitbc_chain.state.merkle_patricia_trie import StateManager
 from aitbc_chain.state.pure_state_transition import (
     StateDelta,
@@ -425,3 +427,139 @@ class TestParallelDeterminism:
 
         assert seq_root == par_root, f"State root mismatch with 100 txs: seq={seq_root}, par={par_root}"
         assert len(seq_deltas) == len(par_deltas)
+
+
+class TestBridgeTxParity:
+    """Fleet incident 2026-09-15: the parallel import path had no BRIDGE_*
+    handling, so a sealed BRIDGE_LOCK credited a "bridge_lock" account on
+    followers while the producer burned it — every follower wedged at the
+    first bridge-lock block on a state-root mismatch. These tests assert
+    compute_state_delta produces the same post-state as
+    StateTransition.apply_transaction for the bridge tx family.
+    """
+
+    def _engine(self):
+        engine = create_engine(
+            "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+        )
+        chain_metadata.create_all(engine)
+        return engine
+
+    def _seq_root(self, tx: dict) -> str:
+        from aitbc_chain.state.state_transition import StateTransition
+        from aitbc_chain.state.state_root_utils import compute_state_root_full
+
+        engine = self._engine()
+        with Session(engine) as session:
+            session.add(
+                Account(
+                    chain_id="chain-a",
+                    address=tx["from"],
+                    balance=10_000,
+                    nonce=int(tx.get("nonce", 0)),
+                )
+            )
+            session.commit()
+            ok, err = StateTransition().apply_transaction(
+                session, "chain-a", dict(tx), tx.get("tx_hash", "0x" + "ab" * 32)
+            )
+            assert ok, err
+            session.flush()
+            return compute_state_root_full(session, "chain-a")
+
+    def _par_root(self, tx: dict) -> str:
+        from aitbc_chain.state.state_root_utils import compute_state_root_full
+
+        engine = self._engine()
+        with Session(engine) as session:
+            session.add(
+                Account(
+                    chain_id="chain-a",
+                    address=tx["from"],
+                    balance=10_000,
+                    nonce=int(tx.get("nonce", 0)),
+                )
+            )
+            session.commit()
+            account_map = {
+                a.address: a
+                for a in session.exec(select(Account).where(Account.chain_id == "chain-a")).all()
+            }
+            # Mirror sync_block_import: pre-create all recipients except the
+            # bridge_lock pseudo-account.
+            to = tx.get("to", "")
+            if to and to != "bridge_lock" and to not in account_map:
+                account_map[to] = Account(chain_id="chain-a", address=to, balance=0, nonce=0)
+            delta = compute_state_delta(account_map, dict(tx), "chain-a", tx.get("tx_hash", "0x" + "cd" * 32))
+            assert delta.success, delta.error
+            apply_delta_to_map(account_map, delta, "chain-a")
+            apply_deltas_to_db(session, [delta], "chain-a")
+            session.flush()
+            return compute_state_root_full(session, "chain-a")
+
+    def _bridge_lock_tx(self) -> dict:
+        return {
+            "from": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+            "to": "bridge_lock",
+            "amount": 36000,
+            "value": 36000,
+            "fee": 36,
+            "nonce": 0,
+            "type": "BRIDGE_LOCK",
+            "tx_hash": "0x" + "60" * 32,
+        }
+
+    def test_bridge_lock_no_recipient_account(self):
+        tx = self._bridge_lock_tx()
+        seq_root = self._seq_root(tx)
+        par_root = self._par_root(tx)
+        assert par_root == seq_root, "parallel path diverges: bridge_lock must not be credited/created"
+
+    def test_bridge_withdraw_parity(self):
+        tx = {
+            "from": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+            "to": "0x0000000000000000000000000000000000000000",
+            "amount": 1000,
+            "value": 1000,
+            "fee": 36,
+            "nonce": 0,
+            "type": "BRIDGE_WITHDRAW",
+            "payload": {"eth_address": "0x1234567890123456789012345678901234567890"},
+            "tx_hash": "0x" + "70" * 32,
+        }
+        assert self._par_root(tx) == self._seq_root(tx)
+
+    def test_bridge_release_credits_recipient(self):
+        tx = {
+            "from": "bridge_release",
+            "to": "0x08ab801150ef3496344cfa78fe025c3b48caf435",
+            "amount": 36000,
+            "value": 36000,
+            "fee": 0,
+            "nonce": 0,
+            "type": "BRIDGE_RELEASE",
+            "tx_hash": "0x" + "80" * 32,
+        }
+        # Sequential path: sender account is absent entirely.
+        from aitbc_chain.state.state_transition import StateTransition
+        from aitbc_chain.state.state_root_utils import compute_state_root_full
+
+        engine = self._engine()
+        with Session(engine) as session:
+            ok, err = StateTransition().apply_transaction(session, "chain-a", dict(tx), tx["tx_hash"])
+            assert ok, err
+            session.flush()
+            seq_root = compute_state_root_full(session, "chain-a")
+
+        engine = self._engine()
+        with Session(engine) as session:
+            account_map: dict[str, Account] = {}
+            to = tx["to"]
+            account_map[to] = Account(chain_id="chain-a", address=to, balance=0, nonce=0)
+            delta = compute_state_delta(account_map, dict(tx), "chain-a", tx["tx_hash"])
+            assert delta.success, delta.error
+            apply_delta_to_map(account_map, delta, "chain-a")
+            apply_deltas_to_db(session, [delta], "chain-a")
+            session.flush()
+            par_root = compute_state_root_full(session, "chain-a")
+        assert par_root == seq_root
