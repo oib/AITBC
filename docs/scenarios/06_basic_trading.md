@@ -27,16 +27,16 @@ breadcrumb: Home > Scenarios > Basic Trading
 
 > **Live vs. simulated:** `aitbc exchange-island` commands are **live** when the exchange service (port 8106) is running. If the exchange is unreachable, the CLI returns `(Simulated)` orderbook/orders.
 
-This scenario demonstrates how to trade AIT against **ETH** on the island exchange via `aitbc exchange-island`. The live CLI pair set is `AIT/ETH` only (`SUPPORTED_PAIRS`). `buy` / `sell` / `cancel` need `/var/lib/aitbc/keystore/validator_keys.json`; `rates`, `orderbook`, and `orders` do not.
+This scenario demonstrates how to trade AIT against **ETH** on the island exchange via `aitbc exchange-island`. The live CLI pair set is `AIT/ETH` only (`SUPPORTED_PAIRS`). `buy` / `sell` / `cancel` sign the exchange transaction with a wallet (`--wallet`, defaults to the active wallet); `rates`, `orderbook`, and `orders` do not.
 
 ### Use Case
 
-A customer wants to inspect the AIT/ETH book and, if the validator keystore is present, place a limit buy or sell.
+A customer wants to inspect the AIT/ETH book and, given a signing wallet, place a limit buy or sell.
 
 ### What You'll Learn
 
 - How to read `aitbc exchange-island rates` / `orderbook --pair AIT/ETH` / `orders`
-- How to place a buy (`ETH`) or sell with a min price when the keystore exists
+- How to place a buy (`ETH`) or sell with a min price and `--wallet`
 - How to cancel an open order
 
 ---
@@ -52,13 +52,13 @@ A customer wants to inspect the AIT/ETH book and, if the validator keystore is p
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - Island credentials saved (run `aitbc node island join` first)
-- A validator keystore at `/var/lib/aitbc/keystore/validator_keys.json` (used to derive your node/user ID)
+- A wallet with a usable private key (e.g. `default` under `/var/lib/aitbc/wallets/`) — your order `user_id` is the wallet address
 
 ### Setup Required
 
 - Join an island and load credentials (`aitbc node island join`)
 - Confirm the island RPC endpoint is reachable (default `http://localhost:8202`)
-- Ensure the keystore contains a `public_key_pem` entry — the exchange commands derive your `user_id` from `hostname:ip:p2p_port:public_key_pem`
+- Pass `--wallet <name>` (and `--password` if the wallet is encrypted); the exchange commands sign with it and use its address as `user_id`
 
 ---
 
@@ -113,7 +113,7 @@ Best Ask: 0.00023510 ETH/AIT
 
 ### Step 3: Place a buy order
 
-Buy AIT using ETH. The `quote_currency` argument must be `ETH`. Use `--max-price` to set a limit; omit it for a market order. Aborts if the validator keystore is missing.
+Buy AIT using ETH. The `quote_currency` argument must be `ETH`. Use `--max-price` to set a limit; omit it for a market order. Aborts if the wallet has no usable private key.
 
 ```bash
 # Buy 100 AIT with ETH, willing to pay at most 0.00023510 ETH per AIT
@@ -188,16 +188,16 @@ exchange_sell_20260...  AIT/ETH   SELL   50.0000 AIT   0.00023400     open      
 
 ### Step 6: Cancel an order
 
-Cancel an open order by its order ID. The cancel is submitted as an exchange transaction with `action: cancel` and `status: cancelled`.
+Cancel an open order by its order ID. The cancel is submitted as a signed exchange transaction with `action: cancel` and `status: cancelled` — the signing wallet must be the order's owner.
 
 ```bash
-aitbc exchange-island cancel --order-id exchange_buy_20260625143012_a1b2c3d4
+aitbc exchange-island cancel --order-id exchange_buy_20260625143012_a1b2c3d4 --wallet default
 ```
 
 **Expected output:**
 
 ```
-Order exchange_buy_20260625143012_a1b2c3d4 cancelled successfully!
+Order exchange_buy_20260625143012_a1b2c3d4 cancelled successfully! tx: 0x…
 ```
 
 ---
@@ -253,7 +253,7 @@ for line in listing.splitlines():
 After completing this scenario, you should be able to:
 
 - Read the AIT/ETH order book and rates through `aitbc exchange-island`
-- Place buy/sell orders when the validator keystore exists
+- Place buy/sell orders with a signing wallet
 - List and cancel your own exchange orders
 
 ---
