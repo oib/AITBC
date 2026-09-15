@@ -455,7 +455,7 @@ class TestBridgeTxParity:
                 Account(
                     chain_id="chain-a",
                     address=tx["from"],
-                    balance=10_000,
+                    balance=10_000_000,
                     nonce=int(tx.get("nonce", 0)),
                 )
             )
@@ -476,7 +476,7 @@ class TestBridgeTxParity:
                 Account(
                     chain_id="chain-a",
                     address=tx["from"],
-                    balance=10_000,
+                    balance=10_000_000,
                     nonce=int(tx.get("nonce", 0)),
                 )
             )
