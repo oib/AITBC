@@ -51,6 +51,16 @@ def get_authenticated_address(request: Request, credentials: HTTPAuthorizationCr
                 status_code=status.HTTP_401_UNAUTHORIZED,
                 detail="X-Wallet-Address header is not trusted without explicit server configuration",
             )
+        client_host = request.client.host if request.client else ""
+        if client_host not in ("127.0.0.1", "::1"):
+            _logger.warning(
+                "Rejected X-Wallet-Address header from non-loopback client %s",
+                client_host,
+            )
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="X-Wallet-Address header is only trusted from loopback clients",
+            )
         # Bug 14: Warn when TRUST_X_WALLET_ADDRESS is enabled — this is a dev-only mode
         # that accepts any header value without cryptographic verification
         _logger.warning(
