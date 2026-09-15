@@ -102,7 +102,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
-            result = runner.invoke(config, ["profiles", "list"], obj={"config": mock_config, "output": "json", "output_format": "json"})
+            result = runner.invoke(
+                config, ["profiles", "list"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            )
 
             assert result.exit_code == 0
             import json
@@ -124,7 +126,9 @@ class TestConfigProfilesIntegration:
         with patch("pathlib.Path.home") as mock_home:
             mock_home.return_value = profiles_dir.parent.parent.parent
 
-            result = runner.invoke(config, ["profiles", "list"], obj={"config": mock_config, "output": "json", "output_format": "json"})
+            result = runner.invoke(
+                config, ["profiles", "list"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            )
 
             assert result.exit_code == 0
             data = json.loads(result.output)
@@ -247,7 +251,9 @@ class TestConfigProfilesIntegration:
             assert result.exit_code == 0
 
             # List
-            result = runner.invoke(config, ["profiles", "list"], obj={"config": mock_config, "output": "json", "output_format": "json"})
+            result = runner.invoke(
+                config, ["profiles", "list"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            )
             assert result.exit_code == 0
             data = json.loads(result.output)
             assert profile_name in [p["name"] for p in data["profiles"]]
