@@ -10,7 +10,7 @@ from pathlib import Path
 import click
 
 from aitbc_cli.config import get_config  # noqa: F401
-from aitbc_cli.utils import DECIMAL, error, output, success, warning
+from aitbc_cli.utils import DECIMAL, error, output, resolve_output_format, success, warning
 from aitbc_cli.utils.http_client import AITBCHTTPClient, NetworkError, get_logger  # noqa: F401
 
 logger = get_logger(__name__)
@@ -69,7 +69,10 @@ def register(ctx, name: str, api_key: str, secret_key: str | None, sandbox: bool
         json.dump(exchanges, f, indent=2)
 
     success(f"Exchange '{name}' registered successfully")
-    output({"exchange": name, "status": "registered", "sandbox": sandbox, "created_at": exchange_config["created_at"]})
+    output(
+        {"exchange": name, "status": "registered", "sandbox": sandbox, "created_at": exchange_config["created_at"]},
+        resolve_output_format(ctx),
+    )
 
 
 @exchange.command(
@@ -121,7 +124,7 @@ def create_pair(
         json.dump(exchanges, f, indent=2)
 
     success(f"Trading pair '{pair_symbol}' created on {exchange}")
-    output(pair_config)
+    output(pair_config, resolve_output_format(ctx))
 
 
 @exchange.command(
@@ -184,7 +187,8 @@ def start_trading(ctx, pair: str, price: Decimal | None, base_liquidity: float, 
             "base_liquidity": base_liquidity,
             "quote_liquidity": quote_liquidity,
             "started_at": target_pair["started_at"],
-        }
+        },
+        resolve_output_format(ctx),
     )
 
 
@@ -244,7 +248,8 @@ def monitor(ctx, pair: str | None, exchange: str | None, real_time: bool, interv
             "interval": interval,
             "pairs": monitoring_data,
             "total_pairs": len(monitoring_data),
-        }
+        },
+        resolve_output_format(ctx),
     )
 
     if real_time:
@@ -314,7 +319,8 @@ def add_liquidity(ctx, pair: str, amount: Decimal, side: str, exchange: str | No
             "base_liquidity": target_pair.get("base_liquidity"),
             "quote_liquidity": target_pair.get("quote_liquidity"),
             "updated_at": target_pair["liquidity_updated_at"],
-        }
+        },
+        resolve_output_format(ctx),
     )
 
 
@@ -347,7 +353,7 @@ def list(ctx):
         }
         exchange_list.append(exchange_info)
 
-    output(exchange_list, title="Registered Exchanges")
+    output(exchange_list, resolve_output_format(ctx), title="Registered Exchanges")
 
 
 @exchange.command(
@@ -374,4 +380,4 @@ def status(ctx, exchange_name: str):
         return
 
     exchange_data = exchanges[exchange_name.lower()]
-    output(exchange_data, title=f"Exchange Status: {exchange_name}")
+    output(exchange_data, resolve_output_format(ctx), title=f"Exchange Status: {exchange_name}")

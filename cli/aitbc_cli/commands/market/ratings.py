@@ -87,7 +87,7 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
             )
         else:
             error(f"Failed to rate service: {response.get('message', 'Unknown error')}")
-            output(response)
+            output(response, ctx.obj.get("output_format", "table"))
             raise click.Abort()
 
     except NetworkError as e:
