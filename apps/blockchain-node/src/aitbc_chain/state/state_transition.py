@@ -22,7 +22,7 @@ from ..logger import get_logger
 from ..base_models import Block, Bond, ChainParameter, IPFSSubscription, _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
-from ..rpc.utils import verify_transaction_signature
+from ..rpc.utils import verify_request_signature, verify_transaction_signature
 from .gpu_resources import GPUAllocation, GPURegistration
 from .liquidity_transition import (
     apply_liquidity_claim,
@@ -332,6 +332,37 @@ class StateTransition:
         self._processed_nonces.clear()
         self._processed_tx_hashes.clear()
 
+    @staticmethod
+    def _verify_payload_auth(tx_type: str, auth: Any, sender_addr: str) -> bool:
+        """Verify the authorization evidence carried in a protocol transfer payload.
+
+        Protocol transfers (``STAKE_LOCK``/``STAKE_RELEASE``) are queued
+        unsigned — the keyless escrow cannot sign a release — so the RPC layer
+        embeds ``payload.auth = {"signer", "message", "signature"}``, where
+        ``message`` is the exact request dict the authorizer signed. This
+        re-verifies it at state-transition time so a malformed auth is
+        rejected rather than recorded in the ledger.
+
+        The check is self-consistency only — the signature must recover to
+        the claimed ``auth.signer``. Binding the signer to the debited account
+        cannot be done deterministically here: consensus staking has the
+        staker sign their own lock, but agent staking is operator-signed on
+        the user's behalf and the operator set is node-local env config, not
+        consensus state.
+
+        An absent ``auth`` is allowed — pre-auth protocol transfers exist in
+        sealed history (e.g. the STAKE_LOCK in block 7306) and must keep
+        replaying identically.
+        """
+        if not isinstance(auth, dict):
+            return False
+        signature = auth.get("signature")
+        message = auth.get("message")
+        signer = auth.get("signer")
+        if not signature or not isinstance(message, dict) or not signer:
+            return False
+        return verify_request_signature(str(signer), str(signature), message)
+
     def validate_transaction(
         self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str, block_version: int = 2
     ) -> tuple[bool, str]:
@@ -434,6 +465,10 @@ class StateTransition:
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
                 return (False, f"Invalid signature for transaction {tx_hash}")
+        if tx_type in ("STAKE_LOCK", "STAKE_RELEASE"):
+            auth = (tx_data.get("payload") or {}).get("auth")
+            if auth is not None and not self._verify_payload_auth(tx_type, auth, sender_addr):
+                return (False, f"Invalid payload auth signature for transaction {tx_hash}")
         sender_account = session.get(Account, (chain_id, sender_addr))
         if not sender_account:
             return (False, f"Sender account not found: {sender_addr}")
