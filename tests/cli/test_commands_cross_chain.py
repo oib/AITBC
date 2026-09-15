@@ -94,7 +94,7 @@ class TestCrossChainCommands:
         assert result.exit_code == 0, result.output
         mock_client.get.assert_called_once()
         called_path = mock_client.get.call_args[0][0]
-        assert "/cross-chain/swap/swamp123" in called_path or "swap" in called_path
+        assert called_path == "/rpc/cross-chain/swap/swap123"
 
 
 class TestCrossChainSigning:
@@ -234,7 +234,7 @@ class TestCrossChainSigning:
         )
 
         assert result.exit_code == 0, result.output
-        assert "0xfrom" not in result.output
+        assert "0xdeadbeef" in result.output
 
     def test_swap_rejects_same_chain(self, runner, mock_config):
         from aitbc_cli.commands.cross_chain import cross_chain
