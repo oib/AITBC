@@ -9,6 +9,10 @@ Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
+# Keep $HOME under /var/lib/aitbc while ProtectHome=yes hides /home/aitbc —
+# libpq cannot load ~/.postgresql certs from a hidden home and silently
+# downgrades the mempool connection to plaintext under sslmode=prefer.
+Environment="HOME=/var/lib/aitbc"
 Environment=RPC_BIND_HOST=0.0.0.0
 Environment=RPC_BIND_PORT=8202
 EnvironmentFile=-/etc/aitbc/blockchain.env
