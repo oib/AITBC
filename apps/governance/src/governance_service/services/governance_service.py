@@ -200,7 +200,10 @@ class GovernanceService:
                     payload=payload,
                     chain_id=proposal.chain_id,
                 )
-                proposal.tx_hash = result.get("tx_hash")
+                # The node's /rpc/transaction response uses transaction_hash
+                # (mempool admission); tx_hash is accepted as a fallback for
+                # peers that already return the mined form.
+                proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 proposal.block_height = result.get("block_height")
                 # V23-18: record where voting closes, so the execution timelock can run
                 # from the end of voting rather than from proposal creation. Captured now
@@ -224,10 +227,12 @@ class GovernanceService:
                     e,
                 )
 
-        # V23-18 off-chain fallback: when on-chain submission is disabled, we still need a
-        # block height to enforce the execution timelock. Query the chain directly and record
-        # voting_ends_block so the timelock can be measured from the end of voting.
-        if proposal.block_height is None and not settings.enable_onchain_submission:
+        # V23-18 off-chain fallback: the mempool-admission response carries no
+        # block_height even when on-chain submission succeeds, so any proposal
+        # still missing a height — submission off, or on but the tx is only
+        # queued — queries the chain directly and records voting_ends_block so
+        # the timelock can be measured from the end of voting.
+        if proposal.block_height is None:
             try:
                 proposal.block_height = await self._blockchain.get_block_height(proposal.chain_id)
                 voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
@@ -331,7 +336,7 @@ class GovernanceService:
                     payload=payload,
                     chain_id=vote.chain_id,
                 )
-                vote.tx_hash = result.get("tx_hash")
+                vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 vote.block_height = result.get("block_height")
             except Exception as e:
                 import logging
