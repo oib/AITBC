@@ -55,10 +55,15 @@ def normalize_base_url(url: str | None, default: str = "") -> str:
 def origin_base_url(url: str | None, default: str = "") -> str:
     """Reduce a URL to ``scheme://host[:port]``, dropping any path.
 
-    For configured values that already carry a mounted API prefix — e.g.
-    ``agent_coordinator_url`` resolves to ``https://<hub>/api/v1/agent`` —
-    while the call sites carry absolute paths such as ``/v1/...`` or
-    ``/api/v1/agent/...`` themselves, so keeping the prefix would double it.
+    For configured values that already carry a mounted API prefix while the
+    call sites carry the same absolute path themselves, so keeping the prefix
+    would double it.
+
+    Not applicable to ``agent_coordinator_url``: that resolves to
+    ``https://<hub>/agent``, an nginx mount point under which *two* prefixes are
+    served (``/v1/...`` and ``/api/v1/agent/...``). Reducing it to an origin
+    drops the mount and breaks both. See the resolution helpers in
+    ``commands/agent_sdk.py``.
     """
     raw = str(url or "") or default
     parsed = urlparse(raw)
