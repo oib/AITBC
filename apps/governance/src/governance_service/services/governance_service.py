@@ -613,7 +613,7 @@ class GovernanceService:
                     payload=payload,
                     chain_id=proposal.chain_id,
                 )
-                tx_hash = result.get("tx_hash")
+                tx_hash = result.get("tx_hash") or result.get("transaction_hash")
                 block_height = result.get("block_height")
 
             # Update proposal status
