@@ -11,16 +11,16 @@ from ..models import Miner
 from ..redis_cache import get_redis
 
 
-def get_db_session() -> AsyncGenerator[Any]:
-    return get_session()
-
+# These are direct aliases, not wrappers: get_session/get_redis are already
+# async generator functions suitable for Depends(). A sync wrapper that
+# returns them would inject the generator object itself (no .execute).
+get_db_session = get_session
 
 # Alias for routers that import get_db
 get_db = get_db_session
 
 
-def get_redis_client() -> AsyncGenerator[Any]:
-    return get_redis()
+get_redis_client = get_redis
 
 
 async def get_miner_id(miner: Annotated[Miner, Depends(get_miner_from_token)]) -> str:
