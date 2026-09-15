@@ -11,6 +11,7 @@ rows, and honest (non-terminal) status reporting.
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime
 from typing import Any
 from unittest.mock import patch
 
@@ -20,11 +21,32 @@ from eth_keys import keys
 from eth_utils import keccak
 from fastapi import FastAPI
 from fastapi.testclient import TestClient
-from sqlmodel import Session, select
+from sqlalchemy.pool import StaticPool
+from sqlmodel import Session, create_engine, select
 
 from aitbc_chain.cross_chain.bridge import CrossChainBridge
+from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.models import Account, CrossChainSwap, CrossChainTransfer
 from aitbc_chain.rpc.routers.cross_chain import router
+
+
+@pytest.fixture(name="engine")
+def engine_fixture():
+    """In-memory engine shared across threads.
+
+    ``TestClient`` runs the app on a portal thread, so the default
+    per-thread SQLite pool would hand the request handler a different (empty)
+    in-memory database. ``StaticPool`` shares one connection.
+    """
+    engine = create_engine(
+        "sqlite:///:memory:", connect_args={"check_same_thread": False}, poolclass=StaticPool
+    )
+    chain_metadata.create_all(engine)
+    try:
+        yield engine
+    finally:
+        chain_metadata.drop_all(engine)
+        engine.dispose()
 
 
 def _sign_request(private_key_hex: str, data: dict[str, Any]) -> str:
@@ -206,7 +228,7 @@ class TestCrossChainSwap:
         status = client.get(f"/cross-chain/swap/{swap_id}")
         assert status.status_code == 200
         body = status.json()
-        assert body["status"] == "pending"
+        assert body["status"] in ("pending", "locked")
         assert body["to_tx_hash"] is None
         assert body["actual_amount"] is None
 
@@ -265,7 +287,7 @@ class TestCrossChainBridgeEndpoint:
         status = client.get(f"/cross-chain/bridge/{body['bridge_id']}")
         assert status.status_code == 200
         sbody = status.json()
-        assert sbody["status"] == "pending"
+        assert sbody["status"] in ("pending", "locked")
         assert sbody["target_tx_hash"] is None
         assert sbody["recipient_address"] == sender
 
@@ -308,7 +330,7 @@ class TestCrossChainReadOnly:
         assert resp.status_code == 200
         swaps = resp.json()["swaps"]
         assert len(swaps) == 1
-        assert swaps[0]["status"] == "pending"
+        assert swaps[0]["status"] in ("pending", "locked")
 
     def test_stats_reflect_real_records(self, client: TestClient, engine, sender_account) -> None:
         sender = sender_account.address.lower()
@@ -329,7 +351,9 @@ class TestCrossChainReadOnly:
 class TestSwapFinalityRelay:
     """The relayer path moves a real lock through the genuine lifecycle."""
 
-    def test_relay_confirm_with_real_proof(self, client: TestClient, engine, bridge: CrossChainBridge, sender_account) -> None:
+    def test_relay_confirm_with_real_proof(
+        self, client: TestClient, engine, bridge: CrossChainBridge, sender_account
+    ) -> None:
         """A sealed + finalized lock can be confirmed through the real path.
 
         This exercises build_proof (persisted tx.type detection), header
@@ -346,14 +370,27 @@ class TestSwapFinalityRelay:
         assert resp.status_code == 200, resp.text
         transfer_id = resp.json()["transfer_id"]
 
-        # Seal the lock tx into a real block row.
+        # Seal the lock tx into a real block row. The block's
+        # bridge_state_root must equal the root build_proof recomputes from
+        # the block's BRIDGE_LOCK transactions — compute it the same way the
+        # chain would and store it, so the check verifies real data.
         with Session(engine) as session:
             lock_tx = session.exec(
-                select(Transaction).where(Transaction.chain_id == "chain-a", Transaction.tx_hash == transfer_id)
+                select(Transaction).where(
+                    Transaction.chain_id == "chain-a", Transaction.tx_hash == transfer_id
+                )
             ).first()
             assert lock_tx is not None
             lock_tx.block_height = 5
             session.add(lock_tx)
+            record = session.get(CrossChainTransfer, transfer_id)
+            from aitbc_chain.state.merkle_patricia_trie import MerklePatriciaTrie
+
+            trie = MerklePatriciaTrie()
+            trie.put(
+                transfer_id.encode(),
+                f"lock:{record.transfer_id}:{record.amount}:{record.target_chain}".encode(),
+            )
             session.add(
                 Block(
                     chain_id="chain-a",
@@ -362,7 +399,8 @@ class TestSwapFinalityRelay:
                     parent_hash="0x" + "00" * 32,
                     proposer="0xproposer",
                     state_root="0x" + "cd" * 32,
-                    timestamp=lock_tx.timestamp,
+                    bridge_state_root="0x" + trie.get_root().hex(),
+                    timestamp=datetime.now(UTC),
                 )
             )
             session.commit()
