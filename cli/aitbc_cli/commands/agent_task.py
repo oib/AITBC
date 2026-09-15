@@ -268,6 +268,7 @@ def _submit_task(
     private_key: str,
     settlement_wallet: str,
     timeout_seconds: float,
+    signing_key: str | None = None,
 ) -> str:
     """Build the signed escrow lock and POST /v1/tasks/submit; return the escrow id."""
     from ..utils.escrow import create_signed_escrow_lock
@@ -288,9 +289,13 @@ def _submit_task(
         raise click.Abort() from e
 
     amount_units = ait_to_units(max_price_ait)
+    # Enforce mode requires a resolvable principal; the buyer's X-Agent-* signed
+    # headers carry the same wallet that signs the escrow lock and envelopes.
+    headers = signed_request_headers(buyer_agent, signing_key) if signing_key else None
     try:
         submission = client.post(
             "/v1/tasks/submit",
+            headers=headers,
             json={
                 "task_data": {
                     "task_id": task_id,
@@ -481,6 +486,7 @@ def hire(
         private_key,
         settlement_wallet,
         timeout_seconds,
+        signing_key,
     )
     success(f"Task {task_id} submitted — escrow {escrow_id} locked on-chain ({max_price_ait} AIT)")
 

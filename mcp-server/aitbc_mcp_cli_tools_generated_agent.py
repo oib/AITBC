@@ -640,7 +640,12 @@ def aitbc_agent_list(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_agent_register(
     agent_id: Annotated[str, Field(description="The Agent id.")],
-    coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
+    coordinator_url: Annotated[str | None, Field(description="Coordinator URL (default: config agent_coordinator_url)")],
+    wallet_name: Annotated[
+        str | None,
+        Field(description="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode"),
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -651,7 +656,7 @@ def aitbc_agent_register(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"agent_id": "agent-id", "coordinator_url": "coordinator-url"},
+        values={"agent_id": "agent-id", "coordinator_url": "coordinator-url", "wallet_name": "wallet", "password": "password"},
     )
     args = None
     command = _build_aitbc_cli_command(
