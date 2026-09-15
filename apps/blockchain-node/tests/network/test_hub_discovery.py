@@ -26,11 +26,11 @@ class TestFallbackHubs:
     def test_default_port_when_omitted(self, discovery: HubDiscovery, monkeypatch: pytest.MonkeyPatch) -> None:
         monkeypatch.setenv(HubDiscovery.FALLBACK_HUBS_ENV, "hub1.example.net")
         hubs = discovery._get_fallback_hubs()
-        assert [(h.address, h.port)] == [("hub1.example.net", 7070)]
+        assert [(h.address, h.port) for h in hubs] == [("hub1.example.net", 7070)]
 
     def test_malformed_entries_skipped(
         self, discovery: HubDiscovery, monkeypatch: pytest.MonkeyPatch, caplog: pytest.LogCaptureFixture
     ) -> None:
         monkeypatch.setenv(HubDiscovery.FALLBACK_HUBS_ENV, "good.example.net:7070,bad:xx,:9999,")
         hubs = discovery._get_fallback_hubs()
-        assert [(h.address, h.port)] == [("good.example.net", 7070)]
+        assert [(h.address, h.port) for h in hubs] == [("good.example.net", 7070)]
