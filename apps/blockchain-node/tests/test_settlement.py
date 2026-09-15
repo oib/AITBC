@@ -133,7 +133,11 @@ class MockSession:
         elif table_name == "block":
             chain_id = filters.get("chain_id")
             height = self.block_heights.get(chain_id) if chain_id else None
-            rows = [SimpleNamespace(height=height, chain_id=chain_id)] if height is not None else []
+            rows = (
+                [SimpleNamespace(height=height, hash=f"0x{chain_id}head".ljust(66, "0"), chain_id=chain_id)]
+                if height is not None
+                else []
+            )
         elif table_name == "escrow_proofs":
             rows = list(self.proofs)
             if "escrow_id" in filters:
