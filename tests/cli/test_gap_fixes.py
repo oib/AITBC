@@ -378,3 +378,68 @@ def test_messaging_send_stale_topic_id_aborts(runner):
         )
     assert result.exit_code != 0
     assert "not found" in result.output
+
+
+# ---------------------------------------------------------------------------
+# http_error_detail: FastAPI detail + coordinator error-envelope extraction
+# ---------------------------------------------------------------------------
+
+
+def _network_error_with_body(body):
+    import requests
+
+    from aitbc.exceptions import NetworkError
+
+    resp = Mock()
+    resp.json.return_value = body
+    http_err = requests.HTTPError("422 Client Error", response=resp)
+    err = NetworkError(f"POST request failed: {http_err}")
+    err.__cause__ = http_err
+    return err
+
+
+def test_http_error_detail_fastapi_string():
+    from aitbc_cli.utils.http_client import http_error_detail
+
+    assert http_error_detail(_network_error_with_body({"detail": "lock period active"})) == "lock period active"
+
+
+def test_http_error_detail_fastapi_list():
+    from aitbc_cli.utils.http_client import http_error_detail
+
+    body = {"detail": [{"loc": ["body", "payment_currency"], "msg": "must be one of", "type": "value_error"}]}
+    assert http_error_detail(_network_error_with_body(body)) == "payment_currency: must be one of"
+
+
+def test_http_error_detail_coordinator_envelope():
+    from aitbc_cli.utils.http_client import http_error_detail
+
+    body = {
+        "error": {
+            "code": "VALIDATION_ERROR",
+            "message": "Request validation failed",
+            "status": 422,
+            "details": [
+                {"field": "body", "message": "Value error, payment_currency must be one of: ['AITBC', 'ETH', 'USDT']"}
+            ],
+        }
+    }
+    assert (
+        http_error_detail(_network_error_with_body(body))
+        == "Value error, payment_currency must be one of: ['AITBC', 'ETH', 'USDT']"
+    )
+
+
+def test_http_error_detail_envelope_fallback_to_message():
+    from aitbc_cli.utils.http_client import http_error_detail
+
+    body = {"error": {"code": "NOT_FOUND", "message": "allocation not found", "status": 404}}
+    assert http_error_detail(_network_error_with_body(body)) == "allocation not found"
+
+
+def test_http_error_detail_no_response():
+    from aitbc.exceptions import NetworkError
+
+    from aitbc_cli.utils.http_client import http_error_detail
+
+    assert http_error_detail(NetworkError("connection refused")) is None
