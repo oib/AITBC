@@ -87,6 +87,12 @@ def _create_task_escrow(request: TaskSubmission, task_id: str, chain_id: str) ->
         fee=request.payment.fee,
         timeout=request.payment.timeout_seconds,
     )
+    # P2.4/GAP-43: the release path reads this back off the entry and forwards
+    # it to the chain; keep it on the entry so it survives a restart between
+    # submit and complete (the store serialises metadata).
+    if request.payment.auto_reinvest_pct is not None:
+        escrow.metadata["auto_reinvest_pct"] = str(request.payment.auto_reinvest_pct)
+        state.payment_escrow.persist_entry(escrow)
     contract_id = _lock_escrow_on_chain(escrow, request.payment, task_id)
     return escrow.escrow_id, contract_id, escrow.status.value
 
@@ -283,6 +289,10 @@ async def get_escrow_status(request: Request, escrow_id: str) -> dict[str, Any]:
             "locked_at": entry.locked_at,
             "released_at": entry.released_at,
             "expires_at": entry.expires_at,
+            "auto_reinvest_pct": entry.metadata.get("auto_reinvest_pct"),
+            "reinvest_status": entry.metadata.get("reinvest_status"),
+            "reinvest_stake_id": entry.metadata.get("reinvest_stake_id"),
+            "reinvest_amount": entry.metadata.get("reinvest_amount"),
         },
         "timestamp": datetime.now(UTC).isoformat(),
     }
@@ -389,6 +399,29 @@ async def _require_provider_signature(entry: Any, action: str, task_id: str, bod
     )
 
 
+def _record_reinvest_outcome(entry: Any, submitter: Any) -> None:
+    """Copy the chain's reinvest result onto the escrow entry, then persist it.
+
+    The chain reports what it staked in the release response, which the
+    submitter keeps on ``last_response``. Writing it to ``entry.metadata`` is
+    what lets the escrow/task views show the outcome after the fact -- the
+    entry is the durable record the status endpoints read.
+    """
+    if submitter is None:
+        return
+    last = submitter.last_response
+    reinvest_stake_id = last.get("reinvest_stake_id")
+    reinvest_amount = last.get("reinvest_amount")
+    if not (reinvest_stake_id or reinvest_amount):
+        return
+    if reinvest_stake_id:
+        entry.metadata["reinvest_stake_id"] = str(reinvest_stake_id)
+    if reinvest_amount:
+        entry.metadata["reinvest_amount"] = str(reinvest_amount)
+    entry.metadata["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
+    state.payment_escrow.persist_entry(entry)
+
+
 async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None, dict[str, Any]]:
     """Parse the optional JSON body of a ``complete`` call.
 
@@ -440,8 +473,21 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
         if state.escrow_rpc and entry.tx_hash_lock:
             from ..services.chain_escrow import make_release_submitter
 
-            submitter = make_release_submitter(state.escrow_rpc, task_id, amount_units=amount_units)
+            # P2.4/GAP-43: a submission may have asked for a share of the release
+            # to be auto-staked for the provider; the chain derives the stake
+            # address from the escrow contract, so forwarding the percentage is
+            # all this side has to do.
+            auto_reinvest_pct = entry.metadata.get("auto_reinvest_pct")
+            submitter = make_release_submitter(
+                state.escrow_rpc,
+                task_id,
+                amount_units=amount_units,
+                auto_reinvest_pct=float(auto_reinvest_pct) if auto_reinvest_pct is not None else None,
+            )
         state.payment_escrow.release(entry.escrow_id, submitter=submitter)
+        # The chain reports the reinvestment it performed; record it on the
+        # entry so the escrow/task views can show it after the fact.
+        _record_reinvest_outcome(entry, submitter)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
     except Exception:
@@ -457,6 +503,9 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
         "escrow_id": entry.escrow_id,
         "tx_hash_release": entry.tx_hash_release,
         "released_at": datetime.now(UTC).isoformat(),
+        "reinvest_status": entry.metadata.get("reinvest_status"),
+        "reinvest_stake_id": entry.metadata.get("reinvest_stake_id"),
+        "reinvest_amount": entry.metadata.get("reinvest_amount"),
     }
 
 
@@ -540,6 +589,10 @@ async def get_task_escrow(request: Request, task_id: str) -> dict[str, Any]:
             "locked_at": entry.locked_at,
             "released_at": entry.released_at,
             "expires_at": entry.expires_at,
+            "auto_reinvest_pct": entry.metadata.get("auto_reinvest_pct"),
+            "reinvest_status": entry.metadata.get("reinvest_status"),
+            "reinvest_stake_id": entry.metadata.get("reinvest_stake_id"),
+            "reinvest_amount": entry.metadata.get("reinvest_amount"),
         },
         "timestamp": datetime.now(UTC).isoformat(),
     }
