@@ -23,6 +23,13 @@ from .utils import get_chain_id, normalize_transaction_data, verify_transaction_
 
 _logger = get_logger(__name__)
 
+# The two payload actions that make a GPU_MARKETPLACE transaction a purchasable
+# listing. The same transaction type also carries job settlements
+# ("software_job"), cancellations and ratings; those have no offer payload at
+# all -- no service_type, no model, price 0 -- so anything that means "an offer"
+# has to say so here rather than trusting the type alone.
+OFFER_ACTIONS = ("offer", "software_offer")
+
 
 class TransactionRequest(BaseModel):
     """Transaction request model"""
@@ -255,7 +262,7 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         signature = tx_data.get("signature") or tx_data.get("sig")
         sender = tx_data.get("from")
         payload = tx_data.get("payload") or {}
-        is_offer = tx_data.get("type") == "GPU_MARKETPLACE" and payload.get("action") in ("offer", "software_offer")
+        is_offer = tx_data.get("type") == "GPU_MARKETPLACE" and payload.get("action") in OFFER_ACTIONS
         is_hardware_offer = is_offer and payload.get("action") == "offer"
         if is_offer:
             # GPU/software offers are value-zero listings; they are still traceable to sender
@@ -355,7 +362,12 @@ async def match_marketplace(request: Request, chain_id: str | None = None) -> di
                 "compute_capability": (tx.payload or {}).get("compute_capability", ""),
             }
             for tx in offers
-            if (tx.payload or {}).get("action") not in ("cancel", "cancelled")
+            # Only listings. Excluding the cancelled ones was never enough: the
+            # query selects on type alone, so every settled job came back as a
+            # "match" too, projecting to a row of empty strings and price 0.
+            # That inflated "total" -- eight matches where five were buyable --
+            # and gave the CLI three rows of N/A to print.
+            if (tx.payload or {}).get("action") in OFFER_ACTIONS
             and str((tx.payload or {}).get("status", "")).lower() != "cancelled"
             and f"tx_{tx.id}" not in cancelled_ids
         ]
