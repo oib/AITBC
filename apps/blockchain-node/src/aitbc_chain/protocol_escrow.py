@@ -87,18 +87,27 @@ def queue_protocol_transfer(
     chain_id: str,
     tx_type: str,
     payload: dict[str, Any] | None = None,
+    auth: dict[str, Any] | None = None,
 ) -> str:
     """Queue a protocol-initiated transfer and return its transaction hash.
 
     The balance change happens when the transaction is included in a block --
     never here. Callers must not touch the ``account`` table themselves.
 
-    The transaction carries no signature. That is deliberate and safe: the
-    state transition only verifies a signature when one is present, and the
-    public submit endpoint rejects anything whose signature does not recover to
-    the sender, so an unsigned transfer cannot be injected from outside. The
-    fee is 0 because these are protocol-internal movements of the user's own
-    principal, matching BOND_RELEASE and BOND_SLASH.
+    The transaction carries no top-level signature. That is deliberate and
+    safe: the state transition only verifies a signature when one is present,
+    and the public submit endpoint rejects anything whose signature does not
+    recover to the sender, so an unsigned transfer cannot be injected from
+    outside. The fee is 0 because these are protocol-internal movements of the
+    user's own principal, matching BOND_RELEASE and BOND_SLASH.
+
+    ``auth`` carries the authorization evidence the RPC layer verified into
+    the block record: ``{"signer", "message", "signature"}`` where ``message``
+    is the exact dict the signer signed (canonical JSON, keccak, secp256k1 —
+    ``verify_request_signature``). ``validate_transaction`` re-verifies it
+    when present, so the ledger records *who approved* a lock/release rather
+    than trusting the serving node. Protocol-initiated transfers with no
+    requesting user (e.g. AUTO_STAKE reinvestment) carry no auth.
     """
     if amount <= 0:
         raise ValueError(f"Protocol transfer amount must be positive, got {amount}")
@@ -116,6 +125,8 @@ def queue_protocol_transfer(
         "payload": payload or {},
         "chain_id": chain_id,
     }
+    if auth is not None:
+        tx_data["payload"]["auth"] = dict(auth)
     return get_mempool().add(tx_data, chain_id=chain_id)
 
 

@@ -15,7 +15,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account
 from ..protocol_escrow import confirmed_lock_total, queue_protocol_transfer, stake_escrow_address
-from .agent_economics_auth import require_int, require_operator_signature
+from .agent_economics_auth import operator_address, require_int, require_operator_signature
 from .utils import get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
@@ -100,6 +100,9 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
         chain_id=chain_id,
         tx_type="STAKE_LOCK",
         payload={"agent_stake_id": str(stake_id)},
+        # Operator-signed on the staker's behalf; carried into the block
+        # record as the lock's provable authorization.
+        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     _logger.info("Agent stake lock queued: %s amount=%s staker=%s tx=%s", stake_id, amount, staker, tx_hash)
     result["transaction_hash"] = tx_hash
@@ -145,6 +148,7 @@ async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, An
         chain_id=chain_id,
         tx_type="STAKE_LOCK",
         payload={"agent_stake_id": str(stake_id)},
+        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     return {
         "success": True,
@@ -235,6 +239,7 @@ async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, 
         chain_id=chain_id,
         tx_type="STAKE_RELEASE",
         payload={"agent_stake_id": str(stake_id)},
+        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     return {
         "success": True,

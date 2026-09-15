@@ -87,6 +87,9 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
         chain_id=chain_id,
         tx_type="STAKE_LOCK",
         payload={"stake_id": str(stake_id), "lock_days": lock_days},
+        # Carry the verified wallet signature into the block record so the
+        # lock's authorization is provable on-chain, not just on this node.
+        auth={"signer": address, "message": sign_data, "signature": signature},
     )
     _logger.info("Stake lock queued: %s staking %s on %s (tx %s)", address, amount, chain_id, tx_hash)
     return {
@@ -166,6 +169,9 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         chain_id=chain_id,
         tx_type="STAKE_RELEASE",
         payload={"stake_id": str(stake_id)},
+        # The keyless escrow cannot sign; the user's verified unstake
+        # signature is embedded as the release's authorization evidence.
+        auth={"signer": address, "message": sign_data, "signature": signature},
     )
     _logger.info("Stake release queued: %s recovering %s from stake %s (tx %s)", address, amount, stake_id, tx_hash)
     return {
