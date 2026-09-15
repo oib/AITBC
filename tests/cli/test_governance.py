@@ -81,7 +81,7 @@ class TestGovernanceCommands:
                 "--voting-days",
                 "7",
             ],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -105,7 +105,7 @@ class TestGovernanceCommands:
                 "--voting-power",
                 "10",
             ],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -119,7 +119,7 @@ class TestGovernanceCommands:
         result = runner.invoke(
             operations,
             ["governance", "get-proposal", "--proposal-id", "prop_123"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -141,7 +141,7 @@ class TestGovernanceCommands:
                 "--lock-days",
                 "30",
             ],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -163,7 +163,7 @@ class TestGovernanceCommands:
                 "--amount",
                 "500",
             ],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -174,7 +174,7 @@ class TestGovernanceCommands:
     def test_execute_command(self, runner, mock_config, mock_http, temp_wallet_dir):
         """Test proposal execution command"""
         result = runner.invoke(
-            operations, ["governance", "execute", "--proposal-id", "prop_123"], obj={"config": mock_config, "output_format": "json"}
+            operations, ["governance", "execute", "--proposal-id", "prop_123"], obj={"config": mock_config, "output": "json", "output_format": "json"}
         )
 
         assert result.exit_code == 0
@@ -187,7 +187,7 @@ class TestGovernanceCommands:
         result = runner.invoke(
             operations,
             ["governance", "voting-power", "--address", "0x4472315052d1bC56dd9aA6514B9796770C8c0611"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
