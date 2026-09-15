@@ -401,6 +401,23 @@ def compute_state_delta(
             tx_hash=tx_hash,
         )
 
+    # BRIDGE_RELEASE/BRIDGE_REFUND are pre-registered credits: the sender is the
+    # chain-level pseudo-address (no account, no nonce, no debit) and only the
+    # recipient is credited — mirrors StateTransition.apply_transaction. Without
+    # this branch the generic path fails them with "Sender account not found" and
+    # followers never apply a sealed release.
+    if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+        return StateDelta(
+            sender=sender,
+            recipient=recipient,
+            sender_balance_change=0,
+            recipient_balance_change=value,
+            sender_nonce_change=0,
+            success=True,
+            tx_type=tx_type,
+            tx_hash=tx_hash,
+        )
+
     sender_account = account_map.get(sender)
     if not sender_account:
         return StateDelta(
@@ -573,7 +590,16 @@ def compute_state_delta(
     # Compute delta
     sender_balance_change = -total_cost
     recipient_balance_change = 0
-    if tx_type != "MESSAGE":
+    if tx_type == "BRIDGE_LOCK":
+        # Burn on the source chain: the locked value is anchored in the
+        # CrossChainTransfer record and must NOT be credited to the
+        # "bridge_lock" pseudo-recipient — which must not even exist as an
+        # account (mirrors StateTransition.apply_transaction). Clearing the
+        # delta recipient keeps the apply paths from creating it.
+        recipient = ""
+    elif tx_type not in {"MESSAGE", "BRIDGE_WITHDRAW"}:
+        # BRIDGE_WITHDRAW also burns: sender is debited, the 0x0 recipient is
+        # created at zero balance but never credited.
         recipient_balance_change = value
 
     delta = StateDelta(
