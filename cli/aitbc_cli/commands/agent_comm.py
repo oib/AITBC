@@ -15,7 +15,7 @@ from ..utils.agent_signing import (
     signed_request_headers,
 )
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, get_logger
+from ..utils.http_client import AITBCHTTPClient, auth_client_kwargs, get_logger, origin_base_url
 
 logger = get_logger(__name__)
 
@@ -33,12 +33,19 @@ def _agent_client(ctx: click.Context) -> AITBCHTTPClient:
     # agent-comm mixes /v1/agents/* (registry) and /api/v1/agent/* (messaging)
     # under one base — both are served by the agent-coordinator. The hub's nginx
     # exposes that surface under the /agent mount, so agent_coordinator_url wins.
-    base_url = config.agent_coordinator_url or config.coordinator_api_url or "http://localhost:8107"
-    api_key = ctx.obj.get("api_key") or config.api_key
-    headers: dict[str, str] = {}
-    if api_key:
-        headers["X-API-Key"] = api_key
-    return AITBCHTTPClient(base_url=base_url, headers=headers, timeout=30)
+    # Call sites carry absolute /v1/agents/* and /api/v1/agent/* paths, and
+    # agent_coordinator_url resolves via hub_agent_url() to a mounted prefix
+    # like https://<hub>/api/v1/agent — keeping it would double the prefix, so
+    # reduce the configured value to the origin (scheme://host[:port]).
+    base_url = origin_base_url(config.agent_coordinator_url or config.coordinator_api_url, "http://localhost:8107")
+    # An explicit --api-key on the invocation wins; otherwise a stored JWT
+    # from `aitbc auth login` goes out as Bearer, and a plain API key falls
+    # back to X-API-Key.
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key),
+    )
 
 
 @click.group(

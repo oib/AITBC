@@ -9,29 +9,29 @@ from typing import Any
 import click
 from rich.console import Console
 
-from ..auth import AuthManager, ExpiredAdminToken
+from ..auth import AuthManager, ExpiredAdminToken  # noqa: F401 — AuthManager stays re-exported; tests patch it here
 from ..utils import error, output, success
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, get_logger
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    auth_client_kwargs,
+    get_logger,
+    service_root_url,
+)
 
 logger = get_logger(__name__)
 console = Console()
 
 
-def _looks_like_jwt(token: str) -> bool:
-    """A JWT is three base64url segments separated by dots."""
-    return token.startswith("ey") and token.count(".") == 2
-
-
 def _monitoring_client(ctx: click.Context, timeout: int = 10) -> AITBCHTTPClient:
     """Build an HTTP client for the coordinator monitoring endpoints."""
     config = ctx.obj["config"]
-    base_url = ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
-    api_key = ctx.obj.get("api_key") or config.api_key
-    headers: dict[str, str] = {}
-    if api_key:
-        headers["X-API-Key"] = api_key
-    return AITBCHTTPClient(base_url=base_url, headers=headers, timeout=timeout)
+    base_url = service_root_url(ctx.obj.get("url") or config.coordinator_api_url, "http://localhost:8203")
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=timeout,
+        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key),
+    )
 
 
 @click.group(
@@ -498,18 +498,13 @@ def _admin_client(ctx: click.Context, timeout: int = 15) -> AITBCHTTPClient:
     anything else as an API key.
     """
     config = ctx.obj["config"]
-    base_url = (ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203").rstrip("/")
-    if base_url.endswith("/v1"):
-        base_url = base_url[:-3]
+    base_url = service_root_url(ctx.obj.get("url") or config.coordinator_api_url, "http://localhost:8203")
     # Explicit --api-key on the command line wins over stored credentials.
-    token = ctx.obj.get("api_key") or AuthManager().get_admin_token() or config.api_key or ""
-
-    kwargs: dict[str, Any] = {"base_url": base_url, "timeout": timeout}
-    if token and _looks_like_jwt(token):
-        kwargs["headers"] = {"Authorization": f"Bearer {token}"}
-    elif token:
-        kwargs["api_key"] = token
-    return AITBCHTTPClient(**kwargs)
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=timeout,
+        **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key, credential="admin"),
+    )
 
 
 @monitor.command(

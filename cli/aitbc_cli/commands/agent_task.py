@@ -23,7 +23,6 @@ from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any, cast
-from urllib.parse import urlparse
 
 import click
 
@@ -37,7 +36,7 @@ from ..utils.agent_signing import (
     sign_send_envelope,
     signed_request_headers,
 )
-from ..utils.http_client import AITBCHTTPClient, get_logger
+from ..utils.http_client import AITBCHTTPClient, get_logger, origin_base_url
 from ..utils.wallet_loader import load_wallet_for_payment
 from .ipfs import _daemon_available, _ipfs_add_file, _is_cid
 from .market.escrow import _get_blockchain_rpc_url
@@ -50,18 +49,13 @@ DEFAULT_COORDINATOR_URL = "https://hub.aitbc.bubuit.net"
 
 def _coordinator_url(ctx, coordinator_url: str | None) -> str:
     url = coordinator_url or os.environ.get("AGENT_COORDINATOR_URL") or get_config().agent_coordinator_url
-    if not url:
-        url = DEFAULT_COORDINATOR_URL
     # Every call site in this module carries its own absolute path
     # (``/v1/...``, ``/api/v1/agent/messages/...``), and nginx mounts those at
     # the origin root — so reduce the configured URL to scheme://host[:port].
     # ``get_config().agent_coordinator_url`` resolves via ``hub_agent_url()``,
     # which includes the ``/api/v1/agent`` prefix and would produce doubled
     # paths like ``/api/v1/agent/v1/agents/...`` (routed to the gateway → 401).
-    parsed = urlparse(str(url))
-    if parsed.scheme and parsed.netloc:
-        return f"{parsed.scheme}://{parsed.netloc}"
-    return str(url).rstrip("/")
+    return origin_base_url(url, DEFAULT_COORDINATOR_URL)
 
 
 def _buyer_agent_id(from_agent: str | None) -> str:

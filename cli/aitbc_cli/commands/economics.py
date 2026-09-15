@@ -9,16 +9,21 @@ import click
 from ..config import get_config
 from ..utils import output
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, service_root_url
 
 
 def _api_client() -> AITBCHTTPClient | None:
-    """Return a client for the coordinator API if a URL is configured."""
+    """Return a client for the coordinator API if a URL is configured.
+
+    Endpoints below carry absolute ``/v1/...`` paths, so normalize the
+    configured URL to the service root — a configured ``.../v1`` value
+    (e.g. the public ``/c/v1`` mount) must not double the version prefix.
+    """
     config = get_config()
     url = config.coordinator_api_url or os.getenv("COORDINATOR_API_URL", "")
     if not url:
         return None
-    return AITBCHTTPClient(base_url=url, timeout=config.timeout, api_key=config.api_key or "")
+    return AITBCHTTPClient(base_url=service_root_url(url), timeout=config.timeout, api_key=config.api_key or "")
 
 
 @click.group(

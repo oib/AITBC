@@ -74,7 +74,7 @@ class TestWorkflowCommands:
     def test_workflow_run_dry_run(self, mock_get_config, runner):
         """``workflow run --dry-run`` prints a dry-run message without executing."""
         mock_config = mock_get_config.return_value
-        mock_config.coordinator_url = "http://localhost:8203"
+        mock_config.coordinator_api_url = "http://localhost:8203"
 
         from aitbc_cli.commands.workflow import workflow
 
@@ -89,7 +89,7 @@ class TestWorkflowCommands:
     def test_workflow_run_normal(self, mock_get_config, mock_post, runner):
         """``workflow run`` submits the workflow to the coordinator API."""
         mock_config = mock_get_config.return_value
-        mock_config.coordinator_url = "http://localhost:8203"
+        mock_config.coordinator_api_url = "http://localhost:8203"
         mock_config.coordinator_api_key = "test-key"
 
         mock_response = MagicMock()
@@ -110,7 +110,7 @@ class TestWorkflowCommands:
     def test_workflow_run_failure(self, mock_get_config, mock_post, runner):
         """``workflow run`` reports an error when the coordinator returns non-200."""
         mock_config = mock_get_config.return_value
-        mock_config.coordinator_url = "http://localhost:8203"
+        mock_config.coordinator_api_url = "http://localhost:8203"
 
         mock_response = MagicMock()
         mock_response.status_code = 500
@@ -129,7 +129,7 @@ class TestWorkflowCommands:
     def test_workflow_status_command(self, mock_get_config, mock_get, runner):
         """``workflow status`` fetches execution status from the coordinator API."""
         mock_config = mock_get_config.return_value
-        mock_config.coordinator_url = "http://localhost:8203"
+        mock_config.coordinator_api_url = "http://localhost:8203"
 
         mock_response = MagicMock()
         mock_response.status_code = 200
@@ -154,7 +154,7 @@ class TestWorkflowCommands:
     def test_workflow_stop_command(self, mock_get_config, mock_post, runner):
         """``workflow stop`` cancels a running workflow via the coordinator API."""
         mock_config = mock_get_config.return_value
-        mock_config.coordinator_url = "http://localhost:8203"
+        mock_config.coordinator_api_url = "http://localhost:8203"
 
         mock_response = MagicMock()
         mock_response.status_code = 200

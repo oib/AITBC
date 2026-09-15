@@ -11,6 +11,17 @@ import yaml
 
 from ..config import get_config
 from ..utils import error, success
+from ..utils.http_client import auth_headers, service_root_url
+
+
+def _coordinator_url(config_obj) -> str:
+    """Coordinator service root; configured values may already carry /v1."""
+    return service_root_url(getattr(config_obj, "coordinator_api_url", None), "http://localhost:8203")
+
+
+def _coordinator_headers(config_obj) -> dict[str, str]:
+    """Stored ``auth login`` JWT as Bearer, else the configured key as X-API-Key."""
+    return auth_headers(config_key=getattr(config_obj, "coordinator_api_key", None) or os.environ.get("COORDINATOR_API_KEY"))
 
 
 @click.group(
@@ -40,25 +51,20 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
     try:
         import httpx
 
-        config_obj = get_config()
-        coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
-        api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-
         if dry_run:
             success(f"Dry run for workflow {workflow_name}")
             click.echo("Would execute workflow without making changes")
             return
+
+        config_obj = get_config()
+        coordinator_url = _coordinator_url(config_obj)
+        headers = _coordinator_headers(config_obj)
 
         # Load config if provided
         workflow_config: dict[str, Any] = {}
         if config:
             with open(config) as f:
                 workflow_config = yaml.safe_load(f) or {}
-
-        # Submit workflow to coordinator API
-        headers = {}
-        if api_key:
-            headers["X-API-Key"] = api_key
 
         execution_payload = {"workflow_id": workflow_name, "inputs": workflow_config}
 
@@ -126,12 +132,8 @@ def status(workflow_name: str):
         import httpx
 
         config_obj = get_config()
-        coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
-        api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-
-        headers = {}
-        if api_key:
-            headers["X-API-Key"] = api_key
+        coordinator_url = _coordinator_url(config_obj)
+        headers = _coordinator_headers(config_obj)
 
         response = httpx.get(
             f"{coordinator_url}/v1/agents/executions/{workflow_name}/status",
@@ -167,12 +169,8 @@ def stop(workflow_name: str):
         import httpx
 
         config_obj = get_config()
-        coordinator_url = getattr(config_obj, "coordinator_url", "http://localhost:8203")
-        api_key = getattr(config_obj, "coordinator_api_key", os.environ.get("COORDINATOR_API_KEY"))
-
-        headers = {}
-        if api_key:
-            headers["X-API-Key"] = api_key
+        coordinator_url = _coordinator_url(config_obj)
+        headers = _coordinator_headers(config_obj)
 
         response = httpx.post(
             f"{coordinator_url}/v1/agents/workflows/{workflow_name}/cancel",
