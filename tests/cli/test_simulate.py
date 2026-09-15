@@ -47,7 +47,7 @@ class TestSimulateCommands:
         result = runner.invoke(
             simulate,
             ["blockchain", "--blocks", "2", "--transactions", "5", "--delay", "0"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -59,7 +59,7 @@ class TestSimulateCommands:
         result = runner.invoke(
             simulate,
             ["wallets", "--wallets", "2", "--balance", "100.0", "--transactions", "3"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -72,7 +72,7 @@ class TestSimulateCommands:
         result = runner.invoke(
             simulate,
             ["price", "--price", "50.0", "--volatility", "0.1", "--timesteps", "5", "--delay", "0"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -84,7 +84,7 @@ class TestSimulateCommands:
         result = runner.invoke(
             simulate,
             ["network", "--nodes", "3", "--network-delay", "0", "--failure-rate", "0.0"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -97,7 +97,7 @@ class TestSimulateCommands:
         result = runner.invoke(
             simulate,
             ["run", "--scenario", "test_scenario", "--params", '{"nodes": 5}'],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -108,7 +108,7 @@ class TestSimulateCommands:
     def test_status_command(self, runner, mock_config, mock_http):
         """Test simulation status command"""
         result = runner.invoke(
-            simulate, ["status", "--simulation-id", "sim_123"], obj={"config": mock_config, "output_format": "json"}
+            simulate, ["status", "--simulation-id", "sim_123"], obj={"config": mock_config, "output": "json", "output_format": "json"}
         )
 
         assert result.exit_code == 0
@@ -119,7 +119,7 @@ class TestSimulateCommands:
     def test_result_command(self, runner, mock_config, mock_http):
         """Test simulation result command"""
         result = runner.invoke(
-            simulate, ["result", "--simulation-id", "sim_123"], obj={"config": mock_config, "output_format": "json"}
+            simulate, ["result", "--simulation-id", "sim_123"], obj={"config": mock_config, "output": "json", "output_format": "json"}
         )
 
         assert result.exit_code == 0
@@ -132,7 +132,7 @@ class TestSimulateCommands:
         result = runner.invoke(
             simulate,
             ["run", "--scenario", "test_scenario", "--params", "not-valid-json"],
-            obj={"config": mock_config, "output_format": "json"},
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code != 0

@@ -79,7 +79,10 @@ class TestSystemCommands:
         """``system check`` checks service configuration."""
         from aitbc_cli.commands.system import system
 
-        result = runner.invoke(system, ["check"])
+        # Asks for the human rendering on purpose: the assertion is on the
+        # title banner, and output() suppresses that for json/yaml/csv so a
+        # machine-readable stream stays parseable.
+        result = runner.invoke(system, ["check"], obj={"output": "table", "output_format": "table"})
 
         assert result.exit_code == 0, result.output
         assert "System Health Check" in result.output
