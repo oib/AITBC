@@ -146,6 +146,8 @@ async def get_reputation_profile(
         if "error" in profile_data:
             raise HTTPException(status_code=404, detail=profile_data["error"])
         return ReputationProfileResponse(**profile_data)
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting reputation profile for %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")
@@ -168,6 +170,8 @@ async def create_reputation_profile(
             "reputation_level": reputation.reputation_level.value,
             "created_at": reputation.created_at.isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error creating reputation profile for %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")
@@ -203,6 +207,8 @@ async def add_community_feedback(
             created_at=feedback.created_at.isoformat(),
             moderation_status=feedback.moderation_status,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error adding feedback for agent %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")
@@ -233,6 +239,8 @@ async def record_job_completion(
             "success_rate": reputation.success_rate,
             "total_earnings": reputation.total_earnings,
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error recording job completion: %s", str(e))
         logger.exception("Unhandled exception")
@@ -266,6 +274,8 @@ async def get_trust_score_breakdown(
             reputation_level=reputation_level.value,
             calculated_at=datetime.now(UTC).isoformat(),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting trust score breakdown for %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")
@@ -288,6 +298,8 @@ async def get_reputation_leaderboard(
             category=category or "trust_score", limit=limit or 100, region=region
         )
         return [LeaderboardEntry(**entry) for entry in leaderboard_data]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting leaderboard: %s", str(e))
         logger.exception("Unhandled exception")
@@ -347,6 +359,8 @@ async def get_reputation_metrics(
             top_regions=top_regions,
             recent_activity=recent_activity,
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting reputation metrics: %s", str(e))
         logger.exception("Unhandled exception")
@@ -390,6 +404,8 @@ async def get_agent_feedback(
             )
             for feedback in feedbacks
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting feedback for agent %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")
@@ -431,6 +447,8 @@ async def get_reputation_events(
             }
             for event in events
         ]
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting reputation events for %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")
@@ -610,6 +628,8 @@ async def get_cross_chain_leaderboard(
             "min_score": min_score,
             "last_updated": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting cross-chain leaderboard: %s", str(e))
         logger.exception("Unhandled exception")
@@ -710,6 +730,8 @@ async def get_cross_chain_analytics(
             },
             "generated_at": datetime.now(UTC).isoformat(),
         }
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error getting cross-chain analytics: %s", str(e))
         logger.exception("Unhandled exception")
