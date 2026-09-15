@@ -19,17 +19,14 @@ from ..base_models import Bond, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account, Transaction
-from .utils import get_chain_id, normalize_transaction_data, verify_transaction_signature
+from .utils import (
+    OFFER_ACTIONS,
+    get_chain_id,
+    normalize_transaction_data,
+    verify_transaction_signature,
+)
 
 _logger = get_logger(__name__)
-
-# The two payload actions that make a GPU_MARKETPLACE transaction a purchasable
-# listing. The same transaction type also carries job settlements
-# ("software_job"), cancellations and ratings; those have no offer payload at
-# all -- no service_type, no model, price 0 -- so anything that means "an offer"
-# has to say so here rather than trusting the type alone.
-OFFER_ACTIONS = ("offer", "software_offer")
-
 
 class TransactionRequest(BaseModel):
     """Transaction request model"""

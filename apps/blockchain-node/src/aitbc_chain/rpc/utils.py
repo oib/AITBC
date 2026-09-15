@@ -14,6 +14,51 @@ _logger = get_logger(__name__)
 
 _poa_proposers: dict[str, Any] = {}
 
+# The two payload actions that make a GPU_MARKETPLACE transaction a purchasable
+# listing. The same transaction type also carries job settlements
+# ("software_job"), cancellations and ratings; those have no offer payload at
+# all -- no service_type, no model, price 0 -- so anything that means "an offer"
+# has to say so here rather than trusting the type alone. Offers may be
+# submitted without a secp256k1 signature (the marketplace CLI does not manage
+# wallet keys, V23-90), an exemption that is only safe while these transactions
+# carry no value — consensus zero-guards GPU_MARKETPLACE in both transition
+# paths.
+OFFER_ACTIONS = ("offer", "software_offer")
+
+
+def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
+    """Return why a gossip-delivered transaction must be dropped, or None.
+
+    The ``transactions`` gossip topics are public-publish by design — any
+    connected peer may inject a transaction envelope — so mempool ingest must
+    enforce the same signature policy as REST submission instead of trusting
+    the transport. Signed transactions are verified against ``from``; the only
+    unsigned shape admitted is a zero-amount ``GPU_MARKETPLACE`` listing, which
+    is the one flow the REST route deliberately exempts. Everything else is
+    dropped here rather than left for block validation, because the consensus
+    signature check only fires when a signature is present — an unsigned
+    ``TRANSFER`` naming any funded sender would otherwise be mineable.
+    """
+    payload = tx_data.get("payload")
+    sender = tx_data.get("from")
+    signature = tx_data.get("signature") or tx_data.get("sig")
+    if (
+        tx_data.get("type") == "GPU_MARKETPLACE"
+        and isinstance(payload, dict)
+        and payload.get("action") in OFFER_ACTIONS
+    ):
+        try:
+            if int(tx_data.get("amount", 0) or 0) == 0:
+                return None
+        except (TypeError, ValueError):
+            pass
+        return "nonzero_unsigned_offer"
+    if not signature:
+        return "missing_signature"
+    if not verify_transaction_signature(tx_data, signature, sender or ""):
+        return "invalid_signature"
+    return None
+
 
 def _unsigned_tx_fields(tx_data: dict[str, Any]) -> dict[str, Any]:
     """Return the fields that go into the signed transaction message.
