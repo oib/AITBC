@@ -86,6 +86,9 @@ aitbc --help
 | `zk` | Zero-knowledge proof commands. | `circuits`, `health`, `verify` |
 | `http` | Generic HTTP client for local AITBC services | `call` |
 | `service` | Manage AITBC systemd services | `harden` |
+| `liquidity-stake` | Stake tokens into an on-chain liquidity pool to earn rewards |  |
+| `stake` | Stake AITBC tokens on-chain for a configurable lock duration |  |
+| `unstake` | Unstake tokens once the lock period ends and withdraw the principal |  |
 
 ## Market
 

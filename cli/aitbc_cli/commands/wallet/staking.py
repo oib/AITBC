@@ -1,6 +1,7 @@
 """Staking wallet commands"""
 
 import json
+from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
 from typing import Any
@@ -118,6 +119,72 @@ def _sign_staking_message(wallet_data: dict[str, Any], sign_data: dict[str, Any]
     return sign_transaction_hash(message_hash, str(private_key))
 
 
+def _http_error_detail(exc: BaseException) -> str | None:
+    """Extract the FastAPI ``detail`` message from a wrapped HTTP error.
+
+    ``AITBCHTTPClient`` wraps ``requests.HTTPError`` in ``NetworkError``; the
+    original response (with the node's ``{"detail": ...}`` body, e.g. "Lock
+    period not expired. Locked until: ...") stays reachable through the
+    exception chain. Returns None when no response or detail is available.
+    """
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            try:
+                body = response.json()
+            except Exception:
+                return None
+            if isinstance(body, dict) and body.get("detail"):
+                return str(body["detail"])
+            return None
+        seen = seen.__cause__ or seen.__context__
+    return None
+
+
+def _stake_release_preflight(
+    http_client: AITBCHTTPClient, address: str, chain_id: str, stake_id: int
+) -> tuple[str | None, str | None]:
+    """Pre-flight an on-chain unstake before submitting the release.
+
+    Returns ``(error, locked_until)``: ``error`` is a human-readable reason
+    the release cannot proceed (the stake is absent/inactive or still inside
+    its lock window); ``locked_until`` is the stake's lock expiry when the
+    node reports it. On any lookup failure both are None so the write path
+    stays authoritative — the node still rejects an invalid release itself.
+    """
+    try:
+        info = http_client.get(f"/rpc/staking/{address}?chain_id={chain_id}")
+    except Exception:
+        return None, None
+    active: dict[int, dict[str, Any]] = {}
+    for s in info.get("active_stakes") or []:
+        try:
+            active[int(s.get("stake_id"))] = s
+        except (TypeError, ValueError):
+            continue
+    entry = active.get(stake_id)
+    if entry is None:
+        return (
+            f"no active stake {stake_id} found for this wallet on {chain_id} (already withdrawn or unknown to this node)",
+            None,
+        )
+    locked_until = entry.get("locked_until")
+    if locked_until:
+        try:
+            expiry = datetime.fromisoformat(str(locked_until))
+            if expiry.tzinfo is None:
+                expiry = expiry.replace(tzinfo=UTC)
+            if expiry > datetime.now(UTC):
+                return (
+                    f"stake {stake_id} is still locked until {locked_until} — the lock (unbonding) period has not expired",
+                    str(locked_until),
+                )
+        except (TypeError, ValueError):
+            pass  # unparsable timestamp — let the node decide
+    return None, str(locked_until) if locked_until else None
+
+
 @wallet.command(
     epilog="""Examples:
 
@@ -191,16 +258,17 @@ def stake(ctx, amount: Decimal, duration: int):
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        error(f"Error staking tokens: {e}")
+        detail = _http_error_detail(e)
+        error(f"Error staking tokens: {detail or e}")
         raise click.Abort() from e
 
 
 @wallet.command(
     epilog="""Examples:
 
-  aitbc wallet unstake --stake-id stake-1234"""
+  aitbc wallet unstake --stake-id 42"""
 )
-@click.option("--stake-id", "stake_id", required=True, help="Stake ID.")
+@click.option("--stake-id", "stake_id", required=True, help="Numeric stake ID returned by 'stake'.")
 @click.pass_context
 def unstake(ctx, stake_id: str):
     """Unstake tokens and withdraw the principal for the given stake ID."""
@@ -221,7 +289,11 @@ def unstake(ctx, stake_id: str):
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(rpc_url)
 
-    stake_id_int = int(stake_id)
+    try:
+        stake_id_int = int(stake_id)
+    except ValueError:
+        error(f"Invalid stake ID '{stake_id}': expected the numeric stake_id returned by 'stake'")
+        raise click.Abort() from None
     sign_data = {
         "address": hex_address.lower().strip(),
         "stake_id": stake_id_int,
@@ -244,24 +316,32 @@ def unstake(ctx, stake_id: str):
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+        locked_until = None
+        block_reason, locked_until = _stake_release_preflight(http_client, hex_address, chain_id, stake_id_int)
+        if block_reason:
+            error(f"Cannot unstake: {block_reason}")
+            raise click.Abort()
         result = http_client.post("/rpc/staking/unstake", json=unstake_data)
 
         success(f"Submitted an unstake of stake {stake_id}")
         # As with staking, the credit lands when the STAKE_RELEASE transfer is
         # included in a block, so report the transaction rather than a balance.
-        output(
-            {
-                "wallet": wallet_name,
-                "stake_id": stake_id,
-                "amount": str(units_to_ait(result.get("amount", 0))),
-                "transaction_hash": result.get("transaction_hash"),
-                "status": result.get("status"),
-                "chain_id": chain_id,
-            },
-            ctx.obj.get("output_format", "table"),
-        )
+        result_out = {
+            "wallet": wallet_name,
+            "stake_id": stake_id,
+            "amount": str(units_to_ait(result.get("amount", 0))),
+            "transaction_hash": result.get("transaction_hash"),
+            "status": result.get("status"),
+            "chain_id": chain_id,
+        }
+        if locked_until:
+            result_out["locked_until"] = locked_until
+        output(result_out, ctx.obj.get("output_format", "table"))
+    except click.Abort:
+        raise
     except Exception as e:
-        error(f"Error unstaking tokens: {e}")
+        detail = _http_error_detail(e)
+        error(f"Error unstaking tokens: {detail or e}")
         raise click.Abort() from e
 
 
@@ -316,7 +396,8 @@ def staking_info(ctx, address_override: str | None):
             ctx.obj.get("output_format", "table"),
         )
     except Exception as e:
-        error(f"Error fetching staking info: {e}")
+        detail = _http_error_detail(e)
+        error(f"Error fetching staking info: {detail or e}")
         raise click.Abort() from e
 
 
@@ -372,7 +453,8 @@ def liquidity_stake(ctx, amount: Decimal, pool: str, lock_days: int, fee: Decima
         ctx.exit(1)
         return
     except Exception as e:
-        error(f"Error submitting liquidity deposit: {e}")
+        detail = _http_error_detail(e)
+        error(f"Error submitting liquidity deposit: {detail or e}")
         ctx.exit(1)
         return
 
@@ -447,7 +529,8 @@ def liquidity_claim(ctx, stake_id: str, fee: Decimal):
         ctx.exit(1)
         return
     except Exception as e:
-        error(f"Error submitting liquidity claim: {e}")
+        detail = _http_error_detail(e)
+        error(f"Error submitting liquidity claim: {detail or e}")
         ctx.exit(1)
         return
 
@@ -501,7 +584,8 @@ def liquidity_unstake(ctx, stake_id: str, fee: Decimal):
         ctx.exit(1)
         return
     except Exception as e:
-        error(f"Error submitting liquidity withdraw: {e}")
+        detail = _http_error_detail(e)
+        error(f"Error submitting liquidity withdraw: {detail or e}")
         ctx.exit(1)
         return
 
