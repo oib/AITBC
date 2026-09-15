@@ -443,3 +443,74 @@ def test_http_error_detail_no_response():
     from aitbc_cli.utils.http_client import http_error_detail
 
     assert http_error_detail(NetworkError("connection refused")) is None
+
+
+# ---------------------------------------------------------------------------
+# GAP-37: reputation — simulated fallback only when unreachable; HTTP
+# responses (incl. 404/500) abort with the server's detail, never fake data
+# ---------------------------------------------------------------------------
+
+
+def _net_err_with_status(status: int):
+    import requests
+
+    from aitbc.exceptions import NetworkError
+
+    resp = Mock()
+    resp.status_code = status
+    resp.json.return_value = {"error": {"message": "Reputation profile not found"}}
+    http_err = requests.HTTPError(f"{status} err", response=resp)
+    err = NetworkError(f"GET failed: {http_err}")
+    err.__cause__ = http_err
+    return err
+
+
+def _net_err_unreachable():
+    import requests
+
+    from aitbc.exceptions import NetworkError
+
+    err = NetworkError("GET failed: conn refused")
+    err.__cause__ = requests.ConnectionError("conn refused")
+    return err
+
+
+def test_reputation_profile_404_aborts_not_simulates(runner):
+    from aitbc_cli.commands.reputation import get_profile
+
+    client = Mock()
+    client.get.side_effect = _net_err_with_status(404)
+    with patch("aitbc_cli.commands.reputation._coordinator_client", return_value=client):
+        result = runner.invoke(get_profile, ["--agent-id", "ghost"], obj={"output_format": "json"})
+    assert result.exit_code != 0
+    assert "Reputation profile not found" in result.output
+    assert "trust_score" not in result.output
+
+
+def test_reputation_profile_unreachable_simulates(runner):
+    from aitbc_cli.commands.reputation import get_profile
+
+    client = Mock()
+    client.get.side_effect = _net_err_unreachable()
+    with patch("aitbc_cli.commands.reputation._coordinator_client", return_value=client):
+        result = runner.invoke(get_profile, ["--agent-id", "ghost"], obj={"output_format": "json"})
+    assert result.exit_code == 0, result.output
+    assert '"trust_score"' in result.output
+
+
+def test_reputation_profile_live_result(runner):
+    from aitbc_cli.commands.reputation import get_profile
+
+    client = Mock()
+    client.get.return_value = {"agent_id": "a1", "trust_score": 800, "reputation_level": "excellent"}
+    with patch("aitbc_cli.commands.reputation._coordinator_client", return_value=client):
+        result = runner.invoke(get_profile, ["--agent-id", "a1"], obj={"output_format": "json"})
+    assert result.exit_code == 0
+    assert '"excellent"' in result.output
+
+
+def test_http_response_status_helper():
+    from aitbc_cli.utils.http_client import http_response_status
+
+    assert http_response_status(_net_err_with_status(404)) == 404
+    assert http_response_status(_net_err_unreachable()) is None

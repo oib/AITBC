@@ -159,6 +159,23 @@ def _detail_from_body(body: dict[str, Any]) -> str | None:
     return None
 
 
+def http_response_status(exc: BaseException) -> int | None:
+    """Return the HTTP status code inside a wrapped error, or None.
+
+    Distinguishes "the server answered" (any status) from "unreachable"
+    (DNS/TCP/TLS/timeout — no response object in the chain), so callers can
+    reserve simulated fallbacks for genuine outages rather than masking
+    4xx/5xx answers with fabricated data.
+    """
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            return int(response.status_code)
+        seen = seen.__cause__ or seen.__context__
+    return None
+
+
 def http_error_detail(exc: BaseException) -> str | None:
     """Extract the FastAPI ``detail`` message from a wrapped HTTP error.
 
