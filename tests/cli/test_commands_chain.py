@@ -100,6 +100,67 @@ class TestChainCommands:
 
         assert result.exit_code == 0, result.output
 
+    @patch("asyncio.run")
+    @patch("aitbc_cli.commands.chain.ChainManager")
+    @patch("aitbc_cli.commands.chain.load_multichain_config")
+    def test_chain_status_node_url_option(self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner, cli_obj):
+        """``chain status --node-url`` queries the given node in addition to the registry."""
+        from aitbc_cli.core.config import MultiChainConfig
+
+        mock_load_config.return_value = MultiChainConfig()
+        mock_asyncio_run.return_value = []
+
+        from aitbc_cli.commands.chain import chain
+
+        result = runner.invoke(chain, ["status", "--node-url", "http://node2:8202"], obj=cli_obj)
+
+        assert result.exit_code == 0, result.output
+        config_arg = mock_chain_manager_class.call_args[0][0]
+        assert "http://node2:8202" in config_arg.nodes
+        assert config_arg.nodes["http://node2:8202"].endpoint == "http://node2:8202"
+
+    @patch("aitbc_cli.commands.chain.get_config")
+    @patch("asyncio.run")
+    @patch("aitbc_cli.commands.chain.ChainManager")
+    @patch("aitbc_cli.commands.chain.load_multichain_config")
+    def test_chain_status_falls_back_to_configured_rpc(
+        self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, mock_get_config, runner, cli_obj
+    ):
+        """An empty node registry falls back to the configured blockchain_rpc_url."""
+        from aitbc_cli.core.config import MultiChainConfig
+
+        mock_load_config.return_value = MultiChainConfig()
+        mock_get_config.return_value.blockchain_rpc_url = "http://real-node:8202"
+        mock_asyncio_run.return_value = []
+
+        from aitbc_cli.commands.chain import chain
+
+        result = runner.invoke(chain, ["status"], obj=cli_obj)
+
+        assert result.exit_code == 0, result.output
+        config_arg = mock_chain_manager_class.call_args[0][0]
+        assert config_arg.nodes["local-rpc"].endpoint == "http://real-node:8202"
+
+    @patch("asyncio.run")
+    @patch("aitbc_cli.commands.chain.ChainManager")
+    @patch("aitbc_cli.commands.chain.load_multichain_config")
+    def test_chain_list_empty_registry_uses_node_url(
+        self, mock_load_config, mock_chain_manager_class, mock_asyncio_run, runner, cli_obj
+    ):
+        """``chain list`` with no configured nodes falls back to --node-url."""
+        from aitbc_cli.core.config import MultiChainConfig
+
+        mock_load_config.return_value = MultiChainConfig()
+        mock_asyncio_run.return_value = []
+
+        from aitbc_cli.commands.chain import chain
+
+        result = runner.invoke(chain, ["list", "--node-url", "http://node0:8202"], obj=cli_obj)
+
+        assert result.exit_code == 0, result.output
+        config_arg = mock_chain_manager_class.call_args[0][0]
+        assert config_arg.nodes["local-rpc"].endpoint == "http://node0:8202"
+
 
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])

@@ -182,10 +182,22 @@ def lock(ctx, provider_id, coordinator_url, format):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def release(ctx, provider_id, coordinator_url, format):
-    """Release a previously locked provider bond."""
+    """Release a previously locked provider bond.
+
+    The coordinator's release endpoint un-locks a LOCKED bond back to ACTIVE:
+    the bond record and its amount stay posted — release is not a withdrawal,
+    and there is no endpoint that frees the bonded funds. ``status: "active"``
+    in the response therefore *is* the released state, not a failure.
+    """
     try:
         client = _api_client(ctx, coordinator_url)
         result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds/release")
+        if isinstance(result, dict):
+            result.setdefault(
+                "note",
+                "Bond lock released; the bond stays posted (status 'active'). "
+                "Release un-locks a locked bond — it does not withdraw the bonded amount.",
+            )
         output(result, ctx.obj.get("output_format", format), title="Bond Released")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)

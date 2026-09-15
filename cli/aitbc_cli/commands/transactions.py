@@ -82,6 +82,7 @@ def _send_transaction_impl(
     rpc_url: str | None = None,
     tx_type: str = "TRANSFER",
     payload: dict[str, Any] | None = None,
+    nonce_offset: int = 0,
 ) -> str | None:
     """Send a secp256k1-signed transaction from one wallet to another."""
     keystore_dir = keystore_dir or wallet_dir()
@@ -147,6 +148,10 @@ def _send_transaction_impl(
         actual_nonce = account_data.get("nonce", 0)
     except Exception:
         actual_nonce = 0
+    # Batch callers pass a per-sender offset: the chain's account nonce does not
+    # move while earlier batch transactions sit in the mempool, so every entry
+    # would otherwise sign with the same nonce and only the first could be mined.
+    actual_nonce += nonce_offset
 
     # Convert AIT to compute-units (chain unit)
     amount_seconds = ait_to_units(amount)
@@ -328,14 +333,25 @@ def send(
 
   aitbc transactions batch --transactions-file /tmp/txs.json
 
-  aitbc transactions batch --transactions-file /tmp/txs.json --password-file /tmp/pass"""
+  aitbc transactions batch --transactions-file /tmp/txs.json --password-file /tmp/pass
+
+  The batch file is a JSON list of objects with keys:
+    from_wallet  — sender wallet name (required)
+    to_address   — recipient 0x address (required)
+    amount       — AIT amount to send (required)
+    fee          — AIT fee (optional, defaults to 0.001 like `send --fee`)"""
 )
 @click.option("--transactions-file", required=True, help="JSON file with batch transactions")
 @click.option("--password", help="Wallet password")
 @click.option("--password-file", help="File containing wallet password")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def batch(transactions_file: str, password: str | None, password_file: str | None, rpc_url: str | None):
-    """Send multiple transactions from a JSON batch file."""
+    """Send multiple transactions from a JSON batch file.
+
+    Entries are objects ``{"from_wallet", "to_address", "amount", "fee"?}``
+    with amounts in AIT. Identical entries are rejected as duplicates instead
+    of being reported as two successes for the same on-chain hash.
+    """
     # Password resolution priority:
     # 1. --password flag
     # 2. --password-file flag
@@ -419,18 +435,52 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     with open(transactions_file) as f:
         transactions_data = json.load(f)
 
+    # The chain's account nonce does not move while earlier batch transactions
+    # sit in the mempool, so entries from the same wallet sign with per-entry
+    # nonce offsets — otherwise identical entries produce the same tx hash and
+    # the mempool silently dedupes them while the CLI reported "2/2 successful".
+    seen_entries: set[tuple[str, str, Decimal, Decimal]] = set()
+    seen_hashes: set[str] = set()
+    nonce_offsets: dict[str, int] = {}
+
     results = []
     for tx in transactions_data:
         try:
             # amounts come out of a JSON batch file as numbers; convert at the boundary
+            amount = Decimal(str(tx["amount"]))
+            # default fee matches `send --fee` (0.001 AIT), not the old 10 AIT
+            fee = Decimal(str(tx.get("fee", "0.001")))
+            entry_key = (tx["from_wallet"], str(tx["to_address"]).lower(), amount, fee)
+            if entry_key in seen_entries:
+                results.append({"transaction": tx, "hash": None, "success": False, "error": "duplicate batch entry"})
+                error(f"Duplicate batch entry skipped: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
+                continue
+            seen_entries.add(entry_key)
+
+            from_wallet = tx["from_wallet"]
             tx_hash = _send_transaction_impl(
-                tx["from_wallet"],
+                from_wallet,
                 tx["to_address"],
-                Decimal(str(tx["amount"])),
-                Decimal(str(tx.get("fee", 10))),
+                amount,
+                fee,
                 password,
                 rpc_url=rpc_url,
+                nonce_offset=nonce_offsets.get(from_wallet, 0),
             )
+            if tx_hash:
+                nonce_offsets[from_wallet] = nonce_offsets.get(from_wallet, 0) + 1
+                if tx_hash in seen_hashes:
+                    results.append(
+                        {
+                            "transaction": tx,
+                            "hash": tx_hash,
+                            "success": False,
+                            "error": f"duplicate transaction hash {tx_hash}",
+                        }
+                    )
+                    error(f"Transaction produced a duplicate hash: {tx['from_wallet']} → {tx['to_address']}")
+                    continue
+                seen_hashes.add(tx_hash)
             results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
 
             if tx_hash:
