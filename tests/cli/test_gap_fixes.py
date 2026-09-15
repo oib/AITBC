@@ -1,15 +1,14 @@
-"""Tests for the 2026-09-15 CLI gap fixes (GAP-04/05/06/11).
+"""Tests for the 2026-09-15 CLI gap fixes.
 
-Covers ``resource status``/``deallocate`` (new coordinator-api lifecycle
-commands), ``ipfs unpin`` (Kubo + filesystem-index paths),
-``wallet staking-info --address`` (arbitrary-address query), and
-``system env-set`` (unit EnvironmentFile upsert semantics).
+Covers ``resource status``/``deallocate`` (GAP-04), ``ipfs unpin`` (GAP-05),
+``wallet staking-info --address`` (GAP-06), ``system env-set`` (GAP-11),
+coordinator ``/v1/services/{name}[ /test]`` + priced-job currency validation
+(GAP-27/28), and ``messaging send --topic`` title resolution (GAP-30).
 """
 
 import json
 import re
-from pathlib import Path
-from unittest.mock import MagicMock, Mock, patch
+from unittest.mock import Mock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -63,9 +62,7 @@ def test_resource_status_lists_allocations(runner):
         }
     ]
     with patch("aitbc_cli.commands.resource._client", return_value=client):
-        result = runner.invoke(
-            status, ["--agent-id", "agent-1", "--status", "allocated"], obj={"output_format": "json"}
-        )
+        result = runner.invoke(status, ["--agent-id", "agent-1", "--status", "allocated"], obj={"output_format": "json"})
     assert result.exit_code == 0, result.output
     args, kwargs = client.get.call_args
     assert args[0] == "/v1/agent-performance/resources"
@@ -270,3 +267,114 @@ def test_env_set_refuses_unit_without_env_file(runner):
         result = runner.invoke(env_set, ["nonexistent-svc", "FOO=1", "--no-restart"], obj={})
     assert result.exit_code != 0
     assert "No EnvironmentFile" in result.output or "--env-file" in result.output
+
+
+# ---------------------------------------------------------------------------
+# GAP-28: priced-job currency validation at submit (fail fast, no zombie job)
+# ---------------------------------------------------------------------------
+
+
+def test_job_create_rejects_invalid_currency_when_priced():
+    from decimal import Decimal
+
+    import pydantic
+    from coordinator_api.schemas import JobCreate
+
+    with pytest.raises(pydantic.ValidationError):
+        JobCreate(payload={}, payment_amount=Decimal("1"), payment_currency="INVALID_CURRENCY")
+
+
+def test_job_create_allows_invalid_currency_when_unpriced():
+    from coordinator_api.schemas import JobCreate
+
+    job = JobCreate(payload={}, payment_currency="INVALID_CURRENCY")
+    assert job.payment_currency == "INVALID_CURRENCY"
+
+
+def test_job_create_accepts_valid_currency_when_priced():
+    from decimal import Decimal
+
+    from coordinator_api.schemas import JobCreate
+
+    job = JobCreate(payload={}, payment_amount=Decimal("1"), payment_currency="aitbc")
+    assert job.payment_currency == "aitbc"
+
+
+# ---------------------------------------------------------------------------
+# GAP-27: coordinator /v1/services/{name} catalog lookup
+# ---------------------------------------------------------------------------
+
+
+def test_find_service_by_type_and_name():
+    from coordinator_api.contexts.infrastructure.routers.services import _find_service
+
+    assert _find_service("whisper")["type"] == "whisper"
+    assert _find_service("Whisper Speech Recognition")["type"] == "whisper"
+    assert _find_service("LLM_INFERENCE")["type"] == "llm_inference"
+    assert _find_service("no-such-service") is None
+
+
+# ---------------------------------------------------------------------------
+# GAP-30: messaging --topic title → topic_id resolution
+# ---------------------------------------------------------------------------
+
+
+def test_resolve_topic_id_passthrough():
+    from aitbc_cli.commands.messaging import _resolve_topic_id
+
+    client = Mock()
+    assert _resolve_topic_id(client, "topic_abc123", "agent", "addr") == "topic_abc123"
+    client.get.assert_not_called()
+
+
+def test_resolve_topic_id_title_lookup():
+    from aitbc_cli.commands.messaging import _resolve_topic_id
+
+    client = Mock()
+    client.get.return_value = {"topics": [{"topic_id": "topic_9", "title": "General"}]}
+    assert _resolve_topic_id(client, "general", "agent", "addr") == "topic_9"
+    client.post.assert_not_called()
+
+
+def test_resolve_topic_id_creates_when_missing():
+    from aitbc_cli.commands.messaging import _resolve_topic_id
+
+    client = Mock()
+    client.get.return_value = {"topics": []}
+    client.post.return_value = {"topic_id": "topic_new1"}
+    assert _resolve_topic_id(client, "brand-new", "agent", "addr") == "topic_new1"
+    args, kwargs = client.post.call_args
+    assert args[0] == "/rpc/contracts/messaging/topics/create"
+    assert kwargs["json"]["title"] == "brand-new"
+
+
+def test_messaging_send_resolves_title_to_id(runner):
+    from aitbc_cli.commands.messaging import send
+
+    client = Mock()
+    client.get.return_value = {"topics": [{"topic_id": "topic_9", "title": "general"}]}
+    client.post.return_value = {"success": True, "message_id": "msg_1"}
+    with patch("aitbc_cli.commands.messaging.AITBCHTTPClient", return_value=client):
+        result = runner.invoke(
+            send,
+            ["--recipient", "agent-1", "--message", "hi", "--topic", "general"],
+            obj={"output_format": "json"},
+        )
+    assert result.exit_code == 0, result.output
+    posts = [c for c in client.post.call_args_list if "messages/post" in c.args[0]]
+    assert posts and posts[0].kwargs["json"]["topic_id"] == "topic_9"
+
+
+def test_messaging_send_stale_topic_id_aborts(runner):
+    from aitbc_cli.commands.messaging import send
+
+    client = Mock()
+    client.post.return_value = {"success": False, "error_code": "TOPIC_NOT_FOUND"}
+    with patch("aitbc_cli.commands.messaging.AITBCHTTPClient", return_value=client):
+        result = runner.invoke(
+            send,
+            ["--recipient", "agent-1", "--message", "hi", "--topic", "topic_gone"],
+            obj={"output_format": "json"},
+        )
+    assert result.exit_code != 0
+    assert "not found" in result.output

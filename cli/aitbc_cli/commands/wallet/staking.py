@@ -15,7 +15,7 @@ from aitbc.utils.validation import validate_address
 
 from ...config import get_config
 from ...utils import DECIMAL, error, output, success
-from ...utils.http_client import AITBCHTTPClient
+from ...utils.http_client import AITBCHTTPClient, http_error_detail
 from ...utils.money import wallet_amount as _wallet_amount
 from . import _get_wallet_password, _load_wallet, _save_wallet, wallet
 
@@ -122,24 +122,10 @@ def _sign_staking_message(wallet_data: dict[str, Any], sign_data: dict[str, Any]
 def _http_error_detail(exc: BaseException) -> str | None:
     """Extract the FastAPI ``detail`` message from a wrapped HTTP error.
 
-    ``AITBCHTTPClient`` wraps ``requests.HTTPError`` in ``NetworkError``; the
-    original response (with the node's ``{"detail": ...}`` body, e.g. "Lock
-    period not expired. Locked until: ...") stays reachable through the
-    exception chain. Returns None when no response or detail is available.
+    Delegates to the shared helper; kept as a thin wrapper so existing call
+    sites read ``detail or e`` without a new import name.
     """
-    seen: BaseException | None = exc
-    while seen is not None:
-        response = getattr(seen, "response", None)
-        if response is not None:
-            try:
-                body = response.json()
-            except Exception:
-                return None
-            if isinstance(body, dict) and body.get("detail"):
-                return str(body["detail"])
-            return None
-        seen = seen.__cause__ or seen.__context__
-    return None
+    return http_error_detail(exc)
 
 
 def _stake_release_preflight(

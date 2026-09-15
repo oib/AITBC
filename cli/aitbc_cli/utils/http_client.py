@@ -122,3 +122,34 @@ def auth_headers(
     if kwargs.get("api_key"):
         headers["X-API-Key"] = kwargs["api_key"]
     return headers
+
+
+def http_error_detail(exc: BaseException) -> str | None:
+    """Extract the FastAPI ``detail`` message from a wrapped HTTP error.
+
+    ``AITBCHTTPClient`` wraps ``requests.HTTPError`` in ``NetworkError``; the
+    original response (with the node's ``{"detail": ...}`` body) stays
+    reachable through the exception chain. Returns None when no response or
+    detail is available.
+    """
+    seen: BaseException | None = exc
+    while seen is not None:
+        response = getattr(seen, "response", None)
+        if response is not None:
+            try:
+                body = response.json()
+            except Exception:
+                return None
+            if isinstance(body, dict):
+                detail = body.get("detail")
+                if isinstance(detail, str) and detail:
+                    return detail
+                # FastAPI validation errors: [{"loc": [...], "msg": "..."}]
+                if isinstance(detail, list) and detail:
+                    first = detail[0]
+                    if isinstance(first, dict) and first.get("msg"):
+                        loc = ".".join(str(p) for p in first.get("loc", []) if p not in ("body",))
+                        return f"{loc}: {first['msg']}" if loc else str(first["msg"])
+            return None
+        seen = seen.__cause__ or seen.__context__
+    return None

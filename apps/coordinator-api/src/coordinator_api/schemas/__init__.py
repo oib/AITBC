@@ -17,6 +17,12 @@ _brand = get_active_brand()
 # uses below are declared `str`.
 brand_symbol = str(getattr(_brand, "token_symbol", _brand))
 
+# Currencies the payments rail can actually settle. Shared by JobPaymentCreate
+# (escrow creation) and JobCreate (submission-time validation) so a priced job
+# with an unpayable currency is refused at submit instead of queueing a job
+# that can never secure escrow.
+ALLOWED_PAYMENT_CURRENCIES = ("AITBC", "ETH", "USDT")
+
 
 # Payment schemas
 class JobPaymentCreate(BaseModel):
@@ -72,9 +78,8 @@ class JobPaymentCreate(BaseModel):
     @classmethod
     def validate_currency(cls, v: str) -> str:
         """Validate currency code"""
-        allowed_currencies = ["AITBC", "ETH", "USDT"]
-        if v.upper() not in allowed_currencies:
-            raise ValueError(f"Currency must be one of: {allowed_currencies}")
+        if v.upper() not in ALLOWED_PAYMENT_CURRENCIES:
+            raise ValueError(f"Currency must be one of: {list(ALLOWED_PAYMENT_CURRENCIES)}")
         return v.upper()
 
 
@@ -326,6 +331,20 @@ class JobCreate(BaseModel):
         gt=Decimal("0"),
         description="How many of the offer's price_unit are being bought",
     )
+
+    @model_validator(mode="after")
+    def validate_priced_currency(self) -> JobCreate:
+        """A priced job must name a settleable currency.
+
+        Without this, ``POST /v1/jobs`` accepts e.g. ``--currency FOO``, the
+        job queues with ``payment_status=pending``, and the later
+        ``POST /v1/payments`` 422s — leaving a job the dispatch gate holds
+        forever (G4: only ``escrowed`` dispatches). Fail at submit instead.
+        """
+        if self.payment_amount is not None and self.payment_amount > 0:
+            if self.payment_currency.upper() not in ALLOWED_PAYMENT_CURRENCIES:
+                raise ValueError(f"payment_currency must be one of: {list(ALLOWED_PAYMENT_CURRENCIES)}")
+        return self
 
 
 class JobView(BaseModel):
