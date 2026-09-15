@@ -270,7 +270,7 @@ class TestByzantineFaultTolerance:
 class TestDataIntegrity:
     def test_blockchain_state_consistency_after_crash(self):
         """Test blockchain state remains consistent after crash recovery"""
-        poa = MultiValidatorPoA("integrity-test")
+        poa = MultiValidatorPoA("integrity-test", load_state=False)
 
         # Add validators and create some blocks
         validators = [f"0x{i}" for i in range(5)]
