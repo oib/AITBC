@@ -457,7 +457,12 @@ def aitbc_blockchain_list(
             description="List attached islands when used without a value; with a value, filter chains by island ID (substring match on chain ID)."
         ),
     ],
-    node_url: Annotated[str | None, Field(description="Local node RPC URL (used with --island)")],
+    node_url: Annotated[
+        str | None,
+        Field(
+            description="Local node RPC URL (used with --island, and as the chain source when no multichain nodes are configured)"
+        ),
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -681,6 +686,12 @@ def aitbc_blockchain_start(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True, open_world_hint=False))
 def aitbc_blockchain_status(
     chain_id: Annotated[str | None, Field(description="Specific chain ID to check status (shows all if not specified)")],
+    node_urls: Annotated[
+        list[str] | None,
+        Field(
+            description="Blockchain RPC URL of a node to query (repeatable); falls back to the configured blockchain_rpc_url when no nodes are known"
+        ),
+    ],
     detailed: Annotated[bool | None, Field(description="Show detailed status information")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -690,7 +701,7 @@ def aitbc_blockchain_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"detailed": "detailed"},
-        values={"chain_id": "chain-id"},
+        values={"chain_id": "chain-id", "node_urls": "node-url"},
     )
     args = None
     return _aitbc_cli_read_tool(
