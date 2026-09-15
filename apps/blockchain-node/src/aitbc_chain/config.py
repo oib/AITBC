@@ -479,6 +479,22 @@ class ChainSettings(BaseSettings):
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
     bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
     bridge_max_lock_amount: int = 0  # Maximum amount that can be locked in a single transfer (0 = unlimited)
+    # GAP-47: in-process relayer. When True the bridge finalizer loop also
+    # mirrors locally produced/synced block headers into bridge_block_header
+    # and confirms pending transfers whose lock has reached finality (the
+    # normal /rpc/bridge/confirm path — Merkle proof, header signature,
+    # finality, multisig checks all still apply). It is AND-gated on
+    # bridge_release_enabled in the finalizer loop, so this flag alone cannot
+    # move value; disabling it turns the loop back into finalize-only.
+    bridge_relayer_enabled: bool = True
+
+    # GAP-47: cross-chain swap quote table. Comma-separated
+    # "from_chain::to_chain=rate" or "chain:token::chain:token=rate" entries
+    # the operator configures; swaps over pairs with no configured rate are
+    # rejected unless both assets are identical (parity settlement at 1.0).
+    # There is no cross-chain AMM to derive a price from, so the endpoint
+    # refuses rather than inventing one.
+    cross_chain_swap_rates: str = ""
 
     # Bridge multi-sig configuration (v0.7.1). Security layer for the
     # cross-chain bridge: M-of-N validators must sign each proof before
