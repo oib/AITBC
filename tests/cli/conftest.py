@@ -87,6 +87,7 @@ def _mock_payment_wallet(monkeypatch):
         "aitbc_cli.commands.market.load_wallet_for_payment",
         "aitbc_cli.commands.exchange_island.load_wallet_for_payment",
         "aitbc_cli.commands.ipfs.load_wallet_for_payment",
+        "aitbc_cli.commands.cross_chain.load_wallet_for_payment",
     ]
     for target in targets:
         try:

@@ -28,15 +28,28 @@ class BridgeTransferMixin(BridgeBase):
     BRIDGE_FEE_BASIS_POINTS = 10
 
     def initiate_transfer(
-        self, source_chain: str, target_chain: str, sender: str, recipient: str, amount: int, asset: str = "native"
+        self,
+        source_chain: str,
+        target_chain: str,
+        sender: str,
+        recipient: str,
+        amount: int,
+        asset: str = "native",
+        release_amount: int | None = None,
     ) -> BridgeTransfer:
         """
         Initiate a cross-chain transfer.
 
         Step 1: Lock funds on source chain
+
+        ``release_amount`` optionally overrides the amount credited on the
+        target chain (GAP-47 cross-chain swaps quote a converted amount).
+        ``None`` releases the locked amount — the plain bridge behavior.
         """
         if source_chain == target_chain:
             raise ValueError("Source and target chain must be different")
+        if release_amount is not None and release_amount < 0:
+            raise ValueError("release_amount must be non-negative")
 
         max_amount = getattr(settings, "bridge_max_lock_amount", 0)
         if max_amount and amount > max_amount:
@@ -134,6 +147,7 @@ class BridgeTransferMixin(BridgeBase):
                 status="pending",
                 source_tx_hash=transfer_id,
                 lock_time=datetime.now(UTC),
+                release_amount=release_amount,
             )
             session.add(transfer_record)
             session.commit()
@@ -217,13 +231,16 @@ class BridgeTransferMixin(BridgeBase):
                 raise ValueError(f"Transfer already processed: {record.status}")
             if not self._validate_proof(proof, record):
                 raise ValueError("Invalid transfer proof")
+            # GAP-47: cross-chain swaps may release a converted amount that
+            # differs from the locked amount; plain bridges release `amount`.
+            release_amount = record.release_amount if record.release_amount is not None else record.amount
             block_scoped = getattr(settings, "block_scoped_preregistered_transactions", False)
             if not block_scoped:
                 recipient_account = session.get(Account, (record.target_chain, record.recipient))
                 if not recipient_account:
                     recipient_account = Account(chain_id=record.target_chain, address=record.recipient, balance=0, nonce=0)
                     session.add(recipient_account)
-                recipient_account.balance += record.amount
+                recipient_account.balance += release_amount
                 release_nonce = recipient_account.nonce
                 recipient_account.nonce += 1
                 session.add(recipient_account)
@@ -235,7 +252,7 @@ class BridgeTransferMixin(BridgeBase):
                 bridge_release_account = session.get(Account, (record.target_chain, bridge_release_addr))
                 if not bridge_release_account:
                     bridge_release_account = Account(
-                        chain_id=record.target_chain, address=bridge_release_addr, balance=record.amount, nonce=0
+                        chain_id=record.target_chain, address=bridge_release_addr, balance=release_amount, nonce=0
                     )
                     session.add(bridge_release_account)
                 release_nonce = bridge_release_account.nonce
@@ -253,7 +270,7 @@ class BridgeTransferMixin(BridgeBase):
                         "transfer_id": transfer_id,
                         "source_chain": record.source_chain,
                         "source_sender": record.sender,
-                        "amount": record.amount,
+                        "amount": release_amount,
                         "asset": record.asset,
                         "proof": proof_hash,
                     },
@@ -274,7 +291,7 @@ class BridgeTransferMixin(BridgeBase):
                     {
                         "from": "bridge_release",
                         "to": record.recipient,
-                        "amount": record.amount,
+                        "amount": release_amount,
                         "fee": 0,
                         "type": "BRIDGE_RELEASE",
                         "transfer_id": transfer_id,
@@ -318,7 +335,7 @@ class BridgeTransferMixin(BridgeBase):
             logger.info(
                 "Bridge transfer confirmed (release pending): %s... released %s to %s...",
                 transfer_id[:16],
-                record.amount,
+                release_amount,
                 record.recipient[:20],
             )
             return transfer or self._build_transfer_from_record(record, proof)
@@ -561,6 +578,11 @@ class BridgeTransferMixin(BridgeBase):
             ).first()
             if lock_tx and lock_tx.block_height:
                 block_height = lock_tx.block_height
+            elif lock_tx is not None and not block_hash:
+                # The lock exists but is not sealed into a block yet — a proof
+                # built now would anchor to the wrong block. Report the real
+                # state instead of falling back to the default height.
+                raise ValueError(f"Lock transaction {record.source_tx_hash or transfer_id} is not sealed in a block yet")
 
             block = session.exec(
                 select(Block).where(
@@ -574,7 +596,13 @@ class BridgeTransferMixin(BridgeBase):
             from ..state.merkle_patricia_trie import MerklePatriciaTrie
 
             trie = MerklePatriciaTrie()
-            lock_txs = [tx for tx in block.transactions if (tx.payload or {}).get("type", "").upper() == "BRIDGE_LOCK"]
+            # GAP-47: detect lock txs by the persisted ``type`` column, not
+            # only ``payload["type"]`` — under block-scoped pre-registration
+            # the mempool entry carries no ``payload`` key, so the sealed row
+            # has ``payload={}`` and the column is the only reliable marker.
+            lock_txs = [
+                tx for tx in block.transactions if (tx.type or (tx.payload or {}).get("type", "")).upper() == "BRIDGE_LOCK"
+            ]
             transfer_ids = [tx.tx_hash for tx in lock_txs]
             records = session.exec(
                 select(CrossChainTransfer).where(
@@ -843,22 +871,159 @@ class BridgeTransferMixin(BridgeBase):
                     in_memory.confirm_time = record.confirm_time
         return finalized
 
+    def _known_chains(self) -> list[str]:
+        """All chain IDs this node may hold bridge state for.
+
+        Union of ``supported_chains`` (locally produced/followed chains),
+        ``bridge_supported_chains`` (chains the bridge is configured to
+        serve) and the node's default ``chain_id``.
+        """
+        seen: set[str] = set()
+        for raw in (
+            getattr(settings, "supported_chains", ""),
+            getattr(settings, "bridge_supported_chains", ""),
+            str(getattr(settings, "chain_id", "") or ""),
+        ):
+            for chain in str(raw or "").split(","):
+                chain = chain.strip()
+                if chain:
+                    seen.add(chain)
+        return sorted(seen)
+
+    def _sync_local_chain_headers(self, chain_id: str) -> int:
+        """Store bridge block headers for locally known blocks of ``chain_id``.
+
+        GAP-47: the bridge proof path needs stored ``BridgeBlockHeader`` rows
+        to verify finality, but nothing ever populated them — the RPC intake
+        endpoint is admin-gated and no internal caller existed. A node that
+        produces (or fully syncs) a chain already holds the authoritative
+        signed headers in its ``block`` table, so mirror them into
+        ``bridge_block_header`` here. ``store_block_header`` derives
+        confirmation counts and finality from stored data, so this also makes
+        ``_check_finality_for_transfer`` reachable for real transfers.
+        """
+        with self._session_for(chain_id) as session:
+            try:
+                head = session.exec(
+                    select(Block).where(Block.chain_id == chain_id).order_by(Block.height.desc()).limit(1)  # type: ignore[attr-defined]
+                ).first()
+            except Exception:
+                return 0
+            if head is None:
+                return 0
+            last_stored = session.exec(
+                select(BridgeBlockHeader.height)
+                .where(BridgeBlockHeader.chain_id == chain_id)
+                .order_by(BridgeBlockHeader.height.desc())  # type: ignore[attr-defined]
+                .limit(1)
+            ).first()
+            finality_blocks = int(getattr(settings, "bridge_finality_blocks", 6))
+            if last_stored is None:
+                # First run: backfill only the recent finality window — older
+                # headers cannot become relevant to a pending transfer and a
+                # full-history backfill would needlessly grow the table.
+                start_height = max(0, head.height - 2 * finality_blocks - 5)
+            else:
+                start_height = int(last_stored) + 1
+            new_blocks = session.exec(
+                select(Block)
+                .where(Block.chain_id == chain_id, Block.height >= start_height)  # type: ignore[attr-defined]
+                .order_by(Block.height.asc())  # type: ignore[attr-defined]
+            ).all()
+        stored = 0
+        for block in new_blocks:
+            try:
+                self.store_block_header(
+                    {
+                        "chain_id": block.chain_id,
+                        "height": block.height,
+                        "hash": block.hash,
+                        "parent_hash": block.parent_hash,
+                        "proposer": block.proposer,
+                        "state_root": block.state_root or "",
+                        "bridge_state_root": block.bridge_state_root or "",
+                        "signature": block.signature or "",
+                    }
+                )
+                stored += 1
+            except Exception:
+                logger.exception("Failed to store bridge header for %s height=%s", chain_id, block.height)
+                break
+        return stored
+
+    def _relay_pending_transfers(self, chain_id: str) -> int:
+        """Confirm pending source-chain transfers whose lock has finality.
+
+        GAP-47 relayer: for each transfer locked on ``chain_id``, once the
+        lock transaction is sealed in a block and that block's stored header
+        has enough confirmations, build the real Merkle proof and run the
+        normal ``confirm_transfer`` verification + release path. Transfers
+        that cannot yet settle (lock unsealed, finality pending, validator
+        set missing) stay ``pending`` — the honest intermediate state.
+        """
+        relayed = 0
+        pending = [t for t in self.list_pending_transfers(chain_id) if t.source_chain == chain_id]
+        for transfer in pending:
+            try:
+                proof = self.build_proof(transfer.transfer_id, source_chain=chain_id)
+            except ValueError as e:
+                # Lock not sealed into a block yet, or the source block is not
+                # available — normal intermediate state, retry next pass.
+                logger.debug("Bridge relayer: %s not ready for confirm: %s", transfer.transfer_id[:16], e)
+                continue
+            except Exception:
+                logger.exception("Bridge relayer: failed to build proof for %s", transfer.transfer_id[:16])
+                continue
+            try:
+                self.confirm_transfer(transfer.transfer_id, proof)
+                relayed += 1
+            except ValueError as e:
+                # Finality/threshold/validator-set failures stay pending; the
+                # record keeps its honest state and we retry next interval.
+                logger.debug("Bridge relayer: confirm for %s rejected: %s", transfer.transfer_id[:16], e)
+            except Exception:
+                logger.exception("Bridge relayer: confirm failed for %s", transfer.transfer_id[:16])
+        return relayed
+
     async def start_finalizer(self) -> None:
-        """Background loop that finalises bridge releases once they are block-sealed."""
+        """Background loop that finalises bridge releases once they are block-sealed.
+
+        Each pass (every ``bridge_monitor_interval`` seconds) runs three real
+        phases on every known chain (GAP-47):
+        1. mirror newly produced/synced block headers into the bridge header
+           table so proofs have a finality anchor,
+        2. relay pending transfers: build their Merkle proof and run the
+           standard confirm path once the lock has finality,
+        3. mark confirmed transfers ``completed`` once the release tx is
+           sealed on the target chain.
+        """
         interval = getattr(settings, "bridge_monitor_interval", 60)
+        relayer_enabled = getattr(settings, "bridge_relayer_enabled", True) and getattr(
+            settings, "bridge_release_enabled", False
+        )
         while True:
             try:
-                chains = [
-                    c.strip()
-                    for c in (getattr(settings, "supported_chains", "") or str(getattr(settings, "chain_id", ""))).split(",")
-                    if c.strip()
-                ]
-                if not chains:
-                    chains = [str(getattr(settings, "chain_id", ""))]
+                chains = self._known_chains()
                 for chain_id in chains:
-                    count = self._finalize_confirmed_transfers(chain_id)
-                    if count:
-                        logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
+                    try:
+                        stored = self._sync_local_chain_headers(chain_id)
+                        if stored:
+                            logger.debug("Stored %s bridge headers for chain %s", stored, chain_id)
+                    except Exception:
+                        logger.exception("Bridge header sync failed for chain %s", chain_id)
+                    if relayer_enabled:
+                        try:
+                            relayed = self._relay_pending_transfers(chain_id)
+                            if relayed:
+                                logger.info("Relayed %s bridge transfers on chain %s", relayed, chain_id)
+                        except Exception:
+                            logger.exception("Bridge relayer failed for chain %s", chain_id)
+                    try:
+                        count = self._finalize_confirmed_transfers(chain_id)
+                        if count:
+                            logger.info("Finalized %s bridge transfers on chain %s", count, chain_id)
+                    except Exception:
+                        logger.exception("Bridge finalizer failed for chain %s", chain_id)
             except Exception:
                 logger.exception("Bridge release finalizer loop failed")
             await asyncio.sleep(interval)

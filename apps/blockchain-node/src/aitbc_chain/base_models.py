@@ -335,6 +335,45 @@ class CrossChainTransfer(ChainBase, table=True):
     confirm_time: datetime | None = None
     # v0.18.0: persisted proof hash for cross-restart replay protection.
     proof_hash: str | None = Field(default=None, index=True)
+    # GAP-47: optional release amount (compute-units) credited on the target
+    # chain. ``None`` means "release the locked amount" — the bridge default.
+    # Cross-chain swaps set this to the quoted/converted amount so a swap
+    # cannot silently deliver bridge semantics at a different rate.
+    release_amount: int | None = None
+
+
+class CrossChainSwap(ChainBase, table=True):
+    """Cross-chain swap record (GAP-47).
+
+    A swap is a bridge transfer with a rate quote: ``amount`` is locked on
+    the source chain and the underlying ``CrossChainTransfer`` settles it on
+    the target chain. The row stores the quote metadata; the lifecycle state
+    is derived live from the linked transfer so a swap can never claim a
+    status the bridge did not reach.
+    """
+
+    __tablename__ = "cross_chain_swap"
+
+    swap_id: str = Field(primary_key=True)
+    transfer_id: str = Field(index=True)
+    chain_id: str = Field(index=True)  # source chain this swap was locked on
+    from_chain: str
+    to_chain: str
+    from_token: str
+    to_token: str
+    amount: str  # human-readable source amount (AIT decimal string)
+    amount_units: int  # locked amount in compute-units
+    expected_amount: str | None = None  # quoted target amount (AIT decimal string)
+    min_amount: str | None = None
+    rate: float = 1.0
+    total_fees: str = "0"
+    slippage_tolerance: float = 0.01
+    user_address: str = Field(index=True)
+    recipient: str
+    status: str = Field(default="pending", index=True)
+    error: str | None = None
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+    completed_at: datetime | None = None
 
 
 class BridgeValidator(ChainBase, table=True):
