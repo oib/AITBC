@@ -71,9 +71,10 @@ def test_no_reviews_reads_as_unrated():
 
 def _run(fmt: str, offers: list[dict] | None):
     client = Mock()
-    client.get.side_effect = lambda path, **kw: (
-        {"offers": offers} if "marketplace/offer" in path else {"error": "no profile"}
-    )
+    def _get(path, **kw):
+        return {"offers": offers} if "marketplace/offer" in path else {"error": "no profile"}
+
+    client.get.side_effect = _get
     with (
         patch("aitbc_cli.commands.market.offers.AITBCHTTPClient", return_value=client),
         patch("aitbc_cli.commands.market.offers.get_config") as get_config,
