@@ -33,7 +33,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 05 | [Island Creation](./05_island_creation.md) | Create and join blockchain islands | `aitbc node island` |
 | 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the island exchange | `aitbc exchange-island` |
 | 07 | [AI Job Submission](./07_ai_job_submission.md) | Submit and monitor AI jobs | `aitbc ai` |
-| 08 | [Marketplace Bidding](./08_marketplace_bidding.md) | List and buy **chains** — **stale, pending rework** | none (`aitbc marketplace` group removed) |
+| 08 | [Marketplace Offers and Price Discovery](./08_marketplace_bidding.md) | Discover, rank and pay for compute offers | `aitbc market list` / `match` / `run` / `rate` |
 | 09 | [GPU Listing](./09_gpu_listing.md) | Register local GPUs; on-chain GPU records | `aitbc gpu`, `aitbc gpu-onchain` |
 | 10 | [Agent SDK Identity](./10_agent_sdk_identity.md) | Create and configure agents | `aitbc agent` |
 | 11 | [IPFS Storage](./11_ipfs_storage.md) | Store and retrieve content-addressed artifacts | `aitbc ipfs`, `aitbc oracle` |
