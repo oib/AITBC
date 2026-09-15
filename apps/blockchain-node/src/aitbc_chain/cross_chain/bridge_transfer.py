@@ -906,7 +906,10 @@ class BridgeTransferMixin(BridgeBase):
             return False
         try:
             with self._session_for(chain_id) as session:
-                session.exec(select(CrossChainTransfer.transfer_id).limit(1)).first()
+                # Select the full row, not a single column: a stale DB may
+                # have the table without GAP-47 columns (release_amount etc.)
+                # and only a full-row select detects that.
+                session.exec(select(CrossChainTransfer).limit(1)).first()
             return True
         except Exception as e:
             unavailable.add(chain_id)
