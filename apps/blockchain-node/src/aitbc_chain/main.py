@@ -326,7 +326,8 @@ class BlockchainNode:
             return
 
         async def process_txs() -> None:
-            from .rpc.utils import normalize_transaction_data
+            from .metrics import gossip_tx_rejected_total
+            from .rpc.utils import gossip_transaction_drop_reason, normalize_transaction_data
 
             from .mempool import get_mempool as get_mempool_instance
 
@@ -358,6 +359,21 @@ class BlockchainNode:
                                 "Ignoring non-transaction gossip message on %s: %s",
                                 getattr(tx_sub, "topic", "unknown"),
                                 tx_data,
+                            )
+                            continue
+                        # The transactions topics are public-publish: enforce
+                        # the REST signature policy here rather than trusting
+                        # the transport, or an unsigned tx naming any funded
+                        # sender would be mineable (the consensus check only
+                        # fires when a signature is present).
+                        drop_reason = gossip_transaction_drop_reason(tx_data)
+                        if drop_reason is not None:
+                            gossip_tx_rejected_total.labels(reason=drop_reason).inc()
+                            logger.warning(
+                                "Dropped gossip transaction on %s: %s (sender=%s)",
+                                getattr(tx_sub, "topic", "unknown"),
+                                drop_reason,
+                                tx_data.get("from"),
                             )
                             continue
                         chain_id = tx_data.get("chain_id", settings.chain_id)

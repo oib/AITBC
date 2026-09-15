@@ -134,6 +134,11 @@ gossip_messages_published_total = Counter(
     "Total messages published through the public gossip websocket",
     ["topic"],
 )
+gossip_tx_rejected_total = Counter(
+    "blockchain_gossip_tx_rejected_total",
+    "Total gossip-delivered transactions rejected at mempool ingest",
+    ["reason"],
+)
 
 # Liveness, as opposed to the counters above. An auth counter only says a peer
 # authenticated at some point since this process started; it stays high after
