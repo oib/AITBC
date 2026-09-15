@@ -108,7 +108,9 @@ class TestSimulateCommands:
     def test_status_command(self, runner, mock_config, mock_http):
         """Test simulation status command"""
         result = runner.invoke(
-            simulate, ["status", "--simulation-id", "sim_123"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            simulate,
+            ["status", "--simulation-id", "sim_123"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
@@ -119,7 +121,9 @@ class TestSimulateCommands:
     def test_result_command(self, runner, mock_config, mock_http):
         """Test simulation result command"""
         result = runner.invoke(
-            simulate, ["result", "--simulation-id", "sim_123"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            simulate,
+            ["result", "--simulation-id", "sim_123"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
