@@ -546,13 +546,14 @@ class TestBug13StakingChainIdValidation:
 class TestBug14XWalletAddressHeaderWarning:
     """Auth must reject X-Wallet-Address unless TRUST_X_WALLET_ADDRESS=true."""
 
-    def _make_request(self, wallet_address: str | None = None):
+    def _make_request(self, wallet_address: str | None = None, client_host: str = "127.0.0.1"):
         """Create a mock FastAPI Request with optional X-Wallet-Address header."""
         request = MagicMock()
         headers = {}
         if wallet_address:
             headers["X-Wallet-Address"] = wallet_address
         request.headers.get = lambda key, default=None: headers.get(key, default)
+        request.client.host = client_host
         return request
 
     def test_rejects_x_wallet_address_when_trust_not_set(self, monkeypatch) -> None:
@@ -580,6 +581,15 @@ class TestBug14XWalletAddressHeaderWarning:
         request = self._make_request(wallet)
         result = get_authenticated_address(request)
         assert result == wallet
+
+    def test_rejects_x_wallet_address_from_non_loopback(self, monkeypatch) -> None:
+        """Auth rejects X-Wallet-Address from remote clients even with trust=true."""
+        monkeypatch.setenv("TRUST_X_WALLET_ADDRESS", "true")
+        wallet = "0x" + "1" * 40
+        request = self._make_request(wallet, client_host="10.1.2.3")
+        with pytest.raises(HTTPException) as exc_info:
+            get_authenticated_address(request)
+        assert exc_info.value.status_code == 401
 
     def test_rejects_invalid_wallet_address_format(self, monkeypatch) -> None:
         """Auth rejects X-Wallet-Address with invalid format (not 0x + 40 hex)."""
