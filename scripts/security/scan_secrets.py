@@ -143,12 +143,14 @@ def scan_file(path: Path) -> list[tuple[int, str, str]]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description="Scan source code for hardcoded secrets/API keys")
-    parser.add_argument("--root", default=os.environ.get("REPO_ROOT", "/opt/aitbc"))
+    parser.add_argument("--root", default=os.environ.get("REPO_ROOT", str(Path(__file__).resolve().parents[2])))
     parser.add_argument("--exclude", action="append", default=[], help="Additional path components to exclude")
     parser.add_argument("--extensions", default="py,js,ts,sh,yml,yaml,toml,cfg,ini,json,txt,env")
     args = parser.parse_args()
 
     root = Path(args.root).resolve()
+    if not root.is_dir():
+        parser.error(f"scan root does not exist or is not a directory: {root}")
     exclude = DEFAULT_EXCLUDE | set(args.exclude)
     extensions = set(args.extensions.split(","))
 

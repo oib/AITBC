@@ -4,6 +4,7 @@ DNS-based hub discovery for federated mesh with hardcoded fallback
 """
 
 import asyncio
+import os
 import socket
 from dataclasses import dataclass
 from typing import Any
@@ -26,9 +27,13 @@ class HubEndpoint:
 
 
 class HubDiscovery:
-    """DNS-based hub discovery with hardcoded fallback"""
+    """DNS-based hub discovery with optional configured fallback"""
 
-    FALLBACK_HUBS = [("10.1.1.1", 7070), ("10.1.1.2", 7070), ("10.1.1.3", 7070)]
+    # Operator-provided static hubs, comma-separated host:port pairs, e.g.
+    # AITBC_HUB_FALLBACKS="hub1.example.net:7070,hub2.example.net:7070".
+    # Empty by default: a DNS failure must surface as "no hubs", not as
+    # connection timeouts against unreachable placeholder addresses.
+    FALLBACK_HUBS_ENV = "AITBC_HUB_FALLBACKS"
 
     def __init__(self, discovery_url: str, default_port: int = 7070):
         self.discovery_url = discovery_url
@@ -81,8 +86,25 @@ class HubDiscovery:
             return []
 
     def _get_fallback_hubs(self) -> list[HubEndpoint]:
-        """Get hardcoded fallback hubs"""
-        return [HubEndpoint(address=address, port=port, source="fallback") for address, port in self.FALLBACK_HUBS]
+        """Get configured fallback hubs (empty unless AITBC_HUB_FALLBACKS is set)"""
+        hubs: list[HubEndpoint] = []
+        for entry in os.getenv(self.FALLBACK_HUBS_ENV, "").split(","):
+            entry = entry.strip()
+            if not entry:
+                continue
+            address, sep, port_text = entry.rpartition(":")
+            if not sep:
+                address, port_text = entry, ""
+            if not address:
+                logger.warning("Ignoring malformed %s entry %r", self.FALLBACK_HUBS_ENV, entry)
+                continue
+            try:
+                port = int(port_text) if port_text else self.default_port
+            except ValueError:
+                logger.warning("Ignoring malformed %s entry %r", self.FALLBACK_HUBS_ENV, entry)
+                continue
+            hubs.append(HubEndpoint(address=address, port=port, source="fallback"))
+        return hubs
 
     async def register_hub(self, hub_info: dict[str, Any], discovery_url: str | None = None) -> bool:
         """
