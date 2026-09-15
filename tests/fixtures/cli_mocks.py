@@ -193,10 +193,20 @@ def mock_wallet():
 
 
 def make_cli_obj(**overrides) -> dict:
-    """Build the standard ``ctx.obj`` mapping used across the CLI commands."""
+    """Build the standard ``ctx.obj`` mapping used across the CLI commands.
+
+    ``output_format`` is ``json`` because that is what the CLI tests assert on:
+    they call ``json.loads(result.output)`` or match substrings like
+    ``'"mined": false'``. Until 2026-09-15 this said ``table`` and they still
+    saw JSON, because ``output()`` had a single branch for every format whose
+    else-arm was commented "Table format -- just JSON for now". ``table`` now
+    renders a real grid, so a test that parses the payload has to ask for the
+    format it actually means. Use ``make_cli_obj(output_format="table")`` to
+    exercise the table renderer.
+    """
     obj = {
-        "output": "table",
-        "output_format": "table",
+        "output": "json",
+        "output_format": "json",
         "url": "http://localhost:8202",
         "api_key": "test-api-key",
         "verbose": 0,
