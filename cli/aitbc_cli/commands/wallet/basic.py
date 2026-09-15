@@ -10,7 +10,7 @@ from typing import Any, cast
 import click
 
 from ...config import get_config
-from ...utils import DECIMAL, error, output, success
+from ...utils import DECIMAL, error, output, resolve_output_format, success
 from ...utils.address import to_eip55
 from ...utils.http_client import AITBCHTTPClient, NetworkError
 from ...utils.money import wallet_amount as _wallet_amount
@@ -246,7 +246,8 @@ def backup(ctx, name: str, destination: str | None):
             "wallet": name,
             "backup_path": destination,
             "timestamp": datetime.now(UTC).isoformat() + "Z",
-        }
+        },
+        resolve_output_format(ctx),
     )
 
 
@@ -291,7 +292,8 @@ def restore(ctx, backup_path: str, name: str, force: bool):
             "wallet": name,
             "restored_from": backup_path,
             "address": wallet_data["address"],
-        }
+        },
+        resolve_output_format(ctx),
     )
 
 

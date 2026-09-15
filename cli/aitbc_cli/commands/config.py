@@ -10,7 +10,7 @@ import click
 import yaml
 
 from ..config import CONFIG_FILE_KEYS, default_config_path, get_config
-from ..utils import error, output, success, warning
+from ..utils import error, output, resolve_output_format, success, warning
 
 
 def _local_config_path() -> Path:
@@ -82,7 +82,7 @@ def show(ctx):
         "config_file": getattr(config, "config_file", None),
     }
 
-    output(config_dict, ctx.obj["output"])
+    output(config_dict, resolve_output_format(ctx))
 
 
 @config.command(
@@ -148,7 +148,7 @@ def set(ctx, key: str, value: str, global_config: bool):
         error(f"Unknown configuration key: {key}")
         ctx.exit(1)
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(_SET_MESSAGES.get(key, "{key} set to: {value}").format(key=key, value=value))
 
     # Save config (an AITBC_CONFIG_FILE target may live in a new directory)
@@ -156,7 +156,7 @@ def set(ctx, key: str, value: str, global_config: bool):
     with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
-    output({"config_file": str(config_file), "key": key, "value": value}, ctx.obj["output"])
+    output({"config_file": str(config_file), "key": key, "value": value}, resolve_output_format(ctx))
 
 
 @config.command(
@@ -167,11 +167,12 @@ def set(ctx, key: str, value: str, global_config: bool):
   aitbc config path --global"""
 )
 @click.option("--global", "global_config", is_flag=True, help="Show global config")
-def path(global_config: bool):
+@click.pass_context
+def path(ctx, global_config: bool):
     """Show the path to the local or global configuration file."""
     config_file = _global_config_path() if global_config else _local_config_path()
 
-    output({"config_file": str(config_file), "exists": config_file.exists()})
+    output({"config_file": str(config_file), "exists": config_file.exists()}, resolve_output_format(ctx))
 
 
 @config.command(
@@ -218,7 +219,7 @@ def reset(ctx, global_config: bool):
     config_file = _global_config_path() if global_config else _local_config_path()
 
     if not config_file.exists():
-        output({"message": "No configuration file found"})
+        output({"message": "No configuration file found"}, resolve_output_format(ctx))
         return
 
     if not click.confirm(f"Reset configuration at {config_file}?"):
@@ -309,7 +310,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
     with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(f"Configuration imported to {config_file}")
 
 
@@ -352,13 +353,13 @@ def validate(ctx):
         error("Configuration validation failed")
         ctx.exit(1)
     elif warnings:
-        if ctx.obj["output"] == "table":
+        if resolve_output_format(ctx) == "table":
             success("Configuration valid with warnings")
     else:
-        if ctx.obj["output"] == "table":
+        if resolve_output_format(ctx) == "table":
             success("Configuration is valid")
 
-    output(result, ctx.obj["output"])
+    output(result, resolve_output_format(ctx))
 
 
 @config.command(
@@ -368,7 +369,8 @@ def validate(ctx):
 
   aitbc config environments --output json"""
 )
-def environments():
+@click.pass_context
+def environments(ctx):
     """List available configuration environments and their API key status."""
     env_vars = [
         "AITBC_COORDINATOR_URL",
@@ -388,7 +390,10 @@ def environments():
                 value = "***REDACTED***"
             env_data[var] = value
 
-    output({"environment_variables": env_data, "note": "Use export VAR=value to set environment variables"})
+    output(
+        {"environment_variables": env_data, "note": "Use export VAR=value to set environment variables"},
+        resolve_output_format(ctx),
+    )
 
 
 @config.group(
@@ -433,7 +438,7 @@ def save(ctx, name: str):
     with open(profile_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(f"Profile '{name}' saved")
 
 
@@ -444,12 +449,13 @@ def save(ctx, name: str):
 
   aitbc config profiles list --output json"""
 )
-def list():
+@click.pass_context
+def list(ctx):
     """List all saved configuration profiles with their settings."""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
 
     if not profiles_dir.exists():
-        output({"profiles": []})
+        output({"profiles": []}, resolve_output_format(ctx))
         return
 
     profiles = []
@@ -466,7 +472,7 @@ def list():
             }
         )
 
-    output({"profiles": profiles})
+    output({"profiles": profiles}, resolve_output_format(ctx))
 
 
 @profiles.command(
@@ -497,7 +503,7 @@ def load(ctx, name: str):
     with open(config_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(f"Profile '{name}' loaded")
 
 
@@ -523,7 +529,7 @@ def delete(ctx, name: str):
         return
 
     profile_file.unlink()
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(f"Profile '{name}' deleted")
 
 
@@ -566,9 +572,9 @@ def set_secret(ctx, key: str, value: str):
     # creation, so an already-present file keeps whatever permissions it had.
     secrets_file.chmod(0o600)
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(f"Secret '{key}' saved (encoded)")
-    output({"key": key, "status": "encoded"}, ctx.obj["output"])
+    output({"key": key, "status": "encoded"}, resolve_output_format(ctx))
 
 
 @config.command(
@@ -601,7 +607,7 @@ def get_secret(ctx, key: str):
         return
 
     decoded = decode_value(secrets[key])
-    output({"key": key, "value": decoded}, ctx.obj["output"])
+    output({"key": key, "value": decoded}, resolve_output_format(ctx))
 
 
 @config.command(
@@ -655,7 +661,7 @@ def check_keys(ctx, strict: bool):
         "keys": results,
     }
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         for entry in results:
             status = "present" if entry["present"] else "missing"
             level = "required" if entry["required"] else "optional"
@@ -669,7 +675,7 @@ def check_keys(ctx, strict: bool):
         else:
             success("All required API keys are present")
 
-    output(summary, ctx.obj["output"])
+    output(summary, resolve_output_format(ctx))
 
     if strict and missing_required:
         error("Required API keys are missing")
@@ -705,14 +711,14 @@ def unset(ctx, key: str, global_config: bool):
     config_file = _global_config_path() if global_config else _local_config_path()
 
     if not config_file.exists():
-        output({"message": "No configuration file found"})
+        output({"message": "No configuration file found"}, resolve_output_format(ctx))
         return
 
     with open(config_file) as f:
         config_data = yaml.safe_load(f) or {}
 
     if key not in config_data:
-        output({"config_file": str(config_file), "key": key, "removed": False})
+        output({"config_file": str(config_file), "key": key, "removed": False}, resolve_output_format(ctx))
         return
 
     del config_data[key]
@@ -720,9 +726,9 @@ def unset(ctx, key: str, global_config: bool):
     with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
-    if ctx.obj["output"] == "table":
+    if resolve_output_format(ctx) == "table":
         success(f"Removed '{key}' from {config_file}")
-    output({"config_file": str(config_file), "key": key, "removed": True}, ctx.obj["output"])
+    output({"config_file": str(config_file), "key": key, "removed": True}, resolve_output_format(ctx))
 
 
 # Add profiles group to config
