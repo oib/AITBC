@@ -90,7 +90,10 @@ class TestDashboardShop:
             if path == "/v1/monitoring/metrics":
                 return {"jobs": {"total": 5, "completed": 3, "pending": 1, "failed": 1}, "miners": {"total": 1, "online": 1}}
             if path == "/v1/gpu/discover":
-                return {"gpus": [{"id": "gpu-0"}]}
+                # Real contract: a flat nvidia-smi spec dict, not {"gpus": [...]}.
+                return {"model": "NVIDIA GeForce RTX 4060 Ti", "memory_gb": 15, "uuid": "GPU-x"}
+            if path == "/v1/miners/shop-node/gpus":
+                return [{"id": "gpu-0", "model": "NVIDIA GeForce RTX 4060 Ti", "memory_gb": 15, "status": "online"}]
             if path == "/v1/marketplace/offer":
                 return {
                     "offers": [
@@ -107,7 +110,7 @@ class TestDashboardShop:
                 }
             if path == "/v1/wallets":
                 return {"items": [{"wallet_id": "w1"}]}
-            if path == "/v1/chains/ait-devnet/wallets/w1/balance":
+            if path == "/v1/wallets/w1/balance":
                 return {"balance": 2.0}
             return {}
 
@@ -125,6 +128,49 @@ class TestDashboardShop:
         assert "Shop Dashboard" in result.output
         assert "p1" in result.output
         assert "shop-node" in result.output
+        # discover (flat dict) + miners/{id}/gpus list the same card once.
+        assert '"gpus_found": 1' in result.output
+        assert "RTX 4060 Ti" in result.output
+
+    @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
+    @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.dashboard._auth_headers")
+    def test_shop_dashboard_post_405_falls_back_to_get(
+        self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj
+    ):
+        """A coordinator/proxy that only allows GET on miner reads still populates the panel."""
+        import requests
+
+        from aitbc_cli.utils.http_client import NetworkError
+
+        mock_auth.return_value = {"Authorization": "Bearer token"}
+        mock_client = mock_client_class.return_value
+
+        def get_side_effect(path, **kwargs):
+            if path == "/v1/miners/shop-node/jobs":
+                return {"jobs": [{"job_id": "job-9", "state": "COMPLETED"}]}
+            if path == "/v1/miners/shop-node/earnings":
+                return {"total_earnings": "3.0", "paid_earnings": "3.0", "pending_earnings": "0"}
+            return {}
+
+        mock_client.get.side_effect = get_side_effect
+
+        def post_side_effect(path, **kwargs):
+            err = NetworkError(f"POST request failed: 405 Client Error for url: {path}")
+            http_err = requests.HTTPError("405 Client Error")
+            http_err.response = MagicMock(status_code=405)
+            err.__cause__ = http_err
+            raise err
+
+        mock_client.post.side_effect = post_side_effect
+
+        from aitbc_cli.commands.dashboard import shop
+
+        result = runner.invoke(shop, ["--miner-id", "shop-node"], obj=dashboard_ctx_obj)
+
+        assert result.exit_code == 0, result.output
+        assert "job-9" in result.output
+        assert '"total": "3.0"' in result.output
 
     @patch("aitbc_cli.commands.dashboard._enrich_jobs_with_escrow")
     @patch("aitbc_cli.commands.dashboard.AITBCHTTPClient")
