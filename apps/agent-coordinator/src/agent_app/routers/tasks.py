@@ -399,7 +399,7 @@ async def _require_provider_signature(entry: Any, action: str, task_id: str, bod
     )
 
 
-def _record_reinvest_outcome(entry: Any, submitter: Any) -> None:
+def _record_reinvest_outcome(escrow_mgr: Any, entry: Any, submitter: Any) -> None:
     """Copy the chain's reinvest result onto the escrow entry, then persist it.
 
     The chain reports what it staked in the release response, which the
@@ -419,7 +419,7 @@ def _record_reinvest_outcome(entry: Any, submitter: Any) -> None:
     if reinvest_amount:
         entry.metadata["reinvest_amount"] = str(reinvest_amount)
     entry.metadata["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
-    state.payment_escrow.persist_entry(entry)
+    escrow_mgr.persist_entry(entry)
 
 
 async def _parse_complete_body(request: Request, entry: Any) -> tuple[int | None, dict[str, Any]]:
@@ -487,7 +487,7 @@ async def complete_task(request: Request, task_id: str) -> dict[str, Any]:
         state.payment_escrow.release(entry.escrow_id, submitter=submitter)
         # The chain reports the reinvestment it performed; record it on the
         # entry so the escrow/task views can show it after the fact.
-        _record_reinvest_outcome(entry, submitter)
+        _record_reinvest_outcome(state.payment_escrow, entry, submitter)
     except ValueError as e:
         raise HTTPException(status_code=409, detail=str(e)) from None
     except Exception:
