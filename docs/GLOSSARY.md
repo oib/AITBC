@@ -88,7 +88,7 @@
 ## M
 
 - **Marketplace**: Platform for trading GPU resources, storage, and other services
-- **Marketplace Bidding**: Competitive bidding mechanism for acquiring marketplace resources
+- **Marketplace Price Discovery**: Providers publish priced offers (asks) and buyers rank them by price, reputation or availability. There is no buyer-side bid; the only buyer-supplied price limit is `--max-ait` on a GPU rental quote. See [scenario 08](scenarios/08_marketplace_bidding.md).
 - **Mining**: Process of validating transactions and creating new blocks to earn block rewards
 - **Multi-Chain**: Operations spanning multiple blockchain networks
 - **Multi-Chain Architecture**: Design patterns for managing assets and operations across multiple chains
