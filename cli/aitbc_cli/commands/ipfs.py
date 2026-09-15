@@ -403,6 +403,38 @@ def pin(ctx, cid: str):
 
 
 @ipfs.command(
+    epilog="""Examples:
+
+  aitbc ipfs unpin --cid Qm...
+
+  aitbc ipfs unpin --cid Qm... --output json"""
+)
+@click.option("--cid", "cid", required=True, help="The Cid.")
+@click.pass_context
+def unpin(ctx, cid: str):
+    """Unpin content by CID on the local Kubo daemon or filesystem index."""
+    if _daemon_available():
+        if _ipfs_unpin_cid(IPFS_API, cid):
+            click.echo(json.dumps({"success": True, "data": {"pinned": False, "cid": cid}}))
+            return
+        click.echo(json.dumps({"success": False, "warning": "Kubo unpin failed; using filesystem index"}), err=True)
+
+    _ensure_ipfs_dir()
+    items = _load_index()
+    found = False
+    for item in items:
+        if item.get("cid") == cid:
+            item["pinned"] = False
+            found = True
+    if not found:
+        click.echo(json.dumps({"success": False, "error": f"CID not found: {cid}"}))
+        raise click.Abort()
+    _save_index(items)
+
+    click.echo(json.dumps({"success": True, "data": {"pinned": False, "cid": cid}}))
+
+
+@ipfs.command(
     name="list",
     epilog="""Examples:
 
