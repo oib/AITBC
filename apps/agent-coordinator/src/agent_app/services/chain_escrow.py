@@ -115,21 +115,34 @@ class ChainEscrowClient:
         )
         return result
 
-    def release(self, job_id: str, *, job_tx_hash: str | None = None, amount_units: int | None = None) -> str | None:
-        """Release escrow to the provider; returns the release tx hash.
+    def release(
+        self,
+        job_id: str,
+        *,
+        job_tx_hash: str | None = None,
+        amount_units: int | None = None,
+        auto_reinvest_pct: float | None = None,
+    ) -> dict[str, Any]:
+        """Release escrow to the provider; returns the RPC response dict.
 
         ``amount_units`` bills a partial amount (the chain refunds the unbilled
         remainder to the buyer); omitting it releases the whole lock.
+        ``auto_reinvest_pct`` asks the chain to stake that share of the release
+        for the escrow's recorded provider — the stake address is derived from
+        the contract on the chain side, so it cannot be redirected from here.
+        The response may then carry ``reinvest_stake_id``/``reinvest_amount``.
         """
         body: dict[str, Any] = {}
         if job_tx_hash:
             body["job_tx_hash"] = job_tx_hash
         if amount_units is not None:
             body["amount"] = str(units_to_ait(amount_units))
+        if auto_reinvest_pct is not None:
+            body["auto_reinvest_pct"] = str(auto_reinvest_pct)
         result = self._post(f"/rpc/escrow/{job_id}/release", body)
         tx_hash = result.get("tx_hash") or result.get("release_tx_hash")
         logger.info("On-chain escrow released: job_id=%s tx=%s", job_id, tx_hash)
-        return str(tx_hash) if tx_hash else None
+        return result
 
     def refund(self, job_id: str, *, reason: str = "timeout") -> str | None:
         """Refund escrow to the buyer; returns the refund tx hash."""
@@ -190,16 +203,32 @@ def make_lock_submitter(
 
 
 def make_release_submitter(
-    client: ChainEscrowClient, task_id: str, job_tx_hash: str | None = None, amount_units: int | None = None
+    client: ChainEscrowClient,
+    task_id: str,
+    job_tx_hash: str | None = None,
+    amount_units: int | None = None,
+    auto_reinvest_pct: float | None = None,
 ) -> EscrowCallback:
-    """Build a submitter that releases the on-chain escrow for ``task_id``."""
+    """Build a submitter that releases the on-chain escrow for ``task_id``.
+
+    Returns ``(chain_id, from, to, amount) -> tx_hash``; like
+    ``make_lock_submitter`` the chain's full response is kept on
+    ``last_response`` so the router can read the reinvest outcome
+    (``reinvest_stake_id``/``reinvest_amount``) off it.
+    """
+    last_response: dict[str, Any] = {}
 
     def _submit(chain_id: str, from_addr: str, to_addr: str, amount: int) -> str:
-        tx_hash = client.release(task_id, job_tx_hash=job_tx_hash, amount_units=amount_units)
+        result = client.release(
+            task_id, job_tx_hash=job_tx_hash, amount_units=amount_units, auto_reinvest_pct=auto_reinvest_pct
+        )
+        last_response.update(result)
+        tx_hash = result.get("tx_hash") or result.get("release_tx_hash")
         if not tx_hash:
             raise EscrowRPCError(f"escrow release for {task_id} returned no tx hash")
-        return tx_hash
+        return str(tx_hash)
 
+    _submit.last_response = last_response  # type: ignore[attr-defined]
     return _submit
 
 

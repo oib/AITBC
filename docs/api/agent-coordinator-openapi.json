@@ -8072,6 +8072,20 @@
             ],
             "title": "Lock Signature",
             "description": "Signature over lock_tx"
+          },
+          "auto_reinvest_pct": {
+            "anyOf": [
+              {
+                "type": "number",
+                "maximum": 100.0,
+                "minimum": 0.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Auto Reinvest Pct",
+            "description": "Percentage of released payment to auto-stake as reinvestment"
           }
         },
         "type": "object",

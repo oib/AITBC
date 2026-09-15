@@ -287,6 +287,146 @@ class TestChainEscrowClient:
         with pytest.raises(EscrowRPCError):
             submitter("c", "f", "t", 100)
 
+    def test_release_forwards_auto_reinvest_pct(self):
+        """GAP-43: the chain stakes a share of the release when asked -- the
+        percentage is all this side sends; the stake address is derived from
+        the escrow contract on the chain, never from the request."""
+        seen = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["body"] = json.loads(request.read() or b"{}")
+            return httpx.Response(200, json={"tx_hash": "0xrel", "reinvest_stake_id": "7", "reinvest_amount": "0.5"})
+
+        client = self._client(handler)
+        submitter = make_release_submitter(client, "task-rv", auto_reinvest_pct=50.0)
+        assert submitter("c", "f", "t", 100) == "0xrel"
+        assert seen["body"]["auto_reinvest_pct"] == "50.0"
+
+    def test_release_omits_auto_reinvest_pct_when_unset(self):
+        seen = {}
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            seen["body"] = json.loads(request.read() or b"{}")
+            return httpx.Response(200, json={"tx_hash": "0xrel"})
+
+        client = self._client(handler)
+        submitter = make_release_submitter(client, "task-plain")
+        assert submitter("c", "f", "t", 100) == "0xrel"
+        assert "auto_reinvest_pct" not in seen["body"]
+
+    def test_release_submitter_stashes_the_reinvest_response(self):
+        """The escrow callback signature returns only the tx hash, so the
+        reinvest outcome rides on `last_response` like the lock path's does."""
+
+        def handler(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(200, json={"tx_hash": "0xrel", "reinvest_stake_id": "7", "reinvest_amount": "0.5"})
+
+        client = self._client(handler)
+        submitter = make_release_submitter(client, "task-rv")
+        submitter("c", "f", "t", 100)
+        assert submitter.last_response["reinvest_stake_id"] == "7"
+        assert submitter.last_response["reinvest_amount"] == "0.5"
+
+
+class TestTaskPaymentReinvestField:
+    """`TaskPayment.auto_reinvest_pct` is what a submission asks the release to stake."""
+
+    def test_accepts_a_percentage(self):
+        from agent_app.models import TaskPayment
+
+        payment = TaskPayment(amount=100, requester="0xB", agent="0xA", auto_reinvest_pct=50.0)
+        assert payment.auto_reinvest_pct == 50.0
+
+    def test_defaults_to_no_reinvest(self):
+        from agent_app.models import TaskPayment
+
+        assert TaskPayment(amount=100, requester="0xB", agent="0xA").auto_reinvest_pct is None
+
+    def test_out_of_range_is_refused(self):
+        from pydantic import ValidationError
+
+        from agent_app.models import TaskPayment
+
+        with pytest.raises(ValidationError):
+            TaskPayment(amount=100, requester="0xB", agent="0xA", auto_reinvest_pct=150.0)
+
+
+class TestCompleteReinvestWiring:
+    """complete_task forwards the stored percentage and records the outcome."""
+
+    def _client(self, monkeypatch, rpc):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from agent_app import state
+        from agent_app.routers import tasks as tasks_router
+
+        escrow = PaymentEscrow()
+        monkeypatch.setattr(state, "payment_escrow", escrow)
+        monkeypatch.setattr(state, "escrow_rpc", rpc)
+        app = FastAPI()
+        app.include_router(tasks_router.router, prefix="/v1")
+        return TestClient(app), escrow
+
+    def _locked(self, escrow, task_id: str, agent: str, amount: int = 100, **metadata):
+        entry = escrow.create_escrow(task_id=task_id, chain_id="c", requester="0xBuyer", agent=agent, amount=amount)
+        escrow.lock(entry.escrow_id)
+        entry.tx_hash_lock = "0xlock"  # pretend the lock settled on-chain
+        entry.metadata.update(metadata)
+        return entry
+
+    def test_complete_forwards_and_records_reinvest(self, monkeypatch):
+        from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+
+        class FakeRPC:
+            def __init__(self):
+                self.release_kwargs = {}
+
+            def release(self, job_id, **kwargs):
+                self.release_kwargs = kwargs
+                return {"tx_hash": "0xrel", "reinvest_stake_id": "9", "reinvest_amount": "0.5"}
+
+        rpc = FakeRPC()
+        pk = generate_ethereum_private_key()
+        client, escrow = self._client(monkeypatch, rpc)
+        self._locked(escrow, "t-rv", derive_ethereum_address(pk), auto_reinvest_pct="50")
+
+        from aitbc.crypto.crypto import sign_transaction_data
+
+        signed_at = int(time.time())
+        # The verifier rebuilds the signed fields as
+        # {action, task_id, signed_at, amount_units:0} when the body omits it.
+        sig = sign_transaction_data(
+            {"action": "complete", "task_id": "t-rv", "signed_at": signed_at, "amount_units": 0}, pk
+        )
+        resp = client.post("/v1/tasks/t-rv/complete", json={"signed_at": signed_at, "signature": sig})
+
+        assert resp.status_code == 200, resp.text
+        assert rpc.release_kwargs["auto_reinvest_pct"] == 50.0
+        body = resp.json()
+        assert body["reinvest_status"] == "staked"
+        assert body["reinvest_stake_id"] == "9"
+        entry = escrow.get_escrow_for_task("t-rv")
+        assert entry.metadata["reinvest_stake_id"] == "9"
+        assert entry.metadata["reinvest_status"] == "staked"
+
+    def test_complete_without_reinvest_sends_no_pct(self, monkeypatch):
+        class FakeRPC:
+            def __init__(self):
+                self.release_kwargs = {}
+
+            def release(self, job_id, **kwargs):
+                self.release_kwargs = kwargs
+                return {"tx_hash": "0xrel"}
+
+        rpc = FakeRPC()
+        client, escrow = self._client(monkeypatch, rpc)
+        self._locked(escrow, "t-plain", "")  # no bound agent: unsigned bookkeeping path
+        resp = client.post("/v1/tasks/t-plain/complete")
+        assert resp.status_code == 200, resp.text
+        assert rpc.release_kwargs["auto_reinvest_pct"] is None
+        assert resp.json()["reinvest_status"] is None
+
 
 class TestEscrowCallerBinding:
     """complete/fail must be signed by the escrow's provider wallet (entry.agent)."""
