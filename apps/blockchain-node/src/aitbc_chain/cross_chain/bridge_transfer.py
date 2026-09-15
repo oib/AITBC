@@ -300,7 +300,7 @@ class BridgeTransferMixin(BridgeBase):
                         "asset": record.asset,
                         "proof": proof_hash,
                         "nonce": release_nonce,
-                        "timestamp": record.confirm_time or datetime.now(UTC),
+                        "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
                     },
                     chain_id=record.target_chain,
                     tx_hash=target_tx_hash,
