@@ -1,52 +1,75 @@
-# Marketplace Bidding
+# Marketplace Offers and Price Discovery
 
 **Level**: Beginner
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 07 AI Job Submission
 **Estimated Time**: 20 minutes
-**Last Updated**: 2026-08-19
-**Version**: 1.1
+**Last Updated**: 2026-09-15
+**Version**: 2.0
 
 ## Navigation Path
 
 [Documentation Home](../README.md) > [Agent Scenarios](./README.md) > *You are here*
 
-breadcrumb: Home > Scenarios > Marketplace Bidding
+breadcrumb: Home > Scenarios > Marketplace Offers and Price Discovery
 
 ---
 
-> **Stale — pending rework.** This scenario drives the `aitbc marketplace` group
-> (`list`/`search`/`buy`/`complete`), which has been **removed from the CLI** — there
-> is no `aitbc marketplace` group in `aitbc` 0.10.18, and none of the commands below
-> will run. The `GlobalChainMarketplace` core module still exists in
-> `cli/aitbc_cli/core/marketplace.py` but exposes no command surface and no documented
-> service endpoint. The live marketplace path is `aitbc market` (GPU/software offers —
-> see [scenario 34](./34_hub_customer_node_e2e.md) and
-> [CLI_TOOLS.md](../apps/marketplace/CLI_TOOLS.md)). This file is kept for reference
-> until it is rewritten or retired.
+> **Renamed.** This file was *Marketplace Bidding* and drove the `aitbc marketplace`
+> group (`list`/`search`/`buy`/`complete`) against a chain-for-sale marketplace. That
+> group was removed from the CLI and never replaced. The live surface is `aitbc
+> market`, which sells **compute services**, not chains, and the scenario below has
+> been rewritten against it. The filename is unchanged so existing links keep working.
 
 ## See Also
 
 - **Previous Scenario**: [AI Job Submission](./07_ai_job_submission.md)
 - **Next Scenario**: [GPU Listing](./09_gpu_listing.md)
-- **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Feature Documentation**: [Marketplace Commands](../../cli/aitbc_cli/commands/market)
+- **End-to-end paid flow**: [Hub ↔ Customer Node E2E](./34_hub_customer_node_e2e.md)
+- **Feature Documentation**: [Marketplace CLI Tools](../apps/marketplace/CLI_TOOLS.md)
 
 ---
 
 ## Scenario Overview
 
-This scenario demonstrates how an AI agent lists chains for sale on the global chain marketplace, searches listings, purchases a chain, and completes the transaction with an on-chain hash.
+This scenario covers the buyer's half of the AITBC marketplace: how offers reach the
+network, how to discover and rank them by price and reputation, how to cap what you
+are willing to pay, and how to settle and rate the result.
 
 ### Use Case
 
-A network operator wants to sell access to a private chain (e.g., a GPU-optimized compute chain) and an AI agent buyer wants to discover, evaluate, and purchase it. The agent lists the chain with specs and pricing, a buyer searches and purchases it, and the seller completes the transaction once the on-chain payment confirms.
+A shop miner with a GPU publishes what it can sell — Ollama inference, Whisper
+transcription, FFmpeg transcoding, Hermes agent runs, IPFS hosting. A buyer agent has
+to decide *which* of those offers to spend on. That decision is the whole scenario:
+list, rank, cap, run, rate.
+
+### A note on "bidding"
+
+The scenario title promised a competitive auction. **The live system does not have
+one.** Nothing in the codebase emits a buyer-side bid transaction: the string `bid`
+survives only as an accepted `action` value in `aitbc market list`'s blockchain
+fallback filter, and no command produces such a payload. There is no bid book, no
+clearing round, and no `aitbc market bid`.
+
+What exists instead is one-sided price discovery plus a buyer price cap:
+
+- **Providers post asks.** `aitbc market offer` writes a `software_offer` transaction
+  with a price and a unit.
+- **Buyers rank the asks.** `aitbc market list --sort` and `aitbc market match` order
+  them by reputation, price, or availability.
+- **Buyers cap what they will pay.** `aitbc market gpu quote --max-ait` is the only
+  buyer-supplied number that can refuse a price — it bounds an operator-signed energy
+  quote for a fixed-duration GPU rental.
+
+Treat this document as describing that mechanism. If a real auction lands later, it
+belongs in a new scenario rather than in this one's history.
 
 ### What You'll Learn
 
-- How to list a chain for sale with specifications and metadata
-- How to search and filter marketplace listings
-- How to purchase a listed chain
-- How to complete a marketplace transaction with a transaction hash
+- How offers get published and what a published offer carries
+- How to discover offers and rank them by reputation or price
+- How to read `aitbc market match` price discovery
+- How to cap your spend on a GPU rental with a signed quote
+- How to pay for a service, settle escrow, and rate the provider
 
 ---
 
@@ -54,183 +77,228 @@ A network operator wants to sell access to a private chain (e.g., a GPU-optimize
 
 ### Knowledge Required
 
-- Scenario 02 (Transaction Sending) — purchases produce on-chain transactions
-- Scenario 07 (AI Job Submission) — familiarity with coordinator-mediated operations
+- Scenario 02 (Transaction Sending) — purchases settle as on-chain transactions
+- Scenario 07 (AI Job Submission) — coordinator-mediated job flow
 
 ### Tools Required
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
-- A wallet with funds in the listing currency (default `ETH`)
-- Marketplace service reachable (configured via CLI config)
+- A funded wallet (marketplace prices are quoted in **AIT**, not ETH)
+- Network reach to the hub, which fronts the marketplace service
 
 ### Setup Required
 
-- Configure the marketplace service URL via `aitbc config`
-- Have a seller ID and buyer ID (typically wallet addresses or agent IDs)
-- Know the chain type you are listing (must be a valid `ChainType` enum value)
+- A configured `hub_discovery_url`; `aitbc market list` queries `https://<hub>/v1/marketplace/offer`
+  and falls back to the blockchain RPC if that service is unreachable
+- A wallet selected via the group-level options: `aitbc market --wallet <name> --password-file <path> <command>`
 
 ---
 
 ## Step-by-Step Workflow
 
-> **Argument shapes** (historical, from the removed `cli/aitbc_cli/commands/marketplace_cmd.py`): `list` takes six positional arguments (`chain_id`, `chain_name`, `chain_type`, `description`, `seller_id`, `price`) plus `--currency`, `--specs`, `--metadata`. `buy` takes positional `listing_id` and `buyer_id` plus `--payment`. `complete` takes positional `transaction_id` and `transaction_hash`.
-
-### Step 1: List a chain for sale
-
-List a chain with a price in the chosen currency. `--specs` and `--metadata` accept JSON strings.
+### Step 1: See what is on offer
 
 ```bash
-# List a GPU compute chain for 2.5 ETH
-aitbc marketplace list \
-  gpu-chain-01 \
-  "GPU Compute Chain" \
-  private \
-  "High-throughput GPU compute chain for inference workloads" \
-  seller-agent-01 \
-  2.5 \
-  --currency ETH \
-  --specs '{"gpu_count": 8, "gpu_model": "RTX 4090", "vram_gb": 192}' \
-  --metadata '{"region": "us-east", "sla": "99.9%"}'
+aitbc market list
+```
+
+**Expected output** (one entry per active offer; addresses and endpoints elided here):
+
+```json
+[
+  {
+    "Offer ID": "sw_offer_20260914195725_84ec042f",
+    "Plugin ID": "ollama-llama3.2-3b",
+    "Service Type": "ollama",
+    "Model": "llama3.2:3b",
+    "Price": "0.00100000 per_1k_tokens",
+    "Provider": "<provider-address>",
+    "Node ID": "<provider-node-id>",
+    "GPU": "NVIDIA GeForce RTX 4060 Ti (0)",
+    "Memory (GB)": 15,
+    "Disk Quota (MB)": "N/A",
+    "Endpoint": "<provider-endpoint>",
+    "Status": "active",
+    "Rating": "5.0 (2 reviews)"
+  }
+]
+```
+
+> **`--format table` does not produce a table.** Every `--format` / `--output` choice
+> renders structured data as JSON: `output()` in `cli/aitbc_cli/utils/output.py` has a
+> single branch for non-string values, marked `# Table format — just JSON for now`.
+> Only `json` is honest about what you get; `table`, `yaml`, and `csv` are accepted and
+> ignored. Parse the JSON rather than expecting columns.
+
+> **`Circuit breaker opened after 5 failures`** may precede the output. That is the
+> reputation enrichment giving up on the coordinator, not a failure of the listing —
+> affected offers simply fall back to their average rating.
+
+### Step 2: Rank the offers
+
+Sorting is the buyer's substitute for an auction. `--sort` is applied server-side
+against live reputation data before the list is printed.
+
+```bash
+# Cheapest first
+aitbc market list --sort price
+
+# Best-rated first, price breaking ties — the default ordering
+aitbc market list --sort reputation
+
+# Active offers with spare capacity first
+aitbc market list --sort availability
+
+# Narrow to one service type or one provider
+aitbc market list --service-type whisper
+aitbc market list --provider <provider-address>
+
+# Only your own published offers
+aitbc market list --mine
+```
+
+The `Rating` field shows `N.NN trust` when the coordinator returned a trust score, and
+falls back to `N.N (K reviews)` from the marketplace service otherwise.
+
+### Step 3: Read the price-discovery view
+
+`aitbc market match` joins GPU-backed offers to the hardware behind them, which is the
+view to use when the GPU matters as much as the price.
+
+```bash
+aitbc market match
 ```
 
 **Expected output:**
 
 ```
-Chain listed successfully! Listing ID: chain_listing_20260625143012
-
-Listing ID    chain_listing_20260625143012
-Chain ID      gpu-chain-01
-Chain Name    GPU Compute Chain
-Type          private
-Price         2.5 ETH
-Seller        seller-agent-01
-Status        active
-Created       2026-06-25 14:30:12
+GPU Market Matches
++-----------+----------------+------------------------------------+---------------+-------------------------------+
+| Service   | Model          | GPU                                | Memory (GB)   | Price                         |
++===========+================+====================================+===============+===============================+
+| ffmpeg    | h264-transcode | NVIDIA GeForce RTX 4060 Ti [GPU 0] | 15            | 0.005 AIT/per_processing_hour |
+| whisper   | base           | NVIDIA GeForce RTX 4060 Ti [GPU 0] | 15            | 0.02 AIT/per_audio_min        |
+| hermes    | default        | NVIDIA GeForce RTX 4060 Ti [GPU 0] | 15            | 0.1 AIT/per_minute            |
+| ollama    | llama3.2:3b    | NVIDIA GeForce RTX 4060 Ti [GPU 0] | 15            | 0.001 AIT/per_1k_tokens       |
+| ipfs      | ipfs-host      | N/A (IPFS) [GPU N/A]               | N/A           | 0.01 AIT/per_day              |
++-----------+----------------+------------------------------------+---------------+-------------------------------+
+Total: 8 offer(s)
 ```
 
-> **Chain types**: The `chain_type` argument is validated against the `ChainType` enum. Invalid values are rejected with the list of valid values printed.
+> Rows with an empty service and `0 AIT` are marketplace transactions that carry no
+> offer payload. They are counted in the total but are not purchasable; ignore them.
 
-### Step 2: Search the marketplace
+`aitbc market providers` is **not** a discovery path today — it prints
+`GPU provider query via P2P network to be implemented` and refers you to
+`aitbc gpu list`. Use `match` instead.
 
-Search and filter listings by type, price range, seller, or status.
+### Step 4: Cap your spend on a GPU rental
+
+For fixed-duration GPU rentals, `--max-ait` is the buyer's price limit: the operator
+signs a quote only if the energy-floor price fits under your cap.
 
 ```bash
-# Search for private chains under 3 ETH
-aitbc marketplace search --type private --max-price 3 --format table
-
-# Filter by a specific seller
-aitbc marketplace search --seller seller-agent-01
-
-# Only active listings
-aitbc marketplace search --status active
+aitbc market gpu quote \
+  --gpu-id <gpu-registry-id> \
+  --buyer-id <buyer-client-id> \
+  --duration-hours 2 \
+  --gpu-count 1 \
+  --max-ait 5.0 \
+  --settlement native
 ```
 
-**Expected output:**
+The quote is signed by the operator and carries an energy floor, so a provider cannot
+quote below cost and you cannot be charged above your cap. Redeem it with
+`aitbc market gpu buy`, then `status`, `release`, or `refund`.
 
-```
-Chain Listings
-==============
-Listing ID                  Chain ID        Chain Name          Type      Price     Seller
-chain_listing_20260625...   gpu-chain-01    GPU Compute Chain   private   2.5 ETH   seller-agent-01
-chain_listing_20260624...   ai-chain-02     AI Training Chain   private   1.8 ETH   seller-agent-02
-```
+### Step 5: Pay for a service offer
 
-### Step 3: Purchase a chain
-
-Buy a listing by its ID. The `buyer_id` is a positional argument; `--payment` selects the payment method (default `crypto`).
+Per-use software offers are paid with metered escrow. Each service has a typed command
+that knows its own parameters:
 
 ```bash
-# Purchase the GPU compute chain as buyer-agent-01
-aitbc marketplace buy chain_listing_20260625143012 buyer-agent-01 --payment crypto
+# Inference
+aitbc market run --offer-id-or-plugin-id <offer-id> --prompt 'Summarise this paragraph'
+
+# Transcription
+aitbc market transcribe --offer-id-or-plugin-id <offer-id> --audio-file interview.mp3
+
+# Transcoding
+aitbc market process --offer-id-or-plugin-id <offer-id> --input clip.mov --codec h264
+
+# One-shot agent run
+aitbc market hermes --offer-id-or-plugin-id <offer-id> --prompt 'check the chain height' --max-time 60
 ```
 
-**Expected output:**
+Escrow locks at submission and releases on completion. The full paid round trip —
+escrow lock, completion, explicit acceptance, on-chain settlement — is walked through
+in [scenario 34](./34_hub_customer_node_e2e.md); it is not repeated here because it
+moves real funds.
 
-```
-Purchase initiated! Transaction ID: tx_abc123def456789
+Add `--track` to create a coordinator job record, then follow it with
+`aitbc market jobs` and `aitbc market cancel` if you need a refund.
 
-Transaction ID    tx_abc123def456789
-Listing ID        chain_listing_20260625143012
-Buyer             buyer-agent-01
-Payment Method    crypto
-Status            pending
-Created           2026-06-25 14:32:00
-```
+### Step 6: Rate what you bought
 
-### Step 4: Complete the transaction
-
-Once the on-chain payment confirms, complete the marketplace transaction with the blockchain transaction hash.
+Ratings are the only input to the reputation half of `--sort`, so this step is what
+makes step 2 work for the next buyer.
 
 ```bash
-# Complete with the on-chain transaction hash
-aitbc marketplace complete tx_abc123def456789 0x9f8e7d6c5b4a3928f1e0d2c3b4a5968778695a4b
-```
-
-**Expected output:**
-
-```
-Transaction tx_abc123def456789 completed successfully!
-
-Transaction ID      tx_abc123def456789
-Transaction Hash    0x9f8e7d6c5b4a3928f1e0d2c3b4a5968778695a4b
-Status              completed
-Completed           2026-06-25 14:35:10
+aitbc market rate --service-id <offer-id> --rating 5 --comment 'fast, matched the quoted price'
+aitbc market ratings --service-id <offer-id> --limit 20
 ```
 
 ---
 
-## Code Examples Using Agent SDK
-
-The marketplace flow is coordinated through the CLI's `GlobalChainMarketplace` core module. AI agents used to automate it by invoking the `aitbc marketplace` commands (now removed — see the stale notice above). For programmatic access, the `aitbc_agent` SDK's `Agent` base class provides the HTTP client and identity used to interact with coordinator-mediated services.
-
-### Example 1: List, search, and buy via the CLI
+## Code Example: choose an offer by price and reputation
 
 ```python
-import subprocess
 import json
+import subprocess
 
-def run(cmd: list[str]) -> str:
-    return subprocess.run(["aitbc", *cmd], capture_output=True, text=True, check=True).stdout
 
-# 1. List a chain for sale
-run([
-    "marketplace", "list",
-    "gpu-chain-01", "GPU Compute Chain", "private",
-    "High-throughput GPU compute chain",
-    "seller-agent-01", "2.5",
-    "--currency", "ETH",
-    "--specs", json.dumps({"gpu_count": 8}),
-])
+def market(*args: str) -> list[dict]:
+    """Run an aitbc market subcommand and parse its JSON output."""
+    proc = subprocess.run(
+        ["aitbc", "market", *args, "--format", "json"],
+        capture_output=True,
+        text=True,
+        check=True,
+    )
+    # The reputation enricher may print a circuit-breaker warning before the payload,
+    # so start at the first '[' rather than assuming the stream is pure JSON.
+    start = proc.stdout.index("[")
+    return json.loads(proc.stdout[start:])
 
-# 2. Search for private chains under 3 ETH
-results = run(["marketplace", "search", "--type", "private", "--max-price", "3", "--format", "json"])
-print(results)
 
-# 3. Buy the first matching listing
-listing_id = json.loads(results)[0]["listing_id"]
-run(["marketplace", "buy", listing_id, "buyer-agent-01", "--payment", "crypto"])
-```
+def cheapest_acceptable(service_type: str, max_price: float, min_rating: float = 4.0) -> dict | None:
+    """Pick the cheapest active offer that clears a reputation floor.
 
-### Example 2: Use an Agent identity to sign marketplace metadata
+    This is the whole of buyer-side price discovery in the current system: there is
+    no bid to place, so choosing well is a client-side filter over the ask list.
+    """
+    offers = market("list", "--service-type", service_type, "--sort", "price")
 
-```python
-from aitbc_agent import Agent, AgentIdentity, AgentCapabilities
+    def price_of(offer: dict) -> float:
+        return float(offer["Price"].split()[0])
 
-# Create an agent to act as the buyer
-agent = Agent.create(
-    name="marketplace-buyer",
-    agent_type="consumer",
-    capabilities={"compute_type": "processing", "max_concurrent_jobs": 1},
-)
+    def rating_of(offer: dict) -> float:
+        # "4.8 trust" or "5.0 (2 reviews)"; both lead with the number.
+        return float(offer["Rating"].split()[0])
 
-# Sign a purchase intent message with the agent's RSA key
-intent = {"listing_id": "chain_listing_20260625143012", "buyer_id": agent.identity.id}
-signature = agent.identity.sign_message(intent)
-print(f"Signed intent for {agent.identity.id}: {signature[:32]}...")
+    for offer in offers:
+        if offer.get("Status") != "active":
+            continue
+        if price_of(offer) > max_price:
+            break  # sorted ascending, so nothing further can fit
+        if rating_of(offer) >= min_rating:
+            return offer
+    return None
 
-# Verify the signature round-trips
-assert agent.identity.verify_signature(intent, signature)
-print("Signature verified")
+
+chosen = cheapest_acceptable("whisper", max_price=0.05)
+if chosen:
+    print(f"Using {chosen['Offer ID']} at {chosen['Price']}")
 ```
 
 ---
@@ -239,47 +307,51 @@ print("Signature verified")
 
 After completing this scenario, you should be able to:
 
-- List a chain for sale with specs, metadata, and a priced currency
-- Search and filter marketplace listings by type, price, seller, and status
-- Purchase a listing and complete the transaction with an on-chain hash
-- Automate the marketplace flow from Python using the real CLI and the `aitbc_agent` identity primitives
+- Explain why the marketplace has asks and caps but no bids
+- Discover active offers and rank them by price, reputation, or availability
+- Read `aitbc market match` and tell purchasable rows from empty ones
+- Bound a GPU rental with `--max-ait` and an operator-signed quote
+- Pay for a service offer through metered escrow and rate the provider afterwards
 
 ---
 
 ## Validation
 
-Verify the listing and transaction lifecycle:
-
 ```bash
-# The listing should appear in search results
-aitbc marketplace search --status active
+# Offers are reachable and at least one is active
+aitbc market list --status active
 
-# The purchase transaction should be completable
-aitbc marketplace complete <transaction_id> <transaction_hash>
+# Price ordering is applied
+aitbc market list --sort price
 
-# Confirm the listing is no longer active after completion
-aitbc marketplace search --status active --seller seller-agent-01
+# GPU-backed offers resolve to real hardware
+aitbc market match
+
+# Your rating landed
+aitbc market ratings --service-id <offer-id>
 ```
 
 ---
 
-## Megaplan Status
+## Known Gaps
 
-This scenario has been refreshed to reflect the current codebase megaplan (hub `<hub-node>` ↔ shop `<node2>`).
+- **No buyer-side bid.** `bid` is an accepted action value in `market list`'s
+  blockchain fallback and nothing writes it. Price is set entirely by providers.
+- **`--format` is cosmetic.** All structured output is JSON regardless of the value.
+- **`aitbc market providers` is a stub.** It prints a "to be implemented" notice.
+- **`match` includes payload-less rows** in its total.
 
-- All examples use the current coordinator API path `/v1/jobs` and the authenticated coordinator (`Authorization: Bearer <JWT>`).
-- The Agent SDK `ComputeConsumer` supports `auth_token` and `coordinator_url` in `create(...)`.
-- The live two-node AI job flow has been validated end-to-end on the deployed hub and shop nodes.
-- The megaplan test suite is green: **0 failures**, **0 skipped**, and **4 expected xfails** for removed BlockSearch/TransactionSearch model tests.
-
+---
 
 ## Related Resources
 
-- Source: `cli/aitbc_cli/commands/marketplace_cmd.py` (list, buy, complete, search) — **removed**; no `aitbc marketplace` group remains
-- Core: `cli/aitbc_cli/core/marketplace.py` (`GlobalChainMarketplace`, `ChainType`, `MarketplaceStatus`) — still present, but not wired to any CLI group
+- Source: `cli/aitbc_cli/commands/market/` (`offers.py`, `gpu.py`, `escrow.py`, `jobs.py`, `ratings.py`)
+- Removed: `cli/aitbc_cli/commands/marketplace_cmd.py` and the `aitbc marketplace` group
+- Vestigial: `cli/aitbc_cli/core/marketplace.py` (`GlobalChainMarketplace`, `ChainType`) — still present, wired to nothing
+- [Whisper offer walkthrough](../apps/marketplace/HOWTO_WHISPER_OFFER.md)
 - [Next Scenario: GPU Listing](./09_gpu_listing.md)
 
 ---
 
-*Last updated: 2026-08-20*
-*Version: 1.2*
+*Last updated: 2026-09-15*
+*Version: 2.0*
