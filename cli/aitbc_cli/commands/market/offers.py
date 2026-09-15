@@ -559,6 +559,25 @@ def status(ctx, order_id: str):
         raise click.Abort() from e
 
 
+def _purchasable_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Drop rows from /marketplace/match that carry no offer payload.
+
+    That endpoint used to select on transaction type alone, so settled jobs came
+    back beside real listings: GPU_MARKETPLACE carries both. They project to an
+    empty service_type, an empty model and price 0, which the table printed as
+    rows of N/A and the footer counted -- "Total: 8 offer(s)" where five were
+    buyable.
+
+    The node now filters on the payload action, but its projection has no action
+    field for a client to check, so this stays as the guard for a node that has
+    not been restarted yet; against a fixed one it filters nothing. The test is
+    deliberately loose because the two offer shapes disagree on which fields
+    they set: a software offer has service_type and price, a hardware one has
+    only model. A settlement has none of the three.
+    """
+    return [m for m in matches if m.get("service_type") or m.get("model") or m.get("price")]
+
+
 @market.command(
     epilog="""Examples:
 
@@ -587,11 +606,16 @@ def match(ctx, output_format: str):
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get("/rpc/transactions/marketplace/match")
 
+            matches = _purchasable_matches((result or {}).get("matches", []))
+
             if fmt in ("json", "yaml"):
-                output(result, fmt, title="GPU Market Matches")
+                # Re-derive "total" from the filtered list. The server's count
+                # is the unfiltered one on any node that has not yet picked up
+                # the payload-action filter, and a machine-readable format that
+                # disagrees with the table is worse than either alone.
+                output({**(result or {}), "matches": matches, "total": len(matches)}, fmt, title="GPU Market Matches")
                 return
 
-            matches = (result or {}).get("matches", [])
             if not matches:
                 info("No matching offers found.")
                 return
