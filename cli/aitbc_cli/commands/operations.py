@@ -601,7 +601,12 @@ def get_proposal(ctx, proposal_id: str, format: str):
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def stake(ctx, address: str, amount: int, lock_days: int, format: str):
-    """Stake tokens for enhanced voting power."""
+    """Stake tokens for enhanced voting power (governance-service record).
+
+    This records voting-power stake on the governance service only — it does
+    not lock balance on-chain and returns no transaction hash. For a real
+    wallet-signed on-chain stake use ``aitbc stake`` / ``aitbc wallet stake``.
+    """
     config = get_config()
 
     try:

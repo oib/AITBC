@@ -57,7 +57,11 @@ def balance(ctx, agent_id: str):
 @click.option("--contract", default="", help="Staking contract address")
 @click.pass_context
 def stake(ctx, agent_id: str, amount: str, contract: str):
-    """Stake AITBC on behalf of a specified agent ID."""
+    """Simulate staking AITBC on behalf of an agent ID (no on-chain transaction).
+
+    This is a planning stub: nothing is signed or submitted. For a real
+    wallet-signed on-chain stake use ``aitbc stake`` / ``aitbc wallet stake``.
+    """
     try:
         result = {
             "agent_id": agent_id,
@@ -66,7 +70,7 @@ def stake(ctx, agent_id: str, amount: str, contract: str):
             "contract": contract or "0xSTAKE",
             "status": "simulated",
         }
-        output(result, ctx.obj.get("output_format", "table"), title="Agent Stake")
+        output(result, ctx.obj.get("output_format", "table"), title="Agent Stake (Simulated)")
     except Exception as e:
         abort(ctx, f"Error staking for agent {agent_id}: {e}", from_exception=e)
 
