@@ -93,13 +93,18 @@ class BlockchainClient(BaseBlockchainClient):
         if nonce is None:
             nonce = await self._get_nonce(sender, chain_id)
 
+        # TransactionRequest.validate_payload injects ``to``/``amount`` into
+        # payload before signature verification. Sign the post-injection shape
+        # or the recovered address never matches the sender.
+        signed_payload = {"to": sender, "amount": 0, **payload}
+
         tx: dict[str, Any] = {
             "from": sender,
             "to": sender,  # Governance txs are self-directed (no value transfer)
             "amount": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": nonce,
-            "payload": payload,
+            "payload": signed_payload,
             "type": tx_type,
             "chain_id": chain_id,
         }
