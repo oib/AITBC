@@ -226,11 +226,9 @@ def swap(
     the real hash of the on-chain BRIDGE_LOCK transaction.
     """
     if from_chain == to_chain:
-        error("Source and target chains must be different")
-        return
+        abort(ctx, "Source and target chains must be different")
     if amount <= 0:
-        error("Amount must be greater than 0")
-        return
+        abort(ctx, "Amount must be greater than 0")
 
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
     address, private_key = _load_signing_wallet(ctx, wallet, password, password_file)
@@ -417,11 +415,9 @@ def bridge(
     the transfer ID and the source-chain transaction hash.
     """
     if source_chain == target_chain:
-        error("Source and target chains must be different")
-        return
+        abort(ctx, "Source and target chains must be different")
     if amount <= 0:
-        error("Amount must be greater than 0")
-        return
+        abort(ctx, "Amount must be greater than 0")
 
     rpc_url = _resolve_transaction_rpc_url(rpc_url)
     address, private_key = _load_signing_wallet(ctx, wallet, password, password_file)
