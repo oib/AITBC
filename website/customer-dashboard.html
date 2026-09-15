@@ -42,7 +42,7 @@
                 </div>
                 <div class="health-item">
                     <div class="health-status ok"></div>
-                    <div class="health-name">Wallets</div>
+                    <div class="health-name">Active Addresses</div>
                     <div class="health-latency" id="cust-wallet-count">--</div>
                 </div>
             </div>
@@ -56,9 +56,9 @@
         </div>
 
         <div class="card">
-            <h2>Wallets</h2>
+            <h2>Active Addresses</h2>
             <div id="cust-wallets-table">
-                <p class="loading">Loading wallets...</p>
+                <p class="loading">Loading addresses...</p>
             </div>
         </div>
 
@@ -68,10 +68,10 @@
                 <span class="method">GET</span> <span class="path">/v1/jobs</span>
             </a>
             <p class="endpoint-note">List recent jobs for this customer</p>
-            <a href="/v1/wallets" class="endpoint endpoint-link" target="_blank">
-                <span class="method">GET</span> <span class="path">/v1/wallets</span>
+            <a href="/explorer-api/api/analytics/top-addresses" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/explorer-api/api/analytics/top-addresses</span>
             </a>
-            <p class="endpoint-note">List wallet balances</p>
+            <p class="endpoint-note">Most active on-chain addresses (balances via /rpc/account)</p>
         </div>
     </div>
 
