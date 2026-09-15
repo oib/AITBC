@@ -1224,7 +1224,9 @@ try:
                     input_params = json.load(f)
 
             data = {"input_parameters": input_params}
-            response = requests.post(coordinator_agent_api_url(f"workflows/{workflow_id}/execute", coordinator_url), json=data, timeout=10)
+            response = requests.post(
+                coordinator_agent_api_url(f"workflows/{workflow_id}/execute", coordinator_url), json=data, timeout=10
+            )
             response.raise_for_status()
             result = response.json()
             output(result, ctx.obj.get("output_format", format), title="Workflow Execution")
