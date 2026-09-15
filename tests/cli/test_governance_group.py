@@ -8,7 +8,7 @@ import pytest
 @pytest.fixture
 def gov_ctx_obj():
     return {
-        "output": "json",
+        "output_format": "json",
         "output_format": "json",
         "url": None,
         "api_key": None,
