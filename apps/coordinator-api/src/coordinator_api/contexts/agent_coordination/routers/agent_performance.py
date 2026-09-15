@@ -3,12 +3,14 @@ Advanced Agent Performance API Endpoints
 REST API for meta-learning, resource optimization, and performance enhancement
 """
 
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
+from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
@@ -18,6 +20,7 @@ from ..domain.agent_performance import (
     LearningStrategy,
     OptimizationTarget,
     PerformanceMetric,
+    ResourceAllocation,
 )
 from ..services.performance import (
     AgentPerformanceService,
@@ -305,6 +308,22 @@ async def adapt_model_to_task(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _allocation_response(allocation: ResourceAllocation) -> ResourceAllocationResponse:
+    return ResourceAllocationResponse(
+        allocation_id=allocation.allocation_id,
+        agent_id=allocation.agent_id,
+        cpu_cores=allocation.cpu_cores,
+        memory_gb=allocation.memory_gb,
+        gpu_count=allocation.gpu_count,
+        gpu_memory_gb=allocation.gpu_memory_gb,
+        storage_gb=allocation.storage_gb,
+        network_bandwidth=allocation.network_bandwidth,
+        optimization_target=allocation.optimization_target.value,
+        status=allocation.status,
+        allocated_at=allocation.allocated_at.isoformat() if allocation.allocated_at else "",
+    )
+
+
 @router.post("/resources/allocate", response_model=ResourceAllocationResponse)
 @rate_limit(rate=20, per=60)
 async def allocate_resources(
@@ -319,21 +338,64 @@ async def allocate_resources(
             task_requirements=allocation_request.task_requirements,
             optimization_target=allocation_request.optimization_target,
         )
-        return ResourceAllocationResponse(
-            allocation_id=allocation.allocation_id,
-            agent_id=allocation.agent_id,
-            cpu_cores=allocation.cpu_cores,
-            memory_gb=allocation.memory_gb,
-            gpu_count=allocation.gpu_count,
-            gpu_memory_gb=allocation.gpu_memory_gb,
-            storage_gb=allocation.storage_gb,
-            network_bandwidth=allocation.network_bandwidth,
-            optimization_target=allocation.optimization_target.value,
-            status=allocation.status,
-            allocated_at=allocation.allocated_at.isoformat() if allocation.allocated_at else "",
-        )
+        return _allocation_response(allocation)
     except Exception as e:
         logger.error("Error allocating resources: %s", str(e))
+        logger.exception("Unhandled exception")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.get("/resources", response_model=list[ResourceAllocationResponse])
+@rate_limit(rate=60, per=60)
+async def list_resource_allocations(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    agent_id: str | None = Query(default=None),
+    status: str | None = Query(default=None),
+    limit: int = Query(default=100, ge=1, le=500),
+) -> list[ResourceAllocationResponse]:
+    """List resource allocations, optionally filtered by agent or status"""
+    try:
+        stmt = select(ResourceAllocation).order_by(ResourceAllocation.created_at.desc()).limit(limit)
+        if agent_id:
+            stmt = stmt.where(ResourceAllocation.agent_id == agent_id)
+        if status:
+            stmt = stmt.where(ResourceAllocation.status == status)
+        rows = session.execute(stmt).scalars().all()
+        return [_allocation_response(row) for row in rows]
+    except Exception as e:
+        logger.error("Error listing resource allocations: %s", str(e))
+        logger.exception("Unhandled exception")
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/resources/{allocation_id}/deallocate", response_model=ResourceAllocationResponse)
+@rate_limit(rate=20, per=60)
+async def deallocate_resource(
+    request: Request, allocation_id: str, session: Annotated[Session, Depends(get_session)]
+) -> ResourceAllocationResponse:
+    """Release a resource allocation"""
+    try:
+        row = session.execute(
+            select(ResourceAllocation).where(ResourceAllocation.allocation_id == allocation_id)
+        ).scalar_one_or_none()
+        if row is None:
+            raise HTTPException(status_code=404, detail=f"Allocation {allocation_id} not found")
+        if row.status in ("released", "completed", "failed"):
+            raise HTTPException(status_code=409, detail=f"Allocation {allocation_id} is already {row.status}")
+        now = datetime.now(UTC)
+        row.status = "released"
+        row.completed_at = now
+        row.updated_at = now
+        session.add(row)
+        session.commit()
+        session.refresh(row)
+        logger.info("Released allocation %s for agent %s", allocation_id, row.agent_id)
+        return _allocation_response(row)
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error("Error deallocating resource %s: %s", allocation_id, str(e))
         logger.exception("Unhandled exception")
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
