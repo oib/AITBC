@@ -4,7 +4,7 @@
 **Prerequisites**: Scenario 02 Transaction Sending, Scenario 07 AI Job Submission
 **Estimated Time**: 20 minutes
 **Last Updated**: 2026-09-15
-**Version**: 2.0
+**Version**: 2.1
 
 ## Navigation Path
 
@@ -182,15 +182,50 @@ GPU Market Matches
 | ollama    | llama3.2:3b    | NVIDIA GeForce RTX 4060 Ti [GPU 0] | 15            | 0.001 AIT/per_1k_tokens       |
 | ipfs      | ipfs-host      | N/A (IPFS) [GPU N/A]               | N/A           | 0.01 AIT/per_day              |
 +-----------+----------------+------------------------------------+---------------+-------------------------------+
-Total: 8 offer(s)
+Total: 5 offer(s)
 ```
 
-> Rows with an empty service and `0 AIT` are marketplace transactions that carry no
-> offer payload. They are counted in the total but are not purchasable; ignore them.
+> Until 2026-09-15 this view also listed settled jobs. `GPU_MARKETPLACE` carries
+> both listings and settlements, and the endpoint selected on the transaction type
+> alone, so those rows came back with an empty service and `0 AIT` and the footer
+> counted them — `Total: 8 offer(s)` where five were purchasable. Both the node and
+> the CLI now filter on the payload action, so a node still running the old code
+> does not put phantom rows back in the total.
 
-`aitbc market providers` is **not** a discovery path today — it prints
-`GPU provider query via P2P network to be implemented` and refers you to
-`aitbc gpu list`. Use `match` instead.
+### Step 3b: See who is selling, not what is for sale
+
+`aitbc market match` and `aitbc market list` are per-offer views. When the question
+is which provider to buy from, `aitbc market providers` collapses the same
+population to one row per seller.
+
+```bash
+aitbc market providers
+```
+
+**Expected output:**
+
+```
+Marketplace Providers
+=====================
++---------------------+---------------------+---------------------------------------+----------+----------+-----------------+
+| Provider            | Node ID             | Services                              |   Offers |   Active | Rating          |
++=====================+=====================+=======================================+==========+==========+=================+
+| <provider-address>  | <provider-node-id>  | ffmpeg, hermes, ipfs, ollama, whisper |        5 |        5 | 5.0 (4 reviews) |
+| <miner-id>          | <miner-id>          | gpu_marketplace                       |        1 |        1 | unrated         |
+| <miner-id>          | <miner-id>          | gpu_marketplace                       |        5 |        5 | unrated         |
++---------------------+---------------------+---------------------------------------+----------+----------+-----------------+
+Total: 3 provider(s), 11 offer(s)
+```
+
+The `GPU` and `Endpoint` columns are omitted above for width; the command prints them.
+`Rating` prefers the coordinator trust score and falls back to the marketplace star
+average weighted by review count, so one 5-star listing cannot outvote a well-reviewed
+one. `Active` counts only offers whose status is live — a provider with `5` offers and
+`1` active has disabled the rest.
+
+This command was a stub until 2026-09-15: it printed
+`GPU provider query via P2P network to be implemented` and sent you to
+`aitbc gpu list`, which lists locally registered GPUs rather than marketplace sellers.
 
 ### Step 4: Cap your spend on a GPU rental
 
@@ -337,9 +372,13 @@ aitbc market ratings --service-id <offer-id>
 
 - **No buyer-side bid.** `bid` is an accepted action value in `market list`'s
   blockchain fallback and nothing writes it. Price is set entirely by providers.
-- **`--format` is cosmetic.** All structured output is JSON regardless of the value.
-- **`aitbc market providers` is a stub.** It prints a "to be implemented" notice.
-- **`match` includes payload-less rows** in its total.
+- **`market list` truncates before it serializes.** The provider address and endpoint
+  are shortened to `0x1234...`-style stubs for the table, and `--format json|csv|yaml`
+  emit those same truncated values, so the machine-readable output of that one command
+  is not round-trippable. `match` and `providers` are unaffected.
+
+Closed 2026-09-15: `--format table|yaml|csv` rendered JSON for every command in the
+CLI; `market providers` was a stub; `match` counted rows that carried no offer.
 
 ---
 
