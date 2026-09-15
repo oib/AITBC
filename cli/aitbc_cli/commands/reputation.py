@@ -15,6 +15,8 @@ from ..utils.http_client import (
     NetworkError,
     auth_client_kwargs,
     get_logger,
+    http_error_detail,
+    http_response_status,
     normalize_base_url,
 )
 
@@ -190,7 +192,9 @@ def get_profile(ctx, agent_id: str, format: str):
         http_client = _coordinator_client(ctx)
         try:
             resp = http_client.get(_reputation_endpoint(f"/profile/{agent_id}"))
-        except NetworkError:
+        except NetworkError as e:
+            if http_response_status(e) is not None:
+                raise
             simulated = _simulated_profile(agent_id)
             if format == "json":
                 click.echo(json.dumps(simulated, indent=2, default=str))
@@ -217,7 +221,7 @@ def get_profile(ctx, agent_id: str, format: str):
         click.echo(f"Jobs Failed: {data.get('jobs_failed', 0)}")
     except NetworkError as e:
         # Safety net for unexpected network failures.
-        abort(ctx, f"Network error: {e}")
+        abort(ctx, f"Network error: {http_error_detail(e) or e}")
     except Exception as e:
         abort(ctx, f"Error getting reputation profile: {e}", from_exception=e)
 
@@ -239,7 +243,9 @@ def trust_score(ctx, agent_id: str, format: str):
         http_client = _coordinator_client(ctx)
         try:
             resp = http_client.get(_reputation_endpoint(f"/trust-score/{agent_id}"))
-        except NetworkError:
+        except NetworkError as e:
+            if http_response_status(e) is not None:
+                raise
             simulated = _simulated_trust_score(agent_id)
             if format == "json":
                 click.echo(json.dumps(simulated, indent=2, default=str))
@@ -263,7 +269,7 @@ def trust_score(ctx, agent_id: str, format: str):
         click.echo(f"Reputation Level: {data.get('reputation_level', 'unknown')}")
         click.echo(f"Calculated At: {data.get('calculated_at', 'unknown')}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}")
+        abort(ctx, f"Network error: {http_error_detail(e) or e}")
     except Exception as e:
         abort(ctx, f"Error getting trust score: {e}", from_exception=e)
 
@@ -291,7 +297,9 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
         http_client = _coordinator_client(ctx)
         try:
             resp = http_client.get(_reputation_endpoint("/leaderboard"), params=params)
-        except NetworkError:
+        except NetworkError as e:
+            if http_response_status(e) is not None:
+                raise
             data = _simulated_leaderboard(category, limit, region)
             if format == "json":
                 click.echo(json.dumps(data, indent=2, default=str))
@@ -320,7 +328,7 @@ def leaderboard(ctx, category: str, limit: int, region: str | None, format: str)
                 f"{entry.get('transaction_count', 0):<12}"
             )
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}")
+        abort(ctx, f"Network error: {http_error_detail(e) or e}")
     except Exception as e:
         abort(ctx, f"Error getting leaderboard: {e}", from_exception=e)
 
@@ -341,7 +349,9 @@ def metrics(ctx, format: str):
         http_client = _coordinator_client(ctx)
         try:
             resp = http_client.get(_reputation_endpoint("/metrics"))
-        except NetworkError:
+        except NetworkError as e:
+            if http_response_status(e) is not None:
+                raise
             simulated = _simulated_metrics()
             if format == "json":
                 click.echo(json.dumps(simulated, indent=2, default=str))
@@ -368,7 +378,7 @@ def metrics(ctx, format: str):
         click.echo(f"  Events: {recent.get('events_last_24h', recent.get('events', 0))}")
         click.echo(f"  Active Agents: {recent.get('active_agents', 0)}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}")
+        abort(ctx, f"Network error: {http_error_detail(e) or e}")
     except Exception as e:
         abort(ctx, f"Error getting metrics: {e}", from_exception=e)
 
@@ -394,7 +404,7 @@ def create_profile(ctx, agent_id: str):
         click.echo(f"Reputation Level: {data.get('reputation_level', 'unknown')}")
         click.echo(f"Created At: {data.get('created_at', 'unknown')}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}")
+        abort(ctx, f"Network error: {http_error_detail(e) or e}")
     except Exception as e:
         abort(ctx, f"Error creating profile: {e}", from_exception=e)
 
@@ -455,6 +465,6 @@ def add_feedback(
         click.echo(f"Overall Rating: {data.get('overall_rating', overall)}/5.0")
         click.echo(f"Moderation Status: {data.get('moderation_status', 'pending')}")
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}")
+        abort(ctx, f"Network error: {http_error_detail(e) or e}")
     except Exception as e:
         abort(ctx, f"Error adding feedback: {e}", from_exception=e)
