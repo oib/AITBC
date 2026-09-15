@@ -18,7 +18,7 @@ from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 
 from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
-from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, normalize_base_url
 from aitbc.crypto.crypto import sign_transaction_data
 
 # Initialize logger
@@ -248,7 +248,9 @@ def list_offers(
 
                 if offers:
                     # Enrich offers with canonical coordinator reputation data.
-                    coordinator_url = config.coordinator_api_url or hub_url
+                    # The /reputation/... path is relative to the /v1 root, so
+                    # normalize the configured URL (service root or .../v1).
+                    coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
                     for offer in offers:
                         _reputation_for_offer(http_client, coordinator_url, offer)
 

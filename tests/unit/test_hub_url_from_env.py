@@ -6,7 +6,13 @@ from pathlib import Path
 
 import pytest
 
-from aitbc.config.hub import hub_agent_url, hub_discovery_host, hub_exchange_url, hub_service_url
+from aitbc.config.hub import (
+    hub_agent_url,
+    hub_coordinator_url,
+    hub_discovery_host,
+    hub_exchange_url,
+    hub_service_url,
+)
 
 
 @pytest.fixture
@@ -17,6 +23,8 @@ def isolated_env(monkeypatch, tmp_path: Path):
         "HUB_HERMES_URL",
         "HUB_EXCHANGE_URL",
         "EXCHANGE_SERVICE_URL",
+        "HUB_COORDINATOR_URL",
+        "COORDINATOR_API_URL",
     ):
         monkeypatch.delenv(name, raising=False)
     monkeypatch.setattr("aitbc.config.hub._env_files", lambda: (tmp_path / "blockchain.env", tmp_path / "node.env"))
@@ -61,3 +69,16 @@ def test_explicit_agent_url_is_kept_as_a_base(isolated_env: Path, monkeypatch: p
     monkeypatch.setenv("HUB_AGENT_URL", "https://hub.example.net/api/v1/agent/")
 
     assert hub_agent_url() == "https://hub.example.net/api/v1/agent"
+
+
+def test_coordinator_url_defaults_to_public_c_mount(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """GAP-18: the public nginx mount is /c/v1 — a bare /v1 hits the gateway."""
+    monkeypatch.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+
+    assert hub_coordinator_url() == "https://hub.example.net/c/v1"
+
+
+def test_explicit_coordinator_url_is_kept_as_a_base(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setenv("HUB_COORDINATOR_URL", "http://coordinator.internal:8203/v1/")
+
+    assert hub_coordinator_url() == "http://coordinator.internal:8203/v1"

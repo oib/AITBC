@@ -20,7 +20,7 @@ from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, service_root_url
 from ..utils.wallet_loader import load_wallet_for_payment
 
 logger = get_logger(__name__)
@@ -48,11 +48,7 @@ def _coordinator_base_url(ctx, coordinator_url: str | None = None) -> str:
     to avoid doubling the path.
     """
     config = get_config()
-    url = coordinator_url or ctx.obj.get("url") or config.coordinator_api_url or "http://localhost:8203"
-    url = url.rstrip("/")
-    if url.endswith("/v1"):
-        url = url[:-3]
-    return url
+    return service_root_url(coordinator_url or ctx.obj.get("url") or config.coordinator_api_url, "http://localhost:8203")
 
 
 def _media_url(input_url: str, http_client: AITBCHTTPClient | None = None) -> tuple[str, str | None]:

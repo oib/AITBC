@@ -10,7 +10,13 @@ import click
 from ..config import get_config
 from ..utils import output, success
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    NetworkError,
+    auth_client_kwargs,
+    get_logger,
+    normalize_base_url,
+)
 
 logger = get_logger(__name__)
 
@@ -20,13 +26,20 @@ SIMULATED_TIMESTAMP = "2026-01-01T00:00:00+00:00"
 
 
 def _coordinator_client(ctx: click.Context | None = None) -> AITBCHTTPClient:
-    """Return an HTTP client for the coordinator API."""
+    """Return an HTTP client for the coordinator API.
+
+    Request paths are relative to the version root (``/reputation/...``), so
+    normalize the configured URL to a base that always ends in ``/v1``. A
+    stored ``auth login`` JWT goes out as Bearer; a plain key uses X-API-Key.
+    """
     config = get_config()
-    base_url = (config.coordinator_api_url or DEFAULT_COORDINATOR_URL).rstrip("/")
-    api_key = config.api_key
-    if ctx and ctx.obj:
-        api_key = ctx.obj.get("api_key") or api_key
-    return AITBCHTTPClient(base_url=base_url, api_key=api_key, timeout=30)
+    base_url = normalize_base_url(config.coordinator_api_url, DEFAULT_COORDINATOR_URL)
+    explicit = ctx.obj.get("api_key") if ctx and ctx.obj else None
+    return AITBCHTTPClient(
+        base_url=base_url,
+        timeout=30,
+        **auth_client_kwargs(explicit, config.api_key),
+    )
 
 
 def _reputation_endpoint(path: str) -> str:
