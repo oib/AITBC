@@ -78,7 +78,7 @@ aitbc ipfs upload --file /tmp/finetune-run-042.weights --name finetune-run-042.w
 
 ```bash
 aitbc ipfs list
-aitbc ipfs pin "$CID"
+aitbc ipfs pin --cid "$CID"
 ```
 
 **Expected output:** the uploaded item appears in the local index; pin reports success.
@@ -86,7 +86,7 @@ aitbc ipfs pin "$CID"
 ### Step 3: Download by CID
 
 ```bash
-aitbc ipfs download "$CID" --output /tmp/finetune-run-042.restored
+aitbc ipfs download --cid "$CID" --output /tmp/finetune-run-042.restored
 cmp /tmp/finetune-run-042.weights /tmp/finetune-run-042.restored && echo ROUNDTRIP_OK
 ```
 

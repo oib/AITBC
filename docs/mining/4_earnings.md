@@ -4,47 +4,50 @@ Track and manage your mining earnings.
 
 ## Earnings Overview
 
+Mining payouts arrive as ordinary transfers into your miner wallet. Check the
+balance and incoming transactions:
+
 ```bash
-aitbc miner earnings
+aitbc wallet balance --name my-miner-wallet
+aitbc wallet transactions --name my-miner-wallet --limit 50
 ```
 
 Shows:
 
-- Total earned
-- Pending balance
-- Last payout
+- Total earned (incoming transfers)
+- Current balance
+- Transaction history
 
 ## Earnings Breakdown
 
 | Source | Description |
 |--------|-------------|
 | job_completion | Payment for completed jobs |
+| block_reward | PoA block production rewards |
 | bonus | Performance bonuses |
-| referral | Referral rewards |
 
 ## Payout Schedule
 
 | Plan | Schedule | Minimum |
 |------|----------|---------|
-| Automatic | Daily | 10 AITBC |
-| Manual | On request | 1 AITBC |
+| Automatic | Per job / per block | Settled on-chain |
 
-## Request Payout
-
-```bash
-aitbc wallet withdraw --amount 100 --address <WALLET_ADDRESS>
-```
-
-## Earnings History
+## Send Earnings to Another Wallet
 
 ```bash
-aitbc miner earnings --history --days 30
+aitbc wallet --wallet-name my-miner-wallet send \
+  --to-address <RECIPIENT_ADDRESS> \
+  --amount 100
 ```
 
 ## Performance Metrics
 
 ```bash
-aitbc miner stats
+# Mining loop status
+aitbc mining status
+
+# Job statistics from the coordinator
+aitbc ai stats
 ```
 
 Shows:
@@ -52,15 +55,6 @@ Shows:
 - Success rate
 - Average completion time
 - Total jobs completed
-- Earnings per GPU/hour
-
-## Tax Reporting
-
-```bash
-aitbc miner earnings --export --year 2026
-```
-
-Export for tax purposes.
 
 ## Next
 

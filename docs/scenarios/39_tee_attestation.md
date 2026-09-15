@@ -47,7 +47,7 @@ Expected result: `zk_status: verified`, `tee_status: verified`, payment released
 
 A miner can also attest an enclave directly:
 ```bash
-aitbc --api-key <miner-key> tee attest aitbc-miner-tee --measurement aitbc-miner-tee
+aitbc --api-key <miner-key> tee attest --enclave-id aitbc-miner-tee --measurement aitbc-miner-tee
 aitbc --api-key <miner-key> tee verify --quote <quote-b64> --measurement aitbc-miner-tee
 ```
 
@@ -56,13 +56,13 @@ aitbc --api-key <miner-key> tee verify --quote <quote-b64> --measurement aitbc-m
 If the provider cannot produce a valid TEE attestation, the job completes with `payment_status=escrowed` and an error. The customer can refund the escrow through the canonical CLI:
 
 ```bash
-aitbc ai refund <job_id> --reason "TEE attestation rejected"
+aitbc ai refund --job-id <job_id> --reason "TEE attestation rejected"
 ```
 
 Or, without a client token, directly against the blockchain:
 
 ```bash
-aitbc market escrow refund <job_id> --reason "TEE attestation rejected"
+aitbc market escrow refund --job-id <job_id> --reason "TEE attestation rejected"
 ```
 
 Validate the refund in the on-chain escrow state and the coordinator payment record as described in [Scenario 44: Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md).

@@ -12,7 +12,7 @@ This guide covers setting up PING/PONG messaging via the Agent Coordinator WebSo
 From a follower node, use the CLI to ping the hub:
 
 ```bash
-aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 Expected output:

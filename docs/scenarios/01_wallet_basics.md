@@ -68,10 +68,13 @@ HD (Hierarchical Deterministic) wallets use ECDSA with the SECP256K1 curve. The 
 
 ```bash
 # Create an HD wallet (default type) with encryption
-aitbc wallet create my-agent-wallet
+aitbc wallet create --name my-agent-wallet
 ```
 
 You will be prompted to enter and confirm a password for wallet encryption.
+The prompt requires a TTY; in a non-interactive shell set
+`AITBC_WALLET_PASSWORD` (or `AITBC_WALLET_PASSWORD_<WALLET_NAME>`) first, or use
+`--no-encrypt`.
 
 **Expected output:**
 
@@ -89,7 +92,7 @@ Simple wallets use random bytes for the private key and address. The `--no-encry
 
 ```bash
 # Create a simple wallet without encryption (for testing/automation)
-aitbc wallet create test-wallet --type simple --no-encrypt
+aitbc wallet create --name test-wallet --type simple --no-encrypt
 ```
 
 **Expected output:**
@@ -119,7 +122,7 @@ test-wallet: 0xd90b2fA74c7cf03cfA9F2354E49E259A162A12F8
 The active wallet is stored in `~/.aitbc/config.yaml` and used by default by other CLI commands (transactions, messaging, etc.).
 
 ```bash
-aitbc wallet switch test-wallet
+aitbc wallet switch --name test-wallet
 ```
 
 **Expected output:**
@@ -136,7 +139,7 @@ Create a copy of the wallet JSON file at a specified destination. If no destinat
 
 ```bash
 # Back up to a specific destination
-aitbc wallet backup my-agent-wallet --destination /tmp/my-agent-backup.json
+aitbc wallet backup --name my-agent-wallet --destination /tmp/my-agent-backup.json
 ```
 
 **Expected output:**
@@ -150,7 +153,7 @@ timestamp    2026-06-25T12:00:00Z
 
 ```bash
 # Back up with auto-generated timestamped filename
-aitbc wallet backup test-wallet
+aitbc wallet backup --name test-wallet
 ```
 
 **Expected output:**
@@ -165,7 +168,7 @@ Restore a wallet from a backup file. The `--force` flag overrides an existing wa
 
 ```bash
 # Restore to a new wallet name
-aitbc wallet restore /tmp/my-agent-backup.json restored-wallet
+aitbc wallet restore --backup-path /tmp/my-agent-backup.json --name restored-wallet
 ```
 
 **Expected output:**
@@ -176,7 +179,7 @@ Wallet 'restored-wallet' restored from '/tmp/my-agent-backup.json'
 
 ```bash
 # Force-restore over an existing wallet
-aitbc wallet restore /tmp/my-agent-backup.json my-agent-wallet --force
+aitbc wallet restore --backup-path /tmp/my-agent-backup.json --name my-agent-wallet --force
 ```
 
 ### Step 7: Delete a Wallet
@@ -185,7 +188,7 @@ Delete a wallet permanently. Use `--confirm` to skip the interactive confirmatio
 
 ```bash
 # Interactive confirmation
-aitbc wallet delete test-wallet
+aitbc wallet delete --name test-wallet
 ```
 
 **Expected output:**
@@ -197,7 +200,7 @@ Wallet 'test-wallet' deleted
 
 ```bash
 # Skip confirmation (for automation)
-aitbc wallet delete test-wallet --confirm
+aitbc wallet delete --name test-wallet --confirm
 ```
 
 ---

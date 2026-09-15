@@ -7,7 +7,7 @@ Monitor your miner performance and set up alerts.
 ### Dashboard
 
 ```bash
-aitbc miner dashboard
+aitbc monitor dashboard
 ```
 
 Shows:
@@ -16,98 +16,107 @@ Shows:
 - Memory usage
 - Temperature
 - Active jobs
-- Earnings rate
 
 ### CLI Stats
 
 ```bash
-aitbc miner stats
+# Mining loop status
+aitbc mining status
+
+# Coordinator-side job statistics
+aitbc ai stats
+
+# Local GPU inventory
+aitbc gpu list-gpus
 ```
 
-### Prometheus Metrics
+### Metrics
 
 ```bash
-# Enable metrics endpoint
-aitbc miner metrics --port 9090
+# Query recent platform metrics
+aitbc monitor metrics --period 1h
+aitbc monitor metrics --period 24h --export /tmp/metrics.json
 ```
-
-Available at: http://localhost:9090/metrics
 
 ## Alert Configuration
 
 ### Set Alerts
 
 ```bash
-# GPU temperature alert
-aitbc miner alert --metric temp --threshold 85 --action notify
+# Miner offline alert
+aitbc monitor alerts add --name miner-offline --type miner_offline --threshold 90
 
-# Memory usage alert
-aitbc miner alert --metric memory --threshold 90 --action throttle
+# Failed job alert
+aitbc monitor alerts add --name job-failures --type job_failed --threshold 3
 
-# Job failure alert
-aitbc miner alert --metric failures --threshold 3 --action pause
+# Low balance alert
+aitbc monitor alerts add --name low-balance --type low_balance --threshold 10
 ```
 
 ### Alert Types
 
 | Type | Description |
 |------|-------------|
-| temp | GPU temperature |
-| memory | GPU memory usage |
-| utilization | GPU utilization |
-| jobs | Job success/failure rate |
-| earnings | Earnings below threshold |
+| coordinator_down | Coordinator unreachable |
+| miner_offline | Miner stopped responding |
+| job_failed | Job failure rate |
+| low_balance | Wallet balance below threshold |
 
-### Alert Actions
+### Manage Alerts
 
-| Action | Description |
-|--------|-------------|
-| notify | Send notification |
-| throttle | Reduce job acceptance |
-| pause | Stop accepting jobs |
-| restart | Restart miner |
+```bash
+# List configured alerts
+aitbc monitor alerts list
+
+# Remove an alert
+aitbc monitor alerts remove --name miner-offline
+
+# Send a test alert
+aitbc monitor alerts test --name miner-offline
+```
+
+GPU temperature/memory thresholds are enforced by the NVIDIA driver and
+`nvidia-smi`; platform alerts cover service and job health.
 
 ## Log Management
 
 ### View Logs
 
+Miner logs are journald logs for the `aitbc-miner` service:
+
 ```bash
 # Recent logs
-aitbc miner logs --tail 100
+journalctl -u aitbc-miner -n 100
 
-# Filter by level
-aitbc miner logs --level error
+# Follow live
+journalctl -u aitbc-miner -f
 
-# Filter by job
-aitbc miner logs --job-id <JOB_ID>
+# Filter by priority (errors)
+journalctl -u aitbc-miner -p err
 ```
 
 ### Log Rotation
 
-```bash
-# Configure log rotation
-aitbc miner logs --rotate --max-size 100MB --keep 5
-```
+Log rotation is handled by journald (`SystemMaxUse` in
+`/etc/systemd/journald.conf`).
 
 ## Health Checks
 
 ```bash
-# Run health check
-aitbc miner health
+# Service health
+systemctl status aitbc-miner
 
-# Detailed health report
-aitbc miner health --detailed
+# Mining status via the node RPC
+aitbc mining status
+
+# Coordinator reachability and service health
+aitbc system check
 ```
 
 Shows:
 
-- GPU health
-- Driver status
+- Service state (active/failed)
+- GPU health via `nvidia-smi`
 - Network connectivity
-- Storage availability
 
 ## Next
-
-- [Miner Quick Start](../getting-started/mining/miner-quick-start.md) — Get started
-- [GPU Setup](./5_gpu-setup.md) — GPU configuration
-- [Job Management](./3_job-management.md) — Job management

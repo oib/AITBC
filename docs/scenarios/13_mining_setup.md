@@ -33,7 +33,7 @@ A node-operating agent wants to dedicate spare compute to securing the network a
 
 ### What You'll Learn
 
-- Start mining with `aitbc mining start <wallet_name>` and tune thread count
+- Start mining with `aitbc mining start --wallet-name <wallet_name>` and tune thread count
 - Check mining status with `aitbc mining status`
 - List active miners with `aitbc mining list`
 - Stop mining with `aitbc mining stop`
@@ -67,10 +67,10 @@ All commands below are grounded in `cli/aitbc_cli/commands/mining.py`. The defau
 
 ### Step 1: Start mining into a wallet
 
-`aitbc mining start <wallet_name>` loads `<wallet_name>.json` from the keystore, reads its `address`, and posts `{miner_address, threads, enabled: true}` to `POST /rpc/mining/start`. Options: `--threads` (default `1`), `--rpc-url`.
+`aitbc mining start --wallet-name <wallet_name>` loads `<wallet_name>.json` from the keystore, reads its `address`, and posts `{miner_address, threads, enabled: true}` to `POST /rpc/mining/start`. Options: `--threads` (default `1`), `--rpc-url`.
 
 ```bash
-aitbc mining start miner-wallet --threads 4
+aitbc mining start --wallet-name miner-wallet --threads 4
 ```
 
 **Expected output:**
@@ -85,7 +85,7 @@ Status: started
 If the wallet is missing you'll see `Wallet 'miner-wallet' not found`. Point at a different node's blockchain RPC with `--rpc-url`:
 
 ```bash
-aitbc mining start miner-wallet --threads 4 --rpc-url http://node-2.local:8202
+aitbc mining start --wallet-name miner-wallet --threads 4 --rpc-url http://node-2.local:8202
 ```
 
 ### Step 2: Check mining status

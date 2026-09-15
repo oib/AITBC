@@ -63,7 +63,7 @@ A customer inspects the book and rates with the CLI; placing orders is gated on 
 
 ```bash
 aitbc exchange-island rates
-aitbc exchange-island orderbook AIT/ETH --limit 10
+aitbc exchange-island orderbook --pair AIT/ETH --limit 10
 aitbc exchange-island orders --status open
 ```
 
@@ -79,7 +79,7 @@ The CLI wraps that surface.
 ### Step 2: Place a buy only if the keystore exists
 
 ```bash
-aitbc exchange-island buy 1 ETH --max-price 0.00001260
+aitbc exchange-island buy --ait-amount 1 --quote-currency ETH --max-price 0.00001260
 ```
 
 **Expected output:** an order id if `validator_keys.json` is present. Otherwise a clear abort (`Keystore not found at /var/lib/aitbc/keystore/validator_keys.json`). That abort is the current product, not a scenario failure.
@@ -88,7 +88,7 @@ aitbc exchange-island buy 1 ETH --max-price 0.00001260
 
 ```bash
 aitbc exchange-island orders --status open
-aitbc exchange-island cancel <order-id>   # only if Step 2 created one
+aitbc exchange-island cancel --order-id <order-id>   # only if Step 2 created one
 ```
 
 ---

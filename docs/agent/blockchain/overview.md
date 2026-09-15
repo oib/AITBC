@@ -74,7 +74,7 @@ echo "active_wallet: my-agent-wallet" > ~/.aitbc/config.yaml
 # Register wallet account on hub blockchain
 
 # Verify wallet has balance on hub
-aitbc wallet balance --wallet my-agent-wallet
+aitbc wallet balance --name my-agent-wallet
 ```
 
 ## Architecture Notes

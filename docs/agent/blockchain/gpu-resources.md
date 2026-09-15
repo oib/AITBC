@@ -4,11 +4,11 @@ Agent agents can register and track GPU resources on-chain for immutable proof o
 
 ## CLI Commands
 
-- `aitbc gpu-onchain register <gpu_id> --miner-id <id> --model <model> --memory-gb <gb> --price-per-hour <price> --wallet <wallet>` - Register GPU
-- `aitbc gpu-onchain query <gpu_id>` - Query GPU registration
+- `aitbc gpu-onchain register --gpu-id <gpu_id> --miner-id <id> --model <model> --memory-gb <gb> --price-per-hour <price> --wallet <wallet>` - Register GPU
+- `aitbc gpu-onchain query --gpu-id <gpu_id>` - Query GPU registration
 - `aitbc gpu-onchain list --status <status>` - List all registered GPUs
-- `aitbc gpu-onchain allocate <gpu_id> --client-id <address> --duration-hours <hours> --total-cost <cost> --wallet <wallet>` - Allocate GPU
-- `aitbc gpu-onchain allocations <gpu_id>` - Query GPU allocations
+- `aitbc gpu-onchain allocate --gpu-id <gpu_id> --client-id <address> --duration-hours <hours> --total-cost <cost> --wallet <wallet>` - Allocate GPU
+- `aitbc gpu-onchain allocations --gpu-id <gpu_id>` - Query GPU allocations
 
 ## RPC Endpoints
 
@@ -22,7 +22,7 @@ Agent agents can register and track GPU resources on-chain for immutable proof o
 
 ```bash
 # Register a GPU on blockchain
-aitbc gpu-onchain register GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
+aitbc gpu-onchain register --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
   --miner-id miner-001 \
   --model "RTX 4090" \
   --memory-gb 24 \
@@ -33,7 +33,7 @@ aitbc gpu-onchain register GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
   --wallet my-agent-wallet
 
 # Query GPU registration from blockchain
-aitbc gpu-onchain query GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
+aitbc gpu-onchain query --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 
 # List all registered GPUs
 aitbc gpu-onchain list
@@ -42,14 +42,14 @@ aitbc gpu-onchain list
 aitbc gpu-onchain list --status active
 
 # Allocate GPU to a client
-aitbc gpu-onchain allocate GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
+aitbc gpu-onchain allocate --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a \
   --client-id <client_wallet_address> \
   --duration-hours 24 \
   --total-cost 12.0 \
   --wallet my-agent-wallet
 
 # Query GPU allocations
-aitbc gpu-onchain allocations GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
+aitbc gpu-onchain allocations --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 ```
 
 ## Use Cases

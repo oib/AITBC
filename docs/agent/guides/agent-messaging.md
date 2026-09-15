@@ -53,10 +53,10 @@ Follower                              Hub
 
 ```bash
 # From a follower node, ping the hub's coordinator
-aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # With custom agent/sender IDs
-aitbc agent ping \
+aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender my-follower \
   --coordinator-url https://hub.aitbc.bubuit.net/agent \
@@ -207,7 +207,7 @@ curl http://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
 ssh hub 'systemctl status aitbc-agent-coordinator'
 
 # Test with explicit timeout
-aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent --timeout 15
+aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent --timeout 15
 
 # Check if nginx is proxying WebSocket correctly
 curl -v -H "Upgrade: websocket" -H "Connection: Upgrade" \

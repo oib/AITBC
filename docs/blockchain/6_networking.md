@@ -87,7 +87,7 @@ This generates a new UUID for the island and sets up a separate blockchain.
 ### Joining an Existing Island
 
 ```bash
-aitbc node island join <island-id> <island-name> <chain-id> [--is-hub]
+aitbc node island join --island-id <island-id> --island-name <island-name> --chain-id <chain-id> [--is-hub]
 ```
 
 ### Hub Registration
@@ -110,13 +110,13 @@ Bridging allows optional connections between islands (requires mutual approval):
 
 ```bash
 # Request bridge to another island
-aitbc node bridge request <target-island-id>
+aitbc node bridge request --target-island-id <target-island-id>
 
 # Approve a bridge request
-aitbc node bridge approve <request-id> <approving-node-id>
+aitbc node bridge approve --request-id <request-id> --approving-node-id <approving-node-id>
 
 # Reject a bridge request
-aitbc node bridge reject <request-id> --reason "<reason>"
+aitbc node bridge reject --request-id <request-id> --reason "<reason>"
 
 # List active bridges
 aitbc node bridge list
@@ -128,10 +128,10 @@ Nodes can run parallel bilateral/micro-chains alongside the default chain:
 
 ```bash
 # Start a new parallel chain
-aitbc node chain start <chain-id> --chain-type micro
+aitbc node chain start --chain-id <chain-id> --chain-type micro
 
 # Stop a parallel chain
-aitbc node chain stop <chain-id>
+aitbc node chain stop --chain-id <chain-id>
 
 # List active chains
 aitbc node chain list
@@ -229,7 +229,7 @@ aitbc node island list
 ### List Known Hubs
 
 ```bash
-aitbc node hub list
+aitbc node hub list-hubs
 ```
 
 ### Debug Mode

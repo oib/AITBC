@@ -23,8 +23,8 @@
 
    ```bash
    aitbc wallet balance
-   # Add funds if needed
-   aitbc wallet deposit <amount>
+   # Add funds if needed (test coins on dev/test networks)
+   aitbc agent-msg request-coins --wallet <wallet-name>
    ```
 
 3. **Offer Not Available**
@@ -66,9 +66,9 @@
 
    ```bash
    # Check escrow status
-   aitbc wallet escrow-status <tx_hash>
+   aitbc market escrow status --job-id <job_id>
    # Release stuck escrow
-   aitbc wallet escrow-release --escrow-tx <tx_hash> --force
+   aitbc market escrow release --job-id <job_id>
    ```
 
 6. **CLI Limitations**
@@ -259,7 +259,7 @@ response = requests.post(
 
 ```bash
 # Always verify escrow details before release
-aitbc wallet escrow-status $ESCROW_TX
+aitbc market escrow status --job-id $JOB_ID
 
 # Use appropriate escrow amounts
 # Minimum: 0.001 AIT for small requests

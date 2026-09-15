@@ -138,7 +138,7 @@ nvidia-smi
 nvcc --version
 
 # Restart miner
-aitbc miner restart
+sudo systemctl restart aitbc-miner
 ```
 
 ### Temperature Issues

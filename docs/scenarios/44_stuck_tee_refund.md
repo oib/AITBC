@@ -67,7 +67,7 @@ Every operator step uses the `aitbc` CLI. Curl, `journalctl`, and `pytest` belon
 ### Step 1: Check the escrow state
 
 ```bash
-aitbc market escrow status <job_id>
+aitbc market escrow status --job-id <job_id>
 ```
 
 **Expected output:**
@@ -86,7 +86,7 @@ aitbc market escrow status <job_id>
 If you have a client token (from `aitbc auth login` or `--api-key`), use the coordinator-aware command:
 
 ```bash
-aitbc ai refund <job_id> --reason "TEE attestation rejected"
+aitbc ai refund --job-id <job_id> --reason "TEE attestation rejected"
 ```
 
 **Expected output:**
@@ -105,7 +105,7 @@ This updates the coordinator `JobPayment` and the on-chain escrow in one call.
 If you do not have a client token, refund the on-chain escrow directly:
 
 ```bash
-aitbc market escrow refund <job_id> --reason "TEE attestation rejected"
+aitbc market escrow refund --job-id <job_id> --reason "TEE attestation rejected"
 ```
 
 **Expected output:**

@@ -35,10 +35,10 @@ An orchestrator agent needs to pick a compute provider for a job. It pulls the c
 
 ### What You'll Learn
 
-- Read an agent's reputation profile with `aitbc reputation profile`
+- Read an agent's reputation profile with `aitbc reputation get-profile`
 - Inspect the composite trust-score breakdown with `aitbc reputation trust-score`
 - Browse the leaderboard and system metrics
-- Submit community feedback with `aitbc reputation feedback`
+- Submit community feedback with `aitbc reputation add-feedback`
 - Create a new reputation profile with `aitbc reputation create-profile`
 - Query and update reputation from the SDK with `Agent.get_reputation()` / `Agent.update_reputation(...)`
 
@@ -69,10 +69,10 @@ All commands below are grounded in `cli/aitbc_cli/commands/reputation.py`. The c
 
 ### Step 1: Get a reputation profile
 
-`aitbc reputation profile <agent_id>` calls `GET /reputation/profile/<agent_id>`.
+`aitbc reputation get-profile --agent-id <agent_id>` calls `GET /reputation/profile/<agent_id>`.
 
 ```bash
-aitbc reputation profile agent_1a2b3c4d
+aitbc reputation get-profile --agent-id agent_1a2b3c4d
 ```
 
 **Expected output:**
@@ -95,10 +95,10 @@ Add `--format json` for machine-readable output.
 
 ### Step 2: Inspect the trust-score breakdown
 
-`aitbc reputation trust-score <agent_id>` calls `GET /reputation/trust-score/<agent_id>`.
+`aitbc reputation trust-score --agent-id <agent_id>` calls `GET /reputation/trust-score/<agent_id>`.
 
 ```bash
-aitbc reputation trust-score agent_1a2b3c4d --format json
+aitbc reputation trust-score --agent-id agent_1a2b3c4d --format json
 ```
 
 **Expected output:**
@@ -169,10 +169,10 @@ Recent Activity (24h):
 
 ### Step 5: Create a reputation profile for a new agent
 
-`aitbc reputation create-profile <agent_id>` calls `POST /reputation/profile/<agent_id>`. Run this once after registering a new agent so the reputation system has a row for it.
+`aitbc reputation create-profile --agent-id <agent_id>` calls `POST /reputation/profile/<agent_id>`. Run this once after registering a new agent so the reputation system has a row for it.
 
 ```bash
-aitbc reputation create-profile agent_new01
+aitbc reputation create-profile --agent-id agent_new01
 ```
 
 **Expected output:**
@@ -187,10 +187,10 @@ Created At: 2026-06-25T12:05:00Z
 
 ### Step 6: Leave community feedback after a job
 
-`aitbc reputation feedback <agent_id> <reviewer_id>` calls `POST /reputation/feedback/<agent_id>`. Options: `--overall`, `--performance`, `--communication`, `--reliability`, `--value` (each 1–5, default `3.0`), `--text`, and `--tag` (repeatable).
+`aitbc reputation add-feedback --agent-id <agent_id> --reviewer-id <reviewer_id>` calls `POST /reputation/feedback/<agent_id>`. Options: `--overall`, `--performance`, `--communication`, `--reliability`, `--value` (each 1–5, default `3.0`), `--text`, and `--tag` (repeatable).
 
 ```bash
-aitbc reputation feedback agent_1a2b3c4d agent_buyer01 \
+aitbc reputation add-feedback --agent-id agent_1a2b3c4d --reviewer-id agent_buyer01 \
   --overall 5 --performance 5 --communication 4 --reliability 5 --value 4 \
   --text "Fast turnaround, accurate results." \
   --tag fast --tag accurate
@@ -281,8 +281,8 @@ After completing this scenario, you should be able to:
 Confirm the feedback landed and the profile reflects it:
 
 ```bash
-aitbc reputation profile agent_1a2b3c4d
-aitbc reputation trust-score agent_1a2b3c4d --format json
+aitbc reputation get-profile --agent-id agent_1a2b3c4d
+aitbc reputation trust-score --agent-id agent_1a2b3c4d --format json
 aitbc reputation leaderboard --limit 5 --format table
 ```
 
