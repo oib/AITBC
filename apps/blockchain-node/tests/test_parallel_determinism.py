@@ -459,6 +459,11 @@ class TestBridgeTxParity:
                     nonce=int(tx.get("nonce", 0)),
                 )
             )
+            # Mirror sync_block_import's sequential loop: recipients are
+            # pre-created at zero balance except the bridge_lock pseudo-account.
+            to = tx.get("to", "")
+            if to and to != "bridge_lock":
+                session.add(Account(chain_id="chain-a", address=to, balance=0, nonce=0))
             session.commit()
             ok, err = StateTransition().apply_transaction(
                 session, "chain-a", dict(tx), tx.get("tx_hash", "0x" + "ab" * 32)
