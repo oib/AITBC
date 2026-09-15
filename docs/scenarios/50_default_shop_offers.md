@@ -61,7 +61,7 @@ Create or copy a short audio file and run:
 ```bash
 # on <hub-node>
 ffmpeg -f lavfi -i "sine=frequency=1000:duration=30" -ac 1 /tmp/test_audio.wav -y
-aitbc market transcribe <whisper-offer-id> /tmp/test_audio.wav
+aitbc market transcribe --offer-id-or-plugin-id <whisper-offer-id> --audio-file /tmp/test_audio.wav
 ```
 
 Expected result:
@@ -80,8 +80,8 @@ Create or copy a short video and run:
 ffmpeg -f lavfi -i testsrc=duration=10:size=1280x720:rate=30 \
        -f lavfi -i sine=frequency=1000:duration=10 \
        -c:v libx264 -c:a aac /tmp/test_video.mp4 -y
-aitbc market process <ffmpeg-offer-id> /tmp/test_video.mp4 \
-       --resolution 720p --format mp4 --codec h264
+aitbc market process --offer-id-or-plugin-id <ffmpeg-offer-id> --input-file /tmp/test_video.mp4 \
+       --resolution 720p --output-container mp4 --codec h264
 ```
 
 Expected result:
@@ -94,7 +94,7 @@ Expected result:
 ### 5. Run an Ollama inference job
 
 ```bash
-aitbc market run <ollama-offer-id> "What is AITBC?"
+aitbc market run --offer-id-or-plugin-id <ollama-offer-id> --prompt "What is AITBC?"
 ```
 
 Expected result:

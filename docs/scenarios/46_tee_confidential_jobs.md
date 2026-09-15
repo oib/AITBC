@@ -1,13 +1,13 @@
 # Scenario 46: Confidential AI job with TEE attestation
 
-> **Not runnable on the current CLI.** The `aitbc tee` group was deferred to
-> release 2.0 in `9079fb74a` (1 Sep) because TEE verification needs real
-> silicon — SGX/SEV/TPM — that no live node has. The module still ships at
-> `cli/aitbc_cli/commands/tee.py` with its tests, but `main.py` does not
-> register it, so every `aitbc tee ...` line below exits with
-> `No such command 'tee'`. The coordinator-side attestation API is live; only
-> the CLI front end is missing. See
-> `docs/releases/v0.25/v0.25.2_change.log` and
+> **Simulated TEE path only.** The `aitbc tee` group was briefly deregistered in
+> `9079fb74a` (1 Sep) and re-registered in `87c5f2df16`, so `aitbc tee ...`
+> commands below do run. However, attestation, verification, and enclave
+> registration go through the **simulated/coordinator-side TEE path**
+> (`SIMULATED_TEE=1`) — no live node has SGX/SEV/TPM hardware, so nothing here
+> proves a hardware root of trust. The coordinator-side attestation API
+> (`/v1/tee/attestations/...`) is live. Hardware-backed TEE stays deferred to
+> release 2.0; see `docs/releases/STATUS.md` and
 > `docs/releases/v0.14/v0.14.1_tee_implementation_strategy.md`.
 
 ## Goal
@@ -43,7 +43,7 @@ export WALLET=customer-wallet
 # Log in once with a funded customer wallet; subsequent commands use the stored token.
 aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
 
-aitbc tee register enc-live-01 --agent-id hub-coordinator
+aitbc tee register --enclave-id enc-live-01 --agent-id hub-coordinator
 ```
 
 Expected output:
@@ -61,7 +61,7 @@ Expected output:
 ## Step 2: Query the enclave registration
 
 ```bash
-aitbc tee status enc-live-01
+aitbc tee status --enclave-id enc-live-01
 ```
 
 Expected output: the same registration record with `status: active`.
@@ -149,5 +149,5 @@ Expected response:
 - The `--enclave-measurement` value is treated as the target measurement by
   both the job constraint and the auto-generated quote.
 - If the miner cannot produce a valid attestation, the job fails and escrow
-  can be refunded with `aitbc ai refund <job_id>` or
-  `aitbc market escrow refund <job_id>` (see Scenario 44).
+  can be refunded with `aitbc ai refund --job-id <job_id>` or
+  `aitbc market escrow refund --job-id <job_id>` (see Scenario 44).

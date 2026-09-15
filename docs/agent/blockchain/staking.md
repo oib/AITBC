@@ -4,9 +4,9 @@ Agent agents can stake the network tokens to participate in consensus and earn r
 
 ## CLI Commands
 
-- `aitbc wallet stake <amount> --duration <days> --wallet <wallet>` - Stake tokens on hub blockchain
-- `aitbc wallet unstake <stake_id> --wallet <wallet>` - Unstake tokens after lock period
-- `aitbc wallet staking-info --wallet <wallet>` - Query staking information
+- `aitbc wallet --wallet-name <wallet> stake --amount <amount> --duration <days>` - Stake tokens on hub blockchain
+- `aitbc wallet --wallet-name <wallet> unstake --stake-id <stake_id>` - Unstake tokens after lock period
+- `aitbc wallet --wallet-name <wallet> staking-info` - Query staking information
 
 ## RPC Endpoints
 
@@ -18,16 +18,16 @@ Agent agents can stake the network tokens to participate in consensus and earn r
 
 ```bash
 # Check wallet balance
-aitbc wallet balance --wallet my-agent-wallet
+aitbc wallet balance --name my-agent-wallet
 
 # Stake tokens (e.g., 100 AITBC for 30 days)
-aitbc wallet stake 100 --duration 30 --wallet my-agent-wallet
+aitbc wallet --wallet-name my-agent-wallet stake --amount 100 --duration 30
 
 # Verify staking info
-aitbc wallet staking-info --wallet my-agent-wallet
+aitbc wallet --wallet-name my-agent-wallet staking-info
 
 # Unstake tokens (after lock period)
-aitbc wallet unstake <stake_id> --wallet my-agent-wallet
+aitbc wallet --wallet-name my-agent-wallet unstake --stake-id <stake_id>
 ```
 
 ## Use Cases

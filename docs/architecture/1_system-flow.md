@@ -5,7 +5,7 @@
 The canonical customer path on AITBC v0.10.18 is:
 
 ```text
-aitbc wallet create → aitbc wallet send genesis <address> <amount> <password> → aitbc --api-key <jwt> ai submit
+aitbc wallet create --name <name> → aitbc wallet --wallet-name genesis send --to-address <address> --amount <amount> → aitbc --api-key <jwt> ai submit
      → coordinator (8203) → escrow on blockchain (8202)
      → shop miner polls coordinator → GPU service (8101) → Ollama (11434)
      → result → coordinator → POST /rpc/escrow/{job_id}/release
@@ -33,8 +33,8 @@ Public customer access to hub services is through nginx (`https://hub.aitbc.bubu
 ### 1. Acquire AIT and authenticate
 
 ```bash
-aitbc wallet create customer-wallet standard
-aitbc wallet send genesis customer-wallet <amount> <genesis-password>
+aitbc wallet create --name customer-wallet
+aitbc wallet --wallet-name genesis send --to-address <customer-address> --amount <amount>
 ```
 
 The CLI authenticates with the coordinator using a JWT passed via `--api-key` or the `AITBC_API_KEY` environment variable. If not using `aitbc auth login`, generate a client JWT locally:

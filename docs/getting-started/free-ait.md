@@ -14,10 +14,10 @@ New AITBC nodes automatically receive 100 free AIT tokens on their first coin re
 
 ```bash
 # 1. Test WebSocket connectivity (PING/PONG)
-aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 2. Request 100 free AIT via WebSocket
-aitbc agent request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 3. Check balance
 aitbc wallet balance
@@ -36,10 +36,10 @@ aitbc wallet balance
 
 ```bash
 # Create new wallet
-aitbc wallet create
+aitbc wallet create --name my-agent-wallet
 
-# Or import existing wallet
-aitbc wallet import /path/to/wallet.json
+# Or import an existing wallet file
+aitbc wallet import-wallet --file-path /path/to/wallet.json
 
 # Get your wallet address
 aitbc wallet info
@@ -58,7 +58,7 @@ Before requesting tokens, verify your agent can communicate with the hub over We
 
 ```bash
 # Send PING via WebSocket
-aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 **Expected Response**:
@@ -81,10 +81,10 @@ PONG received from hub-coordinator
 
 ```bash
 # Request 100 AIT — wallet address is auto-detected from ~/.aitbc/wallets/
-aitbc agent request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # Or specify a wallet by name
-aitbc agent request-coins --wallet my-agent-wallet --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg request-coins --wallet my-agent-wallet --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 **First-time request (auto-approved):**
@@ -98,7 +98,7 @@ Received 100 AIT!
   transaction: 0x1bbd04df13fe9a0c487594692b3b16b436573f5e14e65bc652e5d93335c5d90c
   timestamp: 2026-06-22T10:28:48.326600+00:00
 
-Check balance: aitbc wallet balance my-agent-wallet
+Check balance: aitbc wallet balance --name my-agent-wallet
 ```
 
 **Subsequent requests** (after initial 100 AIT already granted):
@@ -109,18 +109,18 @@ Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agen
 REQUEST_COINS sent (100 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
 Request submitted — pending manual approval
   request_id: req-follower-1782118362
-  message: Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve <request_id>' to approve.
+  message: Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve --request-id <request_id>' to approve.
   The hub operator must approve this request.
 
-  Hub operator: aitbc coin-requests approve req-follower-1782118362
+  Hub operator: aitbc coin-requests approve --request-id req-follower-1782118362
 ```
 
 To approve and execute pending requests, the hub operator uses:
 
 ```bash
 aitbc coin-requests list --status pending
-aitbc coin-requests approve <request-id>
-aitbc coin-requests execute <request-id>
+aitbc coin-requests approve --request-id <request-id>
+aitbc coin-requests execute --request-id <request-id>
 ```
 
 ### Step 4: Verify Token Receipt
@@ -130,7 +130,7 @@ aitbc coin-requests execute <request-id>
 aitbc wallet balance
 
 # View transaction history
-aitbc wallet history
+aitbc wallet transactions
 ```
 
 **Expected Output**:
@@ -156,8 +156,8 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 
    ```bash
    aitbc coin-requests list --status pending
-   aitbc coin-requests approve <request_id>
-   aitbc coin-requests execute <request_id>
+   aitbc coin-requests approve --request-id <request_id>
+   aitbc coin-requests execute --request-id <request_id>
    ```
 
 ## Address Formats
@@ -216,7 +216,7 @@ cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 
 ```bash
 # Test WebSocket connectivity
-aitbc agent ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # Check if agent coordinator is running on the hub
 curl https://hub.aitbc.bubuit.net/agent/health
@@ -242,12 +242,12 @@ This means your agent has already received the initial 100 AIT grant. The respon
 ```bash
 # The CLI output shows:
 #   request_id: req-follower-1782118362
-#   Hub operator: aitbc coin-requests approve req-follower-1782118362
+#   Hub operator: aitbc coin-requests approve --request-id req-follower-1782118362
 
 # On the hub, the operator runs:
 aitbc coin-requests list --status pending
-aitbc coin-requests approve req-follower-1782118362
-aitbc coin-requests execute req-follower-1782118362
+aitbc coin-requests approve --request-id req-follower-1782118362
+aitbc coin-requests execute --request-id req-follower-1782118362
 ```
 
 Alternatively, use the bridge for additional tokens without manual approval. See [Release Notes](../releases/README.md) for current bridge documentation.
@@ -256,14 +256,14 @@ Alternatively, use the bridge for additional tokens without manual approval. See
 
 ```bash
 # Check recent transactions
-aitbc wallet history --recent
+aitbc wallet transactions --limit 20
 
 # Verify transaction on block explorer
 # Go to https://hub.aitbc.bubuit.net/explorer.html
 # Search for your wallet address
 
 # Check transaction status
-aitbc wallet history --status=confirmed
+aitbc transactions status --tx-hash <tx_hash>
 ```
 
 ### Getting Help
@@ -280,7 +280,7 @@ If you encounter issues:
 
 ### Q: How many times can I request free AIT?
 
-A: The automatic 100 AIT grant is once per agent ID. Further requests are recorded as `PENDING` in the hub's database with a `request_id` and require manual approval by the hub operator using `aitbc coin-requests approve <request_id>`.
+A: The automatic 100 AIT grant is once per agent ID. Further requests are recorded as `PENDING` in the hub's database with a `request_id` and require manual approval by the hub operator using `aitbc coin-requests approve --request-id <request_id>`.
 
 ### Q: What happens if I use all my free AIT?
 

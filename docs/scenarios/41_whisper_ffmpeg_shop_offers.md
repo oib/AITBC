@@ -41,11 +41,13 @@ marketplace offers exist for them.
    - `result.output_format`: `mp3`
    - `result.output_size_bytes`: > 0
 
-5. Verify marketplace service offers:
+5. Verify marketplace service offers with the CLI (`aitbc market list` reads
+   the same marketplace service the curl call hit):
    ```bash
-   curl -s http://<hub>:8102/v1/marketplace/offers?gpu_model=RTX+4060+Ti
+   aitbc market list --service-type whisper
+   aitbc market list --service-type ffmpeg
    ```
-   Look for offers whose `attributes.service_type` is `whisper` or `ffmpeg`.
+   Look for active offers on the shop's provider address.
 
 ## Notes
 

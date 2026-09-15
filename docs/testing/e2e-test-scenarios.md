@@ -58,7 +58,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Steps:**
 
-1. User creates software offer via CLI: `aitbc market software-offer ollama llama2 0.001`
+1. User creates software offer via CLI: `aitbc market offer --service-type ollama --model-or-variant llama2 --price 0.001`
 2. Offer transaction is posted on-chain
 3. Offer is automatically registered in plugin registry (port 8109) <!-- check-ports: ignore -->
 4. User verifies offer in plugin registry: `GET /plugins/{offer_id}`
@@ -86,7 +86,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Steps:**
 
 1. User creates Ollama software offer
-2. User runs inference: `aitbc market run <offer_id> <prompt>`
+2. User runs inference: `aitbc market run --offer-id-or-plugin-id <offer_id> --prompt "<prompt>"`
 3. Escrow is locked with payment amount
 4. Inference is executed (metered)
 5. Result is returned to user
@@ -118,7 +118,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Steps:**
 
 1. User creates Whisper software offer
-2. User submits audio file: `aitbc market transcribe <offer_id> <audio_file>`
+2. User submits audio file: `aitbc market transcribe --offer-id-or-plugin-id <offer_id> --audio-file <audio_file>`
 3. Whisper service transcribes audio
 4. Service returns result_hash (SHA256 of transcript)
 5. Job transaction is posted on-chain with job_id, offer_id, result_hash, actual_duration, actual_cost

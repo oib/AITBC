@@ -100,9 +100,9 @@ The `join` command connects to a hub node via P2P, sends a join request with you
 ```bash
 # Join an island via the default hub
 aitbc node island join \
-  550e8400-e29b-41d4-a716-446655440000 \
-  federated-compute \
-  ait-federated-01
+  --island-id 550e8400-e29b-41d4-a716-446655440000 \
+  --island-name federated-compute \
+  --chain-id ait-federated-01
 ```
 
 **Expected output:**
@@ -133,9 +133,9 @@ Join with a custom hub and register as a hub node:
 
 ```bash
 aitbc node island join \
-  550e8400-e29b-41d4-a716-446655440000 \
-  federated-compute \
-  ait-federated-01 \
+  --island-id 550e8400-e29b-41d4-a716-446655440000 \
+  --island-name federated-compute \
+  --chain-id ait-federated-01 \
   --hub my-hub.example.com \
   --is-hub
 ```
@@ -168,7 +168,7 @@ Island ID                                Island Name    Chain ID             Sta
 Get detailed information about a specific island:
 
 ```bash
-aitbc node island island-info 550e8400-e29b-41d4-a716-446655440000
+aitbc node island island-info --island-id 550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Expected output:**
@@ -188,7 +188,7 @@ Created       2024-01-01T00:00:00Z
 Leave an island that you have previously joined:
 
 ```bash
-aitbc node island leave 550e8400-e29b-41d4-a716-446655440000
+aitbc node island leave --island-id 550e8400-e29b-41d4-a716-446655440000
 ```
 
 **Expected output:**
@@ -361,7 +361,7 @@ Verify that island operations completed successfully:
 aitbc node island list-islands
 
 # Inspect your island
-aitbc node island island-info <your_island_id>
+aitbc node island island-info --island-id <your_island_id>
 
 # Verify island credentials were stored
 cat /var/lib/aitbc/island_credentials.json | python -m json.tool

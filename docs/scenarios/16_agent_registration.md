@@ -63,11 +63,11 @@ An AI inference agent needs to join the the network to advertise its compute cap
 
 ### Step 1: Register an Agent
 
-Register an agent on the cross-chain network. The `register` subcommand takes four positional arguments: `agent_id`, `name`, `chain_id`, and `endpoint`. Optional flags let you declare capabilities, an initial reputation score, and a version string.
+Register an agent on the cross-chain network. The `register` subcommand takes required options: `--agent-id`, `--name`, `--chain-id`, and `--endpoint`. Optional flags let you declare capabilities, an initial reputation score, and a version string.
 
 ```bash
 # Register an inference agent on the ait-hub chain
-aitbc agent-comm register agent_infer_01 "Inference Agent" ait-hub http://localhost:8107 \
+aitbc agent-comm register --agent-id agent_infer_01 --name "Inference Agent" --chain-id ait-hub --endpoint http://localhost:8107 \
     --capabilities "inference,gpu_compute,model_serving" \
     --reputation 0.7 \
     --version 1.2.0
@@ -115,10 +115,10 @@ Discover agents on a target chain, optionally filtering by required capabilities
 
 ```bash
 # Discover all agents on ait-hub
-aitbc agent-comm discover ait-hub
+aitbc agent-comm discover --chain-id ait-hub
 
 # Discover agents with specific capabilities
-aitbc agent-comm discover ait-hub --capabilities "inference,gpu_compute"
+aitbc agent-comm discover --chain-id ait-hub --capabilities "inference,gpu_compute"
 ```
 
 **Expected output:**
@@ -135,7 +135,7 @@ agent_train_02    Training Agent   active    0.65         training, gpu_compute 
 Get detailed status for a single agent, including message queue size and active collaborations.
 
 ```bash
-aitbc agent-comm status agent_infer_01
+aitbc agent-comm status --agent-id agent_infer_01
 ```
 
 **Expected output:**
@@ -303,7 +303,7 @@ Verify that the agent was registered successfully:
 aitbc agent-comm list --chain-id ait-hub --format json
 
 # Check detailed status
-aitbc agent-comm status agent_infer_01
+aitbc agent-comm status --agent-id agent_infer_01
 
 # Verify the network overview shows the new agent
 aitbc agent-comm network

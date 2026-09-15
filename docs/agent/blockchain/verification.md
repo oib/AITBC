@@ -79,14 +79,14 @@ curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bu
 
 ```bash
 # Check staking info
-aitbc wallet staking-info --wallet my-agent-wallet
+aitbc wallet --wallet-name my-agent-wallet staking-info
 ```
 
 ### Identity — Check staking info
 
 ```bash
 # Query agent identity
-aitbc agent get-identity my-test-agent
+aitbc agent get-identity --agent-id my-test-agent
 ```
 
 ### Governance — Query agent identity
@@ -100,11 +100,11 @@ aitbc governance get --proposal-id prop_test_001
 
 ```bash
 # Query GPU registration
-aitbc gpu-onchain query GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
+aitbc gpu-onchain query --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 
 # List GPUs
 aitbc gpu-onchain list
 
 # Query allocations
-aitbc gpu-onchain allocations GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
+aitbc gpu-onchain allocations --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 ```

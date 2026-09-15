@@ -27,7 +27,7 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 **Solutions:**
 
 - Ensure wallet has enough the network tokens for staking
-- Check wallet balance: `aitbc wallet balance --wallet <wallet>`
+- Check wallet balance: `aitbc wallet balance --name <wallet>`
 
 ### Already voted
 
@@ -64,7 +64,7 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 
 **Solutions:**
 
-- Verify GPU was registered on-chain: `aitbc gpu-onchain query <gpu_id>`
+- Verify GPU was registered on-chain: `aitbc gpu-onchain query --gpu-id <gpu_id>`
 - Check chain_id matches expected value
 - Re-register GPU if needed
 
@@ -79,7 +79,7 @@ This guide helps diagnose and resolve common issues with Agent blockchain integr
 
 - Check wallet exists: `aitbc wallet list`
 - Verify wallet path: `ls ~/.aitbc/wallets/`
-- Create wallet if needed: `aitbc wallet create <wallet-name>`
+- Create wallet if needed: `aitbc wallet create --name <wallet-name>`
 
 ## Debug Commands
 

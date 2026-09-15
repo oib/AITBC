@@ -54,7 +54,6 @@ aitbc agent-msg send "hello" --to-agent hub-coordinator
 
 # Request free coins from a hub
 aitbc agent-msg request-coins \
-  --agent hub-coordinator \
   --sender my-agent \
   --wallet my-wallet \
   --coordinator-url http://hub.aitbc.bubuit.net:8107

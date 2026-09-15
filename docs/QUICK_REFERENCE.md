@@ -44,10 +44,14 @@ systemctl list-units 'aitbc-*' --type=service --no-pager
 ## Wallet
 
 ```bash
-aitbc wallet create my-wallet --password-file /var/lib/aitbc/keystore/.password
+# Wallet passwords resolve from the keyring, AITBC_WALLET_PASSWORD[_<NAME>],
+# or an interactive prompt — there is no --password-file on wallet commands.
+export AITBC_WALLET_PASSWORD="$(cat /var/lib/aitbc/keystore/.password)"
+
+aitbc wallet create --name my-wallet
 aitbc wallet list
-aitbc wallet balance my-wallet
-aitbc wallet send my-wallet --to <address> --amount 1000 --password-file /var/lib/aitbc/keystore/.password
+aitbc wallet balance --name my-wallet
+aitbc wallet --wallet-name my-wallet send --to-address <address> --amount 1000
 ```
 
 ## Blockchain and network
@@ -85,7 +89,7 @@ aitbc market match
 ## Mining
 
 ```bash
-aitbc mining start --wallet my-wallet --threads 4
+aitbc mining start --wallet-name my-wallet --threads 4
 aitbc mining status
 aitbc mining stop
 aitbc mining list
@@ -104,10 +108,10 @@ aitbc agent capabilities
 ## Node / mesh
 
 ```bash
-aitbc node list
-aitbc node add --name my-node --url http://node.example:8202
-aitbc node test --name my-node
-aitbc node hub --help
+aitbc node monitor --node-id <node-id>
+aitbc node test --node-id <node-id>
+aitbc node hub list-hubs
+aitbc node island list-islands
 aitbc node island --help
 ```
 

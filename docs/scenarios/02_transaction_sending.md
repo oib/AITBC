@@ -56,7 +56,7 @@ An AI agent needs to transfer AIT tokens to another address — for example, pay
 
 ### Setup Required
 
-- Ensure your wallet has a positive balance (use `aitbc agent request-coins` to get test tokens from the hub)
+- Ensure your wallet has a positive balance (use `aitbc agent-msg request-coins` to get test tokens from the hub)
 - Note the recipient address for testing (you can use a second wallet's address)
 
 ---
@@ -117,7 +117,7 @@ aitbc transactions send \
 Query the blockchain node directly for transaction status using the transaction hash returned by `send`.
 
 ```bash
-aitbc transactions status 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b
+aitbc transactions status --tx-hash 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b
 ```
 
 **Expected output:**
@@ -140,7 +140,7 @@ aitbc transactions status 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b
 Use the `--use-explorer` flag to query the Explorer API instead of the RPC endpoint:
 
 ```bash
-aitbc transactions status 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b --use-explorer
+aitbc transactions status --tx-hash 0x7a3b5c2d8e1f4a6b9c0d3e5f7a8b2c4d6e0f1a3b5c7d9e2f4a6b8c0d3e5f7a9b --use-explorer
 ```
 
 ### Step 5: Send Batch Transactions
@@ -318,13 +318,13 @@ Verify that your transactions were sent and confirmed:
 
 ```bash
 # Check the status of your last transaction
-aitbc transactions status <your_tx_hash>
+aitbc transactions status --tx-hash <your_tx_hash>
 
 # View pending transactions (should be empty if all confirmed)
 aitbc transactions pending
 
 # Check your wallet balance
-aitbc wallet balance my-agent-wallet
+aitbc wallet balance --name my-agent-wallet
 ```
 
 ---

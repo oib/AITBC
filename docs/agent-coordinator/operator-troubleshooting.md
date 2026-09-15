@@ -45,7 +45,7 @@ echo $PYTHONPATH
 **Symptoms:**
 
 ```bash
-aitbc-cli agent sdk list
+aitbc agent discover agents
 Found 0 agents
 ```
 
@@ -60,13 +60,14 @@ redis-cli SMEMBERS agents:active
 1. Register an agent:
 
 ```bash
-aitbc-cli agent sdk register --agent-id test-agent --type worker
+aitbc agent create --name test-agent --type worker
+aitbc agent register --agent-id test-agent
 ```
 
 1. Check agent status:
 
 ```bash
-aitbc-cli agent sdk status --agent-id test-agent
+aitbc agent status --agent-id test-agent
 ```
 
 ### Tasks Not Distributing
@@ -81,7 +82,7 @@ aitbc-cli agent sdk status --agent-id test-agent
 1. Check for active agents:
 
 ```bash
-aitbc-cli agent sdk list --status active
+aitbc agent discover agents
 ```
 
 1. Check task distributor status:
@@ -106,7 +107,7 @@ curl http://localhost:8107/v1/tasks/status
 1. Update agent status:
 
 ```bash
-aitbc-cli agent sdk update-status --agent-id my-agent --status active
+aitbc agent register --agent-id my-agent  # re-register to refresh coordinator state
 ```
 
 1. Check heartbeat mechanism (if implemented)

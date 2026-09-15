@@ -289,10 +289,10 @@ address:
 aitbc wallet list
 
 # Create a new wallet
-aitbc wallet create mywallet
+aitbc wallet create --name mywallet
 
 # Get wallet address
-aitbc wallet show mywallet
+aitbc wallet info --name mywallet
 ```
 
 ## Output Formats
