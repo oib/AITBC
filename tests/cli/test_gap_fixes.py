@@ -481,7 +481,7 @@ def test_reputation_profile_404_aborts_not_simulates(runner):
     client = Mock()
     client.get.side_effect = _net_err_with_status(404)
     with patch("aitbc_cli.commands.reputation._coordinator_client", return_value=client):
-        result = runner.invoke(get_profile, ["--agent-id", "ghost"], obj={"output_format": "json"})
+        result = runner.invoke(get_profile, ["--agent-id", "ghost", "--format", "json"], obj={"output_format": "json"})
     assert result.exit_code != 0
     assert "Reputation profile not found" in result.output
     assert "trust_score" not in result.output
@@ -493,7 +493,7 @@ def test_reputation_profile_unreachable_simulates(runner):
     client = Mock()
     client.get.side_effect = _net_err_unreachable()
     with patch("aitbc_cli.commands.reputation._coordinator_client", return_value=client):
-        result = runner.invoke(get_profile, ["--agent-id", "ghost"], obj={"output_format": "json"})
+        result = runner.invoke(get_profile, ["--agent-id", "ghost", "--format", "json"], obj={"output_format": "json"})
     assert result.exit_code == 0, result.output
     assert '"trust_score"' in result.output
 
@@ -504,7 +504,7 @@ def test_reputation_profile_live_result(runner):
     client = Mock()
     client.get.return_value = {"agent_id": "a1", "trust_score": 800, "reputation_level": "excellent"}
     with patch("aitbc_cli.commands.reputation._coordinator_client", return_value=client):
-        result = runner.invoke(get_profile, ["--agent-id", "a1"], obj={"output_format": "json"})
+        result = runner.invoke(get_profile, ["--agent-id", "a1", "--format", "json"], obj={"output_format": "json"})
     assert result.exit_code == 0
     assert '"excellent"' in result.output
 
