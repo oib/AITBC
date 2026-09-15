@@ -1312,7 +1312,7 @@ def aitbc_market_providers(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Query island members for available GPU providers.."""
+    """List the providers behind the live marketplace offers.."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(

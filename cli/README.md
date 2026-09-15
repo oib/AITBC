@@ -15,7 +15,7 @@ aitbc --help
 |-------|-------------|-----------------|
 | `account` | Account information and management | `get`, `list` |
 | `auth` | Authentication and session management | `login`, `logout`, `status` |
-| `agent` | Agent SDK management commands | `cancel`, `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `job`, `jobs`, `list`, `register`, `register-identity`, `status`, `submit`, `subscribe`, `verify-identity`, `workflow` |
+| `agent` | Agent SDK management commands | `capabilities`, `config-export`, `config-get`, `config-import`, `config-set`, `config-validate`, `create`, `discover`, `get-identity`, `inbox`, `list`, `register`, `register-identity`, `status`, `subscribe`, `verify-identity`, `workflow` |
 | `agent-comm` | Cross-chain agent communication commands | `collaborate`, `discover`, `list`, `monitor`, `network`, `receive`, `register`, `reputation`, `send`, `status` |
 | `agent-msg` | Agent messaging commands (ping, send, receive, peers, request-coins). | `peers`, `ping`, `receive`, `request-coins`, `send` |
 | `agent-task` | Paid agent-to-agent task delegation (negotiation + escrow). | `hire`, `result`, `status` |
@@ -33,7 +33,7 @@ aitbc --help
 | `confidential` | Confidential TEE-signed transaction commands. | `balance`, `send` |
 | `config` | Manage CLI configuration | `check`, `check-keys`, `edit`, `environments`, `export`, `get`, `get-secret`, `import-config`, `path`, `profiles`, `reset`, `set`, `set-secret`, `show`, `unset`, `validate` |
 | `contract` | Smart contract operations | `call`, `deploy` |
-| `crosschain` | Cross-chain trading operations | `bridge`, `bridge-status`, `pools`, `rates`, `stats`, `status`, `swap`, `swaps` |
+| `crosschain` | Cross-chain trading operations | `bridge`, `bridge-status`, `confirm`, `pools`, `rates`, `stats`, `status`, `swap`, `swaps` |
 | `dashboard` | Operational dashboards for customers and shops. | `customer`, `shop` |
 | `deploy` | Deploy and manage white-label platform configurations. | `deploy-brand` |
 | `developer` | Developer registry commands. | `list`, `register` |

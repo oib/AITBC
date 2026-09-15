@@ -7940,7 +7940,7 @@
           "cross-chain"
         ],
         "summary": "Get cross-chain exchange rates",
-        "description": "Return hard-coded cross-chain exchange rates.",
+        "description": "Return operator-configured cross-chain swap rates.\n\nSame-asset pairs always settle at parity (1.0). Rates for other pairs\ncome from ``cross_chain_swap_rates`` configuration \u2014 there is no\nfabricated demo table.",
         "operationId": "get_cross_chain_rates_rpc_cross_chain_rates_get",
         "parameters": [
           {
@@ -7998,16 +7998,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "description": "No rate for {from_chain} -> {to_chain}",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -8019,7 +8009,7 @@
           "cross-chain"
         ],
         "summary": "Create cross-chain swap",
-        "description": "Create a cross-chain swap and return its details.",
+        "description": "Create a cross-chain swap: a signed, rate-quoted bridge lock.\n\n``amount`` is integer compute-units locked on the source chain. The\nrelease amount is ``amount * rate`` \u2014 the rate is configured server-side\n(same-asset pairs settle at parity), never supplied by the caller, so a\nclient cannot mint arbitrary target-chain value. ``min_amount`` is a real\nslippage guard: the swap is rejected when the quote falls below it.",
         "operationId": "create_cross_chain_swap_rpc_swap_post",
         "requestBody": {
           "content": {
@@ -8057,7 +8047,17 @@
             }
           },
           "400": {
-            "description": "from_chain, to_chain, from_token and to_token are required / amount must be positive",
+            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / Quoted amount {expected_units} is below min_amount {min_amount_units} (slippage protection)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}",
             "content": {
               "application/json": {
                 "schema": {
@@ -8076,7 +8076,7 @@
           "cross-chain"
         ],
         "summary": "Get cross-chain swap status",
-        "description": "Return the status of a cross-chain swap.",
+        "description": "Return the real status of a cross-chain swap.",
         "operationId": "get_cross_chain_swap_rpc_cross_chain_swap__swap_id__get",
         "parameters": [
           {
@@ -8132,7 +8132,7 @@
           "cross-chain"
         ],
         "summary": "List cross-chain swaps",
-        "description": "List cross-chain swaps with optional filters.",
+        "description": "List persisted cross-chain swaps with optional filters.",
         "operationId": "list_cross_chain_swaps_rpc_cross_chain_swaps_get",
         "parameters": [
           {
@@ -8211,7 +8211,7 @@
           "cross-chain"
         ],
         "summary": "Create cross-chain bridge transaction",
-        "description": "Create a cross-chain bridge transaction.",
+        "description": "Create a cross-chain bridge transfer: a signed real bridge lock.\n\n``amount`` is integer compute-units. The returned ``bridge_id`` is the\ntransfer id, which is also the real source-chain transaction hash of the\n``BRIDGE_LOCK`` transaction.",
         "operationId": "create_cross_chain_bridge_rpc_cross_chain_bridge_post",
         "requestBody": {
           "content": {
@@ -8249,7 +8249,7 @@
             }
           },
           "400": {
-            "description": "source_chain, target_chain, token and recipient_address are required / amount must be positive",
+            "description": "source_chain, target_chain, token, sender and recipient are required / Source and target chains must be different",
             "content": {
               "application/json": {
                 "schema": {
@@ -8268,7 +8268,7 @@
           "cross-chain"
         ],
         "summary": "Get cross-chain bridge status",
-        "description": "Return the status of a cross-chain bridge transaction.",
+        "description": "Return the real status of a cross-chain bridge transfer.\n\n``bridge_id`` is the transfer id (identical to the source lock tx hash).",
         "operationId": "get_cross_chain_bridge_rpc_cross_chain_bridge__bridge_id__get",
         "parameters": [
           {
@@ -8305,7 +8305,7 @@
             }
           },
           "404": {
-            "description": "Bridge not found: {bridge_id}",
+            "description": "Bridge transfer not found: {bridge_id}",
             "content": {
               "application/json": {
                 "schema": {
@@ -8324,7 +8324,7 @@
           "cross-chain"
         ],
         "summary": "Show cross-chain liquidity pools",
-        "description": "Return cross-chain liquidity pools.",
+        "description": "Return cross-chain liquidity pools.\n\nThere is no cross-chain AMM \u2014 swaps settle through fixed-rate bridge\ntransfers, so this honestly reports an empty pool set.",
         "operationId": "get_cross_chain_pools_rpc_cross_chain_pools_get",
         "responses": {
           "200": {
@@ -8349,7 +8349,7 @@
           "cross-chain"
         ],
         "summary": "Show cross-chain trading statistics",
-        "description": "Return aggregate cross-chain trading statistics.",
+        "description": "Return aggregate statistics computed from real persisted records.",
         "operationId": "get_cross_chain_stats_rpc_cross_chain_stats_get",
         "responses": {
           "200": {
@@ -17377,7 +17377,7 @@
           "cross-chain"
         ],
         "summary": "Get cross-chain exchange rates",
-        "description": "Return hard-coded cross-chain exchange rates.",
+        "description": "Return operator-configured cross-chain swap rates.\n\nSame-asset pairs always settle at parity (1.0). Rates for other pairs\ncome from ``cross_chain_swap_rates`` configuration \u2014 there is no\nfabricated demo table.",
         "operationId": "get_cross_chain_rates_v1_cross_chain_rates_get",
         "parameters": [
           {
@@ -17435,16 +17435,6 @@
                 }
               }
             }
-          },
-          "404": {
-            "description": "No rate for {from_chain} -> {to_chain}",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         }
       }
@@ -17456,7 +17446,7 @@
           "cross-chain"
         ],
         "summary": "Create cross-chain swap",
-        "description": "Create a cross-chain swap and return its details.",
+        "description": "Create a cross-chain swap: a signed, rate-quoted bridge lock.\n\n``amount`` is integer compute-units locked on the source chain. The\nrelease amount is ``amount * rate`` \u2014 the rate is configured server-side\n(same-asset pairs settle at parity), never supplied by the caller, so a\nclient cannot mint arbitrary target-chain value. ``min_amount`` is a real\nslippage guard: the swap is rejected when the quote falls below it.",
         "operationId": "create_cross_chain_swap_v1_swap_post",
         "requestBody": {
           "content": {
@@ -17494,7 +17484,17 @@
             }
           },
           "400": {
-            "description": "from_chain, to_chain, from_token and to_token are required / amount must be positive",
+            "description": "from_chain, to_chain, from_token, to_token and sender are required / Source and target chains must be different / Quoted amount {expected_units} is below min_amount {min_amount_units} (slippage protection)",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}",
             "content": {
               "application/json": {
                 "schema": {
@@ -17513,7 +17513,7 @@
           "cross-chain"
         ],
         "summary": "Get cross-chain swap status",
-        "description": "Return the status of a cross-chain swap.",
+        "description": "Return the real status of a cross-chain swap.",
         "operationId": "get_cross_chain_swap_v1_cross_chain_swap__swap_id__get",
         "parameters": [
           {
@@ -17569,7 +17569,7 @@
           "cross-chain"
         ],
         "summary": "List cross-chain swaps",
-        "description": "List cross-chain swaps with optional filters.",
+        "description": "List persisted cross-chain swaps with optional filters.",
         "operationId": "list_cross_chain_swaps_v1_cross_chain_swaps_get",
         "parameters": [
           {
@@ -17648,7 +17648,7 @@
           "cross-chain"
         ],
         "summary": "Create cross-chain bridge transaction",
-        "description": "Create a cross-chain bridge transaction.",
+        "description": "Create a cross-chain bridge transfer: a signed real bridge lock.\n\n``amount`` is integer compute-units. The returned ``bridge_id`` is the\ntransfer id, which is also the real source-chain transaction hash of the\n``BRIDGE_LOCK`` transaction.",
         "operationId": "create_cross_chain_bridge_v1_cross_chain_bridge_post",
         "requestBody": {
           "content": {
@@ -17686,7 +17686,7 @@
             }
           },
           "400": {
-            "description": "source_chain, target_chain, token and recipient_address are required / amount must be positive",
+            "description": "source_chain, target_chain, token, sender and recipient are required / Source and target chains must be different",
             "content": {
               "application/json": {
                 "schema": {
@@ -17705,7 +17705,7 @@
           "cross-chain"
         ],
         "summary": "Get cross-chain bridge status",
-        "description": "Return the status of a cross-chain bridge transaction.",
+        "description": "Return the real status of a cross-chain bridge transfer.\n\n``bridge_id`` is the transfer id (identical to the source lock tx hash).",
         "operationId": "get_cross_chain_bridge_v1_cross_chain_bridge__bridge_id__get",
         "parameters": [
           {
@@ -17742,7 +17742,7 @@
             }
           },
           "404": {
-            "description": "Bridge not found: {bridge_id}",
+            "description": "Bridge transfer not found: {bridge_id}",
             "content": {
               "application/json": {
                 "schema": {
@@ -17761,7 +17761,7 @@
           "cross-chain"
         ],
         "summary": "Show cross-chain liquidity pools",
-        "description": "Return cross-chain liquidity pools.",
+        "description": "Return cross-chain liquidity pools.\n\nThere is no cross-chain AMM \u2014 swaps settle through fixed-rate bridge\ntransfers, so this honestly reports an empty pool set.",
         "operationId": "get_cross_chain_pools_v1_cross_chain_pools_get",
         "responses": {
           "200": {
@@ -17786,7 +17786,7 @@
           "cross-chain"
         ],
         "summary": "Show cross-chain trading statistics",
-        "description": "Return aggregate cross-chain trading statistics.",
+        "description": "Return aggregate statistics computed from real persisted records.",
         "operationId": "get_cross_chain_stats_v1_cross_chain_stats_get",
         "responses": {
           "200": {

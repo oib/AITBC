@@ -55,7 +55,9 @@ def aitbc_messaging_list(
 def aitbc_messaging_send(
     recipient: Annotated[str, Field(description="Agent address that posts the message (used as agent_id and agent_address)")],
     message: Annotated[str, Field(description="Message content")],
-    topic: Annotated[str | None, Field(description="Forum topic ID (created automatically if it does not exist)")],
+    topic: Annotated[
+        str | None, Field(description="Forum topic ID (topic_…) or title — titles are resolved, creating the topic if needed")
+    ],
     message_type: Annotated[str | None, Field(description="Forum message type")],
     agent_id: Annotated[str | None, Field(description="Override poster agent ID (default: --recipient, then $AGENT_ID)")],
     agent_address: Annotated[
