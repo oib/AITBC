@@ -9,8 +9,45 @@ from pathlib import Path
 import click
 import yaml
 
-from ..config import get_config
+from ..config import CONFIG_FILE_KEYS, default_config_path, get_config
 from ..utils import error, output, success, warning
+
+
+def _local_config_path() -> Path:
+    """The config file non-``--global`` commands read and write.
+
+    Mirrors the loader (:func:`aitbc_cli.config.default_config_path`):
+    ``AITBC_CONFIG_FILE``, then ``./.aitbc.yaml`` when it exists — the file
+    get_config() actually loaded — and otherwise the per-user
+    ``~/.aitbc.yaml``. ``config set`` therefore updates the loaded config in
+    place instead of writing a CWD-dependent shadow file (GAP-39).
+    """
+    return default_config_path()
+
+
+def _global_config_path(create: bool = False) -> Path:
+    """The ``--global`` config file: ``~/.config/aitbc/config.yaml``."""
+    config_dir = Path.home() / ".config" / "aitbc"
+    if create:
+        config_dir.mkdir(parents=True, exist_ok=True)
+    return config_dir / "config.yaml"
+
+
+# ``config set`` value coercion: these keys are integers/booleans in CLIConfig.
+_INT_CONFIG_KEYS = {"timeout", "edge_api_port", "energy_pricing_chain_id", "energy_quote_lifetime_seconds"}
+_BOOL_CONFIG_KEYS = {"tee_attestation_enabled"}
+
+_TRUE_VALUES = {"1", "true", "yes", "on"}
+_FALSE_VALUES = {"0", "false", "no", "off"}
+
+# Success messages for the keys that already had one; every other accepted
+# key gets the generic ``{key} set to: {value}`` line.
+_SET_MESSAGES = {
+    "api_key": "API key set (use --global to set permanently)",
+    "coordinator_api_url": "Coordinator API URL set to: {value}",
+    "agent_coordinator_url": "Agent coordinator URL set to: {value}",
+    "timeout": "Timeout set to: {value}s",
+}
 
 
 @click.group(
@@ -75,13 +112,7 @@ def get(ctx):
 @click.pass_context
 def set(ctx, key: str, value: str, global_config: bool):
     """Set a configuration value in the local or global config file."""
-    # Determine config file path
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path(create=True) if global_config else _local_config_path()
 
     # Load existing config
     if config_file.exists():
@@ -90,32 +121,38 @@ def set(ctx, key: str, value: str, global_config: bool):
     else:
         config_data = {}
 
-    # Set the value
-    if key == "api_key":
-        config_data["api_key"] = value
-        if ctx.obj["output"] == "table":
-            success("API key set (use --global to set permanently)")
-    elif key in ("coordinator_api_url", "coordinator_url"):
-        config_data["coordinator_api_url"] = value
-        if ctx.obj["output"] == "table":
-            success(f"Coordinator API URL set to: {value}")
-    elif key == "agent_coordinator_url":
-        config_data["agent_coordinator_url"] = value
-        if ctx.obj["output"] == "table":
-            success(f"Agent coordinator URL set to: {value}")
-    elif key == "timeout":
+    # ``coordinator_url`` is the legacy spelling of coordinator_api_url;
+    # _load_config_file maps it on read, so write the modern key. Every
+    # other accepted key is one get_config() honours (CONFIG_FILE_KEYS).
+    if key == "coordinator_url":
+        key = "coordinator_api_url"
+
+    if key in _INT_CONFIG_KEYS:
         try:
-            config_data["timeout"] = int(value)
-            if ctx.obj["output"] == "table":
-                success(f"Timeout set to: {value}s")
+            config_data[key] = int(value)
         except ValueError:
-            error("Timeout must be an integer")
+            error(f"{key.capitalize()} must be an integer")
             ctx.exit(1)
+    elif key in _BOOL_CONFIG_KEYS:
+        lowered = value.lower()
+        if lowered in _TRUE_VALUES:
+            config_data[key] = True
+        elif lowered in _FALSE_VALUES:
+            config_data[key] = False
+        else:
+            error(f"{key.capitalize()} must be a boolean (true/false)")
+            ctx.exit(1)
+    elif key in CONFIG_FILE_KEYS or key == "api_key":
+        config_data[key] = value
     else:
         error(f"Unknown configuration key: {key}")
         ctx.exit(1)
 
-    # Save config
+    if ctx.obj["output"] == "table":
+        success(_SET_MESSAGES.get(key, "{key} set to: {value}").format(key=key, value=value))
+
+    # Save config (an AITBC_CONFIG_FILE target may live in a new directory)
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
@@ -132,11 +169,7 @@ def set(ctx, key: str, value: str, global_config: bool):
 @click.option("--global", "global_config", is_flag=True, help="Show global config")
 def path(global_config: bool):
     """Show the path to the local or global configuration file."""
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path() if global_config else _local_config_path()
 
     output({"config_file": str(config_file), "exists": config_file.exists()})
 
@@ -152,13 +185,7 @@ def path(global_config: bool):
 @click.pass_context
 def edit(ctx, global_config: bool):
     """Open the configuration file in the default editor."""
-    # Determine config file path
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path(create=True) if global_config else _local_config_path()
 
     # Create if doesn't exist
     if not config_file.exists():
@@ -188,12 +215,7 @@ def edit(ctx, global_config: bool):
 @click.pass_context
 def reset(ctx, global_config: bool):
     """Reset the local or global configuration to defaults."""
-    # Determine config file path
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path() if global_config else _local_config_path()
 
     if not config_file.exists():
         output({"message": "No configuration file found"})
@@ -219,12 +241,7 @@ def reset(ctx, global_config: bool):
 @click.pass_context
 def export(ctx, output_format: str, global_config: bool):
     """Export the configuration as YAML or JSON, with API keys redacted."""
-    # Determine config file path
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path() if global_config else _local_config_path()
 
     if not config_file.exists():
         error("No configuration file found")
@@ -277,12 +294,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
         ctx.exit(1)
 
     # Determine target config file
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_dir.mkdir(parents=True, exist_ok=True)
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path(create=True) if global_config else _local_config_path()
 
     # Load existing config if merging
     if merge and config_file.exists():
@@ -293,6 +305,7 @@ def import_config(ctx, file_path: str, merge: bool, global_config: bool):
         config_data = import_data
 
     # Save config
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     with open(config_file, "w") as f:
         yaml.dump(config_data, f, default_flow_style=False)
 
@@ -466,7 +479,7 @@ def list():
 @click.option("--name", "name", required=True, help="Wallet name.")
 @click.pass_context
 def load(ctx, name: str):
-    """Load a saved configuration profile into the current directory."""
+    """Load a saved configuration profile into the active config file."""
     profiles_dir = Path.home() / ".config" / "aitbc" / "profiles"
     profile_file = profiles_dir / f"{name}.yaml"
 
@@ -477,9 +490,10 @@ def load(ctx, name: str):
     with open(profile_file) as f:
         profile_data = yaml.safe_load(f)
 
-    # Load to current config
-    config_file = Path.cwd() / ".aitbc.yaml"
+    # Load into the config file get_config() would read back.
+    config_file = _local_config_path()
 
+    config_file.parent.mkdir(parents=True, exist_ok=True)
     with open(config_file, "w") as f:
         yaml.dump(profile_data, f, default_flow_style=False)
 
@@ -688,11 +702,7 @@ def check(ctx):
 @click.pass_context
 def unset(ctx, key: str, global_config: bool):
     """Remove a configuration key from the local or global config file."""
-    if global_config:
-        config_dir = Path.home() / ".config" / "aitbc"
-        config_file = config_dir / "config.yaml"
-    else:
-        config_file = Path.cwd() / ".aitbc.yaml"
+    config_file = _global_config_path() if global_config else _local_config_path()
 
     if not config_file.exists():
         output({"message": "No configuration file found"})

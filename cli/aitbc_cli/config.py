@@ -18,6 +18,53 @@ class BaseAITBCConfig(BaseSettings):
 
 BLOCKCHAIN_RPC_PORT = 8202
 
+# YAML ``.aitbc.yaml`` keys honoured by get_config() and accepted by
+# ``aitbc config set`` (GAP-38). Each key maps to the CLIConfig init kwarg
+# that carries it — fields declared with a pydantic alias must be passed
+# under that alias, because the plain field name is silently dropped.
+CONFIG_FILE_KEYS: dict[str, str] = {
+    "coordinator_api_url": "coordinator_api_url",
+    "agent_coordinator_url": "agent_coordinator_url",
+    "exchange_service_url": "exchange_service_url",
+    "blockchain_rpc_url": "blockchain_rpc_url",
+    "marketplace_service_url": "marketplace_service_url",
+    "gpu_service_url": "gpu_service_url",
+    "gpu_api_key": "gpu_api_key",
+    "trading_service_url": "trading_service_url",
+    "governance_service_url": "governance_service_url",
+    "explorer_api_url": "explorer_api_url",
+    "prometheus_url": "prometheus_url",
+    "wallet_daemon_url": "wallet_daemon_url",
+    "wallet_url": "wallet_daemon_url",  # historical spelling feeds wallet_daemon_url (get_config did this before)
+    "wallet_api_key": "WALLET_API_KEY",
+    "wallet_address": "WALLET_ADDRESS",
+    "coordinator_api_key": "COORDINATOR_API_KEY",
+    "blockchain_rpc_api_key": "BLOCKCHAIN_RPC_API_KEY",
+    "edge_api_host": "edge_api_host",
+    "edge_api_port": "edge_api_port",
+    "chain_id": "chain_id",
+    "native_chain_id": "native_chain_id",
+    "hub_discovery_url": "hub_discovery_url",
+    "hub_proposer_id": "hub_proposer_id",
+    "hub_blockchain_rpc_url": "hub_blockchain_rpc_url",
+    "genesis_wallet_address": "genesis_wallet_address",
+    "evm_rpc_url": "evm_rpc_url",
+    "energy_pricing_contract_address": "energy_pricing_contract_address",
+    "energy_pricing_chain_id": "energy_pricing_chain_id",
+    "energy_rental_contract_address": "energy_rental_contract_address",
+    "energy_escrow_contract_address": "energy_escrow_contract_address",
+    "energy_token_contract_address": "energy_token_contract_address",
+    "energy_operator_address": "energy_operator_address",
+    "energy_quote_lifetime_seconds": "energy_quote_lifetime_seconds",
+    "energy_quote_domain": "energy_quote_domain",
+    "tee_attestation_enabled": "tee_attestation_enabled",
+    "timeout": "timeout",
+}
+
+# genesis_wallet_private_key is deliberately absent: it is a SecretStr
+# populated from GENESIS_WALLET_PRIVATE_KEY and must not be written to a
+# plaintext YAML file via ``config set``.
+
 
 class CLIConfig(BaseAITBCConfig):
     """CLI-specific configuration inheriting from shared BaseAITBCConfig"""
@@ -286,15 +333,37 @@ def _load_config_file(config_path: Path) -> dict[str, Any]:
     return config_data
 
 
+def default_config_path() -> Path:
+    """The YAML config the CLI loads when no explicit file is given.
+
+    ``AITBC_CONFIG_FILE`` wins when set, then ``./.aitbc.yaml`` when it
+    exists so a repo checkout still carries its own config, and otherwise
+    the stable per-user ``~/.aitbc.yaml`` — the same file
+    ``aitbc config set`` writes, so a set is never shadowed by the
+    directory the CLI happened to run in (GAP-39). An unreadable CWD (e.g.
+    root's home) must not crash the CLI when it runs as another user.
+    """
+    env_file = os.environ.get("AITBC_CONFIG_FILE")
+    if env_file:
+        return Path(env_file)
+    cwd_config = Path.cwd() / ".aitbc.yaml"
+    try:
+        if cwd_config.exists():
+            return cwd_config
+    except (PermissionError, OSError):
+        pass
+    return Path.home() / ".aitbc.yaml"
+
+
 def get_config(config_file: str | None = None) -> CLIConfig:
     """Load CLI configuration from shared config system"""
-    # Determine the config file to load. If not explicitly provided, look for
-    # the repository/working-directory .aitbc.yaml. An unreadable CWD (e.g. root
-    # home) must not crash the CLI when it runs as another user.
+    # Determine the config file to load. If not explicitly provided, use
+    # default_config_path(): the working-directory .aitbc.yaml when it
+    # exists, else the per-user ~/.aitbc.yaml.
     if config_file:
         config_path = Path(config_file)
     else:
-        config_path = Path.cwd() / ".aitbc.yaml"
+        config_path = default_config_path()
 
     try:
         config_file_found = config_path.exists()
@@ -304,18 +373,15 @@ def get_config(config_file: str | None = None) -> CLIConfig:
     if config_file_found:
         config_data = _load_config_file(config_path)
 
-        # Override with config file values
-        api_key = _resolve_api_key(config_data)
+        # Map the documented config-file keys onto CLIConfig init kwargs
+        # (CONFIG_FILE_KEYS); unknown keys stay env-only. ``api_key`` goes
+        # through _resolve_api_key for its env/credential-file fallbacks.
+        kwargs = {field: config_data[key] for key, field in CONFIG_FILE_KEYS.items() if key in config_data}
         return CLIConfig(
-            coordinator_api_url=config_data.get("coordinator_api_url", ""),
-            agent_coordinator_url=config_data.get("agent_coordinator_url", ""),
-            wallet_daemon_url=config_data.get("wallet_url", "http://localhost:8108"),
-            api_key=api_key,
-            blockchain_rpc_api_key=config_data.get("blockchain_rpc_api_key"),
-            timeout=config_data.get("timeout", 30),
-            edge_api_host=config_data.get("edge_api_host", "localhost"),
-            edge_api_port=config_data.get("edge_api_port", 8111),
+            api_key=_resolve_api_key(config_data),
+            config_file=str(config_path),
             _env_file=_cli_env_files(),
+            **kwargs,
         )
 
     # Use shared config system with environment variables

@@ -15,7 +15,7 @@ import click
 
 from ..config import get_config
 from ..utils import OUTPUT_FORMAT_OPTION, output
-from ..utils.http_client import AITBCHTTPClient, NetworkError
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs
 from ..utils.output import resolve_output_format
 
 
@@ -157,21 +157,27 @@ def call_http(
         except json.JSONDecodeError as e:
             raise click.ClickException(f"Invalid --body JSON: {e}") from e
 
+    resolved_key: str | None = None
     if auth_kind == "miner" and not api_key:
         try:
-            config = get_config()
-            api_key = config.api_key
+            resolved_key = get_config().api_key
         except Exception:
-            api_key = None
-        if not api_key:
-            api_key = _resolve_miner_api_key()
+            resolved_key = None
+        if not resolved_key:
+            resolved_key = _resolve_miner_api_key()
 
     output_format = resolve_output_format(ctx, output_format)
     method = method.upper()
     if method not in {"GET", "POST", "PUT", "PATCH", "DELETE"}:
         raise click.ClickException(f"Unsupported HTTP method: {method}")
 
-    client = AITBCHTTPClient(base_url=base_url, timeout=timeout, api_key=api_key)
+    # --api-key wins; otherwise a stored `aitbc auth login` JWT goes out as
+    # Bearer before falling back to the resolved/configured API key.
+    client = AITBCHTTPClient(
+        base_url=base_url,
+        timeout=timeout,
+        **auth_client_kwargs(api_key, resolved_key),
+    )
     try:
         if method == "GET":
             result = client.get(path, params=query_params)
