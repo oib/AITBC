@@ -174,7 +174,9 @@ class TestGovernanceCommands:
     def test_execute_command(self, runner, mock_config, mock_http, temp_wallet_dir):
         """Test proposal execution command"""
         result = runner.invoke(
-            operations, ["governance", "execute", "--proposal-id", "prop_123"], obj={"config": mock_config, "output": "json", "output_format": "json"}
+            operations,
+            ["governance", "execute", "--proposal-id", "prop_123"],
+            obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
         assert result.exit_code == 0
