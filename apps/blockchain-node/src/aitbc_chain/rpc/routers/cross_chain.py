@@ -93,12 +93,13 @@ def _quote_swap_rate(from_chain: str, to_chain: str, from_token: str, to_token: 
     )
 
 
-def _require_amount_units(value: Any, field: str = "amount") -> int:
+def _require_amount_units(value: Any, field: str = "amount", allow_zero: bool = False) -> int:
     """Coerce the request amount to positive integer compute-units.
 
     Bridge endpoints take compute-units (1 AIT = 36_000_000 units), the same
     unit ``/rpc/transaction`` and ``/rpc/bridge/lock`` use. Decimal-looking
     input is rejected so "100" (units) is never confused with "100.0" AIT.
+    ``allow_zero`` accepts 0 for optional bounds such as ``min_amount``.
     """
     if isinstance(value, bool) or value is None:
         raise HTTPException(status_code=400, detail=f"{field} is required (integer compute-units)")
@@ -111,7 +112,7 @@ def _require_amount_units(value: Any, field: str = "amount") -> int:
             status_code=400,
             detail=f"{field} must be integer compute-units (1 AIT = 36,000,000 units)",
         )
-    if units <= 0:
+    if units < 0 or (units == 0 and not allow_zero):
         raise HTTPException(status_code=400, detail=f"{field} must be positive")
     return units
 
@@ -332,7 +333,7 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
     amount_units = _require_amount_units(swap_data.get("amount"))
     min_amount_units = 0
     if swap_data.get("min_amount") is not None:
-        min_amount_units = _require_amount_units(swap_data.get("min_amount"), field="min_amount")
+        min_amount_units = _require_amount_units(swap_data.get("min_amount"), field="min_amount", allow_zero=True)
 
     rate = _quote_swap_rate(str(from_chain), str(to_chain), str(from_token), str(to_token))
     expected_units = int(Decimal(amount_units) * Decimal(str(rate)))
@@ -399,7 +400,9 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
         _logger.error("Swap record persist failed for transfer %s: %s", transfer.transfer_id, e)
         raise HTTPException(
             status_code=500,
-            detail=(f"Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}"),
+            detail=(
+                f"Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}"
+            ),
         ) from e
 
     return {
@@ -440,7 +443,9 @@ async def get_cross_chain_swap(swap_id: str) -> dict[str, Any]:
         try:
             with bridge._session_for(chain_id) as session:
                 record = session.exec(
-                    select(CrossChainSwap).where((CrossChainSwap.swap_id == swap_id) | (CrossChainSwap.transfer_id == swap_id))
+                    select(CrossChainSwap).where(
+                        (CrossChainSwap.swap_id == swap_id) | (CrossChainSwap.transfer_id == swap_id)
+                    )
                 ).first()
         except Exception:
             continue
@@ -460,6 +465,8 @@ async def list_cross_chain_swaps(
     """List persisted cross-chain swaps with optional filters."""
     bridge = _get_bridge()
     results: list[dict[str, Any]] = []
+    seen: set[str] = set()  # a swap row is only stored on its source chain, but
+    # dedupe anyway so multi-chain scans over a shared store can't repeat it
     for chain_id in bridge._known_chains():
         try:
             with bridge._session_for(chain_id) as session:
@@ -467,6 +474,9 @@ async def list_cross_chain_swaps(
                 if user_address:
                     query = query.where(CrossChainSwap.user_address == user_address)
                 for record in session.exec(query).all():
+                    if record.swap_id in seen:
+                        continue
+                    seen.add(record.swap_id)
                     results.append(_swap_status_payload(record, bridge))
         except Exception:
             continue
@@ -582,17 +592,27 @@ async def get_cross_chain_stats(request: Request) -> dict[str, Any]:
     bridge = _get_bridge()
     swap_stats: dict[str, dict[str, Any]] = {}
     bridge_stats: dict[str, dict[str, Any]] = {}
+    seen_swaps: set[str] = set()
+    seen_transfers: set[str] = set()
     total_volume_units = 0
     for chain_id in bridge._known_chains():
         try:
             with bridge._session_for(chain_id) as session:
                 for swap in session.exec(select(CrossChainSwap)).all():
+                    if swap.swap_id in seen_swaps:
+                        continue
+                    seen_swaps.add(swap.swap_id)
                     entry = swap_stats.setdefault(swap.status, {"status": swap.status, "count": 0, "volume": 0})
                     entry["count"] += 1
                     entry["volume"] += swap.amount_units
                     total_volume_units += swap.amount_units
                 for transfer in session.exec(select(CrossChainTransfer)).all():
-                    entry = bridge_stats.setdefault(transfer.status, {"status": transfer.status, "count": 0, "volume": 0})
+                    if transfer.transfer_id in seen_transfers:
+                        continue
+                    seen_transfers.add(transfer.transfer_id)
+                    entry = bridge_stats.setdefault(
+                        transfer.status, {"status": transfer.status, "count": 0, "volume": 0}
+                    )
                     entry["count"] += 1
                     entry["volume"] += transfer.amount
         except Exception:
