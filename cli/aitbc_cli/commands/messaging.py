@@ -19,6 +19,38 @@ def _resolve_poster(ctx_param: str | None, env_name: str, fallback: str | None =
     return value
 
 
+def _resolve_topic_id(http_client: AITBCHTTPClient, topic: str, poster_id: str, poster_address: str) -> str:
+    """Resolve a ``--topic`` argument to an on-chain ``topic_id``.
+
+    ``topic_*`` values pass through unchanged (already an id). Anything else
+    is treated as a title: existing topics are searched for a case-insensitive
+    title match, and a new topic is created when none matches — the contract
+    generates the id, so posting with a title string always TOPIC_NOT_FOUNDs.
+    """
+    if topic.startswith("topic_"):
+        return topic
+
+    topics_resp = http_client.get("/rpc/contracts/messaging/topics", params={"limit": 200})
+    for t in (topics_resp or {}).get("topics", []):
+        if str(t.get("title", "")).casefold() == topic.casefold():
+            return str(t["topic_id"])
+
+    create_resp = http_client.post(
+        "/rpc/contracts/messaging/topics/create",
+        json={
+            "agent_id": poster_id,
+            "agent_address": poster_address,
+            "title": topic,
+            "description": topic,
+            "tags": [],
+        },
+    )
+    new_id = (create_resp or {}).get("topic_id")
+    if not new_id:
+        raise CLIError(f"Could not create topic '{topic}': {create_resp}")
+    return str(new_id)
+
+
 @click.group(
     epilog="""Examples:
 
@@ -40,7 +72,9 @@ def messaging():
 )
 @click.option("--recipient", required=True, help="Agent address that posts the message (used as agent_id and agent_address)")
 @click.option("--message", required=True, help="Message content")
-@click.option("--topic", default="general", help="Forum topic ID (created automatically if it does not exist)")
+@click.option(
+    "--topic", default="general", help="Forum topic ID (topic_…) or title — titles are resolved, creating the topic if needed"
+)
 @click.option("--message-type", default="post", help="Forum message type")
 @click.option("--agent-id", help="Override poster agent ID (default: --recipient, then $AGENT_ID)")
 @click.option("--agent-address", help="Override poster agent address (default: --recipient, then $AGENT_ADDRESS)")
@@ -64,28 +98,20 @@ def send(
 
     try:
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        topic_id = _resolve_topic_id(http_client, topic, poster_id, poster_address)
         post_payload = {
             "agent_id": poster_id,
             "agent_address": poster_address,
-            "topic_id": topic,
+            "topic_id": topic_id,
             "content": message,
             "message_type": message_type,
         }
         result = http_client.post("/rpc/contracts/messaging/messages/post", json=post_payload)
 
         if not result.get("success") and result.get("error_code") == "TOPIC_NOT_FOUND":
-            # Auto-create the topic for the user and retry.
-            http_client.post(
-                "/rpc/contracts/messaging/topics/create",
-                json={
-                    "agent_id": poster_id,
-                    "agent_address": poster_address,
-                    "title": topic,
-                    "description": topic,
-                    "tags": [],
-                },
-            )
-            result = http_client.post("/rpc/contracts/messaging/messages/post", json=post_payload)
+            # An explicit topic_* id that no longer exists — surface it rather
+            # than creating a topic titled "topic_…".
+            abort(ctx, f"Topic '{topic}' not found on-chain")
 
         output(result, ctx.obj.get("output_format", "table"), title="Message Posted")
     except NetworkError:
