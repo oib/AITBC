@@ -521,6 +521,109 @@ def show(ctx, service: str, properties: str | None):
         raise click.ClickException(f"Error showing properties for {service_name}: {e}") from e
 
 
+def _unit_env_file(service_name: str) -> Path | None:
+    """Resolve the unit's ``EnvironmentFile`` path (fleet convention: ``/etc/aitbc/<unit>.env``).
+
+    Returns the first existing env file declared by the unit, or the
+    conventional ``/etc/aitbc/<unit>`` path if it exists. ``None`` when the
+    unit declares no env file and the conventional path is absent — writing
+    a file nothing loads would be a silent no-op.
+    """
+    try:
+        result = subprocess.run(
+            ["systemctl", "show", service_name, "-p", "EnvironmentFiles", "--value"],
+            capture_output=True,
+            text=True,
+            timeout=10,
+            check=False,
+        )
+        if result.returncode == 0:
+            for match in re.finditer(r"(/[^ ]+\.env)", result.stdout):
+                candidate = Path(match.group(1))
+                if candidate.exists():
+                    return candidate
+    except (subprocess.TimeoutExpired, FileNotFoundError, OSError) as e:
+        logger.warning("Could not query EnvironmentFiles for %s: %s", service_name, e)
+
+    fallback = Path("/etc/aitbc") / f"{service_name.removesuffix('.service')}.env"
+    return fallback if fallback.exists() else None
+
+
+@system.command(
+    "env-set",
+    epilog="""Examples:
+
+  aitbc system env-set coordinator-api COORDINATOR_ENABLE_ZK_VERIFICATION=true
+
+  aitbc system env-set blockchain-node LOG_LEVEL=DEBUG SYNC_INTERVAL=30 --no-restart""",
+)
+@click.argument("service")
+@click.argument("assignments", nargs=-1)
+@click.option("--env-file", "env_file_override", default=None, help="Env file to edit (default: the unit's EnvironmentFile)")
+@click.option("--no-restart", is_flag=True, help="Write the env file without restarting the service")
+@click.pass_context
+def env_set(ctx, service: str, assignments: tuple[str, ...], no_restart: bool, env_file_override: str | None):
+    """Set KEY=VALUE pairs in a service's env file under /etc/aitbc, then restart it.
+
+    The env file is resolved from the unit's ``EnvironmentFile`` declaration
+    (falling back to ``/etc/aitbc/<unit>.env``). Values are never echoed —
+    only key names are reported.
+    """
+    service_name = _service_unit_name(service)
+
+    if not assignments:
+        raise click.ClickException("At least one KEY=VALUE assignment is required")
+
+    parsed: list[tuple[str, str]] = []
+    for item in assignments:
+        key, sep, value = item.partition("=")
+        if not sep:
+            raise click.ClickException(f"Invalid assignment '{item}' — expected KEY=VALUE")
+        if not re.fullmatch(r"[A-Za-z_][A-Za-z0-9_]*", key):
+            raise click.ClickException(f"Invalid environment variable name '{key}'")
+        if "\n" in value or "\r" in value:
+            raise click.ClickException(f"Value for {key} must be a single line")
+        parsed.append((key, value))
+
+    env_path = Path(env_file_override) if env_file_override else _unit_env_file(service_name)
+    if env_path is None:
+        raise click.ClickException(
+            f"No EnvironmentFile declared by {service_name} and no /etc/aitbc/{service_name.removesuffix('.service')}.env "
+            "exists — pass --env-file to write one anyway"
+        )
+
+    try:
+        lines = env_path.read_text().splitlines(keepends=True)
+    except OSError as e:
+        raise click.ClickException(f"Cannot read {env_path}: {e}") from e
+
+    remaining = dict(parsed)
+    out_lines: list[str] = []
+    for line in lines:
+        m = re.match(r"^(\s*(?:export\s+)?)([A-Za-z_][A-Za-z0-9_]*)=", line)
+        if m and m.group(2) in remaining:
+            key = m.group(2)
+            newline = "\n" if line.endswith("\n") else ""
+            out_lines.append(f"{m.group(1)}{key}={remaining.pop(key)}{newline}")
+        else:
+            out_lines.append(line)
+    for key, value in remaining.items():
+        if out_lines and not out_lines[-1].endswith("\n"):
+            out_lines[-1] += "\n"
+        out_lines.append(f"{key}={value}\n")
+
+    try:
+        env_path.write_text("".join(out_lines))
+    except OSError as e:
+        raise click.ClickException(f"Cannot write {env_path}: {e} (insufficient permissions?)") from e
+
+    success(f"Wrote {len(parsed)} variable(s) to {env_path}: {', '.join(dict(parsed))}")
+    if no_restart:
+        warning(f"Skipped restart — {service_name} keeps its previous environment until restarted")
+    else:
+        _systemctl_service_action(ctx, "restart", service_name, action_label="restarted")
+
+
 @system.command(
     epilog="""Examples:
 
