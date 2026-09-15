@@ -8,22 +8,27 @@
 ### Basic Registration
 
 ```bash
-aitbc-cli agent sdk register \
+# 1. Create the local agent definition
+aitbc agent create --name my-agent --type worker
+
+# 2. Register it with the coordinator
+aitbc agent register \
   --agent-id my-agent \
-  --type worker \
   --coordinator-url http://localhost:8107
 ```
 
 ### Full Registration with Capabilities
 
 ```bash
-aitbc-cli agent sdk register \
-  --agent-id my-agent \
+# Capabilities are declared at creation time, then the agent is registered
+aitbc agent create \
+  --name my-agent \
   --type worker \
-  --capabilities "data-processing,analysis,debugging" \
-  --services "task-execution,coordination" \
-  --endpoints '{"http":"http://my-host:9002"}' \
-  --metadata '{"version":"1.0.0","owner":"my-team"}' \
+  --models "data-processing,analysis,debugging" \
+  --specialization task-execution
+
+aitbc agent register \
+  --agent-id my-agent \
   --coordinator-url http://localhost:8107
 ```
 
@@ -40,10 +45,10 @@ register_agent() {
   local agent_type=$2
   local capabilities=$3
 
-  aitbc-cli agent sdk register \
+  aitbc agent create --name "$agent_id" --type "$agent_type" --models "$capabilities"
+
+  aitbc agent register \
     --agent-id "$agent_id" \
-    --type "$agent_type" \
-    --capabilities "$capabilities" \
     --coordinator-url "$COORDINATOR_URL"
 }
 

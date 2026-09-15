@@ -35,7 +35,7 @@ A customer wants to inspect the AIT/ETH book and, if the validator keystore is p
 
 ### What You'll Learn
 
-- How to read `aitbc exchange-island rates` / `orderbook AIT/ETH` / `orders`
+- How to read `aitbc exchange-island rates` / `orderbook --pair AIT/ETH` / `orders`
 - How to place a buy (`ETH`) or sell with a min price when the keystore exists
 - How to cancel an open order
 
@@ -90,7 +90,7 @@ Drill into one pair to see the asks (sell orders, sorted ascending by `min_price
 
 ```bash
 # --limit controls the order book depth (default 20)
-aitbc exchange-island orderbook AIT/ETH --limit 10
+aitbc exchange-island orderbook --pair AIT/ETH --limit 10
 ```
 
 **Expected output:**
@@ -117,7 +117,7 @@ Buy AIT using ETH. The `quote_currency` argument must be `ETH`. Use `--max-price
 
 ```bash
 # Buy 100 AIT with ETH, willing to pay at most 0.00023510 ETH per AIT
-aitbc exchange-island buy 100 ETH --max-price 0.00023510
+aitbc exchange-island buy --ait-amount 100 --quote-currency ETH --max-price 0.00023510
 ```
 
 **Expected output:**
@@ -144,7 +144,7 @@ Sell AIT for ETH with a minimum acceptable price.
 
 ```bash
 # Sell 50 AIT for ETH, require at least 0.00023400 ETH per AIT
-aitbc exchange-island sell 50 ETH --min-price 0.00023400
+aitbc exchange-island sell --ait-amount 50 --quote-currency ETH --min-price 0.00023400
 ```
 
 **Expected output:**
@@ -191,7 +191,7 @@ exchange_sell_20260...  AIT/ETH   SELL   50.0000 AIT   0.00023400     open      
 Cancel an open order by its order ID. The cancel is submitted as an exchange transaction with `action: cancel` and `status: cancelled`.
 
 ```bash
-aitbc exchange-island cancel exchange_buy_20260625143012_a1b2c3d4
+aitbc exchange-island cancel --order-id exchange_buy_20260625143012_a1b2c3d4
 ```
 
 **Expected output:**
@@ -217,11 +217,11 @@ def run(cmd: list[str]) -> str:
     return subprocess.run(["aitbc", *cmd], capture_output=True, text=True, check=True).stdout
 
 # 1. Inspect the order book (JSON output for parsing)
-book = run(["exchange-island", "orderbook", "AIT/ETH", "--limit", "5"])
+book = run(["exchange-island", "orderbook", "--pair", "AIT/ETH", "--limit", "5"])
 print(book)
 
 # 2. Place a limit buy: 100 AIT with ETH at max 0.00023510
-run(["exchange-island", "buy", "100", "ETH", "--max-price", "0.00023510"])
+run(["exchange-island", "buy", "--ait-amount", "100", "--quote-currency", "ETH", "--max-price", "0.00023510"])
 
 # 3. Confirm the order is open
 orders = run(["exchange-island", "orders", "--status", "open"])
@@ -242,7 +242,7 @@ listing = run(["exchange-island", "orders", "--status", "open"])
 for line in listing.splitlines():
     if "SELL" in line:
         order_id = line.split()[0]
-        run(["exchange-island", "cancel", order_id])
+        run(["exchange-island", "cancel", "--order-id", order_id])
         print(f"Cancelled {order_id}")
 ```
 
@@ -267,7 +267,7 @@ Verify your orders are recorded on-chain by re-listing them and confirming the o
 aitbc exchange-island orders --status open
 
 # The order book should show your bid/ask
-aitbc exchange-island orderbook AIT/ETH
+aitbc exchange-island orderbook --pair AIT/ETH
 
 # Rates should reflect the updated book
 aitbc exchange-island rates

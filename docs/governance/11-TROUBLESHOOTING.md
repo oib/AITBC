@@ -391,7 +391,7 @@ This document covers common issues and solutions for the Governance Service, sma
 3. **Create wallet:**
 
    ```bash
-   aitbc wallet create mywallet
+   aitbc wallet create --name mywallet
    ```
 
 ## API Issues

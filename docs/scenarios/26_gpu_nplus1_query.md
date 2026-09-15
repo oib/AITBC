@@ -74,7 +74,7 @@ aitbc market list --service-type ollama
 ### Step 3: Optional — publish an offer if the list is empty
 
 ```bash
-aitbc market offer ollama llama3.2:3b 0.001 --unit per_1k_tokens --gpu-device 0
+aitbc market offer --service-type ollama --model-or-variant llama3.2:3b --price 0.001 --unit per_1k_tokens --gpu-device 0
 aitbc market list --service-type ollama
 ```
 

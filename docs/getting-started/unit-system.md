@@ -101,7 +101,7 @@ When users create transactions, the CLI converts AIT → compute-units:
 
 ```bash
 # User sends 100 AIT
-aitbc wallet send --to address --amount 100
+aitbc wallet send --to-address <address> --amount 100
 
 # CLI converts internally
 amount_units = 100 * 36000000 = 3600000000
@@ -128,7 +128,7 @@ aitbc wallet balance
 
 ```bash
 # Specify amount in AIT (CLI converts to units)
-aitbc wallet send --to address --amount 50 --fee 0.01
+aitbc wallet send --to-address <address> --amount 50 --fee 0.01
 # CLI sends: amount=1800000000 units, fee=360000 units
 ```
 

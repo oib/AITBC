@@ -30,7 +30,7 @@ export WALLET=customer-wallet
 # Log in once with a funded customer wallet; subsequent commands use the stored token.
 aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
 
-aitbc bond create "$MINER_ID" \
+aitbc bond create --provider-id "$MINER_ID" \
   --amount 10 \
   --required-amount 10
 ```
@@ -50,7 +50,7 @@ Expected output:
 ## Step 2: Check provider eligibility
 
 ```bash
-aitbc bond status "$MINER_ID"
+aitbc bond status --provider-id "$MINER_ID"
 ```
 
 Expected output: `eligible: true`, `status: active`.
@@ -119,15 +119,15 @@ has an active bond.
 A bond can be locked while a high-value job is in flight and released afterward:
 
 ```bash
-aitbc bond lock "$MINER_ID"
-aitbc bond release "$MINER_ID"
+aitbc bond lock --provider-id "$MINER_ID"
+aitbc bond release --provider-id "$MINER_ID"
 ```
 
 A bond can be slashed for misbehavior and then appealed:
 
 ```bash
-aitbc bond slash "$MINER_ID" --reason "failed SLA"
-aitbc bond appeal <bond-id> --reason "dispute"
+aitbc bond slash --provider-id "$MINER_ID" --reason "failed SLA"
+aitbc bond appeal --bond-id <bond-id> --reason "dispute"
 ```
 
 ## What the CLI actually does
@@ -162,9 +162,9 @@ aitbc bond appeal <bond-id> --reason "dispute"
 - `cli/tests/test_cli_comprehensive.py` + `test_cli_basic.py` — 33 passed
   (regression).
 - Live validation on `<hub-node>` + `<node2>`:
-  - `aitbc bond create aitbc-miner-1 --amount 10 --required-amount 10` → active
+  - `aitbc bond create --provider-id aitbc-miner-1 --amount 10 --required-amount 10` → active
     bond.
-  - `aitbc bond status aitbc-miner-1` → `eligible: true`.
+  - `aitbc bond status --provider-id aitbc-miner-1` → `eligible: true`.
   - `aitbc ai submit --payment 5 --bond-required` → `COMPLETED`, `payment_status: released`,
     `bond_required: true` in receipt constraints.
   - `aitbc ai submit --payment 10` (above threshold) → `COMPLETED` and released.

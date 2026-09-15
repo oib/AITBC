@@ -119,7 +119,7 @@ aitbc pool-hub status --pool-hub-url http://hub.aitbc.bubuit.net/pool-hub
 If the miner is not running:
 
 ```bash
-aitbc mining start --wallet <miner-wallet>
+aitbc mining start --wallet-name <miner-wallet>
 aitbc mining status
 aitbc pool-hub status
 ```

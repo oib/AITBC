@@ -61,7 +61,7 @@ blockchain node.
 ### Step 1: Create a performance bond
 
 ```bash
-aitbc bond create --wallet devin-test 0.001
+aitbc bond create --provider-id 0x28241C034aDF9ca346BE0C3596FF30e4905bD940 --amount 0.001
 ```
 
 **Expected output:**
@@ -79,7 +79,7 @@ aitbc bond create --wallet devin-test 0.001
 ### Step 2: Query the bond
 
 ```bash
-aitbc bond status --bond-id bond_0x28241C034aDF9ca346BE0C3596FF30e4905bD940_1787312221
+aitbc bond status --provider-id 0x28241C034aDF9ca346BE0C3596FF30e4905bD940
 ```
 
 **Expected output:**
@@ -97,10 +97,10 @@ aitbc bond status --bond-id bond_0x28241C034aDF9ca346BE0C3596FF30e4905bD940_1787
 ### Step 3: Create a short-term bond and release it
 
 ```bash
-aitbc bond create --wallet devin-test --lock-days 0 0.001
+aitbc bond create --provider-id <provider-id> --amount 0.001
 # wait until the block is confirmed
-aitbc bond release --wallet devin-test <bond-id>
-aitbc bond status --bond-id <bond-id>
+aitbc bond release --provider-id <provider-id>
+aitbc bond status --provider-id <provider-id>
 ```
 
 **Expected output for the released bond:**
@@ -131,7 +131,7 @@ After completing this scenario, you should be able to:
 ### Bond state is on-chain
 
 ```bash
-aitbc bond status --provider 0x28241C034aDF9ca346BE0C3596FF30e4905bD940
+aitbc bond status --provider-id 0x28241C034aDF9ca346BE0C3596FF30e4905bD940
 ```
 
 ### Marketplace offer admission is gated

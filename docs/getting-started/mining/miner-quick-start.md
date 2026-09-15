@@ -1,6 +1,6 @@
 # Miner Quick Start
 
-**5 minutes** — Register your GPU and start earning the network tokens with the enhanced CLI.
+**5 minutes** — Register your GPU and start earning the network tokens with the CLI and the `aitbc-miner` service.
 
 ## Prerequisites
 
@@ -12,7 +12,7 @@
 
 ```bash
 pip install -e .                                        # from monorepo root
-aitbc config set coordinator_url http://localhost:8203
+aitbc config set --key coordinator_url --value http://localhost:8203
 export AITBC_API_KEY=your-key
 
 # Verify installation
@@ -23,38 +23,39 @@ aitbc --debug
 ## 2. Register & Start
 
 ```bash
-# Enhanced miner registration
-aitbc miner register \
-  --name my-gpu \
-  --gpu v100 \
-  --count 1 \
+# Register your GPU on-chain (creates a provider resource record)
+aitbc gpu-onchain register \
+  --gpu-id my-gpu-0 \
+  --miner-id my-miner \
+  --model "RTX 4090" \
+  --memory-gb 24 \
   --region us-west \
-  --price-per-hour 0.05
+  --price-per-hour 0.05 \
+  --wallet my-miner-wallet
 
-# Start accepting jobs
-aitbc miner poll
+# Start the PoA mining loop against the blockchain RPC
+aitbc mining start --wallet-name my-miner-wallet --threads 4
+
+# The GPU inference miner (Ollama job polling) runs as a service
+sudo systemctl start aitbc-miner
 ```
 
 ## 3. Verify & Monitor
 
 ```bash
-# Enhanced monitoring
-aitbc miner status                                       # GPU status + earnings
+# Mining / GPU status
+aitbc mining status
+aitbc gpu list-gpus                                      # local GPU inventory
+aitbc gpu-onchain query --gpu-id my-gpu-0                # on-chain record
 aitbc wallet balance                                     # check token balance
-aitbc monitor dashboard                                 # real-time monitoring
+aitbc monitor dashboard                                  # real-time monitoring
 ```
 
 ## 4. Advanced Features
 
 ```bash
-# GPU optimization
-aitbc optimize enable --agent-id my-gpu-agent \
-  --mode performance \
-  --auto-tune
-
-# Earnings tracking
-aitbc miner earnings --period daily
-aitbc miner earnings --period weekly
+# Track earnings through your wallet transaction history
+aitbc wallet transactions --limit 50
 
 # Marketplace integration — publish a GPU-backed inference offer
 # (verifies the model exists on the local Ollama at :11434 first)
@@ -71,14 +72,13 @@ aitbc market offer \
 ## 5. Configuration Management
 
 ```bash
-# Configuration profiles
-aitbc config profiles create mining
-aitbc config profiles set mining gpu_count 4
-aitbc config profiles use mining
+# Configuration profiles (save the current config under a name, reload later)
+aitbc config profiles save --name mining
+aitbc config profiles load --name mining
 
 # Performance monitoring
-aitbc monitor metrics --component gpu
-aitbc monitor alerts --type gpu_temperature
+aitbc monitor metrics --period 1h
+aitbc monitor alerts add --name gpu-miner-offline --type miner_offline --threshold 90
 ```
 
 ## Next

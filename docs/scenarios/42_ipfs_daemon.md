@@ -30,7 +30,7 @@ content from each other.
 
 1. Start the daemon (if not already):
    ```bash
-   sudo systemctl start aitbc-island-ipfs   # legacy dev nodes: aitbc-ipfs
+   aitbc system start --service island-ipfs   # legacy dev nodes: --service ipfs
    ```
 
 2. Upload a file:
@@ -46,14 +46,14 @@ content from each other.
 
 4. Download by CID:
    ```bash
-   aitbc ipfs download <CID> --output /tmp/ipfs_out.txt
+   aitbc ipfs download --cid <CID> --output /tmp/ipfs_out.txt
    cat /tmp/ipfs_out.txt
    ```
 
 5. Cross-node retrieval:
    - On the second node, run:
      ```bash
-     aitbc ipfs download <CID> --output /tmp/ipfs_out_remote.txt
+     aitbc ipfs download --cid <CID> --output /tmp/ipfs_out_remote.txt
      cat /tmp/ipfs_out_remote.txt
      ```
    - The content should be retrieved over the IPFS swarm/DHT.
@@ -78,9 +78,9 @@ content from each other.
 ## Validation
 
 - `aitbc ipfs upload` returns a real CID (e.g. `QmSoASxb8aNVGk3pNWpZvXEZTQKxjGeu9bvpYHuo5bP1VJ`).
-- `aitbc ipfs download <CID>` writes the original bytes back.
+- `aitbc ipfs download --cid <CID>` writes the original bytes back.
 - `aitbc ipfs list` shows the pinned CID as `recursive`.
-- Cross-node `aitbc ipfs download <CID>` on the other node succeeds and the
+- Cross-node `aitbc ipfs download --cid <CID>` on the other node succeeds and the
   content matches.
 
 ## Files

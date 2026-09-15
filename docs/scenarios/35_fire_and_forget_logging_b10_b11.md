@@ -67,8 +67,8 @@ Restarting coordinator-api is enough to re-enter the lifespan that starts B11 ta
 
 ```bash
 aitbc agent-comm list
-aitbc agent-comm discover
-aitbc agent-comm status
+aitbc agent-comm discover --chain-id ait-hub
+aitbc agent-comm status --agent-id <agent-id>
 ```
 
 **Expected output:** agent list/discover via the `/v1` coordinator mount (Hermes is gone). Cross-node register/discover was fixed in `6200888ca`.

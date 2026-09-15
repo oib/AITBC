@@ -134,7 +134,7 @@ Status            pending
 Track the progress of a cross-chain swap using the swap ID returned from Step 2.
 
 ```bash
-aitbc crosschain status swap_abc123
+aitbc crosschain status --swap-id swap_abc123
 ```
 
 **Expected output:**
@@ -216,7 +216,7 @@ Status            pending
 Track the bridge transaction using the bridge ID.
 
 ```bash
-aitbc crosschain bridge-status bridge_xyz789
+aitbc crosschain bridge-status --bridge-id bridge_xyz789
 ```
 
 **Expected output:**
@@ -466,7 +466,7 @@ async def main():
     swap_id = "swap_abc123"  # Extracted from the swap output
 
     status_result = subprocess.run(
-        ["aitbc", "crosschain", "status", swap_id],
+        ["aitbc", "crosschain", "status", "--swap-id", swap_id],
         capture_output=True, text=True,
     )
     print("Swap status:", status_result.stdout)
@@ -497,13 +497,13 @@ Verify that cross-chain operations are working:
 aitbc crosschain rates
 
 # Verify swap status is trackable
-aitbc crosschain status swap_abc123
+aitbc crosschain status --swap-id swap_abc123
 
 # Check bridge service is running
 aitbc bridge status
 
 # Verify bridge transaction status
-aitbc crosschain bridge-status bridge_xyz789
+aitbc crosschain bridge-status --bridge-id bridge_xyz789
 
 # Confirm liquidity pools are visible
 aitbc crosschain pools
