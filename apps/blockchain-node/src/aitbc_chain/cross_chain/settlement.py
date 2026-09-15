@@ -68,6 +68,33 @@ def _get_chain_block_time_seconds(chain_id: str) -> int:
     return settings.block_time_seconds
 
 
+def _get_chain_head(chain_id: str) -> tuple[int, str]:
+    """Return the local database's head ``(height, hash)`` for a chain.
+
+    Proof records anchor each escrow step to a chain position, so the anchor
+    can only come from a block the chain has actually produced. The old
+    ``_simulate_block`` derived the height from ``int(time.time() //
+    block_time)`` -- the Unix epoch over the block time -- and hashed
+    ``chain_id:height`` for a block_hash that matches no real block.
+
+    Raises:
+        RuntimeError: If the chain has no blocks locally. A proof whose
+            anchor cannot be grounded in a real block must not be recorded;
+            guessing is what the old code did.
+    """
+    from ..base_models import Block
+
+    with session_scope(chain_id) as session:
+        # session.execute(...).scalars(), matching _get_last_proof_hash below --
+        # session.exec is the SQLModel-only spelling and is not what the
+        # sessions handed to this module provide.
+        stmt = select(Block).where(Block.chain_id == chain_id).order_by(text("height DESC")).limit(1)
+        head = session.execute(stmt).scalars().first()
+        if head is None:
+            raise RuntimeError(f"cannot determine chain head for {chain_id!r}: no blocks in local database")
+        return int(head.height), str(head.hash)
+
+
 def _get_chain_height(chain_id: str) -> int:
     """Return the current head height for a chain from the local database.
 
@@ -83,17 +110,8 @@ def _get_chain_height(chain_id: str) -> int:
             timelocks cannot be grounded in real heights must not be created;
             guessing is what the old code did.
     """
-    from ..base_models import Block
-
-    with session_scope(chain_id) as session:
-        # session.execute(...).scalars(), matching _get_last_proof_hash below --
-        # session.exec is the SQLModel-only spelling and is not what the
-        # sessions handed to this module provide.
-        stmt = select(Block).where(Block.chain_id == chain_id).order_by(text("height DESC")).limit(1)
-        head = session.execute(stmt).scalars().first()
-        if head is None:
-            raise RuntimeError(f"cannot determine current height for chain {chain_id!r}: no blocks in local database")
-        return int(head.height)
+    height, _ = _get_chain_head(chain_id)
+    return height
 
 
 def _escrow_to_dict(record: CrossChainEscrowRecord, *, include_secret: bool = False) -> dict:
@@ -208,19 +226,6 @@ def _get_last_proof_hash(session, escrow_id: str) -> str:
         previous_proof_hash=last.previous_proof_hash,
     )
     return compute_proof_hash(proof)
-
-
-def _simulate_block(chain_id: str, height: int) -> tuple[int, str]:
-    """Generate a simulated block height and hash for proof anchoring.
-
-    Returns (block_height, block_hash). The block height is derived from the
-    current time so it monotonically increases; the hash is a SHA256 of the
-    chain_id + height for determinism.
-    """
-    block_time = _get_chain_block_time_seconds(chain_id)
-    block_height = height if height > 0 else int(time.time() // block_time)
-    block_hash = hashlib.sha256(f"{chain_id}:{block_height}".encode()).hexdigest()
-    return block_height, block_hash
 
 
 def _simulate_tx_hash(*parts: str) -> str:
@@ -393,7 +398,7 @@ class CrossChainSettlementService:
                 token=record.asset,
             )
             lock_tx_hash = swap.swap_id  # swap_id serves as the tx reference
-            block_height, block_hash = _simulate_block(record.source_chain, 0)
+            block_height, block_hash = _get_chain_head(record.source_chain)
 
             # Build the lock proof (first proof, no previous)
             lock_proof = build_lock_proof(
@@ -477,7 +482,7 @@ class CrossChainSettlementService:
 
             # Simulate destination chain verification
             verify_tx_hash = _simulate_tx_hash("verify", escrow_id, record.dest_chain)
-            block_height, block_hash = _simulate_block(record.dest_chain, 0)
+            block_height, block_hash = _get_chain_head(record.dest_chain)
 
             from aitbc.settlement.proofs import build_verification_proof
 
@@ -549,7 +554,7 @@ class CrossChainSettlementService:
 
             # Simulate destination chain execution
             exec_tx_hash = _simulate_tx_hash("execute", escrow_id, record.dest_chain, record.trade_id)
-            block_height, block_hash = _simulate_block(record.dest_chain, 0)
+            block_height, block_hash = _get_chain_head(record.dest_chain)
 
             exec_proof = build_execution_proof(
                 dest_chain=record.dest_chain,
@@ -644,7 +649,7 @@ class CrossChainSettlementService:
 
             # Destination chain release (seller claims funds with secret)
             dest_release_tx_hash = swap.swap_id
-            dest_block_height, dest_block_hash = _simulate_block(record.dest_chain, 0)
+            dest_block_height, dest_block_hash = _get_chain_head(record.dest_chain)
 
             release_proof = build_release_proof(
                 dest_chain=record.dest_chain,
@@ -673,7 +678,7 @@ class CrossChainSettlementService:
 
             # Simulate source chain settlement (buyer claims with revealed secret)
             source_release_tx_hash = _simulate_tx_hash("settle_source", escrow_id, record.source_chain)
-            src_block_height, src_block_hash = _simulate_block(record.source_chain, 0)
+            src_block_height, src_block_hash = _get_chain_head(record.source_chain)
 
             settlement_proof = build_settlement_proof(
                 source_chain=record.source_chain,
@@ -767,7 +772,7 @@ class CrossChainSettlementService:
                     refund_tx_hash = _simulate_tx_hash("refund", escrow_id, record.source_chain)
             else:
                 refund_tx_hash = _simulate_tx_hash("refund", escrow_id, record.source_chain)
-            block_height, block_hash = _simulate_block(record.source_chain, 0)
+            block_height, block_hash = _get_chain_head(record.source_chain)
 
             # Get previous proof hash
             previous_hash = _get_last_proof_hash(session, escrow_id)
