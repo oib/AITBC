@@ -65,7 +65,7 @@ class Settings(ServiceSettings):
 
     # v0.10.1: Target service URLs for parameter automation (applying governance-approved
     # parameter changes to the target service's parameter API after execution).
-    poolhub_url: str = Field(default="http://localhost:8103")
+    poolhub_url: str = Field(default="http://127.0.0.1:8210")
     marketplace_url: str = Field(default="http://localhost:8102")
 
     # API keys for target services (set via environment; never committed).
