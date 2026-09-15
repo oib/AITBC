@@ -133,7 +133,14 @@ aitbc market cancel --job-id <job-id> [--reason buyer_requested]
 aitbc market match [--output json]
 ```
 
-`aitbc market providers` exists but is a stub: it prints "GPU provider query via P2P network to be implemented" and suggests `aitbc gpu list-gpus` for local GPUs and `aitbc market list` for published offers.
+`aitbc market providers` collapses the live offer list to one row per seller — services offered, total and active offer counts, GPU, endpoint and standing — which is the view for choosing *who* to buy from rather than *what* to buy.
+
+```bash
+# One row per provider, not per offer
+aitbc market providers [--format table|json|yaml|csv]
+```
+
+It was a stub until 2026-09-15, printing "GPU provider query via P2P network to be implemented" and pointing at `aitbc gpu list-gpus`, which lists locally registered GPUs rather than marketplace sellers.
 
 ## Protected GPU Rentals (`aitbc market gpu`)
 
