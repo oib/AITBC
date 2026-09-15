@@ -17,7 +17,7 @@ from eth_utils import keccak
 
 from .escrow import get_buyer_nonce
 from .error_handling import abort
-from .http_client import AITBCHTTPClient, NetworkError
+from .http_client import AITBCHTTPClient
 from .wallet_loader import load_wallet_for_payment
 
 
@@ -131,17 +131,32 @@ def submit_gpu_allocate(
 
 
 def wait_for_tx(rpc_url: str, tx_hash: str, timeout: float = 30.0, poll_interval: float = 2.0) -> dict[str, Any] | None:
-    """Poll /rpc/transaction/{tx_hash} until the tx is mined or timeout."""
+    """Poll /rpc/transaction/{tx_hash} until the tx is mined or timeout.
+
+    Uses a plain ``requests`` call rather than :class:`AITBCHTTPClient`: the
+    endpoint 404s while the transaction is still in the mempool, and routing
+    those expected 404s through the client's retry + circuit-breaker machinery
+    opened the circuit after five polls ("Circuit breaker opened after 5
+    failures") long before the transaction had time to be mined.
+    """
     import time
 
-    client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+    import requests
+
+    url = f"{rpc_url.rstrip('/')}/rpc/transaction/{tx_hash}"
     deadline = time.time() + timeout
     while time.time() < deadline:
         try:
-            result = client.get(f"/rpc/transaction/{tx_hash}")
+            response = requests.get(url, timeout=10)
+        except requests.RequestException:
+            response = None
+        if response is not None and response.status_code == 200:
+            try:
+                result = response.json()
+            except ValueError:
+                result = None
             if isinstance(result, dict) and result.get("block_height") is not None:
                 return result
-        except NetworkError:
-            pass
+        # 404 = still pending in the mempool; other statuses are transient.
         time.sleep(poll_interval)
     return None

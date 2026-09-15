@@ -14,7 +14,7 @@ from ...utils import DECIMAL, error, output, success
 from ...utils.address import to_eip55
 from ...utils.http_client import AITBCHTTPClient, NetworkError
 from ...utils.money import wallet_amount as _wallet_amount
-from ...utils.wallet_paths import wallet_search_dirs
+from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from aitbc.utils import ait_to_units, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
@@ -295,16 +295,57 @@ def restore(ctx, backup_path: str, name: str, force: bool):
     )
 
 
+def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
+    """Recompute the wallet address from stored key material.
+
+    Prefers the ``public_key`` field (never encrypted); falls back to a
+    plaintext ``private_key``. Returns ``None`` when no usable key material is
+    present or derivation fails.
+    """
+    public_key = wallet_data.get("public_key")
+    if isinstance(public_key, str) and public_key:
+        try:
+            from eth_keys import keys
+
+            pub_bytes = bytes.fromhex(public_key.removeprefix("0x"))
+            if len(pub_bytes) == 65 and pub_bytes[0] == 0x04:
+                pub_bytes = pub_bytes[1:]
+            return keys.PublicKey(pub_bytes).to_checksum_address()
+        except Exception:
+            pass
+
+    private_key = wallet_data.get("private_key")
+    if isinstance(private_key, str) and private_key:
+        try:
+            from eth_account import Account
+
+            return cast(str, Account.from_key(private_key).address)
+        except Exception:
+            pass
+
+    return None
+
+
 @wallet.command(
     epilog="""Examples:
 
-  aitbc wallet info"""
+  aitbc wallet info
+
+  aitbc wallet info --name genesis"""
 )
+@click.option("--name", "name", required=False, help="Wallet name (defaults to the active wallet)")
 @click.pass_context
-def info(ctx):
-    """Show detailed information about the currently active wallet."""
-    wallet_name = ctx.obj["wallet_name"]
-    wallet_path = ctx.obj["wallet_path"]
+def info(ctx, name: str | None):
+    """Show detailed information about the active or named wallet."""
+    wallet_name = name or ctx.obj["wallet_name"]
+    if name:
+        wallet_dir = ctx.obj["wallet_dir"]
+        wallet_path = wallet_dir / f"{name}.json"
+        if not wallet_path.exists():
+            # Cover service wallets outside the CLI wallet dir.
+            wallet_path = find_wallet_file(name) or wallet_path
+    else:
+        wallet_path = ctx.obj["wallet_path"]
     config_file = Path.home() / ".aitbc" / "config.yaml"
 
     if not wallet_path.exists():
@@ -322,15 +363,37 @@ def info(ctx):
             config = yaml.safe_load(f)
             active_wallet = config.get("active_wallet", "default")
 
+    stored_address = wallet_data.get("address", "")
+    try:
+        display_address = to_eip55(stored_address)
+    except Exception:
+        # Keep the raw stored value visible — the integrity check below flags it.
+        display_address = stored_address
+
     wallet_info = {
-        "name": wallet_data["wallet_id"],
+        "name": wallet_data.get("wallet_id", wallet_name),
         "type": wallet_data.get("type", "simple"),
-        "address": to_eip55(wallet_data["address"]),
-        "public_key": wallet_data["public_key"],
-        "created_at": wallet_data["created_at"],
-        "active": wallet_data["wallet_id"] == active_wallet,
+        "address": display_address,
+        "public_key": wallet_data.get("public_key"),
+        "created_at": wallet_data.get("created_at"),
+        "active": wallet_data.get("wallet_id", wallet_name) == active_wallet,
         "path": str(wallet_path),
     }
+
+    # Address↔key integrity check: a corrupted stored address used to display
+    # as valid. Recompute the address from the key material and flag mismatch.
+    derived_address = _derive_wallet_address(wallet_data)
+    if derived_address is None:
+        wallet_info["integrity"] = "unverified"
+    elif stored_address and derived_address.lower() == str(stored_address).strip().lower():
+        wallet_info["integrity"] = "ok"
+    else:
+        wallet_info["integrity"] = "MISMATCH"
+        wallet_info["derived_address"] = derived_address
+        error(
+            f"WARNING: wallet '{wallet_name}' address {stored_address} does not match its key material "
+            f"(derived {derived_address}). The wallet file may be corrupted or tampered with."
+        )
 
     if "balance" in wallet_data:
         # the local wallet file holds AIT; format_ait takes compute-units
