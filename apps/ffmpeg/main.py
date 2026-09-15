@@ -14,7 +14,7 @@ import time
 from contextlib import asynccontextmanager
 
 import uvicorn  # noqa: E402
-from fastapi import FastAPI, File, Form, HTTPException, UploadFile  # noqa: E402
+from fastapi import FastAPI, File, Form, HTTPException, Request, UploadFile  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
@@ -25,6 +25,19 @@ logger = get_logger(__name__)
 
 _device = os.getenv("FFMPEG_GPU_DEVICE", "0")
 _hw_accel = os.getenv("FFMPEG_HW_ACCEL", "cuda")
+
+# Request limit. Per-request cost tracks upload size -- the transcode child and
+# the output read-back for hashing both scale with it -- so this bounds what a
+# single caller can make the service allocate. It is deliberately coupled to the
+# unit's MemoryMax=2G: the measured 229M job peaked at 1.16G, so 512MB leaves
+# headroom for the ffmpeg child and the hashed output without reaching the
+# MemoryHigh throttling band. Raise MemoryMax and this together, or neither.
+_MAX_UPLOAD_BYTES = int(os.getenv("FFMPEG_MAX_UPLOAD_MB", "512")) * 1024 * 1024
+_UPLOAD_CHUNK = 1024 * 1024
+# The whole request body, not just the file part: multipart adds boundaries and
+# the other form fields on top, so the header check needs slack the per-file
+# limit does not.
+_MAX_BODY_BYTES = _MAX_UPLOAD_BYTES + _UPLOAD_CHUNK
 
 
 @asynccontextmanager
@@ -43,6 +56,71 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="AITBC FFmpeg Service", version="1.0.0", lifespan=lifespan)
+
+
+@app.middleware("http")
+async def _reject_oversized_body(request: Request, call_next):
+    """Refuse an oversized upload at the header, before any of it is spooled.
+
+    The byte counter in _spool_upload bounds memory, but it runs too late to stop
+    the transfer: resolving an UploadFile parameter means ``await request.form()``,
+    and that consumes the entire multipart stream to disk before the endpoint is
+    ever entered. A middleware is the only place that sees the request early
+    enough to refuse it.
+
+    Content-Length is absent on a chunked upload, and a caller can of course lie
+    about it -- which is precisely why the streaming limit stays as the backstop
+    rather than being replaced by this.
+    """
+    length = request.headers.get("content-length")
+    if length is not None and length.isdigit() and int(length) > _MAX_BODY_BYTES:
+        return JSONResponse(
+            status_code=413,
+            content={"detail": f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit"},
+        )
+    return await call_next(request)
+
+
+def _safe_suffix(filename: str | None) -> str:
+    """Bound the caller-supplied extension before it becomes part of a filename.
+
+    Not a traversal guard -- splitext() only returns text after the last dot of
+    the last path segment, so the result can never contain a separator. This is
+    about a multi-kilobyte "extension" turning into ENAMETOOLONG, and about the
+    temp name staying something a human can recognise in a directory listing.
+    """
+    ext = os.path.splitext(filename or "")[1]
+    if not ext or len(ext) > 10 or not ext[1:].isalnum():
+        return ".mp4"
+    return ext.lower()
+
+
+async def _spool_upload(file: UploadFile, suffix: str) -> str:
+    """Stream the upload to disk, refusing to buffer more than the byte limit.
+
+    This replaces ``tmp.write(await file.read())``, which put the entire upload in
+    memory before anything had looked at it -- so peak RSS was a direct function
+    of what the caller chose to send, with no ceiling anywhere in the path.
+    """
+    written = 0
+    tmp = tempfile.NamedTemporaryFile(suffix=suffix, delete=False)
+    try:
+        while chunk := await file.read(_UPLOAD_CHUNK):
+            written += len(chunk)
+            if written > _MAX_UPLOAD_BYTES:
+                raise HTTPException(
+                    status_code=413,
+                    detail=f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit",
+                )
+            tmp.write(chunk)
+        tmp.close()
+    except BaseException:
+        # delete=False means the file outlives its handle, and its name has not
+        # been returned to anyone yet -- this is the only chance to remove it.
+        tmp.close()
+        os.unlink(tmp.name)
+        raise
+    return tmp.name
 
 
 @app.get("/health")
@@ -135,13 +213,13 @@ async def process_video(
 
         raise HTTPException(status_code=503, detail="Internal server error") from e
 
-    # Create temporary files
-    suffix = os.path.splitext(file.filename or "video.mp4")[1] or ".mp4"
-    with tempfile.NamedTemporaryFile(suffix=suffix, delete=False) as input_tmp:
-        input_tmp.write(await file.read())
-        input_path = input_tmp.name
+    # Create temporary files. The upload is spooled, never buffered whole --
+    # see _spool_upload for why. Both suffixes go through _safe_suffix: the
+    # caller controls output_format as much as the filename, and a "/" in
+    # either lands in the temp path the kernel resolves.
+    input_path = await _spool_upload(file, _safe_suffix(file.filename))
 
-    output_suffix = f".{output_format}"
+    output_suffix = _safe_suffix(f"out.{output_format}")
     with tempfile.NamedTemporaryFile(suffix=output_suffix, delete=False) as output_tmp:
         output_path = output_tmp.name
 
@@ -218,9 +296,14 @@ async def process_video(
 
             raise HTTPException(status_code=500, detail="Internal server error")
 
-        # Calculate result hash
+        # Calculate result hash. The output can be as large as the input, so it
+        # is read in chunks rather than buffered whole -- the upload guard only
+        # helps if the read-back does not reintroduce the same unbounded buffer.
+        digest = hashlib.sha256()
         with open(output_path, "rb") as f:
-            file_hash = hashlib.sha256(f.read()).hexdigest()
+            for chunk in iter(lambda: f.read(_UPLOAD_CHUNK), b""):
+                digest.update(chunk)
+        file_hash = digest.hexdigest()
 
         # Get file size
         file_size = os.path.getsize(output_path)
