@@ -84,6 +84,8 @@ def aitbc_exchange_island_buy(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_exchange_island_cancel(
     order_id: Annotated[str, Field(description="The Order id.")],
+    wallet: Annotated[str | None, Field(description="Wallet name or file path for signing")],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -94,7 +96,7 @@ def aitbc_exchange_island_cancel(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"order_id": "order-id"},
+        values={"order_id": "order-id", "wallet": "wallet", "password": "password"},
     )
     args = None
     command = _build_aitbc_cli_command(
