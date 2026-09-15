@@ -559,6 +559,20 @@ class P2PNetworkService:
                         tx_data = message.get("tx")
                         if tx_data:
                             try:
+                                # This transport is unauthenticated: apply the
+                                # same signature policy as REST/gossip mempool
+                                # ingest before admitting or forwarding.
+                                from .rpc.utils import gossip_transaction_drop_reason
+
+                                drop_reason = gossip_transaction_drop_reason(tx_data)
+                                if drop_reason is not None:
+                                    logger.warning(
+                                        "Dropped P2P transaction from %s: %s (sender=%s)",
+                                        peer_id,
+                                        drop_reason,
+                                        tx_data.get("from") if isinstance(tx_data, dict) else None,
+                                    )
+                                    continue
                                 tx_hash = compute_tx_hash(tx_data)
                                 chain_id = tx_data.get("chain_id", settings.chain_id)
                                 if not hasattr(self, "seen_txs"):
