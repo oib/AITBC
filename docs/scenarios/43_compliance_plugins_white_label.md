@@ -26,14 +26,14 @@ compliance-aware job submission, and plugin discovery.
 
 3. Load a plugin:
    ```bash
-   aitbc plugin load whitelabel_demo
+   aitbc plugin load --name whitelabel_demo
    ```
 
 4. Create a new brand plugin:
    ```bash
    aitbc plugin create --name mybrand --output /opt/aitbc/plugins
    aitbc plugin list
-   aitbc plugin load mybrand
+   aitbc plugin load --name mybrand
    ```
 
 5. Switch brand via the plugin:
@@ -45,8 +45,8 @@ compliance-aware job submission, and plugin discovery.
    ```bash
    aitbc compliance check --framework hipaa --classification public
    aitbc compliance check --framework hipaa --classification phi
-   aitbc compliance classify public
-   aitbc compliance classify phi
+   aitbc compliance classify --label public
+   aitbc compliance classify --label phi
    ```
 
 7. Enforce compliance on a job submission:
@@ -66,13 +66,13 @@ compliance-aware job submission, and plugin discovery.
 
 - `aitbc brand show` returns brand fields (`name`, `token_symbol`, etc.).
 - `aitbc plugin list` returns the plugin names under `plugins_dir`.
-- `aitbc plugin load <name>` returns the plugin's `brand` and `roles`.
+- `aitbc plugin load --name <name>` returns the plugin's `brand` and `roles`.
 - `aitbc plugin create` writes a `.py` file that `plugin list` and `plugin load`
   can use immediately.
 - With `AITBC_ACTIVE_PLUGIN=mybrand`, the brand fields come from the plugin.
 - `aitbc compliance check --framework hipaa --classification public` returns `allowed: false`.
 - `aitbc compliance check --framework hipaa --classification phi` returns `allowed: true`.
-- `aitbc compliance classify <label>` returns the normalized label and `sensitive`.
+- `aitbc compliance classify --label <label>` returns the normalized label and `sensitive`.
 - The `public` under HIPAA job submission is rejected before a network call.
 - The `phi` under HIPAA job submission passes the compliance hook, attaches
   `data_classification: phi` to the job constraints, and proceeds to the
@@ -90,7 +90,7 @@ compliance-aware job submission, and plugin discovery.
 
 ## Validation
 
-- Run `aitbc brand show`, `aitbc plugin list`, `aitbc plugin load whitelabel_demo`
+- Run `aitbc brand show`, `aitbc plugin list`, `aitbc plugin load --name whitelabel_demo`
   on `<node2>` or `<hub-node>` and verify output matches the expected results.
 - Run `aitbc compliance check` for each framework/classification pair.
 - Run `aitbc ai submit --compliance-framework hipaa --classification public` and

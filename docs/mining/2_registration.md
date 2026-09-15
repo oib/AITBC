@@ -22,57 +22,77 @@ Register your miner with the the network.
 
 ## Registration
 
+GPU provider registration uses the `aitbc gpu` group (GPU marketplace /
+coordinator registration). The `aitbc-miner` systemd service then polls the
+coordinator for inference jobs automatically.
+
+### Discover Local GPUs
+
+```bash
+# Inventory the GPUs visible on this host
+aitbc gpu discover
+aitbc gpu list-gpus
+```
+
 ### Basic Registration
 
 ```bash
-aitbc miner register --name my-miner --gpu v100 --count 1
+aitbc gpu register --gpu-id my-miner-gpu-0
 ```
 
 ### Advanced Registration
 
 ```bash
-aitbc miner register \
-  --name my-miner \
-  --gpu a100 \
-  --count 4 \
-  --location us-east \
-  --price 0.10 \
-  --max-concurrent 4
+aitbc gpu register \
+  --gpu-id my-miner-gpu-0 \
+  --specs '{"model": "A100", "memory_gb": 80, "region": "us-east", "price_per_hour": "0.10", "max_concurrent": 4}'
 ```
 
 ### Flags Reference
 
 | Flag | Description |
 |------|-------------|
-| `--name` | Miner name |
-| `--gpu` | GPU type (v100, a100, rtx3090, rtx4090) |
-| `--count` | Number of GPUs |
-| `--location` | Geographic location |
-| `--price` | Price per GPU/hour in AITBC |
-| `--max-concurrent` | Maximum concurrent jobs |
+| `--gpu-id` | GPU unique identifier (required) |
+| `--specs` | GPU specifications as a JSON string (auto-discovered if omitted) |
+
+For an on-chain resource record with full pricing metadata, use
+`aitbc gpu-onchain register`:
+
+```bash
+aitbc gpu-onchain register \
+  --gpu-id my-miner-gpu-0 \
+  --miner-id my-miner \
+  --model "A100" \
+  --memory-gb 80 \
+  --region us-east \
+  --capabilities inference \
+  --price-per-hour 0.10 \
+  --wallet my-miner-wallet
+```
 
 ## Verification
 
 ```bash
-aitbc miner status
+aitbc gpu-onchain query --gpu-id my-miner-gpu-0
+aitbc mining status
 ```
 
 Shows:
 
-- Registration status
-- GPU availability
-- Current jobs
+- On-chain GPU registration record
+- Mining loop status and current work
 
 ## Update Registration
 
 ```bash
-aitbc miner update --price 0.12 --max-concurrent 8
+aitbc gpu update --gpu-id my-miner-gpu-0 \
+  --pricing '{"price_per_hour": "0.12", "max_concurrent": 8}'
 ```
 
 ## De-register
 
 ```bash
-aitbc miner deregister --confirm
+aitbc gpu unregister --gpu-id my-miner-gpu-0
 ```
 
 ## Next

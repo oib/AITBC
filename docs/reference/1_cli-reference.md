@@ -1,10 +1,13 @@
 # AITBC CLI Reference
 
-> **Note**: This document describes the current 26-command CLI structure. For authoritative port configuration, see [Service Ports Reference](./SERVICE_PORTS.md).
+> **Note**: This document is a curated summary of the most-used command groups.
+> The CLI registers ~70 top-level groups — the authoritative list is
+> `aitbc --help` or [cli/README.md](../../cli/README.md). For authoritative port
+> configuration, see [Service Ports Reference](./SERVICE_PORTS.md).
 
 ## Overview
 
-The AITBC CLI provides a comprehensive command-line interface with 26 command groups for interacting with the the network. It supports wallet management, blockchain operations, AI job submission, marketplace operations, agent orchestration, system administration, and blockchain synchronization.
+The AITBC CLI provides a comprehensive command-line interface for interacting with the network. It supports wallet management, blockchain operations, AI job submission, marketplace operations, agent orchestration, system administration, and blockchain synchronization.
 
 ## Installation
 
@@ -27,51 +30,55 @@ All commands support the following global options:
 
 ### 1. wallet
 
-Wallet lifecycle, balances, and transactions.
+Wallet lifecycle, balances, and transactions. The `wallet` group accepts
+`--wallet-name` / `--wallet-path` before the subcommand; several subcommands
+also take `--name`. Wallet passwords resolve from the keyring,
+`AITBC_WALLET_PASSWORD[_<WALLET_NAME>]`, or an interactive prompt.
 
 ```bash
 # Check balance
-aitbc wallet balance
+aitbc wallet balance --name <wallet-name>
 
 # Create wallet
-aitbc wallet create <name> --password <password>
+aitbc wallet create --name <name> [--type hd|simple] [--no-encrypt]
 
 # List wallets
 aitbc wallet list
 
 # Switch wallet
-aitbc wallet switch <name>
+aitbc wallet switch --name <name>
 
-# Send funds
-aitbc wallet send <address> <amount>
+# Send funds (--to-address also accepts a wallet name)
+aitbc wallet --wallet-name <name> send --to-address <address> --amount <amount>
 
-# Show history
-aitbc wallet history
+# Show transaction history
+aitbc wallet transactions --name <name> --limit 20
 ```
 
 ### 2. blockchain
 
-Blockchain state and block inspection.
+Blockchain state and chain management.
 
 ```bash
 # Check blockchain status
 aitbc blockchain status
 
-# List recent blocks
-aitbc blockchain blocks --limit 10
+# List known chains
+aitbc blockchain list
 
-# Get block details
-aitbc blockchain block <block_hash>
-
-# Get transaction details
-aitbc blockchain transaction <tx_hash>
+# Show chain details
+aitbc blockchain info
 
 # Check sync status
 aitbc blockchain sync-status
 
-# List peers
-aitbc blockchain peers
+# Live chain monitor
+aitbc blockchain monitor
 ```
+
+For block/transaction lookups use the Explorer group (`aitbc explorer`),
+e.g. `aitbc explorer block --height <n>` /
+`aitbc explorer transaction --tx-hash <hash>`.
 
 ### 3. sync
 
@@ -86,6 +93,9 @@ aitbc sync bulk --source http://leader-url:8202 --import-url http://localhost:82
 # --import-url: Local RPC URL for import
 # --batch-size: Blocks per batch (default: 100)
 # --poll-interval: Seconds between batches (default: 0.2)
+
+# Follower sync status vs the hub
+aitbc sync status
 ```
 
 ### 4. account
@@ -93,26 +103,27 @@ aitbc sync bulk --source http://leader-url:8202 --import-url http://localhost:82
 Account information and management.
 
 ```bash
-# Show account info
-aitbc account info
+# Show on-chain account info
+aitbc account get --address <0x...>
 
-# List accounts
+# List known accounts
 aitbc account list
 ```
 
 ### 5. messaging
 
-Messaging system and forum operations.
+On-chain forum messaging (falls back to deterministic `(Simulated)` output
+when the messaging RPC is unreachable).
 
 ```bash
-# Send message
-aitbc messaging send <recipient> <message>
+# Send message (--topic takes a topic ID, created automatically if missing)
+aitbc messaging send --recipient <agent-address> --message <text> --topic <topic-id>
 
 # List messages
 aitbc messaging list
 
 # Create forum topic
-aitbc messaging topic create <title> <description>
+aitbc messaging topic --title <title> --description <description>
 ```
 
 ### 6. network
@@ -127,25 +138,25 @@ aitbc network status
 aitbc network peers
 
 # Test connectivity
-aitbc network test <peer>
+aitbc network test --peer <peer-address>
 ```
 
 ### 7. market
 
-Marketplace listings and offers.
+Marketplace offers, orders, and escrow.
 
 ```bash
 # List offers
-aitbc market offers
+aitbc market list [--service-type ollama|whisper|ffmpeg|ipfs|hermes]
 
-# Create offer
-aitbc market offer create <type> <price>
+# Publish an offer
+aitbc market offer --service-type ollama --model-or-variant llama3 --price 1.0
 
-# List bids
-aitbc market bids
+# Match offers to demand
+aitbc market match
 
-# Place bid
-aitbc market bid <offer_id> <amount>
+# Escrow lifecycle
+aitbc market escrow status --job-id <job_id>
 ```
 
 ### 8. ai
@@ -157,10 +168,10 @@ AI job submission and inspection.
 aitbc ai submit --wallet <wallet> --type <type> --prompt <prompt> --payment <amount>
 
 # Check job status
-aitbc ai status <job_id>
+aitbc ai status --job-id <job_id>
 
 # List jobs
-aitbc ai list
+aitbc ai jobs
 ```
 
 ### 9. analytics
@@ -168,11 +179,17 @@ aitbc ai list
 Blockchain analytics and statistics.
 
 ```bash
-# Get analytics
-aitbc analytics stats
+# Get analytics summary
+aitbc analytics summary
 
-# Generate report
-aitbc analytics report <type>
+# Cost/capacity optimization recommendations
+aitbc analytics optimize
+
+# Active alerts
+aitbc analytics alerts
+
+# Dashboard table
+aitbc analytics dashboard
 ```
 
 ### 10. script
@@ -181,43 +198,45 @@ Script execution and automation.
 
 ```bash
 # Run script
-aitbc script run <script_name>
+aitbc script run --script-path <path/to/script> [--args "..."]
 
 # List scripts
-aitbc script list
+aitbc script list [--script-dir /opt/aitbc/scripts]
 ```
 
 ### 11. mining
 
-Mining lifecycle and rewards.
+Mining lifecycle.
 
 ```bash
-# Start mining
-aitbc mining start
+# Start mining (--wallet-name required)
+aitbc mining start --wallet-name <wallet> [--threads 4]
 
 # Stop mining
-aitbc mining stop
+aitbc mining stop [--wallet <wallet>]
 
 # Check mining status
 aitbc mining status
 
-# View rewards
-aitbc mining rewards
+# List registered miners
+aitbc mining list
 ```
 
 ### 12. system
 
-System health and overview.
+System health, service management, and configuration display. `start` /
+`stop` / `restart` take `--service <name>`; the name is normalised to the
+`aitbc-<name>.service` systemd unit.
 
 ```bash
 # Check system status
 aitbc system status
 
-# Show system info
-aitbc system info
+# Health-check all installed aitbc-* services
+aitbc system check
 
-# Check health
-aitbc system health
+# Restart a service (e.g. aitbc-coordinator-api.service)
+aitbc system restart --service coordinator-api
 ```
 
 ### 13. economics
@@ -225,11 +244,14 @@ aitbc system health
 Economic intelligence and modeling.
 
 ```bash
-# Get economic stats
-aitbc economics stats
+# Show economics status for a proposal
+aitbc economics status --proposal-id <id>
 
-# Analyze trends
-aitbc economics analyze <metric>
+# Distributed economics model
+aitbc economics distributed
+
+# Market economics view
+aitbc economics market
 ```
 
 ### 14. cluster
@@ -240,8 +262,11 @@ Cluster management operations.
 # Check cluster status
 aitbc cluster status
 
-# List nodes
-aitbc cluster nodes
+# Sync cluster state
+aitbc cluster sync
+
+# Rebalance cluster load
+aitbc cluster balance
 ```
 
 ### 15. performance
@@ -249,11 +274,14 @@ aitbc cluster nodes
 Performance optimization and metrics.
 
 ```bash
-# Get performance metrics
-aitbc performance metrics
+# Run a performance benchmark
+aitbc performance benchmark
 
-# Optimize
+# Apply optimizations
 aitbc performance optimize
+
+# Tune parameters
+aitbc performance tune
 ```
 
 ### 16. security
@@ -277,7 +305,7 @@ Compliance policy, classification, and audit commands.
 aitbc compliance check --framework hipaa --classification phi
 
 # Normalize a data classification label
-aitbc compliance classify PHI
+aitbc compliance classify --label PHI
 
 # Export the compliance audit trail to a JSON file
 aitbc compliance export-audit --output-file audit-export.json
@@ -296,26 +324,27 @@ Frameworks: `hipaa`, `soc2`, `glba`, `pci_dss`, `manufacturing`, `education`, `r
 Simulation utilities and testing.
 
 ```bash
-# Run simulation
-aitbc simulate run <scenario>
+# Run a named simulation
+aitbc simulate run --scenario <scenario> [--params '{...}']
 
-# List scenarios
-aitbc simulate list
+# Deterministic block/wallet simulations
+aitbc simulate blockchain --blocks 10
+aitbc simulate wallets --wallets 5
 ```
 
 ### 19. agent
 
-AI agent workflow orchestration.
+AI agent identity and orchestration (agent SDK surface).
 
 ```bash
-# Start agent
-aitbc agent start <agent_id>
+# Create an agent (generates RSA keypair + ~/.aitbc/agents/<name>.json)
+aitbc agent create --name <name> --type provider
 
-# Stop agent
-aitbc agent stop <agent_id>
-
-# List agents
+# List local agents
 aitbc agent list
+
+# Check agent status
+aitbc agent status --agent-id <agent_id>
 ```
 
 ### 20. workflow
@@ -324,7 +353,7 @@ Workflow templates and execution.
 
 ```bash
 # Run workflow
-aitbc workflow run <workflow_name>
+aitbc workflow run --workflow-name <workflow_name>
 
 # List workflows
 aitbc workflow list
@@ -335,11 +364,11 @@ aitbc workflow list
 Resource utilization and allocation.
 
 ```bash
-# Check resources
-aitbc resource check
+# Allocate resources for an agent
+aitbc resource allocate --agent-id <agent-id> --cpu-cores 4 --memory-gb 16
 
-# Allocate resources
-aitbc resource allocate <type> <amount>
+# Optimize resource usage
+aitbc resource optimize --agent-id <agent-id>
 ```
 
 ### 23. genesis
@@ -347,11 +376,14 @@ aitbc resource allocate <type> <amount>
 Genesis block and wallet generation.
 
 ```bash
-# Generate genesis block
-aitbc genesis generate
+# Initialize genesis (optionally creating the genesis wallet)
+aitbc genesis init --chain-id <chain-id> --create-wallet
 
-# Create genesis wallet
-aitbc genesis wallet create
+# Verify genesis
+aitbc genesis verify --chain-id <chain-id>
+
+# Show genesis info
+aitbc genesis info --chain-id <chain-id>
 ```
 
 ### 24. pool-hub
@@ -362,20 +394,23 @@ Pool hub management for SLA monitoring and billing.
 # Check pool status
 aitbc pool-hub status
 
-# Monitor SLA
-aitbc pool-hub sla monitor
+# SLA summary / violations
+aitbc pool-hub sla [--violations] [--pool-id <id>]
 ```
 
 ### 25. bridge
 
-Blockchain event bridge management.
+Cross-chain bridge operations.
 
 ```bash
-# Start bridge
-aitbc bridge start
+# Check bridge health
+aitbc bridge health
 
 # Check bridge status
 aitbc bridge status
+
+# Lock funds for a transfer
+aitbc bridge lock --target-chain <chain> --sender <addr> --recipient <addr> --amount <n>
 ```
 
 ### 26. contract
@@ -384,10 +419,10 @@ Smart contract operations.
 
 ```bash
 # Deploy contract
-aitbc contract deploy <contract_name>
+aitbc contract deploy --contract-name <contract_name>
 
 # Call contract
-aitbc contract call <contract_address> <method>
+aitbc contract call --contract-address <contract_address> --method <method>
 ```
 
 ## Examples
@@ -396,8 +431,8 @@ aitbc contract call <contract_address> <method>
 
 ```bash
 # Create wallet and check balance
-aitbc wallet create my_wallet --password secret123
-aitbc wallet balance
+aitbc wallet create --name my_wallet
+aitbc wallet balance --name my_wallet
 ```
 
 ### AI Job Submission
@@ -410,17 +445,16 @@ aitbc ai submit --wallet my_wallet --type text-generation --prompt "Hello world"
 ### Blockchain Operations
 
 ```bash
-# Check blockchain status and recent blocks
+# Check blockchain status and chain info
 aitbc blockchain status
-aitbc blockchain blocks --limit 10
+aitbc blockchain info
 ```
 
 ### Marketplace Operations
 
 ```bash
-# List available offers and place a bid
-aitbc market offers
-aitbc market bid offer123 10
+# List available offers
+aitbc market list
 ```
 
 ## Help

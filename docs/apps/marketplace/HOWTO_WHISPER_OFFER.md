@@ -29,7 +29,7 @@ provider : 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 ## 2. Transcribe an audio file
 
 ```bash
-aitbc market transcribe sw_offer_20260603125540_49d92c3c /path/to/audio.mp3
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c --audio-file /path/to/audio.mp3
 ```
 
 ### Options
@@ -45,19 +45,19 @@ aitbc market transcribe sw_offer_20260603125540_49d92c3c /path/to/audio.mp3
 
 ```bash
 # Basic transcription
-aitbc market transcribe sw_offer_20260603125540_49d92c3c interview.mp3
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c --audio-file interview.mp3
 
 # Force German, output SRT subtitles
-aitbc market transcribe sw_offer_20260603125540_49d92c3c podcast.mp3 \
-  --language de --output-format srt
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c \
+  --audio-file podcast.mp3 --language de --output-format srt
 
 # Translate Spanish audio to English
-aitbc market transcribe sw_offer_20260603125540_49d92c3c meeting.mp4 \
-  --task translate
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c \
+  --audio-file meeting.mp4 --task translate
 
 # Full JSON with segment timestamps
-aitbc market transcribe sw_offer_20260603125540_49d92c3c lecture.wav \
-  --output-format json
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c \
+  --audio-file lecture.wav --output-format json
 ```
 
 ---

@@ -33,11 +33,11 @@ An agent holding the network tokens wants to (1) lock some tokens on-chain for a
 
 ### What You'll Learn
 
-- Stake tokens on-chain with `aitbc wallet stake <amount> --duration <days>`
+- Stake tokens on-chain with `aitbc wallet stake --amount <amount> --duration <days>`
 - View on-chain staking info with `aitbc wallet staking-info`
-- Unstake by stake ID with `aitbc wallet unstake <stake_id>`
-- Stake into a liquidity pool with `aitbc wallet liquidity-stake <amount> --pool <name> --lock-days <int>`
-- Withdraw from a liquidity pool with `aitbc wallet liquidity-unstake <stake_id>`
+- Unstake by stake ID with `aitbc wallet unstake --stake-id <stake_id>`
+- Stake into a liquidity pool with `aitbc wallet liquidity-stake --amount <amount> --pool <name> --lock-days <int>`
+- Withdraw from a liquidity pool with `aitbc wallet liquidity-unstake --stake-id <stake_id>`
 
 ---
 
@@ -67,10 +67,10 @@ All commands below are grounded in `cli/aitbc_cli/commands/wallet/staking.py`. T
 
 ### Step 1: Stake tokens on-chain
 
-`aitbc wallet stake <amount>` posts `{address, amount (wei), lock_days, chain_id}` to `POST /rpc/staking/stake`. `amount` is a float in AITBC; `--duration` is the lock in days (default `30`).
+`aitbc wallet stake --amount <amount>` posts `{address, amount (wei), lock_days, chain_id}` to `POST /rpc/staking/stake`. `amount` is a float in AITBC; `--duration` is the lock in days (default `30`).
 
 ```bash
-aitbc wallet --wallet-name staker stake 100.0 --duration 90
+aitbc wallet --wallet-name staker stake --amount 100.0 --duration 90
 ```
 
 **Expected output:**
@@ -118,10 +118,10 @@ active_stakes:
 
 ### Step 3: Unstake on-chain
 
-`aitbc wallet unstake <stake_id>` posts `{address, stake_id, chain_id}` to `POST /rpc/staking/unstake`. The `stake_id` is the integer returned from `stake` / shown in `staking-info`.
+`aitbc wallet unstake --stake-id <stake_id>` posts `{address, stake_id, chain_id}` to `POST /rpc/staking/unstake`. The `stake_id` is the integer returned from `stake` / shown in `staking-info`.
 
 ```bash
-aitbc wallet --wallet-name staker unstake 7
+aitbc wallet --wallet-name staker unstake --stake-id 7
 ```
 
 **Expected output:**
@@ -138,10 +138,10 @@ chain_id: ait-hub.aitbc.bubuit.net
 
 ### Step 4: Stake into a liquidity pool
 
-`aitbc wallet liquidity-stake <amount>` records a liquidity stake in the local wallet file. Options: `--pool` (default `main`), `--lock-days` (default `0`). APY tiers (from source): `>=90` days → 12% platinum, `>=30` → 8% gold, `>=7` → 5% silver, else 3% bronze. The wallet must have sufficient `balance`.
+`aitbc wallet liquidity-stake --amount <amount>` records a liquidity stake in the local wallet file. Options: `--pool` (default `main`), `--lock-days` (default `0`). APY tiers (from source): `>=90` days → 12% platinum, `>=30` → 8% gold, `>=7` → 5% silver, else 3% bronze. The wallet must have sufficient `balance`.
 
 ```bash
-aitbc wallet --wallet-name staker liquidity-stake 50.0 --pool main --lock-days 90
+aitbc wallet --wallet-name staker liquidity-stake --amount 50.0 --pool main --lock-days 90
 ```
 
 **Expected output:**
@@ -159,10 +159,10 @@ new_balance: 350.0
 
 ### Step 5: Withdraw from a liquidity pool
 
-`aitbc wallet liquidity-unstake <stake_id>` finds the active liquidity record, enforces the lock period, computes rewards as `principal * (apy/100) * (days_staked/365)`, marks the record completed, and credits `principal + rewards` to the wallet balance.
+`aitbc wallet liquidity-unstake --stake-id <stake_id>` finds the active liquidity record, enforces the lock period, computes rewards as `principal * (apy/100) * (days_staked/365)`, marks the record completed, and credits `principal + rewards` to the wallet balance.
 
 ```bash
-aitbc wallet --wallet-name staker liquidity-unstake liq_a1b2c3d4e5f6
+aitbc wallet --wallet-name staker liquidity-unstake --stake-id liq_a1b2c3d4e5f6
 ```
 
 **Expected output:**

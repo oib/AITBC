@@ -158,4 +158,4 @@ Expected: `state: COMPLETED`, `payment_status: released`, `zk_status: verified`,
   the `/v1/zk/generate` and `/v1/zk/verify` endpoints, but the job pipeline uses
   the receipt circuit.
 - If ZK proof generation or verification fails, the job fails and escrow can be
-  refunded with `aitbc ai refund <job_id>` or `aitbc market escrow refund <job_id>`.
+  refunded with `aitbc ai refund --job-id <job_id>` or `aitbc market escrow refund --job-id <job_id>`.
