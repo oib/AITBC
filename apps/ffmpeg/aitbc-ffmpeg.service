@@ -25,14 +25,17 @@ StandardError=journal
 SyslogIdentifier=aitbc-ffmpeg
 # Memory sizing, measured 2026-09-14 on node2 (the only host running this unit):
 # a 300 s 1080p job (229M upload, 190M output) OOM-killed the service under the
-# old MemoryMax=512M and again under a trial MemoryMax=1G -- main.py buffers the
-# whole upload, transcodes with a several-hundred-MB ffmpeg child, then reads the
-# whole output back for hashing, so per-request cost tracks upload size.
+# old MemoryMax=512M and again under a trial MemoryMax=1G -- main.py spooled the
+# upload whole into memory at the time, transcodes with a several-hundred-MB
+# ffmpeg child, then reads the output back for hashing, so per-request cost
+# tracks upload size.
 # Under the values below the same job peaks at 1.16G with every memory.events
 # counter at 0. MemoryHigh throttles a job larger than that instead of killing
-# it; MemoryMax is the backstop. Note there is no upload-size guard in the app
-# (whisper has WHISPER_MAX_UPLOAD_MB; this service does not yet), so MemoryMax is
-# the only bound on what an oversized upload can cost the host.
+# it; MemoryMax is the backstop. What keeps a caller from aiming at it is the
+# endpoint's own limit, FFMPEG_MAX_UPLOAD_MB=512 (env-overridable): the upload
+# is streamed to disk and refused past the cap, and the output hash is read in
+# chunks, so one request cannot turn an arbitrary upload into service RSS. That
+# env var and these two are one setting in three places -- raise them together.
 MemoryHigh=1536M
 MemoryMax=2G
 # Security hardening (v0.5.0)
