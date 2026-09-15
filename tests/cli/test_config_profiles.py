@@ -151,9 +151,11 @@ class TestConfigProfilesIntegration:
                 assert result.exit_code == 0
                 assert f"Profile '{profile_name}' loaded" in result.output
 
-                # Verify config file was created
-                config_file = Path.cwd() / ".aitbc.yaml"
+                # The profile lands on the stable per-user config file, not a
+                # CWD-dependent shadow (GAP-39) — home is patched to tmp_path.
+                config_file = profiles_dir.parent.parent.parent / ".aitbc.yaml"
                 assert config_file.exists()
+                assert not (Path.cwd() / ".aitbc.yaml").exists()
 
                 with open(config_file) as f:
                     config_data = yaml.safe_load(f)
