@@ -647,6 +647,11 @@ def cancel(ctx, order_id: str, wallet: str | None, password: str | None):
             "cancelled_at": datetime.now().isoformat(),
             "island_id": island_id,
             "chain_id": chain_id,
+            # TransactionRequest.validate_payload injects missing "to"/"amount"
+            # into payload after signing would happen, breaking the signature —
+            # set them explicitly so the verified bytes match the signed bytes.
+            "to": address,
+            "amount": "0",
         }
         tx_data: dict[str, Any] = {
             "from": address,
