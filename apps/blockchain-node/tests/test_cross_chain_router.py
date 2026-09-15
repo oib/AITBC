@@ -424,3 +424,62 @@ class TestSwapFinalityRelay:
 
         with pytest.raises(ValueError, match="not sealed"):
             bridge.build_proof(transfer_id, source_chain="chain-a")
+
+
+class TestBlockScopedRelease:
+    """GAP-47 follow-up: the block-scoped release path must enqueue a
+    JSON-serializable mempool entry — a raw ``datetime`` timestamp used to
+    crash ``_estimate_size``/``compute_tx_hash`` before the release was
+    even recorded.
+    """
+
+    def test_confirm_block_scoped_release_serializes_timestamp(
+        self, engine, bridge: CrossChainBridge, monkeypatch
+    ) -> None:
+        from aitbc_chain import mempool as mempool_mod
+        from aitbc_chain.config import settings
+
+        monkeypatch.setattr(settings, "block_scoped_preregistered_transactions", True)
+        monkeypatch.setattr(mempool_mod, "_MEMPOOL", None)
+        mempool_mod.init_mempool(backend="memory")
+
+        transfer_id = "0x" + "11" * 32
+        with Session(engine) as session:
+            session.add(
+                CrossChainTransfer(
+                    transfer_id=transfer_id,
+                    source_chain="chain-a",
+                    target_chain="chain-b",
+                    sender="0x" + "22" * 20,
+                    recipient="0x" + "33" * 20,
+                    amount=1_000,
+                    asset="native",
+                    status="pending",
+                    source_tx_hash=transfer_id,
+                    lock_time=datetime.now(UTC),
+                )
+            )
+            session.commit()
+
+        proof = {
+            "source_chain": "chain-a",
+            "target_chain": "chain-b",
+            "lock_tx_hash": transfer_id,
+            "amount": 1_000,
+            "sender": "0x" + "22" * 20,
+            "recipient": "0x" + "33" * 20,
+        }
+        monkeypatch.setattr(bridge, "_validate_proof", lambda *a, **k: True)
+        monkeypatch.setattr(bridge, "_target_chain_from_proof", lambda *a, **k: "chain-b")
+
+        bridge.confirm_transfer(transfer_id, proof)
+
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+            assert record is not None
+            assert record.status == "confirmed"
+            assert record.target_tx_hash
+
+        entries = mempool_mod.get_mempool().list_transactions("chain-b")
+        assert entries, "release tx must be queued on the target chain mempool"
+        json.dumps(entries[0].content)  # would raise TypeError on a raw datetime
