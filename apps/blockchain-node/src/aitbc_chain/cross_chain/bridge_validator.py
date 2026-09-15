@@ -189,6 +189,44 @@ class BridgeValidatorMixin(BridgeBase):
         # Cache miss — load from DB
         return self.load_validator_set(chain_id, epoch)
 
+    def release_availability(self, source_chain: str) -> tuple[bool, str | None]:
+        """Report whether the release path can currently succeed for a chain.
+
+        Mirrors the gates ``confirm_transfer`` → ``_validate_proof`` applies,
+        so create endpoints can tell callers up front that a lock will
+        confirm but never release. Returns ``(available, reason)`` —
+        ``reason`` is None when available.
+
+        Fails closed identically to the verification path: when
+        ``bridge_release_enabled`` is set, a missing/unreachable validator
+        set means release is impossible; when multisig is enabled, a
+        validator set smaller than the threshold can never satisfy it.
+        """
+        if not (getattr(settings, "escrow_enabled", False) or getattr(settings, "bridge_release_enabled", False)):
+            return False, "release path disabled (escrow_enabled=false, bridge_release_enabled=false)"
+
+        release_enabled = getattr(settings, "bridge_release_enabled", False)
+        multisig_enabled = getattr(settings, "bridge_multisig_enabled", False)
+        threshold = int(getattr(settings, "bridge_multisig_threshold", 3))
+
+        try:
+            vset = self.get_validator_set(source_chain)
+        except Exception as e:
+            if release_enabled:
+                return False, f"validator set lookup failed for {source_chain}: {e}"
+            vset = None
+
+        if vset is None:
+            if release_enabled or multisig_enabled:
+                return False, f"no validator set registered for source chain {source_chain}"
+            # Dev mode: single-signer proofs are accepted for backward compat.
+            return True, None
+
+        if multisig_enabled and vset.total < threshold:
+            return False, f"validator set size {vset.total} below required threshold {threshold} for {source_chain}"
+
+        return True, None
+
     def _verify_proposer_signature(self, proof: dict[str, Any]) -> bool:
         """Verify the proposer signature on a bridge proof.
 
