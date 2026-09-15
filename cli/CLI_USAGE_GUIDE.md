@@ -75,3 +75,6 @@ This guide is generated from the live `aitbc` command tree. Each entry below lis
 - `zk` — Zero-knowledge proof commands.. Subcommands: `circuits`, `health`, `verify`
 - `http` — Generic HTTP client for local AITBC services. Subcommands: `call`
 - `service` — Manage AITBC systemd services. Subcommands: `harden`
+- `liquidity-stake` — Stake tokens into an on-chain liquidity pool to earn rewards
+- `stake` — Stake AITBC tokens on-chain for a configurable lock duration
+- `unstake` — Unstake tokens once the lock period ends and withdraw the principal
