@@ -394,7 +394,10 @@ class GovernanceService:
             raise ValueError(f"Proposal must be active to close; current status: {proposal.status}")
 
         now = datetime.now(UTC)
-        voting_ended = now >= proposal.voting_ends
+        voting_ends = proposal.voting_ends
+        if voting_ends.tzinfo is None:
+            voting_ends = voting_ends.replace(tzinfo=UTC)
+        voting_ended = now >= voting_ends
 
         yes = proposal.yes_votes
         no = proposal.no_votes
@@ -742,21 +745,21 @@ class GovernanceService:
         if not target_service or not parameter_name:
             return {"applied": False, "reason": "missing target_service or parameter_name"}
 
-        # Map target_service to URL and endpoint
-        service_urls = {
-            "poolhub": settings.poolhub_url,
-            "marketplace": settings.marketplace_url,
+        # Map target_service to its parameter-apply endpoint. The routes are not
+        # uniform: pool-hub mounts its router at /v1/parameters while marketplace
+        # serves /v1/marketplace/parameters/apply directly on the app.
+        service_endpoints = {
+            "poolhub": f"{settings.poolhub_url}/v1/parameters/apply",
+            "marketplace": f"{settings.marketplace_url}/v1/marketplace/parameters/apply",
         }
 
         if target_service == "blockchain":
             # Direct config change not supported via API — log warning
             return {"applied": False, "reason": "blockchain parameter changes require manual config update"}
 
-        base_url = service_urls.get(target_service)
-        if not base_url:
+        endpoint = service_endpoints.get(target_service)
+        if not endpoint:
             return {"applied": False, "reason": f"unknown target_service: {target_service}"}
-
-        endpoint = f"{base_url}/v1/{target_service}/parameters/apply"
         payload = {
             "proposal_id": proposal.proposal_id,
             "target_service": target_service,
