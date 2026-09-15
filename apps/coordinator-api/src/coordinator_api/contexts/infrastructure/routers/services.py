@@ -4,7 +4,7 @@ Services router for specific GPU workloads
 
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlalchemy.orm import Session
 
 from aitbc.rate_limiting import rate_limit
@@ -321,62 +321,111 @@ async def blender_render(
     )
 
 
+def _service_catalog() -> list[dict[str, Any]]:
+    """The coordinator's registered GPU-workload service types."""
+    return [
+        {
+            "type": ServiceType.WHISPER.value,
+            "name": "Whisper Speech Recognition",
+            "description": "Transcribe and translate audio files",
+            "models": [m.value for m in WhisperModel],
+            "constraints": {
+                "gpu": "nvidia",
+                "min_vram_gb": 1,
+            },
+        },
+        {
+            "type": ServiceType.STABLE_DIFFUSION.value,
+            "name": "Stable Diffusion",
+            "description": "Generate images from text prompts",
+            "models": [m.value for m in SDModel],
+            "constraints": {
+                "gpu": "nvidia",
+                "min_vram_gb": 4,
+            },
+        },
+        {
+            "type": ServiceType.LLM_INFERENCE.value,
+            "name": "LLM Inference",
+            "description": "Run inference on large language models",
+            "models": [m.value for m in LLMModel],
+            "constraints": {
+                "gpu": "nvidia",
+                "min_vram_gb": 8,
+            },
+        },
+        {
+            "type": ServiceType.FFMPEG.value,
+            "name": "FFmpeg Video Processing",
+            "description": "Transcode and process video files",
+            "codecs": [c.value for c in FFmpegCodec],
+            "constraints": {
+                "gpu": "any",
+                "min_vram_gb": 0,
+            },
+        },
+        {
+            "type": ServiceType.BLENDER.value,
+            "name": "Blender Rendering",
+            "description": "Render 3D scenes using Blender",
+            "engines": [e.value for e in BlenderEngine],
+            "constraints": {
+                "gpu": "any",
+                "min_vram_gb": 4,
+            },
+        },
+    ]
+
+
+def _find_service(name: str) -> dict[str, Any] | None:
+    """Look up a catalog entry by ``type`` (e.g. ``whisper``) or display name."""
+    needle = name.casefold()
+    for svc in _service_catalog():
+        if svc["type"].casefold() == needle or str(svc["name"]).casefold() == needle:
+            return svc
+    return None
+
+
 # Utility endpoints
 @router.get("/services", summary="List available services")
 @rate_limit(rate=200, per=60)
 async def list_services(request: Request) -> dict[str, Any]:
     """List all available service types and their capabilities"""
+    return {"services": _service_catalog()}
+
+
+@router.get("/services/{name}", summary="Get a service's status")
+@rate_limit(rate=200, per=60)
+async def get_service(request: Request, name: str) -> dict[str, Any]:
+    """Return catalog details + availability for one service type."""
+    svc = _find_service(name)
+    if svc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown service '{name}'; known types: {[s['type'] for s in _service_catalog()]}",
+        )
+    return {**svc, "status": "available"}
+
+
+@router.post("/services/{name}/test", summary="Test a service's availability")
+@rate_limit(rate=20, per=60)
+async def test_service(request: Request, name: str, user: ClientDep) -> dict[str, Any]:
+    """Registry-level availability check for a service type.
+
+    Confirms the type is registered in the coordinator catalog and reports
+    its declared capabilities. This is not a workload execution — the typed
+    ``/services/<type>/<action>`` endpoints run real jobs.
+    """
+    svc = _find_service(name)
+    if svc is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Unknown service '{name}'; known types: {[s['type'] for s in _service_catalog()]}",
+        )
     return {
-        "services": [
-            {
-                "type": ServiceType.WHISPER.value,
-                "name": "Whisper Speech Recognition",
-                "description": "Transcribe and translate audio files",
-                "models": [m.value for m in WhisperModel],
-                "constraints": {
-                    "gpu": "nvidia",
-                    "min_vram_gb": 1,
-                },
-            },
-            {
-                "type": ServiceType.STABLE_DIFFUSION.value,
-                "name": "Stable Diffusion",
-                "description": "Generate images from text prompts",
-                "models": [m.value for m in SDModel],
-                "constraints": {
-                    "gpu": "nvidia",
-                    "min_vram_gb": 4,
-                },
-            },
-            {
-                "type": ServiceType.LLM_INFERENCE.value,
-                "name": "LLM Inference",
-                "description": "Run inference on large language models",
-                "models": [m.value for m in LLMModel],
-                "constraints": {
-                    "gpu": "nvidia",
-                    "min_vram_gb": 8,
-                },
-            },
-            {
-                "type": ServiceType.FFMPEG.value,
-                "name": "FFmpeg Video Processing",
-                "description": "Transcode and process video files",
-                "codecs": [c.value for c in FFmpegCodec],
-                "constraints": {
-                    "gpu": "any",
-                    "min_vram_gb": 0,
-                },
-            },
-            {
-                "type": ServiceType.BLENDER.value,
-                "name": "Blender Rendering",
-                "description": "Render 3D scenes using Blender",
-                "engines": [e.value for e in BlenderEngine],
-                "constraints": {
-                    "gpu": "any",
-                    "min_vram_gb": 4,
-                },
-            },
-        ]
+        "name": svc["type"],
+        "test": "passed",
+        "status": "available",
+        "checks": {"catalog_registered": True},
+        "capabilities": {k: v for k, v in svc.items() if k in ("models", "codecs", "engines", "constraints")},
     }
