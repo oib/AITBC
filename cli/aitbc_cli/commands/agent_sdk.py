@@ -20,7 +20,7 @@ from aitbc.utils.validation import validate_address
 
 from ..config import get_config
 from ..utils import error, info, output, success
-from ..utils.agent_signing import load_signing_wallet, signed_request_headers
+from ..utils.agent_signing import identity_attestation_fields, load_signing_wallet, signed_request_headers
 from ..utils.error_handling import abort
 from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 
@@ -95,8 +95,16 @@ def _map_agent_type(agent_type: str) -> str:
     return _AGENT_TYPE_MAP.get(agent_type, agent_type)
 
 
-async def register_agent(agent_id: str, coordinator_url: str | None = None) -> dict:
-    """Register an agent with the coordinator"""
+async def register_agent(
+    agent_id: str,
+    coordinator_url: str | None = None,
+    signing: tuple[str, str] | None = None,
+) -> dict:
+    """Register an agent with the coordinator.
+
+    ``signing`` is ``(wallet_address, private_key)``; when given, the request
+    carries the identity attestation the coordinator requires in enforce mode
+    (nonce + proof binding the agent to the wallet)."""
     if coordinator_url is None:
         config = get_config()
         coordinator_url = config.agent_coordinator_url
@@ -145,6 +153,18 @@ async def register_agent(agent_id: str, coordinator_url: str | None = None) -> d
         }
 
         client = AITBCHTTPClient(base_url=coordinator_url, timeout=10)
+        if signing is not None:
+            identity_address, private_key = signing
+            chain_id = request_body.get("chain_id")
+            request_body.update(
+                identity_attestation_fields(
+                    client,
+                    agent_id,
+                    identity_address,
+                    str(chain_id) if chain_id is not None else None,
+                    private_key,
+                )
+            )
         resp = client.post("/v1/agents/register", json=request_body)
         result = resp.json() if hasattr(resp, "json") else resp
         result["coordinator_url"] = coordinator_url
@@ -465,6 +485,9 @@ try:
                 capabilities = get_agent_capabilities()
                 if "error" in capabilities:
                     abort(ctx, f"Auto-detection failed: {capabilities['error']}")
+                # assess_capabilities() reports hardware fields (compute_capability)
+                # but not compute_type, which config-validate requires.
+                capabilities.setdefault("compute_type", compute_type)
             else:
                 capabilities = {
                     "compute_type": compute_type,
@@ -514,13 +537,25 @@ try:
   aitbc agent register --agent-id shop-agent --coordinator-url http://hub.example.net:8107"""
     )
     @click.option("--agent-id", "agent_id", required=True, help="The Agent id.")
-    @click.option("--coordinator-url", default="http://localhost:8107", help="Coordinator URL")
+    @click.option(
+        "--coordinator-url",
+        default=None,
+        help="Coordinator URL (default: config agent_coordinator_url)",
+    )
+    @click.option(
+        "--wallet",
+        "wallet_name",
+        default=None,
+        help="Wallet to bind as the agent identity (default: $AITBC_DEFAULT_WALLET); required in enforce mode",
+    )
+    @click.option("--password", default=None, help="Wallet password")
     @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
     @click.pass_context
-    def register(ctx, agent_id, coordinator_url, format):
+    def register(ctx, agent_id, coordinator_url, wallet_name, password, format):
         """Register a local agent with the coordinator by agent ID."""
         try:
-            result = asyncio.run(register_agent(agent_id, coordinator_url))
+            signing = load_signing_wallet(ctx, wallet_name=wallet_name, password=password)
+            result = asyncio.run(register_agent(agent_id, coordinator_url, signing=signing))
 
             if "error" in result:
                 abort(ctx, f"Failed to register agent: {result['error']}")
