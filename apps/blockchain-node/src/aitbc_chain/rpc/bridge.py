@@ -98,6 +98,7 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
             amount=amount,
             asset=asset,
         )
+        release_available, release_reason = bridge.release_availability(str(source_chain))
         return {
             "success": True,
             "transfer_id": transfer.transfer_id,
@@ -109,7 +110,13 @@ async def bridge_lock(request: Request, lock_data: dict[str, Any]) -> dict[str, 
             "amount": amount,
             "fee": amount * 10 // 10000,
             "lock_time": transfer.lock_time.isoformat() if transfer.lock_time else None,
-            "message": "Funds locked successfully. Use /bridge/confirm to complete.",
+            "release_available": release_available,
+            "release_note": release_reason,
+            "message": (
+                release_reason
+                if release_reason
+                else "Funds locked successfully. Use /bridge/confirm to complete."
+            ),
         }
     except ValueError as e:
         raise HTTPException(status_code=400, detail=str(e)) from e
