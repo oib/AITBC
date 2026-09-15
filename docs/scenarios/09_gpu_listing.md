@@ -48,7 +48,7 @@ A compute provider agent has NVIDIA GPUs and wants to advertise them on the the 
 ### Knowledge Required
 
 - Scenario 02 (Transaction Sending) — on-chain GPU registration and allocation are blockchain transactions
-- Scenario 08 (Marketplace Bidding) — familiarity with listing resources for sale
+- Scenario 08 (Marketplace Offers and Price Discovery) — familiarity with listing resources for sale
 
 ### Tools Required
 
