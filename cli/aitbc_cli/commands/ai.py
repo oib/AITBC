@@ -20,7 +20,7 @@ from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, service_root_url
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_error_detail, service_root_url
 from ..utils.wallet_loader import load_wallet_for_payment
 
 logger = get_logger(__name__)
@@ -571,7 +571,8 @@ def submit(
         )
 
     except NetworkError as e:
-        abort(ctx, f"Network error: {e}", from_exception=e)
+        detail = http_error_detail(e)
+        abort(ctx, f"Network error: {detail or e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error submitting job: {e}", from_exception=e)
 

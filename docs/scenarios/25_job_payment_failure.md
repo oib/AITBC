@@ -26,11 +26,13 @@ breadcrumb: Home > Scenarios > Job Submission with Payment Failure
 
 > **Operator play:** This scenario is an operator-driven validation of a production hardening item, not a bug-ticket reproduction. The A/B task ids in the text are change-log cross-references.
 
-When a job is submitted with a payment that the coordinator cannot create, the job is still queued with `payment_status="skipped"` and `payment_id=null` (B12: rollback before marking skipped). Drive this with `aitbc ai submit --payment … --currency INVALID_CURRENCY`.
+When a job is submitted with a payment the coordinator cannot settle — e.g. a currency outside `AITBC`/`ETH`/`USDT` — `POST /v1/jobs` rejects it with **422 at submit** and no job row is created. Drive this with `aitbc ai submit --payment … --currency INVALID_CURRENCY`.
+
+> **Contract note (2026-09-15):** this scenario originally specified "queued with `payment_status=skipped`, job runs unpaid". That behavior was a freeloader hole — a priced job running without escrow means the provider burns GPU time unpaid — and is deliberately unreachable since the G4 dispatch gate (`_PAYMENT_DISPATCHABLE_STATES = {"escrowed"}`). The contract is now fail-fast: invalid currency ⇒ 422, nothing queued.
 
 ### Use Case
 
-A client fat-fingers the currency. The job must still run unpaid; no orphaned payment row.
+A client fat-fingers the currency. The submission is refused immediately with a clear error; no orphaned job or payment row.
 
 ### What You'll Learn
 
@@ -71,16 +73,15 @@ aitbc --output json ai submit \
   --coordinator-url http://127.0.0.1:8203
 ```
 
-**Expected output:** HTTP 201 through the CLI: a `job_id`, `payment_status` of `skipped`, `payment_id` null. The job is queued even though payment failed.
+**Expected output:** HTTP 422 — the CLI reports the validation detail (`payment_currency must be one of: ['AITBC', 'ETH', 'USDT']`). No `job_id` is returned and nothing is queued.
 
-### Step 2: Inspect the job
+### Step 2: Confirm nothing was queued
 
 ```bash
-aitbc --output json ai status --job-id "$JOB_ID"
 aitbc ai jobs --limit 5
 ```
 
-**Expected output:** the same `job_id` with `payment_status: skipped`. State may move to `COMPLETED` if a miner picks it up (unpaid).
+**Expected output:** no job with the "B12 payment-failure probe" prompt exists — the invalid currency never created one.
 
 ### Step 3: Contrast with a clean unpaid job
 
@@ -99,7 +100,7 @@ aitbc --output json ai submit \
 After completing this scenario, you should be able to:
 
 - Submit jobs with `aitbc ai submit`, including `--currency` overrides
-- Confirm failed payments skip without orphaning a payment id
+- Confirm unpayable submissions fail fast (422) without orphaning a job
 - List and inspect jobs with `aitbc ai jobs` / `status`
 
 ---
