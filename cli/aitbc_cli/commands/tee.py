@@ -250,6 +250,11 @@ def verify(ctx, quote: str, attestation_id: str, job_id: str, measurement: str, 
             # accepting --zk-proof would make any arbitrary string verify as valid.
             # Reject the flag until a verifier (verifying_key + proof_data) is wired.
             abort(ctx, "ZK proof verification is not available without a real verifier backend")
+        if mode != "tee_only":
+            # Same fail-closed: zk_only/both need a ZK verifier backend that does
+            # not exist yet. Without one, `both` would silently degrade to the
+            # TEE result and still report valid=True.
+            abort(ctx, f"Verification mode '{mode}' is not available without a real ZK verifier backend")
         policy_ok = verify_with_policy(policy, att_quote, zk)
 
         result = {
