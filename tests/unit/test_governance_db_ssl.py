@@ -167,3 +167,62 @@ def test_sqlite_engine_gets_no_ssl_arg(recorded_engine: list[dict[str, object]],
     storage._create_engine()
     (call,) = recorded_engine
     assert "connect_args" not in call
+
+
+# --- URL construction ------------------------------------------------------
+#
+# `_build_database_url` interpolates DB_USER/DB_PASS into the URL's userinfo.
+# Raw interpolation lets a password containing `@` or `/` move the host and
+# path boundaries, so the driver silently dials the wrong endpoint. The fix is
+# percent-encoding with `safe=""`, which these tests pin through
+# `urllib.parse`/`sqlalchemy.engine.make_url` rather than by string-matching.
+
+
+@pytest.fixture
+def postgres_env(monkeypatch: pytest.MonkeyPatch) -> pytest.MonkeyPatch:
+    monkeypatch.setenv("DB_TYPE", "postgresql")
+    return monkeypatch
+
+
+def test_plain_credentials_are_untouched(postgres_env: pytest.MonkeyPatch) -> None:
+    postgres_env.setenv("DB_USER", "aitbc")
+    postgres_env.setenv("DB_PASS", "s3cret")
+    postgres_env.setenv("DB_HOST", "db.internal")
+    url = storage._build_database_url()
+    assert url == "postgresql+asyncpg://aitbc:s3cret@db.internal:5432/aitbc_governance"
+
+
+def test_a_password_with_at_and_slash_cannot_move_the_host(postgres_env: pytest.MonkeyPatch) -> None:
+    """The regression: `p@ss/word` unquoted parses host=`ss` path=`word@db...`."""
+    from urllib.parse import unquote
+
+    from sqlalchemy.engine import make_url
+
+    postgres_env.setenv("DB_USER", "aitbc")
+    postgres_env.setenv("DB_PASS", "p@ss/word")
+    postgres_env.setenv("DB_HOST", "db.internal")
+    postgres_env.setenv("DB_NAME", "gov")
+    parsed = make_url(storage._build_database_url())
+    assert parsed.host == "db.internal"
+    # SQLAlchemy does not guarantee whether `password` comes back decoded;
+    # unquote() is a no-op when it already is, so this holds either way.
+    assert unquote(parsed.password or "") == "p@ss/word"
+    assert parsed.database == "gov"
+
+
+def test_a_user_with_at_is_quoted_too(postgres_env: pytest.MonkeyPatch) -> None:
+    from urllib.parse import unquote
+
+    from sqlalchemy.engine import make_url
+
+    postgres_env.setenv("DB_USER", "svc@gov")
+    postgres_env.setenv("DB_PASS", "x")
+    parsed = make_url(storage._build_database_url())
+    assert unquote(parsed.username or "") == "svc@gov"
+    assert parsed.host == "localhost"
+
+
+def test_empty_password_stays_empty(postgres_env: pytest.MonkeyPatch) -> None:
+    postgres_env.delenv("DB_PASS", raising=False)
+    url = storage._build_database_url()
+    assert url.startswith("postgresql+asyncpg://aitbc:@")
