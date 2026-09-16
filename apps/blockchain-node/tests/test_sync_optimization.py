@@ -74,3 +74,36 @@ class TestParallelSync:
 
 class TestDeltaSync:
     """Test delta-based state synchronization."""
+
+    def test_chain_parameters_upserted_from_peer(self, session_factory):
+        """chain_parameter rows are consensus state outside the account state
+        root — the sync must carry them or gates like governance_executors
+        exist only on the node that served the execute call."""
+        from aitbc_chain.base_models import ChainParameter
+        from aitbc_chain.sync_state import _upsert_chain_parameters
+        from sqlmodel import select
+
+        params = [
+            {
+                "parameter": "governance_executors",
+                "value": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+                "proposal_id": "p1",
+            }
+        ]
+        with session_factory() as s:
+            assert _upsert_chain_parameters(s, "test", params) == 1
+            s.commit()
+        with session_factory() as s:
+            row = s.exec(select(ChainParameter).where(ChainParameter.chain_id == "test")).one()
+            assert row.parameter == "governance_executors"
+            assert row.value == "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
+
+        # Second sync with a changed value updates in place — no duplicate row
+        params[0]["value"] = "0x1111111111111111111111111111111111111111"
+        with session_factory() as s:
+            assert _upsert_chain_parameters(s, "test", params) == 1
+            s.commit()
+        with session_factory() as s:
+            rows = s.exec(select(ChainParameter).where(ChainParameter.chain_id == "test")).all()
+            assert len(rows) == 1
+            assert rows[0].value == "0x1111111111111111111111111111111111111111"

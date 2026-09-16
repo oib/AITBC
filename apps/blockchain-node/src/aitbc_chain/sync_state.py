@@ -10,7 +10,7 @@ from sqlmodel import select
 
 from aitbc.sync import apply_state_diff, decode_state_diff
 
-from .base_models import Account, Block, _to_ait_address
+from .base_models import Account, Block, ChainParameter, _to_ait_address
 from .config import settings
 from .logger import get_logger
 from .state import state_root_utils
@@ -18,6 +18,42 @@ from .sync_base import SyncBase
 from .sync_divergence import report_divergence
 
 logger = get_logger(__name__)
+
+
+def _upsert_chain_parameters(session: Any, chain_id: str, parameters: list[dict[str, Any]]) -> int:
+    """Upsert ``chain_parameter`` rows shipped by the peer's sync response.
+
+    Chain parameters are consensus state (``governance_executors``,
+    ``bond_slash_authority``) but live outside the account state root, so
+    neither the snapshot nor the diff carries them implicitly. Without this
+    the executor gate is enforced only on the node that served the execute
+    call — a silent divergence.
+    """
+    applied = 0
+    for p in parameters:
+        name = p.get("parameter")
+        if not name:
+            continue
+        existing = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == name,
+            )
+        ).first()
+        if existing:
+            existing.value = str(p.get("value", ""))
+            existing.proposal_id = p.get("proposal_id")
+        else:
+            session.add(
+                ChainParameter(
+                    chain_id=chain_id,
+                    parameter=name,
+                    value=str(p.get("value", "")),
+                    proposal_id=p.get("proposal_id"),
+                )
+            )
+        applied += 1
+    return applied
 
 
 class StateSyncMixin(SyncBase):
@@ -86,6 +122,7 @@ class StateSyncMixin(SyncBase):
 
         remote_accounts = data.get("accounts", [])
         remote_root = data.get("state_root", "")
+        remote_parameters = data.get("chain_parameters", [])
         self._logger.info(
             "State snapshot: %s accounts, state_root=%s",
             len(remote_accounts),
@@ -118,6 +155,7 @@ class StateSyncMixin(SyncBase):
                     existing.balance = balance
                     existing.nonce = nonce
                     updated += 1
+            _upsert_chain_parameters(session, self._chain_id, remote_parameters)
             session.commit()
 
         # Verify state root matches now — full recompute (all accounts synced)
@@ -177,6 +215,10 @@ class StateSyncMixin(SyncBase):
         except Exception as e:
             self._logger.warning("Delta sync endpoint failed (%s), falling back to full sync", e)
             return await self.sync_state_from(source_url)
+
+        # Consensus-relevant chain parameters ride alongside the diff — the
+        # account-only state root never covers them.
+        remote_parameters = data.get("chain_parameters", [])
 
         # The response contains an encoded StateDiff
         encoded_diff = data.get("diff")
@@ -242,6 +284,7 @@ class StateSyncMixin(SyncBase):
                     if db_acc:
                         session.delete(db_acc)
                 # Existing accounts were mutated in place (SQLModel tracks changes)
+            _upsert_chain_parameters(session, self._chain_id, remote_parameters)
             session.commit()
 
         # Verify state root
