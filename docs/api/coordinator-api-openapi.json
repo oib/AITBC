@@ -12801,22 +12801,6 @@
         "operationId": "create_workflow_v1_agents_workflows_post",
         "parameters": [
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -12917,22 +12901,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -13027,22 +12995,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -13127,22 +13079,6 @@
             "schema": {
               "type": "string",
               "title": "Workflow Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -13243,22 +13179,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -13349,22 +13269,6 @@
             "schema": {
               "type": "string",
               "title": "Workflow Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -13474,22 +13378,6 @@
             "schema": {
               "type": "string",
               "title": "Execution Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -13627,22 +13515,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -13732,22 +13604,6 @@
             "schema": {
               "type": "string",
               "title": "Execution Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -13874,22 +13730,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -13989,22 +13829,6 @@
             "schema": {
               "type": "string",
               "title": "Deployment Name"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -14132,22 +13956,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -14218,22 +14026,6 @@
             "schema": {
               "type": "string",
               "title": "Config Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -14336,22 +14128,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -14440,22 +14216,6 @@
             "schema": {
               "type": "string",
               "title": "Config Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -14559,22 +14319,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -14663,22 +14407,6 @@
             "schema": {
               "type": "string",
               "title": "Config Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -14812,22 +14540,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -14898,22 +14610,6 @@
             "schema": {
               "type": "string",
               "title": "Instance Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -15022,22 +14718,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -15139,22 +14819,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -15243,22 +14907,6 @@
             "schema": {
               "type": "string",
               "title": "Workflow Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -15354,22 +15002,6 @@
         "operationId": "get_production_dashboard_v1_agents_integration_production_dashboard_get",
         "parameters": [
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -15431,22 +15063,6 @@
         "description": "Get overall production health status",
         "operationId": "get_production_health_v1_agents_integration_production_health_get",
         "parameters": [
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
           {
             "name": "Authorization",
             "in": "header",
@@ -25220,22 +24836,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -25420,22 +25020,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -25510,22 +25094,6 @@
             "schema": {
               "type": "string",
               "title": "Policy Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -25618,22 +25186,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -25714,22 +25266,6 @@
             "schema": {
               "type": "string",
               "title": "Workflow Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -25975,22 +25511,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -26061,22 +25581,6 @@
             "schema": {
               "type": "string",
               "title": "Audit Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -26246,22 +25750,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -26341,22 +25829,6 @@
             "schema": {
               "type": "string",
               "title": "Entity Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -26493,22 +25965,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -26591,22 +26047,6 @@
                 }
               ],
               "title": "Security Level"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -26700,22 +26140,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -26794,22 +26218,6 @@
             "schema": {
               "type": "string",
               "title": "Execution Id"
-            }
-          },
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
             }
           },
           {
@@ -26893,22 +26301,6 @@
             }
           },
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -26971,22 +26363,6 @@
         "operationId": "get_security_dashboard_v1_agents_security_security_dashboard_get",
         "parameters": [
           {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
-          {
             "name": "Authorization",
             "in": "header",
             "required": false,
@@ -27048,22 +26424,6 @@
         "description": "Get security statistics and metrics",
         "operationId": "get_security_statistics_v1_agents_security_security_stats_get",
         "parameters": [
-          {
-            "name": "args",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Args"
-            }
-          },
-          {
-            "name": "kwargs",
-            "in": "query",
-            "required": true,
-            "schema": {
-              "title": "Kwargs"
-            }
-          },
           {
             "name": "Authorization",
             "in": "header",
