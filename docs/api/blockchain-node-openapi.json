@@ -5485,6 +5485,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5496,7 +5506,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled (escrow_enabled=false)",
+            "description": "Settlement not enabled (escrow_enabled=false) / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5505,7 +5515,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/bridge/settlement/{escrow_id}/lock": {
@@ -5517,6 +5532,11 @@
         "summary": "Lock escrow funds",
         "description": "Lock funds on source chain for an escrow.",
         "operationId": "lock_escrow_route_rpc_bridge_settlement__escrow_id__lock_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5551,6 +5571,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5562,7 +5592,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5583,6 +5613,11 @@
         "summary": "Verify lock proof",
         "description": "Verify lock proof on destination chain.",
         "operationId": "verify_lock_route_rpc_bridge_settlement__escrow_id__verify_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5617,6 +5652,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5628,7 +5673,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5649,6 +5694,11 @@
         "summary": "Execute trade on destination",
         "description": "Execute trade on destination chain.",
         "operationId": "execute_trade_route_rpc_bridge_settlement__escrow_id__execute_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5683,6 +5733,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5694,7 +5754,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5715,6 +5775,11 @@
         "summary": "Settle escrow with secret",
         "description": "Reveal secret and settle escrow on both chains.\n\nAccepts JSON body ``{\"secret\": \"<hex_secret>\"}`` matching SettlementClient.",
         "operationId": "settle_escrow_route_rpc_bridge_settlement__escrow_id__settle_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5771,6 +5836,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5782,7 +5857,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5803,6 +5878,11 @@
         "summary": "Refund escrow",
         "description": "Refund escrow after timeout.",
         "operationId": "refund_escrow_route_rpc_bridge_settlement__escrow_id__refund_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5837,6 +5917,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5848,7 +5938,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5869,6 +5959,11 @@
         "summary": "Get escrow details",
         "description": "Get escrow details.",
         "operationId": "get_escrow_route_rpc_bridge_settlement__escrow_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5903,6 +5998,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Escrow not found",
             "content": {
@@ -5924,7 +6029,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -5945,6 +6050,11 @@
         "summary": "Get escrow status",
         "description": "Get escrow status.",
         "operationId": "get_escrow_status_route_rpc_bridge_settlement__escrow_id__status_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -5979,6 +6089,26 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -5990,7 +6120,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -6011,6 +6141,11 @@
         "summary": "Get proof chain",
         "description": "Get all proofs for an escrow.",
         "operationId": "get_proof_chain_route_rpc_bridge_settlement__escrow_id__proofs_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -6045,6 +6180,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -6056,7 +6201,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -6077,6 +6222,11 @@
         "summary": "Extend escrow timeout",
         "description": "Extend escrow timeout.\n\nAccepts JSON body ``{\"extension_seconds\": <int>}`` matching SettlementClient.",
         "operationId": "extend_timeout_route_rpc_bridge_settlement__escrow_id__extend_timeout_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -6133,6 +6283,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -6144,7 +6304,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -6165,6 +6325,11 @@
         "summary": "File a dispute for an escrow",
         "description": "File a dispute for an escrow, halting automatic timeout/refund.",
         "operationId": "file_escrow_dispute_route_rpc_bridge_settlement__escrow_id__dispute_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -6211,6 +6376,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Escrow not found",
             "content": {
@@ -6232,7 +6407,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -6253,6 +6428,11 @@
         "summary": "Resolve a dispute",
         "description": "Resolve a dispute for an escrow.\n\nResolution is \"complete\" (release to seller) or \"refund\" (refund buyer).",
         "operationId": "resolve_escrow_dispute_route_rpc_bridge_settlement__escrow_id__resolve_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -6309,6 +6489,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Escrow not found",
             "content": {
@@ -6330,7 +6520,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -14922,6 +15112,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -14933,7 +15133,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled (escrow_enabled=false)",
+            "description": "Settlement not enabled (escrow_enabled=false) / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -14942,7 +15142,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/bridge/settlement/{escrow_id}/lock": {
@@ -14954,6 +15159,11 @@
         "summary": "Lock escrow funds",
         "description": "Lock funds on source chain for an escrow.",
         "operationId": "lock_escrow_route_v1_bridge_settlement__escrow_id__lock_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -14988,6 +15198,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -14999,7 +15219,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15020,6 +15240,11 @@
         "summary": "Verify lock proof",
         "description": "Verify lock proof on destination chain.",
         "operationId": "verify_lock_route_v1_bridge_settlement__escrow_id__verify_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15054,6 +15279,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15065,7 +15300,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15086,6 +15321,11 @@
         "summary": "Execute trade on destination",
         "description": "Execute trade on destination chain.",
         "operationId": "execute_trade_route_v1_bridge_settlement__escrow_id__execute_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15120,6 +15360,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15131,7 +15381,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15152,6 +15402,11 @@
         "summary": "Settle escrow with secret",
         "description": "Reveal secret and settle escrow on both chains.\n\nAccepts JSON body ``{\"secret\": \"<hex_secret>\"}`` matching SettlementClient.",
         "operationId": "settle_escrow_route_v1_bridge_settlement__escrow_id__settle_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15208,6 +15463,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15219,7 +15484,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15240,6 +15505,11 @@
         "summary": "Refund escrow",
         "description": "Refund escrow after timeout.",
         "operationId": "refund_escrow_route_v1_bridge_settlement__escrow_id__refund_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15274,6 +15544,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15285,7 +15565,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15306,6 +15586,11 @@
         "summary": "Get escrow details",
         "description": "Get escrow details.",
         "operationId": "get_escrow_route_v1_bridge_settlement__escrow_id__get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15340,6 +15625,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Escrow not found",
             "content": {
@@ -15361,7 +15656,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15382,6 +15677,11 @@
         "summary": "Get escrow status",
         "description": "Get escrow status.",
         "operationId": "get_escrow_status_route_v1_bridge_settlement__escrow_id__status_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15416,6 +15716,26 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Not Found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15427,7 +15747,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15448,6 +15768,11 @@
         "summary": "Get proof chain",
         "description": "Get all proofs for an escrow.",
         "operationId": "get_proof_chain_route_v1_bridge_settlement__escrow_id__proofs_get",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15482,6 +15807,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15493,7 +15828,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15514,6 +15849,11 @@
         "summary": "Extend escrow timeout",
         "description": "Extend escrow timeout.\n\nAccepts JSON body ``{\"extension_seconds\": <int>}`` matching SettlementClient.",
         "operationId": "extend_timeout_route_v1_bridge_settlement__escrow_id__extend_timeout_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15570,6 +15910,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
             "content": {
@@ -15581,7 +15931,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15602,6 +15952,11 @@
         "summary": "File a dispute for an escrow",
         "description": "File a dispute for an escrow, halting automatic timeout/refund.",
         "operationId": "file_escrow_dispute_route_v1_bridge_settlement__escrow_id__dispute_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15648,6 +16003,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Escrow not found",
             "content": {
@@ -15669,7 +16034,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -15690,6 +16055,11 @@
         "summary": "Resolve a dispute",
         "description": "Resolve a dispute for an escrow.\n\nResolution is \"complete\" (release to seller) or \"refund\" (refund buyer).",
         "operationId": "resolve_escrow_dispute_route_v1_bridge_settlement__escrow_id__resolve_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "escrow_id",
@@ -15746,6 +16116,16 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "Escrow not found",
             "content": {
@@ -15767,7 +16147,7 @@
             }
           },
           "503": {
-            "description": "Settlement not enabled",
+            "description": "Settlement not enabled / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
