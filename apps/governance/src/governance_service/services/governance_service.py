@@ -225,7 +225,8 @@ class GovernanceService:
                     signed_tx,
                     "GOVERNANCE_PROPOSE",
                     proposer_address,
-                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address},
+                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address,
+                     "chain_id": proposal.chain_id},
                 )
                 result = await self._blockchain.submit_signed_governance_tx(signed_tx)
                 proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
@@ -374,9 +375,9 @@ class GovernanceService:
             await self.session.commit()
 
         vote = Vote(**vote_data)
-        # Ensure chain_id is set
-        if not vote.chain_id:
-            vote.chain_id = settings.default_chain_id
+        # Match create_proposal: the service default wins over the model's
+        # "ait-hub" fallback so chain queries hit the real chain database.
+        vote.chain_id = settings.default_chain_id or vote.chain_id
 
         voter_address = vote_data.get("voter_address", "")
         if not voter_address:
@@ -390,7 +391,8 @@ class GovernanceService:
                     "GOVERNANCE_VOTE",
                     voter_address,
                     {"proposal_id": vote.proposal_id, "voter": voter_address,
-                     "vote_type": str(vote.vote_type), "voting_power": voting_power},
+                     "vote_type": str(vote.vote_type), "voting_power": voting_power,
+                     "chain_id": vote.chain_id},
                 )
                 vote.voting_power = voting_power
                 vote.power_at_snapshot = voting_power
@@ -710,7 +712,8 @@ class GovernanceService:
                     signed_tx,
                     "GOVERNANCE_EXECUTE",
                     executor_address,
-                    {"proposal_id": proposal_id, "executor": executor_address},
+                    {"proposal_id": proposal_id, "executor": executor_address,
+                     "chain_id": proposal.chain_id},
                 )
                 result = await self._blockchain.submit_signed_governance_tx(signed_tx)
                 tx_hash = result.get("tx_hash") or result.get("transaction_hash")
