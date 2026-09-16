@@ -54,7 +54,7 @@ async def create_workflow(
 
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
 async def list_workflows(
-    tags: list[str] | None,
+    tags: list[str] | None = None,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     owner_id: str | None = None,
