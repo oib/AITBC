@@ -24,10 +24,11 @@ pip install -r requirements.txt
 ### 2. Configure Environment
 
 ```bash
-# Edit /etc/aitbc/.env
-export AITBC_REDIS_URL=redis://localhost:6379
-export AITBC_COORDINATOR_PORT=8107
-export AITBC_LOG_LEVEL=INFO
+# Edit /etc/aitbc/aitbc-agent-coordinator.env (the unit also loads
+# blockchain.env, node.env, and blockchain-secrets.env)
+REDIS_URL=redis://localhost:6379/1
+AGENT_COORDINATOR_BIND_PORT=8107
+LOG_LEVEL=INFO
 ```
 
 ### 3. Start Redis
@@ -50,10 +51,10 @@ systemctl enable aitbc-agent-coordinator.service
 
 **Key configuration parameters:**
 
-- `PYTHONPATH=apps/agent-coordinator/src` - Python module path
-- `uvicorn agent_app.main:app` - FastAPI application entry point
-- `--host 0.0.0.0` - Bind to all interfaces
-- `--port 8107` - Service port
+- `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/agent-coordinator/src` - Python module path
+- `aitbc-agent-coordinator-wrapper.py` - service entry point (uvicorn `agent_app.main:app`)
+- `AGENT_COORDINATOR_BIND_HOST=127.0.0.1` - pinned in the unit; with no host firewall the loopback bind **is** the access control — remote callers go through the hub's nginx `/agent/` proxy
+- `AGENT_COORDINATOR_BIND_PORT=8107` - Service port
 
 ## Redis Configuration
 

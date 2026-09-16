@@ -8,7 +8,7 @@ The Agent Coordinator API uses a split router architecture where functionality i
 
 ### Main Router Inclusion Logic
 
-From `apps/agent-coordinator/src/app/main.py`:
+From `apps/agent-coordinator/src/agent_app/main.py`:
 
 ```python
 for router in ROUTERS:

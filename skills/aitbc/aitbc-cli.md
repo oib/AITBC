@@ -298,7 +298,7 @@ aitbc agent create \
 aitbc agent list
 ```
 
-**Note:** Uses coordinator API at `http://localhost:8203` for real agent discovery
+**Note:** Uses the Agent Coordinator at `http://localhost:8107` (`POST /v1/agents/discover`) for real agent discovery — coordinator-api on 8203 has no agent routes
 
 #### Send Message to Agent
 ```bash

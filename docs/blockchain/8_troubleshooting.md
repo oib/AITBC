@@ -1,403 +1,229 @@
 # Troubleshooting
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 
-Common issues and solutions for blockchain nodes using the enhanced AITBC CLI.
+Common issues and solutions for blockchain nodes.
 
-## Enhanced CLI Diagnostics
+The diagnostics toolbox is **journald + the RPC API + `aitbc blockchain`**.
+There are no `diagnose`, `config validate`, `reset`, `peers`, `sync --force`,
+or `test-connectivity` subcommands — work through the tools below.
 
-The enhanced AITBC CLI provides comprehensive diagnostic tools:
+## First Response
 
 ```bash
-# Full system diagnostics
-aitbc blockchain diagnose --full
+# 1. Is the service up?
+systemctl status aitbc-blockchain-node aitbc-blockchain-rpc
 
-# Network diagnostics
-aitbc blockchain diagnose --network
+# 2. What do the logs say?
+journalctl -u aitbc-blockchain-node --since "15 min ago" -p err
+journalctl -u aitbc-blockchain-node -f          # follow live
 
-# Sync diagnostics
-aitbc blockchain diagnose --sync
-
-# Performance diagnostics
-aitbc blockchain diagnose --performance
-
-# Startup diagnostics
-aitbc blockchain diagnose --startup
+# 3. What does the node report?
+curl -s http://localhost:8202/rpc/status
+curl -s http://localhost:8202/health
+aitbc blockchain height
+aitbc blockchain sync-status
 ```
 
 ## Common Issues
 
 ### Node Won't Start
 
-```bash
-# Enhanced CLI diagnostics
-aitbc blockchain diagnose --startup
-
-# Check configuration
-aitbc blockchain config validate
-
-# View detailed logs
-aitbc blockchain logs --level error --follow
-
-# Check port usage
-aitbc blockchain diagnose --network
-
-# Common causes:
-# - Port already in use
-# - Corrupted database
-# - Invalid configuration
-```
-
-**Solutions:**
+**Check:**
 
 ```bash
-# Enhanced CLI port check
-aitbc blockchain diagnose --network --check-ports
-
-# Kill existing process (if needed)
-lsof -i :8080
-kill $(lsof -t -i :8080)
-
-# Reset database with enhanced CLI
-aitbc blockchain reset --hard
-
-# Validate and fix configuration
-aitbc blockchain config validate
-aitbc blockchain config fix
-
-# Legacy approach
-tail -f ~/.aitbc/logs/chain.log
-rm -rf ~/.aitbc/data/chain.db
-aitbc-chain init
+systemctl status aitbc-blockchain-node
+journalctl -u aitbc-blockchain-node -n 200 --no-pager
 ```
 
-### Sync Stuck
+**Common causes and fixes:**
+
+- **Port already in use** — `ss -tlnp | grep -E '8202|8200|9009'`; stop the
+  conflicting process or change `RPC_BIND_PORT`/`P2P_BIND_PORT` in
+  `/etc/aitbc/blockchain.env` and restart.
+- **Bad env value** — pydantic-settings fails loudly at import; the journal
+  shows a `ValidationError` naming the field. Fix the value in
+  `/etc/aitbc/blockchain.env` or `node.env` (remember keys are
+  case-insensitive — don't write `PROPOSER_ID` and `proposer_id` twice).
+- **Missing proposer key** — `Failed to load proposer key from keystore`
+  means `proposer_id` doesn't match `keystore/proposer.json`; on a follower,
+  clear `proposer_id`/`enable_block_production=false` instead.
+- **Corrupted database** — see *Database Corruption* below.
+
+### Sync Stuck / Falling Behind
+
+Followers sync via the hub subscription plus automatic bulk pull-sync — no
+manual resync command exists.
+
+**Check:**
 
 ```bash
-# Enhanced CLI sync diagnostics
-aitbc blockchain diagnose --sync
+# Compare local height against the hub
+aitbc blockchain height
+curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height
 
-# Check sync status with details
-aitbc blockchain sync --verbose
+# Is the subscription lease active? (run on the hub)
+curl -s http://localhost:8202/rpc/subscribers | jq
 
-# Force resync
-aitbc blockchain sync --force
-
-# Check peer connectivity
-aitbc blockchain peers --status connected
-
-# Network health check
-aitbc blockchain diagnose --network
-
-# Monitor sync progress
-aitbc blockchain sync --watch
+# Follower-side: watch the subscribe/heartbeat loop
+journalctl -u aitbc-blockchain-node -f | grep -iE "subscri|heartbeat|lease|bulk"
 ```
 
-**Solutions:**
+**Common causes and fixes:**
+
+- **Subscribe rejected (403)** — the follower's `BLOCKCHAIN_RPC_API_KEY` is not
+  in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS`. Add it on the hub and restart
+  `aitbc-blockchain-rpc` there.
+- **`PROPOSER_ID` copied from the hub** — a follower filters gossip by its own
+  proposer id; if it matches the hub's, every pushed block is discarded as
+  self-proposed. The node then only catches up in bursts via bulk sync. Set a
+  unique `proposer_id` (or leave it empty) in the follower's `node.env`.
+- **`DEFAULT_PEER_RPC_URL` wrong** — must be the hub *base* URL
+  (`https://hub.aitbc.bubuit.net`), no `/rpc` suffix.
+- **Sync disabled** — verify `SYNC_MANAGER_ENABLED=true`,
+  `SUBSCRIPTION_ENABLED=true`, `AUTO_SYNC_ENABLED=true`.
+- **Gap keeps exceeding the sync** — check `auto_sync_threshold` (default 10)
+  and `min_bulk_sync_interval` (default 60s) aren't set too high.
+
+### Node Produces No Blocks (hub)
 
 ```bash
-# Enhanced CLI peer management
-aitbc blockchain peers add --peer <MULTIADDR> --validate
-
-# Add more bootstrap peers
-aitbc blockchain peers add --bootstrap /dns4/new-peer.example.com/tcp/7070/p2p/...
-
-# Clear peer database
-aitbc blockchain peers clear
-
-# Reset and resync
-aitbc blockchain reset --sync
-aitbc blockchain sync --force
-
-# Check network connectivity
-aitbc blockchain test-connectivity
+journalctl -u aitbc-blockchain-node -f | grep -iE "propos|block"
 ```
+
+- `ENABLE_BLOCK_PRODUCTION=false` (or left unset on the hub) — set it `true`.
+- `PROPOSER_ID` missing/invalid — must be the full 40-hex `0x` address that
+  matches `keystore/proposer.json`.
+- `BLOCK_PRODUCTION_CHAINS` set but not containing the chain.
+- MV-PoA enabled without a `VALIDATOR_SET`, or fewer than
+  `MULTI_VALIDATOR_MIN_ATTESTATIONS` validators reachable — check
+  `aitbc blockchain consensus status`.
+
+### Peer/Subscription Connection Issues
+
+```bash
+# Can the follower reach the hub at all?
+curl -s https://hub.aitbc.bubuit.net/rpc/status
+
+# Is the API key accepted?
+curl -s -X POST https://hub.aitbc.bubuit.net/rpc/subscribe \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{"node_id":"test","transport":"websocket","chain_id":"ait-hub.aitbc.bubuit.net"}'
+```
+
+- **403 on subscribe** — key not in `BLOCKCHAIN_RPC_API_KEY_PEERS` on the hub.
+- **Timeouts** — outbound 443 blocked on the follower, or nginx/the hub is down.
+- **Lease expires repeatedly** — heartbeat failures; check
+  `heartbeat_interval` (default 60s) vs. `lease_duration` (default 3600s).
 
 ### High CPU/Memory Usage
 
 ```bash
-# Enhanced CLI performance diagnostics
-aitbc blockchain diagnose --performance
-
-# Monitor resource usage
-aitbc blockchain metrics --resource --follow
-
-# Check for bottlenecks
-aitbc blockchain metrics --detailed
-
-# Historical performance data
-aitbc blockchain metrics --history 24h
+systemctl status aitbc-blockchain-node   # shows current Memory/CPU vs limits
+journalctl -u aitbc-blockchain-node --since "1 hour ago" -p warning
+curl -s http://localhost:9009/metrics | grep -E 'process_|rpc_'
 ```
 
-**Solutions:**
-
-```bash
-# Optimize configuration
-aitbc blockchain config set max_peers 50
-aitbc blockchain config set cache_size 1GB
-
-# Enable performance mode
-aitbc blockchain optimize --performance
-
-# Monitor improvements
-aitbc blockchain metrics --resource --follow
-```
-
-### Peer Connection Issues
-
-```bash
-# Enhanced CLI peer diagnostics
-aitbc blockchain diagnose --network
-
-# Check peer status
-aitbc blockchain peers --detailed
-
-# Test connectivity
-aitbc blockchain test-connectivity
-
-# Network diagnostics
-aitbc blockchain diagnose --network --full
-```
-
-**Solutions:**
-
-```bash
-# Add reliable peers
-aitbc blockchain peers add --bootstrap <MULTIADDR>
-
-# Update peer configuration
-aitbc blockchain config set bootstrap_nodes <NODES>
-
-# Reset peer database
-aitbc blockchain peers reset
-
-# Check firewall settings
-aitbc blockchain diagnose --network --firewall
-```
-
-### Validator Issues
-
-```bash
-# Enhanced CLI validator diagnostics
-aitbc blockchain validators --diagnose
-
-# Check validator status
-aitbc blockchain validators --status active
-
-# Validator rewards tracking
-aitbc blockchain validators --rewards
-
-# Performance metrics
-aitbc blockchain validators --metrics
-```
-
-**Solutions:**
-
-```bash
-# Re-register as validator
-aitbc blockchain validators register --stake 1000
-
-# Check stake requirements
-aitbc blockchain validators --requirements
-
-# Monitor validator performance
-aitbc blockchain validators --monitor
-```
-
-## Advanced Troubleshooting
+- Units are capped (`MemoryMax`, `CPUQuota` in the service files); an OOM kill
+  shows as `Main process exited, code=killed, status=9/KILL` in the journal.
+- A hot resync loop raises CPU — check for repeating bulk-sync lines and look
+  at `auto_sync_max_retries`/`min_bulk_sync_interval`.
 
 ### Database Corruption
 
-```bash
-# Enhanced CLI database diagnostics
-aitbc blockchain diagnose --database
-
-# Database integrity check
-aitbc blockchain database check
-
-# Repair database
-aitbc blockchain database repair
-
-# Rebuild database
-aitbc blockchain database rebuild
-```
-
-### Configuration Issues
+Chain data is SQLite at `<AITBC_DATA_DIR>/data/<chain_id>/chain.db` (live
+fleet: `/var/lib/aitbc/data/<chain_id>/chain.db`). There is no `~/.aitbc`
+directory and no `reset --hard` command.
 
 ```bash
-# Enhanced CLI configuration diagnostics
-aitbc blockchain config diagnose
-
-# Validate configuration
-aitbc blockchain config validate
-
-# Reset to defaults
-aitbc blockchain config reset
-
-# Generate new configuration
-aitbc blockchain config generate
+# Integrity check
+sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db "PRAGMA integrity_check;"
 ```
 
-### Network Issues
+**Recovery options, least destructive first:**
+
+1. **Let auto-sync repair** — if the local head diverged, `auto_resync_*`
+   settings already trigger a re-sync from `default_peer_rpc_url` after
+   consecutive rejections.
+2. **Admin-signed force sync** — pull a trusted peer's full export:
+
+   ```bash
+   curl -X POST http://localhost:8202/rpc/force-sync \
+     -H "Content-Type: application/json" \
+     -d '{"peer_url":"https://hub.aitbc.bubuit.net",
+          "admin_address":"0x<admin>",
+          "admin_signature":"0x<signature over the body>"}'
+   ```
+
+3. **Manual reseed** — stop the node, move the bad `chain.db` aside, copy the
+   correct `genesis.json` into `data/<chain_id>/`, restart; the node rebuilds
+   via export/import or bulk sync:
+
+   ```bash
+   systemctl stop aitbc-blockchain-node
+   mv /var/lib/aitbc/data/<chain_id>/chain.db /var/lib/aitbc/data/<chain_id>/chain.db.bad
+   systemctl start aitbc-blockchain-node
+   ```
+
+4. **Restore from backup** — `aitbc blockchain restore --backup-file <backup> --verify`
+   or `POST /rpc/import-chain` with an admin-signed export.
+
+### Configuration Mistakes
+
+There is no `config validate` command — misconfiguration surfaces as a
+pydantic `ValidationError` at service start. Read it from the journal:
 
 ```bash
-# Enhanced CLI network diagnostics
-aitbc blockchain diagnose --network --full
-
-# Test all network endpoints
-aitbc blockchain test-connectivity --all
-
-# Check DNS resolution
-aitbc blockchain diagnose --network --dns
-
-# Firewall diagnostics
-aitbc blockchain diagnose --network --firewall
+journalctl -u aitbc-blockchain-node -n 50 --no-pager | grep -A5 ValidationError
 ```
 
-## Monitoring and Alerting
+Common traps:
 
-### Real-time Monitoring
-
-```bash
-# Enhanced CLI monitoring
-aitbc monitor dashboard --component blockchain
-
-# Set up alerts
-aitbc monitor alerts create --type blockchain_sync --threshold 90%
-
-# Resource monitoring
-aitbc blockchain metrics --resource --follow
-
-# Export metrics
-aitbc blockchain metrics --export prometheus
-```
-
-### Log Analysis
-
-```bash
-# Enhanced CLI log analysis
-aitbc blockchain logs --analyze --level error
-
-# Export logs for analysis
-aitbc blockchain logs --export /tmp/blockchain-logs.json --format json
-
-# Filter by time range
-aitbc blockchain logs --since "1 hour ago" --level error
-
-# Real-time log monitoring
-aitbc blockchain logs --follow --level warn
-```
+- `PROPOSER_ID` written twice in different cases — the lowercase spelling wins.
+- `DEFAULT_PEER_RPC_URL` ending in `/rpc` — it must be a base URL.
+- `VALIDATOR_SET`/`VALIDATOR_KEYS` malformed JSON — quote them as single-line
+  JSON in the env file.
 
 ## Recovery Procedures
 
-### Complete Node Recovery
+### Complete Node Recovery (follower)
 
 ```bash
-# Enhanced CLI recovery sequence
-aitbc blockchain backup --emergency
+# 1. Stop services
+systemctl stop aitbc-blockchain-rpc aitbc-blockchain-node
 
-# Stop node safely
-aitbc blockchain node stop --force
+# 2. Preserve state
+aitbc blockchain backup --chain-id <chain> --path /backup/pre-recovery.tar.gz --compress
+mv /var/lib/aitbc/data/<chain_id>/chain.db{,.bad}   # if corrupt
 
-# Reset everything
-aitbc blockchain reset --hard
+# 3. Fix env, restore or reseed genesis, then start
+systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
 
-# Restore from backup
-aitbc blockchain restore --input /backup/emergency-backup.tar.gz --verify
-
-# Start node
-aitbc blockchain node start
-
-# Monitor recovery
-aitbc blockchain sync --watch
-```
-
-### Emergency Procedures
-
-```bash
-# Emergency stop
-aitbc blockchain node stop --emergency
-
-# Emergency backup
-aitbc blockchain backup --emergency --compress
-
-# Emergency reset
-aitbc blockchain reset --emergency
-
-# Emergency recovery
-aitbc blockchain recover --from-backup /backup/emergency.tar.gz
+# 4. Watch catch-up
+journalctl -u aitbc-blockchain-node -f
+aitbc blockchain sync-status
 ```
 
 ## Best Practices
 
 ### Prevention
 
-1. **Regular monitoring** with enhanced CLI tools
-2. **Automated backups** using enhanced backup options
-3. **Configuration validation** before changes
-4. **Performance monitoring** for early detection
-5. **Network diagnostics** for connectivity issues
-
-### Maintenance
-
-1. **Weekly diagnostics** with `aitbc blockchain diagnose --full`
-2. **Monthly backups** with verification
-3. **Quarterly performance reviews**
-4. **Configuration audits**
-5. **Security scans**
+1. **Watch `journalctl -u aitbc-blockchain-node` after every config change**
+2. **Back up chain DBs** before upgrades (`aitbc blockchain backup --verify`)
+3. **Keep env files minimal** — one spelling per key, no stale vars
+4. **Alert on height lag** via the coordinator's metrics/alerts pipeline
+   (see [7_monitoring.md](./7_monitoring.md))
 
 ### Troubleshooting Workflow
 
-1. **Run diagnostics**: `aitbc blockchain diagnose --full`
-2. **Check logs**: `aitbc blockchain logs --level error --follow`
-3. **Verify configuration**: `aitbc blockchain config validate`
-4. **Test connectivity**: `aitbc blockchain test-connectivity`
-5. **Apply fixes**: Use enhanced CLI commands
-6. **Monitor recovery**: `aitbc blockchain status --watch`
-
-## Integration with Support
-
-### Export Diagnostic Data
-
-```bash
-# Export full diagnostic report
-aitbc blockchain diagnose --full --export /tmp/diagnostic-report.json
-
-# Export logs for support
-aitbc blockchain logs --export /tmp/support-logs.tar.gz --compress
-
-# Export configuration
-aitbc blockchain config export --output /tmp/config-backup.yaml
-```
-
-### Support Commands
-
-```bash
-# Generate support bundle
-aitbc blockchain support-bundle --output /tmp/support-bundle.tar.gz
-
-# System information
-aitbc blockchain system-info --export /tmp/system-info.json
-
-# Performance report
-aitbc blockchain metrics --report --output /tmp/performance-report.json
-```
-
-## Legacy Command Equivalents
-
-For users transitioning from legacy commands:
-
-```bash
-# Old → New
-tail -f ~/.aitbc/logs/chain.log → aitbc blockchain logs --follow
-aitbc-chain validate-config → aitbc blockchain config validate
-aitbc-chain reset --hard → aitbc blockchain reset --hard
-aitbc-chain p2p connections → aitbc blockchain peers --status connected
-```
+1. `systemctl status` — is it running?
+2. `journalctl -u aitbc-blockchain-node -p err` — what does it say?
+3. `curl /rpc/status` + `aitbc blockchain sync-status` — where is the chain?
+4. Fix env → `systemctl restart` → watch the journal.
 
 ## Next
 
 - [Operations](./3_operations.md) — Day-to-day operations
 - [Configuration](./2_configuration.md) — Node configuration
-- Enhanced CLI — Complete CLI reference
 - [Monitoring](./7_monitoring.md) — Monitoring and alerting

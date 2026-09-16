@@ -2,433 +2,149 @@
 
 > **Important:** This document describes the WebSocket API endpoints. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
-The AITBC platform provides WebSocket endpoints for real-time updates on job status, blockchain events, and marketplace activities.
+The AITBC blockchain node exposes exactly **two** WebSocket endpoints, both mounted under `/rpc` on the blockchain node (default port `8202`):
 
-## Overview
+| Endpoint | Purpose | Authentication |
+|---|---|---|
+| `WS /rpc/subscribe/ws` | Follower-node block subscription push channel | Prior lease from `POST /rpc/subscribe` (peer key) |
+| `WS /rpc/gossip/ws?topic=<topic>` | Bidirectional gossip pub/sub bridged into the node's gossip broker | Signed validator challenge for restricted topics |
 
-WebSocket connections provide real-time, bidirectional communication with the AITBC services. This is particularly useful for:
-
-- Monitoring job status changes
-- Receiving blockchain event notifications
-- Tracking marketplace offers and transactions
-- Real-time system health monitoring
+> The coordinator-api (port 8203) and the marketplace service (port 8102) expose **no** WebSocket endpoints. Job status is polled over REST (`GET /v1/jobs/{job_id}`).
+>
+> There is no `?api_key=` query-parameter authentication on either WebSocket endpoint. `POST /rpc/subscribe` is authenticated with the `X-API-Key` header (peer key) and the gossip socket authenticates with an in-band signed challenge — see below.
 
 ## Connection URLs
 
-> **Note:** Port assignments below represent designed configuration. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
+- Development: `ws://localhost:8202/rpc/subscribe/ws` and `ws://localhost:8202/rpc/gossip/ws?topic=<topic>`
+- Production (public hub, via nginx): `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` and `wss://hub.aitbc.bubuit.net/rpc/gossip/ws?topic=<topic>`
 
-### Coordinator API WebSocket
+The raw `http://hub.aitbc.bubuit.net:8202` address is internal-only; external clients go through the nginx TLS endpoint.
 
-- Development: `ws://localhost:8203/v1/jobs/{job_id}/ws`
-- Production: `wss://aitbc.bubuit.net/api/v1/jobs/{job_id}/ws`
+## Block subscription — `WS /rpc/subscribe/ws`
 
-### Blockchain API WebSocket
+This is the channel follower nodes use to receive pushed blocks. The WebSocket alone is **not** sufficient — the server validates that the connecting `node_id` holds a valid lease, which is created out-of-band over REST first.
 
-- Development: `ws://localhost:8202/v1/events`
-- Production: `wss://aitbc.bubuit.net/api/v1/events`
+### Step 1 — acquire a lease
 
-### Marketplace WebSocket
-
-- Development: `ws://localhost:8102/v1/events`
-- Production: `wss://aitbc.bubuit.net/api/v1/events`
-
-## Authentication
-
-WebSocket connections require authentication via query parameters:
-
-```
-ws://localhost:8203/v1/jobs/{job_id}/ws?api_key=<YOUR_API_KEY>
+```bash
+curl -X POST https://hub.aitbc.bubuit.net/rpc/subscribe \
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: <PEER_KEY>" \
+  -d '{"node_id": "<your-node-id>", "chain_id": "ait-hub.aitbc.bubuit.net", "transport": "websocket"}'
 ```
 
-Alternatively, use the `X-Api-Key` header during the WebSocket handshake.
+`X-API-Key` must be the node's own RPC key or one of the peer keys listed in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` environment variable. Without a valid key the subscribe call returns `403`.
 
-## Job Status WebSocket
+Leases are extended with `POST /rpc/heartbeat` (same peer-key auth). The current lease status can be checked with `GET /rpc/lease/{node_id}`.
 
-### Endpoint
+### Step 2 — connect and identify
 
+```python
+import asyncio
+import json
+import websockets
+
+async def follow_blocks(node_id: str, chain_id: str):
+    uri = "wss://hub.aitbc.bubuit.net/rpc/subscribe/ws"
+
+    async with websockets.connect(uri) as websocket:
+        # First message MUST be the subscription handshake.
+        await websocket.send(json.dumps({
+            "node_id": node_id,
+            "chain_id": chain_id,
+            "transport": "websocket",
+        }))
+
+        async for message in websocket:
+            data = json.loads(message)
+            if data.get("status") == "subscribed":
+                print("Subscribed:", data)
+            elif data.get("type") == "ping":
+                continue  # server heartbeat every ~20s
+            elif "error" in data:
+                print("Server error:", data["error"])
+                break
+            else:
+                print("New block:", data.get("height", data))
+
+asyncio.run(follow_blocks("my-node-1", "ait-hub.aitbc.bubuit.net"))
 ```
-ws://localhost:8203/v1/jobs/{job_id}/ws
-```
 
-### Message Format
+Protocol details (from `apps/blockchain-node/src/aitbc_chain/rpc/websocket.py`):
 
-Status updates are sent as JSON messages:
+- The first client message must be JSON with `node_id` (required), `chain_id` (defaults to the node's own `CHAIN_ID`), and `transport` (`"websocket"`).
+- If no valid lease exists for `(node_id, chain_id)` the server sends `{"error": "No valid lease found. Register subscription first via POST /rpc/subscribe"}` and closes with code `1008`.
+- On success the server replies `{"status": "subscribed", ...}` and forwards every message published on the `blocks.<chain_id>` gossip topic.
+- The server sends `{"type": "ping", "timestamp": ...}` every 20 seconds; there is no required client pong message.
+
+## Gossip — `WS /rpc/gossip/ws?topic=<topic>`
+
+A bidirectional channel bridged into the node's internal gossip broker. Used by validators to exchange consensus traffic and available to anyone for subscribing.
+
+### Topics
+
+- **Restricted** (publish requires validator authentication): `blocks`, `pbft`, `consensus`, and any dotted sub-topic such as `blocks.ait-hub.aitbc.bubuit.net`.
+- **Public** (anyone may publish, still rate-limited): `transactions`, `status`, `mempool`, and any dotted sub-topic.
+- Any other topic: subscribing is possible, but publishing is rejected unless the connection is validator-authenticated.
+
+### Validator authentication handshake
+
+When `GOSSIP_AUTH_ENABLED=true` (default) and the topic is restricted, the server sends an auth challenge immediately after accepting the connection:
 
 ```json
-{
-  "job_id": "abc123",
-  "state": "RUNNING",
-  "assigned_miner_id": "miner-456",
-  "timestamp": "2026-05-11T10:00:00Z",
-  "progress": 0.5
-}
+{"type": "auth_challenge", "challenge": "<uuid>", "timestamp": 1720000000.0}
 ```
 
-### States
+The client signs `{"challenge": ..., "address": ..., "timestamp": ...}` with its validator secp256k1 key (the consensus-signing scheme) and replies:
 
-- `QUEUED` - Job waiting for miner assignment
-- `RUNNING` - Job currently processing
-- `COMPLETED` - Job finished successfully
-- `FAILED` - Job failed with error
-- `CANCELLED` - Job cancelled by user
-- `EXPIRED` - Job exceeded TTL
+```json
+{"type": "auth_response", "address": "0x...", "challenge": "<uuid>", "timestamp": 1720000000.0, "signature": "0x..."}
+```
+
+The server verifies that the address is in `VALIDATOR_SET`, that the challenge matches, that the timestamp is within `GOSSIP_AUTH_CHALLENGE_TTL` (default 60 s), and that the signature is valid. On success it answers `{"type": "auth_ok", "address": "0x..."}`; on failure it sends an `{"error": ...}` message and closes with code `1008`.
 
 ### Example (Python)
 
 ```python
 import asyncio
-import websockets
 import json
+import websockets
 
-async def monitor_job(job_id: str, api_key: str):
-    uri = f"ws://localhost:8203/v1/jobs/{job_id}/ws?api_key={api_key}"
-
+async def watch_mempool():
+    uri = "ws://localhost:8202/rpc/gossip/ws?topic=mempool"
     async with websockets.connect(uri) as websocket:
         async for message in websocket:
             data = json.loads(message)
-            print(f"State: {data['state']}")
-            print(f"Progress: {data.get('progress', 0)}")
+            print(data)
 
-            if data['state'] in ['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED']:
-                break
-
-asyncio.run(monitor_job("job-id", "<YOUR_API_KEY>"))
+asyncio.run(watch_mempool())
 ```
 
-### Example (JavaScript)
+### Limits (server-enforced, configurable via env)
 
-```javascript
-const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws?api_key=<YOUR_API_KEY>');
+| Env var | Default | Effect |
+|---|---|---|
+| `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP` | `32` | Excess connections from one source IP are closed with `1008` |
+| `GOSSIP_MAX_MESSAGES_PER_MINUTE` | `2000` | Per `(client_ip, topic)` publish rate; excess messages get `{"error": "Rate limit exceeded"}` |
+| `GOSSIP_MAX_MESSAGE_SIZE` | `1048576` (1 MiB) | Larger messages get `{"error": "Message too large"}` and close `1009` |
+| `GOSSIP_AUTH_CHALLENGE_TTL` | `60.0` | Seconds a validator challenge stays valid |
 
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-  console.log(`State: ${data.state}`);
-  console.log(`Progress: ${data.progress || 0}`);
+Additionally, a client-to-server message is expected within each 60-second window; the server replies with a `{"type": "ping"}` keepalive on timeout rather than disconnecting.
 
-  if (['COMPLETED', 'FAILED', 'CANCELLED', 'EXPIRED'].includes(data.state)) {
-    ws.close();
-  }
-};
+## Connection management
 
-ws.onerror = (error) => {
-  console.error('WebSocket error:', error);
-};
+The same general guidance applies: implement reconnection with exponential backoff, handle `websockets.exceptions.ConnectionClosed`, and log the connection lifecycle. For `/rpc/subscribe/ws`, remember to re-register (`POST /rpc/subscribe`) or heartbeat (`POST /rpc/heartbeat`) when the server reports an expired lease — reconnecting the socket without a valid lease is immediately rejected.
 
-ws.onclose = () => {
-  console.log('WebSocket connection closed');
-};
-```
+## Security considerations
 
-### Example (cURL with websocat)
-
-```bash
-websocat ws://localhost:8203/v1/jobs/job-id/ws?api_key=<YOUR_API_KEY>
-```
-
-## Blockchain Events WebSocket
-
-### Endpoint — Blockchain Events WebSocket
-
-```
-ws://localhost:8202/v1/events
-```
-
-### Message Format — Blockchain Events WebSocket
-
-Blockchain events are sent as JSON messages:
-
-```json
-{
-  "type": "new_block",
-  "block": {
-    "height": 12346,
-    "hash": "0x...",
-    "timestamp": "2026-05-11T10:00:00Z",
-    "transactions": []
-  }
-}
-```
-
-### Event Types
-
-- `new_block` - New block mined
-- `transaction_confirmed` - Transaction confirmed
-- `transaction_pending` - Transaction submitted to mempool
-- `fork_detected` - Blockchain fork detected
-- `sync_status` - Node sync status update
-
-### Example (Python) — Blockchain Events WebSocket
-
-```python
-import asyncio
-import websockets
-import json
-
-async def monitor_blockchain():
-    uri = "ws://localhost:8202/v1/events"
-
-    async with websockets.connect(uri) as websocket:
-        async for message in websocket:
-            data = json.loads(message)
-
-            if data['type'] == 'new_block':
-                print(f"New block: {data['block']['height']}")
-            elif data['type'] == 'transaction_confirmed':
-                print(f"Transaction confirmed: {data['tx_hash']}")
-
-asyncio.run(monitor_blockchain())
-```
-
-### Example (JavaScript) — Blockchain Events WebSocket
-
-```javascript
-const ws = new WebSocket('ws://localhost:8202/v1/events');
-
-ws.onmessage = (event) => {
-  const data = JSON.parse(event.data);
-
-  switch (data.type) {
-    case 'new_block':
-      console.log(`New block: ${data.block.height}`);
-      break;
-    case 'transaction_confirmed':
-      console.log(`Transaction confirmed: ${data.tx_hash}`);
-      break;
-    default:
-      console.log(`Unknown event type: ${data.type}`);
-  }
-};
-```
-
-## Marketplace WebSocket — WebSocket API Documentation
-
-### Endpoint — Marketplace WebSocket
-
-```
-ws://localhost:8102/v1/events
-```
-
-### Message Format — Marketplace WebSocket
-
-Marketplace events are sent as JSON messages:
-
-```json
-{
-  "type": "new_offer",
-  "offer": {
-    "id": "offer-123",
-    "gpu_type": "nvidia-rtx-3090",
-    "gpu_memory": 24,
-    "price_per_hour": 0.5,
-    "currency": "AITBC"
-  }
-}
-```
-
-### Event Types — Marketplace WebSocket
-
-- `new_offer` - New GPU offer posted
-- `offer_matched` - Offer matched with job
-- `offer_expired` - Offer expired
-- `offer_cancelled` - Offer cancelled by provider
-- `price_update` - Offer price updated
-
-### Example (Python) — Marketplace WebSocket
-
-```python
-import asyncio
-import websockets
-import json
-
-async def monitor_marketplace():
-    uri = "ws://localhost:8102/v1/events"
-
-    async with websockets.connect(uri) as websocket:
-        async for message in websocket:
-            data = json.loads(message)
-
-            if data['type'] == 'new_offer':
-                offer = data['offer']
-                print(f"New offer: {offer['gpu_type']}, {offer['gpu_memory']}GB, ${offer['price_per_hour']}/hr")
-
-asyncio.run(monitor_marketplace())
-```
-
-## Connection Management
-
-### Heartbeat
-
-WebSocket connections should send periodic heartbeat messages to keep the connection alive:
-
-```python
-import asyncio
-import websockets
-
-async def send_heartbeat(websocket, interval=30):
-    while True:
-        try:
-            await websocket.send(json.dumps({"type": "ping"}))
-            await asyncio.sleep(interval)
-        except:
-            break
-```
-
-### Reconnection Logic
-
-Implement automatic reconnection with exponential backoff:
-
-```python
-import asyncio
-import websockets
-
-async def connect_with_retry(uri, max_retries=5):
-    retry_delay = 1
-
-    for attempt in range(max_retries):
-        try:
-            async with websockets.connect(uri) as websocket:
-                return websocket
-        except:
-            if attempt < max_retries - 1:
-                await asyncio.sleep(retry_delay)
-                retry_delay *= 2
-            else:
-                raise
-```
-
-### Error Handling
-
-Handle common WebSocket errors:
-
-```python
-async def handle_websocket_errors(websocket):
-    try:
-        async for message in websocket:
-            # Process message
-            pass
-    except websockets.exceptions.ConnectionClosed:
-        print("Connection closed")
-    except websockets.exceptions.WebSocketException as e:
-        print(f"WebSocket error: {e}")
-    except Exception as e:
-        print(f"Unexpected error: {e}")
-```
-
-## Security Considerations
-
-### Use WSS in Production
-
-Always use secure WebSocket connections (`wss://`) in production:
-
-```javascript
-// Production
-const ws = new WebSocket('wss://aitbc.bubuit.net/api/v1/jobs/job-id/ws');
-
-// Development only
-const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws');
-```
-
-### API Key Protection
-
-- Never expose API keys in client-side code
-- Use environment variables or secure token storage
-- Rotate API keys regularly
-- Implement rate limiting on WebSocket connections
-
-### Origin Validation
-
-The server validates the `Origin` header to prevent CSRF attacks. Ensure your client sends the correct origin:
-
-```javascript
-const ws = new WebSocket('ws://localhost:8203/v1/jobs/job-id/ws', [], {
-  headers: {
-    'Origin': 'https://your-domain.com'
-  }
-});
-```
-
-## Rate Limiting
-
-WebSocket connections are rate limited:
-
-- Maximum connections per IP: 10
-- Maximum messages per second: 100
-- Connection duration limit: 24 hours
-
-Exceeding limits will result in connection termination.
-
-## Testing
-
-### Python Testing
-
-```python
-import pytest
-import asyncio
-import websockets
-
-@pytest.mark.asyncio
-async def test_job_websocket():
-    uri = "ws://localhost:8203/v1/jobs/test-job/ws?api_key=test-key"
-
-    async with websockets.connect(uri) as websocket:
-        message = await websocket.recv()
-        data = json.loads(message)
-        assert 'state' in data
-```
-
-### JavaScript Testing
-
-```javascript
-import { describe, it, expect, vi } from 'vitest';
-
-describe('WebSocket', () => {
-  it('should connect to job WebSocket', async () => {
-    const WebSocket = vi.fn();
-    WebSocket.mockReturnValueOnce({
-      onmessage: vi.fn(),
-      onerror: vi.fn(),
-      onclose: vi.fn()
-    });
-
-    const ws = new WebSocket('ws://localhost:8203/v1/jobs/test/ws');
-    expect(WebSocket).toHaveBeenCalledWith('ws://localhost:8203/v1/jobs/test/ws');
-  });
-});
-```
+- Use `wss://` in production. The public endpoint is `wss://hub.aitbc.bubuit.net/rpc/...` behind nginx TLS termination.
+- Keep peer keys and validator private keys out of client-side code and out of the repo.
+- A peer key only ever unlocks lease management (`/rpc/subscribe`, `/rpc/heartbeat`, lease revocation); it does not authorize governance, chain control, or settlement routes.
 
 ## Troubleshooting
 
-### Connection Refused
-
-- Check if the service is running
-- Verify the URL and port are correct
-- Check firewall rules
-
-### Authentication Failed
-
-- Verify API key is valid
-- Check API key is passed correctly (query parameter or header)
-- Ensure API key has required permissions
-
-### Connection Drops
-
-- Check network stability
-- Implement reconnection logic
-- Verify server logs for errors
-
-### No Messages Received
-
-- Verify event subscription
-- Check if events are being generated
-- Monitor server logs
-
-## Best Practices
-
-1. **Always implement reconnection logic** - Network connections can be unstable
-2. **Use exponential backoff** - Don't flood the server with reconnection attempts
-3. **Clean up connections** - Close WebSocket connections when no longer needed
-4. **Handle errors gracefully** - Provide user feedback for connection issues
-5. **Rate limit client-side** - Don't send messages faster than the server can handle
-6. **Use message queuing** - Buffer messages if the connection is temporarily unavailable
-7. **Monitor connection health** - Implement heartbeat/ping-pong mechanism
-8. **Log connection events** - Track connection lifecycle for debugging
+- **`{"error": "No valid lease found..."}` on `/rpc/subscribe/ws`** — register first via `POST /rpc/subscribe` with a valid peer key, or renew via `POST /rpc/heartbeat`.
+- **Closed with `1008` on `/rpc/gossip/ws`** — missing `?topic=` parameter, per-IP connection cap hit, or a failed/missing validator auth on a restricted topic.
+- **Closed with `1009`** — message exceeded `GOSSIP_MAX_MESSAGE_SIZE` (default 1 MiB).
+- **`{"error": "Not a validator"}`** — the `address` in `auth_response` is not in the node's `VALIDATOR_SET`.
+- **Connection refused on `:8202`** — that port is internal-only; use the nginx `wss://hub.aitbc.bubuit.net/rpc/...` path.

@@ -1,50 +1,92 @@
 # Node Monitoring
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 
-Monitor your blockchain node performance and health.
+Monitor your blockchain node's performance and health.
 
-## Dashboard
+There is no `aitbc-chain dashboard`/`metrics`/`alert` command. Monitoring is
+built from three pieces: **journald logs**, **`/metrics` endpoints**, and the
+**`aitbc blockchain` CLI**.
+
+## Quick Checks
 
 ```bash
-aitbc-chain dashboard
+# Chain status, height, and per-chain sync state
+aitbc blockchain status
+aitbc blockchain height
+aitbc blockchain sync-status
+
+# Live chain monitor (snapshot or realtime view)
+aitbc blockchain monitor --chain-id ait-hub.aitbc.bubuit.net
+aitbc blockchain monitor --chain-id ait-hub.aitbc.bubuit.net --realtime --interval 10
+
+# Node service status
+systemctl status aitbc-blockchain-node aitbc-blockchain-rpc
 ```
 
-Shows:
+## Logs
 
-- Block height
-- Peers connected
-- Mempool size
-- CPU/Memory/GPU usage
-- Network traffic
+All blockchain units log to journald — there is no `~/.aitbc/logs` directory:
+
+```bash
+# Follow node logs
+journalctl -u aitbc-blockchain-node -f
+
+# RPC service logs
+journalctl -u aitbc-blockchain-rpc -f
+
+# Hub gossip relay (hub only)
+journalctl -u aitbc-blockchain-p2p -f
+
+# Errors from the last hour across the stack
+journalctl -u 'aitbc-blockchain-*' --since "1 hour ago" -p err
+```
+
+The node also writes a rotating file under `/var/log/aitbc/` (configured by
+`aitbc_logging`), but journald is the primary source.
 
 ## Prometheus Metrics
 
-```bash
-# Enable metrics
-aitbc-chain metrics --port 9090
-```
+### Blockchain node
 
-Available metrics:
-
-- `aitbc_block_height` - Current block height
-- `aitbc_peers_count` - Number of connected peers
-- `aitbc_mempool_size` - Transactions in mempool
-- `aitbc_block_production_time` - Block production time
-- `aitbc_cpu_usage` - CPU utilization
-- `aitbc_memory_usage` - Memory utilization
-
-## Coordinator API Metrics
-
-The coordinator API now exposes a JSON metrics endpoint for dashboard consumption in addition to the Prometheus `/metrics` endpoint.
-
-### Live JSON Metrics
+The node process (`aitbc-blockchain-node`) serves Prometheus metrics on its
+own port:
 
 ```bash
-curl http://localhost:8203/v1/metrics
+# AITBC_NODE_METRICS_PORT, default 9009
+curl -s http://localhost:9009/metrics
 ```
 
-Includes:
+The RPC app (`aitbc-blockchain-rpc`, port 8202) also exposes metrics and
+health on its own listener:
+
+```bash
+curl -s http://localhost:8202/metrics   # Prometheus text exposition
+curl -s http://localhost:8202/health    # {status, supported_chains, proposer_id, node_wallet}
+```
+
+Available metric families include `rpc_requests_total`,
+`rpc_request_duration_seconds`, `rpc_get_head_*`, `rpc_get_block_*`,
+`rpc_rate_limited_total`, plus the default process metrics.
+
+### Coordinator API
+
+The coordinator (port 8203) exposes, **at root — no `/v1` prefix**:
+
+- `GET /metrics` — live **JSON** metrics for dashboard consumption
+- `GET /prometheus` — Prometheus-compatible text exposition
+- `GET /health`, `/health/live`, `/health/ready` — health and probes
+- `GET /rate-limit-metrics` — rate limiting metrics
+- `GET /v1/metrics` — a *different* payload: coordinator/job/miner/system
+  counts used by the CLI monitor group
+
+```bash
+curl -s http://localhost:8203/metrics | jq
+curl -s http://localhost:8203/prometheus | head
+curl -s http://localhost:8203/health
+```
+
+`/metrics` includes:
 
 - API request and error counters
 - Average API response time
@@ -57,101 +99,55 @@ Includes:
 
 The web dashboard at `/opt/aitbc/website/dashboards/metrics.html` consumes:
 
-- `GET /v1/metrics` for live JSON metrics
-- `GET /v1/health` for API health-state checks
-- `GET /metrics` for Prometheus-compatible scraping
+- `GET /metrics` for live JSON metrics
+- `GET /health` for API health-state checks
+- `GET /prometheus` for Prometheus-compatible scraping
 
-## Alert Configuration
+## Alerting
 
-### Set Alerts
+Alerts are dispatched by the coordinator's alert dispatcher — configured via
+environment (`AITBC_ALERT_WEBHOOK_URL` for the webhook target), not a CLI
+command. If no webhook is configured, alerts fall back to log output.
 
-```bash
-# Low peers alert
-aitbc-chain alert --metric peers --threshold 3 --action notify
+Alert history is served by the coordinator at
+`/v1/agents/integration/production/alerts`.
 
-# High mempool alert
-aitbc-chain alert --metric mempool --threshold 5000 --action notify
-
-# Sync delay alert
-aitbc-chain alert --metric sync_delay --threshold 100 --action notify
-```
-
-### Alert Actions
-
-| Action | Description |
-|--------|-------------|
-| notify | Send notification |
-| restart | Restart node |
-| pause | Pause block production |
-
-## Log Monitoring
-
-```bash
-# Real-time logs
-aitbc-chain logs --tail
-
-# Search logs
-aitbc-chain logs --grep "error" --since "1h"
-
-# Export logs
-aitbc-chain logs --export /var/log/aitbc-chain/
-```
-
-## Health Checks
-
-```bash
-# Run health check
-aitbc-chain health
-
-# Detailed report
-aitbc-chain health --detailed
-```
-
-Checks:
-
-- Disk space
-- Memory
-- P2P connectivity
-- RPC availability
-- Database sync
+> **Admin credentials required.** Every endpoint on that router carries
+> `AdminDep`. The router was mounted on 2026-09-11; before that it was
+> imported but never passed to `include_router()`, so the paths were absent
+> from the OpenAPI schema entirely. Note that 8203 answers `401` for any
+> unauthenticated request regardless of whether the path exists, so a `401`
+> here is not evidence the route is mounted — check `/openapi.json`.
 
 ## Coordinator Metrics Verification
 
 ### Verify JSON Metrics Endpoint
 
 ```bash
-# Check live JSON metrics for dashboard consumption
-curl http://localhost:8203/v1/metrics | jq
+# Check live JSON metrics for dashboard consumption (root path, not /v1)
+curl -s http://localhost:8203/metrics | jq
 ```
 
 Expected fields:
 
-- `api_requests` - Total API request count
-- `api_errors` - Total API error count
-- `error_rate_percent` - Calculated error rate percentage
-- `avg_response_time_ms` - Average API response time
-- `cache_hit_rate_percent` - Cache hit rate percentage
-- `alerts` - Alert threshold evaluation states
-- `alert_delivery` - Alert delivery result metadata
-- `uptime_seconds` - Service uptime in seconds
+- `api_requests` — Total API request count
+- `api_errors` — Total API error count
+- `error_rate_percent` — Calculated error rate percentage
+- `avg_response_time_ms` — Average API response time
+- `cache_hit_rate_percent` — Cache hit rate percentage
+- `alerts` — Alert threshold evaluation states
+- `alert_delivery` — Alert delivery result metadata
+- `uptime_seconds` — Service uptime in seconds
 
 ### Verify Prometheus Metrics
 
 ```bash
-# Check Prometheus-compatible metrics
-curl http://localhost:8203/metrics
+# Prometheus text exposition lives under /prometheus on the coordinator
+curl -s http://localhost:8203/prometheus
+
+# The blockchain RPC serves it at /metrics instead
+curl -s http://localhost:8202/metrics
 ```
-
-### Verify Alert History
-
-Served by Coordinator API (8203) at `/v1/agents/integration/production/alerts`.
-
-> **Admin credentials required.** Every endpoint on this router carries
-> `AdminDep`. The router was mounted on 2026-09-11; before that it was
-> imported but never passed to `include_router()`, so the paths were absent
-> from the OpenAPI schema entirely. Note that 8203 answers `401` for any
-> unauthenticated request regardless of whether the path exists, so a `401`
-> here is not evidence the route is mounted -- check `/openapi.json`.
 
 ### Verify Dashboard Access
 
@@ -162,15 +158,15 @@ Served by Coordinator API (8203) at `/v1/agents/integration/production/alerts`.
 
 The dashboard polls:
 
-- `GET /v1/metrics` for live JSON metrics
-- `GET /v1/health` for API health-state checks
-- `GET /metrics` for Prometheus-compatible scraping
+- `GET /metrics` for live JSON metrics
+- `GET /health` for API health-state checks
+- `GET /prometheus` for Prometheus-compatible scraping
 
 ## Troubleshooting
 
 ### Metrics Not Updating
 
-If `/v1/metrics` shows stale or zeroed metrics:
+If `/metrics` shows stale or zeroed metrics:
 
 1. **Check middleware is active**
    - Verify request metrics middleware is registered in `app/main.py`
@@ -212,8 +208,8 @@ If alerts are not being delivered:
 If the metrics dashboard is not displaying data:
 
 1. **Check API endpoints are accessible**
-   - Verify `/v1/metrics` returns valid JSON
-   - Verify `/v1/health` returns healthy status
+   - Verify `/metrics` returns valid JSON
+   - Verify `/health` returns healthy status
    - Check browser console for CORS or network errors
 
 2. **Check dashboard file path**
@@ -242,7 +238,7 @@ If alerts should trigger but do not:
 
 3. **Check alert evaluation logic**
    - Verify `get_alert_states()` is called during metrics collection
-   - Check that alert states are included in `/v1/metrics` response
+   - Check that alert states are included in `/metrics` response
 
 ## Next
 

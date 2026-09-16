@@ -40,13 +40,15 @@ aitbc genesis sync-from-hub --force \
 ```bash
 ln -sf /opt/aitbc/apps/blockchain-node/aitbc-blockchain-node.service /etc/systemd/system/
 ln -sf /opt/aitbc/apps/blockchain-node/aitbc-blockchain-rpc.service /etc/systemd/system/
-ln -sf /opt/aitbc/apps/blockchain-node/aitbc-blockchain-p2p.service /etc/systemd/system/
 systemctl daemon-reload
 
-systemctl start aitbc-blockchain-p2p
 systemctl start aitbc-blockchain-node
 systemctl start aitbc-blockchain-rpc
 ```
+
+> `aitbc-blockchain-p2p` (the gossip relay on port 7070) is **hub-only** —
+> do not link or start it on followers; they receive blocks via the
+> lease-based subscription over the hub's RPC endpoint.
 
 6. **Sync chain:**
 ```bash

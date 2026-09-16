@@ -7,12 +7,17 @@ This document provides comprehensive cURL examples for interacting with the AITB
 ## Common Headers
 
 ```bash
-# Set API key header
-export API_KEY="<YOUR_API_KEY>"
+# Coordinator customer auth: Bearer JWT from the wallet-signed login flow
+# (POST /v1/auth/nonce -> POST /v1/login returns session_token)
+export JWT="<YOUR_JWT>"
 export BASE_URL="http://localhost:8203"
 
-# Common curl command pattern
-curl -H "X-Api-Key: $API_KEY" $BASE_URL/v1/endpoint
+# Common curl command pattern (coordinator)
+curl -H "Authorization: Bearer $JWT" $BASE_URL/v1/endpoint
+
+# Service/legacy callers (and miner routes) may instead use:
+#   -H "X-Api-Key: <key>"
+# Blockchain RPC mutations use:  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY"
 ```
 
 ## Coordinator API Examples
@@ -167,20 +172,24 @@ curl "$BLOCKCHAIN_URL/v1/blocks-range?start=12340&end=12350"
 #### Get Transaction
 
 ```bash
-curl $BLOCKCHAIN_URL/v1/transaction/{tx_hash}
+curl $BLOCKCHAIN_URL/rpc/transaction/{tx_hash}
 ```
 
 #### Submit Transaction
 
+The transaction schema is `{chain_id?, from, to, amount, fee, nonce, type, payload, signature}` — integer `amount`/`fee` in compute-units, `nonce` equal to the sender's account nonce, and `signature` over the whole body. There are no `value`/`gas`/`data` fields.
+
 ```bash
-curl -X POST $BLOCKCHAIN_URL/v1/transaction \
+curl -X POST $BLOCKCHAIN_URL/rpc/transaction \
   -H "Content-Type: application/json" \
   -d '{
     "from": "0x...",
     "to": "0x...",
-    "value": 1000,
-    "gas": 21000,
-    "data": "0x...",
+    "amount": 1000,
+    "fee": 1,
+    "nonce": 7,
+    "type": "TRANSFER",
+    "payload": {"to": "0x...", "amount": 1000},
     "signature": "0x..."
   }'
 ```
@@ -190,38 +199,28 @@ curl -X POST $BLOCKCHAIN_URL/v1/transaction \
 #### Get Network Info
 
 ```bash
-curl $BLOCKCHAIN_URL/v1/network
+curl $BLOCKCHAIN_URL/rpc/network-info
 ```
 
-#### Get Peers
+#### Get Subscribers (Peers)
 
 ```bash
-curl $BLOCKCHAIN_URL/v1/network/peers
+curl $BLOCKCHAIN_URL/rpc/subscribers
 ```
 
 ### Smart Contract Operations
 
 #### Call Contract (Read-only)
 
+Contract calls go through `POST /rpc/contracts/call` (also mounted at `/v1/contracts/call`) with the contract address in the body — there is no per-address `/v1/contracts/{address}/call` route.
+
 ```bash
-curl -X POST $BLOCKCHAIN_URL/v1/contracts/{address}/call \
+curl -X POST $BLOCKCHAIN_URL/v1/contracts/call \
   -H "Content-Type: application/json" \
   -d '{
+    "address": "0x...",
     "method": "balanceOf",
-    "args": ["0x..."]
-  }'
-```
-
-#### Send Transaction to Contract (State-changing)
-
-```bash
-curl -X POST $BLOCKCHAIN_URL/v1/contracts/{address}/transact \
-  -H "Content-Type: application/json" \
-  -d '{
-    "method": "transfer",
-    "args": ["0x...", 1000],
-    "gas": 100000,
-    "value": 0
+    "params": {"account": "0x..."}
   }'
 ```
 
@@ -350,9 +349,16 @@ curl -H "X-Api-Key: $API_KEY" \
 
 ### WebSocket Testing
 
+The coordinator-api has **no** WebSocket endpoints — job status is polled via `GET /v1/jobs/{job_id}`. The blockchain node has two WebSocket endpoints (see [websocket.md](../websocket.md)):
+
 ```bash
-# Test WebSocket connection (requires websocat)
-websocat ws://localhost:8203/v1/jobs/{job_id}/ws
+# Follower block subscription — requires a lease first:
+#   curl -X POST $BLOCKCHAIN_URL/rpc/subscribe -H "X-API-Key: $PEER_KEY" -d '{"node_id": "...", "chain_id": "..."}'
+# then connect and send {"node_id": "...", "chain_id": "...", "transport": "websocket"}
+websocat ws://localhost:8202/rpc/subscribe/ws
+
+# Public gossip topic (subscribe-only without validator auth)
+websocat "ws://localhost:8202/rpc/gossip/ws?topic=mempool"
 ```
 
 ## Configuration Files
@@ -360,8 +366,8 @@ websocat ws://localhost:8203/v1/jobs/{job_id}/ws
 ### .curlrc Configuration
 
 ```bash
-# ~/.curlrc
-header = "X-Api-Key: <YOUR_API_KEY>"
+# ~/.curlrc  (coordinator calls)
+header = "Authorization: Bearer <YOUR_JWT>"
 header = "Content-Type: application/json"
 silent = false
 show-error = true
@@ -371,7 +377,7 @@ show-error = true
 
 ```bash
 # ~/.bashrc or ~/.zshrc
-export AITBC_API_KEY="<YOUR_API_KEY>"
+export AITBC_JWT="<YOUR_JWT>"
 export AITBC_BASE_URL="http://localhost:8203"
 export AITBC_BLOCKCHAIN_URL="http://localhost:8202"
 ```

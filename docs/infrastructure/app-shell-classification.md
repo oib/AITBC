@@ -19,7 +19,7 @@ This document classifies app shells and thin services in the AITBC repository.
 
 | Service | Status | Reason | Action |
 |---------|--------|--------|--------|
-| `marketplace-service-debug` | **REMOVE** | Debug variant without pyproject.toml; redundant given marketplace-service exists | Remove directory |
+| `marketplace-debug` | **REMOVE** | Debug variant without pyproject.toml; redundant given marketplace-service exists | Remove directory |
 
 ### Non-Existent
 
@@ -47,16 +47,16 @@ This document classifies app shells and thin services in the AITBC repository.
 
 - **Purpose**: Production GPU marketplace service
 - **Contents**: FastAPI app with marketplace operations
-- **Location**: `/opt/aitbc/apps/marketplace-service/`
+- **Location**: `/opt/aitbc/apps/marketplace/`
 
 ## Actions Taken
 
 - [x] Classified `shared-domain` as ACTIVE
 - [x] Classified `shared-core` as ACTIVE
 - [x] Classified `marketplace-service` as ACTIVE
-- [x] Classified `marketplace-service-debug` for removal
+- [x] Classified `marketplace-debug` for removal
 - [x] Documented `docs/enterprise` as active documentation
-- [ ] Remove `marketplace-service-debug` directory
+- [ ] Remove `marketplace-debug` directory
 
 ## References
 
