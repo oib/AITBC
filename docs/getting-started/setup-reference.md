@@ -49,10 +49,13 @@ To join an existing AITBC hub (e.g., `https://hub.aitbc.bubuit.net`) as a follow
 git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
-# 2. Download hub configuration
+# 2. Install hub configuration (provisioned out of band)
+# The hub serves no public bootstrap endpoints: /agent/blockchain.env and
+# /agent/genesis.json return 404 by design (V23-58). Obtain both files from
+# the hub operator over an authenticated channel, then:
 mkdir -p /etc/aitbc
-curl https://hub.aitbc.bubuit.net/agent/blockchain.env -o /etc/aitbc/blockchain.env
-curl https://hub.aitbc.bubuit.net/agent/genesis.json -o /etc/aitbc/genesis.json
+install -m 0600 /path/from/operator/blockchain.env /etc/aitbc/blockchain.env
+install -m 0600 /path/from/operator/genesis.json   /etc/aitbc/genesis.json
 # blockchain-secrets.env is NOT published (V23-58) -- blockchain-node does not read it.
 # Only if this host also runs wallet / agent-coordinator, copy it from the hub:
 #   scp hub:/etc/aitbc/blockchain-secrets.env /etc/aitbc/ && chmod 600 /etc/aitbc/blockchain-secrets.env

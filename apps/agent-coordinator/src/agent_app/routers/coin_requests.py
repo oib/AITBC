@@ -58,11 +58,12 @@ def _require_api_key(x_api_key: str | None) -> None:
 
     Two keys open these two endpoints, and the difference is the point (V23-68).
 
-    `FOLLOWER_API_KEY` is meant to be published — it goes in the public bootstrap file that
-    every island reads, so anyone at all can hold it. It is safe to publish only because it
-    reaches nothing but `/register` and `/execute`, and neither of those will pay outside the
-    hub's own coin-request policy: `/execute` takes the amount and destination from the stored row,
-    and `/register` writes rows the policy has ruled on.
+    `FOLLOWER_API_KEY` is meant to be widely held — the hub operator provisions it to every
+    follower via the node's `blockchain.env` (there is no public bootstrap endpoint; V23-58).
+    It is safe to distribute only because it reaches nothing but `/register` and `/execute`,
+    and neither of those will pay outside the hub's own coin-request policy: `/execute` takes
+    the amount and destination from the stored row, and `/register` writes rows the policy
+    has ruled on.
 
     `COORDINATOR_API_KEY` is not that kind of key, whatever its name suggests. It also
     authenticates the agent WebSocket, where `agent_id` is a query parameter and the key is

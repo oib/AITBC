@@ -41,7 +41,7 @@ def test_process_env_wins(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -
     monkeypatch.setenv("HUB_DISCOVERY_URL", "hub.example.net")
 
     assert hub_discovery_host() == "hub.example.net"
-    assert hub_agent_url() == "https://hub.example.net/api/v1/agent"
+    assert hub_agent_url() == "https://hub.example.net/agent"
     assert hub_exchange_url() == "https://hub.example.net/exchange"
 
 
@@ -66,9 +66,19 @@ def test_scheme_is_stripped_from_discovery_host(isolated_env: Path, monkeypatch:
 
 
 def test_explicit_agent_url_is_kept_as_a_base(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
-    monkeypatch.setenv("HUB_AGENT_URL", "https://hub.example.net/api/v1/agent/")
+    monkeypatch.setenv("HUB_AGENT_URL", "https://hub.example.net/agent/")
 
-    assert hub_agent_url() == "https://hub.example.net/api/v1/agent"
+    assert hub_agent_url() == "https://hub.example.net/agent"
+
+
+def test_hermes_url_is_not_the_agent_coordinator(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:
+    """HUB_HERMES_URL names the Hermes runner service (/api/v1/hermes), not the
+    agent-coordinator — consulting it resolved agent calls at the wrong service
+    on nodes that set it (hub1). It is ignored now; discovery still applies."""
+    monkeypatch.setenv("HUB_HERMES_URL", "https://hub1.example.net/api/v1/hermes")
+    monkeypatch.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+
+    assert hub_agent_url() == "https://hub.example.net/agent"
 
 
 def test_coordinator_url_defaults_to_public_c_mount(isolated_env: Path, monkeypatch: pytest.MonkeyPatch) -> None:

@@ -46,7 +46,7 @@ class TestAgentApiBase:
     def test_hub_discovery_url_from_env_builds_the_agent_base(self, clean_env):
         clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
 
-        assert _agent_api_base() == "https://hub.example.net/api/v1/agent"
+        assert _agent_api_base() == "https://hub.example.net/agent"
 
     def test_the_default_is_never_a_local_port(self, clean_env):
         clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
@@ -70,14 +70,21 @@ class TestAgentApiBase:
 
     def test_a_local_origin_beats_the_hub_base(self, clean_env):
         clean_env.setenv("AGENT_COORDINATOR_URL", "http://localhost:8107")
-        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/api/v1/agent")
+        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/agent")
 
         assert _agent_api_base() == "http://localhost:8107/api/v1/agent"
 
     def test_the_hub_base_is_used_prefix_and_all(self, clean_env):
-        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/api/v1/agent")
+        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/agent")
 
-        assert _agent_api_base() == "https://hub.example.net/api/v1/agent"
+        assert _agent_api_base() == "https://hub.example.net/agent"
+
+    def test_hub_hermes_url_is_not_an_agent_base(self, clean_env):
+        """HUB_HERMES_URL names the Hermes runner, not the agent-coordinator."""
+        clean_env.setenv("HUB_HERMES_URL", "https://hub.example.net/api/v1/hermes")
+        clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")
+
+        assert _agent_api_base() == "https://hub.example.net/agent"
 
     def test_trailing_slashes_do_not_double_up(self, clean_env):
         clean_env.setenv("AGENT_COORDINATOR_URL", "http://localhost:8107/")
@@ -85,22 +92,22 @@ class TestAgentApiBase:
         assert _agent_api_base() == "http://localhost:8107/api/v1/agent"
 
         clean_env.delenv("AGENT_COORDINATOR_URL")
-        clean_env.setenv("HUB_HERMES_URL", "https://hub.example.net/api/v1/agent/")
+        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/agent/")
 
-        assert _agent_api_base() == "https://hub.example.net/api/v1/agent"
+        assert _agent_api_base() == "https://hub.example.net/agent"
 
 
 class TestSendAgentNotification:
     """What actually goes over the wire."""
 
     def test_it_posts_to_the_resolved_url(self, clean_env):
-        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/api/v1/agent")
+        clean_env.setenv("HUB_AGENT_URL", "https://hub.example.net/agent")
 
         with patch("aitbc_cli.commands.coin_requests.requests.post") as post:
             post.return_value.status_code = 200
             send_agent_notification("agent-b", "approved")
 
-        assert post.call_args.args[0] == "https://hub.example.net/api/v1/agent/messages/send"
+        assert post.call_args.args[0] == "https://hub.example.net/agent/messages/send"
 
     def test_a_hub_credential_is_sent(self, clean_env):
         clean_env.setenv("HUB_DISCOVERY_URL", "hub.example.net")

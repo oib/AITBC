@@ -1,24 +1,28 @@
 #!/bin/bash
 # Reset an AITBC follower to the current fork chain database.
 #
-# This script is intended for the post-fork AITBC chain. The hub exposes a
-# consistent, read-only SQLite snapshot of the fork database at /agent/chain.db.
-# The local chain database is replaced with that snapshot and the follower starts
-# from the fork head (which may already contain the genesis and several blocks).
+# This script is intended for the post-fork AITBC chain. The local chain
+# database is replaced with a consistent snapshot of the fork database and the
+# follower starts from the fork head (which may already contain the genesis and
+# several blocks).
+#
+# The hub does NOT serve a public /agent/chain.db endpoint (V23-58). The
+# snapshot must come from an operator-provided source:
+#   - a local file:        CHAIN_DB_FILE=/path/to/chain.db
+#   - an authenticated URL: CHAIN_DB_URL=https://operator-endpoint/chain.db
 #
 # Usage (run as root on the follower):
-#   sudo bash reset-follower-to-genesis.sh
-#
-# Override the source with CHAIN_DB_URL or a local CHAIN_DB_FILE:
-#   CHAIN_DB_FILE=/path/to/chain.db bash reset-follower-to-genesis.sh
+#   sudo CHAIN_DB_FILE=/path/to/chain.db bash reset-follower-to-genesis.sh
 #
 # Set STATE_TRANSITION_V2_HEIGHT=0 unless already configured.
 
 set -euo pipefail
 
 CHAIN_ID="${CHAIN_ID:-ait-hub.aitbc.bubuit.net}"
-HUB="${HUB:-hub.aitbc.bubuit.net}"
-CHAIN_DB_URL="${CHAIN_DB_URL:-http://${HUB}/agent/chain.db}"
+# No default download URL: the hub does not publish a public chain.db. Set
+# CHAIN_DB_URL to an operator-provided (authenticated) snapshot endpoint, or
+# pass a local CHAIN_DB_FILE instead.
+CHAIN_DB_URL="${CHAIN_DB_URL:-}"
 CHAIN_DB_FILE="${CHAIN_DB_FILE:-}"
 DB_DIR="${DB_DIR:-/var/lib/aitbc/data}"
 DB="${DB_DIR}/${CHAIN_ID}/chain.db"
@@ -33,8 +37,14 @@ for unit in $UNITS; do
     fi
 done
 
-# Download the fork chain DB from the hub unless a local file is provided.
+# Download the fork chain DB unless a local file is provided.
 if [ -z "$CHAIN_DB_FILE" ]; then
+    if [ -z "$CHAIN_DB_URL" ]; then
+        echo "No chain DB source: set CHAIN_DB_FILE=/path/to/chain.db or" >&2
+        echo "CHAIN_DB_URL=<operator-provided snapshot URL>." >&2
+        echo "The hub does not serve a public /agent/chain.db (V23-58)." >&2
+        exit 1
+    fi
     CHAIN_DB_FILE="/tmp/aitbc-chain-${CHAIN_ID}.db"
     echo "Downloading fork chain DB from $CHAIN_DB_URL"
     if ! curl -fsSL "$CHAIN_DB_URL" -o "$CHAIN_DB_FILE"; then
