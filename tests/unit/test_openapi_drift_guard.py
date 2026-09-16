@@ -190,9 +190,12 @@ def test_the_drift_script_passes_against_the_committed_specs():
 def test_the_specs_do_not_depend_on_the_environment_they_are_generated_in(tmp_path):
     """A hook whose verdict depends on the developer's shell is worse than no hook.
 
-    `DEBUG` decides what coordinator-api publishes: 38 routes -- the agent, swarm and
+    `DEBUG` decides what coordinator-api publishes: the agent and
     dashboard mocks, in-memory and unauthenticated, documented in their own source as never
-    for production -- mount only when it is set, along with `/docs` and `/redoc`. The
+    for production -- mount only when it is set, along with `/docs` and `/redoc`. (The swarm
+    mocks used to be in this set; they were removed outright — `/v1/swarm/*` now 404s in every
+    environment, and the prefix stays in the list below as a tripwire against re-introduction.)
+    The
     extractor used to inherit it, so `make openapi` produced a different spec depending on who
     ran it, and regenerating with `DEBUG=true` exported would have published mock endpoints as
     the API.
@@ -207,13 +210,15 @@ def test_the_specs_do_not_depend_on_the_environment_they_are_generated_in(tmp_pa
     assert not differing, f"these specs change with the ambient environment: {differing}"
 
 
-# The 38 routes coordinator-api mounts only when `settings.debug` is set, by the module that
+# The routes coordinator-api mounts only when `settings.debug` is set, by the module that
 # gates them. Written out rather than derived by generating with DEBUG on and diffing: that
 # difference is empty precisely when someone has removed a gate, which is the regression this
 # is here to catch, so it would pass at the moment it mattered.
 _DEBUG_ONLY_ROUTES = {
     # contexts/agent_coordination/routers/agent_messaging.py -- "Only enable mock endpoints
-    # if debug mode is set"; in production the module exports an empty router.
+    # if debug mode is set"; in production the module exports an empty router. The `/v1/swarm/`
+    # prefix no longer resolves even under DEBUG (mock handlers removed); it stays listed so a
+    # future swarm implementation can never slip into the published spec unreviewed.
     "prefixes": ("/v1/agent/", "/v1/swarm/", "/_debug"),
     # contexts/infrastructure/routers/monitor.py -- the whole router body is under the gate.
     "exact": ("/v1/dashboard", "/v1/dashboard/history", "/v1/miners", "/v1/swarm"),
