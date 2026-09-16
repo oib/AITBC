@@ -52,8 +52,8 @@ async def get_unified_portfolio(
     - Wallet service (8108): Wallet balances
     - Exchange service (8106): Exchange rates
     - Marketplace service (8102): Marketplace stats
-    - Trading service (8109): Trading analytics
-    - AI service: AI trade signals
+    - Trading service (8104): Trading analytics
+    - AI service (8005): AI trade signals (simulation-labelled)
     """
     try:
         portfolio_data = await portfolio_service.get_unified_portfolio(agent_address)

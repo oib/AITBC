@@ -12,7 +12,7 @@ Agent-to-agent messaging on the the network uses the **Agent Coordinator** micro
 Follower                              Hub
   │                                    │
   │  WebSocket connect                 │
-  │  ws(s)://hub/agent/api/v1/agent/   │
+  │  ws(s)://hub/agent/                │
   │  messages/stream?agent_id=follower │
   │ ─────────────────────────────────> │
   │                                    │
@@ -44,7 +44,7 @@ Follower                              Hub
 ## Prerequisites
 
 - Agent Coordinator running on the hub (port 8107)
-- Nginx `/agent/` location proxying WebSocket to port 8107 (see `examples/nginx/nginx-aitbc.conf`)
+- Nginx `/agent/` mount proxying to port 8107 (see `examples/nginx/nginx-aitbc.conf.example`)
 - Network connectivity to the hub
 
 ## Ping a Remote Agent
@@ -88,7 +88,7 @@ PONG received from hub-coordinator
 import asyncio, json, websockets
 
 async def ping():
-    uri = "wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=my-follower"
+    uri = "wss://hub.aitbc.bubuit.net/agent/messages/stream?agent_id=my-follower"
     async with websockets.connect(uri) as ws:
         await ws.recv()  # consume connection_established
 
@@ -157,6 +157,10 @@ Handlers are registered at startup in `apps/agent-coordinator/src/agent_app/webs
 
 ## WebSocket Endpoints
 
+Direct-service paths (port 8107); through the hub's nginx they are reachable
+under the `/agent/` mount without the `/api/v1/agent/` prefix — e.g.
+`wss://<hub>/agent/messages/stream`:
+
 | Endpoint | Protocol | Description |
 |----------|----------|-------------|
 | `/api/v1/agent/messages/stream?agent_id=<ID>` | WebSocket | Real-time message stream with handler triggering |
@@ -165,28 +169,31 @@ Handlers are registered at startup in `apps/agent-coordinator/src/agent_app/webs
 
 ## Nginx Configuration
 
-The hub's nginx must proxy WebSocket connections to port 8107 with upgrade headers:
+The hub's nginx mounts the agent-coordinator under `/agent/` and maps each
+public resource onto the app's internal `/api/v1/agent/` namespace. WebSocket
+routes need upgrade headers:
 
 ```nginx
 upstream agent_coordinator {
     server localhost:8107;
 }
 
-location /agent/ {
-    proxy_pass http://agent_coordinator/;
-    proxy_set_header Host $host;
-    proxy_set_header X-Real-IP $remote_addr;
-    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-    proxy_set_header X-Forwarded-Proto $scheme;
-    # WebSocket support
+location /agent/messages/stream {
+    proxy_pass http://agent_coordinator/api/v1/agent/messages/stream;
     proxy_http_version 1.1;
     proxy_set_header Upgrade $http_upgrade;
     proxy_set_header Connection "upgrade";
-    proxy_read_timeout 86400s;
+    proxy_set_header Host $host;
+    proxy_read_timeout 3600s;
 }
 ```
 
-See `examples/nginx/nginx-aitbc.conf` for the complete configuration.
+The legacy doubled form `/agent/api/v1/agent/...` (the `/agent/` mount stacked
+on the app's own `/api/v1/agent/` router prefix) stays proxied for backward
+compatibility — configured `agent_coordinator_url=https://<hub>/agent` clients
+append the full internal path themselves.
+
+See `examples/nginx/nginx-aitbc.conf.example` for the complete configuration.
 
 ## Troubleshooting
 
@@ -194,10 +201,10 @@ See `examples/nginx/nginx-aitbc.conf` for the complete configuration.
 
 ```bash
 # Check if Agent Coordinator is running on the hub
-curl http://hub.aitbc.bubuit.net/agent/health
+curl https://hub.aitbc.bubuit.net/health
 
 # Check WebSocket status endpoint
-curl http://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
+curl https://hub.aitbc.bubuit.net/agent/ws/status
 ```
 
 ### No PONG Received
@@ -211,7 +218,7 @@ aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent --time
 
 # Check if nginx is proxying WebSocket correctly
 curl -v -H "Upgrade: websocket" -H "Connection: Upgrade" \
-  https://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
+  https://hub.aitbc.bubuit.net/agent/ws/status
 ```
 
 ### Port Reference
