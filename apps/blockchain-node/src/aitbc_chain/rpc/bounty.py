@@ -15,7 +15,7 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account
 from ..protocol_escrow import bounty_escrow_address, confirmed_lock_total, queue_protocol_transfer
-from .agent_economics_auth import require_int, require_operator_signature
+from .agent_economics_auth import operator_address, require_int, require_operator_signature
 from .utils import get_chain_id, validate_chain_id
 
 _logger = get_logger(__name__)
@@ -107,6 +107,7 @@ async def deploy_bounty(request: Request, body: dict[str, Any]) -> dict[str, Any
         chain_id=chain_id,
         tx_type="BOUNTY_LOCK",
         payload={"bounty_id": str(bounty_id)},
+        auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     _logger.info("Bounty lock queued: %s amount=%s creator=%s tx=%s", bounty_id, amount, creator, tx_hash)
     result["transaction_hash"] = tx_hash
@@ -203,6 +204,7 @@ async def verify_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
             chain_id=chain_id,
             tx_type="BOUNTY_PAYOUT",
             payload={"bounty_id": str(bounty_id), "submission_id": str(submission_id)},
+            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
         )
         result["message"] = "Bounty payout submitted to mempool; the balance moves when the transaction is included in a block"
     return result
@@ -274,6 +276,7 @@ async def expire_bounty(request: Request, bounty_id: str, body: dict[str, Any]) 
             chain_id=chain_id,
             tx_type="BOUNTY_REFUND",
             payload={"bounty_id": str(bounty_id)},
+            auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
         )
         result["message"] = "Bounty refund submitted to mempool; the balance moves when the transaction is included in a block"
     return result

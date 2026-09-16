@@ -128,6 +128,47 @@ def _names_production_host(path) -> bool:  # noqa: ANN001 - pytest hands us its 
         return True
 
 
+def _rpc_api_key() -> str | None:
+    """X-API-Key for the gated /rpc routes (importBlock, subscription, …).
+
+    Env first, then the node's secrets file — verification tests run on a node
+    as root, so the file is readable there.
+    """
+    key = os.environ.get("BLOCKCHAIN_RPC_API_KEY")
+    if key:
+        return key
+    secrets = Path("/etc/aitbc/blockchain-secrets.env")
+    try:
+        for line in secrets.read_text().splitlines():
+            k, _, v = line.partition("=")
+            if k.strip() == "BLOCKCHAIN_RPC_API_KEY":
+                return v.strip().strip('"').strip("'") or None
+    except OSError:
+        pass
+    return None
+
+
+@pytest.fixture(autouse=True)
+def _inject_rpc_api_key(monkeypatch):
+    """Attach X-API-Key to every ``requests`` write aimed at the node RPC.
+
+    /rpc mutation routes are API-key gated (GAP-56); without this the
+    verification suite's importBlock/subscribe calls all 403.
+    """
+    key = _rpc_api_key()
+    if not key:
+        return
+    for method in ("post", "put", "patch", "delete"):
+        orig = getattr(requests, method)
+
+        def _wrapped(url: str, *args, _orig=orig, **kwargs):
+            headers = dict(kwargs.pop("headers", {}) or {})
+            headers.setdefault("X-API-Key", key)
+            return _orig(url, *args, headers=headers, **kwargs)
+
+        monkeypatch.setattr(requests, method, _wrapped)
+
+
 def _sends_http_writes(path) -> bool:  # noqa: ANN001 - pytest hands us its own path type
     """Whether this file's source issues an HTTP write of any kind.
 

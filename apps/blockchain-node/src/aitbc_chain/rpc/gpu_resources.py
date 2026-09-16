@@ -7,10 +7,11 @@ from decimal import Decimal
 from typing import Any
 from uuid import uuid4
 
-from fastapi import HTTPException
+from fastapi import Depends, HTTPException
 from pydantic import BaseModel, Field
 
 from ..metrics import metrics_registry
+from .escrow_routes import verify_rpc_api_key
 from .router import router
 
 
@@ -135,7 +136,12 @@ async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/gpu/register", summary="Register GPU on-chain", tags=["gpu_resources"])
+@router.post(
+    "/gpu/register",
+    summary="Register GPU on-chain",
+    tags=["gpu_resources"],
+    dependencies=[Depends(verify_rpc_api_key)],
+)
 async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Register GPU with immutable specs on blockchain."""
     # Use env var or provided chain_id
@@ -254,7 +260,12 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/gpu/allocate", summary="Allocate GPU on-chain", tags=["gpu_resources"])
+@router.post(
+    "/gpu/allocate",
+    summary="Allocate GPU on-chain",
+    tags=["gpu_resources"],
+    dependencies=[Depends(verify_rpc_api_key)],
+)
 async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Record GPU allocation on blockchain."""
     # Use env var or provided chain_id
@@ -317,7 +328,12 @@ class EdgeNodeRegistrationRequest(BaseModel):
     registered_by: str = Field(..., description="Wallet address of registrant")
 
 
-@router.post("/edge/register", summary="Register edge node on-chain", tags=["gpu_resources"])
+@router.post(
+    "/edge/register",
+    summary="Register edge node on-chain",
+    tags=["gpu_resources"],
+    dependencies=[Depends(verify_rpc_api_key)],
+)
 async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Register an edge node on the blockchain (v0.6.6)."""
     if chain_id is None:

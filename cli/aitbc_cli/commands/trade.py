@@ -33,6 +33,21 @@ def _get_client(url: str | None = None) -> AITBCHTTPClient:
     return AITBCHTTPClient(base_url=base_url, timeout=30)
 
 
+def _resolve_rpc_api_key(api_key: str | None) -> str:
+    """Resolve the blockchain RPC API key for gated settlement routes.
+
+    Order: explicit --api-key flag → CLI config / BLOCKCHAIN_RPC_API_KEY env.
+    The settlement router requires X-API-Key; fail with a clear message rather
+    than surfacing a bare 403.
+    """
+    from ..config import get_config
+
+    key = api_key or get_config().blockchain_rpc_api_key
+    if not key:
+        raise click.UsageError("Blockchain RPC API key required: pass --api-key or export BLOCKCHAIN_RPC_API_KEY")
+    return key
+
+
 @click.group(
     epilog="""Examples:
 
@@ -544,19 +559,21 @@ def _run_settlement_coro(coro):
 )
 @click.option("--trade-id", required=True, help="Trade ID to lock escrow for")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
 @click.option("--timeout", type=int, default=None, help="Escrow timeout in seconds")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def lock_escrow_cmd(ctx, trade_id, node_url, timeout, format):
+def lock_escrow_cmd(ctx, trade_id, node_url, api_key, timeout, format):
     """Lock escrow for a trade on the settlement node."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
 
         config = SettlementConfig(settlement_rpc_url=node_url)
+        rpc_key = _resolve_rpc_api_key(api_key)
 
         async def _run():
-            async with SettlementClient(config) as client:
+            async with SettlementClient(config, api_key=rpc_key) as client:
                 # Look up the trade via the trading service to get chain/sender/recipient/amount
                 http_client = _get_client()
                 trade = http_client.get(f"/v1/trading/inter-chain/{trade_id}")
@@ -591,15 +608,17 @@ def lock_escrow_cmd(ctx, trade_id, node_url, timeout, format):
 @click.option("--trade-id", required=True, help="Trade ID to settle")
 @click.option("--secret", required=True, help="HTLC secret to reveal")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def settle_cmd(ctx, trade_id, secret, node_url, format):
+def settle_cmd(ctx, trade_id, secret, node_url, api_key, format):
     """Settle a trade with a secret."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
 
         config = SettlementConfig(settlement_rpc_url=node_url)
+        rpc_key = _resolve_rpc_api_key(api_key)
 
         async def _run():
             # Look up the trade's escrow_id via the trading service
@@ -611,7 +630,7 @@ def settle_cmd(ctx, trade_id, secret, node_url, format):
             if not escrow_id:
                 error(f"Trade {trade_id} has no escrow — lock escrow first")
                 return None
-            async with SettlementClient(config) as client:
+            async with SettlementClient(config, api_key=rpc_key) as client:
                 return await client.settle(escrow_id, secret)
 
         result = _run_settlement_coro(_run())
@@ -633,15 +652,17 @@ def settle_cmd(ctx, trade_id, secret, node_url, format):
 )
 @click.option("--trade-id", required=True, help="Trade ID to check")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def settlement_status_cmd(ctx, trade_id, node_url, format):
+def settlement_status_cmd(ctx, trade_id, node_url, api_key, format):
     """Get the settlement status of a trade."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
 
         config = SettlementConfig(settlement_rpc_url=node_url)
+        rpc_key = _resolve_rpc_api_key(api_key)
 
         async def _run():
             # Look up the trade's escrow_id via the trading service
@@ -657,7 +678,7 @@ def settlement_status_cmd(ctx, trade_id, node_url, format):
                     "escrow_id": None,
                     "escrow_status": "none",
                 }
-            async with SettlementClient(config) as client:
+            async with SettlementClient(config, api_key=rpc_key) as client:
                 status = await client.get_escrow_status(escrow_id)
             return {
                 "trade_id": trade_id,
@@ -683,15 +704,17 @@ def settlement_status_cmd(ctx, trade_id, node_url, format):
 )
 @click.option("--trade-id", required=True, help="Trade ID to refund")
 @click.option("--node-url", default="http://localhost:8202", help="Blockchain node RPC URL")
+@click.option("--api-key", default=None, help="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def refund_cmd(ctx, trade_id, node_url, format):
+def refund_cmd(ctx, trade_id, node_url, api_key, format):
     """Refund a trade on the settlement node."""
     try:
         from aitbc.settlement.client import SettlementClient
         from aitbc.settlement.types import SettlementConfig
 
         config = SettlementConfig(settlement_rpc_url=node_url)
+        rpc_key = _resolve_rpc_api_key(api_key)
 
         async def _run():
             # Look up the trade's escrow_id via the trading service
@@ -702,7 +725,7 @@ def refund_cmd(ctx, trade_id, node_url, format):
             escrow_id = trade.get("escrow_id")
             if not escrow_id:
                 raise ValueError(f"Trade {trade_id} has no escrow — lock escrow first")
-            async with SettlementClient(config) as client:
+            async with SettlementClient(config, api_key=rpc_key) as client:
                 return await client.refund(escrow_id)
 
         result = _run_settlement_coro(_run())
