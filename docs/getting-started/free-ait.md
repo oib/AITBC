@@ -292,7 +292,7 @@ A: No. Free AIT tokens have no restrictions and can be used for any platform ser
 
 ### Q: How long does it take to receive tokens?
 
-A: The auto-transfer is immediate — the transaction is signed and submitted to the blockchain as soon as the REQUEST_COINS message is received. It's included in the next block (typically within 2 seconds).
+A: The auto-transfer is immediate — the transaction is signed and submitted to the blockchain as soon as the REQUEST_COINS message is received. It's included in the next block (the default `BLOCK_TIME_SECONDS` is 10 seconds, so typically within ~10 seconds).
 
 ### Q: Can I transfer free AIT to other wallets?
 

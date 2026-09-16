@@ -3,9 +3,9 @@
 **Last Updated:** June 5, 2026
 **Base URL:** `http://localhost:8102/v1/marketplace` (marketplace-service)
 **API Gateway:** `http://localhost:8201/v1/marketplace`
-**Authentication:** API Key (Bearer token)
+**Authentication:** Mixed — see below
 
-> **Note:** The legacy coordinator-api (port 8203) is deprecated. Use port 8102 directly or 8201 via the API gateway.
+> **Note:** The coordinator-api (port 8203) is **not** deprecated — it is the live job-submission and orchestration API (`POST /v1/jobs`, miner registration, receipts). This document covers the standalone marketplace-service on port 8102.
 >
 > **⚠️ DEPRECATION NOTICE (v0.4.7)**: GPU-only marketplace with bids has been deprecated. The marketplace now focuses on hardware+software bundles with fixed pricing. The bid endpoint described below is no longer supported.
 
@@ -15,15 +15,17 @@ The Marketplace API provides agent-centric endpoints for GPU resource discovery,
 
 ## Authentication
 
-### API Key Authentication
+### Mixed authentication model
 
-All endpoints require an API key for authentication:
+The marketplace-service does **not** require an API key on every endpoint. Only the admin route `POST /v1/marketplace/parameters/apply` (governance-approved parameter changes) is key-gated, via `APIKeyAuthenticator` from the shared `aitbc/auth` library:
 
 ```http
-Authorization: Bearer <api_key>
+X-Api-Key: <marketplace admin api key>
 ```
 
-API keys are obtained via the Coordinator API key management system. For agent operations, use the agent's registered API key.
+Note the header is `X-Api-Key`, **not** `Authorization: Bearer` — Bearer JWTs are the coordinator-api's customer auth scheme and are not used here. When `settings.auth_enabled` is false the dependency is a no-op; when the service's `api_key` setting is unset the gated route returns `501 API key not configured`. All other endpoints on this service are currently unauthenticated.
+
+The marketplace-service calls the blockchain node's escrow RPC with its own `BLOCKCHAIN_RPC_API_KEY` (`X-API-Key` header) — that key is service-to-service and is not a customer credential.
 
 ## Endpoints
 
@@ -68,7 +70,7 @@ Discover and filter GPU resources with intelligent ranking.
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:45`
+**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/marketplace.py`
 
 ### Transaction Execution ~~(DEPRECATED)~~
 
@@ -102,7 +104,7 @@ Discover and filter GPU resources with intelligent ranking.
 }
 ```
 
-~~**Implementation:**~~ `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/marketplace.py:120`
+~~**Implementation:**~~ `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/marketplace.py`
 
 **Current Implementation:** Use `POST /v1/marketplace/offers/{offer_id}/book` for booking hardware+software bundle offers with fixed pricing.
 
@@ -127,7 +129,7 @@ Query agent reputation and trust score.
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:23`
+**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py`
 
 #### POST /reputation/{agent_id}/update
 
@@ -154,7 +156,7 @@ Update agent reputation (internal use by marketplace service).
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py:41`
+**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py`
 
 ### Service Rating System
 
@@ -340,7 +342,7 @@ Get current market pricing data and trends.
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:18`
+**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py`
 
 #### GET /pricing/{gpu_model}
 
@@ -359,7 +361,7 @@ Get pricing for specific GPU model.
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py:35`
+**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py`
 
 ### GPU Management
 
@@ -454,45 +456,7 @@ Release a booked GPU.
 
 ## Real-Time Data Streams
 
-### WebSocket: /ws/marketplace/pricing
-
-Subscribe to real-time pricing updates.
-
-**Connection:**
-
-```javascript
-const ws = new WebSocket('ws://localhost:8203/v1/marketplace/ws/pricing');
-
-ws.onmessage = (event) => {
-  const pricing = JSON.parse(event.data);
-  console.log('Price update:', pricing);
-};
-```
-
-**Message Format:**
-
-```json
-{
-  "gpu_model": "A100",
-  "new_price": 0.18,
-  "change": 0.02,
-  "timestamp": "2026-06-02T09:00:00Z"
-}
-```
-
-### WebSocket: /ws/marketplace/resources
-
-Subscribe to resource availability updates.
-
-**Message Format:**
-
-```json
-{
-  "gpu_id": "gpu-123",
-  "status": "available",
-  "timestamp": "2026-06-02T09:00:00Z"
-}
-```
+**The marketplace-service exposes no WebSocket endpoints**, and neither does the coordinator-api. Poll `GET /v1/marketplace/status`, the offer endpoints, and `GET /v1/jobs/{job_id}` (coordinator) for updates. The only WebSocket endpoints in the platform are the blockchain node's `WS /rpc/subscribe/ws` and `WS /rpc/gossip/ws?topic=` — see [websocket.md](./websocket.md).
 
 ## Error Handling
 
@@ -518,9 +482,9 @@ All endpoints return standard error responses:
 
 ## Rate Limiting
 
-- **Default**: 100 requests per minute per API key
-- **Burst**: 10 requests per second
-- **Headers**: `X-RateLimit-Limit`, `X-RateLimit-Remaining`, `X-RateLimit-Reset`
+- **Default**: 120 requests per 60 s **per client IP** (`RateLimitMiddleware`, `rate_limit_requests`/`rate_limit_window_seconds` settings)
+- **Disable**: `AITBC_ENABLE_RATE_LIMITING=false` outside production; production cannot disable it
+- Exceeding the limit returns `429`
 
 ## SDK Coverage
 
@@ -559,18 +523,17 @@ SDK surface.
 
 ### Service Architecture
 
-- **Coordinator API** (port 8203): RESTful API endpoints
-- **Marketplace Service**: Business logic and matching
+- **Coordinator API** (port 8203): Live job-submission/orchestration REST API
+- **Marketplace Service** (port 8102): Business logic and matching
 - **Blockchain Node** (port 8202): On-chain transactions and escrow
-- **Redis**: Real-time data streams and caching
 
 ### Key Files
 
-- **API Endpoints**: `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/routers/marketplace.py`
-- **Service Layer**: `/opt/aitbc/apps/marketplace-service/src/marketplace_service/services/marketplace_service.py`
-- **Matching Engine**: `/opt/aitbc/apps/marketplace-service/src/marketplace_service/services/matching_service.py`
-- **Reputation System**: `/opt/aitbc/apps/coordinator-api/src/app/domain/reputation.py`
-- **Dynamic Pricing**: `/opt/aitbc/apps/coordinator-api/src/app/schemas/pricing.py`
+- **API Endpoints**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace.py`
+- **Service Layer**: `/opt/aitbc/apps/marketplace/src/marketplace_service/services/marketplace_service.py`
+- **Matching Engine**: `/opt/aitbc/apps/marketplace/src/marketplace_service/services/matching_service.py`
+- **Reputation System**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py`
+- **Dynamic Pricing**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py`
 
 ## Escrow Integration
 
@@ -610,7 +573,7 @@ See the full [Escrow API Reference](./escrow-api.md) for direct RPC access.
 | `aitbc-marketplace` | 8102 | Marketplace offers/bids — **production** |
 | `aitbc-blockchain-rpc` | 8202 | Blockchain transactions + escrow RPC |
 | `aitbc-api-gateway` | 8201 | Public gateway (`/v1/marketplace`, `/v1/escrow`) |
-| `aitbc-coordinator-api` | 8203 | **Legacy** — do not add features |
+| `aitbc-coordinator-api` | 8203 | Job submission/orchestration — **live production API** |
 
 ## Related Documentation
 

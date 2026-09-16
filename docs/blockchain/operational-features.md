@@ -1,6 +1,6 @@
 # Blockchain Operational Features
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 
 ## Overview
 
@@ -31,7 +31,7 @@ To enable on a node:
 2. Restart the blockchain node service:
 
    ```bash
-   systemctl restart aitbc-blockchain-p2p.service
+   systemctl restart aitbc-blockchain-node.service
    ```
 
 ### Sync Triggers
@@ -55,37 +55,52 @@ Implementation is located in:
 
 ### Overview — Force Sync
 
-Force synchronization allows manual triggering of blockchain data synchronization between nodes.
+Force synchronization lets an operator make a node reorganize to match a
+trusted peer: the node fetches the peer's `GET /rpc/export-chain` output and
+imports it through the normal validated import path.
 
 ### API Endpoints
 
 #### Trigger Force Sync
 
 ```http
-POST /rpc/force_sync
+POST /rpc/force-sync
 Content-Type: application/json
 
 {
-  "chain_id": "ait-mainnet",
-  "from_height": 1000,
-  "to_height": 2000
+  "peer_url": "https://hub.aitbc.bubuit.net",
+  "admin_address": "0x<admin address>",
+  "admin_signature": "0x<secp256k1 signature over the request>",
+  "target_height": 2000
 }
 ```
 
-#### Check Sync Status
+The request must be **admin-signed** (`verify_admin_signature`); an unsigned
+or wrongly signed body returns 403. `peer_url` must be a public `http`/`https`
+URL — loopback and private addresses are rejected. `target_height` is
+optional and bounds how much of the peer chain is accepted.
+
+#### Check Sync Configuration
+
+There is no `/rpc/sync/status` endpoint. The sync-related routes are:
 
 ```http
-GET /rpc/sync/status
+GET /rpc/sync/config
 ```
+
+which returns the node's sync optimization settings (`sync_parallel_*`,
+`sync_delta_*`, `gossip_*`). Observe progress through
+`aitbc blockchain sync-status` / `aitbc blockchain height` and
+`journalctl -u aitbc-blockchain-node -f`.
 
 ### Usage
 
 To manually trigger synchronization:
 
 ```bash
-curl -X POST http://localhost:8202/rpc/force_sync \
+curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"chain_id":"ait-mainnet","from_height":0,"to_height":1000}'
+  -d '{"peer_url":"https://hub.aitbc.bubuit.net","admin_address":"0x...","admin_signature":"0x..."}'
 ```
 
 ## Export
@@ -96,41 +111,42 @@ Export blockchain data for backup, migration, or analysis purposes.
 
 ### API Endpoints — Export
 
-#### Export Blocks
+#### Export Full Chain
 
 ```http
-POST /rpc/export/blocks
-Content-Type: application/json
-
-{
-  "chain_id": "ait-mainnet",
-  "from_height": 0,
-  "to_height": 1000
-}
+GET /rpc/export-chain?chain_id=ait-mainnet
 ```
 
-#### Export Transactions
+There are no `/rpc/export/blocks` or `/rpc/export/transactions` routes —
+`export-chain` returns the complete state in one document: `blocks`,
+`accounts`, and `transactions` for the chain, plus counts and a timestamp.
 
-```http
-POST /rpc/export/transactions
-Content-Type: application/json
+**Response:**
 
+```json
 {
-  "chain_id": "ait-mainnet",
-  "from_height": 0,
-  "to_height": 1000
+  "success": true,
+  "export_data": {
+    "chain_id": "ait-mainnet",
+    "export_timestamp": "...",
+    "block_count": 1000,
+    "account_count": 87,
+    "transaction_count": 15234,
+    "blocks": [ ... ],
+    "accounts": [ ... ],
+    "transactions": [ ... ]
+  },
+  "export_size_bytes": 12345678
 }
 ```
 
 ### Usage — Export
 
-Export blocks to file:
+Export the full chain to file:
 
 ```bash
-curl -X POST http://localhost:8202/rpc/export/blocks \
-  -H "Content-Type: application/json" \
-  -d '{"chain_id":"ait-mainnet","from_height":0,"to_height":1000}' \
-  > blocks_export.json
+curl -s "http://localhost:8202/rpc/export-chain?chain_id=ait-mainnet" \
+  > chain_export.json
 ```
 
 ## Import
@@ -141,50 +157,69 @@ Import blockchain data from exported files for node initialization or recovery.
 
 ### API Endpoints — Import
 
-#### Import Blocks
+There are no `/rpc/import/blocks`, `/rpc/import/transactions`, or
+`/rpc/import/chain` routes — the real import surface is:
+
+#### Import a Single Block
 
 ```http
-POST /rpc/import/blocks
+POST /rpc/importBlock
+X-API-Key: <key>
 Content-Type: application/json
 
 {
   "chain_id": "ait-mainnet",
-  "file": "/path/to/blocks_export.json"
+  "height": 1001,
+  "hash": "0x<64-hex>",
+  "parent_hash": "0x...",
+  "proposer": "0x...",
+  "transactions": [ ... ]
 }
 ```
 
-#### Import Transactions
+Requires a valid `X-API-Key`. The block goes through the same validated import
+path as peer sync (signature, parent linkage, state root, transaction
+application); a height or hash that already exists returns `409`.
+
+#### Import Full Chain State
 
 ```http
-POST /rpc/import/transactions
+POST /rpc/import-chain
 Content-Type: application/json
 
 {
+  "admin_address": "0x<admin address>",
+  "admin_signature": "0x<signature over the export payload>",
   "chain_id": "ait-mainnet",
-  "file": "/path/to/transactions_export.json"
+  "blocks": [ ... ],
+  "accounts": [ ... ],
+  "transactions": [ ... ]
 }
 ```
+
+The body is the `export_data` object from `GET /rpc/export-chain` plus
+**admin credentials** — `admin_address` and `admin_signature` are verified by
+`verify_admin_signature` before anything is written.
 
 ### Usage — Import
 
-Import blocks from file:
+Import a single block:
 
 ```bash
-curl -X POST http://localhost:8202/rpc/import/blocks \
+curl -X POST http://localhost:8202/rpc/importBlock \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"chain_id":"ait-mainnet","file":"/path/to/blocks_export.json"}'
+  -d @block.json
 ```
 
-### Import Chain
+Import a full chain export (admin-signed):
 
-```http
-POST /rpc/import/chain
-Content-Type: application/json
-
-{
-  "chain_id": "ait-mainnet",
-  "file": "/path/to/chain_export.json"
-}
+```bash
+jq '.export_data + {admin_address: "0x...", admin_signature: "0x..."}' \
+  chain_export.json | \
+curl -X POST http://localhost:8202/rpc/import-chain \
+  -H "Content-Type: application/json" \
+  -d @-
 ```
 
 ## Troubleshooting
@@ -198,7 +233,7 @@ Content-Type: application/json
 - Verify `auto_sync_enabled=true` in `/etc/aitbc/blockchain.env`
 - Check `auto_sync_threshold` is appropriate for your network
 - Verify blockchain node service is running
-- Check logs: `journalctl -u aitbc-blockchain-p2p.service -f`
+- Check logs: `journalctl -u aitbc-blockchain-node.service -f`
 
 ### Force Sync Failing
 
@@ -206,11 +241,15 @@ Content-Type: application/json
 
 **Solutions**:
 
-- Verify target node is accessible
-- Check chain_id matches target node
-- Verify height range is valid
+- Verify the admin signature (`admin_address` + `admin_signature`) — 403 means
+  the signature check failed
+- Verify `peer_url` is reachable and serves `GET /rpc/export-chain` (the node
+  pulls the peer's export itself)
+- `peer_url` must be public http/https — loopback/private addresses are
+  rejected with 400
+- If `target_height` is set, verify the peer actually has that many blocks
 - Check network connectivity
-- Review logs for specific error messages
+- Review logs for specific error messages: `journalctl -u aitbc-blockchain-rpc -f`
 
 ### Export Failing
 
@@ -219,8 +258,8 @@ Content-Type: application/json
 **Solutions**:
 
 - Verify sufficient disk space
-- Check chain_id exists
-- Verify height range is valid
+- Check `chain_id` exists (the export covers the whole chain — there is no
+  height-range parameter)
 - Check database connectivity
 
 ### Import Failing
@@ -229,9 +268,13 @@ Content-Type: application/json
 
 **Solutions**:
 
-- Verify export file exists and is valid JSON
-- Check chain_id matches
-- Verify file format matches expected structure
+- For `import-chain`: verify the admin signature over the payload — the
+  signature must cover the exact body being posted
+- Check `chain_id` matches a supported chain
+- Verify the payload has the `export_data` structure (`blocks`, `accounts`,
+  `transactions` arrays)
+- For `importBlock`: verify the `X-API-Key` header and block hash format
+  (`0x` + 64 hex); a `409` means the height/hash already exists
 - Check database write permissions
 - Verify import lock is not held by another process
 

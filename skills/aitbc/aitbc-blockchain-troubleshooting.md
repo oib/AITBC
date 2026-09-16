@@ -135,8 +135,8 @@ journalctl -u aitbc-blockchain-node.service | grep -i "RPC bootstrap"
 ### 3. P2P Network Problems
 ```bash
 # Check P2P node IDs
-cat /etc/aitbc/.env | grep p2p_node_id
-ssh <node1> 'cat /etc/aitbc/.env | grep p2p_node_id'
+cat /etc/aitbc/node.env | grep p2p_node_id
+ssh <node1> 'cat /etc/aitbc/node.env | grep p2p_node_id'
 
 # Generate unique node IDs if duplicates found
 /opt/aitbc/scripts/utils/generate_unique_node_ids.py
@@ -312,7 +312,7 @@ journalctl -u aitbc-miner.service -n 20 | grep -i gpu
 
 ## Common Pitfalls
 
-1. **Duplicate P2P Node IDs:** Check for duplicate p2p_node_id in `/etc/aitbc/.env` - generate unique IDs
+1. **Duplicate P2P Node IDs:** Check for duplicate p2p_node_id in `/etc/aitbc/node.env` - generate unique IDs
 2. **Btrfs CoW Corruption:** Disable CoW on `/var/lib/aitbc` with `chattr +C`
 3. **SQLite Corruption:** Enable WAL mode and check database integrity
 4. **Port Mismatches:** Coordinator API is on port 8203 (not 9001)

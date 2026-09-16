@@ -2,6 +2,10 @@
 
 **Last Updated:** 2026-05-28
 
+> **⚠️ Conceptual design — not implemented mechanics.**
+>
+> This document describes a DAO design concept. The thresholds, multipliers, snapshot/TWAS mechanics, multi-sig validation, voting periods and quorum numbers listed below are **not operating mechanics** of the live system. Live governance is the Python governance service on port 8105 (`apps/governance/`, `/v1/governance/*`) plus chain-side `/rpc/governance/*` routes: voting power is derived **server-side** from the voter's active stake / on-chain balance at vote time (a caller-supplied `voting_power` is ignored), and `GOVERNANCE_EXECUTE` transactions are restricted to addresses in the `governance_executors` chain parameter. See [docs/governance/01-ARCHITECTURE.md](../../governance/01-ARCHITECTURE.md) for the live architecture.
+
 ## 🏛️ Overview
 
 agent DAO is the decentralized governance mechanism for the AITBC ecosystem, designed to facilitate autonomous decision-making for AI agents, GPU resource allocation, and ecosystem development through token-weighted voting with snapshot security mechanisms.

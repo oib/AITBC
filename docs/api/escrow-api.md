@@ -27,7 +27,7 @@ created → funded → job_started → job_completed → released
 
 `POST /rpc/escrow/create`
 
-Lock buyer funds for a marketplace job.
+Lock buyer funds for a marketplace job. **The request must carry a buyer-signed on-chain lock**: either a fully signed `lock_tx` object, or `lock_signature` plus the lock transaction fields, for an `ESCROW_LOCK` transaction that transfers `amount` (in compute-units) from the buyer to the **node wallet** (`NODE_WALLET_ADDRESS`, advertised in `/health` as `node_wallet`). Without it the endpoint returns `400 "escrow lock is required: provide lock_tx or lock_signature"`.
 
 **Request Body:**
 
@@ -36,7 +36,10 @@ Lock buyer funds for a marketplace job.
   "job_id": "bid-abc123",
   "buyer": "0xabc1234567890abc1234567890abc123456789ab",
   "provider": "0xdef1234567890def1234567890def123456789de",
-  "amount": 100
+  "amount": 100,
+  "lock_signature": "0x...",
+  "lock_nonce": 12,
+  "lock_fee": 1
 }
 ```
 
@@ -46,6 +49,13 @@ Lock buyer funds for a marketplace job.
 | `buyer` | string | ✅ | Buyer wallet address (0x + 40 hex chars) |
 | `provider` | string | ✅ | Provider wallet address (0x + 40 hex chars) |
 | `amount` | number | ✅ | AIT tokens to lock in escrow |
+| `lock_tx` | object | ⭕ | Fully signed `ESCROW_LOCK` tx (`from`=buyer, `to`=node wallet, `amount` in compute-units, `payload` with `job_id`/`provider`). Alternative to `lock_signature` |
+| `lock_signature` | string | ⭕ | Buyer signature over the canonical lock tx; the server rebuilds the tx from `lock_nonce`/`lock_fee` (or current account nonce / computed fee) and verifies it |
+| `lock_nonce` | int | – | Nonce for the `lock_signature` form; defaults to the buyer's current account nonce |
+| `lock_fee` | int | – | Fee for the `lock_signature` form; defaults to the computed fee |
+| `energy_quote` | object | – | Signed energy quote bound into the lock payload (`energy_quote_id`/`digest`) |
+
+One of `lock_tx` or `lock_signature` is required. The server rejects locks whose `from` is not the buyer, whose `to` is not the node wallet, whose `amount` does not match, or whose payload `job_id`/`provider` mismatch — each with a specific `400`.
 
 **Response `200 OK`:**
 
@@ -57,6 +67,7 @@ Lock buyer funds for a marketplace job.
   "buyer": "0xabc1234567890abc1234567890abc123456789ab",
   "provider": "0xdef1234567890def1234567890def123456789de",
   "amount": "100",
+  "lock_tx_hash": "0x...",
   "message": "Contract created successfully"
 }
 ```
@@ -183,9 +194,11 @@ All endpoints return standard error responses:
 
 | Code | Meaning |
 |---|---|
-| `400` | Invalid input (bad address format, missing fields, invalid amount) |
+| `400` | Invalid input (bad address format, missing fields, invalid amount, missing/invalid `lock_tx`/`lock_signature`) |
+| `403` | Missing or invalid `X-API-Key` (router-level gate on every escrow route) |
 | `404` | No escrow found for the given `job_id` |
-| `503` | EscrowManager not initialised (blockchain node restarting) |
+| `409` | Escrow already locked on-chain with different parameters |
+| `503` | EscrowManager not initialised, or `BLOCKCHAIN_RPC_API_KEY` unset on the node |
 
 ---
 
@@ -208,7 +221,7 @@ aitbc market escrow refund <job_id> --reason "provider_failed"
 ## cURL Examples
 
 ```bash
-# Create escrow
+# Create escrow (lock_signature form — or pass a fully signed "lock_tx" object)
 curl -X POST http://localhost:8202/rpc/escrow/create \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
@@ -216,7 +229,10 @@ curl -X POST http://localhost:8202/rpc/escrow/create \
     "job_id": "bid-abc123",
     "buyer": "0xabc1234567890abc1234567890abc123456789ab",
     "provider": "0xdef1234567890def1234567890def123456789de",
-    "amount": 100
+    "amount": 100,
+    "lock_signature": "0x...",
+    "lock_nonce": 12,
+    "lock_fee": 1
   }'
 
 # Check state
@@ -225,7 +241,8 @@ curl http://localhost:8202/rpc/escrow/bid-abc123 \
 
 # Release to provider
 curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/release \
-  -H "Content-Type: application/json" -d '{}'
+  -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" -d '{}'
 
 # Refund buyer
 curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/refund \
@@ -263,6 +280,6 @@ aitbc-blockchain-rpc (port 8202)
 |---|---|
 | Route handlers | `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py` |
 | EscrowManager | `apps/blockchain-node/src/aitbc_chain/contracts/escrow.py` |
-| DB model | `apps/blockchain-node/src/aitbc_chain/base_models.py:176` |
-| Marketplace trigger | `apps/marketplace-service/src/marketplace_service/services/marketplace_service.py` |
-| CLI commands | `cli/aitbc_cli/commands/market.py` |
+| DB model | `apps/blockchain-node/src/aitbc_chain/base_models.py` (`class Escrow`, ~line 263) |
+| Marketplace trigger | `apps/marketplace/src/marketplace_service/services/marketplace_service.py` |
+| CLI commands | `cli/aitbc_cli/commands/market/` package (`escrow.py` et al.) |

@@ -39,10 +39,10 @@ Two distinct networking layers:
 1. **Internal gossip** (Redis pub/sub) — Used by the blockchain node process to broadcast blocks/transactions to other services on the same machine (wallet, marketplace, etc.) via `GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379`
 
 2. **External block subscription** (HTTP + WebSocket over RPC) — Followers receive blocks from the hub via the lease-based subscription system:
-   - Follower registers via `POST /rpc/subscribe` on the hub's RPC endpoint
+   - Follower registers via `POST /rpc/subscribe` on the hub's RPC endpoint (peer key via `X-API-Key`, enrolled in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS`)
    - Hub pushes blocks via WebSocket on `/rpc/subscribe/ws`
-   - Follower sends periodic heartbeats to maintain the lease
-   - Falls back to periodic pull sync (`POST /rpc/sync`) if subscription fails
+   - Follower sends periodic heartbeats (`POST /rpc/heartbeat`) to maintain the lease
+   - When no lease is held the node catches up with automatic pull-sync (bulk pull from `default_peer_rpc_url`) — there is no `POST /rpc/sync` endpoint. A deliberate operator reorg uses the admin-signed `POST /rpc/force-sync`.
 
 3. **Gossip relay** (`aitbc-blockchain-p2p`, port 7070, hub-only) — A Starlette WebSocket server that bridges the internal Redis gossip to external peers. Followers do **not** connect to this service; they use the subscription system over the hub's RPC endpoint.
 
@@ -66,23 +66,35 @@ The blockchain node exposes both REST and WebSocket APIs for interaction.
 
 ### REST Endpoints
 
-`GET /rpc/get_head`
-Get the latest block header
+`GET /rpc/head`
+Get the latest block header (`/rpc/chain/head` alias; `/rpc/height` returns the height only)
 
-`POST /rpc/send_tx`
-Submit a new transaction
+`POST /rpc/transaction`
+Submit a new signed transaction — body `{chain_id?, from, to, amount, fee, nonce, type, payload, signature}`
 
-`GET /rpc/get_balance/{address}`
-Get account balance
+`GET /rpc/transaction/{tx_hash}`
+Look up a transaction by hash (path parameter)
 
-`GET /rpc/get_block/{height}`
-Get block by height
+`GET /rpc/balance/{address}`
+Get account balance breakdown
+
+`GET /rpc/blocks/{height}`
+Get block by height (`/rpc/block/{height}` singular alias)
+
+`GET /rpc/network-info`
+Network/join information (chain ID, role, subscription and gossip WebSocket URLs)
+
+`GET /rpc/subscribers`
+List nodes holding a valid subscription lease
+
+The same router is also mounted under `/v1`, so `/v1/blocks/{height}` etc. work too. Admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/importBlock`, `/rpc/chains/*`) require `X-API-Key`; `POST /rpc/transaction` and `POST /rpc/staking/stake` are signature-verified in the request body instead.
 
 ### WebSocket Subscriptions
 
-- `/rpc/subscribe/ws` - Lease-based block push to subscribed followers (hub → follower)
-- `/rpc/blocks` - Real-time block stream (public)
-- `/rpc/transactions` - Transaction pool updates (public)
+- `/rpc/subscribe/ws` — Lease-based block push to subscribed followers (hub → follower). Requires a prior lease from `POST /rpc/subscribe`; the first client message must be `{"node_id", "chain_id", "transport": "websocket"}`.
+- `/rpc/gossip/ws?topic=<topic>` — Bidirectional gossip bridged into the node's gossip broker. Public topics (`transactions`, `status`, `mempool` + sub-topics) are publishable by anyone (rate-limited); restricted topics (`blocks`, `pbft`, `consensus` + sub-topics) require a signed validator challenge. Caps: `GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=32`, `GOSSIP_MAX_MESSAGES_PER_MINUTE=2000`, `GOSSIP_MAX_MESSAGE_SIZE=1 MiB`.
+
+There are no other WebSocket endpoints — no `/rpc/blocks` or `/rpc/transactions` streams.
 
 ## Configuration
 
@@ -91,21 +103,36 @@ The node can be configured via environment variables or configuration file.
 ### Key Settings
 
 ```bash
-# Database
-DATABASE_URL=sqlite:///blockchain.db
+# Chain identity
+CHAIN_ID=ait-hub.aitbc.bubuit.net
+SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net   # defaults to CHAIN_ID
+
+# Database — per-chain SQLite at $AITBC_DATA_DIR/data/<chain_id>/chain.db
+# (e.g. /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db). No single
+# "blockchain.db" file exists.
+AITBC_DATA_DIR=/var/lib/aitbc
 
 # Network
-RPC_HOST=0.0.0.0
-RPC_PORT=8202
-WS_PORT=9081
+RPC_BIND_HOST=0.0.0.0
+RPC_BIND_PORT=8202
 
-# Consensus
-CONSENSUS_MODE=poa
-VALIDATOR_ADDRESS=0x...
-BLOCK_TIME=1s
+# Consensus / block production
+PROPOSER_ID=0x...                          # proposer identity of this node
+ENABLE_BLOCK_PRODUCTION=true               # false on followers
+BLOCK_TIME_SECONDS=10                      # default block interval
 
-# Observability
-METRICS_PORT=9090
+# Subscription (followers)
+DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net
+SUBSCRIPTION_ENABLED=true
+SUBSCRIPTION_TRANSPORT=websocket
+
+# Gossip limits
+GOSSIP_MAX_CONCURRENT_CONNECTIONS_PER_IP=32
+GOSSIP_MAX_MESSAGES_PER_MINUTE=2000
+GOSSIP_MAX_MESSAGE_SIZE=1048576
+
+# Observability — Prometheus exporter port (the app also serves /metrics on 8202)
+AITBC_NODE_METRICS_PORT=9009
 LOG_LEVEL=info
 ```
 
@@ -135,7 +162,7 @@ sudo systemctl start aitbc-blockchain-node
 
 ### Prometheus Metrics
 
-Available at `http://localhost:9090/metrics`
+Available on the metrics exporter at `http://localhost:9009/metrics` (`AITBC_NODE_METRICS_PORT`, default `9009`); the RPC app also serves `GET /metrics` on port `8202`.
 
 Key metrics:
 
@@ -147,11 +174,15 @@ Key metrics:
 ### Health Checks
 
 ```bash
-# Node status
+# Node status (also reports node_wallet for escrow locks)
 curl http://localhost:8202/health
 
-# Sync status
-curl http://localhost:8202/sync_status
+# Sync optimization config
+curl http://localhost:8202/rpc/sync/config
+
+# Detailed per-chain sync state (optional SyncManager status server,
+# disabled by default; enable with SYNC_MANAGER_HTTP_ENABLED=true)
+curl http://localhost:8204/sync/status   # check-ports: ignore
 ```
 
 ## Troubleshooting
@@ -159,7 +190,8 @@ curl http://localhost:8202/sync_status
 ### Common Issues
 
 1. **Node not syncing**
-   - Check peer connections: `curl /rpc/peers`
+   - Check subscription leases: `curl http://localhost:8202/rpc/subscribers`
+   - Check lease status for this node: `curl http://localhost:8202/rpc/lease/{node_id}`
    - Verify network connectivity
    - Check logs for consensus errors
 
@@ -176,8 +208,8 @@ curl http://localhost:8202/sync_status
 ### Building from Source
 
 ```bash
-git clone https://github.com/aitbc/blockchain
-cd blockchain
+git clone https://github.com/oib/AITBC.git
+cd AITBC/apps/blockchain-node
 pip install -e .
 ```
 

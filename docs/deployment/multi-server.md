@@ -42,50 +42,64 @@ This guide covers deploying AITBC across multiple servers for high availability 
 
 ## Setup Steps
 
-### 1. Configure Network
+Every node runs the same installer — `scripts/deployment/setup.sh` — and gets
+its service set from three node-profile variables written to
+`/etc/aitbc/blockchain.env`:
+
+- `BLOCKCHAIN_MODE` — `hub` (produces blocks) or `follower` (receives blocks)
+- `MARKET_ROLE` — `customer` or `shop` (provides GPU)
+- `HARDWARE_PROFILE` — `nogpu` or `gpu`
+
+There is no etcd dependency and no per-service setup scripts; roles compose
+into concrete units (see [setup-service-selection](../getting-started/setup-service-selection.md)).
+
+### 1. Provision each node
 
 ```bash
-# On each node, configure network
-apt install -y etcd
-systemctl enable etcd
-systemctl start etcd
-```
-
-### 2. Deploy Blockchain Node
-
-```bash
-# On blockchain node
-apt install -y nvidia-cuda-toolkit
+# On every node
 git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
-./scripts/setup/blockchain.sh
+./scripts/deployment/setup.sh        # interactive role prompts
+# or non-interactively:
+BLOCKCHAIN_MODE=follower MARKET_ROLE=customer ./scripts/deployment/setup.sh
 ```
 
-### 3. Deploy Coordinator API
+### 2. Hub node
 
 ```bash
-# On coordinator node
-git clone https://github.com/oib/AITBC.git /opt/aitbc
-cd /opt/aitbc
-./scripts/setup/coordinator.sh
+BLOCKCHAIN_MODE=hub MARKET_ROLE=customer ./scripts/deployment/setup.sh
 ```
 
-### 4. Deploy Marketplace Service
+Runs `aitbc-blockchain-p2p` (gossip relay), `aitbc-coordinator-api`,
+`aitbc-api-gateway`, `aitbc-marketplace`, `aitbc-exchange`, and the
+agent-coordinator in addition to the base units.
+
+### 3. Follower nodes
 
 ```bash
-# On marketplace node
-git clone https://github.com/oib/AITBC.git /opt/aitbc
-cd /opt/aitbc
-./scripts/setup/marketplace.sh
+BLOCKCHAIN_MODE=follower MARKET_ROLE=customer ./scripts/deployment/setup.sh
 ```
 
-### 5. Configure Database Cluster
+Followers need outbound HTTPS to the hub only — they subscribe for blocks
+via `POST /rpc/subscribe` (the node's `BLOCKCHAIN_RPC_API_KEY` must be listed
+in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS`) and receive pushes on
+`WS /rpc/subscribe/ws`. No inbound service ports are required.
+
+### 4. Shop nodes (GPU providers)
 
 ```bash
-# On database node
-apt install -y postgresql redis-server
--u postgres psql -c "CREATE DATABASE aitbc;"
+BLOCKCHAIN_MODE=follower MARKET_ROLE=shop HARDWARE_PROFILE=gpu ./scripts/deployment/setup.sh
 ```
+
+Adds `aitbc-gpu`, `aitbc-miner`, `aitbc-edge`, `aitbc-pool-hub`, and
+`aitbc-marketplace` on top of the follower set.
+
+### 5. Datastores
+
+Chain state is SQLite at `/var/lib/aitbc/data/<chain-id>/chain.db` — no
+external database is required for the chain itself. PostgreSQL/Redis are used
+only by specific services (e.g. `MEMPOOL_DB_URL` for the database mempool
+backend, gossip/sync transports); provision them per service env file.
 
 ## See Also
 

@@ -107,22 +107,24 @@ All systemd service files moved from `systemd/` to `apps/<service>/` on 2026-05-
 |---------|-------------|------|
 | Blockchain Node | `apps/blockchain-node/aitbc-blockchain-node.service` | -- |
 | Blockchain RPC | `apps/blockchain-node/aitbc-blockchain-rpc.service` | 8202 |
-| Blockchain P2P | `apps/blockchain-node/aitbc-blockchain-p2p.service` | 7070 |
-| Blockchain Sync | `apps/blockchain-node/aitbc-blockchain-sync.service` | -- |
+| Blockchain P2P (hub only) | `apps/blockchain-node/aitbc-blockchain-p2p.service` | 7070 |
 | Coordinator API | `apps/coordinator-api/aitbc-coordinator-api.service` | 8203 |
 | Wallet | `apps/wallet/aitbc-wallet.service` | 8108 |
-| Exchange API | `apps/exchange/aitbc-exchange-api.service` | 8106 |
+| Exchange | `apps/exchange/aitbc-exchange.service` | 8106 |
 | AI Engine | `apps/ai-engine/aitbc-ai.service` | 8005 |
 | AI Learning | `apps/ai-engine/aitbc-learning.service` | 8012 |
 | Multimodal | `apps/ai-engine/aitbc-multimodal.service` | 8020 |
-| GPU Service | `apps/gpu-service/aitbc-gpu.service` | 8101 |
-| Explorer | `apps/blockchain-explorer/aitbc-explorer.service` | 8100 |
-| Marketplace | `apps/marketplace-service/aitbc-marketplace.service` | 8102 |
+| GPU Service | `apps/gpu/aitbc-gpu.service` | 8101 |
+| Explorer | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | 8100 |
+| Marketplace | `apps/marketplace/aitbc-marketplace.service` | 8102 |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` | 8107 |
-| Agent | `apps/agent/aitbc-agent.service` | -- |
+| Hermes Agent | `apps/hermes_agent/aitbc-hermes-agent.service` | -- |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` | 8205 |
-| Plugin | `scripts/utils/aitbc-plugin.service` | -- |
-| Monitoring | `scripts/monitoring/aitbc-monitoring.service` | 8002 |
+| Monitoring | `apps/monitoring-service/aitbc-monitoring.service` | 8002 |
+
+> **Removed:** `aitbc-blockchain-sync.service`, `apps/agent/aitbc-agent.service`,
+> and `scripts/utils/aitbc-plugin.service` no longer exist. Sync runs inside
+> `aitbc-blockchain-node` via lease subscription.
 
 > **Removed:** `apps/agent-management` no longer exists in the checkout. Agent registry/SDK and lifecycle functionality now live in the CLI (`aitbc agent`, `cli/aitbc_cli/commands/agent_sdk.py`) and `apps/agent-coordinator`. There is no `aitbc-agent-registry.service` to deploy.
 
@@ -191,7 +193,7 @@ systemctl start aitbc-blockchain-p2p
 # Start API services
 systemctl start aitbc-coordinator-api
 systemctl start aitbc-wallet
-systemctl start aitbc-exchange-api
+systemctl start aitbc-exchange
 
 # Check status
 systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc aitbc-coordinator-api
