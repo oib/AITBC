@@ -34,12 +34,9 @@ class TestMonitorEndpoints:
     """Test monitor router endpoints."""
 
     def test_get_dashboard(self, coordinator_client: TestClient):
-        """Test getting monitoring dashboard data."""
+        """The debug-gated mock dashboard was removed — pin the honest 404."""
         response = coordinator_client.get("/v1/dashboard")
-        assert response.status_code in (200, 404)
-        if response.status_code == 200:
-            data = response.json()
-            assert isinstance(data, dict)
+        assert response.status_code == 404
 
 
 class TestMonitoringEndpoints:
