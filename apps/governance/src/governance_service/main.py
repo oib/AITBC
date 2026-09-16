@@ -8,7 +8,7 @@ from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Annotated, Any
 
-from fastapi import Depends, FastAPI
+from fastapi import Body, Depends, FastAPI
 from fastapi.responses import JSONResponse
 from pydantic import BaseModel
 from sqlalchemy import text
@@ -455,10 +455,12 @@ async def execute_proposal_v2(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
     executor_address: str = "",
+    body: dict[str, Any] | None = Body(default=None),
 ):
     """Execute a passed proposal (v0.4.12 enhanced with logging + v0.7.3 on-chain submission)"""
+    signed_tx = (body or {}).get("signed_tx")
     try:
-        proposal = await svc.execute_proposal(proposal_id, executor_address=executor_address)
+        proposal = await svc.execute_proposal(proposal_id, executor_address=executor_address, signed_tx=signed_tx)
         if not proposal:
             return JSONResponse(status_code=404, content={"error": "Proposal not found"})
         return {
