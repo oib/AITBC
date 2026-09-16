@@ -25,7 +25,7 @@
 
 ## C
 
-- **CLI**: Command Line Interface - The aitbc-cli tool for interacting with the AITBC blockchain and services
+- **CLI**: Command Line Interface - The `aitbc` tool for interacting with the AITBC blockchain and services
 - **Consensus**: The mechanism by which blockchain nodes agree on the state of the blockchain
 - **Coordinator API**: REST API service for coordinating agent operations and managing system-wide resources
 - **Cross-Chain**: Operations involving multiple blockchain networks or islands

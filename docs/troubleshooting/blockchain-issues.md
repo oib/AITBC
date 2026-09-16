@@ -13,14 +13,14 @@ This guide covers blockchain node problems including sync issues, forks, and P2P
 **Diagnosis:**
 
 ```bash
-# Check sync status
-curl http://localhost:8202/v1/network
+# Check node/sync status
+curl http://localhost:8202/rpc/status
 
-# Check peer connections
-curl http://localhost:8202/v1/network/peers
+# Check registered push-sync subscribers (on the proposer)
+curl http://localhost:8202/rpc/subscribers
 
 # Check blockchain logs
-journalctl -u aitbc-blockchain -n 50
+journalctl -u aitbc-blockchain-node -n 50
 ```
 
 **Solutions:**
@@ -32,7 +32,7 @@ journalctl -u aitbc-blockchain -n 50
 echo "BOOTSTRAP_PEERS=peer1.example.com:8080,peer2.example.com:8080" >> /etc/aitbc/blockchain.env  # check-ports: ignore
 
 # Restart service
-systemctl restart aitbc-blockchain
+systemctl restart aitbc-blockchain-node
 ```
 
 1. Check network connectivity
@@ -49,13 +49,13 @@ ufw status
 
 ```bash
 # Stop service
-systemctl stop aitbc-blockchain
+systemctl stop aitbc-blockchain-node
 
 # Backup data
-mv /var/lib/aitbc/blockchain /var/lib/aitbc/blockchain.backup
+mv /opt/aitbc/data/aitbc-chain.db /opt/aitbc/data/aitbc-chain.db.backup
 
 # Start service
-systemctl start aitbc-blockchain
+systemctl start aitbc-blockchain-node
 ```
 
 ## Fork Detected
@@ -69,35 +69,31 @@ systemctl start aitbc-blockchain
 **Diagnosis:**
 
 ```bash
-# Check blockchain height
-curl http://localhost:8202/v1/blocks/head
+# Check blockchain height (the /v1 mount aliases /rpc)
+curl http://localhost:8202/rpc/head
 
-# Check for forks
-curl http://localhost:8202/v1/blocks/forks
+# Compare with the proposer
+curl http://hub.aitbc.bubuit.net:8202/rpc/head
 ```
 
 **Solutions:**
 
-1. Choose correct fork
+1. Reorg onto the proposer's chain
 
 ```bash
-# Revert to correct height
-curl -X POST http://localhost:8202/v1/admin/revert \
+# Force-sync is admin-signed (verify_admin_signature), not API-key gated
+curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"height": 12345}'
+  -d '{"peer_url": "http://hub.aitbc.bubuit.net:8202", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
-1. Restart with clean state
+1. Last resort — resync from scratch (destroys local chain state)
 
 ```bash
-# Stop service
-systemctl stop aitbc-blockchain
-
-# Clear blockchain data
-rm -rf /var/lib/aitbc/blockchain
-
-# Start service
-systemctl start aitbc-blockchain
+systemctl stop aitbc-blockchain-node aitbc-blockchain-rpc
+mv /opt/aitbc/data/aitbc-chain.db /opt/aitbc/data/aitbc-chain.db.forked
+systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
+# the node re-syncs from the proposer via subscription/pull sync
 ```
 
 ## See Also

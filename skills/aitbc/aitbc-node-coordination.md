@@ -45,7 +45,7 @@ ssh <node1> 'systemctl list-units --state=running | grep aitbc'
 source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # Check P2P network
 ss -tlnp | grep 7070
@@ -84,8 +84,8 @@ curl -s http://<node1>:8203/health
 ### Check Blockchain Sync Status
 ```bash
 # Check blockchain height on all nodes
-cd /opt/aitbc && ./aitbc-cli chain
-ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
+aitbc blockchain height
+ssh <node1> 'aitbc blockchain height'
 ```
 
 ### Cross-Node Messaging
@@ -129,8 +129,8 @@ ss -tlnp | grep 7070
 ssh <node1> 'ss -tlnp | grep 7070'
 
 # Check network peers
-cd /opt/aitbc && ./aitbc-cli network
-ssh <node1> 'cd /opt/aitbc && ./aitbc-cli network'
+aitbc network peers
+ssh <node1> 'aitbc network peers'
 ```
 
 ## Common Pitfalls
@@ -159,16 +159,16 @@ ssh <node1> 'cd /opt/aitbc && ./aitbc-cli network'
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# All CLI operations (use wrapper)
-/opt/aitbc/aitbc-cli chain
-/opt/aitbc/aitbc-cli network
-/opt/aitbc/aitbc-cli balance --name genesis
+# All CLI operations
+aitbc blockchain height
+aitbc network status
+aitbc wallet balance --name genesis
 ```
 
 ---

@@ -155,13 +155,15 @@ GOSSIP_BACKEND=websocket
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `SYNC_SOURCE_HOST` | No | - | Host to sync from |
-| `SYNC_SOURCE_PORT` | No | `8202` | Port to sync from |
-| `SYNC_LEADER_HOST` | No | - | Leader node host |
-| `SYNC_IMPORT_HOST` | No | `localhost` | Import service host |
-| `SYNC_IMPORT_PORT` | No | `8202` | Import service port |
-| `SYNC_CHAIN_ID` | No | - | Chain ID to sync |
-| `auto_sync_enabled` | No | `false` | Enable automatic sync on gap detection |
+| `sync_manager_enabled` | No | `true` | Master kill switch; when `false` no SyncManager is started |
+| `auto_sync_enabled` | No | `true` | Enable automatic bulk sync when a gap is detected |
+| `auto_sync_threshold` | No | `10` | Block-gap size that triggers a bulk sync |
+
+> **Removed:** `SYNC_SOURCE_HOST`, `SYNC_SOURCE_PORT`, `SYNC_LEADER_HOST`,
+> `SYNC_IMPORT_HOST`, `SYNC_IMPORT_PORT`, and `SYNC_CHAIN_ID` are no longer read
+> by any service — they remain only in legacy `blockchain.env` files. Sync source
+> selection is done through the subscription settings below
+> (`default_peer_rpc_url`) or `CHAIN_SYNC_SOURCES` for multi-chain hubs.
 
 ### Subscription Configuration
 
@@ -196,12 +198,13 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CHAIN_ID` | Yes | `ait-mainnet` | Primary chain ID |
-| `supported_chains` | Yes | `ait-mainnet` | Comma-separated list of supported chains |
-| `island_id` | Yes | - | Island identifier for this node |
-| `BLOCK_TIME` | No | `5` | Target block time in seconds |
-| `NETWORK_ID` | No | `1337` | Network identifier |
-| `CONSENSUS` | No | `proof_of_authority` | Consensus mechanism |
+| `CHAIN_ID` | Yes | - | Primary chain ID (e.g. `ait-hub.aitbc.bubuit.net`) |
+| `supported_chains` | No | `chain_id` | Comma-separated list of supported chains |
+| `island_id` | No | `DEFAULT_ISLAND_ID` | Island identifier for this node |
+| `block_time_seconds` | No | `10` | Target block time in seconds |
+
+> **Removed:** `BLOCK_TIME` (use `block_time_seconds`), `NETWORK_ID`, and
+> `CONSENSUS` are no longer read by the node.
 
 ### RPC Configuration
 
@@ -213,14 +216,11 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 ### Service Ports
 
-| Variable | Required | Default | Description |
-|----------|----------|---------|-------------|
-| `api_host` | No | `0.0.0.0` | API service host |
-| `api_port` | No | `8203` | API service port |
-| `wallet_host` | No | `0.0.0.0` | Wallet service host |
-| `wallet_port` | No | `8015` | Wallet service port |
-| `exchange_host` | No | `0.0.0.0` | Exchange service host |
-| `exchange_port` | No | `8001` | Exchange service port |
+Per-service ports are configured by each service's own `*_BIND_HOST` / `*_BIND_PORT`
+variables (e.g. `AGENT_COORDINATOR_BIND_PORT`) — see
+[Service Ports Reference](../reference/SERVICE_PORTS.md). The legacy
+`api_host`/`api_port`, `wallet_host`/`wallet_port`, and
+`exchange_host`/`exchange_port` variables are no longer read.
 
 ### Feature Flags
 
@@ -233,8 +233,6 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `MONITORING_PORT` | No | `9000` | Monitoring service port |
-| `PROMETHEUS_PORT` | No | `9090` | Prometheus port |
 | `AITBC_NODE_METRICS_PORT` | No | `9009` | Port where the blockchain node main process exposes `/metrics` |
 
 ### Example blockchain.env (Hub Node - ait-mainnet)
@@ -261,38 +259,20 @@ gossip_backend=broadcast
 gossip_broadcast_url=redis://redis.example.com:6379
 SYNC_REDIS_URL=redis://redis.example.com:6379
 
-# Sync Configuration (for ait-testnet following)
-SYNC_SOURCE_HOST=node1
-SYNC_SOURCE_PORT=8202
-SYNC_LEADER_HOST=node1
-SYNC_IMPORT_HOST=localhost
-SYNC_IMPORT_PORT=8202
-SYNC_CHAIN_ID=ait-testnet
+# Sync Configuration (bulk-sync gap recovery)
+sync_manager_enabled=true
+auto_sync_enabled=true
+auto_sync_threshold=10
 
 # Blockchain Configuration
 CHAIN_ID=ait-mainnet
-BLOCK_TIME=5
-NETWORK_ID=1337
-CONSENSUS=proof_of_authority
+block_time_seconds=10
 
 # RPC Configuration
 rpc_bind_host=0.0.0.0
 rpc_bind_port=8202
 
-# API Configuration
-api_host=0.0.0.0
-api_port=8203
-
-# Wallet Configuration
-wallet_host=0.0.0.0
-wallet_port=8015
-
-# Exchange Configuration
-exchange_host=0.0.0.0
-exchange_port=8001
-
 # Services Configuration
-auto_sync_enabled=true
 island_id=ait-mainnet-island
 supported_chains=ait-mainnet,ait-testnet
 db_encryption_enabled=false
@@ -302,8 +282,7 @@ SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 WORKERS=1
 
 # Monitoring Configuration
-MONITORING_PORT=9000
-PROMETHEUS_PORT=9090
+AITBC_NODE_METRICS_PORT=9009
 ```
 
 ### Example blockchain.env (Hub Node - ait-testnet)
@@ -330,48 +309,31 @@ gossip_broadcast_url=redis://redis.example.com:6379
 SYNC_REDIS_URL=redis://redis.example.com:6379
 
 # Sync Configuration (following ait-mainnet)
-SYNC_SOURCE_HOST=aitbc
-SYNC_SOURCE_PORT=8202
-SYNC_LEADER_HOST=aitbc
-SYNC_IMPORT_HOST=localhost
-SYNC_IMPORT_PORT=8202
-SYNC_CHAIN_ID=ait-testnet
+sync_manager_enabled=true
+auto_sync_enabled=true
+auto_sync_threshold=10
+default_peer_rpc_url=https://hub.aitbc.bubuit.net
+subscription_enabled=true
+subscription_transport=websocket
 
 # Blockchain Configuration
 CHAIN_ID=ait-testnet
-BLOCK_TIME=5
-NETWORK_ID=1337
-CONSENSUS=proof_of_authority
+block_time_seconds=10
 
 # RPC Configuration
 rpc_bind_host=0.0.0.0
 rpc_bind_port=8202
 
-# API Configuration
-api_host=0.0.0.0
-api_port=8203
-
-# Wallet Configuration
-wallet_host=0.0.0.0
-wallet_port=8015
-
-# Exchange Configuration
-exchange_host=0.0.0.0
-exchange_port=8001
-
 # Services Configuration
-auto_sync_enabled=true
 island_id=ait-testnet-island
 supported_chains=ait-testnet
 db_encryption_enabled=false
-default_peer_rpc_url=https://aitbc.bubuit.net
 MEMPOOL_DB_URL=postgresql+psycopg://aitbc_mempool:password@localhost:5432/aitbc_mempool
 SYNC_STATE_ROOT_VALIDATION_ENABLED=true
 WORKERS=1
 
 # Monitoring Configuration
-MONITORING_PORT=9000
-PROMETHEUS_PORT=9090
+AITBC_NODE_METRICS_PORT=9009
 ```
 
 ---
@@ -542,7 +504,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 - `auto_sync_enabled=false` (for its own chain)
 - Creates genesis block locally
 
-**Example:** `hub` for ait-mainnet, `node1` for ait-testnet
+**Example:** `hub` for the primary chain, a designated hub for each additional chain
 
 ### Follower Node
 
@@ -557,7 +519,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 - Receives blocks via lease-based subscription over RPC (WebSocket push)
 - Syncs genesis from hub
 
-**Example:** `<node3>` following both chains
+**Example:** a follower node following both chains
 
 ---
 

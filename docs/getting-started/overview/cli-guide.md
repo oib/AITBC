@@ -21,8 +21,8 @@
 cd /opt/aitbc
 
 # 2. Test CLI installation
-/opt/aitbc/aitbc-cli --help
-/opt/aitbc/aitbc-cli --version
+aitbc --help
+aitbc version
 
 # 3. Verify services are running
 systemctl list-units --state=running | grep aitbc
@@ -56,13 +56,13 @@ source /opt/aitbc/venv/bin/activate
 
 ```bash
 # Create new wallet
-/opt/aitbc/aitbc-cli create --name "my-wallet" --password "password123"
+aitbc wallet create --name "my-wallet"
 
 # List wallets
-/opt/aitbc/aitbc-cli list
+aitbc wallet list
 
 # Check balance
-/opt/aitbc/aitbc-cli balance --name "my-wallet"
+aitbc wallet balance --name "my-wallet"
 ```
 
 ### Exchange Operations
@@ -77,13 +77,13 @@ curl -s http://localhost:8106/health
 
 ```bash
 # Get blockchain info
-/opt/aitbc/aitbc-cli chain
+aitbc blockchain status
 
 # Check node status
-/opt/aitbc/aitbc-cli network
+aitbc network status
 
 # Check balance
-/opt/aitbc/aitbc-cli balance --name "my-wallet"
+aitbc wallet balance --name "my-wallet"
 ```
 
 ## 🛠️ **Advanced Usage**
@@ -92,17 +92,17 @@ curl -s http://localhost:8106/health
 
 ```bash
 # Table output (default)
-/opt/aitbc/aitbc-cli list
+aitbc wallet list
 
-# JSON output (if supported)
-/opt/aitbc/aitbc-cli chain --output json
+# JSON output
+aitbc --output json blockchain status
 ```
 
 ### Debug Mode
 
 ```bash
-# Enable debug output (if supported)
-/opt/aitbc/aitbc-cli --debug chain
+# Enable debug output
+aitbc --debug blockchain status
 
 # Test service connectivity
 curl -s http://localhost:8202/health
@@ -140,7 +140,7 @@ journalctl -u aitbc-blockchain-node.service -f
 
 ```bash
 # Check CLI installation
-ls -la /opt/aitbc/aitbc-cli
+ls -la /usr/local/bin/aitbc
 
 # Activate virtual environment
 source /opt/aitbc/venv/bin/activate
@@ -199,7 +199,7 @@ source venv/bin/activate
 systemctl list-units --state=running | grep aitbc
 
 # 4. Test CLI
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # 5. Check dependencies
 ./scripts/utils/check-dependencies.sh

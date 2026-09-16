@@ -28,7 +28,7 @@ breadcrumb: Home > Scenarios > Governance Voting
 This scenario demonstrates two real CLI surfaces:
 
 - `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `close`, `execute`, `list`, `get`, `status`). This is the canonical group.
-- `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed path. The `aitbc operations` group is **deprecated and hidden** from `aitbc --help`; it is kept here only for `voting-power`/`stake`/`delegate`, which have no `aitbc governance` equivalent.
+- `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed path. The `aitbc operations` group is **deprecated and hidden** from `aitbc --help`; it is kept here only for `voting-power`/`delegate`, which have no `aitbc governance` equivalent (on-chain staking now has the canonical `aitbc stake`).
 
 Live two-node validation so far has proven `aitbc governance status`. Treat propose/vote/execute as command-shaped plays against a running governance service; they are not yet a closed on-chain parameter-change cycle (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) P1.7).
 
@@ -40,7 +40,7 @@ A network participant wants to propose a parameter change (e.g., adjusting the b
 
 - How to inspect the live governance service with `aitbc governance status`
 - How to propose, vote, and execute through `aitbc governance` (canonical service path)
-- How to stake and delegate voting power via the deprecated `aitbc operations governance` RPC path (no canonical equivalent)
+- How to delegate voting power via the deprecated `aitbc operations governance` RPC path (no canonical equivalent; `aitbc stake` covers staking)
 - How to execute a passed proposal
 
 ### Live operator setup
@@ -169,7 +169,7 @@ aitbc governance vote \
 
 ### Step 4: Check Voting Power
 
-> **Deprecated group:** steps 4–6 use `aitbc operations governance`, which is deprecated and hidden from `aitbc --help`. `voting-power`, `stake`, and `delegate` have no `aitbc governance` equivalent; they talk to the blockchain RPC directly.
+> **Deprecated group:** steps 4–6 use `aitbc operations governance`, which is deprecated and hidden from `aitbc --help`. `voting-power` and `delegate` have no `aitbc governance` equivalent and talk to the blockchain RPC directly; on-chain `stake` is superseded by `aitbc stake`.
 
 Query the voting power for a specific address before casting a vote.
 
@@ -189,26 +189,13 @@ Lock Period Days    60
 
 ### Step 5: Stake Tokens for Enhanced Voting Power
 
-Stake tokens to increase your voting power. The lock period must be at least 30 days.
+Stake tokens on-chain to increase your voting power (stakes feed `governance vote` power, which derives from active `Stake` rows). The lock period must be at least 30 days. The deprecated `operations governance stake` recorded a service-side row only — use the canonical `aitbc stake`:
 
 ```bash
-aitbc operations governance stake \
-    --address 0xabc123def456... \
-    --amount 2000 \
-    --lock-days 90
+aitbc stake --amount 2000 --duration 90 --wallet-name <wallet>
 ```
 
-**Expected output:**
-
-```
-Staked 2000 tokens for 90 days
-
-Staker Address      0xabc123def456...
-Amount              2000
-Lock Period Days    90
-Voting Power Gain   2000
-Status              staked
-```
+**Expected output:** a queued `STAKE_LOCK` transaction hash; the stake lands when the transaction seals into a block. `aitbc wallet staking-info` shows it as active once confirmed.
 
 ### Step 6: Delegate Voting Power
 
@@ -378,7 +365,7 @@ After completing this scenario, you should be able to:
 
 - Inspect the live governance service with `aitbc governance status` / `list`
 - Create proposals and cast votes with `aitbc governance propose` / `vote` (canonical service path)
-- Stake tokens and delegate voting power via the deprecated `aitbc operations governance` RPC path
+- Delegate voting power via the deprecated `aitbc operations governance` RPC path (`aitbc stake` covers on-chain staking)
 - Execute a passed proposal
 
 ---
