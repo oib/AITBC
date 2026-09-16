@@ -15,7 +15,7 @@ Activate when user requests wallet operations: creation, listing, balance checki
 Create, list, import, export, and manage AITBC blockchain wallets with deterministic validation.
 
 ## Prerequisites
-- AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
+- AITBC CLI accessible as `aitbc` (`/usr/local/bin/aitbc`)
 - Keystore directory at `/var/lib/aitbc/keystore/`
 - Wallet daemon running on port 8108 (localhost only)
 - Default wallet password: from `/var/lib/aitbc/keystore/.genesis_password`
@@ -30,7 +30,7 @@ systemctl list-units --state=running | grep aitbc
 source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # Check wallet daemon health
 curl -s http://localhost:8108/health
@@ -53,45 +53,40 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 
 ### Create Wallet
 ```bash
-cd /opt/aitbc && ./aitbc-cli create --name <wallet_name> --password <password>
+aitbc wallet create --name <wallet_name>
 ```
 
 ### Import Wallet
 ```bash
-cd /opt/aitbc && ./aitbc-cli import --name <wallet_name> --private-key <hex_key> --password <password>
+aitbc wallet import-wallet --file-path <json_file> --name <wallet_name>
 ```
 
 ### Export Wallet
 ```bash
-cd /opt/aitbc && ./aitbc-cli export --name <wallet_name> --password <password>
+aitbc wallet --wallet-name <wallet_name> export --destination <path>
 ```
 
 ### List Wallets
 ```bash
-cd /opt/aitbc && ./aitbc-cli list
+aitbc wallet list
 
 # With JSON format
-cd /opt/aitbc && ./aitbc-cli list --format json
+aitbc --output json wallet list
 ```
 
 ### Check Wallet Balance
 ```bash
-cd /opt/aitbc && ./aitbc-cli balance --name <wallet_name>
+aitbc wallet balance --name <wallet_name>
 ```
 
 ### Delete Wallet
 ```bash
-cd /opt/aitbc && ./aitbc-cli delete --name <wallet_name>
-```
-
-### Rename Wallet
-```bash
-cd /opt/aitbc && ./aitbc-cli rename --old <old_name> --new <new_name>
+aitbc wallet delete --name <wallet_name> --confirm
 ```
 
 ### Get Transaction History
 ```bash
-cd /opt/aitbc && ./aitbc-cli transactions --name <wallet_name> --limit <limit> --format [table|json]
+aitbc wallet transactions --name <wallet_name> --limit <limit>
 ```
 
 ### Wallet API (Direct)
@@ -136,16 +131,16 @@ curl -s http://localhost:8108/wallets/{wallet_name}/balance
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# All wallet operations (use wrapper)
-/opt/aitbc/aitbc-cli create --name test-wallet --password test123
-/opt/aitbc/aitbc-cli balance --name genesis
-/opt/aitbc/aitbc-cli export --name genesis --password "$(cat /var/lib/aitbc/keystore/.genesis_password)"
+# All wallet operations
+aitbc wallet create --name test-wallet
+aitbc wallet balance --name genesis
+aitbc wallet --wallet-name genesis export --destination /tmp/genesis_export.json
 ```
 
 ---

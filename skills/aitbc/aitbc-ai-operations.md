@@ -15,7 +15,7 @@ Activate when user requests AI operations: job submission, status monitoring, re
 Submit, monitor, and optimize AITBC AI jobs with deterministic performance tracking and resource management.
 
 ## Prerequisites
-- AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
+- AITBC CLI accessible as `aitbc` (`/usr/local/bin/aitbc`)
 - AI services operational (Ollama, coordinator, exchange)
 - Wallet with sufficient balance for job payments
 - Default test wallet: "genesis" (password from `/var/lib/aitbc/keystore/.genesis_password`)
@@ -31,13 +31,13 @@ systemctl list-units --state=running | grep aitbc
 source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # Check AI service health
 curl -s http://localhost:8005/health 2>/dev/null || echo "AI service not running"
 
 # Check wallet balance
-/opt/aitbc/aitbc-cli balance --name genesis
+aitbc wallet balance --name genesis
 ```
 
 ## Port Reference
@@ -55,7 +55,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 
 ### Submit AI Job
 ```bash
-cd /opt/aitbc && ./aitbc-cli ai-ops submit \
+aitbc ai submit \
   --wallet <wallet_name> \
   --type <job_type> \
   --prompt <prompt> \
@@ -66,7 +66,7 @@ cd /opt/aitbc && ./aitbc-cli ai-ops submit \
 
 ### Check AI Job Status
 ```bash
-cd /opt/aitbc && ./aitbc-cli ai-ops status --job-id <job_id> --rpc-url http://localhost:8202
+aitbc ai status --job-id <job_id>
 ```
 
 ### Job Types
@@ -80,21 +80,15 @@ cd /opt/aitbc && ./aitbc-cli ai-ops status --job-id <job_id> --rpc-url http://lo
 ### Resource Allocation
 ```bash
 # Allocate resources for AI job
-cd /opt/aitbc && ./aitbc-cli resource allocate \
+aitbc resource allocate \
   --agent-id <agent_id> \
-  --gpu <gpu_count> \
-  --memory <memory_mb> \
-  --duration <seconds>
+  --gpu-count <gpu_count> \
+  --memory-gb <memory_gb>
 ```
 
 ### Check Resource Status
 ```bash
-cd /opt/aitbc && ./aitbc-cli resource status
-```
-
-### List Available Resources
-```bash
-cd /opt/aitbc && ./aitbc-cli resource list
+aitbc resource status
 ```
 
 ## Troubleshooting: Services Not Running
@@ -192,34 +186,21 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 
 ## GPU Provider Testing
 ```bash
-# Test GPU inference
-cd /opt/aitbc && python3 cli/unified_cli.py ollama gpu-test \
-  --wallet genesis \
-  --model llama2 \
-  --prompt "test prompt" \
-  --marketplace-url http://localhost:8102
+# Test GPU inference via a marketplace offer
+aitbc market run --offer-id-or-plugin-id <offer_id> --prompt "test prompt"
 ```
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
-
-**Direct Python Invocation:** `python3 cli/unified_cli.py`
-
-Use direct Python invocation for:
-- GPU testing and Ollama operations
-- Specific module features requiring direct access
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# Standard operations (use wrapper)
-/opt/aitbc/aitbc-cli ai-ops submit --wallet genesis --type inference --prompt "test"
-/opt/aitbc/aitbc-cli resource allocate --agent-id agent-main --gpu 1
-
-# GPU operations (use direct Python)
-python3 cli/unified_cli.py ollama gpu-test --wallet genesis --model llama2
+# Standard operations
+aitbc ai submit --wallet genesis --type inference --prompt "test"
+aitbc resource allocate --agent-id agent-main --gpu-count 1
 ```
 
 ---

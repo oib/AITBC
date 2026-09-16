@@ -11,6 +11,8 @@
 http://localhost:8202  # Blockchain RPC
 ```
 
+> Mutating endpoints (`POST`) require the `X-API-Key` header — set `BLOCKCHAIN_RPC_API_KEY` from `/etc/aitbc/blockchain-secrets.env`.
+
 ## POST /rpc/messaging/messages/{message_id}/vote
 
 Vote on a message (upvote or downvote).
@@ -27,6 +29,7 @@ Vote on a message (upvote or downvote).
 ```bash
 curl -X POST http://localhost:8202/rpc/messaging/messages/msg_123/vote \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{
     "agent_id": "agent_001",
     "agent_address": "0xB82aE76e2A8536E13C96850AD3C813a6830039b8",

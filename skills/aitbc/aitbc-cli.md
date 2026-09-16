@@ -6,19 +6,19 @@ category: software-development
 
 # AITBC CLI Tool Skill
 
-Complete guide for Agent agent to use the AITBC CLI tool (`/opt/aitbc/aitbc-cli`) for blockchain operations, wallet management, marketplace, AI jobs, mining, and simulations. **This skill ships with AITBC software repository.**
+Complete guide for Agent agent to use the AITBC CLI tool (`aitbc`, installed at `/usr/local/bin/aitbc`) for blockchain operations, wallet management, marketplace, AI jobs, mining, and simulations. **This skill ships with AITBC software repository.**
 
 ## Trigger Conditions
 
 Load this skill when:
-- User asks to use "aitbc-cli" or "AITBC CLI"
-- Need to manage wallets (create, import, export, delete, rename, list)
+- User asks to use "aitbc" or "AITBC CLI"
+- Need to manage wallets (create, import, export, delete, list)
 - Need to send transactions or check balances
 - Need blockchain analytics or network status
-- Need marketplace operations (listings, create, buy)
+- Need marketplace operations (listings, offers, jobs)
 - Need AI compute job operations
 - Need mining operations (start, stop, status)
-- Need agent operations (create, execute, list, message)
+- Need agent operations (create, list, message)
 - Need to run simulations (blockchain, wallets, price, network, AI jobs)
 
 ## Prerequisites
@@ -30,12 +30,11 @@ Load this skill when:
 
 ## CLI Location
 
-**Main CLI:** `/opt/aitbc/aitbc-cli`
+**Main CLI:** `aitbc` — installed at `/usr/local/bin/aitbc` (shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
 **Usage:**
 ```bash
-cd /opt/aitbc
-./aitbc-cli [command] [options]
+aitbc [command] [options]
 ```
 
 ## Step-by-Step Instructions
@@ -44,45 +43,43 @@ cd /opt/aitbc
 
 #### Create Wallet
 ```bash
-./aitbc-cli create --name <wallet_name> --password <password>
+aitbc wallet create --name <wallet_name>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli create --name my-wallet --password "securepassword123"
+aitbc wallet create --name my-wallet
 ```
 
-**Result:** Creates wallet with Ed25519 keypair, AES-256-GCM encryption, returns address
+**Result:** Creates wallet, returns address. Use `--no-encrypt` to skip password encryption (not recommended).
 
 #### Import Wallet
 ```bash
-./aitbc-cli import --name <wallet_name> --private-key <hex_key> --password <password>
+aitbc wallet import-wallet --file-path <json_file> --name <wallet_name>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli import --name imported-wallet --private-key "abc123..." --password "securepassword123"
+aitbc wallet import-wallet --file-path /var/lib/aitbc/wallets/genesis.json --name imported-wallet
 ```
 
-#### Export Wallet (Private Key)
+#### Export Wallet
 ```bash
-./aitbc-cli export --name <wallet_name> --password <password>
+aitbc wallet --wallet-name <wallet_name> export --destination <path>
 ```
 
 #### Delete Wallet
 ```bash
-./aitbc-cli delete --name <wallet_name>
-```
-
-#### Rename Wallet
-```bash
-./aitbc-cli rename --old <old_name> --new <new_name>
+aitbc wallet delete --name <wallet_name> --confirm
 ```
 
 #### List Wallets
 ```bash
-./aitbc-cli list --format [table|json]
+aitbc wallet list
+aitbc --output json wallet list
 ```
+
+**Note:** `aitbc list` is kept as a legacy alias for `aitbc wallet list`.
 
 **Result:** Lists all wallets from keystore or wallet daemon
 
@@ -92,7 +89,7 @@ cd /opt/aitbc
 
 #### Send Transaction
 ```bash
-./aitbc-cli send \
+aitbc transactions send \
   --from <wallet_name> \
   --to <recipient_address> \
   --amount <amount> \
@@ -103,7 +100,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli send \
+aitbc transactions send \
   --from my-wallet \
   --to 0x... \
   --amount 100.0 \
@@ -116,62 +113,64 @@ cd /opt/aitbc
 
 #### Check Balance
 ```bash
-./aitbc-cli balance --name <wallet_name> --rpc-url <rpc_url>
+aitbc wallet balance --name <wallet_name>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli balance --name my-wallet --rpc-url http://localhost:8202
+aitbc wallet balance --name my-wallet
 ```
 
 **Result:** Returns balance, nonce, address
 
 #### Get Transaction History
 ```bash
-./aitbc-cli transactions --name <wallet_name> --limit <limit> --format [table|json] --rpc-url <rpc_url>
+aitbc wallet transactions --name <wallet_name> --limit <limit>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli transactions --name my-wallet --limit 10 --format table --rpc-url http://localhost:8202
+aitbc wallet transactions --name my-wallet --limit 10
 ```
 
 ---
 
 ### 3. Blockchain Analytics
 
-#### Get Chain Information
+#### Get Chain Status
 ```bash
-./aitbc-cli chain --rpc-url <rpc_url>
+aitbc blockchain status [--chain-id <chain_id>] [--node-url <rpc_url>]
 ```
 
 **Example:**
 ```bash
-./aitbc-cli chain --rpc-url http://localhost:8202
+aitbc blockchain status --node-url http://localhost:8202
 ```
 
-**Result:** Chain ID, height, hash, timestamp, proposer ID, supported chains
+**Result:** Chain ID, height, and status for all chains (or one chain with `--chain-id`)
+
+#### Get Blockchain Height
+```bash
+aitbc blockchain height --node-url <rpc_url>
+```
 
 #### Get Network Status
 ```bash
-./aitbc-cli network --rpc-url <rpc_url>
+aitbc network status --rpc-url <rpc_url>
 ```
 
 **Result:** Head block information, network health
 
 #### Blockchain Analytics
 ```bash
-./aitbc-cli analytics --type [blocks|supply|accounts] --limit <limit> --rpc-url <rpc_url>
+aitbc analytics summary [--chain-id <chain_id>] [--hours <hours>]
 ```
 
-**Types:**
-- `blocks`: Recent blocks analytics
-- `supply`: Total supply information
-- `accounts`: Account statistics
+**Other analytics subcommands:** `monitor`, `predict`, `optimize`, `alerts`, `dashboard`
 
 **Example:**
 ```bash
-./aitbc-cli analytics --type blocks --limit 10 --rpc-url http://localhost:8202
+aitbc analytics summary --chain-id ait-mainnet --hours 12
 ```
 
 ---
@@ -180,24 +179,24 @@ cd /opt/aitbc
 
 #### Start Mining
 ```bash
-./aitbc-cli mine start --wallet <wallet_name> --threads <threads> --rpc-url <rpc_url>
+aitbc mining start --wallet-name <wallet_name> --threads <threads> --rpc-url <rpc_url>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli mine start --wallet my-wallet --threads 1 --rpc-url http://localhost:8202
+aitbc mining start --wallet-name my-wallet --threads 1 --rpc-url http://localhost:8202
 ```
 
 **Result:** Mining started with specified wallet
 
 #### Stop Mining
 ```bash
-./aitbc-cli mine stop --rpc-url <rpc_url>
+aitbc mining stop --rpc-url <rpc_url>
 ```
 
 #### Get Mining Status
 ```bash
-./aitbc-cli mine status --rpc-url <rpc_url>
+aitbc mining status --rpc-url <rpc_url>
 ```
 
 **Result:** Mining active status, current height, blocks mined, rewards earned
@@ -206,61 +205,42 @@ cd /opt/aitbc
 
 ### 5. Marketplace Operations
 
-#### List Marketplace Items
+#### List Marketplace Offers
 ```bash
-./aitbc-cli marketplace --action list --rpc-url <rpc_url>
+aitbc market list
 ```
 
-**Alternative command:**
-```bash
-./aitbc-cli market-list --rpc-url <rpc_url>
-```
+**Result:** List of available marketplace offers
 
-**Result:** List of available marketplace items
-
-#### Create Marketplace Listing
+#### Create Marketplace Offer
 ```bash
-./aitbc-cli marketplace \
-  --action create \
-  --name <item_name> \
+aitbc market offer \
+  --service-type <ollama|whisper|ffmpeg|ipfs|hermes> \
+  --model-or-variant <model> \
   --price <price> \
-  --description <description> \
-  --wallet <wallet_name> \
-  --rpc-url <rpc_url>
-```
-
-**Alternative command:**
-```bash
-./aitbc-cli market-create \
-  --wallet <wallet_name> \
-  --type <service_type> \
-  --price <price_in_AIT> \
-  --description <description> \
-  --password <password> \
-  --rpc-url <rpc_url>
+  --unit <unit> \
+  --description <description>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli market-create \
-  --wallet my-wallet \
-  --type "gpu-compute" \
+aitbc market offer \
+  --service-type ollama \
+  --model-or-variant llama3 \
   --price 100 \
-  --description "AI training compute" \
-  --password "securepassword123" \
-  --rpc-url http://localhost:8202
+  --description "AI training compute"
 ```
 
-**Result:** Returns listing ID, provider, price, status
+**Result:** Returns offer ID, provider, price, status
 
-#### Search Marketplace
+#### List My Offers
 ```bash
-./aitbc-cli marketplace --action search --name <search_term> --rpc-url <rpc_url>
+aitbc market offer-list
 ```
 
-#### List My Listings
+#### List Marketplace Jobs
 ```bash
-./aitbc-cli marketplace --action my-listings --wallet <wallet_name> --rpc-url <rpc_url>
+aitbc market jobs
 ```
 
 ---
@@ -269,7 +249,7 @@ cd /opt/aitbc
 
 #### Submit AI Job
 ```bash
-./aitbc-cli ai-ops submit \
+aitbc ai submit \
   --wallet <wallet_name> \
   --type <job_type> \
   --prompt <prompt> \
@@ -280,7 +260,7 @@ cd /opt/aitbc
 
 **Example:**
 ```bash
-./aitbc-cli ai-ops submit \
+aitbc ai submit \
   --wallet my-wallet \
   --type "inference" \
   --prompt "Analyze this data" \
@@ -293,7 +273,12 @@ cd /opt/aitbc
 
 #### Check AI Job Status
 ```bash
-./aitbc-cli ai-ops status --job-id <job_id> --rpc-url <rpc_url>
+aitbc ai status --job-id <job_id>
+```
+
+#### List AI Jobs
+```bash
+aitbc ai jobs [--status <status>] [--limit <n>]
 ```
 
 ---
@@ -302,131 +287,97 @@ cd /opt/aitbc
 
 #### Create Agent
 ```bash
-./aitbc-cli agent create \
+aitbc agent create \
   --name <agent_name> \
-  --verification <basic|advanced> \
-  --max-execution-time <seconds> \
-  --max-cost-budget <amount>
-```
-
-#### Execute Agent
-```bash
-./aitbc-cli agent execute \
-  --name <agent_name> \
-  --priority [low|medium|high]
+  --type <provider|consumer> \
+  [--max-jobs <n>] [--specialization <spec>]
 ```
 
 #### List Agents
 ```bash
-./aitbc-cli agent list --status [active|completed|failed]
+aitbc agent list
 ```
 
 **Note:** Uses coordinator API at `http://localhost:8203` for real agent discovery
 
 #### Send Message to Agent
 ```bash
-./aitbc-cli agent message \
-  --agent <agent_address> \
-  --message <message_content> \
+aitbc agent-msg send "<message_content>" \
+  --to-agent <agent_id> \
   --wallet <wallet_name> \
-  --password <password> \
-  --rpc-url <rpc_url>
+  --password <password>
 ```
 
 **Example:**
 ```bash
-./aitbc-cli agent message \
-  --agent 0x... \
-  --message "Hello agent" \
+aitbc agent-msg send "Hello agent" \
+  --to-agent agent-2 \
   --wallet my-wallet \
-  --password "securepassword123" \
-  --rpc-url http://localhost:8202
+  --password "securepassword123"
 ```
 
-**Result:** Message sent via blockchain transaction, returns transaction hash
+**Result:** Message sent via the Agent Coordinator
 
 #### Retrieve Agent Messages
 ```bash
-./aitbc-cli agent messages --agent <agent_address> --rpc-url <rpc_url>
+aitbc agent-msg receive [--from-agent <agent_id>] [--unread-only] [--limit <n>]
 ```
 
-**Result:** Lists all messages sent to the agent from blockchain
+**Result:** Lists messages in the agent's inbox
 
-#### Register Agent (via CLI)
+#### Register Agent
 ```bash
-# CLI method for agent registration
-python3 cli/unified_cli.py agent register \
-  --agent-id <agent_id> \
-  --agent-type worker \
-  --endpoint <endpoint> \
-  --capabilities marketplace,messaging
+aitbc agent register --agent-id <agent_id>
 ```
 
 **Note:** For API-based registration, see aitbc.md skill
 
 ---
 
-### 8. Agent Training Operations
-
-#### Deploy Agent Agent
-```bash
-./aitbc-cli agent deploy --environment [dev|prod]
-```
-
-#### Monitor Agent Agent
-```bash
-./aitbc-cli agent monitor --agent-id <agent_id> --metrics [all|performance|cost]
-```
-
----
-
-### 9. Workflow Operations
-
-#### Create Workflow
-```bash
-./aitbc-cli workflow create --name <workflow_name> --template [custom|standard]
-```
+### 8. Workflow Operations
 
 #### Run Workflow
 ```bash
-./aitbc-cli workflow run --name <workflow_name> --async-exec
+aitbc workflow run --workflow-name <workflow_name> [--config <file>] [--dry-run]
+```
+
+#### List / Inspect Workflows
+```bash
+aitbc workflow list
+aitbc workflow status --workflow-name <workflow_name>
+aitbc workflow stop --workflow-name <workflow_name>
 ```
 
 ---
 
-### 10. Resource Operations
+### 9. Resource Operations
 
 #### Check Resource Status
 ```bash
-./aitbc-cli resource status --type [all|cpu|memory|storage]
+aitbc resource status [--agent-id <agent_id>] [--limit <n>]
 ```
 
 #### Allocate Resources
 ```bash
-./aitbc-cli resource allocate \
+aitbc resource allocate \
   --agent-id <agent_id> \
-  --cpu <cores> \
-  --memory <gb> \
-  --duration <minutes>
+  --cpu-cores <cores> \
+  --memory-gb <gb> \
+  [--gpu-count <n>] [--priority <level>]
 ```
 
 #### Optimize Resources
 ```bash
-./aitbc-cli resource optimize --target [all|cpu|memory] --agent-id <agent_id>
-```
-
-#### Benchmark Resources
-```bash
-./aitbc-cli resource benchmark --type [all|cpu|memory|network]
+aitbc resource optimize --agent-id <agent_id> --target-metric <latency|accuracy>
 ```
 
 ---
 
-### 11. Simulation Operations
+### 10. Simulation Operations
 
 #### Simulate Blockchain
 ```bash
-./aitbc-cli simulate blockchain \
+aitbc simulate blockchain \
   --blocks <number> \
   --transactions <per_block> \
   --delay <seconds>
@@ -434,14 +385,14 @@ python3 cli/unified_cli.py agent register \
 
 **Example:**
 ```bash
-./aitbc-cli simulate blockchain --blocks 10 --transactions 5 --delay 0.5
+aitbc simulate blockchain --blocks 10 --transactions 5 --delay 0.5
 ```
 
 **Result:** Simulates block production with transactions, shows statistics
 
 #### Simulate Wallets
 ```bash
-./aitbc-cli simulate wallets \
+aitbc simulate wallets \
   --wallets <number> \
   --balance <initial_balance> \
   --transactions <number> \
@@ -450,12 +401,12 @@ python3 cli/unified_cli.py agent register \
 
 **Example:**
 ```bash
-./aitbc-cli simulate wallets --wallets 5 --balance 1000 --transactions 20 --amount-range 1-100
+aitbc simulate wallets --wallets 5 --balance 1000 --transactions 20 --amount-range 1-100
 ```
 
 #### Simulate Price
 ```bash
-./aitbc-cli simulate price \
+aitbc simulate price \
   --price <starting_price> \
   --volatility <percentage> \
   --timesteps <number> \
@@ -464,12 +415,12 @@ python3 cli/unified_cli.py agent register \
 
 **Example:**
 ```bash
-./aitbc-cli simulate price --price 100.0 --volatility 0.05 --timesteps 50 --delay 0.1
+aitbc simulate price --price 100.0 --volatility 0.05 --timesteps 50 --delay 0.1
 ```
 
 #### Simulate Network
 ```bash
-./aitbc-cli simulate network \
+aitbc simulate network \
   --nodes <number> \
   --network-delay <seconds> \
   --failure-rate <percentage>
@@ -477,12 +428,12 @@ python3 cli/unified_cli.py agent register \
 
 **Example:**
 ```bash
-./aitbc-cli simulate network --nodes 10 --network-delay 0.5 --failure-rate 0.1
+aitbc simulate network --nodes 10 --network-delay 0.5 --failure-rate 0.1
 ```
 
 #### Simulate AI Jobs
 ```bash
-./aitbc-cli simulate ai-jobs \
+aitbc simulate ai-jobs \
   --jobs <number> \
   --models <model_list> \
   --duration-range <min-max_seconds>
@@ -490,7 +441,7 @@ python3 cli/unified_cli.py agent register \
 
 **Example:**
 ```bash
-./aitbc-cli simulate ai-jobs --jobs 20 --models "llama2,mistral,gemma" --duration-range 30-300
+aitbc simulate ai-jobs --jobs 20 --models "llama2,mistral,gemma" --duration-range 30-300
 ```
 
 ---
@@ -503,21 +454,19 @@ python3 cli/unified_cli.py agent register \
 
 **Default Wallet Daemon URL:** `http://localhost:8108`
 
-**CLI Version:** 2.1.0
-
 ---
 
 ## Authentication
 
 ### Wallet Password
-- Required for: create, import, export, send, ai-ops submit, agent message
+- Required for: send, ai submit, agent-msg send (when signing)
 - Can be provided via `--password` or `--password-file`
 - Genesis password location: `/var/lib/aitbc/keystore/.genesis_password`
 
 ### Password File Usage
 ```bash
 # Using password file
-./aitbc-cli send --from my-wallet --to 0x... --amount 100 --password-file /var/lib/aitbc/keystore/.genesis_password
+aitbc transactions send --from my-wallet --to 0x... --amount 100 --password-file /var/lib/aitbc/keystore/.genesis_password
 ```
 
 ---
@@ -528,7 +477,7 @@ python3 cli/unified_cli.py agent register \
 
 **Override:** Use `--chain-id` to override auto-detection
 ```bash
-./aitbc-cli --chain-id ait-mainnet [command]
+aitbc --chain-id ait-mainnet [command]
 ```
 
 ---
@@ -565,7 +514,7 @@ python3 cli/unified_cli.py agent register \
 
 ### 8. Private Key Format
 **Error:** `Invalid private key`
-**Fix:** Ensure private key is valid hex string (64 hex characters for Ed25519)
+**Fix:** Ensure private key is valid hex string
 
 ### 9. Keystore Encryption
 **Error:** `Unsupported cipher`
@@ -581,36 +530,37 @@ python3 cli/unified_cli.py agent register \
 
 ```bash
 # Wallet Management
-./aitbc-cli create --name <name> --password <password>
-./aitbc-cli list --format [table|json]
-./aitbc-cli balance --name <name>
-./aitbc-cli send --from <name> --to <address> --amount <amount> --password <password>
+aitbc wallet create --name <name>
+aitbc wallet list
+aitbc wallet balance --name <name>
+aitbc transactions send --from <name> --to <address> --amount <amount> --password <password>
 
 # Blockchain
-./aitbc-cli chain --rpc-url http://localhost:8202
-./aitbc-cli network --rpc-url http://localhost:8202
-./aitbc-cli analytics --type blocks --limit 10
+aitbc blockchain status --node-url http://localhost:8202
+aitbc blockchain height --node-url http://localhost:8202
+aitbc network status --rpc-url http://localhost:8202
+aitbc analytics summary
 
 # Mining
-./aitbc-cli mine start --wallet <name> --threads 1
-./aitbc-cli mine status
-./aitbc-cli mine stop
+aitbc mining start --wallet-name <name> --threads 1
+aitbc mining status
+aitbc mining stop
 
 # Marketplace
-./aitbc-cli marketplace --action list
-./aitbc-cli marketplace --action create --name <name> --price <price>
+aitbc market list
+aitbc market offer --service-type ollama --model-or-variant <model> --price <price>
 
 # AI Jobs
-./aitbc-cli ai-ops submit --wallet <name> --type inference --prompt <text> --payment <amount>
+aitbc ai submit --wallet <name> --type inference --prompt <text> --payment <amount>
 
 # Agents
-./aitbc-cli agent list --status active
-./aitbc-cli agent message --agent <address> --message <text> --wallet <name> --password <password>
+aitbc agent list
+aitbc agent-msg send "<text>" --to-agent <agent> --wallet <name> --password <password>
 
 # Simulations
-./aitbc-cli simulate blockchain --blocks 10 --transactions 5
-./aitbc-cli simulate wallets --wallets 5 --balance 1000
-./aitbc-cli simulate price --price 100 --volatility 0.05
+aitbc simulate blockchain --blocks 10 --transactions 5
+aitbc simulate wallets --wallets 5 --balance 1000
+aitbc simulate price --price 100 --volatility 0.05
 ```
 
 ---
@@ -619,7 +569,6 @@ python3 cli/unified_cli.py agent register \
 
 **AITBC CLI Tool: FULLY OPERATIONAL**
 
-- Version: 2.1.0
 - All wallet operations working
 - Blockchain analytics functional
 - Marketplace operations supported

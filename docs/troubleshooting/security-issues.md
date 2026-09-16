@@ -120,7 +120,7 @@ When reporting security issues, collect the following information:
 ```bash
 # Service logs
 journalctl -u aitbc-coordinator-api -n 500 > coordinator.log
-journalctl -u aitbc-blockchain -n 500 > blockchain.log
+journalctl -u aitbc-blockchain-node -n 500 > blockchain.log
 journalctl -u aitbc-marketplace -n 500 > marketplace.log
 
 # System information

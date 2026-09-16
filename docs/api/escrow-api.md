@@ -2,6 +2,10 @@
 
 **Last Updated:** June 3, 2026
 **Base URL:** `http://localhost:8202/rpc`
+
+> **Auth:** the escrow router is key-gated at the router level — every endpoint
+> below, including `GET` state reads, requires `X-API-Key: $BLOCKCHAIN_RPC_API_KEY`
+> (from `/etc/aitbc/blockchain-secrets.env`).
 **Service:** `aitbc-blockchain-rpc` (port 8202)
 
 ## Overview
@@ -207,6 +211,7 @@ aitbc market escrow refund <job_id> --reason "provider_failed"
 # Create escrow
 curl -X POST http://localhost:8202/rpc/escrow/create \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{
     "job_id": "bid-abc123",
     "buyer": "0xabc1234567890abc1234567890abc123456789ab",
@@ -215,7 +220,8 @@ curl -X POST http://localhost:8202/rpc/escrow/create \
   }'
 
 # Check state
-curl http://localhost:8202/rpc/escrow/bid-abc123
+curl http://localhost:8202/rpc/escrow/bid-abc123 \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY"
 
 # Release to provider
 curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/release \
@@ -224,6 +230,7 @@ curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/release \
 # Refund buyer
 curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/refund \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"reason": "provider_failed"}'
 ```
 

@@ -12,15 +12,19 @@ category: operations
 Activate when user requests multi-node operations: git synchronization, service restart across nodes, blockchain state sync, or coordinated actions across the AITBC multi-node deployment.
 
 ## Purpose
-Synchronize git changes, coordinate blockchain state, and manage multi-node operations across genesis (aitbc/main node), follower (`<node1>`), and `<node3>` nodes.
+Synchronize git changes, coordinate blockchain state, and manage multi-node operations across the hub/proposer (`hub`), followers (`node0`/`node1`/`node2`), and the demoted follower `hub1`.
 
 ## Node Architecture
 
 | Node | Hostname | Role | Access |
 |------|----------|------|--------|
-| Main Node | aitbc (localhost) | Primary development + blockchain | Direct |
-| Follower Node | `<node1>` | Secondary blockchain node | `ssh <node1>` |
-| CI/CD Node | `<node3>` | CI/CD runner (also hosts aitbc2 blockchain) | `ssh <node3>` |
+| Hub / Proposer | `hub` (hub.aitbc, 10.177.61.28) | Block production, coordinator, marketplace | `ssh hub` |
+| Follower | `node0` (10.1.223.93) | Customer GPU node | `ssh node0` |
+| Follower / PBFT | `node1` (10.1.223.40) | Validator | `ssh node1` |
+| Follower / shop | `node2` (10.1.223.136) | Shop node, commits/pushes to gitea | `ssh node2` |
+| Demoted follower | `hub1` (192.168.100.10) | Old hub, pull-only replica | `ssh hub1` |
+
+Legacy names `aitbc`, `aitbc1`..`aitbc3`, `node3`, and `hub2.aitbc.bubuit.net` are retired — `aitbc3` in older docs means today's `node2`.
 
 ## Port Reference (Same on All Nodes)
 
@@ -44,19 +48,19 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 Before proceeding, verify:
 ```bash
 # Check SSH connectivity to all nodes
-ssh <node1> 'echo "SSH to <node1> working"'
-ssh <node3> 'echo "SSH to <node3> working"'
+ssh node1 'echo "SSH to node1 working"'
+ssh node2 'echo "SSH to node2 working"'
 
 # Check git remotes
 cd /opt/aitbc && git remote -v
 
 # Check service status on all nodes
 systemctl list-units --state=running | grep aitbc
-ssh <node1> 'systemctl list-units --state=running | grep aitbc'
-ssh <node3> 'systemctl list-units --state=running | grep aitbc'
+ssh node1 'systemctl list-units --state=running | grep aitbc'
+ssh node2 'systemctl list-units --state=running | grep aitbc'
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 ```
 
 ## Operations
@@ -66,8 +70,8 @@ ssh <node3> 'systemctl list-units --state=running | grep aitbc'
 # Check all three nodes
 cd /opt/aitbc
 echo "=== Main (aitbc) ===" && git status --short && git rev-parse --short HEAD
-echo "=== Follower (<node1>) ===" && ssh <node1> 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
-echo "=== node3 ===" && ssh <node3> 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
+echo "=== Follower (node1) ===" && ssh node1 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
+echo "=== node2 ===" && ssh node2 'cd /opt/aitbc && git status --short && git rev-parse --short HEAD'
 ```
 
 ### Sync All Nodes from Main
@@ -77,10 +81,10 @@ cd /opt/aitbc
 git add . && git commit -m "feat: description" && git push origin main
 
 # 2. Pull on follower
-ssh <node1> 'cd /opt/aitbc && git pull origin main'
+ssh node1 'cd /opt/aitbc && git pull origin main'
 
-# 3. Pull on <node3>
-ssh <node3> 'cd /opt/aitbc && git pull origin main'
+# 3. Pull on node2
+ssh node2 'cd /opt/aitbc && git pull origin main'
 
 # 4. Verify sync
 # (use check status command above)
@@ -89,27 +93,31 @@ ssh <node3> 'cd /opt/aitbc && git pull origin main'
 ### Handle Sync Conflicts
 ```bash
 # If git pull fails on remote node
-ssh <node1> 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
-ssh <node3> 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
+ssh node1 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
+ssh node2 'cd /opt/aitbc && git checkout --force . && git clean -fd && git pull origin main'
 ```
 
 ### Service Restart After Sync
 ```bash
-# Restart services that need code updates
-sudo systemctl restart aitbc-coordinator-api.service
-ssh <node1> 'sudo systemctl restart aitbc-coordinator-api.service'
-ssh <node3> 'sudo systemctl restart aitbc-blockchain-node.service'
+# Restart services that need code updates — run each where it lives:
+# coordinator-api runs on hub; blockchain-node runs on every node
+ssh hub 'sudo systemctl restart aitbc-coordinator-api.service'
+ssh node1 'sudo systemctl restart aitbc-blockchain-node.service'
+ssh node2 'sudo systemctl restart aitbc-blockchain-node.service'
 ```
+
+`localhost` below means whichever node you run the commands on (typically
+`node2` or `hub` — the commit/push nodes).
 
 ### Check Blockchain Sync Across Nodes
 ```bash
 # Check block heights on all nodes
-for node in localhost <node1> <node3>; do
+for node in localhost node1 node2; do
   echo "=== $node ==="
   if [ "$node" = "localhost" ]; then
-    cd /opt/aitbc && ./aitbc-cli chain
+    aitbc blockchain height
   else
-    ssh "$node" 'cd /opt/aitbc && ./aitbc-cli chain'
+    ssh "$node" 'aitbc blockchain height'
   fi
 done
 ```
@@ -117,7 +125,7 @@ done
 ### Check Service Status on All Nodes
 ```bash
 # Check blockchain services on all nodes
-for node in localhost <node1> <node3>; do
+for node in localhost node1 node2; do
   echo "=== $node ==="
   if [ "$node" = "localhost" ]; then
     systemctl status aitbc-blockchain-node.service --no-pager
@@ -131,13 +139,13 @@ done
 ```bash
 # Restart blockchain services on all nodes
 sudo systemctl restart aitbc-blockchain-node.service
-ssh <node1> 'sudo systemctl restart aitbc-blockchain-node.service'
-ssh <node3> 'sudo systemctl restart aitbc-blockchain-node.service'
+ssh node1 'sudo systemctl restart aitbc-blockchain-node.service'
+ssh node2 'sudo systemctl restart aitbc-blockchain-node.service'
 
 # Verify services are running
 systemctl status aitbc-blockchain-node.service
-ssh <node1> 'systemctl status aitbc-blockchain-node.service'
-ssh <node3> 'systemctl status aitbc-blockchain-node.service'
+ssh node1 'systemctl status aitbc-blockchain-node.service'
+ssh node2 'systemctl status aitbc-blockchain-node.service'
 ```
 
 ## Common Pitfalls
@@ -171,16 +179,16 @@ ssh <node3> 'systemctl status aitbc-blockchain-node.service'
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# All CLI operations (use wrapper)
-/opt/aitbc/aitbc-cli chain
-/opt/aitbc/aitbc-cli network
-/opt/aitbc/aitbc-cli balance --name genesis
+# All CLI operations
+aitbc blockchain height
+aitbc network status
+aitbc wallet balance --name genesis
 ```
 
 ---
