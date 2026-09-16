@@ -16,7 +16,7 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..mempool import get_mempool
-from ..protocol_escrow import protocol_transfer_confirmed, queue_protocol_transfer, stake_escrow_address
+from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
 from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
 from .utils import get_chain_id, sign_transaction_data, validate_chain_id, verify_request_signature
 
@@ -207,11 +207,16 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         # Never release against a lock that has not landed. The escrow is
         # shared, so paying out an unfunded stake would spend another staker's
         # principal.
-        if not protocol_transfer_confirmed(session, chain_id, "STAKE_LOCK", "stake_id", stake_id):
+        lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "stake_id", stake_id)
+        if not lock_txs:
             raise HTTPException(
                 status_code=409,
                 detail=f"Stake {stake_id} lock is not yet confirmed on-chain; retry once it is included in a block",
             )
+        # v4 consensus resolves the release against these replicated lock
+        # records — they are server-derived (the client signed before they
+        # were gathered) so they ride in the payload, not the signed message.
+        lock_tx_hashes = [tx.tx_hash for tx in lock_txs]
         amount = stake.amount
         stake.status = "withdrawn"
         session.add(stake)
@@ -223,7 +228,7 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         amount=amount,
         chain_id=chain_id,
         tx_type="STAKE_RELEASE",
-        payload={"stake_id": str(stake_id)},
+        payload={"stake_id": str(stake_id), "lock_tx_hashes": lock_tx_hashes},
         # The keyless escrow cannot sign; the user's verified unstake
         # signature is embedded as the release's authorization evidence.
         auth={"signer": address, "message": sign_data, "signature": signature},
