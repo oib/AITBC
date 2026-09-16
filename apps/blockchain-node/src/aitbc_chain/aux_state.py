@@ -203,7 +203,10 @@ def upsert_aux_rows(session: Any, chain_id: str, tables: dict[str, list[dict[str
                 data[f] = v
             if existing is not None:
                 for f, v in data.items():
-                    if f in spec.datetime_fields and v is None:
+                    # A peer that omits a field (older version, or a
+                    # legitimately null optional) must not null out a local
+                    # value — these tables only ever transition None->value.
+                    if v is None:
                         continue
                     setattr(existing, f, v)
             else:
