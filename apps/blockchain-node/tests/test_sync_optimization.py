@@ -107,3 +107,140 @@ class TestDeltaSync:
             rows = s.exec(select(ChainParameter).where(ChainParameter.chain_id == "test")).all()
             assert len(rows) == 1
             assert rows[0].value == "0x1111111111111111111111111111111111111111"
+
+    def test_aux_state_upserted_from_peer(self, session_factory):
+        """stake/bond/governance side-effect rows live outside the account
+        state root — without sync propagation a follower's governance/vote
+        reads zero power and bond gates diverge per node."""
+        from datetime import UTC, datetime, timedelta
+
+        from aitbc_chain.aux_state import serialize_aux_rows, upsert_aux_rows
+        from aitbc_chain.base_models import Bond, GovernanceProposal, GovernanceVote, Stake
+        from sqlmodel import select
+
+        now = datetime.now(UTC)
+        payload = {
+            "stakes": [
+                {
+                    "id": 7,
+                    "address": "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b",
+                    "amount": 1000,
+                    "locked_until": (now + timedelta(days=30)).isoformat(),
+                    "status": "active",
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                }
+            ],
+            "bonds": [
+                {
+                    "bond_id": "bond_0xabc_1",
+                    "provider": "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b",
+                    "amount": 500,
+                    "locked_until": (now + timedelta(days=7)).isoformat(),
+                    "status": "active",
+                    "created_tx_hash": "0xdeadbeef",
+                }
+            ],
+            "governance_proposals": [
+                {
+                    "proposal_id": "prop-1",
+                    "proposer_address": "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b",
+                    "title": "t",
+                    "description": "d",
+                    "status": "active",
+                    "votes_for": 3,
+                    "voting_starts": now.isoformat(),
+                    "voting_ends": (now + timedelta(days=3)).isoformat(),
+                    "execution_payload": {"k": "v"},
+                }
+            ],
+            "governance_votes": [
+                {
+                    "proposal_id": "prop-1",
+                    "voter_address": "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b",
+                    "vote_type": "for",
+                    "voting_power": 1000,
+                    "created_at": now.isoformat(),
+                }
+            ],
+        }
+        with session_factory() as s:
+            counts = upsert_aux_rows(s, "test", payload)
+            assert counts == {"stakes": 1, "bonds": 1, "governance_proposals": 1, "governance_votes": 1}
+            s.commit()
+
+        checksummed = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
+        with session_factory() as s:
+            stake = s.exec(select(Stake).where(Stake.chain_id == "test")).one()
+            assert stake.id == 7 and stake.address == checksummed and stake.amount == 1000
+            bond = s.exec(select(Bond).where(Bond.chain_id == "test")).one()
+            assert bond.bond_id == "bond_0xabc_1" and bond.provider == checksummed
+            prop = s.exec(select(GovernanceProposal).where(GovernanceProposal.chain_id == "test")).one()
+            assert prop.votes_for == 3 and prop.execution_payload == {"k": "v"}
+            vote = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).one()
+            assert vote.voting_power == 1000 and vote.voter_address == checksummed
+
+        # Second sync updates in place — keyed upsert, no duplicates.
+        payload["stakes"][0]["status"] = "withdrawn"
+        payload["governance_votes"][0]["voting_power"] = 2000
+        with session_factory() as s:
+            upsert_aux_rows(s, "test", payload)
+            s.commit()
+        with session_factory() as s:
+            stakes = s.exec(select(Stake).where(Stake.chain_id == "test")).all()
+            assert len(stakes) == 1 and stakes[0].status == "withdrawn"
+            votes = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).all()
+            assert len(votes) == 1 and votes[0].voting_power == 2000
+
+    def test_aux_state_missing_key_skipped(self, session_factory):
+        from aitbc_chain.aux_state import upsert_aux_rows
+        from aitbc_chain.base_models import Stake
+        from sqlmodel import select
+
+        with session_factory() as s:
+            counts = upsert_aux_rows(s, "test", {"stakes": [{"address": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B", "amount": 5}]})
+            assert counts["stakes"] == 0
+            s.commit()
+        with session_factory() as s:
+            assert s.exec(select(Stake).where(Stake.chain_id == "test")).all() == []
+
+    def test_aux_state_serialize_window(self, session_factory):
+        """Delta path ships only rows touched at-or-after the cutoff; the
+        snapshot path ships everything."""
+        from datetime import UTC, datetime, timedelta
+
+        from aitbc_chain.aux_state import serialize_aux_rows
+        from aitbc_chain.base_models import Stake
+        from sqlmodel import select
+
+        now = datetime.now(UTC)
+        with session_factory() as s:
+            old = Stake(
+                chain_id="test",
+                address="0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+                amount=1,
+                locked_until=now + timedelta(days=1),
+                status="active",
+            )
+            old.updated_at = now - timedelta(hours=2)
+            s.add(old)
+            recent = Stake(
+                chain_id="test",
+                address="0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
+                amount=2,
+                locked_until=now + timedelta(days=1),
+                status="active",
+            )
+            recent.updated_at = now
+            s.add(recent)
+            s.commit()
+
+        cutoff = now - timedelta(minutes=15)
+        with session_factory() as s:
+            delta = serialize_aux_rows(s, "test", changed_since=cutoff)
+            assert [r["amount"] for r in delta["tables"]["stakes"]] == [2]
+            assert delta["truncated"] is False
+            full = serialize_aux_rows(s, "test")
+            assert sorted(r["amount"] for r in full["tables"]["stakes"]) == [1, 2]
+            capped = serialize_aux_rows(s, "test", max_rows=1)
+            assert capped["truncated"] is True
