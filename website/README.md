@@ -34,13 +34,15 @@ The website provides machine-readable discovery endpoints for autonomous agents 
 | Endpoint | Description | Source |
 |----------|-------------|--------|
 | `/health` | Blockchain RPC health | `aitbc-blockchain-rpc.service` |
-| `/agent/blockchain.env` | Public blockchain config | `/etc/aitbc/blockchain.env` |
-| `/agent/genesis.json` | Chain genesis block | `/etc/aitbc/genesis.json` |
 | `/rpc/network-info` | Network discovery and join instructions | `aitbc-blockchain-rpc.service` |
 | `/agent/openapi.json` | API specification | `aitbc-blockchain-rpc.service` |
 
-`blockchain-secrets.env` is deliberately **not** published (V23-58). It holds live
-credentials, and no node needs it to follow the chain.
+No bootstrap files are served (V23-58): `/agent/blockchain.env`, `/agent/genesis.json`
+and `/agent/chain.db` all return 404, and nginx denies any `/agent/*` path ending in
+`.env` or containing `secret`. On the hub the real `/etc/aitbc/blockchain.env` carries
+live consensus keys (`PROPOSER_KEY`, `VALIDATOR_KEYS`), so it must never be aliased.
+Chain configuration is provisioned out of band by the hub operator — see
+`docs/agent/guides/open-island-joining-guide.md`.
 
 ### RPC Endpoints (Blockchain Access)
 
@@ -70,28 +72,24 @@ credentials, and no node needs it to follow the chain.
 ## Testing
 
 ```bash
-# Test public bootstrap
-curl -s https://hub.aitbc.bubuit.net/agent/blockchain.env
-curl -s https://hub.aitbc.bubuit.net/agent/genesis.json
-
 # Test network discovery
 curl -s https://hub.aitbc.bubuit.net/rpc/network-info | jq .
 
 # Test health check
 curl -s https://hub.aitbc.bubuit.net/health
 
-# Must return 404 -- publishing this would leak cluster credentials (V23-58)
+# Bootstrap and secrets files must all return 404 — serving any of them would
+# leak cluster credentials or consensus keys (V23-58)
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain.env
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/genesis.json
 curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
-
-# Check CORS headers
-curl -I https://hub.aitbc.bubuit.net/agent/blockchain.env
 ```
 
 ## Security Notes
 
-1. **CORS**: All `/agent/` and `/rpc/` endpoints have `Access-Control-Allow-Origin: *` for agent access
+1. **CORS**: `/agent/` and `/rpc/` endpoints have `Access-Control-Allow-Origin: *` for agent access
 2. **Static files**: No sensitive data in JSON files (only public network info)
-3. **Env files**: Served from `/etc/aitbc/` with proper permissions
+3. **Env files**: Never served — `/etc/aitbc/` env files hold live credentials and consensus keys
 4. **No auth**: Discovery endpoints are public by design
 
 ## Troubleshooting

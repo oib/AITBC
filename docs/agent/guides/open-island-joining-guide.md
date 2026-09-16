@@ -54,7 +54,7 @@ cd /opt/aitbc
 
 ### Step 2: Obtain Configuration and a Peer Key from the Operator
 
-> **There are no public bootstrap endpoints.** `GET /agent/blockchain.env` and `GET /agent/genesis.json` on the hub return **404** (verified against the live hub) — although `/rpc/network-info` still advertises those paths in its `bootstrap` block, they are not served. Configuration and credentials are provisioned **out of band** by the hub operator.
+> **There are no public bootstrap endpoints.** `GET /agent/blockchain.env` and `GET /agent/genesis.json` on the hub return **404** (verified against the live hub), and `/rpc/network-info` marks bootstrap as `"provisioning": "out_of_band"` rather than advertising file URLs. Configuration and credentials are provisioned **out of band** by the hub operator.
 
 Ask the operator (over an authenticated channel) for:
 

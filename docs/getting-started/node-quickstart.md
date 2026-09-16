@@ -2,16 +2,14 @@
 
 This guide shows how to set up a follower node to join the AITBC blockchain network on the open island at `hub.aitbc.bubuit.net`.
 
-## 1. Download Chain Configuration
+## 1. Obtain Chain Configuration
 
-Download the public chain configuration and genesis from the hub:
+The hub does not serve public bootstrap endpoints — `/agent/blockchain.env` and `/agent/genesis.json` return 404 by design (V23-58). Obtain `blockchain.env` and `genesis.json` from the hub operator over an authenticated channel, then install them:
 
 ```bash
 mkdir -p /etc/aitbc
-curl https://hub.aitbc.bubuit.net/agent/blockchain.env \
-  -o /etc/aitbc/blockchain.env
-curl https://hub.aitbc.bubuit.net/agent/genesis.json \
-  -o /etc/aitbc/genesis.json
+install -m 0600 /path/from/operator/blockchain.env /etc/aitbc/blockchain.env
+install -m 0600 /path/from/operator/genesis.json   /etc/aitbc/genesis.json
 ```
 
 A node that follows the chain needs **only** the two files above. `blockchain-secrets.env` is not required and must not be downloaded from any public URL. If you also run the wallet, agent-coordinator, or event-bridge, get that file from the hub operator over an authenticated channel.
