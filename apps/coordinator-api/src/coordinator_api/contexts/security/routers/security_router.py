@@ -458,6 +458,8 @@ async def monitor_sandbox(
         sandbox_manager = AgentSandboxManager(session)
         monitoring_data = await sandbox_manager.monitor_sandbox(execution_id)
         return monitoring_data
+    except NotImplementedError as e:
+        raise HTTPException(status_code=501, detail=str(e)) from e
     except Exception as e:
         logger.error("Failed to monitor sandbox: %s", e)
         logger.exception("Unhandled exception")

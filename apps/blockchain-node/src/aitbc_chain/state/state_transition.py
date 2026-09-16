@@ -687,6 +687,24 @@ class StateTransition:
                     False,
                     f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor",
                 )
+            # `set_governance_address` is a named-but-unimplemented execution action — the
+            # apply side logs and continues, so without this check a passed proposal would
+            # "execute" a membership change that never happens. Reject it explicitly.
+            # Missing/unknown actions stay lenient: sealed history contains GOVERNANCE_EXECUTE
+            # txs with no execution_payload (e.g. blocks 8153/8165 on ait-hub), and unknown
+            # actions are the forward-compat escape hatch.
+            gov_payload = tx_data.get("payload") or {}
+            if isinstance(gov_payload, str):
+                try:
+                    gov_payload = json.loads(gov_payload)
+                except Exception:
+                    gov_payload = {}
+            gov_action = (gov_payload.get("execution_payload") or {}).get("action")
+            if gov_action == "set_governance_address":
+                return (
+                    False,
+                    "GOVERNANCE_EXECUTE action 'set_governance_address' is reserved and not implemented",
+                )
         if tx_type == "STAKE_RELEASE" and block_version >= 4:
             ok, why = _validate_stake_release_locks(session, chain_id, tx_data, tx_hash, value, recipient_addr)
             if not ok:

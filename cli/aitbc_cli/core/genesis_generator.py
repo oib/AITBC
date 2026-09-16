@@ -195,12 +195,6 @@ class GenesisGenerator:
             "file_format": genesis_path.suffix.lower().replace(".", ""),
         }
 
-    def export_genesis(self, chain_id: str, format: str = "json") -> str:
-        """Export genesis block in specified format"""
-        # This would get the genesis block from storage
-        # For now, return placeholder
-        return f"Genesis block for {chain_id} in {format} format"
-
     def calculate_genesis_hash(self, genesis_file: str) -> str:
         """Calculate genesis hash from file"""
         genesis_path = Path(genesis_file)

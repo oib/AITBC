@@ -320,3 +320,19 @@ class TestAgentMessaging:
 
 if __name__ == "__main__":
     pytest.main([__file__])
+
+
+class TestContractIntegrationRefusal:
+    """ContractClient._load_contracts used to bind fabricated minimal ABIs (the same
+    ``getBalance`` stub for every contract) to configured addresses — calls would have
+    hit real contracts with the wrong interface. It now refuses; ``agent.py`` catches
+    the failure and runs without contract integration.
+    """
+
+    def test_load_contracts_refuses_fake_abis(self):
+        from aitbc_agent.contract_integration import ContractClient
+
+        client = ContractClient.__new__(ContractClient)
+        client.contracts = {}
+        with pytest.raises(NotImplementedError, match="not implemented"):
+            client._load_contracts()

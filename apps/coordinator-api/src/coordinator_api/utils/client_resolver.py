@@ -60,25 +60,6 @@ def _create_user_for_wallet(session: Session, wallet_address: str) -> User:
     return user
 
 
-def _create_placeholder_user(session: Session, client_ref: str) -> User:
-    """Create a placeholder User for an arbitrary caller identifier."""
-    user_id = str(uuid.uuid4())
-    safe_ref = client_ref[:255]
-    user = User(
-        id=user_id,
-        email=f"placeholder_{uuid.uuid4().hex[:8]}@aitbc.local",
-        username=_unique_username(session, safe_ref),
-        status="active",
-        created_at=datetime.now(UTC),
-        updated_at=datetime.now(UTC),
-        last_login=datetime.now(UTC),
-    )
-    session.add(user)
-    session.commit()
-    session.refresh(user)
-    return user
-
-
 def resolve_client(
     session: Session,
     client_ref: str,
@@ -89,8 +70,9 @@ def resolve_client(
 
     Returns ``(client_id, client_ref)`` where ``client_id`` is the canonical
     ``users.id`` and ``client_ref`` is the original caller string. ``auto_create``
-    controls whether a missing wallet/username reference causes a placeholder user
-    to be created.
+    provisions a user only for a wallet-address ref — the address is a real
+    on-chain anchor. Arbitrary strings are never turned into placeholder users:
+    an unresolvable ref is an error, not an identity.
     """
     raw = (client_ref or "").strip()
     if not raw:
@@ -116,8 +98,5 @@ def resolve_client(
     user = session.exec(select(User).where(User.username == raw)).first()
     if user:
         return user.id, raw
-
-    if auto_create:
-        return _create_placeholder_user(session, raw).id, raw
 
     raise ValueError(f"Client reference not found: {raw}")
