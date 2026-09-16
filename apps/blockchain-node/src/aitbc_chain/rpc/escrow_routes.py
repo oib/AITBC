@@ -107,6 +107,30 @@ def verify_rpc_api_key(api_key: str | None = Security(_api_key_header)) -> str:
     return api_key
 
 
+# Peer-node keys accepted on the node-internal subscription routes only. Each
+# fleet node holds its own BLOCKCHAIN_RPC_API_KEY, so a follower calling the
+# hub's /rpc/subscribe cannot satisfy the hub's local key — the hub lists the
+# follower keys it trusts here. Deliberately NOT merged into verify_rpc_api_key:
+# a peer key must not unlock governance, chain control or settlement.
+_RPC_API_PEER_KEYS = frozenset(k.strip() for k in os.getenv("BLOCKCHAIN_RPC_API_KEY_PEERS", "").split(",") if k.strip())
+
+
+def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
+    """Accept this node's own RPC key or a configured peer-node key.
+
+    Node-to-hub internal routes (subscription register/heartbeat/lease
+    revocation). Distinct from ``verify_rpc_api_key`` so a leaked peer key
+    only ever reaches lease state, never the control plane.
+    """
+    if api_key and (api_key == _RPC_API_KEY or api_key in _RPC_API_PEER_KEYS):
+        return api_key
+    _logger.warning("Rejected peer RPC request: missing or invalid X-API-Key")
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Forbidden: missing or invalid API key",
+    )
+
+
 router = APIRouter(tags=["escrow"], dependencies=[Depends(verify_rpc_api_key)])
 
 
