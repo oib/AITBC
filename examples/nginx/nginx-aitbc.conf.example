@@ -205,8 +205,9 @@ server {
     }
 
     # ── Agent Coordinator WebSocket ───────────────────────────
-    # Real-time agent messaging (PING/PONG) and presence tracking
-    # Public: wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream
+    # Real-time agent messaging (PING/PONG) and presence tracking.
+    # Preferred public form: wss://<hub>/agent/messages/stream
+    # Legacy form (still proxied below): /agent/api/v1/agent/messages/stream
     location /agent/api/v1/agent/messages/stream {
         proxy_pass http://agent_coordinator/api/v1/agent/messages/stream;
         proxy_http_version 1.1;
@@ -231,6 +232,155 @@ server {
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
+    }
+
+    # Agent Coordinator registry (/v1/agents/*) under the /agent mount,
+    # so agent_coordinator_url=.../agent serves registry + messaging from one base.
+    location /agent/v1/ {
+        proxy_pass http://agent_coordinator/v1/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    # Agent Coordinator HTTP API (auth/nonce/login, messages, inbox, workflows, keys)
+    # Prefix route — the two /stream locations above are longer prefixes and keep winning.
+    location /agent/api/v1/agent/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        client_max_body_size 5M;
+    }
+
+    # ── Agent Coordinator short aliases ──────────────────────
+    # The app's routers live under /api/v1/agent/, which made the public path
+    # /agent/api/v1/agent/... — the doubled "agent" is the nginx service mount
+    # stacked on the app's own namespace. These aliases publish the same routes
+    # at /agent/<resource>/ (e.g. /agent/messages/send). The doubled prefix
+    # above stays live for backward compatibility: existing
+    # agent_coordinator_url=https://<hub>/agent clients append the full
+    # internal /api/v1/agent/... path themselves.
+    location /agent/messages/stream {
+        proxy_pass http://agent_coordinator/api/v1/agent/messages/stream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+        proxy_connect_timeout 10s;
+        client_max_body_size 5M;
+    }
+
+    location /agent/presence/stream {
+        proxy_pass http://agent_coordinator/api/v1/agent/presence/stream;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    location /agent/messages/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/messages/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
+        client_max_body_size 5M;
+    }
+
+    location /agent/auth/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/auth/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
+    }
+
+    location /agent/keys/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/keys/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
+    }
+
+    # No trailing slash on the prefix: the workflows list/create routes live at
+    # the bare /api/v1/agent/workflows, and /workflows/ 307s onto it. The regex
+    # proxy_redirect rewrites that absolute Location back under /agent/.
+    location /agent/workflows {
+        proxy_pass http://agent_coordinator/api/v1/agent/workflows;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
+    }
+
+    location /agent/coin-requests/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/coin-requests/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
+    }
+
+    location /agent/ws/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/ws/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
+    }
+
+    # Public coin-request endpoints for open-island funding.
+    location /api/v1/agent/coin-requests/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/coin-requests/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
+    }
+
+    # Paid agent-to-agent delegation messaging (send/inbox/read) at the root
+    # mount — used by clients that strip agent_coordinator_url to the origin.
+    location /api/v1/agent/messages/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/messages/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
+        client_max_body_size 5M;
     }
 
     # ── API Gateway Reverse Proxy ─────────────────────────────

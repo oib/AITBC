@@ -18,13 +18,18 @@ class PortfolioAggregationService:
     """Service to aggregate portfolio data from multiple AITBC services"""
 
     def __init__(self) -> None:
-        # ponytail: service URLs should be configurable via settings for production
-        # Currently hardcoded for local development
-        self.wallet_service_url = "http://localhost:8003"
-        self.exchange_service_url = "http://localhost:8203"
-        self.marketplace_service_url = "http://localhost:8102"
-        self.trading_service_url = "http://localhost:8104"
-        self.ai_service_url = "http://localhost:8005"
+        # Service URLs follow the api-gateway convention: env override, loopback default.
+        self.wallet_service_url = os.getenv("WALLET_SERVICE_URL", "http://localhost:8108")
+        self.exchange_service_url = os.getenv("EXCHANGE_SERVICE_URL", "http://localhost:8106")
+        self.marketplace_service_url = os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102")
+        self.trading_service_url = os.getenv("TRADING_SERVICE_URL", "http://localhost:8104")
+        self.ai_service_url = os.getenv("AI_SERVICE_URL", "http://localhost:8005")
+        # Wallet admin routes (/v1/wallets) require X-API-Key = WALLET_API_KEY,
+        # with COORDINATOR_API_KEY as the documented shared fallback.
+        self._wallet_api_key = os.getenv("WALLET_API_KEY") or os.getenv("COORDINATOR_API_KEY") or ""
+        # The AI engine expects ``Authorization: Bearer $AI_ENGINE_API_KEY``
+        # (ai-engine/src/ai_service.py verify_auth).
+        self._ai_api_key = os.getenv("AI_ENGINE_API_KEY") or ""
         verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
         self.http_client = RequestIDPropagatingClient(timeout=10.0, verify=verify_ssl)
 
@@ -65,7 +70,10 @@ class PortfolioAggregationService:
     async def _get_wallet_balances(self, agent_address: str | None = None) -> dict[str, Any]:
         """Fetch wallet balances from wallet service"""
         try:
-            response = await self.http_client.get(f"{self.wallet_service_url}/wallets")
+            response = await self.http_client.get(
+                f"{self.wallet_service_url}/v1/wallets",
+                headers={"X-API-Key": self._wallet_api_key} if self._wallet_api_key else None,
+            )
             if response.status_code == 200:
                 try:
                     data = response.json()
@@ -74,9 +82,7 @@ class PortfolioAggregationService:
                     return {"wallets": [], "total_wallets": 0, "total_balance": 0, "error": str(e)}
                 wallets = data.get("items", [])
                 if agent_address:
-                    wallets = [
-                        w for w in wallets if w.get("public_key") == agent_address or w.get("wallet_name") == agent_address
-                    ]
+                    wallets = [w for w in wallets if w.get("public_key") == agent_address or w.get("address") == agent_address]
                 total_balance = len(wallets)
                 return {"wallets": wallets, "total_wallets": len(wallets), "total_balance": total_balance}
             else:
@@ -89,7 +95,7 @@ class PortfolioAggregationService:
     async def _get_exchange_rates(self) -> dict[str, Any]:
         """Fetch exchange rates from exchange service"""
         try:
-            response = await self.http_client.get(f"{self.exchange_service_url}/exchange/rates")
+            response = await self.http_client.get(f"{self.exchange_service_url}/v1/cross-chain/rates")
             if response.status_code == 200:
                 try:
                     return dict(response.json())
@@ -115,48 +121,60 @@ class PortfolioAggregationService:
                     return {"offers": 0, "bids": 0, "capacity": 0, "error": str(e)}
                 return {
                     "offers": data.get("total_offers", 0),
-                    "bids": data.get("total_bids", 0),
                     "capacity": data.get("total_capacity", 0),
-                    "analytics": data,
+                    "average_price": data.get("average_price", 0),
+                    "period_type": data.get("period_type"),
                 }
             else:
                 logger.warning("Marketplace service returned status %s", response.status_code)
-                return {"offers": 0, "bids": 0, "capacity": 0, "error": "Marketplace service unavailable"}
+                return {"offers": 0, "capacity": 0, "error": "Marketplace service unavailable"}
         except Exception as e:
             logger.error("Error fetching marketplace stats: %s", str(e))
-            return {"offers": 0, "bids": 0, "capacity": 0, "error": str(e)}
+            return {"offers": 0, "capacity": 0, "error": str(e)}
 
     async def _get_trading_analytics(self, agent_address: str | None = None) -> dict[str, Any]:
-        """Fetch trading analytics from trading service"""
+        """Fetch trading analytics from trading service.
+
+        ``GET /v1/trading/analytics`` accepts only ``period_type``; there is no
+        per-agent filter, so ``agent_address`` is accepted for signature
+        compatibility and ignored.
+        """
         try:
-            url = f"{self.trading_service_url}/trading/analytics"
-            if agent_address:
-                url += f"?agent_address={agent_address}"
-            response = await self.http_client.get(url)
+            response = await self.http_client.get(f"{self.trading_service_url}/v1/trading/analytics")
             if response.status_code == 200:
                 try:
                     return dict(response.json())
                 except Exception as e:
                     logger.warning("Failed to parse trading analytics: %s", e)
-                    return {"trades": [], "analytics": {}, "error": str(e)}
+                    return {"error": str(e)}
             else:
                 logger.warning("Trading service returned status %s", response.status_code)
-                return {"trades": [], "analytics": {}, "error": "Trading service unavailable"}
+                return {"error": "Trading service unavailable"}
         except Exception as e:
             logger.error("Error fetching trading analytics: %s", str(e))
-            return {"trades": [], "analytics": {}, "error": str(e)}
+            return {"error": str(e)}
 
     async def _get_ai_trade_signals(self) -> dict[str, Any]:
-        """Fetch AI trade signals from AI service"""
+        """Fetch AI trade signals from AI service.
+
+        The AI engine is a simulation placeholder — it only answers when the
+        operator sets ``AI_ENGINE_ALLOW_SIMULATION=true``, and its payload is
+        labelled ``simulated: true``. We propagate that label verbatim so the
+        aggregate cannot launder fabricated signals as real ones.
+        """
         try:
             response = await self.http_client.post(
-                f"{self.ai_service_url}/api/ai/trade", json={"symbol": "AITBC/ETH", "strategy": "ai_enhanced"}
+                f"{self.ai_service_url}/api/ai/trade",
+                json={"symbol": "AITBC/ETH", "strategy": "ai_enhanced"},
+                headers={"Authorization": f"Bearer {self._ai_api_key}"} if self._ai_api_key else None,
             )
             if response.status_code == 200:
                 data = response.json()
                 if data.get("status") == "success" and "decision" in data:
                     decision = data["decision"]
                     return {
+                        "simulated": bool(data.get("simulated", False)),
+                        "notice": data.get("notice"),
                         "signals": [
                             {
                                 "symbol": decision.get("symbol"),
@@ -166,10 +184,10 @@ class PortfolioAggregationService:
                                 "reasoning": decision.get("reasoning"),
                                 "timestamp": decision.get("timestamp"),
                             }
-                        ]
+                        ],
                     }
                 else:
-                    return {"signals": [], "error": "Invalid response format"}
+                    return {"signals": [], "error": data.get("message") or "Invalid response format"}
             else:
                 logger.warning("AI service returned status %s", response.status_code)
                 return {"signals": [], "error": "AI service unavailable"}
@@ -191,14 +209,14 @@ class PortfolioAggregationService:
             wallets = wallet_data.get("wallets", [])
             total_aitbc_balance = wallet_data.get("total_balance", len(wallets))
             rates = exchange_data.get("rates", {})
-            aitbc_eth_rate = rates.get("ETH/AITBC", {}).get("rate", 1e-05)
+            # Exchange returns flat {"AITBC::ETH": <float>} — AITBC priced in ETH.
+            aitbc_eth_rate = float(rates.get("AITBC::ETH", 1e-05))
             eth_value = total_aitbc_balance * aitbc_eth_rate
             marketplace_offers = marketplace_data.get("offers", 0)
-            marketplace_bids = marketplace_data.get("bids", 0)
             marketplace_capacity = marketplace_data.get("capacity", 0)
-            trading_analytics = trading_data.get("analytics", {})
-            total_trades = trading_analytics.get("total_trades", 0)
-            completed_trades = trading_analytics.get("completed_trades", 0)
+            # Trading analytics puts the counters at top level.
+            total_trades = trading_data.get("total_trades", 0)
+            completed_trades = trading_data.get("completed_trades", 0)
             success_rate = completed_trades / total_trades * 100 if total_trades > 0 else 0
             signals = ai_data.get("signals", [])
             avg_signal_confidence = 0.0
@@ -210,7 +228,6 @@ class PortfolioAggregationService:
                 "exchange_rate": aitbc_eth_rate,
                 "marketplace_exposure": {
                     "offers": marketplace_offers,
-                    "bids": marketplace_bids,
                     "capacity": marketplace_capacity,
                 },
                 "trading_performance": {
@@ -218,7 +235,11 @@ class PortfolioAggregationService:
                     "completed_trades": completed_trades,
                     "success_rate": success_rate,
                 },
-                "ai_signal_summary": {"total_signals": len(signals), "average_confidence": avg_signal_confidence},
+                "ai_signal_summary": {
+                    "total_signals": len(signals),
+                    "average_confidence": avg_signal_confidence,
+                    "simulated": bool(ai_data.get("simulated", False)),
+                },
             }
         except Exception as e:
             logger.error("Error calculating portfolio summary: %s", str(e))
