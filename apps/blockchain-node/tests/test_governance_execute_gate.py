@@ -121,3 +121,68 @@ def test_governance_execute_accepted_for_executor(session):
         select(ChainParameter).where(ChainParameter.chain_id == chain_id, ChainParameter.parameter == "some_param")
     ).first()
     assert row is not None and row.value == "x"
+
+
+def _gov_tx_with_action(key: str, chain_id: str, execution_payload: dict | None) -> dict:
+    tx_data = {
+        "amount": 0,
+        "value": 0,
+        "fee": DEFAULT_TX_FEE_UNITS,
+        "nonce": 0,
+        "type": "GOVERNANCE_EXECUTE",
+        "chain_id": chain_id,
+        "payload": {"proposal_id": "prop-1"},
+    }
+    if execution_payload is not None:
+        tx_data["payload"]["execution_payload"] = execution_payload
+    return _make_tx(key, tx_data)
+
+
+def test_governance_execute_rejects_set_governance_address(session):
+    """The named-but-unimplemented action is refused at validation.
+
+    The apply side logs "not implemented" and continues, so without this gate a
+    passed proposal would execute a membership change that never happens.
+    """
+    chain_id = "ait-test"
+    _seed_accounts(session, chain_id)
+    tx = _gov_tx_with_action(
+        EXECUTOR_KEY,
+        chain_id,
+        {"action": "set_governance_address", "address": "0x" + "ab" * 20, "operation": "add"},
+    )
+    st = StateTransition()
+    ok, msg = st.apply_transaction(session, chain_id, tx, "tx_gov_sga")
+    assert not ok
+    assert "set_governance_address" in msg
+    assert "not implemented" in msg
+
+
+def test_governance_execute_rejects_set_governance_address_json_payload(session):
+    """The same rejection applies when the payload arrives as a JSON string."""
+    chain_id = "ait-test"
+    _seed_accounts(session, chain_id)
+    tx = _gov_tx_with_action(
+        EXECUTOR_KEY,
+        chain_id,
+        {"action": "set_governance_address", "address": "0x" + "ab" * 20},
+    )
+    tx["payload"] = json.dumps(tx["payload"])
+    st = StateTransition()
+    ok, msg = st.apply_transaction(session, chain_id, tx, "tx_gov_sga_json")
+    assert not ok
+    assert "set_governance_address" in msg
+
+
+def test_governance_execute_missing_execution_payload_stays_lenient(session):
+    """Replay compat: sealed GOVERNANCE_EXECUTEs without execution_payload must still apply.
+
+    ait-hub blocks 8153/8165 contain exactly this shape — a rejection here would
+    break historical import on every node that re-validates.
+    """
+    chain_id = "ait-test"
+    _seed_accounts(session, chain_id)
+    tx = _gov_tx_with_action(EXECUTOR_KEY, chain_id, None)
+    st = StateTransition()
+    ok, msg = st.apply_transaction(session, chain_id, tx, "tx_gov_noop")
+    assert ok, msg
