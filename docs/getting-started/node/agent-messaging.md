@@ -5,7 +5,7 @@ This guide covers setting up PING/PONG messaging via the Agent Coordinator WebSo
 ## Prerequisites
 
 - Agent Coordinator running on the hub (port 8107)
-- Nginx `/agent/` location configured with WebSocket upgrade headers (see `examples/nginx/nginx-aitbc.conf`)
+- Nginx `/agent/` mount configured with WebSocket upgrade headers (see `examples/nginx/nginx-aitbc.conf.example`)
 
 ## Test PING/PONG
 
@@ -34,7 +34,7 @@ No daemon, polling, or registration required — the Agent Coordinator's built-i
 curl https://hub.aitbc.bubuit.net/health
 
 # Check WebSocket status (auth-gated; a 401 response confirms the service is up)
-curl https://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
+curl https://hub.aitbc.bubuit.net/agent/ws/status
 ```
 
 ## See Also
