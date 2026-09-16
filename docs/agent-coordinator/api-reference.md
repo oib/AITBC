@@ -56,8 +56,10 @@ Exceeding a limit returns `429`.
 
 ## WebSocket Support
 
-Implemented — two streams under `/api/v1/agent/` (nginx-proxied at
-`/agent/api/v1/agent/` on the hub):
+Implemented — two streams under `/api/v1/agent/`. On the hub, nginx proxies
+them at `/agent/messages/stream` and `/agent/presence/stream`; the legacy
+doubled form `/agent/api/v1/agent/...` stays proxied for backward
+compatibility:
 
 - `WS /api/v1/agent/messages/stream` — real-time agent messaging
 - `WS /api/v1/agent/presence/stream` — presence/tracking updates
