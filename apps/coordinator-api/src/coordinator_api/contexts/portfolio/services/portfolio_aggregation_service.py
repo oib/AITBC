@@ -30,8 +30,10 @@ class PortfolioAggregationService:
         # The AI engine expects ``Authorization: Bearer $AI_ENGINE_API_KEY``
         # (ai-engine/src/ai_service.py verify_auth).
         self._ai_api_key = os.getenv("AI_ENGINE_API_KEY") or ""
-        verify_ssl = os.getenv("VERIFY_SSL", "true").lower() == "true"
-        self.http_client = RequestIDPropagatingClient(timeout=10.0, verify=verify_ssl)
+        # Trading routes sit behind X-Trading-Api-Key = TRADING_API_KEY
+        # (trading_service/dependencies.py require_trading_api_key).
+        self._trading_api_key = os.getenv("TRADING_API_KEY") or ""
+        self.http_client = RequestIDPropagatingClient(timeout=10.0)
 
     async def get_unified_portfolio(self, agent_address: str | None = None) -> dict[str, Any]:
         """
@@ -140,7 +142,10 @@ class PortfolioAggregationService:
         compatibility and ignored.
         """
         try:
-            response = await self.http_client.get(f"{self.trading_service_url}/v1/trading/analytics")
+            response = await self.http_client.get(
+                f"{self.trading_service_url}/v1/trading/analytics",
+                headers={"X-Trading-Api-Key": self._trading_api_key} if self._trading_api_key else None,
+            )
             if response.status_code == 200:
                 try:
                     return dict(response.json())
