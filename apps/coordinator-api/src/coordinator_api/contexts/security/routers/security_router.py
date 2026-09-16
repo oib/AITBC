@@ -7,6 +7,7 @@ from datetime import UTC, datetime
 from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Request
+from sqlalchemy.exc import IntegrityError
 from sqlmodel import Session, select
 
 from aitbc.aitbc_logging import get_logger
@@ -18,6 +19,7 @@ from ....auth import AdminDep  # NEW: JWT auth
 from ...agent_coordination.services.security import (
     AgentAuditLog,
     AgentAuditor,
+    AgentSandboxConfig,
     AgentSandboxManager,
     AgentSecurityManager,
     AgentSecurityPolicy,
@@ -419,11 +421,20 @@ async def create_sandbox(
     """Create sandbox environment for agent execution"""
     try:
         sandbox_manager = AgentSandboxManager(session)
-        sandbox = await sandbox_manager.create_sandbox_environment(
-            execution_id=execution_id,
-            security_level=security_level or SecurityLevel.PUBLIC,
-            workflow_requirements=workflow_requirements,
-        )
+        try:
+            sandbox = await sandbox_manager.create_sandbox_environment(
+                execution_id=execution_id,
+                security_level=security_level or SecurityLevel.PUBLIC,
+                workflow_requirements=workflow_requirements,
+            )
+        except IntegrityError:
+            # Sandbox ids are deterministic (sandbox_{execution_id}) — a re-create
+            # collides on the PK. Return the existing row rather than a 500.
+            session.rollback()
+            existing = session.get(AgentSandboxConfig, f"sandbox_{execution_id}")
+            if existing is None:
+                raise
+            return existing.model_dump(mode="json")
         auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.EXECUTION_STARTED,
@@ -437,7 +448,7 @@ async def create_sandbox(
             },
         )
         logger.info("Sandbox created for execution %s", execution_id)
-        return sandbox  # type: ignore[return-value]
+        return sandbox.model_dump(mode="json")
     except Exception as e:
         logger.error("Failed to create sandbox: %s", e)
         logger.exception("Unhandled exception")
