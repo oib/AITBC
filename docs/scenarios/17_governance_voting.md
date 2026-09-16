@@ -30,7 +30,7 @@ This scenario demonstrates two real CLI surfaces:
 - `aitbc governance` — talks to the **governance service** on port 8105 (`propose`, `vote`, `close`, `execute`, `list`, `get`, `status`). This is the canonical group.
 - `aitbc operations governance` — talks to **blockchain RPC** `/rpc/governance/*` for a wallet-signed path. The `aitbc operations` group is **deprecated and hidden** from `aitbc --help`; it is kept here only for `voting-power`/`delegate`, which have no `aitbc governance` equivalent (on-chain staking now has the canonical `aitbc stake`).
 
-Live two-node validation so far has proven `aitbc governance status`. Treat propose/vote/execute as command-shaped plays against a running governance service; they are not yet a closed on-chain parameter-change cycle (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md) P1.7).
+Live two-node validation so far has proven `aitbc governance status`. Propose/vote/execute against the service are live: with `--wallet <name>` the CLI signs the `GOVERNANCE_*` transaction with your own key and the service verifies and relays it to the chain (client-signed submission, GAP-50). Without `--wallet` the service falls back to its configured proposer key, which only works for that one address. Execution of a passed parameter-change proposal into a running service is still the open P1.7 piece (see [DESIGN_CYCLE.md](../DESIGN_CYCLE.md)).
 
 ### Use Case
 
@@ -94,6 +94,8 @@ aitbc governance propose \
     --voting-days 7
 ```
 
+To put the proposal on-chain, add `--wallet mywallet` (and `--password` if the wallet is encrypted). The CLI signs the `GOVERNANCE_PROPOSE` tx with that wallet and the service relays it — the returned record then carries a `tx_hash`, `block_height`, and `voting_ends_block`. `--proposer-address` is optional in that mode; it must match the wallet's address if given.
+
 **Expected output** (the returned `proposal_id` is used by all later steps):
 
 ```
@@ -143,6 +145,8 @@ aitbc governance vote \
     --vote for \
     --reason "Higher gas limit improves throughput for AI workloads"
 ```
+
+With `--wallet mywallet` the vote is wallet-signed and relayed on-chain as `GOVERNANCE_VOTE`; the payload's `voting_power` is the voter's real on-chain balance snapshot and the service rejects a payload whose power does not match the chain.
 
 **Expected output:**
 
@@ -246,6 +250,8 @@ Once the voting period ends and the proposal passes, execute it to enact the cha
 ```bash
 aitbc governance execute --proposal-id prop-001
 ```
+
+With `--wallet mywallet` the CLI signs a `GOVERNANCE_EXECUTE` tx and the service relays it on-chain; the executor address must be in the chain's governance-executor allowlist (consensus-enforced). `--executor-address` still works as before.
 
 **Expected output:**
 
