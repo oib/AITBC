@@ -2,6 +2,7 @@
 Staking-related RPC endpoints.
 """
 
+import time
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
@@ -24,6 +25,35 @@ _logger = get_logger(__name__)
 # Upper bound on the stake lock period. Bounds `timedelta(days=lock_days)` so a caller
 # cannot push `locked_until` past datetime.max and turn the request into a 500.
 MAX_LOCK_DAYS = 3650
+
+# Maximum accepted age of a signed staking request. The client signs a
+# timestamped, nonce-bound message so a captured signature expires with the
+# window and dies for good once the account's next transaction lands — the
+# message used to carry no freshness data at all, which made it a permanent
+# bearer token for any same-amount stake on the chain.
+STAKE_AUTH_MAX_AGE_SECONDS = 300
+
+
+def _freshness_fields(data: dict[str, Any], *, action: str) -> tuple[int, int | float]:
+    """Validate and return (nonce, timestamp) from a signed staking request.
+
+    Both fields are part of the signed message; raising here means the
+    request either omits them or they fail the freshness checks.
+    """
+    timestamp = data.get("timestamp")
+    if (
+        not isinstance(timestamp, (int, float))
+        or isinstance(timestamp, bool)
+        or abs(time.time() - float(timestamp)) > STAKE_AUTH_MAX_AGE_SECONDS
+    ):
+        raise HTTPException(status_code=400, detail=f"A fresh timestamp is required for {action}")
+    nonce = data.get("nonce")
+    if not isinstance(nonce, int) or isinstance(nonce, bool) or nonce < 0:
+        raise HTTPException(status_code=400, detail=f"The account nonce is required for {action}")
+    # Returned verbatim: both values ride inside the signed message, so they
+    # must be echoed into the verification payload exactly as the client sent
+    # them.
+    return nonce, timestamp
 
 
 @rate_limit(rate=20, per=60)
@@ -56,7 +86,15 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
     signature = stake_data.get("signature")
     if not signature:
         raise HTTPException(status_code=403, detail="Signature required for staking")
-    sign_data = {"address": address, "amount": amount, "chain_id": chain_id, "action": "stake"}
+    nonce, timestamp = _freshness_fields(stake_data, action="staking")
+    sign_data = {
+        "address": address,
+        "amount": amount,
+        "chain_id": chain_id,
+        "action": "stake",
+        "nonce": nonce,
+        "timestamp": timestamp,
+    }
     if not verify_request_signature(address, signature, sign_data):
         raise HTTPException(status_code=403, detail="Invalid staker signature")
     if not address.startswith("0x"):
@@ -65,6 +103,10 @@ async def stake_tokens(request: Request, stake_data: dict[str, Any]) -> dict[str
         account = session.get(Account, (chain_id, address))
         if not account:
             raise HTTPException(status_code=404, detail=f"Account {address} not found")
+        # The signed nonce must equal the account's nonce at request time: a
+        # captured signature dies once the account's next transaction lands.
+        if (account.nonce or 0) != nonce:
+            raise HTTPException(status_code=400, detail=f"Stale nonce: expected {account.nonce}, got {nonce}")
         if account.balance < amount:
             raise HTTPException(status_code=400, detail=f"Insufficient balance: {account.balance} < {amount}")
         # The stake row is not part of the state root, so writing it here is
@@ -129,11 +171,24 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
     signature = unstake_data.get("signature")
     if not signature:
         raise HTTPException(status_code=403, detail="Signature required for unstaking")
-    sign_data = {"address": address, "stake_id": stake_id, "chain_id": chain_id, "action": "unstake"}
+    nonce, timestamp = _freshness_fields(unstake_data, action="unstaking")
+    sign_data = {
+        "address": address,
+        "stake_id": stake_id,
+        "chain_id": chain_id,
+        "action": "unstake",
+        "nonce": nonce,
+        "timestamp": timestamp,
+    }
     if not verify_request_signature(address, signature, sign_data):
         raise HTTPException(status_code=403, detail="Invalid unstaker signature")
 
     with session_scope() as session:
+        account = session.get(Account, (chain_id, address))
+        if not account:
+            raise HTTPException(status_code=404, detail=f"Account {address} not found")
+        if (account.nonce or 0) != nonce:
+            raise HTTPException(status_code=400, detail=f"Stale nonce: expected {account.nonce}, got {nonce}")
         stake = session.get(Stake, stake_id)
         if not stake:
             raise HTTPException(status_code=404, detail=f"Stake {stake_id} not found")

@@ -761,13 +761,14 @@ class CrossChainSettlementService:
             # B4: Refund the HTLC swap — return funds from contract to initiator
             # Only attempt if the swap was actually locked (source_lock_tx_hash set)
             proof_record = None
+            refund_tx_hash: str | None = None
             if record.source_lock_tx_hash:
                 try:
                     refund_swap = self._htlc.refund_swap(
                         session=session,
                         swap_id=record.source_lock_tx_hash,
                     )
-                    refund_tx_hash: str | None = refund_swap.swap_id
+                    refund_tx_hash = refund_swap.swap_id
                 except ValueError as e:
                     # The HTLC timelock is block-height based while the timeout
                     # check is wall-clock: the sweeper fires margin_blocks early.
