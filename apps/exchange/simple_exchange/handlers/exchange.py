@@ -279,15 +279,10 @@ class ExchangeMixin:
                     }
                 )
             except Exception:
-                # If blockchain query fails, show the genesis amount
+                # No fabricated fallback: a treasury figure must come from the chain or not
+                # be served at all.
                 self.send_json_response(  # type: ignore[attr-defined]
-                    {
-                        "address": treasury_address,
-                        "balance": "10000000000000",  # 10 million in smallest units
-                        "available_for_sale": "10000000000000",
-                        "source": "genesis",
-                        "note": "Genesis amount - blockchain may need restart",
-                    }
+                    {"error": "Treasury balance unavailable — blockchain RPC unreachable"}, status=503
                 )
 
         except Exception:
@@ -391,7 +386,7 @@ class ExchangeMixin:
         address = params.get("address", [""])[0]
 
         if not address:
-            self.send_json_response({"eth": "0.00000000", "aitbc": "0.00", "address": "unknown"})  # type: ignore[attr-defined]
+            self.send_json_response({"error": "Wallet address is required"}, status=400)  # type: ignore[attr-defined]
             return
 
         try:
@@ -404,21 +399,19 @@ class ExchangeMixin:
             with urllib.request.urlopen(blockchain_url, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
                 balance_data = json.loads(response.read().decode())
 
-            # ETH balance is not yet queried from the network; return a zero placeholder
-            eth_balance = "0.00000000"  # Placeholder - would query real Ethereum network
-
+            # ETH balance is not queried — no Ethereum RPC is wired to this service, so no
+            # `eth` field is returned rather than a fabricated zero.
             self.send_json_response(  # type: ignore[attr-defined]
                 {
-                    "eth": eth_balance,
                     "aitbc": str(balance_data.get("balance", 0)),
                     "address": address,
                     "nonce": balance_data.get("nonce", 0),
                 }
             )
         except Exception:
-            # Fallback to error if blockchain is down
+            # Fail loudly if the blockchain is unreachable — no fabricated fallback.
             self.send_json_response(  # type: ignore[attr-defined]
-                {"eth": "0.00000000", "aitbc": "0.00", "address": address, "error": "Failed to fetch balance from blockchain"}
+                {"error": "Failed to fetch balance from blockchain", "address": address}, status=503
             )
 
     def handle_wallet_connect(self):

@@ -299,3 +299,41 @@ class TestMalformedRequests:
 
         status, _, _ = request(server, "GET", "//health")
         assert status == 200
+
+
+class TestNoFabricatedBalances:
+    """The wallet-balance and treasury handlers used to serve fabricated numbers:
+    a hardcoded ``"eth": "0.00000000"`` placeholder beside a real AITBC balance, a
+    fabricated zero-balance response for a missing address, and a hardcoded
+    ``10000000000000`` "genesis" fallback when the chain RPC was down. None of that
+    may come back: the test fixture points BLOCKCHAIN_RPC_BASE_URL at a dead port,
+    so these endpoints must fail loudly rather than invent values.
+    """
+
+    def test_wallet_balance_missing_address_is_400_not_fake_zero(self, server):
+        status, _, body = request(server, "GET", "/api/wallet/balance", api_key=API_KEY)
+        assert status == 400
+        payload = json.loads(body)
+        assert "error" in payload
+        assert "eth" not in payload
+        assert "aitbc" not in payload
+
+    def test_wallet_balance_fails_loudly_when_chain_unreachable(self, server):
+        status, _, body = request(
+            server, "GET", "/api/wallet/balance?address=0x" + "ab" * 20, api_key=API_KEY
+        )
+        assert status == 503
+        payload = json.loads(body)
+        assert "error" in payload
+        assert "eth" not in payload
+        # No fabricated zero balance riding beside the error.
+        assert "aitbc" not in payload
+
+    def test_treasury_balance_fails_loudly_when_chain_unreachable(self, server):
+        status, _, body = request(server, "GET", "/api/treasury-balance", api_key=API_KEY)
+        assert status == 503
+        payload = json.loads(body)
+        assert "error" in payload
+        # The old fabricated fallback must never appear.
+        assert "balance" not in payload
+        assert "10000000000000" not in body

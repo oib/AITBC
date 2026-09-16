@@ -13,7 +13,6 @@ from uuid import uuid4
 from aitbc.async_tasks import create_task_with_logging
 
 from .bridges.base import BridgeAdapter, BridgeConfig, BridgeError, BridgeStatus, SettlementMessage, SettlementResult
-from .bridges.layerzero import LayerZeroAdapter
 from .storage import SettlementStorage
 
 
@@ -373,17 +372,11 @@ class BridgeManager:
         return self.adapters[self.default_adapter]
 
     async def _create_adapter(self, config: BridgeConfig) -> BridgeAdapter:
-        """Create adapter instance based on config"""
-        # Import web3 here to avoid circular imports
-        from web3 import Web3
+        """Create adapter instance based on config.
 
-        # Get web3 instance (this would be injected or configured)
-        web3 = Web3()  # Placeholder
-
-        if config.name == "layerzero":
-            return LayerZeroAdapter(config, web3)
-        # Add other adapters as they're implemented
-        # elif config.name == "chainlink_ccip":
-        #     return ChainlinkCCIPAdapter(config, web3)
-        else:
-            raise BridgeError(f"Unknown bridge type: {config.name}")
+        No adapter is currently real: the only registered one (layerzero) was built on a
+        provider-less ``Web3()`` placeholder and literal ``0x...`` target addresses, so a
+        configured bridge would fail deep inside placeholder internals. Refuse at creation
+        until a bridge ships with real provider and target-address wiring.
+        """
+        raise BridgeError(f"Bridge adapter {config.name!r} is not implemented — no real provider/target wiring exists")
