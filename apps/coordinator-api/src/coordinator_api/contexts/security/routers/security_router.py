@@ -435,6 +435,10 @@ async def create_sandbox(
             if existing is None:
                 raise
             return existing.model_dump(mode="json")
+        # Dump before the audit call: log_event commits the session, which
+        # expires the ORM attributes; model_dump on an expired instance
+        # returns {} because it reads __dict__ without lazy reload.
+        payload = sandbox.model_dump(mode="json")
         auditor = AgentAuditor(session)
         await auditor.log_event(
             AuditEventType.EXECUTION_STARTED,
@@ -448,7 +452,7 @@ async def create_sandbox(
             },
         )
         logger.info("Sandbox created for execution %s", execution_id)
-        return sandbox.model_dump(mode="json")
+        return payload
     except Exception as e:
         logger.error("Failed to create sandbox: %s", e)
         logger.exception("Unhandled exception")
