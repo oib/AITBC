@@ -282,7 +282,9 @@ async def _auto_stake(provider: str, amount: int, chain_id: str, job_id: str | N
                 amount=amount,
                 chain_id=chain_id,
                 tx_type="STAKE_LOCK",
-                payload={"stake_id": str(stake.id), "source": "auto_stake"},
+                # v4: the same 30-day window locked_until gives the local row —
+                # lock_days makes it consensus-visible instead of route-only.
+                payload={"stake_id": str(stake.id), "source": "auto_stake", "lock_days": 30},
             )
             _logger.info("AUTO_STAKE: %s staking %s queued, stake_id=%s", address, amount, stake.id)
             # Stake.id is an int; every consumer (the release response, the
