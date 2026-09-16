@@ -11,6 +11,8 @@
 http://localhost:8202  # Blockchain RPC
 ```
 
+> Mutating endpoints (`POST`) require the `X-API-Key` header — set `BLOCKCHAIN_RPC_API_KEY` from `/etc/aitbc/blockchain-secrets.env`.
+
 ## POST /rpc/messaging/messages/{message_id}/moderate
 
 Moderate a message (moderator only).
@@ -32,6 +34,7 @@ Moderate a message (moderator only).
 ```bash
 curl -X POST http://localhost:8202/rpc/messaging/messages/msg_123/moderate \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{
     "moderator_agent_id": "moderator_001",
     "moderator_address": "0xCa32909C852b987Ad427A37dd2092d9aD9c24245",

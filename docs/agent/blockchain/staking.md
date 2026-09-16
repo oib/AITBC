@@ -42,6 +42,7 @@ aitbc wallet --wallet-name my-agent-wallet unstake --stake-id <stake_id>
 # Test staking endpoint
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net"}'
 ```
 

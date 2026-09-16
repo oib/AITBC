@@ -263,7 +263,7 @@ Services use standardized environment variables for bind configuration:
 | Governance | `GOVERNANCE_BIND_HOST` | `GOVERNANCE_BIND_PORT` | `0.0.0.0` | 8105 |
 | Wallet | `WALLET_BIND_HOST` | `WALLET_BIND_PORT` | `0.0.0.0` | 8108 |
 | Agent | `AGENT_BIND_HOST` | `AGENT_BIND_PORT` | `0.0.0.0` | 8107 |
-| Agent Coordinator | `AGENT_COORDINATOR_BIND_HOST` | `AGENT_COORDINATOR_BIND_PORT` | `0.0.0.0` | 9001 |
+| Agent Coordinator | `AGENT_COORDINATOR_BIND_HOST` | `AGENT_COORDINATOR_BIND_PORT` | `0.0.0.0` | 8107 |
 | FFmpeg | `FFMPEG_BIND_HOST` | `FFMPEG_BIND_PORT` | `0.0.0.0` | 8230 |
 | Whisper | `WHISPER_BIND_HOST` | `WHISPER_BIND_PORT` | `0.0.0.0` | 8110 |
 | Transcoder | `TRANSCODER_BIND_HOST` | `TRANSCODER_BIND_PORT` | `0.0.0.0` | 8220 |

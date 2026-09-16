@@ -12,7 +12,7 @@ The canonical group is `aitbc governance` (governance service, port 8105):
 - `aitbc governance list` - List proposals
 - `aitbc governance close --proposal-id <id>` / `aitbc governance execute --proposal-id <id>` - Close and execute
 
-> **Deprecated path:** the wallet-signed on-chain RPC commands (`aitbc operations governance proposal|vote|get-proposal|voting-power|stake|delegate|execute`) still work but the `aitbc operations` group is deprecated and hidden from `aitbc --help`. Prefer `aitbc governance`.
+> **Deprecated path:** the wallet-signed on-chain RPC commands (`aitbc operations governance proposal|vote|get-proposal|voting-power|delegate|execute`) still work but the `aitbc operations` group is deprecated and hidden from `aitbc --help`. Prefer `aitbc governance`; use `aitbc stake`/`aitbc unstake` for on-chain staking.
 
 ## RPC Endpoints
 
@@ -59,6 +59,7 @@ aitbc governance get --proposal-id prop_test_001
 # Test governance endpoint via the blockchain RPC
 curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 ```
 

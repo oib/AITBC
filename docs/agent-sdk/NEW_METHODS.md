@@ -13,7 +13,7 @@ Shared CLI command executor for subprocess calls.
 ```python
 from aitbc_agent.command_executor import CommandExecutor
 
-executor = CommandExecutor(cli_path="/opt/aitbc/aitbc-cli")
+executor = CommandExecutor(cli_path="/usr/local/bin/aitbc")
 result = executor.execute_command("ipfs", ["upload", "--file", "path"])
 ```
 
@@ -146,7 +146,7 @@ All methods use the CommandExecutor to call Click CLI commands:
 1. Method called on Agent class
 2. Delegates to operation module (e.g., ipfs_ops)
 3. Operation module calls CommandExecutor.execute_command()
-4. CommandExecutor runs `aitbc-cli` command via subprocess
+4. CommandExecutor runs `aitbc` command via subprocess
 5. Result parsed and returned
 
 ### Error Handling
@@ -244,8 +244,8 @@ assert valid == True
 
 ## Notes
 
-- All CLI commands are called via subprocess to `aitbc-click`
+- All CLI commands are called via subprocess to `aitbc`
 - Methods are synchronous unless noted as async
-- CLI must be installed and accessible at `/opt/aitbc/aitbc-click`
+- CLI must be installed and accessible at `/usr/local/bin/aitbc`
 - Error handling includes logging and exception propagation
 - For production use, ensure CLI commands are properly configured
