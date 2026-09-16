@@ -10,6 +10,7 @@ from sqlmodel import select
 
 from aitbc.sync import apply_state_diff, decode_state_diff
 
+from .aux_state import upsert_aux_rows
 from .base_models import Account, Block, ChainParameter, _to_ait_address
 from .config import settings
 from .logger import get_logger
@@ -123,6 +124,7 @@ class StateSyncMixin(SyncBase):
         remote_accounts = data.get("accounts", [])
         remote_root = data.get("state_root", "")
         remote_parameters = data.get("chain_parameters", [])
+        remote_aux = data.get("aux_state", {}) or {}
         self._logger.info(
             "State snapshot: %s accounts, state_root=%s",
             len(remote_accounts),
@@ -156,6 +158,9 @@ class StateSyncMixin(SyncBase):
                     existing.nonce = nonce
                     updated += 1
             _upsert_chain_parameters(session, self._chain_id, remote_parameters)
+            aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
+            if any(aux_counts.values()):
+                self._logger.info("Aux state upserted from snapshot: %s", aux_counts)
             session.commit()
 
         # Verify state root matches now — full recompute (all accounts synced)
@@ -219,6 +224,7 @@ class StateSyncMixin(SyncBase):
         # Consensus-relevant chain parameters ride alongside the diff — the
         # account-only state root never covers them.
         remote_parameters = data.get("chain_parameters", [])
+        remote_aux = data.get("aux_state", {}) or {}
 
         # The response contains an encoded StateDiff
         encoded_diff = data.get("diff")
@@ -285,6 +291,9 @@ class StateSyncMixin(SyncBase):
                         session.delete(db_acc)
                 # Existing accounts were mutated in place (SQLModel tracks changes)
             _upsert_chain_parameters(session, self._chain_id, remote_parameters)
+            aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
+            if any(aux_counts.values()):
+                self._logger.info("Aux state upserted from delta: %s", aux_counts)
             session.commit()
 
         # Verify state root

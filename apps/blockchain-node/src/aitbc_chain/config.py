@@ -588,6 +588,13 @@ class ChainSettings(BaseSettings):
     sync_delta_enabled: bool = True  # Feature flag — enabled per v0.10.1 changelog
     sync_delta_threshold: float = 0.5  # Fall back to full sync if delta > 50% of state
     sync_delta_max_blocks: int = 100  # Max blocks for delta sync (use full sync above this)
+    # Side-effect tables (stake, bond, governance_*) ride on state sync but are
+    # written at RPC-submit time, before their tx seals — the delta cutoff
+    # looks this far back from the range start so submit→seal lag and minor
+    # clock skew cannot drop a row. SYNC_AUX_MAX_ROWS caps per-table rows in a
+    # delta response; above it the peer falls back to a full snapshot.
+    sync_aux_lookback_seconds: int = 900
+    sync_aux_max_rows: int = 5000
 
     # P2P-to-RPC port offset (v0.6.2). The RPC HTTP port is derived from the
     # P2P listen port by adding this offset (P2P 8200 -> RPC 8202). Used by
