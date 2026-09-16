@@ -72,6 +72,10 @@ _SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         # Writes chain_parameter at apply — pure deltas compute account
         # changes only (GAP-57); keep both copies of this set identical.
         "GOVERNANCE_EXECUTE",
+        # v4 lock-window rules live in validate_transaction — only the
+        # sequential apply path runs them; releases are rare so forcing the
+        # block sequential costs nothing (GAP-42).
+        "STAKE_RELEASE",
     }
 )
 
