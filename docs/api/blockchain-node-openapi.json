@@ -1918,16 +1918,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "Escrow RPC is not configured for authentication",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         },
         "security": [
@@ -1983,16 +1973,6 @@
           },
           "403": {
             "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -2103,16 +2083,6 @@
           },
           "403": {
             "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -11980,16 +11950,6 @@
                 }
               }
             }
-          },
-          "503": {
-            "description": "Escrow RPC is not configured for authentication",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
           }
         },
         "security": [
@@ -12045,16 +12005,6 @@
           },
           "403": {
             "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -12165,16 +12115,6 @@
           },
           "403": {
             "description": "Forbidden: missing or invalid API key",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "503": {
-            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
