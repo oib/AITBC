@@ -12918,7 +12918,6 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -26067,7 +26066,6 @@
           }
         ],
         "requestBody": {
-          "required": true,
           "content": {
             "application/json": {
               "schema": {
@@ -33380,8 +33378,7 @@
         },
         "type": "object",
         "required": [
-          "deployment_config",
-          "integration_config"
+          "deployment_config"
         ],
         "title": "Body_deploy_to_production_v1_agents_integration_production_deploy_post"
       },
