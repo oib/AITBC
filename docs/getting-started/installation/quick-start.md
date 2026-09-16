@@ -42,7 +42,7 @@ chmod +x scripts/deployment/setup.sh
    - Creates standard Linux directories:
      - `/var/lib/aitbc/keystore/` - Blockchain keys
      - `/var/lib/aitbc/data/` - Database files
-     - `/var/lib/aitbc/logs/` - Application logs
+     - `/var/lib/aitbc/` - Service HOME (logs go to journald)
      - `/etc/aitbc/` - Configuration files
    - Sets proper permissions and ownership
 
@@ -58,7 +58,7 @@ chmod +x scripts/deployment/setup.sh
    - Provides fallback manual startup
 
 7. **Service Management**
-   - Creates `/opt/aitbc/start-services.sh` for manual control
+   - Installs systemd units; `scripts/service-management/manage-services.sh` for manual control
    - Sets up health monitoring
    - Configures logging
 
@@ -70,11 +70,12 @@ After running the setup script:
 # Check service health
 /opt/aitbc/scripts/monitoring/health_check.sh
 
-# Restart all services
-/opt/aitbc/start-services.sh
+# Service status / start all
+/opt/aitbc/scripts/service-management/manage-services.sh status
+/opt/aitbc/scripts/service-management/manage-services.sh start
 
-# View logs
-tail -f /var/lib/aitbc/logs/aitbc-*.log
+# View logs (journald)
+journalctl -f -u 'aitbc-*' 
 ```
 
 ## See Also

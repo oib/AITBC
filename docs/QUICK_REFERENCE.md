@@ -99,7 +99,7 @@ aitbc mining list
 
 ```bash
 aitbc agent create --name my-agent --type provider --auto-detect
-aitbc agent register --agent-id <agent-id> --coordinator-url http://localhost:8203
+aitbc agent register --agent-id <agent-id> --coordinator-url http://localhost:8107
 aitbc agent list
 aitbc agent status --agent-id <agent-id>
 aitbc agent capabilities

@@ -1,46 +1,58 @@
 # Networking Configuration
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 
-Configure P2P networking for your blockchain node.
+Configure networking for your blockchain node.
 
-## Network Settings
+## Network Model
 
-### Firewall Configuration
+AITBC's live topology is **hub-and-followers over HTTPS**, not a peer-mesh of
+inbound P2P connections:
+
+- **Followers make outbound connections only.** A follower dials the hub's
+  public endpoint (443) for the lease subscription (`POST /rpc/subscribe` →
+  `WS /rpc/subscribe/ws`, heartbeats via `POST /rpc/heartbeat`) and pulls bulk
+  catch-up over the hub's RPC. Followers need **no inbound ports** open.
+- **Port 7070 is hub-internal.** It runs the `aitbc-blockchain-p2p` gossip
+  relay on the hub only. Followers must not open or forward it.
+- **Service ports stay behind nginx on the hub.** The API gateway (8201),
+  blockchain RPC (8202), coordinator (8203), marketplace (8102), exchange
+  (8106), agent-coordinator (8107), and explorer (8100) bind on the hub and
+  are proxied — only **80/443 is public**.
+- The node's `p2p_bind_port` setting (code default **8200**) only matters on
+  the hub, where the relay wrapper binds 7070.
+
+## Firewall Configuration
+
+### Follower nodes
 
 ```bash
-# Allow P2P port
-ufw allow 7070/tcp
+# No inbound rules needed for the blockchain — outbound HTTPS only.
+# Keep SSH restricted as usual:
+ufw allow from <operator-net> to any port 22
+```
 
-# Allow RPC port
-ufw allow 8202/tcp
+### Hub node
 
-# Allow Coordinator API port
-ufw allow 8203/tcp
+```bash
+# Public surface is just the reverse proxy
+ufw allow 80/tcp
+ufw allow 443/tcp
 
-# Allow Exchange port
-ufw allow 8106/tcp
-
-# Allow Marketplace port
-ufw allow 8102/tcp
-
-# Allow Wallet port
-ufw allow 8108/tcp
-
-# Allow from specific IPs
-ufw allow from 10.0.0.0/8 to any port 8202
+# Everything else binds on the hub host behind nginx.
+# Do NOT publish 7070, 8202, 8203, 8102, 8106, 8107, 8100 publicly.
+# If a lab peer must reach the RPC directly, scope it:
+ufw allow from <peer-ip> to any port 8202
 ```
 
 ### Port Forwarding
 
-If behind a NAT, configure port forwarding:
+Only the hub needs forwarding, and only for the proxy:
 
-- External port 7070 → Internal IP:7070 (P2P)
-- External port 8202 → Internal IP:8202 (RPC)
-- External port 8203 → Internal IP:8203 (Coordinator API)
-- External port 8106 → Internal IP:8106 (Exchange)
-- External port 8102 → Internal IP:8102 (Marketplace)
-- External port 8108 → Internal IP:8108 (Wallet)
+- External 443 → hub:443 (nginx → internal service ports)
+
+No NAT mapping is needed for 7070 or the service ports; followers never accept
+inbound blockchain connections.
 
 ## Federated Mesh Architecture
 
@@ -49,13 +61,15 @@ AITBC supports a federated mesh network architecture with independent mesh islan
 ### Overview
 
 - **Islands**: Independent P2P networks with UUID-based IDs and separate blockchains
-- **Hubs**: Any node can volunteer as a hub to provide peer lists
+- **Hubs**: Operator-controlled nodes (`is_hub=true` + the p2p relay + the
+  public RPC/subscription endpoints) that provide peer lists and push blocks
 - **Multi-Chain**: Nodes can run parallel bilateral/micro-chains
 - **Bridging**: Optional connections between islands (requires mutual approval)
 
 ### Island Configuration
 
-Configure your node's island membership in `/etc/aitbc/.env`:
+Configure island membership in `/etc/aitbc/blockchain.env` (shared) and
+`/etc/aitbc/node.env` (per-node):
 
 ```bash
 # Island Configuration
@@ -71,7 +85,7 @@ BRIDGE_ISLANDS=
 
 - `ISLAND_ID`: UUID-based island identifier (auto-generated if not set)
 - `ISLAND_NAME`: Human-readable island name
-- `IS_HUB`: Set to `true` if this node acts as a hub
+- `IS_HUB`: Set to `true` on the designated hub node (operator decision — see below)
 - `ISLAND_CHAIN_ID`: Separate chain ID for this island
 - `HUB_DISCOVERY_URL`: DNS endpoint for hub discovery
 - `BRIDGE_ISLANDS`: Comma-separated list of islands to bridge (optional)
@@ -82,27 +96,40 @@ BRIDGE_ISLANDS=
 aitbc node island create --island-name "eu-west" --chain-id "ait-island-eu-west"
 ```
 
-This generates a new UUID for the island and sets up a separate blockchain.
+This generates a new UUID and chain ID client-side. Actually standing up the
+island is operator work: set `ISLAND_ID`/`ISLAND_CHAIN_ID` in the env files,
+give the island its own `genesis.json` under `data/<chain_id>/`, and restart
+the services.
 
 ### Joining an Existing Island
 
 ```bash
-aitbc node island join --island-id <island-id> --island-name <island-name> --chain-id <chain-id> [--is-hub]
+aitbc node island join --island-id <island-id> --island-name <island-name> --chain-id <chain-id> [--is-hub] [--hub hub.aitbc.bubuit.net]
 ```
+
+The join call posts to the hub's `/rpc/islands/join` and requires the node's
+`blockchain_rpc_api_key` to be accepted by the hub.
 
 ### Hub Registration
 
-Any node can register as a hub to provide peer lists:
+Hub status is **operator-controlled**, not self-serve: a node becomes a hub
+when the operator sets `IS_HUB=true`, runs `aitbc-blockchain-p2p`, and fronts
+the RPC/subscription endpoints with nginx. The hub registry is a discovery
+directory for that arrangement, not a promotion mechanism:
 
 ```bash
-aitbc node hub register --public-address <public-ip> --public-port 7070
-```
+# Record an already-operational hub in the Redis-backed discovery directory
+aitbc node hub register --public-address <public-ip> --public-port 8202
 
-To unregister as a hub:
-
-```bash
+# Remove the directory entry
 aitbc node hub unregister
+
+# List registered hubs
+aitbc node hub list-hubs
 ```
+
+Followers whitelist which hub they trust via `DEFAULT_PEER_RPC_URL` and
+`trusted_proposers`; a registry entry alone does not make a node authoritative.
 
 ### Island Bridging
 
@@ -124,17 +151,19 @@ aitbc node bridge list
 
 ### Multi-Chain Support
 
-Nodes can run parallel bilateral/micro-chains alongside the default chain:
+Nodes can run parallel bilateral/micro-chains alongside the default chain.
+These are *secondary chain instances* on a running node — driven through
+`POST /rpc/chains/start|stop` (X-API-Key gated):
 
 ```bash
-# Start a new parallel chain
-aitbc node chain start --chain-id <chain-id> --chain-type micro
+# Start a new parallel chain (secondary chain instance on a running node)
+aitbc blockchain start --chain-id <chain-id> --type micro
 
 # Stop a parallel chain
-aitbc node chain stop --chain-id <chain-id>
+aitbc blockchain stop --chain-id <chain-id>
 
-# List active chains
-aitbc node chain list
+# List chain instances
+aitbc blockchain instances
 ```
 
 Chain types:
@@ -142,100 +171,83 @@ Chain types:
 - `bilateral`: Chain between two parties
 - `micro`: Small chain for specific use case
 
-## Bootstrap Nodes
+> The `aitbc node chain start|stop|list-chains` commands are CLI stubs that
+> print canned output without contacting the node — use the
+> `aitbc blockchain` equivalents above.
 
-### Default Bootstrap Nodes
+## Sync and Peer Connectivity
 
-```yaml
-p2p:
-  bootstrap_nodes:
-    - /dns4/node-1.aitbc.com/tcp/7070/p2p/12D3KooW...
-    - /dns4/node-2.aitbc.com/tcp/7070/p2p/12D3KooW...
-    - /dns4/node-3.aitbc.com/tcp/7070/p2p/12D3KooW...
-```
-
-### Adding Custom Bootstrap Nodes
+There is no libp2p-style bootstrap list and no `peers add` command. Follower
+connectivity is configured entirely through the environment:
 
 ```bash
-aitbc-chain p2p add-bootstrap /dns4/my-node.example.com/tcp/7070/p2p/...
+# node.env (follower)
+DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net   # hub base URL, no /rpc
+SUBSCRIPTION_ENABLED=true
+SUBSCRIPTION_TRANSPORT=websocket
+BLOCKCHAIN_RPC_API_KEY=<key>   # must be present in the hub's
+                             # BLOCKCHAIN_RPC_API_KEY_PEERS
+TRUSTED_PROPOSERS=0x<proposer>,...   # optional extra proposer filter
 ```
 
-## Peer Management
-
-### Connection Limits
-
-```yaml
-p2p:
-  max_peers: 50
-  min_peers: 5
-  outbound_peers: 10
-  inbound_peers: 40
-```
-
-### Peer Scoring
-
-Nodes are scored based on:
-
-- Latency
-- Availability
-- Protocol compliance
-- Block propagation speed
+The hub accepts the subscription only when the presented `X-API-Key` is listed
+in its `BLOCKCHAIN_RPC_API_KEY_PEERS`. After that the follower holds
+`wss://<hub>/rpc/subscribe/ws` open and renews the lease with heartbeats;
+missed ranges are filled by automatic bulk pull-sync.
 
 ## NAT Traversal
 
-### Supported Methods
-
-| Method | Description |
-|--------|-------------|
-| STUN | Public IP discovery via STUN servers |
-| AutoNAT | Automatic NAT detection |
-| Hole Punching | UDP hole punching (future) |
-| Relay | TURN relay fallback (future) |
-
-### Configuration
+Because followers only dial out, NAT traversal is mostly a non-issue. STUN is
+supported for nodes that do need to discover or advertise a public endpoint
+(e.g. hub candidates):
 
 ```bash
-# STUN Servers (comma-separated)
+# Comma-separated STUN servers
 STUN_SERVERS=stun.l.google.com:19302,jitsi.bubuit.net:3478
 
-# TURN Server (future)
+# TURN relay (future support)
 TURN_SERVER=jitsi.bubuit.net:3478
 ```
 
-### STUN Discovery
-
-Nodes automatically discover their public endpoint via STUN servers configured in the environment. This enables nodes behind NAT to participate in the mesh network.
-
 ## Troubleshooting
 
-### Check Connectivity
+### Check connectivity to the hub
 
 ```bash
-aitbc-chain p2p check-connectivity
+# From a follower — the subscribe flow uses plain HTTPS
+curl -s https://hub.aitbc.bubuit.net/rpc/status
+curl -s https://hub.aitbc.bubuit.net/rpc/network-info
+
+# Follow the subscribe/heartbeat loop in the node log
+journalctl -u aitbc-blockchain-node -f | grep -iE "subscri|heartbeat|lease"
 ```
 
-### List Active Connections
-
-```bash
-aitbc-chain p2p connections
-```
-
-### List Known Islands
+### List known islands and hubs
 
 ```bash
 aitbc node island list
-```
-
-### List Known Hubs
-
-```bash
 aitbc node hub list-hubs
 ```
 
-### Debug Mode
+### Inspect sync state
 
 ```bash
-aitbc-chain start --log-level debug
+aitbc blockchain sync-status
+aitbc blockchain height
+```
+
+### Debug logging
+
+Raise the log level in the environment and restart the unit:
+
+```bash
+# /etc/aitbc/blockchain.env
+LOG_LEVEL=DEBUG
+```
+
+```bash
+systemctl restart aitbc-blockchain-node
+journalctl -u aitbc-blockchain-node -f
 ```
 
 ## DNS Configuration for Hub Discovery

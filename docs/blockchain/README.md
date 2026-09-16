@@ -1,7 +1,7 @@
 # Blockchain Documentation
 
 **Generated:** 2026-03-08 13:06:38
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 **Total Files**: 3
 
 ## Documentation Files
@@ -24,7 +24,7 @@ Comprehensive Windsurf workflows for multi-node blockchain deployment and operat
 The AITBC blockchain supports the following transaction types:
 
 - **TRANSFER**: Standard value transfer between accounts
-- **MESSAGE**: On-chain messaging (value=0, fee-only) - allows sending short text messages without balance transfers
+- **MESSAGE**: On-chain messaging (amount=0, fee-only) - allows sending short text messages without balance transfers
 - **RECEIPT_CLAIM**: Claim rewards from job completion receipts
 - **GPU_MARKETPLACE**: GPU marketplace transactions (bids, offers, purchases)
 - **EXCHANGE**: Exchange transactions (orders, trades, swaps, liquidity)
@@ -38,12 +38,12 @@ The MESSAGE transaction type allows users to send short on-chain messages withou
 ```bash
 curl -X POST http://localhost:8202/rpc/transaction \
   -H "Content-Type: application/json" \
-  -d '{"type":"MESSAGE","from":"address","to":"address","amount":0,"fee":360000,"nonce":1,"payload":{"message":"Hello blockchain!"},"sig":"signature"}'
+  -d '{"type":"MESSAGE","from":"address","to":"address","amount":0,"fee":360000,"nonce":1,"payload":{"message":"Hello blockchain!"},"signature":"0x..."}'
 ```
 
 **Characteristics:**
 
-- value must be 0
+- amount must be 0
 - fee > 0
 - recipient can be any address (or special "null" address)
 - No balance transfers (only fee deduction)

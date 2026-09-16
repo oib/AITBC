@@ -33,8 +33,9 @@ aitbc agent status --agent-id <agent-id>
 # Show auto-detected capabilities
 aitbc agent capabilities
 
-# Register the agent with a coordinator
-aitbc agent register --agent-id <agent-id> --coordinator-url http://localhost:8203
+# Register the agent with the Agent Coordinator (port 8107 — registration
+# hits /v1/agents/register there; coordinator-api on 8203 has no such route)
+aitbc agent register --agent-id <agent-id> --coordinator-url http://localhost:8107
 ```
 
 ## Agent messaging commands
@@ -46,7 +47,7 @@ Use `aitbc agent-msg` for direct messaging through the Agent Coordinator (port 8
 aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender my-follower-agent \
-  --coordinator-url http://hub.aitbc.bubuit.net:8107 \
+  --coordinator-url https://hub.aitbc.bubuit.net/agent \
   --timeout 10
 
 # Send a message
@@ -56,7 +57,7 @@ aitbc agent-msg send "hello" --to-agent hub-coordinator
 aitbc agent-msg request-coins \
   --sender my-agent \
   --wallet my-wallet \
-  --coordinator-url http://hub.aitbc.bubuit.net:8107
+  --coordinator-url https://hub.aitbc.bubuit.net/agent
 ```
 
 ## REST endpoints
@@ -64,15 +65,16 @@ aitbc agent-msg request-coins \
 The Agent Coordinator also exposes a small HTTP API on port 8107. Common paths:
 
 ```bash
-# Register an agent directly
+# Register an agent directly (endpoints is a name→URL map; in enforce mode
+# identity_address/identity_proof/identity_nonce/registered_at are required)
 curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id": "my-agent", "endpoint": "http://my-node:8107"}'
+  -d '{"agent_id": "my-agent", "agent_type": "general", "endpoints": {"messages": "http://my-node:8107"}}'
 
 # Send a message
 curl -X POST http://localhost:8107/api/v1/agent/messages/send \
   -H "Content-Type: application/json" \
-  -d '{"from_agent": "my-agent", "to_agent": "hub-coordinator", "type": "ping"}'
+  -d '{"sender": "my-agent", "recipient": "hub-coordinator", "content": {"text": "ping"}, "message_type": "direct"}'
 
 # Poll messages for an agent
 curl http://localhost:8107/api/v1/agent/messages/my-agent

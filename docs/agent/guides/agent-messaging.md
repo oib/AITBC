@@ -153,7 +153,7 @@ The Agent Coordinator automatically triggers handlers based on message content (
 | `HELLO` | `hello_handler` | Sends greeting response back to sender |
 | `REQUEST_COINS` | `request_coins_handler` | Processes coin request and sends approval/rejection |
 
-Handlers are registered at startup in `apps/agent-coordinator/src/app/websocket/agent_stream.py`.
+Handlers are registered at startup in `apps/agent-coordinator/src/agent_app/websocket/agent_stream.py`.
 
 ## WebSocket Endpoints
 

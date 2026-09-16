@@ -23,17 +23,21 @@ Each API includes an OpenAPI 3.1.0 specification that can be used with API docum
 
 ## Authentication
 
-Most API endpoints require authentication via the `X-Api-Key` header. API keys can be obtained through the Coordinator API client registration endpoint.
+Authentication is per-service:
+
+- **Coordinator API (8203)**: the canonical customer credential is a wallet-signed JWT sent as `Authorization: Bearer <jwt>` (login flow issues the token). `X-Api-Key` remains accepted for service/legacy callers (e.g. miner routes via `require_miner`).
+- **Blockchain node RPC (8202)**: admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` (router-level, GETs included), `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/importBlock`, `/rpc/chains/*`) require the `X-API-Key` header. `POST /rpc/transaction` and `POST /rpc/staking/stake` are **signature-verified** (wallet signature in the body, no API key). Node-to-hub subscription routes (`/rpc/subscribe`, `/rpc/heartbeat`) take a peer key from `BLOCKCHAIN_RPC_API_KEY_PEERS`, and `/rpc/force-sync` requires an admin-signed body.
+- **Marketplace (8102)**: only the admin `POST /v1/marketplace/parameters/apply` route is key-gated (`X-Api-Key`); the rest are unauthenticated in the current deployment.
 
 ## Quick Start
 
 ### Using cURL
 
 ```bash
-# Submit a job
+# Submit a job (customer JWT from the wallet-signed login flow)
 curl -X POST http://localhost:8203/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: <YOUR_API_KEY>" \
+  -H "Authorization: Bearer <YOUR_JWT>" \
   -d '{
     "payload": {"model": "llama2", "prompt": "Hello world"},
     "ttl_seconds": 900
@@ -98,13 +102,9 @@ Error responses include a JSON body with details:
 
 ## WebSocket Endpoints
 
-Real-time updates are available via WebSocket connections for:
+The only WebSocket endpoints in the platform live on the blockchain node: `WS /rpc/subscribe/ws` (lease-gated follower block subscription) and `WS /rpc/gossip/ws?topic=` (bidirectional gossip, validator-authenticated for restricted topics). The coordinator-api and marketplace services have no WebSocket endpoints — poll their REST routes instead.
 
-- Job status updates
-- Blockchain events
-- Marketplace offers
-
-See individual API documentation for WebSocket connection details.
+See [websocket.md](./websocket.md) for the full protocol.
 
 ## Versioning
 

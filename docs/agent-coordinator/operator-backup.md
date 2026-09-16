@@ -44,7 +44,7 @@ cp /etc/systemd/system/aitbc-agent-coordinator.service /backup/
 ### Backup Environment
 
 ```bash
-cp /etc/aitbc/.env /backup/
+cp /etc/aitbc/*.env /backup/   # blockchain.env, node.env, %N.env, secrets files
 ```
 
 ## Related Topics

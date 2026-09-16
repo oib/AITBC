@@ -149,7 +149,7 @@ aitbc dashboard shop
 The dashboard should recover its values as services come online. If a section is still empty after 30 seconds, check the relevant service logs:
 
 ```bash
-journalctl -u aitbc-coordinator-api -u aitbc-marketplace -u aitbc-gpu -u aitbc-wallet-daemon -n 50
+journalctl -u aitbc-coordinator-api -u aitbc-marketplace -u aitbc-gpu -u aitbc-wallet -n 50
 ```
 
 ---

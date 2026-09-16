@@ -10,22 +10,23 @@
 ## Service Control
 
 ```bash
-# Restart all services
-/opt/aitbc/start-services.sh
+# Check status / start all services
+/opt/aitbc/scripts/service-management/manage-services.sh status
+/opt/aitbc/scripts/service-management/manage-services.sh start
 
 # Systemd control
 systemctl status aitbc-wallet
 systemctl restart aitbc-coordinator-api
-systemctl stop aitbc-exchange-api
+systemctl stop aitbc-exchange
 ```
 
 ## Logs
 
 ```bash
-# View logs (new standard locations)
-tail -f /var/lib/aitbc/logs/aitbc-wallet.log
-tail -f /var/lib/aitbc/logs/aitbc-coordinator.log
-tail -f /var/lib/aitbc/logs/aitbc-exchange.log
+# View logs (services log to the journal)
+journalctl -f -u aitbc-wallet
+journalctl -f -u aitbc-coordinator-api
+journalctl -f -u aitbc-exchange
 ```
 
 ## Keystore

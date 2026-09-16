@@ -17,13 +17,13 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Multi-Validator PoA | Multiple validators with PROPOSER, VALIDATOR, STANDBY roles | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | v0.7.5 |
-| PBFT Consensus | Byzantine fault tolerance via PBFT protocol | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | v0.7.5 |
-| Validator Rotation | Automatic rotation by stake, reputation, or round-robin | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
+| Multi-Validator PoA | Multiple validators with PROPOSER, VALIDATOR, STANDBY roles — config-gated (`multi_validator_consensus_enabled`), enabled on this deployment | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | v0.7.5 |
+| PBFT Consensus | Byzantine fault tolerance via PBFT protocol — implemented but disabled (`pbft_consensus_enabled=false`) | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | v0.7.5 |
+| Validator Rotation | Automatic rotation by stake, reputation, or round-robin — implemented behind consensus flags, not wired into live production | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | — |
 | Proposer Selection | Round-robin, stake-weighted, reputation-based, hybrid | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
 | Network Partition Handling | Partition detection with 5-second cooldown | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
-| Fork Selection | Longest chain rule with reorgs within last 10 blocks | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
-| Slashing Conditions | Validator slashing for Byzantine behavior | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ✅ | — |
+| Fork Selection | Longest chain rule with reorgs within last 10 blocks — implemented, not wired into live production (config-gated) | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | — |
+| Slashing Conditions | Validator slashing for Byzantine behavior — implemented (`consensus_slashing_enabled`, default on); triggers only on detected Byzantine faults, which the running 4-validator deployment has not produced | [docs/blockchain/4_consensus.md](../blockchain/4_consensus.md) | ⚠️ | — |
 
 ### Networking
 
@@ -45,8 +45,8 @@
 | Chain Lifecycle | Start/stop DEFAULT, BILATERAL, MICRO chain types | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ✅ | v0.6.4 |
 | Chain Status Tracking | Track chain states: STOPPED, STARTING, RUNNING, ERROR | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ✅ | v0.6.4 |
 | Chain Health Monitoring | Background health checks for chain instances | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ✅ | v0.6.4 |
-| Cross-Chain Sync | Synchronization between chains via CrossChainSync | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ✅ | — |
-| Multi-Chain Consensus | Consensus handling across chains | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ✅ | — |
+| Cross-Chain Sync | `CrossChainSync` is a **test stub** (`cross_chain/__init__.py` — `test_synchronization()` returns canned data); no live cross-chain sync | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ⚠️ stub | — |
+| Multi-Chain Consensus | `MultiChainConsensus` is a **test stub** (`test_consensus_mechanism()` returns canned data); no live cross-chain consensus | [docs/blockchain/7_multichain.md](../blockchain/7_multichain.md) | ⚠️ stub | — |
 
 ### Sync & Gossip
 
@@ -86,7 +86,7 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Stake Tokens | Stake tokens for enhanced voting power (2x multiplier) | [docs/governance/04-API_ENDPOINTS.md](../governance/04-API_ENDPOINTS.md) | ✅ | v0.4.12 |
+| Stake Tokens | Stake tokens; voting power derives from the sum of active stake / on-chain balance (no 2x multiplier in the live path) | [docs/governance/04-API_ENDPOINTS.md](../governance/04-API_ENDPOINTS.md) | ✅ | v0.4.12 |
 | Unstake Tokens | Unstake tokens to release locked funds | [docs/governance/04-API_ENDPOINTS.md](../governance/04-API_ENDPOINTS.md) | ✅ | — |
 | Get Staking Info | Get staking information for an address | [docs/governance/04-API_ENDPOINTS.md](../governance/04-API_ENDPOINTS.md) | ✅ | — |
 | Register Agent Identity | Register agent identity on-chain | [docs/features/register-agent-identity.md](./register-agent-identity.md) | ✅ | — |

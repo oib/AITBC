@@ -43,47 +43,75 @@ The Coordinator API provides RESTful endpoints for all major operations. All bus
 
 ### API Versioning Structure
 
-- **Business logic endpoints**: `/v1/{router}/{endpoint}` (e.g., `/v1/client/jobs`, `/v1/miner/register`)
-- **CLI compatibility routes**: `/api/v1/{router}/{endpoint}` (e.g., `/api/v1/agents/executions`) - for CLI tools
-- **Infrastructure endpoints**: No prefix (e.g., `/health`, `/docs`, `/metrics`) - for system operations
+- **Business logic endpoints**: `/v1/{endpoint}` — the client router mounts at the `/v1` root (e.g., `/v1/jobs`, `/v1/miners/register`)
+- **Infrastructure endpoints**: No prefix (e.g., `/health`, `/metrics`, `/docs`) — for system operations
 
 This structure enables future versioning (`/v2`, etc.) while maintaining CLI compatibility.
 
 ### Client Endpoints
 
-`POST /v1/client/jobs`
-Submit a new computation job
+`POST /v1/jobs`
+Submit a new computation job (201 Created)
 
-`GET /v1/client/jobs/{job_id}/status`
+`GET /v1/jobs/{job_id}`
 Get job status and progress
 
-`GET /v1/client/jobs/{job_id}/receipts`
-Retrieve computation receipts
+`GET /v1/jobs/{job_id}/result`
+Get the job result
+
+`POST /v1/jobs/{job_id}/cancel`
+Cancel a job
+
+`POST /v1/jobs/{job_id}/accept` / `POST /v1/jobs/{job_id}/reject`
+Accept a result (release payment) or reject it (open dispute)
+
+`GET /v1/jobs/{job_id}/receipt` / `GET /v1/jobs/{job_id}/receipts`
+Latest signed receipt / list signed receipts
+
+`GET /v1/jobs` / `GET /v1/jobs/history`
+List jobs with filtering / job history
 
 ### Miner Endpoints
 
-`POST /v1/miner/register`
+Miner paths are plural — `/v1/miners/*`:
+
+`POST /v1/miners/register`
 Register as a compute provider
 
-`POST /v1/miner/heartbeat`
+`POST /v1/miners/heartbeat`
 Send miner heartbeat
 
-`GET /v1/miner/jobs`
-Fetch available jobs
+`POST /v1/miners/poll`
+Poll for the next assigned job
 
-`POST /v1/miner/result`
+`POST /v1/miners/{job_id}/result`
 Submit job result
+
+`POST /v1/miners/{job_id}/fail`
+Submit job failure
+
+`POST /v1/miners/{miner_id}/jobs` / `POST /v1/miners/{miner_id}/earnings`
+List jobs / earnings for a miner
 
 ### User Management
 
-`POST /v1/users/login`
-Login or register with wallet
+`POST /v1/auth/nonce`
+Request a wallet login nonce challenge
+
+`POST /v1/register`
+Register a user
+
+`POST /v1/login`
+Login or register with wallet (signed nonce challenge; returns a JWT `session_token`)
 
 `GET /v1/users/me`
 Get current user profile
 
 `GET /v1/users/{user_id}/balance`
 Get user wallet balance
+
+`POST /v1/logout`
+Log out (blocklist the JWT)
 
 ### GPU Marketplace Endpoints
 
@@ -136,26 +164,27 @@ Get payment receipt
 
 ### Governance Endpoints
 
+The coordinator mounts a governance router at `/v1/governance`:
+
 `POST /v1/governance/proposals`
-Create a governance proposal
+Create a governance proposal (listing/details `GET` routes live on the standalone governance service, port 8105)
 
-`GET /v1/governance/proposals`
-List proposals (filter by status)
-
-`GET /v1/governance/proposals/{proposal_id}`
-Get proposal details
-
-`POST /v1/governance/vote`
+`POST /v1/governance/proposals/{proposal_id}/vote`
 Submit a vote on a proposal
 
-`GET /v1/governance/voting-power/{user_id}`
-Get voting power for a user
-
-`GET /v1/governance/parameters`
-Get governance parameters
-
-`POST /v1/governance/execute/{proposal_id}`
+`POST /v1/governance/proposals/{proposal_id}/execute`
 Execute an approved proposal
+
+`POST /v1/governance/proposals/{proposal_id}/process`
+Process a proposal tally
+
+`POST /v1/governance/profiles` / `POST /v1/governance/profiles/{profile_id}/delegate`
+Governance profiles / delegation
+
+`POST /v1/governance/analytics/reports`
+Transparency reports
+
+> The **standalone governance service** (port 8105, `apps/governance/`) hosts the canonical proposal/vote/params surface: `GET|POST /v1/governance/proposals`, `POST /v1/governance/votes`, `GET /v1/governance/params`, `GET /v1/governance/voting-power/{address}`, plus close/propagate/aggregate-votes/execute-cross-chain. There is no `/v1/governance/parameters` or `/v1/governance/voting-power/*` on the coordinator — those are on 8105 (`/v1/governance/params`). Chain-side governance (`/rpc/governance/*` on the blockchain node) is `X-API-Key` gated.
 
 ### Explorer Endpoints
 
@@ -181,29 +210,29 @@ Check payment status
 
 ## Authentication
 
-The API uses API key authentication for clients and miners, and session-based authentication for users.
+The canonical customer credential is a **JWT bearer token** issued by the wallet-signed login flow (`POST /v1/auth/nonce` → `POST /v1/login` returns `session_token`). `X-Api-Key` remains for service/legacy callers — miner routes accept either via `require_miner` (Bearer JWT or `X-Api-Key`). There is no `X-Session-Token` header.
 
-### API Keys
+### Bearer JWT (canonical)
+
+```http
+Authorization: Bearer <jwt session_token>
+```
+
+### API Key (service / legacy / miner)
 
 ```http
 X-Api-Key: <YOUR_API_KEY>
 ```
 
-### Session Tokens
-
-```http
-X-Session-Token: sha256-token-here
-```
-
 ### Example Request
 
 ```bash
-curl -X POST "https://aitbc.bubuit.net/api/v1/client/jobs" \
-  -H "X-Api-Key: your-key" \
+curl -X POST "http://localhost:8203/v1/jobs" \
+  -H "Authorization: Bearer <jwt>" \
   -H "Content-Type: application/json" \
   -d '{
-    "job_type": "llm_inference",
-    "parameters": {...}
+    "payload": {"model": "llama2", "prompt": "Hello"},
+    "ttl_seconds": 900
   }'
 ```
 
