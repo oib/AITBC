@@ -114,11 +114,14 @@ class TestControlPlaneAuth:
 
 
 class TestSubscriptionAuth:
-    """Lease register/heartbeat/revoke are node-internal; the fleet client
-    sends X-API-Key from BLOCKCHAIN_RPC_API_KEY."""
+    """Lease register/heartbeat/revoke are node-internal. Fleet nodes each
+    hold their own BLOCKCHAIN_RPC_API_KEY, so the hub accepts its own key OR
+    the peer set in BLOCKCHAIN_RPC_API_KEY_PEERS — scoped to these routes
+    only, never the control plane."""
 
     @pytest.fixture
-    def client(self):
+    def client(self, monkeypatch):
+        monkeypatch.setattr(escrow_routes, "_RPC_API_PEER_KEYS", frozenset({"peer-key-a", "peer-key-b"}))
         from aitbc_chain.rpc.routers.subscription import router
 
         return _app(router)
@@ -135,6 +138,24 @@ class TestSubscriptionAuth:
             headers={"X-API-Key": KEY},
         )
         assert resp.status_code != 403
+
+    def test_peer_key_reaches_handler(self, client):
+        resp = client.post(
+            "/rpc/heartbeat",
+            json={"node_id": "n1", "chain_id": "ait-testnet"},
+            headers={"X-API-Key": "peer-key-a"},
+        )
+        assert resp.status_code != 403
+
+    def test_peer_key_does_not_open_control_plane(self):
+        """A leaked peer key must not unlock governance or chain control."""
+        from aitbc_chain.rpc.routers.staking import router as staking_router
+        from aitbc_chain.rpc.routers.core import router as core_router
+
+        c = _app(staking_router, core_router)
+        h = {"X-API-Key": "peer-key-a"}
+        assert c.post("/rpc/governance/vote", json={}, headers=h).status_code == 403
+        assert c.post("/rpc/chains/stop", json={"chain_id": "x"}, headers=h).status_code == 403
 
     def test_lease_reads_stay_public(self, client):
         assert client.get("/rpc/lease/node-1").status_code != 403
