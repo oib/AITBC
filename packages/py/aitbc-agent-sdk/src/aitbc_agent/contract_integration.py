@@ -89,49 +89,17 @@ class ContractClient:
         self._load_contracts()
 
     def _load_contracts(self) -> None:
-        """Load contract ABIs and initialize contract instances"""
-        # In a real implementation, these would be loaded from compiled artifacts
-        # For now, we'll use placeholder ABIs
-        payment_processor_abi = self._load_abi("PaymentProcessor")
-        agent_marketplace_abi = self._load_abi("AgentMarketplace")
-        staking_contract_abi = self._load_abi("StakingContract")
-        atomic_swap_abi = self._load_abi("CrossChainAtomicSwap")
+        """Load contract ABIs and initialize contract instances.
 
-        if self.config.payment_processor:
-            self.contracts["payment_processor"] = self.w3.eth.contract(
-                address=self.config.payment_processor, abi=payment_processor_abi
-            )
-
-        if self.config.agent_marketplace:
-            self.contracts["agent_marketplace"] = self.w3.eth.contract(
-                address=self.config.agent_marketplace, abi=agent_marketplace_abi
-            )
-
-        if self.config.staking_contract:
-            self.contracts["staking_contract"] = self.w3.eth.contract(
-                address=self.config.staking_contract, abi=staking_contract_abi
-            )
-
-        if self.config.cross_chain_atomic_swap:
-            self.contracts["cross_chain_atomic_swap"] = self.w3.eth.contract(
-                address=self.config.cross_chain_atomic_swap, abi=atomic_swap_abi
-            )
-
-        logger.info("Loaded %s contracts", len(self.contracts))
-
-    def _load_abi(self, contract_name: str) -> list[dict]:
-        """Load contract ABI from artifacts"""
-        # In a real implementation, this would load from compiled contract artifacts
-        # For now, return a minimal ABI
-        return [
-            {
-                "inputs": [],
-                "name": "getBalance",
-                "outputs": [{"internalType": "uint256", "name": "", "type": "uint256"}],
-                "stateMutability": "view",
-                "type": "function",
-            }
-        ]
+        There are no real ABIs to load — ``_load_abi`` returned the same fabricated
+        ``getBalance`` stub for every contract, which would have sent wrong-interface
+        calls at configured addresses. Refuse instead: ``agent.py`` catches this and
+        runs without contract integration.
+        """
+        raise NotImplementedError(
+            "Contract integration is not implemented: no real ABIs are shipped. "
+            "Compiled-artifact loading is required before configured contracts can be used."
+        )
 
     async def get_contract_balance(self, contract_name: str, address: str) -> int:
         """Get balance from a contract"""
