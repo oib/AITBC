@@ -81,9 +81,10 @@ aitbc agent status --agent-id my-agent
 
 ### Monitor Distribution Stats
 
-```bash
-aitbc ai distribution-stats
-```
+> **Note:** `aitbc ai distribution-stats` calls `GET /v1/agent/stats/distribution`
+> on the coordinator-api, a route that does not exist — the command currently
+> returns 404. Agent distribution data is available via the agent-coordinator
+> list endpoint (`GET /api/v1/agent/agents`) or `aitbc agent list`.
 
 ## Redis Monitoring
 

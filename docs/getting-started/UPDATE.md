@@ -225,7 +225,7 @@ updated templates:
 
 ```bash
 diff /etc/aitbc/node.env /opt/aitbc/examples/node.env.open-island
-diff /etc/aitbc/blockchain.env /opt/aitbc/examples/blockchain.env.example
+diff /etc/aitbc/blockchain.env /opt/aitbc/examples/blockchain.env.open-island
 ```
 
 Add any new required vars to `/etc/aitbc/*.env` and restart the affected

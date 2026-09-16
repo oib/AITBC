@@ -32,8 +32,8 @@ apt install -y \
 ### 3. Deploy Application
 
 ```bash
-# Clone repository
--u aitbc git clone https://github.com/oib/AITBC.git /opt/aitbc
+# Clone repository (as the aitbc user)
+sudo -u aitbc git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
 # Run the setup script (creates venv, users, databases and systemd units)
@@ -82,13 +82,13 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    location /blockchain/ {
+    location /rpc/ {
         proxy_pass http://blockchain;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    location /marketplace/ {
+    location /v1/marketplace/ {
         proxy_pass http://marketplace;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

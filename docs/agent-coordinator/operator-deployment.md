@@ -58,7 +58,7 @@ systemctl enable aitbc-agent-coordinator.service
 
 ## Redis Configuration
 
-**Connection URL:** `redis://localhost:6379/0`
+**Connection URL:** `redis://localhost:6379/1` (code default and the env example above)
 
 **Redis data persistence:**
 
