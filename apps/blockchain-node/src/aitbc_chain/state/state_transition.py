@@ -308,6 +308,83 @@ def get_block_version_for_height(height: int) -> int:
     return 2
 
 
+# Address fields the staking RPCs put the authorized party under: consensus
+# staking signs {"address": ...}; agent staking is operator-signed with the
+# user under "user_address" (or "staker_address").
+_AUTH_ADDRESS_FIELDS = ("address", "user_address", "staker_address")
+
+
+def _payload_auth_named_addresses(message: dict[str, Any]) -> set[str]:
+    """Return the normalized addresses the signed message names."""
+    named: set[str] = set()
+    for field in _AUTH_ADDRESS_FIELDS:
+        raw = message.get(field)
+        if not raw:
+            continue
+        try:
+            named.add(_to_ait_address(str(raw)))
+        except (TypeError, ValueError):
+            continue
+    return named
+
+
+def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data: dict[str, Any]) -> bool:
+    """Check that a verified auth message names the transfer it authorizes.
+
+    All deterministic context binding lives here so a captured signature
+    cannot be re-attached to a different transfer:
+
+    - party: the message must name the account a ``STAKE_LOCK`` debits or the
+      account a ``STAKE_RELEASE`` credits (the release sender is the keyless
+      escrow, so the payee is the authorized party).
+    - chain: a message carrying ``chain_id`` must match the tx's chain.
+    - action: a message carrying ``action`` must match the transfer type, so
+      a "stake" signature cannot ride a release.
+    - amount: a lock's message amount must equal the transferred value.
+    - stake: a release's message ``stake_id`` must equal the payload's
+      ``stake_id``/``agent_stake_id``; for locks the field is optional (the
+      consensus-staking row id is assigned after signing) but must match
+      when both sides carry it.
+    """
+    payload = tx_data.get("payload") or {}
+    if tx_type == "STAKE_LOCK":
+        party = tx_data.get("from")
+        expected_action = "stake"
+    elif tx_type == "STAKE_RELEASE":
+        party = tx_data.get("to")
+        expected_action = "unstake"
+    else:
+        return False
+    if not party:
+        return False
+    try:
+        bound_party = _to_ait_address(str(party))
+    except (TypeError, ValueError):
+        return False
+    if bound_party not in _payload_auth_named_addresses(message):
+        return False
+    if message.get("chain_id") is not None and str(message.get("chain_id")) != str(tx_data.get("chain_id")):
+        return False
+    if "action" in message and message.get("action") != expected_action:
+        return False
+    if tx_type == "STAKE_LOCK":
+        amount = message.get("amount", message.get("additional_amount"))
+        value = tx_data.get("value", tx_data.get("amount", 0))
+        try:
+            if amount is None or int(amount) != int(value):
+                return False
+        except (TypeError, ValueError):
+            return False
+    msg_stake = message.get("stake_id")
+    tx_stake = payload.get("stake_id") or payload.get("agent_stake_id")
+    if tx_type == "STAKE_RELEASE":
+        if msg_stake is None or tx_stake is None or str(msg_stake) != str(tx_stake):
+            return False
+    elif msg_stake is not None and tx_stake is not None and str(msg_stake) != str(tx_stake):
+        return False
+    return True
+
+
 class StateTransition:
     """
     Validates and applies state transitions only through validated transactions.
@@ -333,7 +410,7 @@ class StateTransition:
         self._processed_tx_hashes.clear()
 
     @staticmethod
-    def _verify_payload_auth(tx_type: str, auth: Any, sender_addr: str) -> bool:
+    def _verify_payload_auth(tx_type: str, auth: Any, tx_data: dict[str, Any]) -> bool:
         """Verify the authorization evidence carried in a protocol transfer payload.
 
         Protocol transfers (``STAKE_LOCK``/``STAKE_RELEASE``) are queued
@@ -343,16 +420,20 @@ class StateTransition:
         re-verifies it at state-transition time so a malformed auth is
         rejected rather than recorded in the ledger.
 
-        The check is self-consistency only — the signature must recover to
-        the claimed ``auth.signer``. Binding the signer to the debited account
-        cannot be done deterministically here: consensus staking has the
-        staker sign their own lock, but agent staking is operator-signed on
-        the user's behalf and the operator set is node-local env config, not
-        consensus state.
+        Beyond self-consistency, the signed message must bind the transfer it
+        authorizes: the party a ``STAKE_LOCK`` debits or a ``STAKE_RELEASE``
+        credits, the locked amount, the stake being moved, and the chain.
+        Without the binding a captured signature is re-attachable to any
+        same-amount transfer — a nonceless signed message is otherwise a
+        permanent bearer token. The signer itself stays unbound by design:
+        agent staking is operator-signed on the user's behalf and the
+        operator set is node-local env config, not consensus state.
 
         An absent ``auth`` is allowed — pre-auth protocol transfers exist in
         sealed history (e.g. the STAKE_LOCK in block 7306) and must keep
-        replaying identically.
+        replaying identically. No sealed transaction on the live chain
+        carries ``payload.auth``, so tightening the present-auth rules cannot
+        diverge replay.
         """
         if not isinstance(auth, dict):
             return False
@@ -361,7 +442,9 @@ class StateTransition:
         signer = auth.get("signer")
         if not signature or not isinstance(message, dict) or not signer:
             return False
-        return verify_request_signature(str(signer), str(signature), message)
+        if not verify_request_signature(str(signer), str(signature), message):
+            return False
+        return _payload_auth_binds_transfer(tx_type, message, tx_data)
 
     def validate_transaction(
         self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str, block_version: int = 2
@@ -467,7 +550,7 @@ class StateTransition:
                 return (False, f"Invalid signature for transaction {tx_hash}")
         if tx_type in ("STAKE_LOCK", "STAKE_RELEASE"):
             auth = (tx_data.get("payload") or {}).get("auth")
-            if auth is not None and not self._verify_payload_auth(tx_type, auth, sender_addr):
+            if auth is not None and not self._verify_payload_auth(tx_type, auth, tx_data):
                 return (False, f"Invalid payload auth signature for transaction {tx_hash}")
         sender_account = session.get(Account, (chain_id, sender_addr))
         if not sender_account:

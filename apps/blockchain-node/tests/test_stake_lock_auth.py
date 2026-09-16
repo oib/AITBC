@@ -125,6 +125,129 @@ def test_stake_release_with_malformed_auth_rejected(engine):
     assert "auth" in msg.lower()
 
 
+def test_stake_lock_auth_must_name_the_debited_sender(engine):
+    """A signature naming a different address cannot ride another account's lock."""
+    message = {"address": OTHER_KEY.public_key.to_checksum_address(), "amount": 1000, "chain_id": CHAIN, "action": "stake"}
+    auth = _auth(message, signer=OTHER_KEY.public_key.to_checksum_address(), key=OTHER_KEY)
+    tx = _stake_tx("STAKE_LOCK", {"stake_id": "7", "auth": auth}, sender=STAKER, recipient=ESCROW)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-wrong-party")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_lock_auth_amount_must_match_transfer(engine):
+    """A 1000-unit signature must not authorize a 5000-unit lock."""
+    message = {"address": STAKER, "amount": 1000, "chain_id": CHAIN, "action": "stake"}
+    tx = _stake_tx("STAKE_LOCK", {"stake_id": "7", "auth": _auth(message)}, sender=STAKER, recipient=ESCROW)
+    tx["value"] = 5000
+    tx["amount"] = 5000
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-amount")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_lock_auth_action_cannot_cross_type(engine):
+    """An "unstake" signature must not ride on a STAKE_LOCK."""
+    message = {"address": STAKER, "stake_id": "7", "amount": 1000, "chain_id": CHAIN, "action": "unstake"}
+    tx = _stake_tx("STAKE_LOCK", {"stake_id": "7", "auth": _auth(message)}, sender=STAKER, recipient=ESCROW)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-xtype")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_lock_auth_chain_id_must_match(engine):
+    """A signature captured on another chain is rejected."""
+    message = {"address": STAKER, "amount": 1000, "chain_id": "other-chain", "action": "stake"}
+    tx = _stake_tx("STAKE_LOCK", {"stake_id": "7", "auth": _auth(message)}, sender=STAKER, recipient=ESCROW)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-xchain")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_lock_agent_style_auth_accepted(engine):
+    """Operator-signed agent staking binds via user_address + amount + stake id."""
+    operator = OTHER_KEY.public_key.to_checksum_address()
+    message = {
+        "stake_id": "agent-9",
+        "user_address": STAKER,
+        "agent_wallet": operator,
+        "amount": 1000,
+        "chain_id": CHAIN,
+    }
+    auth = _auth(message, signer=operator, key=OTHER_KEY)
+    tx = _stake_tx("STAKE_LOCK", {"agent_stake_id": "agent-9", "auth": auth}, sender=STAKER, recipient=ESCROW)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-agent")
+    assert ok is True, msg
+
+
+def test_stake_lock_agent_auth_wrong_stake_id_rejected(engine):
+    """An operator signature for stake 'agent-8' must not lock 'agent-9'."""
+    operator = OTHER_KEY.public_key.to_checksum_address()
+    message = {
+        "stake_id": "agent-8",
+        "user_address": STAKER,
+        "agent_wallet": operator,
+        "amount": 1000,
+        "chain_id": CHAIN,
+    }
+    auth = _auth(message, signer=operator, key=OTHER_KEY)
+    tx = _stake_tx("STAKE_LOCK", {"agent_stake_id": "agent-9", "auth": auth}, sender=STAKER, recipient=ESCROW)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-agent-8")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_release_auth_must_name_the_payee(engine):
+    """Replay: a captured unstake signature must not release to a different payee."""
+    message = {"address": STAKER, "stake_id": "7", "chain_id": CHAIN, "action": "unstake"}
+    tx = _stake_tx(
+        "STAKE_RELEASE",
+        {"stake_id": "7", "auth": _auth(message)},
+        sender=ESCROW,
+        recipient=OTHER_KEY.public_key.to_checksum_address(),
+    )
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xrelease-other")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_release_auth_wrong_stake_id_rejected(engine):
+    """A signature over stake 8 must not release stake 7."""
+    message = {"address": STAKER, "stake_id": "8", "chain_id": CHAIN, "action": "unstake"}
+    tx = _stake_tx("STAKE_RELEASE", {"stake_id": "7", "auth": _auth(message)}, sender=ESCROW, recipient=STAKER)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xrelease-8")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_release_auth_without_stake_id_rejected(engine):
+    """A release auth that names no stake cannot be bound — fail closed."""
+    message = {"address": STAKER, "chain_id": CHAIN, "action": "unstake"}
+    tx = _stake_tx("STAKE_RELEASE", {"stake_id": "7", "auth": _auth(message)}, sender=ESCROW, recipient=STAKER)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xrelease-noid")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
+def test_stake_lock_auth_without_named_party_rejected(engine):
+    """A valid signature that names no account binds to nothing — fail closed."""
+    message = {"amount": 1000, "chain_id": CHAIN, "action": "stake"}
+    tx = _stake_tx("STAKE_LOCK", {"stake_id": "7", "auth": _auth(message)}, sender=STAKER, recipient=ESCROW)
+    with Session(engine) as session:
+        ok, msg = StateTransition().validate_transaction(session, CHAIN, tx, "0xlock-noname")
+    assert ok is False
+    assert "auth" in msg.lower()
+
+
 def test_queue_protocol_transfer_embeds_auth_in_payload():
     mempool = MagicMock()
     mempool.add = MagicMock(return_value="0xqueued")
