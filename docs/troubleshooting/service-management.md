@@ -28,8 +28,10 @@ journalctl -u aitbc-coordinator-api -f | grep -i error
 1. Check configuration files
 
 ```bash
-# Validate configuration
-python -m apps.coordinator_api.main --validate-config
+# Check the service is configured correctly (there is no --validate-config
+# flag; inspect env files and the journal instead)
+journalctl -u aitbc-coordinator-api -n 50 --no-pager
+cat /etc/aitbc/aitbc-coordinator-api.env
 ```
 
 1. Check port conflicts
@@ -89,8 +91,8 @@ uptime
 1. Profile the application
 
 ```bash
-# Profile with cProfile
-python -m cProfile -o profile.stats apps/coordinator_api/main.py
+# Profile with cProfile (module lives under the package src dir)
+/opt/aitbc/venv/bin/python -m cProfile -o profile.stats -m coordinator_api.main
 
 # Analyze profile
 python -m pstats profile.stats
@@ -140,8 +142,8 @@ watch -n 1 'free -h'
 
 ```bash
 # Use memory profiler
-pip install memory-profiler
-python -m memory_profiler apps/coordinator_api/main.py
+/opt/aitbc/venv/bin/pip install memory-profiler
+/opt/aitbc/venv/bin/python -m memory_profiler apps/coordinator-api/src/coordinator_api/main.py
 ```
 
 1. Check connection pooling

@@ -5,13 +5,13 @@
 **API Gateway:** `http://localhost:8201/v1/marketplace`
 **Authentication:** Mixed — see below
 
-> **Note:** The coordinator-api (port 8203) is **not** deprecated — it is the live job-submission and orchestration API (`POST /v1/jobs`, miner registration, receipts). This document covers the standalone marketplace-service on port 8102.
+> **Note:** The coordinator-api (port 8203) is **not** deprecated — it is the live job-submission and orchestration API (`POST /v1/jobs`, miner registration, receipts). This document covers the standalone marketplace-service on port 8102, plus the GPU-marketplace and reputation routes that live on the coordinator-api — those are flagged with their own base URL where they appear.
 >
 > **⚠️ DEPRECATION NOTICE (v0.4.7)**: GPU-only marketplace with bids has been deprecated. The marketplace now focuses on hardware+software bundles with fixed pricing. The bid endpoint described below is no longer supported.
 
 ## Overview
 
-The Marketplace API provides agent-centric endpoints for GPU resource discovery, transaction execution, reputation tracking, and dynamic pricing. All endpoints are designed for autonomous agent operations with no human UI dependencies.
+The marketplace-service (`aitbc-marketplace`, port 8102) manages hardware+software bundle offers, matching, marketplace jobs, ratings, plugins, edge-node advertisements, and governance-applied parameter changes. GPU rental primitives (register/list/book/release/quote/purchase) live on the coordinator-api (port 8203) under `/v1/marketplace/gpu/*`.
 
 ## Authentication
 
@@ -27,24 +27,28 @@ Note the header is `X-Api-Key`, **not** `Authorization: Bearer` — Bearer JWTs 
 
 The marketplace-service calls the blockchain node's escrow RPC with its own `BLOCKCHAIN_RPC_API_KEY` (`X-API-Key` header) — that key is service-to-service and is not a customer credential.
 
+The coordinator-api GPU routes use the coordinator's own auth: miner routes need a miner JWT or `X-Api-Key`/`X-Miner-ID` (`MinerDep`); booking routes accept any authenticated user (`AuthDep`).
+
 ## Endpoints
 
 ### Resource Discovery
 
-#### POST /resources
+#### GET /v1/marketplace/offers  *(marketplace-service :8102)*
 
-Discover and filter GPU resources with intelligent ranking.
+List marketplace offers. Optional query filters: `status`, `region`, `gpu_model`, `chain_id`. Returns a JSON list of offers.
+
+#### POST /v1/marketplace/match  *(marketplace-service :8102)*
+
+Match a compute request to the best available GPU offer (price-time priority; reserves the matched offer via the offer FSM).
 
 **Request:**
 
 ```json
 {
-  "gpu_memory_min": 8,
-  "compute_type": "inference",
-  "max_price_per_hour": 0.15,
-  "min_reputation": 0.8,
-  "region": "us-east",
-  "availability": "always"
+  "requirements": {"gpu": "v100", "min_vram_gb": 16},
+  "max_price": 0.15,
+  "preferred_region": "us-east",
+  "chain_id": "ait-mainnet"
 }
 ```
 
@@ -52,25 +56,27 @@ Discover and filter GPU resources with intelligent ranking.
 
 ```json
 {
-  "resources": [
-    {
-      "gpu_id": "gpu-123",
-      "model": "NVIDIA A100",
-      "memory_gb": 40,
-      "compute_type": "inference",
-      "price_per_hour": 0.12,
-      "provider_reputation": 0.95,
-      "availability": "always",
-      "region": "us-east",
-      "rank_score": 0.92
-    }
-  ],
-  "total": 1,
-  "filtered": 1
+  "status": "success",
+  "match": {"offer_id": "...", "...": "..."}
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/marketplace.py`
+#### GET /v1/marketplace/gpu/list  *(coordinator-api :8203)*
+
+List registered GPUs. Optional query filters: `available` (bool), `price_max`, `region`, `model`, `limit` (1–500, default 100). Returns a list of GPU records (`id`, `miner_id`, `model`, `memory_gb`, `cuda_version`, `region`, `price_per_hour`, `status`, `capabilities`, `created_at`, `average_rating`, `total_reviews`).
+
+> `POST /v1/marketplace/resources` does not exist on either service — use the endpoints above.
+
+### Offers and booking  *(marketplace-service :8102)*
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/marketplace/offers` | Create an offer (`provider` defaults from `wallet`/`metadata`) |
+| GET | `/v1/marketplace/offers/{offer_id}` | Get one offer |
+| GET | `/v1/marketplace/offers/{offer_id}/history` | Offer history |
+| POST | `/v1/marketplace/offers/{offer_id}/book` | Book an available offer; creates escrow in background when the booking carries `wallet`/`buyer`, `provider`, and `amount`/`price` |
+| POST | `/v1/marketplace/offers/{offer_id}/cancel` | Cancel an offer (`?reason=` optional) |
+| POST | `/v1/marketplace/bids/{bid_id}/complete` | Complete a bid once on-chain payment confirms (body needs `tx_hash`) |
 
 ### Transaction Execution ~~(DEPRECATED)~~
 
@@ -104,65 +110,33 @@ Discover and filter GPU resources with intelligent ranking.
 }
 ```
 
-~~**Implementation:**~~ `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/marketplace.py`
+**Current implementation:** `POST /v1/marketplace/offers/{offer_id}/book` on the marketplace-service (fixed-price bundle booking), or the GPU rental flow on the Coordinator API (port 8203) — `POST /v1/marketplace/gpu/quote` → `POST /v1/marketplace/gpu/purchase`. A `POST /v1/marketplace/gpu/bid` stub still exists on the Coordinator API but only records a bid in-memory and is deprecated.
 
-**Current Implementation:** Use `POST /v1/marketplace/offers/{offer_id}/book` for booking hardware+software bundle offers with fixed pricing.
+### Reputation
 
-### Reputation System
+Reputation is served by the **coordinator-api (port 8203)**, mounted at `/v1/reputation` — not by the marketplace-service. `GET /v1/marketplace/reputation/{agent_id}` and `POST /v1/marketplace/reputation/{agent_id}/update` do not exist.
 
-#### GET /reputation/{agent_id}
+Real coordinator-api reputation routes include:
 
-Query agent reputation and trust score.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/v1/reputation/profile/{agent_id}` | Full reputation profile (`trust_score`, `reputation_level`, `performance_rating`, `reliability_score`, `community_rating`, `total_earnings`, `transaction_count`, `success_rate`, `jobs_completed`, `jobs_failed`, `average_response_time`, `dispute_count`, `certifications`, `specialization_tags`, `geographic_region`, `last_activity`, `recent_events`) |
+| POST | `/v1/reputation/profile/{agent_id}` | Create/update a reputation profile |
+| GET | `/v1/reputation/trust-score/{agent_id}` | Trust score only |
+| POST | `/v1/reputation/feedback/{agent_id}` | Submit feedback for an agent |
+| GET | `/v1/reputation/feedback/{agent_id}` | List feedback for an agent |
+| POST | `/v1/reputation/job-completion` | Record a job completion (internal service use — the miner router calls this) |
+| GET | `/v1/reputation/leaderboard` | Reputation leaderboard |
+| GET | `/v1/reputation/metrics` | Aggregate reputation metrics |
+| GET | `/v1/reputation/events/{agent_id}` | Reputation event history |
+| PUT | `/v1/reputation/profile/{agent_id}/specialization` | Update specialization tags |
+| PUT | `/v1/reputation/profile/{agent_id}/region` | Update geographic region |
 
-**Response:**
+### Service Rating System  *(marketplace-service :8102)*
 
-```json
-{
-  "agent_id": "agent-456",
-  "overall_score": 0.92,
-  "transaction_count": 150,
-  "success_rate": 0.98,
-  "avg_response_time": 30,
-  "client_satisfaction": 0.95,
-  "trust_score": 0.91,
-  "last_updated": "2026-06-02T09:00:00Z"
-}
-```
+#### POST /v1/marketplace/offer/{service_id}/rate
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py`
-
-#### POST /reputation/{agent_id}/update
-
-Update agent reputation (internal use by marketplace service).
-
-**Request:**
-
-```json
-{
-  "transaction_id": "tx-789",
-  "success": true,
-  "completion_time": 180,
-  "quality_score": 0.95
-}
-```
-
-**Response:**
-
-```json
-{
-  "agent_id": "agent-456",
-  "new_score": 0.93,
-  "updated": true
-}
-```
-
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py`
-
-### Service Rating System
-
-#### POST /offer/{service_id}/rate
-
-Submit a rating for a software service (1-5 scale).
+Submit a rating for a software service (1–5 scale). 404 when the service does not exist.
 
 **Request:**
 
@@ -185,15 +159,12 @@ Submit a rating for a software service (1-5 scale).
     "rating": 4.5,
     "reviewer_id": "0x...",
     "comment": "Great service!",
-    "created_at": "2026-06-05T10:40:43.469518",
-    "source_node": "local"
+    "created_at": "2026-06-05T10:40:43.469518"
   }
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:622`
-
-#### GET /offer/{service_id}/ratings
+#### GET /v1/marketplace/offer/{service_id}/ratings
 
 Retrieve ratings for a service with pagination.
 
@@ -228,9 +199,7 @@ Retrieve ratings for a service with pagination.
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:676`
-
-#### GET /ratings/unsynced
+#### GET /v1/marketplace/ratings/unsynced
 
 Fetch ratings that haven't been synced to remote nodes.
 
@@ -238,221 +207,116 @@ Fetch ratings that haven't been synced to remote nodes.
 
 - `limit`: Number of ratings to return (default: 100)
 
-**Response:**
+#### POST /v1/marketplace/ratings/sync
 
-```json
-{
-  "ratings": [
-    {
-      "id": "rating-uuid",
-      "service_id": "ollama-llama3.2:3b",
-      "rating": 4.5,
-      "reviewer_id": "0x...",
-      "comment": "Great service!",
-      "created_at": "2026-06-05T10:40:43.469518",
-      "source_node": "local"
-    }
-  ],
-  "count": 3
-}
-```
+Sync ratings from a remote node with conflict resolution. Body is a list of rating objects; returns `{"status": "success", "synced": N, "updated": N, "skipped": N}`.
 
-**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:718`
+#### POST /v1/marketplace/ratings/mark-synced
 
-#### POST /ratings/sync
+Mark ratings as synced after successful propagation. Body is a list of rating ID strings; returns `{"status": "success", "marked_synced": N}`.
 
-Sync ratings from a remote node with conflict resolution.
-
-**Request:**
-
-```json
-[
-  {
-    "id": "rating-uuid",
-    "service_id": "ollama-llama3.2:3b",
-    "rating": 4.5,
-    "reviewer_id": "0x...",
-    "comment": "Great service!",
-    "created_at": "2026-06-05T10:40:43.469518",
-    "source_node": "hub"
-  }
-]
-```
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "synced": 1,
-  "updated": 0,
-  "skipped": 0
-}
-```
-
-**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:728`
-
-#### POST /ratings/mark-synced
-
-Mark ratings as synced after successful propagation.
-
-**Request:**
-
-```json
-["rating-uuid-1", "rating-uuid-2"]
-```
-
-**Response:**
-
-```json
-{
-  "status": "success",
-  "marked_synced": 2
-}
-```
-
-**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py:745`
+**Implementation:** `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py` (rating routes) and `services/marketplace_service.py` (rating storage/sync).
 
 ### Dynamic Pricing
 
-#### GET /pricing
+#### POST /v1/marketplace/dynamic-pricing  *(marketplace-service :8102)*
 
-Get current market pricing data and trends.
+Calculate a suggested price for an offer from supply/demand. Required query parameters: `offer_id`, `current_demand` (int), `current_supply` (int).
 
 **Response:**
 
 ```json
 {
-  "market_stats": {
-    "total_offers": 45,
-    "avg_price": 0.12,
-    "demand_level": "high",
-    "supply_level": "medium"
-  },
-  "price_trends": {
-    "direction": "increasing",
-    "change_24h": 0.02,
-    "forecast": "stable"
-  },
-  "gpu_pricing": {
-    "A100": 0.15,
-    "V100": 0.10,
-    "RTX3090": 0.08
+  "offer_id": "offer-123",
+  "base_price": "0.15",
+  "suggested_price": "0.18",
+  "price_multiplier": 1.2,
+  "supply_demand_ratio": 1.8,
+  "current_demand": 9,
+  "current_supply": 5,
+  "reason": "dynamic_pricing_calculation"
+}
+```
+
+#### GET /v1/marketplace/analytics  *(marketplace-service :8102)*
+
+Marketplace analytics; `?period_type=` (default `daily`). `GET /v1/marketplace/performance?period=daily` returns the performance-metric view of the same data, and `GET /v1/marketplace` returns the offer overview (counts, average price, regions, service types).
+
+#### GET /v1/marketplace/pricing/{model}  *(coordinator-api :8203)*
+
+Static + dynamic pricing for a GPU model across registered GPUs (min/max/average static price, recommended dynamic price, per-GPU pricing, market analysis). 404 when no registered GPU matches the model.
+
+> `GET /v1/marketplace/pricing` (all-models market overview) does not exist on either service.
+
+### GPU Management  *(coordinator-api :8203 only)*
+
+These routes live on the coordinator-api under `/v1/marketplace/gpu/*`. None of them exist on the marketplace-service.
+
+#### POST /v1/marketplace/gpu/register
+
+Register a GPU (miner auth — `MinerDep`). The authenticated miner is the canonical owner.
+
+**Request:**
+
+```json
+{
+  "gpu": {
+    "name": "NVIDIA A100",
+    "model_id": "a100-40g",
+    "memory_gb": 40,
+    "compute_capability": "12.0",
+    "region": "us-east",
+    "price_per_hour": "0.15",
+    "resource_id": "res-1",
+    "protected": false
   }
 }
 ```
 
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py`
-
-#### GET /pricing/{gpu_model}
-
-Get pricing for specific GPU model.
-
 **Response:**
 
 ```json
 {
-  "gpu_model": "A100",
-  "base_price": 0.15,
-  "current_price": 0.18,
-  "demand_multiplier": 1.2,
-  "confidence_score": 0.85,
-  "last_updated": "2026-06-02T09:00:00Z"
-}
-```
-
-**Implementation:** `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py`
-
-### GPU Management
-
-#### POST /gpu/register
-
-Register GPU in marketplace (provider agents).
-
-**Request:**
-
-```json
-{
-  "gpu_id": "gpu-123",
-  "model": "NVIDIA A100",
-  "memory_gb": 40,
-  "cuda_version": "12.0",
-  "region": "us-east",
-  "price_per_hour": 0.15,
-  "capabilities": ["inference", "training"]
-}
-```
-
-**Response:**
-
-```json
-{
-  "gpu_id": "gpu-123",
+  "gpu_id": "gpu_ab12cd34",
   "status": "registered",
-  "listing_id": "list-456"
+  "message": "GPU NVIDIA A100 registered successfully",
+  "price_per_hour": "0.15"
 }
 ```
 
-#### GET /gpu/list
+#### GET /v1/marketplace/gpu/{gpu_id}
 
-List available GPUs in marketplace.
+GPU details; includes `current_booking` when the GPU is booked. 404 when unknown.
 
-**Response:**
+#### POST /v1/marketplace/gpu/{gpu_id}/book
 
-```json
-{
-  "gpus": [
-    {
-      "gpu_id": "gpu-123",
-      "model": "NVIDIA A100",
-      "memory_gb": 40,
-      "price_per_hour": 0.15,
-      "status": "available",
-      "average_rating": 0.92
-    }
-  ],
-  "total": 1
-}
-```
+Book an available GPU with dynamic pricing (authenticated — `AuthDep`). `201 Created`.
 
-#### POST /gpu/{gpu_id}/book
-
-Book/reserve a GPU for compute.
-
-**Request:**
-
-```json
-{
-  "duration_hours": 4,
-  "agent_id": "agent-456"
-}
-```
+**Request:** `{"duration_hours": 4, "job_id": "job-abc"}` (`job_id` optional; `duration_hours` must be 0 < x ≤ 8760)
 
 **Response:**
 
 ```json
 {
   "booking_id": "book-789",
-  "gpu_id": "gpu-123",
+  "gpu_id": "gpu_ab12cd34",
   "status": "booked",
-  "expiry": "2026-06-02T14:00:00Z",
-  "cost": 0.60
+  "total_cost": "0.60",
+  "base_price": "0.15",
+  "dynamic_price": "0.15",
+  "price_per_hour": "0.15",
+  "start_time": "2026-06-02T10:00:00Z",
+  "end_time": "2026-06-02T14:00:00Z",
+  "pricing_factors": {},
+  "confidence_score": 0.8
 }
 ```
 
-#### POST /gpu/{gpu_id}/release
+#### POST /v1/marketplace/gpu/{gpu_id}/release
 
-Release a booked GPU.
+Release a booked GPU (authenticated). Returns `{"status": "released", "gpu_id": ..., "refund": ...}` — or `{"status": "already_available"}` when not booked.
 
-**Response:**
-
-```json
-{
-  "booking_id": "book-789",
-  "status": "released",
-  "refund_amount": 0.30
-}
-```
+Other coordinator-api GPU routes: `POST /v1/marketplace/gpu/quote` (unsigned energy quote + bound job), `POST /v1/marketplace/gpu/purchase`, `POST /v1/marketplace/gpu/sell`, `POST /v1/marketplace/gpu/{gpu_id}/confirm` (client ACK), `DELETE /v1/marketplace/gpu/{gpu_id}`, `GET|POST /v1/marketplace/gpu/{gpu_id}/reviews`, `GET /v1/marketplace/orders`, `POST /v1/tasks/ollama`, `POST /v1/payments/send`, `POST /v1/marketplace/native-energy/profile`, `POST /v1/marketplace/native-energy/rate`, and the deprecated `POST /v1/marketplace/gpu/bid` stub.
 
 ## Real-Time Data Streams
 
@@ -513,8 +377,7 @@ status = await consumer.get_job_status(job_id)
 ```
 
 `Agent.get_reputation()` returns the calling agent's own reputation and takes no arguments;
-it cannot query another agent. Use the [Reputation System](#reputation-system) endpoints for
-that.
+it cannot query another agent. Use the [Reputation](#reputation) endpoints for that.
 
 See [Python SDK Examples](./examples/python-sdk-examples.md) for the full agent and client
 SDK surface.
@@ -523,17 +386,17 @@ SDK surface.
 
 ### Service Architecture
 
-- **Coordinator API** (port 8203): Live job-submission/orchestration REST API
+- **Coordinator API** (port 8203): Live job-submission/orchestration REST API; also hosts the GPU-marketplace and reputation routers
 - **Marketplace Service** (port 8102): Business logic and matching
 - **Blockchain Node** (port 8202): On-chain transactions and escrow
 
 ### Key Files
 
-- **API Endpoints**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace.py`
-- **Service Layer**: `/opt/aitbc/apps/marketplace/src/marketplace_service/services/marketplace_service.py`
-- **Matching Engine**: `/opt/aitbc/apps/marketplace/src/marketplace_service/services/matching_service.py`
-- **Reputation System**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/domain/reputation.py`
-- **Dynamic Pricing**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/trading/schemas/pricing.py`
+- **Marketplace-service endpoints**: `/opt/aitbc/apps/marketplace/src/marketplace_service/main.py`
+- **Service layer**: `/opt/aitbc/apps/marketplace/src/marketplace_service/services/marketplace_service.py`
+- **Matching engine**: `/opt/aitbc/apps/marketplace/src/marketplace_service/services/matching_service.py`
+- **Coordinator GPU marketplace**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py`
+- **Coordinator reputation API**: `/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/reputation/routers/reputation.py`
 
 ## Escrow Integration
 
@@ -553,20 +416,22 @@ When `POST /v1/marketplace/offers/{offer_id}/book` is called, the marketplace-se
 
 ### Managing Escrow via CLI
 
+The escrow subcommands take a `--job-id` flag (the coordinator job ID), not a positional argument:
+
 ```bash
 # Check escrow state
-aitbc market escrow status <bid_id>
+aitbc market escrow status --job-id job-123
 
 # Release to provider (after job completes)
-aitbc market escrow release <bid_id>
+aitbc market escrow release --job-id job-123
 
 # Refund to buyer
-aitbc market escrow refund <bid_id>
+aitbc market escrow refund --job-id job-123 --reason buyer_requested
 ```
 
 See the full [Escrow API Reference](./escrow-api.md) for direct RPC access.
 
-## Service Architecture — Refund to buyer
+## Service Architecture
 
 | Service | Port | Role |
 |---|---|---|

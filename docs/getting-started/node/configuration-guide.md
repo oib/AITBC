@@ -30,8 +30,9 @@ Pre-configured example files are available in `/opt/aitbc/examples/` for quick s
 - **Examples README** - Complete guide to all configuration examples
 - **[blockchain.env.open-island](../../examples/blockchain.env.open-island)** - Pre-configured for hub.aitbc.bubuit.net open island
 - **[node.env.open-island](../../examples/node.env.open-island)** - Node-specific configuration for open island
-- **[blockchain.env.example](../../examples/blockchain.env.example)** - General blockchain configuration template
-- **[node.env.example](../../examples/node.env.example)** - General node configuration template
+- Per-app templates live under `apps/<app>/.env.example` (e.g.
+  `apps/blockchain-node/.env.example`) — there is no root or
+  `examples/*.env.example` template
 
 ## Quick Setup for Open Island
 

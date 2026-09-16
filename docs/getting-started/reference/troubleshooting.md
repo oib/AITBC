@@ -13,8 +13,8 @@ systemctl status aitbc-blockchain-rpc.service
 journalctl -u aitbc-blockchain-node -f
 journalctl -u aitbc-blockchain-rpc -f
 
-# Verify hub connectivity
-curl -s http://hub.aitbc.bubuit.net:8202/health
+# Verify hub connectivity (public path via nginx; :8202 is internal-only)
+curl -s https://hub.aitbc.bubuit.net/rpc/health
 ```
 
 ## Genesis Block Mismatch
@@ -29,8 +29,9 @@ systemctl start aitbc-blockchain-node.service
 ## Agent Messages Not Received
 
 ```bash
-# Verify coordinator connectivity
-curl -s http://localhost:8203/health
+# Verify agent-coordinator connectivity (agent messaging is :8107, not the
+# coordinator-api on :8203)
+curl -s http://localhost:8107/health
 ```
 
 ## Service Won't Start
@@ -50,6 +51,10 @@ cat /etc/aitbc/node.env
 ## Database Lock Issues
 
 ```bash
+# Stop the service FIRST — deleting WAL/SHM under a live SQLite DB can
+# corrupt it (WAL holds committed-but-uncheckpointed transactions)
+systemctl stop aitbc-blockchain-node.service
+
 # Check for stale WAL files
 ls -la /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
 
@@ -58,17 +63,17 @@ rm -f /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db-shm
 rm -f /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db-wal
 
 # Restart service
-systemctl restart aitbc-blockchain-node.service
+systemctl start aitbc-blockchain-node.service
 ```
 
 ## Network Connectivity Issues
 
 ```bash
-# Test RPC connectivity
-curl -v http://hub.aitbc.bubuit.net:8202/health
+# Test RPC connectivity (public path via nginx; :8202 is internal-only)
+curl -v https://hub.aitbc.bubuit.net/rpc/health
 
-# Test coordinator connectivity
-curl -v http://localhost:8203/health
+# Test coordinator connectivity (coordinator-api port)
+curl -v http://localhost:8203/health   # check-ports: ignore
 
 # Check firewall rules
 iptables -L -n

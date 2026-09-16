@@ -1,54 +1,142 @@
-# Marketplace Web
+# Marketplace Service
 
-Mock UI for exploring marketplace offers and submitting bids.
+Decentralized marketplace for compute resources, AI models, and software
+services — listing, matching, pricing, and settlement for marketplace
+participants.
 
-**Note:** AITBC is agent-first software. This web UI is primarily for development, testing, and administrative purposes. Production operations are designed for autonomous agent interaction via APIs.
+**Note:** AITBC is agent-first software. Production operations are designed
+for autonomous agent interaction via APIs.
 
-## Development
+The service is `aitbc-marketplace` (port 8102), implemented in
+`apps/marketplace/src/marketplace_service/main.py` (FastAPI). It runs as the
+`aitbc` user via the `aitbc-marketplace.service` systemd unit.
 
-```bash
-npm install
-npm run dev
-```
+## Health and status
 
-The dev server listens on `http://localhost:5173/` by default. Adjust via `--host`/`--port` flags in the `systemd` unit or `package.json` script.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/health` | Health check |
+| GET | `/ready` | Readiness (checks DB connectivity) |
+| GET | `/live` | Liveness |
+| GET | `/metrics` | Prometheus metrics |
+| GET | `/v1/marketplace/status` | Marketplace status banner |
+| GET | `/v1/marketplace` | Marketplace overview (offer counts, average price, regions, service types) |
 
-## Data Modes
+## Compute offers
 
-Marketplace web reuses the explorer pattern of mock vs. live data:
+| Method | Path | Description |
+|---|---|---|
+| GET | `/v1/marketplace/offers` | List offers. Optional filters: `status`, `region`, `gpu_model`, `chain_id` |
+| POST | `/v1/marketplace/offers` | Create an offer (free-form body; `provider` defaults from `wallet`/`metadata`) |
+| GET | `/v1/marketplace/offers/{offer_id}` | Get one offer (404 when absent) |
+| GET | `/v1/marketplace/offers/{offer_id}/history` | Offer history |
+| POST | `/v1/marketplace/offers/{offer_id}/book` | Book/purchase an offer; kicks off background escrow creation when the booking carries `wallet`/`buyer`, `provider`, and `amount`/`price` |
+| POST | `/v1/marketplace/offers/{offer_id}/cancel` | Cancel an offer (optional `?reason=`) |
 
-- Set `VITE_MARKETPLACE_DATA_MODE=mock` (default) to consume JSON fixtures under `public/mock/`.
-- Set `VITE_MARKETPLACE_DATA_MODE=live` and point `VITE_MARKETPLACE_API` to the coordinator backend when integration-ready.
+## Matching and bids
 
-### Feature Flags & Auth
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/marketplace/match` | Match a compute request to the best available GPU offer. Body: `{"requirements": {...}, "max_price": ..., "preferred_region": ..., "chain_id": ...}` |
+| POST | `/v1/marketplace/bids/{bid_id}/complete` | Complete a bid after on-chain payment confirms. Body must include `tx_hash` (or `transaction_hash`) |
 
-- `VITE_MARKETPLACE_ENABLE_BIDS` (default `true`) gates whether the bid form submits to the backend. Set to `false` to keep the UI read-only during phased rollouts.
-- `VITE_MARKETPLACE_REQUIRE_AUTH` (default `false`) enforces a bearer token session before live bid submissions. Tokens are stored in `localStorage` by `src/lib/auth.ts`; the API helpers automatically attach the `Authorization` header when a session is present.
-- Session JSON is expected to include `token` (string) and `expiresAt` (epoch ms). Expired or malformed entries are cleared automatically.
+## Analytics and pricing
 
-Document any backend expectations (e.g., coordinator accepting bearer tokens) alongside the environment variables in deployment manifests.
+| Method | Path | Description |
+|---|---|---|
+| GET | `/v1/marketplace/analytics` | Marketplace analytics; `?period_type=` (default `daily`) |
+| GET | `/v1/marketplace/performance` | Performance metrics; `?period=` (default `daily`) |
+| POST | `/v1/marketplace/dynamic-pricing` | Suggested price from supply/demand. Query params: `offer_id`, `current_demand`, `current_supply` (all required) |
 
-## Structure
+## Marketplace jobs
 
-- `public/mock/offers.json` – sample marketplace offers.
-- `public/mock/stats.json` – summary dashboard statistics.
-- `src/lib/api.ts` – data-mode-aware fetch helpers.
-- `src/main.ts` – renders dashboard, offers table, and bid form.
-- `src/style.css` – layout and visual styling.
+First-class marketplace jobs (IPFS rentals and software services):
 
-## Submitting Bids
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/marketplace/jobs` | Create a marketplace job + payment record |
+| GET | `/v1/marketplace/jobs` | List jobs. Filters: `buyer_address`, `provider_address`, `service_type`, `state`, `offer_id`, `limit` (default 100) |
+| GET | `/v1/marketplace/jobs/usage` | Active storage usage in bytes. Requires `buyer_address` and `offer_id` |
+| GET | `/v1/marketplace/jobs/{job_id}` | Get a job (404 when absent) |
+| POST | `/v1/marketplace/jobs/{job_id}/cancel` | Cancel a job and request a refund |
+| POST | `/v1/marketplace/jobs/{job_id}/pin-confirm` | Provider confirms content pinning (`size`, `pin_tx_hash`, `provider_confirmed`) |
+| POST | `/v1/marketplace/jobs/{job_id}/release` | Release the job's escrow payment |
+| POST | `/v1/marketplace/jobs/{job_id}/refund` | Refund the job's escrow payment |
+| GET | `/v1/marketplace/jobs/{job_id}/access` | Access metadata for the job (CID, endpoints, access key) |
+| GET | `/v1/marketplace/access/{access_key}` | Validate an access token. Requires `access_secret` query param |
 
-When in mock mode, bid submissions simulate latency and always succeed.
+## IPFS rental tokens
 
-When in live mode, ensure the coordinator exposes `/v1/marketplace/offers`, `/v1/marketplace/stats`, and `/v1/marketplace/bids` endpoints compatible with the JSON shapes defined in `src/lib/api.ts`.
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/marketplace/ipfs/rental-token` | Register an access token for a paid IPFS rental |
+| GET | `/v1/marketplace/ipfs/rental/{access_key}` | Validate a rental token. Requires `access_secret` query param |
 
-## Agent API Integration
+## Plugins and software offers
 
-For production agent operations, use the Coordinator API directly:
+| Method | Path | Description |
+|---|---|---|
+| GET | `/v1/marketplace/plugins` | List marketplace plugins (`?plugin_type=`, `?status=` default `approved`) |
+| POST | `/v1/marketplace/plugins` | Register a new plugin |
+| GET | `/v1/marketplace/offer` | List software offers (`?service_type=`, `?status=`) |
+| POST | `/v1/marketplace/offer` | Register or update a software offer |
+| GET | `/v1/marketplace/offer/{plugin_id}` | Get a software offer |
+| DELETE | `/v1/marketplace/offer/{plugin_id}` | Unregister a software offer |
+| GET | `/v1/marketplace/offer/{plugin_id}/health` | Software-offer health check |
+| GET | `/v1/marketplace/offer-by-id/{offer_id}` | Look up a software offer by its on-chain offer ID |
 
-- **Resource Discovery**: `POST /v1/marketplace/resources` - Intelligent filtering and ranking
-- **Transaction Execution**: `POST /v1/marketplace/bid` - Automated bid submission
-- **Reputation Query**: `GET /v1/marketplace/reputation/{agent_id}` - Trust scores
-- **Dynamic Pricing**: `GET /v1/marketplace/pricing` - Real-time market data
+## Ratings
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/marketplace/offer/{service_id}/rate` | Rate a service. Body: `{"rating": <float>, "reviewer_id": "...", "comment": ""}` |
+| GET | `/v1/marketplace/offer/{service_id}/ratings` | List ratings (`?limit=50&offset=0`) plus `avg_rating`/`rating_count` |
+| GET | `/v1/marketplace/ratings/unsynced` | Ratings not yet synced to remote nodes (`?limit=100`) |
+| POST | `/v1/marketplace/ratings/sync` | Ingest ratings pushed from a remote node (body: list of rating objects) |
+| POST | `/v1/marketplace/ratings/mark-synced` | Mark rating IDs as synced (body: list of strings) |
+
+## Transactions and governance
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/transactions` | Submit a marketplace transaction. Only `type: "marketplace"` + `action: "offer"` is accepted |
+| GET | `/v1/transactions` | List marketplace offer transactions. Optional filters: `action`, `status`, `island_id` |
+| POST | `/v1/marketplace/parameters/apply` | Apply a governance-approved parameter change. Requires the marketplace admin API key (`X-API-Key`). Allowed parameters: `default_chain_id`, `agent_coordinator_url`, `matching_algorithm` |
+
+## Edge nodes
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/marketplace/edge-advertise` | Register/update an edge node's GPU advertisement (`node_id`, `endpoint`, `gpu_models`, `gpu_count`, `total_vram`, `region`, `capabilities`, `gpus`) |
+| GET | `/v1/marketplace/edge-advertise` | List active edge nodes (`?region=`) |
+| GET | `/v1/marketplace/edge/{node_id}/health` | Health score for one edge node |
+
+## Knowledge graph
+
+| Method | Path | Description |
+|---|---|---|
+| POST | `/v1/knowledge-graph` | Create a knowledge graph |
+| POST | `/v1/knowledge-graph/{graph_id}/nodes` | Add a node |
+| POST | `/v1/knowledge-graph/{graph_id}/edges` | Add an edge |
+| GET | `/v1/knowledge-graph/{graph_id}` | Query a graph |
+
+## Rate limiting
+
+The service applies a global `RateLimitMiddleware` keyed by client IP
+(`settings.rate_limit_requests` per `settings.rate_limit_window_seconds`);
+`/health`, `/ready`, `/live`, and `/metrics` are excluded.
+
+## Removed content
+
+Earlier versions of this page described a Vite/npm "marketplace web" UI with
+`public/mock/` fixtures, `VITE_MARKETPLACE_DATA_MODE`, and a bid form — no
+such UI exists in the repository. It also pointed at endpoints that the
+service does not implement: `/v1/marketplace/stats` (use
+`/v1/marketplace/analytics` or `/v1/marketplace`), `/v1/marketplace/bids`
+listing and `POST /v1/marketplace/bid` (there is only
+`POST /v1/marketplace/bids/{bid_id}/complete`), `/v1/marketplace/resources`,
+`/v1/marketplace/reputation/{id}` (reputation lives on the coordinator API,
+not here), and `/v1/marketplace/pricing` (use
+`POST /v1/marketplace/dynamic-pricing`).
 
 See [Marketplace Internals](../../development/5_developer-guide.md) for detailed implementation flows.

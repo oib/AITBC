@@ -29,7 +29,7 @@ curl -H "Authorization: Bearer $JWT" $BASE_URL/v1/endpoint
 ```bash
 curl -X POST $BASE_URL/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "payload": {
       "model": "llama2",
@@ -44,7 +44,7 @@ curl -X POST $BASE_URL/v1/jobs \
 ```bash
 curl -X POST $BASE_URL/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "payload": {
       "model": "llama2",
@@ -63,7 +63,7 @@ curl -X POST $BASE_URL/v1/jobs \
 ```bash
 curl -X POST $BASE_URL/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   -d '{
     "payload": {
       "model": "llama2",
@@ -80,7 +80,7 @@ curl -X POST $BASE_URL/v1/jobs \
 #### Get Job Status
 
 ```bash
-curl -H "X-Api-Key: $API_KEY" \
+curl -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}
 ```
 
@@ -92,7 +92,7 @@ curl -H "X-Api-Key: $API_KEY" \
 JOB_ID="your-job-id"
 
 while true; do
-  STATUS=$(curl -s -H "X-Api-Key: $API_KEY" \
+  STATUS=$(curl -s -H "Authorization: Bearer $JWT" \
     $BASE_URL/v1/jobs/$JOB_ID | jq -r '.state')
 
   echo "State: $STATUS"
@@ -110,7 +110,7 @@ done
 #### Get Job Result
 
 ```bash
-curl -H "X-Api-Key: $API_KEY" \
+curl -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}/result
 ```
 
@@ -118,11 +118,11 @@ curl -H "X-Api-Key: $API_KEY" \
 
 ```bash
 # Get latest receipt
-curl -H "X-Api-Key: $API_KEY" \
+curl -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}/receipt
 
 # Get all receipts
-curl -H "X-Api-Key: $API_KEY" \
+curl -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}/receipts
 ```
 
@@ -130,7 +130,7 @@ curl -H "X-Api-Key: $API_KEY" \
 
 ```bash
 curl -X POST \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}/cancel
 ```
 
@@ -139,7 +139,7 @@ curl -X POST \
 #### Get Payment Status
 
 ```bash
-curl -H "X-Api-Key: $API_KEY" \
+curl -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}/payment
 ```
 
@@ -232,7 +232,7 @@ curl -X POST $BLOCKCHAIN_URL/v1/contracts/call \
 # Extract job ID from response
 JOB_ID=$(curl -s -X POST $BASE_URL/v1/jobs \
   -H "Content-Type: application/json" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   -d '{"payload": {"model": "llama2", "prompt": "Hello"}, "ttl_seconds": 900}' \
   | jq -r '.job_id')
 
@@ -242,7 +242,7 @@ echo "Job ID: $JOB_ID"
 ### Pretty Print JSON Output
 
 ```bash
-curl -s -H "X-Api-Key: $API_KEY" \
+curl -s -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id} | jq '.'
 ```
 
@@ -250,11 +250,11 @@ curl -s -H "X-Api-Key: $API_KEY" \
 
 ```bash
 # Get job state only
-curl -s -H "X-Api-Key: $API_KEY" \
+curl -s -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id} | jq -r '.state'
 
 # Get multiple fields
-curl -s -H "X-Api-Key: $API_KEY" \
+curl -s -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id} | jq '{state: .state, assigned_miner_id: .assigned_miner_id}'
 ```
 
@@ -265,7 +265,7 @@ curl -s -H "X-Api-Key: $API_KEY" \
 for prompt in "Hello" "World" "Test"; do
   curl -X POST $BASE_URL/v1/jobs \
     -H "Content-Type: application/json" \
-    -H "X-Api-Key: $API_KEY" \
+    -H "Authorization: Bearer $JWT" \
     -d "{\"payload\": {\"model\": \"llama2\", \"prompt\": \"$prompt\"}, \"ttl_seconds\": 900}" &
 done
 
@@ -277,7 +277,7 @@ wait
 ```bash
 # Check HTTP status code
 HTTP_CODE=$(curl -s -o /dev/null -w "%{http_code}" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id})
 
 if [ $HTTP_CODE -eq 200 ]; then
@@ -292,7 +292,7 @@ fi
 ```bash
 # Add delay between requests to respect rate limits
 for i in {1..10}; do
-  curl -H "X-Api-Key: $API_KEY" \
+  curl -H "Authorization: Bearer $JWT" \
     $BASE_URL/v1/jobs/{job_id}
   sleep 1  # 1 second delay
 done
@@ -308,7 +308,7 @@ RETRY_DELAY=5
 
 for i in $(seq 1 $MAX_RETRIES); do
   RESPONSE=$(curl -s -w "\n%{http_code}" \
-    -H "X-Api-Key: $API_KEY" \
+    -H "Authorization: Bearer $JWT" \
     $BASE_URL/v1/jobs/{job_id})
 
   HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
@@ -330,19 +330,19 @@ exit 1
 ### File Upload
 
 ```bash
-# Upload file as job payload
+# Submit a job whose payload is the file contents (the route takes a JSON
+# JobSubmission body — there is no multipart upload on /v1/jobs)
 curl -X POST $BASE_URL/v1/jobs \
-  -H "Content-Type: multipart/form-data" \
-  -H "X-Api-Key: $API_KEY" \
-  -F "payload=@input.json" \
-  -F "ttl_seconds=900"
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d "$(jq -n --arg p "$(cat input.json)" '{payload: {data: $p}, ttl_seconds: 900}')"
 ```
 
 ### Download Results
 
 ```bash
 # Download job result to file
-curl -H "X-Api-Key: $API_KEY" \
+curl -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}/result \
   -o result.json
 ```
@@ -387,23 +387,23 @@ export AITBC_BLOCKCHAIN_URL="http://localhost:8202"
 ```bash
 # Add to ~/.bashrc or ~/.zshrc
 
-# Submit job function
+# Submit job function (JWT from the wallet-signed login flow)
 aitbc-submit() {
   curl -X POST $AITBC_BASE_URL/v1/jobs \
     -H "Content-Type: application/json" \
-    -H "X-Api-Key: $AITBC_API_KEY" \
+    -H "Authorization: Bearer $JWT" \
     -d "$1"
 }
 
 # Get job function
 aitbc-job() {
-  curl -H "X-Api-Key: $AITBC_API_KEY" \
+  curl -H "Authorization: Bearer $JWT" \
     $AITBC_BASE_URL/v1/jobs/$1
 }
 
 # Get result function
 aitbc-result() {
-  curl -H "X-Api-Key: $AITBC_API_KEY" \
+  curl -H "Authorization: Bearer $JWT" \
     $AITBC_BASE_URL/v1/jobs/$1/result
 }
 ```
@@ -413,14 +413,14 @@ aitbc-result() {
 ### Verbose Output
 
 ```bash
-curl -v -H "X-Api-Key: $API_KEY" \
+curl -v -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}
 ```
 
 ### Include Headers in Response
 
 ```bash
-curl -i -H "X-Api-Key: $API_KEY" \
+curl -i -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}
 ```
 
@@ -428,7 +428,7 @@ curl -i -H "X-Api-Key: $API_KEY" \
 
 ```bash
 curl -w "@curl-format.txt" \
-  -H "X-Api-Key: $API_KEY" \
+  -H "Authorization: Bearer $JWT" \
   $BASE_URL/v1/jobs/{job_id}
 ```
 

@@ -53,7 +53,20 @@ http://localhost:8107
 
 ## Authentication
 
-Currently, the API does not require authentication. Future versions may support API key authentication and JWT tokens.
+Authentication is **deployment-mode dependent**. `AGENT_MSG_SIGNATURE_MODE`
+(`disabled` | `advisory` | `enforce`, configured in
+`/etc/aitbc/aitbc-agent-coordinator.env`) controls whether mutating calls must
+carry a resolvable credential:
+
+- `disabled` — open access (dev only)
+- `advisory` — signatures checked when present, unsigned calls still accepted
+- `enforce` — `401`/`403` without a valid principal; `POST /v1/tasks/submit`
+  calls `authorize_any_principal`, message and WebSocket routes bind
+  principals, and signed-envelope checks apply (see
+  `agent-signed-envelopes.md`)
+
+Admin routes additionally require an admin/operator principal in `enforce`
+mode.
 
 ---
 

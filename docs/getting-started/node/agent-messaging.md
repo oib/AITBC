@@ -30,11 +30,11 @@ No daemon, polling, or registration required — the Agent Coordinator's built-i
 ## Verify Operation
 
 ```bash
-# Check Agent Coordinator is running on the hub
-curl http://hub.aitbc.bubuit.net/agent/health
+# Check Agent Coordinator is running on the hub (nginx /health proxies to it)
+curl https://hub.aitbc.bubuit.net/health
 
-# Check WebSocket status
-curl http://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
+# Check WebSocket status (auth-gated; a 401 response confirms the service is up)
+curl https://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
 ```
 
 ## See Also

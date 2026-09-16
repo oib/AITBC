@@ -25,10 +25,10 @@ curl http://localhost:8108/health
 systemctl status aitbc-*
 
 # Check specific service
-systemctl status aitbc-blockchain
+systemctl status aitbc-blockchain-node aitbc-blockchain-rpc
 
 # Enable service auto-start
-systemctl enable aitbc-blockchain
+systemctl enable aitbc-blockchain-node aitbc-blockchain-rpc
 ```
 
 ## Database Health

@@ -198,10 +198,16 @@ After=network.target postgresql.service redis.service
 
 [Service]
 Type=simple
-User=root
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
+Environment="HOME=/var/lib/aitbc"
 EnvironmentFile=/etc/aitbc/blockchain.env
+EnvironmentFile=/etc/aitbc/node.env
+EnvironmentFile=/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 ExecStart=/opt/aitbc/venv/bin/python -m aitbc_chain.main
 Restart=always
 RestartSec=5
@@ -218,10 +224,18 @@ After=network.target aitbc-blockchain-node.service
 
 [Service]
 Type=simple
-User=root
+User=aitbc
+Group=aitbc
 WorkingDirectory=/opt/aitbc
+Environment=PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src
+Environment="HOME=/var/lib/aitbc"
+Environment=RPC_BIND_HOST=0.0.0.0
+Environment=RPC_BIND_PORT=8202
 EnvironmentFile=/etc/aitbc/blockchain.env
-ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host 0.0.0.0 --port 8202
+EnvironmentFile=/etc/aitbc/node.env
+EnvironmentFile=/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+ExecStart=/opt/aitbc/venv/bin/python -m uvicorn aitbc_chain.app:app --host ${RPC_BIND_HOST} --port ${RPC_BIND_PORT}
 Restart=always
 RestartSec=5
 

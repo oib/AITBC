@@ -86,35 +86,39 @@ systemctl restart aitbc-*
 
 ### How do I get an API key?
 
-Register as a client through the Coordinator API:
-
-```bash
-curl -X POST http://localhost:8203/v1/clients/register \
-  -H "Content-Type: application/json" \
-  -d '{"name": "My Application"}'
-```
-
-The response will include your API key.
+Customer authentication on the coordinator-api is JWT-based: sign the
+login flow with your wallet (`POST /v1/auth/nonce` then `POST /v1/login`,
+which returns a `session_token`). Service/miner callers use an `X-Api-Key`
+provisioned by the operator — there is no public self-registration
+endpoint.
 
 ### What are the rate limits?
 
-- Job submission: 100 requests per minute
-- Job status queries: 1000 requests per minute
-- Result retrieval: 500 requests per minute
+Rate limits are enforced per-route by middleware and are
+deployment-configured rather than fixed per endpoint — check
+`API_GATEWAY_RATE_LIMIT` / the service config for the live values.
+Exceeding a limit returns `429`.
 
 See the [API Reference](../api/README.md) for more details.
 
 ### How do I submit a job?
 
-```python
-import aitbc_sdk
+```bash
+# Via the CLI (canonical path)
+aitbc ai submit --model llama2 --prompt "Hello world"
 
-client = aitbc_sdk.Client(api_key="<YOUR_API_KEY>")
-job = client.submit_job(
-    payload={"model": "llama2", "prompt": "Hello world"},
-    ttl_seconds=900
-)
+# Or REST: POST /v1/jobs on the coordinator-api (Bearer JWT)
+curl -X POST http://localhost:8203/v1/jobs \
+  -H "Authorization: Bearer $JWT" \
+  -H "Content-Type: application/json" \
+  -d '{"payload": {"model": "llama2", "prompt": "Hello world"}, "ttl_seconds": 900}'
 ```
+
+The `aitbc_sdk` package (`packages/py/aitbc-sdk`) exposes typed clients —
+`CoordinatorAPIClient`, `CoordinatorClient`, `CoordinatorReceiptClient`,
+`WalletClient`, `RegistryClient` — for receipts, grants, wallet, and
+registry calls. It has no `submit_job`/`watch_job` job API; job submission
+goes through the CLI or REST above.
 
 See the [Python SDK Examples](../api/examples/python-sdk-examples.md) for more examples.
 
@@ -122,13 +126,14 @@ See the [Python SDK Examples](../api/examples/python-sdk-examples.md) for more e
 
 You can poll the status endpoint or use WebSocket for real-time updates:
 
-```python
-# Polling
-status = client.get_job(job_id)
-
-# WebSocket
-client.watch_job(job_id, callback=on_update)
+```bash
+# Polling — GET /v1/jobs/{job_id} on the coordinator-api (Bearer JWT)
+curl -H "Authorization: Bearer $JWT" http://localhost:8203/v1/jobs/<job_id>
 ```
+
+There is no job-status WebSocket — poll the REST endpoint, or subscribe to
+chain events via `WS /rpc/subscribe/ws` on the blockchain node (peer-key
+gated).
 
 ### What happens if a job fails?
 

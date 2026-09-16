@@ -102,7 +102,17 @@ Error responses include a JSON body with details:
 
 ## WebSocket Endpoints
 
-The only WebSocket endpoints in the platform live on the blockchain node: `WS /rpc/subscribe/ws` (lease-gated follower block subscription) and `WS /rpc/gossip/ws?topic=` (bidirectional gossip, validator-authenticated for restricted topics). The coordinator-api and marketplace services have no WebSocket endpoints — poll their REST routes instead.
+WebSocket endpoints live on two services:
+
+- **Blockchain node** (:8202): `WS /rpc/subscribe/ws` (lease-gated follower
+  block subscription) and `WS /rpc/gossip/ws?topic=` (bidirectional gossip,
+  validator-authenticated for restricted topics).
+- **Agent coordinator** (:8107): `WS /api/v1/agent/messages/stream` and
+  `WS /api/v1/agent/presence/stream` — agent messaging/presence, proxied
+  under the hub nginx `/agent/` prefix.
+
+The coordinator-api and marketplace services have no WebSocket endpoints —
+poll their REST routes instead.
 
 See [websocket.md](./websocket.md) for the full protocol.
 

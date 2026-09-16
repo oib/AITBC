@@ -12,7 +12,14 @@ This guide walks providers through registering GPUs, choosing pricing strategies
 ## Prerequisites
 
 - AITBC CLI installed locally: `pip install -e ./cli`
-- Account initialized: `aitbc init`
+- A wallet and a coordinator credential — there is no `aitbc init`; the real setup is:
+
+  ```bash
+  aitbc wallet create --name my-wallet          # creates ~/.aitbc/wallets/my-wallet.json
+  aitbc auth login --wallet my-wallet           # signs a nonce, stores a coordinator JWT
+  ```
+
+  (`aitbc auth login` needs a reachable coordinator — pass `--coordinator-url http://<host>:8203` when it is not the configured default.)
 - Network connectivity to the coordinator API
 - GPU details ready (model, memory, CUDA version, base price)
 
@@ -76,7 +83,7 @@ sequenceDiagram
 ## Best Practices
 
 - Start with **Market Balance**; adjust after 48h of data.
-- Set `--region` to match your lowest-latency buyers.
+- Keep your registered region aligned with your lowest-latency buyers — `aitbc gpu register` has no `--region` flag, so carry `"region"` inside the `--specs` JSON (see Step 1).
 - Update CLI regularly for the latest pricing features.
 - Keep GPUs online during peak windows (local 9 AM – 9 PM) for higher fill rates.
 
