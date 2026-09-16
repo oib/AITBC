@@ -159,16 +159,23 @@ def test_governance_execute_rejects_set_governance_address(session):
 
 
 def test_governance_execute_rejects_set_governance_address_json_payload(session):
-    """The same rejection applies when the payload arrives as a JSON string."""
+    """The same rejection applies when the payload arrives as a JSON string.
+
+    Signed string-payload txs die earlier at the signature gate (the signed
+    form is the dict); this unsigned variant exercises the defensive parse
+    branch — unsigned txs skip signature verification entirely.
+    """
     chain_id = "ait-test"
-    _seed_accounts(session, chain_id)
-    tx_data = {
+    executor_addr = _seed_accounts(session, chain_id)
+    tx = {
         "amount": 0,
         "value": 0,
         "fee": DEFAULT_TX_FEE_UNITS,
         "nonce": 0,
         "type": "GOVERNANCE_EXECUTE",
         "chain_id": chain_id,
+        "from": executor_addr,
+        "to": executor_addr,
         "payload": json.dumps(
             {
                 "proposal_id": "prop-1",
@@ -176,7 +183,6 @@ def test_governance_execute_rejects_set_governance_address_json_payload(session)
             }
         ),
     }
-    tx = _make_tx(EXECUTOR_KEY, tx_data)
     st = StateTransition()
     ok, msg = st.apply_transaction(session, chain_id, tx, "tx_gov_sga_json")
     assert not ok
