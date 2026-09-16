@@ -25,14 +25,6 @@ class TestEdgeCases:
             response = coordinator_client.post("/v1/agent/agents/register", json=data)
             assert response.status_code in (200, 422, 400)
 
-    def test_task_submission_various_priorities(self, coordinator_client: TestClient):
-        """Test task submission with various priorities."""
-        priorities = ["low", "normal", "high", "critical", "urgent"]
-        for priority in priorities:
-            task_data = {"task_data": {"model": "llama2", "prompt": "test"}, "priority": priority}
-            response = coordinator_client.post("/v1/swarm/tasks/submit", json=task_data)
-            assert response.status_code in (200, 201)
-
     def test_agent_status_updates(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test agent heartbeat updates."""
         coordinator_client.post("/v1/agent/agents/register", json=sample_agent_data)
@@ -70,7 +62,6 @@ class TestErrorHandling:
         """Test endpoints with invalid JSON data."""
         endpoints = [
             ("/v1/agent/agents/register", "POST"),
-            ("/v1/swarm/tasks/submit", "POST"),
             ("/v1/agent/messages/send", "POST"),
         ]
 
@@ -104,7 +95,7 @@ class TestErrorHandling:
 
     def test_numeric_edge_cases(self, coordinator_client: TestClient):
         """Test endpoints with numeric edge cases."""
-        response = coordinator_client.post("/v1/swarm/tasks/submit", json={"task_data": 0, "priority": 1})
+        response = coordinator_client.post("/v1/agent/agents/register", json={"agent_id": 0, "public_key": 1})
         assert response.status_code in (200, 422)
 
     def test_boolean_and_null_values(self, coordinator_client: TestClient):
@@ -121,16 +112,13 @@ class TestErrorHandling:
 class TestAdvancedScenarios:
     """Test advanced integration scenarios."""
 
-    def test_agent_registration_and_task_submission(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
-        """Test agent registration followed by task submission."""
+    def test_agent_registration_and_heartbeat(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
+        """Test agent registration followed by heartbeat."""
         response = coordinator_client.post("/v1/agent/agents/register", json=sample_agent_data)
         assert response.status_code in (200, 201)
 
-        coordinator_client.post(f"/v1/agent/agents/{sample_agent_data['agent_id']}/heartbeat")
-
-        task_data = {"task_data": {"model": "llama2", "prompt": "test"}, "priority": "normal"}
-        response = coordinator_client.post("/v1/swarm/tasks/submit", json=task_data)
-        assert response.status_code in (200, 201)
+        response = coordinator_client.post(f"/v1/agent/agents/{sample_agent_data['agent_id']}/heartbeat")
+        assert response.status_code in (200, 201, 404)
 
     def test_message_send_after_registration(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
         """Test message send after agent registration."""
@@ -149,11 +137,7 @@ class TestAdvancedScenarios:
 class TestLowCoverageModules:
     """Test modules that historically had low coverage."""
 
-    def test_load_balancer_error_recovery(self, coordinator_client: TestClient):
-        """Test load balancer error recovery.
-
-        The legacy load balancer endpoints do not exist. Verify that the
-        swarm status endpoint responds, which is the closest available check.
-        """
-        response = coordinator_client.get("/v1/swarm/status")
-        assert response.status_code in (200, 404)
+    def test_swarm_routes_absent(self, coordinator_client: TestClient):
+        """Swarm endpoints were removed — assert the honest 404 everywhere."""
+        for path in ("/v1/swarm/tasks/submit", "/v1/swarm/status", "/v1/swarm/nodes"):
+            assert coordinator_client.get(path).status_code == 404
