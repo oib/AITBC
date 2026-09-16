@@ -164,7 +164,8 @@ async def get_market_stats(session: Annotated[AsyncSession, Depends(get_session_
     confirmed_today: Sequence[ExchangePayment] = result.scalars().all()
     daily_volume = sum((p.aitbc_amount for p in confirmed_today), Decimal("0"))
     base_price = Decimal("1") / ETHEREUM_CONFIG["exchange_rate"]
-    price_change_percent = 5.2
+    # Configured peg, not a traded price — honest 24h change is 0 until a real rate feed exists.
+    price_change_percent = Decimal("0")
     total_stmt = select(ExchangePayment).where(ExchangePayment.status == "confirmed")
     total_result = await session.execute(total_stmt)
     pending_stmt = select(ExchangePayment).where(ExchangePayment.status == "pending")

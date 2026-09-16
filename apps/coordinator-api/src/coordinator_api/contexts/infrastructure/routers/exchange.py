@@ -148,9 +148,10 @@ async def get_market_stats(request: Request) -> MarketStatsResponse:
         if payment["status"] == "confirmed" and payment.get("confirmed_at", 0) > yesterday_time:
             daily_volume += payment["aitbc_amount"]
 
-    # Calculate price change (simulated)
+    # The AITBC/ETH rate is a configured peg (ETH_CONFIG["exchange_rate"]) — there is no
+    # price discovery, so the honest 24h change is 0 until a real rate feed exists.
     base_price = 1.0 / ETH_CONFIG["exchange_rate"]
-    price_change_percent = 5.2  # Simulated +5.2%
+    price_change_percent = 0
 
     return MarketStatsResponse(
         price=base_price,
