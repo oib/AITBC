@@ -13,6 +13,17 @@ from ..utils.http_client import AITBCHTTPClient, NetworkError
 from ..utils.simulation import simulated_id, simulated_timestamp
 
 
+def _rpc_client(rpc_url: str) -> AITBCHTTPClient:
+    """Blockchain-RPC client carrying the configured X-API-Key when present.
+
+    The contracts/messaging mutation routes require the RPC API key; reads
+    work without it, so the key is attached opportunistically.
+    """
+    from ..config import get_config
+
+    return AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
+
+
 def _resolve_poster(ctx_param: str | None, env_name: str, fallback: str | None = None) -> str | None:
     """Resolve a poster identifier from CLI option, env var, or fallback."""
     value = ctx_param or os.getenv(env_name) or fallback
@@ -98,7 +109,7 @@ def send(
     assert poster_id is not None and poster_address is not None  # abort() raises; narrow for mypy
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _rpc_client(rpc_url)
         topic_id = _resolve_topic_id(http_client, topic, poster_id, poster_address)
         post_payload = {
             "agent_id": poster_id,
@@ -144,7 +155,7 @@ def send(
 def list(ctx, query: str, limit: int, rpc_url: str):
     """List messages from the on-chain forum with optional query and limit."""
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _rpc_client(rpc_url)
         messages = http_client.get(
             "/rpc/contracts/messaging/messages/search",
             params={"query": query, "limit": limit},
@@ -182,7 +193,7 @@ def topic(ctx, title, description, agent_id, agent_address, tags, rpc_url):
     tag_list = [t.strip() for t in tags.split(",") if t.strip()]
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _rpc_client(rpc_url)
         result = http_client.post(
             "/rpc/contracts/messaging/topics/create",
             json={

@@ -691,8 +691,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -701,7 +711,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/contracts": {
@@ -783,8 +798,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -793,7 +818,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/contracts/call": {
@@ -1066,8 +1096,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1076,7 +1116,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/contracts/messaging/topics/{topic_id}/messages": {
@@ -1209,8 +1254,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1219,7 +1274,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/contracts/messaging/messages/{message_id}/vote": {
@@ -1231,6 +1291,11 @@
         "summary": "Vote on message",
         "description": "Vote on a message (upvote/downvote)",
         "operationId": "vote_message_route_rpc_contracts_messaging_messages__message_id__vote_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "message_id",
@@ -1277,8 +1342,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1421,6 +1496,11 @@
         "summary": "Moderate message",
         "description": "Moderate a message (moderator only)",
         "operationId": "moderate_message_route_rpc_contracts_messaging_messages__message_id__moderate_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "message_id",
@@ -1467,8 +1547,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1520,8 +1610,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Islands module not available",
+            "description": "Islands module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1530,7 +1630,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/islands/leave": {
@@ -1573,8 +1678,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Islands module not available",
+            "description": "Islands module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1583,7 +1698,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/islands": {
@@ -1717,8 +1837,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Islands module not available",
+            "description": "Islands module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -1727,7 +1857,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/subscribe": {
@@ -1773,8 +1908,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/heartbeat": {
@@ -1820,8 +1980,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/lease/{node_id}": {
@@ -1877,6 +2062,11 @@
         "summary": "Revoke subscription lease",
         "description": "Revoke a subscriber's lease",
         "operationId": "revoke_lease_route_rpc_lease__node_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "node_id",
@@ -1907,6 +2097,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -2682,8 +2892,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/transaction": {
@@ -3905,8 +4140,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/chains/stop": {
@@ -3948,8 +4208,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/chains": {
@@ -4215,8 +4500,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Identity module not available",
+            "description": "Identity module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -4225,7 +4520,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/identity/{agent_id}": {
@@ -4348,8 +4648,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Identity module not available",
+            "description": "Identity module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -4358,7 +4668,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/governance/proposal": {
@@ -4407,8 +4722,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Governance module not available",
+            "description": "Governance module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -4417,7 +4742,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/governance/vote": {
@@ -4466,8 +4796,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Governance module not available",
+            "description": "Governance module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -4476,7 +4816,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/rpc/governance/proposal/{proposal_id}/execute": {
@@ -4490,6 +4835,11 @@
         "summary": "Execute governance proposal",
         "description": "Execute a passed governance proposal on the blockchain",
         "operationId": "execute_governance_proposal_route_rpc_governance_proposal__proposal_id__execute_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "proposal_id",
@@ -4542,8 +4892,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Governance module not available",
+            "description": "Governance module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -8717,6 +9077,11 @@
         "summary": "Register GPU on-chain",
         "description": "Register GPU with immutable specs on blockchain.",
         "operationId": "register_gpu_rpc_gpu_register_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -8768,8 +9133,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -8872,6 +9257,11 @@
         "summary": "Allocate GPU on-chain",
         "description": "Record GPU allocation on blockchain.",
         "operationId": "allocate_gpu_rpc_gpu_allocate_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -8923,8 +9313,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -8945,6 +9355,11 @@
         "summary": "Register edge node on-chain",
         "description": "Register an edge node on the blockchain (v0.6.6).",
         "operationId": "register_edge_node_rpc_edge_register_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -8996,8 +9411,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -10318,8 +10753,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -10328,7 +10773,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/contracts": {
@@ -10410,8 +10860,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -10420,7 +10880,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/contracts/call": {
@@ -10693,8 +11158,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -10703,7 +11178,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/contracts/messaging/topics/{topic_id}/messages": {
@@ -10836,8 +11316,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -10846,7 +11336,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/contracts/messaging/messages/{message_id}/vote": {
@@ -10858,6 +11353,11 @@
         "summary": "Vote on message",
         "description": "Vote on a message (upvote/downvote)",
         "operationId": "vote_message_route_v1_contracts_messaging_messages__message_id__vote_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "message_id",
@@ -10904,8 +11404,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -11048,6 +11558,11 @@
         "summary": "Moderate message",
         "description": "Moderate a message (moderator only)",
         "operationId": "moderate_message_route_v1_contracts_messaging_messages__message_id__moderate_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "message_id",
@@ -11094,8 +11609,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Contracts module not available",
+            "description": "Contracts module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -11147,8 +11672,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Islands module not available",
+            "description": "Islands module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -11157,7 +11692,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/islands/leave": {
@@ -11200,8 +11740,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Islands module not available",
+            "description": "Islands module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -11210,7 +11760,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/islands": {
@@ -11344,8 +11899,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Islands module not available",
+            "description": "Islands module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -11354,7 +11919,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/subscribe": {
@@ -11400,8 +11970,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/heartbeat": {
@@ -11447,8 +12042,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/lease/{node_id}": {
@@ -11504,6 +12124,11 @@
         "summary": "Revoke subscription lease",
         "description": "Revoke a subscriber's lease",
         "operationId": "revoke_lease_route_v1_lease__node_id__delete",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "node_id",
@@ -11534,6 +12159,26 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -12309,8 +12954,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/transaction": {
@@ -13532,8 +14202,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/chains/stop": {
@@ -13575,8 +14270,33 @@
                 }
               }
             }
+          },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/chains": {
@@ -13842,8 +14562,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Identity module not available",
+            "description": "Identity module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -13852,7 +14582,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/identity/{agent_id}": {
@@ -13975,8 +14710,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Identity module not available",
+            "description": "Identity module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -13985,7 +14730,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/governance/proposal": {
@@ -14034,8 +14784,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Governance module not available",
+            "description": "Governance module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -14044,7 +14804,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/governance/vote": {
@@ -14093,8 +14858,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Governance module not available",
+            "description": "Governance module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -14103,7 +14878,12 @@
               }
             }
           }
-        }
+        },
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ]
       }
     },
     "/v1/governance/proposal/{proposal_id}/execute": {
@@ -14117,6 +14897,11 @@
         "summary": "Execute governance proposal",
         "description": "Execute a passed governance proposal on the blockchain",
         "operationId": "execute_governance_proposal_route_v1_governance_proposal__proposal_id__execute_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "proposal_id",
@@ -14169,8 +14954,18 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "503": {
-            "description": "Governance module not available",
+            "description": "Governance module not available / Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -18344,6 +19139,11 @@
         "summary": "Register GPU on-chain",
         "description": "Register GPU with immutable specs on blockchain.",
         "operationId": "register_gpu_v1_gpu_register_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -18395,8 +19195,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -18499,6 +19319,11 @@
         "summary": "Allocate GPU on-chain",
         "description": "Record GPU allocation on blockchain.",
         "operationId": "allocate_gpu_v1_gpu_allocate_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -18550,8 +19375,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {
@@ -18572,6 +19417,11 @@
         "summary": "Register edge node on-chain",
         "description": "Register an edge node on the blockchain (v0.6.6).",
         "operationId": "register_edge_node_v1_edge_register_post",
+        "security": [
+          {
+            "APIKeyHeader": []
+          }
+        ],
         "parameters": [
           {
             "name": "chain_id",
@@ -18623,8 +19473,28 @@
               }
             }
           },
+          "403": {
+            "description": "Forbidden: missing or invalid API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Escrow RPC is not configured for authentication",
             "content": {
               "application/json": {
                 "schema": {

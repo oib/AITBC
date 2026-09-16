@@ -1163,7 +1163,7 @@ def register_gpu(
         body["capabilities"] = capabilities
     if chain_id is not None:
         body["chain_id"] = chain_id
-    return _http_write_tool(role, host, "blockchain-rpc", "gpu/register", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "gpu/register", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1213,7 +1213,7 @@ def allocate_gpu(
         "total_cost": str(total_cost),
         "allocated_by": allocated_by,
     }
-    return _http_write_tool(role, host, "blockchain-rpc", "gpu/allocate", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "gpu/allocate", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1228,7 +1228,15 @@ def stake_tokens(
     ],
     signature: Annotated[
         str,
-        Field(description="Staker signature authorizing the stake."),
+        Field(description=("Staker signature over {address, amount, chain_id, action: 'stake', nonce, timestamp}.")),
+    ],
+    nonce: Annotated[
+        int,
+        Field(description="Account nonce at signing time (must equal the on-chain account nonce).", ge=0),
+    ],
+    timestamp: Annotated[
+        int,
+        Field(description="Unix timestamp at signing time (must be fresh, within ~300s)."),
     ],
     lock_days: Annotated[
         int,
@@ -1236,7 +1244,7 @@ def stake_tokens(
     ] = 30,
     chain_id: Annotated[
         str | None,
-        Field(description="Chain ID override."),
+        Field(description="Chain ID override; must match the chain_id inside the signed message."),
     ] = None,
     dry_run: Annotated[
         bool,
@@ -1260,6 +1268,8 @@ def stake_tokens(
         "address": address,
         "amount": amount,
         "signature": signature,
+        "nonce": nonce,
+        "timestamp": timestamp,
         "lock_days": lock_days,
     }
     if chain_id is not None:
@@ -1279,11 +1289,19 @@ def unstake_tokens(
     ],
     signature: Annotated[
         str,
-        Field(description="Staker signature authorizing the unstake."),
+        Field(description=("Staker signature over {address, stake_id, chain_id, action: 'unstake', nonce, timestamp}.")),
+    ],
+    nonce: Annotated[
+        int,
+        Field(description="Account nonce at signing time (must equal the on-chain account nonce).", ge=0),
+    ],
+    timestamp: Annotated[
+        int,
+        Field(description="Unix timestamp at signing time (must be fresh, within ~300s)."),
     ],
     chain_id: Annotated[
         str | None,
-        Field(description="Chain ID override."),
+        Field(description="Chain ID override; must match the chain_id inside the signed message."),
     ] = None,
     dry_run: Annotated[
         bool,
@@ -1307,6 +1325,8 @@ def unstake_tokens(
         "address": address,
         "stake_id": stake_id,
         "signature": signature,
+        "nonce": nonce,
+        "timestamp": timestamp,
     }
     if chain_id is not None:
         body["chain_id"] = chain_id
@@ -1369,7 +1389,7 @@ def register_agent_identity(
         body["capabilities"] = capabilities
     if chain_id is not None:
         body["chain_id"] = chain_id
-    return _http_write_tool(role, host, "blockchain-rpc", "identity/register", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "identity/register", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1445,7 +1465,7 @@ def create_governance_proposal(
         body["execution_payload"] = execution_payload
     if chain_id is not None:
         body["chain_id"] = chain_id
-    return _http_write_tool(role, host, "blockchain-rpc", "governance/proposal", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "governance/proposal", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1502,7 +1522,7 @@ def cast_governance_vote(
         body["reason"] = reason
     if chain_id is not None:
         body["chain_id"] = chain_id
-    return _http_write_tool(role, host, "blockchain-rpc", "governance/vote", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "governance/vote", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1542,7 +1562,9 @@ def execute_governance_proposal(
         body["executor_address"] = executor_address
     if chain_id is not None:
         body["chain_id"] = chain_id
-    return _http_write_tool(role, host, "blockchain-rpc", f"governance/proposal/{proposal_id}/execute", body, dry_run, confirm)
+    return _http_write_tool(
+        role, host, "blockchain-rpc", f"governance/proposal/{proposal_id}/execute", body, dry_run, confirm, auth="rpc"
+    )
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1875,7 +1897,7 @@ def create_escrow(
         body["lock_nonce"] = lock_nonce
     if lock_fee is not None:
         body["lock_fee"] = lock_fee
-    return _http_write_tool(role, host, "blockchain-rpc", "escrow/create", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "escrow/create", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1909,7 +1931,7 @@ def release_escrow(
     body: dict[str, Any] = {}
     if job_tx_hash is not None:
         body["job_tx_hash"] = job_tx_hash
-    return _http_write_tool(role, host, "blockchain-rpc", f"escrow/{job_id}/release", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", f"escrow/{job_id}/release", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -1941,7 +1963,7 @@ def refund_escrow(
 ) -> str:
     """Refund escrow to the buyer."""
     body = {"reason": reason or "buyer_requested"}
-    return _http_write_tool(role, host, "blockchain-rpc", f"escrow/{job_id}/refund", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", f"escrow/{job_id}/refund", body, dry_run, confirm, auth="rpc")
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
