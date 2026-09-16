@@ -323,6 +323,67 @@ class TestVotingPowerFromStake:
         )
         assert resp["voting_power"] == 0
 
+    @pytest.mark.anyio
+    async def test_checksummed_stake_row_matches_lowercase_voter(self, env):
+        """Stake rows are written EIP-55-checksummed by the state transition;
+        the request address is lowercased. The lookup must still match."""
+        now = datetime.now(UTC)
+        with env.session_scope() as s:
+            s.add(
+                env.Stake(
+                    chain_id="ait-testnet",
+                    address="0x" + "Dd" * 20,
+                    amount=777,
+                    locked_until=now + timedelta(days=30),
+                    status="active",
+                )
+            )
+            s.commit()
+        resp = await env.cast_governance_vote(
+            None,
+            {
+                "proposal_id": "p1",
+                "voter_address": "0x" + "dd" * 20,
+                "vote_type": "for",
+                "chain_id": "ait-testnet",
+            },
+        )
+        assert resp["voting_power"] == 777
+
+    @pytest.mark.anyio
+    async def test_zero_power_vote_on_zero_quorum_proposal_does_not_500(self, env):
+        """quorum_required defaults to 0; a 0-power vote made total_votes=0 ≥ 0,
+        then divided by zero. The proposal must stay 'active', not crash."""
+        now = datetime.now(UTC)
+        with env.session_scope() as s:
+            s.add(
+                env.GovernanceProposal(
+                    chain_id="ait-testnet",
+                    proposal_id="p-zeroq",
+                    proposer_address="0x" + "a" * 40,
+                    title="t",
+                    description="d",
+                    status="active",
+                    quorum_required=0,
+                    voting_starts=now,
+                    voting_ends=now + timedelta(days=7),
+                )
+            )
+            s.commit()
+        resp = await env.cast_governance_vote(
+            None,
+            {
+                "proposal_id": "p-zeroq",
+                "voter_address": "0x" + "e" * 40,
+                "vote_type": "for",
+                "chain_id": "ait-testnet",
+            },
+        )
+        assert resp["voting_power"] == 0
+        with env.session_scope() as s:
+            prop = s.exec(env.select(env.GovernanceProposal).where(env.GovernanceProposal.proposal_id == "p-zeroq")).one()
+        assert prop.status == "active"
+
 
 class TestBountyAuthBinding:
     """Bounty protocol transfers now carry auth evidence; the consensus
