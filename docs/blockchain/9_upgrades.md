@@ -1,77 +1,127 @@
 # Node Upgrades
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 
-Guide for upgrading your blockchain node.
+Guide for upgrading a blockchain node.
 
-## Upgrade Process
+There is no `aitbc-chain` package and no `pip install aitbc-chain` — the node
+runs straight out of the `/opt/aitbc` git checkout with dependencies in
+`/opt/aitbc/venv`. An upgrade is **git pull + systemctl restart**.
 
-### Check Current Version
-
-```bash
-aitbc-chain version
-```
-
-### Check for Updates
+## Pre-Flight
 
 ```bash
-aitbc-chain check-update
+cd /opt/aitbc
+git fetch origin
+git status --short                 # confirm the tree is clean
+git log --oneline HEAD..origin/main | head -20   # what's coming in
+
+# Record current chain state for comparison after the upgrade
+aitbc blockchain height
+aitbc blockchain status
 ```
 
-### Upgrade Steps
+If the pull touches `apps/blockchain-node/migrations/` (alembic), plan for a
+schema migration — see *Database Migrations* below.
+
+## Upgrade Order
+
+Upgrade **followers first, hub last**. Followers only consume the chain; if a
+release misbehaves you want it to fail where it can't halt block production.
+
+1. Follower nodes (any order)
+2. Hub / proposer node
+
+## Upgrade Steps (per node)
 
 ```bash
-# 1. Backup data
-aitbc-chain backup --output /backup/chain-$(date +%Y%m%d).tar.gz
+# 1. Backup the chain database
+aitbc blockchain backup --chain-id ait-hub.aitbc.bubuit.net \
+  --path /backup --compress --verify
 
-# 2. Stop node gracefully
-aitbc-chain stop
+# 2. Pull the new code
+cd /opt/aitbc
+git pull                          # fast-forward to origin/main
 
-# 3. Upgrade software
-pip install --upgrade aitbc-chain
+# 3. Update dependencies if requirements/pyproject changed
+source venv/bin/activate
+pip install -r requirements.txt   # or: poetry install, per repo tooling
 
-# 4. Review migration notes
-cat CHANGELOG.md
+# 4. Apply DB migrations if the release ships them
+#    (see Database Migrations — skip if none)
+cd apps/blockchain-node && alembic upgrade head && cd /opt/aitbc
 
-# 5. Start node
-aitbc-chain start
+# 5. Restart services
+systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
+# hub additionally:
+systemctl restart aitbc-blockchain-p2p
+
+# 6. Watch startup
+journalctl -u aitbc-blockchain-node -f
 ```
 
-## Version-Specific Upgrades
-
-### v0.1.0 → v0.2.0
+## Verify
 
 ```bash
-# Database migration required
-aitbc-chain migrate --from v0.1.0
+# Height is advancing again
+aitbc blockchain height
+watch -n5 'aitbc blockchain height'
+
+# On a follower: still subscribed and catching up
+aitbc blockchain sync-status
+journalctl -u aitbc-blockchain-node -f | grep -iE "subscri|heartbeat|bulk"
+
+# RPC is healthy
+curl -s http://localhost:8202/rpc/status
+curl -s http://localhost:8202/health
 ```
 
-### v0.2.0 → v0.3.0
+Compare the post-upgrade height/head hash against the hub
+(`curl -s https://hub.aitbc.bubuit.net/rpc/head`) — a restarted follower
+should converge within a few bulk-sync passes; the hub should resume
+producing at the `block_time_seconds` cadence.
+
+## Database Migrations
+
+Alembic migrations live in `apps/blockchain-node/migrations/` and are the
+production migration path for `data/<chain_id>/chain.db`. When a release adds
+a migration:
 
 ```bash
-# Configuration changes
-aitbc-chain migrate-config --from v0.2.0
+cd /opt/aitbc/apps/blockchain-node
+/opt/aitbc/venv/bin/alembic upgrade head
 ```
 
-## Rollback Procedure
+Apply migrations **before** restarting `aitbc-blockchain-node`. On a
+multi-node fleet, migrate the hub's database first (it is the schema
+authority), then followers — or let a follower rebuild via bulk sync/export
+if its DB is disposable.
+
+## Rollback
 
 ```bash
-# If issues occur, rollback
-pip install aitbc-chain==0.1.0
+cd /opt/aitbc
+git log --oneline -5               # find the previous commit
+git checkout <previous-sha>        # or: git reset --hard <sha>
 
-# Restore from backup
-aitbc-chain restore --input /backup/chain-YYYYMMDD.tar.gz
+# Roll back the schema if migrations ran (check migrations/versions for names)
+cd apps/blockchain-node && alembic downgrade <previous-revision> && cd /opt/aitbc
 
-# Start old version
-aitbc-chain start
+systemctl restart aitbc-blockchain-node aitbc-blockchain-rpc
+journalctl -u aitbc-blockchain-node -f
 ```
 
-## Upgrade Notifications
+If the new code corrupted chain state, restore the pre-upgrade backup:
 
 ```bash
-# Enable upgrade alerts
-aitbc-chain alert --metric upgrade_available --action notify
+systemctl stop aitbc-blockchain-node aitbc-blockchain-rpc
+aitbc blockchain restore --backup-file /backup/chain-YYYYMMDD.tar.gz --verify
+systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
 ```
+
+> Note: `git checkout <sha>` detaches HEAD — return to `main`
+> (`git checkout main && git reset --hard origin/main` for the known-good ref)
+> once the incident is over.
 
 ## Next
 

@@ -304,17 +304,28 @@ List votes with optional filters.
 
 Create a new vote.
 
+> **`voting_power` is server-derived.** The service computes voting power from the voter's on-chain balance/stake snapshot (`voter_address` identifies the on-chain account). Any `voting_power` sent in the request body is ignored and overwritten — do not rely on it.
+
 **Request Body:**
 
 ```json
 {
   "proposal_id": "proposal_uuid",
   "voter_id": "user123",
+  "voter_address": "0x1234567890abcdef",
   "vote_type": "for",
-  "voting_power": 1000,
   "reason": "Support this proposal"
 }
 ```
+
+| Field | Required | Notes |
+|---|---|---|
+| `proposal_id` | ✅ | Proposal to vote on |
+| `voter_address` | recommended | On-chain address whose balance/stake determines voting power (falls back to `voter_id`) |
+| `voter_id` | – | Profile identifier; defaults to `anonymous` |
+| `vote_type` | ✅ | `for` / `against` / `abstain` |
+| `reason` | – | Free-text rationale |
+| ~~`voting_power`~~ | ignored | Server derives it from on-chain balance/stake |
 
 **Response:**
 
@@ -416,6 +427,21 @@ Delegate voting power to another address.
 **Error Responses:**
 
 - 500: Insufficient voting power
+
+## Newer Endpoints (v0.7.x)
+
+These routes exist on the service but are not yet fully documented above:
+
+| Method | Path | Purpose |
+|---|---|---|
+| `POST` | `/v1/governance/proposals/{proposal_id}/close` | Close a proposal |
+| `POST` | `/v1/governance/proposals/{proposal_id}/propagate` | Propagate a proposal to target chains |
+| `POST` | `/v1/governance/proposals/{proposal_id}/aggregate-votes` | Aggregate votes for a proposal |
+| `POST` | `/v1/governance/proposals/{proposal_id}/execute-cross-chain` | Execute a proposal across chains |
+| `GET` | `/v1/governance/params` | Current governance parameters (quorum, thresholds, `voting_power_calculation`) |
+| `GET` | `/metrics` | Prometheus metrics (root level, no `/v1` prefix) |
+
+The matching CLI subcommands are `aitbc governance close|propagate|aggregate-votes|execute-cross-chain`.
 
 ## Treasury & Analytics
 

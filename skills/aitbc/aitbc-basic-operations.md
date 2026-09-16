@@ -127,7 +127,7 @@ systemctl status aitbc-blockchain-node.service
 systemctl status aitbc-blockchain-p2p.service
 systemctl status aitbc-coordinator-api.service
 systemctl status aitbc-wallet.service
-systemctl status aitbc-exchange-api.service
+systemctl status aitbc-exchange.service
 ```
 
 ### 2. Start Failed Services
@@ -137,7 +137,7 @@ sudo systemctl start aitbc-blockchain-node.service
 sudo systemctl start aitbc-blockchain-p2p.service
 sudo systemctl start aitbc-coordinator-api.service
 sudo systemctl start aitbc-wallet.service
-sudo systemctl start aitbc-exchange-api.service
+sudo systemctl start aitbc-exchange.service
 
 # Enable services to start on boot
 sudo systemctl enable aitbc-blockchain-node.service
@@ -157,7 +157,7 @@ journalctl -u aitbc-blockchain-node.service -f
 
 ### 4. Common Service Failure Causes
 - **Missing dependencies:** Check Python venv and required packages
-- **Configuration errors:** Verify `/etc/aitbc/.env` and `/etc/aitbc/node.env` exist
+- **Configuration errors:** Verify `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env` exist
 - **Port conflicts:** Check if ports 8202, 8203, 8102, 8108, 8106 are available
 - **Database issues:** Verify `/var/lib/aitbc/data/` has proper permissions
 - **Keystore issues:** Check `/var/lib/aitbc/keystore/` exists and has correct permissions

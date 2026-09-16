@@ -4,34 +4,30 @@ This guide covers configuring the AITBC blockchain node for follower nodes on th
 
 ## Quick Start (10 minutes)
 
-For a faster setup using the CLI:
+The short version of §1–§4 below — there is no `aitbc-chain` binary and no
+`~/.aitbc/chain.yaml`; configuration is env files plus systemd:
 
 ```bash
+# 1. Install (§1)
 cd /opt/aitbc
-python -m venv .venv && source .venv/bin/activate
-pip install -e .
+python3 -m venv venv && source venv/bin/activate
+pip install -r requirements.txt
 
-aitbc-chain init --name my-node --network ait-devnet
-```
+# 2. Configure (§2) — create /etc/aitbc/blockchain.env and /etc/aitbc/node.env
+mkdir -p /etc/aitbc
+$EDITOR /etc/aitbc/blockchain.env /etc/aitbc/node.env
 
-Edit `~/.aitbc/chain.yaml`:
+# 3. Genesis (§3) — copy the hub's genesis.json byte for byte
+mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
+# scp hub:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/genesis.json ...
 
-```yaml
-node:
-  name: my-node
-  data_dir: ./data
-rpc:
-  bind_host: 0.0.0.0
-  bind_port: 8202
-p2p:
-  bind_port: 7070
-  bootstrap_nodes:
-    - /dns4/node-1.aitbc.com/tcp/7070/p2p/...
-```
+# 4. Services (§4) — install the unit files and start them
+systemctl daemon-reload
+systemctl enable --now aitbc-blockchain-node aitbc-blockchain-rpc
 
-```bash
-aitbc-chain start
-aitbc-chain status
+# Verify
+journalctl -u aitbc-blockchain-node -f
+aitbc blockchain sync-status
 curl -fsS http://localhost:8202/health
 ```
 
@@ -84,16 +80,21 @@ SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net
 RPC_BIND_HOST=0.0.0.0
 RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
-P2P_BIND_PORT=7070
+P2P_BIND_PORT=8200   # code default; only the hub runs the relay (it binds 7070 there)  # check-ports: ignore
 ENABLE_BLOCK_PRODUCTION=false  # Set to false for follower nodes
 GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 MEMPOOL_BACKEND=database
 MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:password@localhost:5432/aitbc_mempool
 PROPOSER_ID=<your-proposer-address>
-DEFAULT_PEER_RPC_URL=http://hub.aitbc.bubuit.net:8202
+DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net   # hub base URL, no /rpc suffix
 P2P_NODE_ID=<your-node-id>
-P2P_PEERS=auto
 ```
+
+For the follower's block subscription to be accepted, set
+`BLOCKCHAIN_RPC_API_KEY` — the node sends it as `X-API-Key` on
+`POST /rpc/subscribe` and `POST /rpc/heartbeat`, and the hub only accepts keys
+listed in its own `BLOCKCHAIN_RPC_API_KEY_PEERS`. (`P2P_PEERS` is a legacy
+setting the subscription system does not read — leave it unset.)
 
 ### `PROPOSER_ID` and `GENESIS_WALLET_ADDRESS` are different things
 
@@ -174,6 +175,19 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
 > genesis hash and cannot join.
 
 ## 4. Start Blockchain Services
+
+Canonical unit files ship in the repo at `apps/blockchain-node/*.service` —
+copy them rather than retyping:
+
+```bash
+cp /opt/aitbc/apps/blockchain-node/aitbc-blockchain-node.service \
+   /opt/aitbc/apps/blockchain-node/aitbc-blockchain-rpc.service \
+   /etc/systemd/system/
+```
+
+They run as the `aitbc` user and load `/etc/aitbc/blockchain.env`,
+`/etc/aitbc/node.env`, and the per-service/secrets env files. A minimal
+follower pair, for reference:
 
 ```bash
 # Create systemd service for blockchain node

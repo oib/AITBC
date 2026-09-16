@@ -10,9 +10,9 @@
 # List all software offers on the marketplace
 aitbc market list
 
-# Or query the plugin registry directly
-curl http://localhost:8109/plugins/whisper-base  # check-ports: ignore
-curl http://localhost:8109/plugins/whisper-base/offer   # latest offer_id only  # check-ports: ignore
+# Or query the marketplace service directly (port 8102)
+curl "http://localhost:8102/v1/marketplace/plugins?service_type=whisper"
+curl http://localhost:8102/v1/marketplace/offer/whisper-base   # latest offer for the plugin
 ```
 
 Latest confirmed offer on hub:
@@ -75,13 +75,13 @@ aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c
 
 ## 4. Expose Whisper publicly on `<node2>` (nginx setup)
 
-The offer's public endpoint (`http://shop.example.net/whisper`) is defined in `deployment/nginx-aitbc.conf`.
+The offer's public endpoint (`http://shop.example.net/whisper`) is defined in `examples/nginx/nginx-aitbc.conf.example`.
 
 On `<node2>`, after `git pull`:
 
 ```bash
-# Install/update nginx config
-sudo cp /opt/aitbc/deployment/nginx-aitbc.conf /etc/nginx/sites-available/aitbc
+# Install/update nginx config from the reference example
+sudo cp /opt/aitbc/examples/nginx/nginx-aitbc.conf.example /etc/nginx/sites-available/aitbc
 sudo ln -sf /etc/nginx/sites-available/aitbc /etc/nginx/sites-enabled/aitbc
 sudo nginx -t && sudo systemctl reload nginx
 ```
@@ -99,8 +99,8 @@ This exposes:
 Offers are re-published on node restart. Always resolve the current one:
 
 ```bash
-# From plugin registry (live hub chain lookup)
-curl http://localhost:8109/plugins/whisper-base/offer  # check-ports: ignore
+# From the marketplace service (latest offer for the plugin)
+curl http://localhost:8102/v1/marketplace/offer/whisper-base
 
 # Or from market list
 aitbc market list | grep whisper
@@ -117,5 +117,7 @@ Tell the hub agent:
 The hub can also discover the offer programmatically:
 
 ```
-GET https://hub.aitbc.bubuit.net/v1/plugin/plugins?service_type=whisper
+GET https://hub.aitbc.bubuit.net/api/v1/plugin/plugins?service_type=whisper
 ```
+
+(or `GET http://localhost:8102/v1/marketplace/plugins?service_type=whisper` directly on the hub) <!-- check-ports: ignore -->

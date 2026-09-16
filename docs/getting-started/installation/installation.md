@@ -67,34 +67,41 @@ Architecture: x86_64/arm64
 
 ## Environment Configuration
 
-### Coordinator API
+Services load env files from `/etc/aitbc/` — per-app `.env` files inside
+`apps/` are not read by the packaged units. See
+[ENVIRONMENT_CONFIGURATION](../../blockchain/ENVIRONMENT_CONFIGURATION.md)
+for the full reference.
 
-Create `apps/coordinator-api/.env`:
+### Coordinator API (`/etc/aitbc/aitbc-coordinator-api.env` + shared files)
 
 ```env
 JWT_SECRET=<YOUR_JWT_SECRET>
-DATABASE_URL=sqlite:///./data/coordinator.db   # or postgresql://user:<DB_PASSWORD>@localhost/aitbc
 LOG_LEVEL=INFO
 ```
 
-### Blockchain Node
+`JWT_SECRET` is normally set in `/etc/aitbc/blockchain-secrets.env` (shared,
+mode 600) rather than per-service.
 
-Create `apps/blockchain-node/.env`:
+### Blockchain Node (`/etc/aitbc/blockchain.env` + `/etc/aitbc/node.env`)
 
 ```env
 CHAIN_ID=ait-devnet
 RPC_BIND_HOST=0.0.0.0
-RPC_BIND_PORT=8202  # Updated to new blockchain RPC port
+RPC_BIND_PORT=8202
 MEMPOOL_BACKEND=database
 ```
 
 ## Systemd Services (Production)
 
+Unit files ship inside each app directory — `apps/<service>/aitbc-<name>.service`
+(there is no top-level `systemd/` directory):
+
 ```bash
-cp systemd/aitbc-*.service /etc/systemd/system/
+ln -sf /opt/aitbc/apps/coordinator-api/aitbc-coordinator-api.service /etc/systemd/system/
+ln -sf /opt/aitbc/apps/blockchain-node/aitbc-blockchain-node.service /etc/systemd/system/
+ln -sf /opt/aitbc/apps/blockchain-node/aitbc-blockchain-rpc.service /etc/systemd/system/
 systemctl daemon-reload
-systemctl enable --now aitbc-coordinator-api
-systemctl enable --now aitbc-blockchain-node
+systemctl enable --now aitbc-coordinator-api aitbc-blockchain-node aitbc-blockchain-rpc
 ```
 
 ## Verify
@@ -110,8 +117,8 @@ aitbc blockchain status
 | Problem | Fix |
 |---------|-----|
 | Port in use | `lsof -i :8203` then `kill` the PID |
-| DB corrupt | `rm -f data/coordinator.db && python -m coordinator_api.storage init` |
-| Module not found | Ensure venv is active: `source .venv/bin/activate` |
+| DB corrupt | Chain DB lives at `/var/lib/aitbc/data/<chain-id>/chain.db` — stop the node before touching it |
+| Module not found | Ensure venv is active: `source /opt/aitbc/venv/bin/activate` |
 
 ## Next Steps
 

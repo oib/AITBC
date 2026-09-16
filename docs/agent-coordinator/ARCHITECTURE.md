@@ -11,7 +11,7 @@ The AITBC Agent Coordinator is a distributed task distribution system that manag
 
 ## Service Location
 
-**Actual Service:** `/opt/aitbc/apps/agent-coordinator/src/app/`
+**Actual Service:** `/opt/aitbc/apps/agent-coordinator/src/agent_app/`
 **Port:** 8107
 **Systemd Service:** `aitbc-agent-coordinator.service`
 

@@ -60,9 +60,9 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 1. User creates software offer via CLI: `aitbc market offer --service-type ollama --model-or-variant llama2 --price 0.001`
 2. Offer transaction is posted on-chain
-3. Offer is automatically registered in plugin registry (port 8109) <!-- check-ports: ignore -->
-4. User verifies offer in plugin registry: `GET /plugins/{offer_id}`
-5. User retrieves offer details: `GET /plugins/{offer_id}/offer`
+3. Offer is automatically registered in marketplace service (port 8102)
+4. User verifies offer in plugin registry: `GET /v1/marketplace/plugins?service_type=<type>`
+5. User retrieves offer details: `GET /v1/marketplace/offer/{plugin_id}`
 6. User lists all offers: `aitbc market list`
 
 **Success Criteria:**
@@ -76,7 +76,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Prerequisites:**
 
 - Blockchain node running (port 8202)
-- Plugin registry running (port 8109) <!-- check-ports: ignore -->
+- Marketplace service running (port 8102)
 - CLI installed and configured
 
 ### 2. Ollama Inference with Escrow
@@ -148,10 +148,10 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Steps:**
 
 1. Create software offer (auto-registers in plugin registry)
-2. Retrieve plugin by ID: `GET /plugins/{id}`
-3. Retrieve plugin offer details: `GET /plugins/{id}/offer`
+2. Retrieve plugin by ID: `GET /v1/marketplace/plugins` (filter by `service_type`)
+3. Retrieve plugin offer details: `GET /v1/marketplace/offer/{plugin_id}`
 4. List all plugins: `GET /plugins`
-5. Delete plugin: `DELETE /plugins/{id}`
+5. Delete plugin: `DELETE /v1/marketplace/offer/{plugin_id}`
 
 **Success Criteria:**
 
@@ -163,7 +163,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Prerequisites:**
 
-- Plugin registry running (port 8109) <!-- check-ports: ignore -->
+- Marketplace service running (port 8102)
 - JSON store at `/var/lib/aitbc/plugins.json`
 
 ### 5. Escrow Release with Job Transaction

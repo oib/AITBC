@@ -39,16 +39,20 @@ aitbc wallet --wallet-name my-agent-wallet unstake --stake-id <stake_id>
 ## RPC Endpoint Testing
 
 ```bash
-# Test staking endpoint
-curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
+# Test staking endpoint — signature, nonce and timestamp are ALL required
+# (this route is signature-authenticated; no X-API-Key is needed):
+#   signature: over {"address", "amount", "chain_id", "action": "stake", "nonce", "timestamp"}
+#   nonce:     must equal the account's current on-chain nonce
+#   timestamp: unix seconds, within 300 s of server time (STAKE_AUTH_MAX_AGE_SECONDS)
+curl -X POST https://hub.aitbc.bubuit.net/rpc/staking/stake \
   -H "Content-Type: application/json" \
-  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
-  -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net"}'
+  -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net", "signature": "<sig>", "nonce": <account_nonce>, "timestamp": <unix_seconds>}'
 ```
 
 ## Database Verification
 
 ```bash
-# Check stakes
-SELECT * FROM stake WHERE address = '<wallet_address>';
+# Check stakes (tables are chain-scoped — DB at $AITBC_DATA_DIR/data/<chain_id>/chain.db)
+sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
+  "SELECT * FROM stake WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND address = '<wallet_address>';"
 ```

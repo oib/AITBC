@@ -16,7 +16,7 @@ Both axes are evaluated independently and their service lists are merged. This m
 
 | BLOCKCHAIN_MODE | MARKET_ROLE | Services | Count |
 |----------------|-------------|----------|-------|
-| hub | customer | base + hub | 18 |
+| hub | customer | base + hub | 17 |
 | hub | shop | base + hub + shop | 23 |
 | follower | customer | base + follower | 9 |
 | follower | shop | base + follower + shop | 15 |
@@ -33,7 +33,7 @@ Every node gets these services enabled and started:
 | `aitbc-recovery` | — | Boot recovery (relinks systemd + loads secrets) |
 | `aitbc-monitoring` | — | System monitoring |
 | `aitbc-backup` | — | Daily backup service |
-| `aitbc-trading` | 8109 | Trading service (inter-chain offer sync, gossip integration) |
+| `aitbc-trading` | 8104 | Trading service (inter-chain offer sync, gossip integration) |
 | `aitbc-governance` | 8105 | Governance service (proposals, voting — all nodes participate) |
 
 ### Hub Services (BLOCKCHAIN_MODE=hub)
@@ -42,14 +42,13 @@ In addition to base services, hub nodes get:
 
 | Service | Port | Description |
 |---------|------|-------------|
-| `aitbc-blockchain-p2p` | 8200 | P2P network service |
+| `aitbc-blockchain-p2p` | 7070 | P2P network service |
 | `aitbc-coordinator-api` | 8203 | Coordinator API (agent management, jobs) |
 | `aitbc-api-gateway` | 8201 | Public API gateway (reverse proxy) |
 | `aitbc-exchange` | 8106 | Exchange API |
 | `aitbc-marketplace` | — | Marketplace service |
 | `aitbc-bridge-monitor` | — | ETH↔AIT bridge monitor |
 | `aitbc-blockchain-event-bridge` | 8205 | Blockchain event → service trigger bridge |
-| `aitbc-agent` | 8107 | Agent messaging (coin requests) |
 | `aitbc-agent-coordinator` | 8107 | Agent coordination backend (WebSocket PING/PONG, REQUEST_COINS) |
 | `aitbc-blockchain-explorer` | 8100 | Blockchain explorer API |
 
@@ -94,7 +93,6 @@ The following services are never auto-enabled by `setup.sh`. They remain availab
 | `aitbc-multimodal` | Multi-modal agent feature |
 | `aitbc-whisper` | Audio transcription needed |
 | `aitbc-ffmpeg` | Video processing needed |
-| `aitbc-plugin` | Plugin system needed |
 
 ```bash
 # Manually enable an optional service

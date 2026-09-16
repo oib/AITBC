@@ -16,7 +16,7 @@ AITBC now uses a central Python virtual environment to manage all dependencies c
 │   ├── lib/                # Installed packages
 │   └── pyvenv.cfg          # Virtual environment configuration
 ├── requirements.txt        # Central dependency list
-├── aitbc-env              # Environment wrapper script
+├── scripts/aitbc-cli      # CLI wrapper (sources venv, execs aitbc)
 └── apps/                   # AITBC applications
 ```
 
@@ -25,24 +25,24 @@ AITBC now uses a central Python virtual environment to manage all dependencies c
 ### Activate Virtual Environment
 
 ```bash
-# Use the environment wrapper (recommended)
-/opt/aitbc/aitbc-env
-
-# Or activate directly
+# Activate directly
 source /opt/aitbc/venv/bin/activate
+
+# Or use the repo's CLI wrapper without activating
+/opt/aitbc/scripts/aitbc-cli --help
 ```
 
 ### CLI Usage
 
 ```bash
-# Start interactive shell with CLI access
-/opt/aitbc/aitbc-env
+# CLI commands directly (wrapper handles the venv)
+/opt/aitbc/scripts/aitbc-cli --help
 
-# Use CLI commands directly
-/opt/aitbc/aitbc-env aitbc --help
+# Or after activating the venv
+aitbc --help
 
-# Run Python scripts with venv
-/opt/aitbc/aitbc-env python script.py
+# Run Python scripts with the venv interpreter
+/opt/aitbc/venv/bin/python script.py
 ```
 
 ## 📦 Package Management
@@ -60,7 +60,7 @@ source /opt/aitbc/venv/bin/activate
 
 ```bash
 # Activate environment first
-/opt/aitbc/aitbc-env
+source /opt/aitbc/venv/bin/activate
 
 # Install packages
 pip install package-name
@@ -95,7 +95,7 @@ ExecStart=/opt/aitbc/venv/bin/python service_script.py
 
 ```bash
 # Activate for development
-/opt/aitbc/aitbc-env
+source /opt/aitbc/venv/bin/activate
 
 # Run development servers
 cd /opt/aitbc/apps/coordinator-api
@@ -136,7 +136,7 @@ journalctl -u aitbc-service-name -n 20
 
 ```bash
 # Install missing package
-/opt/aitbc/aitbc-env pip install package-name
+/opt/aitbc/venv/bin/python -m pip install package-name
 
 # Update all services
 systemctl restart aitbc-*
@@ -149,7 +149,7 @@ systemctl restart aitbc-*
 echo $PYTHONPATH
 
 # Verify package installation
-/opt/aitbc/aitbc-env python -c "import package_name"
+/opt/aitbc/venv/bin/python -c "import package_name"
 ```
 
 ### Recreate Virtual Environment
@@ -174,20 +174,20 @@ pip install -r /opt/aitbc/requirements.txt
 
 ```bash
 # Check Python version
-/opt/aitbc/aitbc-env python --version
+/opt/aitbc/venv/bin/python --version
 
 # List installed packages
-/opt/aitbc/aitbc-env pip list
+/opt/aitbc/venv/bin/python -m pip list
 
 # Check package details
-/opt/aitbc/aitbc-env pip show package-name
+/opt/aitbc/venv/bin/python -m pip show package-name
 ```
 
 ### Services
 
 ```bash
 # Restart all services with venv
-systemctl restart aitbc-wallet aitbc-exchange-api
+systemctl restart aitbc-wallet aitbc-exchange
 
 # Check service status
 systemctl status aitbc-*
@@ -198,7 +198,7 @@ journalctl -u aitbc-service-name -f
 
 ## 🎯 Best Practices
 
-1. **Always use the environment wrapper** (`/opt/aitbc/aitbc-env`) for consistency
+1. **Use `/opt/aitbc/venv/bin/python` or `scripts/aitbc-cli`** for consistency
 2. **Update requirements.txt** when adding new packages
 3. **Test services** after dependency updates
 4. **Monitor disk space** - venv can grow with many packages
@@ -225,6 +225,6 @@ journalctl -u aitbc-service-name -f
 
 ---
 
-**Next Steps**: Use `/opt/aitbc/aitbc-env` for all AITBC development and operations.
+**Next Steps**: Use `/opt/aitbc/venv/bin/python` (or `scripts/aitbc-cli` for CLI work) for all AITBC development and operations.
 
 - [AITBC Service Management](../infrastructure/SYSTEMD_SERVICES.md)

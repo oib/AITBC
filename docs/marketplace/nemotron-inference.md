@@ -47,17 +47,18 @@ This approach works well when you want the shop agent to handle the inference an
 # 1. Discover offer (working)
 curl -s https://shop.example.net/api/v1/marketplace/offer | jq '.offers[0].plugin_id'
 
-# 2. Send message to shop agent (working)
-curl -X POST https://shop.example.net/api/v1/coordinator/v1/agent/messages/send \
+# 2. Send message to shop agent (Agent Coordinator, port 8107; via nginx /agent/)
+curl -X POST https://shop.example.net/agent/api/v1/agent/messages/send \
+  -H "Content-Type: application/json" \
   -d '{"sender":"owl-hub","recipient":"owl-node2","content":"Customer inquiry: Explain quantum computing","message_type":"direct"}'
 
-# 3. Shop agent on <node2> receives and processes
-# Shop polls: curl https://shop.example.net/api/v1/coordinator/v1/agent/messages/owl-node2
+# 3. Shop agent on the shop node receives and processes
+# Shop polls: curl https://shop.example.net/agent/api/v1/agent/messages/owl-node2
 # Shop calls Ollama locally: curl http://localhost:11434/api/generate ...
 # Shop sends response back to customer
 
 # 4. Customer polls for response
-curl -s https://shop.example.net/api/v1/coordinator/v1/agent/messages/owl-hub
+curl -s https://shop.example.net/agent/api/v1/agent/messages/owl-hub
 ```
 
 ### Method C: CLI (Limited Functionality)

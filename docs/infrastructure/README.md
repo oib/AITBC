@@ -16,7 +16,7 @@ This section documents the AITBC infrastructure components, runtime architecture
 - **Runtime Directories**: Implemented standard Linux directory structure
   - `/var/lib/aitbc/keystore/` - Secure blockchain key storage
   - `/var/lib/aitbc/data/` - Database files and application data
-  - `/var/lib/aitbc/logs/` - Application logs
+  - `/var/lib/aitbc/` - Service HOME (services log to journald)
   - `/etc/aitbc/` - Configuration files
 
 - **SystemD Services**: Fixed 34+ services with system Python3
@@ -115,8 +115,8 @@ cd /opt/aitbc
 # Check all services
 /opt/aitbc/scripts/monitoring/health_check.sh
 
-# View logs (new locations)
-tail -f /var/lib/aitbc/logs/aitbc-*.log
+# View logs (journald)
+journalctl -f -u 'aitbc-*' 
 
 # SystemD control
 systemctl status aitbc-*
@@ -132,8 +132,8 @@ ls -la /var/lib/aitbc/keystore/
 # Check data directory
 ls -la /var/lib/aitbc/data/
 
-# Check logs
-ls -la /var/lib/aitbc/logs/
+# Check service HOME
+ls -la /var/lib/aitbc/
 ```
 
 ## 🔄 Maintenance Procedures

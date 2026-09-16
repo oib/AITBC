@@ -380,7 +380,7 @@ Common causes after an update:
 
 The health check has a hardcoded list of services it checks, including
 some hub-only services. On a follower/shop node, warnings about
-`aitbc-marketplace`, `aitbc-agent-coordinator`, or `aitbc-exchange-api`
+`aitbc-marketplace`, `aitbc-agent-coordinator`, or `aitbc-exchange`
 being inactive are **expected** — those services don't run on your role.
 
 Real failures to investigate:

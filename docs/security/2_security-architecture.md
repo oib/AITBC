@@ -37,9 +37,9 @@ AITBC implements defense-in-depth security across multiple layers:
    - Injection attacks
 
 3. **Infrastructure Attacks**
-   - Container escape
-   - Pod-to-pod attacks
-   - Secrets exfiltration
+   - Host compromise / privilege escalation between co-located services
+   - Lateral movement across the shared container bridge (unfiltered — see [Network Policy](../deployment/NETWORK_POLICY.md))
+   - Secrets exfiltration from env files or the API-key store
    - Supply chain attacks
 
 4. **Blockchain-Specific Attacks**
@@ -52,12 +52,13 @@ AITBC implements defense-in-depth security across multiple layers:
 
 | Control | Implementation | Mitigates |
 |---------|----------------|-----------|
-| TLS 1.3 | Terminated on the proxy host (not by AITBC) | MITM, eavesdropping |
-| API Keys | X-API-Key header | Unauthorized access |
-| Rate Limiting | slowapi middleware | DDoS, abuse |
-| Network Policies | Kubernetes NetworkPolicy | Pod-to-pod attacks |
-| Secrets Mgmt | Kubernetes Secrets + SealedSecrets | Secrets exfiltration |
-| RBAC | Kubernetes RBAC | Privilege escalation |
+| TLS 1.3 | Terminated by nginx on the proxy host (not by AITBC) | MITM, eavesdropping |
+| API Keys | `X-API-Key` / `X-Api-Key` header (per-service) | Unauthorized access |
+| JWT auth | `Authorization: Bearer <jwt>` (coordinator customer path) | Unauthorized access |
+| Rate Limiting | `aitbc.rate_limiting` per-route decorators + middleware | DDoS, abuse |
+| Network Policies | Host/perimeter firewall + bind-address control (no Kubernetes) | Lateral movement, exposure |
+| Secrets Mgmt | Env files under `/etc/aitbc/` (0600), systemd `EnvironmentFile` | Secrets exfiltration |
+| RBAC | Role dependencies in `aitbc/auth` (`require_admin`, `require_client`, `require_miner`) | Privilege escalation |
 | Monitoring | Prometheus + AlertManager | Incident detection |
 
 ## Security Architecture
@@ -79,157 +80,109 @@ whoever operates the terminator.
 
 ### API Security
 
-#### Authentication
+#### Authentication — mixed model (shared `aitbc/auth` library)
 
-- API key-based authentication for all services
-- Keys stored in Kubernetes Secrets
-- Per-service key rotation policies
-- Audit logging for all authenticated requests
+There is no single "API key for all services" scheme:
+
+- **Coordinator API (8203)** — customers authenticate with `Authorization: Bearer <jwt>`; the JWT is issued by the wallet-signed login flow (`POST /v1/auth/nonce` → `POST /v1/login`). `X-Api-Key` is read by `APIKeyAuthenticator` for service/legacy callers; miner routes accept either (`require_miner`).
+- **Blockchain node RPC (8202)** — admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level incl. GETs, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/chains/*`, `/rpc/importBlock`) require `X-API-Key` matching `BLOCKCHAIN_RPC_API_KEY`. `POST /rpc/transaction` and `POST /rpc/staking/stake` are **signature-verified** (wallet signature in the body — no header key). `/rpc/subscribe`, `/rpc/heartbeat` and lease revocation additionally accept peer keys from `BLOCKCHAIN_RPC_API_KEY_PEERS`. `/rpc/force-sync` requires an admin-signed request body (no header key).
+- **Gossip WebSocket** — restricted topics require a signed validator challenge; there is no `?api_key=` WS auth.
+- **Marketplace (8102)** — only the admin `POST /v1/marketplace/parameters/apply` route is key-gated (`X-Api-Key`).
+
+Keys and JWT secrets live in `/etc/aitbc/*.env` files (mode `0600`) loaded by systemd `EnvironmentFile` — not in a secrets manager; see below.
 
 #### Authorization
 
-- Role-based access control (RBAC)
-- Resource-level permissions
-- Rate limiting per API key
-- IP whitelisting for sensitive operations
+- Role dependencies from `aitbc/auth/dependencies.py` (`require_admin`, `require_client`, `require_admin_or_client`, `require_miner`, `APIKeyAuthenticator`)
+- Per-route rate limiting
+- Sensitive chain-control routes (e.g. `/rpc/force-sync`) require an admin signature over the request body, not just a key
 
 #### API Key Format
 
 ```
-Header: X-API-Key: aitbc_prod_ak_1a2b3c4d5e6f7g8h9i0j
+Header: X-API-Key: <key>    # blockchain RPC / escrow
+Header: X-Api-Key: <key>    # coordinator service/legacy callers, marketplace admin
 ```
 
 ### Secrets Management
 
-#### Kubernetes Secrets
+#### systemd + env files (no Kubernetes)
 
-- Base64 encoded secrets (not encrypted by default)
-- Encrypted at rest with etcd encryption
-- Access controlled via RBAC
+The deployment is **systemd units behind nginx** — there is no Kubernetes, SealedSecrets, or etcd in this deployment.
 
-#### SealedSecrets (Recommended for Production)
-
-- Client-side encryption of secrets
-- GitOps friendly
-- Zero-knowledge encryption
+- Service secrets are env files under `/etc/aitbc/` (e.g. `blockchain.env`, `blockchain-secrets.env`, `node.env`) with mode `0600`, loaded via systemd `EnvironmentFile=`
+- API keys issued to callers are stored as SHA-256 digests in `API_KEY_STORAGE_PATH` (default `/var/lib/aitbc/api_keys.json`, mode `0600`) managed by `aitbc/auth/api_key.py` — plaintext keys are never persisted
+- Wallet keystore under `$AITBC_DATA_DIR/keystore`
 
 #### Secret Rotation
 
-- Automated rotation every 90 days
-- Zero-downtime rotation for services
-- Audit trail of all rotations
+- Manual rotation: update the env file and restart the unit (`systemctl restart <unit>`)
+- API keys can be rotated by generating a new key via `APIKeyManager` and distributing it; the old digest is removed from the store
+- Audit trail via systemd journal (`journalctl -u <unit>`)
 
 ## Implementation Details
 
 ### 1. TLS Configuration
 
-#### Coordinator API
+TLS terminates at nginx on the proxy host; backend services speak plain HTTP on loopback/bridge addresses. The public surfaces are `https://hub.aitbc.bubuit.net/rpc` (blockchain) and the coordinator/marketplace paths under the same terminator — raw backend ports such as `:8202`/`:8203` are internal-only.
 
-```yaml
-# Helm values for coordinator
-ingress:
-  enabled: true
-  annotations:
-    nginx.ingress.kubernetes.io/force-ssl-redirect: "true"
+```nginx
+# nginx reverse proxy (simplified)
+location /rpc/ {
+    proxy_pass http://127.0.0.1:8202/rpc/;
+    proxy_http_version 1.1;
+    proxy_set_header Upgrade $http_upgrade;    # WebSocket pass-through
+    proxy_set_header Connection "upgrade";
+    proxy_set_header X-Forwarded-Proto https;
+    proxy_set_header Host $host;
+}
 ```
 
-#### Blockchain Node RPC
+### 2. API Authentication — real dependency model
 
-```yaml
-# WebSocket with TLS
-wss://aitbc.bubuit.net/ws
-```
-
-### 2. API Authentication Middleware
-
-#### Coordinator API Implementation
+Authentication is applied per route via FastAPI dependencies from `aitbc/auth/dependencies.py` and the node's `rpc/escrow_routes.py` — not a blanket middleware over `/v1/`:
 
 ```python
-from fastapi import Security, HTTPException
-from fastapi.security import APIKeyHeader
+# Coordinator customer route: Bearer JWT (roles admin/client)
+@router.post("/jobs")
+async def create_job(user: AdminOrClientDep, ...):
+    client_id = user["sub"]
 
-api_key_header = APIKeyHeader(name="X-API-Key", auto_error=True)
+# Blockchain RPC mutation: X-API-Key against BLOCKCHAIN_RPC_API_KEY
+@router.post("/importBlock", dependencies=[Depends(verify_rpc_api_key)])
 
-async def verify_api_key(api_key: str = Security(api_key_header)):
-    if not verify_key(api_key):
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return api_key
-
-@app.middleware("http")
-async def auth_middleware(request: Request, call_next):
-    if request.url.path.startswith("/v1/"):
-        api_key = request.headers.get("X-API-Key")
-        if not verify_key(api_key):
-            raise HTTPException(status_code=403, detail="API key required")
-    response = await call_next(request)
-    return response
+# Node-internal subscription route: own key OR configured peer keys
+@router.post("/subscribe", dependencies=[Depends(verify_rpc_peer_key)])
 ```
+
+`POST /rpc/force-sync` instead requires `admin_address` + `admin_signature` in the body, verified with `verify_admin_signature`.
 
 ### 3. Secrets Management Setup
 
-#### SealedSecrets Installation
-
 ```bash
-# Install sealed-secrets controller
-helm repo add sealed-secrets https://bitnami-labs.github.io/sealed-secrets
-helm install sealed-secrets sealed-secrets/sealed-secrets -n kube-system
+# Env files live under /etc/aitbc with owner-only permissions
+install -m 0600 /dev/null /etc/aitbc/blockchain-secrets.env
+cat > /etc/aitbc/blockchain-secrets.env <<'EOF'
+BLOCKCHAIN_RPC_API_KEY=...
+BLOCKCHAIN_RPC_API_KEY_PEERS=key1,key2   # peer-node subscribe/heartbeat keys
+PROPOSER_PRIVATE_KEY=...
+EOF
 
-# Create a sealed secret
-kubeseal --format yaml < secret.yaml > sealed-secret.yaml
+# systemd unit loads them
+# /etc/systemd/system/aitbc-blockchain-node.service:
+#   EnvironmentFile=/etc/aitbc/blockchain.env
+#   EnvironmentFile=/etc/aitbc/blockchain-secrets.env
 ```
 
-#### Example Secret Structure
+Caller-facing API keys are issued and validated by `aitbc/auth/api_key.py::APIKeyManager` (SHA-256 digests in `/var/lib/aitbc/api_keys.json`, `0600`, file-locked).
 
-```yaml
-apiVersion: bitnami.com/v1alpha1
-kind: SealedSecret
-metadata:
-  name: coordinator-api-keys
-spec:
-  encryptedData:
-    api-key-prod: AgBy3i4OJSWK+PiTySYZZA9rO43cGDEQAx...
-    api-key-dev: AgBy3i4OJSWK+PiTySYZZA9rO43cGDEQAx...
-```
+### 4. Network Policy — host and bridge level
 
-### 4. Network Policies
+There is no Kubernetes NetworkPolicy. Access control is (see [Network Policy](../deployment/NETWORK_POLICY.md)):
 
-#### Default Deny Policy
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: default-deny-all
-spec:
-  podSelector: {}
-  policyTypes:
-  - Ingress
-  - Egress
-```
-
-#### Service-Specific Policies
-
-```yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: coordinator-api-netpol
-spec:
-  podSelector:
-    matchLabels:
-      app: coordinator-api
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - podSelector:
-        matchLabels:
-          app: ingress-nginx
-    ports:
-    - protocol: TCP
-      port: 8203
-```
+- **Perimeter/host firewall** — only the authorized public surfaces are internet-reachable (nginx 443/80, blockchain P2P 7070 on the hub, IPFS swarm ports)
+- **nginx** — the only public HTTP entry; proxies `/rpc/`, `/api/`, `/c/`, `/explorer-api/` to internal listeners
+- **Bind addresses** — the shared container bridge is unfiltered and not exclusive to AITBC, so a bind-all port is reachable by every co-located container; bind decisions control lateral-movement blast radius
 
 ## Security Best Practices
 
@@ -319,11 +272,11 @@ spec:
 
 ### Pre-deployment
 
-- [ ] All API endpoints require authentication
-- [ ] TLS certificates valid and properly configured
-- [ ] Secrets encrypted and access-controlled
-- [ ] Network policies implemented
-- [ ] RBAC configured correctly
+- [ ] Authenticated routes wired to the right dependency (JWT bearer / `X-API-Key` / peer key / admin signature)
+- [ ] TLS certificates valid and properly configured on the nginx terminator
+- [ ] Env files under `/etc/aitbc/` are mode `0600` and not committed to the repo
+- [ ] Public surface limited to the authorized list in [Network Policy](../deployment/NETWORK_POLICY.md)
+- [ ] Role dependencies (`require_admin`/`require_client`/`require_miner`) configured correctly
 - [ ] Monitoring and alerting active
 - [ ] Backup encryption enabled
 - [ ] Security headers configured

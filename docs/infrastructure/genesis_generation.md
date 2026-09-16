@@ -112,7 +112,7 @@ aitbc wallet --chain-id ait-mainnet balance --name genesis
 
 ```bash
 # Ensure wallet daemon is running
-systemctl status aitbc-wallet-daemon.service
+systemctl status aitbc-wallet.service
 
 # Register genesis wallet
 python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
@@ -200,10 +200,10 @@ If wallet service registration fails:
 
 ```bash
 # Check if wallet daemon is running
-systemctl status aitbc-wallet-daemon.service
+systemctl status aitbc-wallet.service
 
 # Start wallet daemon if not running
-systemctl start aitbc-wallet-daemon.service
+systemctl start aitbc-wallet.service
 
 # Verify service URL
 curl http://localhost:8108/health
@@ -330,6 +330,6 @@ curl http://localhost:8202/health
 For issues or questions:
 
 - Check the blockchain node logs: `journalctl -u aitbc-blockchain-node.service -f`
-- Check the wallet daemon logs: `journalctl -u aitbc-wallet-daemon.service -f`
+- Check the wallet daemon logs: `journalctl -u aitbc-wallet.service -f`
 - Review the script output for error messages
 - Consult the AITBC documentation for additional guidance

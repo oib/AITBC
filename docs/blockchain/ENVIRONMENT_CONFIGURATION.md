@@ -38,7 +38,7 @@ AITBC uses three environment configuration files:
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `p2p_bind_host` | Hub only | `0.0.0.0` | Interface to bind gossip relay service |
-| `p2p_bind_port` | Hub only | `7070` | Gossip relay service port (hub-only) |
+| `p2p_bind_port` | No | `8200` | Node P2P listener port. Note: the hub's gossip-relay unit (`aitbc-blockchain-p2p`) binds **7070** via its wrapper's hardcoded `--port 7070`, not this variable |
 | `p2p_peers` | No | - | Comma-separated list of peer nodes (legacy, not used by subscription system) |
 | `trusted_proposers` | No | - | For follower nodes - trusted proposer addresses |
 
@@ -177,10 +177,10 @@ Followers receive blocks from the hub via a **lease-based subscription system** 
 
 **How it works:**
 
-1. Follower registers via `POST <default_peer_rpc_url>/rpc/subscribe` to obtain a lease
+1. Follower registers via `POST <default_peer_rpc_url>/rpc/subscribe` (`X-API-Key` peer key) to obtain a lease
 2. Follower opens WebSocket to `wss://<hub>/rpc/subscribe/ws` for real-time block push
 3. Follower sends periodic `POST <default_peer_rpc_url>/rpc/heartbeat` to extend the lease
-4. If the follower falls behind, it uses bulk sync via `POST /rpc/sync` to catch up
+4. If the follower falls behind, catch-up is **automatic pull-sync** — the sync manager bulk-pulls from `default_peer_rpc_url` whenever no lease is held or a gap is detected; there is no `POST /rpc/sync` endpoint. A deliberate operator reorg onto a peer's chain uses `POST /rpc/force-sync`, which requires an **admin-signed** request body (`admin_address` + `admin_signature`), not an API key.
 
 **Example (follower node.env):**
 
@@ -386,7 +386,7 @@ Use two different values. Because the coordinator routers accept either one, reu
 ### Services That Load This File
 
 - `aitbc-wallet.service` - For wallet daemon authentication
-- `aitbc-agent.service` - For Agent service authentication
+- `aitbc-agent-coordinator.service` - For Agent Coordinator authentication
 - `aitbc-blockchain-rpc.service` - For authenticated RPC endpoints (if needed)
 
 ### Security Notes
@@ -479,8 +479,8 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 
 ### Agent Services
 
-- **aitbc-agent.service:** Loads `blockchain.env`, `node.env`
-- **aitbc-agent-coordinator.service:** Loads `node.env`
+- **aitbc-agent-coordinator.service:** Loads `blockchain.env`, `node.env`, `blockchain-secrets.env`, `aitbc-agent-coordinator.env`
+- **aitbc-hermes-agent.service:** Loads `hermes.env` (optional)
 
 ### Wallet Service
 

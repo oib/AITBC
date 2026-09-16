@@ -60,11 +60,13 @@ register_agent "worker-3" "worker" "inference,training"
 
 ## Cross-Node Registration
 
-Register agents on multiple nodes for distributed task distribution:
+Register agents on multiple nodes for distributed task distribution. The
+Agent Coordinator binds `127.0.0.1` — run the curl on each node itself, or
+go through the node's nginx `/agent/` proxy where one is configured:
 
 ```bash
-# Register agent on node1
-curl -X POST http://node1:8107/v1/agents/register \
+# Register an agent on node1 (run on node1, or via its /agent/ proxy)
+curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "node1-worker",
@@ -73,8 +75,8 @@ curl -X POST http://node1:8107/v1/agents/register \
     "endpoints": {"http": "http://node1:9002"}
   }'
 
-# Register agent on node2
-curl -X POST http://node2:8107/v1/agents/register \
+# Register an agent on node2 (run on node2)
+curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
     "agent_id": "node2-worker",

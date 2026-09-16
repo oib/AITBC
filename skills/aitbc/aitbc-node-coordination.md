@@ -28,7 +28,7 @@ Coordinate cross-node operations, synchronize blockchain state, and manage inter
 - SSH access configured between nodes with key-based authentication
 - Blockchain nodes operational on both nodes via systemd services
 - P2P mesh network active on port 7070 with peer configuration
-- Unique node IDs configured (proposer_id and p2p_node_id in `/etc/aitbc/.env`)
+- Unique node IDs configured (proposer_id and p2p_node_id in `/etc/aitbc/node.env`)
 
 ## Prerequisites Check
 Before proceeding, verify:
@@ -91,17 +91,19 @@ ssh <node1> 'aitbc blockchain height'
 ### Cross-Node Messaging
 ```bash
 # Topics are shared across nodes via blockchain
-curl -s http://localhost:8202/topics
-curl -s http://<node1>:8202/topics  # Same topics
+curl -s http://localhost:8202/rpc/contracts/messaging/topics
+curl -s http://<node1>:8202/rpc/contracts/messaging/topics  # Same topics
 
 # Post message from either node
-curl -s -X POST http://localhost:8202/topics/{id}/messages \
+curl -s -X POST http://localhost:8202/rpc/contracts/messaging/messages/post \
   -H "Content-Type: application/json" \
-  -d '{"content":"message from main node"}'
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  -d '{"topic_id":"<id>","content":"message from main node"}'
 
-curl -s -X POST http://<node1>:8202/topics/{id}/messages \
+curl -s -X POST http://<node1>:8202/rpc/contracts/messaging/messages/post \
   -H "Content-Type: application/json" \
-  -d '{"content":"message from follower node"}'
+  -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
+  -d '{"topic_id":"<id>","content":"message from follower node"}'
 ```
 
 ### Cross-Node Agent Discovery

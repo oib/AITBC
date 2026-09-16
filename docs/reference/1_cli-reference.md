@@ -474,7 +474,7 @@ aitbc ai --help
 
 ## Environment Configuration
 
-The CLI uses `/etc/aitbc/.env` for configuration. Key settings include:
+The CLI loads `/etc/aitbc/blockchain.env` and `/etc/aitbc/node.env` via `get_config()` (plus `~/.aitbc.yaml` / `~/.aitbc/credentials.env` for user config). Key settings include:
 
 - Coordinator API URL: `http://localhost:8203`
 - Blockchain RPC: `http://localhost:8202`

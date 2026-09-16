@@ -8,7 +8,7 @@ Overview of all components in the AITBC platform, their status, and documentatio
 
 ● Live
 
-Multi-validator Proof-of-Authority consensus with optional PBFT finality, REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-ready with devnet tooling.
+Proof-of-Authority chain with a config-gated multi-validator mode (`multi_validator_consensus_enabled`, enabled on this deployment) and an implemented-but-disabled PBFT path (`pbft_consensus_enabled=false`), REST/WebSocket RPC, real-time gossip layer, and comprehensive observability. Production-deployed with devnet tooling.
 
 [Learn More →](../development/1_overview.md#blockchain-node)
 

@@ -103,11 +103,12 @@ curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height
 # Check service health
 /opt/aitbc/scripts/monitoring/health_check.sh
 
-# Restart all services
-/opt/aitbc/start-services.sh
+# Service status / start all
+/opt/aitbc/scripts/service-management/manage-services.sh status
+/opt/aitbc/scripts/service-management/manage-services.sh start
 
-# View logs
-tail -f /var/lib/aitbc/logs/aitbc-*.log
+# View logs (journald)
+journalctl -f -u 'aitbc-*' 
 
 # Systemd control
 systemctl status aitbc-blockchain-node
@@ -166,13 +167,15 @@ pip install -r requirements.txt
 systemctl restart aitbc-coordinator-api aitbc-blockchain-node
 ```
 
-#### PermissionError: Permission denied on /opt/aitbc/data
+#### PermissionError: Permission denied on /var/lib/aitbc/data
 
-The blockchain-node service runs as the `aitbc` user and needs write access to the repo data directory (`/var/lib/aitbc` is the service `HOME`, not the chain-data location).
+The blockchain-node service runs as the `aitbc` user and needs write access
+to the chain-data directory (`/var/lib/aitbc/data/<chain-id>/`, under the
+service `HOME`). `/opt/aitbc` holds code only — no `data/` there.
 
 ```bash
 # Fix permissions
-chown -R aitbc:aitbc /opt/aitbc/data
+chown -R aitbc:aitbc /var/lib/aitbc/data
 systemctl restart aitbc-blockchain-node
 ```
 

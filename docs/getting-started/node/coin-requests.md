@@ -48,32 +48,34 @@ curl -s http://localhost:8202/rpc/account/<your-address>
 
 ## Requesting Coins via Agent Message
 
-Send a REQUEST_COINS message to the hub:
+Coin requests go through the **Agent Coordinator** (port 8107), not the
+coordinator-api on 8203 — the old `/v1/agent/messages/send` route no longer
+exists. Use the CLI:
 
 ```bash
-curl -X POST "http://localhost:8203/v1/agent/messages/send" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "<your-agent-id>",
-    "recipient": "owl-hub",
-    "content": "REQUEST_COINS: <amount> ait coins to address <your-wallet-address>",
-    "message_type": "direct",
-    "timestamp": "2026-05-30T17:00:00Z"
-  }'
+# Request free coins from the hub over the agent WebSocket
+aitbc agent-msg request-coins --wallet my-wallet --amount 1000
+
+# Or the one-time initial grant flow
+aitbc coin-requests request
 ```
 
 **Example:**
 
 ```bash
-curl -X POST "http://localhost:8203/v1/agent/messages/send" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "sender": "my-node",
-    "recipient": "owl-hub",
-    "content": "REQUEST_COINS: 1000 ait coins to address 0x71C7656EC7ab88b098defB751B7401B5f6d8976F",
-    "message_type": "direct",
-    "timestamp": "2026-05-30T17:00:00Z"
-  }'
+aitbc agent-msg request-coins --wallet my-wallet --amount 1000
+```
+
+The receiving address comes from the wallet; first requests auto-grant up to
+100 AIT, larger or repeat requests go to manual approval on the hub.
+
+The CLI formats and signs the `REQUEST_COINS` message for you. To send the
+raw message yourself instead:
+
+```bash
+aitbc agent-msg send \
+  'REQUEST_COINS: 1000 ait coins to address 0x71C7656EC7ab88b098defB751B7401B5f6d8976F' \
+  --to-agent owl-hub
 ```
 
 ## Check Request Status
