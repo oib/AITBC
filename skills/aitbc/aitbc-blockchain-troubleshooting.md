@@ -19,7 +19,7 @@ Diagnose and troubleshoot AITBC blockchain issues including synchronization fail
 - Systemd services operational or accessible for debugging
 - Log access via `journalctl`
 - Data directory at `/var/lib/aitbc/`
-- CLI accessible at `/opt/aitbc/aitbc-cli`
+- CLI accessible as `aitbc` (`/usr/local/bin/aitbc`)
 
 ## Prerequisites Check
 Before proceeding, verify:
@@ -34,7 +34,7 @@ ssh <node1> 'systemctl list-units --state=running | grep aitbc'
 ssh <node3> 'systemctl list-units --state=running | grep aitbc'
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # Check data directory
 ls -la /var/lib/aitbc/
@@ -73,17 +73,17 @@ ssh <node1> 'ss -tlnp | grep 7070'
 ### 2. Blockchain Sync Issues
 ```bash
 # Check blockchain height on all nodes
-cd /opt/aitbc && ./aitbc-cli chain
-ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
-ssh <node3> 'cd /opt/aitbc && ./aitbc-cli chain'
+aitbc blockchain height
+ssh <node1> 'aitbc blockchain height'
+ssh <node3> 'aitbc blockchain height'
 
 # Check mempool status
-cd /opt/aitbc && ./aitbc-cli mempool status
-ssh <node1> 'cd /opt/aitbc && ./aitbc-cli mempool status'
+aitbc transactions pending
+ssh <node1> 'aitbc transactions pending'
 
 # Check P2P connections
-cd /opt/aitbc && ./aitbc-cli network
-ssh <node1> 'cd /opt/aitbc && ./aitbc-cli network'
+aitbc network status
+ssh <node1> 'aitbc network status'
 ```
 
 ### 2.1 Genesis Block Mismatch Issues
@@ -202,8 +202,8 @@ curl -s http://localhost:8203/health
 curl -s http://localhost:8102/health
 
 # Check blockchain sync
-cd /opt/aitbc && ./aitbc-cli chain
-ssh <node1> 'cd /opt/aitbc && ./aitbc-cli chain'
+aitbc blockchain height
+ssh <node1> 'aitbc blockchain height'
 ```
 
 ### 8. GPU Detection Validation
@@ -304,7 +304,7 @@ nvidia-smi --query-gpu=name --format=csv,noheader
 nvidia-smi
 
 # Verify AITBC can detect GPU
-cd /opt/aitbc && ./aitbc-cli mining gpu-status 2>/dev/null || echo "GPU status command not available"
+aitbc gpu discover 2>/dev/null || echo "GPU discovery command not available"
 
 # Check miner logs for GPU detection
 journalctl -u aitbc-miner.service -n 20 | grep -i gpu
@@ -332,16 +332,16 @@ journalctl -u aitbc-miner.service -n 20 | grep -i gpu
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# All CLI operations (use wrapper)
-/opt/aitbc/aitbc-cli chain
-/opt/aitbc/aitbc-cli network
-/opt/aitbc/aitbc-cli mempool status
+# All CLI operations
+aitbc blockchain height
+aitbc network status
+aitbc transactions pending
 ```
 
 ---

@@ -13,7 +13,7 @@ This guide covers common deployment issues and their solutions.
 
 ```bash
 # Check service logs
-journalctl -u aitbc-blockchain -n 50
+journalctl -u aitbc-blockchain-node -n 50
 
 # Check configuration
 systemctl status aitbc-blockchain

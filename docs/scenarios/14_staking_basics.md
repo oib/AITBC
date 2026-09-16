@@ -67,7 +67,7 @@ All commands below are grounded in `cli/aitbc_cli/commands/wallet/staking.py`. T
 
 ### Step 1: Stake tokens on-chain
 
-`aitbc stake --amount <amount>` (or `aitbc wallet stake`) signs `{address, amount (compute units), chain_id, action: "stake"}` with the wallet key and posts `{address, amount, lock_days, chain_id, signature}` to `POST /rpc/staking/stake`. `--duration` is the lock in days (default `30`); `--wallet-name`/`--wallet-path`/`--rpc-url` are accepted directly.
+`aitbc stake --amount <amount>` (or `aitbc wallet stake`) signs `{address, amount (compute units), chain_id, action: "stake"}` with the wallet key and posts `{address, amount, lock_days, chain_id, signature, nonce, timestamp}` to `POST /rpc/staking/stake` (mutating `/rpc/*` routes also require the `X-API-Key` header — the CLI sends it from config/env automatically). `--duration` is the lock in days (default `30`); `--wallet-name`/`--wallet-path`/`--rpc-url` are accepted directly.
 
 ```bash
 aitbc stake --wallet-name staker --amount 100.0 --duration 90
@@ -120,7 +120,7 @@ active_stakes:
 
 ### Step 3: Unstake on-chain
 
-`aitbc unstake --stake-id <stake_id>` (or `aitbc wallet unstake`) signs `{address, stake_id, chain_id, action: "unstake"}` and posts to `POST /rpc/staking/unstake`. The `stake_id` is the integer returned from `stake` / shown in `staking-info`. Before submitting, the command pre-flights `GET /rpc/staking/<address>` and refuses with a clear message when the stake is unknown/inactive or still inside its lock window; the node enforces the same rules and returns HTTP 400 `Lock period not expired` as the authoritative backstop.
+`aitbc unstake --stake-id <stake_id>` (or `aitbc wallet unstake`) signs `{address, stake_id, chain_id, action: "unstake", nonce, timestamp}` and posts to `POST /rpc/staking/unstake`. The `stake_id` is the integer returned from `stake` / shown in `staking-info`. Before submitting, the command pre-flights `GET /rpc/staking/<address>` and refuses with a clear message when the stake is unknown/inactive or still inside its lock window; the node enforces the same rules and returns HTTP 400 `Lock period not expired` as the authoritative backstop.
 
 ```bash
 aitbc unstake --wallet-name staker --stake-id 7

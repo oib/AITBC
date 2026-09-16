@@ -166,13 +166,13 @@ pip install -r requirements.txt
 systemctl restart aitbc-coordinator-api aitbc-blockchain-node
 ```
 
-#### PermissionError: Permission denied on /var/lib/aitbc/data
+#### PermissionError: Permission denied on /opt/aitbc/data
 
-The blockchain-node service runs as `aitbc-blockchain` user and needs write access to data directories.
+The blockchain-node service runs as the `aitbc` user and needs write access to the repo data directory (`/var/lib/aitbc` is the service `HOME`, not the chain-data location).
 
 ```bash
 # Fix permissions
-chown -R aitbc-blockchain:aitbc-services /var/lib/aitbc/data
+chown -R aitbc:aitbc /opt/aitbc/data
 systemctl restart aitbc-blockchain-node
 ```
 

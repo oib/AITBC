@@ -15,7 +15,7 @@ Activate when user requests marketplace operations: listing creation, price opti
 Create, manage, and optimize AITBC marketplace listings with pricing strategies and competitive analysis.
 
 ## Prerequisites
-- AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
+- AITBC CLI accessible as `aitbc` (`/usr/local/bin/aitbc`)
 - Wallet with sufficient balance for listing fees
 - Marketplace service operational on port 8102
 - GPU provider marketplace operational for resource allocation (if using GPU features)
@@ -30,13 +30,13 @@ systemctl list-units --state=running | grep aitbc
 source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # Check marketplace health
 curl -s http://localhost:8102/health
 
 # Check wallet balance
-/opt/aitbc/aitbc-cli balance --name genesis
+aitbc wallet balance --name genesis
 ```
 
 **If services are not running or dependencies are missing**, see [Blockchain Troubleshooting](aitbc-blockchain-troubleshooting.md) for resolution steps.
@@ -59,11 +59,8 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 # Via API
 curl -s http://localhost:8102/v1/marketplace/offers
 
-# Via aitbc-cli
-cd /opt/aitbc && ./aitbc-cli marketplace --action list
-
-# Alternative command
-cd /opt/aitbc && ./aitbc-cli market-list
+# Via aitbc CLI
+aitbc market list
 ```
 
 ### Create Marketplace Listing
@@ -73,33 +70,29 @@ curl -s -X POST http://localhost:8102/v1/marketplace/offers \
   -H "Content-Type: application/json" \
   -d '{"provider":"<address>","item_type":"<type>","price":<price>,"description":"<desc>"}'
 
-# Via aitbc-cli
-cd /opt/aitbc && ./aitbc-cli market-create \
-  --wallet <wallet_name> \
-  --type <service_type> \
+# Via aitbc CLI
+aitbc market offer \
+  --service-type <service_type> \
+  --model-or-variant <model> \
   --price <price> \
-  --description <description> \
-  --password <password>
+  --description <description>
 ```
 
 ### Search Marketplace
 ```bash
-cd /opt/aitbc && ./aitbc-cli marketplace --action search --name <search_term>
+aitbc market list [--service-type <type>] [--status <status>] [--provider <address>]
 ```
 
 ### List My Listings
 ```bash
-cd /opt/aitbc && ./aitbc-cli marketplace --action my-listings --wallet <wallet_name>
+aitbc market list --mine
+# or
+aitbc market offer-list
 ```
 
 ### GPU Provider Registration
 ```bash
-cd /opt/aitbc && python3 cli/unified_cli.py market gpu-provider-register \
-  --wallet <wallet_name> \
-  --gpu-model <model_name> \
-  --gpu-count <number> \
-  --models <comma_separated_models> \
-  --marketplace-url http://localhost:8102
+aitbc gpu register --gpu-id <gpu_id> [--specs <json>]
 ```
 
 ### Buy/Create Bid
@@ -110,11 +103,12 @@ curl -s -X POST http://localhost:8102/v1/marketplace/offers/{offer_id}/book \
   -d '{"buyer":"<address>","bid_amount":<amount>}'
 
 # Via CLI
-cd /opt/aitbc && python3 cli/unified_cli.py market buy \
-  --item <offer_id> \
-  --wallet <wallet_name> \
-  --password "$(cat /var/lib/aitbc/keystore/.genesis_password)" \
-  --marketplace-url http://localhost:8102
+aitbc market run \
+  --offer-id-or-plugin-id <offer_id> \
+  --prompt "<prompt>"
+
+# For GPU marketplace offers
+aitbc market gpu buy --gpu-id <gpu_id> --buyer-id <buyer_id> --job-id <job_id> --duration-hours <n>
 ```
 
 ### List Bids/Orders
@@ -124,9 +118,7 @@ curl -s http://localhost:8102/v1/marketplace/bids
 curl -s http://localhost:8102/v1/marketplace/orders
 
 # Via CLI
-cd /opt/aitbc && python3 cli/unified_cli.py market orders \
-  --wallet <wallet_name> \
-  --marketplace-url http://localhost:8102
+aitbc market jobs
 ```
 
 ## Common Pitfalls
@@ -147,26 +139,19 @@ cd /opt/aitbc && python3 cli/unified_cli.py market orders \
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
-
-**Direct Python Invocation:** `python3 cli/unified_cli.py`
-
-Use direct Python invocation for:
-- Marketplace operations (GPU provider registration, trading)
-- GPU testing and Ollama operations
-- Specific module features requiring direct access
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# Standard operations (use wrapper)
-/opt/aitbc/aitbc-cli marketplace --action list
-/opt/aitbc/aitbc-cli market-create --wallet genesis --type ai-inference --price 100
+# Standard operations
+aitbc market list
+aitbc market offer --service-type ollama --model-or-variant llama2 --price 100
 
-# Marketplace/GPU operations (use direct Python)
-python3 cli/unified_cli.py market gpu-provider-register --wallet genesis --gpu-model llama2
-python3 cli/unified_cli.py market buy --item <offer_id> --wallet genesis
+# Marketplace/GPU operations
+aitbc gpu register --gpu-id <gpu_id>
+aitbc market run --offer-id-or-plugin-id <offer_id> --prompt "hello"
 ```
 
 ---

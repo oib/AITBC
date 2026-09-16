@@ -105,7 +105,7 @@ systemctl start aitbc-blockchain-node.service
 curl http://localhost:8202/rpc/block/0
 
 # Check genesis wallet balance
-/opt/aitbc/aitbc-cli wallet balance genesis --chain-id ait-mainnet
+aitbc wallet --chain-id ait-mainnet balance --name genesis
 ```
 
 ### Step 3: Register with Wallet Service (Optional)
@@ -250,7 +250,7 @@ python3 /opt/aitbc/apps/blockchain-node/scripts/unified_genesis.py \
     --create-wallet \
     --force
 systemctl start aitbc-blockchain-node.service
-/opt/aitbc/aitbc-cli wallet balance genesis --chain-id ait-mainnet
+aitbc wallet --chain-id ait-mainnet balance --name genesis
 ```
 
 ### Example 2: Devnet with Custom Password
@@ -309,7 +309,7 @@ sqlite3 /var/lib/aitbc/data/chain.db "SELECT * FROM block WHERE height=0;"
 sqlite3 /var/lib/aitbc/data/chain.db "SELECT address, balance FROM account WHERE chain_id='ait-mainnet';"
 
 # Check wallet balance via CLI
-/opt/aitbc/aitbc-cli wallet balance genesis --chain-id ait-mainnet
+aitbc wallet --chain-id ait-mainnet balance --name genesis
 
 # Check blockchain node status
 curl http://localhost:8202/health

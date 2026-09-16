@@ -114,22 +114,19 @@ systemctl is-active aitbc-blockchain-node aitbc-blockchain-rpc aitbc-blockchain-
 ## CLI
 
 ```bash
-/opt/aitbc/aitbc-cli --help
-/opt/aitbc/aitbc-cli wallet list
-/opt/aitbc/aitbc-cli genesis info
-/opt/aitbc/aitbc-cli blockchain info <chain_id>
+aitbc --help
+aitbc wallet list
+aitbc genesis info
+aitbc blockchain info --chain-id <chain_id>
 ```
 
-**`aitbc` on PATH:** Test scripts and documentation use `aitbc` as the command name. A shim is available at `/opt/aitbc/aitbc-cli` that delegates to the venv binary. Add a symlink if tests fail with "command not found":
-```bash
-ln -sf /opt/aitbc/aitbc-cli /usr/local/bin/aitbc
-```
+**`aitbc` on PATH:** `aitbc` is installed at `/usr/local/bin/aitbc` — a shell wrapper that execs `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`. If tests fail with "command not found", verify the wrapper exists and `/opt/aitbc/venv` is intact.
 
 **CLI Debugging and Preference:**
-- **Primary Tool:** Always prefer using the CLI tool (`/opt/aitbc/aitbc-cli`) for operations. Most work should be able to be done with the CLI tool.
+- **Primary Tool:** Always prefer using the CLI tool (`aitbc`) for operations. Most work should be able to be done with the CLI tool.
 - **Fallback to Direct API:** Only use direct curl endpoints if the CLI does not support the required functionality or if debugging reveals a missing feature.
 - **Debugging CLI Errors:** When CLI commands fail, debug the issue before falling back to direct API calls:
-  1. Check CLI help: `/opt/aitbc/aitbc-cli <command> --help`
+  1. Check CLI help: `aitbc <command> --help`
   2. Verify CLI syntax and parameters
   3. Check service status: `systemctl status <service>`
   4. Review service logs: `journalctl -u <service> -f`
@@ -148,10 +145,10 @@ Genesis blocks are now **deterministic** -- loaded from `genesis.json`, never au
 
 ```bash
 # Fetch genesis from hub RPC
-aitbc-cli genesis sync-from-hub --force
+aitbc genesis sync-from-hub --force
 
 # Verify
-aitbc-cli genesis info
+aitbc genesis info
 ```
 
 The `sync-from-hub` command fetches the genesis block from the hub's `/rpc/blocks-range` endpoint and saves it as `genesis.json`.
@@ -262,12 +259,9 @@ signature = signed.signature  # 64 bytes, NOT the full SignedMessage
 
 **Always pull first when CLI commands fail:** `cd /opt/aitbc && git pull`
 
-The CLI entry point (`aitbc_cli.py`) loads `core/main.py` via `importlib.util.spec_from_file_location`. This means **any import error in ANY command file cascades to ALL commands** -- the entire CLI fails at startup.
+The CLI entry point is `aitbc` (`/usr/local/bin/aitbc`), which execs `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`. `core/main.py` registers every command group through `LazyCommand`/`LazyGroup` proxies, so an import error in one command file degrades only that group (shown as "unavailable") rather than breaking the whole CLI -- but a broken import in `core/main.py` itself still fails at startup.
 
-**Current command availability (as of 2026-05-27):**
-- **Working (18 groups, 170+ subcommands):** wallet, genesis, transactions, blockchain, exchange, ai, market, gpu, mining, system, agent, operations, resource, simulate, edge, workflow, config, crosschain, monitor
-- **Disabled (code exists, commented out in main.py):** `analytics`, `deployment`, `node`, `agent_comm` -- require `aitbc_cli.core` module implementation.
-- **Re-enabled (2026-05-27):** `cross_chain` and `monitor` -- no core dependencies. Both are fully working as of commit ab0480df.
+**Current command availability:** all groups registered in `core/main.py` are enabled by default (wallet, genesis, transactions, blockchain, exchange, ai, market, gpu, gpu-onchain, mining, system, agent, agent-msg, agent-comm, agent-task, agent-wallet, resource, simulate, edge, workflow, config, crosschain, monitor, analytics, node, network, zk, dispute, and more). The legacy `operations` group and its subgroups are deprecated and hidden from default `--help`.
 
 ### Click Command Name Mapping
 
@@ -307,8 +301,8 @@ Python unit tests using Click's `CliRunner` in isolated mode do NOT invoke the t
 ### Python Test Import Pitfalls
 
 When writing Python tests that import CLI command modules:
-- `aitbc_cli.commands.governance` → does NOT exist; governance is inside `operations.py`
-- `aitbc_cli.commands.marketplace` → does NOT exist; the file is `marketplace_cmd.py`
+- `aitbc_cli.commands.governance` → exists; `governance` is a top-level group (the legacy `operations` subgroups are deprecated)
+- `aitbc_cli.commands.marketplace` → does NOT exist; the market group lives in the `aitbc_cli/commands/market/` package
 - All tests need `cli/` on `sys.path` to import `aitbc_cli.*` -- add to `tests/conftest.py`:
   ```python
   sys.path.insert(0, str(project_root / "cli"))

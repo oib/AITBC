@@ -261,10 +261,10 @@ When user reports "FIXED" or "All issues resolved":
 ### CLI Command Discovery
 ```bash
 # Check available commands
-cd /opt/aitbc && ./aitbc-cli --help
+aitbc --help
 
 # Check subcommand help
-cd /opt/aitbc && ./aitbc-cli marketplace --help
+aitbc market --help
 ```
 
 ---
@@ -374,7 +374,7 @@ curl http://localhost:8108/wallets
 curl http://localhost:8108/wallets/{name}/balance
 ```
 
-**Note:** For CLI commands, use `./aitbc-cli`. See aitbc-cli.md skill.
+**Note:** For CLI commands, use `aitbc`. See aitbc-cli.md skill.
 
 ---
 

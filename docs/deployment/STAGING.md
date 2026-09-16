@@ -349,7 +349,7 @@ alembic upgrade <revision>
 
 ```bash
 # Check service ports
-ss -tlnp | grep -E '8000|8100|8105|8202'
+ss -tlnp | grep -E '8102|8105|8202'
 
 # Test connectivity
 curl -v http://localhost:8203/health
