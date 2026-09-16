@@ -771,8 +771,6 @@ class StateTransition:
             payload = tx_data.get("payload", {}) or {}
             if isinstance(payload, str):
                 try:
-                    import json
-
                     payload = json.loads(payload)
                 except Exception:
                     return (False, "IPFS_SUBSCRIPTION payload is not valid JSON")
@@ -1118,8 +1116,6 @@ class StateTransition:
         payload = tx_data.get("payload", {}) or {}
         if isinstance(payload, str):
             try:
-                import json
-
                 payload = json.loads(payload)
             except Exception:
                 logger.warning("IPFS_SUBSCRIPTION payload is not valid JSON: %s", tx_hash)
@@ -1205,8 +1201,6 @@ class StateTransition:
         payload = tx_data.get("payload", {}) or {}
         if isinstance(payload, str):
             try:
-                import json
-
                 payload = json.loads(payload)
             except Exception:
                 logger.warning("GOVERNANCE_EXECUTE payload is not valid JSON: %s", payload)
