@@ -383,6 +383,22 @@ server {
         client_max_body_size 5M;
     }
 
+    # Catch-all for the rest of the app's /api/v1/agent/ namespace (auth, keys,
+    # workflows, ws/status). hub_agent_url() resolves agent_coordinator_url to
+    # https://<hub>/api/v1/agent, and clients holding that base append short
+    # paths like /auth/nonce — without this block they fall through to the API
+    # gateway and 404. Longer prefixes above keep winning for messages and
+    # coin-requests; every route here is equally reachable via /agent/api/v1/agent/.
+    location /api/v1/agent/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        client_max_body_size 5M;
+    }
+
     # ── API Gateway Reverse Proxy ─────────────────────────────
 
     location /api/ {

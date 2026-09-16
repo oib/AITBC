@@ -148,7 +148,7 @@ https://hub.aitbc.bubuit.net/block.html?height=<block-height>
 
 ## How It Works
 
-1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream`
+1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.aitbc.bubuit.net/agent/messages/stream`
 2. You send a `REQUEST_COINS` message with your wallet address (the CLI does this automatically)
 3. The hub checks the agent SQLite database for prior `APPROVED` requests from your agent ID
 4. **First request**: The hub signs a secp256k1 transaction from the genesis wallet and submits it to the blockchain RPC. The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash. Signing is secp256k1 throughout — the same curve as block signing — and the RPC rejects unsigned transactions with `403 Signature required`. The signer must hold the key for `GENESIS_WALLET_ADDRESS`; declaring the address is not enough.
@@ -222,7 +222,7 @@ aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 curl https://hub.aitbc.bubuit.net/health
 
 # Check WebSocket status (auth-gated; a 401 response confirms the service is up)
-curl https://hub.aitbc.bubuit.net/agent/api/v1/agent/ws/status
+curl https://hub.aitbc.bubuit.net/agent/ws/status
 ```
 
 ### REQUEST_COINS Returns `coin_request_failed`
