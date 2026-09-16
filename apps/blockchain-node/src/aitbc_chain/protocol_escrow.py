@@ -169,6 +169,33 @@ def protocol_transfer_confirmed(
     return False
 
 
+def confirmed_lock_txs(
+    session: Any,
+    chain_id: str,
+    tx_type: str,
+    payload_key: str,
+    payload_value: Any,
+) -> list[Any]:
+    """Confirmed lock transactions tagged with ``payload_key == payload_value``.
+
+    Returns the Transaction rows themselves so callers can name them in a
+    release's ``lock_tx_hashes`` — the v4 consensus check resolves the release
+    against these replicated records rather than node-local domain rows.
+    """
+    from sqlmodel import select
+
+    from .models import Transaction
+
+    candidates = session.exec(
+        select(Transaction).where(
+            Transaction.chain_id == chain_id,
+            Transaction.type == tx_type,
+            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+        )
+    ).all()
+    return [tx for tx in candidates if str((tx.payload or {}).get(payload_key, "")) == str(payload_value)]
+
+
 def confirmed_lock_total(
     session: Any,
     chain_id: str,
@@ -182,20 +209,4 @@ def confirmed_lock_total(
     release: the escrow must actually hold the full principal being returned.
     Callers compare this against the record amount before queueing a release.
     """
-    from sqlmodel import select
-
-    from .models import Transaction
-
-    total = 0
-    candidates = session.exec(
-        select(Transaction).where(
-            Transaction.chain_id == chain_id,
-            Transaction.type == tx_type,
-            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
-        )
-    ).all()
-    for tx in candidates:
-        payload = tx.payload or {}
-        if str(payload.get(payload_key, "")) == str(payload_value):
-            total += int(tx.value or 0)
-    return total
+    return sum(int(tx.value or 0) for tx in confirmed_lock_txs(session, chain_id, tx_type, payload_key, payload_value))
