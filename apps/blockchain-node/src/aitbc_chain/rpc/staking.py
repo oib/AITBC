@@ -463,12 +463,14 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
         voter_address = "0x" + voter_address
     with session_scope() as session:
         # Voting power is the voter's active stake on this chain — the
-        # request-supplied value is never trusted.
+        # request-supplied value is never trusted. Stake rows are written in
+        # EIP-55 checksummed form by the state transition, so compare
+        # case-insensitively against the lowercased request address.
         voting_power = int(
             session.exec(
                 select(func.coalesce(func.sum(Stake.amount), 0)).where(
                     Stake.chain_id == chain_id,
-                    Stake.address == voter_address,
+                    func.lower(Stake.address) == voter_address,
                     Stake.status == "active",
                 )
             ).one()
@@ -508,7 +510,7 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
 
         # Determine proposal status after the vote
         total_votes = proposal.votes_for + proposal.votes_against + proposal.votes_abstain
-        if total_votes >= proposal.quorum_required:
+        if total_votes > 0 and total_votes >= proposal.quorum_required:
             passing_votes = proposal.votes_for
             if passing_votes / total_votes >= proposal.passing_threshold:
                 proposal.status = "succeeded"
