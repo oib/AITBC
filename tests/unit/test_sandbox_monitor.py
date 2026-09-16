@@ -35,3 +35,27 @@ async def test_monitor_sandbox_unknown_execution_id(session):
     mgr = AgentSandboxManager(session)
     with pytest.raises(ValueError, match="Sandbox not found"):
         await mgr.monitor_sandbox("nonexistent")
+
+
+async def test_create_sandbox_result_is_response_serializable(session):
+    """create_sandbox returns an AgentSandboxConfig ORM object; the route must be
+    able to serialize it via model_dump(mode='json') — it previously returned the
+    ORM object to a `dict` response annotation and FastAPI response validation
+    turned that into a 500 AFTER the row committed."""
+    mgr = AgentSandboxManager(session)
+    sandbox = await mgr.create_sandbox_environment(execution_id="exec-ser")
+    dumped = sandbox.model_dump(mode="json")
+    assert dumped["id"] == "sandbox_exec-ser"
+    assert isinstance(dumped["created_at"], str)
+    assert isinstance(dumped["security_level"], str)
+
+
+async def test_create_sandbox_second_call_conflicts_on_pk(session):
+    """Sandbox ids are deterministic (sandbox_{execution_id}) so the router's
+    IntegrityError → return-existing path is what makes re-create idempotent."""
+    import sqlalchemy.exc
+
+    mgr = AgentSandboxManager(session)
+    await mgr.create_sandbox_environment(execution_id="exec-dupe")
+    with pytest.raises(sqlalchemy.exc.IntegrityError):
+        await mgr.create_sandbox_environment(execution_id="exec-dupe")
