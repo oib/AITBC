@@ -370,7 +370,7 @@ async def deploy_to_production(
     request: Request,
     workflow_id: str,
     deployment_config: dict,
-    integration_config: dict | None,
+    integration_config: dict | None = None,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
