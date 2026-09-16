@@ -1,4 +1,10 @@
-"\nAdaptive Learning Service Health Check Router\nProvides health monitoring for reinforcement learning frameworks\n"
+"""Adaptive Learning health check router.
+
+Reports the real state of the in-process ``AdaptiveLearningService``
+(contexts/analytics/services/ai_analytics/adaptive_learning.py). This is a
+capability of the coordinator-api process — there is no separate
+adaptive-learning daemon on this surface.
+"""
 
 import sys
 from datetime import UTC, datetime
@@ -12,28 +18,48 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ....storage import get_session
-from ...analytics.services.ai_analytics.adaptive_learning import AdaptiveLearningService
+from ...analytics.services.ai_analytics.adaptive_learning import (
+    AdaptiveLearningService,
+    LearningAlgorithm,
+    LearningEnvironment,
+    ReinforcementLearningAgent,
+    RewardType,
+)
 
 logger = get_logger(__name__)
 router = APIRouter()
+
+
+def _base_status(service: AdaptiveLearningService) -> dict[str, Any]:
+    """Fields common to both health responses — all derived from the live service."""
+    return {
+        "service": "adaptive-learning",
+        "runs_in_process": "coordinator-api",
+        "timestamp": datetime.now(UTC).isoformat(),
+        "registered_agents": len(service.learning_agents),
+        "registered_environments": len(service.environments),
+        "registered_reward_functions": len(service.reward_functions),
+        "active_training_sessions": len(service.training_sessions),
+    }
 
 
 @router.get("/health", tags=["health"], summary="Adaptive Learning Service Health")
 @rate_limit(rate=1000, per=60)
 async def adaptive_learning_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
-    Health check for Adaptive Learning Service (Port 8011)
+    Health check for the in-process Adaptive Learning Service.
+
+    Reports real service state and system metrics — no standalone daemon
+    exists on this surface.
     """
     try:
-        AdaptiveLearningService(session)
+        service = AdaptiveLearningService(session)
         cpu_percent = psutil.cpu_percent(interval=1)
         memory = psutil.virtual_memory()
         disk = psutil.disk_usage("/")
         service_status = {
             "status": "healthy",
-            "service": "adaptive-learning",
-            "port": 8011,
-            "timestamp": datetime.now(UTC).isoformat(),
+            **_base_status(service),
             "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
             "system": {
                 "cpu_percent": cpu_percent,
@@ -42,38 +68,17 @@ async def adaptive_learning_health(request: Request, session: Annotated[Session,
                 "disk_percent": disk.percent,
                 "disk_free_gb": round(disk.free / 1024**3, 2),
             },
-            "capabilities": {
-                "reinforcement_learning": True,
-                "transfer_learning": True,
-                "meta_learning": True,
-                "continuous_learning": True,
-                "safe_learning": True,
-                "constraint_validation": True,
-            },
-            "algorithms": {
-                "q_learning": True,
-                "deep_q_network": True,
-                "policy_gradient": True,
-                "actor_critic": True,
-                "proximal_policy_optimization": True,
-                "soft_actor_critic": True,
-                "multi_agent_reinforcement_learning": True,
-            },
-            "performance": {
-                "processing_time": "0.12s",
-                "gpu_utilization": "75%",
-                "accuracy": "89%",
-                "learning_efficiency": "80%+",
-                "convergence_speed": "2.5x faster",
-                "safety_compliance": "100%",
-            },
-            "dependencies": {
-                "database": "connected",
-                "learning_frameworks": "available",
-                "model_registry": "accessible",
-                "safety_constraints": "loaded",
-                "reward_functions": "configured",
-            },
+            "algorithms": [algo.value for algo in LearningAlgorithm],
+            "reward_types": [rt.value for rt in RewardType],
+            "operations": [
+                "create_learning_environment",
+                "create_learning_agent",
+                "train_agent",
+                "evaluate_agent",
+                "get_agent_performance",
+                "create_reward_function",
+                "calculate_reward",
+            ],
         }
         logger.info("Adaptive Learning Service health check completed successfully")
         return service_status
@@ -82,7 +87,6 @@ async def adaptive_learning_health(request: Request, session: Annotated[Session,
         return {
             "status": "unhealthy",
             "service": "adaptive-learning",
-            "port": 8011,
             "timestamp": datetime.now(UTC).isoformat(),
             "error": "Health check failed",
         }
@@ -92,79 +96,42 @@ async def adaptive_learning_health(request: Request, session: Annotated[Session,
 @rate_limit(rate=1000, per=60)
 async def adaptive_learning_deep_health(request: Request, session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """
-    Deep health check with learning framework validation
+    Deep health check: instantiates a throwaway ``ReinforcementLearningAgent``
+    per ``LearningAlgorithm`` member and a ``LearningEnvironment`` to exercise
+    the real construction paths (in-memory only — nothing is persisted).
     """
     try:
-        AdaptiveLearningService(session)
-        algorithm_tests = {}
+        service = AdaptiveLearningService(session)
+        algorithm_tests: dict[str, dict[str, Any]] = {}
+        for algo in LearningAlgorithm:
+            try:
+                agent = ReinforcementLearningAgent(f"health-probe-{algo.value}", algo, {})
+                action = agent.get_action({"position": 0}, training=True)
+                algorithm_tests[algo.value] = {
+                    "status": "pass" if action is not None else "fail",
+                }
+            except Exception as e:
+                logger.error("Algorithm probe failed for %s: %s", algo.value, e)
+                algorithm_tests[algo.value] = {"status": "fail", "error": "instantiation/probe failed"}
         try:
-            algorithm_tests["q_learning"] = {
-                "status": "pass",
-                "convergence_episodes": "150",
-                "final_reward": "0.92",
-                "training_time": "0.08s",
-            }
+            env = LearningEnvironment("health-probe-env", {})
+            env_ok = isinstance(env.validate_state({}), bool) and isinstance(env.validate_action({}), bool)
+            environment_test = {"status": "pass" if env_ok else "fail"}
         except Exception as e:
-            logger.error("Q-Learning test failed: %s", e)
-            algorithm_tests["q_learning"] = {"status": "fail", "error": "Test failed"}
-        try:
-            algorithm_tests["deep_q_network"] = {
-                "status": "pass",
-                "convergence_episodes": "120",
-                "final_reward": "0.94",
-                "training_time": "0.15s",
-            }
-        except Exception as e:
-            logger.error("Deep Q-Network test failed: %s", e)
-            algorithm_tests["deep_q_network"] = {"status": "fail", "error": "Test failed"}
-        try:
-            algorithm_tests["policy_gradient"] = {
-                "status": "pass",
-                "convergence_episodes": "180",
-                "final_reward": "0.88",
-                "training_time": "0.12s",
-            }
-        except Exception as e:
-            logger.error("Policy Gradient test failed: %s", e)
-            algorithm_tests["policy_gradient"] = {"status": "fail", "error": "Test failed"}
-        try:
-            algorithm_tests["actor_critic"] = {
-                "status": "pass",
-                "convergence_episodes": "100",
-                "final_reward": "0.91",
-                "training_time": "0.10s",
-            }
-        except Exception as e:
-            logger.error("Actor-Critic test failed: %s", e)
-            algorithm_tests["actor_critic"] = {"status": "fail", "error": "Test failed"}
-        try:
-            safety_tests = {
-                "constraint_validation": "pass",
-                "safe_learning_environment": "pass",
-                "reward_function_safety": "pass",
-                "action_space_validation": "pass",
-            }
-        except Exception as e:
-            logger.error("Safety tests failed: %s", e)
-            safety_tests = {"error": "Safety check failed"}
+            logger.error("Environment probe failed: %s", e)
+            environment_test = {"status": "fail", "error": "instantiation/probe failed"}
+        all_pass = all(t["status"] == "pass" for t in algorithm_tests.values()) and environment_test["status"] == "pass"
         return {
-            "status": "healthy",
-            "service": "adaptive-learning",
-            "port": 8011,
-            "timestamp": datetime.now(UTC).isoformat(),
+            "status": "healthy" if all_pass else "degraded",
+            **_base_status(service),
             "algorithm_tests": algorithm_tests,
-            "safety_tests": safety_tests,
-            "overall_health": "pass"
-            if all(test.get("status") == "pass" for test in algorithm_tests.values())
-            and all(result == "pass" for result in safety_tests.values())
-            else "degraded",
+            "environment_test": environment_test,
         }
     except Exception as e:
         logger.error("Deep Adaptive Learning health check failed: %s", e)
         return {
             "status": "unhealthy",
             "service": "adaptive-learning",
-            "port": 8011,
             "timestamp": datetime.now(UTC).isoformat(),
             "error": "Deep health check failed",
         }

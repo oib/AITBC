@@ -20,7 +20,15 @@ from ..config import get_config
 from ..utils import output, resolve_output_format, success, warning
 from ..utils.escrow import create_signed_escrow_lock, get_node_wallet
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_error_detail, service_root_url
+from ..utils.http_client import (
+    AITBCHTTPClient,
+    NetworkError,
+    auth_client_kwargs,
+    get_logger,
+    http_error_detail,
+    origin_base_url,
+    service_root_url,
+)
 from ..utils.wallet_loader import load_wallet_for_payment
 
 logger = get_logger(__name__)
@@ -1164,21 +1172,31 @@ def stats(ctx, coordinator_url, format):
 
   aitbc ai distribution-stats --output json"""
 )
-@click.option("--coordinator-url", help="Coordinator URL")
+@click.option("--coordinator-url", help="Agent Coordinator URL")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def distribution_stats(ctx, coordinator_url, format):
     """Show task distribution statistics from the agent coordinator."""
-    get_config()
+    config = get_config()
 
     try:
-        coord_url = _coordinator_base_url(ctx, coordinator_url)
-        if not coord_url:
-            abort(ctx, "Coordinator URL not configured")
+        # The load balancer lives in the agent-coordinator, not the
+        # coordinator-api — its stats include distribution counters.
+        # agent_coordinator_url may resolve to a mounted nginx prefix, so
+        # reduce it to the origin like agent_comm does.
+        base_url = origin_base_url(
+            coordinator_url or config.agent_coordinator_url or config.coordinator_api_url,
+            "http://localhost:8107",
+        )
+        if not base_url:
+            abort(ctx, "Agent Coordinator URL not configured")
 
-        headers = _auth_headers(ctx)
-        http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=headers)
-        result = http_client.get("/v1/agent/stats/distribution")
+        http_client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=30,
+            **auth_client_kwargs(ctx.obj.get("api_key"), config.api_key),
+        )
+        result = http_client.get("/api/v1/agent/messages/load-balancer/stats")
 
         output(result, ctx.obj.get("output_format", format), title="Task Distribution Statistics")
 

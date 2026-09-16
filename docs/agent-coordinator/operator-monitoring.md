@@ -81,10 +81,11 @@ aitbc agent status --agent-id my-agent
 
 ### Monitor Distribution Stats
 
-> **Note:** `aitbc ai distribution-stats` calls `GET /v1/agent/stats/distribution`
-> on the coordinator-api, a route that does not exist — the command currently
-> returns 404. Agent distribution data is available via the agent-coordinator
-> list endpoint (`GET /api/v1/agent/agents`) or `aitbc agent list`.
+> **Note:** `aitbc ai distribution-stats` queries the agent-coordinator's
+> load balancer (`GET /api/v1/agent/messages/load-balancer/stats`), which
+> reports the task-distribution counters. It previously targeted a
+> nonexistent `/v1/agent/stats/distribution` on the coordinator-api and
+> always returned 404.
 
 ## Redis Monitoring
 
