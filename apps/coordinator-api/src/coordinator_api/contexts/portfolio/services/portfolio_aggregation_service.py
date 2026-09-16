@@ -10,6 +10,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.http_client import RequestIDPropagatingClient
+from aitbc.utils.units import units_to_ait
 
 logger = get_logger(__name__)
 
@@ -85,7 +86,23 @@ class PortfolioAggregationService:
                 wallets = data.get("items", [])
                 if agent_address:
                     wallets = [w for w in wallets if w.get("public_key") == agent_address or w.get("address") == agent_address]
-                total_balance = len(wallets)
+                # Wallet descriptors carry no balance — fetch each wallet's
+                # balance from the wallet service (bounded by wallet count).
+                total_units = 0
+                for w in wallets:
+                    wallet_id = w.get("wallet_id")
+                    if not wallet_id:
+                        continue
+                    try:
+                        bal_resp = await self.http_client.get(
+                            f"{self.wallet_service_url}/v1/wallets/{wallet_id}/balance",
+                            headers={"X-API-Key": self._wallet_api_key} if self._wallet_api_key else None,
+                        )
+                        if bal_resp.status_code == 200:
+                            total_units += int(bal_resp.json().get("balance", 0) or 0)
+                    except Exception as e:
+                        logger.warning("Failed to fetch balance for wallet %s: %s", wallet_id, e)
+                total_balance = float(units_to_ait(total_units))
                 return {"wallets": wallets, "total_wallets": len(wallets), "total_balance": total_balance}
             else:
                 logger.warning("Wallet service returned status %s", response.status_code)
