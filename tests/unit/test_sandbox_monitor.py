@@ -59,3 +59,15 @@ async def test_create_sandbox_second_call_conflicts_on_pk(session):
     await mgr.create_sandbox_environment(execution_id="exec-dupe")
     with pytest.raises(sqlalchemy.exc.IntegrityError):
         await mgr.create_sandbox_environment(execution_id="exec-dupe")
+
+
+async def test_model_dump_after_subsequent_commit_returns_empty(session):
+    """Pins the live `{}` response: after a second session.commit() the ORM
+    instance is expired and model_dump reads an empty __dict__ (no lazy
+    reload). The route must therefore dump BEFORE the audit log_event commit.
+    This test asserts the hazard exists so a refactor that removes the
+    early-dump ordering fails loudly."""
+    mgr = AgentSandboxManager(session)
+    sandbox = await mgr.create_sandbox_environment(execution_id="exec-exp")
+    session.commit()  # simulates auditor.log_event's commit
+    assert sandbox.model_dump(mode="json") == {}
