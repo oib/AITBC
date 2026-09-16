@@ -56,6 +56,40 @@ class GovernanceService:
             rpc_url=settings.blockchain_rpc_url,
         )
 
+    @staticmethod
+    def _verify_client_signed_tx(
+        signed_tx: dict[str, Any],
+        tx_type: str,
+        expected_signer: str,
+        expected_payload_fields: dict[str, Any],
+    ) -> None:
+        """Reject a client-signed governance tx that does not match the action.
+
+        Checks the self-consistency the record layer relies on: the tx type,
+        that ``from``/``to`` equal the claimed acting address (signature
+        recovery itself happens in ``submit_signed_governance_tx``), and that
+        the payload fields the node validates name this specific action —
+        otherwise a signature made for a different proposal/vote could be
+        re-attached to this request.
+
+        Raises ValueError on any mismatch.
+        """
+        if not isinstance(signed_tx, dict):
+            raise ValueError("signed_tx must be an object")
+        if signed_tx.get("type") != tx_type:
+            raise ValueError(f"signed_tx.type must be {tx_type}")
+        for field in ("from", "to"):
+            if str(signed_tx.get(field, "")).lower() != expected_signer.lower():
+                raise ValueError(f"signed_tx.{field} must equal the acting address")
+        payload = signed_tx.get("payload") or {}
+        for key, expected in expected_payload_fields.items():
+            actual = payload.get(key)
+            if isinstance(expected, (int, float, Decimal)) and isinstance(actual, (int, float, Decimal)):
+                if Decimal(str(actual)) != Decimal(str(expected)):
+                    raise ValueError(f"signed_tx.payload.{key} does not match the request")
+            elif str(actual or "").lower() != str(expected).lower():
+                raise ValueError(f"signed_tx.payload.{key} does not match the request")
+
     async def list_profiles(
         self,
         role: str | None = None,
@@ -121,6 +155,11 @@ class GovernanceService:
             if key in proposal_data and proposal_data[key] is not None:
                 proposal_data[key] = _parse_datetime(proposal_data[key])
 
+        # Client-signed on-chain submission (GAP-50): the caller's wallet signs
+        # the GOVERNANCE_PROPOSE tx; this service verifies and relays it. Kept
+        # out of the model kwargs — signed_tx is not a Proposal column.
+        signed_tx = proposal_data.pop("signed_tx", None)
+
         # Auto-create a governance profile for the proposer if one does not
         # already exist. The CLI passes the node/agent ID as the proposer, and
         # the profile table is otherwise empty on a fresh database.
@@ -179,7 +218,33 @@ class GovernanceService:
             proposal.status = ProposalStatus.ACTIVE
 
         submission_failed = False
-        if settings.enable_onchain_submission and settings.proposer_private_key:
+        if settings.enable_onchain_submission and signed_tx is not None:
+            try:
+                proposer_address = proposal_data.get("proposer_address", "")
+                self._verify_client_signed_tx(
+                    signed_tx,
+                    "GOVERNANCE_PROPOSE",
+                    proposer_address,
+                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address},
+                )
+                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
+                proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+                proposal.block_height = result.get("block_height")
+                if proposal.block_height is not None:
+                    voting_period = settings.emergency_voting_period_blocks if is_emergency else settings.voting_period_blocks
+                    proposal.voting_ends_block = proposal.block_height + voting_period
+            except Exception as e:
+                submission_failed = True
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Client-signed GOVERNANCE_PROPOSE submission failed for %s: %s — proposal has no "
+                    "recorded block height and will be refused execution while "
+                    "require_execution_timelock is set",
+                    proposal.proposal_id,
+                    e,
+                )
+        elif settings.enable_onchain_submission and settings.proposer_private_key:
             try:
                 from aitbc.governance.onchain import build_proposal_tx
                 from aitbc.governance.types import ProposalData
@@ -291,6 +356,9 @@ class GovernanceService:
             if key in vote_data and vote_data[key] is not None:
                 vote_data[key] = Decimal(str(vote_data[key]))
 
+        # Client-signed on-chain submission (GAP-50) — not a Vote column.
+        signed_tx = vote_data.pop("signed_tx", None)
+
         voter_id = vote_data.get("voter_id") or "anonymous"
         existing_profile = await self.get_profile(voter_id)
         if not existing_profile:
@@ -314,7 +382,30 @@ class GovernanceService:
         if not voter_address:
             voter_address = voter_id
 
-        if settings.enable_onchain_submission and settings.proposer_private_key:
+        if settings.enable_onchain_submission and signed_tx is not None:
+            try:
+                voting_power = await self._blockchain.get_voting_power(voter_address, vote.chain_id)
+                self._verify_client_signed_tx(
+                    signed_tx,
+                    "GOVERNANCE_VOTE",
+                    voter_address,
+                    {"proposal_id": vote.proposal_id, "voter": voter_address,
+                     "vote_type": str(vote.vote_type), "voting_power": voting_power},
+                )
+                vote.voting_power = voting_power
+                vote.power_at_snapshot = voting_power
+                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
+                vote.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+                vote.block_height = result.get("block_height")
+            except Exception as e:
+                import logging
+
+                logging.getLogger(__name__).warning(
+                    "Client-signed GOVERNANCE_VOTE submission failed for %s: %s",
+                    vote.proposal_id,
+                    e,
+                )
+        elif settings.enable_onchain_submission and settings.proposer_private_key:
             try:
                 from aitbc.governance.onchain import build_vote_tx
                 from aitbc.governance.types import VoteData
@@ -572,7 +663,12 @@ class GovernanceService:
         return delegation
 
     # Proposal Execution Methods
-    async def execute_proposal(self, proposal_id: str, executor_address: str = "") -> Proposal | None:
+    async def execute_proposal(
+        self,
+        proposal_id: str,
+        executor_address: str = "",
+        signed_tx: dict[str, Any] | None = None,
+    ) -> Proposal | None:
         """Execute a passed proposal and log the steps.
 
         The execution timelock is always enforced first — see
@@ -609,7 +705,17 @@ class GovernanceService:
             # (enable_onchain_submission=False) executed proposals with no timelock at all.
             await self._enforce_execution_timelock(proposal)
 
-            if settings.enable_onchain_submission and settings.proposer_private_key:
+            if settings.enable_onchain_submission and signed_tx is not None:
+                self._verify_client_signed_tx(
+                    signed_tx,
+                    "GOVERNANCE_EXECUTE",
+                    executor_address,
+                    {"proposal_id": proposal_id, "executor": executor_address},
+                )
+                result = await self._blockchain.submit_signed_governance_tx(signed_tx)
+                tx_hash = result.get("tx_hash") or result.get("transaction_hash")
+                block_height = result.get("block_height")
+            elif settings.enable_onchain_submission and settings.proposer_private_key:
                 from aitbc.governance.onchain import build_execute_tx
 
                 payload = build_execute_tx(proposal_id, executor_address, proposal.chain_id)
