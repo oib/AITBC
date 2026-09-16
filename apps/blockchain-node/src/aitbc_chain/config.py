@@ -643,6 +643,12 @@ class ChainSettings(BaseSettings):
     # height set state_transition_version=3. Default 0 means v3 is not activated;
     # existing chains continue under v2 until the operator sets a positive height.
     state_transition_v3_height: int = 0
+    # GAP-42 remainder: consensus-enforced stake lock windows (v4). At or above
+    # this height, STAKE_RELEASE txs must name their lock tx hashes and the
+    # locks must have matured. Hardcoded rather than env-dependent because the
+    # activation is itself consensus: an env-drifted fleet would fork. The
+    # proposer stamps it into block_metadata and followers replay that stamp.
+    state_transition_v4_height: int = 11000
     # S-4: address(es) allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3.
     # If empty, no authority check is performed (legacy behaviour). When set, the
     # state transition rejects releases/refunds signed by any other address.

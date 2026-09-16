@@ -6,6 +6,7 @@ import time
 from dataclasses import dataclass
 from threading import Lock, RLock
 from typing import Any, cast
+from collections.abc import Iterable
 
 from sqlalchemy import Column, Float, Index, Integer, MetaData, Text, delete, func
 from sqlmodel import Field, Session, create_engine, select, text
@@ -51,6 +52,36 @@ def _estimate_size(tx: dict[str, Any]) -> int:
     return len(json.dumps(tx, separators=(",", ":")).encode())
 
 
+def _claimed_lock_hashes(tx: dict[str, Any]) -> set[str]:
+    if str(tx.get("type", "")).upper() != "STAKE_RELEASE":
+        return set()
+    return {str(h).lower() for h in (tx.get("payload") or {}).get("lock_tx_hashes") or []}
+
+
+def _reject_conflicting_stake_release(tx: dict[str, Any], pending: Iterable[tuple[str, dict[str, Any]]]) -> None:
+    """Same-block double-release guard: two STAKE_RELEASEs claiming the same
+    lock may coexist in the mempool because neither is in confirmed history
+    yet — the proposer would drain both and the second would pass the in-block
+    check too (block tx records are flushed only at commit). Keep the first,
+    drop the rest; the owner can re-queue after the block seals."""
+    claimed = _claimed_lock_hashes(tx)
+    if not claimed:
+        return
+    for pending_hash, pending_tx in pending:
+        if claimed & _claimed_lock_hashes(pending_tx):
+            raise ValueError(f"A pending release already claims one of these locks (tx {pending_hash})")
+
+
+def _pending_tx_rows(session: Session, chain_id: str) -> Iterable[tuple[str, dict[str, Any]]]:
+    for entry in session.exec(select(MempoolEntry).where(MempoolEntry.chain_id == chain_id)).all():
+        try:
+            content = json.loads(entry.content)
+        except (TypeError, ValueError):
+            continue
+        if isinstance(content, dict):
+            yield entry.tx_hash, content
+
+
 class InMemoryMempool:
     """In-memory mempool with fee-based prioritization and size limits."""
 
@@ -93,6 +124,7 @@ class InMemoryMempool:
                 return tx_hash  # duplicate
             if len(chain_transactions) >= self._max_size:
                 self._evict_lowest_fee(chain_id)
+            _reject_conflicting_stake_release(tx, ((e.tx_hash, e.content) for e in chain_transactions.values()))
             chain_transactions[tx_hash] = entry
             metrics_registry.set_gauge("mempool_size", float(self._total_size()))
             metrics_registry.increment(f"mempool_tx_added_total_{chain_id}")
@@ -257,6 +289,8 @@ class DatabaseMempool:
                     if commit:
                         session.commit()
                     return tx_hash
+
+                _reject_conflicting_stake_release(tx, _pending_tx_rows(session, chain_id))
 
                 # Evict if full
                 count = session.exec(

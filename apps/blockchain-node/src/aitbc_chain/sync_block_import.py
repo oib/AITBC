@@ -51,6 +51,10 @@ _SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         "LIQUIDITY_CLAIM",
         "GPU_REGISTER",
         "GPU_ALLOCATE",
+        # Writes chain_parameter (governance_executors et al.) at apply — the
+        # pure delta path computes account changes only, so the parameter write
+        # would silently never land on parallel-imported blocks (GAP-57).
+        "GOVERNANCE_EXECUTE",
     }
 )
 
@@ -415,11 +419,11 @@ class BlockImportMixin(SyncBase):
             # lock metadata is prefetched. A release/refund with no resolvable
             # lock returns None and the block stays sequential.
             escrow_context: dict[str, dict[str, Any]] | None = None
-            if settings.parallel_tx_validation and block_version in (2, 3):
+            if settings.parallel_tx_validation and block_version in (2, 3, 4):
                 escrow_context = build_escrow_context(session, self._chain_id, transactions)
             if (
                 settings.parallel_tx_validation
-                and block_version in (2, 3)
+                and block_version in (2, 3, 4)
                 and escrow_context is not None
                 and not any(_determine_tx_type(tx) in _SEQUENTIAL_ONLY_TX_TYPES for tx in transactions)
             ):

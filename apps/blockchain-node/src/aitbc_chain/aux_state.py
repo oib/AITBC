@@ -14,13 +14,12 @@ account-only by design; changing it invalidates every sealed block's root.
 
 from __future__ import annotations
 
-from datetime import UTC, datetime
+from datetime import datetime
 from typing import Any
 
 from sqlmodel import select
 
 from .base_models import Bond, GovernanceProposal, GovernanceVote, Stake, _to_ait_address
-from .metadata import ChainBase
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -31,7 +30,7 @@ class _AuxSpec:
 
     def __init__(
         self,
-        model: type[ChainBase],
+        model: type[Any],
         key_fields: tuple[str, ...],
         fields: tuple[str, ...],
         ts_field: str,
@@ -132,8 +131,8 @@ def serialize_aux_rows(
     for name, spec in AUX_TABLES.items():
         stmt = select(spec.model).where(spec.model.chain_id == chain_id)
         if changed_since is not None:
-            stmt = stmt.where(getattr(spec.model, spec.ts_field) >= changed_since)  # type: ignore[operator]
-        rows = session.exec(stmt.order_by(getattr(spec.model, spec.ts_field))).all()  # type: ignore[arg-type]
+            stmt = stmt.where(getattr(spec.model, spec.ts_field) >= changed_since)
+        rows = session.exec(stmt.order_by(getattr(spec.model, spec.ts_field))).all()
         if max_rows is not None and len(rows) > max_rows:
             truncated = True
         for row in rows:

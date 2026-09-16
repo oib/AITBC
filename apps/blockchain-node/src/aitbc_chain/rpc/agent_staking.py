@@ -14,7 +14,7 @@ from ..base_models import AgentStakeMemo, AgentStakeRecord, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
 from ..models import Account
-from ..protocol_escrow import confirmed_lock_total, queue_protocol_transfer, stake_escrow_address
+from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
 from .agent_economics_auth import operator_address, require_int, require_operator_signature
 from .utils import get_chain_id, validate_chain_id
 
@@ -99,7 +99,8 @@ async def create_agent_stake(request: Request, body: dict[str, Any]) -> dict[str
         amount=amount,
         chain_id=chain_id,
         tx_type="STAKE_LOCK",
-        payload={"agent_stake_id": str(stake_id)},
+        # v4: lock_days makes the unbonding window consensus-visible.
+        payload={"agent_stake_id": str(stake_id), "lock_days": lock_period},
         # Operator-signed on the staker's behalf; carried into the block
         # record as the lock's provable authorization.
         auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
@@ -147,7 +148,7 @@ async def add_to_agent_stake(request: Request, stake_id: str, body: dict[str, An
         amount=additional,
         chain_id=chain_id,
         tx_type="STAKE_LOCK",
-        payload={"agent_stake_id": str(stake_id)},
+        payload={"agent_stake_id": str(stake_id), "lock_days": record.lock_period},
         auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     return {
@@ -217,7 +218,8 @@ async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, 
             raise HTTPException(status_code=400, detail="Lock period not expired")
         # The escrow is shared across all stakers, so the full principal must
         # be provably in it before any of it is released back.
-        funded = confirmed_lock_total(session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id)
+        lock_txs = confirmed_lock_txs(session, chain_id, "STAKE_LOCK", "agent_stake_id", record.stake_id)
+        funded = sum(int(tx.value or 0) for tx in lock_txs)
         if funded < record.amount:
             raise HTTPException(
                 status_code=409,
@@ -238,7 +240,11 @@ async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, 
         amount=amount,
         chain_id=chain_id,
         tx_type="STAKE_RELEASE",
-        payload={"agent_stake_id": str(stake_id)},
+        payload={
+            "agent_stake_id": str(stake_id),
+            # v4: the release spends exactly these replicated lock records.
+            "lock_tx_hashes": [tx.tx_hash for tx in lock_txs],
+        },
         auth={"signer": operator_address(), "message": payload, "signature": body.get("signature")},
     )
     return {

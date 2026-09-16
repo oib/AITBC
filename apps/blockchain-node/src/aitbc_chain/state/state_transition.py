@@ -283,6 +283,9 @@ def get_block_version(block_data_or_block: dict[str, Any] | object, height: int 
                 return int(version)
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
+    v4_threshold = getattr(settings, "state_transition_v4_height", 0)
+    if v4_threshold > 0 and height >= v4_threshold:
+        return 4
     v3_threshold = getattr(settings, "state_transition_v3_height", 0)
     if v3_threshold > 0 and height >= v3_threshold:
         return 3
@@ -299,6 +302,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v4_threshold = getattr(settings, "state_transition_v4_height", 0)
+    if v4_threshold > 0 and height >= v4_threshold:
+        return 4
     v3_threshold = getattr(settings, "state_transition_v3_height", 0)
     if v3_threshold > 0 and height >= v3_threshold:
         return 3
@@ -401,7 +407,103 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
         tx_sub = payload.get("submission_id")
         if msg_sub is None or tx_sub is None or str(msg_sub) != str(tx_sub):
             return False
+    # lock_tx_hashes are bound only when the signed message names them — the
+    # user-staking route signs them, operator-signed agent releases predate the
+    # field and must not break.
+    msg_locks = message.get("lock_tx_hashes")
+    tx_locks = payload.get("lock_tx_hashes")
+    if msg_locks is not None and tx_locks is not None:
+        if sorted(str(h) for h in msg_locks) != sorted(str(h) for h in tx_locks):
+            return False
     return True
+
+
+# Blocks per day at the chain's fixed 60s cadence — deterministic across nodes,
+# unlike wall-clock timestamps which the proposer controls.
+_STAKE_LOCK_BLOCKS_PER_DAY = 1440
+
+
+def _validate_stake_release_locks(
+    session: Session,
+    chain_id: str,
+    tx_data: dict[str, Any],
+    tx_hash: str,
+    value: int,
+    recipient_addr: str,
+) -> tuple[bool, str]:
+    """v4 consensus check: a STAKE_RELEASE must fully reference matured locks.
+
+    ``payload.lock_tx_hashes`` names the confirmed STAKE_LOCK transactions this
+    release spends. Every lock must exist, belong to the payee, and — when it
+    declares ``lock_days`` — have been sealed for at least that many days at the
+    fixed 60s block cadence. Locks with no ``lock_days`` (legacy, agent stakes,
+    auto-stake top-ups) are treated as matured. The claimed lock set must not
+    overlap any already-sealed release, and the summed principal must cover the
+    release value.
+    """
+    payload = tx_data.get("payload") or {}
+    raw_hashes = payload.get("lock_tx_hashes")
+    if not isinstance(raw_hashes, list) or not raw_hashes or not all(isinstance(h, str) and h for h in raw_hashes):
+        return (False, f"STAKE_RELEASE {tx_hash} payload must carry a non-empty lock_tx_hashes list")
+    claimed = {h.lower() for h in raw_hashes}
+    if len(claimed) != len(raw_hashes):
+        return (False, f"STAKE_RELEASE {tx_hash} lock_tx_hashes contains duplicates")
+
+    locks: list[Transaction] = []
+    for h in claimed:
+        lock = session.exec(
+            select(Transaction).where(
+                Transaction.chain_id == chain_id,
+                func.lower(Transaction.tx_hash) == h,
+                Transaction.type == "STAKE_LOCK",
+                Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+            )
+        ).first()
+        if lock is None:
+            return (False, f"STAKE_RELEASE {tx_hash} references unknown or unconfirmed lock {h}")
+        if _to_ait_address(lock.sender or "") != recipient_addr:
+            return (False, f"STAKE_RELEASE {tx_hash} lock {h} belongs to {lock.sender}, not payee {recipient_addr}")
+        locks.append(lock)
+
+    locked_total = sum(int(lock.value or 0) for lock in locks)
+    if locked_total < value:
+        return (
+            False,
+            f"STAKE_RELEASE {tx_hash} value {value} exceeds locked principal {locked_total}",
+        )
+
+    parent_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).one()
+    next_height = (parent_height or 0) + 1
+    for lock in locks:
+        lock_payload = lock.payload or {}
+        lock_days = lock_payload.get("lock_days")
+        if lock_days in (None, 0):
+            continue  # legacy / agent / auto-stake locks carry no window
+        try:
+            unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
+        except (TypeError, ValueError):
+            return (False, f"STAKE_RELEASE {tx_hash} lock {lock.tx_hash} has invalid lock_days")
+        if next_height < unlock_height:
+            return (
+                False,
+                f"STAKE_RELEASE {tx_hash} lock {lock.tx_hash} matures at height {unlock_height}, current {next_height}",
+            )
+
+    # A lock may be spent only once: no sealed release may name any of the
+    # claimed hashes. Pending same-block duplicates are a mempool-policy
+    # concern (mempool drops them); only confirmed history is consensus state.
+    for prior in session.exec(
+        select(Transaction).where(
+            Transaction.chain_id == chain_id,
+            Transaction.type == "STAKE_RELEASE",
+            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+            Transaction.tx_hash != tx_hash,
+        )
+    ).all():
+        prior_hashes = (prior.payload or {}).get("lock_tx_hashes") or []
+        if claimed & {str(h).lower() for h in prior_hashes}:
+            return (False, f"STAKE_RELEASE {tx_hash} lock already released by {prior.tx_hash}")
+    return (True, "")
 
 
 class StateTransition:
@@ -585,6 +687,10 @@ class StateTransition:
                     False,
                     f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor",
                 )
+        if tx_type == "STAKE_RELEASE" and block_version >= 4:
+            ok, why = _validate_stake_release_locks(session, chain_id, tx_data, tx_hash, value, recipient_addr)
+            if not ok:
+                return (False, why)
         if tx_type in _ZERO_VALUE_TX_TYPES and value != 0:
             return (False, f"{tx_type} transactions must have value=0, got {value}")
         if tx_type in _ZERO_VALUE_TX_TYPES:

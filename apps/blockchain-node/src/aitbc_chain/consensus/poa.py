@@ -69,6 +69,9 @@ _SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         "LIQUIDITY_CLAIM",
         "GPU_REGISTER",
         "GPU_ALLOCATE",
+        # Writes chain_parameter at apply — pure deltas compute account
+        # changes only (GAP-57); keep both copies of this set identical.
+        "GOVERNANCE_EXECUTE",
     }
 )
 
@@ -861,7 +864,7 @@ class PoAProposer:
             not has_sequential_only
             and getattr(settings, "parallel_tx_validation", False)
             and len(pending_txs) > 1
-            and block_version in (2, 3)
+            and block_version in (2, 3, 4)
         )
         if use_parallel:
             escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
