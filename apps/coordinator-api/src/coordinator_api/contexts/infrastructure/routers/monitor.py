@@ -1,56 +1,18 @@
-"""Monitor router for AITBC Coordinator API.
+"""Monitor router — intentionally unimplemented.
 
-Mock/test endpoints gated behind settings.debug — never enabled in production.
+The mock endpoints that lived here were removed: behind a ``settings.debug``
+gate they served a fabricated dashboard (``overall_status: operational``,
+``uptime: 3600``, a fixed 2026-05-08 timestamp) and empty ``/miners``,
+``/dashboard/history``, and ``/jobs`` lists. The router stays mounted at
+``/v1`` so the module/import contract is stable, but it registers no routes.
+
+Real monitoring surfaces exist elsewhere: ``/health`` and the
+``monitoring_dashboard`` router, plus per-service status endpoints. The
+removed ``/jobs`` and ``/status`` paths also collided with real routes
+(``/v1/jobs`` job listing, ``/v1/status`` blockchain status) whenever the
+debug gate was open — one more reason they had to go.
 """
 
-from typing import Any
-
-from fastapi import APIRouter, Request
-
-from aitbc.rate_limiting import rate_limit
-
-from ....config import settings
+from fastapi import APIRouter
 
 router = APIRouter(tags=["Monitor"])
-
-if settings.debug:
-
-    @router.get("/dashboard", response_model=dict[str, Any])
-    @rate_limit(rate=100, per=60)
-    async def get_dashboard(request: Request) -> dict[str, Any]:
-        """Get monitoring dashboard data."""
-        return {
-            "overall_status": "operational",
-            "services": {"coordinator": "online", "exchange": "online", "blockchain": "online"},
-            "metrics": {"active_agents": 0, "active_jobs": 0, "total_jobs": 0},
-            "alerts": [],
-        }
-
-    @router.get("/status", response_model=dict[str, Any])
-    @rate_limit(rate=100, per=60)
-    async def get_status(request: Request) -> dict[str, Any]:
-        """Get coordinator status."""
-        return {
-            "status": "online",
-            "version": "1.0.0",
-            "uptime": 3600,
-            "timestamp": "2026-05-08T12:00:00Z",
-        }
-
-    @router.get("/miners", response_model=list[dict[str, Any]])
-    @rate_limit(rate=50, per=60)
-    async def get_miners(request: Request) -> list[dict[str, Any]]:
-        """Get miners list."""
-        return []
-
-    @router.get("/dashboard/history", response_model=list[dict[str, Any]])
-    @rate_limit(rate=50, per=60)
-    async def get_history_dashboard(request: Request) -> list[dict[str, Any]]:
-        """Get historical dashboard data."""
-        return []
-
-    @router.get("/jobs", response_model=list[dict[str, Any]])
-    @rate_limit(rate=50, per=60)
-    async def get_jobs(request: Request) -> list[dict[str, Any]]:
-        """Get jobs list for history and metrics commands."""
-        return []

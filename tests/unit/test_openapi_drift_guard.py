@@ -215,14 +215,19 @@ def test_the_specs_do_not_depend_on_the_environment_they_are_generated_in(tmp_pa
 # difference is empty precisely when someone has removed a gate, which is the regression this
 # is here to catch, so it would pass at the moment it mattered.
 _DEBUG_ONLY_ROUTES = {
-    # contexts/agent_coordination/routers/agent_messaging.py -- "Only enable mock endpoints
-    # if debug mode is set"; in production the module exports an empty router. The `/v1/swarm/`
-    # prefix no longer resolves even under DEBUG (mock handlers removed); it stays listed so a
-    # future swarm implementation can never slip into the published spec unreviewed.
+    # contexts/agent_coordination/routers/{agent_messaging,swarm}.py and
+    # contexts/infrastructure/routers/monitor.py once carried settings.debug-gated mocks;
+    # the handlers were deleted outright (routers now register zero routes). The entries
+    # stay as tripwires: a future implementation under any of these paths must never reach
+    # the published spec unreviewed.
     "prefixes": ("/v1/agent/", "/v1/swarm/", "/_debug"),
-    # contexts/infrastructure/routers/monitor.py -- the whole router body is under the gate.
     "exact": ("/v1/dashboard", "/v1/dashboard/history", "/v1/miners", "/v1/swarm"),
 }
+
+# Same tripwire for the agent-coordinator spec: its Monitor-tagged mocks
+# (/status, /miners, /dashboard, /jobs) were generated into the committed spec
+# once, alongside the swarm ones — caught here if they ever come back.
+_AGENT_COORDINATOR_REMOVED_ROUTES = ("/v1/status", "/v1/miners", "/v1/dashboard", "/v1/jobs")
 
 
 def test_no_debug_only_route_is_published():
@@ -241,3 +246,7 @@ def test_no_debug_only_route_is_published():
         if path.startswith(_DEBUG_ONLY_ROUTES["prefixes"]) or path in _DEBUG_ONLY_ROUTES["exact"]
     ]
     assert not published, f"debug-gated routes in the published spec: {sorted(published)}"
+
+    agent_spec = json.loads((REPO / "docs" / "api" / "agent-coordinator-openapi.json").read_text())
+    agent_published = [path for path in agent_spec["paths"] if path in _AGENT_COORDINATOR_REMOVED_ROUTES]
+    assert not agent_published, f"removed mock routes in the agent-coordinator spec: {sorted(agent_published)}"

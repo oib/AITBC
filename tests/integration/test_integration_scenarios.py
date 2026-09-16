@@ -1,43 +1,16 @@
 """Integration tests for edge cases, error handling, and API scenarios.
 
-Updated for the current context-based coordinator API. Agent endpoints live
-under /v1/agent/*, task endpoints under /v1/swarm/*, and the legacy
-auth/alert/user endpoints are not exercised here.
+Updated for the current context-based coordinator API. The /v1/agent/* and
+/v1/swarm/* mock routers were removed — they fabricated registries and
+responses behind settings.debug. What remains here asserts their honest
+absence plus generic edge-case behavior on real endpoints.
 """
-
-from typing import Any
 
 from starlette.testclient import TestClient
 
 
 class TestEdgeCases:
     """Test edge cases and error paths."""
-
-    def test_agent_registration_invalid_data(self, coordinator_client: TestClient):
-        """Test agent registration with various invalid data."""
-        invalid_cases = [
-            {},
-            {"agent_id": "test"},  # missing public_key
-            {"agent_id": "", "public_key": "key"},
-            {"agent_id": "test", "public_key": "key", "capabilities": []},
-        ]
-        for data in invalid_cases:
-            response = coordinator_client.post("/v1/agent/agents/register", json=data)
-            assert response.status_code in (200, 422, 400)
-
-    def test_agent_status_updates(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
-        """Test agent heartbeat updates."""
-        coordinator_client.post("/v1/agent/agents/register", json=sample_agent_data)
-        response = coordinator_client.post(f"/v1/agent/agents/{sample_agent_data['agent_id']}/heartbeat")
-        assert response.status_code == 200
-
-    def test_agent_discovery(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
-        """Test agent discovery."""
-        coordinator_client.post("/v1/agent/agents/register", json=sample_agent_data)
-        response = coordinator_client.get("/v1/agent/agents")
-        assert response.status_code == 200
-        data = response.json()
-        assert "agents" in data
 
     def test_nonexistent_endpoints(self, coordinator_client: TestClient):
         """Test that nonexistent endpoints return 404."""
@@ -51,93 +24,29 @@ class TestEdgeCases:
         response = coordinator_client.post("/health")
         assert response.status_code in (405, 404)
 
-        response = coordinator_client.get("/v1/agent/agents/register")
-        assert response.status_code in (405, 404)
 
+class TestRemovedMockRouters:
+    """The debug-gated mock routers were deleted — pin their honest absence.
 
-class TestErrorHandling:
-    """Test error handling and edge cases."""
-
-    def test_invalid_json_requests(self, coordinator_client: TestClient):
-        """Test endpoints with invalid JSON data."""
-        endpoints = [
-            ("/v1/agent/agents/register", "POST"),
-            ("/v1/agent/messages/send", "POST"),
-        ]
-
-        for endpoint, method in endpoints:
-            if method == "POST":
-                response = coordinator_client.post(endpoint, json={"invalid": "data"})
-                assert response.status_code in (200, 400, 422, 429)
-
-    def test_malformed_request_data(self, coordinator_client: TestClient):
-        """Test endpoints with malformed request data."""
-        malformed_data = ["", "invalid string", {"nested": {"deeply": {"invalid": "structure"}}}]
-
-        for data in malformed_data:
-            response = coordinator_client.post("/v1/agent/agents/register", json=data)
-            assert response.status_code in (200, 400, 422, 429)
-
-    def test_special_characters_in_ids(self, coordinator_client: TestClient):
-        """Test endpoints with special characters in IDs."""
-        special_ids = ["test@123", "test#123", "test space", "test/123"]
-        for agent_id in special_ids:
-            payload = {"agent_id": agent_id, "public_key": "key", "capabilities": ["test"]}
-            response = coordinator_client.post("/v1/agent/agents/register", json=payload)
-            assert response.status_code in (200, 422)
-
-    def test_very_long_strings(self, coordinator_client: TestClient):
-        """Test endpoints with very long strings."""
-        long_id = "a" * 200
-        payload = {"agent_id": long_id, "public_key": "key", "capabilities": ["test"]}
-        response = coordinator_client.post("/v1/agent/agents/register", json=payload)
-        assert response.status_code in (200, 422)
-
-    def test_numeric_edge_cases(self, coordinator_client: TestClient):
-        """Test endpoints with numeric edge cases."""
-        response = coordinator_client.post("/v1/agent/agents/register", json={"agent_id": 0, "public_key": 1})
-        assert response.status_code in (200, 422)
-
-    def test_boolean_and_null_values(self, coordinator_client: TestClient):
-        """Test endpoints with boolean and null values."""
-        response = coordinator_client.post("/v1/agent/agents/register", json=None)
-        assert response.status_code in (400, 422)
-
-    def test_array_edge_cases(self, coordinator_client: TestClient):
-        """Test endpoints with array edge cases."""
-        response = coordinator_client.post("/v1/agent/agents/register", json=[])
-        assert response.status_code in (400, 422)
-
-
-class TestAdvancedScenarios:
-    """Test advanced integration scenarios."""
-
-    def test_agent_registration_and_heartbeat(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
-        """Test agent registration followed by heartbeat."""
-        response = coordinator_client.post("/v1/agent/agents/register", json=sample_agent_data)
-        assert response.status_code in (200, 201)
-
-        response = coordinator_client.post(f"/v1/agent/agents/{sample_agent_data['agent_id']}/heartbeat")
-        assert response.status_code in (200, 201, 404)
-
-    def test_message_send_after_registration(self, coordinator_client: TestClient, sample_agent_data: dict[str, Any]):
-        """Test message send after agent registration."""
-        coordinator_client.post("/v1/agent/agents/register", json=sample_agent_data)
-
-        message_data = {
-            "sender": sample_agent_data["agent_id"],
-            "recipient": "recipient-agent",
-            "content": "test message",
-            "message_type": "direct",
-        }
-        response = coordinator_client.post("/v1/agent/messages/send", json=message_data)
-        assert response.status_code in (200, 201, 400)
-
-
-class TestLowCoverageModules:
-    """Test modules that historically had low coverage."""
+    These tests run with DEBUG=true (see conftest); a route that only exists
+    under that gate would answer here, so 404 proves removal rather than just
+    production gating.
+    """
 
     def test_swarm_routes_absent(self, coordinator_client: TestClient):
-        """Swarm endpoints were removed — assert the honest 404 everywhere."""
         for path in ("/v1/swarm/tasks/submit", "/v1/swarm/status", "/v1/swarm/nodes"):
+            assert coordinator_client.get(path).status_code == 404
+
+    def test_agent_mock_routes_absent(self, coordinator_client: TestClient):
+        for path in (
+            "/v1/agent/agents",
+            "/v1/agent/messages/some-agent",
+            "/v1/agent/stats",
+            "/v1/agent/health",
+        ):
+            assert coordinator_client.get(path).status_code == 404
+        assert coordinator_client.post("/v1/agent/agents/register", json={}).status_code == 404
+
+    def test_monitor_mock_routes_absent(self, coordinator_client: TestClient):
+        for path in ("/v1/dashboard", "/v1/dashboard/history", "/v1/miners"):
             assert coordinator_client.get(path).status_code == 404
