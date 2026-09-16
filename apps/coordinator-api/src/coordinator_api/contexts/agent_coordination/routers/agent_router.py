@@ -34,7 +34,7 @@ router = APIRouter(tags=["AI Agents"])
 @router.post("/workflows", response_model=AIAgentWorkflow)
 async def create_workflow(
     workflow_data: AgentWorkflowCreate,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AIAgentWorkflow:
     """Create a new AI agent workflow"""
@@ -55,7 +55,7 @@ async def create_workflow(
 @router.get("/workflows", response_model=list[AIAgentWorkflow])
 async def list_workflows(
     tags: list[str] | None,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     owner_id: str | None = None,
     is_public: bool | None = None,
@@ -86,7 +86,7 @@ async def list_workflows(
 async def get_workflow(
     workflow_id: str,
     request: Request,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AIAgentWorkflow:
     """Get a specific agent workflow"""
@@ -112,7 +112,7 @@ async def update_workflow(
     workflow_id: str,
     workflow_data: AgentWorkflowUpdate,
     request: Request,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AIAgentWorkflow:
     """Update an agent workflow"""
@@ -142,7 +142,7 @@ async def update_workflow(
 @router.delete("/workflows/{workflow_id}")
 async def delete_workflow(
     workflow_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, str]:
     """Delete an agent workflow"""
@@ -170,7 +170,7 @@ async def execute_workflow(
     workflow_id: str,
     execution_request: AgentExecutionRequest,
     background_tasks: BackgroundTasks,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AgentExecutionResponse:
     """Execute an AI agent workflow"""
@@ -210,7 +210,7 @@ async def execute_workflow(
 @router.get("/executions/{execution_id}/status", response_model=AgentExecutionStatus)
 async def get_execution_status(
     execution_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AgentExecutionStatus:
     """Get execution status"""
@@ -236,7 +236,7 @@ async def get_execution_status(
 
 @router.get("/executions", response_model=list[AgentExecutionStatus])
 async def list_executions(
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     workflow_id: str | None = None,
     status: AgentStatus | None = None,
@@ -270,7 +270,7 @@ async def list_executions(
 async def cancel_workflow(
     workflow_id: str,
     execution_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Cancel a workflow execution"""
@@ -303,7 +303,7 @@ async def cancel_workflow(
 @router.get("/workflows/{workflow_id}/executions", response_model=list[AgentExecutionStatus])
 async def list_workflow_executions(
     workflow_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     limit: int | None = None,
     offset: int | None = None,
