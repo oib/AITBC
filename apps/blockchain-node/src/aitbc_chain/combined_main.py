@@ -1,6 +1,6 @@
 """
-Combined blockchain node and P2P service launcher
-Runs both the main blockchain node, P2P placeholder service, and HTTP RPC server
+Combined blockchain node and RPC service launcher.
+Runs the main blockchain node (which includes the P2P layer) and the HTTP RPC server.
 """
 
 import asyncio

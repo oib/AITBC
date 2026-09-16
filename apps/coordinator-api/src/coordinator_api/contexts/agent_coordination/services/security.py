@@ -536,7 +536,8 @@ class AgentSandboxManager:
         2. Process monitoring (psutil, /proc filesystem)
         3. Network monitoring (iptables, eBPF)
         4. File system monitoring (inotify, auditd)
-        Currently returning placeholder monitoring data.
+        Until those exist this raises ``NotImplementedError`` (router → 501) rather than
+        serving fabricated zero metrics.
         """
         sandbox = (
             self.session.execute(select(AgentSandboxConfig).where(AgentSandboxConfig.id == f"sandbox_{execution_id}"))
@@ -545,19 +546,10 @@ class AgentSandboxManager:
         )
         if not sandbox:
             raise ValueError(f"Sandbox not found for execution {execution_id}")
-        monitoring_data = {
-            "execution_id": execution_id,
-            "sandbox_type": sandbox.sandbox_type,
-            "security_level": sandbox.security_level,
-            "resource_usage": {"cpu_percent": 0.0, "memory_mb": 0, "disk_mb": 0},
-            "security_events": [],
-            "command_count": 0,
-            "file_access_count": 0,
-            "network_access_count": 0,
-            "status": "configured",
-            "note": "Monitoring requires sandbox runtime integration",
-        }
-        return monitoring_data
+        raise NotImplementedError(
+            "Sandbox runtime monitoring is not implemented — it requires container-runtime, "
+            "process, network, and filesystem integration. No fabricated metrics are served."
+        )
 
     async def cleanup_sandbox(self, execution_id: str) -> bool:
         """Clean up sandbox environment after execution"""
