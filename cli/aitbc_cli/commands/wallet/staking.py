@@ -1,6 +1,7 @@
 """Staking wallet commands"""
 
 import json
+import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from pathlib import Path
@@ -198,12 +199,19 @@ def stake(ctx, amount: Decimal, duration: int):
     rpc_url = _get_rpc_url(ctx)
     chain_id = _get_chain_id(rpc_url)
 
+    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
     amount_seconds = ait_to_units(amount)
+    # The node requires the signed message to carry the account nonce and a
+    # fresh timestamp so a captured signature cannot be replayed later.
+    nonce = _get_account_nonce(http_client, hex_address, chain_id)
+    timestamp = int(time.time())
     sign_data = {
         "address": hex_address.lower().strip(),
         "amount": amount_seconds,
         "chain_id": chain_id,
         "action": "stake",
+        "nonce": nonce,
+        "timestamp": timestamp,
     }
 
     try:
@@ -217,11 +225,12 @@ def stake(ctx, amount: Decimal, duration: int):
         "amount": amount_seconds,
         "lock_days": duration,
         "chain_id": chain_id,
+        "nonce": nonce,
+        "timestamp": timestamp,
         "signature": signature,
     }
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         result = http_client.post("/rpc/staking/stake", json=stake_data)
 
         success(f"Submitted a stake of {amount} {_brand_token_symbol()} for {duration} days")
@@ -280,11 +289,16 @@ def unstake(ctx, stake_id: str):
     except ValueError:
         error(f"Invalid stake ID '{stake_id}': expected the numeric stake_id returned by 'stake'")
         raise click.Abort() from None
+    http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
+    nonce = _get_account_nonce(http_client, hex_address, chain_id)
+    timestamp = int(time.time())
     sign_data = {
         "address": hex_address.lower().strip(),
         "stake_id": stake_id_int,
         "chain_id": chain_id,
         "action": "unstake",
+        "nonce": nonce,
+        "timestamp": timestamp,
     }
 
     try:
@@ -297,11 +311,12 @@ def unstake(ctx, stake_id: str):
         "address": hex_address,
         "stake_id": stake_id_int,
         "chain_id": chain_id,
+        "nonce": nonce,
+        "timestamp": timestamp,
         "signature": signature,
     }
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
         locked_until = None
         block_reason, locked_until = _stake_release_preflight(http_client, hex_address, chain_id, stake_id_int)
         if block_reason:

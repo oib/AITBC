@@ -13,6 +13,7 @@ leap-day boundaries so the endpoint cannot regress to calendar-unaware date math
 from __future__ import annotations
 
 import datetime as real_datetime
+import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
@@ -81,6 +82,11 @@ async def _stake(amount: int = 1000, lock_days: int = 30) -> dict:
             "amount": amount,
             "chain_id": "ait-testnet",
             "lock_days": lock_days,
+            # The signed request must carry the account nonce (0 in the
+            # fixture) and a fresh wall-clock timestamp; signature
+            # verification itself is stubbed in staking_env.
+            "nonce": 0,
+            "timestamp": time.time(),
             "signature": "0x" + "ab" * 65,
         },
     )
