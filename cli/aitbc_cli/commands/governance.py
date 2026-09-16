@@ -181,6 +181,7 @@ def propose(
             proposal_data["proposal_id"] = proposal_id
             proposal_data["proposer_address"] = proposer_address
             http_client, chain_id = _governance_rpc(ctx)
+            proposal_data["chain_id"] = chain_id
             try:
                 height = int(http_client.get(f"/rpc/height?chain_id={chain_id}").get("height", 0))
             except Exception:
@@ -267,6 +268,7 @@ def vote(
             from aitbc.crypto.signature_recovery import canonical_address
 
             http_client, chain_id = _governance_rpc(ctx)
+            vote_data["chain_id"] = chain_id
             account = _get_governance_account(http_client, canonical_address(voter_address), chain_id)
             onchain_power = account.get("balance", 0) or 0
             vote_data["signed_tx"] = _sign_governance_tx(
