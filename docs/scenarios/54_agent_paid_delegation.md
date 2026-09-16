@@ -114,11 +114,13 @@ aitbc agent-task status --task-id <task_id>
 
 ## Notes / limits
 
-- Agent messaging is unauthenticated at the coordinator (`/v1/*` and
-  `/api/v1/agent/messages/*` are public through the hub proxy, same trust
-  level as the rest of the coordinator REST surface). The escrow check is
-  what gates execution — a `TaskRequest` without a real locked escrow that
-  pays the provider is rejected.
+- Agent-messaging authentication at the coordinator is **mode-dependent**
+  (`AGENT_MSG_SIGNATURE_MODE`: `disabled`/`advisory`/`enforce`). In
+  `enforce` mode `/v1/*` and `/api/v1/agent/messages/*` require a resolvable
+  principal and signed envelopes; check the hub's
+  `/etc/aitbc/aitbc-agent-coordinator.env` for the live mode. The escrow
+  check is what gates execution regardless — a `TaskRequest` without a
+  real locked escrow that pays the provider is rejected.
 - `escrow_status` on `GET /v1/tasks/{task_id}/escrow` reflects the
   coordinator's bookkeeping entry; `/rpc/escrow/{job_id}` on the chain is
   the settlement record.

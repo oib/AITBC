@@ -59,7 +59,7 @@ aitbc blockchain status
 Expected output:
 
 ```
-AITBC CLI v0.1.0
+aitbc, version 0.10.18
 Platform: Linux/MacOS
 Architecture: x86_64/arm64
 ✓ CLI installed successfully

@@ -21,25 +21,29 @@ Send a message to a specific agent using a specified communication protocol.
 
 **Endpoint:** `POST /messages/send`
 
-**Request Body:**
+**Request Body** (`SendMessageRequest`, `routers/messages.py`):
 
 ```json
 {
-  "receiver_id": "string (required)",
-  "message_type": "string (required)",
-  "payload": {"string": "any"},
-  "priority": "string (default: normal)",
-  "protocol": "string (default: hierarchical)"
+  "sender": "string (required) — sender agent ID",
+  "recipient": "string (required) — recipient agent ID",
+  "content": {"any": "message content (required)"},
+  "message_type": "direct",
+  "encrypt": true,
+  "priority": "normal",
+  "ttl": 300,
+  "message_id": "optional client ID for idempotent resend",
+  "signer": "optional secp256k1 address (signed-envelope mode)",
+  "signature": "optional 0x-prefixed signature over the envelope",
+  "signature_version": "aitbc-agent-msg-v1",
+  "timestamp": "optional ISO-8601 (covered by the signature)",
+  "nonce": "optional replay-dedup nonce"
 }
 ```
 
-**Parameters:**
-
-- `receiver_id` (required): Target agent ID
-- `message_type` (required): Message type (direct, broadcast, hierarchical, peer_to_peer, etc.)
-- `payload` (required): Message data
-- `priority` (optional): Message priority (low, normal, high, critical)
-- `protocol` (optional): Communication protocol (hierarchical, peer_to_peer, broadcast)
+Signed-envelope semantics and the signature scheme are documented in
+`agent-signed-envelopes.md`. In `AGENT_MSG_SIGNATURE_MODE=enforce` the
+`signer`/`signature`/`timestamp`/`nonce` fields are required.
 
 **Response (200 OK):**
 

@@ -1,5 +1,14 @@
 # CLI Packaging Restructuring Plan
 
+> **⚠️ Historical plan — superseded.** The packaging work this document
+> planned has since landed differently: the canonical command is `aitbc`
+> (`aitbc = aitbc_cli.core.main:main` in `cli/setup.py`, wrapped by
+> `scripts/aitbc-cli` and `/usr/local/bin/aitbc` on live nodes). The
+> `aitbc-cli` console script and `aitbc_cli.main:cli` entry point described
+> below no longer exist; `/opt/aitbc/aitbc-cli` is a dangling symlink kept
+> only for backward compatibility. Keep for the migration rationale; do not
+> follow as a current reference.
+
 **Last Updated:** 2026-05-28
 **Version:** 1.0
 

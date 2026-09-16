@@ -2,617 +2,149 @@
 
 ## Overview
 
-The enhanced AITBC CLI provides comprehensive blockchain exploration tools that allow you to explore the AITBC blockchain directly from the command line. These tools provide the same functionality as the web-based blockchain explorer with additional CLI-specific features.
+The AITBC CLI provides a blockchain explorer command group, `aitbc explorer`,
+that queries the blockchain explorer service (`aitbc-blockchain-explorer`,
+listening on port 8100 by default) over its HTTP API. It covers blocks,
+transactions, per-address lookups, and network analytics.
 
-## 🔍 Blockchain Explorer Command Group
+The target API is configured with the `explorer_api_url` config key
+(default: `http://localhost:8100` — see `cli/aitbc_cli/config.py`).
 
-### Basic Blockchain Exploration
+All commands print their result as JSON to stdout. Most commands accept an
+optional `--chain-id` flag to select a specific chain; when omitted, the
+explorer service's default chain is used.
 
-```bash
-# Get blockchain status and overview
-aitbc blockchain status
+## Command Reference
 
-# Get detailed blockchain information
-aitbc blockchain info
-
-# List recent blocks
-aitbc blockchain blocks --limit 10
-
-# Get specific block details
-aitbc blockchain block <BLOCK_HEIGHT>
-
-# Get transaction details
-aitbc blockchain transaction <TX_ID>
-```
-
-### Advanced Block Exploration
-
-#### Block Listing and Filtering
+### Chain and network
 
 ```bash
-# List latest blocks
-aitbc blockchain blocks --limit 20
+# List supported chains and their basic configuration
+aitbc explorer chains
 
-# List blocks with detailed information
-aitbc blockchain blocks --limit 10 --detailed
+# Get the current chain head and latest block height
+aitbc explorer chain-head
+aitbc explorer chain-head --chain-id ait-mainnet
 
-# List blocks by time range
-aitbc blockchain blocks --since "1 hour ago"
-aitbc blockchain blocks --since "2024-01-01" --until "2024-01-31"
+# Get network-wide statistics for a chain
+aitbc explorer network-stats
+aitbc explorer network-stats --chain-id ait-mainnet
 
-# List blocks by validator
-aitbc blockchain blocks --validator <VALIDATOR_ADDRESS>
-
-# List blocks with transaction count
-aitbc blockchain blocks --show-transactions
+# Daily transaction activity timeline (period: 1h, 24h, 7d, 30d; default 24h)
+aitbc explorer activity-timeline
+aitbc explorer activity-timeline --period 7d --chain-id ait-mainnet
 ```
 
-#### Block Details
+### Blocks
 
 ```bash
-# Get block by height
-aitbc blockchain block 12345
+# List the latest blocks (defaults: --limit 10 --offset 0)
+aitbc explorer latest-blocks
+aitbc explorer latest-blocks --limit 20 --offset 0 --chain-id ait-mainnet
 
-# Get block by hash
-aitbc blockchain block --hash <BLOCK_HASH>
+# List only non-empty blocks
+aitbc explorer non-empty-blocks --limit 20
 
-# Get block with full transaction details
-aitbc blockchain block 12345 --full
+# Get a block by height (required flag)
+aitbc explorer block --height 100
 
-# Get block with validator information
-aitbc blockchain block 12345 --validator-info
+# Get a block by hash (required flag)
+aitbc explorer block-by-hash --block-hash 0x...
+
+# List blocks containing transactions for an address (default --limit 50)
+aitbc explorer blocks-by-address --address 0x... --limit 20
 ```
 
-### Transaction Exploration
-
-#### Transaction Search and Details
+### Transactions
 
 ```bash
-# Get transaction by hash
-aitbc blockchain transaction 0x1234567890abcdef...
+# Get a transaction summary by hash (required flag)
+aitbc explorer transaction --tx-hash 0x...
 
-# Get transaction with full details
-aitbc blockchain transaction <TX_ID> --full
+# Get full transaction details by hash
+aitbc explorer transaction-by-hash --tx-hash 0x...
 
-# Get transaction with receipt information
-aitbc blockchain transaction <TX_ID> --receipt
-
-# Get transaction with block context
-aitbc blockchain transaction <TX_ID> --block-info
+# Search transactions involving an address (default --limit 100)
+aitbc explorer search-transactions --address 0x... --limit 50
 ```
 
-#### Transaction Filtering and Search
+### Addresses and providers
 
 ```bash
-# Search transactions by address
-aitbc blockchain transactions --address <ADDRESS>
+# List top addresses by balance (default --limit 20)
+aitbc explorer top-addresses --limit 50 --chain-id ait-mainnet
 
-# Search transactions by type
-aitbc blockchain transactions --type transfer
-aitbc blockchain transactions --type stake
-aitbc blockchain transactions --type smart_contract
-
-# Search transactions by time range
-aitbc blockchain transactions --since "1 hour ago"
-aitbc blockchain transactions --since "2024-01-01" --until "2024-01-31"
-
-# Search transactions by amount range
-aitbc blockchain transactions --min-amount 1.0 --max-amount 100.0
-
-# Search transactions with pagination
-aitbc blockchain transactions --limit 50 --offset 100
+# Get reputation information for a provider (required flag)
+aitbc explorer provider-reputation --provider-id provider-1
 ```
 
-### Address Exploration
+## Underlying REST API
 
-#### Address Information and Balance
+The CLI commands above are thin wrappers around the explorer service's REST
+API (`apps/blockchain-explorer`, systemd unit `aitbc-blockchain-explorer`,
+port 8100). If you prefer raw HTTP access, the corresponding endpoints are:
+
+| CLI command | Endpoint |
+|---|---|
+| `chain-head` | `GET /api/chain/head` |
+| `chains` | `GET /api/chains` |
+| `latest-blocks` | `GET /api/blocks/latest` |
+| `non-empty-blocks` | `GET /api/blocks/non-empty` |
+| `block --height` | `GET /api/blocks/{height}` |
+| `block-by-hash` | `GET /api/blocks/by-hash/{hash}` |
+| `blocks-by-address` | `GET /api/blocks/by-address/{address}` |
+| `transaction` / `transaction-by-hash` | `GET /api/transactions/by-hash/{hash}` |
+| `search-transactions` | `GET /api/transactions/search` |
+| `activity-timeline` | `GET /api/analytics/activity` |
+| `network-stats` | `GET /api/analytics/network-stats` |
+| `top-addresses` | `GET /api/analytics/top-addresses` |
+| `provider-reputation` | `GET /api/analytics/provider-reputation/{provider_id}` |
+
+The service also exposes `GET /api/analytics/overview`,
+`GET /api/transactions/{tx_hash}`, `GET /api/search/transactions`,
+`GET /api/search/blocks`, `GET /api/export/search`, and
+`GET /api/export/blocks`, which do not currently have dedicated CLI
+subcommands — query them with plain `curl` if needed.
+
+## Related: `aitbc blockchain` (chain management)
+
+`aitbc explorer` is strictly for reading chain data. A separate command
+group, `aitbc blockchain`, manages the chains themselves (multi-chain
+lifecycle and consensus). Its real subcommands are:
 
 ```bash
-# Get address balance
-aitbc blockchain balance <ADDRESS>
-
-# Get address transaction history
-aitbc blockchain address <ADDRESS>
-
-# Get address with detailed information
-aitbc blockchain address <ADDRESS> --detailed
-
-# Get address transaction count
-aitbc blockchain address <ADDRESS> --tx-count
+aitbc blockchain list                 # list chains
+aitbc blockchain status [--chain-id]  # chain status
+aitbc blockchain info --chain-id ...  # chain details
+aitbc blockchain create --config-file ...
+aitbc blockchain delete --chain-id ...
+aitbc blockchain add|remove --chain-id ... --node-id ...
+aitbc blockchain migrate --chain-id ... --from-node ... --to-node ...
+aitbc blockchain backup|restore --chain-id ...
+aitbc blockchain monitor --chain-id ...
+aitbc blockchain sync-status [--chain-id]
+aitbc blockchain start|stop --chain-id ...
+aitbc blockchain instances
+aitbc blockchain consensus status|validators|slashing-history --chain-id ...
+aitbc blockchain height
+aitbc blockchain block <HEIGHT>
 ```
 
-#### Address Analytics
+See `aitbc blockchain --help` for the full option list.
+
+## Removed commands
+
+Earlier versions of this document described CLI features that do not exist
+in the current codebase — including real-time monitoring filters, `--since`/
+`--until` time-range search, `--min-amount` filtering, `--output`/`--format`
+formatting flags, CSV/database export, caching controls, API-proxy mode,
+benchmarks, remote/tunnel access, batch lookups, and compliance/AML
+reporting. None of these are implemented; use the commands listed above
+(filter results with `jq` where needed).
+
+## Help
 
 ```bash
-# Get address transaction history
-aitbc blockchain transactions --address <ADDRESS>
-
-# Get address sent/received statistics
-aitbc blockchain address <ADDRESS> --stats
-
-# Get address first/last transaction
-aitbc blockchain address <ADDRESS> --first-last
-
-# Get address token holdings
-aitbc blockchain address <ADDRESS> --tokens
+aitbc explorer --help
+aitbc explorer <COMMAND> --help
 ```
-
-### Validator Exploration
-
-#### Validator Information
-
-```bash
-# List all validators
-aitbc blockchain validators
-
-# Get validator details
-aitbc blockchain validator <VALIDATOR_ADDRESS>
-
-# Get validator performance
-aitbc blockchain validator <VALIDATOR_ADDRESS> --performance
-
-# Get validator rewards
-aitbc blockchain validator <VALIDATOR_ADDRESS> --rewards
-```
-
-#### Validator Analytics
-
-```bash
-# List active validators
-aitbc blockchain validators --status active
-
-# List validators by stake amount
-aitbc blockchain validators --sort stake --descending
-
-# Get validator statistics
-aitbc blockchain validators --stats
-
-# Get validator uptime
-aitbc blockchain validator <VALIDATOR_ADDRESS> --uptime
-```
-
-### Network Exploration
-
-#### Network Status and Health
-
-```bash
-# Get network overview
-aitbc blockchain network
-
-# Get peer information
-aitbc blockchain peers
-
-# Get network statistics
-aitbc blockchain network --stats
-
-# Get network health
-aitbc blockchain network --health
-```
-
-#### Peer Management
-
-```bash
-# List connected peers
-aitbc blockchain peers
-
-# Get peer details
-aitbc blockchain peers --detailed
-
-# Get peer statistics
-aitbc blockchain peers --stats
-
-# Test peer connectivity
-aitbc blockchain peers --test
-```
-
-### Advanced Search and Analytics
-
-#### Custom Queries
-
-```bash
-# Search blocks with custom criteria
-aitbc blockchain search --type block --validator <ADDRESS> --limit 10
-
-# Search transactions with custom criteria
-aitbc blockchain search --type transaction --address <ADDRESS> --amount-min 1.0
-
-# Search by smart contract
-aitbc blockchain search --type contract --address <CONTRACT_ADDRESS>
-
-# Search by event logs
-aitbc blockchain search --type event --event <EVENT_NAME>
-```
-
-#### Analytics and Reporting
-
-```bash
-# Generate blockchain analytics report
-aitbc blockchain analytics --period 24h
-
-# Generate transaction volume report
-aitbc blockchain analytics --type volume --period 7d
-
-# Generate validator performance report
-aitbc blockchain analytics --type validators --period 30d
-
-# Generate network activity report
-aitbc blockchain analytics --type network --period 1h
-```
-
-## 📊 Real-time Monitoring
-
-### Live Blockchain Monitoring
-
-```bash
-# Monitor new blocks in real-time
-aitbc blockchain monitor blocks
-
-# Monitor transactions in real-time
-aitbc blockchain monitor transactions
-
-# Monitor specific address
-aitbc blockchain monitor address <ADDRESS>
-
-# Monitor validator activity
-aitbc blockchain monitor validator <VALIDATOR_ADDRESS>
-```
-
-### Real-time Filtering
-
-```bash
-# Monitor blocks with filtering
-aitbc blockchain monitor blocks --validator <ADDRESS>
-
-# Monitor transactions with filtering
-aitbc blockchain monitor transactions --address <ADDRESS> --min-amount 1.0
-
-# Monitor with alerts
-aitbc blockchain monitor transactions --alert --threshold 100.0
-```
-
-## 🔧 Configuration and Customization
-
-### Explorer Configuration
-
-```bash
-# Set default explorer settings
-aitbc blockchain config set default-limit 20
-aitbc blockchain config set show-transactions true
-aitbc blockchain config set currency USD
-
-# Show current configuration
-aitbc blockchain config show
-
-# Reset configuration
-aitbc blockchain config reset
-```
-
-### Output Formatting
-
-```bash
-# Format output as JSON
-aitbc blockchain blocks --output json
-
-# Format output as table
-aitbc blockchain blocks --output table
-
-# Format output as CSV
-aitbc blockchain transactions --output csv --file transactions.csv
-
-# Custom formatting
-aitbc blockchain transaction <TX_ID> --format custom --template "Hash: {hash}, Amount: {amount}"
-```
-
-## 🌐 Integration with Web Explorer
-
-### Synchronization with Web Explorer
-
-```bash
-# Sync CLI data with web explorer
-aitbc blockchain sync --explorer https://explorer.aitbc.dev
-
-# Export data for web explorer
-aitbc blockchain export --format json --file explorer_data.json
-
-# Import data from web explorer
-aitbc blockchain import --source https://explorer.aitbc.dev/api
-```
-
-### API Integration
-
-```bash
-# Use CLI as API proxy
-aitbc blockchain api --port 8080  # check-ports: ignore
-
-# Generate API documentation
-aitbc blockchain api --docs
-
-# Test API endpoints
-aitbc blockchain api --test
-```
-
-## 📝 Advanced Usage Examples
-
-### Research and Analysis
-
-```bash
-# Analyze transaction patterns
-aitbc blockchain analytics --type patterns --period 7d
-
-# Track large transactions
-aitbc blockchain transactions --min-amount 1000.0 --output json
-
-# Monitor whale activity
-aitbc blockchain monitor transactions --min-amount 10000.0 --alert
-
-# Analyze validator performance
-aitbc blockchain validators --sort performance --descending --limit 10
-```
-
-### Auditing and Compliance
-
-```bash
-# Audit trail for address
-aitbc blockchain address <ADDRESS> --full --audit
-
-# Generate compliance report
-aitbc blockchain compliance --address <ADDRESS> --period 30d
-
-# Track suspicious transactions
-aitbc blockchain search --type suspicious --amount-min 10000.0
-
-# Generate AML report
-aitbc blockchain aml --address <ADDRESS> --report
-```
-
-### Development and Testing
-
-```bash
-# Test blockchain connectivity
-aitbc blockchain test --full
-
-# Benchmark performance
-aitbc blockchain benchmark --operations 1000
-
-# Validate blockchain data
-aitbc blockchain validate --full
-
-# Debug transaction issues
-aitbc blockchain debug --transaction <TX_ID>
-```
-
-## 🔍 Search Patterns and Examples
-
-### Common Search Patterns
-
-```bash
-# Find all transactions from an address
-aitbc blockchain transactions --address <ADDRESS> --type sent
-
-# Find all transactions to an address
-aitbc blockchain transactions --address <ADDRESS> --type received
-
-# Find transactions between two addresses
-aitbc blockchain transactions --from <ADDRESS_1> --to <ADDRESS_2>
-
-# Find high-value transactions
-aitbc blockchain transactions --min-amount 100.0 --sort amount --descending
-
-# Find recent smart contract interactions
-aitbc blockchain transactions --type smart_contract --since "1 hour ago"
-```
-
-### Complex Queries
-
-```bash
-# Find blocks with specific validator and high transaction count
-aitbc blockchain search --blocks --validator <ADDRESS> --min-tx 100
-
-# Find transactions during specific time period with specific amount range
-aitbc blockchain transactions --since "2024-01-01" --until "2024-01-31" --min-amount 10.0 --max-amount 100.0
-
-# Monitor address for large transactions
-aitbc blockchain monitor address <ADDRESS> --min-amount 1000.0 --alert
-
-# Generate daily transaction volume report
-aitbc blockchain analytics --type volume --period 1d --output csv --file daily_volume.csv
-```
-
-## 🚀 Performance and Optimization
-
-### Caching and Performance
-
-```bash
-# Enable caching for faster queries
-aitbc blockchain cache enable
-
-# Clear cache
-aitbc blockchain cache clear
-
-# Set cache size
-aitbc blockchain config set cache-size 1GB
-
-# Benchmark query performance
-aitbc blockchain benchmark --query "transactions --address <ADDRESS>"
-```
-
-### Batch Operations
-
-```bash
-# Batch transaction lookup
-aitbc blockchain batch-transactions --file tx_hashes.txt
-
-# Batch address lookup
-aitbc blockchain batch-addresses --file addresses.txt
-
-# Batch block lookup
-aitbc blockchain batch-blocks --file block_heights.txt
-```
-
-## 📱 Mobile and Remote Access
-
-### Remote Blockchain Access
-
-```bash
-# Connect to remote blockchain node
-aitbc blockchain remote --node https://node.aitbc.dev
-
-# Use remote explorer API
-aitbc blockchain remote --explorer https://explorer.aitbc.dev
-
-# SSH tunnel for secure access
-aitbc blockchain tunnel --ssh user@server --port 8202
-```
-
-### Mobile Optimization
-
-```bash
-# Mobile-friendly output
-aitbc blockchain blocks --mobile --limit 5
-
-# Compact output for mobile
-aitbc blockchain transaction <TX_ID> --compact
-
-# Quick status check
-aitbc blockchain status --quick
-```
-
-## 🔗 Integration with Other Tools
-
-### Data Export and Integration
-
-```bash
-# Export to CSV for Excel
-aitbc blockchain transactions --output csv --file transactions.csv
-
-# Export to JSON for analysis
-aitbc blockchain blocks --output json --file blocks.json
-
-# Export to database
-aitbc blockchain export --database postgresql --connection-string "postgres://user:<DB_PASSWORD>@localhost/aitbc"
-
-# Integrate with Elasticsearch
-aitbc blockchain export --elasticsearch --url http://localhost:9200
-```
-
-### Scripting and Automation
-
-```bash
-#!/bin/bash
-# Script to monitor large transactions
-for tx in $(aitbc blockchain transactions --min-amount 1000.0 --output json | jq -r '.[].hash'); do
-    echo "Large transaction detected: $tx"
-    aitbc blockchain transaction $tx --full
-done
-
-# Script to track address activity
-aitbc blockchain monitor address <ADDRESS> --format json | while read line; do
-    echo "New activity: $line"
-    # Send notification or trigger alert
-done
-```
-
-## 🛠️ Troubleshooting and Debugging
-
-### Common Issues and Solutions
-
-```bash
-# Check blockchain connectivity
-aitbc blockchain test --connectivity
-
-# Debug transaction lookup
-aitbc blockchain debug --transaction <TX_ID> --verbose
-
-# Check data integrity
-aitbc blockchain validate --integrity
-
-# Reset corrupted cache
-aitbc blockchain cache clear --force
-
-# Check API endpoints
-aitbc blockchain api --status
-```
-
-### Performance Issues
-
-```bash
-# Check query performance
-aitbc blockchain benchmark --query "blocks --limit 100"
-
-# Optimize cache settings
-aitbc blockchain config set cache-size 2GB
-aitbc blockchain config set cache-ttl 3600
-
-# Monitor resource usage
-aitbc blockchain monitor --resources
-```
-
-## 📚 Best Practices
-
-### For Researchers
-
-1. **Use filters effectively** to narrow down search results
-2. **Export data** for offline analysis
-3. **Use caching** for repeated queries
-4. **Monitor real-time** for time-sensitive analysis
-5. **Document queries** for reproducibility
-
-### For Developers
-
-1. **Use JSON output** for programmatic access
-2. **Test connectivity** before running complex queries
-3. **Use batch operations** for multiple lookups
-4. **Monitor performance** for optimization
-5. **Handle errors gracefully** in scripts
-
-### For Analysts
-
-1. **Use analytics commands** for insights
-2. **Export to CSV/Excel** for reporting
-3. **Set up monitoring** for ongoing analysis
-4. **Use alerts** for important events
-5. **Validate data** before making decisions
-
-## 🆕 Migration from Web Explorer
-
-If you're transitioning from the web-based explorer:
-
-| Web Explorer Feature | CLI Equivalent |
-|---------------------|----------------|
-| Block listing | `aitbc blockchain blocks --limit 20` |
-| Transaction search | `aitbc blockchain transaction <TX_ID>` |
-| Address lookup | `aitbc blockchain address <ADDRESS>` |
-| Validator info | `aitbc blockchain validator <ADDRESS>` |
-| Real-time updates | `aitbc blockchain monitor blocks` |
-| Advanced search | `aitbc blockchain search --type <TYPE>` |
-
-## 📞 Support and Help
-
-### Command Help
-
-```bash
-# General help
-aitbc blockchain --help
-
-# Specific command help
-aitbc blockchain blocks --help
-aitbc blockchain transaction --help
-aitbc blockchain search --help
-```
-
-### Troubleshooting
-
-```bash
-# Check system status
-aitbc blockchain status --full
-
-# Test all functionality
-aitbc blockchain test --comprehensive
-
-# Generate diagnostic report
-aitbc blockchain diagnose --export diagnostic.json
-```
-
----
-
-*This guide covers all AITBC CLI blockchain explorer tools for comprehensive blockchain exploration and analysis.*

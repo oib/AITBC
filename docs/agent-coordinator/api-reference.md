@@ -46,15 +46,24 @@ curl http://localhost:8107/health
 
 ## Rate Limiting
 
-Currently, rate limiting is not implemented. Future versions may include rate limiting to prevent abuse.
+Per-route rate limits are enforced via `aitbc.rate_limiting.rate_limit`:
+
+- `POST /api/v1/agent/messages/send` — 50/min
+- inbox/history/discover/task-submit routes — 50–200/min (see per-route
+  decorators in `routers/`)
+
+Exceeding a limit returns `429`.
 
 ## WebSocket Support
 
-WebSocket support is planned for future releases to provide real-time updates on:
+Implemented — two streams under `/api/v1/agent/` (nginx-proxied at
+`/agent/api/v1/agent/` on the hub):
 
-- Agent status changes
-- Task distribution events
-- Load balancer metrics updates
+- `WS /api/v1/agent/messages/stream` — real-time agent messaging
+- `WS /api/v1/agent/presence/stream` — presence/tracking updates
+- `GET /api/v1/agent/ws/status` — WebSocket layer status (auth-gated)
+
+See `routers/websocket.py` for the handshake and auth requirements.
 
 ## OpenAPI Specification
 

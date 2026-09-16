@@ -16,10 +16,10 @@ This guide covers common deployment issues and their solutions.
 journalctl -u aitbc-blockchain-node -n 50
 
 # Check configuration
-systemctl status aitbc-blockchain
+systemctl status aitbc-blockchain-node
 
 # Restart service
-systemctl restart aitbc-blockchain
+systemctl restart aitbc-blockchain-node
 ```
 
 ## Database Connection Issues
@@ -56,8 +56,9 @@ ss -ltnp | grep 5432
 # Check port usage
 netstat -tulpn | grep 8202
 
-# Kill process using port
-kill -9 $(lsof -t -i:8202)
+# The port is held by the systemd unit — stop it via systemd, not kill
+# (kill -9 on a Restart=always unit just respawns it mid-write)
+systemctl stop aitbc-blockchain-rpc
 ```
 
 ## Permission Issues
