@@ -23,9 +23,16 @@ ufw allow from 192.168.1.0/24 to any port 8107
 
 ### Current Status
 
-- **Future implementation:** API key authentication and JWT tokens
-- **Current status:** No authentication (open access)
-- **Recommendation:** Deploy behind reverse proxy with authentication
+- **Implemented:** API-key and JWT support via the shared `aitbc/auth`
+  library; signed message envelopes (`aitbc-agent-msg-v1`).
+- **Mode-dependent:** `AGENT_MSG_SIGNATURE_MODE`
+  (`disabled`/`advisory`/`enforce` in
+  `/etc/aitbc/aitbc-agent-coordinator.env`) controls whether mutating calls
+  require a resolvable credential. In `enforce`, unauthenticated calls get
+  `401`/`403` and `POST /v1/tasks/submit` runs `authorize_any_principal`.
+- **Deployment:** the service binds `127.0.0.1:8107`; remote callers go
+  through the hub nginx `/agent/` proxy (TLS + allow-list), which is the
+  intended access control.
 
 ## Data Encryption
 

@@ -1,10 +1,13 @@
 # AITBC CLI Permission Setup Guide
 
-**⚠️ DEPRECATED: This document describes sudoers configuration for non-root development. Since AITBC services run as root, sudo is not required.**
+**⚠️ DEPRECATED: This document describes sudoers configuration for non-root development.**
 
-All AITBC services run as `User=root` in their systemd service files. Operations should be performed directly as root without sudo.
+All AITBC services run as `User=aitbc` (Hermes as `aitbc-hermes`) in their
+canonical systemd units — **not** root. Operations on the services use
+`systemctl` as root/sudo, but the daemons themselves do not run as root.
 
-The content below is preserved for reference but is not applicable to the current deployment architecture.
+The content below is preserved for reference but is not applicable to the
+current deployment architecture.
 
 ---
 

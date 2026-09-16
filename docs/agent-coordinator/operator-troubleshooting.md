@@ -60,7 +60,7 @@ redis-cli SMEMBERS agents:active
 1. Register an agent:
 
 ```bash
-aitbc agent create --name test-agent --type worker
+aitbc agent create --name test-agent --type general
 aitbc agent register --agent-id test-agent
 ```
 

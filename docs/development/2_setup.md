@@ -46,8 +46,9 @@ sudo systemctl start postgresql redis-server
 # Run the setup script for a local node
 sudo ./scripts/deployment/setup.sh
 
-# Or start a specific service manually from its app directory
-python -m apps.blockchain-node.src.aitbc_chain.main
+# Or start a specific service manually (module paths use the installed
+# packages inside the repo venv, not the hyphenated app directories)
+/opt/aitbc/venv/bin/python -m aitbc_chain.main
 ```
 
 ### 4. Verify Setup
