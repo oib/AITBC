@@ -61,8 +61,8 @@ def _agent_api_base() -> str:
 
     - `AGENT_COORDINATOR_URL` / `HERMES_COORDINATOR_URL` are an *origin*, so the router
       prefix is appended. A hub sets these to its own localhost.
-    - `HUB_AGENT_URL` / `HUB_HERMES_URL` are the hub's *mounted base*, prefix included —
-      the same precedence and default `execute` uses when it forwards to the hub.
+    - `HUB_AGENT_URL` is the hub's *mounted base*, prefix included — the same
+      precedence and default `execute` uses when it forwards to the hub.
     """
     local = os.getenv("AGENT_COORDINATOR_URL") or os.getenv("HERMES_COORDINATOR_URL")
     if local:
@@ -73,7 +73,7 @@ def _agent_api_base() -> str:
     hub = hub_agent_url()
     if not hub:
         raise RuntimeError(
-            "No hub agent URL configured. Set HUB_AGENT_URL, HUB_HERMES_URL, or HUB_DISCOVERY_URL "
+            "No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL "
             "in /etc/aitbc/blockchain.env or /etc/aitbc/node.env."
         )
     return hub
@@ -291,15 +291,16 @@ def execute(ctx, request_id):
                     "Error: No hub agent URL configured. Set HUB_AGENT_URL or HUB_DISCOVERY_URL in /etc/aitbc/blockchain.env."
                 )
                 return
-            # FOLLOWER_API_KEY first: it is the one an island is meant to hold, published in
-            # the public bootstrap file and scoped to /register and /execute. The other two
-            # also open the agent WebSocket and coordinator-api's miner endpoints, so they
-            # belong to hub operators only and are accepted here as a fallback (V23-68).
+            # FOLLOWER_API_KEY first: it is the one an island follower is meant to hold,
+            # provisioned in the node's blockchain.env and scoped to /register and /execute.
+            # The other two also open the agent WebSocket and coordinator-api's miner
+            # endpoints, so they belong to hub operators only and are accepted here as a
+            # fallback (V23-68).
             api_key = os.getenv("FOLLOWER_API_KEY") or os.getenv("COORDINATOR_API_KEY") or os.getenv("SECRET_KEY")
             if not api_key:
                 click.echo("Error: No GENESIS_PRIVATE_KEY locally and no API key set.")
-                click.echo("Followers: FOLLOWER_API_KEY comes from the hub's public bootstrap file,")
-                click.echo("  /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.")
+                click.echo("Followers: FOLLOWER_API_KEY is provisioned by the hub operator")
+                click.echo("  in /etc/aitbc/blockchain.env. Do not use COORDINATOR_API_KEY on a follower.")
                 return
             base_url = f"{hub_url.rstrip('/')}/coin-requests"
             execute_url = f"{base_url}/execute"

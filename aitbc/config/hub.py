@@ -84,13 +84,21 @@ def hub_service_url(path: str) -> str | None:
 def hub_agent_url() -> str | None:
     """Where the hub's agent API is mounted.
 
-    ``HUB_AGENT_URL`` / ``HUB_HERMES_URL`` are already a full base (prefix
-    included). Otherwise the path is built from ``HUB_DISCOVERY_URL``.
+    ``HUB_AGENT_URL`` is already a full base (prefix included). Otherwise the
+    path is built from ``HUB_DISCOVERY_URL``. The mount is ``/agent``: nginx
+    serves the whole coordinator surface under it — ``/agent/v1/`` (registry),
+    ``/agent/api/v1/agent/`` (legacy doubled paths), and ``/agent/<resource>/``
+    short aliases — so every call-site convention resolves, whether it appends
+    the full internal path, ``/v1/...``, or a short ``/messages/send``-style
+    path. The previous default (``/api/v1/agent``) only worked for the last of
+    those and produced ``/api/v1/agent/api/v1/agent/...`` for the rest.
+    ``HUB_HERMES_URL`` is no longer consulted: it names the Hermes runner
+    service (``/api/v1/hermes``), not the agent-coordinator.
     """
-    explicit = os.getenv("HUB_AGENT_URL") or os.getenv("HUB_HERMES_URL")
+    explicit = os.getenv("HUB_AGENT_URL")
     if explicit:
         return explicit.rstrip("/")
-    return hub_service_url("api/v1/agent")
+    return hub_service_url("agent")
 
 
 def hub_exchange_url() -> str | None:

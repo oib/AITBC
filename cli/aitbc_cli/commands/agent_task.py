@@ -52,9 +52,10 @@ def _coordinator_url(ctx, coordinator_url: str | None) -> str:
     # Every call site in this module carries its own absolute path
     # (``/v1/...``, ``/api/v1/agent/messages/...``), and nginx mounts those at
     # the origin root — so reduce the configured URL to scheme://host[:port].
-    # ``get_config().agent_coordinator_url`` resolves via ``hub_agent_url()``,
-    # which includes the ``/api/v1/agent`` prefix and would produce doubled
-    # paths like ``/api/v1/agent/v1/agents/...`` (routed to the gateway → 401).
+    # ``get_config().agent_coordinator_url`` resolves via ``hub_agent_url()``
+    # to the ``/agent`` mount; appending absolute paths onto it would produce
+    # ``/agent/v1/agents/...`` (registry mount, wrong surface) instead of the
+    # root-mounted ``/api/v1/agent/...`` route.
     return origin_base_url(url, DEFAULT_COORDINATOR_URL)
 
 

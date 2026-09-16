@@ -32,9 +32,9 @@ from aitbc_chain.metadata import chain_metadata
 
 CHAIN_ID = "ait-test.example.net"
 
-# The shape the hub actually publishes at /agent/genesis.json: no top-level `genesis_hash`,
-# the values live under `block`. The loader falls back to `block.hash`, and a test that
-# invented a flatter file would pass while the real file failed.
+# The shape of the hub's real genesis file (provisioned out of band; no top-level
+# `genesis_hash`, the values live under `block`). The loader falls back to `block.hash`,
+# and a test that invented a flatter file would pass while the real file failed.
 GENESIS_FILE = {
     "chain_id": CHAIN_ID,
     "block": {
