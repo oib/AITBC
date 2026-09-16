@@ -162,12 +162,21 @@ def test_governance_execute_rejects_set_governance_address_json_payload(session)
     """The same rejection applies when the payload arrives as a JSON string."""
     chain_id = "ait-test"
     _seed_accounts(session, chain_id)
-    tx = _gov_tx_with_action(
-        EXECUTOR_KEY,
-        chain_id,
-        {"action": "set_governance_address", "address": "0x" + "ab" * 20},
-    )
-    tx["payload"] = json.dumps(tx["payload"])
+    tx_data = {
+        "amount": 0,
+        "value": 0,
+        "fee": DEFAULT_TX_FEE_UNITS,
+        "nonce": 0,
+        "type": "GOVERNANCE_EXECUTE",
+        "chain_id": chain_id,
+        "payload": json.dumps(
+            {
+                "proposal_id": "prop-1",
+                "execution_payload": {"action": "set_governance_address", "address": "0x" + "ab" * 20},
+            }
+        ),
+    }
+    tx = _make_tx(EXECUTOR_KEY, tx_data)
     st = StateTransition()
     ok, msg = st.apply_transaction(session, chain_id, tx, "tx_gov_sga_json")
     assert not ok
