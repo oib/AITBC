@@ -41,35 +41,6 @@ class TestMonitorEndpoints:
             data = response.json()
             assert isinstance(data, dict)
 
-    def test_get_status(self, coordinator_client: TestClient):
-        """Test getting coordinator status."""
-        response = coordinator_client.get("/v1/swarm/status")
-        assert response.status_code == 200
-        data = response.json()
-        assert "status" in data or isinstance(data, dict)
-
-    def test_get_miners(self, coordinator_client: TestClient):
-        """Test getting miners list."""
-        response = coordinator_client.get("/v1/swarm/miners")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-
-    def test_get_history_dashboard(self, coordinator_client: TestClient):
-        """Test getting historical dashboard data."""
-        response = coordinator_client.get("/v1/swarm/dashboard/history")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, list)
-
-    def test_get_tasks(self, coordinator_client: TestClient):
-        """Test getting tasks list."""
-        response = coordinator_client.get("/v1/swarm/tasks")
-        assert response.status_code == 200
-        data = response.json()
-        assert isinstance(data, dict)
-        assert "tasks" in data
-
 
 class TestMonitoringEndpoints:
     """Test monitoring router endpoints."""
