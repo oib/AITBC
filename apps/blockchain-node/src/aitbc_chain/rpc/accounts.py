@@ -12,6 +12,7 @@ from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
+from ..aux_state import serialize_aux_rows
 from ..base_models import ChainParameter
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
@@ -201,6 +202,10 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
         # bond_slash_authority) but sit outside the account state root — ship
         # them alongside the snapshot or followers silently diverge.
         parameters = session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
+        # Side-effect tables (stake/bond/governance_*) are written by RPC and
+        # tx paths but sit outside the account state root — the snapshot
+        # carries them all or follower-local reads silently diverge.
+        aux = serialize_aux_rows(session, chain_id)
         return {
             "chain_id": chain_id,
             "account_count": len(accounts),
@@ -208,6 +213,7 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
             "chain_parameters": [
                 {"parameter": p.parameter, "value": p.value, "proposal_id": p.proposal_id} for p in parameters
             ],
+            "aux_state": aux["tables"],
             "accounts": [
                 {
                     "address": acc.address,
@@ -291,6 +297,24 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             for p in session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
         ]
 
+        # Side-effect tables ship only rows touched inside the synced range.
+        # The cutoff leans back by sync_aux_lookback_seconds because rows are
+        # written at RPC-submit time — before their tx seals — and to absorb
+        # clock skew. Missing from-block ⇒ ship everything (upserts are
+        # idempotent). Over the row cap ⇒ caller must fall back to a full
+        # snapshot rather than apply a partial table.
+        from datetime import timedelta
+
+        aux_changed_since = None
+        if from_block is not None and from_block.timestamp is not None:
+            aux_changed_since = from_block.timestamp - timedelta(seconds=settings.sync_aux_lookback_seconds)
+        aux = serialize_aux_rows(session, chain_id, changed_since=aux_changed_since, max_rows=settings.sync_aux_max_rows)
+        if aux["truncated"]:
+            return {
+                "error": "auxiliary state tables exceed sync_aux_max_rows — falling back",
+                "fallback": "full_sync",
+            }
+
         # If no touched addresses found (no transactions), there is no meaningful
         # state delta. A block that changed state without touching any transaction
         # sender/recipient cannot be expressed as a delta without historical state.
@@ -309,6 +333,7 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
                     "to_state_root": to_state_root,
                     "account_count": 0,
                     "chain_parameters": chain_parameters,
+                    "aux_state": aux["tables"],
                 }
             return {
                 "error": f"State changed between {from_height} and {to_height} without touched transactions",
@@ -348,4 +373,5 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             "to_state_root": to_state_root,
             "account_count": len(diff.changes),
             "chain_parameters": chain_parameters,
+            "aux_state": aux["tables"],
         }
