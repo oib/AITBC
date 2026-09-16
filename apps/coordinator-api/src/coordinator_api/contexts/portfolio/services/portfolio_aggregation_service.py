@@ -232,8 +232,10 @@ class PortfolioAggregationService:
             total_aitbc_balance = wallet_data.get("total_balance", len(wallets))
             rates = exchange_data.get("rates", {})
             # Exchange returns flat {"AITBC::ETH": <float>} — AITBC priced in ETH.
-            aitbc_eth_rate = float(rates.get("AITBC::ETH", 1e-05))
-            eth_value = total_aitbc_balance * aitbc_eth_rate
+            # When the exchange is unreachable there is no rate: report nulls
+            # rather than pricing the balance off a hardcoded fallback.
+            aitbc_eth_rate = float(rates["AITBC::ETH"]) if rates.get("AITBC::ETH") is not None else None
+            eth_value = total_aitbc_balance * aitbc_eth_rate if aitbc_eth_rate is not None else None
             marketplace_offers = marketplace_data.get("offers", 0)
             marketplace_capacity = marketplace_data.get("capacity", 0)
             # Trading analytics puts the counters at top level.
