@@ -12,6 +12,7 @@ from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
+from ..base_models import ChainParameter
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
@@ -196,10 +197,17 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
         state_manager = StateManager()
         account_dict = {acc.address: acc for acc in accounts}
         state_root = state_manager.compute_state_root(account_dict)
+        # Chain parameters are consensus-relevant state (governance_executors,
+        # bond_slash_authority) but sit outside the account state root — ship
+        # them alongside the snapshot or followers silently diverge.
+        parameters = session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
         return {
             "chain_id": chain_id,
             "account_count": len(accounts),
             "state_root": f"0x{state_root.hex()}",
+            "chain_parameters": [
+                {"parameter": p.parameter, "value": p.value, "proposal_id": p.proposal_id} for p in parameters
+            ],
             "accounts": [
                 {
                     "address": acc.address,
@@ -274,6 +282,15 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             if tx.recipient:
                 touched_addresses.add(tx.recipient)
 
+        # Consensus-relevant non-account state (chain_parameter holds
+        # governance_executors / bond_slash_authority) is outside the account
+        # state root, so it never appears in a diff — ship the current rows on
+        # every delta response or followers silently diverge.
+        chain_parameters = [
+            {"parameter": p.parameter, "value": p.value, "proposal_id": p.proposal_id}
+            for p in session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
+        ]
+
         # If no touched addresses found (no transactions), there is no meaningful
         # state delta. A block that changed state without touching any transaction
         # sender/recipient cannot be expressed as a delta without historical state.
@@ -291,6 +308,7 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
                     "from_state_root": from_state_root,
                     "to_state_root": to_state_root,
                     "account_count": 0,
+                    "chain_parameters": chain_parameters,
                 }
             return {
                 "error": f"State changed between {from_height} and {to_height} without touched transactions",
@@ -329,4 +347,5 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             "from_state_root": from_state_root,
             "to_state_root": to_state_root,
             "account_count": len(diff.changes),
+            "chain_parameters": chain_parameters,
         }
