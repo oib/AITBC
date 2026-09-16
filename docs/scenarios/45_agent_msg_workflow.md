@@ -56,7 +56,7 @@ Operators and agents need to verify that the Agent Coordinator is reachable and 
 
 ### Setup Required
 
-- The Agent Coordinator reachable at some URL (default `http://localhost:8107`; on the hub set `--coordinator-url http://127.0.0.1:8107` because the configured `agent_coordinator_url` may point at an old `/api/v1/hermes` path)
+- The Agent Coordinator reachable at some URL (default `http://localhost:8107`; off the hub, `agent_coordinator_url` resolves to `https://<hub>/agent` — the nginx mount that serves the full coordinator surface)
 - For WebSocket ping, an API key that the coordinator accepts (set with `aitbc --api-key ...`, `COORDINATOR_API_KEY`, or `SECRET_KEY` in the environment)
 - Two agent IDs to use as sender and recipient (they do not need to be registered first; the coordinator treats unknown IDs as offline)
 

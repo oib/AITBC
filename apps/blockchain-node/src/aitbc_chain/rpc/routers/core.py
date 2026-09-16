@@ -303,14 +303,15 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
             f"WebSocket at {subscribe_url}. Extend the lease with POST {base_url}/rpc/heartbeat."
         ),
         "bootstrap": {
-            "blockchain_env_url": f"{base_url}/agent/blockchain.env",
-            "genesis_json_url": f"{base_url}/agent/genesis.json",
+            # Public bootstrap is intentionally not served (V23-58): the hub's
+            # env files carry key material, so blockchain.env and genesis.json
+            # are provisioned out of band by the hub operator.
             "docs_url": f"{base_url}/agent/openapi.json",
+            "provisioning": "out_of_band",
         },
         "join": {
             "steps": [
-                f"curl -o /etc/aitbc/blockchain.env {base_url}/agent/blockchain.env",
-                f"curl -o /etc/aitbc/genesis.json {base_url}/agent/genesis.json",
+                "Obtain blockchain.env and genesis.json from the hub operator and place them in /etc/aitbc/",
                 "Create /etc/aitbc/node.env with a unique NODE_ID",
                 f"Set default_peer_rpc_url={base_url} in node.env",
                 f"Start aitbc-blockchain-node.service and register at {base_url}/rpc/subscribe",

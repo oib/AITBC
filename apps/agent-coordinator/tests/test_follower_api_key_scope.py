@@ -1,12 +1,13 @@
 """A key that is safe to publish, and the boundary that makes it safe (V23-68).
 
 Followers need to call `/register` and `/execute` without holding a hub credential, so the
-hub publishes a key in its bootstrap file at `/agent/blockchain.env` — a file anyone can read.
-That is fine for a key which reaches only those two endpoints: `/execute` takes the amount and
-destination from the stored row (V23-62), and `/register` writes rows the coin-request policy has
-ruled on (V23-67). Neither will pay outside the policy however loudly it is asked.
+hub operator provisions a follower-scoped key in each node's `blockchain.env` (out of band —
+there is no public bootstrap endpoint; V23-58). That is fine for a key which reaches only
+those two endpoints: `/execute` takes the amount and destination from the stored row (V23-62),
+and `/register` writes rows the coin-request policy has ruled on (V23-67). Neither will pay
+outside the policy however loudly it is asked.
 
-`COORDINATOR_API_KEY` was published in that file, and it is not that kind of key. It also
+`COORDINATOR_API_KEY` was once distributed the same way, and it is not that kind of key. It also
 authenticates the agent WebSocket, where `agent_id` is a query parameter and the key is the
 only check — so it connects as *any* agent and reaches `request_coins_handler`, which signs
 and submits on the spot rather than writing a row. And `require_miner_api_key` falls back to
@@ -184,7 +185,7 @@ def test_an_empty_configured_key_is_not_a_skeleton_key(monkeypatch) -> None:
 def test_the_published_file_is_not_a_place_for_the_hub_key() -> None:
     """The documentation of the rule, kept next to the code that depends on it.
 
-    `docs/ops/` describes which key goes in the public bootstrap file. If that guidance is
+    `docs/ops/` describes which key is safe to distribute to followers. If that guidance is
     ever removed, this fails and whoever removed it has to decide deliberately.
     """
     guidance = os.path.join(os.path.dirname(__file__), "..", "..", "..", "docs", "ops", "follower-api-key.md")
