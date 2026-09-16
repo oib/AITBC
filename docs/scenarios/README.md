@@ -114,6 +114,10 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 | `aitbc exchange-island` | exchange service (8106) | `(Simulated)` | exchange not reachable |
 | `aitbc ipfs` | local Kubo daemon | filesystem CID shim | Kubo daemon not running |
 | `aitbc tee` | coordinator TEE API + simulated quotes | simulated attestation path only | no SGX/SEV/TPM hardware in the fleet; hardware-backed TEE deferred to release 2.0 (`9079fb74a` deregistered the group briefly; `87c5f2df16` re-registered it) |
+| `aitbc dispute` | blockchain RPC (`--node-url`) | no | — |
+| `aitbc energy` | `IEnergyPricing` contract over `EVM_RPC_URL` | no — fails closed (`EVM RPC URL not configured`) | no EVM endpoint configured |
+| `aitbc coin-requests` | agent/coordinator service + chain tx on `execute` | no | — |
+| `aitbc economics` | coordinator `/v1/economic-proposals` (`propose`/`vote`/`status`, auth-gated) | `market`/`model`/`distributed` return `status: simulated` | — |
 | `aitbc simulate` | — | always simulated | explicit simulation |
 
 Scenario files that touch these groups include a note near the top. Live product-path scenarios (e.g. 34, 07, 48) produce real on-chain/coordinator data when the services are running.
@@ -168,3 +172,7 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 53 | [Customer and Shop Dashboards](./53_dashboards.md) | P1.2 live customer/shop dashboards via `aitbc dashboard` | `aitbc dashboard customer`, `aitbc dashboard shop` |
 || 54 | [Paid Agent-to-Agent Delegation](./54_agent_paid_delegation.md) | Buyer agent hires a provider agent: `agent-msg` negotiation + on-chain escrow | `aitbc agent-task` |
 | 50 | [Default Whisper, FFmpeg, and Ollama Shop Offers](./50_default_shop_offers.md) | Shop auto-publishes default software offers and customers run jobs with `aitbc market` | `aitbc market` |
+|| 55 | [Dispute Lifecycle](./55_dispute_lifecycle.md) | File a dispute on an agreement, attach evidence, arbitrate, resolve the escrow | `aitbc dispute` |
+|| 56 | [Energy Pricing & Provider Registry](./56_energy_pricing.md) | GPU energy profiles, on-chain energy floor, operator quote verification | `aitbc energy` (EVM_RPC_URL-gated) |
+|| 57 | [Coin Requests](./57_coin_requests.md) | New-node initial coin grant: request → operator approve/reject → execute → reconcile | `aitbc coin-requests` |
+|| 58 | [Economics & OpenClaw DAO](./58_economics_dao.md) | Economic-parameter proposals and votes via the coordinator | `aitbc economics` |
