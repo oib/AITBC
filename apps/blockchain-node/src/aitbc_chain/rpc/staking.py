@@ -7,7 +7,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request
-from sqlmodel import select
+from sqlmodel import func, select
 
 from aitbc.rate_limiting import rate_limit
 
@@ -455,7 +455,6 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
     proposal_id = vote_data.get("proposal_id")
     voter_address = vote_data.get("voter_address")
     vote_type = vote_data.get("vote_type", "for")
-    voting_power = vote_data.get("voting_power", 0)
     reason = vote_data.get("reason")
     if not proposal_id or not voter_address:
         raise HTTPException(status_code=400, detail="proposal_id and voter_address are required")
@@ -463,6 +462,18 @@ async def cast_governance_vote(request: Request, vote_data: dict[str, Any]) -> d
     if not voter_address.startswith("0x"):
         voter_address = "0x" + voter_address
     with session_scope() as session:
+        # Voting power is the voter's active stake on this chain — the
+        # request-supplied value is never trusted.
+        voting_power = int(
+            session.exec(
+                select(func.coalesce(func.sum(Stake.amount), 0)).where(
+                    Stake.chain_id == chain_id,
+                    Stake.address == voter_address,
+                    Stake.status == "active",
+                )
+            ).one()
+            or 0
+        )
         proposal = session.exec(
             select(GovernanceProposal).where(
                 GovernanceProposal.chain_id == chain_id, GovernanceProposal.proposal_id == proposal_id

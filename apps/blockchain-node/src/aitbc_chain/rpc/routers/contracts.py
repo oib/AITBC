@@ -5,11 +5,12 @@ Contracts router.
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
 from ...logger import get_logger
+from ..escrow_routes import verify_rpc_api_key
 
 _logger = get_logger(__name__)
 
@@ -52,7 +53,7 @@ except ImportError as e:
     _logger.error("Contracts module not available: %s — affected endpoints will return 503", e)
 
 
-@router.post("/deploy/messaging", summary="Deploy messaging contract")
+@router.post("/deploy/messaging", summary="Deploy messaging contract", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def deploy_messaging_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
     """Deploy the agent messaging contract to the blockchain"""
@@ -70,7 +71,7 @@ async def list_contracts_route(request: Request) -> dict[str, Any]:
     return await list_contracts(request)  # type: ignore[no-any-return]
 
 
-@router.post("/deploy", summary="Deploy a smart contract")
+@router.post("/deploy", summary="Deploy a smart contract", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def deploy_contract_route(request: Request, deploy_data: dict) -> dict[str, Any]:
     """Deploy a new smart contract to the blockchain"""
@@ -118,7 +119,7 @@ async def get_forum_topics_route(
     return await get_forum_topics(request, limit, offset, sort_by)  # type: ignore[no-any-return]
 
 
-@router.post("/messaging/topics/create", summary="Create forum topic")
+@router.post("/messaging/topics/create", summary="Create forum topic", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def create_forum_topic_route(request: Request, topic_data: dict) -> dict[str, Any]:
     """Create a new forum topic"""
@@ -138,7 +139,7 @@ async def get_topic_messages_route(
     return await get_topic_messages(request, topic_id, limit, offset, sort_by)  # type: ignore[no-any-return]
 
 
-@router.post("/messaging/messages/post", summary="Post message")
+@router.post("/messaging/messages/post", summary="Post message", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def post_message_route(request: Request, message_data: dict) -> dict[str, Any]:
     """Post a message to a forum topic"""
@@ -147,7 +148,7 @@ async def post_message_route(request: Request, message_data: dict) -> dict[str, 
     return await post_message(request, message_data)  # type: ignore[no-any-return]
 
 
-@router.post("/messaging/messages/{message_id}/vote", summary="Vote on message")
+@router.post("/messaging/messages/{message_id}/vote", summary="Vote on message", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def vote_message_route(request: Request, message_id: str, vote_data: dict) -> dict[str, Any]:
     """Vote on a message (upvote/downvote)"""
@@ -174,7 +175,9 @@ async def get_agent_reputation_route(request: Request, agent_id: str) -> dict[st
     return await get_agent_reputation(request, agent_id)  # type: ignore[no-any-return]
 
 
-@router.post("/messaging/messages/{message_id}/moderate", summary="Moderate message")
+@router.post(
+    "/messaging/messages/{message_id}/moderate", summary="Moderate message", dependencies=[Depends(verify_rpc_api_key)]
+)
 @rate_limit(rate=50, per=60)
 async def moderate_message_route(request: Request, message_id: str, moderation_data: dict) -> dict[str, Any]:
     """Moderate a message (moderator only)"""

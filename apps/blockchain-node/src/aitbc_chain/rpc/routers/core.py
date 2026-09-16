@@ -5,7 +5,7 @@ Core blockchain router.
 from datetime import UTC, datetime
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 from sqlalchemy import func
 from sqlmodel import select
 
@@ -29,6 +29,7 @@ from ..blocks import get_block, get_blocks_range, get_genesis_allocations, get_h
 from ..chains import ChainActionRequest, ChainActionResponse, list_chains, start_chain, stop_chain
 from ..gossip import GetLogsRequest, GetLogsResponse, get_logs
 from ..sync import export_chain, force_sync, get_sync_config, import_chain
+from ..escrow_routes import verify_rpc_api_key
 from ..transactions import (
     TransactionRequest,
     query_transactions,
@@ -319,7 +320,7 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
     }
 
 
-@router.post("/importBlock", summary="Import a block")
+@router.post("/importBlock", summary="Import a block", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def import_block_route(request: Request, block_data: dict) -> dict[str, Any]:
     """Import a block into the blockchain"""
@@ -488,13 +489,13 @@ async def get_logs_route(request: Request, logs_request: GetLogsRequest, chain_i
     return await get_logs(request, logs_request, chain_id)  # type: ignore[no-any-return]
 
 
-@router.post("/chains/start", summary="Start a secondary chain (v0.6.4)")
+@router.post("/chains/start", summary="Start a secondary chain (v0.6.4)", dependencies=[Depends(verify_rpc_api_key)])
 async def start_chain_route(request: ChainActionRequest) -> ChainActionResponse:
     """Start a secondary chain instance via MultiChainManager"""
     return await start_chain(request)
 
 
-@router.post("/chains/stop", summary="Stop a secondary chain (v0.6.4)")
+@router.post("/chains/stop", summary="Stop a secondary chain (v0.6.4)", dependencies=[Depends(verify_rpc_api_key)])
 async def stop_chain_route(request: ChainActionRequest) -> ChainActionResponse:
     """Stop a secondary chain instance via MultiChainManager"""
     return await stop_chain(request)

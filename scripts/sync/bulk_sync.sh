@@ -3,7 +3,7 @@
 # AITBC Bulk Sync Script
 # Detects large sync differences and performs bulk synchronization
 
-set -e
+set -euo pipefail
 
 # Configuration.
 #
@@ -42,6 +42,14 @@ YELLOW='\033[1;33m'
 RED='\033[0;31m'
 NC='\033[0m' # No Color
 
+# /rpc/importBlock requires X-API-Key (GAP-56); resolve from env or the node secrets file.
+RPC_API_KEY="${BLOCKCHAIN_RPC_API_KEY:-}"
+if [ -z "$RPC_API_KEY" ] && [ -r /etc/aitbc/blockchain-secrets.env ]; then
+    RPC_API_KEY=$(grep -E '^BLOCKCHAIN_RPC_API_KEY=' /etc/aitbc/blockchain-secrets.env | head -1 | cut -d= -f2- | tr -d "\"'" || true)
+fi
+RPC_KEY_ARGS=()
+[ -n "$RPC_API_KEY" ] && RPC_KEY_ARGS=(-H "X-API-Key: $RPC_API_KEY")
+
 # Function to get blockchain height
 get_height() {
     local url=$1
@@ -53,6 +61,7 @@ import_block() {
     local block_data=$1
     curl -s -X POST "http://localhost:$LOCAL_PORT/rpc/importBlock" \
         -H "Content-Type: application/json" \
+        "${RPC_KEY_ARGS[@]}" \
         -d "$block_data" | jq -r .accepted 2>/dev/null || echo "false"
 }
 

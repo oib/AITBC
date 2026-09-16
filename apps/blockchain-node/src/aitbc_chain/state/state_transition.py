@@ -311,7 +311,7 @@ def get_block_version_for_height(height: int) -> int:
 # Address fields the staking RPCs put the authorized party under: consensus
 # staking signs {"address": ...}; agent staking is operator-signed with the
 # user under "user_address" (or "staker_address").
-_AUTH_ADDRESS_FIELDS = ("address", "user_address", "staker_address")
+_AUTH_ADDRESS_FIELDS = ("address", "user_address", "staker_address", "creator_address")
 
 
 def _payload_auth_named_addresses(message: dict[str, Any]) -> set[str]:
@@ -345,30 +345,37 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
       ``stake_id``/``agent_stake_id``; for locks the field is optional (the
       consensus-staking row id is assigned after signing) but must match
       when both sides carry it.
+    - bounty: ``BOUNTY_LOCK`` binds the creator and ``reward_amount``;
+      ``BOUNTY_REFUND`` binds the refunded payee; ``BOUNTY_PAYOUT`` is
+      operator-signed and the payee is resolved server-side, so it binds
+      ``submission_id`` instead. ``bounty_id`` must match whenever the
+      signed message carries it.
     """
     payload = tx_data.get("payload") or {}
-    if tx_type == "STAKE_LOCK":
+    if tx_type in ("STAKE_LOCK", "BOUNTY_LOCK"):
         party = tx_data.get("from")
         expected_action = "stake"
-    elif tx_type == "STAKE_RELEASE":
+    elif tx_type in ("STAKE_RELEASE", "BOUNTY_REFUND"):
         party = tx_data.get("to")
         expected_action = "unstake"
+    elif tx_type == "BOUNTY_PAYOUT":
+        party = None
+        expected_action = ""
     else:
         return False
-    if not party:
-        return False
-    try:
-        bound_party = _to_ait_address(str(party))
-    except (TypeError, ValueError):
-        return False
-    if bound_party not in _payload_auth_named_addresses(message):
-        return False
+    if party:
+        try:
+            bound_party = _to_ait_address(str(party))
+        except (TypeError, ValueError):
+            return False
+        if bound_party not in _payload_auth_named_addresses(message):
+            return False
     if message.get("chain_id") is not None and str(message.get("chain_id")) != str(tx_data.get("chain_id")):
         return False
     if "action" in message and message.get("action") != expected_action:
         return False
-    if tx_type == "STAKE_LOCK":
-        amount = message.get("amount", message.get("additional_amount"))
+    if tx_type in ("STAKE_LOCK", "BOUNTY_LOCK"):
+        amount = message.get("amount", message.get("additional_amount", message.get("reward_amount")))
         value = tx_data.get("value", tx_data.get("amount", 0))
         try:
             if amount is None or int(amount) != int(value):
@@ -382,6 +389,18 @@ def _payload_auth_binds_transfer(tx_type: str, message: dict[str, Any], tx_data:
             return False
     elif msg_stake is not None and tx_stake is not None and str(msg_stake) != str(tx_stake):
         return False
+    msg_bounty = message.get("bounty_id")
+    tx_bounty = payload.get("bounty_id")
+    if tx_type == "BOUNTY_LOCK":
+        if msg_bounty is None or tx_bounty is None or str(msg_bounty) != str(tx_bounty):
+            return False
+    elif msg_bounty is not None and tx_bounty is not None and str(msg_bounty) != str(tx_bounty):
+        return False
+    if tx_type == "BOUNTY_PAYOUT":
+        msg_sub = message.get("submission_id")
+        tx_sub = payload.get("submission_id")
+        if msg_sub is None or tx_sub is None or str(msg_sub) != str(tx_sub):
+            return False
     return True
 
 
@@ -548,7 +567,7 @@ class StateTransition:
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
                 return (False, f"Invalid signature for transaction {tx_hash}")
-        if tx_type in ("STAKE_LOCK", "STAKE_RELEASE"):
+        if tx_type in ("STAKE_LOCK", "STAKE_RELEASE", "BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND"):
             auth = (tx_data.get("payload") or {}).get("auth")
             if auth is not None and not self._verify_payload_auth(tx_type, auth, tx_data):
                 return (False, f"Invalid payload auth signature for transaction {tx_hash}")
