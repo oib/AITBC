@@ -23,10 +23,10 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Any agent
 
 Follower nodes do **not** connect to a separate P2P port. Instead, they use the **lease-based subscription system** over the hub's RPC endpoint:
 
-1. **Register**: Follower sends `POST /rpc/subscribe` to the hub's base URL (`https://hub.aitbc.bubuit.net`) to register and obtain a lease
+1. **Register**: Follower sends `POST /rpc/subscribe` with `X-API-Key` (the node's own `BLOCKCHAIN_RPC_API_KEY`, which the hub accepts via its `BLOCKCHAIN_RPC_API_KEY_PEERS` list) to register and obtain a lease
 2. **Receive blocks**: Follower opens a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for real-time block push
-3. **Heartbeat**: Follower periodically sends `POST /rpc/heartbeat` to extend the lease
-4. **Bulk catch-up**: If the follower falls behind, it uses `POST /rpc/sync` to pull blocks in batches via HTTP
+3. **Heartbeat**: Follower periodically sends `POST /rpc/heartbeat` (same `X-API-Key`) to extend the lease
+4. **Bulk catch-up**: Automatic — when no lease is held the sync manager falls back to pull-sync on its own; an operator can force a reorg with `POST /rpc/force-sync` (admin-signed body, not the API key)
 
 The hub's `aitbc-blockchain-p2p` service (port 7070) is an internal gossip relay for the hub's own services and is **not used by followers**.
 
@@ -165,13 +165,13 @@ journalctl -u aitbc-blockchain-node.service -f | grep -i "subscribe\|lease\|webs
 The subscription system automatically pushes new blocks to followers. For initial catch-up or manual sync:
 
 ```bash
-# Trigger bulk sync with hub
-curl -X POST http://localhost:8202/rpc/sync \
-  -H "Content-Type: application/json" \
-  -d '{"peer":"https://hub.aitbc.bubuit.net"}'
-
-# Monitor sync progress
+# Catch-up is automatic (pull-sync when no lease is held). Monitor it:
 watch -n 5 'curl -s http://localhost:8202/rpc/head | jq .height'
+
+# Operator reorg onto the hub's chain (admin-signed, not API-key):
+curl -X POST http://localhost:8202/rpc/force-sync \
+  -H "Content-Type: application/json" \
+  -d '{"peer_url": "https://hub.aitbc.bubuit.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
 ## agent Agent Setup
@@ -180,10 +180,9 @@ watch -n 5 'curl -s http://localhost:8202/rpc/head | jq .height'
 
 ```bash
 # Register agent on the open island
-NODE_URL=https://hub.aitbc.bubuit.net/ aitbc-cli agent create \
+NODE_URL=https://hub.aitbc.bubuit.net/ aitbc agent create \
   --name "agent-test-agent" \
-  --description "agent agent testing on open island" \
-  --verification full
+  --type general
 ```
 
 ### Cross-Node Communication
@@ -194,9 +193,9 @@ Quick reference:
 
 ```bash
 # Send test message to hub
-NODE_URL=https://hub.aitbc.bubuit.net/ aitbc-cli agent message \
-  --agent hub-coordinator \
-  --message '{"cmd":"TEST_JOIN","node":"test-node"}' \
+NODE_URL=https://hub.aitbc.bubuit.net/ aitbc agent-msg send \
+  '{"cmd":"TEST_JOIN","node":"test-node"}' \
+  --to-agent hub-coordinator \
   --wallet agent-agent
 ```
 
@@ -249,10 +248,10 @@ grep default_peer_rpc_url /etc/aitbc/node.env
 curl http://localhost:8202/rpc/head
 curl https://hub.aitbc.bubuit.net/rpc/head
 
-# Force re-sync
-curl -X POST http://localhost:8202/rpc/sync \
+# Force re-sync (reorg onto the hub's chain — admin-signed)
+curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"peer":"https://hub.aitbc.bubuit.net","force":true}'
+  -d '{"peer_url": "https://hub.aitbc.bubuit.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
 ## Network Security

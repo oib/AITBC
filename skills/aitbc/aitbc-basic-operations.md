@@ -15,7 +15,7 @@ Activate when user requests basic AITBC operations: CLI validation, wallet opera
 Test and validate AITBC basic CLI functionality, core blockchain operations, wallet operations, and service connectivity.
 
 ## Prerequisites
-- AITBC CLI accessible at `/opt/aitbc/aitbc-cli`
+- AITBC CLI accessible as `aitbc` (`/usr/local/bin/aitbc`)
 - Python venv activated for CLI operations
 - Services running on ports 8203 (coordinator), 8106 (exchange), 8202 (blockchain RPC), 8102 (marketplace), 8108 (wallet)
 - Working directory: `/opt/aitbc`
@@ -31,7 +31,7 @@ systemctl list-units --state=running | grep aitbc
 source /opt/aitbc/venv/bin/activate && pip list | grep -E "fastapi|click|uvicorn"
 
 # Verify CLI accessible
-/opt/aitbc/aitbc-cli --version
+aitbc version
 
 # Check service health endpoints
 curl -s http://localhost:8202/health
@@ -59,34 +59,37 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 ### CLI Validation
 ```bash
 # Check CLI version
-cd /opt/aitbc && ./aitbc-cli --version
+aitbc version
 
 # Check CLI help
-cd /opt/aitbc && ./aitbc-cli --help
+aitbc --help
 ```
 
 ### Wallet Operations
 ```bash
 # List wallets
-cd /opt/aitbc && ./aitbc-cli list
+aitbc wallet list
 
 # Check wallet balance
-cd /opt/aitbc && ./aitbc-cli balance --name genesis
+aitbc wallet balance --name genesis
 
 # Create test wallet
-cd /opt/aitbc && ./aitbc-cli create --name test-wallet --password "test123"
+aitbc wallet create --name test-wallet
 ```
 
 ### Blockchain Operations
 ```bash
-# Get blockchain info
-cd /opt/aitbc && ./aitbc-cli chain
+# Get blockchain status
+aitbc blockchain status
+
+# Get blockchain height
+aitbc blockchain height
 
 # Get network status
-cd /opt/aitbc && ./aitbc-cli network
+aitbc network status
 
 # Get analytics
-cd /opt/aitbc && ./aitbc-cli analytics --type blocks --limit 10
+aitbc analytics summary
 ```
 
 ### Service Health Checks
@@ -169,7 +172,7 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 
 ## Common Pitfalls
 
-1. **CLI Not Found:** Ensure `/opt/aitbc/aitbc-cli` exists and is executable
+1. **CLI Not Found:** Ensure `aitbc` is on PATH (`/usr/local/bin/aitbc` exists and is executable)
 2. **Wallet Not Found:** Check wallet name spelling, verify keystore directory at `/var/lib/aitbc/keystore/`
 3. **Service Unreachable:** Verify services are running: `systemctl status aitbc-*`
 4. **Port Mismatch:** Coordinator API is on port 8203 (not 9000 or 9001)
@@ -186,27 +189,20 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 
 ## CLI Entry Point
 
-**Canonical CLI:** `/opt/aitbc/aitbc-cli` (wrapper script)
+**Canonical CLI:** `aitbc` (`/usr/local/bin/aitbc`, a shell wrapper exec'ing `python -m aitbc_cli.core.main` inside `/opt/aitbc/venv`)
 
-This is the single CLI entry point for all AITBC operations. The wrapper script loads `cli/unified_cli.py` automatically.
-
-**Direct Python Invocation:** `python3 cli/unified_cli.py`
-
-Use direct Python invocation for:
-- Marketplace operations (GPU provider registration, trading)
-- GPU testing and Ollama operations
-- Specific module features requiring direct access
+This is the single CLI entry point for all AITBC operations.
 
 **Usage Examples:**
 ```bash
-# Standard operations (use wrapper)
-/opt/aitbc/aitbc-cli balance --name genesis
-/opt/aitbc/aitbc-cli chain
-/opt/aitbc/aitbc-cli network
+# Standard operations
+aitbc wallet balance --name genesis
+aitbc blockchain status
+aitbc network status
 
-# Marketplace/GPU operations (use direct Python)
-python3 cli/unified_cli.py market gpu-provider-register --wallet genesis --gpu-model llama2
-python3 cli/unified_cli.py ollama gpu-test --wallet genesis --model llama2
+# Marketplace/GPU operations
+aitbc gpu register --gpu-id <gpu_id>
+aitbc market offer --service-type ollama --model-or-variant llama2 --price 1.0
 ```
 
 ---

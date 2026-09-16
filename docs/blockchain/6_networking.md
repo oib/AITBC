@@ -19,13 +19,13 @@ ufw allow 8202/tcp
 ufw allow 8203/tcp
 
 # Allow Exchange port
-ufw allow 8001/tcp
+ufw allow 8106/tcp
 
 # Allow Marketplace port
 ufw allow 8102/tcp
 
 # Allow Wallet port
-ufw allow 8015/tcp
+ufw allow 8108/tcp
 
 # Allow from specific IPs
 ufw allow from 10.0.0.0/8 to any port 8202

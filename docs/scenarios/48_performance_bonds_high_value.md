@@ -171,10 +171,11 @@ aitbc bond appeal --bond-id <bond-id> --reason "dispute"
 
 ## Notes
 
-- On-chain bond locking, slashing, and release are not yet implemented in the
-  current state transition layer; the `ProviderBond` record is the source of
-  truth for eligibility in this slice. Escrowed payment and reputation still
-  provide the economic deterrent.
+- On-chain bond locking, slashing, and release are handled in the state
+  transition layer (`BOND_LOCK`/`BOND_RELEASE`/`BOND_SLASH` via
+  `_handle_bond_transaction`); the `ProviderBond` record tracks eligibility
+  for this slice. Escrowed payment and reputation still provide the
+  economic deterrent.
 - Set `COORDINATOR_BOND_HIGH_VALUE_THRESHOLD=0` to require a bond for every job,
   or `-1` to disable the automatic high-value gate.
 - The `aitbc bond appeal` command posts to `/v1/governance/slash-appeals` and
