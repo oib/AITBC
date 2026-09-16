@@ -4,16 +4,22 @@ Settlement router.
 
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
 from ...config import settings
 from ...logger import get_logger
+from ..escrow_routes import verify_rpc_api_key
 
 _logger = get_logger(__name__)
 
-router = APIRouter(prefix="/bridge/settlement", tags=["settlement"])
+# The mutating endpoints on this router move or mark real escrow funds
+# (refund/dispute/resolve act on escrow_id alone), and the perimeter only
+# allowlists /rpc/escrow/ — so the whole router requires X-API-Key, the
+# same control escrow_routes applies. Fail-closed: when
+# BLOCKCHAIN_RPC_API_KEY is unset every route returns 503.
+router = APIRouter(prefix="/bridge/settlement", tags=["settlement"], dependencies=[Depends(verify_rpc_api_key)])
 
 
 @router.post("/create", summary="Create cross-chain escrow")
@@ -146,6 +152,13 @@ async def refund_escrow_route(escrow_id: str) -> dict[str, Any]:
         return await service.refund(escrow_id)
     except HTTPException:
         raise
+    except ValueError as e:
+        # Refund refused in the escrow's current state: unknown id (404),
+        # already terminal, or the HTLC timelock height has not matured yet
+        # (409 — the caller/sweeper may retry).
+        detail = str(e)
+        code = 404 if "not found" in detail else 409
+        raise HTTPException(status_code=code, detail=detail) from e
     except Exception as e:
         _logger.error("Refund escrow failed: %s", e)
         _logger.exception("Unhandled exception")
@@ -190,6 +203,8 @@ async def get_escrow_status_route(escrow_id: str) -> dict[str, Any]:
         return {"escrow_id": escrow_id, "status": status}
     except HTTPException:
         raise
+    except ValueError as e:
+        raise HTTPException(status_code=404, detail=str(e)) from e
     except Exception as e:
         _logger.error("Get escrow status failed: %s", e)
         _logger.exception("Unhandled exception")

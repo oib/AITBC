@@ -504,3 +504,231 @@ class TestSettlementService:
         assert not sm.is_terminal(HTLCState.FUNDED)
 
     # -- get_escrow / get_escrow_status ------------------------------------
+
+
+# ---------------------------------------------------------------------------
+# Refund terminality — a failed HTLC refund must not fabricate terminal state
+# ---------------------------------------------------------------------------
+
+
+class TestRefundTerminality:
+    """The sweeper's wall-clock timeout fires ``margin_blocks`` before the
+    HTLC's block-height timelock matures, so ``refund_swap`` legitimately
+    raises ``ValueError("Swap timelock not yet expired")`` on the first sweep.
+    The old code swallowed that, substituted a simulated tx hash, and marked
+    the escrow REFUNDED — terminal — while the funds stayed locked forever.
+    The record must stay non-terminal so the next tick retries, and a
+    never-locked escrow must report ``tx_hash=None`` rather than a
+    fabricated hash.
+    """
+
+    def _service(self):
+        from aitbc_chain.cross_chain.settlement import CrossChainSettlementService
+
+        return CrossChainSettlementService(chain_id="ait-hub")
+
+    def _record(self, **overrides) -> CrossChainEscrowRecord:
+        from datetime import UTC, datetime
+
+        rec = CrossChainEscrowRecord(
+            escrow_id="esc_refund",
+            trade_id="trade_refund",
+            source_chain="ait-hub",
+            dest_chain="ait-island-1",
+            sender="alice",
+            recipient="bob",
+            amount=100,
+            asset="native",
+            status="locked",
+            secret_hash="ab" * 32,
+            secret=generate_secret(),
+            source_timelock=10_070,
+            dest_timelock=8_000,
+            timeout_seconds=3600,
+            created_at=datetime.now(UTC),
+            locked_at=datetime.now(UTC),
+            source_lock_tx_hash="swap-1",
+        )
+        for key, value in overrides.items():
+            setattr(rec, key, value)
+        return rec
+
+    async def test_not_yet_expired_refund_stays_non_terminal(self, mock_session):
+        """Timelock not matured → ValueError propagates, no REFUNDED, no proof."""
+        mock_session.add(self._record())
+        mock_session.add(
+            HTLCSwapState(
+                swap_id="swap-1",
+                initiator="alice",
+                participant="bob",
+                amount=100,
+                hashlock="cd" * 32,
+                timelock=10_070,  # mock head is 10_000 — 70 blocks early
+                status="open",
+            )
+        )
+        with pytest.raises(ValueError, match="not refundable yet"):
+            await self._service().refund("esc_refund")
+        assert mock_session.escrows["esc_refund"].status == "locked"
+        assert mock_session.proofs == []
+
+    async def test_never_locked_timeout_refunds_honestly(self, mock_session):
+        """A pending escrow that never locked has nothing on-chain to refund:
+        terminal REFUNDED is fine, but tx_hash/proof must be null, not
+        simulated."""
+        mock_session.add(self._record(source_lock_tx_hash=None, status="pending"))
+        result = await self._service().refund("esc_refund")
+        assert result["status"] == "refunded"
+        assert result["tx_hash"] is None
+        assert result["release_proof"] is None
+        assert mock_session.proofs == []
+
+    async def test_check_timeouts_counts_only_real_refunds(self, mock_session):
+        """An expired-but-unmatured escrow must not appear in the refunded
+        list — the monitor would otherwise log a refund that never ran."""
+        from datetime import UTC, datetime, timedelta
+
+        old = datetime.now(UTC) - timedelta(seconds=3700)
+        mock_session.add(self._record(created_at=old, locked_at=old))
+        mock_session.add(
+            HTLCSwapState(
+                swap_id="swap-1",
+                initiator="alice",
+                participant="bob",
+                amount=100,
+                hashlock="cd" * 32,
+                timelock=10_070,
+                status="open",
+            )
+        )
+        refunded = await self._service().check_timeouts()
+        assert refunded == []
+        assert mock_session.escrows["esc_refund"].status == "locked"
+
+
+# ---------------------------------------------------------------------------
+# Router auth — the settlement prefix moves funds and must not be public
+# ---------------------------------------------------------------------------
+
+
+class TestSettlementRouterAuth:
+    """/rpc/bridge/settlement/* was reachable with no credentials while the
+    sibling /rpc/escrow/ router required X-API-Key. The router now carries the
+    same dependency; without the configured key every route must 403."""
+
+    @pytest.fixture
+    def client(self, monkeypatch):
+        import aitbc_chain.rpc.escrow_routes as escrow_routes
+        from aitbc_chain.rpc.routers.settlement import router as settlement_router
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        monkeypatch.setattr(escrow_routes, "_RPC_API_KEY", "test-key-123")
+        app = FastAPI()
+        app.include_router(settlement_router, prefix="/rpc")
+        return TestClient(app)
+
+    def test_mutating_routes_reject_missing_key(self, client):
+        for method, path in [
+            ("post", "/rpc/bridge/settlement/esc_x/refund"),
+            ("post", "/rpc/bridge/settlement/esc_x/dispute"),
+            ("post", "/rpc/bridge/settlement/esc_x/resolve"),
+            ("post", "/rpc/bridge/settlement/esc_x/lock"),
+        ]:
+            resp = getattr(client, method)(path, json={} if "dispute" in path or "resolve" in path else None)
+            assert resp.status_code == 403, f"{method} {path} → {resp.status_code}"
+
+    def test_read_routes_reject_missing_key(self, client):
+        for path in [
+            "/rpc/bridge/settlement/esc_x",
+            "/rpc/bridge/settlement/esc_x/status",
+            "/rpc/bridge/settlement/esc_x/proofs",
+        ]:
+            resp = client.get(path)
+            assert resp.status_code == 403, f"GET {path} → {resp.status_code}"
+
+    def test_wrong_key_rejected(self, client):
+        resp = client.post("/rpc/bridge/settlement/esc_x/refund", headers={"X-API-Key": "nope"})
+        assert resp.status_code == 403
+
+    def test_valid_key_reaches_handler(self, client):
+        """With the key, the request passes auth and reaches the handler —
+        the exact downstream code depends on the test env's DB (404 on a
+        provisioned node, 500 here); anything but 403 proves auth ran."""
+        resp = client.post("/rpc/bridge/settlement/esc_x/refund", headers={"X-API-Key": "test-key-123"})
+        assert resp.status_code != 403
+
+
+# ---------------------------------------------------------------------------
+# SDK verify_proof_chain — verified locally, not by trusting the server
+# ---------------------------------------------------------------------------
+
+
+class TestClientProofChainVerification:
+    """``client.verify_proof_chain`` previously returned ``data.get("valid",
+    False)`` — the route never emits ``valid``/``errors``, so every chain
+    reported invalid-with-no-reason. The SDK now runs
+    ``aitbc.settlement.proofs.verify_proof_chain`` on the wire proofs."""
+
+    def _wire(self, proof) -> dict:
+        from aitbc.settlement.proofs import proof_to_dict
+
+        return {"id": 1, "escrow_id": "e", **proof_to_dict(proof)}
+
+    def _valid_chain(self) -> list[dict]:
+        from aitbc.settlement.proofs import (
+            build_execution_proof,
+            build_lock_proof,
+            build_release_proof,
+            build_settlement_proof,
+            build_verification_proof,
+            compute_proof_hash,
+        )
+
+        lock = build_lock_proof("src", "0xl", 100, "alice", "bob", 10, "0xb10", timestamp=1.0)
+        ver = build_verification_proof("dst", "0xv", "e", 20, "0xb20", previous_proof_hash=compute_proof_hash(lock), timestamp=2.0)
+        exe = build_execution_proof("dst", "0xx", "e", 21, "0xb21", previous_proof_hash=compute_proof_hash(ver), timestamp=3.0)
+        rel = build_release_proof("dst", "0xr", "e", 22, "0xb22", previous_proof_hash=compute_proof_hash(exe), timestamp=4.0)
+        stl = build_settlement_proof("src", "0xs", "e", 11, "0xb11", previous_proof_hash=compute_proof_hash(rel), timestamp=5.0)
+        return [self._wire(p) for p in (lock, ver, exe, rel, stl)]
+
+    async def test_valid_chain_verifies(self):
+        from unittest.mock import AsyncMock
+
+        from aitbc.settlement.client import SettlementClient
+
+        client = SettlementClient()
+        client.get_proofs = AsyncMock(return_value={"escrow_id": "e", "proofs": self._valid_chain()})
+        result = await client.verify_proof_chain("e")
+        assert result == {"valid": True, "errors": []}
+
+    async def test_tampered_chain_reports_errors(self):
+        from unittest.mock import AsyncMock
+
+        from aitbc.settlement.client import SettlementClient
+
+        chain = self._valid_chain()
+        chain[2]["tx_hash"] = "0xforged"  # breaks the hash link to proof 3
+        client = SettlementClient()
+        client.get_proofs = AsyncMock(return_value={"escrow_id": "e", "proofs": chain})
+        result = await client.verify_proof_chain("e")
+        assert result["valid"] is False
+        assert any("previous_proof_hash" in e for e in result["errors"])
+
+    async def test_empty_chain_is_invalid(self):
+        from unittest.mock import AsyncMock
+
+        from aitbc.settlement.client import SettlementClient
+
+        client = SettlementClient()
+        client.get_proofs = AsyncMock(return_value={"escrow_id": "e", "proofs": []})
+        result = await client.verify_proof_chain("e")
+        assert result["valid"] is False
+        assert result["errors"]
+
+    def test_client_sends_api_key_from_env(self, monkeypatch):
+        from aitbc.settlement.client import SettlementClient
+
+        monkeypatch.setenv("BLOCKCHAIN_RPC_API_KEY", "env-key-9")
+        client = SettlementClient()
+        assert client._ensure_client().headers.get("x-api-key") == "env-key-9"
