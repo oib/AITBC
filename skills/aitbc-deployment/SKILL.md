@@ -17,19 +17,25 @@ After repo restructure, systemd service files and wrapper scripts moved from `sy
 | Coordinator API | `apps/coordinator-api/aitbc-coordinator-api.service` |
 | Blockchain Node | `apps/blockchain-node/aitbc-blockchain-node.service` |
 | Blockchain RPC | `apps/blockchain-node/aitbc-blockchain-rpc.service` |
-| Blockchain P2P | `apps/blockchain-node/aitbc-blockchain-p2p.service` |
-| Blockchain Sync | `apps/blockchain-node/aitbc-blockchain-sync.service` |
-| Agent | `apps/agent/aitbc-agent.service` |
-| Explorer | `apps/blockchain-explorer/aitbc-explorer.service` |
-| Exchange | `apps/exchange/aitbc-exchange-api.service` |
+| Blockchain P2P (hub only) | `apps/blockchain-node/aitbc-blockchain-p2p.service` |
+| Hermes Agent | `apps/hermes_agent/aitbc-hermes-agent.service` |
+| Explorer | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` |
+| Exchange | `apps/exchange/aitbc-exchange.service` |
 | Wallet | `apps/wallet/aitbc-wallet.service` |
 | AI Engine | `apps/ai-engine/aitbc-ai.service` |
-| GPU Service | `apps/gpu-service/aitbc-gpu.service` |
-| Marketplace | `apps/marketplace-service/aitbc-marketplace.service` |
+| GPU Service | `apps/gpu/aitbc-gpu.service` |
+| Marketplace | `apps/marketplace/aitbc-marketplace.service` |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` |
-| Plugin | `scripts/utils/aitbc-plugin.service` |
-| Monitoring | `scripts/monitoring/aitbc-monitoring.service` |
+| Governance | `apps/governance/aitbc-governance.service` |
+| Miner | `apps/miner/aitbc-miner.service` |
+| Trading | `apps/trading/aitbc-trading.service` |
+| Monitoring | `apps/monitoring-service/aitbc-monitoring.service` |
+
+> **Removed:** `aitbc-blockchain-sync.service`, `apps/agent/aitbc-agent.service`,
+> `aitbc-explorer.service` (→ `aitbc-blockchain-explorer`), `aitbc-exchange-api`
+> (→ `aitbc-exchange`), and `scripts/utils/aitbc-plugin.service` no longer exist.
+> Sync is handled inside `aitbc-blockchain-node` via lease subscription.
 
 > **Removed:** `apps/agent-management` no longer exists in the checkout. Agent registry/SDK and lifecycle functionality now live in the CLI (`aitbc agent`, `cli/aitbc_cli/commands/agent_sdk.py`) and `apps/agent-coordinator`. There is no `aitbc-agent-registry.service` to deploy.
 
@@ -55,10 +61,10 @@ systemctl daemon-reload && systemctl start aitbc-coordinator-api
 curl http://localhost:8203/health
 ```
 
-### Production Miner
+### Miner
 ```bash
-ln -sf /opt/aitbc/apps/ai-engine/aitbc-production-miner.service /etc/systemd/system/
-systemctl daemon-reload && systemctl start aitbc-production-miner
+ln -sf /opt/aitbc/apps/miner/aitbc-miner.service /etc/systemd/system/
+systemctl daemon-reload && systemctl start aitbc-miner
 ```
 **Requires:** Ollama on port 11434. Without nvidia-smi runs CPU-only.
 

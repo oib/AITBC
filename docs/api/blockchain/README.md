@@ -2,13 +2,14 @@
 
 The Blockchain Node API provides access to blockchain operations including block queries, transaction submission, and network status.
 
-**Note:** This API uses an RPC-style interface with the `/rpc/` prefix for all endpoints, not the REST-style `/v1/` prefix.
+**Note:** The canonical mount is the RPC-style `/rpc/` prefix. The same router is also mounted under `/v1/` on the node for backward compatibility, so `/v1/blocks/{height}` etc. also work.
 
 ## Base URL
 
-- Production: `https://aitbc.bubuit.net/rpc`
-- Staging: `https://staging-api.aitbc.io/rpc`
+- Production (public hub, via nginx): `https://hub.aitbc.bubuit.net/rpc`
 - Development: `http://localhost:8202/rpc`
+
+The raw `http://hub.aitbc.bubuit.net:8202` listener is internal-only; external clients must go through the nginx TLS endpoint.
 
 ## API Documentation
 
@@ -19,15 +20,13 @@ Interactive API documentation is available via Swagger UI:
 
 ## Endpoints
 
-**Note:** All blockchain RPC endpoints use the `/rpc/` prefix.
-
 ### Block Operations
 
 #### Get Block by Height
 
 `GET /rpc/blocks/{height}`
 
-Retrieve a block by its height.
+Retrieve a block by its height (`GET /rpc/block/{height}` is a singular alias; `GET /rpc/block?height=` also works).
 
 **Parameters:**
 
@@ -42,8 +41,7 @@ Retrieve a block by its height.
   "parent_hash": "0x...",
   "timestamp": "2026-05-11T10:00:00Z",
   "transactions": [],
-  "state_root": "0x...",
-  "difficulty": 1000
+  "tx_count": 3
 }
 ```
 
@@ -51,7 +49,7 @@ Retrieve a block by its height.
 
 `GET /rpc/head`
 
-Retrieve the latest (head) block in the blockchain.
+Retrieve the latest (head) block in the blockchain. `GET /rpc/chain/head` is a compatibility alias, `GET /rpc/height` returns just the height.
 
 **Response:** `200 OK`
 
@@ -91,25 +89,28 @@ Retrieve a range of blocks.
 
 #### Get Transaction
 
-`GET /rpc/transaction?hash={tx_hash}`
+`GET /rpc/transaction/{tx_hash}`
 
-Retrieve a transaction by its hash.
-
-**Parameters:**
-
-- `tx_hash` (path parameter): Transaction hash
+Retrieve a transaction by its hash (`tx_hash` is a **path** parameter, not a query parameter). Optional `?chain_id=` query selects a non-default chain. Returns `404` when the chain does not have the hash.
 
 **Response:** `200 OK`
 
 ```json
 {
-  "hash": "0x...",
+  "transaction_id": 42,
+  "tx_hash": "0x...",
+  "chain_id": "ait-hub.aitbc.bubuit.net",
   "block_height": 12345,
-  "from": "0x...",
-  "to": "0x...",
+  "sender": "0x...",
+  "recipient": "0x...",
+  "payload": {"to": "0x...", "amount": 1000},
+  "type": "TRANSFER",
+  "status": "confirmed",
+  "created_at": "2026-05-11T10:00:00",
+  "timestamp": 1720000000.0,
+  "nonce": 7,
   "value": 1000,
-  "gas_used": 21000,
-  "timestamp": "2026-05-11T10:00:00Z"
+  "fee": 1
 }
 ```
 
@@ -117,29 +118,38 @@ Retrieve a transaction by its hash.
 
 `POST /rpc/transaction`
 
-Submit a new transaction to the blockchain.
+Submit a new signed transaction to the mempool.
 
-**Request Body:**
+**Request Body** (this is the full schema — there are no `gas`/`data`/`value` request fields; `value`/`gas`-style Ethereum field names do not exist):
 
 ```json
 {
+  "chain_id": "ait-hub.aitbc.bubuit.net",
   "from": "0x...",
   "to": "0x...",
-  "value": 1000,
-  "gas": 21000,
-  "data": "0x...",
+  "amount": 1000,
+  "fee": 1,
+  "nonce": 7,
+  "type": "TRANSFER",
+  "payload": {"to": "0x...", "amount": 1000},
   "signature": "0x..."
 }
 ```
 
-**Response:** `201 Created`
+- `from`, `to`, `signature` are required; `amount` and `fee` are integers in compute-units (1 AIT = 36,000,000 units); `nonce` must equal the sender's current account nonce; `type` defaults to `TRANSFER`; `payload` is an arbitrary dict (recipient/amount are auto-filled into it when absent).
+- The `signature` is verified against `from` over the whole transaction body (including `chain_id`, which prevents cross-chain replay); an invalid signature returns `403`.
+
+**Response:** `200 OK`
 
 ```json
 {
-  "hash": "0x...",
-  "status": "pending"
+  "success": true,
+  "transaction_hash": "0x...",
+  "message": "Transaction submitted to mempool"
 }
 ```
+
+Related: `GET /rpc/mempool` lists pending transactions and `GET /rpc/transactions` queries confirmed transactions with filters (`transaction_type`, `address`, `job_id`, `status`, `chain_id`, `limit`, ...).
 
 ### Network Status
 
@@ -147,57 +157,66 @@ Submit a new transaction to the blockchain.
 
 `GET /rpc/network-info`
 
-Retrieve network status and information.
+Retrieve network configuration for joining the island. The node derives the public URLs from the reverse-proxy headers (`X-Forwarded-Proto`, `Host`) or the `AITBC_PROTOCOL`/`AITBC_HOSTNAME` overrides.
+
+**Response:** `200 OK` (representative fields)
+
+```json
+{
+  "node_id": "node-...",
+  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "island_id": "ait-hub.aitbc.bubuit.net-island",
+  "network_type": "open_island",
+  "supported_chains": ["ait-hub.aitbc.bubuit.net"],
+  "is_hub": true,
+  "role": "hub",
+  "public_rpc_url": "https://hub.aitbc.bubuit.net/rpc",
+  "subscription_websocket_url": "wss://hub.aitbc.bubuit.net/rpc/subscribe/ws",
+  "gossip_websocket_url": "wss://hub.aitbc.bubuit.net/rpc/gossip/ws",
+  "gossip_auth_required": true,
+  "validators": [],
+  "default_peer_rpc_url": "https://hub.aitbc.bubuit.net",
+  "connection_instructions": "Set default_peer_rpc_url=... and enable subscription (subscription_transport=websocket). Register via POST .../rpc/subscribe, then receive blocks via WebSocket at .../rpc/subscribe/ws. Extend the lease with POST .../rpc/heartbeat.",
+  "version": "0.7.6"
+}
+```
+
+> **Joining is a subscription model, not raw P2P dialing.** Followers do not "connect via P2P to <node>:7070"; they register with `POST /rpc/subscribe` (peer-key authenticated), then receive pushed blocks over `WS /rpc/subscribe/ws` and extend the lease with `POST /rpc/heartbeat`. The `p2p_endpoint`/`p2p_bind_port` (default `8200`) in the response refers to the node's internal gossip listener and is not a public join address.
+
+#### Get Subscribers
+
+`GET /rpc/subscribers`
+
+Retrieve the list of nodes holding a valid subscription lease (the effective peer list for block distribution).
 
 **Response:** `200 OK`
 
 ```json
 {
-  "p2p_endpoint": "<node2>:7070",
-  "p2p_node_id": "node-19b909970eeb4a6a87865dbb92c4b5dc",
-  "chain_id": "ait-hub.aitbc.bubuit.net",
-  "network_type": "open_island",
-  "supported_chains": ["ait-hub.aitbc.bubuit.net"],
-  "connection_instructions": "Connect via P2P protocol to <node2>:7070",
-  "rpc_endpoint": "http://<node2>/rpc",
-  "api_gateway": "http://<node2>/api",
-  "contact_email": "andreas.fleckl@bubuit.net",
-  "version": "0.4.3"
+  "subscribers": [
+    {"node_id": "node-...", "chain_id": "ait-hub.aitbc.bubuit.net", "transport": "websocket"}
+  ]
 }
-```
-
-#### Get Peers
-
-`GET /rpc/subscribers`
-
-Retrieve list of connected peers (subscribers).
-
-**Response:** `200 OK`
-
-```json
-[
-  {
-    "peer_id": "node-...",
-    "address": "192.168.1.100:7070",
-    "last_seen": "2026-06-07T19:55:20Z"
-  }
-]
 ```
 
 ### Smart Contract Operations
 
+The contracts router is mounted at `/contracts` under both `/rpc` and `/v1`. There is **no** per-address `/v1/contracts/{address}/call` or `/transact` route — all calls go through `POST /rpc/contracts/call`.
+
 #### Call Contract
 
-`POST /v1/contracts/{address}/call`
+`POST /rpc/contracts/call` (also `POST /v1/contracts/call`)
 
-Call a smart contract method (read-only).
+Call a method on a deployed contract. The call is read-only: it looks the contract up by `address` and returns the stored state entry for `method`.
 
 **Request Body:**
 
 ```json
 {
+  "address": "0x...",
   "method": "balanceOf",
-  "args": ["0x..."]
+  "params": {"account": "0x..."},
+  "chain_id": "ait-hub.aitbc.bubuit.net"
 }
 ```
 
@@ -205,36 +224,16 @@ Call a smart contract method (read-only).
 
 ```json
 {
-  "result": "0x...",
-  "gas_used": 1000
+  "success": true,
+  "result": "...",
+  "address": "0x...",
+  "method": "balanceOf",
+  "params": {"account": "0x..."},
+  "abi": {}
 }
 ```
 
-#### Send Transaction to Contract
-
-`POST /v1/contracts/{address}/transact`
-
-Send a transaction to a smart contract (state-changing).
-
-**Request Body:**
-
-```json
-{
-  "method": "transfer",
-  "args": ["0x...", 1000],
-  "gas": 100000,
-  "value": 0
-}
-```
-
-**Response:** `201 Created`
-
-```json
-{
-  "hash": "0x...",
-  "status": "pending"
-}
-```
+Other contract routes: `GET /rpc/contracts` (list deployed contracts), `POST /rpc/contracts/deploy` (requires `X-API-Key`), `POST /rpc/contracts/verify` (ZK proof check), plus the `/rpc/contracts/messaging/*` forum routes.
 
 ## Examples
 
@@ -256,68 +255,66 @@ curl -X POST http://localhost:8202/rpc/transaction \
   -d '{
     "from": "0x...",
     "to": "0x...",
-    "value": 1000,
-    "gas": 21000,
+    "amount": 1000,
+    "fee": 1,
+    "nonce": 7,
+    "type": "TRANSFER",
+    "payload": {"to": "0x...", "amount": 1000},
     "signature": "0x..."
   }'
 ```
 
 ### Python SDK
 
+The `aitbc-sdk` package (`packages/py/aitbc-sdk`) does **not** ship a `BlockchainClient`. It exposes `CoordinatorAPIClient` (with `.wallet` and `.registry` sub-clients), `CoordinatorReceiptClient`, `WalletClient`, and `RegistryClient` — all aimed at the coordinator-api, not the chain RPC. For raw chain reads use any HTTP client:
+
 ```python
-import aitbc_sdk
+import httpx
 
-client = aitbc_sdk.BlockchainClient(base_url="http://localhost:8202/rpc")
+RPC = "http://localhost:8202/rpc"
 
-# Get head block
-head_block = client.get_head_block()
-print(f"Current height: {head_block['height']}")
+head = httpx.get(f"{RPC}/head").json()
+print(f"Current height: {head['height']}")
 
-# Get block by height
-block = client.get_block(height=12345)
-
-# Get network info
-network = client.get_network_info()
+block = httpx.get(f"{RPC}/blocks/12345").json()
+network = httpx.get(f"{RPC}/network-info").json()
 print(f"Chain ID: {network['chain_id']}")
-print(f"Network type: {network['network_type']}")
+
+tx = httpx.get(f"{RPC}/transaction/0x<tx_hash>").json()
+
+# Coordinator-side calls go through the SDK:
+from aitbc_sdk import CoordinatorAPIClient
+client = CoordinatorAPIClient(base_url="http://localhost:8203")
+print(client.health())
 ```
 
 ## WebSocket
 
-Real-time blockchain events are available via WebSocket connection:
+Real-time block delivery uses the subscription WebSocket — **not** `/rpc/subscribe` (that path is the REST lease-registration endpoint):
 
 ```
-ws://localhost:8202/rpc/subscribe
+WS /rpc/subscribe/ws
 ```
 
-The WebSocket sends events as JSON messages:
+You must hold a valid lease first: `POST /rpc/subscribe` with a peer key (`X-API-Key`), then connect and send `{"node_id": "...", "chain_id": "...", "transport": "websocket"}` as the first message. Blocks on the `blocks.<chain_id>` topic are pushed as JSON; the server sends a `{"type": "ping"}` heartbeat every ~20 s.
 
-```json
-{
-  "type": "new_block",
-  "block": {
-    "height": 12346,
-    "hash": "0x...",
-    "timestamp": "2026-05-11T10:05:00Z"
-  }
-}
-```
+The second WebSocket is `WS /rpc/gossip/ws?topic=<topic>` for bidirectional gossip (restricted topics such as `blocks`/`pbft`/`consensus` require a signed validator challenge). See [websocket.md](../websocket.md) for the full protocol.
 
 ### Escrow Operations
 
-The blockchain node also hosts the marketplace escrow service.
+The blockchain node also hosts the marketplace escrow service. **All escrow routes — including GET — require the `X-API-Key` header** (router-level dependency against `BLOCKCHAIN_RPC_API_KEY`).
 
 #### Create Escrow
 
 `POST /rpc/escrow/create`
 
-Lock buyer funds for a marketplace job. Automatically called by marketplace-service on `book_offer`.
+Lock buyer funds for a marketplace job. The body must include a buyer-signed `lock_tx` (or `lock_signature` plus lock fields) transferring the amount to the node wallet. See [escrow-api.md](../escrow-api.md).
 
 #### Get Escrow State
 
 `GET /rpc/escrow/{job_id}`
 
-Query escrow state: `created`, `released`, `refunded`, etc.
+Query escrow state: `locked`, `released`, `refunded`, etc.
 
 #### Release Escrow
 
@@ -337,10 +334,7 @@ Refund funds to buyer.
 
 ## Rate Limits
 
-- Block queries: 1000 requests per minute
-- Transaction submission: 100 requests per minute
-- Contract calls: 500 requests per minute
-- Escrow operations: 100 requests per minute
+Rate limits are applied **per route** with `@rate_limit(rate=..., per=...)` decorators rather than a single global policy — e.g. `POST /rpc/transaction` is limited to 50 requests/60 s and most read endpoints to 100–200 requests/60 s. See `apps/blockchain-node/src/aitbc_chain/rpc/` for the authoritative per-route values.
 
 ## OpenAPI Specification
 

@@ -101,7 +101,7 @@ If AI services are not running, follow these steps:
 systemctl list-units --type=service | grep aitbc
 
 # Check AI-specific services
-systemctl status aitbc-ai-service.service 2>/dev/null || echo "AI service not installed"
+systemctl status aitbc-ai.service 2>/dev/null || echo "AI service not installed"
 systemctl status ollama.service 2>/dev/null || echo "Ollama service not installed"
 ```
 

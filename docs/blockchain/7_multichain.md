@@ -1,6 +1,6 @@
 # Multi-Chain Architecture
 
-**Last Updated:** 2026-05-28
+**Last Updated:** 2026-09-16
 
 Understanding AITBC's parallel chain management system.
 
@@ -46,7 +46,7 @@ manager = create_multi_chain_manager(
     default_chain_id="ait-mainnet",
     base_db_path=Path("/var/lib/aitbc/data/ait-mainnet"),
     base_rpc_port=8202,
-    base_p2p_port=7070
+    base_p2p_port=8200
 )
 ```
 
@@ -116,10 +116,13 @@ class ChainInstance:
 
 ## Port Allocation
 
-- **Shared ports**: All chains share base RPC and P2P ports
-- **No separate allocation**: Ports are not incremented per chain
-- **Chain routing**: Chain ID used to route requests to correct chain
-- **Base ports**: Configurable (default: RPC 8202, P2P 7070)
+- **Default chain**: uses the base ports (RPC `rpc_bind_port` 8202, P2P
+  `p2p_bind_port` 8200)
+- **Secondary chains**: get per-chain offsets from `chain_port_offsets`
+  (`"chain_id:offset,..."`); with no offsets configured the allocator falls
+  back to incrementing from base+1
+- **Chain routing**: requests carry `chain_id` (query param or body field) to
+  reach the correct chain on the shared RPC app
 
 ## Database Structure
 
@@ -167,10 +170,13 @@ async def _chain_health_check(self):
 
 ```bash
 # Base chain configuration
-CHAIN_ID=ait-mainnet              # Default chain ID
-BASE_DB_PATH=/var/lib/aitbc/data # Base database path
-BASE_RPC_PORT=8202               # Base RPC port
-BASE_P2P_PORT=7070               # Base P2P port
+CHAIN_ID=ait-mainnet               # Default chain ID
+SUPPORTED_CHAINS=ait-mainnet       # Comma-separated chains this node serves
+ISLAND_CHAINS=                     # Chains hosted on this island (defaults to [chain_id])
+RPC_BIND_PORT=8202                 # Base RPC port
+P2P_BIND_PORT=8200                 # Base P2P port (hub relay itself binds 7070)  # check-ports: ignore
+AITBC_DATA_DIR=/var/lib/aitbc      # Data root; chain DBs live at <root>/data/<chain_id>/chain.db
+CHAIN_PORT_OFFSETS=                # Per-chain port offsets: "chain_id:offset,..."
 ```
 
 ### Multi-Chain Support in blockchain-node.md
@@ -186,34 +192,34 @@ Each chain requires its own genesis file in `data/<chain_id>/genesis.json`.
 
 ## Cross-Chain Operations
 
-### Cross-Chain Sync
-
-The `CrossChainSync` class provides synchronization between chains:
+> **Test stubs only — not operational.** `CrossChainSync` and
+> `MultiChainConsensus` in
+> `apps/blockchain-node/src/aitbc_chain/cross_chain/__init__.py` are
+> scaffolding for multi-chain *tests*: `test_synchronization()` just marks
+> every configured chain `synced: True` and `test_consensus_mechanism()` just
+> marks `consensus_reached: True`. They do not move blocks, run consensus, or
+> read configuration — do not treat them as a cross-chain feature.
 
 ```python
-from aitbc_chain.cross_chain import CrossChainSync
+from aitbc_chain.cross_chain import CrossChainSync, MultiChainConsensus
 
 sync = CrossChainSync(chains=["ait-mainnet", "ait-testnet"])
-await sync.test_synchronization()
-```
-
-### Multi-Chain Consensus
-
-The `MultiChainConsensus` class handles consensus across chains:
-
-```python
-from aitbc_chain.cross_chain import MultiChainConsensus
+await sync.test_synchronization()   # sets synced=True per chain; nothing else
 
 consensus = MultiChainConsensus(chains=["ait-mainnet", "ait-testnet"])
-await consensus.test_consensus_mechanism()
+await consensus.test_consensus_mechanism()  # sets consensus_reached=True; nothing else
 ```
+
+Real cross-chain coordination happens through the island/bridge machinery
+(`chain_sync_sources`, `island_registry`, `/rpc/bridge/*`) and the
+per-chain sync paths described in [operational-features.md](./operational-features.md).
 
 ## Implementation
 
 The multi-chain system is implemented in:
 
 - `apps/blockchain-node/src/aitbc_chain/network/multi_chain_manager.py` - Core MultiChainManager
-- `apps/blockchain-node/src/aitbc_chain/cross_chain.py` - Cross-chain sync and consensus
+- `apps/blockchain-node/src/aitbc_chain/cross_chain/__init__.py` - Cross-chain test stubs
 
 ## Use Cases
 

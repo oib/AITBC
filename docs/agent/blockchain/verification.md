@@ -7,31 +7,34 @@ This guide provides methods to verify that blockchain operations are correctly r
 To verify that blockchain operations are correctly recorded, query the blockchain database:
 
 ```bash
-# Connect to blockchain database
-sqlite3 /var/lib/aitbc/blockchain.db
+# Connect to the chain-scoped database — the real path is
+#   $AITBC_DATA_DIR/data/<chain_id>/chain.db
+# e.g. on the hub:
+sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db
 
+# Tables are chain-scoped — filter by chain_id:
 # Check stakes
-SELECT * FROM stake WHERE address = '<wallet_address>';
+SELECT * FROM stake WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND address = '<wallet_address>';
 
 # Check agent identities
-SELECT * FROM agent_identity WHERE agent_id = '<agent_id>';
+SELECT * FROM agent_identity WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND agent_id = '<agent_id>';
 
 # Check governance proposals
-SELECT * FROM governance_proposal WHERE proposal_id = 'prop_test_001';
+SELECT * FROM governance_proposal WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND proposal_id = 'prop_test_001';
 
 # Check governance votes
-SELECT * FROM governance_vote WHERE proposal_id = 'prop_test_001';
+SELECT * FROM governance_vote WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND proposal_id = 'prop_test_001';
 
 # Check GPU registrations
-SELECT * FROM gpu_registration WHERE gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de30a93a';
+SELECT * FROM gpu_registration WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de30a93a';
 
 # Check GPU allocations
-SELECT * FROM gpu_allocation WHERE gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de30a93a';
+SELECT * FROM gpu_allocation WHERE chain_id = 'ait-hub.aitbc.bubuit.net' AND gpu_id = 'GPU-ba5c6553-6396-ab66-5706-17e6de30a93a';
 ```
 
 ## RPC Endpoint Testing
 
-Direct RPC endpoint testing for integration verification. **All mutating `/rpc/*` endpoints require `X-API-Key` (GAP-56)** — set `BLOCKCHAIN_RPC_API_KEY` from `/etc/aitbc/blockchain-secrets.env` on any node, and note that staking/governance calls additionally need a wallet-signed `signature` + fresh `nonce`/`timestamp` body (see the CLI/MCP callers).
+Direct RPC endpoint testing for integration verification. Admin/control mutations (`/rpc/identity/*`, `/rpc/governance/*`, `/rpc/gpu/*` writes, `/rpc/escrow/*`, `/rpc/contracts/deploy`) require `X-API-Key` — set `BLOCKCHAIN_RPC_API_KEY` from `/etc/aitbc/blockchain-secrets.env` on any node. `POST /rpc/transaction` and `POST /rpc/staking/stake` are **not** key-gated: they authenticate via the wallet-signed `signature` + fresh `nonce`/`timestamp` in the request body (see the CLI/MCP callers). The `X-API-Key` header shown below is harmless on those routes.
 
 ### Staking
 

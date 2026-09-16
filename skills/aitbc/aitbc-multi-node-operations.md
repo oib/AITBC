@@ -171,7 +171,7 @@ ssh node2 'systemctl status aitbc-blockchain-node.service'
 
 ## Best Practices
 1. Always verify git status on all nodes before major changes
-2. Push to GitHub first, then pull on remote nodes
+2. Push to gitea `origin` first, then pull on remote nodes (the `github` remote is fetch-only on live nodes; the mirror is pushed from the IDE `/opt/aitbc`)
 3. Use `--force-with-lease` instead of `--force` when needed
 4. Restart affected services after code sync
 5. Verify service health after sync and restart

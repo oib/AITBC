@@ -109,7 +109,7 @@ sqlite3 /var/lib/aitbc/blockchain.db "PRAGMA integrity_check;"
 ## Log Locations
 
 - **Blockchain node**: `journalctl -u aitbc-blockchain-node`
-- **GPU service**: `journalctl -u aitbc-gpu-service`
+- **GPU service**: `journalctl -u aitbc-gpu`
 - **CLI operations**: Check terminal output or enable verbose mode with `-v` flag
 
 ## Getting Help

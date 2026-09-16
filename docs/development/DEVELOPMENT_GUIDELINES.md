@@ -56,11 +56,11 @@ config/.nvmrc
 config/.lycheeignore
 ```
 
-### Development Environment → `/etc/aitbc/.env`
+### Development Environment → `/etc/aitbc/blockchain.env` + `/etc/aitbc/node.env`
 
 ```bash
 # Central environment configuration
-/etc/aitbc/.env
+/etc/aitbc/blockchain.env
 ```
 
 ### Cache and Temporary → `dev/cache/`

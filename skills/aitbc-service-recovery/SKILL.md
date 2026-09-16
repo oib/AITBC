@@ -37,7 +37,8 @@ systemctl start aitbc-coordinator-api.service
 ### 4. Start Agent Messaging
 
 ```bash
-systemctl start aitbc-agent.service
+systemctl start aitbc-agent-coordinator.service   # hub only
+systemctl start aitbc-hermes-agent.service        # agent nodes (node2 shop agent)
 ```
 
 ## Common Failures

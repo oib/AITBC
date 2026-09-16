@@ -1,5 +1,20 @@
 # AITBC Blockchain Node Deployment Summary
 
+> **⚠️ Historical deployment record — do not use as a current reference.**
+> This page documents a retired two-node test deployment
+> (`/opt/blockchain-node{,-2}`, `blockchain-node*.service` units, RPC on
+> 8081/8202, independent 2s chains with a memory gossip backend). The current
+> deployment is a hub + follower fleet running from `/opt/aitbc` with systemd
+> units `aitbc-blockchain-node` / `aitbc-blockchain-rpc` /
+> `aitbc-blockchain-p2p` (hub only), env configuration under `/etc/aitbc/`, and
+> lease-based subscription sync over the hub's RPC on 443/8202.
+>
+> **Current docs:** [blockchain/README.md](../blockchain/README.md) —
+> [configuration](../blockchain/2_configuration.md),
+> [operations](../blockchain/3_operations.md),
+> [networking](../blockchain/6_networking.md),
+> [getting-started/node/blockchain-setup.md](../getting-started/node/blockchain-setup.md).
+
 ## Overview
 
 Successfully deployed two independent AITBC blockchain nodes on the same server for testing and development.
@@ -64,20 +79,23 @@ cd ..
 python test_blockchain_final.py
 ```
 
-## Current Status
+## Status at the Time of the Deployment (historical)
 
-### ✅ Working
+### ✅ Working then
 
-- Both nodes are running and producing blocks
-- RPC APIs are responsive
-- Transaction submission works
+- Both nodes were running and producing blocks
+- RPC APIs were responsive
+- Transaction submission worked
 - Block production active (2s block time)
 
-### ⚠️ Limitations
+### ⚠️ Limitations then
 
-- Nodes are running independently (not connected)
-- Using memory gossip backend (no cross-node communication)
+- Nodes were running independently (not connected)
+- Used memory gossip backend (no cross-node communication)
 - Different chain heights (expected for independent nodes)
+
+This deployment has since been replaced — see the banner at the top for the
+current fleet documentation.
 
 ## Production Deployment Guidelines
 

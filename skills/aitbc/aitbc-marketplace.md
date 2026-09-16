@@ -50,7 +50,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 |---------|------|-------|
 | Marketplace | 8102 | Offers, bids, orders |
 | Blockchain RPC | 8202 | Default RPC for CLI |
-| Coordinator API | 8203 | Agent registration |
+| Agent Coordinator | 8107 | Agent registration (loopback; nginx /agent/ remotely) |
 
 ## Operations
 
