@@ -37,7 +37,7 @@ async def create_deployment_config(
     workflow_id: str,
     deployment_name: str,
     deployment_config: dict,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AgentDeploymentConfig:
     """Create deployment configuration for agent workflow"""
@@ -64,7 +64,7 @@ async def create_deployment_config(
 @rate_limit(rate=200, per=60)
 async def list_deployment_configs(
     request: Request,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     workflow_id: str | None = None,
     status: DeploymentStatus | None = None,
@@ -95,7 +95,7 @@ async def list_deployment_configs(
 async def get_deployment_config(
     request: Request,
     config_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AgentDeploymentConfig:
     """Get specific deployment configuration"""
@@ -121,7 +121,7 @@ async def get_deployment_config(
 async def deploy_workflow(
     request: Request,
     config_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     target_environment: str = "production",
 ) -> dict[str, Any]:
@@ -153,7 +153,7 @@ async def deploy_workflow(
 async def get_deployment_health(
     request: Request,
     config_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Get health status of deployment"""
@@ -182,7 +182,7 @@ async def scale_deployment(
     request: Request,
     config_id: str,
     target_instances: int,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Scale deployment to target number of instances"""
@@ -213,7 +213,7 @@ async def scale_deployment(
 async def rollback_deployment(
     request: Request,
     config_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Rollback deployment to previous version"""
@@ -241,7 +241,7 @@ async def rollback_deployment(
 @rate_limit(rate=200, per=60)
 async def list_deployment_instances(
     request: Request,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     deployment_id: str | None = None,
     environment: str | None = None,
@@ -277,7 +277,7 @@ async def list_deployment_instances(
 async def get_deployment_instance(
     request: Request,
     instance_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> AgentDeploymentInstance:
     """Get specific deployment instance"""
@@ -306,7 +306,7 @@ async def get_deployment_instance(
 async def integrate_with_zk_system(
     request: Request,
     execution_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     verification_level: VerificationLevel | None = None,
 ) -> dict[str, Any]:
@@ -338,7 +338,7 @@ async def integrate_with_zk_system(
 async def get_deployment_metrics(
     request: Request,
     deployment_id: str,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     time_range: str = "1h",
 ) -> dict[str, Any]:
@@ -371,7 +371,7 @@ async def deploy_to_production(
     workflow_id: str,
     deployment_config: dict,
     integration_config: dict | None,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Deploy agent workflow to production with full integration"""
@@ -400,7 +400,7 @@ async def deploy_to_production(
 @rate_limit(rate=200, per=60)
 async def get_production_dashboard(
     request: Request,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Get comprehensive production dashboard data"""
@@ -452,7 +452,7 @@ async def get_production_dashboard(
 @rate_limit(rate=1000, per=60)
 async def get_production_health(
     request: Request,
-    session: Annotated[Session, Depends(Annotated[Session, Depends(get_session)])],
+    session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
 ) -> dict[str, Any]:
     """Get overall production health status"""
