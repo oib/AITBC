@@ -27,18 +27,17 @@ pip install -e packages/py/aitbc-sdk
 ## Service Configuration
 
 ```bash
-# Configure environment
-cp .env.example .env
-# Edit .env with your settings
+# Configure environment (no root .env.example exists — services read
+# /etc/aitbc/*.env on deployed nodes; for local dev set env vars directly)
 
-# Start blockchain node
-python -m apps.blockchain_node.main
+# Start blockchain node (use the repo venv interpreter + installed packages)
+/opt/aitbc/venv/bin/python -m aitbc_chain.main
 
 # Start coordinator API
-python -m apps.coordinator_api.main
+/opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --port 8203
 
 # Start marketplace service
-python -m apps.marketplace_service.main
+/opt/aitbc/venv/bin/python -m uvicorn marketplace_service.main:app --port 8102
 ```
 
 ## Verification

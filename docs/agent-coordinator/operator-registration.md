@@ -9,7 +9,7 @@
 
 ```bash
 # 1. Create the local agent definition
-aitbc agent create --name my-agent --type worker
+aitbc agent create --name my-agent --type general
 
 # 2. Register it with the coordinator
 aitbc agent register \
@@ -23,7 +23,7 @@ aitbc agent register \
 # Capabilities are declared at creation time, then the agent is registered
 aitbc agent create \
   --name my-agent \
-  --type worker \
+  --type general \
   --models "data-processing,analysis,debugging" \
   --specialization task-execution
 
@@ -53,9 +53,9 @@ register_agent() {
 }
 
 # Register agents
-register_agent "worker-1" "worker" "data-processing,analysis"
-register_agent "worker-2" "worker" "data-processing,analysis"
-register_agent "worker-3" "worker" "inference,training"
+register_agent "agent-1" "general" "data-processing,analysis"
+register_agent "agent-2" "general" "data-processing,analysis"
+register_agent "agent-3" "general" "inference,training"
 ```
 
 ## Cross-Node Registration
@@ -69,8 +69,8 @@ go through the node's nginx `/agent/` proxy where one is configured:
 curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "node1-worker",
-    "agent_type": "worker",
+    "agent_id": "node1-agent",
+    "agent_type": "general",
     "capabilities": ["data-processing"],
     "endpoints": {"http": "http://node1:9002"}
   }'
@@ -79,8 +79,8 @@ curl -X POST http://localhost:8107/v1/agents/register \
 curl -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
   -d '{
-    "agent_id": "node2-worker",
-    "agent_type": "worker",
+    "agent_id": "node2-agent",
+    "agent_type": "general",
     "capabilities": ["inference"],
     "endpoints": {"http": "http://node2:9002"}
   }'

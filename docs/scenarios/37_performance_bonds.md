@@ -142,11 +142,14 @@ curl -s -X POST https://hub.aitbc.bubuit.net/rpc/transactions/marketplace \
   -d '{"type":"GPU_MARKETPLACE","from":"0x1111111111111111111111111111111111111111","to":"0x0000000000000000000000000000000000000000","amount":0,"fee":360000,"nonce":0,"chain_id":"ait-hub.aitbc.bubuit.net","payload":{"action":"software_offer","offer_id":"test","service_type":"whisper","price":0.1,"price_unit":"per_audio_min","provider_address":"0x1111111111111111111111111111111111111111","status":"active"}}'
 ```
 
-**Expected output (when `MARKET_BOND_MIN_AMOUNT` > 0):**
-
-```json
-{"detail":"Failed to submit marketplace transaction: 403: Active bond of at least 1 compute-units required to list"}
-```
+**Expected output:** the `software_offer` action is **exempt** from the
+bond check (`rpc/transactions.py` — the bond only gates the hardware
+`offer` action when `MARKET_BOND_MIN_AMOUNT` > 0), so this transaction is
+admitted (unsigned value-zero offers are accepted with `sender` only —
+see the code comment at the exemption). To exercise the bond rejection,
+repeat the call with `"action":"offer"` (hardware bundle) instead —
+that returns `403 Active bond of at least 1 compute-units required to
+list` when the sender has no active bond.
 
 ### Unit tests
 

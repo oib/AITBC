@@ -5,7 +5,7 @@
 ## Prerequisites
 
 - NVIDIA GPU with 16GB+ VRAM (V100, A100, RTX 3090+)
-- Python 3.10+, CUDA drivers installed
+- Python 3.13+, CUDA drivers installed
 - 50GB+ storage, stable internet
 
 ## 1. Install & Configure
