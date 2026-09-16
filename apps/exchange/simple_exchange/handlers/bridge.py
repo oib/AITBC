@@ -235,6 +235,8 @@ class BridgeMixin:
 
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
+        import sqlite3
+
         try:
             import sys
             from urllib.parse import parse_qs
@@ -276,11 +278,28 @@ class BridgeMixin:
                     "offset": offset,
                 }
             )
+        except sqlite3.OperationalError as e:
+            # Same as the detail route: a never-initialized bridge-monitor DB means
+            # zero deposits, not a server error — answer the honest empty list.
+            if "no such table" in str(e):
+                self.send_json_response(  # type: ignore[attr-defined]
+                    {
+                        "deposits": [],
+                        "count": 0,
+                        "total": 0,
+                        "limit": int(params.get("limit", [50])[0]),
+                        "offset": int(params.get("offset", [0])[0]),
+                    }
+                )
+            else:
+                self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_deposit_detail(self, tx_hash):
         """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
+        import sqlite3
+
         try:
             import sys
 
@@ -293,6 +312,14 @@ class BridgeMixin:
                 return
 
             self.send_json_response(deposit)  # type: ignore[attr-defined]
+        except sqlite3.OperationalError as e:
+            # Bridge-monitor storage lives in a separate service's sqlite file; when
+            # it has never been initialized ("no such table") no deposits can exist,
+            # so 404 is truthful — only other DB errors are genuine 500s.
+            if "no such table" in str(e):
+                self.send_json_response({"error": "Deposit not found"}, status=404)  # type: ignore[attr-defined]
+            else:
+                self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
         except Exception as e:
             self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
 
