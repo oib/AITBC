@@ -94,7 +94,7 @@ def join_island_command(ctx, island_id, island_name, chain_id, hub, is_hub, *, r
         from aitbc_cli.config import get_config
 
         config = get_config()
-        client = AITBCHTTPClient(base_url=rpc_base, timeout=10)
+        client = AITBCHTTPClient(base_url=rpc_base, timeout=10, api_key=config.blockchain_rpc_api_key)
 
         payload_chain_id = chain_id or config.chain_id
         response = client.post(

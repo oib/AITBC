@@ -4,10 +4,11 @@ Subscription router.
 
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
 from aitbc.rate_limiting import rate_limit
 
+from ..escrow_routes import verify_rpc_api_key
 from ..subscription import (
     get_lease_status,
     get_subscribers,
@@ -19,7 +20,7 @@ from ..subscription import (
 router = APIRouter(tags=["subscription"])
 
 
-@router.post("/subscribe", summary="Register for block subscription with lease")
+@router.post("/subscribe", summary="Register for block subscription with lease", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
 async def register_subscription_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Register a follower node for block subscription with a lease"""
@@ -28,7 +29,7 @@ async def register_subscription_route(request: Request, body: dict[str, Any]) ->
     return await register_subscription(body)
 
 
-@router.post("/heartbeat", summary="Extend subscription lease via heartbeat")
+@router.post("/heartbeat", summary="Extend subscription lease via heartbeat", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=60, per=60)
 async def heartbeat_route(request: Request, body: dict[str, Any]) -> dict[str, Any]:
     """Extend a subscriber's lease via heartbeat"""
@@ -44,7 +45,7 @@ async def lease_status_route(node_id: str) -> dict[str, Any]:
     return await get_lease_status(node_id)
 
 
-@router.delete("/lease/{node_id}", summary="Revoke subscription lease")
+@router.delete("/lease/{node_id}", summary="Revoke subscription lease", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
 async def revoke_lease_route(node_id: str) -> dict[str, Any]:
     """Revoke a subscriber's lease"""

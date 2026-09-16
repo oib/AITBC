@@ -386,6 +386,7 @@ def aitbc_trade_list(
 def aitbc_trade_lock_escrow(
     trade_id: Annotated[str, Field(description="Trade ID to lock escrow for")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
     timeout_opt: Annotated[int | None, Field(description="Escrow timeout in seconds")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -397,7 +398,7 @@ def aitbc_trade_lock_escrow(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url", "timeout_opt": "timeout"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "api_key": "api-key", "timeout_opt": "timeout"},
     )
     args = None
     command = _build_aitbc_cli_command(
@@ -520,6 +521,7 @@ def aitbc_trade_match_all(
 def aitbc_trade_refund(
     trade_id: Annotated[str, Field(description="Trade ID to refund")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -530,7 +532,7 @@ def aitbc_trade_refund(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "api_key": "api-key"},
     )
     args = None
     command = _build_aitbc_cli_command(
@@ -676,6 +678,7 @@ def aitbc_trade_settle(
     trade_id: Annotated[str, Field(description="Trade ID to settle")],
     secret: Annotated[str, Field(description="HTLC secret to reveal")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -686,7 +689,7 @@ def aitbc_trade_settle(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "secret": "secret", "node_url": "node-url"},
+        values={"trade_id": "trade-id", "secret": "secret", "node_url": "node-url", "api_key": "api-key"},
     )
     args = None
     command = _build_aitbc_cli_command(
@@ -724,6 +727,7 @@ def aitbc_trade_settle(
 def aitbc_trade_settlement_status(
     trade_id: Annotated[str, Field(description="Trade ID to check")],
     node_url: Annotated[str | None, Field(description="Blockchain node RPC URL")],
+    api_key: Annotated[str | None, Field(description="Blockchain RPC API key (default: config / $BLOCKCHAIN_RPC_API_KEY)")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -734,7 +738,7 @@ def aitbc_trade_settlement_status(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"trade_id": "trade-id", "node_url": "node-url"},
+        values={"trade_id": "trade-id", "node_url": "node-url", "api_key": "api-key"},
     )
     args = None
     command = _build_aitbc_cli_command(
