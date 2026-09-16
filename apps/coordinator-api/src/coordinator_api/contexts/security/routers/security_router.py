@@ -411,7 +411,7 @@ async def update_trust_score(
 async def create_sandbox(
     request: Request,
     execution_id: str,
-    workflow_requirements: dict | None,
+    workflow_requirements: dict | None = None,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
     security_level: SecurityLevel | None = None,
