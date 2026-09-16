@@ -15,6 +15,7 @@ is enabled in its config.
 """
 
 import json
+import uuid
 
 import click
 
@@ -23,6 +24,69 @@ from ..utils import error, output
 from ..utils.http_client import AITBCHTTPClient, NetworkError
 
 GOVERNANCE_SERVICE_URL = "http://localhost:8105"
+
+
+def _governance_rpc(ctx: click.Context) -> tuple[AITBCHTTPClient, str]:
+    """Return an RPC client for the node's transaction endpoint + chain_id."""
+    from aitbc_cli.commands.wallet.staking import _get_chain_id, _get_rpc_url
+
+    rpc_url = _get_rpc_url(ctx)
+    return AITBCHTTPClient(base_url=rpc_url, timeout=10), _get_chain_id(rpc_url)
+
+
+def _get_governance_account(http_client: AITBCHTTPClient, address: str, chain_id: str) -> dict:
+    """Fetch the on-chain account (nonce + balance) for the signing address."""
+    try:
+        return http_client.get(f"/rpc/account/{address}?chain_id={chain_id}")
+    except Exception:
+        return {}
+
+
+def _sign_governance_tx(
+    http_client: AITBCHTTPClient,
+    chain_id: str,
+    private_key: str,
+    signer_address: str,
+    tx_type: str,
+    payload: dict,
+    account: dict | None = None,
+) -> dict:
+    """Build and wallet-sign a governance tx for relay by the service (GAP-50).
+
+    The service holds no per-user keys; the wallet signs here and the service
+    verifies recover(signer) == from == to before relaying to /rpc/transaction.
+    Signed bytes mirror ``submit_governance_tx``: canonical JSON of the signed
+    fields (from/to/amount/fee/nonce/payload/type/chain_id), keccak, secp256k1.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+    from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
+    from aitbc_cli.commands.wallet.staking import _sign_transaction
+
+    address = canonical_address(signer_address)
+    if account is None:
+        account = _get_governance_account(http_client, address, chain_id)
+    tx = {
+        "from": address,
+        "to": address,
+        "amount": 0,
+        "fee": DEFAULT_TX_FEE_UNITS,
+        "nonce": int(account.get("nonce", 0) or 0),
+        "payload": {"to": address, "amount": 0, "type": tx_type, **payload, "chain_id": chain_id},
+        "type": tx_type,
+        "chain_id": chain_id,
+    }
+    tx["signature"] = _sign_transaction({"private_key": private_key}, tx)
+    return tx
+
+
+def _wallet_signer(ctx: click.Context, wallet_name: str | None, password: str | None) -> tuple[str, str] | None:
+    """Resolve the signing wallet when --wallet/AITBC_DEFAULT_WALLET is set."""
+    from ..utils.agent_signing import load_signing_wallet
+
+    try:
+        return load_signing_wallet(ctx, wallet_name, password)
+    except Exception as e:
+        raise click.ClickException(str(e)) from e
 
 
 def _get_client(ctx: click.Context | None = None, url: str | None = None) -> AITBCHTTPClient:
@@ -66,6 +130,8 @@ def governance():
 @click.option("--proposer-address", default="", help="Proposer wallet address (for on-chain submission)")
 @click.option("--params", default=None, help="JSON-encoded parameters for parameter_change proposals")
 @click.option("--voting-days", type=int, default=7, help="Voting period in days")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
+@click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def propose(
@@ -78,6 +144,8 @@ def propose(
     proposer_address: str,
     params: str | None,
     voting_days: int,
+    wallet_name: str | None,
+    password: str | None,
     format: str,
 ):
     """Create a new governance proposal with title, description, and optional category."""
@@ -103,6 +171,40 @@ def propose(
             "voting_starts": voting_starts,
             "voting_ends": voting_ends,
         }
+        signer = _wallet_signer(ctx, wallet_name, password)
+        if signer:
+            signer_address, private_key = signer
+            if proposer_address and proposer_address.lower() != signer_address.lower():
+                raise click.ClickException("--proposer-address does not match the --wallet address")
+            proposer_address = proposer_address or signer_address
+            proposal_id = f"prop_{uuid.uuid4().hex[:8]}"
+            proposal_data["proposal_id"] = proposal_id
+            proposal_data["proposer_address"] = proposer_address
+            http_client, chain_id = _governance_rpc(ctx)
+            try:
+                height = int(http_client.get(f"/rpc/height?chain_id={chain_id}").get("height", 0))
+            except Exception:
+                height = 0
+            # ~2s block time → ~43200 blocks/day; matches the service's
+            # voting_period_blocks convention.
+            blocks_per_day = 43200
+            proposal_data["signed_tx"] = _sign_governance_tx(
+                http_client,
+                chain_id,
+                private_key,
+                signer_address,
+                "GOVERNANCE_PROPOSE",
+                {
+                    "proposal_id": proposal_id,
+                    "proposer": proposer_address,
+                    "title": title,
+                    "description": description,
+                    "proposal_type": proposal_type,
+                    "parameters": proposal_value,
+                    "voting_starts_block": height,
+                    "voting_ends_block": height + voting_days * blocks_per_day,
+                },
+            )
         result = client.post("/v1/governance/proposals", json=proposal_data)
         output(result, ctx.obj.get("output_format", format))
     except json.JSONDecodeError:
@@ -128,6 +230,8 @@ def propose(
 @click.option(
     "--voting-power", type=float, default=0.0, help="Voting power (auto-calculated from on-chain balance if enabled)"
 )
+@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)")
+@click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
 def vote(
@@ -138,6 +242,8 @@ def vote(
     voter_address: str,
     reason: str,
     voting_power: float,
+    wallet_name: str | None,
+    password: str | None,
     format: str,
 ):
     """Vote for, against, or abstain on a governance proposal."""
@@ -151,6 +257,35 @@ def vote(
             "voting_power": voting_power,
             "reason": reason,
         }
+        signer = _wallet_signer(ctx, wallet_name, password)
+        if signer:
+            signer_address, private_key = signer
+            if voter_address and voter_address.lower() != signer_address.lower():
+                raise click.ClickException("--voter-address does not match the --wallet address")
+            voter_address = voter_address or signer_address
+            vote_data["voter_address"] = voter_address
+            from aitbc.crypto.signature_recovery import canonical_address
+
+            http_client, chain_id = _governance_rpc(ctx)
+            account = _get_governance_account(http_client, canonical_address(voter_address), chain_id)
+            onchain_power = account.get("balance", 0) or 0
+            vote_data["signed_tx"] = _sign_governance_tx(
+                http_client,
+                chain_id,
+                private_key,
+                signer_address,
+                "GOVERNANCE_VOTE",
+                {
+                    "proposal_id": proposal_id,
+                    "voter": voter_address,
+                    "vote_type": vote,
+                    # The on-chain record must carry the real balance snapshot —
+                    # the service verifies it against a fresh query.
+                    "voting_power": onchain_power,
+                    "reason": reason,
+                },
+                account=account,
+            )
         result = client.post("/v1/governance/votes", json=vote_data)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
@@ -199,16 +334,36 @@ def list(ctx, status: str | None, category: str | None, proposer_id: str | None,
 )
 @click.option("--proposal-id", "proposal_id", required=True, help="The Proposal id.")
 @click.option("--executor-address", default="", help="Executor wallet address (for on-chain execution)")
+@click.option("--wallet", "wallet_name", default=None, help="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)")
+@click.option("--password", default=None, help="Wallet password")
 @click.option("--format", type=click.Choice(["table", "json"]), default="table", help="Output format")
 @click.pass_context
-def execute(ctx, proposal_id: str, executor_address: str, format: str):
+def execute(ctx, proposal_id: str, executor_address: str, wallet_name: str | None, password: str | None, format: str):
     """Execute an approved governance proposal on-chain."""
     try:
         client = _get_client(ctx)
         query = ""
+        body: dict | None = None
+        signer = _wallet_signer(ctx, wallet_name, password)
+        if signer:
+            signer_address, private_key = signer
+            if executor_address and executor_address.lower() != signer_address.lower():
+                raise click.ClickException("--executor-address does not match the --wallet address")
+            executor_address = executor_address or signer_address
+            http_client, chain_id = _governance_rpc(ctx)
+            body = {
+                "signed_tx": _sign_governance_tx(
+                    http_client,
+                    chain_id,
+                    private_key,
+                    signer_address,
+                    "GOVERNANCE_EXECUTE",
+                    {"proposal_id": proposal_id, "executor": executor_address},
+                )
+            }
         if executor_address:
             query = f"?executor_address={executor_address}"
-        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}")
+        result = client.post(f"/v1/governance/proposals/{proposal_id}/execute{query}", json=body)
         output(result, ctx.obj.get("output_format", format))
     except NetworkError as e:
         error(f"Network error: {e}")

@@ -113,3 +113,39 @@ class BlockchainClient(BaseBlockchainClient):
         tx["signature"] = signature.to_bytes().hex()
 
         return await self.submit_transaction(tx)
+
+    async def submit_signed_governance_tx(self, signed_tx: dict[str, Any]) -> dict[str, Any]:
+        """Relay a fully client-signed governance transaction.
+
+        The caller's wallet signs off-service; this service never sees a
+        private key. The signature is re-verified here (recover(signer) ==
+        ``from`` == ``to``) so malformed or mis-signed txs fail with a
+        ValueError instead of an opaque chain rejection. The node verifies
+        again on admission — this check is defense-in-depth, not authority.
+
+        Raises:
+            ValueError: missing fields, malformed signature, signer mismatch,
+                or a non-self-directed/non-zero-value transaction.
+        """
+        required = {"from", "to", "amount", "fee", "nonce", "payload", "type", "chain_id", "signature"}
+        missing = required - set(signed_tx)
+        if missing:
+            raise ValueError(f"signed_tx missing fields: {sorted(missing)}")
+
+        from aitbc.crypto.signature_recovery import recover_address
+        from eth_utils import keccak
+
+        digest = keccak(_canonical_signing_message(signed_tx))
+        try:
+            recovered = recover_address(digest, signed_tx["signature"])
+        except Exception as exc:
+            raise ValueError(f"signed_tx signature is malformed: {exc}") from exc
+
+        sender = str(signed_tx["from"])
+        if recovered.lower() != sender.lower():
+            raise ValueError("signed_tx signature does not recover to 'from'")
+        if str(signed_tx["to"]).lower() != sender.lower():
+            raise ValueError("governance transactions must be self-directed (to must equal from)")
+        if signed_tx["amount"] != 0:
+            raise ValueError("governance transactions must carry amount=0")
+        return await self.submit_transaction(signed_tx)
