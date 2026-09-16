@@ -55,6 +55,11 @@ _SEQUENTIAL_ONLY_TX_TYPES = frozenset(
         # pure delta path computes account changes only, so the parameter write
         # would silently never land on parallel-imported blocks (GAP-57).
         "GOVERNANCE_EXECUTE",
+        # v4 lock-window rules (maturity, payee ownership, claim-set overlap)
+        # live in validate_transaction — only the sequential apply path runs
+        # them on import. Without this a follower would apply a Byzantine
+        # proposer's early release unchecked (GAP-42).
+        "STAKE_RELEASE",
     }
 )
 

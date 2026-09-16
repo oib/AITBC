@@ -294,3 +294,21 @@ def test_mempool_allows_release_with_distinct_locks(engine):
     mempool.add(_release({"stake_id": "s1", "lock_tx_hashes": ["0xlock1"]}), chain_id=CHAIN)
     h = mempool.add(_release({"stake_id": "s2", "lock_tx_hashes": ["0xlock2"]}), chain_id=CHAIN)
     assert h
+
+
+def test_stake_release_is_sequential_only_on_both_copies():
+    """Releases must re-validate on follower imports, not just at production.
+
+    The v4 lock-window rules live in ``validate_transaction``; the pure delta
+    path applies account movement without running them. Keeping STAKE_RELEASE
+    in both ``_SEQUENTIAL_ONLY_TX_TYPES`` copies forces sequential apply at
+    block production and on import, so a Byzantine proposer's early release is
+    re-checked (and the block rejected) on every node. The two copies must
+    stay identical — this asserts both facts.
+    """
+    from aitbc_chain import sync_block_import
+    from aitbc_chain.consensus import poa
+
+    assert "STAKE_RELEASE" in sync_block_import._SEQUENTIAL_ONLY_TX_TYPES
+    assert "STAKE_RELEASE" in poa._SEQUENTIAL_ONLY_TX_TYPES
+    assert sync_block_import._SEQUENTIAL_ONLY_TX_TYPES == poa._SEQUENTIAL_ONLY_TX_TYPES
