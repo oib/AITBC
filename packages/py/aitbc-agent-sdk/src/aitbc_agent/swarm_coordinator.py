@@ -43,7 +43,17 @@ class SwarmDecision:
 
 
 class SwarmCoordinator(Agent):
-    """Agent that participates in swarm intelligence"""
+    """Agent that participates in swarm intelligence.
+
+    The swarm backend is intentionally unimplemented: no coordinator exposes
+    the ``/v1/swarm/{swarm_id}/register|broadcast|messages|decisions`` routes
+    this class targets (the mock routers that once did were removed — see
+    ``coordinator_api.contexts.agent_coordination.routers.swarm``). Until the
+    agent-collective protocol lands, :meth:`join_swarm` and
+    :meth:`coordinate_task` raise :class:`NotImplementedError` on entry rather
+    than POST into a void and report failure. Membership-gated methods keep
+    their honest no-op behavior (``False``/error dict when not joined).
+    """
 
     def __init__(self, *args: Any, **kwargs: Any) -> None:
         super().__init__(*args, **kwargs)
@@ -53,6 +63,10 @@ class SwarmCoordinator(Agent):
 
     async def join_swarm(self, swarm_type: str, config: dict[str, Any]) -> bool:
         """Join a swarm for collective intelligence"""
+        raise NotImplementedError(
+            "swarm backend not implemented: no coordinator serves /v1/swarm/* "
+            "endpoints; see SwarmCoordinator docstring"
+        )
         try:
             swarm_id = f"{swarm_type}-v1"
 
@@ -271,6 +285,10 @@ class SwarmCoordinator(Agent):
 
     async def coordinate_task(self, task: str, collaborators: int) -> dict[str, Any]:
         """Coordinate a collaborative task with other agents"""
+        raise NotImplementedError(
+            "swarm backend not implemented: no coordinator serves /v1/swarm/* "
+            "endpoints; see SwarmCoordinator docstring"
+        )
         try:
             # Create coordination proposal
             proposal = {
