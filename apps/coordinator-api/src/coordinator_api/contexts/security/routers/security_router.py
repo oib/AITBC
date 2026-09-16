@@ -411,9 +411,9 @@ async def update_trust_score(
 async def create_sandbox(
     request: Request,
     execution_id: str,
-    workflow_requirements: dict | None = None,
     session: Annotated[Session, Depends(get_session)],
     user: AdminDep,
+    workflow_requirements: dict | None = None,
     security_level: SecurityLevel | None = None,
 ) -> dict[str, Any]:
     """Create sandbox environment for agent execution"""
