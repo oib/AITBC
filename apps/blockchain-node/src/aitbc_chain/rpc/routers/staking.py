@@ -5,11 +5,12 @@ Staking, identity, and governance router.
 from typing import Any
 from collections.abc import Callable
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
 from ...logger import get_logger
+from ..escrow_routes import verify_rpc_api_key
 
 _logger = get_logger(__name__)
 
@@ -70,7 +71,7 @@ async def get_staking_info_route(request: Request, address: str, chain_id: str |
     return await get_staking_info(request, address, chain_id)  # type: ignore[no-any-return]
 
 
-@router.post("/identity/register", summary="Register agent identity")
+@router.post("/identity/register", summary="Register agent identity", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=20, per=60)
 async def register_agent_identity_route(request: Request, identity_data: dict) -> dict[str, Any]:
     """Register an agent identity on the blockchain"""
@@ -88,7 +89,7 @@ async def get_agent_identity_route(request: Request, agent_id: str, chain_id: st
     return await get_agent_identity(request, agent_id, chain_id)  # type: ignore[no-any-return]
 
 
-@router.post("/identity/verify", summary="Verify agent identity")
+@router.post("/identity/verify", summary="Verify agent identity", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def verify_agent_identity_route(request: Request, verification_data: dict) -> dict[str, Any]:
     """Verify an agent identity on the blockchain"""
@@ -97,7 +98,7 @@ async def verify_agent_identity_route(request: Request, verification_data: dict)
     return await verify_agent_identity(request, verification_data)  # type: ignore[no-any-return]
 
 
-@router.post("/governance/proposal", summary="Create governance proposal")
+@router.post("/governance/proposal", summary="Create governance proposal", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=20, per=60)
 async def create_governance_proposal_route(request: Request, proposal_data: dict) -> dict[str, Any]:
     """Create a governance proposal on the blockchain"""
@@ -106,7 +107,7 @@ async def create_governance_proposal_route(request: Request, proposal_data: dict
     return await create_governance_proposal(request, proposal_data)  # type: ignore[no-any-return]
 
 
-@router.post("/governance/vote", summary="Cast governance vote")
+@router.post("/governance/vote", summary="Cast governance vote", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[str, Any]:
     """Cast a vote on a governance proposal"""
@@ -115,7 +116,11 @@ async def cast_governance_vote_route(request: Request, vote_data: dict) -> dict[
     return await cast_governance_vote(request, vote_data)  # type: ignore[no-any-return]
 
 
-@router.post("/governance/proposal/{proposal_id}/execute", summary="Execute governance proposal")
+@router.post(
+    "/governance/proposal/{proposal_id}/execute",
+    summary="Execute governance proposal",
+    dependencies=[Depends(verify_rpc_api_key)],
+)
 @rate_limit(rate=10, per=60)
 async def execute_governance_proposal_route(
     request: Request, proposal_id: str, execution_data: dict[str, Any] | None = None

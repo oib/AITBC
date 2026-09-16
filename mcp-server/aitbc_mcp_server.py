@@ -781,8 +781,8 @@ def _run_http(
         options["params"] = json.dumps(params, default=str)
     if body:
         options["body"] = json.dumps(body, default=str)
-    if auth == "miner":
-        options["auth"] = "miner"
+    if auth in ("miner", "rpc"):
+        options["auth"] = auth
     # auth_env is intentionally ignored: the CLI resolves the API key from its
     # own config / env file lookup, which already checks the default path.
 
@@ -811,8 +811,8 @@ def _http_dry_run_command(
         options["params"] = json.dumps(params, default=str)
     if body:
         options["body"] = json.dumps(body, default=str)
-    if auth == "miner":
-        options["auth"] = "miner"
+    if auth in ("miner", "rpc"):
+        options["auth"] = auth
     return _build_aitbc_cli_command(
         "http",
         "call",

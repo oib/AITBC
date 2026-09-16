@@ -5,11 +5,12 @@ Islands router.
 from collections.abc import Callable
 from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
 from ...logger import get_logger
+from ..escrow_routes import verify_rpc_api_key
 
 _logger = get_logger(__name__)
 
@@ -46,7 +47,7 @@ except ImportError as e:
     _logger.error("Islands module not available: %s — affected endpoints will return 503", e)
 
 
-@router.post("/join", summary="Join an island")
+@router.post("/join", summary="Join an island", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
 async def join_island_route(body: JoinIslandRequest, request: Request) -> JoinIslandResponse:
     """Join an island for edge compute operations"""
@@ -55,7 +56,7 @@ async def join_island_route(body: JoinIslandRequest, request: Request) -> JoinIs
     return await join_island(body, request)
 
 
-@router.post("/leave", summary="Leave an island")
+@router.post("/leave", summary="Leave an island", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
 async def leave_island_route(body: LeaveIslandRequest, request: Request) -> LeaveIslandResponse:
     """Leave an island"""
@@ -82,7 +83,7 @@ async def get_island_route(request: Request, island_id: str) -> dict[str, Any]:
     return await get_island(island_id)  # type: ignore[no-any-return]
 
 
-@router.post("/bridge", summary="Request a bridge to another island")
+@router.post("/bridge", summary="Request a bridge to another island", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=10, per=60)
 async def request_bridge_route(body: BridgeRequestRequest, request: Request) -> BridgeRequestResponse:
     """Request a bridge to another island for cross-island communication"""

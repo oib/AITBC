@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -euo pipefail
+
 # Fast AITBC Bulk Sync - Optimized for large sync differences
 
 
@@ -15,6 +17,14 @@ GENESIS_PORT="8006"
 LOCAL_PORT="8006"
 MAX_SYNC_DIFF=100
 BULK_BATCH_SIZE=1000
+
+# /rpc/importBlock requires X-API-Key (GAP-56); resolve from env or the node secrets file.
+RPC_API_KEY="${BLOCKCHAIN_RPC_API_KEY:-}"
+if [ -z "$RPC_API_KEY" ] && [ -r /etc/aitbc/blockchain-secrets.env ]; then
+    RPC_API_KEY=$(grep -E '^BLOCKCHAIN_RPC_API_KEY=' /etc/aitbc/blockchain-secrets.env | head -1 | cut -d= -f2- | tr -d "\"'" || true)
+fi
+RPC_KEY_ARGS=()
+[ -n "$RPC_API_KEY" ] && RPC_KEY_ARGS=(-H "X-API-Key: $RPC_API_KEY")
 
 echo "=== 🚀 FAST AITBC BULK SYNC ==="
 echo "Timestamp: $(date)"
@@ -63,6 +73,7 @@ while [ "$current_start" -le "$end_height" ]; do
             # Import block
             result=$(curl -s -X POST "http://localhost:$LOCAL_PORT/rpc/importBlock" \
                 -H "Content-Type: application/json" \
+                "${RPC_KEY_ARGS[@]}" \
                 -d "$import_req" | jq -r .accepted 2>/dev/null || echo "false")
 
             if [ "$result" = "true" ]; then

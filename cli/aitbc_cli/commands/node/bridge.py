@@ -23,11 +23,18 @@ def _get_rpc_url(ctx) -> str:
     return str(url) if url is not None else "http://localhost:8202"
 
 
+def _rpc_client(rpc_url: str) -> AITBCHTTPClient:
+    """Blockchain-RPC client carrying the configured X-API-Key when present."""
+    from aitbc_cli.config import get_config
+
+    return AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
+
+
 def request_bridge_command(ctx, target_island_id):
     """Request a bridge to another island"""
     rpc_url = _get_rpc_url(ctx)
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _rpc_client(rpc_url)
         result = http_client.post("/rpc/islands/bridge", json={"target_island_id": target_island_id})
         output(result, ctx.obj.get("output", "table"), title="Bridge Request")
     except NetworkError as e:
@@ -42,7 +49,7 @@ def approve_bridge_command(ctx, request_id, approving_node_id):
     """Approve a bridge request"""
     rpc_url = _get_rpc_url(ctx)
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _rpc_client(rpc_url)
         result = http_client.post(
             "/rpc/islands/bridge/approve",
             json={"bridge_id": request_id, "approving_node_id": approving_node_id},
@@ -60,7 +67,7 @@ def reject_bridge_command(ctx, request_id, reason):
     """Reject a bridge request"""
     rpc_url = _get_rpc_url(ctx)
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        http_client = _rpc_client(rpc_url)
         result = http_client.post(
             "/rpc/islands/bridge/reject",
             json={"bridge_id": request_id, "reason": reason or ""},

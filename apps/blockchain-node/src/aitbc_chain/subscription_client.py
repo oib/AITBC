@@ -1,6 +1,7 @@
 """Subscription client for follower nodes to receive block pushes from hub."""
 
 import asyncio
+import os
 import time
 from collections.abc import Awaitable, Callable
 from typing import Any
@@ -43,6 +44,18 @@ class SubscriptionClient:
         # Consecutive divergent rejections. The counter has to live here: ChainSync is rebuilt for
         # every pushed block, so its own _rejection_counts can never reach a threshold (V23-90).
         self._consecutive_divergence = 0
+
+    @staticmethod
+    def _auth_headers() -> dict[str, str]:
+        """X-API-Key header for the gated /rpc/subscribe and /rpc/heartbeat routes.
+
+        The node unit loads /etc/aitbc/blockchain-secrets.env, so the key is
+        present in the process env on fleet nodes. When unset the request goes
+        out headerless and the hub answers 403 — the subscribe path then falls
+        back to pull sync as before.
+        """
+        key = os.environ.get("BLOCKCHAIN_RPC_API_KEY")
+        return {"X-API-Key": key} if key else {}
 
     async def start(self) -> None:
         """Start the subscription client."""
@@ -93,6 +106,7 @@ class SubscriptionClient:
             response = await self._client.post(
                 f"{self._hub_url}/rpc/subscribe",
                 json={"node_id": self._node_id, "transport": self._transport, "chain_id": self._chain_id},
+                headers=self._auth_headers(),
             )
             response.raise_for_status()
             data = response.json()
@@ -125,7 +139,9 @@ class SubscriptionClient:
             # Send chain_id so a node following several chains renews only the
             # lease this client owns, not every lease it happens to hold.
             response = await self._client.post(
-                f"{self._hub_url}/rpc/heartbeat", json={"node_id": self._node_id, "chain_id": self._chain_id}
+                f"{self._hub_url}/rpc/heartbeat",
+                json={"node_id": self._node_id, "chain_id": self._chain_id},
+                headers=self._auth_headers(),
             )
             response.raise_for_status()
             data = response.json()

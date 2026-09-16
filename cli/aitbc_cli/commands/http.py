@@ -114,7 +114,11 @@ def http():
 @click.option("--url", default=None, help="Override the service base URL")
 @click.option("--api-key", default=None, help="API key (X-API-Key) header")
 @click.option(
-    "--auth", "auth_kind", type=click.Choice(["none", "miner"]), default="none", help="Use configured API key for auth"
+    "--auth",
+    "auth_kind",
+    type=click.Choice(["none", "miner", "rpc"]),
+    default="none",
+    help="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key)",
 )
 @click.option("--timeout", type=int, default=30, help="Request timeout in seconds")
 @OUTPUT_FORMAT_OPTION
@@ -158,13 +162,19 @@ def call_http(
             raise click.ClickException(f"Invalid --body JSON: {e}") from e
 
     resolved_key: str | None = None
-    if auth_kind == "miner" and not api_key:
-        try:
-            resolved_key = get_config().api_key
-        except Exception:
-            resolved_key = None
-        if not resolved_key:
-            resolved_key = _resolve_miner_api_key()
+    if not api_key:
+        if auth_kind == "miner":
+            try:
+                resolved_key = get_config().api_key
+            except Exception:
+                resolved_key = None
+            if not resolved_key:
+                resolved_key = _resolve_miner_api_key()
+        elif auth_kind == "rpc":
+            try:
+                resolved_key = get_config().blockchain_rpc_api_key
+            except Exception:
+                resolved_key = None
 
     output_format = resolve_output_format(ctx, output_format)
     method = method.upper()

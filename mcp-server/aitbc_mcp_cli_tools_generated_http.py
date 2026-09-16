@@ -32,7 +32,10 @@ def aitbc_http_call(
     body: Annotated[str | None, Field(description="JSON object request body")],
     url: Annotated[str | None, Field(description="Override the service base URL")],
     api_key: Annotated[str | None, Field(description="API key (X-API-Key) header")],
-    auth_kind: Annotated[Literal["none", "miner"] | None, Field(description="Use configured API key for auth")],
+    auth_kind: Annotated[
+        Literal["none", "miner", "rpc"] | None,
+        Field(description="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key)"),
+    ],
     timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
