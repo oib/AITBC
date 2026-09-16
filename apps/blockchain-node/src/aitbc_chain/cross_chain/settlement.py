@@ -760,52 +760,63 @@ class CrossChainSettlementService:
 
             # B4: Refund the HTLC swap — return funds from contract to initiator
             # Only attempt if the swap was actually locked (source_lock_tx_hash set)
+            proof_record = None
             if record.source_lock_tx_hash:
                 try:
                     refund_swap = self._htlc.refund_swap(
                         session=session,
                         swap_id=record.source_lock_tx_hash,
                     )
-                    refund_tx_hash = refund_swap.swap_id
+                    refund_tx_hash: str | None = refund_swap.swap_id
                 except ValueError as e:
-                    logger.warning("HTLC refund failed for escrow %s: %s — recording proof only", escrow_id, e)
-                    refund_tx_hash = _simulate_tx_hash("refund", escrow_id, record.source_chain)
+                    # The HTLC timelock is block-height based while the timeout
+                    # check is wall-clock: the sweeper fires margin_blocks early.
+                    # Refuse terminally — leave the record non-terminal so the
+                    # next sweep (or a manual refund) retries once the height
+                    # matures, instead of recording a refund that never happened.
+                    raise ValueError(f"escrow {escrow_id} is not refundable yet: {e}") from e
+
+                block_height, block_hash = _get_chain_head(record.source_chain)
+
+                # Get previous proof hash
+                previous_hash = _get_last_proof_hash(session, escrow_id)
+
+                release_proof = build_release_proof(
+                    dest_chain=record.source_chain,  # refund happens on source
+                    release_tx_hash=refund_tx_hash,
+                    escrow_id=escrow_id,
+                    block_height=block_height,
+                    block_hash=block_hash,
+                    previous_proof_hash=previous_hash,
+                    timestamp=time.time(),
+                )
+
+                proof_record = _make_proof_record(
+                    escrow_id=escrow_id,
+                    proof_type=ProofType.RELEASE.value,
+                    chain_id=release_proof.chain_id,
+                    block_height=release_proof.block_height,
+                    block_hash=release_proof.block_hash,
+                    tx_hash=release_proof.tx_hash,
+                    previous_proof_hash=release_proof.previous_proof_hash,
+                    proposer_signature=release_proof.proposer_signature,
+                    timestamp=release_proof.timestamp,
+                )
             else:
-                refund_tx_hash = _simulate_tx_hash("refund", escrow_id, record.source_chain)
-            block_height, block_hash = _get_chain_head(record.source_chain)
-
-            # Get previous proof hash
-            previous_hash = _get_last_proof_hash(session, escrow_id)
-
-            release_proof = build_release_proof(
-                dest_chain=record.source_chain,  # refund happens on source
-                release_tx_hash=refund_tx_hash,
-                escrow_id=escrow_id,
-                block_height=block_height,
-                block_hash=block_hash,
-                previous_proof_hash=previous_hash,
-                timestamp=time.time(),
-            )
-
-            proof_record = _make_proof_record(
-                escrow_id=escrow_id,
-                proof_type=ProofType.RELEASE.value,
-                chain_id=release_proof.chain_id,
-                block_height=release_proof.block_height,
-                block_hash=release_proof.block_hash,
-                tx_hash=release_proof.tx_hash,
-                previous_proof_hash=release_proof.previous_proof_hash,
-                proposer_signature=release_proof.proposer_signature,
-                timestamp=release_proof.timestamp,
-            )
+                # Never locked — nothing sits in the HTLC, so there is no
+                # on-chain refund to prove. The status transition alone is the
+                # honest record; tx_hash/proof stay null.
+                refund_tx_hash = None
 
             record.status = EscrowStatus.REFUNDED.value
             record.refunded_at = datetime.now(UTC)
 
-            session.add(proof_record)
+            if proof_record is not None:
+                session.add(proof_record)
             session.add(record)
             session.commit()
-            session.refresh(proof_record)
+            if proof_record is not None:
+                session.refresh(proof_record)
 
             # HTLC state transition: funded → refunded (or expired → refunded)
             # We attempt funded→refunded; if the escrow was never locked it
@@ -819,7 +830,7 @@ class CrossChainSettlementService:
                 "escrow_id": escrow_id,
                 "status": record.status,
                 "tx_hash": refund_tx_hash,
-                "release_proof": _proof_to_dict(proof_record),
+                "release_proof": _proof_to_dict(proof_record) if proof_record is not None else None,
             }
 
         logger.info("Refunded escrow %s: tx=%s", escrow_id, refund_tx_hash)
@@ -834,7 +845,7 @@ class CrossChainSettlementService:
         if not settings.escrow_enabled:
             raise RuntimeError("Settlement not enabled")
 
-        refunded: list[str] = []
+        expired: list[str] = []
         now = time.time()
         active_statuses = {
             EscrowStatus.PENDING.value,
@@ -863,15 +874,23 @@ class CrossChainSettlementService:
                         int(now - created),
                         record.timeout_seconds,
                     )
-                    refunded.append(record.escrow_id)
+                    expired.append(record.escrow_id)
 
         # Refund each timed-out escrow (outside the read session to avoid
-        # nested-session issues; refund() opens its own session).
-        for escrow_id in refunded:
+        # nested-session issues; refund() opens its own session). Only count
+        # escrows whose refund actually ran — a "not refundable yet" refusal
+        # leaves the record non-terminal so the next tick retries it once the
+        # HTLC timelock height matures.
+        refunded: list[str] = []
+        for escrow_id in expired:
             try:
                 await self.refund(escrow_id)
+            except ValueError as e:
+                logger.info("Escrow %s not refundable yet: %s", escrow_id, e)
             except Exception as e:
                 logger.error("Failed to refund timed-out escrow %s: %s", escrow_id, e)
+            else:
+                refunded.append(escrow_id)
 
         return refunded
 

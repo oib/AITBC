@@ -32,11 +32,12 @@ Trading service endpoints (Agent B B6 — port 8104):
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, cast
 
 import httpx
 
-from .types import SettlementConfig
+from .types import EscrowProof, SettlementConfig
 
 logger = logging.getLogger(__name__)
 
@@ -53,8 +54,13 @@ class SettlementClient:
     ``apps/trading/src/trading_service/main.py:469``).
     """
 
-    def __init__(self, config: SettlementConfig | None = None) -> None:
+    def __init__(self, config: SettlementConfig | None = None, api_key: str | None = None) -> None:
         self._config = config or SettlementConfig()
+        # The settlement router requires X-API-Key (same control as
+        # /rpc/escrow/). Fall back to the environment, matching
+        # aitbc.marketplace.blockchain_rpc; when neither is set the server
+        # answers 503 and this stays headerless.
+        self._api_key = api_key or os.environ.get("BLOCKCHAIN_RPC_API_KEY") or None
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -62,11 +68,16 @@ class SettlementClient:
         """The active settlement configuration."""
         return self._config
 
-    async def __aenter__(self) -> SettlementClient:
-        self._client = httpx.AsyncClient(
+    def _make_client(self) -> httpx.AsyncClient:
+        headers = {"X-API-Key": self._api_key} if self._api_key else None
+        return httpx.AsyncClient(
             base_url=self._config.settlement_rpc_url,
             timeout=self._config.timeout,
+            headers=headers,
         )
+
+    async def __aenter__(self) -> SettlementClient:
+        self._client = self._make_client()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -74,10 +85,7 @@ class SettlementClient:
 
     def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(
-                base_url=self._config.settlement_rpc_url,
-                timeout=self._config.timeout,
-            )
+            self._client = self._make_client()
         return self._client
 
     async def close(self) -> None:
@@ -279,13 +287,23 @@ class SettlementClient:
     async def verify_proof_chain(self, escrow_id: str) -> dict[str, Any]:
         """Verify the integrity of the proof chain for an escrow.
 
-        Returns ``{"valid": bool, "errors": list[str]}``.
+        Runs the chain verification locally — a proof chain is only
+        meaningful if the verifier does not trust the server to grade its
+        own output. Returns ``{"valid": bool, "errors": list[str]}``.
         """
+        from .proofs import dict_to_proof, verify_proof_chain as _verify
+
         data = await self.get_proofs(escrow_id)
-        return {
-            "valid": data.get("valid", False),
-            "errors": data.get("errors", []),
-        }
+        proofs: list[EscrowProof] = []
+        errors: list[str] = []
+        for i, p in enumerate(data.get("proofs", [])):
+            try:
+                proofs.append(dict_to_proof(p))
+            except (KeyError, TypeError, ValueError) as e:
+                errors.append(f"proof[{i}] is malformed: {e}")
+        if not errors:
+            errors = _verify(proofs)
+        return {"valid": not errors, "errors": errors}
 
     # ------------------------------------------------------------------
     # Dispute resolution
