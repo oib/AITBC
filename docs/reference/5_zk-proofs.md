@@ -1,5 +1,12 @@
 # ZK Receipt Attestation Implementation Summary
 
+> **Historical record.** This is a point-in-time report. File paths below
+> reflect the pre-2026-07-07 layout: the `src/app/` package in each app was
+> renamed to a per-service package (`src/coordinator_api/`, `src/wallet_app/`,
+> `src/agent_app/`). Do not treat paths or endpoints listed here as current —
+> verify against the source tree.
+
+
 ## Overview
 
 Successfully implemented a zero-knowledge proof system for privacy-preserving receipt attestation in AITBC, enabling confidential settlements while maintaining verifiability.

@@ -68,7 +68,7 @@ optimization = await builder.create_contribution({
     "title": "Improved Load Balancing Algorithm",
     "description": "Enhanced load balancing with 25% better throughput",
     "files_to_modify": [
-        "apps/coordinator-api/src/app/services/load_balancer.py",
+        "apps/coordinator-api/src/coordinator_api/services/load_balancer.py",
         "tests/unit/test_load_balancer.py"
     ],
     "expected_impact": {

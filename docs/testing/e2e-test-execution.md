@@ -2,7 +2,8 @@
 
 **Version:** 1.0
 **Date:** 2026-05-11
-**Status:** Draft
+**Status:** Draft — proposed framework; the referenced `docker-compose.test.yml`,
+`scripts/wait-for-services.sh`, and CI workflow were never implemented.
 **Purpose:** Define test execution, reporting, and maintenance for E2E testing
 
 ## Overview
