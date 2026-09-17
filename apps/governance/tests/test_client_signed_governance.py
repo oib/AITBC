@@ -21,11 +21,7 @@ import pytest
 from eth_keys import keys
 from eth_utils import keccak
 
-from governance_service.clients.blockchain import (
-    _SIGNED_FIELDS,
-    BlockchainClient,
-    _canonical_signing_message,
-)
+from governance_service.clients.blockchain import _SIGNED_FIELDS, BlockchainClient
 from governance_service.services.governance_service import GovernanceService
 
 PRIVKEY = "0x" + "11" * 32

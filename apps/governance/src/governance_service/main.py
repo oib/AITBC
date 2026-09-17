@@ -455,7 +455,7 @@ async def execute_proposal_v2(
     proposal_id: str,
     svc: Annotated[GovernanceService, Depends(get_governance_service)],
     executor_address: str = "",
-    body: dict[str, Any] | None = Body(default=None),
+    body: Annotated[dict[str, Any] | None, Body()] = None,
 ):
     """Execute a passed proposal (v0.4.12 enhanced with logging + v0.7.3 on-chain submission)"""
     signed_tx = (body or {}).get("signed_tx")
