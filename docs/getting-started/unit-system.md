@@ -54,7 +54,7 @@ The 36,000,000 scale keeps the integer-money design but adds 10,000× precision:
 |-------------|------------------|-------------|
 | 0.01 AIT | 360,000 | Transaction fee |
 | 1 AIT | 36,000,000 | Base unit |
-| 100 AIT | 3,600,000,000 | Free grant amount |
+| 3 AIT | 108,000,000 | Free grant amount |
 | 1,000 AIT | 36,000,000,000 | Typical stake |
 | 1,000,000 AIT | 36,000,000,000,000,000 | Large airdrop default |
 

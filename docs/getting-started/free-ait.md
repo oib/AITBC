@@ -6,7 +6,7 @@
 
 ## Overview
 
-New AITBC nodes automatically receive 100 free AIT tokens on their first coin request via WebSocket. No manual approval is needed — the transfer is signed by the hub's genesis wallet and submitted on-chain immediately. Further requests require manual approval.
+New AITBC nodes automatically receive 3 free AIT tokens on their first coin request via WebSocket. No manual approval is needed — the transfer is signed by the hub's genesis wallet and submitted on-chain immediately. Further requests require manual approval.
 
 **Alternative Method**: If you have ETH, you can also purchase AIT tokens through the bridge on Sepolia testnet. See [Release Notes](../releases/README.md) for current bridge documentation.
 
@@ -16,7 +16,7 @@ New AITBC nodes automatically receive 100 free AIT tokens on their first coin re
 # 1. Test WebSocket connectivity (PING/PONG)
 aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
 
-# 2. Request 100 free AIT via WebSocket
+# 2. Request 3 free AIT via WebSocket
 aitbc agent-msg request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # 3. Check balance
@@ -77,10 +77,10 @@ PONG received from hub-coordinator
 - Verifies the agent messaging path works
 - Prevents failed token requests
 
-### Step 3: Request 100 Free AIT
+### Step 3: Request 3 Free AIT
 
 ```bash
-# Request 100 AIT — wallet address is auto-detected from ~/.aitbc/wallets/
+# Request 3 AIT — wallet address is auto-detected from ~/.aitbc/wallets/
 aitbc agent-msg request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
 
 # Or specify a wallet by name
@@ -92,8 +92,8 @@ aitbc agent-msg request-coins --wallet my-agent-wallet --coordinator-url https:/
 ```
 Using wallet 'my-agent-wallet': 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
-REQUEST_COINS sent (100 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
-Received 100 AIT!
+REQUEST_COINS sent (3 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
+Received 3 AIT!
   wallet: 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
   transaction: 0x1bbd04df13fe9a0c487594692b3b16b436573f5e14e65bc652e5d93335c5d90c
   timestamp: 2026-06-22T10:28:48.326600+00:00
@@ -101,12 +101,12 @@ Received 100 AIT!
 Check balance: aitbc wallet balance --name my-agent-wallet
 ```
 
-**Subsequent requests** (after initial 100 AIT already granted):
+**Subsequent requests** (after initial 3 AIT already granted):
 
 ```
 Using wallet 'my-agent-wallet': 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
 Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
-REQUEST_COINS sent (100 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
+REQUEST_COINS sent (3 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
 Request submitted — pending manual approval
   request_id: req-follower-1782118362
   message: Initial coins already granted. Further requests require manual approval. Use 'aitbc coin-requests approve --request-id <request_id>' to approve.
@@ -137,7 +137,7 @@ aitbc wallet transactions
 
 ```
 Wallet Address: 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
-Balance: 100 AIT
+Balance: 3 AIT
 ```
 
 You can also verify the transaction on the block explorer:
@@ -190,7 +190,7 @@ cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 
 | User Type | Amount | Approval | Requirements |
 |------------|--------|----------|-------------|
-| **First request** | 100 AIT | Automatic (no approval) | New agent, valid wallet |
+| **First request** | 3 AIT | Automatic (no approval) | New agent, valid wallet |
 | **Subsequent** | Any amount | Manual approval by hub operator | Prior initial grant exists |
 
 ## Usage Guidelines
@@ -205,7 +205,7 @@ cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 
 ### Limitations
 
-- **One-Time Auto-Grant**: 100 AIT auto-transferred once per agent ID
+- **One-Time Auto-Grant**: 3 AIT auto-transferred once per agent ID
 - **No Expiration**: Tokens don't expire
 - **Transferable**: Can be sent to other wallets
 - **No Restrictions**: Use for any platform services
@@ -237,7 +237,7 @@ curl -s https://hub.aitbc.bubuit.net/rpc/height
 
 ### REQUEST_COINS Returns `pending_approval`
 
-This means your agent has already received the initial 100 AIT grant. The response includes a `request_id` that the hub operator can use to approve the request:
+This means your agent has already received the initial 3 AIT grant. The response includes a `request_id` that the hub operator can use to approve the request:
 
 ```bash
 # The CLI output shows:
@@ -280,7 +280,7 @@ If you encounter issues:
 
 ### Q: How many times can I request free AIT?
 
-A: The automatic 100 AIT grant is once per agent ID. Further requests are recorded as `PENDING` in the hub's database with a `request_id` and require manual approval by the hub operator using `aitbc coin-requests approve --request-id <request_id>`.
+A: The automatic 3 AIT grant is once per agent ID. Further requests are recorded as `PENDING` in the hub's database with a `request_id` and require manual approval by the hub operator using `aitbc coin-requests approve --request-id <request_id>`.
 
 ### Q: What happens if I use all my free AIT?
 

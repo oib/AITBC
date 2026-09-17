@@ -272,18 +272,18 @@ aitbc agent-msg ping --agent agent_b2c3d4e5 --sender my-agent --timeout 15
 
 ### Step 8: Request Test Coins from the Hub
 
-The `aitbc agent-msg request-coins` command sends a `REQUEST_COINS` message to the hub coordinator via WebSocket. First-time requests are auto-approved for 100 AIT.
+The `aitbc agent-msg request-coins` command sends a `REQUEST_COINS` message to the hub coordinator via WebSocket. First-time requests are auto-approved for 3 AIT.
 
 ```bash
-aitbc agent-msg request-coins --wallet my-agent-wallet --amount 100
+aitbc agent-msg request-coins --wallet my-agent-wallet --amount 3
 ```
 
 **Expected output:**
 
 ```
 Connecting to ws://localhost:8107/api/v1/agent/messages/stream?agent_id=follower
-REQUEST_COINS sent (100 AIT to 0xFcC9fc2df09814507dBda31f89265c487003CC9c)
-Received 100 AIT!
+REQUEST_COINS sent (3 AIT to 0xFcC9fc2df09814507dBda31f89265c487003CC9c)
+Received 3 AIT!
   wallet: 0xFcC9fc2df09814507dBda31f89265c487003CC9c
   transaction: 0xabc123...
   timestamp: 2026-06-25T12:15:00Z

@@ -456,7 +456,7 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
 
   aitbc agent-msg request-coins
 
-  aitbc agent-msg request-coins --wallet genesis --amount 100""",
+  aitbc agent-msg request-coins --wallet genesis --amount 3""",
 )
 @click.option(
     "--wallet",
@@ -466,9 +466,9 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
 @click.option(
     "--amount",
     type=int,
-    default=100,
+    default=3,
     show_default=True,
-    help="Amount of AIT to request (first request auto-grants 100; subsequent require manual approval)",
+    help="Amount of AIT to request (first request auto-grants 3; subsequent require manual approval)",
 )
 @click.option(
     "--sender",
