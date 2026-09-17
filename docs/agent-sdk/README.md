@@ -385,62 +385,31 @@ def test_blockchain_integration():
 
 ## 🚀 Deployment
 
-### Docker Deployment
+AITBC does not support Docker or Kubernetes — production services are
+managed as systemd units, and the development environment uses incus
+containers (see `scripts/README.md`). Deploy an agent as a systemd
+service on a node:
 
-```dockerfile
-FROM python:3.13-slim
+```ini
+# /etc/systemd/system/my-agent.service
+[Unit]
+Description=My AITBC Agent
+After=network-online.target
 
-WORKDIR /app
+[Service]
+Type=simple
+User=aitbc
+EnvironmentFile=/etc/aitbc/agent.env
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/agents/my_agent.py
+Restart=always
+RestartSec=10
 
-COPY requirements.txt .
-RUN pip install -r requirements.txt
-
-COPY . .
-
-# Create non-root user
-RUN useradd -m -u 1000 agent
-USER agent
-
-# Start agent
-CMD ["python", "agent.py"]
+[Install]
+WantedBy=multi-user.target
 ```
 
-### Kubernetes Deployment
-
-```yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: aitbc-agent
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: aitbc-agent
-  template:
-    metadata:
-      labels:
-        app: aitbc-agent
-    spec:
-      containers:
-      - name: agent
-        image: aitbc/agent:latest
-        env:
-        - name: AITBC_NETWORK
-          value: "mainnet"
-        - name: AITBC_PRIVATE_KEY
-          valueFrom:
-            secretKeyRef:
-              name: agent-secrets
-              key: private-key
-        resources:
-          requests:
-            cpu: 100m
-            memory: 128Mi
-          limits:
-            cpu: 500m
-            memory: 512Mi
-```
+Keep secrets in the unit's `EnvironmentFile` (mode `0600`) or the
+node's keystore — never bake private keys into images or manifests.
 
 ## 📚 API Reference
 

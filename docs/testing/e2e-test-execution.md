@@ -2,8 +2,10 @@
 
 **Version:** 1.0
 **Date:** 2026-05-11
-**Status:** Draft — proposed framework; the referenced `docker-compose.test.yml`,
-`scripts/wait-for-services.sh`, and CI workflow were never implemented.
+**Status:** Draft — proposed framework; the referenced
+`scripts/wait-for-services.sh` and CI workflow were never implemented.
+Service orchestration must be systemd-based — Docker/compose is not
+supported (see `docs/governance/09-DEPLOYMENT.md`).
 **Purpose:** Define test execution, reporting, and maintenance for E2E testing
 
 ## Overview
@@ -174,14 +176,14 @@ jobs:
           pip install -r requirements.txt
           pip install pytest pytest-asyncio httpx
       - name: Start services
-        run: docker-compose -f docker-compose.test.yml up -d
+        run: sudo systemctl start postgresql redis-server aitbc-coordinator-api aitbc-blockchain-node
       - name: Wait for services
         run: ./scripts/wait-for-services.sh
       - name: Run E2E tests
         run: pytest tests/e2e/ -v --tb=short
       - name: Stop services
         if: always()
-        run: docker-compose -f docker-compose.test.yml down
+        run: sudo systemctl stop aitbc-blockchain-node aitbc-coordinator-api redis-server postgresql
 ```
 
 ## Reporting
@@ -269,7 +271,7 @@ jobs:
 ### Immediate (1-2 weeks)
 
 1. Set up E2E test environment
-2. Implement service orchestration (docker-compose)
+2. Implement service orchestration (systemd units; Docker/compose is not supported)
 3. Create test fixtures
 4. Implement critical test scenarios (job lifecycle, payment flow)
 
