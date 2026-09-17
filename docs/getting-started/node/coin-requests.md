@@ -67,7 +67,7 @@ aitbc agent-msg request-coins --wallet my-wallet --amount 1000
 ```
 
 The receiving address comes from the wallet; first requests auto-grant up to
-100 AIT, larger or repeat requests go to manual approval on the hub.
+3 AIT, larger or repeat requests go to manual approval on the hub.
 
 The CLI formats and signs the `REQUEST_COINS` message for you. To send the
 raw message yourself instead:
