@@ -581,6 +581,27 @@ exec /opt/aitbc/venv/bin/python -m aitbc_cli.core.main "$@"'
 }
 
 # ----------------------------------------------------------------------------
+# Step 4x: Repair monitor log ownership
+# ----------------------------------------------------------------------------
+# Flat logs under root-owned /var/log/aitbc are appended by User=aitbc oneshot
+# monitors. A manual root run of a monitor script leaves a root-owned log the
+# service can no longer append (seen 2026-09: memory-monitor "Permission
+# denied" on every timer run fleet-wide for ~2 weeks). Reassert on every update.
+ensure_monitor_log_files() {
+    local logf
+    while IFS= read -r logf; do
+        [ -n "$logf" ] || continue
+        if [ -f "$logf" ]; then
+            chown aitbc:aitbc "$logf" 2>/dev/null || true
+        else
+            install -o aitbc -g aitbc -m 0644 /dev/null "$logf" 2>/dev/null || true
+        fi
+    done < <(grep -hoE 'LOG_FILE="(/var/log/aitbc/[^"]+)"' \
+        "$AITBC_ROOT"/scripts/monitoring/*.sh 2>/dev/null | cut -d'"' -f2 | sort -u)
+    log "Monitor log files verified (aitbc-owned)"
+}
+
+# ----------------------------------------------------------------------------
 # Step 4e: Scope consensus-signing keys to the blockchain services
 # ----------------------------------------------------------------------------
 # VALIDATOR_KEYS / PROPOSER_KEY must not live in the shared
@@ -926,6 +947,7 @@ main() {
     enable_services
     ensure_env_files
     ensure_aitbc_wrapper
+    ensure_monitor_log_files
     ensure_consensus_env_defaults
     ensure_gossip_defaults
     ensure_validator_secrets_scope
