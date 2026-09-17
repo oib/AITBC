@@ -1203,7 +1203,16 @@ class PoAProposer:
         already committed, but the caller reports the proposal as aborted.
         Broadcast failures are logged and do not fail the proposal.
         """
-        tx_list = [tx.content for tx in processed_txs] if processed_txs else []
+        # Broadcast must carry the proposer's tx_hash: importers recompute a
+        # hash only when one is absent, and the recompute runs over normalized
+        # (enriched) content, so hashless txs landed under different tx_hash
+        # values per node — breaking every cross-node reference (v4
+        # lock_tx_hashes being the first consumer).
+        tx_list = (
+            [{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs]
+            if processed_txs
+            else []
+        )
         gossip_topic = f"blocks.{self._config.chain_id}"
         if self._stop_event.is_set():
             return False
