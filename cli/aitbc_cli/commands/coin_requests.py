@@ -749,10 +749,10 @@ def _execute_approved_request(
 
   aitbc coin-requests request
 
-  aitbc coin-requests request --wallet default --amount 100""",
+  aitbc coin-requests request --wallet default --amount 3""",
 )
 @click.option("--wallet", default="default", show_default=True, help="Wallet name to receive the coins.")
-@click.option("--amount", type=int, default=100, show_default=True, help="Amount in AIT.")
+@click.option("--amount", type=int, default=3, show_default=True, help="Amount in AIT.")
 @click.option("--sender", default=None, help="Sender id (defaults to hostname-wallet-suffix).")
 @click.option("--recipient", default="hub-coordinator", show_default=True, help="Recipient agent id.")
 @click.option("--request-id", default=None, help="Request id (defaults to a unique value).")
