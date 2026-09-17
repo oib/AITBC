@@ -13,6 +13,10 @@ Environment=PATH=/opt/aitbc/venv/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/u
 # authentication supply REDISCLI_AUTH here; without it redis-cli gets NOAUTH and
 # the monitor correctly reports a connection failure.
 EnvironmentFile=-/etc/aitbc/redis.env
+# Per-node knobs for the monitor itself (e.g. CACHE_MONITOR_SKIP_HIT_RATE=true
+# where Redis is a broker/mailbox store rather than a read cache). Absent by
+# default; update.sh's ensure_env_files creates it for every aitbc-* unit.
+EnvironmentFile=-/etc/aitbc/aitbc-cache-monitor.env
 ExecStart=/opt/aitbc/scripts/monitoring/cache-monitor.sh
 # Exits 1 when Redis is unreachable or over its memory threshold.
 SyslogIdentifier=aitbc-cache-monitor

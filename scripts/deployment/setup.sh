@@ -623,6 +623,21 @@ setup_service_users() {
     # (setup_runtime_directories runs before this step, so chown may have been skipped)
     chown -R aitbc:aitbc /var/lib/aitbc/data 2>/dev/null || true
 
+    # Flat monitor logs sit directly in root-owned /var/log/aitbc while the
+    # User=aitbc monitor units append to them. Pre-create (or repair) them
+    # aitbc-owned so a manual root run of a monitor script cannot leave a
+    # root-owned file that makes every later service run fail with EACCES.
+    grep -hoE 'LOG_FILE="(/var/log/aitbc/[^"]+)"' \
+        /opt/aitbc/scripts/monitoring/*.sh 2>/dev/null | cut -d'"' -f2 | sort -u | \
+    while IFS= read -r monitor_log; do
+        [ -n "$monitor_log" ] || continue
+        if [ -f "$monitor_log" ]; then
+            chown aitbc:aitbc "$monitor_log" 2>/dev/null || true
+        else
+            install -o aitbc -g aitbc -m 0644 /dev/null "$monitor_log" 2>/dev/null || true
+        fi
+    done
+
     # Same for the parent: setup_runtime_directories runs before the aitbc group exists, so
     # its `chown root:aitbc /var/lib/aitbc` falls back to root:root on a first install. Redo
     # it here or every aitbc.auth importer restart-loops on api_keys.json.lock.

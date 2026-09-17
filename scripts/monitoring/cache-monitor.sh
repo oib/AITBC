@@ -6,6 +6,14 @@
 LOG_FILE="/var/log/aitbc/cache-monitor.log"
 ALERT_THRESHOLD=90  # Memory usage alert threshold
 
+# Hit-rate check tuning. On nodes where Redis serves as a pub/sub broker or
+# mailbox store rather than a read cache, keyspace lookups are mostly mailbox
+# polls that always miss -> a permanent "0% hit rate" warning that is pure
+# noise. Set CACHE_MONITOR_SKIP_HIT_RATE=true in
+# /etc/aitbc/aitbc-cache-monitor.env on such nodes.
+HIT_RATE_MIN="${CACHE_MONITOR_HIT_RATE_MIN:-50}"
+SKIP_HIT_RATE="${CACHE_MONITOR_SKIP_HIT_RATE:-false}"
+
 # Colors for output
 RED='\033[0;31m'
 YELLOW='\033[1;33m'
@@ -79,12 +87,15 @@ check_cache_stats() {
     if ! [[ "$keyspace_hits" =~ ^[0-9]+$ ]] || ! [[ "$keyspace_misses" =~ ^[0-9]+$ ]]; then
         echo -e "${YELLOW}WARNING: keyspace statistics unavailable; skipping hit-rate check${NC}"
         log_message "WARNING" "Keyspace statistics unavailable; skipping hit-rate check"
+    elif [ "$SKIP_HIT_RATE" = "true" ]; then
+        echo "Hit-rate check skipped (CACHE_MONITOR_SKIP_HIT_RATE=true)"
+        log_message "INFO" "Hit-rate check skipped (CACHE_MONITOR_SKIP_HIT_RATE=true)"
     elif [ $((keyspace_hits + keyspace_misses)) -gt 0 ]; then
         local total=$((keyspace_hits + keyspace_misses))
         local hit_rate=$((keyspace_hits * 100 / total))
         echo "Hit Rate: ${hit_rate}%"
 
-        if [ $hit_rate -lt 50 ]; then
+        if [ "$hit_rate" -lt "$HIT_RATE_MIN" ]; then
             echo -e "${YELLOW}WARNING: Low cache hit rate (${hit_rate}%)${NC}"
             log_message "WARNING" "Low cache hit rate (${hit_rate}%)"
         else
