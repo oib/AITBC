@@ -401,7 +401,7 @@ async def hello_handler(
 
 
 # ── Coin transfer constants ──────────────────────────────────
-INITIAL_COIN_AMOUNT = ait_to_units(100)  # AIT granted automatically on first request per node (100 AIT)
+INITIAL_COIN_AMOUNT = ait_to_units(3)  # AIT granted automatically on first request per node (3 AIT)
 TRANSACTION_FEE = DEFAULT_TX_FEE_UNITS  # blockchain transaction fee (matches RPC default, 0.01 AIT)
 
 
@@ -565,7 +565,7 @@ async def request_coins_handler(
 ) -> dict[str, Any]:
     """Handle REQUEST_COINS messages.
 
-    First request from a node: auto-transfer 100 AIT without approval.
+    First request from a node: auto-transfer 3 AIT without approval.
     Subsequent requests: return pending_approval for manual review.
     """
     sender = message.get("sender_id", "unknown")

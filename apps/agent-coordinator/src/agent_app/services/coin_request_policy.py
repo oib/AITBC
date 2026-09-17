@@ -25,9 +25,9 @@ from aitbc.utils.units import ait_to_units
 
 logger = get_logger(__name__)
 
-# 100 AIT in compute-units — matches INITIAL_COIN_AMOUNT in websocket.agent_stream, which is the
-# grant the hub has always made automatically.
-DEFAULT_AUTO_APPROVE_MAX = ait_to_units(100)
+# 3 AIT in compute-units — matches INITIAL_COIN_AMOUNT in websocket.agent_stream, which is the
+# grant the hub makes automatically.
+DEFAULT_AUTO_APPROVE_MAX = ait_to_units(3)
 
 
 def auto_approve_ceiling() -> int:
