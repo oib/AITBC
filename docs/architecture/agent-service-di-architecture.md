@@ -7,7 +7,7 @@
 The codebase historically contained duplicated agent service logic across multiple apps:
 
 - `apps/agent-management/src/app/services/agent_integration.py` (1160 lines) *(removed)*
-- `apps/coordinator-api/src/app/services/agent_coordination/integration.py` (1160 lines)
+- `apps/coordinator-api/src/coordinator_api/services/agent_coordination/integration.py` (1160 lines)
 
 These files were nearly identical but had app-specific imports:
 
@@ -322,7 +322,7 @@ class SessionProviderAdapter(ISessionProvider):
 
 #### coordinator-api Adapter
 
-Create `apps/coordinator-api/src/app/adapters/agent_core_adapters.py`:
+Create `apps/coordinator-api/src/coordinator_api/adapters/agent_core_adapters.py`:
 
 ```python
 """

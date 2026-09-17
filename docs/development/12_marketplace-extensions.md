@@ -193,7 +193,7 @@ export const DutchAuctionCard: React.FC<DutchAuctionCardProps> = ({ auction }) =
 > **⚠️ DEPRECATED (v0.4.7)**: Auction API endpoints have been removed from coordinator-api.
 
 ```python
-# apps/coordinator-api/src/app/routers/marketplace_extensions.py
+# apps/coordinator-api/src/coordinator_api/routers/marketplace_extensions.py
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel
 from typing import Dict, Any, List
@@ -432,7 +432,7 @@ export const AdvancedSearch: React.FC<{
 ## Step 7: Add Integration with External Systems
 
 ```python
-# apps/coordinator-api/src/app/integrations/slack.py
+# apps/coordinator-api/src/coordinator_api/integrations/slack.py
 import httpx
 from typing import Dict, Any
 
@@ -634,8 +634,8 @@ npm run build:extensions
 cp -r src/extensions/* /var/www/aitbc.bubuit.net/marketplace/extensions/
 
 # Update API
-scp apps/coordinator-api/src/app/routers/marketplace_extensions.py \
-  aitbc:/opt/coordinator-api/src/app/routers/
+scp apps/coordinator-api/src/coordinator_api/routers/marketplace_extensions.py \
+  aitbc:/opt/coordinator-api/src/coordinator_api/routers/
 
 # Restart services
 ssh aitbc "systemctl restart coordinator-api"
