@@ -81,6 +81,7 @@ async function handleJoinSubmit(event) {
             `<p class="endpoint-note-sm">Add to your node's <code>/etc/aitbc/blockchain-secrets.env</code> (or <code>node.env</code>):<br>` +
             `<code>${escapeHtml(data.env_snippet)}</code></p>` +
             `<p class="endpoint-note-sm">Bound to <code>${escapeHtml(data.node_id)}</code>. If you lose it, ask the operator to revoke so you can re-join.</p>` +
+            `<p class="endpoint-note-sm">Welcome gift: once your node is up, claim <strong>3 AIT free</strong> with <code>aitbc coin-requests request</code> — first request auto-pays.</p>` +
             `</div>`;
     } catch (error) {
         result.innerHTML = `<p class="join-error">Request failed: ${escapeHtml(String(error))}</p>`;
