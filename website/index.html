@@ -69,20 +69,42 @@
         </div>
 
         <div class="card">
-            <h2>Join the Network</h2>
-            <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. To run a follower node, request the chain configuration from the hub operator and follow the setup guide.</p>
+            <h2>Join the Island</h2>
+            <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. Joining is self-serve: download the chain configuration, request a peer key for your node below, and run the setup script.</p>
 
-            <a href="/rpc/network-info" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/rpc/network-info</span>
+            <h3 class="quickstart-heading">1. Download the chain configuration</h3>
+            <a href="/agent/bootstrap.env" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/agent/bootstrap.env</span>
             </a>
-            <p class="endpoint-note">Returns P2P endpoint, node ID, chain ID, validators, and join instructions for the open island.</p>
-            <p class="endpoint-note-sm">Chain configuration (<code>blockchain.env</code>, <code>genesis.json</code>) and the peer API key for <code>/rpc/subscribe</code> are not served publicly — the operator provisions them out of band; use the contact below.</p>
+            <p class="endpoint-note">Sanitized follower configuration — chain ID, hub endpoints, gossip settings, FOLLOWER_API_KEY.</p>
 
-            <h3 class="quickstart-heading">Quick Start</h3>
+            <a href="/agent/genesis.json" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/agent/genesis.json</span>
+            </a>
+            <p class="endpoint-note">Chain genesis block — a joining node builds block 0 from this.</p>
+
+            <h3 class="quickstart-heading">2. Get a peer key for your node</h3>
+            <p class="endpoint-note-sm">Your node needs a key to subscribe to block updates. Pick a unique node ID — the issued key is bound to it and shown once.</p>
+            <form id="join-form">
+                <label class="form-label" for="join-node-id">Node ID</label>
+                <input type="text" id="join-node-id" class="endpoint" placeholder="e.g. follower-1.example.com" required
+                       pattern="[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}" title="3-64 chars: letters, digits, dots, hyphens, underscores">
+                <label class="form-label" for="join-contact">Contact (optional)</label>
+                <input type="text" id="join-contact" class="endpoint" placeholder="email — helps the operator reach you">
+                <button type="submit" class="btn-primary" id="join-submit">Request peer key</button>
+            </form>
+            <div id="join-result"></div>
+
+            <h3 class="quickstart-heading">3. Install and start</h3>
             <a href="https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md" class="endpoint endpoint-link" target="_blank">
                 <span class="method">DOC</span> <span class="path">Open Island Joining Guide</span>
             </a>
             <p class="endpoint-note-sm">Step-by-step instructions for joining the network as a follower node</p>
+
+            <a href="/rpc/network-info" class="endpoint endpoint-link">
+                <span class="method">GET</span> <span class="path">/rpc/network-info</span>
+            </a>
+            <p class="endpoint-note">Machine-readable join instructions: endpoints, validators, and the same bootstrap URLs.</p>
         </div>
 
         <div class="card">

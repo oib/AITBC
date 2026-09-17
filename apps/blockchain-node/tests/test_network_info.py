@@ -43,15 +43,17 @@ def test_network_info_schema(_network_info_settings) -> None:
     assert data["wss_subscription_endpoint"].startswith("wss://")
     assert data["gossip_websocket_url"].startswith("wss://")
     assert data["gossip_auth_required"] is True
-    # Public bootstrap file URLs are intentionally not advertised (V23-58):
-    # chain config is provisioned out of band by the hub operator.
+    # Self-serve bootstrap: the sanitized env + genesis are advertised again,
+    # plus the /rpc/join issuance endpoint. The node's real env file stays
+    # private — bootstrap.env is a sanitized copy (V23-58).
+    assert data["bootstrap"]["bootstrap_env_url"].endswith("/agent/bootstrap.env")
+    assert data["bootstrap"]["genesis_json_url"].endswith("/agent/genesis.json")
+    assert data["bootstrap"]["join_url"].endswith("/rpc/join")
     assert data["bootstrap"]["docs_url"].startswith("https://")
-    assert data["bootstrap"]["provisioning"] == "out_of_band"
-    assert "blockchain_env_url" not in data["bootstrap"]
-    assert "genesis_json_url" not in data["bootstrap"]
+    assert data["bootstrap"]["provisioning"] == "self_serve"
     assert "join" in data
     assert "/agent/blockchain.env" not in str(data["join"])
-    assert "/agent/genesis.json" not in str(data["join"])
+    assert "/rpc/join" in str(data["join"])
 
 
 def test_network_info_does_not_leak_secrets(_network_info_settings) -> None:

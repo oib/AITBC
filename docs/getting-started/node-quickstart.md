@@ -2,17 +2,24 @@
 
 This guide shows how to set up a follower node to join the AITBC blockchain network on the open island at `hub.aitbc.bubuit.net`.
 
-## 1. Obtain Chain Configuration
+## 1. Download Chain Configuration
 
-The hub does not serve public bootstrap endpoints — `/agent/blockchain.env` and `/agent/genesis.json` return 404 by design (V23-58). Obtain `blockchain.env` and `genesis.json` from the hub operator over an authenticated channel, then install them:
+Download the sanitized chain configuration and genesis from the hub, and issue your node a peer key:
 
 ```bash
 mkdir -p /etc/aitbc
-install -m 0600 /path/from/operator/blockchain.env /etc/aitbc/blockchain.env
-install -m 0600 /path/from/operator/genesis.json   /etc/aitbc/genesis.json
+curl -fsS https://hub.aitbc.bubuit.net/agent/bootstrap.env \
+  -o /etc/aitbc/blockchain.env
+curl -fsS https://hub.aitbc.bubuit.net/agent/genesis.json \
+  -o /etc/aitbc/genesis.json
+
+# Issue a peer key bound to your node_id (choose a unique one; shown once):
+curl -fsS -X POST https://hub.aitbc.bubuit.net/rpc/join \
+  -H 'Content-Type: application/json' -d '{"node_id":"yournode.example.com"}'
+# → add the returned value: echo 'BLOCKCHAIN_RPC_API_KEY=<peer_key>' >> /etc/aitbc/node.env
 ```
 
-A node that follows the chain needs **only** the two files above. `blockchain-secrets.env` is not required and must not be downloaded from any public URL. If you also run the wallet, agent-coordinator, or event-bridge, get that file from the hub operator over an authenticated channel.
+A node that follows the chain needs **only** the two files plus the peer key above. `blockchain-secrets.env` is not required for following and must not be downloaded from any public URL. If you also run the wallet, agent-coordinator, or event-bridge, get that file from the hub operator over an authenticated channel.
 
 ## 2. Create Your Node Configuration
 
