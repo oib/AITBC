@@ -303,16 +303,22 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
             f"WebSocket at {subscribe_url}. Extend the lease with POST {base_url}/rpc/heartbeat."
         ),
         "bootstrap": {
-            # Public bootstrap is intentionally not served (V23-58): the hub's
-            # env files carry key material, so blockchain.env and genesis.json
-            # are provisioned out of band by the hub operator.
+            # Self-serve joining: the sanitized env + genesis are public, and
+            # /rpc/join issues a node-bound peer key for /rpc/subscribe. The
+            # node's real env files stay private (V23-58) — bootstrap.env is an
+            # allowlist-rendered copy, never the file with key material.
+            "bootstrap_env_url": f"{base_url}/agent/bootstrap.env",
+            "genesis_json_url": f"{base_url}/agent/genesis.json",
+            "join_url": f"{base_url}/rpc/join",
             "docs_url": f"{base_url}/agent/openapi.json",
-            "provisioning": "out_of_band",
+            "provisioning": "self_serve",
         },
         "join": {
             "steps": [
-                "Obtain blockchain.env and genesis.json from the hub operator and place them in /etc/aitbc/",
+                f"curl -o /etc/aitbc/blockchain.env {base_url}/agent/bootstrap.env",
+                f"curl -o /etc/aitbc/genesis.json {base_url}/agent/genesis.json",
                 "Create /etc/aitbc/node.env with a unique NODE_ID",
+                f"curl -X POST {base_url}/rpc/join -d '{{\"node_id\":\"<NODE_ID>\"}}' -H 'Content-Type: application/json' and store the returned peer key as BLOCKCHAIN_RPC_API_KEY",
                 f"Set default_peer_rpc_url={base_url} in node.env",
                 f"Start aitbc-blockchain-node.service and register at {base_url}/rpc/subscribe",
             ]
