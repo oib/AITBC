@@ -29,11 +29,18 @@ ALLOWED="CHAIN_ID ISLAND_ID SUPPORTED_CHAINS FOLLOWER_API_KEY HUB_DISCOVERY_URL 
 [ -f "$SOURCE_ENV" ] || { echo "Missing source env: $SOURCE_ENV" >&2; exit 1; }
 
 value_of() {
-    grep -E "^${1}=" "$SOURCE_ENV" | tail -1 | cut -d= -f2- | tr -d "'\""
+    grep -E "^${1}=" "$SOURCE_ENV" 2>/dev/null | tail -1 | cut -d= -f2- | tr -d "'\"" || true
 }
 
-# Keys the template may already set; live allowlisted values override them.
-STRIP_RE="^($(echo "$ALLOWED" | tr ' ' '|'))="
+# Collect live allowlisted values first; only strip a template line when the
+# live env actually provides a replacement (a missing live value keeps the
+# template's entry — e.g. GOSSIP_WEBSOCKET_URL).
+LIVE_KEYS=""
+for key in $ALLOWED; do
+    v="$(value_of "$key")"
+    [ -n "$v" ] && LIVE_KEYS="$LIVE_KEYS $key"
+done
+STRIP_RE="^($(echo "${LIVE_KEYS# }" | tr ' ' '|'))="
 
 tmp="$(mktemp)"
 {
@@ -42,11 +49,14 @@ tmp="$(mktemp)"
     echo "# this file is world-readable at /agent/bootstrap.env."
     echo "# Rendered $(date -u +%Y-%m-%dT%H:%M:%SZ) from $TEMPLATE + allowlisted live values."
     echo
-    grep -vE "$STRIP_RE" "$TEMPLATE"
+    if [ -n "${LIVE_KEYS# }" ]; then
+        grep -vE "$STRIP_RE" "$TEMPLATE"
+    else
+        cat "$TEMPLATE"
+    fi
     echo
-    for key in $ALLOWED; do
-        v="$(value_of "$key")"
-        [ -n "$v" ] && echo "${key}=${v}"
+    for key in $LIVE_KEYS; do
+        echo "${key}=$(value_of "$key")"
     done
 } > "$tmp"
 
