@@ -350,11 +350,12 @@ class BlockImportMixin(SyncBase):
                     norm["signature"] = ""
                 if "chain_id" not in norm:
                     norm["chain_id"] = self._chain_id
-                # Block broadcasts from the proposer carry the raw signed
-                # transaction content and do not include the pre-computed
-                # tx_hash.  Recompute it here so every downstream path
-                # (parallel/sequential, state transition, Transaction record)
-                # uses a consistent, non-empty hash.
+                # Block broadcasts carry the proposer's pre-computed tx_hash —
+                # it is authoritative: the same hash is what later transactions
+                # (e.g. STAKE_RELEASE lock_tx_hashes) and local lookups resolve.
+                # Recompute only as a fallback for legacy hashless payloads; the
+                # recompute runs over normalized content and may differ from the
+                # proposer's hash, so it must not overwrite a carried value.
                 if not norm.get("tx_hash"):
                     norm["tx_hash"] = compute_tx_hash(norm)
                 normalized.append(norm)
