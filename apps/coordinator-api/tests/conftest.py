@@ -45,6 +45,23 @@ def db_session(db_engine) -> Generator[Session]:
         yield session
 
 
+@pytest.fixture(autouse=True)
+def _seed_client_refs(db_session):
+    """Seed the bare-name client refs the job/payment tests use.
+
+    resolve_client no longer provisions placeholder users for arbitrary
+    strings (GAP-59) -- only wallet addresses auto-create. Tests that call
+    create_job(client_id="client1") need the ref to name a real user; seeding
+    by id makes resolution return the ref unchanged, so stored client_id and
+    client_ref match what the tests were written against.
+    """
+    from coordinator_api.contexts.infrastructure.domain.user import User
+
+    for ref in ("client1", "client-1"):
+        db_session.add(User(id=ref, email=f"{ref}@example.com", username=ref))
+    db_session.commit()
+
+
 @pytest.fixture
 def client(db_session):
     """Yield a TestClient that uses the in-memory DB session."""
