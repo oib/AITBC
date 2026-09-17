@@ -5,6 +5,7 @@ Aggregates portfolio data from wallet, exchange, marketplace, trading, and AI se
 
 import os
 from datetime import UTC, datetime
+from decimal import Decimal
 from typing import Any
 
 
@@ -102,7 +103,7 @@ class PortfolioAggregationService:
                             total_units += int(bal_resp.json().get("balance", 0) or 0)
                     except Exception as e:
                         logger.warning("Failed to fetch balance for wallet %s: %s", wallet_id, e)
-                total_balance = float(units_to_ait(total_units))
+                total_balance = units_to_ait(total_units)
                 return {"wallets": wallets, "total_wallets": len(wallets), "total_balance": total_balance}
             else:
                 logger.warning("Wallet service returned status %s", response.status_code)
@@ -234,7 +235,7 @@ class PortfolioAggregationService:
             # Exchange returns flat {"AITBC::ETH": <float>} — AITBC priced in ETH.
             # When the exchange is unreachable there is no rate: report nulls
             # rather than pricing the balance off a hardcoded fallback.
-            aitbc_eth_rate = float(rates["AITBC::ETH"]) if rates.get("AITBC::ETH") is not None else None
+            aitbc_eth_rate = Decimal(str(rates["AITBC::ETH"])) if rates.get("AITBC::ETH") is not None else None
             eth_value = total_aitbc_balance * aitbc_eth_rate if aitbc_eth_rate is not None else None
             marketplace_offers = marketplace_data.get("offers", 0)
             marketplace_capacity = marketplace_data.get("capacity", 0)
