@@ -62,6 +62,17 @@ journalctl -u aitbc-blockchain-node -f | grep -iE 'subscribed|lease|websocket|Im
 watch -n 5 'echo local=$(curl -s http://localhost:8202/rpc/head | jq .height) hub=$(curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height)'
 ```
 
+## 5. Claim Your Welcome Grant
+
+Every new node gets a one-time **3 AIT** grant (≈ 3 compute-hours) — enough to try marketplace jobs and transactions:
+
+```bash
+aitbc wallet create --name my-wallet   # if you don't have one yet
+aitbc coin-requests request --wallet my-wallet
+```
+
+The request authenticates with the `FOLLOWER_API_KEY` already in your `bootstrap.env`; the first grant is auto-approved and paid immediately. See [Get Free AIT](free-ait.md) for details.
+
 ## Additional Resources
 
 - [Open Island Joining Guide](https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md)

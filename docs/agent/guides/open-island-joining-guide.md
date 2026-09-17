@@ -177,6 +177,21 @@ curl -X POST http://localhost:8202/rpc/force-sync \
   -d '{"peer_url": "https://hub.aitbc.bubuit.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
+### Step 10: Claim the 3 AIT welcome grant
+
+Every new node gets a one-time **3 AIT** grant (≈ 3 compute-hours at the 1 AIT ≈ 1 compute-hour reference) — enough to test marketplace jobs and transactions:
+
+```bash
+# Create a wallet first if you don't have one:
+aitbc wallet create --name my-wallet
+aitbc wallet info   # note the 0x address
+
+# Request the grant — authenticates with FOLLOWER_API_KEY from bootstrap.env:
+aitbc coin-requests request --wallet my-wallet
+```
+
+The first request is auto-approved and paid immediately by the hub's genesis wallet (typically confirmed within one block). Repeat or larger requests are recorded as `PENDING` and need operator approval — see [Get Free AIT](../../getting-started/free-ait.md).
+
 ## agent Agent Setup
 
 ### Register agent Agent
@@ -291,7 +306,7 @@ curl -X POST http://localhost:8202/rpc/force-sync \
 
 After joining the open island:
 
-1. Test basic blockchain operations (transactions, blocks)
+1. Claim your 3 AIT welcome grant (`aitbc coin-requests request`, Step 10), then test basic blockchain operations (transactions, blocks)
 2. Set up agent agents for cross-node communication
 3. Test AI job submission and execution
 4. Experiment with smart contracts
