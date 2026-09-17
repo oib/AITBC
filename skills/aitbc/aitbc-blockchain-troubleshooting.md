@@ -269,13 +269,13 @@ export PATH=/usr/local/cuda/bin:$PATH
 echo 'export PATH=/usr/local/cuda/bin:$PATH' >> ~/.bashrc
 ```
 
-**3. Check Container/VM GPU Passthrough:**
+**3. Check incus/VM GPU Passthrough:**
 ```bash
-# If running in Docker, ensure GPU is passed through
-docker run --gpus all ...
+# Nodes run in incus containers — verify GPU devices are mapped:
+incus config device show <container> | grep -i gpu
 
-# If running in VM, check GPU passthrough configuration
-# This requires hypervisor-level configuration
+# If running in a VM, check GPU passthrough configuration
+# (hypervisor-level: vfio/pci passthrough)
 ```
 
 **4. Verify GPU Access for AITBC Services:**

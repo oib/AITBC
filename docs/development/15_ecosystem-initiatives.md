@@ -63,7 +63,7 @@ The AITBC ecosystem initiatives establish a comprehensive framework for driving 
 **Key Features**:
 
 - Cookiecutter-based project scaffolding
-- Service-based architecture with Docker containers
+- Service-based architecture with systemd units
 - Extension.yaml manifest for lifecycle management
 - Built-in metrics and health checks
 - Multi-language support (Python first, expanding to Java/JS)
@@ -148,7 +148,7 @@ The AITBC ecosystem initiatives establish a comprehensive framework for driving 
 - **Backend**: Python with async/await
 - **Database**: PostgreSQL with SQLAlchemy
 - **Analytics**: Pandas, Plotly for visualization
-- **Infrastructure**: Docker containers
+- **Infrastructure**: systemd units on incus dev containers
 - **CI/CD**: GitHub Actions
 - **Documentation**: GitHub Pages
 
