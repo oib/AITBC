@@ -114,7 +114,7 @@ class TestDeltaSync:
         reads zero power and bond gates diverge per node."""
         from datetime import UTC, datetime, timedelta
 
-        from aitbc_chain.aux_state import serialize_aux_rows, upsert_aux_rows
+        from aitbc_chain.aux_state import upsert_aux_rows
         from aitbc_chain.base_models import Bond, GovernanceProposal, GovernanceVote, Stake
         from sqlmodel import select
 
@@ -211,7 +211,6 @@ class TestDeltaSync:
 
         from aitbc_chain.aux_state import serialize_aux_rows
         from aitbc_chain.base_models import Stake
-        from sqlmodel import select
 
         now = datetime.now(UTC)
         with session_factory() as s:
