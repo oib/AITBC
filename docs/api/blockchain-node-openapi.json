@@ -1865,6 +1865,93 @@
         ]
       }
     },
+    "/rpc/join": {
+      "post": {
+        "tags": [
+          "rpc",
+          "subscription"
+        ],
+        "summary": "Self-serve island join: issue a node-bound peer key",
+        "description": "Issue a peer key bound to the caller's node_id.\n\nThe key is returned once and only its hash is stored; it authorizes\n/rpc/subscribe, /rpc/heartbeat and /rpc/lease/{node_id} for that node_id\nonly. Chain config files are served separately at /agent/bootstrap.env\nand /agent/genesis.json.",
+        "operationId": "join_route_rpc_join_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Join Route Rpc Join Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "node_id must match ^[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}$",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "node_id already enrolled \u2014 contact the operator to re-issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many keys issued for this address today",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Island join capacity reached \u2014 contact the operator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/rpc/subscribe": {
       "post": {
         "tags": [
@@ -11895,6 +11982,93 @@
             "APIKeyHeader": []
           }
         ]
+      }
+    },
+    "/v1/join": {
+      "post": {
+        "tags": [
+          "v1",
+          "subscription"
+        ],
+        "summary": "Self-serve island join: issue a node-bound peer key",
+        "description": "Issue a peer key bound to the caller's node_id.\n\nThe key is returned once and only its hash is stored; it authorizes\n/rpc/subscribe, /rpc/heartbeat and /rpc/lease/{node_id} for that node_id\nonly. Chain config files are served separately at /agent/bootstrap.env\nand /agent/genesis.json.",
+        "operationId": "join_route_v1_join_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Body"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Join Route V1 Join Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "node_id must match ^[a-zA-Z0-9][a-zA-Z0-9._-]{2,63}$",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "node_id already enrolled \u2014 contact the operator to re-issue",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "429": {
+            "description": "Too many keys issued for this address today",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "Island join capacity reached \u2014 contact the operator",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
       }
     },
     "/v1/subscribe": {
