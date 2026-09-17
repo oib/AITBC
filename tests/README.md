@@ -68,10 +68,10 @@ sudo apt-get install -y postgresql redis-server
 
 # macOS
 brew install postgresql redis
-
-# Docker (for isolated testing)
-docker --version
 ```
+
+(Docker is not used; the dev environment runs in incus containers — see
+`scripts/README.md`.)
 
 ### Environment Setup
 
