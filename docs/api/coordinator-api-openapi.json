@@ -8368,7 +8368,7 @@
           "portfolio"
         ],
         "summary": "Get Unified Portfolio",
-        "description": "Get unified portfolio view aggregating data from all AITBC services\n\nAggregates data from:\n- Wallet service (8003): Wallet balances\n- Exchange service (8011): Exchange rates\n- Marketplace service (8102): Marketplace stats\n- Trading service (8104): Trading analytics\n- AI service (8005): AI trade signals",
+        "description": "Get unified portfolio view aggregating data from all AITBC services\n\nAggregates data from:\n- Wallet service (8108): Wallet balances\n- Exchange service (8106): Exchange rates\n- Marketplace service (8102): Marketplace stats\n- Trading service (8104): Trading analytics\n- AI service (8005): AI trade signals (simulation-labelled)",
         "operationId": "get_unified_portfolio_v1_portfolio_unified_get",
         "parameters": [
           {
