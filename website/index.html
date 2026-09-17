@@ -70,22 +70,13 @@
 
         <div class="card">
             <h2>Join the Network</h2>
-            <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. To run a follower node, download the public chain configuration and follow the setup guide.</p>
-
-            <a href="/agent/blockchain.env" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/blockchain.env</span>
-            </a>
-            <p class="endpoint-note">Public chain configuration — chain ID, hub P2P/RPC endpoints, execution URL.</p>
-
-            <a href="/agent/genesis.json" class="endpoint endpoint-link">
-                <span class="method">GET</span> <span class="path">/agent/genesis.json</span>
-            </a>
-            <p class="endpoint-note">Chain genesis block — a joining node builds block 0 from this. With blockchain.env above, it is everything a follower needs.</p>
+            <p>This node (<span id="node-id">loading...</span>) is the <strong id="role-name">HUB</strong> for the <span id="chain-id">loading...</span> island. To run a follower node, request the chain configuration from the hub operator and follow the setup guide.</p>
 
             <a href="/rpc/network-info" class="endpoint endpoint-link">
                 <span class="method">GET</span> <span class="path">/rpc/network-info</span>
             </a>
-            <p class="endpoint-note">Returns P2P endpoint, node ID, chain ID, and connection instructions for joining the open island</p>
+            <p class="endpoint-note">Returns P2P endpoint, node ID, chain ID, validators, and join instructions for the open island.</p>
+            <p class="endpoint-note-sm">Chain configuration (<code>blockchain.env</code>, <code>genesis.json</code>) and the peer API key for <code>/rpc/subscribe</code> are not served publicly — the operator provisions them out of band; use the contact below.</p>
 
             <h3 class="quickstart-heading">Quick Start</h3>
             <a href="https://github.com/oib/AITBC/blob/main/docs/agent/guides/open-island-joining-guide.md" class="endpoint endpoint-link" target="_blank">
