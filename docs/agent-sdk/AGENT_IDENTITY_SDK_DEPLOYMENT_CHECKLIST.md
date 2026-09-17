@@ -252,10 +252,9 @@ curl -X POST "http://localhost:8203/v1/agent-identity/identities" \
 
 ### **Documentation**
 
-- **SDK Documentation**: `/src/app/agent_identity/sdk/README.md`
+- **SDK Documentation**: `apps/coordinator-api/src/coordinator_api/agent_identity/sdk/README.md`
 - **API Documentation**: Available via FastAPI at `/docs`
-- **Implementation Summary**: `/AGENT_IDENTITY_SDK_IMPLEMENTATION_SUMMARY.md`
-- **Agent Blockchain Integration - Identity**: `/docs/agent/blockchain/identity.md` - Agent agent on-chain identity operations on AITBC blockchain
+- **Agent Blockchain Integration - Identity**: `/docs/agent/blockchain/identity.md` - Agent on-chain identity operations on AITBC blockchain
 
 ### **Troubleshooting**
 

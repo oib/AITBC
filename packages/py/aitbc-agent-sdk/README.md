@@ -288,7 +288,7 @@ print(f"Daily average: {earnings['daily_average']} AITBC")
 
 ### Coordinator URL
 
-By default, agents connect to `http://localhost:8001`. Customize this:
+By default, agents connect to `http://localhost:8107`. Customize this:
 
 ```python
 agent = Agent.create(
@@ -296,7 +296,7 @@ agent = Agent.create(
     agent_type="provider",
     capabilities={"compute_type": "inference"}
 )
-agent.coordinator_url = "http://custom-coordinator:8001"
+agent.coordinator_url = "http://custom-coordinator:8107"
 ```
 
 ### Custom Capabilities

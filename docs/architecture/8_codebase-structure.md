@@ -82,23 +82,22 @@ Central job coordination API with marketplace, payments, ZK proofs, multi-tenanc
 
 ```
 apps/coordinator-api/
-├── src/app/
+├── src/coordinator_api/
 │   ├── main.py              # FastAPI entry point
+│   ├── app.py               # App assembly
 │   ├── config.py            # Configuration
-│   ├── database.py          # Database setup
-│   ├── deps.py              # Dependency injection
+│   ├── database_async.py    # Database setup
 │   ├── exceptions.py        # Custom exceptions
-│   ├── logging.py           # Logging config
 │   ├── metrics.py           # Prometheus metrics
-│   ├── domain/              # Domain models (job, miner, payment, user, marketplace, gpu_marketplace)
-│   ├── models/              # DB models (registry, confidential, multitenant, services)
-│   ├── routers/             # API endpoints (admin, client, miner, marketplace, payments, governance, exchange, explorer, ZK)
-│   ├── services/            # Business logic (jobs, miners, payments, receipts, ZK proofs, encryption, HSM, blockchain, ethereum wallet)
-│   ├── storage/             # Database adapters (SQLite, PostgreSQL)
-│   ├── middleware/          # Tenant context middleware
+│   ├── contexts/            # Bounded contexts (incl. agent_identity routers)
+│   ├── domain/              # Domain models
+│   ├── models/              # DB models
+│   ├── routers/             # API endpoints
+│   ├── services/            # Business logic
+│   ├── storage/             # Database adapters
+│   ├── middleware/          # Tenant/auth middleware
 │   ├── repositories/        # Data access layer
 │   └── schemas/             # Pydantic schemas
-├── aitbc/settlement/        # Cross-chain settlement (LayerZero bridge)
 ├── migrations/              # SQL migrations (schema, indexes, data, payments)
 ├── scripts/                 # PostgreSQL migration scripts
 ├── tests/                   # API tests (jobs, marketplace, ZK, receipts, miners)
@@ -139,11 +138,13 @@ Wallet service with receipt verification and ledger management.
 
 ```
 apps/wallet/
-├── src/app/
-│   ├── main.py              # FastAPI entry point
-│   ├── settings.py          # Configuration
-│   ├── ledger_mock/         # Mock ledger with PostgreSQL adapter
-│   └── receipts/            # Receipt verification service
+├── src/wallet_app/
+│   ├── api_rest.py          # REST API (FastAPI)
+│   ├── api_jsonrpc.py       # JSON-RPC API
+│   ├── keystore/            # Persistent keystore service
+│   ├── ledger_mock/         # Ledger adapter
+│   ├── receipts/            # Receipt verification service
+│   └── bridge/              # Bridge monitor/withdraw routes
 ├── scripts/                 # PostgreSQL migration
 ├── tests/                   # Wallet API and receipt tests
 └── pyproject.toml
@@ -155,9 +156,7 @@ Mining pool management with job matching, miner scoring, and Redis caching.
 
 ```
 apps/pool-hub/
-├── src/
-│   ├── app/                 # Legacy app structure (routers, registry, scoring)
-│   └── poolhub/             # Current app (routers, models, repositories, services, Redis)
+├── src/poolhub/             # App package (routers, models, repositories, services, Redis)
 ├── migrations/              # Alembic migrations
 └── tests/                   # API and repository tests
 ```
@@ -180,10 +179,12 @@ Agent coordination and management service.
 
 ```
 apps/agent-coordinator/
-├── src/app/
+├── src/agent_app/
 │   ├── main.py              # FastAPI entry point
+│   ├── routers/             # API endpoints (messages, agents, tasks, …)
+│   ├── services/            # Agent coordination services
 │   ├── monitoring/          # Monitoring and alerting
-│   └── services/            # Agent coordination services
+│   └── protocols/           # Signed-envelope and peer protocols
 └── tests/                   # Agent coordination tests
 ```
 
@@ -193,9 +194,9 @@ AI/ML inference engine for agent tasks.
 
 ```
 apps/ai-engine/
-├── src/
-│   └── main.py              # AI engine entry point
-└── models/                  # Model storage
+├── src/ai_service.py        # AI engine entry point
+├── tests/
+└── aitbc-ai.service, aitbc-learning.service, …  # unit files (not currently deployed)
 ```
 
 ### api-gateway
@@ -204,9 +205,9 @@ API gateway for routing and load balancing.
 
 ```
 apps/api-gateway/
-├── src/
-│   └── main.py              # Gateway entry point
-└── config/                  # Routing configuration
+├── src/api_gateway/main.py  # Gateway entry point
+├── examples/                # Example gateway configs
+└── tests/                   # Rate-limiting and routing tests
 ```
 
 ### blockchain-event-bridge

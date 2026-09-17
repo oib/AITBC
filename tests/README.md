@@ -77,7 +77,7 @@ docker --version
 
 1. Clone the repository:
 ```bash
-git clone https://github.com/aitbc/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc
 ```
 
@@ -218,8 +218,9 @@ Tests that verify multiple components work together:
 - **Database**: Test PostgreSQL instance
 - **Examples**:
   ```bash
-  # Start required services first
-  docker-compose up -d postgres redis
+  # Start required services first (no compose file ships — install/run
+  # postgres and redis directly, or point TEST_*_URL at existing instances)
+  sudo systemctl start postgresql redis-server  # or your local equivalent
 
   # Run integration tests
   pytest tests/integration/ -v
@@ -316,8 +317,8 @@ export TEST_DATABASE_URL="postgresql://localhost/aitbc_test"
 export TEST_REDIS_URL="redis://localhost:6379/1"
 
 # Service URLs for integration tests
-export COORDINATOR_URL="http://localhost:8001"
-export WALLET_URL="http://localhost:8002"
+export COORDINATOR_URL="http://localhost:8203"
+export WALLET_URL="http://localhost:8108"
 export BLOCKCHAIN_URL="http://localhost:8202"
 
 # Security test configuration
