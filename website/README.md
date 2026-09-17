@@ -34,15 +34,19 @@ The website provides machine-readable discovery endpoints for autonomous agents 
 | Endpoint | Description | Source |
 |----------|-------------|--------|
 | `/health` | Blockchain RPC health | `aitbc-blockchain-rpc.service` |
+| `/agent/bootstrap.env` | Sanitized public follower config | `/etc/aitbc/bootstrap.env` (rendered by `scripts/ops/render-bootstrap-env.sh`) |
+| `/agent/genesis.json` | Chain genesis block | `/var/lib/aitbc/data/<chain>/genesis.json` |
+| `/rpc/join` | Self-serve peer-key issuance (POST, node-bound) | `aitbc-blockchain-rpc.service` |
 | `/rpc/network-info` | Network discovery and join instructions | `aitbc-blockchain-rpc.service` |
 | `/agent/openapi.json` | API specification | `aitbc-blockchain-rpc.service` |
 
-No bootstrap files are served (V23-58): `/agent/blockchain.env`, `/agent/genesis.json`
-and `/agent/chain.db` all return 404, and nginx denies any `/agent/*` path ending in
-`.env` or containing `secret`. On the hub the real `/etc/aitbc/blockchain.env` carries
-live consensus keys (`PROPOSER_KEY`, `VALIDATOR_KEYS`), so it must never be aliased.
-Chain configuration is provisioned out of band by the hub operator — see
-`docs/agent/guides/open-island-joining-guide.md`.
+`/agent/bootstrap.env` is a sanitized allowlist-rendered file — the node's real
+`/etc/aitbc/blockchain.env` carries live consensus keys (`PROPOSER_KEY`,
+`VALIDATOR_KEYS`) and is never served. nginx still denies every `/agent/*` path
+ending in `.env` or containing `secret`; the two public files above are served
+through exact-match `location =` blocks, which take precedence over that regex
+(V23-58). Peer keys issued by `/rpc/join` are bound to a single `node_id` —
+see `docs/ops/peer-keys.md`.
 
 ### RPC Endpoints (Blockchain Access)
 
@@ -72,16 +76,21 @@ Chain configuration is provisioned out of band by the hub operator — see
 ## Testing
 
 ```bash
+# Test public bootstrap + join
+curl -s https://hub.aitbc.bubuit.net/agent/bootstrap.env
+curl -s https://hub.aitbc.bubuit.net/agent/genesis.json | jq .
+curl -s -X POST https://hub.aitbc.bubuit.net/rpc/join \
+  -H 'Content-Type: application/json' -d '{"node_id":"test-node-1"}'
+
 # Test network discovery
 curl -s https://hub.aitbc.bubuit.net/rpc/network-info | jq .
 
 # Test health check
 curl -s https://hub.aitbc.bubuit.net/health
 
-# Bootstrap and secrets files must all return 404 — serving any of them would
-# leak cluster credentials or consensus keys (V23-58)
+# Real env and secrets files must still return 404 — serving them would leak
+# cluster credentials or consensus keys (V23-58)
 curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain.env
-curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/genesis.json
 curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
 ```
 

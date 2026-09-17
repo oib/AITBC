@@ -116,14 +116,24 @@ _RPC_API_PEER_KEYS = frozenset(k.strip() for k in os.getenv("BLOCKCHAIN_RPC_API_
 
 
 def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
-    """Accept this node's own RPC key or a configured peer-node key.
+    """Accept this node's own RPC key, a configured peer-node key, or an
+    issued join key.
 
     Node-to-hub internal routes (subscription register/heartbeat/lease
     revocation). Distinct from ``verify_rpc_api_key`` so a leaked peer key
     only ever reaches lease state, never the control plane.
+
+    Issued keys come from ``POST /rpc/join`` (see ``peer_keys.py``) and are
+    bound to a single node_id — the subscription routes enforce that binding,
+    so an issued key can only ever manage its own lease.
     """
     if api_key and (api_key == _RPC_API_KEY or api_key in _RPC_API_PEER_KEYS):
         return api_key
+    if api_key:
+        from .peer_keys import is_issued_key
+
+        if is_issued_key(api_key):
+            return api_key
     _logger.warning("Rejected peer RPC request: missing or invalid X-API-Key")
     raise HTTPException(
         status_code=status.HTTP_403_FORBIDDEN,

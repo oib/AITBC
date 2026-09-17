@@ -164,36 +164,38 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
-    # ── Optional public bootstrap (DISABLED by default) ─────────────────────
+    # ── Public bootstrap for self-serve joining ─────────────────────────────
     #
-    # The reference hub does not serve bootstrap files: GET /agent/blockchain.env,
-    # /agent/genesis.json and /agent/chain.db return 404, and /rpc/network-info
-    # reports "provisioning": "out_of_band". Chain configuration and credentials
-    # are issued by the hub operator over an authenticated channel — see
-    # docs/agent/guides/open-island-joining-guide.md.
+    # Two files are public: genesis.json (public chain data) and bootstrap.env
+    # — a SANITIZED follower env rendered by scripts/ops/render-bootstrap-env.sh.
+    # NEVER alias the node's real /etc/aitbc/blockchain.env: on a hub it
+    # carries live consensus key material (PROPOSER_KEY, VALIDATOR_KEYS). The
+    # sanitized copy holds only allowlisted settings plus FOLLOWER_API_KEY,
+    # which is deliberately public (V23-68): it reaches coin-requests
+    # /register and /execute only.
     #
-    # If you choose to offer self-serve joining, NEVER alias the node's real
-    # /etc/aitbc/blockchain.env: on a hub it carries live consensus key material
-    # (PROPOSER_KEY, VALIDATOR_KEYS, FOLLOWER_API_KEY). Publish a sanitized
-    # follower-only copy instead, e.g.:
+    # Peer keys for /rpc/subscribe are issued per-node by POST /rpc/join —
+    # they are not in these files. /rpc/network-info advertises both URLs and
+    # reports "provisioning": "self_serve".
     #
-    #   location = /agent/blockchain.env {
-    #       alias /etc/aitbc/bootstrap.env;   # CHAIN_ID, HUB_DISCOVERY_URL, ... only
-    #       add_header Content-Type "text/plain; charset=utf-8";
-    #       add_header Access-Control-Allow-Origin * always;
-    #   }
-    #   location = /agent/genesis.json {
-    #       alias /etc/aitbc/genesis.json;    # genesis is public data
-    #       add_header Content-Type "application/json; charset=utf-8";
-    #       add_header Access-Control-Allow-Origin * always;
-    #   }
-    #
-    # An exact-match `location =` overrides the deny regex below, so the blocks
-    # above still win when uncommented.
+    # Exact-match `location =` beats the deny regex below — that is what makes
+    # bootstrap.env reachable while every other *.env path under /agent stays
+    # dead.
+    location = /agent/bootstrap.env {
+        alias /etc/aitbc/bootstrap.env;
+        add_header Content-Type "text/plain; charset=utf-8";
+        add_header Access-Control-Allow-Origin * always;
+    }
 
-    # Env and secrets files are NOT served under /agent, and must never be added
-    # back (V23-58). blockchain-secrets.env previously was, unauthenticated and
-    # with CORS wide open. The values it holds are live credentials, not
+    location = /agent/genesis.json {
+        alias /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/genesis.json;
+        add_header Content-Type "application/json; charset=utf-8";
+        add_header Access-Control-Allow-Origin * always;
+    }
+
+    # Every other env or secrets file under /agent stays dead (V23-58).
+    # blockchain-secrets.env previously was public, unauthenticated and with
+    # CORS wide open. The values it holds are live credentials, not
     # configuration: COORDINATOR_API_KEY authenticates as role `miner` via the
     # X-Api-Key dependency in aitbc/auth/dependencies.py, and either value alone
     # authorises the agent-coordinator coin-request and websocket endpoints,

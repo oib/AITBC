@@ -4,7 +4,7 @@
 
 ## Overview
 
-hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Agents can join this island to test AITBC blockchain functionality, lease-based block subscription, and agent agent coordination — **but "open" does not mean unauthenticated**: joining requires a peer key issued by the hub operator (see below).
+hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Agents can join this island to test AITBC blockchain functionality, lease-based block subscription, and agent agent coordination — **but "open" does not mean unauthenticated**: joining requires a peer key bound to your node_id, issued self-serve by `POST /rpc/join` (see below).
 
 ## Island Configuration
 
@@ -15,7 +15,7 @@ hub.aitbc.bubuit.net is an **open island** for testing AITBC software. Agents ca
 - **Island ID**: `ait-hub.aitbc.bubuit.net-island`
 - **RPC URL**: `https://hub.aitbc.bubuit.net/rpc` (HTTP + WebSocket)
 - **WebSocket Subscription**: `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws`
-- **Access**: Operator-gated — `POST /rpc/subscribe` and `POST /rpc/heartbeat` require the node's `X-API-Key` to be listed in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS`. The key is issued **out of band** by the hub operator; there are no public bootstrap endpoints (see Step 2).
+- **Access**: Self-serve — `POST /rpc/subscribe` and `POST /rpc/heartbeat` require the node's `X-API-Key` peer key, issued per `node_id` by `POST /rpc/join` (or the homepage join form) and bound to that node. Public bootstrap files are at `/agent/bootstrap.env` and `/agent/genesis.json` (see Step 2).
 
 > **Note:** For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md).
 
@@ -52,30 +52,34 @@ git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 ```
 
-### Step 2: Obtain Configuration and a Peer Key from the Operator
+### Step 2: Download Configuration and Issue a Peer Key
 
-> **There are no public bootstrap endpoints.** `GET /agent/blockchain.env` and `GET /agent/genesis.json` on the hub return **404** (verified against the live hub), and `/rpc/network-info` marks bootstrap as `"provisioning": "out_of_band"` rather than advertising file URLs. Configuration and credentials are provisioned **out of band** by the hub operator.
+Joining is self-serve — two public files plus a peer key issued per node by the hub:
 
-Ask the operator (over an authenticated channel) for:
-
-1. **`blockchain.env`** — the shared chain configuration (`CHAIN_ID`, `SUPPORTED_CHAINS`, gossip settings, ...)
-2. **`genesis.json`** — the chain's genesis block
-3. **A peer key** — the `BLOCKCHAIN_RPC_API_KEY` your node will present; the operator must list it in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` or `POST /rpc/subscribe`/`/rpc/heartbeat` will return `403`
-
-Then install them:
+1. **`bootstrap.env`** — sanitized shared chain configuration (`CHAIN_ID`, `SUPPORTED_CHAINS`, gossip settings, `FOLLOWER_API_KEY`, ...). It is an allowlist-rendered copy, not the hub's real env file — that one carries consensus keys and is never served.
+2. **`genesis.json`** — the chain's genesis block (public data).
+3. **A peer key** — your node's `BLOCKCHAIN_RPC_API_KEY`, issued by `POST /rpc/join` and bound to your `node_id`. Without it `POST /rpc/subscribe`/`/rpc/heartbeat` return `403`. The key is shown once — store it.
 
 ```bash
 mkdir -p /etc/aitbc
 
-# Provisioned by the operator (not downloadable):
-install -m 0600 /path/from/operator/blockchain.env /etc/aitbc/blockchain.env
-install -m 0600 /path/from/operator/genesis.json   /etc/aitbc/genesis.json
+# Public downloads (sanitized):
+curl -fsS https://hub.aitbc.bubuit.net/agent/bootstrap.env -o /etc/aitbc/blockchain.env
+curl -fsS https://hub.aitbc.bubuit.net/agent/genesis.json  -o /etc/aitbc/genesis.json
 
-# Your node's RPC key — must equal the peer key the operator enrolled
+# Issue a peer key bound to your node_id (choose a unique one):
+curl -fsS -X POST https://hub.aitbc.bubuit.net/rpc/join \
+  -H 'Content-Type: application/json' \
+  -d '{"node_id":"my-node.example.com"}'
+# → {"peer_key": "aitbc-peer-...", "env_snippet": "BLOCKCHAIN_RPC_API_KEY=aitbc-peer-...", ...}
+
+# Store the returned key — shown once:
 grep -q '^BLOCKCHAIN_RPC_API_KEY=' /etc/aitbc/blockchain-secrets.env 2>/dev/null || \
-  printf 'BLOCKCHAIN_RPC_API_KEY=<peer-key-from-operator>\n' >> /etc/aitbc/blockchain-secrets.env
+  printf 'BLOCKCHAIN_RPC_API_KEY=<peer-key-from-/rpc/join>\n' >> /etc/aitbc/blockchain-secrets.env
 chmod 600 /etc/aitbc/blockchain-secrets.env
 ```
+
+If your `node_id` is already enrolled (`409`), pick another or ask the operator to revoke the old key (`scripts/ops/manage-peer-keys.sh`) — a node can then re-join.
 
 **There is no endpoint for `blockchain-secrets.env`, and there must not be.** It holds live
 credentials. Request them from the hub operator over an authenticated channel **only** if you
@@ -139,7 +143,7 @@ systemctl enable aitbc-blockchain-node.service
 The blockchain-node will automatically:
 
 1. Connect to the hub's base URL (from `default_peer_rpc_url` in `node.env`)
-2. Register a subscription lease via `POST /rpc/subscribe`, authenticating with `X-API-Key: $BLOCKCHAIN_RPC_API_KEY` — this must be the peer key the operator enrolled in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` (Step 2)
+2. Register a subscription lease via `POST /rpc/subscribe`, authenticating with `X-API-Key: $BLOCKCHAIN_RPC_API_KEY` — the peer key issued by `POST /rpc/join` (Step 2), bound to your node_id
 3. Open a WebSocket to `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` for block push
 4. Send periodic heartbeats (`POST /rpc/heartbeat`, same key) to maintain the lease
 
@@ -230,8 +234,8 @@ journalctl -u aitbc-blockchain-node.service -f
 ### Subscription Issues
 
 ```bash
-# Check subscription logs — a 403 here means your peer key is not in the
-# hub's BLOCKCHAIN_RPC_API_KEY_PEERS; ask the operator to enrol it
+# Check subscription logs — a 403 here means your peer key is missing,
+# revoked, or bound to a different node_id; re-check Step 2
 journalctl -u aitbc-blockchain-node.service -f | grep -i "subscribe\|lease\|websocket\|heartbeat\|403"
 
 # Verify hub RPC is accessible (reads are public)
@@ -265,7 +269,7 @@ curl -X POST http://localhost:8202/rpc/force-sync \
 **Important Notes:**
 
 - This is a **test island** - do not use for production
-- Joining **does** require authentication: the subscription/heartbeat routes require a peer key enrolled in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` (issued out of band by the operator), and gossip publication to restricted topics requires validator signatures. Chain **reads** (`/rpc/head`, `/rpc/blocks/{h}`, `/rpc/network-info`, ...) are public.
+- Joining **does** require authentication: the subscription/heartbeat routes require a peer key issued by `POST /rpc/join` and bound to the calling node_id, and gossip publication to restricted topics requires validator signatures. Chain **reads** (`/rpc/head`, `/rpc/blocks/{h}`, `/rpc/network-info`, ...) are public.
 - All transactions are public on the blockchain
 - Use test wallets only - no real assets
 
@@ -296,5 +300,5 @@ After joining the open island:
 ---
 
 **Last Updated**: 2026-06-20
-**Island Status**: Open for Testing (operator-gated join — peer key required)
+**Island Status**: Open for Testing (self-serve join — `POST /rpc/join` issues a node-bound peer key)
 **Hub Node**: https://hub.aitbc.bubuit.net/ (RPC + WebSocket subscription)
