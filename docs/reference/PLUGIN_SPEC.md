@@ -1,6 +1,6 @@
 # AITBC Plugin Interface Specification
 
-> **Status (2026-08-28):** `plugins/` is now the default **brand/white-label plugin** directory. The historical general-purpose `BasePlugin`/CLI/blockchain plugin interface below is **deprecated** and was removed in v0.4.25. Ollama integration lives in `apps/coordinator-api/src/app/routers/inference.py`, `apps/coordinator-api/src/app/services/gpu_worker.py`, and `apps/miner/production_miner.py`. Marketplace plugin registry endpoints (`/v1/marketplace/plugins/*`) remain functional.
+> **Status (2026-08-28):** `plugins/` is now the default **brand/white-label plugin** directory. The historical general-purpose `BasePlugin`/CLI/blockchain plugin interface below is **deprecated** and was removed in v0.4.25. Ollama integration lives in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/inference.py`, `apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/ollama_queue.py`, and `apps/miner/production_miner.py`. Marketplace plugin registry endpoints (`/v1/marketplace/plugins/*`) remain functional.
 
 ## Brand plugin system (active)
 

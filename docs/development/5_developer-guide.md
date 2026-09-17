@@ -185,7 +185,7 @@ The coordinator-api uses Python with FastAPI. Here's how to add a new endpoint:
 ### 1. Define the Schema
 
 ```python
-# File: coordinator-api/src/app/schemas.py
+# File: coordinator-api/src/coordinator_api/schemas.py
 
 from pydantic import BaseModel
 from typing import Optional
@@ -206,7 +206,7 @@ class NewFeatureResponse(BaseModel):
 ### 2. Create the Router
 
 ```python
-# File: coordinator-api/src/app/routers/new_feature.py
+# File: coordinator-api/src/coordinator_api/routers/new_feature.py
 
 from fastapi import APIRouter, Depends, HTTPException
 from ..schemas import NewFeatureRequest, NewFeatureResponse
