@@ -294,7 +294,7 @@ E2E_NODE_WALLET_ADDRESS=ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
 ### Risks
 
 1. **Service Dependencies:** Tests depend on multiple services
-   - **Mitigation:** Use docker-compose for service orchestration, implement service health checks
+   - **Mitigation:** Orchestrate services via systemd units, implement service health checks
 
 2. **Test Data Management:** Managing test data across tests
    - **Mitigation:** Implement robust fixture system, use database transactions for rollback
