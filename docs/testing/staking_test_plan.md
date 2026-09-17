@@ -1,5 +1,12 @@
 # AgentStaking Contract + Staking Service Test Plan
 
+> **Historical record.** This is a point-in-time report. File paths below
+> reflect the pre-2026-07-07 layout: the `src/app/` package in each app was
+> renamed to a per-service package (`src/coordinator_api/`, `src/wallet_app/`,
+> `src/agent_app/`). Do not treat paths or endpoints listed here as current —
+> verify against the source tree.
+
+
 ## Overview
 Test plan for the AgentStaking smart contract (`/opt/aitbc/contracts/contracts/AgentStaking.sol`) and the Python staking service (`/opt/aitbc/apps/coordinator-api/src/app/services/staking_service.py`).
 

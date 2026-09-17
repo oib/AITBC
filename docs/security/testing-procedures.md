@@ -209,7 +209,7 @@ print('Default value:', params['enabled'].default if 'enabled' in params else 'N
 ```bash
 python -c "
 import ast
-with open('apps/coordinator-api/src/app/routers/zk_applications.py', 'r') as f:
+with open('apps/coordinator-api/src/coordinator_api/contexts/zk_applications/routers/zk_applications.py', 'r') as f:
     content = f.read()
 
 # Check for DEMO_MODE_ENABLED flag
