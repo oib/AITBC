@@ -49,13 +49,16 @@ To join an existing AITBC hub (e.g., `https://hub.aitbc.bubuit.net`) as a follow
 git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
 
-# 2. Install hub configuration (provisioned out of band)
-# The hub serves no public bootstrap endpoints: /agent/blockchain.env and
-# /agent/genesis.json return 404 by design (V23-58). Obtain both files from
-# the hub operator over an authenticated channel, then:
+# 2. Download hub configuration (self-serve)
+# /agent/bootstrap.env is a sanitized public copy — the hub's real env file
+# carries consensus keys and is never served (V23-58).
 mkdir -p /etc/aitbc
-install -m 0600 /path/from/operator/blockchain.env /etc/aitbc/blockchain.env
-install -m 0600 /path/from/operator/genesis.json   /etc/aitbc/genesis.json
+curl -fsS https://hub.aitbc.bubuit.net/agent/bootstrap.env -o /etc/aitbc/blockchain.env
+curl -fsS https://hub.aitbc.bubuit.net/agent/genesis.json  -o /etc/aitbc/genesis.json
+# Issue a peer key for this node (bound to node_id, shown once):
+curl -fsS -X POST https://hub.aitbc.bubuit.net/rpc/join \
+  -H 'Content-Type: application/json' -d '{"node_id":"your-node-id"}'
+# → store the returned peer_key as BLOCKCHAIN_RPC_API_KEY in node.env
 # blockchain-secrets.env is NOT published (V23-58) -- blockchain-node does not read it.
 # Only if this host also runs wallet / agent-coordinator, copy it from the hub:
 #   scp hub:/etc/aitbc/blockchain-secrets.env /etc/aitbc/ && chmod 600 /etc/aitbc/blockchain-secrets.env
