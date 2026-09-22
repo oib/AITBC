@@ -11,7 +11,9 @@ import hmac
 import os
 from typing import Annotated, Any
 
-from fastapi import Depends, Header, HTTPException, Request, status
+from fastapi import Depends, Header, HTTPException, Request, WebSocketException, status
+from starlette.requests import HTTPConnection
+from starlette.websockets import WebSocket
 
 from aitbc.aitbc_logging import get_logger
 
@@ -25,6 +27,12 @@ class APIKeyAuthenticator:
     an expected key using constant-time comparison. When ``auth_enabled`` is
     false, the dependency always succeeds. This replaces the hand-rolled
     API-key checks in wallet, trading, and other services.
+
+    Works on HTTP and WebSocket routes alike. The connection is typed as
+    ``HTTPConnection`` — the common base of ``Request`` and ``WebSocket`` —
+    because FastAPI only binds ``Request``-annotated params for actual
+    ``Request`` connections; on a websocket route that annotation never binds
+    and the dependency fails before auth logic runs.
     """
 
     def __init__(
@@ -39,28 +47,32 @@ class APIKeyAuthenticator:
         self.header_name = header_name
         self.success_role = success_role
 
-    async def __call__(self, request: Request) -> dict[str, Any]:
+    @staticmethod
+    def _reject(connection: HTTPConnection, status_code: int, detail: str) -> Exception:
+        """Rejection error appropriate to the connection type.
+
+        An ``HTTPException`` raised on a websocket handshake is unhandled and
+        surfaces as HTTP 500; a ``WebSocketException`` denies the handshake
+        cleanly with a WS close code.
+        """
+        if isinstance(connection, WebSocket):
+            code = status.WS_1011_INTERNAL_ERROR if status_code >= 500 else status.WS_1008_POLICY_VIOLATION
+            return WebSocketException(code=code, reason=detail)
+        return HTTPException(status_code=status_code, detail=detail)
+
+    async def __call__(self, request: HTTPConnection) -> dict[str, Any]:
         if not self.auth_enabled:
             return {"sub": "api_key", "role": self.success_role, "auth_type": "api_key"}
 
         if not self.expected_key:
-            raise HTTPException(
-                status_code=status.HTTP_501_NOT_IMPLEMENTED,
-                detail="API key not configured",
-            )
+            raise self._reject(request, status.HTTP_501_NOT_IMPLEMENTED, "API key not configured")
 
         api_key = request.headers.get(self.header_name)
         if not api_key:
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Missing API key",
-            )
+            raise self._reject(request, status.HTTP_401_UNAUTHORIZED, "Missing API key")
 
         if not hmac.compare_digest(str(api_key), str(self.expected_key)):
-            raise HTTPException(
-                status_code=status.HTTP_401_UNAUTHORIZED,
-                detail="Invalid API key",
-            )
+            raise self._reject(request, status.HTTP_401_UNAUTHORIZED, "Invalid API key")
 
         return {"sub": "api_key", "role": self.success_role, "auth_type": "api_key"}
 
