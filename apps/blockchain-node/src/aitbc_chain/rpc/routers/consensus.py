@@ -5,7 +5,7 @@ Consensus router.
 import logging
 from typing import Any
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, HTTPException, Request
 
 from aitbc.rate_limiting import rate_limit
 
@@ -19,7 +19,7 @@ router = APIRouter(prefix="/consensus", tags=["consensus"])
 
 @router.get("/status", summary="Get consensus status")
 @rate_limit(rate=100, per=60)
-async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
+async def consensus_status_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     """Get consensus mode, view, sequence, epoch, and fault tolerance.
 
     ``current_view``, ``current_sequence`` and ``current_epoch`` are only
@@ -91,7 +91,7 @@ async def consensus_status_route(chain_id: str | None = None) -> dict[str, Any]:
 
 @router.get("/validators", summary="List consensus validators")
 @rate_limit(rate=100, per=60)
-async def consensus_validators_route(chain_id: str | None = None) -> dict[str, Any]:
+async def consensus_validators_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     """List active validators (address, stake, reputation, role, last_proposed)."""
     chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
@@ -126,7 +126,7 @@ async def consensus_validators_route(chain_id: str | None = None) -> dict[str, A
 
 @router.get("/slashing-history", summary="Get slashing history")
 @rate_limit(rate=100, per=60)
-async def consensus_slashing_history_route(chain_id: str | None = None) -> dict[str, Any]:
+async def consensus_slashing_history_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     """Get slashing events (validator, condition, amount, block height)."""
     chain_id = chain_id or settings.chain_id
     if not settings.multi_validator_consensus_enabled or not settings.validator_set:
