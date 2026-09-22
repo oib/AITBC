@@ -44,6 +44,13 @@ except ImportError as e:
     _logger.error("Staking module not available: %s — affected endpoints will return 503", e)
 
 
+# stake/unstake deliberately carry no ``verify_rpc_api_key`` dependency:
+# authorization is the staker's wallet signature over a nonce- and
+# timestamp-bound message (see ``stake_tokens`` in rpc/staking.py), so a
+# keyless wallet user can still stake. The GAP-56 sweep gated the other
+# mutation routes in this file on purpose and left these.
+
+
 @router.post("/staking/stake", summary="Stake tokens")
 @rate_limit(rate=20, per=60)
 async def stake_tokens_route(request: Request, stake_data: dict) -> dict[str, Any]:
