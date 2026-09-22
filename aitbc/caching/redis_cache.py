@@ -2,6 +2,7 @@
 Redis cache wrapper for distributed caching
 """
 
+import os
 from typing import Any
 
 import orjson
@@ -10,6 +11,11 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
+# Hosts that cannot reach the configured Redis only need to hear about it
+# once — callers that re-instantiate the cache on a timer would otherwise
+# spam the journal every tick.
+_warned_urls: set[str] = set()
+
 
 class RedisCache:
     """Minimal Redis cache wrapper for backward compatibility."""
@@ -17,17 +23,22 @@ class RedisCache:
     def __init__(
         self, redis_url: str | None = None, max_connections: int = 10, timeout: int = 5, default_ttl: int = 3600
     ) -> None:
-        self._url = redis_url
+        # Callers that pass nothing still reach the fleet-configured Redis:
+        # service env files carry a credentialed REDIS_URL.
+        url = redis_url or os.environ.get("REDIS_URL") or "redis://localhost:6379/0"
+        self._url = url
         self._default_ttl = default_ttl
         self._client: Any = None
         self._data: dict[str, Any] = {}
         try:
             import redis
 
-            self._client = redis.from_url(redis_url or "redis://localhost:6379/0")
+            self._client = redis.from_url(url)
             self._client.ping()
         except Exception as e:
-            logger.warning("Redis connection failed, falling back to in-memory cache: %s", e)
+            if url not in _warned_urls:
+                _warned_urls.add(url)
+                logger.warning("Redis connection failed, falling back to in-memory cache: %s", e)
             self._client = None
 
     def get(self, key: str) -> Any | None:
