@@ -112,13 +112,13 @@ def http():
 @click.option("--params", default=None, help="JSON object of query parameters")
 @click.option("--body", default=None, help="JSON object request body")
 @click.option("--url", default=None, help="Override the service base URL")
-@click.option("--api-key", default=None, help="API key (X-API-Key) header")
+@click.option("--api-key", default=None, help="API key header (X-API-Key; X-Trading-Api-Key with --auth trading)")
 @click.option(
     "--auth",
     "auth_kind",
-    type=click.Choice(["none", "miner", "rpc"]),
+    type=click.Choice(["none", "miner", "rpc", "trading"]),
     default="none",
-    help="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key)",
+    help="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key, 'trading' = trading service key)",
 )
 @click.option("--timeout", type=int, default=30, help="Request timeout in seconds")
 @OUTPUT_FORMAT_OPTION
@@ -175,6 +175,12 @@ def call_http(
                 resolved_key = get_config().blockchain_rpc_api_key
             except Exception:
                 resolved_key = None
+        elif auth_kind == "trading":
+            try:
+                trading_key = get_config().trading_api_key
+                resolved_key = trading_key.get_secret_value() if trading_key else None
+            except Exception:
+                resolved_key = None
 
     output_format = resolve_output_format(ctx, output_format)
     method = method.upper()
@@ -182,12 +188,28 @@ def call_http(
         raise click.ClickException(f"Unsupported HTTP method: {method}")
 
     # --api-key wins; otherwise a stored `aitbc auth login` JWT goes out as
-    # Bearer before falling back to the resolved/configured API key.
-    client = AITBCHTTPClient(
-        base_url=base_url,
-        timeout=timeout,
-        **auth_client_kwargs(api_key, resolved_key),
-    )
+    # Bearer before falling back to the resolved/configured API key. The trading
+    # service authenticates on X-Trading-Api-Key, so --auth trading bypasses
+    # auth_client_kwargs (which only emits X-API-Key) and fails loudly when no
+    # trading key resolves — silently sending an unrelated credential would
+    # surface as a misleading "Missing API key" 401.
+    if auth_kind == "trading":
+        trading_token = api_key or resolved_key
+        if not trading_token:
+            raise click.ClickException(
+                "No trading API key configured: set TRADING_API_KEY or a readable /etc/aitbc/aitbc-trading.env"
+            )
+        client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=timeout,
+            headers={"X-Trading-Api-Key": trading_token},
+        )
+    else:
+        client = AITBCHTTPClient(
+            base_url=base_url,
+            timeout=timeout,
+            **auth_client_kwargs(api_key, resolved_key),
+        )
     try:
         if method == "GET":
             result = client.get(path, params=query_params)
