@@ -110,14 +110,14 @@ async def heartbeat_route(
 
 @router.get("/lease/{node_id}", summary="Get lease status for a subscriber")
 @rate_limit(rate=100, per=60)
-async def lease_status_route(node_id: str) -> dict[str, Any]:
+async def lease_status_route(request: Request, node_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Check the lease status for a subscriber"""
     return await get_lease_status(node_id)
 
 
 @router.delete("/lease/{node_id}", summary="Revoke subscription lease")
 @rate_limit(rate=10, per=60)
-async def revoke_lease_route(node_id: str, api_key: str = Depends(verify_rpc_peer_key)) -> dict[str, Any]:
+async def revoke_lease_route(request: Request, node_id: str, api_key: str = Depends(verify_rpc_peer_key)) -> dict[str, Any]:  # noqa: ARG001
     """Revoke a subscriber's lease"""
     _enforce_key_node_binding(api_key, node_id)
     return await revoke_subscription(node_id)
@@ -125,6 +125,6 @@ async def revoke_lease_route(node_id: str, api_key: str = Depends(verify_rpc_pee
 
 @router.get("/subscribers", summary="Get all valid subscribers")
 @rate_limit(rate=100, per=60)
-async def subscribers_route(chain_id: str | None = None) -> dict[str, Any]:
+async def subscribers_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:  # noqa: ARG001
     """Get all subscribers with valid leases"""
     return await get_subscribers(chain_id)
