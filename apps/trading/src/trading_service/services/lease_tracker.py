@@ -13,7 +13,6 @@ service remains functional (and tests pass without Redis).
 
 from __future__ import annotations
 
-import asyncio
 import logging
 import time
 from typing import Any
@@ -108,8 +107,7 @@ class OfferLeaseTracker:
         if self._redis is not None:
             key = f"{LEASE_PREFIX}{node_id}"
             try:
-                await asyncio.to_thread(
-                    self._redis.hset,
+                await self._redis.hset(
                     key,
                     mapping={
                         "node_id": node_id,
@@ -117,7 +115,7 @@ class OfferLeaseTracker:
                         "expiry": str(expiry),
                     },
                 )
-                await asyncio.to_thread(self._redis.expire, key, duration + 60)
+                await self._redis.expire(key, duration + 60)
                 logger.info("Registered offer subscriber %s (chain=%s) expiry=%s", node_id, chain_id, expiry)
             except Exception as e:
                 logger.warning("Redis register failed for %s, using in-memory: %s", node_id, e)
@@ -137,13 +135,13 @@ class OfferLeaseTracker:
         if self._redis is not None:
             key = f"{LEASE_PREFIX}{node_id}"
             try:
-                exists = await asyncio.to_thread(self._redis.exists, key)
+                exists = await self._redis.exists(key)
                 if not exists:
                     logger.warning("Cannot extend lease for unknown subscriber %s", node_id)
                     return 0.0
                 new_expiry = time.time() + duration
-                await asyncio.to_thread(self._redis.hset, key, mapping={"expiry": str(new_expiry)})
-                await asyncio.to_thread(self._redis.expire, key, duration + 60)
+                await self._redis.hset(key, mapping={"expiry": str(new_expiry)})
+                await self._redis.expire(key, duration + 60)
                 logger.info("Extended offer lease for %s to %s", node_id, new_expiry)
                 return new_expiry
             except Exception as e:
@@ -167,7 +165,7 @@ class OfferLeaseTracker:
         if self._redis is not None:
             key = f"{LEASE_PREFIX}{node_id}"
             try:
-                expiry_str = await asyncio.to_thread(self._redis.hget, key, "expiry")
+                expiry_str = await self._redis.hget(key, "expiry")
                 if not expiry_str:
                     return False
                 expiry = float(expiry_str)
@@ -200,7 +198,7 @@ class OfferLeaseTracker:
         if self._redis is not None:
             key = f"{LEASE_PREFIX}{node_id}"
             try:
-                result = await asyncio.to_thread(self._redis.delete, key)
+                result = await self._redis.delete(key)
                 return bool(result)
             except Exception as e:
                 logger.warning("Redis revoke failed for %s, using in-memory: %s", node_id, e)
@@ -218,7 +216,7 @@ class OfferLeaseTracker:
         if self._redis is not None:
             key = f"{LEASE_PREFIX}{node_id}"
             try:
-                expiry_str = await asyncio.to_thread(self._redis.hget, key, "expiry")
+                expiry_str = await self._redis.hget(key, "expiry")
                 if not expiry_str:
                     return 0.0
                 expiry = float(expiry_str)
