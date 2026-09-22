@@ -93,6 +93,11 @@ class CLIConfig(BaseAITBCConfig):
     marketplace_service_url: str = Field(default="http://127.0.0.1:8102", description="Marketplace Service URL")
     coordinator_api_url: str = Field(default="", description="Coordinator API URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
+    trading_api_key: SecretStr | None = Field(
+        default=None,
+        alias="TRADING_API_KEY",
+        description="Trading service API key for the X-Trading-Api-Key header",
+    )
     governance_service_url: str = Field(default="http://localhost:8105", description="Governance Service URL")
     agent_coordinator_url: str = Field(
         default="",
@@ -256,6 +261,7 @@ def _cli_env_files() -> list[str]:
         "/etc/aitbc/node.env",
         "/etc/aitbc/exchange.env",
         "/etc/aitbc/aitbc-gpu.env",
+        "/etc/aitbc/aitbc-trading.env",
     ]
     return [p for p in candidates if os.access(p, os.R_OK)]
 

@@ -27,10 +27,21 @@ TRADING_SERVICE_URL = "http://localhost:8104"
 
 def _get_client(url: str | None = None) -> AITBCHTTPClient:
     """Create an HTTP client for the trading service."""
-    import os
+    from ..config import get_config
 
-    base_url = url or os.getenv("TRADING_SERVICE_URL") or TRADING_SERVICE_URL
-    return AITBCHTTPClient(base_url=base_url, timeout=30)
+    ctx = click.get_current_context(silent=True)
+    config = (ctx.obj or {}).get("config") if ctx is not None else None
+    config = config or get_config()
+    key = config.trading_api_key
+    if key is None or not key.get_secret_value():
+        raise click.UsageError(
+            "Trading API key required: set TRADING_API_KEY in the environment or a readable /etc/aitbc/aitbc-trading.env"
+        )
+    return AITBCHTTPClient(
+        base_url=url or config.trading_service_url or TRADING_SERVICE_URL,
+        timeout=30,
+        headers={"X-Trading-Api-Key": key.get_secret_value()},
+    )
 
 
 def _resolve_rpc_api_key(api_key: str | None) -> str:
