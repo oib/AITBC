@@ -611,3 +611,177 @@ class TestOfferSubscriptionClientPollingFallback:
 
         assert event.chain_id == "ait-hub"
         assert event.offer_id == "o1"
+
+
+class TestOfferSubscriptionClientAuth:
+    """API key support across the HTTP lease calls, the WebSocket handshake,
+    and the polling fallback — plus terminal-auth behavior: a 401/403 at any
+    of them means a missing or wrong key and must surface, not silently
+    degrade into a keyless retry loop.
+    """
+
+    @pytest.mark.asyncio
+    async def test_api_key_sets_http_header(self) -> None:
+        client = OfferSubscriptionClient(api_key="key-123")
+        assert client._ensure_http().headers["x-trading-api-key"] == "key-123"
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_env_key_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TRADING_API_KEY", "env-key")
+        client = OfferSubscriptionClient()
+        assert client._ensure_http().headers["x-trading-api-key"] == "env-key"
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_ws_connect_sends_auth_header(self) -> None:
+        client = OfferSubscriptionClient(api_key="key-123", reconnect_delay_seconds=0.01)
+        client._running = True
+        client._subscriptions["ait-hub"] = OfferSubscription(chain_id="ait-hub")
+        captured = {}
+
+        class _FakeWS:
+            async def __aenter__(self):
+                return self
+
+            async def __aexit__(self, *args):
+                client._running = False  # stop after the first connection
+                return False
+
+            async def send(self, *args):
+                pass
+
+            def __aiter__(self):
+                return self
+
+            async def __anext__(self):
+                raise StopAsyncIteration
+
+        def _connect(url, **kwargs):
+            captured.update(kwargs)
+            captured["url"] = url
+            return _FakeWS()
+
+        with patch("websockets.connect", side_effect=_connect):
+            async for _ in client._ws_stream("ait-hub", {}):
+                pass
+
+        assert captured["additional_headers"] == {"X-Trading-Api-Key": "key-123"}
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_ws_handshake_auth_denied_is_terminal(self) -> None:
+        """401/403 at the handshake is an auth failure — raise, don't poll."""
+        from websockets.datastructures import Headers
+        from websockets.exceptions import InvalidStatus
+        from websockets.http11 import Response
+
+        client = OfferSubscriptionClient(api_key="key-123", reconnect_delay_seconds=0.01)
+        client._running = True
+        client._subscriptions["ait-hub"] = OfferSubscription(chain_id="ait-hub")
+        client._status["ait-hub"] = SubscriptionStatus.SUBSCRIBED
+        fallback_called = False
+
+        async def _no_polling(*args, **kwargs):
+            nonlocal fallback_called
+            fallback_called = True
+            if False:
+                yield None
+
+        with patch(
+            "websockets.connect",
+            side_effect=InvalidStatus(Response(403, "Forbidden", Headers())),
+        ):
+            with patch.object(client, "_polling_fallback", _no_polling):
+                with pytest.raises(InvalidStatus):
+                    async for _ in client._ws_stream("ait-hub", {}):
+                        pass
+
+        assert fallback_called is False
+
+    @pytest.mark.asyncio
+    async def test_ws_handshake_server_error_falls_back_to_polling(self) -> None:
+        """A non-auth handshake rejection (e.g. 500 on a pre-fix server)
+        still degrades to polling — only auth codes are terminal."""
+        from websockets.datastructures import Headers
+        from websockets.exceptions import InvalidStatus
+        from websockets.http11 import Response
+
+        client = OfferSubscriptionClient(api_key="key-123", reconnect_delay_seconds=0.01)
+        client._running = True
+        client._subscriptions["ait-hub"] = OfferSubscription(chain_id="ait-hub")
+        client._status["ait-hub"] = SubscriptionStatus.SUBSCRIBED
+        polled = []
+
+        async def _poll(*args, **kwargs):
+            polled.append(True)
+            if False:
+                yield None
+
+        with patch(
+            "websockets.connect",
+            side_effect=InvalidStatus(Response(500, "Internal Server Error", Headers())),
+        ):
+            with patch.object(client, "_polling_fallback", _poll):
+                async for _ in client._ws_stream("ait-hub", {}):
+                    pass
+
+        assert polled == [True]
+        assert client._status["ait-hub"] == SubscriptionStatus.POLLING_FALLBACK
+
+    @pytest.mark.asyncio
+    async def test_lease_auth_error_raises(self) -> None:
+        client = OfferSubscriptionClient(api_key="key-123")
+        client._http_client = MagicMock()
+        client._http_client.post = AsyncMock(return_value=_mock_response(status_code=401))
+        with pytest.raises(httpx.HTTPStatusError):
+            await client._register_lease("ait-hub", {})
+        client._http_client = None
+
+    @pytest.mark.asyncio
+    async def test_polling_auth_error_is_terminal(self) -> None:
+        client = OfferSubscriptionClient(poll_interval_seconds=0.01)
+        sub = OfferSubscription(chain_id="ait-hub")
+        resp = _mock_response(status_code=401)
+        mock_poll_client = MagicMock()
+        mock_poll_client.discover_offers = AsyncMock(side_effect=resp.raise_for_status.side_effect)
+        mock_poll_client.close = AsyncMock()
+
+        with patch(
+            "aitbc.trading.subscription_client.OfferSyncClient",
+            return_value=mock_poll_client,
+        ):
+            client._running = True
+            client._subscriptions["ait-hub"] = sub
+            with pytest.raises(httpx.HTTPStatusError):
+                async for _ in client._polling_fallback("ait-hub", sub):
+                    pass
+
+        client._running = False
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_polling_fallback_propagates_api_key(self) -> None:
+        client = OfferSubscriptionClient(api_key="key-123", poll_interval_seconds=0.01)
+        sub = OfferSubscription(chain_id="ait-hub")
+        mock_poll_client = MagicMock()
+        mock_poll_client.discover_offers = AsyncMock(side_effect=Exception("stop"))
+        mock_poll_client.close = AsyncMock()
+
+        with patch(
+            "aitbc.trading.subscription_client.OfferSyncClient",
+            return_value=mock_poll_client,
+        ) as mock_cls:
+            client._running = True
+            client._subscriptions["ait-hub"] = sub
+            gen = client._polling_fallback("ait-hub", sub)
+            task = asyncio.ensure_future(gen.__anext__())
+            await asyncio.sleep(0.05)
+            client._running = False
+            try:
+                await asyncio.wait_for(task, timeout=2.0)
+            except StopAsyncIteration:
+                pass
+
+        assert mock_cls.call_args.kwargs["api_key"] == "key-123"
+        await client.close()

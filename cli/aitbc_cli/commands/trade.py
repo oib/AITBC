@@ -455,6 +455,8 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
     rpc_url = _get_client().base_url
 
     async def _watch() -> None:
+        from ..config import get_config
+
         sub = OfferSubscription(
             chain_id=chain_id,
             service_type=service_type,
@@ -464,7 +466,13 @@ def watch(ctx, chain_id, service_type, min_price, max_price, region, gpu_model, 
             gpu_model=gpu_model,
         )
         target_chain = chain_id or "ait-hub"
-        client = OfferSubscriptionClient(rpc_url=rpc_url, node_id=f"cli-watch-{target_chain}")
+        config = (ctx.obj or {}).get("config") or get_config()
+        key = config.trading_api_key
+        client = OfferSubscriptionClient(
+            rpc_url=rpc_url,
+            node_id=f"cli-watch-{target_chain}",
+            api_key=key.get_secret_value() if key else None,
+        )
         try:
             async for event in client.subscribe(target_chain, sub):
                 click.echo(_json.dumps(event.to_dict(), indent=2))

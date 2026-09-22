@@ -855,3 +855,37 @@ class TestOfferCacheClear:
         assert count == 2
         # delete called for each offer + chain index + chain meta
         assert cache._cache.delete.call_count >= 3
+
+
+class TestOfferSyncClientAuth:
+    """API key support — the trading service gates offer routes behind
+    ``X-Trading-Api-Key``; the client sends it when configured and falls
+    back to ``TRADING_API_KEY`` from the environment.
+    """
+
+    @pytest.mark.asyncio
+    async def test_api_key_sets_header(self) -> None:
+        client = OfferSyncClient(api_key="key-123")
+        assert client._ensure_client().headers["x-trading-api-key"] == "key-123"
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_env_key_fallback(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TRADING_API_KEY", "env-key")
+        client = OfferSyncClient()
+        assert client._ensure_client().headers["x-trading-api-key"] == "env-key"
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_explicit_key_beats_env(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.setenv("TRADING_API_KEY", "env-key")
+        client = OfferSyncClient(api_key="explicit")
+        assert client._ensure_client().headers["x-trading-api-key"] == "explicit"
+        await client.close()
+
+    @pytest.mark.asyncio
+    async def test_no_key_sends_no_header(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("TRADING_API_KEY", raising=False)
+        client = OfferSyncClient()
+        assert "x-trading-api-key" not in client._ensure_client().headers
+        await client.close()
