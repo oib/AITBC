@@ -24,6 +24,7 @@ Endpoint mapping (Agent B B4-B5 will add these to main.py):
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, cast
 
 import httpx
@@ -42,8 +43,9 @@ class TradingClient:
     default (``TRADING_BIND_PORT``, verified in ``main.py:469``).
     """
 
-    def __init__(self, config: TradingConfig | None = None) -> None:
+    def __init__(self, config: TradingConfig | None = None, *, api_key: str | None = None) -> None:
         self._config = config or TradingConfig()
+        self._api_key = api_key or os.environ.get("TRADING_API_KEY") or None
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -52,10 +54,7 @@ class TradingClient:
         return self._config
 
     async def __aenter__(self) -> TradingClient:
-        self._client = httpx.AsyncClient(
-            base_url=self._config.rpc_url,
-            timeout=self._config.timeout,
-        )
+        self._ensure_client()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -66,6 +65,7 @@ class TradingClient:
             self._client = httpx.AsyncClient(
                 base_url=self._config.rpc_url,
                 timeout=self._config.timeout,
+                headers={"X-Trading-Api-Key": self._api_key} if self._api_key else None,
             )
         return self._client
 

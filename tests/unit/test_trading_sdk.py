@@ -16,6 +16,7 @@ from __future__ import annotations
 from unittest.mock import AsyncMock, MagicMock
 
 import httpx
+import pytest
 
 from aitbc.trading import (
     ChainInfo,
@@ -375,6 +376,101 @@ class TestTradingClientMethods:
         assert c._client is client
         client2 = c._ensure_client()
         assert client2 is client
+
+
+class TestTradingClientAuth:
+    @staticmethod
+    def _install_transport(monkeypatch: pytest.MonkeyPatch) -> tuple[list[httpx.Request], list[httpx.AsyncClient]]:
+        requests: list[httpx.Request] = []
+        clients: list[httpx.AsyncClient] = []
+        real_async_client = httpx.AsyncClient
+
+        def _handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return httpx.Response(200, json={"trade_id": "t-1", "status": "pending"})
+
+        def factory(*args, **kwargs):
+            kwargs["transport"] = httpx.MockTransport(_handler)
+            client = real_async_client(*args, **kwargs)
+            clients.append(client)
+            return client
+
+        monkeypatch.setattr(httpx, "AsyncClient", factory)
+        return requests, clients
+
+    @staticmethod
+    def _config() -> TradingConfig:
+        return TradingConfig(rpc_url="http://trading.test:8104", timeout=11)
+
+    @pytest.mark.parametrize("use_context", [False, True])
+    async def test_requests_send_trading_key(self, monkeypatch: pytest.MonkeyPatch, use_context: bool) -> None:
+        requests, clients = self._install_transport(monkeypatch)
+        client = TradingClient(self._config(), api_key="trading-key-synthetic")
+
+        async def _run(c: TradingClient) -> None:
+            await c.get_trade("t-1")
+            await c.list_trades(limit=1)
+
+        if use_context:
+            async with client as c:
+                await _run(c)
+        else:
+            await _run(client)
+            await client.close()
+
+        assert len(requests) == 2
+        assert requests[0].url.path == "/v1/trading/inter-chain/t-1"
+        assert requests[1].url.path == "/v1/trading/inter-chain"
+        for req in requests:
+            assert req.url.host == "trading.test"
+            assert req.headers.get("X-Trading-Api-Key") == "trading-key-synthetic"
+            assert "X-API-Key" not in req.headers
+            assert "Authorization" not in req.headers
+        assert len(clients) == 1
+        assert clients[0].timeout.connect == 11
+        assert client._client is None
+        assert clients[0].is_closed
+        await client.close()
+
+    async def test_key_falls_back_to_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        requests, _clients = self._install_transport(monkeypatch)
+        monkeypatch.setenv("TRADING_API_KEY", "env-trading-key-synthetic")
+        client = TradingClient(self._config())
+        await client.get_trade("t-1")
+        assert requests[0].headers.get("X-Trading-Api-Key") == "env-trading-key-synthetic"
+        await client.close()
+
+    async def test_explicit_key_beats_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        requests, _clients = self._install_transport(monkeypatch)
+        monkeypatch.setenv("TRADING_API_KEY", "env-trading-key-synthetic")
+        client = TradingClient(self._config(), api_key="explicit-trading-key")
+        await client.get_trade("t-1")
+        assert requests[0].headers.get("X-Trading-Api-Key") == "explicit-trading-key"
+        await client.close()
+
+    async def test_absent_key_stays_headerless(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("TRADING_API_KEY", raising=False)
+        requests, _clients = self._install_transport(monkeypatch)
+        client = TradingClient(self._config())
+        await client.get_trade("t-1")
+        req = requests[0]
+        assert "X-Trading-Api-Key" not in req.headers
+        assert "X-API-Key" not in req.headers
+        assert "Authorization" not in req.headers
+        await client.close()
+
+    async def test_close_and_reopen(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        _requests, _clients = self._install_transport(monkeypatch)
+        client = TradingClient(self._config())
+        first = client._ensure_client()
+        await client.close()
+        assert client._client is None
+        assert first.is_closed
+        second = client._ensure_client()
+        assert second is not first
+        assert not second.is_closed
+        await client.close()
+        await client.close()
 
 
 # ---------------------------------------------------------------------------

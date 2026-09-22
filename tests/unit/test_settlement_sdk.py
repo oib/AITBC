@@ -15,6 +15,7 @@ from __future__ import annotations
 
 from unittest.mock import MagicMock
 
+import httpx
 import pytest
 
 from aitbc.settlement import (
@@ -41,6 +42,7 @@ from aitbc.settlement import (
     verify_proof_chain,
     verify_secret,
 )
+from aitbc.settlement.client import SettlementClient
 from aitbc.trading import InterChainTradeData, SettlementPhase
 
 
@@ -861,6 +863,137 @@ class TestSettlementClient:
         resp.json.return_value = {"escrow_id": "esc-1", "status": "pending"}
         resp.raise_for_status = MagicMock()
         return resp
+
+    @staticmethod
+    def _install_transport(monkeypatch: pytest.MonkeyPatch, handler) -> tuple[list[httpx.Request], list[httpx.AsyncClient]]:
+        requests: list[httpx.Request] = []
+        clients: list[httpx.AsyncClient] = []
+        real_async_client = httpx.AsyncClient
+
+        def _handler(request: httpx.Request) -> httpx.Response:
+            requests.append(request)
+            return handler(request)
+
+        def factory(*args, **kwargs):
+            kwargs["transport"] = httpx.MockTransport(_handler)
+            client = real_async_client(*args, **kwargs)
+            clients.append(client)
+            return client
+
+        monkeypatch.setattr(httpx, "AsyncClient", factory)
+        return requests, clients
+
+    @staticmethod
+    def _ok(request: httpx.Request) -> httpx.Response:
+        return httpx.Response(200, json={"status": "locked", "ok": True})
+
+    @staticmethod
+    def _config() -> SettlementConfig:
+        return SettlementConfig(
+            settlement_rpc_url="http://rpc.test:8202",
+            trading_rpc_url="http://trading.test:8104",
+            timeout=17,
+        )
+
+    @pytest.mark.parametrize("use_context", [False, True])
+    async def test_trading_endpoints_use_trading_key_header(self, monkeypatch: pytest.MonkeyPatch, use_context: bool) -> None:
+        requests, clients = self._install_transport(monkeypatch, self._ok)
+        client = SettlementClient(
+            self._config(),
+            api_key="rpc-key-synthetic",
+            trading_api_key="trading-key-synthetic",
+        )
+
+        async def _run(c: SettlementClient) -> None:
+            await c.get_escrow_status("esc-test")
+            await c.lock_escrow_for_trade("trade-test")
+            await c.settle_trade("trade-test", "synthetic-test-secret")
+            await c.get_trade_settlement_status("trade-test")
+
+        if use_context:
+            async with client as c:
+                await _run(c)
+        else:
+            await _run(client)
+            await client.close()
+
+        assert len(requests) == 4
+
+        rpc_req = requests[0]
+        assert rpc_req.method == "GET"
+        assert str(rpc_req.url) == "http://rpc.test:8202/rpc/bridge/settlement/esc-test"
+        assert rpc_req.headers.get("X-API-Key") == "rpc-key-synthetic"
+        assert "X-Trading-Api-Key" not in rpc_req.headers
+
+        for req in requests[1:]:
+            assert req.url.host == "trading.test"
+            assert req.headers.get("X-Trading-Api-Key") == "trading-key-synthetic"
+            assert "X-API-Key" not in req.headers
+            assert "Authorization" not in req.headers
+
+        assert requests[1].method == "POST"
+        assert requests[1].url.path == "/v1/trading/trades/trade-test/lock-escrow"
+        assert requests[2].method == "POST"
+        assert requests[2].url.path == "/v1/trading/trades/trade-test/settle"
+        assert requests[3].method == "GET"
+        assert requests[3].url.path == "/v1/trading/trades/trade-test/settlement-status"
+
+        assert len(clients) == 2
+        assert all(c.timeout.connect == 17 for c in clients)
+        assert client._client is None
+        assert client._trading_client is None
+        assert all(c.is_closed for c in clients)
+        await client.close()
+
+    async def test_keys_fall_back_to_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        requests, _clients = self._install_transport(monkeypatch, self._ok)
+        monkeypatch.setenv("BLOCKCHAIN_RPC_API_KEY", "env-rpc-key-synthetic")
+        monkeypatch.setenv("TRADING_API_KEY", "env-trading-key-synthetic")
+        client = SettlementClient(self._config())
+        await client.get_escrow_status("esc-1")
+        await client.get_trade_settlement_status("t-1")
+        assert requests[0].headers.get("X-API-Key") == "env-rpc-key-synthetic"
+        assert requests[1].headers.get("X-Trading-Api-Key") == "env-trading-key-synthetic"
+        assert "X-API-Key" not in requests[1].headers
+        await client.close()
+
+    async def test_explicit_keys_beat_environment(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        requests, _clients = self._install_transport(monkeypatch, self._ok)
+        monkeypatch.setenv("BLOCKCHAIN_RPC_API_KEY", "env-rpc-key-synthetic")
+        monkeypatch.setenv("TRADING_API_KEY", "env-trading-key-synthetic")
+        client = SettlementClient(
+            self._config(),
+            api_key="explicit-rpc-key",
+            trading_api_key="explicit-trading-key",
+        )
+        await client.get_escrow_status("esc-1")
+        await client.get_trade_settlement_status("t-1")
+        assert requests[0].headers.get("X-API-Key") == "explicit-rpc-key"
+        assert requests[1].headers.get("X-Trading-Api-Key") == "explicit-trading-key"
+        await client.close()
+
+    async def test_missing_trading_key_does_not_fall_back_to_rpc_key(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        monkeypatch.delenv("TRADING_API_KEY", raising=False)
+        requests, _clients = self._install_transport(monkeypatch, self._ok)
+        client = SettlementClient(self._config(), api_key="rpc-key-synthetic")
+        await client.get_trade_settlement_status("t-1")
+        req = requests[0]
+        assert req.url.host == "trading.test"
+        assert "X-Trading-Api-Key" not in req.headers
+        assert "X-API-Key" not in req.headers
+        assert "Authorization" not in req.headers
+        await client.close()
+
+    async def test_trading_redirect_is_not_followed(self, monkeypatch: pytest.MonkeyPatch) -> None:
+        def redirect(request: httpx.Request) -> httpx.Response:
+            return httpx.Response(307, headers={"location": "http://other.test/capture"})
+
+        requests, _clients = self._install_transport(monkeypatch, redirect)
+        client = SettlementClient(self._config(), trading_api_key="trading-key-synthetic")
+        with pytest.raises(httpx.HTTPStatusError):
+            await client.get_trade_settlement_status("t-1")
+        assert len(requests) == 1
+        await client.close()
 
 
 # ---------------------------------------------------------------------------
