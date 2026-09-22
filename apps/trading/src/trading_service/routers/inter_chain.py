@@ -3,7 +3,7 @@
 from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Body, Depends, HTTPException
 from fastapi.responses import JSONResponse
 
 from ..dependencies import get_chain_discovery, get_inter_chain_service, get_matching_engine
@@ -25,8 +25,8 @@ async def list_chains(
 
 @router.post("/v1/trading/chains/register")
 async def register_chain(
-    chain_id: str,
-    endpoint: str,
+    chain_id: Annotated[str, Body(embed=True)],
+    endpoint: Annotated[str, Body(embed=True)],
     svc: Annotated[ChainDiscoveryService, Depends(get_chain_discovery)],
 ):
     """Register a new chain in the island registry."""
@@ -45,14 +45,14 @@ async def get_chain_health(
 @router.post("/v1/trading/inter-chain/create")
 async def create_inter_chain_trade(
     svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)],
-    source_chain: str,
-    dest_chain: str,
-    sender: str,
-    recipient: str,
-    amount: int,
-    offer_id: str | None = None,
-    price: Decimal = Decimal("0"),
-    quantity: int = 0,
+    source_chain: Annotated[str, Body(embed=True)],
+    dest_chain: Annotated[str, Body(embed=True)],
+    sender: Annotated[str, Body(embed=True)],
+    recipient: Annotated[str, Body(embed=True)],
+    amount: Annotated[int, Body(embed=True)],
+    offer_id: Annotated[str | None, Body(embed=True)] = None,
+    price: Annotated[Decimal, Body(embed=True)] = Decimal("0"),
+    quantity: Annotated[int, Body(embed=True)] = 0,
 ):
     """Create a new inter-chain trade."""
     if amount <= 0:

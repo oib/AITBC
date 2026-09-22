@@ -1,9 +1,8 @@
 """Offer sync and discovery endpoints for the Trading Service."""
 
-from decimal import Decimal
 from typing import Annotated
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 
 from aitbc.trading.offer_types import OfferDiscoveryRequest
 
@@ -17,32 +16,13 @@ router = APIRouter(tags=["offers"])
 @router.post("/v1/trading/offers/discover")
 async def discover_offers(
     svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
-    source_chain: str | None = None,
-    dest_chain: str | None = None,
-    service_type: str | None = None,
-    min_price: Decimal | None = None,
-    max_price: Decimal | None = None,
-    region: str | None = None,
-    gpu_model: str | None = None,
-    limit: int = 100,
-    offset: int = 0,
+    request: OfferDiscoveryRequest,
 ):
     """Discover offers across chains with filters.
 
     Queries the OfferCache. If cached offers are stale, triggers an
     on-demand sync before returning results.
     """
-    request = OfferDiscoveryRequest(
-        source_chain=source_chain,
-        dest_chain=dest_chain,
-        service_type=service_type,
-        min_price=min_price,
-        max_price=max_price,
-        region=region,
-        gpu_model=gpu_model,
-        limit=limit,
-        offset=offset,
-    )
     result = await svc.discover_offers(request)
     return _discovery_result_to_dict(result)
 
@@ -50,8 +30,8 @@ async def discover_offers(
 @router.post("/v1/trading/offers/sync")
 async def sync_offers(
     svc: Annotated[OfferSyncService, Depends(get_offer_sync_service)],
-    chain_id: str | None = None,
-    service_type: str | None = None,
+    chain_id: Annotated[str | None, Body(embed=True)] = None,
+    service_type: Annotated[str | None, Body(embed=True)] = None,
 ):
     """Trigger offer sync for a specific chain or all chains."""
     if chain_id:
