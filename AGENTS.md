@@ -497,3 +497,10 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   venv/bin/python -m mypy --show-error-codes apps/marketplace/src/marketplace_service/services/marketplace_service.py apps/marketplace/src/marketplace_service/main.py cli/aitbc_cli/commands/market/host.py
   venv/bin/python -m ruff check apps/marketplace/src/marketplace_service/services/marketplace_service.py apps/marketplace/src/marketplace_service/main.py apps/marketplace/src/marketplace_service/domain/marketplace.py cli/aitbc_cli/commands/market/host.py apps/marketplace/tests/test_marketplace_job.py
   ```
+
+## Trading authentication
+
+- Trading's protected routers require `X-Trading-Api-Key` matching `TRADING_API_KEY`; `X-API-Key` and `BLOCKCHAIN_RPC_API_KEY` are a separate blockchain RPC credential, not substitutes.
+- Provision trading's key in its protected systemd env file (`/etc/aitbc/aitbc-trading.env`) and the same value in each coordinator service env that calls it. Restart those processes after changing the key: trading captures it at module import and portfolio aggregation at initialization. Never log the value.
+- The CLI reads `TRADING_API_KEY` from the process environment or a readable trading env file into `CLIConfig.trading_api_key` (`SecretStr`). It is deliberately env-only, not a plaintext `aitbc config set` key.
+- Focused auth regression checks: `venv/bin/python -m pytest -q tests/unit/test_settlement_sdk.py tests/unit/test_trading_sdk.py tests/unit/test_trade_auth.py apps/trading/tests/test_main.py` on a dev node with isolated test data.

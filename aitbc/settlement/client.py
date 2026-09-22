@@ -54,14 +54,22 @@ class SettlementClient:
     ``apps/trading/src/trading_service/main.py:469``).
     """
 
-    def __init__(self, config: SettlementConfig | None = None, api_key: str | None = None) -> None:
+    def __init__(
+        self,
+        config: SettlementConfig | None = None,
+        api_key: str | None = None,
+        *,
+        trading_api_key: str | None = None,
+    ) -> None:
         self._config = config or SettlementConfig()
         # The settlement router requires X-API-Key (same control as
         # /rpc/escrow/). Fall back to the environment, matching
         # aitbc.marketplace.blockchain_rpc; when neither is set the server
         # answers 503 and this stays headerless.
         self._api_key = api_key or os.environ.get("BLOCKCHAIN_RPC_API_KEY") or None
+        self._trading_api_key = trading_api_key or os.environ.get("TRADING_API_KEY") or None
         self._client: httpx.AsyncClient | None = None
+        self._trading_client: httpx.AsyncClient | None = None
 
     @property
     def config(self) -> SettlementConfig:
@@ -77,7 +85,7 @@ class SettlementClient:
         )
 
     async def __aenter__(self) -> SettlementClient:
-        self._client = self._make_client()
+        self._ensure_client()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -88,10 +96,22 @@ class SettlementClient:
             self._client = self._make_client()
         return self._client
 
+    def _ensure_trading_client(self) -> httpx.AsyncClient:
+        if self._trading_client is None:
+            self._trading_client = httpx.AsyncClient(
+                base_url=self._config.trading_rpc_url,
+                timeout=self._config.timeout,
+                headers={"X-Trading-Api-Key": self._trading_api_key} if self._trading_api_key else None,
+            )
+        return self._trading_client
+
     async def close(self) -> None:
         if self._client is not None:
             await self._client.aclose()
             self._client = None
+        if self._trading_client is not None:
+            await self._trading_client.aclose()
+            self._trading_client = None
 
     # ------------------------------------------------------------------
     # Escrow lifecycle operations (blockchain node)
@@ -347,11 +367,10 @@ class SettlementClient:
         blockchain node's settlement RPC. This is the high-level entry
         point used by the CLI ``trade lock-escrow`` command.
         """
-        url = f"{self._config.trading_rpc_url}/v1/trading/trades/{trade_id}/lock-escrow"
         payload: dict[str, Any] = {}
         if timeout_seconds is not None:
             payload["timeout_seconds"] = timeout_seconds
-        resp = await self._ensure_client().post(url, json=payload)
+        resp = await self._ensure_trading_client().post(f"/v1/trading/trades/{trade_id}/lock-escrow", json=payload)
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -362,8 +381,10 @@ class SettlementClient:
         blockchain node's settlement RPC. This is the high-level entry
         point used by the CLI ``trade settle`` command.
         """
-        url = f"{self._config.trading_rpc_url}/v1/trading/trades/{trade_id}/settle"
-        resp = await self._ensure_client().post(url, json={"secret": secret})
+        resp = await self._ensure_trading_client().post(
+            f"/v1/trading/trades/{trade_id}/settle",
+            json={"secret": secret},
+        )
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
 
@@ -373,7 +394,6 @@ class SettlementClient:
         Returns the escrow status, settlement phase, and proof chain
         verification result.
         """
-        url = f"{self._config.trading_rpc_url}/v1/trading/trades/{trade_id}/settlement-status"
-        resp = await self._ensure_client().get(url)
+        resp = await self._ensure_trading_client().get(f"/v1/trading/trades/{trade_id}/settlement-status")
         resp.raise_for_status()
         return cast(dict[str, Any], resp.json())
