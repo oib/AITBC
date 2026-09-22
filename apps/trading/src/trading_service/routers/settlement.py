@@ -3,7 +3,7 @@
 import os
 from typing import Annotated, Any
 
-from fastapi import APIRouter, Depends
+from fastapi import APIRouter, Body, Depends
 from fastapi.responses import JSONResponse
 from sqlalchemy import select
 
@@ -38,7 +38,7 @@ async def _lock_trade_for_update(svc: InterChainTradeService, trade_id: str) -> 
 @router.post("/v1/trading/trades/{trade_id}/lock-escrow")
 async def lock_escrow(
     trade_id: str,
-    timeout_seconds: int | None = None,
+    timeout_seconds: Annotated[int | None, Body(embed=True)] = None,
     svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
     """Initiate escrow lock for a trade.
@@ -103,7 +103,7 @@ async def lock_escrow(
 @router.post("/v1/trading/trades/{trade_id}/settle")
 async def settle_trade(
     trade_id: str,
-    secret: str,
+    secret: Annotated[str, Body(embed=True)],
     svc: Annotated[InterChainTradeService, Depends(get_inter_chain_service)] = None,  # type: ignore[assignment]  # noqa: B008
 ):
     """Settle a trade by revealing the HTLC secret.
