@@ -71,6 +71,18 @@ class BridgeBatchRequest(BaseModel):
     transfers: list[dict[str, Any]] = Field(..., min_length=1, description="List of transfer dicts")
 
 
+class BridgeBatchConfirmRequest(BaseModel):
+    """Request body for POST /batch/confirm.
+
+    Distinct from ``BridgeBatchRequest``: the confirm handler reads
+    ``confirmations`` (matching ``BridgeClient.batch_confirm``), not
+    ``transfers``. Sharing the lock schema left this endpoint returning
+    400 for every request.
+    """
+
+    confirmations: list[dict[str, Any]] = Field(..., min_length=1, description="List of confirmation dicts")
+
+
 class BridgeProofRequest(BaseModel):
     """Query parameters for GET /bridge/transfer/{transfer_id}/proof."""
 
@@ -258,7 +270,7 @@ async def bridge_batch_lock_route(request: Request, batch_data: BridgeBatchReque
 
 @router.post("/batch/confirm", summary="Batch confirm multiple transfers")
 @rate_limit(rate=20, per=60)
-async def bridge_batch_confirm_route(request: Request, batch_data: BridgeBatchRequest) -> list[dict[str, Any]]:
+async def bridge_batch_confirm_route(request: Request, batch_data: BridgeBatchConfirmRequest) -> list[dict[str, Any]]:
     """Batch confirm multiple cross-chain transfers (gated by BRIDGE_RELEASE_ENABLED)"""
     if bridge_batch_confirm is None:
         raise HTTPException(status_code=503, detail="Bridge module not available")
