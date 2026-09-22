@@ -81,7 +81,7 @@ async def get_height_route(request: Request, chain_id: str | None = None) -> dic
 
 @router.get("/proposer", summary="Get the current block proposer address")
 @rate_limit(rate=60, per=60)
-async def get_proposer_route() -> dict[str, Any]:
+async def get_proposer_route(request: Request) -> dict[str, Any]:  # noqa: ARG001
     """Return the block proposer address for this hub.
 
     Follower/customer nodes use this to build escrow transactions without
@@ -510,6 +510,6 @@ async def stop_chain_route(request: ChainActionRequest) -> ChainActionResponse:
 
 @router.get("/chains", summary="List all chain instances (v0.6.4)")
 @rate_limit(rate=100, per=60)
-async def list_chains_route() -> dict[str, Any]:
+async def list_chains_route(request: Request) -> dict[str, Any]:  # noqa: ARG001
     """List all chain instances managed by the MultiChainManager"""
     return await list_chains()
