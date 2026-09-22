@@ -15,8 +15,9 @@ from __future__ import annotations
 
 import json
 from datetime import UTC, datetime, timedelta
+from types import SimpleNamespace
 from typing import Any
-from unittest.mock import patch
+from unittest.mock import MagicMock, patch
 
 import pytest
 from eth_account import Account as EthAccount
@@ -338,6 +339,81 @@ class TestBridgeStatusAlias:
 
 class TestBridgeBatch:
     """POST /bridge/batch/lock and /bridge/batch/confirm."""
+
+    @staticmethod
+    def _confirmed_transfer(transfer_id: str):
+        """Minimal stand-in for a BridgeTransfer result row."""
+        return SimpleNamespace(
+            transfer_id=transfer_id,
+            status=SimpleNamespace(value="completed"),
+            target_tx_hash="0xabc",
+            confirm_time=None,
+        )
+
+    def test_batch_confirm_rejects_transfers_field(self, client: TestClient) -> None:
+        """The route reads 'confirmations'; the old shared 'transfers' schema 400s."""
+        resp = client.post("/bridge/batch/confirm", json={"transfers": [{"transfer_id": "t1"}]})
+        assert resp.status_code == 422
+
+    def test_batch_confirm_requires_signature_per_item(
+        self, client: TestClient, initialized_bridge, sender_account: EthAccount
+    ) -> None:
+        """Unsigned items fail per-item instead of reaching the bridge."""
+        resp = client.post(
+            "/bridge/batch/confirm",
+            json={"confirmations": [{"transfer_id": "t1", "proof": {"target_chain": "chain-b"}}]},
+        )
+        assert resp.status_code == 200
+        (item,) = resp.json()
+        assert item["success"] is False
+        assert "signature" in item["error"]
+
+    def test_batch_confirm_rejects_bad_signature(
+        self, client: TestClient, initialized_bridge, sender_account: EthAccount
+    ) -> None:
+        resp = client.post(
+            "/bridge/batch/confirm",
+            json={
+                "confirmations": [
+                    {
+                        "transfer_id": "t1",
+                        "proof": {"target_chain": "chain-b"},
+                        "confirmer": sender_account.address,
+                        "signature": _sign_request(
+                            sender_account, {"transfer_id": "other", "confirmer": sender_account.address}
+                        ),
+                    }
+                ]
+            },
+        )
+        assert resp.status_code == 200
+        (item,) = resp.json()
+        assert item["success"] is False
+        assert item["error"] == "invalid confirmer signature"
+
+    def test_batch_confirm_mixed_batch_preserves_order(self, client: TestClient, sender_account: EthAccount) -> None:
+        """Signed items reach the bridge; unsigned fail in place; order preserved."""
+        signed = {
+            "transfer_id": "t-ok",
+            "proof": {"target_chain": "chain-b"},
+            "confirmer": sender_account.address,
+            "signature": _sign_request(sender_account, {"transfer_id": "t-ok", "confirmer": sender_account.address}),
+        }
+        unsigned = {"transfer_id": "t-bad", "proof": {"target_chain": "chain-b"}}
+
+        mock_bridge = MagicMock()
+        mock_bridge.batch_confirm.return_value = [self._confirmed_transfer("t-ok")]
+        with patch("aitbc_chain.cross_chain.bridge.get_cross_chain_bridge", return_value=mock_bridge):
+            resp = client.post("/bridge/batch/confirm", json={"confirmations": [unsigned, signed]})
+
+        assert resp.status_code == 200
+        first, second = resp.json()
+        assert first == {"success": False, "error": "confirmer address and signature required"}
+        assert second["success"] is True
+        assert second["transfer_id"] == "t-ok"
+        # Only the signed item reached the bridge
+        (forwarded,), _ = mock_bridge.batch_confirm.call_args
+        assert forwarded == [signed]
 
 
 # ---------------------------------------------------------------------------
