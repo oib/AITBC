@@ -17,6 +17,7 @@ Endpoint mapping (Agent B B3-B4 will add these to main.py):
 from __future__ import annotations
 
 import logging
+import os
 from typing import Any, cast
 
 import httpx
@@ -40,9 +41,10 @@ class OfferSyncClient:
     ``aitbc trade discover/sync/sync-status`` commands.
     """
 
-    def __init__(self, rpc_url: str = "http://localhost:8104", timeout: int = 30) -> None:
+    def __init__(self, rpc_url: str = "http://localhost:8104", timeout: int = 30, *, api_key: str | None = None) -> None:
         self._rpc_url = rpc_url
         self._timeout = timeout
+        self._api_key = api_key or os.environ.get("TRADING_API_KEY") or None
         self._client: httpx.AsyncClient | None = None
 
     @property
@@ -50,8 +52,15 @@ class OfferSyncClient:
         """The base RPC URL for the trading service."""
         return self._rpc_url
 
+    def _build_client(self) -> httpx.AsyncClient:
+        return httpx.AsyncClient(
+            base_url=self._rpc_url,
+            timeout=self._timeout,
+            headers={"X-Trading-Api-Key": self._api_key} if self._api_key else None,
+        )
+
     async def __aenter__(self) -> OfferSyncClient:
-        self._client = httpx.AsyncClient(base_url=self._rpc_url, timeout=self._timeout)
+        self._client = self._build_client()
         return self
 
     async def __aexit__(self, exc_type: Any, exc_val: Any, exc_tb: Any) -> None:
@@ -59,7 +68,7 @@ class OfferSyncClient:
 
     def _ensure_client(self) -> httpx.AsyncClient:
         if self._client is None:
-            self._client = httpx.AsyncClient(base_url=self._rpc_url, timeout=self._timeout)
+            self._client = self._build_client()
         return self._client
 
     async def discover_offers(self, request: OfferDiscoveryRequest) -> OfferDiscoveryResult:

@@ -25,13 +25,14 @@ from __future__ import annotations
 import asyncio
 import json
 import logging
+import os
 import time
 from collections.abc import AsyncIterator
 from typing import Any
 
 import httpx
 import websockets
-from websockets.exceptions import ConnectionClosed
+from websockets.exceptions import ConnectionClosed, InvalidStatus
 
 from aitbc.async_tasks import create_task_with_logging
 
@@ -73,6 +74,7 @@ class OfferSubscriptionClient:
         lease_renewal_threshold_seconds: float = 300.0,
         http_timeout: float = 30.0,
         poll_interval_seconds: float = 5.0,
+        api_key: str | None = None,
     ) -> None:
         self._rpc_url = rpc_url.rstrip("/")
         # WebSocket URL derived from the HTTP base URL.
@@ -84,6 +86,7 @@ class OfferSubscriptionClient:
         self._lease_renewal_threshold = lease_renewal_threshold_seconds
         self._http_timeout = http_timeout
         self._poll_interval = poll_interval_seconds
+        self._api_key = api_key or os.environ.get("TRADING_API_KEY") or None
         self._http_client: httpx.AsyncClient | None = None
         # Guards concurrent mutation of _lease_expiry, _status, and _subscriptions.
         self._lock = asyncio.Lock()
@@ -130,6 +133,7 @@ class OfferSubscriptionClient:
             self._http_client = httpx.AsyncClient(
                 base_url=self._rpc_url,
                 timeout=self._http_timeout,
+                headers={"X-Trading-Api-Key": self._api_key} if self._api_key else None,
             )
         return self._http_client
 
@@ -158,6 +162,16 @@ class OfferSubscriptionClient:
                 self._lease_expiry[chain_id],
             )
             return True
+        except httpx.HTTPStatusError as e:
+            if e.response.status_code in (401, 403):
+                logger.error(
+                    "Offer lease request rejected with HTTP %s for %s — check the trading API key",
+                    e.response.status_code,
+                    chain_id,
+                )
+                raise
+            logger.warning("Failed to obtain offer subscription lease for %s: %s", chain_id, e)
+            return False
         except Exception as e:
             logger.warning("Failed to obtain offer subscription lease for %s: %s", chain_id, e)
             return False
@@ -177,6 +191,10 @@ class OfferSubscriptionClient:
             async with self._lock:
                 self._lease_expiry[chain_id] = float(data.get("expiry", 0.0))
             return True
+        except httpx.HTTPStatusError as e:
+            log = logger.error if e.response.status_code in (401, 403) else logger.warning
+            log("Failed to renew offer subscription lease for %s: %s", chain_id, e)
+            return False
         except Exception as e:
             logger.warning("Failed to renew offer subscription lease for %s: %s", chain_id, e)
             return False
@@ -262,6 +280,7 @@ class OfferSubscriptionClient:
                 "filters": filters,
             }
         )
+        ws_headers = {"X-Trading-Api-Key": self._api_key} if self._api_key else None
         reconnect_attempts = 0
         while self._running and chain_id in self._subscriptions:
             try:
@@ -269,6 +288,7 @@ class OfferSubscriptionClient:
                     ws_url,
                     ping_interval=20,
                     ping_timeout=30,
+                    additional_headers=ws_headers,
                 ) as websocket:
                     await websocket.send(first_message)
                     async with self._lock:
@@ -298,6 +318,28 @@ class OfferSubscriptionClient:
                         yield event
                     return
                 await asyncio.sleep(self._reconnect_delay)
+            except InvalidStatus as e:
+                # A rejected handshake is an HTTP response, not a WS close. 401/403
+                # mean the API key is missing or wrong — terminal, not transient —
+                # so surface it instead of dropping into a polling fallback that
+                # would fail identically and hide the misconfiguration.
+                if e.response.status_code in (401, 403):
+                    logger.error(
+                        "Offer subscription handshake rejected with HTTP %s for chain %s — check the trading API key",
+                        e.response.status_code,
+                        chain_id,
+                    )
+                    raise
+                logger.warning(
+                    "Offer subscription handshake rejected with HTTP %s for chain %s, falling back to polling",
+                    e.response.status_code,
+                    chain_id,
+                )
+                async with self._lock:
+                    self._status[chain_id] = SubscriptionStatus.POLLING_FALLBACK
+                async for event in self._polling_fallback(chain_id, self._subscriptions[chain_id]):
+                    yield event
+                return
             except Exception as e:
                 logger.warning(
                     "Offer subscription WebSocket error for chain %s: %s, falling back to polling",
@@ -320,7 +362,7 @@ class OfferSubscriptionClient:
         ``subscription_client.py:262-276``.
         """
         logger.info("Offer subscription for chain %s using polling fallback", chain_id)
-        poll_client = OfferSyncClient(self._rpc_url, timeout=int(self._http_timeout))
+        poll_client = OfferSyncClient(self._rpc_url, timeout=int(self._http_timeout), api_key=self._api_key)
         seen_offer_ids: set[str] = set()
         last_seen: dict[str, SyncedOffer] = {}
         poll_interval = max(self._poll_interval, sub.debounce_ms / 1000.0)
@@ -371,6 +413,15 @@ class OfferSubscriptionClient:
                         )
                         last_seen.pop(deleted_id, None)
                     seen_offer_ids = current_ids
+                except httpx.HTTPStatusError as e:
+                    if e.response.status_code in (401, 403):
+                        logger.error(
+                            "Offer polling rejected with HTTP %s for chain %s — check the trading API key",
+                            e.response.status_code,
+                            chain_id,
+                        )
+                        raise
+                    logger.warning("Polling fallback error for chain %s: %s", chain_id, e)
                 except Exception as e:
                     logger.warning("Polling fallback error for chain %s: %s", chain_id, e)
                 await asyncio.sleep(poll_interval)
