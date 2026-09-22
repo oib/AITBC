@@ -30,7 +30,7 @@ async def test_consensus_status_reports_standard_bft_values(monkeypatch) -> None
     monkeypatch.setattr(settings, "chain_id", "ait-test")
 
     with patch("aitbc_chain.consensus.multi_validator_poa.get_consensus", return_value=mock_consensus):
-        result = await consensus_status_route()
+        result = await consensus_status_route(request=None)
 
     assert result["mode"] == "MultiValidatorPoA"
     assert result["multi_validator_enabled"] is True
@@ -64,7 +64,7 @@ async def test_consensus_status_three_validators_crash_only(monkeypatch) -> None
     monkeypatch.setattr(settings, "chain_id", "ait-test")
 
     with patch("aitbc_chain.consensus.multi_validator_poa.get_consensus", return_value=mock_consensus):
-        result = await consensus_status_route()
+        result = await consensus_status_route(request=None)
 
     assert result["mode"] == "MultiValidatorPoA + PBFT"
     assert result["active_validators"] == 3
