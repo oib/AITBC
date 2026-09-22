@@ -55,7 +55,7 @@ async def create_escrow_route(request: Request, escrow_data: dict[str, Any]) -> 
 
 @router.post("/{escrow_id}/lock", summary="Lock escrow funds")
 @rate_limit(rate=10, per=60)
-async def lock_escrow_route(escrow_id: str) -> dict[str, Any]:
+async def lock_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Lock funds on source chain for an escrow."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -75,7 +75,7 @@ async def lock_escrow_route(escrow_id: str) -> dict[str, Any]:
 
 @router.post("/{escrow_id}/verify", summary="Verify lock proof")
 @rate_limit(rate=10, per=60)
-async def verify_lock_route(escrow_id: str) -> dict[str, Any]:
+async def verify_lock_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Verify lock proof on destination chain."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -95,7 +95,7 @@ async def verify_lock_route(escrow_id: str) -> dict[str, Any]:
 
 @router.post("/{escrow_id}/execute", summary="Execute trade on destination")
 @rate_limit(rate=10, per=60)
-async def execute_trade_route(escrow_id: str) -> dict[str, Any]:
+async def execute_trade_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Execute trade on destination chain."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -115,7 +115,7 @@ async def execute_trade_route(escrow_id: str) -> dict[str, Any]:
 
 @router.post("/{escrow_id}/settle", summary="Settle escrow with secret")
 @rate_limit(rate=10, per=60)
-async def settle_escrow_route(escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:
+async def settle_escrow_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
     """Reveal secret and settle escrow on both chains.
 
     Accepts JSON body ``{"secret": "<hex_secret>"}`` matching SettlementClient.
@@ -141,7 +141,7 @@ async def settle_escrow_route(escrow_id: str, body: dict[str, Any]) -> dict[str,
 
 @router.post("/{escrow_id}/refund", summary="Refund escrow")
 @rate_limit(rate=10, per=60)
-async def refund_escrow_route(escrow_id: str) -> dict[str, Any]:
+async def refund_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Refund escrow after timeout."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -168,7 +168,7 @@ async def refund_escrow_route(escrow_id: str) -> dict[str, Any]:
 
 @router.get("/{escrow_id}", summary="Get escrow details")
 @rate_limit(rate=100, per=60)
-async def get_escrow_route(escrow_id: str) -> dict[str, Any]:
+async def get_escrow_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Get escrow details."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -191,7 +191,7 @@ async def get_escrow_route(escrow_id: str) -> dict[str, Any]:
 
 @router.get("/{escrow_id}/status", summary="Get escrow status")
 @rate_limit(rate=100, per=60)
-async def get_escrow_status_route(escrow_id: str) -> dict[str, Any]:
+async def get_escrow_status_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Get escrow status."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -214,7 +214,7 @@ async def get_escrow_status_route(escrow_id: str) -> dict[str, Any]:
 
 @router.get("/{escrow_id}/proofs", summary="Get proof chain")
 @rate_limit(rate=100, per=60)
-async def get_proof_chain_route(escrow_id: str) -> dict[str, Any]:
+async def get_proof_chain_route(request: Request, escrow_id: str) -> dict[str, Any]:  # noqa: ARG001
     """Get all proofs for an escrow."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -235,7 +235,7 @@ async def get_proof_chain_route(escrow_id: str) -> dict[str, Any]:
 
 @router.post("/{escrow_id}/extend-timeout", summary="Extend escrow timeout")
 @rate_limit(rate=10, per=60)
-async def extend_timeout_route(escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:
+async def extend_timeout_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
     """Extend escrow timeout.
 
     Accepts JSON body ``{"extension_seconds": <int>}`` matching SettlementClient.
@@ -261,7 +261,7 @@ async def extend_timeout_route(escrow_id: str, body: dict[str, Any]) -> dict[str
 
 @router.post("/{escrow_id}/dispute", summary="File a dispute for an escrow")
 @rate_limit(rate=10, per=60)
-async def file_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:
+async def file_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
     """File a dispute for an escrow, halting automatic timeout/refund."""
     if not settings.escrow_enabled:
         raise HTTPException(status_code=503, detail="Settlement not enabled")
@@ -293,7 +293,7 @@ async def file_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dic
 
 @router.post("/{escrow_id}/resolve", summary="Resolve a dispute")
 @rate_limit(rate=10, per=60)
-async def resolve_escrow_dispute_route(escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:
+async def resolve_escrow_dispute_route(request: Request, escrow_id: str, body: dict[str, Any]) -> dict[str, Any]:  # noqa: ARG001
     """Resolve a dispute for an escrow.
 
     Resolution is "complete" (release to seller) or "refund" (refund buyer).
