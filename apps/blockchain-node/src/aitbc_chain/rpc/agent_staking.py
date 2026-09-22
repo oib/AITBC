@@ -6,15 +6,17 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import HTTPException, Request
-from sqlmodel import Session, select
+from sqlmodel import Session, func, select
 
 from aitbc.rate_limiting import rate_limit
 
 from ..base_models import AgentStakeMemo, AgentStakeRecord, _to_ait_address
+from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account
+from ..models import Account, Block
 from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
+from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
 from .agent_economics_auth import operator_address, require_int, require_operator_signature
 from .utils import get_chain_id, validate_chain_id
 
@@ -228,6 +230,25 @@ async def complete_agent_stake(request: Request, stake_id: str, body: dict[str, 
                     f"({funded} of {record.amount} locked); retry once the lock transactions are in a block"
                 ),
             )
+        # Mirror the v4 consensus maturity window (height + lock_days*1440)
+        # so a release that block apply would reject fails here instead of
+        # after the record was already marked completed.
+        current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
+        if current_height >= settings.state_transition_v4_height:
+            next_height = current_height + 1
+            for lock in lock_txs:
+                lock_days = (lock.payload or {}).get("lock_days")
+                if lock_days in (None, 0):
+                    continue  # legacy / agent / auto-stake locks carry no window
+                try:
+                    unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
+                except (TypeError, ValueError):
+                    raise HTTPException(status_code=400, detail=f"Lock {lock.tx_hash} has invalid lock_days") from None
+                if next_height < unlock_height:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Lock {lock.tx_hash} matures at height {unlock_height}; current {next_height}",
+                    )
         amount = record.amount
         record.status = "completed"
         record.updated_at = now

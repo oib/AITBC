@@ -18,7 +18,7 @@ from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 
 import pytest
-from aitbc_chain.models import Account, Stake
+from aitbc_chain.models import Account, Block, Stake, Transaction
 from aitbc_chain.rpc import staking as staking_module
 from fastapi import HTTPException
 from sqlmodel import Session, create_engine, select
@@ -197,3 +197,77 @@ async def test_insufficient_balance_leaves_account_untouched(staking_env, monkey
 
     assert account is not None
     assert account.balance == 1_000_000
+
+
+@pytest.mark.anyio
+async def test_unstake_rejects_height_immature_lock_even_when_wall_clock_expired(staking_env, monkeypatch) -> None:
+    """The submit path must mirror the v4 consensus window.
+
+    ``stake.locked_until`` is wall-clock; consensus maturity is
+    ``lock.block_height + lock_days * 1440``. If block production stalls,
+    wall-clock expires first — without the mirror the release would pass
+    here, mark the stake ``withdrawn``, then die at block apply.
+    """
+    from aitbc_chain.state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
+
+    _freeze_now(monkeypatch, datetime(2026, 1, 15, 12, 0, tzinfo=UTC))
+    monkeypatch.setattr(staking_module.settings, "state_transition_v4_height", 100)
+
+    with Session(staking_env) as session:
+        stake = Stake(
+            chain_id="ait-testnet",
+            address=STAKER,
+            amount=500,
+            locked_until=datetime(2026, 1, 1, tzinfo=UTC),  # wall-clock expired
+            status="active",
+        )
+        session.add(stake)
+        session.commit()
+        session.refresh(stake)
+        # Head at 200 (v4 active); lock sealed at 190 with lock_days=1 ->
+        # matures at 190 + 1440 = 1630, far beyond next_height 201.
+        session.add(
+            Block(
+                chain_id="ait-testnet",
+                height=200,
+                hash="0x" + "aa" * 32,
+                parent_hash="0x" + "99" * 32,
+                proposer="0x" + "11" * 20,
+            )
+        )
+        session.add(
+            Transaction(
+                chain_id="ait-testnet",
+                tx_hash="0x" + "bb" * 32,
+                type="STAKE_LOCK",
+                sender=STAKER,
+                recipient="0x" + "22" * 20,
+                value=500,
+                block_height=190,
+                payload={"stake_id": str(stake.id), "lock_days": 1},
+            )
+        )
+        session.commit()
+        stake_id = stake.id
+        expected_unlock = 190 + _STAKE_LOCK_BLOCKS_PER_DAY
+
+    with pytest.raises(HTTPException) as exc:
+        await staking_module.unstake_tokens(
+            request=None,
+            unstake_data={
+                "address": STAKER,
+                "stake_id": str(stake_id),
+                "chain_id": "ait-testnet",
+                "nonce": 0,
+                "timestamp": time.time(),
+                "signature": "0x" + "ab" * 65,
+            },
+        )
+
+    assert exc.value.status_code == 400
+    assert str(expected_unlock) in str(exc.value.detail)
+
+    with Session(staking_env) as session:
+        stake = session.get(Stake, stake_id)
+        assert stake is not None
+        assert stake.status == "active", "a rejected release must not mark the stake withdrawn"

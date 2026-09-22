@@ -17,7 +17,8 @@ from ..database import session_scope
 from ..logger import get_logger
 from ..mempool import get_mempool
 from ..protocol_escrow import confirmed_lock_txs, queue_protocol_transfer, stake_escrow_address
-from ..models import Account, AgentIdentity, GovernanceProposal, GovernanceVote, Stake
+from ..models import Account, AgentIdentity, Block, GovernanceProposal, GovernanceVote, Stake
+from ..state.state_transition import _STAKE_LOCK_BLOCKS_PER_DAY
 from .utils import get_chain_id, sign_transaction_data, validate_chain_id, verify_request_signature
 
 _logger = get_logger(__name__)
@@ -217,6 +218,27 @@ async def unstake_tokens(request: Request, unstake_data: dict[str, Any]) -> dict
         # records — they are server-derived (the client signed before they
         # were gathered) so they ride in the payload, not the signed message.
         lock_tx_hashes = [tx.tx_hash for tx in lock_txs]
+        # Mirror the v4 maturity window (height + lock_days*1440) so a
+        # release that consensus would reject fails here with a clear 400 —
+        # otherwise the stake row below is already marked withdrawn while
+        # the release dies silently at block time when wall-clock
+        # locked_until has expired but block-height maturity has not.
+        current_height = session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).first() or 0
+        if current_height >= settings.state_transition_v4_height:
+            next_height = current_height + 1
+            for lock in lock_txs:
+                lock_days = (lock.payload or {}).get("lock_days")
+                if lock_days in (None, 0):
+                    continue  # legacy / agent / auto-stake locks carry no window
+                try:
+                    unlock_height = int(lock.block_height or 0) + int(str(lock_days)) * _STAKE_LOCK_BLOCKS_PER_DAY
+                except (TypeError, ValueError):
+                    raise HTTPException(status_code=400, detail=f"Lock {lock.tx_hash} has invalid lock_days") from None
+                if next_height < unlock_height:
+                    raise HTTPException(
+                        status_code=400,
+                        detail=f"Lock {lock.tx_hash} matures at height {unlock_height}; current {next_height}",
+                    )
         amount = stake.amount
         stake.status = "withdrawn"
         session.add(stake)
