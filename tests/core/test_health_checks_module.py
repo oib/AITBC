@@ -219,5 +219,9 @@ class TestCreateBasicHealthCheck:
     def test_create_basic_health_check_without_psutil(self):
         with patch.dict("sys.modules", {"psutil": None}):
             checker = health_checks.create_basic_health_check("test-service")
-            # Should not raise, but checks won't be registered
+            # Does not raise -- but the checks ARE registered: they import psutil
+            # lazily, so registration cannot fail and the ImportError surfaces later
+            # at run_checks() time. See tests/test_health_checks.py
+            # ::TestCreateBasicHealthCheck for the full contract.
             assert checker.service_name == "test-service"
+            assert sorted(checker._checks) == ["disk", "memory"]
