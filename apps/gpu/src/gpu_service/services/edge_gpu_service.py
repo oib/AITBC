@@ -13,7 +13,7 @@ from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 
-from ..domain.gpu_marketplace import (
+from ..domain.gpu_market import (
     CONSUMER_GPU_PROFILES,
     ConsumerGPUProfile,
     EdgeGPUMetrics,

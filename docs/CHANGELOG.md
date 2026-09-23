@@ -65,8 +65,8 @@ This changelog tracks all structural and content changes to the AITBC documentat
   - Agent Registry - Query registry, register agents, discover services
   - Exchange - Start exchange, configure pairs, access API
   - Trading Service - Launch, submit orders, monitor trades
-  - Marketplace - Access UI, browse resources, submit requests
-  - Marketplace Service - Start, list resources, submit bids
+  - Market - Access UI, browse resources, submit requests
+  - Market Service - Start, list resources, submit bids
   - GPU Service - Launch, register resources, monitor jobs
   - Wallet - Initialize, import/generate keys, manage addresses
   - Infrastructure - Deploy, configure monitoring, access dashboard

@@ -55,7 +55,7 @@ os.environ.setdefault("AITBC_SKIP_ENV_FILES", "1")
 # Same job, second leak, and a worse one (V23-73). Every service resolves its database path
 # from `DATA_DIR`, which defaults to /var/lib/aitbc — the deployed machine's data directory.
 # Nothing in the test process moved it, so `gpu_service`, `trading_service` and
-# `marketplace_service` built their engines against the live service databases at import time,
+# `market_service` built their engines against the live service databases at import time,
 # `init_db()` ran `create_all` on them through the FastAPI lifespan, and
 # `test_get_consumer_gpu_profiles` asserted on rows that production happened to hold. The
 # blockchain suite went further and *created* directories there: `chain-a/` and `chain-sig/`,

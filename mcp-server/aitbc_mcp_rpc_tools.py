@@ -92,12 +92,12 @@ def get_pending_mempool(
 
 
 # ---------------------------------------------------------------------------
-# Marketplace (on-chain)
+# Market (on-chain)
 # ---------------------------------------------------------------------------
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
-def list_marketplace_listings(
+def list_market_listings(
     role: Annotated[
         NodeRole | None,
         Field(description="Node role to query."),
@@ -107,12 +107,12 @@ def list_marketplace_listings(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List on-chain marketplace listings."""
-    return _http_read_tool(role, host, "blockchain-rpc", "marketplace/listings")
+    """List on-chain market listings."""
+    return _http_read_tool(role, host, "blockchain-rpc", "market/listings")
 
 
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
-def get_marketplace_listing(
+def get_market_listing(
     listing_id: Annotated[
         str,
         Field(description="Listing ID (typically tx_<id>)."),
@@ -126,8 +126,8 @@ def get_marketplace_listing(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Get a marketplace listing by ID."""
-    return _http_read_tool(role, host, "blockchain-rpc", f"marketplace/listing/{listing_id}")
+    """Get a market listing by ID."""
+    return _http_read_tool(role, host, "blockchain-rpc", f"market/listing/{listing_id}")
 
 
 # ---------------------------------------------------------------------------
@@ -1016,10 +1016,10 @@ def submit_blockchain_transaction(
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def submit_marketplace_transaction(
+def submit_market_transaction(
     transaction: Annotated[
         dict[str, Any],
-        Field(description="Marketplace transaction data."),
+        Field(description="Market transaction data."),
     ],
     dry_run: Annotated[
         bool,
@@ -1038,12 +1038,12 @@ def submit_marketplace_transaction(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Submit a marketplace transaction to the blockchain."""
-    return _http_write_tool(role, host, "blockchain-rpc", "transactions/marketplace", transaction, dry_run, confirm)
+    """Submit a market transaction to the blockchain."""
+    return _http_write_tool(role, host, "blockchain-rpc", "transactions/market", transaction, dry_run, confirm)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
-def create_marketplace_listing(
+def create_market_listing(
     seller_address: Annotated[
         str,
         Field(description="Seller wallet address."),
@@ -1077,14 +1077,14 @@ def create_marketplace_listing(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Create a new on-chain marketplace listing."""
+    """Create a new on-chain market listing."""
     body = {
         "seller_address": seller_address,
         "item_type": item_type,
         "price": price,
         "description": description,
     }
-    return _http_write_tool(role, host, "blockchain-rpc", "marketplace/create", body, dry_run, confirm)
+    return _http_write_tool(role, host, "blockchain-rpc", "market/create", body, dry_run, confirm)
 
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
@@ -2043,8 +2043,8 @@ def get_ipfs_rental_token(
     return _http_read_tool(
         role,
         host,
-        "marketplace",
-        f"v1/marketplace/ipfs/rental/{access_key}",
+        "market",
+        f"v1/market/ipfs/rental/{access_key}",
         {"access_secret": access_secret},
     )
 
@@ -2074,12 +2074,12 @@ def register_ipfs_rental_token(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Register an IPFS rental access token with the marketplace service."""
+    """Register an IPFS rental access token with the market service."""
     return _http_write_tool(
         role,
         host,
-        "marketplace",
-        "v1/marketplace/ipfs/rental-token",
+        "market",
+        "v1/market/ipfs/rental-token",
         token,
         dry_run,
         confirm,

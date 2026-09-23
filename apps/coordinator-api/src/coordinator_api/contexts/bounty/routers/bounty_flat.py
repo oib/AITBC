@@ -1,5 +1,5 @@
 """
-Bounty Router - Decentralized task marketplace API
+Bounty Router - Decentralized task market API
 
 Provides endpoints for:
 - Creating bounties

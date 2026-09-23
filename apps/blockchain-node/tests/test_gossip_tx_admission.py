@@ -10,7 +10,7 @@ funded sender was mineable, bypassing every REST admission guard.
 
 ``gossip_transaction_drop_reason`` mirrors the REST admission contract: signed
 transactions must verify against ``from``; the only unsigned shape admitted is
-a zero-amount GPU_MARKETPLACE listing action (the route's deliberate V23-90
+a zero-amount GPU_MARKET listing action (the route's deliberate V23-90
 exemption).
 """
 
@@ -49,7 +49,7 @@ def _offer_tx(amount: int, action: str = "software_offer") -> dict[str, Any]:
         "amount": amount,
         "fee": 0,
         "nonce": 0,
-        "type": "GPU_MARKETPLACE",
+        "type": "GPU_MARKET",
         "payload": {"action": action, "service_type": "whisper", "price_per_unit": 0},
         "chain_id": "test",
     }
@@ -101,8 +101,8 @@ def test_unsigned_nonzero_offer_dropped():
     assert gossip_transaction_drop_reason(_offer_tx(10**9)) == "nonzero_unsigned_offer"
 
 
-def test_unsigned_nonoffer_marketplace_dropped():
-    """Non-offer GPU_MARKETPLACE actions (buy, cancel, job) are not exempt."""
+def test_unsigned_nonoffer_market_dropped():
+    """Non-offer GPU_MARKET actions (buy, cancel, job) are not exempt."""
     assert gossip_transaction_drop_reason(_offer_tx(0, action="buy")) == "missing_signature"
 
 

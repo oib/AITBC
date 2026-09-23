@@ -18,14 +18,14 @@ The following 4 core services are exported by default in `__all__`:
 
 - `JobService` - Job management and scheduling
 - `MinerService` - Miner coordination and management
-- `MarketplaceService` - Marketplace operations
+- `MarketService` - Market operations
 - `ExplorerService` - Blockchain exploration and analytics
 
 ## How to Import Services
 
 ### Importing Core Services (in __all__)
 ```python
-from coordinator_api.services import JobService, MinerService, MarketplaceService, ExplorerService
+from coordinator_api.services import JobService, MinerService, MarketService, ExplorerService
 ```
 
 ### Importing Other Services (not in __all__)
@@ -46,12 +46,12 @@ To make a service part of the public API:
 
 Example:
 ```python
-__all__ = ["JobService", "MinerService", "MarketplaceService", "ExplorerService", "NewService"]
+__all__ = ["JobService", "MinerService", "MarketService", "ExplorerService", "NewService"]
 
 _MODULE_BY_EXPORT = {
     "ExplorerService": ".explorer",
     "JobService": ".jobs",
-    "MarketplaceService": ".marketplace",
+    "MarketService": ".market",
     "MinerService": ".miners",
     "NewService": ".new_service_module",  # Add this
 }
@@ -74,7 +74,7 @@ The following service modules are available (not all are exported):
 - `enterprise_api_gateway.py` - Enterprise API gateway
 - `explorer.py` - Blockchain explorer
 - `federated_learning.py` - Federated learning
-- `global_marketplace.py` - Global marketplace
+- `global_market.py` - Global market
 - ... and 40+ more
 
 ## Why Lazy Loading?

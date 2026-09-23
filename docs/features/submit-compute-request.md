@@ -30,4 +30,4 @@ Submit compute request with optional payment verification
 
 - **Status / Release:** `✅` / `v0.6.6`
 - Provides unified entry point with authentication, rate limiting, and request forwarding.
-- This is the **actual product** — AITBC is a compute marketplace where providers offer GPU/compute resources and consumers pay for them using AIT coins.
+- This is the **actual product** — AITBC is a compute market where providers offer GPU/compute resources and consumers pay for them using AIT coins.

@@ -46,7 +46,7 @@ def migrate_all_data():
 
         # Get table schema
         # Validate table name to prevent SQL injection
-        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "marketplace_listing"]
+        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "market_listing"]
         if table_name not in allowed_tables:
             print(f"  Skipping table {table_name} (not in allowed list)")
             continue

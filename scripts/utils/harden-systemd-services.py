@@ -33,7 +33,7 @@ SERVICES_NEEDING_WRITE_ACCESS = {
     "aitbc-coordinator-api.service",
     "aitbc-blockchain-node.service",
     "aitbc-agent-coordinator.service",
-    "aitbc-marketplace.service",
+    "aitbc-market.service",
     "aitbc-api-gateway.service",
     "aitbc-blockchain-event-bridge.service",
     "aitbc-blockchain-explorer.service",

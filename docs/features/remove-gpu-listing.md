@@ -10,7 +10,7 @@ Remove GPU listing
 - `apps/edge/src/aitbc_edge/services/gpu_service.py` — GPU service for Edge API Service
 - `apps/edge/src/aitbc_edge/routers/gpu.py` — GPU operations router for Edge API Service
 - `apps/edge/src/aitbc_edge/schemas/gpu.py` — GPU-related schemas for Edge API Service
-- `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` — Get pricing engine instance
+- `apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py` — Get pricing engine instance
 - `Blockchain Node` exposes `GET /rpc/gpus` (operation `list_gpus_rpc_gpus_get`) — List all registered GPUs
 - `Blockchain Node` exposes `GET /rpc/gpu/allocations/{gpu_id}` (operation `get_gpu_allocations_rpc_gpu_allocations__gpu_id__get`) — Query GPU allocations
 - `Blockchain Node` exposes `POST /rpc/gpu/register` (operation `register_gpu_rpc_gpu_register_post`) — Register GPU on-chain
@@ -29,4 +29,4 @@ Remove GPU listing
 ## Operational Notes
 
 - **Status / Release:** `✅` / `—`
-- Provides listing, matching, pricing, and settlement for marketplace participants.
+- Provides listing, matching, pricing, and settlement for market participants.

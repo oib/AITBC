@@ -254,7 +254,7 @@ ports=(
     "8203:Coordinator API"
     "8100:Blockchain Explorer API"
     "8101:GPU Service"
-    "8102:Marketplace Service"
+    "8102:Market Service"
     "8106:Exchange API"
     "8107:Agent Coordinator"
     "8108:Wallet Daemon"

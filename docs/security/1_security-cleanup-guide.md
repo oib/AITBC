@@ -132,13 +132,13 @@ Replace documentation examples with placeholder variables:
 
 ```
 AITBC - AI Trusted Blockchain Computing Platform
-A comprehensive blockchain-based marketplace for AI computing services with zero-knowledge proof verification and confidential transaction support.
+A comprehensive blockchain-based market for AI computing services with zero-knowledge proof verification and confidential transaction support.
 ```
 
 ### Recommended Topics
 
 ```
-blockchain ai-computing marketplace zero-knowledge-proofs confidential-transactions web3 python fastapi react typescript kubernetes terraform helm decentralized gpu-computing zk-proofs cryptography smart-contracts
+blockchain ai-computing market zero-knowledge-proofs confidential-transactions web3 python fastapi react typescript kubernetes terraform helm decentralized gpu-computing zk-proofs cryptography smart-contracts
 ```
 
 ### Repository Settings to Configure

@@ -5,12 +5,12 @@ Env vars (set any that you want to exercise):
 import sys
 For optional endpoints:
   EXPLORER_API_URL   # e.g., http://127.0.0.1:8000/v1/explorer/blocks/head
-  MARKET_STATS_URL   # e.g., http://127.0.0.1:8000/v1/marketplace/stats
+  MARKET_STATS_URL   # e.g., http://127.0.0.1:8000/v1/market/stats
   ECON_STATS_URL     # e.g., http://127.0.0.1:8000/v1/economics/summary
 
 For task-based health checks:
-  MARKETPLACE_HEALTH_URL      # e.g., http://127.0.0.1:8203/v1/health  (multi-region primary)
-  MARKETPLACE_HEALTH_URL_ALT  # e.g., http://127.0.0.1:8203/v1/health  (multi-region secondary)
+  MARKET_HEALTH_URL      # e.g., http://127.0.0.1:8203/v1/health  (multi-region primary)
+  MARKET_HEALTH_URL_ALT  # e.g., http://127.0.0.1:8203/v1/health  (multi-region secondary)
   BLOCKCHAIN_RPC_URL          # e.g., http://127.0.0.1:9080/rpc/head     (blockchain integration)
   COORDINATOR_HEALTH_URL      # e.g., http://127.0.0.1:8000/v1/health    (agent economics / API health)
 """
@@ -68,20 +68,21 @@ def test_economics_stats():
 
 # Task-based health check tests
 @pytest.mark.skipif(
-    not os.getenv("MARKETPLACE_HEALTH_URL"), reason="MARKETPLACE_HEALTH_URL not set; marketplace health check skipped"
+    not os.getenv("MARKET_HEALTH_URL", os.getenv("MARKETPLACE_HEALTH_URL")),
+    reason="MARKET_HEALTH_URL not set; market health check skipped",
 )
-def test_marketplace_health_primary():
-    """Test primary marketplace health endpoint"""
-    _check_health(os.environ["MARKETPLACE_HEALTH_URL"])
+def test_market_health_primary():
+    """Test primary market health endpoint"""
+    _check_health(os.environ.get("MARKET_HEALTH_URL") or os.environ["MARKETPLACE_HEALTH_URL"])
 
 
 @pytest.mark.skipif(
-    not os.getenv("MARKETPLACE_HEALTH_URL_ALT"),
-    reason="MARKETPLACE_HEALTH_URL_ALT not set; alt marketplace health check skipped",
+    not os.getenv("MARKET_HEALTH_URL_ALT", os.getenv("MARKETPLACE_HEALTH_URL_ALT")),
+    reason="MARKET_HEALTH_URL_ALT not set; alt market health check skipped",
 )
-def test_marketplace_health_secondary():
-    """Test secondary marketplace health endpoint"""
-    _check_health(os.environ["MARKETPLACE_HEALTH_URL_ALT"])
+def test_market_health_secondary():
+    """Test secondary market health endpoint"""
+    _check_health(os.environ.get("MARKET_HEALTH_URL_ALT") or os.environ["MARKETPLACE_HEALTH_URL_ALT"])
 
 
 @pytest.mark.skipif(not os.getenv("BLOCKCHAIN_RPC_URL"), reason="BLOCKCHAIN_RPC_URL not set; blockchain RPC check skipped")

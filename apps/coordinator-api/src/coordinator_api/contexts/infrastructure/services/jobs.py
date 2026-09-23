@@ -16,7 +16,7 @@ from ...payments.provider_binding import miner_wallet_address, same_address
 from ...payments.services.payments import PaymentService
 from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
-from ....contexts.marketplace.domain.provider_bond import _default_bond_min_amount, is_provider_eligible
+from ....contexts.market.domain.provider_bond import _default_bond_min_amount, is_provider_eligible
 from ....utils.client_resolver import resolve_client
 
 logger = get_logger(__name__)
@@ -50,7 +50,7 @@ def _bond_required_for(job: Job, payment: JobPayment | None = None) -> bool:
 
 
 # G4: a job whose escrow never locked must not be handed to a miner. The
-# marketplace purchase path already refused this case -- marketplace_gpu.py checks
+# market purchase path already refused this case -- market_gpu.py checks
 # for "failed"/"skipped" before it returns a job id -- but POST /v1/jobs did not,
 # so an escrow failure there was recorded as payment_status="skipped" and the job
 # stayed dispatchable. A provider then burned GPU time for work nobody paid for.
@@ -121,7 +121,7 @@ def _provider_binding_blocks_dispatch(
     # dispatched to a miner that does not have the resource the energy quote
     # was priced against, defeating the floor binding.
     if job.protected and job.resource_id:
-        from ...marketplace.domain.gpu_marketplace import GPURegistry
+        from ...market.domain.gpu_market import GPURegistry
 
         gpu = session.exec(
             select(GPURegistry).where(

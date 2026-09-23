@@ -217,7 +217,7 @@ async function loadShopDashboard() {
         { label: 'Status', key: 'status' },
     ]);
 
-    const offersData = await apiGet('/v1/marketplace/offer?limit=20') || {};
+    const offersData = await apiGet('/v1/market/offer?limit=20') || {};
     const allOffers = Array.isArray(offersData) ? offersData : (offersData.offers || []);
     const shopOffers = allOffers.filter(o => (o.node_id || o.provider_address || '').includes(minerId));
     setText('shop-offer-count', shopOffers.length);

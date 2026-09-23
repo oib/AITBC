@@ -26,7 +26,7 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_cancel(
-    job_id: Annotated[str, Field(description="Marketplace job ID to cancel")],
+    job_id: Annotated[str, Field(description="Market job ID to cancel")],
     reason: Annotated[str | None, Field(description="Reason for cancellation")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -34,7 +34,7 @@ def aitbc_market_cancel(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Cancel an active marketplace job and request a refund.."""
+    """Cancel an active market job and request a refund.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -74,7 +74,7 @@ def aitbc_market_cancel(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_download(
-    rental_id: Annotated[str | None, Field(description="Marketplace job ID for a paid rental")],
+    rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental")],
     access_key: Annotated[str | None, Field(description="Rental access key")],
     access_secret: Annotated[str | None, Field(description="Rental access secret")],
     cid: Annotated[str | None, Field(description="Free CID retrieval (bypasses access token)")],
@@ -86,7 +86,7 @@ def aitbc_market_download(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Download IPFS content by marketplace job, access token, or free CID.."""
+    """Download IPFS content by market job, access token, or free CID.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"wait": "wait"},
@@ -948,7 +948,7 @@ def aitbc_market_host(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Host IPFS content through a marketplace offer for a number of days.."""
+    """Host IPFS content through a market offer for a number of days.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"pin": "pin"},
@@ -1002,7 +1002,7 @@ def aitbc_market_jobs(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List marketplace jobs.."""
+    """List market jobs.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1042,7 +1042,7 @@ def aitbc_market_list(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List blockchain marketplace offers and bids, optionally filtered.."""
+    """List blockchain market offers and bids, optionally filtered.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"mine": "mine"},
@@ -1093,7 +1093,7 @@ def aitbc_market_offer(
     context_window: Annotated[int | None, Field(description="Context window size (ollama)")],
     gpu_name: Annotated[str | None, Field(description="GPU name from nvidia-smi (auto-detected if omitted)")],
     gpu_device: Annotated[str | None, Field(description="GPU device ID (0, 1, 2, etc.) for multi-GPU servers")],
-    gpu_offer_id: Annotated[str | None, Field(description="GPU marketplace offer ID for cross-reference")],
+    gpu_offer_id: Annotated[str | None, Field(description="GPU market offer ID for cross-reference")],
     disk_quota_mb: Annotated[
         int | None, Field(description="Per-customer disk quota in MB (default 100 for IPFS, unset for GPU services)")
     ],
@@ -1103,7 +1103,7 @@ def aitbc_market_offer(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """List a hardware and software bundle offer in the marketplace.."""
+    """List a hardware and software bundle offer in the market.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1161,7 +1161,7 @@ def aitbc_market_offer_disable(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Disable/unregister a marketplace offer.."""
+    """Disable/unregister a market offer.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1312,7 +1312,7 @@ def aitbc_market_providers(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """List the providers behind the live marketplace offers.."""
+    """List the providers behind the live market offers.."""
     options: dict[str, Any] = {}
     args = None
     return _aitbc_cli_read_tool(
@@ -1332,14 +1332,14 @@ def aitbc_market_rate(
     rating: Annotated[float, Field(description="The Rating.")],
     comment: Annotated[str | None, Field(description="Optional comment/review text")],
     reviewer_id: Annotated[str | None, Field(description="Reviewer ID (defaults to wallet address)")],
-    marketplace_url: Annotated[str | None, Field(description="Override the marketplace service URL")],
+    market_url: Annotated[str | None, Field(description="Override the market service URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Rate a marketplace service offer on a 1-5 scale.."""
+    """Rate a market service offer on a 1-5 scale.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -1348,7 +1348,7 @@ def aitbc_market_rate(
             "rating": "rating",
             "comment": "comment",
             "reviewer_id": "reviewer-id",
-            "marketplace_url": "marketplace-url",
+            "market_url": "market-url",
         },
     )
     args = None
@@ -1388,16 +1388,16 @@ def aitbc_market_ratings(
     service_id: Annotated[str, Field(description="The Service id.")],
     limit: Annotated[int | None, Field(description="Number of ratings to return")],
     offset: Annotated[int | None, Field(description="Offset for pagination")],
-    marketplace_url: Annotated[str | None, Field(description="Override the marketplace service URL")],
+    market_url: Annotated[str | None, Field(description="Override the market service URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """View ratings for a marketplace service offer.."""
+    """View ratings for a market service offer.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"service_id": "service-id", "limit": "limit", "offset": "offset", "marketplace_url": "marketplace-url"},
+        values={"service_id": "service-id", "limit": "limit", "offset": "offset", "market_url": "market-url"},
     )
     args = None
     return _aitbc_cli_read_tool(
@@ -1514,7 +1514,7 @@ def aitbc_market_status(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_market_sync_ratings(
-    remote_url: Annotated[str, Field(description="Remote marketplace service URL (default: $AITBC_MARKETPLACE_URL)")],
+    remote_url: Annotated[str, Field(description="Remote market service URL (default: $AITBC_MARKET_URL)")],
     limit: Annotated[int | None, Field(description="Number of ratings to sync")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
@@ -1522,7 +1522,7 @@ def aitbc_market_sync_ratings(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Sync ratings to and from a remote marketplace node.."""
+    """Sync ratings to and from a remote market node.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},

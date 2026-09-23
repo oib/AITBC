@@ -147,7 +147,7 @@ class PaymentIntegrationTest:
             # Submit job result
             result_data = {
                 "result": {
-                    "text": "AITBC is a decentralized AI computing marketplace that uses blockchain for payments and zero-knowledge proofs for privacy.",
+                    "text": "AITBC is a decentralized AI computing market that uses blockchain for payments and zero-knowledge proofs for privacy.",
                     "model": "llama3.2",
                     "tokens_used": 42,
                 },

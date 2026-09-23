@@ -368,7 +368,7 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
   aitbc dashboard shop --miner-id shop-1 --limit 20"""
 )
 @click.option("--miner-id", help="Miner ID for this shop (optional; defaults to island id)")
-@click.option("--limit", type=int, default=20, help="Number of marketplace offers to show")
+@click.option("--limit", type=int, default=20, help="Number of market offers to show")
 @click.pass_context
 def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
     """Show the shop dashboard with GPUs, offers, jobs, and earnings."""
@@ -424,7 +424,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
             if (discovered.get("model"), discovered.get("memory_gb")) not in known:
                 gpus.append(discovered)
 
-        # Marketplace offers published by this shop
+        # Market offers published by this shop
         offer_rows: list[dict[str, Any]] = []
         try:
             market_client = AITBCHTTPClient(
@@ -432,7 +432,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 timeout=10,
                 headers=_auth_headers(ctx),
             )
-            offers_data = _safe_get(market_client, "/v1/marketplace/offer", {"limit": limit}) or {}
+            offers_data = _safe_get(market_client, "/v1/market/offer", {"limit": limit}) or {}
             offers = offers_data.get("offers", []) if isinstance(offers_data, dict) else []
             shop_id = miner_id or config.node_id or ""
             if shop_id:
@@ -448,7 +448,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                     }
                 )
         except NetworkError as e:
-            logger.warning("Marketplace service unavailable: %s", e)
+            logger.warning("Market service unavailable: %s", e)
 
         # SLA standing from pool-hub. The resolved URL (POOL_HUB_URL /
         # HUB_POOL_HUB_URL env, then the hub's /pool-hub path on shop/follower
@@ -548,7 +548,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 }
                 for g in gpus
             ],
-            "marketplace_offers": offer_rows,
+            "market_offers": offer_rows,
             "sla": sla_data,
             "wallets": wallet_balances,
             "earnings": {

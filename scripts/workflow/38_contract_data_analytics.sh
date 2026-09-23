@@ -104,11 +104,11 @@ collect_contract_metrics() {
 # Function to collect service metrics
 collect_service_metrics() {
     local timestamp=$(date '+%Y-%m-%d %H:%M:%S')
-    local marketplace_listings=$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings | jq '.listings | length' 2>/dev/null || echo "0")
+    local market_listings=$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings | length' 2>/dev/null || echo "0")
     local ai_jobs=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo "0")
     local ai_revenue=$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats | jq .total_revenue' 2>/dev/null || echo "0")
 
-    echo "$timestamp,$marketplace_listings,$ai_jobs,$ai_revenue" >> "$DATA_DIR/service_metrics.csv"
+    echo "$timestamp,$market_listings,$ai_jobs,$ai_revenue" >> "$DATA_DIR/service_metrics.csv"
 }
 
 # 1. ANALYTICS SETUP
@@ -130,7 +130,7 @@ run_test_verbose "Analytics directory setup" "
     fi
 
     if [ ! -f \"$DATA_DIR/service_metrics.csv\" ]; then
-        echo \"timestamp,marketplace_listings,ai_jobs,ai_revenue\" > \"$DATA_DIR/service_metrics.csv\"
+        echo \"timestamp,market_listings,ai_jobs,ai_revenue\" > \"$DATA_DIR/service_metrics.csv\"
         echo \"✅ Service metrics file created\"
     fi
 
@@ -272,7 +272,7 @@ run_test_verbose "Historical data aggregation" "
         AVG_AI_JOBS=\$(awk -F',' 'NR>1 {sum+=\$3; count++} END {print sum/count}' \"$DATA_DIR/service_metrics.csv\")
         TOTAL_REVENUE=\$(awk -F',' 'NR>1 {sum+=\$4} END {print sum}' \"$DATA_DIR/service_metrics.csv\")
 
-        echo \"Average marketplace listings: \$AVG_LISTINGS\"
+        echo \"Average market listings: \$AVG_LISTINGS\"
         echo \"Average AI jobs: \$AVG_AI_JOBS\"
         echo \"Total AI revenue: \$TOTAL_REVENUE AIT\"
 
@@ -343,7 +343,7 @@ Total Transactions: $(tail -1 \"$DATA_DIR/contract_metrics.csv\" | cut -d',' -f4
 
 SERVICE ANALYTICS
 -----------------
-Marketplace Listings: $(tail -1 \"$DATA_DIR/service_metrics.csv\" | cut -d',' -f2)
+Market Listings: $(tail -1 \"$DATA_DIR/service_metrics.csv\" | cut -d',' -f2)
 AI Jobs Processed: $(tail -1 \"$DATA_DIR/service_metrics.csv\" | cut -d',' -f3)
 AI Revenue: $(tail -1 \"$DATA_DIR/service_metrics.csv\" | cut -d',' -f4) AIT
 
@@ -490,7 +490,7 @@ EOF
     # Export service metrics
     if [ -f \"$DATA_DIR/service_metrics.csv\" ]; then
         tail -5 \"$DATA_DIR/service_metrics.csv\" | while IFS=',' read timestamp listings jobs revenue; do
-            echo \"\$timestamp,marketplace,listings,\$listings\"
+            echo \"\$timestamp,market,listings,\$listings\"
             echo \"\$timestamp,ai_service,jobs,\$jobs\"
             echo \"\$timestamp,ai_service,revenue,\$revenue\"
         done >> \"\$EXPORT_FILE\"
@@ -541,7 +541,7 @@ CURRENT METRICS
 ---------------
 Contract Count: $(tail -1 "$DATA_DIR/contract_metrics.csv" 2>/dev/null | cut -d',' -f2 || echo "N/A")
 Blockchain Height: $(tail -1 "$DATA_DIR/contract_metrics.csv" 2>/dev/null | cut -d',' -f3 || echo "N/A")
-Marketplace Listings: $(tail -1 "$DATA_DIR/service_metrics.csv" 2>/dev/null | cut -d',' -f2 || echo "N/A")
+Market Listings: $(tail -1 "$DATA_DIR/service_metrics.csv" 2>/dev/null | cut -d',' -f2 || echo "N/A")
 AI Jobs: $(tail -1 "$DATA_DIR/service_metrics.csv" 2>/dev/null | cut -d',' -f3 || echo "N/A")
 
 RECOMMENDATIONS

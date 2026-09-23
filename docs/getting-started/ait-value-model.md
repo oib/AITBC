@@ -72,7 +72,7 @@ Reference value: ≈ €0.25 per compute hour.
 | RTX 4090 | 2.5× |
 | H100 | 10× |
 
-This table is code-backed in `aitbc/marketplace/hardware_catalog.py`
+This table is code-backed in `aitbc/market/hardware_catalog.py`
 (`GPU_COMPUTE_MULTIPLIER`); `aitbc energy suggest` uses it together with the
 per-model TBP table (`GPU_TBP_W`) to derive a shop's suggested AIT/hour.
 Keep both files in sync when adjusting the model.
@@ -94,7 +94,7 @@ AITBC keeps fees simple and almost invisible.
 | Fee Type | Rate | Detail |
 |----------|------|--------|
 | Wallet Transfers | 0.01 AIT (fixed) | ≈ €0.0025 per transaction (360,000 compute-units internally) |
-| AI Compute Marketplace | 0.5% | Service fee on compute jobs (19.9 AIT → provider, 0.1 AIT → network) |
+| AI Compute Market | 0.5% | Service fee on compute jobs (19.9 AIT → provider, 0.1 AIT → network) |
 
 ### Fee Distribution
 

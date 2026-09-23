@@ -20,8 +20,8 @@ Four fields are exempt:
 |---|---|
 | `AIJobRequest.payment` | `apps/blockchain-node/src/aitbc_chain/rpc/ai_services.py` |
 | `AIJobResponse.payment` | `apps/blockchain-node/src/aitbc_chain/rpc/ai_services.py` |
-| `MarketplaceListing.price` | `apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py` |
-| `MarketplaceCreateRequest.price` | `apps/blockchain-node/src/aitbc_chain/rpc/marketplace.py` |
+| `MarketListing.price` | `apps/blockchain-node/src/aitbc_chain/rpc/market.py` |
+| `MarketCreateRequest.price` | `apps/blockchain-node/src/aitbc_chain/rpc/market.py` |
 
 Each carries a `# not-money:` marker at its declaration explaining itself. That marker is what
 keeps the guard's baseline at zero without an entry in the ignore list.

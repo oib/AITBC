@@ -1,5 +1,5 @@
 """
-Load tests for AITBC Marketplace using Locust
+Load tests for AITBC Market using Locust
 """
 
 import random
@@ -12,8 +12,8 @@ from locust.env import Environment
 from locust.stats import stats_printer
 
 
-class MarketplaceUser(HttpUser):
-    """Simulated marketplace user behavior"""
+class MarketUser(HttpUser):
+    """Simulated market user behavior"""
 
     wait_time = between(1, 3)
     weight = 10
@@ -52,7 +52,7 @@ class MarketplaceUser(HttpUser):
 
     @task(3)
     def browse_offers(self):
-        """Browse marketplace offers"""
+        """Browse market offers"""
         params = {
             "limit": 20,
             "offset": random.randint(0, 100),
@@ -67,7 +67,7 @@ class MarketplaceUser(HttpUser):
         }
 
         with self.client.get(
-            "/v1/marketplace/offers",
+            "/v1/market/offers",
             params=params,
             headers=self.auth_headers,
             catch_response=True,
@@ -89,7 +89,7 @@ class MarketplaceUser(HttpUser):
     def view_offer_details(self, offer_id):
         """View detailed offer information"""
         with self.client.get(
-            f"/v1/marketplace/offers/{offer_id}",
+            f"/v1/market/offers/{offer_id}",
             headers=self.auth_headers,
             catch_response=True,
         ) as response:
@@ -100,7 +100,7 @@ class MarketplaceUser(HttpUser):
 
     @task(2)
     def create_offer(self):
-        """Create a new marketplace offer"""
+        """Create a new market offer"""
         if self.balance < 100:
             return  # Insufficient balance
 
@@ -131,7 +131,7 @@ class MarketplaceUser(HttpUser):
         }
 
         with self.client.post(
-            "/v1/marketplace/offers",
+            "/v1/market/offers",
             json=offer_data,
             headers=self.auth_headers,
             catch_response=True,
@@ -148,7 +148,7 @@ class MarketplaceUser(HttpUser):
         """Place a bid on an existing offer"""
         # First get available offers
         with self.client.get(
-            "/v1/marketplace/offers",
+            "/v1/market/offers",
             params={"limit": 10, "status": "active"},
             headers=self.auth_headers,
             catch_response=True,
@@ -185,7 +185,7 @@ class MarketplaceUser(HttpUser):
             }
 
             with self.client.post(
-                "/v1/marketplace/bids",
+                "/v1/market/bids",
                 json=bid_data,
                 headers=self.auth_headers,
                 catch_response=True,
@@ -207,7 +207,7 @@ class MarketplaceUser(HttpUser):
         bid_id = random.choice(self.bids_placed)
 
         with self.client.get(
-            f"/v1/marketplace/bids/{bid_id}",
+            f"/v1/market/bids/{bid_id}",
             headers=self.auth_headers,
             catch_response=True,
         ) as response:
@@ -231,7 +231,7 @@ class MarketplaceUser(HttpUser):
         }
 
         with self.client.post(
-            "/v1/marketplace/transactions",
+            "/v1/market/transactions",
             json=tx_data,
             headers=self.auth_headers,
             catch_response=True,
@@ -242,10 +242,10 @@ class MarketplaceUser(HttpUser):
                 response.failure(f"Failed to create transaction: {response.status_code}")
 
     @task(1)
-    def get_marketplace_stats(self):
-        """Get marketplace statistics"""
+    def get_market_stats(self):
+        """Get market statistics"""
         with self.client.get(
-            "/v1/marketplace/stats",
+            "/v1/market/stats",
             headers=self.auth_headers,
             catch_response=True,
         ) as response:
@@ -275,7 +275,7 @@ class MarketplaceUser(HttpUser):
         }
 
         with self.client.get(
-            "/v1/marketplace/search",
+            "/v1/market/search",
             params=params,
             headers=self.auth_headers,
             catch_response=True,
@@ -286,7 +286,7 @@ class MarketplaceUser(HttpUser):
                 response.failure(f"Failed to search: {response.status_code}")
 
 
-class MarketplaceProvider(HttpUser):
+class MarketProvider(HttpUser):
     """Simulated service provider behavior"""
 
     wait_time = between(5, 15)
@@ -325,7 +325,7 @@ class MarketplaceProvider(HttpUser):
             },
         }
 
-        self.client.post("/v1/marketplace/providers/register", json=provider_data, headers=self.auth_headers)
+        self.client.post("/v1/market/providers/register", json=provider_data, headers=self.auth_headers)
 
     @task(4)
     def update_service_status(self):
@@ -343,7 +343,7 @@ class MarketplaceProvider(HttpUser):
         }
 
         with self.client.patch(
-            f"/v1/marketplace/services/{service['id']}/status",
+            f"/v1/market/services/{service['id']}/status",
             json=status_data,
             headers=self.auth_headers,
             catch_response=True,
@@ -381,7 +381,7 @@ class MarketplaceProvider(HttpUser):
         bulk_data = {"offers": offers}
 
         with self.client.post(
-            "/v1/marketplace/offers/bulk",
+            "/v1/market/offers/bulk",
             json=bulk_data,
             headers=self.auth_headers,
             catch_response=True,
@@ -397,7 +397,7 @@ class MarketplaceProvider(HttpUser):
     def respond_to_bids(self):
         """Respond to incoming bids"""
         with self.client.get(
-            "/v1/marketplace/bids",
+            "/v1/market/bids",
             params={"provider_id": self.provider_id, "status": "pending"},
             headers=self.auth_headers,
         ) as response:
@@ -421,7 +421,7 @@ class MarketplaceProvider(HttpUser):
                 response_data["counter_price"] = round(bid["max_price"] * random.uniform(1.05, 1.15), 2)
 
             with self.client.post(
-                "/v1/marketplace/bids/respond",
+                "/v1/market/bids/respond",
                 json=response_data,
                 headers=self.auth_headers,
                 catch_response=True,
@@ -435,7 +435,7 @@ class MarketplaceProvider(HttpUser):
     def get_provider_analytics(self):
         """Get provider analytics"""
         with self.client.get(
-            f"/v1/marketplace/providers/{self.provider_id}/analytics",
+            f"/v1/market/providers/{self.provider_id}/analytics",
             headers=self.auth_headers,
             catch_response=True,
         ) as response:
@@ -445,7 +445,7 @@ class MarketplaceProvider(HttpUser):
                 response.failure(f"Failed to get analytics: {response.status_code}")
 
 
-class MarketplaceAdmin(HttpUser):
+class MarketAdmin(HttpUser):
     """Simulated admin user behavior"""
 
     wait_time = between(10, 30)
@@ -464,12 +464,12 @@ class MarketplaceAdmin(HttpUser):
         }
 
     @task(3)
-    def monitor_marketplace_health(self):
-        """Monitor marketplace health metrics"""
+    def monitor_market_health(self):
+        """Monitor market health metrics"""
         endpoints = [
-            "/v1/marketplace/health",
-            "/v1/marketplace/metrics",
-            "/v1/marketplace/stats",
+            "/v1/market/health",
+            "/v1/market/metrics",
+            "/v1/market/stats",
         ]
 
         endpoint = random.choice(endpoints)
@@ -486,9 +486,9 @@ class MarketplaceAdmin(HttpUser):
 
     @task(2)
     def review_suspicious_activity(self):
-        """Review suspicious marketplace activity"""
+        """Review suspicious market activity"""
         with self.client.get(
-            "/v1/admin/marketplace/activity",
+            "/v1/admin/market/activity",
             params={
                 "suspicious_only": True,
                 "limit": 50,
@@ -512,7 +512,7 @@ class MarketplaceAdmin(HttpUser):
         action = random.choice(["warn", "suspend", "investigate"])
 
         with self.client.post(
-            f"/v1/admin/marketplace/activity/{activity_id}/action",
+            f"/v1/admin/market/activity/{activity_id}/action",
             json={"action": action},
             headers=self.auth_headers,
             catch_response=True,
@@ -524,7 +524,7 @@ class MarketplaceAdmin(HttpUser):
 
     @task(1)
     def generate_reports(self):
-        """Generate marketplace reports"""
+        """Generate market reports"""
         report_types = [
             "daily_summary",
             "weekly_analytics",
@@ -535,7 +535,7 @@ class MarketplaceAdmin(HttpUser):
         report_type = random.choice(report_types)
 
         with self.client.post(
-            "/v1/admin/marketplace/reports",
+            "/v1/admin/market/reports",
             json={
                 "type": report_type,
                 "format": "json",
@@ -563,7 +563,7 @@ def on_request(request_type, name, response_time, response_length, exception, **
 @events.test_start.add_listener
 def on_test_start(environment, **kwargs):
     """Called when test starts"""
-    print("Starting marketplace load test")
+    print("Starting market load test")
     print(f"Target: {environment.host}")
 
 
@@ -651,7 +651,7 @@ class PerformanceMonitor:
 # Test configuration
 if __name__ == "__main__":
     # Setup environment
-    env = Environment(user_classes=[MarketplaceUser, MarketplaceProvider, MarketplaceAdmin])
+    env = Environment(user_classes=[MarketUser, MarketProvider, MarketAdmin])
 
     # Create performance monitor
     monitor = PerformanceMonitor()
@@ -666,7 +666,7 @@ if __name__ == "__main__":
     env.create_web_ui("127.0.0.1", 8089)
 
     # Start the load test
-    print("Starting marketplace load test...")
+    print("Starting market load test...")
     print("Web UI available at: http://127.0.0.1:8089")
 
     # Run for 6 minutes

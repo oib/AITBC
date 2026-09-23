@@ -37,7 +37,7 @@ def setup_middleware(app: FastAPI) -> None:
     # Rate limiting
     limiter = Limiter(
         key_func=get_remote_address,
-        default_limits=[f"{settings.rate_limit_marketplace_list}/minute"],
+        default_limits=[f"{settings.rate_limit_market_list}/minute"],
     )
     app.state.limiter = limiter
     app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]

@@ -16,7 +16,7 @@ The coordinator-api uses the following middleware stack (in order of execution):
 6. **AuthMiddleware** - route-level auth (non-test environments)
 
 `RequestValidationMiddleware` exists in `aitbc/middleware/validation.py` but
-is mounted on the api-gateway, governance, gpu, trading, and marketplace
+is mounted on the api-gateway, governance, gpu, trading, and market
 services — not coordinator-api.
 
 ## Request Validation Middleware

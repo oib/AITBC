@@ -29,7 +29,7 @@ def _coordinator_headers(config_obj) -> dict[str, str]:
 
   aitbc workflow list
 
-  aitbc workflow run --workflow-name gpu-marketplace"""
+  aitbc workflow run --workflow-name gpu-market"""
 )
 def workflow():
     """List, run, stop, and check the status of coordinator workflows."""
@@ -39,7 +39,7 @@ def workflow():
 @workflow.command(
     epilog="""Examples:
 
-  aitbc workflow run --workflow-name gpu-marketplace
+  aitbc workflow run --workflow-name gpu-market
 
   aitbc workflow run --workflow-name ai-job-processing --config /tmp/workflow.yaml"""
 )
@@ -107,7 +107,7 @@ def run(workflow_name: str, config: str | None, dry_run: bool):
 def list(format: str):
     """List all available workflows from the coordinator."""
     workflows = [
-        {"name": "gpu-marketplace", "status": "active", "steps": 5},
+        {"name": "gpu-market", "status": "active", "steps": 5},
         {"name": "ai-job-processing", "status": "active", "steps": 3},
         {"name": "mining-optimization", "status": "inactive", "steps": 4},
     ]
@@ -123,7 +123,7 @@ def list(format: str):
 @workflow.command(
     epilog="""Examples:
 
-  aitbc workflow status --workflow-name gpu-marketplace"""
+  aitbc workflow status --workflow-name gpu-market"""
 )
 @click.option("--workflow-name", "workflow_name", required=True, help="The Workflow name.")
 def status(workflow_name: str):

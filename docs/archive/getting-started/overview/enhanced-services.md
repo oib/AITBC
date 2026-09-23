@@ -145,7 +145,7 @@ cd /opt/aitbc/apps/coordinator-api
 | GPU Multi-Modal | 8105 | CUDA-optimized attention mechanisms | 4GB RAM, 300% CPU | ✅ |
 | Modality Optimization | 8012 | Specialized optimization strategies | 1GB RAM, 150% CPU | ✅ |
 | Adaptive Learning | 8013 | Reinforcement learning frameworks | 3GB RAM, 250% CPU | ✅ |
-| Enhanced Marketplace | 8102 | Royalties, licensing, verification | 2GB RAM, 200% CPU | ✅ |
+| Enhanced Market | 8102 | Royalties, licensing, verification | 2GB RAM, 200% CPU | ✅ |
 | agent Enhanced | 8015 | Agent orchestration, edge computing | 2GB RAM, 200% CPU | ✅ |
 | Web UI Service | 8016 | Web interface for all services | 1GB RAM, 100% CPU | ✅ |
 | Geographic Load Balancer | 8017 | Geographic distribution | 1GB RAM, 100% CPU | ✅ |
@@ -158,7 +158,7 @@ curl http://localhost:8010/health  # Multi-Modal
 curl http://localhost:8105/health  # GPU Multi-Modal (Agent)
 curl http://localhost:8012/health  # Modality Optimization
 curl http://localhost:8013/health  # Adaptive Learning
-curl http://localhost:8102/health  # Enhanced Marketplace
+curl http://localhost:8102/health  # Enhanced Market
 curl http://localhost:8015/health  # agent Enhanced
 curl http://localhost:8016/health  # Web UI Service
 curl http://localhost:8017/health  # Geographic Load Balancer
@@ -255,10 +255,10 @@ df -h
 systemctl status aitbc-multimodal.service
 
 # Audit service logs
-journalctl -u aitbc-marketplace.service --since "1 hour ago"
+journalctl -u aitbc-market.service --since "1 hour ago"
 
 # Monitor resource usage
-systemctl status aitbc-marketplace.service --no-pager
+systemctl status aitbc-market.service --no-pager
 ```
 
 ## 🐛 Troubleshooting

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Load AITBC secrets from credentials directory
 # This script is called by systemd services before main process starts
 # Enhanced with encryption, versioning, and audit logging
@@ -97,7 +98,7 @@ load_secret "jwt_secret" "JWT_SECRET"
 load_secret "secret_key" "SECRET_KEY"
 
 # Load PostgreSQL database passwords
-for db_user in aitbc_user aitbc_marketplace aitbc_governance aitbc_trading aitbc_gpu aitbc_ai aitbc_mempool; do
+for db_user in aitbc_user aitbc_market aitbc_governance aitbc_trading aitbc_gpu aitbc_ai aitbc_mempool; do
     secret_file="$CREDENTIALS_DIR/postgres_${db_user}_password"
     if [ -f "$secret_file" ]; then
         if file "$secret_file" | grep -q "encrypted"; then

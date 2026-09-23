@@ -190,8 +190,8 @@ echo ""
 echo "4. 🔌 SERVICE INTEGRATION TESTING"
 echo "==============================="
 
-# Test marketplace service integration
-run_test "Marketplace service availability" "ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/marketplace/listings'"
+# Test market service integration
+run_test "Market service availability" "ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/market/listings'"
 
 # Test AI service integration
 run_test "AI service integration" "ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats'"
@@ -229,9 +229,9 @@ echo ""
 echo "6. 🤝 SERVICE CONTRACT INTERACTION"
 echo "================================"
 
-# Test marketplace contract interaction
-echo "Testing marketplace contract interaction..."
-MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/marketplace/create" \
+# Test market contract interaction
+echo "Testing market contract interaction..."
+MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/market/create" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Contract Test Listing\",
@@ -242,13 +242,13 @@ MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/mar
     \"provider\": \"0xEe109E23e5241bfEe020C0f588bcEf4B74a7929a\"
   }")
 
-echo "Marketplace contract result: $MARKET_CONTRACT_RESULT"
+echo "Market contract result: $MARKET_CONTRACT_RESULT"
 
 if [ -n "$MARKET_CONTRACT_RESULT" ] && [ "$MARKET_CONTRACT_RESULT" != "null" ]; then
-    echo -e "${GREEN}✅ Marketplace contract interaction successful${NC}"
+    echo -e "${GREEN}✅ Market contract interaction successful${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-    echo -e "${RED}❌ Marketplace contract interaction failed${NC}"
+    echo -e "${RED}❌ Market contract interaction failed${NC}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
@@ -309,7 +309,7 @@ echo "========================"
 # Check all service health
 echo "Checking service health..."
 
-SERVICES=("marketplace" "ai" "exchange" "governance" "blockchain")
+SERVICES=("market" "ai" "exchange" "governance" "blockchain")
 for service in "${SERVICES[@]}"; do
     if [ "$service" = "blockchain" ]; then
         HEALTH_RESULT=$(curl -s "http://localhost:$GENESIS_PORT/rpc/info")
@@ -349,7 +349,7 @@ Performance: ${RESPONSE_TIME}ms
 
 SERVICE INTEGRATION
 ------------------
-Marketplace: $([ -n "$MARKET_CONTRACT_RESULT" ] && echo "Available" || echo "Unavailable")
+Market: $([ -n "$MARKET_CONTRACT_RESULT" ] && echo "Available" || echo "Unavailable")
 AI Service: Available
 Exchange Service: Available
 Governance Service: Available

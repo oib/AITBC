@@ -8,7 +8,7 @@
 set -euo pipefail
 
 # Configuration
-SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-marketplace" "aitbc-exchange" "aitbc-gpu")
+SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-market" "aitbc-exchange" "aitbc-gpu")
 ROLLBACK_FILE="/tmp/secret_rotation_rollback_$(date +%Y%m%d_%H%M%S).sh"
 LOG_FILE="/var/log/aitbc/secret_rotation_$(date +%Y%m%d_%H%M%S).log"
 
@@ -135,7 +135,7 @@ for backup in /etc/aitbc/*.env.backup_*; do
     fi
 done
 # Restart all services
-systemctl restart aitbc-coordinator-api aitbc-blockchain-node aitbc-marketplace aitbc-exchange aitbc-gpu
+systemctl restart aitbc-coordinator-api aitbc-blockchain-node aitbc-market aitbc-exchange aitbc-gpu
 echo "Rollback complete"
 ROLLBACK_EOF
 chmod +x "$ROLLBACK_FILE"
@@ -183,7 +183,7 @@ for service in "${SERVICES[@]}"; do
                 error_exit "$service health check failed"
             fi
             ;;
-        "aitbc-marketplace")
+        "aitbc-market")
             if curl -fsS http://localhost:8102/health > /dev/null 2>&1; then
                 log "${GREEN}$service health check passed${NC}"
             else

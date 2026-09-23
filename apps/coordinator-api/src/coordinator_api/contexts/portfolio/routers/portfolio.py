@@ -26,7 +26,7 @@ class PortfolioSummaryResponse(BaseModel):
     agent_address: str | None
     wallet: dict[str, Any]
     exchange: dict[str, Any]
-    marketplace: dict[str, Any]
+    market: dict[str, Any]
     trading: dict[str, Any]
     ai_signals: dict[str, Any]
     summary: dict[str, Any]
@@ -51,7 +51,7 @@ async def get_unified_portfolio(
     Aggregates data from:
     - Wallet service (8108): Wallet balances
     - Exchange service (8106): Exchange rates
-    - Marketplace service (8102): Marketplace stats
+    - Market service (8102): Market stats
     - Trading service (8104): Trading analytics
     - AI service (8005): AI trade signals (simulation-labelled)
     """
@@ -88,12 +88,12 @@ async def get_portfolio_health(request: Request) -> PortfolioHealthResponse:
         services_status["exchange"] = "unhealthy"
         overall_status = "degraded"
     try:
-        marketplace_data = await portfolio_service._get_marketplace_stats()
-        services_status["marketplace"] = "healthy" if not marketplace_data.get("error") else "degraded"
-        if marketplace_data.get("error"):
+        market_data = await portfolio_service._get_market_stats()
+        services_status["market"] = "healthy" if not market_data.get("error") else "degraded"
+        if market_data.get("error"):
             overall_status = "degraded"
     except Exception:
-        services_status["marketplace"] = "unhealthy"
+        services_status["market"] = "unhealthy"
         overall_status = "degraded"
     try:
         trading_data = await portfolio_service._get_trading_analytics()

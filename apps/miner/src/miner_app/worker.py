@@ -32,7 +32,7 @@ class ReinvestmentWorker:
     """Poll a provider's earnings and dispatch reinvestment actions.
 
     This is a skeleton worker. A production implementation will plug in a real
-    earnings source (blockchain events, marketplace payouts) and an on-chain
+    earnings source (blockchain events, market payouts) and an on-chain
     transaction dispatcher.
     """
 

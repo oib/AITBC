@@ -8,7 +8,7 @@ name imports keep working.
 
 from ..contexts.agent_coordination.domain.agent import (
     AgentExecution,
-    AgentMarketplace,
+    AgentMarket,
     AgentStatus,
     AgentStep,
     AgentStepExecution,
@@ -29,7 +29,7 @@ __all__ = [
     "AgentStep",
     "AgentExecution",
     "AgentStepExecution",
-    "AgentMarketplace",
+    "AgentMarket",
     "AgentStatus",
     "VerificationLevel",
 ]

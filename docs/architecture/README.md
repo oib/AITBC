@@ -10,7 +10,7 @@ This directory contains comprehensive architecture documentation for the AITBC p
 2. **[2_components-overview.md](./2_components-overview.md)** - High-level component overview and interactions
 3. **[3_coordinator-api.md](./3_coordinator-api.md)** - Coordinator API architecture and endpoints
 4. **[4_blockchain-node.md](./4_blockchain-node.md)** - Blockchain node architecture and consensus
-5. **[5_marketplace-web.md](./5_marketplace-web.md)** - Marketplace web application architecture
+5. **[5_market-web.md](./5_market-web.md)** - Market web application architecture
 6. **[6_trade-exchange.md](./6_trade-exchange.md)** - Trade exchange and matching engine
 7. **[7_wallet.md](./7_wallet.md)** - Wallet architecture and key management
 8. **[8_codebase-structure.md](./8_codebase-structure.md)** - Codebase organization and module structure
@@ -62,7 +62,7 @@ Review these documents:
 
 ```
 ┌─────────────────┐    ┌─────────────────┐    ┌─────────────────┐
-│  Coordinator    │    │  Blockchain     │    │  Marketplace    │
+│  Coordinator    │    │  Blockchain     │    │  Market    │
 │  API (8203)     │◄──►│  Node (8202)    │◄──►│  Service (8102) │
 └─────────────────┘    └─────────────────┘    └─────────────────┘
         │                      │                      │
@@ -80,7 +80,7 @@ Review these documents:
 
 - **Blockchain**: Custom AITBC blockchain with multi-validator Proof-of-Authority consensus (optional PBFT finality)
 - **API**: FastAPI-based coordinator API
-- **Frontend**: static `website/` marketplace pages (the React app was never built — see `5_marketplace-web.md`)
+- **Frontend**: static `website/` market pages (the React app was never built — see `5_market-web.md`)
 - **Wallet**: Python-based wallet service with cryptography
 - **Exchange**: Matching engine for token trading
 - **Edge Computing**: GPU resource management for AI workloads

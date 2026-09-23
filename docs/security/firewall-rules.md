@@ -20,7 +20,7 @@ Only these surfaces may be reachable from outside the node:
 | SSH | 22 | All nodes |
 
 Everything else — blockchain RPC `8202`, coordinator-api `8203`, agent
-coordinator `8107`, marketplace `8102`, wallet `8108`, exchange `8106`, GPU
+coordinator `8107`, market `8102`, wallet `8108`, exchange `8106`, GPU
 `8101`, governance `8105`, trading `8104` — is either loopback-bound or
 reachable only through nginx on the private link. Do **not** open these in
 the firewall.

@@ -46,8 +46,8 @@ SERVICES = {
         "description": "Reinforcement learning frameworks",
         "icon": "🧠",
     },
-    "marketplace_enhanced": {
-        "name": "Enhanced Marketplace Service",
+    "market_enhanced": {
+        "name": "Enhanced Market Service",
         "port": 8202,
         "url": BLOCKCHAIN_RPC_URL,
         "description": "NFT 2.0, royalties, analytics",

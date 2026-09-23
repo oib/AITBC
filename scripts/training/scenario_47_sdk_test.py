@@ -27,7 +27,7 @@ async def main():
     print("Step 1: Creating ContractConfig with use_cli=True...")
     config = ContractConfig(
         payment_processor="",
-        agent_marketplace="",
+        agent_market="",
         staking_contract="",
         treasury_manager="",
         cross_chain_atomic_swap="0xcrosschainatomicswap_1778182201",

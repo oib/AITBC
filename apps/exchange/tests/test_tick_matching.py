@@ -24,8 +24,8 @@ def temp_db(tmp_path):
     for stmt in (
         exchange_db._TRADES_SCHEMA,
         exchange_db._ORDERS_SCHEMA,
-        exchange_db._MARKETPLACE_OFFERS_SCHEMA,
-        exchange_db._MARKETPLACE_ORDERS_SCHEMA,
+        exchange_db._MARKET_OFFERS_SCHEMA,
+        exchange_db._MARKET_ORDERS_SCHEMA,
     ):
         conn.execute(stmt)
     conn.commit()

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Check what's running in the aitbc container
 
@@ -41,7 +42,7 @@ echo "🚀 Starting services if needed..."
 
 # Start the services via systemd
 incus exec aitbc -- bash -c "
-systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-exchange aitbc-marketplace aitbc-trading 2>/dev/null || true
+systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-exchange aitbc-market aitbc-trading 2>/dev/null || true
 
 sleep 3
 echo 'Services started!'

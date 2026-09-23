@@ -28,14 +28,14 @@ def main():
                     data = json.load(f)
                     logger.info("Blockchain: %s blocks", len(data.get("blocks", [])))
 
-            # Marketplace stats
-            marketplace_dir = DATA_DIR / "data/marketplace"
-            if marketplace_dir.exists():
-                listings_file = marketplace_dir / "gpu_listings.json"
+            # Market stats
+            market_dir = DATA_DIR / "data/marketplace"
+            if market_dir.exists():
+                listings_file = market_dir / "gpu_listings.json"
                 if listings_file.exists():
                     with open(listings_file) as f:
                         listings = json.load(f)
-                        logger.info("Marketplace: %s GPU listings", len(listings))
+                        logger.info("Market: %s GPU listings", len(listings))
 
             time.sleep(30)
         except (OSError, json.JSONDecodeError, FileNotFoundError, PermissionError) as e:

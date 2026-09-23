@@ -2,7 +2,7 @@
 Reinforcement Learning Configuration Domain Model
 
 Migrated from contexts/agent_coordination/domain/agent_performance.py in v0.5.14.
-The advanced_rl context is the sole consumer of this model (engine + marketplace
+The advanced_rl context is the sole consumer of this model (engine + market
 optimizer), so ownership moved here to eliminate the cross-context domain-model
 import. The SQLModel table name (`rl_configurations`) is unchanged — no DB
 migration required.

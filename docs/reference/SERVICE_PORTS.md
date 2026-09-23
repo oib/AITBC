@@ -19,7 +19,7 @@ External traffic reaches these services through nginx on ports `80`/`443`.
 |---------|-----------|--------|------------|-------|
 | API Gateway | 8201 | `/health` | `/api/` | Customer-facing API entry point |
 | Blockchain RPC | 8202 | `/health` | `/rpc/` | Public chain RPC and follower subscription |
-| Coordinator API | 8203 | `/health` | `/c/` | Job/marketplace/escrow failover endpoint |
+| Coordinator API | 8203 | `/health` | `/c/` | Job/market/escrow failover endpoint |
 
 ## Public services (direct access)
 
@@ -47,7 +47,7 @@ confirmed live reading. Verify with the `ss` command in the exposure policy.
 | Service | Port | Health | Bind | Notes |
 |---------|------|--------|------|-------|
 | GPU Service | 8101 | `/health` | `127.0.0.1` | Pinned in unit via `GPU_BIND_HOST` |
-| Marketplace Service | 8102 | `/health` | `127.0.0.1` | Pinned in unit via `MARKETPLACE_BIND_HOST` |
+| Market Service | 8102 | `/health` | `127.0.0.1` | Pinned in unit via `MARKET_BIND_HOST` |
 | Trading Service | 8104 | `/health` | `127.0.0.1` | Pinned in unit via `TRADING_BIND_HOST` |
 | Governance Service | 8105 | `/health` | `127.0.0.1` | Pinned in unit via `GOVERNANCE_BIND_HOST` |
 | Exchange API | 8106 | `/health` | `127.0.0.1` | Pinned in unit via `--host` |
@@ -176,7 +176,7 @@ The historical port migrations (e.g. wallet `8015` â†’ `8108`, exchange `8001` â
 - Blockchain Explorer: `apps/blockchain-explorer/main.py` (`port=8100`)
 - Blockchain P2P: `/etc/aitbc/node.env` (`P2P_BIND_PORT=7070`)
 - GPU Service: `apps/gpu/src/gpu_service/main.py` (`GPU_BIND_PORT` default `8101`)
-- Marketplace: `apps/marketplace/src/marketplace_service/main.py` (`MARKETPLACE_BIND_PORT` default `8102`)
+- Market: `apps/market/src/market_service/main.py` (`MARKET_BIND_PORT` default `8102`)
 - Trading: `apps/trading/src/trading_service/main.py` (`TRADING_BIND_PORT` default `8104`)
 - Governance: `apps/governance/src/governance_service/main.py` (`GOVERNANCE_PORT` default `8105`)
 - Exchange: `apps/exchange/simple_exchange/server.py` (`--port 8106`)
@@ -211,7 +211,7 @@ curl -s http://localhost:8202/health  # Blockchain RPC
 curl -s http://localhost:8203/health  # Coordinator API
 curl -s http://localhost:8100/health  # Explorer
 curl -s http://localhost:8101/health  # GPU
-curl -s http://localhost:8102/health  # Marketplace
+curl -s http://localhost:8102/health  # Market
 curl -s http://localhost:8108/health  # Wallet
 curl -s http://localhost:8210/health  # Pool hub
 curl -s http://localhost:8230/health  # FFmpeg

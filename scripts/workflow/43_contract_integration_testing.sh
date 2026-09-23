@@ -134,36 +134,36 @@ run_test_verbose "Contract service functionality" "
     echo \"Contract interaction: \$(echo \$INTERACT_RESULT | jq .success 2>/dev/null || echo 'Contract interaction responding')\"
 "
 
-# 2. MARKETPLACE CONTRACT INTEGRATION
+# 2. MARKET CONTRACT INTEGRATION
 echo ""
-echo "2. 🛒 MARKETPLACE CONTRACT INTEGRATION"
+echo "2. 🛒 MARKET CONTRACT INTEGRATION"
 echo "====================================="
 
-run_test_verbose "Marketplace contract integration" "
-    echo 'Testing marketplace contract integration...'
+run_test_verbose "Market contract integration" "
+    echo 'Testing market contract integration...'
 
-    # Test marketplace listings
-    echo 'Testing marketplace listings:'
-    LISTINGS_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
-    echo \"Marketplace listings: \$(echo \$LISTINGS_RESULT | jq .success 2>/dev/null || echo 'Marketplace responding')\"
+    # Test market listings
+    echo 'Testing market listings:'
+    LISTINGS_RESULT=\$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)
+    echo \"Market listings: \$(echo \$LISTINGS_RESULT | jq .success 2>/dev/null || echo 'Market responding')\"
 
-    # Test marketplace contract creation
-    echo 'Testing marketplace contract creation:'
+    # Test market contract creation
+    echo 'Testing market contract creation:'
     MKT_CONTRACT='{
-        \"contract_type\": \"marketplace\",
-        \"name\": \"MarketplaceContract\",
+        \"contract_type\": \"market\",
+        \"name\": \"MarketContract\",
         \"owner\": \"0x99eC4D8C9eFc43F9a1a0918DaF85e28800516031\",
         \"settings\": {\"fee_rate\": 0.01, \"min_listing_price\": 100}
     }'
 
-    MKT_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/marketplace/create \
+    MKT_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/contracts/market/create \
       -H 'Content-Type: application/json' \
       -d \"\$MKT_CONTRACT\")
 
-    echo \"Marketplace contract: \$(echo \$MKT_RESULT | jq .success 2>/dev/null || echo 'Marketplace contract creation responding')\"
+    echo \"Market contract: \$(echo \$MKT_RESULT | jq .success 2>/dev/null || echo 'Market contract creation responding')\"
 
-    # Test marketplace transaction
-    echo 'Testing marketplace transaction:'
+    # Test market transaction
+    echo 'Testing market transaction:'
     TX_DATA='{
         \"listing_id\": \"test_listing_001\",
         \"buyer\": \"0x6dB6EBAda5ab0d00041FDCa3a409EE0aA15B5F2f\",
@@ -171,11 +171,11 @@ run_test_verbose "Marketplace contract integration" "
         \"payment_method\": \"ait\"
     }'
 
-    TX_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/marketplace/transaction \
+    TX_RESULT=\$(curl -s -X POST http://localhost:$GENESIS_PORT/rpc/market/transaction \
       -H 'Content-Type: application/json' \
       -d \"\$TX_DATA\")
 
-    echo \"Marketplace transaction: \$(echo \$TX_RESULT | jq .success 2>/dev/null || echo 'Marketplace transaction responding')\"
+    echo \"Market transaction: \$(echo \$TX_RESULT | jq .success 2>/dev/null || echo 'Market transaction responding')\"
 "
 
 # 3. AI SERVICE CONTRACT INTEGRATION
@@ -283,13 +283,13 @@ run_test_verbose "Cross-service contract integration" "
     # Create a contract that uses multiple services
     COORD_CONTRACT='{
         \"name\": \"MultiServiceContract\",
-        \"services\": [\"marketplace\", \"ai\", \"messaging\"],
+        \"services\": [\"market\", \"ai\", \"messaging\"],
         \"workflows\": [
             {
-                \"name\": \"ai_marketplace_workflow\",
+                \"name\": \"ai_market_workflow\",
                 \"steps\": [
                     {\"service\": \"ai\", \"action\": \"process_prompt\"},
-                    {\"service\": \"marketplace\", \"action\": \"create_listing\"},
+                    {\"service\": \"market\", \"action\": \"create_listing\"},
                     {\"service\": \"messaging\", \"action\": \"announce_result\"}
                 ]
             }
@@ -306,9 +306,9 @@ run_test_verbose "Cross-service contract integration" "
     echo 'Testing cross-service transaction:'
     CROSS_TX='{
         \"contract_id\": \"multiservice_001\",
-        \"workflow\": \"ai_marketplace_workflow\",
+        \"workflow\": \"ai_market_workflow\",
         \"params\": {
-            \"prompt\": \"Create a marketplace listing for AI services\",
+            \"prompt\": \"Create a market listing for AI services\",
             \"price\": 500,
             \"description\": \"AI-powered data analysis service\"
         },
@@ -504,7 +504,7 @@ Total Tests: $((TESTS_PASSED + TESTS_FAILED))
 
 COMPONENTS TESTED:
 ✅ Contract Service Integration
-✅ Marketplace Contract Integration
+✅ Market Contract Integration
 ✅ AI Service Contract Integration
 ✅ Agent Messaging Contract Integration
 ✅ Cross-Service Contract Integration
@@ -516,7 +516,7 @@ COMPONENTS TESTED:
 SERVICE STATUS:
 Blockchain RPC: $(curl -s http://localhost:$GENESIS_PORT/rpc/info >/dev/null && echo "Operational" || echo "Failed")
 Coordinator API: $(curl -s http://localhost:$COORDINATOR_PORT/health/live >/dev/null && echo "Operational" || echo "Failed")
-Marketplace Service: $(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings >/dev/null && echo "Operational" || echo "Failed")
+Market Service: $(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings >/dev/null && echo "Operational" || echo "Failed")
 AI Service: $(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats' >/dev/null && echo "Operational" || echo "Failed")
 Agent Communication: $(curl -s http://localhost:$GENESIS_PORT/rpc/messaging/topics >/dev/null && echo "Operational" || echo "Failed")
 

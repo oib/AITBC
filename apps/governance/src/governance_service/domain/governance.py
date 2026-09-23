@@ -79,7 +79,7 @@ class Proposal(GovernanceBase, table=True):
     # v0.4.12 new fields
     proposal_type: str = Field(
         default="general"
-    )  # marketplace_rule, fee_structure, service_approval, protocol_upgrade, dispute_resolution, parameter_change
+    )  # market_rule, fee_structure, service_approval, protocol_upgrade, dispute_resolution, parameter_change
     proposal_value: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
     quorum_required: Decimal = Field(default=Decimal("1000000"), sa_column=Column(Numeric(20, 8)))
     yes_votes: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))

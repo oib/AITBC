@@ -183,9 +183,9 @@ def create_pg_schema():
     cursor.execute("CREATE INDEX idx_wallet_user ON wallet(user_id)")
     cursor.execute("CREATE INDEX idx_usersession_token ON usersession(token)")
     cursor.execute("CREATE INDEX idx_usersession_expires ON usersession(expires_at)")
-    cursor.execute("CREATE INDEX idx_marketplaceoffer_status ON marketplaceoffer(status)")
-    cursor.execute("CREATE INDEX idx_marketplaceoffer_provider ON marketplaceoffer(provider)")
-    cursor.execute("CREATE INDEX idx_marketplacebid_provider ON marketplacebid(provider)")
+    cursor.execute("CREATE INDEX idx_marketoffer_status ON marketoffer(status)")
+    cursor.execute("CREATE INDEX idx_marketoffer_provider ON marketoffer(provider)")
+    cursor.execute("CREATE INDEX idx_marketbid_provider ON marketbid(provider)")
 
     conn.commit()
     conn.close()
@@ -282,7 +282,7 @@ def migrate_data():
 
     for table_name, insert_sql in migrations:
         # Validate table name to prevent SQL injection
-        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "marketplace_listing"]
+        allowed_tables = ["user", "wallet", "transaction", "agent", "job", "receipt", "market_listing"]
         if table_name not in allowed_tables:
             print(f"Skipping table {table_name} (not in allowed list)")
             continue

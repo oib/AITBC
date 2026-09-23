@@ -69,16 +69,16 @@ check_prerequisites() {
 
     # Check aitbc connectivity
     if curl -sf http://127.0.0.1:8102/health &> /dev/null; then
-        echo "✅ aitbc marketplace accessible (port 8102)"
+        echo "✅ aitbc market accessible (port 8102)"
     else
-        echo "❌ aitbc marketplace not accessible (port 8102)"
+        echo "❌ aitbc market not accessible (port 8102)"
     fi
 
     # Check ${NODE1_HOST} connectivity
     if curl -sf http://${NODE1_HOST}:8102/health &> /dev/null; then
-        echo "✅ ${NODE1_HOST} marketplace accessible (port 8102)"
+        echo "✅ ${NODE1_HOST} market accessible (port 8102)"
     else
-        echo "❌ ${NODE1_HOST} marketplace not accessible (port 8102)"
+        echo "❌ ${NODE1_HOST} market not accessible (port 8102)"
     fi
 
     # Check Ollama
@@ -154,11 +154,11 @@ run_cli_tests() {
     run_cli_test "chain:list:${NODE1_HOST}" aitbc chain list --node-url https://hub.example.net/rpc
     run_cli_test "analytics:summary:aitbc" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
     run_cli_test "analytics:summary:${NODE1_HOST}" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
-    run_cli_test "marketplace:list:aitbc" aitbc market list
-    run_cli_test "marketplace:list:${NODE1_HOST}" aitbc market list --service-type ollama
+    run_cli_test "market:list:aitbc" aitbc market list
+    run_cli_test "market:list:${NODE1_HOST}" aitbc market list --service-type ollama
     run_cli_test "system:check:blockchain-node" aitbc system check --service blockchain-node
     run_cli_test "system:check:gpu" aitbc system check --service gpu
-    run_cli_test "system:check:marketplace" aitbc system check --service marketplace
+    run_cli_test "system:check:market" aitbc system check --service market
 
     echo ""
     echo "CLI Test Results: $passed/$total passed"
@@ -214,8 +214,8 @@ main() {
 
     # Run scenario tests
     local scenarios=(
-        "Scenario A: Localhost GPU Miner → aitbc Marketplace:$PROJECT_ROOT/test_scenario_a.sh"
-        "Scenario B: Localhost GPU Client → ${NODE1_HOST} Marketplace:$PROJECT_ROOT/test_scenario_b.sh"
+        "Scenario A: Localhost GPU Miner → aitbc Market:$PROJECT_ROOT/test_scenario_a.sh"
+        "Scenario B: Localhost GPU Client → ${NODE1_HOST} Market:$PROJECT_ROOT/test_scenario_b.sh"
         "Scenario C: aitbc Container User Operations:$PROJECT_ROOT/test_scenario_c.sh"
         "Scenario D: ${NODE1_HOST} Container User Operations:$PROJECT_ROOT/test_scenario_d.sh"
     )

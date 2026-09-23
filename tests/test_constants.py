@@ -18,8 +18,8 @@ from aitbc.constants import (
     ENV_FILE,
     KEYSTORE_DIR,
     LOG_DIR,
-    MARKETPLACE_DATA_DIR,
-    MARKETPLACE_PORT,
+    MARKET_DATA_DIR,
+    MARKET_PORT,
     NODE_ENV_FILE,
     REPO_DIR,
 )
@@ -64,9 +64,9 @@ class TestConstants:
         """Test BLOCKCHAIN_DATA_DIR constant"""
         assert BLOCKCHAIN_DATA_DIR == DATA_DIR / "data" / "ait-mainnet"
 
-    def test_marketplace_data_dir(self):
-        """Test MARKETPLACE_DATA_DIR constant"""
-        assert MARKETPLACE_DATA_DIR == DATA_DIR / "data" / "marketplace"
+    def test_market_data_dir(self):
+        """Test MARKET_DATA_DIR constant"""
+        assert MARKET_DATA_DIR == DATA_DIR / "data" / "marketplace"
 
     def test_env_file(self):
         """Test ENV_FILE constant"""
@@ -84,9 +84,9 @@ class TestConstants:
         """Test BLOCKCHAIN_P2P_PORT constant"""
         assert BLOCKCHAIN_P2P_PORT == 8200
 
-    def test_marketplace_port(self):
-        """Test MARKETPLACE_PORT constant"""
-        assert MARKETPLACE_PORT == 8102
+    def test_market_port(self):
+        """Test MARKET_PORT constant"""
+        assert MARKET_PORT == 8102
 
 
 if __name__ == "__main__":

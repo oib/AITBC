@@ -60,7 +60,7 @@ class TestBondCommands:
         result = runner.invoke(bond, ["release", "--provider-id", "provider-1"], obj=cli_obj)
 
         assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once_with("/v1/marketplace/providers/provider-1/bonds/release")
+        mock_client.post.assert_called_once_with("/v1/market/providers/provider-1/bonds/release")
         # The accurate status is still shown, with an explicit explanation.
         assert '"status": "active"' in result.output
         assert "does not withdraw" in result.output

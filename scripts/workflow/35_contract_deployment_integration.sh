@@ -199,15 +199,15 @@ echo ""
 echo "4. 🔌 SERVICE INTEGRATION TESTING"
 echo "==============================="
 
-# Test marketplace service integration
-run_test_verbose "Marketplace service integration" "
-    echo 'Testing marketplace service availability...'
-    MARKETPLACE_LISTINGS=\$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
-    echo \"Marketplace listings: \$MARKETPLACE_LISTINGS\"
-    if [ -n \"\$MARKETPLACE_LISTINGS\" ] && [ \"\$MARKETPLACE_LISTINGS\" != \"null\" ]; then
-        echo '✅ Marketplace service integrated'
+# Test market service integration
+run_test_verbose "Market service integration" "
+    echo 'Testing market service availability...'
+    MARKET_LISTINGS=\$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)
+    echo \"Market listings: \$MARKET_LISTINGS\"
+    if [ -n \"\$MARKET_LISTINGS\" ] && [ \"\$MARKET_LISTINGS\" != \"null\" ]; then
+        echo '✅ Market service integrated'
     else
-        echo '❌ Marketplace service not available'
+        echo '❌ Market service not available'
         exit 1
     fi
 "
@@ -260,14 +260,14 @@ else
     echo -e "${YELLOW}⚠️ SKIP${NC}: No contract to test"
 fi
 
-# 6. CONTRACT-MARKETPLACE INTEGRATION
+# 6. CONTRACT-MARKET INTEGRATION
 echo ""
-echo "6. 🤝 CONTRACT-MARKETPLACE INTEGRATION"
+echo "6. 🤝 CONTRACT-MARKET INTEGRATION"
 echo "===================================="
 
-# Test creating marketplace listing for contract services
-echo "Testing marketplace listing for contract services..."
-MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/marketplace/create" \
+# Test creating market listing for contract services
+echo "Testing market listing for contract services..."
+MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/market/create" \
   -H "Content-Type: application/json" \
   -d "{
     \"title\": \"Contract Execution Service\",
@@ -283,13 +283,13 @@ MARKET_CONTRACT_RESULT=$(curl -s -X POST "http://localhost:$GENESIS_PORT/rpc/mar
     }
   }")
 
-echo "Marketplace contract result: $MARKET_CONTRACT_RESULT"
+echo "Market contract result: $MARKET_CONTRACT_RESULT"
 
 if [ -n "$MARKET_CONTRACT_RESULT" ] && [ "$MARKET_CONTRACT_RESULT" != "null" ]; then
-    echo -e "${GREEN}✅ Marketplace contract integration successful${NC}"
+    echo -e "${GREEN}✅ Market contract integration successful${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-    echo -e "${RED}❌ Marketplace contract integration failed${NC}"
+    echo -e "${RED}❌ Market contract integration failed${NC}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
@@ -385,13 +385,13 @@ else
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
-# Marketplace health
-MARKETPLACE_HEALTH=$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
-if [ -n "$MARKETPLACE_HEALTH" ]; then
-    echo -e "${GREEN}✅ Marketplace service healthy${NC}"
+# Market health
+MARKET_HEALTH=$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)
+if [ -n "$MARKET_HEALTH" ]; then
+    echo -e "${GREEN}✅ Market service healthy${NC}"
     TESTS_PASSED=$((TESTS_PASSED + 1))
 else
-    echo -e "${RED}❌ Marketplace service unhealthy${NC}"
+    echo -e "${RED}❌ Market service unhealthy${NC}"
     TESTS_FAILED=$((TESTS_FAILED + 1))
 fi
 
@@ -427,7 +427,7 @@ SERVICE INTEGRATION
 ------------------
 Blockchain RPC: $([ -n "$BLOCKCHAIN_HEALTH" ] && echo "Available" || echo "Unavailable")
 AI Service: $([ -n "$AI_HEALTH" ] && echo "Available" || echo "Unavailable")
-Marketplace Service: $([ -n "$MARKETPLACE_HEALTH" ] && echo "Available" || echo "Unavailable")
+Market Service: $([ -n "$MARKET_HEALTH" ] && echo "Available" || echo "Unavailable")
 Coordinator API: $([ -n "$COORDINATOR_HEALTH" ] && echo "Available" || echo "Unavailable")
 
 CROSS-NODE STATUS

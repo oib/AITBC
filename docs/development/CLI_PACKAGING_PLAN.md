@@ -425,14 +425,14 @@ Attempted Option 1 (Package aitbc first, then CLI) but encountered additional bl
 
 1. **CLI internal structure dependencies**
    - CLI commands import from `..config` expecting a `Config` class that doesn't exist
-   - CLI has its own `core` module with deployment, analytics, marketplace, etc.
+   - CLI has its own `core` module with deployment, analytics, market, etc.
    - These CLI-specific modules are not part of the aitbc package
    - Moving them to aitbc would create circular dependencies
 
 2. **CLI-specific modules**
    - `cli/core/deployment.py` - Production deployment logic
    - `cli/core/analytics.py` - Chain analytics
-   - `cli/core/marketplace.py` - Marketplace functionality
+   - `cli/core/market.py` - Market functionality
    - `cli/core/chain_manager.py` - Multi-chain management
    - These are CLI-specific, not shared library code
 

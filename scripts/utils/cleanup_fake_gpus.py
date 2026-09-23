@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Script to clean up fake GPU entries from the marketplace
+Script to clean up fake GPU entries from the market
 """
 
 import requests
@@ -12,9 +12,9 @@ REQUEST_TIMEOUT = 30
 
 
 def delete_fake_gpu(gpu_id):
-    """Delete a fake GPU from the marketplace"""
+    """Delete a fake GPU from the market"""
     try:
-        response = requests.delete(f"http://localhost:8000/v1/marketplace/gpu/{gpu_id}", timeout=REQUEST_TIMEOUT)
+        response = requests.delete(f"http://localhost:8000/v1/market/gpu/{gpu_id}", timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
             print(f"✅ Successfully deleted fake GPU: {gpu_id}")
             return True
@@ -43,9 +43,9 @@ def main():
     print(f"\n🎉 Cleanup complete! Deleted {deleted_count}/{len(fake_gpus)} fake GPUs")
 
     # Show remaining GPUs
-    print("\n📋 Remaining GPUs in marketplace:")
+    print("\n📋 Remaining GPUs in market:")
     try:
-        response = requests.get("http://localhost:8000/v1/marketplace/gpu/list", timeout=REQUEST_TIMEOUT)
+        response = requests.get("http://localhost:8000/v1/market/gpu/list", timeout=REQUEST_TIMEOUT)
         if response.status_code == 200:
             data = response.json()
             if "items" in data:

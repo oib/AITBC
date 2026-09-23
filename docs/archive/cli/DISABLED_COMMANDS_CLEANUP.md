@@ -21,14 +21,14 @@ This document analyzes the currently disabled CLI commands and provides recommen
 - Edge computing integration is valuable for the platform
 - Code appears well-structured and complete
 
-### 2. `marketplace_advanced` - Advanced Marketplace Features
-**File**: `cli/aitbc_cli/commands/marketplace_advanced.py`
+### 2. `market_advanced` - Advanced Market Features
+**File**: `cli/aitbc_cli/commands/market_advanced.py`
 **Status**: Commented out in `main.py` line 29
 **Reason**: "Temporarily disabled due to command registration issues"
 
 **Analysis**:
 - **Size**: Unknown (file not found in current tree)
-- **Functionality**: Advanced marketplace features
+- **Functionality**: Advanced market features
 - **Potential Value**: Medium to High
 
 **Recommendation**: **LOCATE AND EVALUATE**
@@ -36,19 +36,19 @@ This document analyzes the currently disabled CLI commands and provides recommen
 - May have been accidentally deleted
 - Check git history to recover if valuable
 
-### 3. `marketplace_cmd` - Alternative Marketplace Implementation
-**File**: `cli/aitbc_cli/commands/marketplace_cmd.py`
+### 3. `market_cmd` - Alternative Market Implementation
+**File**: `cli/aitbc_cli/commands/market_cmd.py`
 **Status**: Exists but disabled (comment in main.py line 18)
-**Reason**: Conflict with main `marketplace.py`
+**Reason**: Conflict with main `market.py`
 
 **Analysis**:
 - **Size**: 495 lines of code
-- **Functionality**: Global chain marketplace commands
-- **Dependencies**: GlobalChainMarketplace, multichain config
-- **Conflict**: Names conflict with existing `marketplace.py`
+- **Functionality**: Global chain market commands
+- **Dependencies**: GlobalChainMarket, multichain config
+- **Conflict**: Names conflict with existing `market.py`
 
 **Recommendation**: **MERGE OR DELETE**
-- Compare with existing `marketplace.py`
+- Compare with existing `market.py`
 - Merge unique features if valuable
 - Delete if redundant
 
@@ -64,18 +64,18 @@ This document analyzes the currently disabled CLI commands and provides recommen
    - Test for naming conflicts
    - Rename if necessary (e.g., `edge-deploy`)
 
-2. **Resolve `marketplace` conflict**
+2. **Resolve `market` conflict**
    ```bash
    # Compare files
-   diff cli/aitbc_cli/commands/marketplace.py cli/aitbc_cli/commands/marketplace_cmd.py
+   diff cli/aitbc_cli/commands/market.py cli/aitbc_cli/commands/market_cmd.py
    ```
    - Merge unique features
    - Delete redundant file
 
-3. **Locate missing `marketplace_advanced`**
+3. **Locate missing `market_advanced`**
    ```bash
-   git log --all -- "**/marketplace_advanced.py"
-   git checkout HEAD~1 -- cli/aitbc_cli/commands/marketplace_advanced.py
+   git log --all -- "**/market_advanced.py"
+   git checkout HEAD~1 -- cli/aitbc_cli/commands/market_advanced.py
    ```
 
 ### Code Quality Improvements
@@ -117,8 +117,8 @@ Before re-enabling any disabled command:
 | Week | Action | Status |
 |------|--------|--------|
 | 1 | Fix agent-msg registration issues | 🔄 In Progress |
-| 1 | Resolve marketplace command conflicts | 🔄 In Progress |
-| 2 | Locate and evaluate marketplace_advanced | ⏳ Pending |
+| 1 | Resolve market command conflicts | 🔄 In Progress |
+| 2 | Locate and evaluate market_advanced | ⏳ Pending |
 | 2 | Add comprehensive tests | ⏳ Pending |
 | 3 | Update documentation | ⏳ Pending |
 
@@ -127,8 +127,8 @@ Before re-enabling any disabled command:
 | Command | Risk Level | Action |
 |---------|-----------|--------|
 | agent-msg | Low | Re-enable after testing |
-| marketplace_cmd | Low | Merge or delete |
-| marketplace_advanced | Unknown | Locate and evaluate |
+| market_cmd | Low | Merge or delete |
+| market_advanced | Unknown | Locate and evaluate |
 
 ## Conclusion
 

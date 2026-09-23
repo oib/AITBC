@@ -266,15 +266,15 @@ def handle_blockchain_command(args, default_rpc_url, render_mapping):
         render_mapping("Block:", block_data)
 ```
 
-### Pattern 5: Marketplace API Integration
+### Pattern 5: Market API Integration
 
-Use marketplace exchange API:
+Use market exchange API:
 
 ```python
-def handle_marketplace_command(args, marketplace_url, render_mapping):
-    marketplace_url = args.marketplace_url or "http://localhost:8102"
+def handle_market_command(args, market_url, render_mapping):
+    market_url = args.market_url or "http://localhost:8102"
 
-    response = requests.get(f"{marketplace_url}/listings", timeout=30)
+    response = requests.get(f"{market_url}/listings", timeout=30)
     if response.status_code == 200:
         listings = response.json()
         render_mapping("Listings:", listings)

@@ -8,7 +8,7 @@
 [![Poetry](https://img.shields.io/badge/packaging-poetry-1a1a1a?logo=python)](https://python-poetry.org/)
 [![Version](https://img.shields.io/badge/version-v0.10.18-blue?style=flat-square)]()
 
-> **Decentralized marketplace for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
+> **Decentralized market for AI compute, powered by PoA consensus, agents, and verifiable task execution.**
 
 Welcome to AITBC. This repo is a Python 3.13 monorepo of FastAPI microservices, a CLI, and shared libraries for running a multi-island blockchain network where GPU providers sell compute and clients submit AI jobs that are paid, executed, and settled on-chain.
 
@@ -32,7 +32,7 @@ You can participate in three ways:
 | Role | What it is | What it does | Typical profile |
 |------|------------|--------------|-----------------|
 | **Hub** | `BLOCKCHAIN_MODE=hub` | Produces/broadcasts blocks, runs the coordinator, exchange, and public discovery endpoints. | `hub` (full services + dev deps) |
-| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, marketplace, and mining services; lists compute offers and executes jobs. | `provider-gpu` (GPU) or `server-no-gpu` (no GPU) |
+| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, market, and mining services; lists compute offers and executes jobs. | `provider-gpu` (GPU) or `server-no-gpu` (no GPU) |
 | **Client** | `MARKET_ROLE=customer` | Consumes compute: submits jobs, queries results, trades, and syncs as a follower. | `customer-no-gpu` (lightweight follower) |
 
 A single node can combine roles — a hub can also be a shop, and a follower can be a client or a shop. Services are selected by the two independent axes `BLOCKCHAIN_MODE` and `MARKET_ROLE`. See [Service Selection](docs/getting-started/setup-service-selection.md) for the full matrix.
@@ -136,7 +136,7 @@ See the [CLI README](cli/README.md) for the full command reference and the [cust
 
 - **Blockchain** — PoA consensus, adaptive sync, multi-island federation, state-root validation, gossip with Redis backend.
 - **Agents** — registry, identity, cross-chain reputation, communication, job dispatch.
-- **Compute marketplace** — GPU/edge listing, offer matching, dynamic pricing, escrow-backed payments.
+- **Compute market** — GPU/edge listing, offer matching, dynamic pricing, escrow-backed payments.
 - **Security** — JWT/RBAC, multi-sig wallets, encrypted keystores, Merkle-proof bridge verification, rate limiting.
 - **CLI & ops** — unified `aitbc_cli`, systemd units, Prometheus metrics, deployment scripts.
 

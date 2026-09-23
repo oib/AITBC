@@ -30,7 +30,7 @@ docs/
 ├── getting-started/
 ├── governance/
 ├── infrastructure/
-├── marketplace/
+├── market/
 ├── meta/
 ├── mining/
 ├── ops/
@@ -82,7 +82,7 @@ docs/
 | [getting-started](getting-started/) | 31 | New-user onboarding and setup |
 | [governance](governance/) | 12 | Governance and voting documentation |
 | [infrastructure](infrastructure/) | 10 | Infrastructure and migration docs |
-| [marketplace](marketplace/) | 27 | Marketplace, exchange, and trading docs |
+| [market](market/) | 27 | Market, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
 | [ops](ops/) | 3 | Operational runbooks and key handling |

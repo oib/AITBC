@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Production Services Deployment
@@ -192,15 +193,15 @@ EOF
 chmod +x /opt/aitbc/production/services/blockchain.py
 echo "✅ Production blockchain service created"
 
-# Step 2: Create Production Marketplace Service
-echo -e "${CYAN}🏪 Step 2: Production Marketplace Service${NC}"
+# Step 2: Create Production Market Service
+echo -e "${CYAN}🏪 Step 2: Production Market Service${NC}"
 echo "======================================"
 
-cat > /opt/aitbc/production/services/marketplace.py << 'EOF'
+cat > /opt/aitbc/production/services/market.py << 'EOF'
 #!/usr/bin/env python3
 """
-Production Marketplace Service
-Real marketplace with database persistence and API
+Production Market Service
+Real market with database persistence and API
 """
 
 import os
@@ -224,7 +225,7 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/marketplace/marketplace.log'),
+        logging.FileHandler('/opt/aitbc/production/logs/marketplace/market.log'),
         logging.StreamHandler()
     ]
 )
@@ -249,8 +250,8 @@ class Bid(BaseModel):
     total_cost: float
     status: str
 
-class ProductionMarketplace:
-    """Production-grade marketplace with persistence"""
+class ProductionMarket:
+    """Production-grade market with persistence"""
 
     def __init__(self):
         self.data_dir = Path('/opt/aitbc/production/data/marketplace')
@@ -259,10 +260,10 @@ class ProductionMarketplace:
         # Load existing data
         self._load_data()
 
-        logger.info("Production marketplace initialized")
+        logger.info("Production market initialized")
 
     def _load_data(self):
-        """Load marketplace data from disk"""
+        """Load market data from disk"""
         self.gpu_listings = {}
         self.bids = {}
 
@@ -281,10 +282,10 @@ class ProductionMarketplace:
             logger.info(f"Loaded {len(self.gpu_listings)} GPU listings and {len(self.bids)} bids")
 
         except Exception as e:
-            logger.error(f"Failed to load marketplace data: {e}")
+            logger.error(f"Failed to load market data: {e}")
 
     def _save_data(self):
-        """Save marketplace data to disk"""
+        """Save market data to disk"""
         try:
             listings_file = self.data_dir / 'gpu_listings.json'
             bids_file = self.data_dir / 'bids.json'
@@ -295,10 +296,10 @@ class ProductionMarketplace:
             with open(bids_file, 'w') as f:
                 json.dump(self.bids, f, indent=2)
 
-            logger.debug("Marketplace data saved")
+            logger.debug("Market data saved")
 
         except Exception as e:
-            logger.error(f"Failed to save marketplace data: {e}")
+            logger.error(f"Failed to save market data: {e}")
 
     def add_gpu_listing(self, listing: dict) -> str:
         """Add a new GPU listing"""
@@ -336,8 +337,8 @@ class ProductionMarketplace:
             logger.error(f"Failed to create bid: {e}")
             raise
 
-    def get_marketplace_stats(self) -> dict:
-        """Get marketplace statistics"""
+    def get_market_stats(self) -> dict:
+        """Get market statistics"""
         return {
             'total_gpus': len(self.gpu_listings),
             'available_gpus': len([g for g in self.gpu_listings.values() if g['status'] == 'available']),
@@ -346,14 +347,14 @@ class ProductionMarketplace:
             'total_value': sum(b['total_cost'] for b in self.bids.values())
         }
 
-# Initialize marketplace
-marketplace = ProductionMarketplace()
+# Initialize market
+market = ProductionMarket()
 
 # FastAPI app
 app = FastAPI(
-    title="AITBC Production Marketplace",
+    title="AITBC Production Market",
     version="1.0.0",
-    description="Production-grade GPU marketplace"
+    description="Production-grade GPU market"
 )
 
 app.add_middleware(
@@ -369,16 +370,16 @@ async def health():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "production-marketplace",
+        "service": "production-market",
         "timestamp": datetime.utcnow().isoformat(),
-        "stats": marketplace.get_marketplace_stats()
+        "stats": market.get_market_stats()
     }
 
 @app.post("/gpu/listings")
 async def add_gpu_listing(listing: dict):
     """Add a new GPU listing"""
     try:
-        gpu_id = marketplace.add_gpu_listing(listing)
+        gpu_id = market.add_gpu_listing(listing)
         return {"gpu_id": gpu_id, "status": "created"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -387,25 +388,25 @@ async def add_gpu_listing(listing: dict):
 async def create_bid(bid: dict):
     """Create a new bid"""
     try:
-        bid_id = marketplace.create_bid(bid)
+        bid_id = market.create_bid(bid)
         return {"bid_id": bid_id, "status": "created"}
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 @app.get("/stats")
 async def get_stats():
-    """Get marketplace statistics"""
-    return marketplace.get_marketplace_stats()
+    """Get market statistics"""
+    return market.get_market_stats()
 
 if __name__ == '__main__':
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=int(os.getenv('MARKETPLACE_PORT', 8002)),
+        port=int(os.getenv('MARKET_PORT', 8002)),
         workers=int(os.getenv('WORKERS', 4)),
         log_level="info"
     )
 EOF
 
-chmod +x /opt/aitbc/production/services/marketplace.py
-echo "✅ Production marketplace service created"
+chmod +x /opt/aitbc/production/services/market.py
+echo "✅ Production market service created"

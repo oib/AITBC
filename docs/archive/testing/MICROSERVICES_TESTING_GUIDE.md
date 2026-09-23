@@ -54,10 +54,10 @@ CREATE ROLE
 GRANT
 ```
 
-### Marketplace Service Database
+### Market Service Database
 
 ```bash
-sudo -u postgres psql -f apps/marketplace-service/scripts/setup-database.sql
+sudo -u postgres psql -f apps/market-service/scripts/setup-database.sql
 ```
 
 ### Trading Service Database
@@ -81,7 +81,7 @@ sudo -u postgres psql -l
 Expected databases:
 
 - aitbc_gpu
-- aitbc_marketplace
+- aitbc_market
 - aitbc_trading
 - aitbc_governance
 
@@ -93,8 +93,8 @@ Install each service using Poetry:
 # GPU Service
 poetry install --with gpu-service
 
-# Marketplace Service
-poetry install --with marketplace-service
+# Market Service
+poetry install --with market-service
 
 # Trading Service
 poetry install --with trading-service
@@ -117,9 +117,9 @@ Start services manually in separate terminal windows:
 cd /opt/aitbc
 python -m gpu_service.main
 
-# Terminal 2: Marketplace Service
+# Terminal 2: Market Service
 cd /opt/aitbc
-python -m marketplace_service.main
+python -m market_service.main
 
 # Terminal 3: Trading Service
 cd /opt/aitbc
@@ -141,7 +141,7 @@ For production deployment, use systemd services:
 ```bash
 # Copy service files to systemd
 sudo cp apps/gpu-service/gpu-service.service /etc/systemd/system/
-sudo cp apps/marketplace-service/marketplace-service.service /etc/systemd/system/
+sudo cp apps/market-service/market-service.service /etc/systemd/system/
 sudo cp apps/trading-service/trading-service.service /etc/systemd/system/
 sudo cp apps/governance/governance-service.service /etc/systemd/system/
 sudo cp apps/api-gateway/api-gateway.service /etc/systemd/system/
@@ -150,12 +150,12 @@ sudo cp apps/api-gateway/api-gateway.service /etc/systemd/system/
 sudo systemctl daemon-reload
 
 # Enable and start services
-sudo systemctl enable gpu-service marketplace-service trading-service governance-service api-gateway
-sudo systemctl start gpu-service marketplace-service trading-service governance-service api-gateway
+sudo systemctl enable gpu-service market-service trading-service governance-service api-gateway
+sudo systemctl start gpu-service market-service trading-service governance-service api-gateway
 
 # Check service status
 sudo systemctl status gpu-service
-sudo systemctl status marketplace-service
+sudo systemctl status market-service
 sudo systemctl status trading-service
 sudo systemctl status governance-service
 sudo systemctl status api-gateway
@@ -199,7 +199,7 @@ Expected response:
 #### Get Consumer GPU Profiles
 
 ```bash
-curl http://localhost:8101/v1/marketplace/edge-gpu/profiles
+curl http://localhost:8101/v1/market/edge-gpu/profiles
 ```
 
 Expected response:
@@ -219,9 +219,9 @@ Expected response:
 ]
 ```
 
-### Marketplace Service Testing
+### Market Service Testing
 
-#### Health Check — Marketplace Service Testing
+#### Health Check — Market Service Testing
 
 ```bash
 curl http://localhost:8102/health
@@ -232,14 +232,14 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "service": "marketplace-service"
+  "service": "market-service"
 }
 ```
 
-#### Get Marketplace Offers
+#### Get Market Offers
 
 ```bash
-curl http://localhost:8102/v1/marketplace/offers
+curl http://localhost:8102/v1/market/offers
 ```
 
 Expected response:
@@ -341,10 +341,10 @@ Expected response:
       "routes": ["/gpu/*"]
     },
     {
-      "name": "marketplace",
+      "name": "market",
       "url": "http://localhost:8102",
       "health_check": "/health",
-      "routes": ["/marketplace/*"]
+      "routes": ["/market/*"]
     },
     {
       "name": "trading",
@@ -378,7 +378,7 @@ Expected response:
 ```
 
 ```bash
-curl http://localhost:8080/gpu/v1/marketplace/edge-gpu/profiles
+curl http://localhost:8080/gpu/v1/market/edge-gpu/profiles
 ```
 
 Expected response:
@@ -398,10 +398,10 @@ Expected response:
 ]
 ```
 
-### Test Marketplace Service Through Gateway
+### Test Market Service Through Gateway
 
 ```bash
-curl http://localhost:8080/marketplace/health
+curl http://localhost:8080/market/health
 ```
 
 Expected response:
@@ -409,7 +409,7 @@ Expected response:
 ```json
 {
   "status": "healthy",
-  "service": "marketplace-service"
+  "service": "market-service"
 }
 ```
 
@@ -540,7 +540,7 @@ Before considering testing complete:
 - [ ] Gateway health check passes
 - [ ] Gateway service registry shows all services
 - [ ] Gateway successfully proxies requests to GPU service
-- [ ] Gateway successfully proxies requests to Marketplace service
+- [ ] Gateway successfully proxies requests to Market service
 - [ ] Gateway successfully proxies requests to Trading service
 - [ ] Gateway successfully proxies requests to Governance service
 - [ ] No 500 errors in service logs

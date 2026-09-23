@@ -1,7 +1,7 @@
 """
 Edge GPU Domain Models
 
-Migrated from contexts/marketplace/domain/gpu_marketplace.py in v0.5.14.
+Migrated from contexts/market/domain/gpu_market.py in v0.5.14.
 The edge_gpu context is the sole consumer of these models (edge_gpu_service.py),
 so ownership moved here to eliminate the cross-context domain-model import.
 SQLModel table names are unchanged — no DB migration required.

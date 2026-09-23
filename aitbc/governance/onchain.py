@@ -117,7 +117,7 @@ _KNOWN_TARGET_SERVICES: dict[str, set[str]] = {
         "default_chain_id",
         "agent_coordinator_url",
     },
-    "marketplace": {
+    "market": {
         "default_chain_id",
         "agent_coordinator_url",
         "matching_algorithm",
@@ -188,7 +188,7 @@ def build_parameter_apply_tx(
     """Build a GOVERNANCE_EXECUTE transaction payload that applies a parameter change.
 
     This is the execution payload for a parameter_change proposal that has
-    passed voting and the timelock. Target services (pool-hub, marketplace,
+    passed voting and the timelock. Target services (pool-hub, market,
     blockchain-node) consume this payload via their governance-triggered
     parameter API endpoints (Agent B B3/B4) to apply the change.
 

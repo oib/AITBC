@@ -12,7 +12,7 @@ Join a miner to a pool
 - `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py` — List jobs assigned to a specific miner
 - `Blockchain Node` exposes `POST /rpc/islands/join` (operation `join_island_route_rpc_islands_join_post`) — Join an island
 - `Coordinator API` exposes `POST /v1/admin/debug/create-test-miner` (operation `create_test_miner_v1_admin_debug_create_test_miner_post`) — Create a test miner for debugging
-- `Coordinator API` exposes `GET /v1/marketplace/miner-offers` (operation `list_miner_offers_v1_marketplace_miner_offers_get`) — List all miner offers
+- `Coordinator API` exposes `GET /v1/market/miner-offers` (operation `list_miner_offers_v1_market_miner_offers_get`) — List all miner offers
 
 ## Examples
 
@@ -23,7 +23,7 @@ Join a miner to a pool
 - `POST /bridge` (`request_bridge` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `POST /rpc/islands/join` (`join_island_route_rpc_islands_join_post`) on `Blockchain Node`
 - `POST /v1/admin/debug/create-test-miner` (`create_test_miner_v1_admin_debug_create_test_miner_post`) on `Coordinator API`
-- `GET /v1/marketplace/miner-offers` (`list_miner_offers_v1_marketplace_miner_offers_get`) on `Coordinator API`
+- `GET /v1/market/miner-offers` (`list_miner_offers_v1_market_miner_offers_get`) on `Coordinator API`
 
 ## Operational Notes
 

@@ -60,7 +60,7 @@ All 12 MyPy strict options are now enforced:
 | ffmpeg | ⚠️ Minor issues | Near Clean |
 | governance | ⚠️ Minor issues | Near Clean |
 | gpu | ⚠️ Minor issues | Near Clean |
-| marketplace | ⚠️ Minor issues | Near Clean |
+| market | ⚠️ Minor issues | Near Clean |
 | miner | ⚠️ Minor issues | Near Clean |
 | shared-core | ✅ Yes | Clean ✅ |
 | shared-domain | ✅ Yes | Clean ✅ |
@@ -186,8 +186,8 @@ To achieve full strict mode, the following changes were made across the codebase
    - blockchain-event-bridge: Fixed Task and list type arguments
    - bridge-monitor: Fixed dict type arguments in storage
    - governance: Fixed dict type arguments in services and main
-   - gpu: Fixed list/dict type arguments in marketplace and services
-   - marketplace: Fixed list/dict type arguments in domain and services
+   - gpu: Fixed list/dict type arguments in market and services
+   - market: Fixed list/dict type arguments in domain and services
    - trading: Fixed dict type arguments in services and main
 
 3. **Configuration update:**
@@ -236,7 +236,7 @@ The project uses pre-commit hooks to enforce code quality automatically on every
 
 - **pre-commit-hooks**: Basic file checks (trailing whitespace, YAML, JSON, merge conflicts, etc.)
 - **Ruff**: Linting with auto-fix and formatting
-- **MyPy**: Type checking on the 12 clean apps (coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer)
+- **MyPy**: Type checking on the 12 clean apps (coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, market, api-gateway, blockchain-event-bridge, blockchain-explorer)
 - **Bandit**: Security scanning (runs on pre-push only)
 
 ### Installation
@@ -266,7 +266,7 @@ Services use standardized environment variables for bind configuration:
 
 | Service | Host Variable | Port Variable | Default Host | Default Port |
 |---------|---------------|---------------|--------------|--------------|
-| Marketplace | `MARKETPLACE_BIND_HOST` | `MARKETPLACE_BIND_PORT` | `0.0.0.0` | 8102 |
+| Market | `MARKET_BIND_HOST` | `MARKET_BIND_PORT` | `0.0.0.0` | 8102 |
 | GPU | `GPU_BIND_HOST` | `GPU_BIND_PORT` | `0.0.0.0` | 8101 |
 | Trading | `TRADING_BIND_HOST` | `TRADING_BIND_PORT` | `0.0.0.0` | 8104 |
 | Governance | `GOVERNANCE_BIND_HOST` | `GOVERNANCE_BIND_PORT` | `0.0.0.0` | 8105 |
@@ -281,8 +281,8 @@ Services use standardized environment variables for bind configuration:
 
 ```bash
 # Multi-node deployment (default - bind to all interfaces)
-export MARKETPLACE_BIND_HOST=0.0.0.0
-export MARKETPLACE_BIND_PORT=8102
+export MARKET_BIND_HOST=0.0.0.0
+export MARKET_BIND_PORT=8102
 
 # Local-only deployment (restrict to localhost)
 export GPU_BIND_HOST=127.0.0.1
@@ -346,7 +346,7 @@ grep -r "reload\s*=\s*True" /opt/aitbc/apps --include="*.py"
 
 - **Status**: ✅ 0 errors on 12 clean apps
 - **Strict mode**: ✅ 12/12 strict options enabled
-- **Applications clean**: coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, marketplace, api-gateway, blockchain-event-bridge, blockchain-explorer
+- **Applications clean**: coordinator-api, blockchain-node, pool-hub, edge, wallet, agent-coordinator, agent-management, agent, market, api-gateway, blockchain-event-bridge, blockchain-explorer
 
 ---
 

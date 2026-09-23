@@ -64,7 +64,7 @@ def _get_wallet_password(wallet_name: str) -> str:
   aitbc operations governance vote --proposal-id prop-123 --vote for""",
 )
 def operations():
-    """Deprecated legacy on-chain operations commands for marketplace, AI, agent, and governance."""
+    """Deprecated legacy on-chain operations commands for market, AI, agent, and governance."""
     pass
 
 

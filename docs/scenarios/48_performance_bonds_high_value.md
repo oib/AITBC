@@ -140,13 +140,13 @@ aitbc bond appeal --bond-id <bond-id> --reason "dispute"
 
 ## What the CLI actually does
 
-- `aitbc bond create` `POST`s to `/v1/marketplace/providers/{provider_id}/bonds`
+- `aitbc bond create` `POST`s to `/v1/market/providers/{provider_id}/bonds`
   and creates a `ProviderBond` record with `status: active`.
-- `aitbc bond create` `POST`s to `/v1/marketplace/providers/{provider_id}/bonds`
+- `aitbc bond create` `POST`s to `/v1/market/providers/{provider_id}/bonds`
   and creates a `ProviderBond` record. If the posted `amount` is below the
   global floor (`COORDINATOR_BOND_MIN_AMOUNT`, default 1 AIT) or the supplied
   `required_amount`, the bond is left in `PENDING` until it is topped up.
-- `aitbc bond status` `GET`s `/v1/marketplace/providers/{provider_id}/eligibility`
+- `aitbc bond status` `GET`s `/v1/market/providers/{provider_id}/eligibility`
   and returns `eligible: true` only when the bond is `active` or `locked` and
   its `amount` is at least the required floor.
 - `aitbc ai submit --bond-required` sets `job.constraints.bond_required = true`.

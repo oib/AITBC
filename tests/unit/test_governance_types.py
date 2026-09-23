@@ -35,13 +35,13 @@ def test_parameter_change_schema_basic_fields() -> None:
 def test_parameter_change_schema_with_description() -> None:
     """ParameterChangeSchema accepts an optional description."""
     schema = ParameterChangeSchema(
-        target_service="marketplace",
+        target_service="market",
         parameter_name="matching_fee_percent",
         old_value=5.0,
         new_value=3.0,
-        description="Reduce marketplace matching fee from 5% to 3%",
+        description="Reduce market matching fee from 5% to 3%",
     )
-    assert schema.description == "Reduce marketplace matching fee from 5% to 3%"
+    assert schema.description == "Reduce market matching fee from 5% to 3%"
 
 
 def test_parameter_change_schema_to_apply_dict_poolhub() -> None:
@@ -60,16 +60,16 @@ def test_parameter_change_schema_to_apply_dict_poolhub() -> None:
     }
 
 
-def test_parameter_change_schema_to_apply_dict_marketplace() -> None:
-    """to_apply_dict() produces the request body for marketplace parameter API."""
+def test_parameter_change_schema_to_apply_dict_market() -> None:
+    """to_apply_dict() produces the request body for market parameter API."""
     schema = ParameterChangeSchema(
-        target_service="marketplace",
+        target_service="market",
         parameter_name="matching_fee_percent",
         old_value=5.0,
         new_value=3.0,
     )
     apply_dict = schema.to_apply_dict()
-    assert apply_dict["target_service"] == "marketplace"
+    assert apply_dict["target_service"] == "market"
     assert apply_dict["parameter_name"] == "matching_fee_percent"
     assert apply_dict["new_value"] == 3.0
 

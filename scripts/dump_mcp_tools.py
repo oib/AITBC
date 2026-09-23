@@ -46,7 +46,6 @@ ROLE_HINTS: dict[str, list[str]] = {
     # CLI groups
     "ai": ["hub", "customer", "customer2"],
     "market": ["hub", "customer", "shop"],
-    "marketplace": ["hub", "customer", "shop"],
     "wallet": ["hub", "customer", "customer2"],
     "transactions": ["hub", "customer", "customer2"],
     "dashboard:customer": ["hub", "customer", "customer2"],
@@ -77,7 +76,7 @@ ROLE_HINTS: dict[str, list[str]] = {
     "agent-coordinator": ["hub"],
     "blockchain-event-bridge": ["hub"],
     "exchange": ["hub", "customer"],
-    # marketplace, gpu, pool-hub, whisper, ffmpeg, hermes, ollama are already
+    # market, gpu, pool-hub, whisper, ffmpeg, hermes, ollama are already
     # covered by the identical CLI-group entries above.
     "blockchain-explorer": ["hub", "shop", "follower", "follower2"],
     "ipfs": ["hub", "customer", "customer2", "shop", "follower", "follower2"],

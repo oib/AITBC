@@ -1,0 +1,123 @@
+# How to Use `<node2>`'s Whisper Transcription Service
+
+`<node2>` offers GPU-accelerated speech-to-text (Whisper base, CUDA) at **0.02 AIT per audio minute**.
+
+---
+
+## 1. Discover the offer
+
+```bash
+# List all software offers on the market
+aitbc market list
+
+# Or query the market service directly (port 8102)
+curl "http://localhost:8102/v1/market/plugins?service_type=whisper"
+curl http://localhost:8102/v1/market/offer/whisper-base   # latest offer for the plugin
+```
+
+Latest confirmed offer on hub:
+
+```
+offer_id : sw_offer_20260603125540_49d92c3c
+service  : whisper / base
+price    : 0.02 AIT/per_audio_min
+provider : 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
+```
+
+---
+
+## 2. Transcribe an audio file
+
+```bash
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c --audio-file /path/to/audio.mp3
+```
+
+### Options
+
+| Flag | Default | Description |
+|---|---|---|
+| `--language en` | auto-detect | Force language (faster) |
+| `--task translate` | transcribe | Translate to English |
+| `--output-format srt` | text | Output as SRT subtitles |
+| `--output-format json` | text | Full JSON with timestamps |
+
+### Examples
+
+```bash
+# Basic transcription
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c --audio-file interview.mp3
+
+# Force German, output SRT subtitles
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c \
+  --audio-file podcast.mp3 --language de --output-format srt
+
+# Translate Spanish audio to English
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c \
+  --audio-file meeting.mp4 --task translate
+
+# Full JSON with segment timestamps
+aitbc market transcribe --offer-id-or-plugin-id sw_offer_20260603125540_49d92c3c \
+  --audio-file lecture.wav --output-format json
+```
+
+---
+
+## 3. What happens under the hood
+
+1. `ffprobe` measures audio duration → estimates cost
+2. Escrow locked on `<node2>`'s blockchain node (buyer's funds held)
+3. Audio uploaded to `http://shop.example.net/whisper/transcribe` via nginx (GPU inference on RTX 4060 Ti)
+4. Transcript returned — actual audio duration measured
+5. Metered escrow release: `actual_minutes × 0.02 AIT` → provider wallet
+6. On-chain TX confirms payment (visible on hub chain)
+
+---
+
+## 4. Expose Whisper publicly on `<node2>` (nginx setup)
+
+The offer's public endpoint (`http://shop.example.net/whisper`) is defined in `examples/nginx/nginx-aitbc.conf.example`.
+
+On `<node2>`, after `git pull`:
+
+```bash
+# Install/update nginx config from the reference example
+sudo cp /opt/aitbc/examples/nginx/nginx-aitbc.conf.example /etc/nginx/sites-available/aitbc
+sudo ln -sf /etc/nginx/sites-available/aitbc /etc/nginx/sites-enabled/aitbc
+sudo nginx -t && sudo systemctl reload nginx
+```
+
+This exposes:
+
+- `http://shop.example.net/whisper/transcribe` → `localhost:8110/transcribe`
+- `http://shop.example.net/whisper/health` → `localhost:8110/health`
+- `http://shop.example.net/ollama/api/generate` → `localhost:11434/api/generate`
+
+---
+
+## 5. Always get the latest offer_id
+
+Offers are re-published on node restart. Always resolve the current one:
+
+```bash
+# From the market service (latest offer for the plugin)
+curl http://localhost:8102/v1/market/offer/whisper-base
+
+# Or from market list
+aitbc market list | grep whisper
+```
+
+---
+
+## 5. What to prompt the hub
+
+Tell the hub agent:
+
+> "Use `aitbc market transcribe` with offer ID `sw_offer_20260603125540_49d92c3c` to transcribe my audio file. The provider is `<node2>` (`0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F`), running Whisper base on an RTX 4060 Ti. Price is 0.02 AIT per audio minute. Payment is metered via blockchain escrow and released automatically after transcription."
+
+The hub can also discover the offer programmatically:
+
+```
+GET https://hub.example.net/api/v1/plugin/plugins?service_type=whisper
+```
+
+(or `GET http://localhost:8102/v1/market/plugins?service_type=whisper` directly on the hub) <!-- check-ports: ignore -->

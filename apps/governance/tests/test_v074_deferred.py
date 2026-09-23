@@ -3,7 +3,7 @@
 Tests cover:
 - B2: Cross-chain governance endpoints (propagate, aggregate-votes, execute-cross-chain)
 - B3: Pool-hub parameter change API
-- B4: Marketplace parameter change API
+- B4: Market parameter change API
 - B5: Emergency proposal handling
 - B6: BridgeClientAdapter
 - B8: CLI commands (smoke tests)
@@ -21,10 +21,10 @@ _REPO = Path(__file__).resolve().parents[3]
 _GOV_SRC = str(Path(__file__).resolve().parent.parent / "src")
 _BC_SRC = str(_REPO / "apps" / "blockchain-node" / "src")
 _POOLHUB_SRC = str(_REPO / "apps" / "pool-hub" / "src")
-_MARKETPLACE_SRC = str(_REPO / "apps" / "marketplace" / "src")
+_MARKET_SRC = str(_REPO / "apps" / "market" / "src")
 _CLI_SRC = str(_REPO / "cli")
 _COORD_SRC = str(_REPO / "apps" / "coordinator-api" / "src")
-for _p in [_GOV_SRC, _BC_SRC, _POOLHUB_SRC, _MARKETPLACE_SRC, _CLI_SRC, _COORD_SRC]:
+for _p in [_GOV_SRC, _BC_SRC, _POOLHUB_SRC, _MARKET_SRC, _CLI_SRC, _COORD_SRC]:
     if _p not in sys.path:
         sys.path.insert(0, _p)
 
@@ -41,7 +41,7 @@ def _load_bridge_adapter():
     unusable loader underneath was never reached.
 
     Imported as a package instead, the way this file already reaches blockchain-node,
-    pool-hub and marketplace. A rename now breaks it in one place, with an ImportError
+    pool-hub and market. A rename now breaks it in one place, with an ImportError
     that names the package.
     """
     import importlib
@@ -135,34 +135,34 @@ class TestPoolHubParameterAPI:
 
 
 # ============================================================================
-# B4: Marketplace Parameter API
+# B4: Market Parameter API
 # ============================================================================
 
 
-class TestMarketplaceParameterAPI:
-    """Tests for marketplace parameter change endpoint."""
+class TestMarketParameterAPI:
+    """Tests for market parameter change endpoint."""
 
-    def test_marketplace_parameter_change_request_model(self):
-        """Test that ParameterChangeRequest model exists in marketplace."""
-        from marketplace_service.main import ParameterChangeRequest
+    def test_market_parameter_change_request_model(self):
+        """Test that ParameterChangeRequest model exists in market."""
+        from market_service.main import ParameterChangeRequest
 
         req = ParameterChangeRequest(
             proposal_id="prop-1",
-            target_service="marketplace",
+            target_service="market",
             parameter_name="default_chain_id",
             old_value="ait-hub",
             new_value="ait-hub-2",
         )
-        assert req.target_service == "marketplace"
+        assert req.target_service == "market"
         assert req.parameter_name == "default_chain_id"
 
-    def test_marketplace_governance_parameters_defined(self):
+    def test_market_governance_parameters_defined(self):
         """Test that allowed governance parameters are defined."""
-        from marketplace_service.main import _MARKETPLACE_GOVERNANCE_PARAMETERS
+        from market_service.main import _MARKET_GOVERNANCE_PARAMETERS
 
-        assert "default_chain_id" in _MARKETPLACE_GOVERNANCE_PARAMETERS
-        assert "agent_coordinator_url" in _MARKETPLACE_GOVERNANCE_PARAMETERS
-        assert "matching_algorithm" in _MARKETPLACE_GOVERNANCE_PARAMETERS
+        assert "default_chain_id" in _MARKET_GOVERNANCE_PARAMETERS
+        assert "agent_coordinator_url" in _MARKET_GOVERNANCE_PARAMETERS
+        assert "matching_algorithm" in _MARKET_GOVERNANCE_PARAMETERS
 
 
 # ============================================================================
@@ -390,4 +390,4 @@ class TestParameterChangeHelper:
         from aitbc.governance.onchain import _KNOWN_TARGET_SERVICES
 
         assert "pool-hub" in _KNOWN_TARGET_SERVICES
-        assert "marketplace" in _KNOWN_TARGET_SERVICES
+        assert "market" in _KNOWN_TARGET_SERVICES

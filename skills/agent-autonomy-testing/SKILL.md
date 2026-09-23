@@ -35,7 +35,7 @@ API key: read from `/run/aitbc/secrets/.env` → `COORDINATOR_API_KEY=value`
 - **Fix: `systemctl restart aitbc-coordinator-api`**
 - Always restart after modifying Python files under coordinator-api
 
-### Bug 5: Marketplace services not wired
+### Bug 5: Market services not wired
 - `plugin_manager`, `resource_matcher`, `market_analytics`, `external_providers`
   exist as service files but have NO router registration
 - Not accessible via HTTP

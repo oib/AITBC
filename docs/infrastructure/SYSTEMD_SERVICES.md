@@ -23,9 +23,9 @@ On the hub an additional `aitbc-blockchain-p2p.service` may run the gossip relay
 
 | Unit | Purpose | Port | Health |
 |------|---------|------|--------|
-| `aitbc-coordinator-api.service` | Job lifecycle, marketplace, escrow, payments, bonds | 8203 | `curl -s http://localhost:8203/health` |
+| `aitbc-coordinator-api.service` | Job lifecycle, market, escrow, payments, bonds | 8203 | `curl -s http://localhost:8203/health` |
 | `aitbc-pool-hub.service` | Miner registration, heartbeats, matching | 8210 | `curl -s http://localhost:8210/health` |
-| `aitbc-marketplace.service` | Marketplace listings and offers | 8102 | `curl -s http://localhost:8102/health` |
+| `aitbc-market.service` | Market listings and offers | 8102 | `curl -s http://localhost:8102/health` |
 | `aitbc-api-gateway.service` | External nginx-proxied API entry point | 8201 | `curl -s http://localhost:8201/health` |
 | `aitbc-wallet.service` | Wallet daemon | 8108 | `curl -s http://localhost:8108/health` |
 | `aitbc-exchange.service` | Exchange / bridge operations | 8106 | `curl -s http://localhost:8106/health` |
@@ -41,11 +41,11 @@ On the hub an additional `aitbc-blockchain-p2p.service` may run the gossip relay
 |------|---------|------|--------|
 | `aitbc-miner.service` | Production miner; polls coordinator for jobs | — | `journalctl -u aitbc-miner -n 20` |
 | `aitbc-pool-hub.service` | Local pool hub for miner coordination | 8210 | `curl -s http://localhost:8210/health` |
-| `aitbc-gpu.service` | GPU marketplace and hardware registration | 8101 | `curl -s http://localhost:8101/health` |
+| `aitbc-gpu.service` | GPU market and hardware registration | 8101 | `curl -s http://localhost:8101/health` |
 | `aitbc-ffmpeg.service` | FFmpeg media processing | 8230 | `curl -s http://localhost:8230/health` |
 | `aitbc-whisper.service` | Whisper transcription | 8110 | `curl -s http://localhost:8110/health` |
 | `aitbc-edge.service` | Edge compute and dispatch | 8111 | `curl -s http://localhost:8111/health` |
-| `aitbc-marketplace.service` | Marketplace listings and offers | 8102 | `curl -s http://localhost:8102/health` |
+| `aitbc-market.service` | Market listings and offers | 8102 | `curl -s http://localhost:8102/health` |
 | `aitbc-trading.service` | Trading and subscription sync | 8104 | `curl -s http://localhost:8104/health` |
 | `aitbc-governance.service` | Proposals and voting | 8105 | `curl -s http://localhost:8105/health` |
 | `aitbc-wallet.service` | Wallet daemon | 8108 | `curl -s http://localhost:8108/health` |

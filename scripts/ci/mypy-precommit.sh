@@ -87,7 +87,7 @@ APPS=(
   apps/edge
   apps/wallet
   apps/agent-coordinator
-  apps/marketplace
+  apps/market
   apps/api-gateway
   apps/blockchain-event-bridge
   apps/blockchain-explorer

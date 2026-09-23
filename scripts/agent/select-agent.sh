@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - Select Agent for Job Script
@@ -49,16 +50,16 @@ import time
 with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
-# Load job marketplace
+# Load job market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
 # Load economic system
 with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 # Validate job exists
-if '$JOB_ID' not in marketplace['jobs']:
+if '$JOB_ID' not in market['jobs']:
     print(f'❌ Error: Job {\"$JOB_ID\"} not found')
     exit(1)
 
@@ -68,7 +69,7 @@ if '$AGENT_ADDRESS' not in registry['agents']:
     exit(1)
 
 # Get job and agent details
-job = marketplace['jobs']['$JOB_ID']
+job = market['jobs']['$JOB_ID']
 agent = registry['agents']['$AGENT_ADDRESS']
 
 # Check if agent has applied
@@ -132,9 +133,9 @@ economics['network_metrics']['total_transactions'] += 1
 economics['network_metrics']['total_value_locked'] += escrow_amount
 economics['last_updated'] = time.time()
 
-# Save updated marketplace
+# Save updated market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
-    json.dump(marketplace, f, indent=2)
+    json.dump(market, f, indent=2)
 
 # Save updated economic system
 with open('/var/lib/aitbc/data/economic_system.json', 'w') as f:

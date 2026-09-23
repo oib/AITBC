@@ -59,9 +59,9 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 | Service | Port | Notes |
 |---------|------|-------|
 | Blockchain RPC | 8202 | Main blockchain API + messaging |
-| Coordinator API | 8203 | Jobs, marketplace, escrow (all `/v1/*`) |
+| Coordinator API | 8203 | Jobs, market, escrow (all `/v1/*`) |
 | Agent Coordinator | 8107 | Agent registry and discovery (all `/v1/*`) |
-| Marketplace | 8102 | Marketplace operations |
+| Market | 8102 | Market operations |
 | P2P Network | 7070 | Blockchain peer-to-peer |
 
 ## Operations
@@ -113,7 +113,7 @@ curl -s -X POST http://<node1>:8202/rpc/contracts/messaging/messages/post \
 # key is silently dropped and the agent registers with no endpoints at all.
 curl -s -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"agent-main","agent_type":"worker","capabilities":["marketplace","messaging"],"services":["task-execution"],"endpoints":{"http":"http://localhost:9997"}}'
+  -d '{"agent_id":"agent-main","agent_type":"worker","capabilities":["market","messaging"],"services":["task-execution"],"endpoints":{"http":"http://localhost:9997"}}'
 
 # List agents (same on all nodes via shared state).
 # There is no GET /agents collection route; discovery is a POST with a filter.
@@ -142,7 +142,7 @@ ssh <node1> 'aitbc network peers'
 3. **Service Restart Failures:** Check systemd logs: `journalctl -u aitbc-blockchain-node.service -n 50`
 4. **Port Confusion:** Two different "coordinators" exist. Agent registration
    (`/v1/agents/register`) is the **Agent Coordinator on 8107** -- not 8203, and
-   not the historical 9001. The Coordinator API on 8203 serves jobs/marketplace/
+   not the historical 9001. The Coordinator API on 8203 serves jobs/market/
    escrow; its `/v1/agents/*` routes are workflows and executions only, with no
    `/register`. Mind the prefix: the Agent Coordinator's agent and task routers
    are mounted under `/v1`, but its auth, keys, messages and workflow routers

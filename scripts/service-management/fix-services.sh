@@ -4,7 +4,7 @@ set -euo pipefail
 # Quick fix to start AITBC services via systemd
 #
 # Ports come from lib/services.sh (V23-99). This header used to spell them out inline and
-# claim they matched aitbc.constants; they matched neither it nor reality -- marketplace was
+# claim they matched aitbc.constants; they matched neither it nor reality -- market was
 # listed on 8107, which is agent-coordinator, and trading on 8201, which is api-gateway.
 source "$(dirname "${BASH_SOURCE[0]}")/lib/services.sh"
 
@@ -24,8 +24,8 @@ sudo systemctl start aitbc-blockchain-p2p 2>/dev/null || echo "   (already runni
 echo "4. Starting Exchange..."
 sudo systemctl start aitbc-exchange 2>/dev/null || echo "   (already running or not installed)"
 
-echo "5. Starting Marketplace..."
-sudo systemctl start aitbc-marketplace 2>/dev/null || echo "   (already running or not installed)"
+echo "5. Starting Market..."
+sudo systemctl start aitbc-market 2>/dev/null || echo "   (already running or not installed)"
 
 echo "6. Starting Trading..."
 sudo systemctl start aitbc-trading 2>/dev/null || echo "   (already running or not installed)"
@@ -38,7 +38,7 @@ echo "✅ Services started!"
 echo "Coordinator API: http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}"
 echo "Blockchain RPC:  http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-blockchain-rpc]}"
 echo "Exchange:        http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}"
-echo "Marketplace:     http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}"
+echo "Market:     http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}"
 echo "Trading:         http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}"
 echo "Wallet:          http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}"
 echo ""
@@ -57,5 +57,5 @@ curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/health
 echo -e "\n\nExchange Health:"
 curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" | head -c 100
 
-echo -e "\n\nMarketplace Offers:"
-curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}/v1/marketplace/offers" | head -c 100
+echo -e "\n\nMarket Offers:"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}/v1/market/offers" | head -c 100

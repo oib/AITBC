@@ -6,7 +6,7 @@
 
 ## Overview
 
-AITBC Trade Exchange — order matching, price discovery, treasury balance, marketplace offers/orders, and ETH→AIT bridge endpoints. FastAPI app over a SQLite store (monetary columns stored as TEXT/Decimal for exact arithmetic). Runs as the `aitbc-exchange` systemd unit on port 8106 (`User=aitbc`, loopback by default).
+AITBC Trade Exchange — order matching, price discovery, treasury balance, market offers/orders, and ETH→AIT bridge endpoints. FastAPI app over a SQLite store (monetary columns stored as TEXT/Decimal for exact arithmetic). Runs as the `aitbc-exchange` systemd unit on port 8106 (`User=aitbc`, loopback by default).
 
 ## Quick Start (End Users)
 
@@ -60,7 +60,7 @@ apps/exchange/
 │   └── handlers/
 │       ├── base.py           # dispatch, X-Api-Key auth, shared helpers
 │       ├── exchange.py       # orders, orderbook, treasury, price, history
-│       ├── marketplace.py    # marketplace offers/orders/book
+│       ├── market.py    # market offers/orders/book
 │       ├── bridge.py         # bridge price/status/deposit/withdraw/estimate
 │       └── wallet.py         # wallet balance/connect
 └── tests/
@@ -93,16 +93,16 @@ GET  /v1/exchange/history           # exchange history
 GET  /exchange/price.json           # current price JSON
 ```
 
-### Marketplace
+### Market
 
 ```http
-GET    /v1/marketplace/offers
-POST   /v1/marketplace/offers
-GET    /v1/marketplace/offers/{offer_id}
-DELETE /v1/marketplace/offers/{offer_id}
-POST   /v1/marketplace/offers/{offer_id}/book
-GET    /v1/marketplace/orders
-DELETE /v1/marketplace/orders/{order_id}
+GET    /v1/market/offers
+POST   /v1/market/offers
+GET    /v1/market/offers/{offer_id}
+DELETE /v1/market/offers/{offer_id}
+POST   /v1/market/offers/{offer_id}/book
+GET    /v1/market/orders
+DELETE /v1/market/orders/{order_id}
 ```
 
 ### Bridge (ETH → AIT)

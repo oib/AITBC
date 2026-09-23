@@ -113,7 +113,7 @@ get_allowed_services() {
         aitbc-coordinator-api
         aitbc-api-gateway
         aitbc-exchange
-        aitbc-marketplace
+        aitbc-market
         aitbc-bridge-monitor
         aitbc-blockchain-event-bridge
         aitbc-agent-coordinator
@@ -132,7 +132,7 @@ get_allowed_services() {
         aitbc-coordinator-api
         aitbc-edge
         aitbc-pool-hub
-        aitbc-marketplace
+        aitbc-market
         aitbc-hermes-agent
         aitbc-whisper
         aitbc-ffmpeg
@@ -210,8 +210,8 @@ is_service_allowed() {
         return
     fi
     # Per-node escape hatch for units the three role axes cannot express (e.g.
-    # a demoted hub that still serves the marketplace). /etc/aitbc/node.env may
-    # declare:   EXTRA_SERVICES="aitbc-marketplace aitbc-island-ipfs"
+    # a demoted hub that still serves the market). /etc/aitbc/node.env may
+    # declare:   EXTRA_SERVICES="aitbc-market aitbc-island-ipfs"
     if [[ -z "${EXTRA_SERVICES+x}" && -f /etc/aitbc/node.env ]]; then
         EXTRA_SERVICES=$(grep -E '^EXTRA_SERVICES=' /etc/aitbc/node.env | tail -1 | cut -d= -f2- | tr -d '"')
     fi

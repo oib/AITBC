@@ -76,7 +76,7 @@ SERVICE_ENTRYPOINTS = {
     "apps/hermes_agent/main.py": "hermes-agent",
     "apps/ipfs/ipfs-daemon.py": "ipfs",
     "apps/ipfs/island_ipfs_daemon.py": "island-ipfs",
-    "apps/marketplace/src/marketplace_service/main.py": "marketplace",
+    "apps/market/src/market_service/main.py": "market",
     "apps/pool-hub/src/poolhub/app/main.py": "pool-hub",
     "apps/trading/src/trading_service/main.py": "trading",
     "apps/wallet/src/wallet_app/main.py": "wallet",

@@ -178,8 +178,8 @@ agent execute --agent CoordinatorAgent --task comprehensive_verification || {
     echo "Resource Allocation:"
     ./aitbc-cli resource allocate --agent-id agent-name --memory 8192 --duration 3600
 
-    # Check marketplace participation
-    echo "Marketplace Participation:"
+    # Check market participation
+    echo "Market Participation:"
     ./aitbc-cli market create --type ai-inference --price 50 --description "Service" --wallet wallet
 
     # Check governance

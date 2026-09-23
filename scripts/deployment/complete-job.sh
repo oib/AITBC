@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - Complete Job Script
@@ -47,21 +48,21 @@ import time
 with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
-# Load job marketplace
+# Load job market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
 # Load economic system
 with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
 # Validate job exists
-if '$JOB_ID' not in marketplace['jobs']:
+if '$JOB_ID' not in market['jobs']:
     print(f'❌ Error: Job {\"$JOB_ID\"} not found')
     exit(1)
 
 # Get job details
-job = marketplace['jobs']['$JOB_ID']
+job = market['jobs']['$JOB_ID']
 
 # Check if job is in progress
 if job['status'] != 'in_progress':
@@ -112,14 +113,14 @@ economics['network_metrics']['total_jobs_completed'] += 1
 economics['network_metrics']['total_value_locked'] -= escrow_record['amount']
 economics['last_updated'] = time.time()
 
-# Update marketplace counters
-marketplace['active_jobs'] -= 1
-marketplace['completed_jobs'] += 1
-marketplace['last_updated'] = time.time()
+# Update market counters
+market['active_jobs'] -= 1
+market['completed_jobs'] += 1
+market['last_updated'] = time.time()
 
 # Save all updated files
 with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
-    json.dump(marketplace, f, indent=2)
+    json.dump(market, f, indent=2)
 
 with open('/var/lib/aitbc/data/agent_registry.json', 'w') as f:
     json.dump(registry, f, indent=2)

@@ -111,7 +111,7 @@ DEFAULT_SOFTWARE_OFFERS = [
     },
 ]
 OFFER_PUBLISH_INTERVAL = 300
-# Provider-side IPFS hosting: pin CIDs for marketplace ipfs jobs assigned to
+# Provider-side IPFS hosting: pin CIDs for market ipfs jobs assigned to
 # this miner so paid storage is actually stored locally (island daemon).
 IPFS_PIN_SWEEP_INTERVAL = int(os.environ.get("IPFS_PIN_SWEEP_INTERVAL", "120"))
 # Agent-to-agent paid delegation: poll the coordinator inbox for TaskRequest /
@@ -614,7 +614,7 @@ def execute_job(job, available_models):
     payload = job.get("payload", {})
     logger.info("Executing job %s: %s", job_id, payload)
     job_type = payload.get("type")
-    # Marketplace/CLI may submit plugin-style types; map them to the worker's
+    # Market/CLI may submit plugin-style types; map them to the worker's
     # canonical task handlers.
     _TYPE_ALIASES = {
         "ollama": "inference",
@@ -773,7 +773,7 @@ def _execute_gpu_compute(job):
 
     The payload carries a duration; the worker holds the reservation for that
     time, snapshots the GPU at start and end, and returns a completion proof.
-    This is enough for marketplace rental settlement; heavier workloads can be
+    This is enough for market rental settlement; heavier workloads can be
     layered on top later.
     """
     job_id = job.get("job_id")

@@ -1,5 +1,5 @@
 """
-Marketplace Analytics API Endpoints
+Market Analytics API Endpoints
 REST API for analytics, insights, reporting, and dashboards
 """
 

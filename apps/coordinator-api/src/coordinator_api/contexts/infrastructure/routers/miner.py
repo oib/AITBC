@@ -373,7 +373,7 @@ async def _maybe_slash_bond(session: Session, job: Job, condition: str, evidence
     """G5: slash the miner's bond when a bonded job fails verification."""
     if not (job.constraints and job.constraints.get("bond_required")):
         return
-    from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+    from ...market.services.bond_slashing import BondSlashingService, SlashingCondition
 
     await BondSlashingService(session).slash(job, SlashingCondition(condition), evidence)
 
@@ -608,7 +608,7 @@ async def submit_failure(
         job = service.fail_job(job_id, user["sub"], req.error_message)
 
         # G5: a bonded provider that reports a failure has delivered a bad result.
-        from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+        from ...market.services.bond_slashing import BondSlashingService, SlashingCondition
 
         if job.constraints and job.constraints.get("bond_required"):
             await BondSlashingService(session).slash(job, SlashingCondition.BAD_RESULT, req.error_message)

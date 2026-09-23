@@ -81,10 +81,10 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 |------|---------|-------------|
 | 8201 | API Gateway | Customer-facing API entry point |
 | 8202 | Blockchain RPC | Blockchain node RPC |
-| 8203 | Coordinator API | Job/marketplace/escrow failover endpoint |
+| 8203 | Coordinator API | Job/market/escrow failover endpoint |
 | 8100 | Blockchain Explorer API | Block/transaction search |
 | 8101 | GPU Service | GPU compute service |
-| 8102 | Marketplace Service | GPU compute marketplace |
+| 8102 | Market Service | GPU compute market |
 | 8104 | Trading Service | Trading engine |
 | 8105 | Governance Service | Governance API |
 | 8106 | Exchange API | Trading functionality |
@@ -108,7 +108,7 @@ The scripts look for systemd services matching the pattern `aitbc-*`.
 The scripts test these health endpoints:
 - `http://localhost:8203/health` - Coordinator API
 - `http://localhost:8106/api/health` - Exchange API
-- `http://localhost:8102/health` - Marketplace API
+- `http://localhost:8102/health` - Market API
 - `http://localhost:8108/health` - Wallet API
 - `http://localhost:8202/health` - Blockchain RPC
 
@@ -137,7 +137,7 @@ The scripts test these health endpoints:
 [SUCCESS] Coordinator API (port 8203): RUNNING
 [SUCCESS] Blockchain Explorer API (port 8100): RUNNING
 [SUCCESS] GPU Service (port 8101): RUNNING
-[SUCCESS] Marketplace Service (port 8102): RUNNING
+[SUCCESS] Market Service (port 8102): RUNNING
 [SUCCESS] Trading Service (port 8104): RUNNING
 [SUCCESS] Governance Service (port 8105): RUNNING
 [SUCCESS] Exchange API (port 8106): RUNNING

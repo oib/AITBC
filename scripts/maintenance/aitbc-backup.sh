@@ -42,7 +42,7 @@ mkdir -p "${BACKUP_DIR}"
 # aitbc_user is a role, not a database; aitbc_poolhub is added for the pool-hub service.
 PG_DBS=(
     "aitbc_governance"
-    "aitbc_marketplace"
+    "aitbc_market"
     "aitbc_trading"
     "aitbc_mempool"
     "aitbc_gpu"

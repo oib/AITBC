@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Enhanced Planning Analysis & Documentation Conversion
 # Analyzes specific planning files, checks documentation status, and converts
@@ -89,8 +90,8 @@ SPECIFIC_FILES=(
     "07_backend/api-key-setup-summary.md"
     "07_backend/coordinator-api-warnings-fix.md"
     "07_backend/swarm-network-endpoints-specification.md"
-    "08_marketplace/06_global_marketplace_launch.md"
-    "08_marketplace/07_cross_chain_integration.md"
+    "08_market/06_global_market_launch.md"
+    "08_market/07_cross_chain_integration.md"
     "09_maintenance/debian11-removal-summary.md"
     "09_maintenance/debian13-trixie-prioritization-summary.md"
     "09_maintenance/debian13-trixie-support-update.md"
@@ -103,7 +104,7 @@ SPECIFIC_FILES=(
     "10_summaries/99_currentissue_exchange-gap.md"
     "10_summaries/99_currentissue.md"
     "10_summaries/priority-3-complete.md"
-    "04_global_marketplace_launch.md"
+    "04_global_market_launch.md"
     "05_cross_chain_integration.md"
     "ORGANIZATION_SUMMARY.md"
 )
@@ -247,8 +248,8 @@ SPECIFIC_FILES = [
     "07_backend/api-key-setup-summary.md",
     "07_backend/coordinator-api-warnings-fix.md",
     "07_backend/swarm-network-endpoints-specification.md",
-    "08_marketplace/06_global_marketplace_launch.md",
-    "08_marketplace/07_cross_chain_integration.md",
+    "08_market/06_global_market_launch.md",
+    "08_market/07_cross_chain_integration.md",
     "09_maintenance/debian11-removal-summary.md",
     "09_maintenance/debian13-trixie-prioritization-summary.md",
     "09_maintenance/debian13-trixie-support-update.md",
@@ -261,7 +262,7 @@ SPECIFIC_FILES = [
     "10_summaries/99_currentissue_exchange-gap.md",
     "10_summaries/99_currentissue.md",
     "10_summaries/priority-3-complete.md",
-    "04_global_marketplace_launch.md",
+    "04_global_market_launch.md",
     "05_cross_chain_integration.md",
     "ORGANIZATION_SUMMARY.md"
 ]
@@ -286,8 +287,8 @@ def categorize_file(file_path):
         return 'cli'
     elif 'backend' in folder:
         return 'backend'
-    elif 'marketplace' in folder:
-        return 'marketplace'
+    elif 'market' in folder:
+        return 'market'
     elif 'maintenance' in folder:
         return 'maintenance'
     elif 'summaries' in folder:
@@ -302,8 +303,8 @@ def categorize_file(file_path):
         return 'backend'
     elif any(word in filename.lower() for word in ['security', 'firewall']):
         return 'security'
-    elif any(word in filename.lower() for word in ['exchange', 'trading', 'marketplace']):
-        return 'marketplace'
+    elif any(word in filename.lower() for word in ['exchange', 'trading', 'market']):
+        return 'market'
     elif any(word in filename.lower() for word in ['blockchain', 'wallet']):
         return 'blockchain'
     elif any(word in filename.lower() for word in ['analytics', 'monitoring']):
@@ -624,7 +625,7 @@ def determine_documentation_category(task, file_category):
         return 'infrastructure'
     elif any(word in task_desc for word in ['security', 'auth', 'firewall', 'compliance']):
         return 'security'
-    elif any(word in task_desc for word in ['exchange', 'trading', 'marketplace', 'market']):
+    elif any(word in task_desc for word in ['exchange', 'trading', 'market', 'market']):
         return 'exchange'
     elif any(word in task_desc for word in ['blockchain', 'wallet', 'transaction', 'genesis']):
         return 'blockchain'

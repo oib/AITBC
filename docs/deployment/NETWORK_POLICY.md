@@ -58,12 +58,12 @@ is the whole internal tier plus the internal support services; see
 and the bind each one actually has today.
 
 Set the bind **explicitly in the systemd unit** rather than relying on an
-application default. `apps/marketplace/aitbc-marketplace.service` is the pattern
+application default. `apps/market/aitbc-market.service` is the pattern
 to copy:
 
 ```ini
-Environment=MARKETPLACE_BIND_HOST=127.0.0.1
-Environment=MARKETPLACE_BIND_PORT=8102
+Environment=MARKET_BIND_HOST=127.0.0.1
+Environment=MARKET_BIND_PORT=8102
 ```
 
 Relying on a code default is how a service ends up public without anyone
@@ -131,7 +131,7 @@ never a substitute for running it.
 
 ```bash
 # Confirm a specific service's effective bind
-systemctl show aitbc-marketplace.service -p Environment
+systemctl show aitbc-market.service -p Environment
 ```
 
 ## Drift control

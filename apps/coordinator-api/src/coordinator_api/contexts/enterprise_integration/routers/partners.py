@@ -145,8 +145,8 @@ async def create_webhook(
     valid_events = [
         "block.created",
         "transaction.confirmed",
-        "marketplace.offer_created",
-        "marketplace.bid_placed",
+        "market.offer_created",
+        "market.bid_placed",
         "governance.proposal_created",
         "governance.vote_cast",
     ]
@@ -247,13 +247,13 @@ async def get_usage_analytics(
     # Mock usage data (in production, query from analytics)
     usage = {
         "period": period,
-        "requests": {"total": 15420, "blocks": 5000, "transactions": 8000, "marketplace": 2000, "analytics": 420},
+        "requests": {"total": 15420, "blocks": 5000, "transactions": 8000, "market": 2000, "analytics": 420},
         "rate_limit": {"used": 15420, "limit": partner["rate_limit"]["requests_per_hour"], "percentage": 30.84},
         "errors": {"4xx": 12, "5xx": 3},
         "top_endpoints": [
             {"endpoint": "/blocks", "requests": 5000},
             {"endpoint": "/transactions", "requests": 8000},
-            {"endpoint": "/marketplace/offers", "requests": 2000},
+            {"endpoint": "/market/offers", "requests": 2000},
         ],
     }
 

@@ -119,7 +119,7 @@ async def get_latest_sdk(request: Request, session: Annotated[Session, Depends(g
 async def publish_solution(
     request: SolutionPublishRequest, request_http: Request, session: Annotated[Session, Depends(get_session)]
 ) -> AgentSolution:
-    """Publish a new third-party agent solution to the marketplace"""
+    """Publish a new third-party agent solution to the market"""
     service = ThirdPartySolutionService(session)  # type: ignore[arg-type]
     try:
         solution = await service.publish_solution(request.developer_id, request.model_dump(exclude={"developer_id"}))

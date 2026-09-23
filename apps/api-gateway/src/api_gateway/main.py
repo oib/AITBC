@@ -82,9 +82,9 @@ RATE_LIMIT = os.getenv("API_GATEWAY_RATE_LIMIT", "100/minute")
 COORDINATOR_URL = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
 # Coordinator-owned sub-families of /v1/marketplace — the rest (jobs, offers,
 # ratings, ipfs, match, ...) belongs to the marketplace service on :8102.
-# These must be listed before the generic "marketplace" entry: the first
-# prefix match in dict order wins.
-_MARKETPLACE_COORDINATOR_PREFIXES = (
+# The coordinator-owned market sub-routes must be listed before the generic
+# "market"/"marketplace" entries: the first prefix match in dict order wins.
+_MARKET_COORDINATOR_PREFIXES = (
     "gpu",
     "providers",
     "bonds",
@@ -93,6 +93,10 @@ _MARKETPLACE_COORDINATOR_PREFIXES = (
     "orders",
     "pricing",
     "sync-offers",
+)
+_MARKET_SERVICE_URL = os.getenv(
+    "MARKET_SERVICE_URL",
+    os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
 )
 SERVICES: dict[str, dict[str, object]] = {
     "escrow": {
@@ -103,17 +107,32 @@ SERVICES: dict[str, dict[str, object]] = {
         "rewrite": {"/v1/escrow/": "escrow/"},
     },
     **{
+        f"market-{sub}": {
+            "base_url": COORDINATOR_URL,
+            "prefix": f"/v1/market/{sub}",
+            "rewrite": {f"/v1/market/{sub}": f"v1/market/{sub}"},
+        }
+        for sub in _MARKET_COORDINATOR_PREFIXES
+    },
+    # Legacy public spellings stay live until their removal is approved; they
+    # rewrite to the coordinator's canonical /v1/market/* routes.
+    **{
         f"marketplace-{sub}": {
             "base_url": COORDINATOR_URL,
             "prefix": f"/v1/marketplace/{sub}",
-            "rewrite": {f"/v1/marketplace/{sub}": f"v1/marketplace/{sub}"},
+            "rewrite": {f"/v1/marketplace/{sub}": f"v1/market/{sub}"},
         }
-        for sub in _MARKETPLACE_COORDINATOR_PREFIXES
+        for sub in _MARKET_COORDINATOR_PREFIXES
+    },
+    "market": {
+        "base_url": _MARKET_SERVICE_URL,
+        "prefix": "/v1/market",
+        "rewrite": {"/v1/market": "v1/market"},
     },
     "marketplace": {
-        "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
+        "base_url": _MARKET_SERVICE_URL,
         "prefix": "/v1/marketplace",
-        "rewrite": {"/v1/marketplace": "v1/marketplace"},
+        "rewrite": {"/v1/marketplace": "v1/market"},
     },
     "coordinator": {"base_url": COORDINATOR_URL, "prefix": "/v1/coordinator", "rewrite": {"/v1/coordinator": "v1"}},
     "governance": {
@@ -163,7 +182,7 @@ SERVICES: dict[str, dict[str, object]] = {
     "plugin": {
         "base_url": COORDINATOR_URL,
         "prefix": "/v1/plugin",
-        "rewrite": {"/v1/plugin/": "/v1/marketplace/"},
+        "rewrite": {"/v1/plugin/": "/v1/market/"},
     },
 }
 
@@ -353,8 +372,6 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
                 remaining_path = target_path[len(old_prefix.lstrip("/")) :]
                 target_path = new_prefix.lstrip("/") + remaining_path
                 break
-    elif service_name == "marketplace":
-        pass
     elif path.startswith(prefix):
         target_path = path[len(prefix) :].lstrip("/")
     if target_path.endswith("/"):

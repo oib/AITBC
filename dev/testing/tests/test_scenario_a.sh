@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Scenario A: Software Offer Creation and Execution (Updated for v0.4.x)
 
 echo "🚀 Scenario A: Software Offer Creation and Execution"
@@ -23,9 +24,9 @@ echo "=========================================="
 ollama list || echo "Ollama not available, skipping model check"
 
 echo ""
-echo "📋 Step 2: Check aitbc marketplace connectivity"
+echo "📋 Step 2: Check aitbc market connectivity"
 echo "==============================================="
-aitbc market list || echo "Marketplace not available"
+aitbc market list || echo "Market not available"
 
 echo ""
 echo "📋 Step 3: Create Ollama Software Offer"

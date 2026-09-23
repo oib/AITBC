@@ -124,7 +124,7 @@ result = quick_field_add(a, b)
 - **`legacy/high_performance_cuda_accelerator.py`** - Original CUDA implementation
 - **`legacy/fastapi_cuda_zk_api.py`** - Original CUDA API
 - **`legacy/production_cuda_zk_api.py`** - Original production API
-- **`legacy/marketplace_gpu_optimizer.py`** - Original optimizer
+- **`legacy/market_gpu_optimizer.py`** - Original optimizer
 
 ## Key Benefits Achieved
 

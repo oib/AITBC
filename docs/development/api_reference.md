@@ -2,7 +2,7 @@
 
 ## Edge GPU Endpoints
 
-### GET /v1/marketplace/edge-gpu/profiles
+### GET /v1/market/edge-gpu/profiles
 
 Get consumer GPU profiles with filtering options.
 
@@ -32,7 +32,7 @@ Get consumer GPU profiles with filtering options.
 }
 ```
 
-### POST /v1/marketplace/edge-gpu/scan/{miner_id}
+### POST /v1/market/edge-gpu/scan/{miner_id}
 
 Scan and register edge GPUs for a miner.
 
@@ -47,7 +47,7 @@ Scan and register edge GPUs for a miner.
 }
 ```
 
-### GET /v1/marketplace/edge-gpu/metrics/{gpu_id}
+### GET /v1/market/edge-gpu/metrics/{gpu_id}
 
 Get real-time edge GPU performance metrics.
 
@@ -55,7 +55,7 @@ Get real-time edge GPU performance metrics.
 
 - `hours` (optional): Time range in hours (default: 24)
 
-### POST /v1/marketplace/edge-gpu/optimize/inference/{gpu_id}
+### POST /v1/market/edge-gpu/optimize/inference/{gpu_id}
 
 Optimize ML inference request for edge GPU.
 

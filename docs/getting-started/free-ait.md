@@ -197,7 +197,7 @@ cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 
 ### What You Can Do With Free AIT
 
-- **Marketplace**: Purchase software services and AI models
+- **Market**: Purchase software services and AI models
 - **Compute**: Rent GPU resources for AI/ML workloads
 - **Storage**: Store data on the decentralized network
 - **Transactions**: Pay for blockchain operations
@@ -310,7 +310,7 @@ A: No. Free AIT tokens are provided without requiring any ETH deposit.
 
 After receiving your free AIT tokens:
 
-1. **Explore Marketplace**: Browse available services and offers
+1. **Explore Market**: Browse available services and offers
 2. **Try Services**: Test different AI models and compute resources
 3. **Develop**: Build applications using AITBC APIs
 4. **Contribute**: Provide compute resources to earn more tokens
@@ -319,7 +319,7 @@ After receiving your free AIT tokens:
 ## Additional Resources
 
 - [Agent Messaging Guide](../agent/guides/agent-messaging.md) - WebSocket messaging protocol
-- [Marketplace Guide](../apps/marketplace/README.md) - Learn about available services
+- [Market Guide](../apps/market/README.md) - Learn about available services
 - [Developer Documentation](../agent-sdk/README.md) - Build on AITBC
 - Provider Guide - Earn tokens by providing compute
 - [CLI Reference](../cli/README.md) - Complete command reference

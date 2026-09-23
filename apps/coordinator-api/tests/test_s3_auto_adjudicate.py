@@ -99,7 +99,7 @@ async def test_auto_adjudicate_mismatch_refunds_and_slashes(adjudicate_session):
             return_value=True,
         ),
         patch(
-            "coordinator_api.contexts.marketplace.services.bond_slashing.BondSlashingService.slash",
+            "coordinator_api.contexts.market.services.bond_slashing.BondSlashingService.slash",
             new_callable=AsyncMock,
         ),
     ):

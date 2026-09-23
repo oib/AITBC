@@ -14,7 +14,7 @@ async function fetchOffers() {
             params.append('status', currentStatusFilter);
         }
 
-        const url = `/v1/marketplace/offer?${params.toString()}`;
+        const url = `/v1/market/offer?${params.toString()}`;
         const response = await fetch(url);
         const data = await response.json();
 
@@ -323,7 +323,7 @@ function loadReputations() {
 // Service health check
 async function checkServiceHealth() {
     const services = [
-        { name: 'marketplace', url: '/v1/marketplace/status' },
+        { name: 'marketplace', url: '/v1/market/status' },
         { name: 'explorer', url: '/explorer-api/api/chain/head' },
         { name: 'coordinator', url: '/c/health' },
     ];
