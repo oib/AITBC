@@ -39,7 +39,7 @@ RATE_SCALED = 4_000_000_000_000_000_000  # 4.00 * 10**18
 
 def _reference_kwargs() -> dict:
     return {
-        "tdp_watts": 165,
+        "tbp_watts": 165,
         "eur_per_kwh_scaled": TARIFF_SCALED,
         "ait_per_eur_scaled": RATE_SCALED,
         "gpu_count": 1,
@@ -53,7 +53,7 @@ def base_profile() -> EnergyProfile:
         resource_id="gpu-rtx4060ti-node2-001",
         provider="0xProviderAddress",
         model_id="rtx-4060-ti",
-        tdp_watts=165,
+        tbp_watts=165,
         eur_per_kwh_scaled=TARIFF_SCALED,
         enabled=True,
         revision=3,
@@ -421,7 +421,7 @@ def test_evaluate_quote_profile_revision_mismatch(base_profile: EnergyProfile, b
         resource_id=base_profile.resource_id,
         provider=base_profile.provider,
         model_id=base_profile.model_id,
-        tdp_watts=base_profile.tdp_watts,
+        tbp_watts=base_profile.tbp_watts,
         eur_per_kwh_scaled=base_profile.eur_per_kwh_scaled,
         enabled=True,
         revision=base_profile.revision + 1,

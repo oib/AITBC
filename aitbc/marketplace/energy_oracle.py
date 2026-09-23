@@ -32,7 +32,7 @@ DEFAULT_ENERGY_PRICING_ABI: list[dict] = [
                     {"name": "revision", "type": "uint256"},
                     {"name": "modelId", "type": "string"},
                     {"name": "provider", "type": "address"},
-                    {"name": "tdpWatts", "type": "uint256"},
+                    {"name": "tbpWatts", "type": "uint256"},
                     {"name": "eurPerKwh", "type": "uint256"},
                 ],
             },
@@ -130,12 +130,12 @@ class EVMEnergyOracle:
         result = self._call("getEnergyProfile", resource_id, block_identifier=block_identifier)
         if not isinstance(result, tuple | list) or len(result) < 6:
             raise EnergyOracleError(f"unexpected getEnergyProfile return: {result}")
-        enabled, revision, model_id, provider, tdp_watts, eur_per_kwh = result[:6]
+        enabled, revision, model_id, provider, tbp_watts, eur_per_kwh = result[:6]
         return EnergyProfile(
             resource_id=resource_id,
             provider=provider,
             model_id=model_id,
-            tdp_watts=int(tdp_watts),
+            tbp_watts=int(tbp_watts),
             eur_per_kwh_scaled=int(eur_per_kwh),
             enabled=bool(enabled),
             revision=int(revision),

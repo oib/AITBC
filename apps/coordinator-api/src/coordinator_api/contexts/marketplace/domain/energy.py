@@ -21,7 +21,7 @@ class NativeEnergyProfile(SQLModel, table=True):
     resource_id: str = Field(primary_key=True)
     provider: str = Field(index=True)
     model_id: str = Field(index=True)
-    tdp_watts: int = Field(gt=0)
+    tbp_watts: int = Field(gt=0)
     eur_per_kwh_scaled: int = Field(gt=0)
     enabled: bool = Field(default=True)
     revision: int = Field(default=1, ge=1)

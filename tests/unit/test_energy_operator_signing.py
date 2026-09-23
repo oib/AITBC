@@ -33,7 +33,7 @@ def base_profile() -> EnergyProfile:
         resource_id="gpu-rtx4060ti-node2-001",
         provider="0x" + "a" * 40,
         model_id="rtx-4060-ti",
-        tdp_watts=165,
+        tbp_watts=165,
         eur_per_kwh_scaled=TARIFF_SCALED,
         enabled=True,
         revision=3,

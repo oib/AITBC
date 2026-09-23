@@ -22,7 +22,7 @@ contract MockEnergyPricing is IEnergyPricing {
             revision: 1,
             modelId: modelId,
             provider: provider,
-            tdpWatts: 200,
+            tbpWatts: 200,
             eurPerKwh: 30
         });
         _rate = EnergyRate({
