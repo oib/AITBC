@@ -4,7 +4,8 @@ from __future__ import annotations
 
 from typing import Any
 
-from sqlmodel import select
+from sqlalchemy import update
+from sqlmodel import col, select
 
 from aitbc.bridge import BridgeBlockHeader as SDKHeader, validate_block_header
 
@@ -108,19 +109,46 @@ class BridgeFinalityMixin(BridgeBase):
         When a new block at height H is stored, all existing blocks at
         height < H get their confirmation_count incremented by 1. Finality is
         derived from the updated confirmation count rather than caller input.
+
+        Both steps are single UPDATE statements. What they replace was a
+        read-modify-write over ORM instances that loaded *every* earlier header
+        on the chain, once per header stored -- so mirroring a backlog of N
+        headers into a table already holding M cost O(M*N) row writes, which is
+        why a backfill ran at 0.75 headers/second. The predicates are the ones
+        the loop applied per row and the finality bump still reads the
+        post-increment count, so the values written are unchanged;
+        ``uix_bridge_block_chain_height`` covers (chain_id, height).
+
+        ``synchronize_session=False`` is safe because this is reached only on
+        the new-header branch of ``store_block_header``, which opens its own
+        session and has loaded nothing into it but the row at ``new_height`` --
+        and ``height < new_height`` excludes exactly that row, so no identity-map
+        instance can go stale behind the bulk UPDATE.
         """
-        earlier = session.exec(
-            select(BridgeBlockHeader).where(
-                BridgeBlockHeader.chain_id == chain_id,
-                BridgeBlockHeader.height < new_height,
+        finality_blocks = getattr(settings, "bridge_finality_blocks", 6)
+        bumped = session.execute(
+            update(BridgeBlockHeader)
+            .where(
+                col(BridgeBlockHeader.chain_id) == chain_id,
+                col(BridgeBlockHeader.height) < new_height,
             )
-        ).all()
-        for h in earlier:
-            h.confirmation_count += 1
-            session.add(h)
-            self._update_finality(chain_id, h, session, commit=False)
-        if earlier:
-            session.commit()
+            .values(confirmation_count=col(BridgeBlockHeader.confirmation_count) + 1),
+            execution_options={"synchronize_session": False},
+        )
+        if not bumped.rowcount:
+            return
+        session.execute(
+            update(BridgeBlockHeader)
+            .where(
+                col(BridgeBlockHeader.chain_id) == chain_id,
+                col(BridgeBlockHeader.height) < new_height,
+                col(BridgeBlockHeader.confirmation_count) >= finality_blocks,
+                col(BridgeBlockHeader.finality_confirmed).is_(False),
+            )
+            .values(finality_confirmed=True),
+            execution_options={"synchronize_session": False},
+        )
+        session.commit()
 
     def _update_finality(self, chain_id: str, header: BridgeBlockHeader, session: Any, commit: bool = True) -> None:
         """Update finality_confirmed flag based on confirmation count (B5)."""
