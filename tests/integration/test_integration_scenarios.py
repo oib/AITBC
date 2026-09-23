@@ -33,19 +33,45 @@ class TestRemovedMockRouters:
     production gating.
     """
 
+    def test_no_agent_mock_routes_are_registered(self, coordinator_client: TestClient):
+        """Assert absence against the route table, not a status code.
+
+        A 404 on /v1/agent/agents/{id}/profile is ambiguous: a live route
+        would answer the same way for an unknown id. The route table is not.
+        The trailing slash matters — /v1/agent-identity and
+        /v1/agent-performance are real, separate families.
+        """
+        paths = [getattr(r, "path", "") for r in coordinator_client.app.routes]
+        assert len(paths) > 100, f"route table looks unpopulated ({len(paths)}) - pin would be vacuous"
+        offenders = [p for p in paths if p.startswith("/v1/agent/")]
+        assert offenders == [], f"mock agent router is back: {offenders}"
+
     def test_swarm_routes_absent(self, coordinator_client: TestClient):
         for path in ("/v1/swarm/tasks/submit", "/v1/swarm/status", "/v1/swarm/nodes"):
             assert coordinator_client.get(path).status_code == 404
 
     def test_agent_mock_routes_absent(self, coordinator_client: TestClient):
+        """Every /v1/agent/* path the deleted suites exercised.
+
+        test_agents.py and the agent half of test_agent_coordinator_api.py kept
+        asserting these answered; the paths are listed here so their removal
+        stays pinned rather than merely untested.
+        """
         for path in (
             "/v1/agent/agents",
+            "/v1/agent/agents/some-agent/profile",
             "/v1/agent/messages/some-agent",
+            "/v1/agent/messages/load-balancer/stats",
             "/v1/agent/stats",
             "/v1/agent/health",
         ):
             assert coordinator_client.get(path).status_code == 404
-        assert coordinator_client.post("/v1/agent/agents/register", json={}).status_code == 404
+        for path in (
+            "/v1/agent/agents/register",
+            "/v1/agent/agents/some-agent/heartbeat",
+            "/v1/agent/messages/send",
+        ):
+            assert coordinator_client.post(path, json={}).status_code == 404
 
     def test_monitor_mock_routes_absent(self, coordinator_client: TestClient):
         for path in ("/v1/dashboard", "/v1/dashboard/history", "/v1/miners"):
