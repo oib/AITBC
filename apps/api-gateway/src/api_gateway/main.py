@@ -328,6 +328,9 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
         headers = dict(request.headers)
         headers.pop("host", None)
         headers.pop("content-length", None)
+        # Ask upstreams for identity encoding — httpx transparently decodes a
+        # gzipped body but the response headers would still claim gzip.
+        headers.pop("accept-encoding", None)
         # The gateway credential never leaves this layer.
         headers.pop("x-gateway-key", None)
         if getattr(request.state, "gateway_bearer_auth", False):
@@ -337,7 +340,15 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
             body = await request.body()
             kwargs["content"] = body
         response = await proxy_with_retry(client, request.method, target_url, **kwargs)
-        return Response(content=response.content, status_code=response.status_code, headers=dict(response.headers))
+        # Framing and hop-by-hop headers describe the upstream connection, not
+        # this one — forwarding them produces malformed responses (nginx 502).
+        upstream_headers = {
+            k: v
+            for k, v in response.headers.items()
+            if k.lower()
+            not in ("content-length", "content-encoding", "transfer-encoding", "connection", "keep-alive", "server", "date", "te", "trailer", "upgrade")
+        }
+        return Response(content=response.content, status_code=response.status_code, headers=upstream_headers)
     except httpx.RequestError:
         logger.error("Service unavailable after retries")
         record_failure(service_name)
