@@ -35,7 +35,10 @@ def parse_services(raw: str) -> list[tuple[str, int]]:
 
 def fetch_openapi(port: int, timeout: float = 5.0) -> dict | None:
     try:
-        with urllib.request.urlopen(f"http://127.0.0.1:{port}/openapi.json", timeout=timeout) as resp:
+        # B310 is a false positive here: the scheme, host and path are literals
+        # and only the port is interpolated, already coerced with int() by
+        # parse_services(). No caller can reach a file:/ or custom scheme.
+        with urllib.request.urlopen(f"http://127.0.0.1:{port}/openapi.json", timeout=timeout) as resp:  # nosec B310
             return json.load(resp)
     except Exception:
         return None
