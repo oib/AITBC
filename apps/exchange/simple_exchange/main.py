@@ -5,9 +5,12 @@ This replaces the stdlib ``http.server`` backend with FastAPI. The existing
 business logic (B1/B2/B3 fixes) is preserved.
 """
 
+import asyncio
 import io
 import json
+import os
 from collections.abc import AsyncIterator
+from concurrent.futures import ThreadPoolExecutor
 from contextlib import asynccontextmanager
 from typing import Any, cast
 
@@ -89,6 +92,17 @@ def _raw_path(request: Request) -> str:
     return path or "/"
 
 
+# The legacy handlers are synchronous and do blocking I/O (SQLite, outbound
+# HTTP). Running them inline would stall the event loop for every other
+# request, so each dispatch runs on a bounded pool. Each handler opens and
+# closes its own sqlite3 connection inside the call, which keeps every
+# connection within its executing thread (check_same_thread stays valid).
+_HANDLER_POOL = ThreadPoolExecutor(
+    max_workers=int(os.environ.get("EXCHANGE_HANDLER_WORKERS", "8")),
+    thread_name_prefix="exchange-handler",
+)
+
+
 async def _dispatch(request: Request, method: str) -> Response:
     body = await request.body()
     if len(body) > MAX_BODY_BYTES:
@@ -99,17 +113,17 @@ async def _dispatch(request: Request, method: str) -> Response:
         )
     adapter = FastAPIRequestAdapter(request, method, body, _raw_path(request))
 
-    if method == "GET":
-        adapter.do_GET()
-    elif method == "POST":
-        adapter.do_POST()
-    elif method == "DELETE":
-        adapter.do_DELETE()
-    elif method == "OPTIONS":
-        adapter.do_OPTIONS()
-    else:
+    handler = {
+        "GET": adapter.do_GET,
+        "POST": adapter.do_POST,
+        "DELETE": adapter.do_DELETE,
+        "OPTIONS": adapter.do_OPTIONS,
+    }.get(method)
+    if handler is None:
         return Response(status_code=405, content=b'{"error":"Method not allowed"}')
 
+    loop = asyncio.get_running_loop()
+    await loop.run_in_executor(_HANDLER_POOL, handler)
     return adapter.get_response()
 
 
@@ -119,6 +133,8 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting AITBC Exchange Service")
     init_db()
     yield
+    # Let in-flight handler threads finish their writes before exit.
+    _HANDLER_POOL.shutdown(wait=True)
     logger.info("Shutting down AITBC Exchange Service")
 
 
