@@ -80,7 +80,7 @@ def _hub_marketplace_client(timeout: int = 15) -> AITBCHTTPClient:
     config = get_config()
     if config.marketplace_service_url and not config.marketplace_service_url.startswith("http://127.0.0.1"):
         return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=timeout)
-    hub_host = config.hub_discovery_url or "hub.example.net"
+    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
     if hub_host.startswith(("http://", "https://")):
         hub_url = hub_host.rstrip("/")
     elif "localhost" in hub_host or "127.0.0.1" in hub_host:

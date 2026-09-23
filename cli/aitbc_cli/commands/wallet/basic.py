@@ -753,7 +753,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
             hub_rpc = (
                 getattr(config, "hub_blockchain_rpc_url", None)
-                or f"https://{config.hub_discovery_url or 'hub.example.net'}"
+                or f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             )
             if hub_rpc:
                 hub_rpc = hub_rpc.rstrip("/")
