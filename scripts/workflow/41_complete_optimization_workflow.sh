@@ -137,14 +137,14 @@ run_test_verbose "Data analytics optimization" "
     /opt/aitbc/scripts/workflow/38_contract_data_analytics.sh | head -20
 "
 
-# 7. MARKETPLACE OPTIMIZATION
+# 7. MARKET OPTIMIZATION
 echo ""
-echo "8. 🛒 MARKETPLACE OPTIMIZATION"
+echo "8. 🛒 MARKET OPTIMIZATION"
 echo "=========================="
 
-run_test_verbose "Marketplace optimization" "
-    echo 'Optimizing marketplace performance...'
-    curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total
+run_test_verbose "Market optimization" "
+    echo 'Optimizing market performance...'
+    curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total
 "
 
 # 8. AI SERVICE OPTIMIZATION
@@ -228,7 +228,7 @@ run_test_verbose "Comprehensive system test" "
     echo 'Testing all major services:'
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Coordinator API: \$(curl -fsS http://localhost:8203/health/live >/dev/null && echo 'Working' || echo 'Failed')\"
-    echo \"✅ Marketplace: \$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings >/dev/null && echo 'Working' || echo 'Failed')\"
+    echo \"✅ Market: \$(curl -s $BLOCKCHAIN_RPC/rpc/market/listings >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'Working' || echo 'Failed')\"
     echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'Working' || echo 'Failed')\"
 "
@@ -256,7 +256,7 @@ COMPONENTS OPTIMIZED:
 ✅ Contract Security
 ✅ Event Monitoring
 ✅ Data Analytics
-✅ Marketplace Performance
+✅ Market Performance
 ✅ AI Service Performance
 ✅ Cross-node Synchronization
 ✅ System Performance
@@ -266,7 +266,7 @@ COMPONENTS OPTIMIZED:
 SYSTEM STATUS:
 Blockchain RPC: Operational
 Coordinator API: Operational
-Marketplace Service: Operational
+Market Service: Operational
 AI Service: Operational
 Agent Communication: Operational
 
@@ -310,7 +310,7 @@ echo "✅ Agent Communication: Optimized"
 echo "✅ Contract Security: Optimized"
 echo "✅ Event Monitoring: Optimized"
 echo "✅ Data Analytics: Optimized"
-echo "✅ Marketplace: Optimized"
+echo "✅ Market: Optimized"
 echo "✅ AI Services: Optimized"
 echo "✅ Cross-node Sync: Optimized"
 echo "✅ Performance: Optimized"

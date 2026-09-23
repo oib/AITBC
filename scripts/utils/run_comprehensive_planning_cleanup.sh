@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Comprehensive Planning Cleanup - Move ALL Completed Tasks
 # Scans entire docs/10_plan subfolder structure, finds all completed tasks,
@@ -93,7 +94,7 @@ create_organized_folders() {
     mkdir -p "$DOCS_DIR/completed/exchange"
     mkdir -p "$DOCS_DIR/completed/blockchain"
     mkdir -p "$DOCS_DIR/completed/analytics"
-    mkdir -p "$DOCS_DIR/completed/marketplace"
+    mkdir -p "$DOCS_DIR/completed/market"
     mkdir -p "$DOCS_DIR/completed/maintenance"
     mkdir -p "$DOCS_DIR/completed/ai"
 
@@ -105,7 +106,7 @@ create_organized_folders() {
     mkdir -p "$ARCHIVE_DIR/by_category/exchange"
     mkdir -p "$ARCHIVE_DIR/by_category/blockchain"
     mkdir -p "$ARCHIVE_DIR/by_category/analytics"
-    mkdir -p "$ARCHIVE_DIR/by_category/marketplace"
+    mkdir -p "$ARCHIVE_DIR/by_category/market"
     mkdir -p "$ARCHIVE_DIR/by_category/maintenance"
     mkdir -p "$ARCHIVE_DIR/by_category/ai"
 
@@ -149,8 +150,8 @@ def categorize_file_content(file_path):
         return 'cli'
     elif '07_backend' in path_parts:
         return 'backend'
-    elif '08_marketplace' in path_parts:
-        return 'marketplace'
+    elif '08_market' in path_parts:
+        return 'market'
     elif '09_maintenance' in path_parts:
         return 'maintenance'
     elif '10_summaries' in path_parts:
@@ -171,8 +172,8 @@ def categorize_file_content(file_path):
         return 'blockchain'
     elif any(word in filename for word in ['analytics', 'monitoring', 'ai']):
         return 'analytics'
-    elif any(word in filename for word in ['marketplace', 'pool', 'hub']):
-        return 'marketplace'
+    elif any(word in filename for word in ['market', 'pool', 'hub']):
+        return 'market'
     elif any(word in filename for word in ['maintenance', 'update', 'requirements']):
         return 'maintenance'
 
@@ -349,7 +350,7 @@ def move_completed_content(scan_file, docs_dir, archive_dir):
         'exchange': 'exchange',
         'blockchain': 'blockchain',
         'analytics': 'analytics',
-        'marketplace': 'marketplace',
+        'market': 'market',
         'maintenance': 'maintenance',
         'summaries': 'summaries',
         'general': 'general'
@@ -528,7 +529,7 @@ docs/completed/
 ├── exchange/ - Exchange completed tasks
 ├── blockchain/ - Blockchain completed tasks
 ├── analytics/ - Analytics completed tasks
-├── marketplace/ - Marketplace completed tasks
+├── market/ - Market completed tasks
 ├── maintenance/ - Maintenance completed tasks
 └── general/ - General completed tasks
 ```
@@ -543,7 +544,7 @@ docs/archive/by_category/
 ├── exchange/ - Exchange archive files
 ├── blockchain/ - Blockchain archive files
 ├── analytics/ - Analytics archive files
-├── marketplace/ - Marketplace archive files
+├── market/ - Market archive files
 ├── maintenance/ - Maintenance archive files
 └── general/ - General archive files
 ```

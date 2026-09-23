@@ -13,7 +13,7 @@ recorded in this repository. On the operator IDE host see
 | **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (https) or `http://gitea.bubuit.net:3000/oib/aitbc.git` (http) | **primary source of truth** | fetch, push, fast-forward `main` |
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **shop node** | SSH target, `/opt/aitbc` | shop / follower | full working repo; run shop and follower services; commit and push to gitea |
-| **customer node** | SSH target, `/opt/aitbc` | customer / follower (gpu) | `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid marketplace jobs run here |
+| **customer node** | SSH target, `/opt/aitbc` | customer / follower (gpu) | `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid market jobs run here |
 | **hub node** | SSH target, `/opt/aitbc` | hub / proposer | full working repo; run hub and proposer services |
 | **replica** | SSH target, `/opt/aitbc` | follower / customer replica | pull-only, no commits |
 | **localhost (this IDE)** | `/home/oib/windsurf/aitbc` and `/opt/aitbc` | staging / IDE only | `/home/oib/windsurf/aitbc` is a partial staging checkout for notes and temporary scripts. `/opt/aitbc` is a non-active canonical clone (no `data/` or `venv/`, so no services run here); it is safe for gitea commits/pushes that do not require active node features. |
@@ -321,7 +321,7 @@ This is mirrored on every node. Note per-host quirks:
   ssh <shop-node> 'journalctl -f -u aitbc-blockchain-node -u aitbc-blockchain-p2p -u aitbc-blockchain-rpc'
 
   # hub node
-  ssh <hub-node> 'journalctl -f -u aitbc-coordinator-api -u aitbc-exchange -u aitbc-marketplace -u aitbc-pool-hub'
+  ssh <hub-node> 'journalctl -f -u aitbc-coordinator-api -u aitbc-exchange -u aitbc-market -u aitbc-pool-hub'
   ```
 
   Use `-n 50` to see the last 50 lines, and add `--no-pager` for non-interactive output.
@@ -417,10 +417,10 @@ over arbitrary SSH or shell commands.
 - The canonical server is `mcp-server/aitbc_mcp_server.py`, which imports the
   typed RPC tool set from `mcp-server/aitbc_mcp_rpc_tools.py`.
 - It provides read-only tools for nodes, services, chain state, accounts,
-  transactions, blocks, mempool, bridge, cross-chain, GPU, AI jobs, marketplace,
+  transactions, blocks, mempool, bridge, cross-chain, GPU, AI jobs, market,
   escrow, disputes, contracts, subscription, islands, and governance/identity.
 - Mutating tools (start/stop/restart, cron jobs, CLI commands, staking,
-  transfers, marketplace listings, GPU registration, bridge operations, escrow,
+  transfers, market listings, GPU registration, bridge operations, escrow,
   governance, etc.) are gated with `dry_run=true` by default and require
   `confirm=true` to execute.
 - The generic fallback `call_aitbc_http` can reach any known service, but only
@@ -483,19 +483,19 @@ Open tasks, assignments and current state are tracked in `/home/oib/windsurf/ait
 Live validation notes are tracked in `/home/oib/windsurf/aitbc/docs/LIVE_VALIDATION_SUMMARY.md`.
 These files are intentionally not tracked in the canonical shop-node / hub-node repository.
 
-## Marketplace service operational notes
+## Market service operational notes
 
-- The marketplace service needs `BLOCKCHAIN_RPC_API_KEY` in its environment
-  (e.g. `/etc/aitbc/aitbc-marketplace.env`) to call the escrow release/refund
+- The market service needs `BLOCKCHAIN_RPC_API_KEY` in its environment
+  (e.g. `/etc/aitbc/aitbc-market.env`) to call the escrow release/refund
   endpoints. Set it to the same value the blockchain RPC uses and restart the
-  service: `sudo systemctl restart aitbc-marketplace`.
-- After code or route changes in `apps/marketplace/src/marketplace_service/`,
+  service: `sudo systemctl restart aitbc-market`.
+- After code or route changes in `apps/market/src/market_service/`,
   remove `__pycache__` and restart the service to ensure the new code is loaded.
-- Targeted marketplace verification:
+- Targeted market verification:
   ```bash
-  venv/bin/python -m pytest -q apps/marketplace/tests/test_marketplace_job.py apps/marketplace/tests/test_marketplace_job_sweeper.py
-  venv/bin/python -m mypy --show-error-codes apps/marketplace/src/marketplace_service/services/marketplace_service.py apps/marketplace/src/marketplace_service/main.py cli/aitbc_cli/commands/market/host.py
-  venv/bin/python -m ruff check apps/marketplace/src/marketplace_service/services/marketplace_service.py apps/marketplace/src/marketplace_service/main.py apps/marketplace/src/marketplace_service/domain/marketplace.py cli/aitbc_cli/commands/market/host.py apps/marketplace/tests/test_marketplace_job.py
+  venv/bin/python -m pytest -q apps/market/tests/test_market_job.py apps/market/tests/test_market_job_sweeper.py
+  venv/bin/python -m mypy --show-error-codes apps/market/src/market_service/services/market_service.py apps/market/src/market_service/main.py cli/aitbc_cli/commands/market/host.py
+  venv/bin/python -m ruff check apps/market/src/market_service/services/market_service.py apps/market/src/market_service/main.py apps/market/src/market_service/domain/market.py cli/aitbc_cli/commands/market/host.py apps/market/tests/test_market_job.py
   ```
 
 ## Trading authentication

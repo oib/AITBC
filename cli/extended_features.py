@@ -116,12 +116,12 @@ def handle_extended_command(command, args, kwargs):
         result["output"] = "Ollama test response"
     elif command == "ollama_status":
         result["status"] = "running"
-    elif command == "marketplace_status":
+    elif command == "market_status":
         result["status"] = "active"
         result["active_orders"] = len(state["orders"])
-    elif command == "marketplace_buy":
+    elif command == "market_buy":
         result["message"] = f"Bought {kwargs.get('item')} for {kwargs.get('price')}"
-    elif command == "marketplace_sell":
+    elif command == "market_sell":
         import random
 
         order_id = "order_" + str(random.randint(10000, 99999))
@@ -129,9 +129,9 @@ def handle_extended_command(command, args, kwargs):
         save_state(state)
         result["message"] = f"Listed {kwargs.get('item')} for {kwargs.get('price')}"
         result["order_id"] = order_id
-    elif command == "marketplace_orders":
+    elif command == "market_orders":
         result["orders"] = state["orders"]
-    elif command == "marketplace_cancel":
+    elif command == "market_cancel":
         result["message"] = f"Cancelled order {kwargs.get('order')}"
     elif command == "economics_model":
         result["model"] = kwargs.get("type")

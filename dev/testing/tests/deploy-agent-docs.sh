@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # deploy-agent-docs.sh - Test deployment of AITBC agent documentation
 
 set -e
@@ -138,7 +139,7 @@ def test_api_spec():
             raise Exception("Missing aitbc_agent_api key")
 
         endpoints = api_spec['aitbc_agent_api'].get('endpoints', {})
-        required_endpoints = ['agent_registry', 'resource_marketplace', 'swarm_coordination', 'reputation_system']
+        required_endpoints = ['agent_registry', 'resource_market', 'swarm_coordination', 'reputation_system']
 
         for endpoint in required_endpoints:
             if endpoint not in endpoints:

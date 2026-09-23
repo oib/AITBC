@@ -1,4 +1,4 @@
-"""Unit tests for aitbc.marketplace.energy_oracle.
+"""Unit tests for aitbc.market.energy_oracle.
 
 Uses mocked ``EthereumRPCClient`` so no real EVM connection is needed.
 """
@@ -9,12 +9,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from aitbc.marketplace.energy_oracle import (
+from aitbc.market.energy_oracle import (
     DEFAULT_ENERGY_PRICING_ABI,
     EnergyOracleError,
     EVMEnergyOracle,
 )
-from aitbc.marketplace.energy_pricing import EnergyProfile, EnergyRate
+from aitbc.market.energy_pricing import EnergyProfile, EnergyRate
 
 
 def _make_oracle() -> tuple[EVMEnergyOracle, MagicMock]:

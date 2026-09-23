@@ -49,7 +49,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 |---------|------|-------|
 | Blockchain RPC | 8202 | Default RPC URL for CLI |
 | Coordinator API | 8203 | Agent registry |
-| Marketplace | 8102 | GPU compute offers |
+| Market | 8102 | GPU compute offers |
 
 ## Operations
 
@@ -131,12 +131,12 @@ sudo systemctl enable aitbc-coordinator-api.service
 curl -s http://localhost:8203/health
 ```
 
-### 4. Check Marketplace Service
+### 4. Check Market Service
 ```bash
-# Check marketplace status
-systemctl status aitbc-marketplace.service 2>/dev/null || echo "Marketplace service not installed"
+# Check market status
+systemctl status aitbc-market.service 2>/dev/null || echo "Market service not installed"
 
-# Test marketplace health
+# Test market health
 curl -s http://localhost:8102/health
 ```
 
@@ -186,7 +186,7 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 
 ## GPU Provider Testing
 ```bash
-# Test GPU inference via a marketplace offer
+# Test GPU inference via a market offer
 aitbc market run --offer-id-or-plugin-id <offer_id> --prompt "test prompt"
 ```
 

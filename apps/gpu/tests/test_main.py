@@ -41,7 +41,7 @@ def test_gpu_status(client):
 def test_get_consumer_gpu_profiles(client):
     """Test get consumer GPU profiles endpoint"""
     response = client.get(
-        "/v1/marketplace/edge-gpu/profiles",
+        "/v1/market/edge-gpu/profiles",
         params={"architecture": "ampere", "edge_optimized": True, "min_memory_gb": 8},
     )
     assert response.status_code == 200

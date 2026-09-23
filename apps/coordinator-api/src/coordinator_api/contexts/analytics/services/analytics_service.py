@@ -1,5 +1,5 @@
 """
-Analytics service for marketplace analytics endpoints.
+Analytics service for market analytics endpoints.
 
 Implements data collection, insights, alerts, forecasting, and query management
 against the existing analytics domain models (MarketMetric, MarketInsight,
@@ -28,7 +28,7 @@ logger = get_logger(__name__)
 
 
 class AnalyticsService:
-    """Service for marketplace analytics operations."""
+    """Service for market analytics operations."""
 
     def __init__(self, session: Session) -> None:
         self.session = session

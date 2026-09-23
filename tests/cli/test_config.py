@@ -649,7 +649,7 @@ class TestConfigFileLoading:
                     "exchange_service_url": "http://127.0.0.1:8202/rpc",
                     "coordinator_api_url": "http://coord:8203/v1",
                     "agent_coordinator_url": "http://agent:8107",
-                    "marketplace_service_url": "http://market:8102",
+                    "market_service_url": "http://market:8102",
                     "edge_api_port": 8111,
                     "timeout": 42,
                 }
@@ -661,7 +661,7 @@ class TestConfigFileLoading:
         assert config_obj.exchange_service_url == "http://127.0.0.1:8202/rpc"
         assert config_obj.coordinator_api_url == "http://coord:8203/v1"
         assert config_obj.agent_coordinator_url == "http://agent:8107"
-        assert config_obj.marketplace_service_url == "http://market:8102"
+        assert config_obj.market_service_url == "http://market:8102"
         assert config_obj.edge_api_port == 8111
         assert config_obj.timeout == 42
         assert config_obj.config_file == str(cfg)

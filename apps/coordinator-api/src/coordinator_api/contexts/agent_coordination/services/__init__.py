@@ -1,10 +1,10 @@
 """Agent coordination services.
 
 Provides agent management, communication, performance, security,
-orchestration, and marketplace services.
+orchestration, and market services.
 """
 
-from .agent_marketplace import AgentServiceMarketplace
+from .agent_market import AgentServiceMarket
 from .communication import AgentCommunicationService
 from .integration import AgentIntegrationManager
 from .orchestrator import AgentOrchestrator
@@ -17,7 +17,7 @@ __all__ = [
     "AgentStateManager",
     "AgentCommunicationService",
     "AgentIntegrationManager",
-    "AgentServiceMarketplace",
+    "AgentServiceMarket",
     "AgentOrchestrator",
     "AgentPerformanceService",
     "AgentAuditor",

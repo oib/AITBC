@@ -50,7 +50,7 @@ Agent agents can register and track GPU resources on-chain for immutable proof o
 
 - Immutable proof of GPU availability
 - Track GPU allocation history
-- Enable GPU marketplace with on-chain verification
+- Enable GPU market with on-chain verification
 
 See [gpu-resources.md](./gpu-resources.md) for detailed documentation.
 

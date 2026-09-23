@@ -76,7 +76,7 @@ apps/blockchain-node/
 
 ### coordinator-api
 
-Central job coordination API with marketplace, payments, ZK proofs, multi-tenancy, and governance.
+Central job coordination API with market, payments, ZK proofs, multi-tenancy, and governance.
 
 ```
 apps/coordinator-api/
@@ -98,7 +98,7 @@ apps/coordinator-api/
 │   └── schemas/             # Pydantic schemas
 ├── migrations/              # SQL migrations (schema, indexes, data, payments)
 ├── scripts/                 # PostgreSQL migration scripts
-├── tests/                   # API tests (jobs, marketplace, ZK, receipts, miners)
+├── tests/                   # API tests (jobs, market, ZK, receipts, miners)
 └── pyproject.toml
 ```
 
@@ -275,14 +275,14 @@ apps/gpu/
 └── miners/                  # GPU miner management
 ```
 
-### marketplace
+### market
 
-Marketplace service for GPU compute trading.
+Market service for GPU compute trading.
 
 ```
-apps/marketplace/
+apps/market/
 ├── src/
-│   └── main.py              # Marketplace entry point
+│   └── main.py              # Market entry point
 └── offers/                  # Offer management
 ```
 
@@ -404,7 +404,7 @@ Each application also maintains its own `tests/` or `apps/<app>/tests/` director
 ```
 website/
 ├── index.html               # Landing page (flat static site — no subdirectories)
-├── *.html / *.js / *.css    # explorer, marketplace, exchange, dashboards,
+├── *.html / *.js / *.css    # explorer, market, exchange, dashboards,
 │                            #  shop/customer pages, load-structured-data.js, …
 ├── config.js                # API base config
 └── README.md
@@ -423,4 +423,3 @@ website/
 | `contracts/` | Standalone Solidity contracts |
 
 | `docs/` | Markdown documentation |
-

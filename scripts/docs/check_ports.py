@@ -67,7 +67,7 @@ ALIASES = {
     "wallet": "wallet daemon",
     "wallet api": "wallet daemon",
     "exchange": "exchange api",
-    "marketplace": "marketplace service",
+    "market": "market service",
     "explorer api": "blockchain explorer",
     "blockchain explorer api": "blockchain explorer",
     "blockchain node": "blockchain rpc",
@@ -105,8 +105,8 @@ INLINE_RES = (
 ARRAY_RE = re.compile(r"\"(\d{4}):([A-Za-z][A-Za-z0-9 /_()-]*)\"")
 
 # Environment assignments name their own service, so they do not need the
-# nearest-name guess: MARKETPLACE_URL=http://localhost:8102 is about the
-# marketplace even when the word "edge" sits closer to the digits.
+# nearest-name guess: MARKET_URL=http://localhost:8102 is about the
+# market even when the word "edge" sits closer to the digits.
 ENV_RE = re.compile(
     r"\b([A-Z][A-Z0-9]*(?:_[A-Z0-9]+)*?)_(?:URL|PORT|ENDPOINT)\s*=\s*"
     r"[\"']?(?:[^\s\"']*[:=])?(\d{4})\b"
@@ -291,7 +291,7 @@ def inline_hits(line: str, authority: dict[str, int], names: list[tuple[str, str
     """Yield (canonical_name, port, position) for ports written outside a table.
 
     Service names are looked up in the current line and in the previous
-    LOOKBACK lines, so a comment like `echo "Testing marketplace..."` above a
+    LOOKBACK lines, so a comment like `echo "Testing market..."` above a
     `curl http://localhost:8002/...` line still attributes the port correctly.
 
     Backticks (single and triple fence markers) are stripped from the search

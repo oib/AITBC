@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 # AITBC Enterprise Automation Script
 # This script demonstrates advanced enterprise features
 
@@ -40,12 +41,12 @@ echo "Checking mining status..."
 echo "Stopping mining..."
 /opt/aitbc/venv/bin/python /opt/aitbc/cli/enterprise_cli.py mine stop
 
-# 3. Marketplace Operations
-echo -e "\n3. Marketplace Operations"
-echo "Listing marketplace items..."
+# 3. Market Operations
+echo -e "\n3. Market Operations"
+echo "Listing market items..."
 /opt/aitbc/venv/bin/python /opt/aitbc/cli/enterprise_cli.py market list
 
-echo "Creating marketplace listing (demo)..."
+echo "Creating market listing (demo)..."
 # Note: This would normally require actual wallet details
 echo "/opt/aitbc/venv/bin/python /opt/aitbc/cli/enterprise_cli.py market create --wallet seller --type 'Digital Art' --price 1000 --description 'Beautiful NFT artwork' --password-file /var/lib/aitbc/keystore/.password"
 

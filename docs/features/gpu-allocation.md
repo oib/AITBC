@@ -9,15 +9,15 @@ Record GPU allocation/booking on-chain
 
 - `apps/blockchain-node/src/aitbc_chain/state/gpu_resources.py` — GPU resource state models for blockchain tracking.
 - `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py` — GPU resource RPC endpoints for AITBC blockchain.
-- `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` — Get pricing engine instance
-- `apps/gpu/src/gpu_service/domain/gpu_marketplace.py` — Persistent SQLModel tables for the GPU marketplace.
+- `apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py` — Get pricing engine instance
+- `apps/gpu/src/gpu_service/domain/gpu_market.py` — Persistent SQLModel tables for the GPU market.
 - `Blockchain Node` exposes `POST /rpc/gpu/register` (operation `register_gpu_rpc_gpu_register_post`) — Register GPU on-chain
 - `Blockchain Node` exposes `POST /rpc/gpu/allocate` (operation `allocate_gpu_rpc_gpu_allocate_post`) — Allocate GPU on-chain
 - `Blockchain Node` exposes `POST /rpc/edge/register` (operation `register_edge_node_rpc_edge_register_post`) — Register edge node on-chain
 
 ## Examples
 
-- `POST /marketplace/gpu/{gpu_id}/confirm` (`confirm_gpu_booking` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py`)
+- `POST /market/gpu/{gpu_id}/confirm` (`confirm_gpu_booking` in `apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py`)
 - `POST /join` (`join_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `POST /leave` (`leave_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `GET /` (`list_islands` in `apps/edge/src/aitbc_edge/routers/islands.py`)

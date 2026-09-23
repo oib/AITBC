@@ -18,7 +18,7 @@ sys.path.insert(0, str(REPO_ROOT))
 from aitbc.constants import (  # noqa: E402
     AGENT_COORDINATOR_PORT,
     COORDINATOR_API_PORT,
-    MARKETPLACE_PORT,
+    MARKET_PORT,
     REDIS_PORT,
     WALLET_PORT,
 )
@@ -35,7 +35,7 @@ os.environ.setdefault("WALLET_BIND_PORT", "8108")
 os.environ.setdefault("WALLET_DIR", f"{TMPDIR}/test_wallet")
 os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
 os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
-os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
+os.environ.setdefault("MARKET_BIND_PORT", "8102")
 os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
 
 OUTPUT_DIR = REPO_ROOT / "docs" / "api"
@@ -64,7 +64,7 @@ def generate_openapi(app_module, app_name, output_file):
         # Add servers info
         openapi_spec["servers"] = [
             {"url": f"http://localhost:{COORDINATOR_API_PORT}", "description": "Coordinator API (production)"},
-            {"url": f"http://localhost:{MARKETPLACE_PORT}", "description": "Marketplace (production)"},
+            {"url": f"http://localhost:{MARKET_PORT}", "description": "Market (production)"},
             {"url": f"http://localhost:{WALLET_PORT}", "description": "Wallet (production)"},
             {"url": f"http://localhost:{AGENT_COORDINATOR_PORT}", "description": "Agent Coordinator (production)"},
         ]
@@ -101,19 +101,19 @@ def main():
 
     services = [
         ("coordinator_api.main", "coordinator-api", "coordinator-api-openapi.json"),
-        ("marketplace_service.main", "marketplace", "marketplace-openapi.json"),
+        ("market_service.main", "market", "market-openapi.json"),
         ("wallet_app.main", "wallet", "wallet-openapi.json"),
     ]
 
     # Set paths for each service
     sys.path.insert(0, "/opt/aitbc/apps/coordinator-api/src")
-    sys.path.insert(0, "/opt/aitbc/apps/marketplace/src")
+    sys.path.insert(0, "/opt/aitbc/apps/market/src")
     sys.path.insert(0, "/opt/aitbc/apps/wallet/src")
 
     # Set required environment variables
     os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
     os.environ.setdefault("DATABASE_URL", f"sqlite:///{TMPDIR}/test.db")
-    os.environ.setdefault("MARKETPLACE_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
+    os.environ.setdefault("MARKET_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
     os.environ.setdefault("REDIS_URL", "redis://localhost:6379/1")
     os.environ.setdefault("SECRET_KEY", "test-secret-key-that-is-at-least-32-chars-long")
     os.environ.setdefault("TEST_ADMIN_PASSWORD", "test-admin-password")
@@ -123,8 +123,8 @@ def main():
     os.environ.setdefault("KEYSTORE_PASSWORD", "test-password")
     os.environ.setdefault("WALLET_IMPORT_PASSWORD", "test-import-password")
     os.environ.setdefault("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
-    os.environ.setdefault("MARKETPLACE_BIND_PORT", "8102")
-    os.environ.setdefault("MARKETPLACE_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
+    os.environ.setdefault("MARKET_BIND_PORT", "8102")
+    os.environ.setdefault("MARKET_DATABASE_URL", f"sqlite+aiosqlite:///{TMPDIR}/test.db")
 
     results = []
     for app_module, app_name, output_file in services:

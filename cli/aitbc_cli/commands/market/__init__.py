@@ -39,8 +39,8 @@ def safe_load_credentials():
                 "island_id": os.getenv("ISLAND_ID", "ait-hub"),
                 "chain_id": os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"),
             }
-        error(f"Island credentials required for marketplace operations: {e}")
-        error("Note: Hub nodes do not need to join islands - marketplace works with blockchain config")
+        error(f"Island credentials required for market operations: {e}")
+        error("Note: Hub nodes do not need to join islands - market works with blockchain config")
         error("For follower nodes, run: aitbc node island join <island_id> <island_name> <chain_id>")
         error("Example: aitbc edge island join ait-hub.aitbc.bubuit.net-island 'AIT Hub' ait-hub.aitbc.bubuit.net")
         return None
@@ -99,7 +99,7 @@ def _account_balance(address: str, chain_id: str) -> int:
 def get_wallet_address() -> str:
     """Get a funded provider address from the wallet service.
 
-    P2.5: marketplace offers require a sender with enough balance to pay the
+    P2.5: market offers require a sender with enough balance to pay the
     listing fee (36 compute-units) and, historically, picked my-agent-wallet
     even when it had a zero balance. We now prefer a wallet that can actually
     afford the transaction.
@@ -217,7 +217,7 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
 @click.option("--password-file", "market_password_file", type=click.Path(exists=True), help="Wallet password file")
 @click.pass_context
 def market(ctx, market_wallet, market_wallet_path, market_password, market_password_file):
-    """GPU and software marketplace offers published by shop miners and backed by the coordinator."""
+    """GPU and software market offers published by shop miners and backed by the coordinator."""
     ctx.ensure_object(dict)
     ctx.obj["market_wallet"] = market_wallet
     ctx.obj["market_wallet_path"] = market_wallet_path

@@ -110,4 +110,4 @@ curl -X POST http://localhost:8203/v1/jobs \
 
 - [Database Issues](database-issues.md) - Database connection and performance issues
 - [Service Management](service-management.md) - General service troubleshooting
-- [Marketplace Issues](marketplace-issues.md) - Marketplace matching problems
+- [Market Issues](market-issues.md) - Market matching problems

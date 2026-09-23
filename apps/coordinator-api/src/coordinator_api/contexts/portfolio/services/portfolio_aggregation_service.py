@@ -1,6 +1,6 @@
 """
 Portfolio Aggregation Service
-Aggregates portfolio data from wallet, exchange, marketplace, trading, and AI services
+Aggregates portfolio data from wallet, exchange, market, trading, and AI services
 """
 
 import os
@@ -23,7 +23,9 @@ class PortfolioAggregationService:
         # Service URLs follow the api-gateway convention: env override, loopback default.
         self.wallet_service_url = os.getenv("WALLET_SERVICE_URL", "http://localhost:8108")
         self.exchange_service_url = os.getenv("EXCHANGE_SERVICE_URL", "http://localhost:8106")
-        self.marketplace_service_url = os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102")
+        self.market_service_url = os.getenv(
+            "MARKET_SERVICE_URL", os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102")
+        )
         self.trading_service_url = os.getenv("TRADING_SERVICE_URL", "http://localhost:8104")
         self.ai_service_url = os.getenv("AI_SERVICE_URL", "http://localhost:8005")
         # Wallet admin routes (/v1/wallets) require X-API-Key = WALLET_API_KEY,
@@ -46,23 +48,23 @@ class PortfolioAggregationService:
 
         Returns:
             Unified portfolio data containing wallet balances, exchange rates,
-            marketplace stats, trading analytics, and AI signals
+            market stats, trading analytics, and AI signals
         """
         try:
             wallet_data = await self._get_wallet_balances(agent_address)
             exchange_data = await self._get_exchange_rates()
-            marketplace_data = await self._get_marketplace_stats()
+            market_data = await self._get_market_stats()
             trading_data = await self._get_trading_analytics(agent_address)
             ai_data = await self._get_ai_trade_signals()
             portfolio_summary = self._calculate_portfolio_summary(
-                wallet_data, exchange_data, marketplace_data, trading_data, ai_data
+                wallet_data, exchange_data, market_data, trading_data, ai_data
             )
             return {
                 "timestamp": datetime.now(UTC).isoformat(),
                 "agent_address": agent_address,
                 "wallet": wallet_data,
                 "exchange": exchange_data,
-                "marketplace": marketplace_data,
+                "market": market_data,
                 "trading": trading_data,
                 "ai_signals": ai_data,
                 "summary": portfolio_summary,
@@ -129,15 +131,15 @@ class PortfolioAggregationService:
             logger.error("Error fetching exchange rates: %s", str(e))
             return {"rates": {}, "error": str(e)}
 
-    async def _get_marketplace_stats(self) -> dict[str, Any]:
-        """Fetch marketplace statistics from marketplace service"""
+    async def _get_market_stats(self) -> dict[str, Any]:
+        """Fetch market statistics from market service"""
         try:
-            response = await self.http_client.get(f"{self.marketplace_service_url}/v1/marketplace/analytics?period_type=daily")
+            response = await self.http_client.get(f"{self.market_service_url}/v1/market/analytics?period_type=daily")
             if response.status_code == 200:
                 try:
                     data = response.json()
                 except Exception as e:
-                    logger.warning("Failed to parse marketplace stats: %s", e)
+                    logger.warning("Failed to parse market stats: %s", e)
                     return {"offers": 0, "bids": 0, "capacity": 0, "error": str(e)}
                 return {
                     "offers": data.get("total_offers", 0),
@@ -146,10 +148,10 @@ class PortfolioAggregationService:
                     "period_type": data.get("period_type"),
                 }
             else:
-                logger.warning("Marketplace service returned status %s", response.status_code)
-                return {"offers": 0, "capacity": 0, "error": "Marketplace service unavailable"}
+                logger.warning("Market service returned status %s", response.status_code)
+                return {"offers": 0, "capacity": 0, "error": "Market service unavailable"}
         except Exception as e:
-            logger.error("Error fetching marketplace stats: %s", str(e))
+            logger.error("Error fetching market stats: %s", str(e))
             return {"offers": 0, "capacity": 0, "error": str(e)}
 
     async def _get_trading_analytics(self, agent_address: str | None = None) -> dict[str, Any]:
@@ -222,7 +224,7 @@ class PortfolioAggregationService:
         self,
         wallet_data: dict[str, Any],
         exchange_data: dict[str, Any],
-        marketplace_data: dict[str, Any],
+        market_data: dict[str, Any],
         trading_data: dict[str, Any],
         ai_data: dict[str, Any],
     ) -> dict[str, Any]:
@@ -237,8 +239,8 @@ class PortfolioAggregationService:
             # rather than pricing the balance off a hardcoded fallback.
             aitbc_eth_rate = Decimal(str(rates["AITBC::ETH"])) if rates.get("AITBC::ETH") is not None else None
             eth_value = total_aitbc_balance * aitbc_eth_rate if aitbc_eth_rate is not None else None
-            marketplace_offers = marketplace_data.get("offers", 0)
-            marketplace_capacity = marketplace_data.get("capacity", 0)
+            market_offers = market_data.get("offers", 0)
+            market_capacity = market_data.get("capacity", 0)
             # Trading analytics puts the counters at top level.
             total_trades = trading_data.get("total_trades", 0)
             completed_trades = trading_data.get("completed_trades", 0)
@@ -251,9 +253,9 @@ class PortfolioAggregationService:
                 "total_aitbc_balance": total_aitbc_balance,
                 "eth_equivalent": eth_value,
                 "exchange_rate": aitbc_eth_rate,
-                "marketplace_exposure": {
-                    "offers": marketplace_offers,
-                    "capacity": marketplace_capacity,
+                "market_exposure": {
+                    "offers": market_offers,
+                    "capacity": market_capacity,
                 },
                 "trading_performance": {
                     "total_trades": total_trades,

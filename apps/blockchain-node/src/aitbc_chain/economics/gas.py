@@ -18,7 +18,7 @@ class GasType(Enum):
     CONSENSUS = "consensus"
     MESSAGE = "message"
     RECEIPT_CLAIM = "receipt_claim"
-    GPU_MARKETPLACE = "gpu_marketplace"
+    GPU_MARKET = "gpu_market"
     EXCHANGE = "exchange"
 
 

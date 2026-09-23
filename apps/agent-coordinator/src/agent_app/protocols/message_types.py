@@ -171,7 +171,7 @@ class TaskQuote(BaseModel):
     task_id: str = Field(..., description="Task being quoted")
     price: Decimal = Field(..., description="Quoted price (AIT)")
     eta: float | None = Field(None, description="Estimated execution time in seconds")
-    offer_id: str | None = Field(None, description="Marketplace offer backing this quote")
+    offer_id: str | None = Field(None, description="Market offer backing this quote")
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 

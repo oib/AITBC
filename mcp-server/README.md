@@ -21,7 +21,7 @@ the repository.
 | Wallets (mutate) | `send_aitbc_transaction`, `stake_aitbc`, `unstake_aitbc` |
 | AI jobs (read) | `list_ai_jobs`, `get_ai_job_status`, `get_ai_job_results` |
 | AI jobs (mutate) | `submit_ai_job` |
-| Marketplace | `list_market_offers`, `get_market_status` |
+| Market | `list_market_offers`, `get_market_status` |
 | Nodes config | `list_aitbc_node_config`, `get_node_info` |
 | Accounts | `list_accounts`, `get_account` |
 | Bonds (read) | `get_bond_status` |
@@ -39,20 +39,20 @@ the repository.
 | Cross-chain | `get_cross_chain_rates`, `get_cross_chain_pools` |
 | GPU | `list_gpus`, `get_gpu_info`, `get_gpu_allocations`, `get_edge_info` |
 | AI on-chain | `list_ai_jobs_onchain`, `get_ai_job_onchain`, `get_ai_service_stats` |
-| Marketplace on-chain | `list_marketplace_listings`, `get_marketplace_listing` |
+| Market on-chain | `list_market_listings`, `get_market_listing` |
 | Escrow | `get_escrow_state` |
 | Islands | `list_islands`, `get_island` |
 | Contracts / forum | `list_contracts`, `get_messaging_contract_state`, `get_forum_topics`, `get_topic_messages` |
 | Disputes | `get_active_disputes`, `get_authorized_arbitrators`, `get_arbitrator_disputes`, `get_user_disputes`, `get_dispute`, `get_dispute_evidence`, `get_arbitration_votes` |
 | Subscription | `list_subscribers`, `get_lease_status` |
-| Mutating RPC | `submit_blockchain_transaction`, `submit_marketplace_transaction`, `create_marketplace_listing`, `register_gpu`, `allocate_gpu`, `stake_tokens`, `unstake_tokens`, `register_agent_identity`, `create_governance_proposal`, `cast_governance_vote`, `execute_governance_proposal`, `create_cross_chain_swap`, `create_cross_chain_bridge`, `bridge_lock`, `bridge_confirm`, `bridge_unlock`, `create_escrow`, `release_escrow`, `refund_escrow`, `register_account`, `force_sync_chain` |
+| Mutating RPC | `submit_blockchain_transaction`, `submit_market_transaction`, `create_market_listing`, `register_gpu`, `allocate_gpu`, `stake_tokens`, `unstake_tokens`, `register_agent_identity`, `create_governance_proposal`, `cast_governance_vote`, `execute_governance_proposal`, `create_cross_chain_swap`, `create_cross_chain_bridge`, `bridge_lock`, `bridge_confirm`, `bridge_unlock`, `create_escrow`, `release_escrow`, `refund_escrow`, `register_account`, `force_sync_chain` |
 | Version / auth | `get_aitbc_version`, `get_auth_status` |
 
 All destructive tools default to `dry_run=true` and require `confirm=true` before
 they actually run a command on a remote host.
 
 Additional typed RPC tools live in `aitbc_mcp_rpc_tools.py` and are imported by
-`aitbc_mcp_server.py`; they cover the remaining blockchain routers (marketplace,
+`aitbc_mcp_server.py`; they cover the remaining blockchain routers (market,
 bridge, cross-chain, GPU, contracts, disputes, subscription, escrow, islands,
 governance/identity, and a curated set of mutating RPC endpoints).
 
@@ -209,8 +209,8 @@ Recommended `.devin/config.json`:
       "mcp__aitbc__stake_aitbc",
       "mcp__aitbc__unstake_aitbc",
       "mcp__aitbc__submit_blockchain_transaction",
-      "mcp__aitbc__submit_marketplace_transaction",
-      "mcp__aitbc__create_marketplace_listing",
+      "mcp__aitbc__submit_market_transaction",
+      "mcp__aitbc__create_market_listing",
       "mcp__aitbc__register_gpu",
       "mcp__aitbc__allocate_gpu",
       "mcp__aitbc__stake_tokens",
@@ -316,7 +316,7 @@ Typed RPC tools are also provided for the most common blockchain paths:
 `get_account_info`, `get_transaction_info`, `get_mempool`, `get_network_info`,
 `get_blockchain_status`.
 
-Some endpoints (e.g. coordinator, marketplace, event bridge) may require
+Some endpoints (e.g. coordinator, market, event bridge) may require
 authentication or be bound to a specific node.
 
 ## Running outside Devin

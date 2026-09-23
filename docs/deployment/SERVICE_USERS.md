@@ -13,7 +13,7 @@ Current unit files run almost all services as the `aitbc` user; root is used onl
 
 | User | Services | Purpose |
 |------|----------|---------|
-| `aitbc` | blockchain-node, blockchain-p2p, blockchain-rpc, blockchain-explorer, blockchain-event-bridge, bridge-monitor, coordinator-api, agent-coordinator, governance, marketplace, exchange, pool-hub, gpu, miner, wallet, edge, whisper, ffmpeg, island-ipfs, api-gateway, hermes-agent, trading | Standard runtime user |
+| `aitbc` | blockchain-node, blockchain-p2p, blockchain-rpc, blockchain-explorer, blockchain-event-bridge, bridge-monitor, coordinator-api, agent-coordinator, governance, market, exchange, pool-hub, gpu, miner, wallet, edge, whisper, ffmpeg, island-ipfs, api-gateway, hermes-agent, trading | Standard runtime user |
 
 (The deployed IPFS unit is `aitbc-island-ipfs`; there is no `aitbc-ai-engine`
 service — `apps/ai-engine/` ships candidate units that are not deployed.)

@@ -1,7 +1,7 @@
 [Unit]
 Description=AITBC Service Recovery — relinks systemd units and loads secrets after reboot
 After=network.target
-Before=aitbc-blockchain-node.service aitbc-coordinator-api.service aitbc-marketplace.service
+Before=aitbc-blockchain-node.service aitbc-coordinator-api.service aitbc-market.service
 
 [Service]
 Type=oneshot

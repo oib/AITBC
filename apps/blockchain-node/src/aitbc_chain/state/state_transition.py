@@ -52,11 +52,11 @@ else:
     _BOND_BURN_ADDRESS = canonical_address("0x" + keccak(b"aitbc.bond.burn").hex()[:40])
 
 # Transaction types that are forbidden from carrying value at consensus level.
-# GPU_MARKETPLACE is included because every legitimate action (offer,
+# GPU_MARKET is included because every legitimate action (offer,
 # software_offer, software_job, cancel, rating) is a value-zero record; there is
 # no dedicated branch for it in apply_transaction, so a nonzero amount would
 # execute as a plain transfer.
-_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKETPLACE"})
+_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
 
 
 def _governance_executors(session: Session, chain_id: str) -> frozenset[str] | None:

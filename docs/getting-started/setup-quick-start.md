@@ -34,7 +34,7 @@ Profiles are mapped from the three role axes (`BLOCKCHAIN_MODE` + `MARKET_ROLE` 
 | Profile | Role Mapping | Description | Use Case |
 |---------|-------------|-------------|----------|
 | **customer-no-gpu** | follower + customer + nogpu | Lightweight client | Standard follower node consuming resources |
-| **server-no-gpu** | follower + shop + nogpu | Core blockchain services | Follower that provides marketplace services, no GPU |
+| **server-no-gpu** | follower + shop + nogpu | Core blockchain services | Follower that provides market services, no GPU |
 | **hub** | hub + any + nogpu | Full blockchain hub | Central hub node with all services + dev deps |
 | **provider-gpu** | any + any + gpu | GPU service provider | Any node with GPU (gets AI/ML deps including pycuda) |
 
@@ -86,7 +86,7 @@ During setup, you will be prompted to configure two independent axes that determ
 ### Axis 2: Market Role (`MARKET_ROLE`)
 
 - **customer** (default) - Consumes GPU resources
-- **shop** - Provides GPU resources to the marketplace
+- **shop** - Provides GPU resources to the market
 
 ### Hardware Profile (`HARDWARE_PROFILE`)
 

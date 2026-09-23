@@ -133,10 +133,10 @@ class ParameterChangeSchema:
     Supported ``target_service`` values:
     - ``"blockchain"`` — blockchain node (applied via direct config update)
     - ``"poolhub"`` — pool-hub service (``POST /v1/poolhub/parameters/apply``)
-    - ``"marketplace"`` — marketplace service (``POST /v1/marketplace/parameters/apply``)
+    - ``"market"`` — market service (``POST /v1/market/parameters/apply``)
     """
 
-    target_service: str  # "blockchain", "poolhub", "marketplace"
+    target_service: str  # "blockchain", "poolhub", "market"
     parameter_name: str
     old_value: Any
     new_value: Any
@@ -145,7 +145,7 @@ class ParameterChangeSchema:
     def to_apply_dict(self) -> dict[str, Any]:
         """Convert to the request body expected by the target service's parameter API.
 
-        Both pool-hub and marketplace parameter endpoints accept a JSON body
+        Both pool-hub and market parameter endpoints accept a JSON body
         with ``target_service``, ``parameter_name``, and ``new_value`` fields.
         This helper produces that dict from the schema.
         """

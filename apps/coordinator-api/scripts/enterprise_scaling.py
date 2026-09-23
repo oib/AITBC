@@ -322,11 +322,11 @@ class EnterpriseWorkloadManager:
         return metrics
 
 
-class AgentMarketplaceDevelopment:
-    """Development of agent marketplace with GPU acceleration"""
+class AgentMarketDevelopment:
+    """Development of agent market with GPU acceleration"""
 
     def __init__(self):
-        self.marketplace_features = [
+        self.market_features = [
             "agent_listing",
             "agent_discovery",
             "gpu_accelerated_agents",
@@ -343,39 +343,39 @@ class AgentMarketplaceDevelopment:
             "complex_workflows",
         ]
 
-    async def develop_marketplace(self) -> dict[str, Any]:
-        """Develop agent marketplace"""
-        marketplace_result = {
+    async def develop_market(self) -> dict[str, Any]:
+        """Develop agent market"""
+        market_result = {
             "development_status": "in_progress",
             "features_developed": [],
             "gpu_agents_created": [],
-            "marketplace_metrics": {},
+            "market_metrics": {},
             "errors": [],
         }
-        logger.info("Starting agent marketplace development")
-        for feature in self.marketplace_features:
+        logger.info("Starting agent market development")
+        for feature in self.market_features:
             try:
-                feature_result = await self._develop_marketplace_feature(feature)
-                marketplace_result["features_developed"].append(
+                feature_result = await self._develop_market_feature(feature)
+                market_result["features_developed"].append(
                     {"feature": feature, "status": "developed", "details": feature_result}
                 )
-                logger.info("✅ Developed marketplace feature: %s", feature)
+                logger.info("✅ Developed market feature: %s", feature)
             except Exception as e:
-                marketplace_result["errors"].append(f"Feature {feature} failed: {e}")
+                market_result["errors"].append(f"Feature {feature} failed: {e}")
                 logger.error("❌ Failed to develop feature %s: %s", feature, e)
         gpu_agents = await self._create_gpu_accelerated_agents()
-        marketplace_result["gpu_agents_created"] = gpu_agents
-        metrics = await self._collect_marketplace_metrics()
-        marketplace_result["marketplace_metrics"] = metrics
-        if marketplace_result["errors"]:
-            marketplace_result["development_status"] = "partial_success"
+        market_result["gpu_agents_created"] = gpu_agents
+        metrics = await self._collect_market_metrics()
+        market_result["market_metrics"] = metrics
+        if market_result["errors"]:
+            market_result["development_status"] = "partial_success"
         else:
-            marketplace_result["development_status"] = "success"
-        logger.info("Agent marketplace development completed with status: %s", marketplace_result["development_status"])
-        return marketplace_result
+            market_result["development_status"] = "success"
+        logger.info("Agent market development completed with status: %s", market_result["development_status"])
+        return market_result
 
-    async def _develop_marketplace_feature(self, feature: str) -> dict[str, Any]:
-        """Develop individual marketplace feature"""
+    async def _develop_market_feature(self, feature: str) -> dict[str, Any]:
+        """Develop individual market feature"""
         if feature == "agent_listing":
             return await self._develop_agent_listing()
         elif feature == "agent_discovery":
@@ -391,7 +391,7 @@ class AgentMarketplaceDevelopment:
         elif feature == "compliance_verification":
             return await self._develop_compliance_verification()
         else:
-            raise ValueError(f"Unknown marketplace feature: {feature}")
+            raise ValueError(f"Unknown market feature: {feature}")
 
     async def _develop_agent_listing(self) -> dict[str, Any]:
         """Develop agent listing functionality"""
@@ -512,8 +512,8 @@ class AgentMarketplaceDevelopment:
             agents.append(agent)
         return agents
 
-    async def _collect_marketplace_metrics(self) -> dict[str, Any]:
-        """Collect marketplace metrics"""
+    async def _collect_market_metrics(self) -> dict[str, Any]:
+        """Collect market metrics"""
         metrics = {
             "total_agents": 50,
             "gpu_accelerated_agents": 25,
@@ -523,14 +523,14 @@ class AgentMarketplaceDevelopment:
             "total_revenue": 22500,
             "user_satisfaction": 4.6,
             "gpu_utilization": 78,
-            "marketplace_growth": 25,
+            "market_growth": 25,
         }
         return metrics
 
 
 async def main():
-    """Main enterprise scaling and marketplace development"""
-    print("🚀 Starting Enterprise Scaling and Marketplace Development")
+    """Main enterprise scaling and market development"""
+    print("🚀 Starting Enterprise Scaling and Market Development")
     print("=" * 60)
     print("\n📈 Step 1: Enterprise Scaling")
     scaling_manager = EnterpriseWorkloadManager()
@@ -538,19 +538,19 @@ async def main():
     print(f"Scaling Status: {scaling_result['scaling_implementation']}")
     print(f"Features Implemented: {len(scaling_result['features_implemented'])}")
     print(f"Scalability Tests: {len(scaling_result['scalability_tests'])}")
-    print("\n🏪 Step 2: Agent Marketplace Development")
-    marketplace = AgentMarketplaceDevelopment()
-    marketplace_result = await marketplace.develop_marketplace()
-    print(f"Marketplace Status: {marketplace_result['development_status']}")
-    print(f"Features Developed: {len(marketplace_result['features_developed'])}")
-    print(f"GPU Agents Created: {len(marketplace_result['gpu_agents_created'])}")
+    print("\n🏪 Step 2: Agent Market Development")
+    market = AgentMarketDevelopment()
+    market_result = await market.develop_market()
+    print(f"Market Status: {market_result['development_status']}")
+    print(f"Features Developed: {len(market_result['features_developed'])}")
+    print(f"GPU Agents Created: {len(market_result['gpu_agents_created'])}")
     print("\n" + "=" * 60)
-    print("🎯 ENTERPRISE SCALING AND MARKETPLACE DEVELOPMENT COMPLETE")
+    print("🎯 ENTERPRISE SCALING AND MARKET DEVELOPMENT COMPLETE")
     print("=" * 60)
     print(f"✅ Enterprise Scaling: {scaling_result['scaling_implementation']}")
-    print(f"✅ Agent Marketplace: {marketplace_result['development_status']}")
-    print("✅ Ready for: Enterprise workloads and agent marketplace")
-    return {"scaling_result": scaling_result, "marketplace_result": marketplace_result}
+    print(f"✅ Agent Market: {market_result['development_status']}")
+    print("✅ Ready for: Enterprise workloads and agent market")
+    return {"scaling_result": scaling_result, "market_result": market_result}
 
 
 if __name__ == "__main__":

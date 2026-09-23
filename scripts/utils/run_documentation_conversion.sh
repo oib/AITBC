@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Documentation Conversion from Completed Files
 # Converts already-moved completed files in docs/completed/ to proper documentation
@@ -295,7 +296,7 @@ def extract_documentation_metadata(content, filename):
         r'exchange',
         r'blockchain',
         r'analytics',
-        r'marketplace',
+        r'market',
         r'maintenance',
         r'implementation',
         r'testing',
@@ -400,7 +401,7 @@ def determine_target_category(metadata, current_category):
         return 'infrastructure'
     elif any(kw in keywords for kw in ['security', 'firewall']):
         return 'security'
-    elif any(kw in keywords for kw in ['exchange', 'trading', 'marketplace']):
+    elif any(kw in keywords for kw in ['exchange', 'trading', 'market']):
         return 'exchange'
     elif any(kw in keywords for kw in ['blockchain', 'wallet']):
         return 'blockchain'

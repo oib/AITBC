@@ -45,11 +45,11 @@ function renderBlockTransactions(block) {
                         if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
                         return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
                     }).join('');
-                if (rows) txDetails = `<div class="tx-marketplace-details">${rows}</div>`;
+                if (rows) txDetails = `<div class="tx-market-details">${rows}</div>`;
             }
         } catch (e) {
             if (tx.payload) {
-                txDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
+                txDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
             }
         }
         const txHash = tx.tx_hash || 'N/A';
@@ -486,12 +486,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
                                 return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
                             }).join('');
-                            if (rows) payloadDetails = `<div class="tx-marketplace-details">${rows}</div>`;
+                            if (rows) payloadDetails = `<div class="tx-market-details">${rows}</div>`;
                         }
                     }
                 } catch (e) {
                     if (item.payload) {
-                        payloadDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
+                        payloadDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
                     }
                 }
 
@@ -638,12 +638,12 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 `;
                                             }).join('');
                                         if (detailRows) {
-                                            txDetails = `<div class="tx-marketplace-details">${detailRows}</div>`;
+                                            txDetails = `<div class="tx-market-details">${detailRows}</div>`;
                                         }
                                     }
                                 } catch (e) {
                                     if (tx.payload) {
-                                        txDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
+                                        txDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
                                     }
                                 }
 
@@ -699,11 +699,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
                                 return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
                             }).join('');
-                        if (rows) payloadDetails = `<div class="tx-marketplace-details">${rows}</div>`;
+                        if (rows) payloadDetails = `<div class="tx-market-details">${rows}</div>`;
                     }
                 } catch (e) {
                     if (item.payload) {
-                        payloadDetails = `<div class="tx-marketplace-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
+                        payloadDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
                     }
                 }
 

@@ -43,7 +43,7 @@ class JobPaymentCreate(BaseModel):
     )
     # G1: the quote this amount came from, kept so a settlement can be audited against
     # what was advertised rather than only against what was charged.
-    offer_id: str | None = Field(default=None, description="Marketplace offer the amount was quoted from")
+    offer_id: str | None = Field(default=None, description="Market offer the amount was quoted from")
     offer_unit_price: Decimal | None = Field(default=None, description="Advertised price of one unit")
     offer_price_unit: str | None = Field(default=None, description="Unit the offer is priced in")
     offer_quantity: Decimal | None = Field(default=None, description="Units bought at the advertised price")
@@ -322,10 +322,10 @@ class JobCreate(BaseModel):
     buyer_lock_signature: str | None = None  # Pre-signed ESCROW_LOCK transaction signature
     buyer_lock_nonce: int | None = None  # Nonce used in the ESCROW_LOCK transaction
     buyer_lock_fee: int | None = None  # Fee used in the ESCROW_LOCK transaction
-    # G1: the marketplace listing this job is bought against. When set, the offer
+    # G1: the market listing this job is bought against. When set, the offer
     # decides the price and the payee, and a payment_amount or provider_address that
     # disagrees with it is refused rather than quietly preferred.
-    offer_id: str | None = Field(default=None, description="Marketplace offer this job is bought against")
+    offer_id: str | None = Field(default=None, description="Market offer this job is bought against")
     offer_quantity: Decimal = Field(
         default=Decimal("1"),
         gt=Decimal("0"),
@@ -439,7 +439,7 @@ class JobFailSubmit(BaseModel):
     metrics: dict[str, Any] = Field(default_factory=dict)
 
 
-class MarketplaceOfferView(BaseModel):
+class MarketOfferView(BaseModel):
     id: str
     provider: str
     capacity: int
@@ -457,15 +457,15 @@ class MarketplaceOfferView(BaseModel):
     attributes: dict[str, Any] | None = None
 
 
-class MarketplaceStatsView(BaseModel):
+class MarketStatsView(BaseModel):
     totalOffers: int
     openCapacity: int
     averagePrice: Decimal
     activeBids: int
 
 
-# Bids deprecated in v0.4.7 - GPU-only marketplace removed
-# MarketplaceBidRequest and MarketplaceBidView no longer available
+# Bids deprecated in v0.4.7 - GPU-only market removed
+# MarketBidRequest and MarketBidView no longer available
 
 
 class BlockSummary(BaseModel):

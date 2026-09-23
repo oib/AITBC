@@ -9,7 +9,7 @@ GZip middleware for RPC responses
 
 - `apps/agent-coordinator/src/agent_app/middleware.py`
 - `aitbc/auth/middleware.py` — Custom authentication error.
-- `aitbc/marketplace/blockchain_rpc.py` — from **future** import annotations import logging from typing import Any, cast import httpx logger =...
+- `aitbc/market/blockchain_rpc.py` — from **future** import annotations import logging from typing import Any, cast import httpx logger =...
 - `apps/blockchain-node/src/aitbc_chain/network/compression.py` — Check whether network compression is enabled via configuration.
 - `apps/coordinator-api/src/coordinator_api/core/middleware.py` — Middleware configuration for Coordinator API.
 - `Blockchain Node` exposes `POST /rpc/disputes/file` (operation `file_dispute_route_rpc_disputes_file_post`) — File a new dispute

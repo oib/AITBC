@@ -168,7 +168,7 @@ scrape_configs:
           node: <node2>
           service: blockchain-rpc
 
-  # Coordinator API and marketplace only run on the hub node by default.
+  # Coordinator API and market only run on the hub node by default.
   # - job_name: 'node2-coordinator-api'
   #   static_configs:
   #     - targets: ['localhost:8203']  # check-ports: ignore
@@ -178,12 +178,12 @@ scrape_configs:
   #   metrics_path: '/prometheus'
   #   scrape_interval: 15s
   #
-  # - job_name: 'node2-marketplace'
+  # - job_name: 'node2-market'
   #   static_configs:
   #     - targets: ['localhost:8104']
   #       labels:
   #         node: <node2>
-  #         service: marketplace
+  #         service: market
   #   metrics_path: '/metrics'
   #   scrape_interval: 15s
 ```

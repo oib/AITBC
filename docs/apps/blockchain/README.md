@@ -10,7 +10,7 @@ Core blockchain infrastructure for AITBC.
 ## Features
 
 - PoA consensus with single proposer
-- Transaction processing (TRANSFER, RECEIPT_CLAIM, MESSAGE, GPU_MARKETPLACE, EXCHANGE)
+- Transaction processing (TRANSFER, RECEIPT_CLAIM, MESSAGE, GPU_MARKET, EXCHANGE)
 - Gossip-based peer-to-peer networking
 - RESTful RPC API
 - Prometheus metrics

@@ -41,7 +41,7 @@ async def submit_compute_request(
         escrow_key = request.job_id or request.escrow_id
         if not escrow_key:
             raise HTTPException(status_code=402, detail="Payment required: job_id (or escrow_id) is required")
-        from aitbc.marketplace import BlockchainRPCClient
+        from aitbc.market import BlockchainRPCClient
 
         rpc_url = f"http://{settings.blockchain_rpc_host}:{settings.blockchain_rpc_port}"
         rpc_client = BlockchainRPCClient(

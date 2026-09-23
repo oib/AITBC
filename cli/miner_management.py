@@ -5,7 +5,7 @@ Complete command-line interface for AI compute miner operations including:
 - Miner Registration
 - Status Management
 - Job Polling & Execution
-- Marketplace Integration
+- Market Integration
 - Payment Management
 """
 
@@ -406,13 +406,13 @@ def check_earnings(
         return {"action": "earnings", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
-def list_marketplace_offers(
+def list_market_offers(
     miner_id: str | None = None,
     region: str | None = None,
     api_key: str = DEFAULT_API_KEY,
     coordinator_url: str = DEFAULT_COORDINATOR_URL,
 ) -> dict | None:
-    """List marketplace offers"""
+    """List market offers"""
     try:
         admin_headers = {"X-Api-Key": api_key.replace("miner_", "admin_")}
 
@@ -420,9 +420,7 @@ def list_marketplace_offers(
         if region:
             params["region"] = region
 
-        response = requests.get(
-            f"{coordinator_url}/v1/marketplace/miner-offers", headers=admin_headers, params=params, timeout=30
-        )
+        response = requests.get(f"{coordinator_url}/v1/market/miner-offers", headers=admin_headers, params=params, timeout=30)
 
         if response.status_code == 200:
             offers = response.json()
@@ -432,7 +430,7 @@ def list_marketplace_offers(
                 offers = [o for o in offers if miner_id in str(o).lower()]
 
             return {
-                "action": "marketplace_list",
+                "action": "market_list",
                 "status": "✅ Offers retrieved",
                 "offers": offers,
                 "count": len(offers),
@@ -440,19 +438,19 @@ def list_marketplace_offers(
                 "miner_filter": miner_id,
             }
         else:
-            return {"action": "marketplace_list", "status": "❌ Failed to get offers", "error": response.text}
+            return {"action": "market_list", "status": "❌ Failed to get offers", "error": response.text}
 
     except requests.exceptions.ConnectionError as e:
-        return {"action": "marketplace_list", "status": f"❌ Connection error: {str(e)}"}
+        return {"action": "market_list", "status": f"❌ Connection error: {str(e)}"}
     except requests.exceptions.Timeout as e:
-        return {"action": "marketplace_list", "status": f"❌ Timeout error: {str(e)}"}
+        return {"action": "market_list", "status": f"❌ Timeout error: {str(e)}"}
     except requests.exceptions.HTTPError as e:
-        return {"action": "marketplace_list", "status": f"❌ HTTP error: {str(e)}"}
+        return {"action": "market_list", "status": f"❌ HTTP error: {str(e)}"}
     except Exception as e:
-        return {"action": "marketplace_list", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
+        return {"action": "market_list", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
-def create_marketplace_offer(
+def create_market_offer(
     miner_id: str,
     price: Decimal,
     api_key: str = DEFAULT_API_KEY,
@@ -460,17 +458,17 @@ def create_marketplace_offer(
     capacity: int = 1,
     region: str | None = None,
 ) -> dict | None:
-    """Create marketplace offer"""
+    """Create market offer"""
     try:
         admin_headers = {"X-Api-Key": api_key.replace("miner_", "admin_")}
 
         payload = {"miner_id": miner_id, "price": str(price), "capacity": capacity, "region": region}
 
-        response = requests.post(f"{coordinator_url}/v1/marketplace/offers", headers=admin_headers, json=payload, timeout=30)
+        response = requests.post(f"{coordinator_url}/v1/market/offers", headers=admin_headers, json=payload, timeout=30)
 
         if response.status_code == 200:
             return {
-                "action": "marketplace_create",
+                "action": "market_create",
                 "miner_id": miner_id,
                 "status": "✅ Offer created successfully",
                 "price": str(price),
@@ -478,16 +476,16 @@ def create_marketplace_offer(
                 "region": region,
             }
         else:
-            return {"action": "marketplace_create", "status": "❌ Offer creation failed", "error": response.text}
+            return {"action": "market_create", "status": "❌ Offer creation failed", "error": response.text}
 
     except requests.exceptions.ConnectionError as e:
-        return {"action": "marketplace_create", "status": f"❌ Connection error: {str(e)}"}
+        return {"action": "market_create", "status": f"❌ Connection error: {str(e)}"}
     except requests.exceptions.Timeout as e:
-        return {"action": "marketplace_create", "status": f"❌ Timeout error: {str(e)}"}
+        return {"action": "market_create", "status": f"❌ Timeout error: {str(e)}"}
     except requests.exceptions.HTTPError as e:
-        return {"action": "marketplace_create", "status": f"❌ HTTP error: {str(e)}"}
+        return {"action": "market_create", "status": f"❌ HTTP error: {str(e)}"}
     except Exception as e:
-        return {"action": "marketplace_create", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
+        return {"action": "market_create", "status": f"❌ Unexpected error: {type(e).__name__}: {str(e)}"}
 
 
 # Main function for CLI integration
@@ -502,8 +500,8 @@ def miner_cli_dispatcher(action: str, **kwargs) -> dict[Any, Any]:
         "result": submit_job_result,
         "update": update_capabilities,
         "earnings": check_earnings,
-        "marketplace_list": list_marketplace_offers,
-        "marketplace_create": create_marketplace_offer,
+        "market_list": list_market_offers,
+        "market_create": create_market_offer,
     }
 
     if action in actions:

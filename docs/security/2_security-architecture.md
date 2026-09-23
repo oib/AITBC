@@ -31,7 +31,7 @@ AITBC implements defense-in-depth security across multiple layers:
    - Network reconnaissance
 
 2. **API Attacks**
-   - Unauthorized access to marketplace
+   - Unauthorized access to market
    - API key leakage
    - Rate limiting bypass
    - Injection attacks
@@ -87,7 +87,7 @@ There is no single "API key for all services" scheme:
 - **Coordinator API (8203)** — customers authenticate with `Authorization: Bearer <jwt>`; the JWT is issued by the wallet-signed login flow (`POST /v1/auth/nonce` → `POST /v1/login`). `X-Api-Key` is read by `APIKeyAuthenticator` for service/legacy callers; miner routes accept either (`require_miner`).
 - **Blockchain node RPC (8202)** — admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` router-level incl. GETs, `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/chains/*`, `/rpc/importBlock`) require `X-API-Key` matching `BLOCKCHAIN_RPC_API_KEY`. `POST /rpc/transaction` and `POST /rpc/staking/stake` are **signature-verified** (wallet signature in the body — no header key). `/rpc/subscribe`, `/rpc/heartbeat` and lease revocation additionally accept peer keys from `BLOCKCHAIN_RPC_API_KEY_PEERS`. `/rpc/force-sync` requires an admin-signed request body (no header key).
 - **Gossip WebSocket** — restricted topics require a signed validator challenge; there is no `?api_key=` WS auth.
-- **Marketplace (8102)** — only the admin `POST /v1/marketplace/parameters/apply` route is key-gated (`X-Api-Key`).
+- **Market (8102)** — only the admin `POST /v1/market/parameters/apply` route is key-gated (`X-Api-Key`).
 
 Keys and JWT secrets live in `/etc/aitbc/*.env` files (mode `0600`) loaded by systemd `EnvironmentFile` — not in a secrets manager; see below.
 
@@ -101,7 +101,7 @@ Keys and JWT secrets live in `/etc/aitbc/*.env` files (mode `0600`) loaded by sy
 
 ```
 Header: X-API-Key: <key>    # blockchain RPC / escrow
-Header: X-Api-Key: <key>    # coordinator service/legacy callers, marketplace admin
+Header: X-Api-Key: <key>    # coordinator service/legacy callers, market admin
 ```
 
 ### Secrets Management
@@ -124,7 +124,7 @@ The deployment is **systemd units behind nginx** — there is no Kubernetes, Sea
 
 ### 1. TLS Configuration
 
-TLS terminates at nginx on the proxy host; backend services speak plain HTTP on loopback/bridge addresses. The public surfaces are `https://hub.example.net/rpc` (blockchain) and the coordinator/marketplace paths under the same terminator — raw backend ports such as `:8202`/`:8203` are internal-only.
+TLS terminates at nginx on the proxy host; backend services speak plain HTTP on loopback/bridge addresses. The public surfaces are `https://hub.example.net/rpc` (blockchain) and the coordinator/market paths under the same terminator — raw backend ports such as `:8202`/`:8203` are internal-only.
 
 ```nginx
 # nginx reverse proxy (simplified)

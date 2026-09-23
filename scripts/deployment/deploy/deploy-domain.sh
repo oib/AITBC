@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Deploy AITBC services to domain https://aitbc.bubuit.net
 # Uses systemd services and nginx reverse proxy
@@ -26,7 +27,7 @@ print_warning() {
 
 # Stop local services
 print_status "Stopping local services..."
-sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet 2>/dev/null || true
+sudo systemctl stop aitbc-exchange aitbc-market aitbc-trading aitbc-wallet 2>/dev/null || true
 sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true
 
 # Deploy to container
@@ -66,6 +67,14 @@ server {
         proxy_set_header X-Forwarded-Proto \$scheme;
     }
 
+    location /market/ {
+        proxy_pass http://127.0.0.1:8102/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
     location /marketplace/ {
         proxy_pass http://127.0.0.1:8102/;
         proxy_set_header Host \$host;
@@ -93,7 +102,7 @@ incus exec $CONTAINER -- systemctl reload nginx
 # Restart services
 print_status "Restarting services..."
 incus exec $CONTAINER -- systemctl restart aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p
-incus exec $CONTAINER -- systemctl restart aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet
+incus exec $CONTAINER -- systemctl restart aitbc-exchange aitbc-market aitbc-trading aitbc-wallet
 
 echo ""
 print_status "✅ Deployment complete!"
@@ -102,6 +111,7 @@ echo "📋 Service URLs:"
 echo "  🌐 Domain: https://$DOMAIN"
 echo "  💱 Exchange:        https://$DOMAIN/exchange/"
 echo "  📊 Marketplace:     https://$DOMAIN/marketplace/"
+echo "  📊 Market:           https://$DOMAIN/market/"
 echo "  🔗 API:             https://$DOMAIN/api/"
 echo "  ⛓️  Blockchain RPC:  https://$DOMAIN/rpc/"
 echo ""

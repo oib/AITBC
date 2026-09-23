@@ -78,12 +78,12 @@ chown -R aitbc:aitbc /opt/aitbc
 chmod 600 /etc/aitbc/*.env
 ```
 
-## Marketplace / RPC POST Returns 405 Behind Reverse Proxy
+## Market / RPC POST Returns 405 Behind Reverse Proxy
 
 **Symptoms:**
 
-- `POST /rpc/transactions/marketplace` returns `405 Method Not Allowed`
-- Marketplace offers or coin requests submitted over HTTP silently fail
+- `POST /rpc/transactions/market` returns `405 Method Not Allowed`
+- Market offers or coin requests submitted over HTTP silently fail
 - Error: `400 Bad Request` or `405` when submitting blockchain transactions
 
 **Cause:**
@@ -111,7 +111,7 @@ sudo nginx -t && sudo systemctl reload nginx
 **Verify fix:**
 
 ```bash
-curl -sv -X POST http://your-domain.com/rpc/transactions/marketplace \
+curl -sv -X POST http://your-domain.com/rpc/transactions/market \
   -H "Content-Type: application/json" -d '{}' 2>&1 | grep "< HTTP"
 # Should show: HTTP/1.1 308 Permanent Redirect
 ```

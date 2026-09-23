@@ -21,7 +21,7 @@ This directory contains documentation for Agent agents and their integrations wi
 
 ### Economics
 
-- **[AI Economics Masters](../marketplace/ai-economics/AI_ECONOMICS_MASTERS.md)** - AI economics, marketplace strategy, and investment strategy (canonical docs)
+- **[AI Economics Masters](../market/ai-economics/AI_ECONOMICS_MASTERS.md)** - AI economics, market strategy, and investment strategy (canonical docs)
 
 ## Quick Start
 
@@ -32,4 +32,4 @@ For Agent agents looking to use blockchain integrations, start with the [Blockch
 - [Agent SDK Documentation](../agent-sdk/) - Agent SDK for cross-chain operations
 - [Governance Documentation](../blockchain/governance/) - Project governance
 - [GPU Service Documentation](../apps/gpu-service/) - GPU compute service
-- [Marketplace Documentation](../apps/marketplace/) - GPU marketplace
+- [Market Documentation](../apps/market/) - GPU market

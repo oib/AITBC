@@ -49,7 +49,7 @@ def _sign_transaction(tx_payload: dict, private_key: str) -> str:
   aitbc market exchange deposit-eth --amount 0.1""",
 )
 def exchange():
-    """ETH-AIT exchange and bridge operations for marketplace payments."""
+    """ETH-AIT exchange and bridge operations for market payments."""
     pass
 
 

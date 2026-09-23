@@ -19,7 +19,7 @@ class Settings(ServiceSettings):
 
     model_config = SettingsConfigDict(env_file=".env", env_file_encoding="utf-8", case_sensitive=False, extra="allow")
 
-    # API key for state-changing GPU marketplace endpoints (shared with the CLI)
+    # API key for state-changing GPU market endpoints (shared with the CLI)
     auth_enabled: bool = True
     api_key: str | None = Field(default=None, alias="GPU_API_KEY")
 

@@ -48,8 +48,8 @@ class CoordinatorAPIHandler:
             await self._trigger_ai_job_processing(tx_data)
         elif tx_type == "agent_message":
             await self._trigger_agent_message_processing(tx_data)
-        elif tx_type == "marketplace":
-            await self._trigger_marketplace_update(tx_data)
+        elif tx_type == "market":
+            await self._trigger_market_update(tx_data)
 
     async def _trigger_ai_job_processing(self, tx_data: dict[str, Any]) -> None:
         """Trigger AI job processing via coordinator API."""
@@ -79,16 +79,16 @@ class CoordinatorAPIHandler:
         except Exception as e:
             logger.error("Error triggering agent message processing: %s", e, exc_info=True)
 
-    async def _trigger_marketplace_update(self, tx_data: dict[str, Any]) -> None:
-        """Trigger marketplace state update via coordinator API."""
+    async def _trigger_market_update(self, tx_data: dict[str, Any]) -> None:
+        """Trigger market state update via coordinator API."""
         try:
             client = await self._get_client()
             payload = tx_data.get("payload", {})
             listing_id = payload.get("listing_id")
             if listing_id:
-                await client.post(f"/v1/marketplace/{listing_id}/sync", json={"transaction": tx_data})
-                logger.info("Successfully updated marketplace listing %s", listing_id)
+                await client.post(f"/v1/market/{listing_id}/sync", json={"transaction": tx_data})
+                logger.info("Successfully updated market listing %s", listing_id)
         except NetworkError as e:
-            logger.error("Network error triggering marketplace update: %s", e)
+            logger.error("Network error triggering market update: %s", e)
         except Exception as e:
-            logger.error("Error triggering marketplace update: %s", e, exc_info=True)
+            logger.error("Error triggering market update: %s", e, exc_info=True)

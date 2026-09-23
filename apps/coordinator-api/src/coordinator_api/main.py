@@ -42,7 +42,7 @@ from .contexts.governance.domain.economic_proposal import EconomicParameterPropo
 from .contexts.governance.domain.slash_appeal import SlashAppeal  # noqa: F401
 from .contexts.governance.routers.economic_proposals import router as economic_proposals_router
 from .contexts.governance.routers.grants import router as grants_router
-from .contexts.marketplace.domain.provider_bond import ProviderBond  # noqa: F401
+from .contexts.market.domain.provider_bond import ProviderBond  # noqa: F401
 from .contexts.tee.attestation import EnclaveIdentity, TEEAttestation  # noqa: F401
 from .contexts.tee.routers import attestation_router as tee_attestation_router
 from .contexts.compliance.finance import NonRepudiationProof, TransactionAuditRecord  # noqa: F401
@@ -51,7 +51,7 @@ from .contexts.compliance.routers import hipaa_router
 
 from .contexts.infrastructure.routers.monitoring_dashboard import router as monitoring_dashboard
 from .contexts.ipfs.routers import router as ipfs
-from .contexts.marketplace.routers import marketplace, marketplace_gpu, marketplace_offers, bonds as marketplace_bonds
+from .contexts.market.routers import market, market_gpu, market_offers, bonds as market_bonds
 from .contexts.payments.routers import payments
 from .contexts.portfolio.routers import portfolio_router
 from .database_async import close_async_db
@@ -203,12 +203,12 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             settings.environment,
         )
         logger.info(
-            "Rate limits: jobs=%s miner_reg=%s miner_hb=%s admin=%s marketplace=%s exchange=%s",
+            "Rate limits: jobs=%s miner_reg=%s miner_hb=%s admin=%s market=%s exchange=%s",
             settings.rate_limit_jobs_submit,
             settings.rate_limit_miner_register,
             settings.rate_limit_miner_heartbeat,
             settings.rate_limit_admin_stats,
-            settings.rate_limit_marketplace_list,
+            settings.rate_limit_market_list,
             settings.rate_limit_exchange_payment,
         )
         logger.info("Audit logging: %s", settings.audit_log_dir)
@@ -267,7 +267,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             logger.info("Stuck escrow sweeper disabled (set COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=true to enable)")
 
         # G5: slash provider bonds automatically when a condition is detected.
-        from .contexts.marketplace.services.bond_slash_sweeper import (
+        from .contexts.market.services.bond_slash_sweeper import (
             BondSlashSweeper,
             sweeper_enabled as bond_slash_sweeper_enabled,
         )
@@ -387,7 +387,7 @@ def create_app() -> FastAPI:
             {"name": "client", "description": "Client operations"},
             {"name": "miner", "description": "Miner operations"},
             {"name": "admin", "description": "Admin operations"},
-            {"name": "marketplace", "description": "GPU Marketplace"},
+            {"name": "market", "description": "GPU Market"},
             {"name": "exchange", "description": "Exchange operations"},
             {"name": "governance", "description": "Governance operations"},
             {"name": "zk", "description": "Zero-Knowledge proofs"},
@@ -404,6 +404,23 @@ def create_app() -> FastAPI:
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)
+
+    # Legacy public spelling stays live until its removal is approved: rewrite
+    # /v1/marketplace/* to the canonical /v1/market/* before routing so callers
+    # pinned to the old paths keep working during rolling deploys.
+    class _LegacyMarketPathMiddleware:
+        def __init__(self, app):
+            self.app = app
+
+        async def __call__(self, scope, receive, send):
+            if scope["type"] == "http":
+                path = scope.get("path", "")
+                if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
+                    scope = dict(scope)
+                    scope["path"] = "/v1/market" + path[len("/v1/marketplace") :]
+            await self.app(scope, receive, send)
+
+    app.add_middleware(_LegacyMarketPathMiddleware)
 
     # Enable route-level authentication in non-test environments.
     if settings.auth_enabled and not settings.test_mode:
@@ -457,10 +474,10 @@ def create_app() -> FastAPI:
     app.include_router(client, prefix="/v1")
     if admin:
         app.include_router(admin, prefix="/v1")
-    app.include_router(marketplace, prefix="/v1")
-    app.include_router(marketplace_gpu, prefix="/v1")
-    app.include_router(marketplace_offers, prefix="/v1")
-    app.include_router(marketplace_bonds.router, prefix="/v1")
+    app.include_router(market, prefix="/v1")
+    app.include_router(market_gpu, prefix="/v1")
+    app.include_router(market_offers, prefix="/v1")
+    app.include_router(market_bonds.router, prefix="/v1")
     app.include_router(monitor, prefix="/v1")
     app.include_router(miner, prefix="/v1")
     app.include_router(islands_proxy, prefix="/v1")

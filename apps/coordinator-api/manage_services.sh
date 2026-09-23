@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # AITBC Enhanced Services Management Script
 # Manages all enhanced AITBC services (start, stop, restart, status, logs)
@@ -35,7 +36,7 @@ declare -A SERVICES=(
     ["aitbc-gpu-multimodal"]="GPU Multi-Modal Service"
     ["aitbc-modality-optimization"]="Modality Optimization Service"
     ["aitbc-adaptive-learning"]="Adaptive Learning Service"
-    ["aitbc-marketplace-enhanced"]="Enhanced Marketplace Service"
+    ["aitbc-market-enhanced"]="Enhanced Market Service"
     ["aitbc-agent-enhanced"]="agent Enhanced Service"
 )
 

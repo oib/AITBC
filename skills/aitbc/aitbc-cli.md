@@ -1,12 +1,12 @@
 ---
 name: aitbc-cli
-description: Complete guide for using the AITBC CLI tool - wallet management, transactions, blockchain analytics, marketplace, AI jobs, mining, agent operations, simulations
+description: Complete guide for using the AITBC CLI tool - wallet management, transactions, blockchain analytics, market, AI jobs, mining, agent operations, simulations
 category: software-development
 ---
 
 # AITBC CLI Tool Skill
 
-Complete guide for Agent agent to use the AITBC CLI tool (`aitbc`, installed at `/usr/local/bin/aitbc`) for blockchain operations, wallet management, marketplace, AI jobs, mining, and simulations. **This skill ships with AITBC software repository.**
+Complete guide for Agent agent to use the AITBC CLI tool (`aitbc`, installed at `/usr/local/bin/aitbc`) for blockchain operations, wallet management, market, AI jobs, mining, and simulations. **This skill ships with AITBC software repository.**
 
 ## Trigger Conditions
 
@@ -15,7 +15,7 @@ Load this skill when:
 - Need to manage wallets (create, import, export, delete, list)
 - Need to send transactions or check balances
 - Need blockchain analytics or network status
-- Need marketplace operations (listings, offers, jobs)
+- Need market operations (listings, offers, jobs)
 - Need AI compute job operations
 - Need mining operations (start, stop, status)
 - Need agent operations (create, list, message)
@@ -203,16 +203,16 @@ aitbc mining status --rpc-url <rpc_url>
 
 ---
 
-### 5. Marketplace Operations
+### 5. Market Operations
 
-#### List Marketplace Offers
+#### List Market Offers
 ```bash
 aitbc market list
 ```
 
-**Result:** List of available marketplace offers
+**Result:** List of available market offers
 
-#### Create Marketplace Offer
+#### Create Market Offer
 ```bash
 aitbc market offer \
   --service-type <ollama|whisper|ffmpeg|ipfs|hermes> \
@@ -238,7 +238,7 @@ aitbc market offer \
 aitbc market offer-list
 ```
 
-#### List Marketplace Jobs
+#### List Market Jobs
 ```bash
 aitbc market jobs
 ```
@@ -546,7 +546,7 @@ aitbc mining start --wallet-name <name> --threads 1
 aitbc mining status
 aitbc mining stop
 
-# Marketplace
+# Market
 aitbc market list
 aitbc market offer --service-type ollama --model-or-variant <model> --price <price>
 
@@ -571,7 +571,7 @@ aitbc simulate price --price 100 --volatility 0.05
 
 - All wallet operations working
 - Blockchain analytics functional
-- Marketplace operations supported
+- Market operations supported
 - AI job submission available
 - Mining operations operational
 - Agent operations with coordinator integration

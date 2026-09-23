@@ -33,11 +33,11 @@ from .rpc.websocket import router as websocket_router
 from aitbc.aitbc_logging import configure_logging
 from aitbc.async_tasks import create_task_with_logging
 
-marketplace_router: APIRouter | None
+market_router: APIRouter | None
 try:
-    from .rpc.marketplace import router as marketplace_router
+    from .rpc.market import router as market_router
 except ImportError:
-    marketplace_router = None
+    market_router = None
 _app_logger = get_logger("aitbc_chain.app")
 
 
@@ -392,8 +392,8 @@ def create_app() -> FastAPI:
     app.include_router(rpc_router, prefix="/v1", tags=["v1"])
     app.include_router(websocket_router, prefix="/rpc")
     app.include_router(escrow_router, prefix="/rpc")
-    if marketplace_router:
-        app.include_router(marketplace_router, prefix="/rpc", tags=["marketplace"])
+    if market_router:
+        app.include_router(market_router, prefix="/rpc", tags=["market"])
     metrics_router = APIRouter()
 
     @metrics_router.get("/metrics", response_class=PlainTextResponse, tags=["metrics"], summary="Prometheus metrics")

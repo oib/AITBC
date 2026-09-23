@@ -16,7 +16,7 @@ Zero-knowledge applications — ZK proofs for ML and verifiable computation.
 - GET /circuits
 - POST /zk/identity/commit
 - POST /zk/membership/verify
-- POST /zk/marketplace/private-bid
+- POST /zk/market/private-bid
 - POST /zk/computation/verify
 - POST /zk/receipt/attest
 - GET /zk/anonymity/sets

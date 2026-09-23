@@ -39,7 +39,7 @@ def same_address(left: str | None, right: str | None) -> bool:
 def looks_like_wallet_address(value: str | None) -> bool:
     """Return True when this string is a 0x address the chain could actually pay.
 
-    Marketplace offers carry a ``provider_address`` field that is not always an
+    Market offers carry a ``provider_address`` field that is not always an
     address: live listings name ``aitbc-miner-1`` and ``aitbc3-provider`` there, and
     the CLI has its own copy of this test for the same reason. Escrow settles to the
     literal string it was given, so an offer that advertises a node id cannot price a

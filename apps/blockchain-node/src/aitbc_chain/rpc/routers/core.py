@@ -33,8 +33,8 @@ from ..escrow_routes import verify_rpc_api_key
 from ..transactions import (
     TransactionRequest,
     query_transactions,
-    match_marketplace,
-    submit_marketplace_transaction,
+    match_market,
+    submit_market_transaction,
     submit_transaction,
 )
 from ..utils import get_chain_id
@@ -351,18 +351,20 @@ async def get_mempool_api_route(request: Request, chain_id: str | None = None, l
     return await get_mempool(request, chain_id, limit)  # type: ignore[no-any-return]
 
 
-@router.post("/transactions/marketplace", summary="Submit marketplace transaction")
+@router.post("/transactions/market", summary="Submit market transaction")
+@router.post("/transactions/marketplace", include_in_schema=False)
 @rate_limit(rate=50, per=60)
-async def submit_marketplace_transaction_route(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
-    """Submit a marketplace transaction"""
-    return await submit_marketplace_transaction(request, tx_data)  # type: ignore[no-any-return]
+async def submit_market_transaction_route(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
+    """Submit a market transaction"""
+    return await submit_market_transaction(request, tx_data)  # type: ignore[no-any-return]
 
 
-@router.get("/transactions/marketplace/match", summary="Match marketplace offers")
+@router.get("/transactions/market/match", summary="Match market offers")
+@router.get("/transactions/marketplace/match", include_in_schema=False)
 @rate_limit(rate=10, per=60)
-async def match_marketplace_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
-    """Return active marketplace listings for price discovery / matching."""
-    return await match_marketplace(request, chain_id)  # type: ignore[no-any-return]
+async def match_market_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Return active market listings for price discovery / matching."""
+    return await match_market(request, chain_id)  # type: ignore[no-any-return]
 
 
 @router.get("/transactions", summary="Query transactions")

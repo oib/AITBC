@@ -81,7 +81,7 @@ class Proposal(SQLModel, table=True):
 
     title: str = Field(max_length=200)
     description: str = Field(max_length=255)
-    category: str = Field(default="general")  # parameters, funding, protocol, marketplace
+    category: str = Field(default="general")  # parameters, funding, protocol, market
 
     execution_payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON))
 

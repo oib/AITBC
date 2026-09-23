@@ -75,7 +75,7 @@ class TestSubscribeRequest:
         request = SubscribeRequest(
             agent_id="agent_002",
             topic="market_updates",
-            filter={"priority": "high", "sender": "marketplace", "types": ["offer", "bid", "ask"]},
+            filter={"priority": "high", "sender": "market", "types": ["offer", "bid", "ask"]},
         )
 
         assert len(request.filter) == 3

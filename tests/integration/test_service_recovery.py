@@ -57,7 +57,7 @@ class TestRecoveryServiceUnitFile:
         before = unit.get("Unit", "Before", fallback="")
         assert "aitbc-blockchain-node.service" in before
         assert "aitbc-coordinator-api.service" in before
-        assert "aitbc-marketplace.service" in before
+        assert "aitbc-market.service" in before
 
     def test_type_oneshot(self, unit: configparser.ConfigParser) -> None:
         assert unit.get("Service", "Type", fallback="") == "oneshot"

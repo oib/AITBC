@@ -39,7 +39,7 @@ class ContractConfig:
     """Configuration for smart contract addresses"""
 
     payment_processor: str
-    agent_marketplace: str
+    agent_market: str
     staking_contract: str
     treasury_manager: str
     cross_chain_atomic_swap: str = ""  # CrossChainAtomicSwap contract
@@ -52,7 +52,10 @@ class ContractConfig:
         """Load contract configuration from environment variables"""
         return cls(
             payment_processor=getenv(f"{network.upper()}_PAYMENT_PROCESSOR_ADDRESS", ""),
-            agent_marketplace=getenv(f"{network.upper()}_AGENT_MARKETPLACE_ADDRESS", ""),
+            agent_market=getenv(
+                f"{network.upper()}_AGENT_MARKET_ADDRESS",
+                getenv(f"{network.upper()}_AGENT_MARKETPLACE_ADDRESS", ""),
+            ),
             staking_contract=getenv(f"{network.upper()}_STAKING_CONTRACT_ADDRESS", ""),
             cross_chain_atomic_swap=getenv(f"{network.upper()}_CROSS_CHAIN_ATOMIC_SWAP_ADDRESS", ""),
             treasury_manager=getenv(f"{network.upper()}_TREASURY_MANAGER_ADDRESS", ""),
@@ -177,13 +180,13 @@ class AgentContractIntegration:
         self.agent_address = address
         logger.info("Agent address set to %s", address)
 
-    async def register_on_marketplace(self, capabilities: dict[str, Any], stake_amount: int = 0) -> str:
-        """Register agent on the marketplace contract"""
+    async def register_on_market(self, capabilities: dict[str, Any], stake_amount: int = 0) -> str:
+        """Register agent on the market contract"""
         if not self.agent_address:
             raise ValueError("Agent address not set")
 
         try:
-            # Register agent on marketplace
+            # Register agent on market
             tx_hash = await self.contract_client.send_transaction(
                 "agent_marketplace", "registerAgent", self.agent_address, json.dumps(capabilities), stake_amount
             )
@@ -192,13 +195,13 @@ class AgentContractIntegration:
             receipt = await self.contract_client.wait_for_transaction(tx_hash)
 
             if receipt["status"] == "success":
-                logger.info("Agent registered on marketplace: %s", tx_hash)
+                logger.info("Agent registered on market: %s", tx_hash)
                 return tx_hash
             else:
                 raise Exception(f"Transaction failed: {receipt}")
 
         except Exception as e:
-            logger.error("Failed to register on marketplace: %s", e)
+            logger.error("Failed to register on market: %s", e)
             raise
 
     async def stake_tokens(self, amount: int, lock_period: int) -> str:
@@ -267,7 +270,7 @@ class AgentContractIntegration:
             raise
 
     async def submit_job_completion(self, job_id: str, result_hash: str, metadata: dict[str, Any] | None = None) -> str:
-        """Submit job completion to marketplace contract"""
+        """Submit job completion to market contract"""
         if not self.agent_address:
             raise ValueError("Agent address not set")
 
@@ -289,7 +292,7 @@ class AgentContractIntegration:
             raise
 
     async def claim_rewards(self) -> str:
-        """Claim rewards from marketplace contract"""
+        """Claim rewards from market contract"""
         if not self.agent_address:
             raise ValueError("Agent address not set")
 

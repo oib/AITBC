@@ -1,4 +1,4 @@
-"""Unit tests for aitbc.marketplace.blockchain_rpc (v0.6.6 §A3).
+"""Unit tests for aitbc.market.blockchain_rpc (v0.6.6 §A3).
 
 Covers the BlockchainRPCClient with mocked httpx responses. No real
 blockchain node required — all HTTP calls are stubbed with AsyncMock.
@@ -10,7 +10,7 @@ from unittest.mock import AsyncMock, MagicMock
 
 import httpx
 
-from aitbc.marketplace.blockchain_rpc import BlockchainRPCClient
+from aitbc.market.blockchain_rpc import BlockchainRPCClient
 
 RPC_URL = "http://localhost:8202"
 
@@ -99,6 +99,6 @@ def test_rpc_url_strips_trailing_slash() -> None:
 
 
 def test_package_reexport() -> None:
-    from aitbc.marketplace import BlockchainRPCClient as ExportedClient
+    from aitbc.market import BlockchainRPCClient as ExportedClient
 
     assert ExportedClient is BlockchainRPCClient

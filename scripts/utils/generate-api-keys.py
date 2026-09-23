@@ -95,7 +95,7 @@ def main():
     print("# Test commands that require authentication:")
     print("aitbc client submit --prompt 'What is AITBC?' --model gemma3:1b")
     print("aitbc agent create --name test-agent --description 'Test agent'")
-    print("aitbc marketplace gpu list")
+    print("aitbc market gpu list")
 
     print("\n✅ API keys generated successfully!")
 

@@ -10,7 +10,7 @@
 
 ## Overview
 
-The Escrow API provides blockchain-native escrow management for GPU marketplace jobs. Escrow is automatically created when a buyer books an offer, and released to the provider on job completion. All state is persisted to the blockchain node's `Escrow` database table.
+The Escrow API provides blockchain-native escrow management for GPU market jobs. Escrow is automatically created when a buyer books an offer, and released to the provider on job completion. All state is persisted to the blockchain node's `Escrow` database table.
 
 ## Escrow Lifecycle
 
@@ -27,7 +27,7 @@ created → funded → job_started → job_completed → released
 
 `POST /rpc/escrow/create`
 
-Lock buyer funds for a marketplace job. **The request must carry a buyer-signed on-chain lock**: either a fully signed `lock_tx` object, or `lock_signature` plus the lock transaction fields, for an `ESCROW_LOCK` transaction that transfers `amount` (in compute-units) from the buyer to the **node wallet** (`NODE_WALLET_ADDRESS`, advertised in `/health` as `node_wallet`). Without it the endpoint returns `400 "escrow lock is required: provide lock_tx or lock_signature"`.
+Lock buyer funds for a market job. **The request must carry a buyer-signed on-chain lock**: either a fully signed `lock_tx` object, or `lock_signature` plus the lock transaction fields, for an `ESCROW_LOCK` transaction that transfers `amount` (in compute-units) from the buyer to the **node wallet** (`NODE_WALLET_ADDRESS`, advertised in `/health` as `node_wallet`). Without it the endpoint returns `400 "escrow lock is required: provide lock_tx or lock_signature"`.
 
 **Request Body:**
 
@@ -256,7 +256,7 @@ curl -X POST http://localhost:8202/rpc/escrow/bid-abc123/refund \
 ## Architecture
 
 ```
-CLI / marketplace-service
+CLI / market-service
         │
         ▼ POST /rpc/escrow/create
 aitbc-blockchain-rpc (port 8202)
@@ -268,7 +268,7 @@ aitbc-blockchain-rpc (port 8202)
                 └── Persistent job_id, buyer, provider, amount, released_at
 ```
 
-**Auto-trigger:** When a marketplace offer is booked via `POST /v1/marketplace/offers/{offer_id}/book`, the marketplace-service automatically calls `POST /rpc/escrow/create`.
+**Auto-trigger:** When a market offer is booked via `POST /v1/market/offers/{offer_id}/book`, the market-service automatically calls `POST /rpc/escrow/create`.
 
 **API Gateway:** Escrow endpoints are also accessible via the API gateway at `http://localhost:8201/v1/escrow/*` — the prefix rewrites `/v1/escrow/create` → `/rpc/escrow/create` on the node.
 
@@ -281,5 +281,5 @@ aitbc-blockchain-rpc (port 8202)
 | Route handlers | `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py` |
 | EscrowManager | `apps/blockchain-node/src/aitbc_chain/contracts/escrow.py` |
 | DB model | `apps/blockchain-node/src/aitbc_chain/base_models.py` (`class Escrow`, ~line 263) |
-| Marketplace trigger | `apps/marketplace/src/marketplace_service/services/marketplace_service.py` |
+| Market trigger | `apps/market/src/market_service/services/market_service.py` |
 | CLI commands | `cli/aitbc_cli/commands/market/` package (`escrow.py` et al.) |

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # AITBC Enhanced Services Deployment Script
 # Deploys systemd services for all enhanced AITBC services
@@ -45,7 +46,7 @@ SERVICES=(
     "aitbc-gpu-multimodal:8003:GPU Multi-Modal Processing"
     "aitbc-modality-optimization:8004:Modality Optimization"
     "aitbc-adaptive-learning:8005:Adaptive Learning"
-    "aitbc-marketplace-enhanced:8006:Enhanced Marketplace"
+    "aitbc-market-enhanced:8006:Enhanced Market"
     "aitbc-agent-enhanced:8007:agent Enhanced"
 )
 
@@ -84,8 +85,8 @@ $SUDO sed -i 's|src.app.services.modality_optimization:app|src.app.services.moda
 # Update adaptive learning service
 $SUDO sed -i 's|src.app.services.adaptive_learning:app|src.app.services.adaptive_learning_app:app|' /etc/systemd/system/aitbc-adaptive-learning.service
 
-# Update marketplace enhanced service
-$SUDO sed -i 's|src.app.routers.marketplace_enhanced_simple:router|src.app.routers.marketplace_enhanced_app:app|' /etc/systemd/system/aitbc-marketplace-enhanced.service
+# Update market enhanced service
+$SUDO sed -i 's|src.app.routers.market_enhanced_simple:router|src.app.routers.market_enhanced_app:app|' /etc/systemd/system/aitbc-market-enhanced.service
 
 # Update agent enhanced service
 $SUDO sed -i 's|src.app.routers.agent_enhanced_simple:router|src.app.routers.agent_enhanced_app:app|' /etc/systemd/system/aitbc-agent-enhanced.service
@@ -150,7 +151,7 @@ SERVICES=(
     "aitbc-gpu-multimodal:8003"
     "aitbc-modality-optimization:8004"
     "aitbc-adaptive-learning:8005"
-    "aitbc-marketplace-enhanced:8006"
+    "aitbc-market-enhanced:8006"
     "aitbc-agent-enhanced:8007"
 )
 
@@ -178,7 +179,7 @@ echo "$SUDO journalctl -u aitbc-multimodal -f"
 echo "$SUDO journalctl -u aitbc-gpu-multimodal -f"
 echo "$SUDO journalctl -u aitbc-modality-optimization -f"
 echo "$SUDO journalctl -u aitbc-adaptive-learning -f"
-echo "$SUDO journalctl -u aitbc-marketplace-enhanced -f"
+echo "$SUDO journalctl -u aitbc-market-enhanced -f"
 echo "$SUDO journalctl -u aitbc-agent-enhanced -f"
 EOF
 
@@ -195,15 +196,15 @@ cat > /home/oib/aitbc/apps/coordinator-api/manage_services.sh << 'EOF'
 case "$1" in
     start)
         echo "🚀 Starting all enhanced services..."
-        $SUDO systemctl start aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-agent-enhanced
+        $SUDO systemctl start aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-market-enhanced aitbc-agent-enhanced
         ;;
     stop)
         echo "🛑 Stopping all enhanced services..."
-        $SUDO systemctl stop aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-agent-enhanced
+        $SUDO systemctl stop aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-market-enhanced aitbc-agent-enhanced
         ;;
     restart)
         echo "🔄 Restarting all enhanced services..."
-        $SUDO systemctl restart aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-marketplace-enhanced aitbc-agent-enhanced
+        $SUDO systemctl restart aitbc-multimodal aitbc-gpu-multimodal aitbc-modality-optimization aitbc-adaptive-learning aitbc-market-enhanced aitbc-agent-enhanced
         ;;
     status)
         /home/oib/aitbc/apps/coordinator-api/check_services.sh
@@ -218,7 +219,7 @@ case "$1" in
             echo "aitbc-gpu-multimodal"
             echo "aitbc-modality-optimization"
             echo "aitbc-adaptive-learning"
-            echo "aitbc-marketplace-enhanced"
+            echo "aitbc-market-enhanced"
             echo "aitbc-agent-enhanced"
             echo ""
             echo "Usage: $0 logs <service-name>"
@@ -256,7 +257,7 @@ print_status "  Multi-Modal: http://127.0.0.1:8002"
 print_status "  GPU Multi-Modal: http://127.0.0.1:8003"
 print_status "  Modality Optimization: http://127.0.0.1:8004"
 print_status "  Adaptive Learning: http://127.0.0.1:8005"
-print_status "  Enhanced Marketplace: http://127.0.0.1:8006"
+print_status "  Enhanced Market: http://127.0.0.1:8006"
 print_status "  agent Enhanced: http://127.0.0.1:8007"
 print_status ""
 print_status "📊 Monitoring:"
@@ -265,5 +266,5 @@ print_status "  $SUDO journalctl -u aitbc-multimodal -f"
 print_status "  $SUDO journalctl -u aitbc-gpu-multimodal -f"
 print_status "  $SUDO journalctl -u aitbc-modality-optimization -f"
 print_status "  $SUDO journalctl -u aitbc-adaptive-learning -f"
-print_status "  $SUDO journalctl -u aitbc-marketplace-enhanced -f"
+print_status "  $SUDO journalctl -u aitbc-market-enhanced -f"
 print_status "  $SUDO journalctl -u aitbc-agent-enhanced -f"

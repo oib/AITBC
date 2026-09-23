@@ -50,7 +50,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 | Blockchain RPC | 8202 | Main blockchain API + messaging |
 | Coordinator API | 8203 | Agent registry |
 | P2P Network | 7070 | Blockchain peer-to-peer |
-| Marketplace | 8102 | Marketplace operations |
+| Market | 8102 | Market operations |
 
 ## Operations
 

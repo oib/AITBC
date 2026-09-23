@@ -5,7 +5,7 @@ from unittest.mock import AsyncMock, patch
 import pytest
 from blockchain_event_bridge.action_handlers.agent_daemon import AgentDaemonHandler
 from blockchain_event_bridge.action_handlers.coordinator_api import CoordinatorAPIHandler
-from blockchain_event_bridge.action_handlers.marketplace import MarketplaceHandler
+from blockchain_event_bridge.action_handlers.market import MarketHandler
 
 
 @pytest.mark.asyncio
@@ -82,9 +82,9 @@ async def test_agent_daemon_handler_is_agent_transaction():
 
 
 @pytest.mark.asyncio
-async def test_marketplace_handler_initialization():
-    """Test marketplace handler initialization."""
-    handler = MarketplaceHandler("http://localhost:8011", "test-key")
+async def test_market_handler_initialization():
+    """Test market handler initialization."""
+    handler = MarketHandler("http://localhost:8011", "test-key")
 
     assert handler.base_url == "http://localhost:8011"
     assert handler.api_key == "test-key"
@@ -92,18 +92,18 @@ async def test_marketplace_handler_initialization():
 
 
 @pytest.mark.asyncio
-async def test_marketplace_handler_filter_marketplace_transactions():
-    """Test filtering marketplace transactions."""
-    handler = MarketplaceHandler("http://localhost:8011")
+async def test_market_handler_filter_market_transactions():
+    """Test filtering market transactions."""
+    handler = MarketHandler("http://localhost:8011")
 
     transactions = [
-        {"type": "marketplace", "hash": "0x1"},
+        {"type": "market", "hash": "0x1"},
         {"type": "transfer", "hash": "0x2"},
         {"type": "listing", "hash": "0x3"},
         {"type": "transfer", "payload": {"listing_id": "123"}, "hash": "0x4"},
     ]
 
-    filtered = handler._filter_marketplace_transactions(transactions)
+    filtered = handler._filter_market_transactions(transactions)
 
     assert len(filtered) == 3
     assert filtered[0]["hash"] == "0x1"

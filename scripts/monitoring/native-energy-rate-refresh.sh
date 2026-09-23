@@ -49,7 +49,7 @@ if [ -z "$API_KEY" ]; then
     exit 1
 fi
 
-resp=$(curl -sf -X POST "$COORDINATOR_URL/v1/marketplace/native-energy/rate" \
+resp=$(curl -sf -X POST "$COORDINATOR_URL/v1/market/native-energy/rate" \
     -H "X-Api-Key: $API_KEY" -H "X-Miner-ID: rate-refresh" \
     -H "Content-Type: application/json" \
     -d "{\"ait_per_eur_scaled\": $RATE_SCALED}") || {

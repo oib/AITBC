@@ -26,11 +26,11 @@ PATTERNS = {
     "old_port": re.compile(r"\b(8000|8001|8003|8006|8015|9001|8103)\b"),
     "deleted_feature_flags": re.compile(r"feature_flags\.json|aitbc/feature_flags\.py"),
     "old_app_name": re.compile(
-        r"(?:marketplace-service|gpu-service|trading-service|plugin-service|coordinator-api-service|agent-coordinator-service)\b",
+        r"(?:market-service|gpu-service|trading-service|plugin-service|coordinator-api-service|agent-coordinator-service)\b",
         re.I,
     ),
     "fictional_cli": re.compile(
-        r"aitbc (?:coordinator-api|agent-coordinator|gpu-service|marketplace-service|trading-service|services) (?:start|stop|restart|status)"
+        r"aitbc (?:coordinator-api|agent-coordinator|gpu-service|market-service|trading-service|services) (?:start|stop|restart|status)"
     ),
     "designed_phrase": re.compile(
         r"\b(designed|planned|not implemented|placeholder|mock|fake|simulated|aspirational)\b",

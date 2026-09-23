@@ -118,10 +118,10 @@ async def verify_group_membership(
     }
 
 
-@router.post("/zk/marketplace/private-bid")
+@router.post("/zk/market/private-bid")
 async def submit_private_bid(request: PrivateBidRequest, session: Annotated[Session, Depends(get_session)]) -> dict[str, str]:
     """
-    Submit a bid to the marketplace without revealing the amount
+    Submit a bid to the market without revealing the amount
     Uses commitment scheme to hide bid amount while allowing verification
     """
 
@@ -289,7 +289,7 @@ async def get_zk_status() -> dict[str, Any]:
         "next_steps": [
             "Compile additional circuits (membership, bid)",
             "Deploy verification contracts",
-            "Integrate with marketplace",
+            "Integrate with market",
             "Enable recursive proofs",
         ],
         "zkey_files": {

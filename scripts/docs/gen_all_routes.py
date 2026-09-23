@@ -7,7 +7,7 @@ the repo — pass it per run:
 
     python3 scripts/docs/gen_all_routes.py \
         --node <node-name> \
-        --services "api-gateway:8201,coordinator-api:8203,marketplace:8102,..."
+        --services "api-gateway:8201,coordinator-api:8203,market:8102,..."
 
     # or via env
     AITBC_ROUTE_SERVICES="api-gateway:8201,..." python3 ... --node <name>

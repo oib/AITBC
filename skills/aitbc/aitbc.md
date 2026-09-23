@@ -1,19 +1,19 @@
 ---
 name: aitbc-operations
-description: AITBC software service operations - marketplace API endpoints, coordinator API, messaging API, cross-node operations, testing patterns. All operational information verified. Ships with AITBC software.
+description: AITBC software service operations - market API endpoints, coordinator API, messaging API, cross-node operations, testing patterns. All operational information verified. Ships with AITBC software.
 category: software-development
 ---
 
 # AITBC Software Service Operations Skill
 
-Complete guide for Agent agent to interact with AITBC (Agent Training Blockchain) software via API endpoints and service operations - marketplace, coordinator, messaging, cross-node operations, testing patterns. **This skill ships with AITBC software repository.**
+Complete guide for Agent agent to interact with AITBC (Agent Training Blockchain) software via API endpoints and service operations - market, coordinator, messaging, cross-node operations, testing patterns. **This skill ships with AITBC software repository.**
 
 **Note:** For CLI commands, use the aitbc-cli.md skill. This skill focuses on API endpoints and service operations.
 
 ## Trigger Conditions
 
 Load this skill when:
-- Need to interact with AITBC marketplace, coordinator, or messaging via API
+- Need to interact with AITBC market, coordinator, or messaging via API
 - Working with `<node1>` node or localhost AITBC instance
 - Need to register agents via coordinator API
 - Need to test AITBC service operations or validate scenarios
@@ -23,7 +23,7 @@ Load this skill when:
 ## Prerequisites
 
 - AITBC software installed at `/opt/aitbc` (cloned from repo)
-- Services running (verify: `systemctl status aitbc-marketplace`)
+- Services running (verify: `systemctl status aitbc-market`)
 - For CLI commands, see aitbc-cli.md skill
 
 ## Port Reference (Verified)
@@ -31,9 +31,9 @@ Load this skill when:
 | Service | Port | Protocol | Notes |
 |---------|------|----------|-------|
 | Blockchain RPC | 8202 | HTTP | Main blockchain node API |
-| Coordinator API | 8203 | HTTP | Job submission, marketplace/escrow orchestration |
+| Coordinator API | 8203 | HTTP | Job submission, market/escrow orchestration |
 | Agent Coordinator | 8107 | HTTP/WS | Agent registry + messaging (loopback; via nginx /agent/ remotely) |
-| Marketplace | 8102 | HTTP | Marketplace offers, bids, orders |
+| Market | 8102 | HTTP | Market offers, bids, orders |
 | Wallet Daemon | 8108 | HTTP | Wallet management (localhost only) |
 | Exchange API | 8106 | HTTP | Trading (localhost only) |
 | Edge API | 8111 | HTTP | Edge compute operations |
@@ -42,11 +42,11 @@ Load this skill when:
 
 ## Step-by-Step Instructions
 
-### 1. Marketplace API Operations
+### 1. Market API Operations
 
 #### Create Offer (API)
 ```bash
-curl -s -X POST http://localhost:8102/v1/marketplace/offers \
+curl -s -X POST http://localhost:8102/v1/market/offers \
   -H "Content-Type: application/json" \
   -d '{
     "provider": "<wallet_address>",
@@ -56,22 +56,22 @@ curl -s -X POST http://localhost:8102/v1/marketplace/offers \
   }'
 ```
 
-**API Endpoint:** `POST http://localhost:8102/v1/marketplace/offers`
+**API Endpoint:** `POST http://localhost:8102/v1/market/offers`
 
 **Result:** Returns offer ID, provider, price, status (open)
 
 #### List Offers (API)
 ```bash
-curl -s http://localhost:8102/v1/marketplace/offers
+curl -s http://localhost:8102/v1/market/offers
 ```
 
-**API Endpoint:** `GET http://localhost:8102/v1/marketplace/offers`
+**API Endpoint:** `GET http://localhost:8102/v1/market/offers`
 
 **Result:** JSON array of all offers
 
 #### Buy/Create Bid (API)
 ```bash
-curl -s -X POST http://localhost:8102/v1/marketplace/offers/{offer_id}/book \
+curl -s -X POST http://localhost:8102/v1/market/offers/{offer_id}/book \
   -H "Content-Type: application/json" \
   -d '{
     "buyer": "<wallet_address>",
@@ -79,22 +79,22 @@ curl -s -X POST http://localhost:8102/v1/marketplace/offers/{offer_id}/book \
   }'
 ```
 
-**API Endpoint:** `POST http://localhost:8102/v1/marketplace/offers/{offer_id}/book`
+**API Endpoint:** `POST http://localhost:8102/v1/market/offers/{offer_id}/book`
 
 **Result:** Bid ID, status (pending), message
 
 #### List Bids/Orders (API)
 ```bash
 # Bids
-curl -s http://localhost:8102/v1/marketplace/bids
+curl -s http://localhost:8102/v1/market/bids
 
 # Orders
-curl -s http://localhost:8102/v1/marketplace/orders
+curl -s http://localhost:8102/v1/market/orders
 ```
 
 **API Endpoints:**
-- Bids: `GET http://localhost:8102/v1/marketplace/bids`
-- Orders: `GET http://localhost:8102/v1/marketplace/orders`
+- Bids: `GET http://localhost:8102/v1/market/bids`
+- Orders: `GET http://localhost:8102/v1/market/orders`
 
 **Result:** JSON array of bids/orders
 
@@ -149,7 +149,7 @@ curl -s -X POST http://localhost:8107/v1/agents/register \
   -d '{
     "agent_id": "<agent_id>",
     "agent_type": "worker",
-    "capabilities": ["marketplace", "messaging"],
+    "capabilities": ["market", "messaging"],
     "services": ["task-execution"],
     "endpoints": {"http": "http://<host>:<port>"}
   }'
@@ -163,7 +163,7 @@ registers with no endpoints.
 ```bash
 curl -s -X POST http://localhost:8107/v1/agents/register \
   -H "Content-Type: application/json" \
-  -d '{"agent_id":"agent-aitbc","agent_type":"worker","capabilities":["marketplace","messaging"],"services":["task-execution"],"endpoints":{"http":"http://localhost:9997"}}'
+  -d '{"agent_id":"agent-aitbc","agent_type":"worker","capabilities":["market","messaging"],"services":["task-execution"],"endpoints":{"http":"http://localhost:9997"}}'
 ```
 
 **Result:** `{"status":"success","message":"Agent X registered successfully",...}`
@@ -213,7 +213,7 @@ curl -s -X POST http://localhost:8108/wallets \
 ## Authentication Requirements
 
 ### API Operations:
-- **Marketplace API:** May require wallet address for provider field
+- **Market API:** May require wallet address for provider field
 - **Coordinator API:** Agent registration requires agent_id, endpoint, capabilities
 - **Messaging API:** Requires agent registration first
 - **Wallet API:** Requires wallet password for sensitive operations
@@ -226,7 +226,7 @@ curl -s -X POST http://localhost:8108/wallets \
 ## Cross-Node Operations
 
 ### Key URLs (Use Hostname, NOT IP):
-- **`<node1>` Marketplace:** `http://`<node1>`:8102` (use the hostname, not the IP)
+- **`<node1>` Market:** `http://`<node1>`:8102` (use the hostname, not the IP)
 - **`<node1>` Coordinator:** `http://`<node1>`:8203`
 - **`<node1>` Blockchain:** `http://`<node1>`:8202`
 - **Redis (Cross-node Agent Discovery):** `<node1>:6379`
@@ -248,7 +248,7 @@ systemctl list-units --type=service --state=running | grep aitbc
 # Health checks
 curl -s http://localhost:8202/health | jq .  # Blockchain node
 curl -s http://localhost:8203/health | jq .  # Coordinator
-curl -s http://localhost:8102/health | jq .  # Marketplace
+curl -s http://localhost:8102/health | jq .  # Market
 curl -s http://localhost:8108/health | jq .  # Wallet daemon
 curl -s http://localhost:8106/health | jq .  # Exchange
 ```
@@ -326,11 +326,11 @@ aitbc market --help
 
 Before using this skill, verify:
 - [ ] AITBC repo cloned: `ls /opt/aitbc`
-- [ ] Marketplace running: `curl -s http://localhost:8102/health`
+- [ ] Market running: `curl -s http://localhost:8102/health`
 - [ ] Coordinator accessible: `curl -s http://localhost:8203/health`
 - [ ] Blockchain RPC accessible: `curl -s http://localhost:8202/health`
 - [ ] Wallet daemon accessible: `curl -s http://localhost:8108/health`
-- [ ] Can list offers via API: `curl -s http://localhost:8102/v1/marketplace/offers`
+- [ ] Can list offers via API: `curl -s http://localhost:8102/v1/market/offers`
 - [ ] Can register agent via API: `curl -s -X POST http://localhost:8107/v1/agents/register`
 
 ---
@@ -354,24 +354,24 @@ Before using this skill, verify:
 
 ```bash
 # CREATE OFFER (API)
-curl -X POST http://localhost:8102/v1/marketplace/offers -H "Content-Type: application/json" -d '{"provider":"...","item_type":"...","price":...}'
+curl -X POST http://localhost:8102/v1/market/offers -H "Content-Type: application/json" -d '{"provider":"...","item_type":"...","price":...}'
 
 # LIST OFFERS (API)
-curl http://localhost:8102/v1/marketplace/offers
+curl http://localhost:8102/v1/market/offers
 
 # BUY/DEAL (API)
-curl -X POST http://localhost:8102/v1/marketplace/offers/{id}/book -H "Content-Type: application/json" -d '{"buyer":"...","bid_amount":...}'
+curl -X POST http://localhost:8102/v1/market/offers/{id}/book -H "Content-Type: application/json" -d '{"buyer":"...","bid_amount":...}'
 
 # LIST BIDS/ORDERS (API)
-curl http://localhost:8102/v1/marketplace/bids
-curl http://localhost:8102/v1/marketplace/orders
+curl http://localhost:8102/v1/market/bids
+curl http://localhost:8102/v1/market/orders
 
 # MESSAGES (API)
 curl http://localhost:8202/rpc/contracts/messaging/topics
 curl -X POST http://localhost:8202/rpc/contracts/messaging/topics/create -H "Content-Type: application/json" -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" -d '{"title":"...","content":"..."}'
 
 # AGENT REGISTER (API)
-curl -X POST http://localhost:8107/v1/agents/register -H "Content-Type: application/json" -d '{"agent_id":"...","agent_type":"worker","capabilities":["marketplace","messaging"],"services":["task-execution"],"endpoints":{"http":"..."}}'
+curl -X POST http://localhost:8107/v1/agents/register -H "Content-Type: application/json" -d '{"agent_id":"...","agent_type":"worker","capabilities":["market","messaging"],"services":["task-execution"],"endpoints":{"http":"..."}}'
 
 # WALLET OPS (API)
 curl http://localhost:8108/wallets
@@ -387,7 +387,7 @@ curl http://localhost:8108/wallets/{name}/balance
 **AITBC Software Service Operations: FULLY OPERATIONAL**
 
 - 23 services running (all aitbc-* systemd services)
-- All marketplace API operations verified working
+- All market API operations verified working
 - All 47 scenarios verified working
 - Cross-node operations verified
 - Production-ready system

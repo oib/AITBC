@@ -18,7 +18,7 @@ from fastapi.security import APIKeyHeader
 from aitbc.network import SharedHttpClient
 from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_hash
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.marketplace.energy_pricing import (
+from aitbc.market.energy_pricing import (
     EnergyPricingError,
     EnergyQuote,
     SettlementRoute,
@@ -380,7 +380,7 @@ async def _submit_lock_tx(signed_lock_tx: dict[str, Any]) -> str:
     tx = dict(signed_lock_tx)
     if "signature" not in tx and "sig" in tx:
         tx["signature"] = tx.pop("sig")
-    resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=10.0)
+    resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=10.0)
     if resp.status_code not in (200, 201):
         raise HTTPException(
             status_code=400, detail=f"ESCROW_LOCK transaction submission failed: {resp.status_code} {resp.text[:200]}"
@@ -540,7 +540,7 @@ async def _submit_payment_tx(buyer: str, provider: str, amount: Decimal, job_id:
         signing_hash = _compute_tx_signing_hash(tx)
         tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
 
-        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
         if resp.status_code in (200, 201):
             result = resp.json()
             raw_tx_hash = result.get("transaction_hash")
@@ -634,7 +634,7 @@ async def _submit_refund_tx(buyer: str, provider: str, amount: Decimal, job_id: 
         signing_hash = _compute_tx_signing_hash(tx)
         tx["signature"] = sign_transaction_hash(signing_hash, settlement_key)
 
-        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/marketplace", json=tx, timeout=5.0)
+        resp = await SharedHttpClient.post(f"{_HUB_RPC_URL}/transactions/market", json=tx, timeout=5.0)
         if resp.status_code in (200, 201):
             result = resp.json()
             raw_tx_hash = result.get("transaction_hash")

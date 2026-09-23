@@ -90,7 +90,7 @@ ssh "$SERVER" "cd $PROJECT_DIR && python3 -m venv venv && source venv/bin/activa
 print_status "Installing dependencies..."
 ssh "$SERVER" "cd $PROJECT_DIR/apps/coordinator-api && source ../../venv/bin/activate && pip install -e ."
 ssh "$SERVER" "cd $PROJECT_DIR/apps/blockchain-node && source ../../venv/bin/activate && pip install -e ."
-ssh "$SERVER" "cd $PROJECT_DIR/apps/marketplace && source ../../venv/bin/activate && pip install -e ."
+ssh "$SERVER" "cd $PROJECT_DIR/apps/market && source ../../venv/bin/activate && pip install -e ."
 ssh "$SERVER" "cd $PROJECT_DIR/apps/trading && source ../../venv/bin/activate && pip install -e ."
 ssh "$SERVER" "cd $PROJECT_DIR/apps/wallet && source ../../venv/bin/activate && pip install -e ."
 
@@ -140,6 +140,14 @@ server {
     }
 
     # Marketplace
+    location /market/ {
+        proxy_pass http://127.0.0.1:8102/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
     location /marketplace/ {
         proxy_pass http://127.0.0.1:8102/;
         proxy_set_header Host \$host;
@@ -169,8 +177,8 @@ ssh "$SERVER" "nginx -t && systemctl reload nginx"
 # Start services
 print_status "Starting AITBC services..."
 ssh "$SERVER" "systemctl daemon-reload"
-ssh "$SERVER" "systemctl enable aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet"
-ssh "$SERVER" "systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet"
+ssh "$SERVER" "systemctl enable aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-market aitbc-trading aitbc-wallet"
+ssh "$SERVER" "systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p aitbc-exchange aitbc-market aitbc-trading aitbc-wallet"
 
 # Wait for services to start
 print_status "Waiting for services to start..."
@@ -198,6 +206,7 @@ SERVER_HOST="${SERVER##*@}"
 echo "  🌐 Server: ${SERVER_HOST}"
 echo "  💱 Exchange:        http://${SERVER_HOST}/exchange/"
 echo "  📊 Marketplace:     http://${SERVER_HOST}/marketplace/"
+echo "  📊 Market:           http://${SERVER_HOST}/market/"
 echo "  🔗 API:             http://${SERVER_HOST}/api/"
 echo "  ⛓️  Blockchain RPC:  http://${SERVER_HOST}/rpc/"
 echo ""

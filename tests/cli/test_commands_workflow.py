@@ -58,7 +58,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, ["list"])
 
         assert result.exit_code == 0, result.output
-        assert "gpu-marketplace" in result.output
+        assert "gpu-market" in result.output
         assert "ai-job-processing" in result.output
 
     def test_workflow_list_json_format(self, runner):
@@ -68,7 +68,7 @@ class TestWorkflowCommands:
         result = runner.invoke(workflow, ["list", "--format", "json"])
 
         assert result.exit_code == 0, result.output
-        assert "gpu-marketplace" in result.output
+        assert "gpu-market" in result.output
 
     @patch("aitbc_cli.commands.workflow.get_config")
     def test_workflow_run_dry_run(self, mock_get_config, runner):

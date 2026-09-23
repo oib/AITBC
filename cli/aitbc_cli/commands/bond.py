@@ -93,7 +93,7 @@ def create(ctx, provider_id, amount, required_amount, bond_id, coordinator_url, 
         }
         if bond_id:
             payload["bond_id"] = bond_id
-        result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds", json=payload)
+        result = client.post(f"/v1/market/providers/{provider_id}/bonds", json=payload)
         output(result, ctx.obj.get("output_format", format), title="Bond Created")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
@@ -116,7 +116,7 @@ def status(ctx, provider_id, coordinator_url, format):
     """Show a provider's bond eligibility status."""
     try:
         client = _api_client(ctx, coordinator_url)
-        result = client.get(f"/v1/marketplace/providers/{provider_id}/eligibility")
+        result = client.get(f"/v1/market/providers/{provider_id}/eligibility")
         output(result, ctx.obj.get("output_format", format), title="Bond Status")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
@@ -144,7 +144,7 @@ def top_up(ctx, provider_id, amount, bond_id, coordinator_url, format):
         payload: dict[str, Any] = {"amount": amount}
         if bond_id:
             payload["bond_id"] = bond_id
-        result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds", json=payload)
+        result = client.post(f"/v1/market/providers/{provider_id}/bonds", json=payload)
         output(result, ctx.obj.get("output_format", format), title="Bond Top-Up")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
@@ -167,7 +167,7 @@ def lock(ctx, provider_id, coordinator_url, format):
     """Lock a provider's bond while a high-value job is in flight."""
     try:
         client = _api_client(ctx, coordinator_url)
-        result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds/lock")
+        result = client.post(f"/v1/market/providers/{provider_id}/bonds/lock")
         output(result, ctx.obj.get("output_format", format), title="Bond Locked")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)
@@ -196,7 +196,7 @@ def release(ctx, provider_id, coordinator_url, format):
     """
     try:
         client = _api_client(ctx, coordinator_url)
-        result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds/release")
+        result = client.post(f"/v1/market/providers/{provider_id}/bonds/release")
         if isinstance(result, dict):
             result.setdefault(
                 "note",
@@ -227,7 +227,7 @@ def slash(ctx, provider_id, reason, coordinator_url, format):
     try:
         client = _api_client(ctx, coordinator_url)
         payload = {"reason": reason} if reason else {}
-        result = client.post(f"/v1/marketplace/providers/{provider_id}/bonds/slash", json=payload)
+        result = client.post(f"/v1/market/providers/{provider_id}/bonds/slash", json=payload)
         output(result, ctx.obj.get("output_format", format), title="Bond Slashed")
     except NetworkError as e:
         abort(ctx, f"Coordinator API error: {e}", from_exception=e)

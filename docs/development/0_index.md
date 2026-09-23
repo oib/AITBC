@@ -16,7 +16,7 @@ Build on the AITBC platform: APIs, SDKs, and contribution guides.
 | 8 | [8_blockchain-node-deployment.md](./8_blockchain-node-deployment.md) | Deploy a node |
 | 9 | [9_block-production-runbook.md](./9_block-production-runbook.md) | Block production ops |
 | 10 | [10_ethereum-wallet-setup.md](./10_ethereum-wallet-setup.md) | ETH on-ramp integration |
-| 11 | [12_marketplace-extensions.md](./12_marketplace-extensions.md) | Build marketplace plugins |
+| 11 | [12_market-extensions.md](./12_market-extensions.md) | Build market plugins |
 | 12 | [13_user-interface-guide.md](./13_user-interface-guide.md) | Trade exchange UI |
 | 13 | [15_ecosystem-initiatives.md](./15_ecosystem-initiatives.md) | Ecosystem roadmap |
 | 14 | [fhe-service.md](./fhe-service.md) | Fully homomorphic encryption |

@@ -23,7 +23,7 @@ from .paths import (
     get_data_path,
     get_keystore_path,
     get_log_path,
-    get_marketplace_data_path,
+    get_market_data_path,
     get_repo_path,
     resolve_path,
 )
@@ -118,7 +118,7 @@ __all__ = [
     "get_keystore_path",
     "get_list_env_var",
     "get_log_path",
-    "get_marketplace_data_path",
+    "get_market_data_path",
     "get_nested_value",
     "get_repo_path",
     "get_required_env_var",

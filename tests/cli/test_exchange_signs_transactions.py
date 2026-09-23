@@ -1,6 +1,6 @@
 """The transfer built by ``mint-ait`` must satisfy the endpoint that receives it.
 
-``/rpc/transactions/marketplace`` has rejected unsigned transactions since v0.10.13
+``/rpc/transactions/market`` has rejected unsigned transactions since v0.10.13
 (`80268e892`, 2026-07-14) with `403 Signature required`. The CLI kept sending a payload with
 no signature field, so the command could not have worked for the four weeks after that — and
 nothing failed at build time to say so, because the mismatch only exists across the wire.

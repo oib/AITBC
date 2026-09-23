@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 
 # Fleet node addresses.
@@ -50,13 +51,13 @@ for site in "${sites[@]}"; do
         echo "✅ ZK Circuits: Available ($circuit_count circuits)"
     fi
 
-    # 4. Marketplace GPU List
-    gpu_list=$(curl -s --connect-timeout 2 "$api_url/marketplace/offers" || echo "FAILED")
+    # 4. Market GPU List
+    gpu_list=$(curl -s --connect-timeout 2 "$api_url/market/offers" || echo "FAILED")
     if [[ "$gpu_list" == *"FAILED"* ]] || [[ -z "$gpu_list" ]]; then
-        echo "⚠️  Marketplace Offers: Unavailable"
+        echo "⚠️  Market Offers: Unavailable"
     else
         offer_count=$(echo "$gpu_list" | jq 'length' 2>/dev/null || echo "0")
-        echo "✅ Marketplace Offers: Available ($offer_count offers)"
+        echo "✅ Market Offers: Available ($offer_count offers)"
     fi
 done
 

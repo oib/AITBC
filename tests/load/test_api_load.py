@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Canonical load test entry point for AITBC APIs.
-Combines marketplace and blockchain load testing in a single Locust run.
+Combines market and blockchain load testing in a single Locust run.
 """
 
 import os
@@ -55,9 +55,9 @@ class BlockchainLoadUser(HttpUser):  # type: ignore[misc,valid-type]
         self.client.get("/rpc/head")
 
 
-# Simple marketplace load test (minimal working version)
-class SimpleMarketplaceUser(HttpUser):
-    """Simple marketplace user for load testing."""
+# Simple market load test (minimal working version)
+class SimpleMarketUser(HttpUser):
+    """Simple market user for load testing."""
 
     host = "http://localhost:8102"
     wait_time = between(1, 3)
@@ -65,16 +65,16 @@ class SimpleMarketplaceUser(HttpUser):
 
     @task(1)
     def browse_offers(self):
-        """Browse marketplace offers."""
-        self.client.get("/v1/marketplace/offers", params={"limit": 20})
+        """Browse market offers."""
+        self.client.get("/v1/market/offers", params={"limit": 20})
 
 
 # Set default host on blockchain class
 BlockchainLoadUser.host = "http://localhost:8202"
 
 # Allow hosts to be overridden via environment variables
-if os.getenv("MARKETPLACE_HOST"):
-    SimpleMarketplaceUser.host = os.getenv("MARKETPLACE_HOST")
+if os.getenv("MARKET_HOST") or os.getenv("MARKETPLACE_HOST"):
+    SimpleMarketUser.host = os.getenv("MARKET_HOST", os.getenv("MARKETPLACE_HOST"))
 
 if os.getenv("BLOCKCHAIN_HOST"):
     BlockchainLoadUser.host = os.getenv("BLOCKCHAIN_HOST")

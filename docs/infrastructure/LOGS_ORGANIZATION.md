@@ -17,7 +17,7 @@ this as an example, not an inventory. Service logs are in journald
 - final_production_ai_results.txt
 - final_testing_fixes.txt
 - issues_resolved.txt
-- marketplace_results_20260329_190503.txt
+- market_results_20260329_190503.txt
 - monitoring_report_20260329_192921.txt
 - monitoring_report_20260329_193125.txt
 - network_monitor.log

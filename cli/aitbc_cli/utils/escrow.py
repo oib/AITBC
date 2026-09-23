@@ -2,7 +2,7 @@
 
 This module holds the transaction-building and signing logic that is shared
 between ``aitbc ai`` (coordinator-backed jobs) and ``aitbc market run``
-(direct-provider marketplace jobs).
+(direct-provider market jobs).
 """
 
 from __future__ import annotations

@@ -26,9 +26,9 @@ def blockchain_url() -> str:
 
 
 @pytest.fixture(scope="session")
-def marketplace_url() -> str:
-    """Marketplace URL"""
-    return os.getenv("MARKETPLACE_URL", "http://localhost:8102")
+def market_url() -> str:
+    """Market URL"""
+    return os.getenv("MARKET_URL", os.getenv("MARKETPLACE_URL", "http://localhost:8102"))
 
 
 @pytest.fixture(scope="session")
@@ -68,7 +68,7 @@ def test_data():
 
 
 @pytest.fixture(scope="session")
-def service_health_check(coordinator_url, blockchain_url, marketplace_url):
+def service_health_check(coordinator_url, blockchain_url, market_url):
     """Check if required services are healthy - non-blocking version"""
     import time
 
@@ -88,13 +88,13 @@ def service_health_check(coordinator_url, blockchain_url, marketplace_url):
     # Check all services with appropriate health endpoints (non-blocking)
     _check_service(coordinator_url, "Coordinator API", health_path="/v1/health")
     _check_service(blockchain_url, "Blockchain Node", health_path="/health")
-    _check_service(marketplace_url, "Marketplace", health_path="/health")
+    _check_service(market_url, "Market", health_path="/health")
 
     return True
 
 
 # ---------------------------------------------------------------------------
-# Marketplace escrow flow fixtures
+# Market escrow flow fixtures
 # ---------------------------------------------------------------------------
 
 
@@ -136,7 +136,7 @@ def provider_wallet() -> dict[str, str]:
 
 @pytest.fixture(scope="session")
 def provider_address(provider_wallet: dict[str, str]) -> str:
-    """Canonical provider address for the marketplace offer and miner."""
+    """Canonical provider address for the market offer and miner."""
     return provider_wallet["address"]
 
 
@@ -178,9 +178,9 @@ def client_token(buyer_wallet: dict[str, str]) -> str:
 
 
 @pytest.fixture(scope="function")
-async def marketplace_client(marketplace_url: str) -> AsyncGenerator[httpx.AsyncClient]:
-    """HTTP client configured for the marketplace service."""
-    async with httpx.AsyncClient(base_url=marketplace_url, timeout=30.0) as client:
+async def market_client(market_url: str) -> AsyncGenerator[httpx.AsyncClient]:
+    """HTTP client configured for the market service."""
+    async with httpx.AsyncClient(base_url=market_url, timeout=30.0) as client:
         yield client
 
 
@@ -274,13 +274,13 @@ def sign_escrow_lock(
 
 
 @pytest.fixture(scope="function")
-async def require_healthy_services(coordinator_url, blockchain_url, marketplace_url) -> None:
+async def require_healthy_services(coordinator_url, blockchain_url, market_url) -> None:
     """Skip the current test if any required service is not healthy."""
     async with httpx.AsyncClient(timeout=5.0) as client:
         for name, url in [
             ("coordinator", coordinator_url),
             ("blockchain", blockchain_url),
-            ("marketplace", marketplace_url),
+            ("market", market_url),
         ]:
             try:
                 resp = await client.get(f"{url}/health")

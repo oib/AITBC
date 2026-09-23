@@ -70,7 +70,7 @@ async def file_dispute_route(
     http_request: Request,
     credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
 ) -> FileDisputeResponse:
-    """File a new dispute for a marketplace transaction"""
+    """File a new dispute for a market transaction"""
     if file_dispute is None:
         raise HTTPException(status_code=503, detail="Disputes module not available")
     return await file_dispute(request, http_request, credentials)  # type: ignore[no-any-return]

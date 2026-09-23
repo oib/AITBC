@@ -39,7 +39,7 @@ def _run_alembic(tmp_path: Path, *args: str) -> Path:
     env["AITBC_SKIP_ENV_FILES"] = "1"
     for var in (
         "SQLITE_URL",
-        "MARKETPLACE_DATABASE_URL",
+        "MARKET_DATABASE_URL",
         "DATABASE_ADAPTER",
         "DB_TYPE",
         "ENVIRONMENT",

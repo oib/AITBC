@@ -36,8 +36,8 @@ pip install -e packages/py/aitbc-sdk
 # Start coordinator API
 /opt/aitbc/venv/bin/python -m uvicorn coordinator_api.main:app --port 8203
 
-# Start marketplace service
-/opt/aitbc/venv/bin/python -m uvicorn marketplace_service.main:app --port 8102
+# Start market service
+/opt/aitbc/venv/bin/python -m uvicorn market_service.main:app --port 8102
 ```
 
 ## Verification
@@ -46,7 +46,7 @@ pip install -e packages/py/aitbc-sdk
 # Check service health
 curl http://localhost:8202/health  # Blockchain RPC
 curl http://localhost:8203/health  # Coordinator
-curl http://localhost:8102/health  # Marketplace
+curl http://localhost:8102/health  # Market
 ```
 
 ## See Also

@@ -7,7 +7,7 @@ Authorize an arbitrator (admin only)
 
 ## Implementation Details
 
-- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py` — Create a test miner for debugging marketplace sync
+- `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py` — Create a test miner for debugging market sync
 - API endpoint `POST /arbitrators/authorize` implemented in `apps/blockchain-node/src/aitbc_chain/rpc/routers/disputes.py`
 - API endpoint `GET /arbitrators` implemented in `apps/blockchain-node/src/aitbc_chain/rpc/routers/disputes.py`
 - API endpoint `POST /stake` implemented in `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py`

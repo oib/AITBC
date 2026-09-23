@@ -1,5 +1,5 @@
 """
-Dispute Resolution Service - On-chain arbitration for marketplace conflicts
+Dispute Resolution Service - On-chain arbitration for market conflicts
 
 Provides:
 - Dispute filing by clients or providers
@@ -110,7 +110,7 @@ class DisputeCase:
 
 class DisputeResolutionService:
     """
-    Dispute resolution service for marketplace conflicts.
+    Dispute resolution service for market conflicts.
 
     Handles the full lifecycle of disputes:
     1. Filing - Client or provider opens a dispute

@@ -12,7 +12,7 @@
           "disputes"
         ],
         "summary": "File a new dispute",
-        "description": "File a new dispute for a marketplace transaction",
+        "description": "File a new dispute for a market transaction",
         "operationId": "file_dispute_route_rpc_disputes_file_post",
         "requestBody": {
           "content": {
@@ -3086,15 +3086,15 @@
         }
       }
     },
-    "/rpc/transactions/marketplace": {
+    "/rpc/transactions/market": {
       "post": {
         "tags": [
           "rpc",
           "core"
         ],
-        "summary": "Submit marketplace transaction",
-        "description": "Submit a marketplace transaction",
-        "operationId": "submit_marketplace_transaction_route_rpc_transactions_marketplace_post",
+        "summary": "Submit market transaction",
+        "description": "Submit a market transaction",
+        "operationId": "submit_market_transaction_route_rpc_transactions_market_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3115,7 +3115,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Submit Marketplace Transaction Route Rpc Transactions Marketplace Post"
+                  "title": "Response Submit Market Transaction Route Rpc Transactions Market Post"
                 }
               }
             }
@@ -3133,15 +3133,15 @@
         }
       }
     },
-    "/rpc/transactions/marketplace/match": {
+    "/rpc/transactions/market/match": {
       "get": {
         "tags": [
           "rpc",
           "core"
         ],
-        "summary": "Match marketplace offers",
-        "description": "Return active marketplace listings for price discovery / matching.",
-        "operationId": "match_marketplace_route_rpc_transactions_marketplace_match_get",
+        "summary": "Match market offers",
+        "description": "Return active market listings for price discovery / matching.",
+        "operationId": "match_market_route_rpc_transactions_market_match_get",
         "parameters": [
           {
             "name": "chain_id",
@@ -3168,7 +3168,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Match Marketplace Route Rpc Transactions Marketplace Match Get"
+                  "title": "Response Match Market Route Rpc Transactions Market Match Get"
                 }
               }
             }
@@ -10131,7 +10131,7 @@
           "disputes"
         ],
         "summary": "File a new dispute",
-        "description": "File a new dispute for a marketplace transaction",
+        "description": "File a new dispute for a market transaction",
         "operationId": "file_dispute_route_v1_disputes_file_post",
         "requestBody": {
           "content": {
@@ -13205,15 +13205,15 @@
         }
       }
     },
-    "/v1/transactions/marketplace": {
+    "/v1/transactions/market": {
       "post": {
         "tags": [
           "v1",
           "core"
         ],
-        "summary": "Submit marketplace transaction",
-        "description": "Submit a marketplace transaction",
-        "operationId": "submit_marketplace_transaction_route_v1_transactions_marketplace_post",
+        "summary": "Submit market transaction",
+        "description": "Submit a market transaction",
+        "operationId": "submit_market_transaction_route_v1_transactions_market_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -13234,7 +13234,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Submit Marketplace Transaction Route V1 Transactions Marketplace Post"
+                  "title": "Response Submit Market Transaction Route V1 Transactions Market Post"
                 }
               }
             }
@@ -13252,15 +13252,15 @@
         }
       }
     },
-    "/v1/transactions/marketplace/match": {
+    "/v1/transactions/market/match": {
       "get": {
         "tags": [
           "v1",
           "core"
         ],
-        "summary": "Match marketplace offers",
-        "description": "Return active marketplace listings for price discovery / matching.",
-        "operationId": "match_marketplace_route_v1_transactions_marketplace_match_get",
+        "summary": "Match market offers",
+        "description": "Return active market listings for price discovery / matching.",
+        "operationId": "match_market_route_v1_transactions_market_match_get",
         "parameters": [
           {
             "name": "chain_id",
@@ -13287,7 +13287,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Match Marketplace Route V1 Transactions Marketplace Match Get"
+                  "title": "Response Match Market Route V1 Transactions Market Match Get"
                 }
               }
             }
@@ -20644,15 +20644,15 @@
         }
       }
     },
-    "/rpc/marketplace/listings": {
+    "/rpc/market/listings": {
       "get": {
         "tags": [
-          "marketplace",
-          "marketplace"
+          "market",
+          "market"
         ],
-        "summary": "List marketplace items",
-        "description": "Get all marketplace listings from blockchain",
-        "operationId": "marketplace_listings_rpc_marketplace_listings_get",
+        "summary": "List market items",
+        "description": "Get all market listings from blockchain",
+        "operationId": "market_listings_rpc_market_listings_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -20661,7 +20661,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Marketplace Listings Rpc Marketplace Listings Get"
+                  "title": "Response Market Listings Rpc Market Listings Get"
                 }
               }
             }
@@ -20679,20 +20679,20 @@
         }
       }
     },
-    "/rpc/marketplace/create": {
+    "/rpc/market/create": {
       "post": {
         "tags": [
-          "marketplace",
-          "marketplace"
+          "market",
+          "market"
         ],
-        "summary": "Create marketplace listing",
-        "description": "Create a new marketplace listing",
-        "operationId": "marketplace_create_rpc_marketplace_create_post",
+        "summary": "Create market listing",
+        "description": "Create a new market listing",
+        "operationId": "market_create_rpc_market_create_post",
         "requestBody": {
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/MarketplaceCreateRequest"
+                "$ref": "#/components/schemas/MarketCreateRequest"
               }
             }
           },
@@ -20706,7 +20706,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Marketplace Create Rpc Marketplace Create Post"
+                  "title": "Response Market Create Rpc Market Create Post"
                 }
               }
             }
@@ -20744,15 +20744,15 @@
         }
       }
     },
-    "/rpc/marketplace/listing/{listing_id}": {
+    "/rpc/market/listing/{listing_id}": {
       "get": {
         "tags": [
-          "marketplace",
-          "marketplace"
+          "market",
+          "market"
         ],
-        "summary": "Get marketplace listing by ID",
-        "description": "Get a specific marketplace listing",
-        "operationId": "marketplace_get_listing_rpc_marketplace_listing__listing_id__get",
+        "summary": "Get market listing by ID",
+        "description": "Get a specific market listing",
+        "operationId": "market_get_listing_rpc_market_listing__listing_id__get",
         "parameters": [
           {
             "name": "listing_id",
@@ -20772,7 +20772,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Marketplace Get Listing Rpc Marketplace Listing  Listing Id  Get"
+                  "title": "Response Market Get Listing Rpc Market Listing  Listing Id  Get"
                 }
               }
             }
@@ -20811,12 +20811,12 @@
       },
       "delete": {
         "tags": [
-          "marketplace",
-          "marketplace"
+          "market",
+          "market"
         ],
-        "summary": "Delete marketplace listing",
-        "description": "Delete a marketplace listing",
-        "operationId": "marketplace_delete_listing_rpc_marketplace_listing__listing_id__delete",
+        "summary": "Delete market listing",
+        "description": "Delete a market listing",
+        "operationId": "market_delete_listing_rpc_market_listing__listing_id__delete",
         "parameters": [
           {
             "name": "listing_id",
@@ -20836,7 +20836,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Marketplace Delete Listing Rpc Marketplace Listing  Listing Id  Delete"
+                  "title": "Response Market Delete Listing Rpc Market Listing  Listing Id  Delete"
                 }
               }
             }
@@ -22151,7 +22151,7 @@
         "title": "LogEntry",
         "description": "Single log entry from smart contract event."
       },
-      "MarketplaceCreateRequest": {
+      "MarketCreateRequest": {
         "properties": {
           "seller_address": {
             "type": "string",
@@ -22243,8 +22243,8 @@
           "price",
           "description"
         ],
-        "title": "MarketplaceCreateRequest",
-        "description": "Request to create marketplace listing"
+        "title": "MarketCreateRequest",
+        "description": "Request to create market listing"
       },
       "SubmitArbitrationVoteRequest": {
         "properties": {

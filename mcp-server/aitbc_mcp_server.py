@@ -274,7 +274,7 @@ HTTP_SERVICE_NAMES = {
     "blockchain-rpc",
     "coordinator-api",
     "api-gateway",
-    "marketplace",
+    "market",
     "exchange",
     "wallet",
     "agent-coordinator",
@@ -482,7 +482,6 @@ ALL_AITBC_GROUPS = {
     "ipfs",
     "list",
     "market",
-    "marketplace",
     "messaging",
     "mining",
     "monitor",
@@ -1621,7 +1620,7 @@ def list_market_offers(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List GPU/software marketplace offers and bids.
+    """List GPU/software market offers and bids.
 
     The AITBC CLI ``market list`` does not support a ``--limit`` option, so the
     limit is applied after fetching the list.
@@ -1651,7 +1650,7 @@ def list_market_offers(
 def get_market_status(
     order_id: Annotated[
         str,
-        Field(description="Marketplace order/escrow ID."),
+        Field(description="Market order/escrow ID."),
     ],
     role: Annotated[
         NodeRole | None,
@@ -2168,7 +2167,7 @@ def get_aitbc_dashboard_shop(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Show the shop dashboard with live balances and marketplace offers."""
+    """Show the shop dashboard with live balances and market offers."""
     return _aitbc_cli_read_tool(role, host, "dashboard", "shop")
 
 
@@ -2181,7 +2180,7 @@ def get_aitbc_dashboard_shop(
 def call_aitbc_http(
     service: Annotated[
         str,
-        Field(description="AITBC service name (e.g. 'blockchain-rpc', 'coordinator-api', 'marketplace')."),
+        Field(description="AITBC service name (e.g. 'blockchain-rpc', 'coordinator-api', 'market')."),
     ],
     path: Annotated[
         str,
@@ -2489,7 +2488,7 @@ def submit_ai_job(
     ] = "AITBC",
     offer_id: Annotated[
         str | None,
-        Field(description="Marketplace offer ID this job is bought against."),
+        Field(description="Market offer ID this job is bought against."),
     ] = None,
     min_reputation: Annotated[
         float | None,
@@ -3040,7 +3039,7 @@ def query_blockchain_transactions(
     ] = None,
     transaction_type: Annotated[
         str | None,
-        Field(description="Filter by transaction type, e.g. 'TRANSFER', 'BRIDGE_LOCK', 'GPU_MARKETPLACE'."),
+        Field(description="Filter by transaction type, e.g. 'TRANSFER', 'BRIDGE_LOCK', 'GPU_MARKET'."),
     ] = None,
     status: Annotated[
         str | None,
@@ -3048,7 +3047,7 @@ def query_blockchain_transactions(
     ] = None,
     order_id: Annotated[
         str | None,
-        Field(description="Filter by marketplace order ID."),
+        Field(description="Filter by market order ID."),
     ] = None,
     job_id: Annotated[
         str | None,

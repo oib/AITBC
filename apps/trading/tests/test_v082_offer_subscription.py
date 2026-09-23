@@ -36,7 +36,7 @@ def _make_offer(
         offer_id=offer_id,
         chain_id=chain_id,
         provider="provider-1",
-        service_type="gpu_marketplace",
+        service_type="gpu_market",
         price=price,
         quantity=1,
         status=status,
@@ -174,10 +174,10 @@ class TestOfferNotificationService:
         from trading_service.services.offer_notification_service import OfferNotificationService
 
         svc = OfferNotificationService(debounce_ms=500)
-        sub = OfferSubscription(chain_id="ait-hub", service_type="gpu_marketplace")
+        sub = OfferSubscription(chain_id="ait-hub", service_type="gpu_market")
         await svc.register_subscriber("sub-1", sub)
 
-        offer = _make_offer()  # service_type defaults to "gpu_marketplace"
+        offer = _make_offer()  # service_type defaults to "gpu_market"
         event = _make_event("created", offer=offer)
         await svc.process_event(event)
 
@@ -313,7 +313,7 @@ class TestOfferSubscriptionMatching:
         assert not sub.matches(event_expensive)
 
     def test_deleted_event_matches_chain_only(self) -> None:
-        sub = OfferSubscription(chain_id="ait-hub", service_type="gpu_marketplace")
+        sub = OfferSubscription(chain_id="ait-hub", service_type="gpu_market")
         event = _make_event("deleted", offer=None)
         assert sub.matches(event)
 
@@ -327,7 +327,7 @@ class TestOfferSubscriptionMatching:
             offer_id="offer-west",
             chain_id="ait-hub",
             provider="p",
-            service_type="gpu_marketplace",
+            service_type="gpu_market",
             price=5.0,
             quantity=1,
             status="available",

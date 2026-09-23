@@ -28,7 +28,7 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "agent_coordinator_url": "agent_coordinator_url",
     "exchange_service_url": "exchange_service_url",
     "blockchain_rpc_url": "blockchain_rpc_url",
-    "marketplace_service_url": "marketplace_service_url",
+    "market_service_url": "market_service_url",
     "gpu_service_url": "gpu_service_url",
     "gpu_api_key": "gpu_api_key",
     "trading_service_url": "trading_service_url",
@@ -93,7 +93,7 @@ class CLIConfig(BaseAITBCConfig):
     )
     gpu_service_url: str = Field(default="http://localhost:8101", description="GPU Service URL")
     gpu_api_key: str | None = Field(default=None, description="API key for the local GPU service")
-    marketplace_service_url: str = Field(default="http://127.0.0.1:8102", description="Marketplace Service URL")
+    market_service_url: str = Field(default="http://127.0.0.1:8102", description="Market Service URL")
     coordinator_api_url: str = Field(default="", description="Coordinator API URL")
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
     trading_api_key: SecretStr | None = Field(
@@ -180,9 +180,7 @@ class CLIConfig(BaseAITBCConfig):
     energy_eur_per_kwh: Decimal | None = Field(
         default=None, description="Shop electricity tariff in EUR/kWh for `aitbc energy suggest`"
     )
-    shop_region: str | None = Field(
-        default=None, description="Shop region code (e.g. 'de') for the regional tariff table"
-    )
+    shop_region: str | None = Field(default=None, description="Shop region code (e.g. 'de') for the regional tariff table")
     native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
     tee_attestation_enabled: bool = Field(
         default=False, description="Enable TEE attestation support; default is False for fail-closed behaviour"

@@ -144,7 +144,7 @@ class CLITranslationSecurityManager:
         }
 
         # High importance commands
-        high_commands = {"config", "node", "chain", "marketplace", "swap", "liquidity", "governance", "vote", "proposal"}
+        high_commands = {"config", "node", "chain", "market", "swap", "liquidity", "governance", "vote", "proposal"}
 
         # Medium importance commands
         medium_commands = {"balance", "status", "monitor", "analytics", "logs", "history", "simulate", "test"}

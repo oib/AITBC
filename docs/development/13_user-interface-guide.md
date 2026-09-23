@@ -18,7 +18,7 @@ The AITBC Trade Exchange features a modern, intuitive interface with user authen
 Located in the top header, you'll find:
 
 - **Trade**: Buy and sell the network tokens
-- **Marketplace**: Browse GPU computing offers
+- **Market**: Browse GPU computing offers
 - **Wallet**: View your profile and wallet information
 
 ### User Status

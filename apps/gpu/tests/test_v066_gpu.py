@@ -62,7 +62,7 @@ class TestGPURegistryChainId:
     """Test GPURegistry model has chain_id field (v0.6.6)."""
 
     def test_gpu_registry_has_chain_id_field(self):
-        from gpu_service.domain.gpu_marketplace import GPURegistry
+        from gpu_service.domain.gpu_market import GPURegistry
 
         # Check the model has chain_id field
         assert "chain_id" in GPURegistry.model_fields
@@ -71,7 +71,7 @@ class TestGPURegistryChainId:
         assert field_info.default == "ait-hub"
 
     def test_gpu_registry_chain_id_indexed(self):
-        from gpu_service.domain.gpu_marketplace import GPURegistry
+        from gpu_service.domain.gpu_market import GPURegistry
 
         # chain_id should be indexed for query performance
         field_info = GPURegistry.model_fields["chain_id"]

@@ -137,17 +137,17 @@ def get_blockchain_data_path(chain_id: str = "ait-mainnet") -> Path:
     return DATA_DIR / "data" / chain_id
 
 
-def get_marketplace_data_path(subpath: str = "") -> Path:
+def get_market_data_path(subpath: str = "") -> Path:
     """
-    Get a path within the marketplace data directory.
+    Get a path within the market data directory.
 
     Args:
-        subpath: Optional subpath relative to marketplace directory
+        subpath: Optional subpath relative to market directory
 
     Returns:
-        Full path to marketplace data directory or subpath
+        Full path to market data directory or subpath
     """
-    marketplace_dir = DATA_DIR / "marketplace"
+    market_dir = DATA_DIR / "market"
     if subpath:
-        return marketplace_dir / subpath
-    return marketplace_dir
+        return market_dir / subpath
+    return market_dir

@@ -32,7 +32,7 @@ This document defines the infrastructure requirements, service configuration, an
 | Blockchain Node | 8202 | Blockchain RPC | Required |
 | Wallet Daemon | 8108 | Wallet management | Required |
 | GPU Miner | - | Job processing | Required |
-| Marketplace | 8102 | Service marketplace | Required |
+| Market | 8102 | Service market | Required |
 | Exchange | 8106 | Trading platform | Required |
 | Agent Coordinator | 8107 | Agent management | Required |
 | PostgreSQL | 5432 | Database | Required — **not actually required for tests**: `requires_postgres`/`requires_redis` markers auto-skip, and `tests/conftest.py` provides fakeredis fixtures; coordinator defaults to SQLite |
@@ -56,13 +56,13 @@ systemctl enable redis
 # Start AITBC services
 systemctl start aitbc-blockchain-node
 systemctl start aitbc-coordinator-api
-systemctl start aitbc-marketplace
+systemctl start aitbc-market
 systemctl start aitbc-exchange
 
 # Check service status
 systemctl status aitbc-blockchain-node
 systemctl status aitbc-coordinator-api
-systemctl status aitbc-marketplace
+systemctl status aitbc-market
 ```
 
 ### Service Health Checks
@@ -74,7 +74,7 @@ curl -s http://localhost:8203/health
 # Check blockchain node
 curl -s http://localhost:8202/health
 
-# Check marketplace
+# Check market
 curl -s http://localhost:8102/health
 ```
 
@@ -96,11 +96,11 @@ BLOCKCHAIN_DATA_DIR=/tmp/blockchain-test
 WALLET_DAEMON_URL=http://localhost:8108
 WALLET_DIR=/tmp/wallet-test   # real var name (wallet_app/main.py:91); AITBC_WALLET_DIR also works
 
-# Marketplace
-MARKETPLACE_URL=http://localhost:8102
+# Market
+MARKET_URL=http://localhost:8102
 
 # Database
-# POSTGRES_URL is not read anywhere — real E2E vars are BLOCKCHAIN_URL/COORDINATOR_URL/MARKETPLACE_URL/E2E_*/JWT_SECRET (tests/e2e/conftest.py)
+# POSTGRES_URL is not read anywhere — real E2E vars are BLOCKCHAIN_URL/COORDINATOR_URL/MARKET_URL/E2E_*/JWT_SECRET (tests/e2e/conftest.py)
 REDIS_URL=redis://localhost:6379/0
 ```
 
@@ -157,7 +157,7 @@ REDIS_URL=redis://localhost:6379/0
 3. Blockchain Node
 4. Wallet Daemon
 5. Coordinator API
-6. Marketplace
+6. Market
 7. Exchange
 8. GPU Miner
 9. Agent Coordinator
@@ -213,9 +213,9 @@ REDIS_URL=redis://localhost:6379/0
 - Implement retries for flaky operations
 - Check for race conditions
 
-## Marketplace Escrow Flow Tests
+## Market Escrow Flow Tests
 
-The marketplace escrow E2E test (`tests/e2e/test_marketplace_escrow.py`) exercises a complete offer -> purchase -> escrow lock -> job execution -> release lifecycle. In addition to the variables above, set:
+The market escrow E2E test (`tests/e2e/test_market_escrow.py`) exercises a complete offer -> purchase -> escrow lock -> job execution -> release lifecycle. In addition to the variables above, set:
 
 ```bash
 # Buyer wallet that funds the escrow (must have a real private key)

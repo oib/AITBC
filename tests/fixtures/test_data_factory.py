@@ -193,8 +193,8 @@ class TestDataFactory:
 
     # Domain-specific scenarios
     @staticmethod
-    def marketplace_offer_data(provider: str | None = None, price: float = 1.5) -> dict[str, Any]:
-        """Generate test marketplace offer data"""
+    def market_offer_data(provider: str | None = None, price: float = 1.5) -> dict[str, Any]:
+        """Generate test market offer data"""
         return {
             "offer_id": TestDataFactory.generate_id("offer"),
             "provider": provider or TestDataFactory.TEST_ADDRESSES["miner1"],

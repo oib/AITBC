@@ -21,7 +21,7 @@ from typing import Any
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlmodel import select
 
-from aitbc.marketplace.blockchain_rpc import BlockchainRPCClient
+from aitbc.market.blockchain_rpc import BlockchainRPCClient
 from aitbc.trading.offer_cache import OfferCache
 from aitbc.trading.offer_types import (
     OfferDiscoveryRequest,
@@ -97,7 +97,7 @@ class OfferSyncService:
                     offer_id=offer_id,
                     chain_id=chain_id,
                     provider=str(offer_data.get("provider", offer_data.get("owner", ""))),
-                    service_type="gpu_marketplace",
+                    service_type="gpu_market",
                     price=Decimal(str(offer_data.get("price", 0.0))),
                     quantity=int(offer_data.get("capacity", offer_data.get("quantity", 1))),
                     status=str(offer_data.get("status", "available")),

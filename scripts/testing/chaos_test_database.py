@@ -271,7 +271,7 @@ class ChaosTestDatabase:
 
         async def make_request():
             try:
-                async with self.session.get(f"{base_url}/v1/marketplace/offers") as response:
+                async with self.session.get(f"{base_url}/v1/market/offers") as response:
                     if response.status == 200:
                         self.metrics["success_count"] += 1
                     else:

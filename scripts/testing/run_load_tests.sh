@@ -1,7 +1,8 @@
 #!/bin/bash
+set -euo pipefail
 
 # AITBC Load Test Runner
-# Runs canonical load tests against marketplace and blockchain RPC endpoints
+# Runs canonical load tests against market and blockchain RPC endpoints
 # Generates baseline reports for production readiness assessment
 
 set -e
@@ -15,7 +16,7 @@ VENV_DIR="${VENV_DIR:-$REPO_ROOT/venv}"
 USERS="${LOAD_USERS:-100}"
 SPAWN_RATE="${LOAD_SPAWN_RATE:-10}"
 DURATION="${LOAD_DURATION:-5m}"
-MARKETPLACE_HOST="${MARKETPLACE_HOST:-http://localhost:8102}"
+MARKET_HOST="${MARKET_HOST:-http://localhost:8102}"
 BLOCKCHAIN_HOST="${BLOCKCHAIN_HOST:-http://localhost:8202}"
 
 # Colors for output
@@ -54,7 +55,7 @@ log_info "Timestamp: $TIMESTAMP"
 log_info "Users: $USERS"
 log_info "Spawn Rate: $SPAWN_RATE"
 log_info "Duration: $DURATION"
-log_info "Marketplace Host: $MARKETPLACE_HOST"
+log_info "Market Host: $MARKET_HOST"
 log_info "Blockchain Host: $BLOCKCHAIN_HOST"
 log_info "Report Prefix: $REPORT_PREFIX"
 
@@ -86,11 +87,11 @@ check_endpoint() {
     fi
 }
 
-check_endpoint "$MARKETPLACE_HOST/health" "Marketplace"
+check_endpoint "$MARKET_HOST/health" "Market"
 check_endpoint "$BLOCKCHAIN_HOST/health" "Blockchain"
 
 # Set environment variables for hosts
-export MARKETPLACE_HOST
+export MARKET_HOST
 export BLOCKCHAIN_HOST
 
 # Run load test
@@ -126,7 +127,7 @@ Timestamp: $TIMESTAMP
 Users: $USERS
 Spawn Rate: $SPAWN_RATE
 Duration: $DURATION
-Marketplace Host: $MARKETPLACE_HOST
+Market Host: $MARKET_HOST
 Blockchain Host: $BLOCKCHAIN_HOST
 
 Results:

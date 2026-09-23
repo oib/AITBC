@@ -1,6 +1,6 @@
 # Contributing to AITBC
 
-Thanks for your interest in contributing. AITBC is a Python 3.13 monorepo of FastAPI microservices, a CLI, and shared libraries for a decentralized AI-compute marketplace.
+Thanks for your interest in contributing. AITBC is a Python 3.13 monorepo of FastAPI microservices, a CLI, and shared libraries for a decentralized AI-compute market.
 
 ## Quick setup
 
@@ -72,7 +72,7 @@ npx -y markdownlint-cli <file-or-dir>
 ## Code guidelines
 
 - **Python**: target 3.13, line length 127, use `ruff` for linting.
-- **Money**: use `Decimal` everywhere in wallet, marketplace, trading, and pool-hub code. Never `float`.
+- **Money**: use `Decimal` everywhere in wallet, market, trading, and pool-hub code. Never `float`.
 - **Dependencies**: do not add new dependencies without a clear justification and approval.
 - **Security**: do not commit secrets, API keys, or `.env` files.
 - **Tests**: non-trivial logic should include a test. Trivial one-liners do not.

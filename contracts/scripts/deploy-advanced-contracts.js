@@ -146,10 +146,10 @@ async function main() {
 
         console.log(`✅ AgentLearning: ${agentLearning.address}`);
 
-        // Deploy AgentMarketplaceV2 contract
-        console.log("📦 Deploying AgentMarketplaceV2 contract...");
-        const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
-        const agentMarketplaceV2 = await AgentMarketplaceV2.deploy(
+        // Deploy AgentMarketV2 contract
+        console.log("📦 Deploying AgentMarketV2 contract...");
+        const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+        const agentMarketV2 = await AgentMarketV2.deploy(
             paymentTokenAddress,
             paymentProcessorAddress,
             crossChainReputation.address,
@@ -157,15 +157,15 @@ async function main() {
             agentCollaboration.address,
             agentLearning.address
         );
-        await agentMarketplaceV2.waitForDeployment();
+        await agentMarketV2.waitForDeployment();
 
-        deployedContracts.contracts.AgentMarketplaceV2 = {
-            address: agentMarketplaceV2.address,
-            deploymentHash: agentMarketplaceV2.deployTransaction.hash,
-            gasUsed: (await agentMarketplaceV2.deployTransaction.wait()).gasUsed.toString()
+        deployedContracts.contracts.AgentMarketV2 = {
+            address: agentMarketV2.address,
+            deploymentHash: agentMarketV2.deployTransaction.hash,
+            gasUsed: (await agentMarketV2.deployTransaction.wait()).gasUsed.toString()
         };
 
-        console.log(`✅ AgentMarketplaceV2: ${agentMarketplaceV2.address}`);
+        console.log(`✅ AgentMarketV2: ${agentMarketV2.address}`);
 
         // Deploy ReputationNFT contract
         console.log("📦 Deploying ReputationNFT contract...");
@@ -253,7 +253,7 @@ VITE_CROSS_CHAIN_REPUTATION_ADDRESS=${crossChainReputation.address}
 VITE_AGENT_COMMUNICATION_ADDRESS=${agentCommunication.address}
 VITE_AGENT_COLLABORATION_ADDRESS=${agentCollaboration.address}
 VITE_AGENT_LEARNING_ADDRESS=${agentLearning.address}
-VITE_AGENT_MARKETPLACE_V2_ADDRESS=${agentMarketplaceV2.address}
+VITE_AGENT_MARKET_V2_ADDRESS=${agentMarketV2.address}
 VITE_REPUTATION_NFT_ADDRESS=${reputationNFT.address}
 
 # Network Configuration
@@ -276,7 +276,7 @@ VITE_MIN_STAKE_AMOUNT=100000000000000000000
 VITE_MAX_DELEGATION_RATIO=1.0
 `;
 
-        const envFile = path.join(__dirname, "..", "..", "apps", "marketplace-web", ".env.advanced-features");
+        const envFile = path.join(__dirname, "..", "..", "apps", "market-web", ".env.advanced-features");
         fs.writeFileSync(envFile, envVars);
 
         console.log("");
@@ -291,7 +291,7 @@ VITE_MAX_DELEGATION_RATIO=1.0
         console.log(`  AgentCommunication: ${agentCommunication.address}`);
         console.log(`  AgentCollaboration: ${agentCollaboration.address}`);
         console.log(`  AgentLearning: ${agentLearning.address}`);
-        console.log(`  AgentMarketplaceV2: ${agentMarketplaceV2.address}`);
+        console.log(`  AgentMarketV2: ${agentMarketV2.address}`);
         console.log(`  ReputationNFT: ${reputationNFT.address}`);
         console.log("");
         console.log("🔧 Next Steps:");

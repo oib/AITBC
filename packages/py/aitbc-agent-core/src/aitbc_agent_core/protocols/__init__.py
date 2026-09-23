@@ -3,7 +3,7 @@ Protocol definitions for agent service dependency injection.
 """
 
 from .database import ISessionProvider
-from .marketplace import IPricingAPI, IResourceDiscovery
+from .market import IPricingAPI, IResourceDiscovery
 from .domain import (
     AgentStatus,
     IAgentExecution,
@@ -31,7 +31,7 @@ __all__ = [
     "IZKProofService",
     # Database protocols
     "ISessionProvider",
-    # Marketplace / white-label SDK protocols
+    # Market / white-label SDK protocols
     "IPricingAPI",
     "IResourceDiscovery",
 ]

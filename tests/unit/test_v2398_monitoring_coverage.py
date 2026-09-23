@@ -55,7 +55,7 @@ PORT_SOURCES: dict[str, tuple[int, str, str]] = {
 ALREADY_MONITORED = {
     "aitbc-blockchain-rpc": 8202,
     "aitbc-coordinator-api": 8203,
-    "aitbc-marketplace": 8102,
+    "aitbc-market": 8102,
     "aitbc-wallet": 8108,
     "aitbc-exchange": 8106,
     "aitbc-agent-coordinator": 8107,

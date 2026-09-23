@@ -33,7 +33,7 @@ async def file_dispute(
     request: FileDisputeRequest, http_request: Request, credentials: HTTPAuthorizationCredentials | None = None
 ) -> FileDisputeResponse:
     """
-    File a new dispute for a marketplace transaction.
+    File a new dispute for a market transaction.
     This interacts with the DisputeResolution smart contract.
     """
     try:

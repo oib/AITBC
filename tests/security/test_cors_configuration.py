@@ -59,7 +59,7 @@ def test_agent_coordinator_cors_accepts_localhost():
     assert "http://localhost:9001" in result
 
     # Clean up
-    os.environ.pop("AITBC_MARKETPLACE_CORS_ORIGINS", None)
+    os.environ.pop("AITBC_MARKET_CORS_ORIGINS", None)
 
 
 def test_no_wildcard_cors_in_coordinator_api_apps():

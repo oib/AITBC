@@ -21,15 +21,15 @@ from fastapi import HTTPException
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
 from coordinator_api.contexts.infrastructure.services.miners import MinerService
-from coordinator_api.contexts.marketplace.domain.provider_bond import (
+from coordinator_api.contexts.market.domain.provider_bond import (
     ProviderBond,
     ProviderBondStatus,
     is_provider_eligible,
     set_provider_bond_status,
 )
 from sqlmodel import select
-from coordinator_api.contexts.marketplace.services.bond_slash_sweeper import BondSlashSweeper
-from coordinator_api.contexts.marketplace.services.bond_slashing import (
+from coordinator_api.contexts.market.services.bond_slash_sweeper import BondSlashSweeper
+from coordinator_api.contexts.market.services.bond_slashing import (
     SlashingCondition,
     BondSlashingService,
     _job_bond_required,
@@ -129,7 +129,7 @@ async def test_slash_happens_for_bonded_bad_result(db_session, slash_env):
     db_session.commit()
     bond = _provider_bond(db_session, miner.id, amount="10")
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         client = mock_client.return_value
         client.get.return_value = {"nonce": 5}
         client.post.return_value = {"transaction_hash": "0xdeadbeef"}
@@ -155,7 +155,7 @@ async def test_slash_marks_shortfall_when_remaining_below_required(db_session, s
     db_session.commit()
     bond = _provider_bond(db_session, miner.id, amount="6")
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         client = mock_client.return_value
         client.get.return_value = {"nonce": 0}
         client.post.return_value = {"transaction_hash": "0xshortfall"}
@@ -178,7 +178,7 @@ async def test_slash_liquidates_bond_when_full(db_session, slash_env):
     db_session.commit()
     bond = _provider_bond(db_session, miner.id, amount="1")
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         client = mock_client.return_value
         client.get.return_value = {"nonce": 0}
         client.post.return_value = {"transaction_hash": "0xliquidated"}
@@ -199,7 +199,7 @@ async def test_slash_skips_without_bond(db_session, slash_env):
     db_session.add(job)
     db_session.commit()
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
     assert result["slashed"] is False
     assert result["reason"] == "no active bond"
@@ -222,7 +222,7 @@ async def test_slash_skips_mismatched_private_key(db_session, monkeypatch):
     db_session.commit()
     _provider_bond(db_session, miner.id)
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
     assert result["slashed"] is False
     assert result["reason"] == "slashing not configured"
@@ -240,7 +240,7 @@ async def test_slash_skips_unconfigured(db_session):
     db_session.commit()
     _provider_bond(db_session, miner.id)
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         result = await BondSlashingService(db_session).slash(job, SlashingCondition.BAD_RESULT, "bad")
     assert result["slashed"] is False
     assert result["reason"] == "slashing not configured"
@@ -269,7 +269,7 @@ async def test_sweeper_finds_stale_running_job(db_session, slash_env):
         session_factory=lambda: _non_closing_session(db_session),
     )
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slash_sweeper.BondSlashingService") as mock_svc:
+    with patch("coordinator_api.contexts.market.services.bond_slash_sweeper.BondSlashingService") as mock_svc:
         instance = mock_svc.return_value
         instance.slash = AsyncMock(return_value={"slashed": True, "amount": 1})
         counts = await sweeper.run_once()
@@ -315,7 +315,7 @@ async def test_customer_rejection_does_not_slash_the_bond(db_session, slash_env)
     job = _disputable_job(db_session, miner)
     bond = _provider_bond(db_session, miner.id, amount="10")
 
-    with patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client:
+    with patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client:
         view = await reject_job(
             request=None,
             job_id=job.id,
@@ -423,7 +423,7 @@ async def test_operator_ruling_for_refund_slashes_the_bond(db_session, slash_env
     bond = _provider_bond(db_session, miner.id, amount="10")
 
     with (
-        patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client,
+        patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client,
         patch(
             "coordinator_api.contexts.payments.services.payments.PaymentService.refund_payment",
             new=AsyncMock(return_value=True),
@@ -464,7 +464,7 @@ async def test_a_refund_that_does_not_settle_leaves_the_bond_intact(db_session, 
     bond = _provider_bond(db_session, miner.id, amount="10")
 
     with (
-        patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client,
+        patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client,
         patch(
             "coordinator_api.contexts.payments.services.payments.PaymentService.refund_payment",
             new=AsyncMock(return_value=False),
@@ -504,7 +504,7 @@ async def test_operator_ruling_for_release_does_not_slash(db_session, slash_env)
     bond = _provider_bond(db_session, miner.id, amount="10")
 
     with (
-        patch("coordinator_api.contexts.marketplace.services.bond_slashing.AITBCHTTPClient") as mock_client,
+        patch("coordinator_api.contexts.market.services.bond_slashing.AITBCHTTPClient") as mock_client,
         patch(
             "coordinator_api.contexts.payments.services.payments.PaymentService.release_payment",
             new=AsyncMock(return_value=True),

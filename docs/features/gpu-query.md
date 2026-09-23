@@ -9,7 +9,7 @@ Query GPU registrations and allocations
 
 - `apps/blockchain-node/src/aitbc_chain/rpc/gpu_resources.py` — GPU resource RPC endpoints for AITBC blockchain.
 - `apps/gpu/src/gpu_service/services/edge_gpu_service.py` — Edge GPU service for managing GPU operations
-- `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py` — Get pricing engine instance
+- `apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py` — Get pricing engine instance
 - `Blockchain Node` exposes `GET /rpc/gpu/allocations/{gpu_id}` (operation `get_gpu_allocations_rpc_gpu_allocations__gpu_id__get`) — Query GPU allocations
 - `Blockchain Node` exposes `GET /rpc/gpu/info/{gpu_id}` (operation `get_gpu_rpc_gpu_info__gpu_id__get`) — Query GPU registration
 - `Blockchain Node` exposes `GET /rpc/edge/info/{node_id}` (operation `get_edge_node_rpc_edge_info__node_id__get`) — Query edge node registration

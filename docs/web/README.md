@@ -20,7 +20,7 @@ the dark-only rule covers the production `website/` assets, not the library.
 ## Rationale
 
 - Consistent visual identity across the autonomous-economics dashboard,
-  marketplace, and operator consoles.
+  market, and operator consoles.
 - Reduced surface area: one theme means fewer contrast, focus, and
   color-palette combinations to test.
 - Lower eye strain for operators monitoring GPU/edge/miner infrastructure over

@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-End-to-End GPU Marketplace Workflow
+End-to-End GPU Market Workflow
 User (aitbc server) → GPU Bidding → Ollama Task → Blockchain Payment
 """
 
@@ -15,7 +15,7 @@ import requests
 REQUEST_TIMEOUT = 30
 
 
-class MarketplaceWorkflow:
+class MarketWorkflow:
     def __init__(self, coordinator_url: str = "http://localhost:8203"):
         self.coordinator_url = coordinator_url
         self.workflow_steps = []
@@ -32,8 +32,8 @@ class MarketplaceWorkflow:
     def get_available_gpus(self) -> list[dict]:
         """Get list of available GPUs"""
         try:
-            print(f"🔍 DEBUG: Requesting GPU list from {self.coordinator_url}/v1/marketplace/gpu/list")
-            response = requests.get(f"{self.coordinator_url}/v1/marketplace/gpu/list", timeout=REQUEST_TIMEOUT)
+            print(f"🔍 DEBUG: Requesting GPU list from {self.coordinator_url}/v1/market/gpu/list")
+            response = requests.get(f"{self.coordinator_url}/v1/market/gpu/list", timeout=REQUEST_TIMEOUT)
             print(f"🔍 DEBUG: Response status: {response.status_code}")
             response.raise_for_status()
             gpus = response.json()
@@ -53,7 +53,7 @@ class MarketplaceWorkflow:
             booking_data = {"duration_hours": duration_hours}
             print(f"🔍 DEBUG: Booking data: {booking_data}")
             response = requests.post(
-                f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/book", json=booking_data, timeout=REQUEST_TIMEOUT
+                f"{self.coordinator_url}/v1/market/gpu/{gpu_id}/book", json=booking_data, timeout=REQUEST_TIMEOUT
             )
             print(f"🔍 DEBUG: Booking response status: {response.status_code}")
             print(f"🔍 DEBUG: Booking response: {response.text}")
@@ -140,7 +140,7 @@ class MarketplaceWorkflow:
         """Release the GPU after task completion"""
         try:
             print(f"🔍 DEBUG: Releasing GPU {gpu_id}")
-            response = requests.post(f"{self.coordinator_url}/v1/marketplace/gpu/{gpu_id}/release", timeout=REQUEST_TIMEOUT)
+            response = requests.post(f"{self.coordinator_url}/v1/market/gpu/{gpu_id}/release", timeout=REQUEST_TIMEOUT)
             print(f"🔍 DEBUG: Release response status: {response.status_code}")
             print(f"🔍 DEBUG: Release response: {response.text}")
             response.raise_for_status()
@@ -155,7 +155,7 @@ class MarketplaceWorkflow:
 
     def run_complete_workflow(self, task_data: dict = None) -> bool:
         """Run the complete end-to-end workflow"""
-        print("🚀 Starting End-to-End GPU Marketplace Workflow")
+        print("🚀 Starting End-to-End GPU Market Workflow")
         print("=" * 60)
 
         # Default task data if not provided
@@ -167,11 +167,11 @@ class MarketplaceWorkflow:
             }
 
         # Step 1: Get available GPUs
-        self.log_step("Initialize Workflow", "info", "Starting GPU marketplace workflow")
+        self.log_step("Initialize Workflow", "info", "Starting GPU market workflow")
         available_gpus = self.get_available_gpus()
 
         if not available_gpus:
-            self.log_step("Workflow Failed", "error", "No available GPUs in marketplace")
+            self.log_step("Workflow Failed", "error", "No available GPUs in market")
             return False
 
         # Select best GPU (lowest price)
@@ -231,12 +231,12 @@ class MarketplaceWorkflow:
 
 def main():
     """Main execution function"""
-    workflow = MarketplaceWorkflow()
+    workflow = MarketWorkflow()
 
     # Example task data
     task_data = {
         "model": "llama2",
-        "prompt": "Analyze the following GPU marketplace data and provide investment insights",
+        "prompt": "Analyze the following GPU market data and provide investment insights",
         "parameters": {"temperature": 0.7, "max_tokens": 150, "top_p": 0.9},
     }
 
@@ -244,7 +244,7 @@ def main():
     success = workflow.run_complete_workflow(task_data)
 
     if success:
-        print("\n🎊 End-to-End GPU Marketplace Workflow completed successfully!")
+        print("\n🎊 End-to-End GPU Market Workflow completed successfully!")
         print("✅ User bid on GPU → Ollama task executed → Blockchain payment processed")
     else:
         print("\n❌ Workflow failed. Check the logs above for details.")

@@ -6,9 +6,9 @@ This package provides common SQLModel definitions used across multiple AITBC ser
 
 ## Models
 
-### Marketplace
-- `MarketplaceOffer` - GPU/compute resource offerings
-- `MarketplaceBid` - Bids on marketplace offers
+### Market
+- `MarketOffer` - GPU/compute resource offerings
+- `MarketBid` - Bids on market offers
 
 ### Payments
 - `JobPayment` - Payment records for jobs
@@ -23,5 +23,5 @@ pip install -e packages/aitbc-shared
 ## Usage
 
 ```python
-from aitbc_shared import MarketplaceBid, MarketplaceOffer, JobPayment, PaymentEscrow
+from aitbc_shared import MarketBid, MarketOffer, JobPayment, PaymentEscrow
 ```

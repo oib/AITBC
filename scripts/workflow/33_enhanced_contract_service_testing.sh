@@ -171,10 +171,10 @@ run_test_verbose "Blockchain head" "
     curl -s http://localhost:$GENESIS_PORT/rpc/head | jq .
 "
 
-# Test marketplace service
-run_test_verbose "Marketplace listings" "
-    echo 'Testing marketplace listings...'
-    curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings | jq '.listings[0:2]'
+# Test market service
+run_test_verbose "Market listings" "
+    echo 'Testing market listings...'
+    curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings[0:2]'
 "
 
 # Test AI service
@@ -363,14 +363,14 @@ else
     SERVICES_STATUS="$SERVICES_STATUS ai:unhealthy"
 fi
 
-# Marketplace service health
-MARKETPLACE_HEALTH=$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
-if [ -n "$MARKETPLACE_HEALTH" ]; then
-    echo -e "${GREEN}✅${NC} Marketplace Service: Healthy"
-    SERVICES_STATUS="$SERVICES_STATUS marketplace:healthy"
+# Market service health
+MARKET_HEALTH=$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)
+if [ -n "$MARKET_HEALTH" ]; then
+    echo -e "${GREEN}✅${NC} Market Service: Healthy"
+    SERVICES_STATUS="$SERVICES_STATUS market:healthy"
 else
-    echo -e "${RED}❌${NC} Marketplace Service: Unhealthy"
-    SERVICES_STATUS="$SERVICES_STATUS marketplace:unhealthy"
+    echo -e "${RED}❌${NC} Market Service: Unhealthy"
+    SERVICES_STATUS="$SERVICES_STATUS market:unhealthy"
 fi
 
 # 9. COMPREHENSIVE DEBUGGING REPORT
@@ -396,7 +396,7 @@ SERVICE STATUS
 Coordinator API (Port $COORDINATOR_PORT): $([ -n "$COORDINATOR_HEALTH" ] && echo "Healthy" || echo "Unhealthy")
 Blockchain RPC (Port $GENESIS_PORT): $([ -n "$BLOCKCHAIN_HEALTH" ] && echo "Healthy" || echo "Unhealthy")
 AI Service: $([ -n "$AI_HEALTH" ] && echo "Healthy" || echo "Unhealthy")
-Marketplace Service: $([ -n "$MARKETPLACE_HEALTH" ] && echo "Healthy" || echo "Unhealthy")
+Market Service: $([ -n "$MARKET_HEALTH" ] && echo "Healthy" || echo "Unhealthy")
 
 CONTRACT IMPLEMENTATIONS
 -----------------------

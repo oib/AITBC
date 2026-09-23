@@ -116,7 +116,7 @@ All systemd service files moved from `systemd/` to `apps/<service>/` on 2026-05-
 | Multimodal | `apps/ai-engine/aitbc-multimodal.service` | 8020 |
 | GPU Service | `apps/gpu/aitbc-gpu.service` | 8101 |
 | Explorer | `apps/blockchain-explorer/aitbc-blockchain-explorer.service` | 8100 |
-| Marketplace | `apps/marketplace/aitbc-marketplace.service` | 8102 |
+| Market | `apps/market/aitbc-market.service` | 8102 |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` | 8107 |
 | Hermes Agent | `apps/hermes_agent/aitbc-hermes-agent.service` | -- |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` | 8205 |
@@ -259,7 +259,7 @@ The setup script creates 9 databases:
 | `aitbc_coordinator` | `aitbc_user` |
 | `aitbc_exchange` | `aitbc_user` |
 | `aitbc_wallet` | `aitbc_user` |
-| `aitbc_marketplace` | `aitbc_marketplace` |
+| `aitbc_market` | `aitbc_market` |
 | `aitbc_governance` | `aitbc_governance` |
 | `aitbc_trading` | `aitbc_trading` |
 | `aitbc_gpu` | `aitbc_gpu` |

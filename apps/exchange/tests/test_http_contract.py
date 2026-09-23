@@ -129,8 +129,8 @@ GET_ROUTES_PUBLIC = [
     "/api/health",
     "/api/trades/recent",
     "/api/orders/orderbook",
-    "/v1/marketplace/offers",
-    "/v1/marketplace/orders",
+    "/v1/market/offers",
+    "/v1/market/orders",
     "/metrics",
     "/v1/bridge/price",
     "/v1/bridge/status",
@@ -151,14 +151,14 @@ GET_ROUTES_AUTHED = [
 # Routes taking an id. A nonexistent id answers 404, so they cannot be checked by "is it
 # routed"; they are listed to record that the id-bearing form exists at all.
 GET_ROUTES_WITH_ID = [
-    "/v1/marketplace/offers/some-id",
+    "/v1/market/offers/some-id",
     "/v1/bridge/deposit/some-id",
 ]
 
 POST_ROUTES_AUTHED = [
     "/api/orders",
-    "/v1/marketplace/offers",
-    "/v1/marketplace/offers/some-id/book",
+    "/v1/market/offers",
+    "/v1/market/offers/some-id/book",
     "/v1/bridge/deposit",
     "/v1/bridge/withdraw",
 ]
@@ -218,11 +218,11 @@ class TestAuthBoundary:
         assert status == 401, f"POST {path} accepted a wrong API key"
 
     def test_delete_offer_requires_a_key(self, server):
-        status, _, _ = request(server, "DELETE", "/v1/marketplace/offers/some-id")
+        status, _, _ = request(server, "DELETE", "/v1/market/offers/some-id")
         assert status == 401
 
     def test_delete_order_requires_a_key(self, server):
-        status, _, _ = request(server, "DELETE", "/v1/marketplace/orders/some-id")
+        status, _, _ = request(server, "DELETE", "/v1/market/orders/some-id")
         assert status == 401
 
     @pytest.mark.parametrize("path", GET_ROUTES_PUBLIC)
@@ -328,9 +328,7 @@ class TestNoFabricatedBalances:
         assert "aitbc" not in payload
 
     def test_wallet_balance_fails_loudly_when_chain_unreachable(self, server):
-        status, _, body = request(
-            server, "GET", "/api/wallet/balance?address=0x" + "ab" * 20, api_key=API_KEY
-        )
+        status, _, body = request(server, "GET", "/api/wallet/balance?address=0x" + "ab" * 20, api_key=API_KEY)
         assert status == 503
         payload = json.loads(body)
         assert "error" in payload

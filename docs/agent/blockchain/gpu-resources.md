@@ -56,7 +56,7 @@ aitbc gpu-onchain allocations --gpu-id GPU-ba5c6553-6396-ab66-5706-17e6de30a93a
 
 - Immutable proof of GPU availability
 - Track GPU allocation history
-- Enable GPU marketplace with on-chain verification
+- Enable GPU market with on-chain verification
 
 ## RPC Endpoint Testing
 

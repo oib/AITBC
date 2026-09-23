@@ -161,4 +161,4 @@ print(f'GPU: {cuda.Device(0).name()}')
 
 - [Performance Issues](performance-issues.md) - Performance optimization
 - [Service Management](service-management.md) - General service troubleshooting
-- [Marketplace Issues](marketplace-issues.md) - GPU offer matching issues
+- [Market Issues](market-issues.md) - GPU offer matching issues

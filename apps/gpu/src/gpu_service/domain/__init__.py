@@ -2,7 +2,7 @@
 GPU Service domain models
 """
 
-from .gpu_marketplace import (
+from .gpu_market import (
     ConsumerGPUProfile,
     EdgeGPUMetrics,
     GPUArchitecture,

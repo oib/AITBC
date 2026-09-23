@@ -23,7 +23,7 @@ This is the documentation hub for AITBC. For the project overview and welcome pa
 - [cli/](cli/) — CLI documentation and the CLI command reference
 - [blockchain/](blockchain/) — blockchain node, consensus, networking, operations
 - [agent-coordinator/API.md](agent-coordinator/API.md) — agent coordinator and API docs
-- [marketplace/](marketplace/) — marketplace and exchange documentation
+- [market/](market/) — market and exchange documentation
 - [mining/](mining/) — mining and GPU provider docs
 - [reference/](reference/) — service ports, glossary, quick lookup
 - [releases/](releases/) — release notes and current [STATUS.md](releases/STATUS.md)
@@ -32,7 +32,7 @@ This is the documentation hub for AITBC. For the project overview and welcome pa
 
 ## Status
 
-AITBC is under active development. Core blockchain, coordinator, wallet, marketplace, and CLI services are implemented and run on the public hub at `hub.example.net`. For a component-by-component view, see [releases/STATUS.md](releases/STATUS.md).
+AITBC is under active development. Core blockchain, coordinator, wallet, market, and CLI services are implemented and run on the public hub at `hub.example.net`. For a component-by-component view, see [releases/STATUS.md](releases/STATUS.md).
 
 ## Navigation
 

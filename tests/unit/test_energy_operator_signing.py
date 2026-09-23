@@ -12,7 +12,7 @@ from dataclasses import replace
 
 import pytest
 
-from aitbc.marketplace.energy_pricing import (
+from aitbc.market.energy_pricing import (
     EnergyProfile,
     EnergyQuote,
     EnergyRate,

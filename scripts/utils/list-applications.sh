@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - List Applications Script
@@ -27,16 +28,16 @@ import sys
 import json
 import time
 
-# Load job marketplace
+# Load job market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
 # Count total applications
 total_applications = 0
 pending_applications = 0
 accepted_applications = 0
 
-for job in marketplace['jobs'].values():
+for job in market['jobs'].values():
     applications = job.get('applications', [])
     total_applications += len(applications)
     for app in applications:
@@ -55,7 +56,7 @@ if total_applications > 0:
     print('=' * 80)
 
     app_counter = 1
-    for job_id, job in marketplace['jobs'].items():
+    for job_id, job in market['jobs'].items():
         applications = job.get('applications', [])
         if applications:
             print(f'Job: {job[\"title\"]} (ID: {job_id})')

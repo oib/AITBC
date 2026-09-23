@@ -10,7 +10,7 @@ List all registered edge nodes
 - `apps/gpu/src/gpu_service/services/edge_gpu_service.py` — Edge GPU service for managing GPU operations
 - `apps/coordinator-api/src/coordinator_api/contexts/edge_gpu/routers/edge_gpu.py` — Edge GPU Router Handles edge GPU management endpoints
 - `apps/coordinator-api/src/coordinator_api/contexts/edge_gpu/services/edge_gpu_service.py`
-- `Marketplace` exposes `GET /v1/marketplace/edge-advertise` (operation `list_edge_nodes_v1_marketplace_edge_advertise_get`) — List Edge Nodes
+- `Market` exposes `GET /v1/market/edge-advertise` (operation `list_edge_nodes_v1_market_edge_advertise_get`) — List Edge Nodes
 - `Blockchain Node` exposes `GET /rpc/gpus` (operation `list_gpus_rpc_gpus_get`) — List all registered GPUs
 - `Coordinator API` exposes `GET /v1/edge-gpu/profiles` (operation `list_profiles_v1_edge_gpu_profiles_get`) — List Profiles
 
@@ -18,10 +18,10 @@ List all registered edge nodes
 
 - `GET /graphs` (`list_knowledge_graphs` in `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py`)
 - `POST /graphs/{graph_id}/nodes` (`contribute_knowledge` in `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py`)
-- `GET /v1/marketplace/edge-advertise` (`list_edge_nodes` in `apps/marketplace/src/marketplace_service/`) — the coordinator-api `swarm.py` router is a stub that registers no routes (every `/v1/swarm/*` returns 404)
+- `GET /v1/market/edge-advertise` (`list_edge_nodes` in `apps/market/src/market_service/`) — the coordinator-api `swarm.py` router is a stub that registers no routes (every `/v1/swarm/*` returns 404)
 - `POST /join` (`join_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `POST /leave` (`leave_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
-- `GET /v1/marketplace/edge-advertise` (`list_edge_nodes_v1_marketplace_edge_advertise_get`) on `Marketplace`
+- `GET /v1/market/edge-advertise` (`list_edge_nodes_v1_market_edge_advertise_get`) on `Market`
 - `GET /rpc/gpus` (`list_gpus_rpc_gpus_get`) on `Blockchain Node`
 - `GET /v1/edge-gpu/profiles` (`list_profiles_v1_edge_gpu_profiles_get`) on `Coordinator API`
 

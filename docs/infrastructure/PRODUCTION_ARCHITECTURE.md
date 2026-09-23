@@ -56,7 +56,7 @@ find /etc/aitbc -name ".env" -o -name "*.env" 2>/dev/null
 ├── data/                      # Blockchain databases
 │   ├── blockchain/            # Blockchain data
 │   ├── coordinator/           # Coordinator database
-│   └── marketplace/           # Marketplace data
+│   └── market/           # Market data
 ├── keystore/                  # Cryptographic keys (secure)
 └── backups/                   # Production backups
 
@@ -141,8 +141,8 @@ ride in `Authorization` alongside it. Prefix → upstream mapping:
 | public path | upstream | notes |
 |---|---|---|
 | `/api/v1/coordinator/<f>/…` | coordinator `:8203` `/v1/<f>/…` | full coordinator surface (jobs, payments, miners, grants, governance slash-appeals, cross-chain, …) |
-| `/api/v1/marketplace/gpu\|providers\|bonds\|miner-offers\|native-energy\|orders\|pricing\|sync-offers…` | coordinator `:8203` | GPU/provider/bond families live on the coordinator |
-| `/api/v1/marketplace/…` | marketplace `:8102` | jobs, offers, ratings, ipfs, match |
+| `/api/v1/market/gpu\|providers\|bonds\|miner-offers\|native-energy\|orders\|pricing\|sync-offers…` | coordinator `:8203` | GPU/provider/bond families live on the coordinator |
+| `/api/v1/market/…` | market `:8102` | jobs, offers, ratings, ipfs, match |
 | `/api/v1/exchange/…` | exchange `:8106` `/api/…` | Trade Exchange legacy dispatch surface |
 | `/api/v1/trading/…` | trading `:8104` `/v1/…` | exchange-rates/blocks/explorer family |
 | `/api/v1/wallet/…` | wallet `:8108` `/v1/…` | wallets, bridge, chains, wallet-side `/v1/exchange/*` |
@@ -152,18 +152,18 @@ ride in `Authorization` alongside it. Prefix → upstream mapping:
 | `/api/v1/pool-hub/…` | pool-hub `:8210` `/v1/…` | miners/match/validation |
 | `/api/v1/explorer/…` | explorer `:8100` `/api/…` | chain explorer API |
 | `/api/v1/escrow/…` | blockchain-rpc `:8202` `/rpc/escrow/…` | rewritten; upstream needs `X-API-Key` |
-| `/api/v1/plugin/…` | coordinator `:8203` `/v1/marketplace/…` | plugin compat alias |
+| `/api/v1/plugin/…` | coordinator `:8203` `/v1/market/…` | plugin compat alias |
 
 **Fleet/legacy paths** (direct to backends, each with its own auth — kept for
 CLI/agent/node traffic): `/c/` → coordinator `/v1` (CLI canonical),
 `/rpc/` → blockchain RPC, `/agent/` → agent-coordinator, `/exchange/` → wallet,
 `/v1/…` → per-prefix direct routes (`/v1/` catch-all lands on agent-coordinator).
 
-`/v1/marketplace/` is split by sub-prefix: coordinator families
+`/v1/market/` is split by sub-prefix: coordinator families
 (`gpu/`, `providers/`, `bonds/`, `miner-offers`, `native-energy/`, `orders`,
 `pricing/`, `sync-offers`) go to `:8203`, everything else to `:8102`.
 `offers`/`plugins` exist on both services — `:8102` owns the public `/v1/` name;
-the coordinator versions are reachable via `/c/` or `/api/v1/coordinator/marketplace/…`.
+the coordinator versions are reachable via `/c/` or `/api/v1/coordinator/market/…`.
 
 `/api/v1/agent/*` bypasses the gateway on purpose (public nginx carve-outs):
 agent join/coin-request flows authenticate with their own nonce/peer-key scheme

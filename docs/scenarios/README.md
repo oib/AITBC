@@ -33,7 +33,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 05 | [Island Creation](./05_island_creation.md) | Create and join blockchain islands | `aitbc node island` |
 | 06 | [Basic Trading](./06_basic_trading.md) | Buy/sell on the island exchange | `aitbc exchange-island` |
 | 07 | [AI Job Submission](./07_ai_job_submission.md) | Submit and monitor AI jobs | `aitbc ai` |
-| 08 | [Marketplace Offers and Price Discovery](./08_marketplace_bidding.md) | Discover, rank and pay for compute offers | `aitbc market list` / `match` / `run` / `rate` |
+| 08 | [Market Offers and Price Discovery](./08_market_bidding.md) | Discover, rank and pay for compute offers | `aitbc market list` / `match` / `run` / `rate` |
 | 09 | [GPU Listing](./09_gpu_listing.md) | Register local GPUs; on-chain GPU records | `aitbc gpu`, `aitbc gpu-onchain` |
 | 10 | [Agent SDK Identity](./10_agent_sdk_identity.md) | Create and configure agents | `aitbc agent` |
 | 11 | [IPFS Storage](./11_ipfs_storage.md) | Store and retrieve content-addressed artifacts | `aitbc ipfs`, `aitbc oracle` |
@@ -47,7 +47,7 @@ The closed economic loop these plays sit on (tokens → job → GPU → escrow �
 | 19 | [Security Setup](./19_security_setup.md) | Audit, scan, and patch | `aitbc security` |
 | 20 | [Cross-Chain Transfer](./20_cross_chain_transfer.md) | Swaps and bridge operations | `aitbc crosschain`, `aitbc bridge` |
 
-GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`. Scenario 08 targeted the old `aitbc marketplace` **chain-listing** group, which no longer exists in the CLI — the scenario is stale pending rework and its commands will not run. Scenario 34 is the live shop-offer path.
+GPU **software offers** (Ollama/Whisper/FFmpeg) use `aitbc market`. Scenario 08 targeted the old `aitbc market` **chain-listing** group, which no longer exists in the CLI — the scenario is stale pending rework and its commands will not run. Scenario 34 is the live shop-offer path.
 
 ### Intermediate Scenarios (Live Operator Plays)
 
@@ -60,7 +60,7 @@ These are operator hardening plays (21–35). The A/B task ids in each play are 
 | 23 | [Mempool Eviction Order](./23_mempool_eviction_order.md) | B15 | `aitbc transactions`, `aitbc simulate` |
 | 24 | [Fire-and-Forget Task Logging](./24_task_error_logging.md) | B8, B9 | `aitbc system`, `aitbc network`, `aitbc edge` |
 | 25 | [Job Payment Failure Handling](./25_job_payment_failure.md) | B12 | `aitbc ai` |
-| 26 | [GPU Marketplace N+1 Query](./26_gpu_nplus1_query.md) | B14 | `aitbc market`, `aitbc gpu` |
+| 26 | [GPU Market N+1 Query](./26_gpu_nplus1_query.md) | B14 | `aitbc market`, `aitbc gpu` |
 | 27 | [CLI Commands](./27_cli_commands.md) | A2, A7, A8, A3 | `aitbc agent`, `aitbc pool-hub`, `aitbc mining`, `aitbc gpu`, `aitbc simulate` |
 | 28 | [HTTP Client Resource Cleanup](./28_http_client_cleanup.md) | A12, A13, A14 | `aitbc agent`, `aitbc edge`, `aitbc bridge` |
 | 29 | [Database Connection Leak](./29_database_connection_leak.md) | B7 | `aitbc system`, `aitbc explorer` |
@@ -105,7 +105,7 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 | CLI group | Live source | Simulated fallback | Typical trigger |
 |-----------|-------------|-------------------|-----------------|
 | `aitbc ai` | coordinator (8203) | no | — |
-| `aitbc market` | coordinator / marketplace service | no | — |
+| `aitbc market` | coordinator / market service | no | — |
 | `aitbc wallet` | wallet daemon (8108) | no | — |
 | `aitbc transactions` | blockchain RPC (8202) | no | — |
 | `aitbc bridge` | blockchain RPC | no | — |
@@ -122,7 +122,7 @@ Several CLI groups are **hub-only services**. When the service is not reachable,
 
 Scenario files that touch these groups include a note near the top. Live product-path scenarios (e.g. 34, 07, 48) produce real on-chain/coordinator data when the services are running.
 
-**Registered groups:** the CLI currently registers ~70 top-level groups, including `agent`, `agent-comm`, `agent-msg`, `agent-task`, `gpu`, `gpu-onchain`, `tee`, `zk`, `health`, `http`, `dispute`, `bond`, `crosschain`, and `exchange-island`. `aitbc --help` is the authoritative list. Removed/absent groups documented in these scenarios: `aitbc marketplace` (scenario 08).
+**Registered groups:** the CLI currently registers ~70 top-level groups, including `agent`, `agent-comm`, `agent-msg`, `agent-task`, `gpu`, `gpu-onchain`, `tee`, `zk`, `health`, `http`, `dispute`, `bond`, `crosschain`, and `exchange-island`. `aitbc --help` is the authoritative list. Removed/absent groups documented in these scenarios: `aitbc market` (scenario 08).
 
 ## See Also
 
@@ -137,7 +137,7 @@ Scenario files that touch these groups include a note near the top. Live product
 
 ## Megaplan Status
 
-The current product path is the two-node hub/shop marketplace loop:
+The current product path is the two-node hub/shop market loop:
 
 - Shop publishes GPU software offers (`aitbc market offer`).
 - Hub/customer submits authenticated jobs (`aitbc auth login` followed by `aitbc ai submit`).
@@ -159,7 +159,7 @@ Live validation of that path (paid job + `ESCROW_RELEASE` + GPU offer) is record
 || 38 | [ZK High-Value Jobs (variant)](./38_zk_high_value_jobs.md) | ZK-required job flow | `aitbc ai` |
 || 39 | [TEE Attestation for Confidential Jobs](./39_tee_attestation.md) | Confidential jobs require and verify a TEE attestation | `aitbc ai`, `aitbc tee` |
 || 40 | [Automatic Reinvestment from Released Escrow](./40_auto_reinvestment.md) | Auto-stake provider earnings on escrow release | `aitbc ai` |
-|| 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via marketplace offers | `aitbc market` |
+|| 41 | [Whisper and FFmpeg Default Shop Offers](./41_whisper_ffmpeg_shop_offers.md) | Run transcription and media re-encode jobs via market offers | `aitbc market` |
 || 42 | [Real IPFS Daemon behind `aitbc ipfs`](./42_ipfs_daemon.md) | Use Kubo for real CIDs and cross-node retrieval | `aitbc ipfs` |
 || 43 | [Compliance, Plugins, and White-Label Expansion](./43_compliance_plugins_white_label.md) | Brand plugins, compliance hooks, and plugin discovery | `aitbc brand`, `aitbc plugin`, `aitbc ai` |
 || 44 | [Refund a Failed TEE Job Escrow](./44_stuck_tee_refund.md) | Recover escrowed payment after TEE attestation is rejected | `aitbc ai refund`, `aitbc market escrow refund` |

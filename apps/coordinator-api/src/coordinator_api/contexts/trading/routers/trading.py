@@ -19,7 +19,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ..domain.trading import TradeMatch, TradeNegotiation, TradeRequest, TradeType
 from ....storage import get_session
-from ..services.trading_marketplace.trading import P2PTradingProtocol
+from ..services.trading_market.trading import P2PTradingProtocol
 from ....validators import validate_agent_id
 
 logger = get_logger(__name__)

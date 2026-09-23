@@ -2,7 +2,7 @@
 #!/bin/bash
 
 # AITBC GPU Miner Startup Script (DEPRECATED - v0.4.7+)
-# ⚠️  This script is for the legacy GPU-only marketplace architecture
+# ⚠️  This script is for the legacy GPU-only market architecture
 #
 # For v0.4.7+, use the new Hardware+Software Bundle architecture:
 # - Register software offers with GPU information via: aitbc market offer ollama <model> <price>
@@ -14,7 +14,7 @@
 # - Or API: POST /v1/gpu/resources (through API Gateway)
 #
 # Legacy architecture (pre-v0.4.7):
-# - GPU-only marketplace on port 8101
+# - GPU-only market on port 8101
 # - Coordinator API on port 8000
 # - Separate miner registration system
 

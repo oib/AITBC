@@ -42,13 +42,13 @@ def state_path(tmp_path: Path) -> Path:
 
 @pytest.fixture()
 def sweeper(monkeypatch):
-    """Patch the module's HTTP layer: ipfs POSTs and marketplace GET/POST."""
+    """Patch the module's HTTP layer: ipfs POSTs and market GET/POST."""
     monkeypatch.setattr(ipfs_pinning_sweeper, "IPFS_API_URL", "http://127.0.0.1:5002")
     monkeypatch.delenv("IPFS_HOSTING_ENABLED", raising=False)
     calls = {"ipfs": [], "jobs_get": [], "confirm": []}
 
     def fake_post(url, **kwargs):
-        if "/v1/marketplace/jobs/" in url and url.endswith("/pin-confirm"):
+        if "/v1/market/jobs/" in url and url.endswith("/pin-confirm"):
             calls["confirm"].append((url, kwargs.get("json")))
             return _resp({})
         calls["ipfs"].append(url)

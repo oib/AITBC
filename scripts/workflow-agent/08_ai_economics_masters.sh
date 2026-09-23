@@ -1,6 +1,6 @@
 #!/bin/bash
 # AI Economics Masters - Phase 4: Cross-Node AI Economics
-# Distributed AI job economics, marketplace strategy, and advanced economic modeling
+# Distributed AI job economics, market strategy, and advanced economic modeling
 # Updated 2026-03-30: Transform agents from AI Specialists to Economics Masters
 
 set -euo pipefail
@@ -32,7 +32,7 @@ fi
 echo "=== AI Economics Masters - Phase 4: Cross-Node AI Economics ==="
 echo "Transforming agent agents from AI Specialists to Economics Masters"
 echo "📊 Session 4.1: Distributed AI Job Economics"
-echo "💰 Session 4.2: AI Marketplace Strategy"
+echo "💰 Session 4.2: AI Market Strategy"
 echo "📈 Session 4.3: Advanced Economic Modeling"
 
 # Configuration
@@ -73,7 +73,7 @@ economics_log() {
     echo -e "${PURPLE}📊 $1${NC}"
 }
 
-marketplace_log() {
+market_log() {
     echo -e "${CYAN}💰 $1${NC}"
 }
 
@@ -110,35 +110,35 @@ sleep 5
 
 success "Session 4.1: Distributed AI Job Economics completed"
 
-# 2. Session 4.2: AI Marketplace Strategy
-echo "2. Session 4.2: AI Marketplace Strategy..."
-SESSION_ID="marketplace-$(date +%s)"
+# 2. Session 4.2: AI Market Strategy
+echo "2. Session 4.2: AI Market Strategy..."
+SESSION_ID="market-$(date +%s)"
 
-marketplace_log "Strategic market positioning and pricing optimization"
+market_log "Strategic market positioning and pricing optimization"
 agent agent --agent main --session-id $SESSION_ID \
-    --message "MARKETPLACE STRATEGY: Design AI marketplace strategy with dynamic pricing, competitive positioning, and resource monetization for AI inference services - Target 25% market share, 50% month-over-month revenue growth" \
+    --message "MARKET STRATEGY: Design AI market strategy with dynamic pricing, competitive positioning, and resource monetization for AI inference services - Target 25% market share, 50% month-over-month revenue growth" \
     --thinking high || {
-    warning "Marketplace strategy development failed - using fallback"
+    warning "Market strategy development failed - using fallback"
 }
 
-marketplace_log "Market analysis and competitive intelligence"
+market_log "Market analysis and competitive intelligence"
 agent agent --agent main --session-id $SESSION_ID \
     --message "MARKET ANALYSIS: Analyze AI service market trends and optimize pricing strategy for maximum profitability and market share - Identify competitive advantages and differentiation opportunities" \
     --thinking medium || {
     warning "Market analysis failed - continuing"
 }
 
-# Submit AI marketplace strategy work
-marketplace_log "Submitting AI marketplace strategy optimization work"
-./aitbc-cli ai submit --wallet genesis-ops --type marketplace-strategy \
-    --prompt "Develop comprehensive AI marketplace strategy with: 1) Dynamic pricing based on demand, supply, and quality metrics, 2) Competitive positioning analysis and strategic market placement, 3) Resource monetization strategies for maximum revenue, 4) Customer acquisition cost optimization, 5) Long-term market expansion and growth strategies" \
+# Submit AI market strategy work
+market_log "Submitting AI market strategy optimization work"
+./aitbc-cli ai submit --wallet genesis-ops --type market-strategy \
+    --prompt "Develop comprehensive AI market strategy with: 1) Dynamic pricing based on demand, supply, and quality metrics, 2) Competitive positioning analysis and strategic market placement, 3) Resource monetization strategies for maximum revenue, 4) Customer acquisition cost optimization, 5) Long-term market expansion and growth strategies" \
     --payment 2000
 
-marketplace_log "Monitoring marketplace strategy job progress"
+market_log "Monitoring market strategy job progress"
 sleep 5
 ./aitbc-cli ai status --job-id latest
 
-success "Session 4.2: AI Marketplace Strategy completed"
+success "Session 4.2: AI Market Strategy completed"
 
 # 3. Session 4.3: Advanced Economic Modeling (Optional)
 echo "3. Session 4.3: Advanced Economic Modeling..."
@@ -177,7 +177,7 @@ SESSION_ID="cross-node-economics-$(date +%s)"
 economics_log "Creating economic coordination topic for cross-node optimization"
 TOPIC_ID=$(curl -sf -X POST http://localhost:8202/rpc/messaging/topics/create \
     -H "Content-Type: application/json" \
-    -d "{\"agent_id\": \"genesis-economics\", \"agent_address\": \"0x58EC7a0713f30CcFB1aaC6bfbAb71F36271C5871\", \"title\": \"AI Economics Coordination\", \"description\": \"Cross-node AI economics coordination and optimization\", \"tags\": [\"economics\", \"coordination\", \"optimization\", \"marketplace\"]}" \
+    -d "{\"agent_id\": \"genesis-economics\", \"agent_address\": \"0x58EC7a0713f30CcFB1aaC6bfbAb71F36271C5871\", \"title\": \"AI Economics Coordination\", \"description\": \"Cross-node AI economics coordination and optimization\", \"tags\": [\"economics\", \"coordination\", \"optimization\", \"market\"]}" \
     | python3 -c "import sys,json; d=json.load(sys.stdin); print(d[\"topic_id\"])" 2>/dev/null || echo "topic_7c245a01a6e7feea")
 
 economics_log "Economic topic created: $TOPIC_ID"
@@ -207,9 +207,9 @@ for job_id in $(./aitbc-cli ai status --job-id "latest" 2>/dev/null | grep "Job 
     sleep 2
 done
 
-# Check marketplace performance
-economics_log "Checking marketplace performance"
-./aitbc-cli market list 2>/dev/null || echo "Marketplace status: Not available"
+# Check market performance
+economics_log "Checking market performance"
+./aitbc-cli market list 2>/dev/null || echo "Market status: Not available"
 
 success "Economic performance monitoring completed"
 
@@ -224,11 +224,11 @@ agent agent --agent main --session-id $SESSION_ID \
     warning "Advanced workflow execution failed - continuing"
 }
 
-marketplace_log "Executing marketplace strategy workflow"
+market_log "Executing market strategy workflow"
 agent agent --agent main --session-id $SESSION_ID \
-    --message "MARKETPLACE WORKFLOW: Execute comprehensive marketplace strategy with dynamic pricing, competitive analysis, and revenue optimization - Target 25% market share and 50% revenue growth" \
+    --message "MARKET WORKFLOW: Execute comprehensive market strategy with dynamic pricing, competitive analysis, and revenue optimization - Target 25% market share and 50% revenue growth" \
     --thinking high || {
-    warning "Marketplace workflow execution failed - continuing"
+    warning "Market workflow execution failed - continuing"
 }
 
 # Submit advanced economic workflow
@@ -259,7 +259,7 @@ echo "- Revenue Growth: 35% YoY (target: 50%)" >> /tmp/economic_dashboard_$(date
 echo "- Market Share: 12% (target: 25%)" >> /tmp/economic_dashboard_$(date +%s).txt
 echo "" >> /tmp/economic_dashboard_$(date +%s).txt
 
-echo "💰 Marketplace Strategy:" >> /tmp/economic_dashboard_$(date +%s).txt
+echo "💰 Market Strategy:" >> /tmp/economic_dashboard_$(date +%s).txt
 echo "- Dynamic Pricing: Implemented with real-time optimization" >> /tmp/economic_dashboard_$(date +%s).txt
 echo "- Competitive Positioning: Strategic analysis completed" >> /tmp/economic_dashboard_$(date +%s).txt
 echo "- Customer Acquisition: Cost optimization in progress" >> /tmp/economic_dashboard_$(date +%s).txt
@@ -285,7 +285,7 @@ echo "  - Load balancing economics with dynamic pricing"
 echo "  - Revenue sharing mechanisms designed"
 echo "  - Economic efficiency targets established"
 echo ""
-echo "💰 Session 4.2: AI Marketplace Strategy ✅ COMPLETED"
+echo "💰 Session 4.2: AI Market Strategy ✅ COMPLETED"
 echo "  - Dynamic pricing strategies implemented"
 echo "  - Competitive positioning analysis completed"
 echo "  - Resource monetization strategies developed"
@@ -300,7 +300,7 @@ echo ""
 echo "🤖 Agent Transformation Progress:"
 echo "  🎓 FROM: Advanced AI Specialists"
 echo "  🏆 TO: AI Economics Masters (in progress)"
-echo "  📊 NEW CAPABILITIES: Economic modeling, marketplace strategy, investment management"
+echo "  📊 NEW CAPABILITIES: Economic modeling, market strategy, investment management"
 echo "  💰 VALUE ADDITION: 10x increase in economic decision-making capabilities"
 echo ""
 echo "📊 Economic Performance Achievements:"
@@ -337,7 +337,7 @@ cat << EOF > /tmp/ai_economics_phase4_completion_$(date +%s).json
         "distributed_ai_job_economics",
         "cost_optimization_across_nodes",
         "dynamic_pricing_strategies",
-        "marketplace_strategy_development",
+        "market_strategy_development",
         "investment_portfolio_management",
         "risk_assessment_mitigation"
     ],
@@ -377,12 +377,12 @@ success "🎉 AI Economics Masters - Phase 4: Cross-Node AI Economics Completed 
 echo ""
 echo "🎯 Phase 4 Transformation Achievements:"
 echo "  📊 Distributed AI Job Economics: Cross-node cost optimization and revenue sharing"
-echo "  💰 AI Marketplace Strategy: Dynamic pricing and competitive positioning"
+echo "  💰 AI Market Strategy: Dynamic pricing and competitive positioning"
 echo "  📈 Advanced Economic Modeling: Predictive economics and investment strategies"
 echo ""
 echo "🤖 Agent Evolution Progress:"
 echo "  🎓 Current State: Advanced AI Specialists → AI Economics Masters (67% complete)"
-echo "  📊 New Capabilities: Economic modeling, marketplace strategy, investment management"
+echo "  📊 New Capabilities: Economic modeling, market strategy, investment management"
 echo "  💰 Economic Intelligence: Real-time monitoring and decision support"
 echo ""
 echo "🚀 Ready for Phase 5: Advanced AI Competency Certification"
@@ -392,13 +392,13 @@ echo ""
 echo "📈 Economic Impact:"
 echo "  - Cost Optimization: Target <\$0.01 per inference across distributed nodes"
 echo "  - Revenue Growth: 50% year-over-year growth target"
-echo "  - Market Share: 25% AI service marketplace target"
+echo "  - Market Share: 25% AI service market target"
 echo "  - ROI Performance: >200% return on AI investments"
 echo ""
 echo "🔄 Next Steps:"
 echo "  Execute Phase 5: Advanced AI Competency Certification"
 echo "  Complete transformation to AI Economics Masters"
 echo "  Implement economic intelligence dashboard"
-echo "  Deploy advanced marketplace strategies"
+echo "  Deploy advanced market strategies"
 
 exit 0

@@ -40,27 +40,27 @@ groups:
           summary: "PaymentProcessor contract is down"
           description: "PaymentProcessor has been down for more than 2 minutes"
 
-      # Agent Marketplace Alerts
+      # Agent Market Alerts
       - alert: FailedAgentRegistrations
         expr: rate(contract_failed_registrations_total[5m]) > 0.05
         for: 5m
         labels:
           severity: warning
           network: ${NETWORK}
-          contract: AgentMarketplace
+          contract: AgentMarket
         annotations:
           summary: "High failed agent registration rate"
           description: "Failed registration rate is {{ \$value }} per second"
 
-      - alert: MarketplaceLowActivity
+      - alert: MarketLowActivity
         expr: rate(contract_jobs_posted_total[1h]) < 0.001
         for: 1h
         labels:
           severity: info
           network: ${NETWORK}
-          contract: AgentMarketplace
+          contract: AgentMarket
         annotations:
-          summary: "Low marketplace activity"
+          summary: "Low market activity"
           description: "Job posting rate is unusually low"
 
       # Staking Contract Alerts

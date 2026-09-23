@@ -59,7 +59,7 @@ def _sample_synced_offer(
     offer_id: str = "offer_001",
     chain_id: str = "ait-hub",
     last_synced: str | None = None,
-    service_type: str = "gpu_marketplace",
+    service_type: str = "gpu_market",
 ) -> SyncedOffer:
     return SyncedOffer(
         offer_id=offer_id,
@@ -80,7 +80,7 @@ def _sample_discovery_request() -> OfferDiscoveryRequest:
     return OfferDiscoveryRequest(
         source_chain="ait-hub",
         dest_chain="ait-island1",
-        service_type="gpu_marketplace",
+        service_type="gpu_market",
         min_price=Decimal("0.01"),
         max_price=Decimal("0.10"),
         region="us-east",
@@ -164,7 +164,7 @@ class TestSyncedOffer:
             offer_id="o1",
             chain_id="ait-hub",
             provider="p1",
-            service_type="gpu_marketplace",
+            service_type="gpu_market",
             price=0.05,
             quantity=10,
             status="available",
@@ -179,7 +179,7 @@ class TestSyncedOffer:
         d = offer.to_dict()
         assert d["offer_id"] == "offer_001"
         assert d["chain_id"] == "ait-hub"
-        assert d["service_type"] == "gpu_marketplace"
+        assert d["service_type"] == "gpu_market"
         assert d["price"] == "0.05"
         assert d["status"] == "available"
         assert d["sync_status"] == "fresh"
@@ -257,7 +257,7 @@ class TestOfferDiscoveryRequest:
         params = req.to_params()
         assert params["source_chain"] == "ait-hub"
         assert params["dest_chain"] == "ait-island1"
-        assert params["service_type"] == "gpu_marketplace"
+        assert params["service_type"] == "gpu_market"
         assert params["min_price"] == "0.01"
         assert params["max_price"] == "0.10"
         assert params["region"] == "us-east"
@@ -359,9 +359,9 @@ class TestOfferSyncTrigger:
         assert d["force"] is True
 
     def test_to_dict_with_service_type(self) -> None:
-        trigger = OfferSyncTrigger(service_type="gpu_marketplace")
+        trigger = OfferSyncTrigger(service_type="gpu_market")
         d = trigger.to_dict()
-        assert d["service_type"] == "gpu_marketplace"
+        assert d["service_type"] == "gpu_market"
         assert d["force"] is False
 
 
@@ -418,7 +418,7 @@ class TestOfferSyncClientDiscover:
                         "offer_id": "o1",
                         "chain_id": "ait-hub",
                         "provider": "p1",
-                        "service_type": "gpu_marketplace",
+                        "service_type": "gpu_market",
                         "price": 0.05,
                         "quantity": 10,
                         "status": "available",
@@ -559,7 +559,7 @@ class TestOfferSyncClientCachedOffers:
                     "offer_id": "o1",
                     "chain_id": "ait-hub",
                     "provider": "p1",
-                    "service_type": "gpu_marketplace",
+                    "service_type": "gpu_market",
                     "price": 0.05,
                     "quantity": 10,
                     "status": "available",
@@ -712,9 +712,9 @@ class TestOfferCacheList:
         cache._cache.get.side_effect = lambda key: (
             json.dumps(["offer_001"]) if "offers" in key else json.dumps(offer.to_dict())
         )
-        result = cache.list_offers_by_type("gpu_marketplace")
+        result = cache.list_offers_by_type("gpu_market")
         assert len(result) == 1
-        assert result[0].service_type == "gpu_marketplace"
+        assert result[0].service_type == "gpu_market"
 
     def test_list_offers_by_type_no_match(self) -> None:
         cache = _make_cache()
@@ -723,7 +723,7 @@ class TestOfferCacheList:
         cache._cache.get.side_effect = lambda key: (
             json.dumps(["offer_001"]) if "offers" in key else json.dumps(offer.to_dict())
         )
-        result = cache.list_offers_by_type("gpu_marketplace")
+        result = cache.list_offers_by_type("gpu_market")
         assert result == []
 
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Configuration
 
 # Source scenario configuration
@@ -36,9 +37,9 @@ echo "==============================="
 curl -s $HUB_URL/whisper/health | jq . 2>/dev/null || echo "Whisper service not available"
 
 echo ""
-echo "📋 Step 4: Test marketplace CLI"
+echo "📋 Step 4: Test market CLI"
 echo "=============================="
-aitbc market list 2>/dev/null || echo "Marketplace CLI not available"
+aitbc market list 2>/dev/null || echo "Market CLI not available"
 
 echo ""
 echo "📋 Step 5: Test P2P service"

@@ -325,7 +325,7 @@ class SystemMaintenanceManager:
                 "concurrent_gpu_jobs": 25,
                 "gpu_uptime": 99.9,
             },
-            "marketplace_metrics": {
+            "market_metrics": {
                 "active_agents": 80,
                 "daily_transactions": 600,
                 "monthly_revenue": 90000,
@@ -372,10 +372,10 @@ class SystemMaintenanceManager:
                     "action": "Plan for additional GPU resources or optimization",
                 }
             )
-        if metrics["marketplace_metrics"]["agent_success_rate"] < 99:
+        if metrics["market_metrics"]["agent_success_rate"] < 99:
             recommendations.append(
                 {
-                    "category": "marketplace",
+                    "category": "market",
                     "priority": MaintenancePriority.MEDIUM,
                     "title": "Agent Quality Improvement",
                     "description": "Agent success rate could be improved",

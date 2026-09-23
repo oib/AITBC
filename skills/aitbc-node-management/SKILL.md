@@ -83,7 +83,7 @@ Then load secrets: `bash /opt/aitbc/scripts/utils/load-keystore-secrets.sh`
 The setup script creates 9 databases. If wiped (e.g. by `dpkg --configure -a`), recreate:
 
 ```bash
-for db in coordinator exchange wallet marketplace governance trading gpu ai mempool; do
+for db in coordinator exchange wallet market governance trading gpu ai mempool; do
   sudo -u postgres psql -tc "SELECT 1 FROM pg_database WHERE datname='aitbc_$db'" | grep -q 1 || \
     sudo -u postgres psql -c "CREATE DATABASE aitbc_$db OWNER aitbc_$db;"
 done
@@ -302,7 +302,7 @@ Python unit tests using Click's `CliRunner` in isolated mode do NOT invoke the t
 
 When writing Python tests that import CLI command modules:
 - `aitbc_cli.commands.governance` → exists; `governance` is a top-level group (the legacy `operations` subgroups are deprecated)
-- `aitbc_cli.commands.marketplace` → does NOT exist; the market group lives in the `aitbc_cli/commands/market/` package
+- `aitbc_cli.commands.market` → does NOT exist; the market group lives in the `aitbc_cli/commands/market/` package
 - All tests need `cli/` on `sys.path` to import `aitbc_cli.*` -- add to `tests/conftest.py`:
   ```python
   sys.path.insert(0, str(project_root / "cli"))

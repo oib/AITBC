@@ -179,7 +179,7 @@ curl -X POST http://localhost:8202/rpc/force-sync \
 
 ### Step 10: Claim the 3 AIT welcome grant
 
-Every new node gets a one-time **3 AIT** grant (≈ 3 compute-hours at the 1 AIT ≈ 1 compute-hour reference) — enough to test marketplace jobs and transactions:
+Every new node gets a one-time **3 AIT** grant (≈ 3 compute-hours at the 1 AIT ≈ 1 compute-hour reference) — enough to test market jobs and transactions:
 
 ```bash
 # Create a wallet first if you don't have one:

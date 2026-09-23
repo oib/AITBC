@@ -63,7 +63,7 @@ This document catalogs the authentication and authorization patterns used across
 - **Exchange**: API key on write paths
 - **Edge**: JWT only
 - **Blockchain node**: `X-API-Key` on admin/control mutations (contracts deploy, governance, escrow router-level, GPU/identity writes, chain control), **tx-signature auth** on `/rpc/transaction` + `/rpc/staking/stake`, peer keys on subscription routes, admin signature on `/rpc/force-sync`
-- **Marketplace**: one admin route key-gated
+- **Market**: one admin route key-gated
 
 ### 2. Environment Bypasses
 
@@ -72,7 +72,7 @@ This document catalogs the authentication and authorization patterns used across
 ### 3. Header Conventions
 
 - `Authorization: Bearer <jwt>` — customer/user JWT paths
-- `X-Api-Key` — coordinator service/legacy, marketplace admin (`APIKeyAuthenticator` default header)
+- `X-Api-Key` — coordinator service/legacy, market admin (`APIKeyAuthenticator` default header)
 - `X-API-Key` — blockchain node admin/control mutations + escrow + peer subscription routes (tx submit/stake are signature-verified instead)
 - The casing difference is real and per-service; both are matched case-insensitively by HTTP headers, but document the exact header each service expects.
 
@@ -120,7 +120,7 @@ Route                          | Method | Auth Level | Implementation
 /rpc/escrow/*                 | ALL    | Level 2    | X-API-Key (router-level)
 /rpc/subscribe, /rpc/heartbeat| POST   | Peer key   | verify_rpc_peer_key
 /rpc/force-sync               | POST   | Level 4    | admin-signed body
-/v1/marketplace/parameters/apply | POST | Level 2 | X-Api-Key (marketplace api_key)
+/v1/market/parameters/apply | POST | Level 2 | X-Api-Key (market api_key)
 ```
 
 ### Phase 4: Migration Path — status

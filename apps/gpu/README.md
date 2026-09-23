@@ -6,7 +6,7 @@
 
 ## Description
 
-GPU marketplace and resource management service. Tracks GPU availability, allocates GPU resources to jobs, and manages GPU profiles for different workload types.
+GPU market and resource management service. Tracks GPU availability, allocates GPU resources to jobs, and manages GPU profiles for different workload types.
 
 ## Node Type
 

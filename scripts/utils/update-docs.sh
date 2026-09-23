@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Documentation Update Script
 # Implements the update-docs.md workflow
@@ -135,7 +136,7 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 - [`16_cross_chain/`](./16_cross_chain/) - Cross-chain integration documentation
 - [`17_developer_ecosystem/`](./17_developer_ecosystem/) - Developer ecosystem documentation
 - [`18_explorer/`](./18_explorer/) - Explorer implementation with CLI parity
-- [`19_marketplace/`](./19_marketplace/) - Global marketplace implementation
+- [`19_market/`](./19_market/) - Global market implementation
 - [`20_phase_reports/`](./20_phase_reports/) - Comprehensive phase reports and guides
 - [`21_reports/`](./21_reports/) - Project completion reports
 - [`22_workflow/`](./22_workflow/) - Workflow completion summaries
@@ -153,7 +154,7 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 - [`cli/tests/`](../cli/tests/) - CLI-specific test suite
 
 ### **🔄 Exchange Infrastructure**
-- [`19_marketplace/`](./19_marketplace/) - Exchange and marketplace documentation
+- [`19_market/`](./19_market/) - Exchange and market documentation
 - [`10_plan/01_core_planning/exchange_implementation_strategy.md`](./10_plan/01_core_planning/exchange_implementation_strategy.md) - Exchange implementation strategy
 - [`10_plan/01_core_planning/trading_engine_analysis.md`](./10_plan/01_core_planning/trading_engine_analysis.md) - Trading engine documentation
 
@@ -258,7 +259,7 @@ AITBC now features **advanced privacy-preserving machine learning** with zero-kn
 - **CLI Reference**: [Complete CLI Documentation](./23_cli/)
 - **Testing Suite**: [Test Results and Procedures](./23_cli/testing.md)
 - **Development Setup**: [Environment Configuration](./23_cli/permission-setup.md)
-- **Exchange Integration**: [Market and Trading Documentation](./19_marketplace/)
+- **Exchange Integration**: [Market and Trading Documentation](./19_market/)
 
 ---
 
@@ -535,7 +536,7 @@ aitbc --test-mode blockchain status
 - [Testing Procedures](./testing.md) - Detailed testing documentation
 - [Permission Setup](./permission-setup.md) - Development environment configuration
 - [Service Management](../8_development/) - Service operation guides
-- [Exchange Integration](../19_marketplace/) - Exchange and trading documentation
+- [Exchange Integration](../19_market/) - Exchange and trading documentation
 
 ---
 
@@ -552,7 +553,7 @@ EOF
 create_exchange_docs() {
     print_status "Creating exchange documentation"
 
-    local exchange_dir="$DOCS_DIR/19_marketplace"
+    local exchange_dir="$DOCS_DIR/19_market"
 
     # Create exchange integration guide
     cat > "$exchange_dir/exchange_integration.md" << 'EOF'
@@ -927,7 +928,7 @@ aitbc --test-mode blockchain status
 - [Complete CLI Reference](../23_cli/README.md)
 - [Testing Procedures](../23_cli/testing.md)
 - [Permission Setup](../23_cli/permission-setup.md)
-- [Exchange Integration](../19_marketplace/exchange_integration.md)
+- [Exchange Integration](../19_market/exchange_integration.md)
 
 ## 🎯 **Tips and Best Practices**
 

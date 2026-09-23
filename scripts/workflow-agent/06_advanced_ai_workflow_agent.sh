@@ -231,7 +231,7 @@ time ./aitbc-cli --help > /dev/null
 # Test blockchain performance
 time ./aitbc-cli blockchain info > /dev/null
 
-# Test marketplace performance
+# Test market performance
 time ./aitbc-cli market list > /dev/null
 
 # 10. Advanced AI Capabilities Summary

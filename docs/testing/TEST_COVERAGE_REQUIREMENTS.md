@@ -43,12 +43,12 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 - GPU discovery (async)
 - Inference optimization (async)
 
-### Marketplace Service
+### Market Service
 
 **Unit Test Coverage Requirements:**
 
-- Domain models (MarketplaceOffer, MarketplaceBid, GlobalMarketplaceOffer, GlobalMarketplaceTransaction, etc.): 75%
-- Service layer (MarketplaceService): 70%
+- Domain models (MarketOffer, MarketBid, GlobalMarketOffer, GlobalMarketTransaction, etc.): 75%
+- Service layer (MarketService): 70%
 - API endpoints: 65%
 
 **Integration Test Coverage Requirements:**
@@ -61,7 +61,7 @@ Each microservice should maintain adequate test coverage to ensure reliability a
 
 - Offer creation and retrieval
 - Bid creation and retrieval
-- Marketplace analytics
+- Market analytics
 
 ### Trading Service
 

@@ -36,7 +36,7 @@ async def test_bridge_handle_block_event():
     """Test bridge handling a block event."""
     settings = Settings(
         enable_coordinator_api_trigger=False,
-        enable_marketplace_trigger=False,
+        enable_market_trigger=False,
     )
     bridge = BlockchainEventBridge(settings)
 

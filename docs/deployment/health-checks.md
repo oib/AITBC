@@ -11,7 +11,7 @@ curl http://localhost:8202/health
 # Check coordinator API health
 curl http://localhost:8203/health
 
-# Check marketplace service health
+# Check market service health
 curl http://localhost:8102/health
 
 # Check wallet service health

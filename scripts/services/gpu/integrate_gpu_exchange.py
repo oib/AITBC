@@ -4,7 +4,7 @@ Integrate GPU Miner with existing Trade Exchange
 
 Note: The exchange frontend (index.html, server.py) was removed in v0.10.3.
 The exchange is now a pure API service (simple_exchange.server on port 8106).
-GPU marketplace integration should be done via the marketplace service API,
+GPU market integration should be done via the market service API,
 not by editing HTML files.
 """
 
@@ -64,7 +64,7 @@ def main():
     print(f"2. 🌐 Exchange API available at: {EXCHANGE_URL}")
     print(f"3. 🎯 GPU Registry available at: {GPU_REGISTRY_URL}/miners/list")
     print()
-    print("🔄 To test the integrated GPU marketplace:")
+    print("🔄 To test the integrated GPU market:")
     print("1. Restart the exchange: sudo systemctl restart aitbc-exchange")
     print(f"2. Query the exchange API: curl {EXCHANGE_URL}/api/gpu/offers")
     print(f"3. Query the GPU registry: curl {GPU_REGISTRY_URL}/miners/list")

@@ -1,6 +1,6 @@
 # trading
 
-Trading — order management, matching, and trading marketplace integration.
+Trading — order management, matching, and trading market integration.
 
 ## Domain Models
 
@@ -27,7 +27,7 @@ Trading — order management, matching, and trading marketplace integration.
 ## Services
 
 - `market_data_collector.py` — `MarketDataCollector`: collects real-time market data for pricing calculations
-- `trading_marketplace/trading.py` — `MatchingEngine`: order matching logic
-- `trading_marketplace/dynamic_pricing.py` — `DynamicPricingEngine`: dynamic pricing engine
-- `trading_marketplace/bid_strategy.py` — `BidStrategyEngine`: bid strategy engine
-- `trading_marketplace/gpu_optimizer.py` — GPU optimization for trading workloads
+- `trading_market/trading.py` — `MatchingEngine`: order matching logic
+- `trading_market/dynamic_pricing.py` — `DynamicPricingEngine`: dynamic pricing engine
+- `trading_market/bid_strategy.py` — `BidStrategyEngine`: bid strategy engine
+- `trading_market/gpu_optimizer.py` — GPU optimization for trading workloads

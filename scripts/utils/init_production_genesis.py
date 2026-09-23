@@ -47,7 +47,7 @@ def _derived_fallback() -> dict[str, int]:
         derive_address("aitbc1aiengine"): 2_000_000,
         derive_address("aitbc1surveillance"): 1_500_000,
         derive_address("aitbc1analytics"): 1_000_000,
-        derive_address("aitbc1marketplace"): 2_000_000,
+        derive_address("aitbc1market"): 2_000_000,
         derive_address("aitbc1enterprise"): 3_000_000,
         derive_address("aitbc1multimodal"): 1_500_000,
         derive_address("aitbc1zkproofs"): 1_000_000,

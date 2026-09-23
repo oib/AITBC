@@ -196,19 +196,19 @@ run_test_verbose "Analytics systems deployment" "
     echo '✅ Analytics systems deployed'
 "
 
-# 7. MARKETPLACE DEPLOYMENT
+# 7. MARKET DEPLOYMENT
 echo ""
-echo "8. 🛒 MARKETPLACE DEPLOYMENT"
+echo "8. 🛒 MARKET DEPLOYMENT"
 echo "========================"
 
-run_test_verbose "Marketplace deployment" "
-    echo 'Deploying marketplace services...'
+run_test_verbose "Market deployment" "
+    echo 'Deploying market services...'
 
-    # Test marketplace functionality
-    echo 'Marketplace test:'
-    curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total 2>/dev/null || echo 'Marketplace responding'
+    # Test market functionality
+    echo 'Market test:'
+    curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total 2>/dev/null || echo 'Market responding'
 
-    echo '✅ Marketplace deployed'
+    echo '✅ Market deployed'
 "
 
 # 8. AI SERVICES DEPLOYMENT
@@ -259,7 +259,7 @@ run_test_verbose "Production validation" "
     echo 'Production validation checklist:'
     echo \"✅ Blockchain RPC: \$(curl -s $BLOCKCHAIN_RPC/rpc/info >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Coordinator API: \$(curl -fsS http://localhost:8203/health/live >/dev/null && echo 'PASS' || echo 'FAIL')\"
-    echo \"✅ Marketplace: \$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings >/dev/null && echo 'PASS' || echo 'FAIL')\"
+    echo \"✅ Market: \$(curl -s $BLOCKCHAIN_RPC/rpc/market/listings >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ AI Service: \$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats' >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Agent Communication: \$(curl -s $BLOCKCHAIN_RPC/rpc/messaging/topics >/dev/null && echo 'PASS' || echo 'FAIL')\"
     echo \"✅ Security Systems: \$(test -d /opt/aitbc/security_reports && echo 'PASS' || echo 'FAIL')\"
@@ -290,14 +290,14 @@ DEPLOYED COMPONENTS:
 ✅ Security Systems
 ✅ Monitoring Systems
 ✅ Analytics Systems
-✅ Marketplace Services
+✅ Market Services
 ✅ AI Services
 ✅ Cross-node Systems
 
 PRODUCTION STATUS:
 Blockchain RPC: Operational
 Coordinator API: Operational
-Marketplace Service: Operational
+Market Service: Operational
 AI Service: Operational
 Agent Communication: Operational
 Security Systems: Operational
@@ -355,7 +355,7 @@ echo "✅ Agent Communication: Deployed and operational"
 echo "✅ Security Systems: Deployed and operational"
 echo "✅ Monitoring Systems: Deployed and operational"
 echo "✅ Analytics Systems: Deployed and operational"
-echo "✅ Marketplace: Deployed and operational"
+echo "✅ Market: Deployed and operational"
 echo "✅ AI Services: Deployed and operational"
 echo "✅ Cross-node Systems: Deployed and operational"
 echo ""

@@ -30,7 +30,7 @@ REPO_DIR = Path(os.getenv("AITBC_REPO_DIR", _REPO_DEFAULT))
 # Common subdirectories
 KEYSTORE_DIR = DATA_DIR / "keystore"
 BLOCKCHAIN_DATA_DIR = DATA_DIR / "data" / "ait-mainnet"
-MARKETPLACE_DATA_DIR = DATA_DIR / "data" / "marketplace"
+MARKET_DATA_DIR = DATA_DIR / "data" / "marketplace"
 
 # Configuration files
 ENV_FILE = CONFIG_DIR / ".env"
@@ -48,15 +48,15 @@ if _HOME_OVERRIDE:
 
 # Default ports.
 #
-# Marketplace was 8081 and Exchange was 8001 until V23-99. Nothing has ever bound either --
+# Market was 8081 and Exchange was 8001 until V23-99. Nothing has ever bound either --
 # the services listen on 8102 and 8106 -- so integration_layer.py, which is the only functional
-# consumer, built its default marketplace and exchange URLs pointing at closed ports. It reads
-# MARKETPLACE_SERVICE_URL and EXCHANGE_SERVICE_URL from the environment first, which is why a
+# consumer, built its default market and exchange URLs pointing at closed ports. It reads
+# MARKET_SERVICE_URL and EXCHANGE_SERVICE_URL from the environment first, which is why a
 # configured deployment worked and the defaults were never exercised.
 BLOCKCHAIN_RPC_PORT = 8202
 BLOCKCHAIN_P2P_PORT = 8200
 AGENT_COORDINATOR_PORT = 8107
-MARKETPLACE_PORT = 8102
+MARKET_PORT = 8102
 COORDINATOR_API_PORT = 8203
 WALLET_PORT = 8108
 EXCHANGE_PORT = 8106

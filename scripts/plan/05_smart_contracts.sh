@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # Phase 5: Smart Contract Infrastructure Setup Script
 # Implements escrow system, dispute resolution, and contract management
@@ -50,7 +51,7 @@ create_escrow_system() {
     cat > "$CONTRACTS_DIR/escrow.py" << 'EOF'
 """
 Smart Contract Escrow System
-Handles automated payment holding and release for AI job marketplace
+Handles automated payment holding and release for AI job market
 """
 
 import asyncio
@@ -109,7 +110,7 @@ class Milestone:
     verified: bool
 
 class EscrowManager:
-    """Manages escrow contracts for AI job marketplace"""
+    """Manages escrow contracts for AI job market"""
 
     def __init__(self):
         self.escrow_contracts: Dict[str, EscrowContract] = {}

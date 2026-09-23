@@ -1,0 +1,65 @@
+"""
+Shared Market ORM Models
+"""
+
+from __future__ import annotations
+
+from datetime import UTC, datetime
+from decimal import Decimal
+from typing import Any
+from uuid import uuid4
+
+from sqlalchemy import JSON, Column, Numeric
+from sqlmodel import Field, SQLModel
+
+
+class MarketOffer(SQLModel, table=True):
+    """Market offer for GPU/compute resources"""
+
+    __tablename__ = "marketplaceoffer"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    provider: str | None = Field(default=None, index=True)
+    capacity: int = Field(default=0, nullable=False)
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    sla: str = Field(default="")
+    status: str = Field(default="available", max_length=20, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
+    attributes: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
+    # GPU-specific fields
+    gpu_model: str | None = Field(default=None, index=True)
+    gpu_memory_gb: int | None = Field(default=None)
+    disk_quota_mb: int | None = Field(default=None)  # Per-customer disk quota, e.g. 100 for IPFS
+    gpu_count: int | None = Field(default=1)
+    cuda_version: str | None = Field(default=None)
+    price_per_hour: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8)))
+    region: str | None = Field(default=None, index=True)
+    # v0.6.6: Chain awareness — which chain this offer is on
+    chain_id: str | None = Field(default=None, index=True)
+    # E1: resource binding for fixed-duration GPU energy-floor quotes.
+    resource_id: str | None = Field(default=None)
+    model_id: str | None = Field(default=None)
+    protected: bool = Field(default=False)
+    energy_quote_snapshot: dict[str, Any] | None = Field(default=None, sa_column=Column(JSON, nullable=True))
+
+
+class MarketBid(SQLModel, table=True):
+    """Bid on a market offer"""
+
+    __tablename__ = "marketplace_bid"
+    __table_args__ = {"extend_existing": True}
+
+    id: str = Field(default_factory=lambda: uuid4().hex, primary_key=True)
+    provider: str = Field(index=True)
+    capacity: int = Field(default=0, nullable=False)
+    price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8), nullable=False))
+    notes: str | None = Field(default=None)
+    status: str = Field(default="pending", nullable=False, index=True)
+    submitted_at: datetime = Field(default_factory=lambda: datetime.now(UTC), nullable=False, index=True)
+
+    @classmethod
+    def with_table_name(cls, table_name: str) -> type[MarketBid]:
+        """Create a dynamic table name for the model"""
+        cls.__tablename__ = table_name
+        return cls

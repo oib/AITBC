@@ -227,18 +227,18 @@ echo ""
 echo "4. 🔌 SERVICE EVENT MONITORING"
 echo "============================="
 
-# Test marketplace service event logging
-run_test_verbose "Marketplace service event logging" "
-    echo 'Testing marketplace service event logging...'
+# Test market service event logging
+run_test_verbose "Market service event logging" "
+    echo 'Testing market service event logging...'
 
-    # Simulate marketplace service event
-    log_service_event \"MARKETPLACE\" \"LISTING_CREATED\" \"New listing created: demo_001\"
+    # Simulate market service event
+    log_service_event \"MARKET\" \"LISTING_CREATED\" \"New listing created: demo_001\"
 
     # Verify event was logged
-    if tail -1 \"$SERVICE_EVENT_LOG\" | grep -q \"MARKETPLACE\"; then
-        echo \"✅ Marketplace service event logged correctly\"
+    if tail -1 \"$SERVICE_EVENT_LOG\" | grep -q \"MARKET\"; then
+        echo \"✅ Market service event logged correctly\"
     else
-        echo \"❌ Marketplace service event not logged\"
+        echo \"❌ Market service event not logged\"
         exit 1
     fi
 "

@@ -181,12 +181,12 @@ class TestChainConfig:
 
         config = ChainConfig(
             type=ChainType.TOPIC,
-            purpose="Topic-specific chain for GPU marketplace",
-            name="GPU Marketplace Chain",
+            purpose="Topic-specific chain for GPU market",
+            name="GPU Market Chain",
             consensus=consensus,
         )
 
-        assert "gpu marketplace" in config.purpose.lower()
+        assert "gpu market" in config.purpose.lower()
         assert config.type == ChainType.TOPIC
 
     def test_consensus_config_with_minimal_validators(self):  # noqa: F811

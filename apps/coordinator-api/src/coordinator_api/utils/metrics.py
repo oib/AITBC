@@ -49,13 +49,13 @@ class MetricsCollector:
     def get_response_time_percentile(self, percentile: float) -> float:
         """Return a percentile of the retained response times, in seconds.
 
-        Ported from the unreachable ``MarketplaceMonitor`` deleted in V23-102, which was
+        Ported from the unreachable ``MarketMonitor`` deleted in V23-102, which was
         the only place in coordinator-api that computed tail latency.  Averages hide it:
         by the time a mean crosses 500ms a large share of requests are already far worse.
 
         Returns 0.0 when nothing has been recorded.  That is load-bearing -- every caller
         compares the result against an upper bound, so an empty window reads as "fine"
-        rather than firing.  ``MarketplaceMonitor`` got this wrong in the other direction:
+        rather than firing.  ``MarketMonitor`` got this wrong in the other direction:
         three of its thresholds were ``<`` comparisons against a 0.0-on-empty average, so
         starting it raised a critical alert every tick forever on a series nothing fed.
         """
@@ -172,7 +172,7 @@ class MetricsCollector:
                 "status": "critical" if avg_response_time_ms > 500.0 else "ok",
             },
             "p95_response_time": {
-                # 500ms is the threshold MarketplaceMonitor set for *p95* before V23-102
+                # 500ms is the threshold MarketMonitor set for *p95* before V23-102
                 # deleted it; the avg_response_time alert above applies the same number to
                 # a mean, which is a much later and much weaker signal.
                 "triggered": p95_response_time_ms > 500.0,

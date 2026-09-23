@@ -63,7 +63,7 @@ def test_bond_create_posts_bonds(runner, mock_client):
     )
     assert result.exit_code == 0, result.output
     call = mock_client.post.call_args
-    assert call[0][0] == "/v1/marketplace/providers/aitbc-miner-1/bonds"
+    assert call[0][0] == "/v1/market/providers/aitbc-miner-1/bonds"
     assert call.kwargs["json"]["amount"] == "10.0"
     assert call.kwargs["json"]["required_amount"] == "10.0"
 
@@ -75,7 +75,7 @@ def test_bond_status_gets_eligibility(runner, mock_client):
         bond, ["status", "--provider-id", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"}
     )
     assert result.exit_code == 0, result.output
-    mock_client.get.assert_called_once_with("/v1/marketplace/providers/aitbc-miner-1/eligibility")
+    mock_client.get.assert_called_once_with("/v1/market/providers/aitbc-miner-1/eligibility")
 
 
 def test_bond_slash_posts_slash(runner, mock_client):
@@ -88,7 +88,7 @@ def test_bond_slash_posts_slash(runner, mock_client):
     )
     assert result.exit_code == 0, result.output
     call = mock_client.post.call_args
-    assert call[0][0] == "/v1/marketplace/providers/aitbc-miner-1/bonds/slash"
+    assert call[0][0] == "/v1/market/providers/aitbc-miner-1/bonds/slash"
     assert call.kwargs["json"]["reason"] == "failed high-value job"
 
 
@@ -99,10 +99,10 @@ def test_bond_lock_and_release(runner, mock_client):
         bond, ["lock", "--provider-id", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"}
     )
     assert result.exit_code == 0, result.output
-    assert mock_client.post.call_args[0][0] == "/v1/marketplace/providers/aitbc-miner-1/bonds/lock"
+    assert mock_client.post.call_args[0][0] == "/v1/market/providers/aitbc-miner-1/bonds/lock"
 
     result = runner.invoke(
         bond, ["release", "--provider-id", "aitbc-miner-1"], obj={"output_format": "table", "api_key": "test-key"}
     )
     assert result.exit_code == 0, result.output
-    assert mock_client.post.call_args[0][0] == "/v1/marketplace/providers/aitbc-miner-1/bonds/release"
+    assert mock_client.post.call_args[0][0] == "/v1/market/providers/aitbc-miner-1/bonds/release"

@@ -249,19 +249,19 @@ echo "================================="
 run_test_verbose "Cross-service communication security" "
     echo 'Testing cross-service communication security...'
 
-    # Test marketplace service security
-    MARKETPLACE_RESPONSE=\$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)
-    if [ -n \"\$MARKETPLACE_RESPONSE\" ]; then
-        echo '✅ Marketplace service accessible'
+    # Test market service security
+    MARKET_RESPONSE=\$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)
+    if [ -n \"\$MARKET_RESPONSE\" ]; then
+        echo '✅ Market service accessible'
 
-        # Check for data validation in marketplace
-        if echo \"\$MARKETPLACE_RESPONSE\" | jq . 2>/dev/null | grep -q \"listing_id\"; then
-            echo '✅ Marketplace data structure validated'
+        # Check for data validation in market
+        if echo \"\$MARKET_RESPONSE\" | jq . 2>/dev/null | grep -q \"listing_id\"; then
+            echo '✅ Market data structure validated'
         else
-            log_security_finding \"MEDIUM\" \"Data Validation\" \"Marketplace service data validation issues\" \"Implement proper data validation\"
+            log_security_finding \"MEDIUM\" \"Data Validation\" \"Market service data validation issues\" \"Implement proper data validation\"
         fi
     else
-        echo '❌ Marketplace service not accessible'
+        echo '❌ Market service not accessible'
     fi
 
     # Test AI service security
@@ -432,7 +432,7 @@ SERVICE SECURITY STATUS
 ---------------------
 Blockchain RPC: $([ -n "$(curl -s http://localhost:$GENESIS_PORT/rpc/info)" ] && echo "Secure" || echo "Vulnerable")
 Coordinator API: $([ -n "$(curl -s http://localhost:$COORDINATOR_PORT/health/live)" ] && echo "Secure" || echo "Vulnerable")
-Marketplace Service: $([ -n "$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings)" ] && echo "Secure" || echo "Vulnerable")
+Market Service: $([ -n "$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings)" ] && echo "Secure" || echo "Vulnerable")
 AI Service: $([ -n "$(ssh $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/ai/stats')" ] && echo "Secure" || echo "Vulnerable")
 
 CONTRACT SECURITY STATUS

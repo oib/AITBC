@@ -13,7 +13,7 @@ AITBC services run on the following ports:
 - **8203** - Coordinator API
 - **8105** - Governance service (`aitbc-governance`); the agent coordinator is on 8107
 - **7070** - P2P Bind Port
-- (no marketplace web UI — `apps/marketplace-web` was never built; the live UI is the static `website/` directory)
+- (no market web UI — `apps/market-web` was never built; the live UI is the static `website/` directory)
 
 ## Firewall Recommendations
 
@@ -186,7 +186,7 @@ Management Network (192.168.1.0/24)
 
 Application Network (10.0.1.0/24)
 ├── Coordinator API Servers
-├── Marketplace Service
+├── Market Service
 └── Web UI Servers
 
 Blockchain Network (10.0.0.0/8)
@@ -246,7 +246,7 @@ Set up alerts for:
 ### 1. Disable Unused Services
 
 ```bash
-# No aitbc-marketplace-web unit exists and no service listens on 5173 —
+# No aitbc-market-web unit exists and no service listens on 5173 —
 # nothing to disable.
 ```
 

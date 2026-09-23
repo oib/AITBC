@@ -6,7 +6,7 @@
 
 ## Description
 
-AITBC Trade Exchange service — order matching, price discovery, treasury balance, marketplace, and bridge endpoints. Uses FastAPI with SQLite (TEXT-stored Decimal columns for exact monetary arithmetic).
+AITBC Trade Exchange service — order matching, price discovery, treasury balance, market, and bridge endpoints. Uses FastAPI with SQLite (TEXT-stored Decimal columns for exact monetary arithmetic).
 
 ## Node Type
 
@@ -30,7 +30,7 @@ no
 - `simple_exchange/server.py` — entry point
 - `simple_exchange/db.py` — SQLite schema (TEXT monetary columns) + auto-migration
 - `simple_exchange/handlers/exchange.py` — trading, order matching (B1/B2/B3 fixed)
-- `simple_exchange/handlers/marketplace.py` — marketplace offers/orders
+- `simple_exchange/handlers/market.py` — market offers/orders
 - `simple_exchange/handlers/bridge.py` — bridge price/status/deposit/withdraw
 - `simple_exchange/handlers/wallet.py` — wallet balance/connect
 

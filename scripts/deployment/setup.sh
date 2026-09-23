@@ -199,7 +199,7 @@ get_services_for_role() {
         aitbc-coordinator-api
         aitbc-api-gateway
         aitbc-exchange
-        aitbc-marketplace
+        aitbc-market
         aitbc-bridge-monitor
         aitbc-blockchain-event-bridge
         aitbc-agent-coordinator
@@ -215,14 +215,14 @@ get_services_for_role() {
     # coordinator-api is required by the miner (COORDINATOR_URL=http://localhost:8203)
     # edge provides the edge compute API for GPU job dispatch
     # pool-hub manages mining pools (join/leave, miner registration)
-    # marketplace is needed by edge (MARKETPLACE_URL=http://localhost:8102)
+    # market is needed by edge (MARKET_URL=http://localhost:8102)
     local shop_services=(
         aitbc-gpu
         aitbc-miner
         aitbc-coordinator-api
         aitbc-edge
         aitbc-pool-hub
-        aitbc-marketplace
+        aitbc-market
     )
 
     # Customer nodes: base only (interacts with hub via CLI)
@@ -486,7 +486,7 @@ setup_runtime_directories() {
     # not just on api_keys.json. With 755 root:root, every service running as `aitbc` that
     # imports aitbc.auth dies at import time with
     #     PermissionError: [Errno 13] Permission denied: '/var/lib/aitbc/api_keys.json.lock'
-    # and systemd restart-loops it. That took down coordinator-api, pool-hub, gpu, marketplace
+    # and systemd restart-loops it. That took down coordinator-api, pool-hub, gpu, market
     # and trading simultaneously, since APIKeyManager() is instantiated at module scope.
     # The setgid bit keeps new entries in the aitbc group so this cannot drift back.
     chmod 2775 /var/lib/aitbc
@@ -576,7 +576,7 @@ setup_service_users() {
     # Create specialized service users for security isolation
     service_users=(
         "aitbc-public:Public exposure services (API Gateway, Edge, Whisper)"
-        "aitbc-internal:Internal services (Marketplace, Agent, Agent Coordinator)"
+        "aitbc-internal:Internal services (Market, Agent, Agent Coordinator)"
         "aitbc-blockchain:Blockchain services (Node, P2P, RPC)"
         "aitbc-gpu:GPU service (needs video group)"
         "aitbc-wallet:Wallet service (keystore access)"
@@ -655,7 +655,7 @@ setup_service_users() {
     if ! sudo -u aitbc test -w /var/lib/aitbc; then
         warning "/var/lib/aitbc is not writable by the aitbc user."
         warning "Every service importing aitbc.auth fails at import on api_keys.json.lock,"
-        warning "and systemd restart-loops it -- coordinator-api, pool-hub, gpu, marketplace, trading."
+        warning "and systemd restart-loops it -- coordinator-api, pool-hub, gpu, market, trading."
         error "Fix: chown root:aitbc /var/lib/aitbc && chmod 2775 /var/lib/aitbc"
     fi
 
@@ -693,7 +693,7 @@ setup_postgresql_databases() {
         warning "Creating individual databases manually..."
 
         # Fallback to individual database creation.
-        # coordinator, exchange, wallet, marketplace, trading, gpu and ai
+        # coordinator, exchange, wallet, market, trading, gpu and ai
         # services have moved to SQLite and are no longer created here.
         # aitbc_governance is only needed when DB_TYPE=postgresql.
         # aitbc_mempool is only needed when MEMPOOL_BACKEND=database.

@@ -26,7 +26,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from aitbc.config.hub import hub_agent_url
 from aitbc.constants import BLOCKCHAIN_RPC_URL
-from aitbc.marketplace import BlockchainRPCClient
+from aitbc.market import BlockchainRPCClient
 from aitbc.rewards import REWARD_PER_SHARE, RewardPolicy
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
 

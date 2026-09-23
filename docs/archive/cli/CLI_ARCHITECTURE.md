@@ -57,7 +57,7 @@ The AITBC CLI follows a modular, layered architecture:
 ┌─────────────────────────────────────────────────────────┐
 │                Backend Services Layer                    │
 │  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐ │
-│  │ Blockchain   │  │ Agent        │  │ Marketplace  │ │
+│  │ Blockchain   │  │ Agent        │  │ Market  │ │
 │  │ RPC (8202)   │  │ Coordinator  │  │ Exchange     │ │
 │  │              │  │ (9001)       │  │ (8001)       │ │
 │  └──────────────┘  └──────────────┘  └──────────────┘ │
@@ -221,7 +221,7 @@ Blockchain RPC Service (8202)
     └── Return block data
 ```
 
-### Marketplace Operation Flow
+### Market Operation Flow
 
 ```
 User Command
@@ -230,13 +230,13 @@ User Command
 Parser (market.py)
     │
     ├── Parse: action (list, buy, sell), parameters
-    ├── Set default marketplace URL (8001)
+    ├── Set default market URL (8001)
     └── Map to handler: handle_market_listings
     │
     ▼
 Handler Wrapper (unified_cli.py)
     │
-    ├── Get context: default_marketplace_url
+    ├── Get context: default_market_url
     └── Call: market_handlers.handle_market_listings()
     │
     ▼
@@ -248,10 +248,10 @@ Handler Implementation (handlers/market.py)
     └── Render listings to user
     │
     ▼
-Marketplace Exchange API (8001)
+Market Exchange API (8001)
     │
     ├── Receive listings request
-    ├── Query marketplace database
+    ├── Query market database
     └── Return listings
 ```
 
@@ -348,7 +348,7 @@ def handle_command(args, default_rpc_url, default_coordinator_url, render_mappin
 |---------|------|----------|-------|
 | Blockchain RPC | 8202 | `/rpc/blocks/{height}` | Blockchain queries |
 | Coordinator API | 8203 | `/v1/jobs` | Job submission and management |
-| Marketplace Exchange | 8001 | `/listings` | Marketplace operations |
+| Market Exchange | 8001 | `/listings` | Market operations |
 
 > **Note:** The "Agent Coordinator" on port 9001 referenced in some CLI flows may be a legacy or internal service. The primary Coordinator API for job submission is on port 8203. See [Service Ports Reference](../reference/SERVICE_PORTS.md) for authoritative port configuration.
 
@@ -375,11 +375,11 @@ rpc_url = "http://localhost:8202"
 requests.get(f"{rpc_url}/rpc/blocks/latest")
 ```
 
-**Marketplace API Integration:**
+**Market API Integration:**
 
 ```python
-marketplace_url = "http://localhost:8001"
-requests.get(f"{marketplace_url}/listings")
+market_url = "http://localhost:8001"
+requests.get(f"{market_url}/listings")
 ```
 
 ## Error Handling Patterns

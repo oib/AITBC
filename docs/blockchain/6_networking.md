@@ -16,7 +16,7 @@ inbound P2P connections:
 - **Port 7070 is hub-internal.** It runs the `aitbc-blockchain-p2p` gossip
   relay on the hub only. Followers must not open or forward it.
 - **Service ports stay behind nginx on the hub.** The API gateway (8201),
-  blockchain RPC (8202), coordinator (8203), marketplace (8102), exchange
+  blockchain RPC (8202), coordinator (8203), market (8102), exchange
   (8106), agent-coordinator (8107), and explorer (8100) bind on the hub and
   are proxied — only **80/443 is public**.
 - The node's `p2p_bind_port` setting (code default **8200**) only matters on

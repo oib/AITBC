@@ -67,7 +67,7 @@ class DeveloperProfile(SQLModel, table=True):
 
 
 class AgentSolution(SQLModel, table=True):
-    """A third-party agent solution available in the developer marketplace"""
+    """A third-party agent solution available in the developer market"""
 
     __tablename__ = "agent_solutions"
 

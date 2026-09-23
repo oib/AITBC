@@ -6,7 +6,7 @@ from aitbc_cli.commands.market.offers import _sort_offers
 
 
 class TestSortOffers:
-    """Test deterministic sorting of marketplace offers."""
+    """Test deterministic sorting of market offers."""
 
     @pytest.fixture
     def offers(self):

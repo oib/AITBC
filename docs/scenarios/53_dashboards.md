@@ -24,13 +24,13 @@ breadcrumb: Home > Scenarios > Customer and Shop Dashboards
 
 ## Scenario Overview
 
-This scenario exercises the two operational dashboards that the CLI exposes through `aitbc dashboard`. Both views talk to live node services: the customer view reads the coordinator API for jobs and the wallet daemon for balances; the shop view reads the coordinator for monitoring metrics, miner jobs/earnings, and marketplace offers, the local GPU service for hardware, and the wallet daemon for balances.
+This scenario exercises the two operational dashboards that the CLI exposes through `aitbc dashboard`. Both views talk to live node services: the customer view reads the coordinator API for jobs and the wallet daemon for balances; the shop view reads the coordinator for monitoring metrics, miner jobs/earnings, and market offers, the local GPU service for hardware, and the wallet daemon for balances.
 
-> **Live vs. simulated:** The dashboards are **live** when the coordinator, wallet daemon, and (for the shop) GPU/marketplace services are reachable. If a service is down, the command logs a warning and omits that section; it does **not** fall back to simulated data.
+> **Live vs. simulated:** The dashboards are **live** when the coordinator, wallet daemon, and (for the shop) GPU/market services are reachable. If a service is down, the command logs a warning and omits that section; it does **not** fall back to simulated data.
 
 ### Use Case
 
-A customer wants to see recent jobs, payment statuses, and wallet balances. A shop operator wants to see assigned jobs, published marketplace offers, local GPUs, and earnings. Both use the same `aitbc dashboard` group, authenticated with `aitbc auth login`.
+A customer wants to see recent jobs, payment statuses, and wallet balances. A shop operator wants to see assigned jobs, published market offers, local GPUs, and earnings. Both use the same `aitbc dashboard` group, authenticated with `aitbc auth login`.
 
 ### What You'll Learn
 
@@ -58,7 +58,7 @@ A customer wants to see recent jobs, payment statuses, and wallet balances. A sh
 - A funded wallet
 - A customer role with `aitbc auth login --wallet customer-wallet`
 - A shop role with `aitbc auth login --wallet shop-wallet`
-- At least one submitted AI job and one published marketplace offer for meaningful output
+- At least one submitted AI job and one published market offer for meaningful output
 
 ---
 
@@ -108,11 +108,11 @@ aitbc dashboard shop
 - `gpus_found`
 - `offers_published`
 - `shop_assigned_jobs`
-- `marketplace_offers` with `Plugin ID`, `Model`, `Price`, `Status`, `Rating`
+- `market_offers` with `Plugin ID`, `Model`, `Price`, `Status`, `Rating`
 - `wallets` with `Wallet`, `Address`, `Balance`
 - `earnings` with `total`, `paid`, `pending`
 
-If `offers_published` or `marketplace_offers` is empty, check:
+If `offers_published` or `market_offers` is empty, check:
 
 ```bash
 aitbc market list
@@ -149,7 +149,7 @@ aitbc dashboard shop
 The dashboard should recover its values as services come online. If a section is still empty after 30 seconds, check the relevant service logs:
 
 ```bash
-journalctl -u aitbc-coordinator-api -u aitbc-marketplace -u aitbc-gpu -u aitbc-wallet -n 50
+journalctl -u aitbc-coordinator-api -u aitbc-market -u aitbc-gpu -u aitbc-wallet -n 50
 ```
 
 ---

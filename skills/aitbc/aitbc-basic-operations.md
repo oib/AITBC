@@ -17,7 +17,7 @@ Test and validate AITBC basic CLI functionality, core blockchain operations, wal
 ## Prerequisites
 - AITBC CLI accessible as `aitbc` (`/usr/local/bin/aitbc`)
 - Python venv activated for CLI operations
-- Services running on ports 8203 (coordinator), 8106 (exchange), 8202 (blockchain RPC), 8102 (marketplace), 8108 (wallet)
+- Services running on ports 8203 (coordinator), 8106 (exchange), 8202 (blockchain RPC), 8102 (market), 8108 (wallet)
 - Working directory: `/opt/aitbc`
 - Default test wallet: "genesis" with password from `/var/lib/aitbc/keystore/.genesis_password`
 
@@ -50,7 +50,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 |---------|------|-------|
 | Blockchain RPC | 8202 | Main blockchain node |
 | Coordinator API | 8203 | Agent registry, /v1/* routes |
-| Marketplace | 8102 | Offers, bids, orders |
+| Market | 8102 | Offers, bids, orders |
 | Wallet Daemon | 8108 | Wallet management (localhost only) |
 | Exchange API | 8106 | Trading (localhost only) |
 
@@ -103,7 +103,7 @@ curl -s http://localhost:8106/health
 # Check blockchain RPC (port 8202)
 curl -s http://localhost:8202/health
 
-# Check marketplace (port 8102)
+# Check market (port 8102)
 curl -s http://localhost:8102/health
 
 # Check wallet daemon (port 8108)
@@ -185,7 +185,7 @@ For detailed troubleshooting, see [Blockchain Troubleshooting](aitbc-blockchain-
 - [ ] Balance check returns valid AIT amount
 - [ ] Blockchain info shows current height and hash
 - [ ] Network status shows peer connections
-- [ ] All services (coordinator, exchange, blockchain, marketplace, wallet) return healthy status
+- [ ] All services (coordinator, exchange, blockchain, market, wallet) return healthy status
 
 ## CLI Entry Point
 
@@ -200,7 +200,7 @@ aitbc wallet balance --name genesis
 aitbc blockchain status
 aitbc network status
 
-# Marketplace/GPU operations
+# Market/GPU operations
 aitbc gpu register --gpu-id <gpu_id>
 aitbc market offer --service-type ollama --model-or-variant llama2 --price 1.0
 ```

@@ -92,7 +92,7 @@ with CoordinatorReceiptClient(base_url="http://localhost:8203", api_key="your_ke
 ### Job Management
 
 ```bash
-# Submit a job (prompt + payment against a marketplace offer or service)
+# Submit a job (prompt + payment against a market offer or service)
 aitbc ai submit --prompt "classify this image" --offer-id <offer_id> --offer-quantity 1
 
 # List jobs, optionally filtered by status
@@ -109,7 +109,7 @@ aitbc ai results --job-id <job_id>
 > (`submit`, `pay`, `status`, `jobs`, `results`, `accept`, `cancel`,
 > `refund`).
 
-### Marketplace Operations
+### Market Operations
 
 ```bash
 # List available offers

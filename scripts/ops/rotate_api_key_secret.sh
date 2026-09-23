@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Secret Rotation Script for API_KEY_HASH_SECRET
 # This script rotates API_KEY_HASH_SECRET with zero-downtime using dual-secret overlap
 # Usage: sudo ./rotate_api_key_secret.sh < secret.txt
@@ -8,7 +9,7 @@
 set -e
 
 # Configuration
-SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-marketplace" "aitbc-exchange" "aitbc-gpu")
+SERVICES=("aitbc-coordinator-api" "aitbc-blockchain-node" "aitbc-market" "aitbc-exchange" "aitbc-gpu")
 ROLLBACK_FILE="/tmp/api_key_rotation_rollback_$(date +%Y%m%d_%H%M%S).sh"
 LOG_FILE="/var/log/aitbc/api_key_rotation_$(date +%Y%m%d_%H%M%S).log"
 
@@ -135,7 +136,7 @@ for backup in /etc/aitbc/*.env.backup_*; do
     fi
 done
 # Restart all services
-systemctl restart aitbc-coordinator-api aitbc-blockchain-node aitbc-marketplace aitbc-exchange aitbc-gpu
+systemctl restart aitbc-coordinator-api aitbc-blockchain-node aitbc-market aitbc-exchange aitbc-gpu
 echo "Rollback complete"
 ROLLBACK_EOF
 chmod +x "$ROLLBACK_FILE"

@@ -146,23 +146,23 @@ aitbc client submit \
   --workflow-config '{"temperature": 0.7, "top_p": 0.9}'
 ```
 
-## Marketplace Integration
+## Market Integration
 
 ### Find Available GPUs
 
 ```bash
-aitbc marketplace gpu list
-aitbc marketplace gpu list --model gpt2 --region us-west
+aitbc market gpu list
+aitbc market gpu list --model gpt2 --region us-west
 ```
 
-### Submit with Marketplace GPU
+### Submit with Market GPU
 
 ```bash
 aitbc client submit \
   --model gpt2 \
   --input data.txt \
   --gpu-type rtx4090 \
-  --use-marketplace
+  --use-market
 ```
 
 ## Job Monitoring

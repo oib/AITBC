@@ -4,17 +4,17 @@
 
 > **Note:** This document describes the current AITBC platform. For authoritative port configuration, see [Service Ports Reference](../../reference/SERVICE_PORTS.md). For the implementation status of each major feature, see [Release Status](../../releases/STATUS.md).
 
-AITBC is a decentralized marketplace for AI compute, powered by a multi-island PoA blockchain. GPU providers (shops) sell compute, clients submit inference or training jobs, and the network handles matching, execution, payment, and settlement on-chain.
+AITBC is a decentralized market for AI compute, powered by a multi-island PoA blockchain. GPU providers (shops) sell compute, clients submit inference or training jobs, and the network handles matching, execution, payment, and settlement on-chain.
 
 ## Key components
 
 | Component | Purpose |
 |-----------|---------|
 | **Hub** | `BLOCKCHAIN_MODE=hub` — produces and broadcasts blocks, runs coordinator, exchange, and discovery endpoints. |
-| **Shop** | `MARKET_ROLE=shop` — provides GPU, edge, marketplace, and mining services. |
+| **Shop** | `MARKET_ROLE=shop` — provides GPU, edge, market, and mining services. |
 | **Client** | `MARKET_ROLE=customer` — consumes compute, submits jobs, and syncs as a follower. |
 | **Blockchain node** | PoA consensus, P2P gossip, RPC API, and lease-based block sync. |
-| **Coordinator API** | Job lifecycle, miner matching, marketplace endpoints, and signed receipts. |
+| **Coordinator API** | Job lifecycle, miner matching, market endpoints, and signed receipts. |
 | **Wallet daemon** | Multi-chain wallet management and escrow-backed payments. |
 | **CLI** | `aitbc` command-line interface for node, wallet, market, AI, and mining operations. |
 
@@ -71,7 +71,7 @@ See [Service Selection](../setup-service-selection.md) for the hub service matri
 - **Layer 4**: Consensus — PoA block validation
 - **Layer 5**: P2P Network — gossip relay on hub nodes
 - **Layer 6**: Blockchain Explorer API — block/transaction search
-- **Layer 7**: Marketplace / GPU / Edge — compute marketplace and job dispatch
+- **Layer 7**: Market / GPU / Edge — compute market and job dispatch
 
 ## Feature status
 
@@ -80,7 +80,7 @@ The following areas are on the roadmap and are partially implemented or aspirati
 | Feature | Status | Notes |
 |---------|--------|-------|
 | AI Trading Engine | 🟡 Partial | `apps/trading` runs a live trading service (order matching, inter-chain settlement); the ML-driven optimization and portfolio layer remain roadmap work (Phase 4.1). |
-| Advanced Analytics Platform | 🟡 Partial | Marketplace analytics ship in coordinator-api (`market_analytics` service, developer-platform router); the full real-time dashboard and KPI surface are not built (Phase 4.2). |
+| Advanced Analytics Platform | 🟡 Partial | Market analytics ship in coordinator-api (`market_analytics` service, developer-platform router); the full real-time dashboard and KPI surface are not built (Phase 4.2). |
 | Compliance Framework | 🟡 Partial | Policy templates, data classification, and the `compliance check`/`classify` CLI are implemented (`aitbc.compliance.policies`); HIPAA-grade containers and regulatory reporting stay planned (Phase 4). |
 
 ## Chain-specific token system

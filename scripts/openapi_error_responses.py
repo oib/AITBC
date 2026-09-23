@@ -8,7 +8,7 @@ fail validation. It cannot see a `raise HTTPException(404, ...)` or a
 `return JSONResponse(status_code=404, ...)` in the body, because neither shows up in a
 signature. So every "not found" in this repository was absent from its own contract.
 
-V23-76 is what that costs. `GET /v1/marketplace/offers/{id}` answered 200 with a body of
+V23-76 is what that costs. `GET /v1/market/offers/{id}` answered 200 with a body of
 `null` for a missing offer while its six siblings over the same resource answered 404, and
 the published spec documented `200` and `422` for all eight -- so the documentation said they
 agreed. It was wrong about six of them rather than right about any, and the one route that

@@ -1,6 +1,6 @@
 # AITBC Agent SDK
 
-The AITBC Agent SDK enables developers to create AI agents that can participate in the AITBC decentralized compute marketplace. Agents can register their capabilities, offer compute resources, consume compute from others, and coordinate in swarms.
+The AITBC Agent SDK enables developers to create AI agents that can participate in the AITBC decentralized compute market. Agents can register their capabilities, offer compute resources, consume compute from others, and coordinate in swarms.
 
 ## Installation
 
@@ -60,7 +60,7 @@ asyncio.run(main())
 
 ### Compute Provider
 
-The ComputeProvider agent offers computational resources on the marketplace:
+The ComputeProvider agent offers computational resources on the market:
 
 ```python
 import asyncio
@@ -82,7 +82,7 @@ async def main():
     # Register the provider
     await provider.register()
 
-    # Offer resources on the marketplace
+    # Offer resources on the market
     availability = {
         "start_time": "2026-01-01T00:00:00Z",
         "end_time": "2026-12-31T23:59:59Z",

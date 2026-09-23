@@ -75,11 +75,11 @@ def _make_cid_path(cid: str) -> Path:
     return IPFS_DIR / cid
 
 
-def _hub_marketplace_client(timeout: int = 15) -> AITBCHTTPClient:
-    """Return an HTTP client for the hub marketplace service (shared with market commands)."""
+def _hub_market_client(timeout: int = 15) -> AITBCHTTPClient:
+    """Return an HTTP client for the hub market service (shared with market commands)."""
     config = get_config()
-    if config.marketplace_service_url and not config.marketplace_service_url.startswith("http://127.0.0.1"):
-        return AITBCHTTPClient(base_url=config.marketplace_service_url, timeout=timeout)
+    if config.market_service_url and not config.market_service_url.startswith("http://127.0.0.1"):
+        return AITBCHTTPClient(base_url=config.market_service_url, timeout=timeout)
     hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
     if hub_host.startswith(("http://", "https://")):
         hub_url = hub_host.rstrip("/")

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - Agent Job Application System
@@ -52,9 +53,9 @@ import time
 with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
-# Load job marketplace
+# Load job market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
 # Validate agent exists
 if '$AGENT_ADDRESS' not in registry['agents']:
@@ -62,13 +63,13 @@ if '$AGENT_ADDRESS' not in registry['agents']:
     exit(1)
 
 # Validate job exists
-if '$JOB_ID' not in marketplace['jobs']:
+if '$JOB_ID' not in market['jobs']:
     print(f'❌ Error: Job {\"$JOB_ID\"} not found')
     exit(1)
 
 # Get agent and job details
 agent = registry['agents']['$AGENT_ADDRESS']
-job = marketplace['jobs']['$JOB_ID']
+job = market['jobs']['$JOB_ID']
 
 # Check if job is still open
 if job['status'] != 'open':
@@ -102,9 +103,9 @@ job['applications'].append(application)
 # Update job
 job['last_updated'] = time.time()
 
-# Save updated marketplace
+# Save updated market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
-    json.dump(marketplace, f, indent=2)
+    json.dump(market, f, indent=2)
 
 print(f'✅ Application Submitted Successfully')
 print(f'   Agent: {agent[\"name\"]} ({agent[\"capabilities\"]})')

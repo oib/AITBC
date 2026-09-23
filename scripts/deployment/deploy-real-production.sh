@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # Deploy Real Production System - Mining & AI Services
@@ -30,7 +31,7 @@ NODE1_ID="${AITBC_NODE1_ID:-aitbc1}"
 
 echo -e "${BLUE}🚀 DEPLOY REAL PRODUCTION SYSTEM${NC}"
 echo "=========================="
-echo "Deploying real mining, AI, and marketplace services"
+echo "Deploying real mining, AI, and market services"
 echo ""
 
 # Step 1: Create SystemD services for real production
@@ -141,13 +142,13 @@ EOF
 
 echo "✅ agent AI service created"
 
-# Step 3: Real Marketplace Service
-echo -e "${CYAN}🏪 Step 3: Real Marketplace Service${NC}"
+# Step 3: Real Market Service
+echo -e "${CYAN}🏪 Step 3: Real Market Service${NC}"
 echo "=============================="
 
-cat > /opt/aitbc/systemd/aitbc-real-marketplace.service << EOF
+cat > /opt/aitbc/systemd/aitbc-real-market.service << EOF
 [Unit]
-Description=AITBC Real Marketplace with AI Services
+Description=AITBC Real Market with AI Services
 After=network.target aitbc-mining-blockchain.service aitbc-agent-ai.service
 
 [Service]
@@ -157,34 +158,34 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=${NODE_ID}
-Environment=REAL_MARKETPLACE_PORT=8006
+Environment=REAL_MARKET_PORT=8006
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
-# Real marketplace execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/real_marketplace.py
+# Real market execution
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/real_market.py
 ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
 
-# Marketplace reliability
+# Market reliability
 Restart=always
 RestartSec=5
 StartLimitBurst=5
 StartLimitIntervalSec=60
 
-# Marketplace logging
+# Market logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-real-marketplace
+SyslogIdentifier=aitbc-real-market
 
-# Marketplace security
+# Market security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
+ReadWritePaths=/opt/aitbc/production/data/market /opt/aitbc/production/logs/marketplace
 
-# Marketplace performance
+# Market performance
 LimitNOFILE=65536
 LimitNPROC=4096
 MemoryMax=1G
@@ -194,7 +195,7 @@ CPUQuota=40%
 WantedBy=multi-user.target
 EOF
 
-echo "✅ Real marketplace service created"
+echo "✅ Real market service created"
 
 # Step 4: Deploy to localhost
 echo -e "${CYAN}🚀 Step 4: Deploy to Localhost${NC}"
@@ -203,7 +204,7 @@ echo "============================"
 # Copy services to systemd
 cp /opt/aitbc/systemd/aitbc-mining-blockchain.service /etc/systemd/system/
 cp /opt/aitbc/systemd/aitbc-agent-ai.service /etc/systemd/system/
-cp /opt/aitbc/systemd/aitbc-real-marketplace.service /etc/systemd/system/
+cp /opt/aitbc/systemd/aitbc-real-market.service /etc/systemd/system/
 
 # Reload systemd
 systemctl daemon-reload
@@ -211,7 +212,7 @@ systemctl daemon-reload
 # Enable services
 systemctl enable aitbc-mining-blockchain.service
 systemctl enable aitbc-agent-ai.service
-systemctl enable aitbc-real-marketplace.service
+systemctl enable aitbc-real-market.service
 
 # Start services
 echo "Starting real production services..."
@@ -219,7 +220,7 @@ systemctl start aitbc-mining-blockchain.service
 sleep 3
 systemctl start aitbc-agent-ai.service
 sleep 3
-systemctl start aitbc-real-marketplace.service
+systemctl start aitbc-real-market.service
 
 # Check status
 echo "Checking service status..."
@@ -227,7 +228,7 @@ systemctl status aitbc-mining-blockchain.service --no-pager -l | head -8
 echo ""
 systemctl status aitbc-agent-ai.service --no-pager -l | head -8
 echo ""
-systemctl status aitbc-real-marketplace.service --no-pager -l | head -8
+systemctl status aitbc-real-market.service --no-pager -l | head -8
 
 echo "✅ Real production services deployed to localhost"
 
@@ -262,9 +263,9 @@ else
     tail -10 /tmp/agent_test.log
 fi
 
-# Test real marketplace
-echo "Testing real marketplace..."
-curl -s http://localhost:8006/health | head -5 || echo "Real marketplace not responding"  # check-ports: ignore
+# Test real market
+echo "Testing real market..."
+curl -s http://localhost:8006/health | head -5 || echo "Real market not responding"  # check-ports: ignore
 curl -s http://localhost:8006/ai/services | head -10 || echo "AI services not available"  # check-ports: ignore
 
 # Step 6: Deploy to ${NODE1_HOST}
@@ -276,33 +277,33 @@ echo "Copying real production system to ${NODE1_ID}..."
 scp -r /opt/aitbc/production/services ${NODE1_HOST}:/opt/aitbc/production/
 scp /opt/aitbc/systemd/aitbc-mining-blockchain.service ${NODE1_HOST}:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-agent-ai.service ${NODE1_HOST}:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-real-marketplace.service ${NODE1_HOST}:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-real-market.service ${NODE1_HOST}:/opt/aitbc/systemd/
 
 # Configure services for ${NODE1_HOST}
 echo "Configuring services for ${NODE1_ID}..."
 ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-mining-blockchain.service"
 ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-agent-ai.service"
-ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-real-market.service"
 
 # Update ports for ${NODE1_HOST}
-ssh ${NODE1_HOST} "sed -i 's/REAL_MARKETPLACE_PORT=8006/REAL_MARKETPLACE_PORT=8007/g' /opt/aitbc/systemd/aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "sed -i 's/REAL_MARKET_PORT=8006/REAL_MARKET_PORT=8007/g' /opt/aitbc/systemd/aitbc-real-market.service"
 
 # Deploy and start services on ${NODE1_HOST}
 echo "Starting services on ${NODE1_ID}..."
 ssh ${NODE1_HOST} "cp /opt/aitbc/systemd/aitbc-*.service /etc/systemd/system/"
 ssh ${NODE1_HOST} "systemctl daemon-reload"
-ssh ${NODE1_HOST} "systemctl enable aitbc-mining-blockchain.service aitbc-agent-ai.service aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "systemctl enable aitbc-mining-blockchain.service aitbc-agent-ai.service aitbc-real-market.service"
 ssh ${NODE1_HOST} "systemctl start aitbc-mining-blockchain.service"
 sleep 3
 ssh ${NODE1_HOST} "systemctl start aitbc-agent-ai.service"
 sleep 3
-ssh ${NODE1_HOST} "systemctl start aitbc-real-marketplace.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-real-market.service"
 
 # Check ${NODE1_HOST} services
 echo "Checking ${NODE1_HOST} services..."
 ssh ${NODE1_HOST} "systemctl status aitbc-mining-blockchain.service --no-pager -l | head -5"
 ssh ${NODE1_HOST} "systemctl status aitbc-agent-ai.service --no-pager -l | head -5"
-ssh ${NODE1_HOST} "curl -s http://localhost:8007/health | head -5" || echo "${NODE1_HOST} marketplace not ready"  # check-ports: ignore
+ssh ${NODE1_HOST} "curl -s http://localhost:8007/health | head -5" || echo "${NODE1_HOST} market not ready"  # check-ports: ignore
 
 # Step 7: Demonstrate real functionality
 echo -e "${CYAN}🎯 Step 7: Demonstrate Real Functionality${NC}"
@@ -355,23 +356,23 @@ echo "✅ agent AI Integration:"
 echo "   • Real AI agents: text generation, research, trading"
 echo "   • Llama2 models: 7B, 13B parameters"
 echo "   • Task execution with real results"
-echo "   • Marketplace integration with payments"
+echo "   • Market integration with payments"
 echo ""
-echo "✅ Real Commercial Marketplace:"
+echo "✅ Real Commercial Market:"
 echo "   • agent AI services (5-15 AITBC per task)"
 echo "   • Ollama inference tasks (3-5 AITBC per task)"
 echo "   • Real commercial activity and transactions"
 echo "   • Payment processing via blockchain"
 echo ""
 echo "✅ Multi-Node Deployment:"
-echo "   • aitbc (localhost): Mining + AI + Marketplace (port 8102)"
-echo "   • ${NODE1_HOST} (remote): Mining + AI + Marketplace (port 8102)"
+echo "   • aitbc (localhost): Mining + AI + Market (port 8102)"
+echo "   • ${NODE1_HOST} (remote): Mining + AI + Market (port 8102)"
 echo "   • Cross-node coordination and trading"
 echo ""
 echo "✅ Real Economic Activity:"
 echo "   • Mining rewards: Real coin generation"
 echo "   • AI services: Real commercial transactions"
-echo "   • Marketplace: Real buying and selling"
+echo "   • Market: Real buying and selling"
 echo "   • Multi-chain: Real cross-chain trading"
 echo ""
 echo "✅ Service Endpoints:"
@@ -381,13 +382,13 @@ echo ""
 echo "✅ Monitoring:"
 echo "   • Mining logs: journalctl -u aitbc-mining-blockchain"
 echo "   • AI logs: journalctl -u aitbc-agent-ai"
-echo "   • Marketplace logs: journalctl -u aitbc-real-marketplace"
+echo "   • Market logs: journalctl -u aitbc-real-market"
 echo ""
 echo -e "${BLUE}🚀 REAL PRODUCTION SYSTEM IS LIVE!${NC}"
 echo ""
 echo "🎉 AITBC is now a REAL production system with:"
 echo "   • Real blockchain mining and coin generation"
 echo "   • Real agent AI agents and services"
-echo "   • Real commercial marketplace with transactions"
+echo "   • Real commercial market with transactions"
 echo "   • Multi-chain support and cross-chain trading"
 echo "   • Multi-node deployment and coordination"

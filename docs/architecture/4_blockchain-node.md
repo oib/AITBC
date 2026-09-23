@@ -36,7 +36,7 @@ SQLModel with SQLite/PostgreSQL support
 
 Two distinct networking layers:
 
-1. **Internal gossip** (Redis pub/sub) — Used by the blockchain node process to broadcast blocks/transactions to other services on the same machine (wallet, marketplace, etc.) via `GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379`
+1. **Internal gossip** (Redis pub/sub) — Used by the blockchain node process to broadcast blocks/transactions to other services on the same machine (wallet, market, etc.) via `GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379`
 
 2. **External block subscription** (HTTP + WebSocket over RPC) — Followers receive blocks from the hub via the lease-based subscription system:
    - Follower registers via `POST /rpc/subscribe` on the hub's RPC endpoint (peer key via `X-API-Key`, enrolled in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS`)

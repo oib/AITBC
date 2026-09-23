@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - Agent Operations Dashboard
@@ -73,8 +74,8 @@ fi
 
 echo ""
 
-# Job Marketplace Status
-echo -e "${CYAN}💼 JOB MARKETPLACE STATUS${NC}"
+# Job Market Status
+echo -e "${CYAN}💼 JOB MARKET STATUS${NC}"
 echo "==============================="
 
 if [[ -f "/var/lib/aitbc/data/job_marketplace.json" ]]; then
@@ -82,13 +83,13 @@ if [[ -f "/var/lib/aitbc/data/job_marketplace.json" ]]; then
 import json
 
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
-print(f'JOBS:ACTIVE:{marketplace[\"total_jobs\"]}:{marketplace[\"active_jobs\"]}:{marketplace[\"completed_jobs\"]}')
+print(f'JOBS:ACTIVE:{market[\"total_jobs\"]}:{market[\"active_jobs\"]}:{market[\"completed_jobs\"]}')
 
 # Count by category
 category_counts = {}
-for category, jobs in marketplace['job_categories'].items():
+for category, jobs in market['job_categories'].items():
     category_counts[category] = len(jobs)
 
 for category, count in category_counts.items():
@@ -96,7 +97,7 @@ for category, count in category_counts.items():
         print(f'CATEGORY:{category}:{count}')
 
 # Calculate total budget
-total_budget = sum(job.get('budget', 0) for job in marketplace['jobs'].values())
+total_budget = sum(job.get('budget', 0) for job in market['jobs'].values())
 print(f'BUDGET:{total_budget}')
 " 2>/dev/null)
 
@@ -106,7 +107,7 @@ print(f'BUDGET:{total_budget}')
         completed_jobs=$(echo "$job_info" | grep "JOBS:" | cut -d: -f5)
         total_budget=$(echo "$job_info" | grep "BUDGET:" | cut -d: -f2)
 
-        echo -e "${GREEN}✅ Job Marketplace: ACTIVE${NC}"
+        echo -e "${GREEN}✅ Job Market: ACTIVE${NC}"
         echo "   Total Jobs: $total_jobs"
         echo "   Active Jobs: $active_jobs"
         echo "   Completed Jobs: $completed_jobs"
@@ -120,10 +121,10 @@ print(f'BUDGET:{total_budget}')
             echo "     - $category: $count jobs"
         done
     else
-        echo -e "${RED}❌ Job Marketplace: INACTIVE${NC}"
+        echo -e "${RED}❌ Job Market: INACTIVE${NC}"
     fi
 else
-    echo -e "${YELLOW}⚠️  Job Marketplace: NOT FOUND${NC}"
+    echo -e "${YELLOW}⚠️  Job Market: NOT FOUND${NC}"
 fi
 
 echo ""
@@ -181,7 +182,7 @@ fi
 
 if [[ -f "/var/lib/aitbc/data/job_marketplace.json" ]]; then
     job_time=$(stat -c %Y /var/lib/aitbc/data/job_marketplace.json 2>/dev/null || echo "0")
-    echo "Job Marketplace Updated: $(date -d @$job_time '+%Y-%m-%d %H:%M:%S')"
+    echo "Job Market Updated: $(date -d @$job_time '+%Y-%m-%d %H:%M:%S')"
 fi
 
 if [[ -f "/var/lib/aitbc/data/economic_system.json" ]]; then

@@ -24,7 +24,7 @@ After repo restructure, systemd service files and wrapper scripts moved from `sy
 | Wallet | `apps/wallet/aitbc-wallet.service` |
 | AI Engine | `apps/ai-engine/aitbc-ai.service` |
 | GPU Service | `apps/gpu/aitbc-gpu.service` |
-| Marketplace | `apps/marketplace/aitbc-marketplace.service` |
+| Market | `apps/market/aitbc-market.service` |
 | Agent Coordinator | `apps/agent-coordinator/aitbc-agent-coordinator.service` |
 | Blockchain Event Bridge | `apps/blockchain-event-bridge/aitbc-blockchain-event-bridge.service` |
 | Governance | `apps/governance/aitbc-governance.service` |
@@ -110,9 +110,9 @@ Jobs submitted via API without explicit `type` field are now auto-inferred:
 | `/v1/miners/poll` | POST | Poll for jobs |
 | `/v1/miners/heartbeat` | POST | Heartbeat |
 | `/v1/miners/{id}/result` | POST | Submit result |
-| `/v1/marketplace/offers` | GET | List offers |
-| `/v1/marketplace/gpu/list` | GET | List GPUs |
-| `/v1/marketplace/gpu/purchase` | POST | Buy GPU |
+| `/v1/market/offers` | GET | List offers |
+| `/v1/market/gpu/list` | GET | List GPUs |
+| `/v1/market/gpu/purchase` | POST | Buy GPU |
 
 ## Dependencies
 

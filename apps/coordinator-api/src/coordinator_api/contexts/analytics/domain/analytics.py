@@ -1,5 +1,5 @@
 """
-Marketplace Analytics Domain Models
+Market Analytics Domain Models
 Implements SQLModel definitions for analytics, insights, and reporting
 """
 

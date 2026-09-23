@@ -27,7 +27,7 @@ This audit covers the high-traffic `docs/` entry points that new visitors and no
 2. Targeted `grep` for stale markers across `docs/`:
    - `designed` / `not implemented` / `placeholder`
    - references to deleted `feature_flags.json`
-   - old app/service names (`marketplace-service`, `gpu-service`, `trading-service`, `plugin-service`)
+   - old app/service names (`market-service`, `gpu-service`, `trading-service`, `plugin-service`)
    - non-existent CLI commands (`aitbc <service> start`)
    - missing example files (`examples/gpu_inference_*.py`)
    - suspect port numbers (8000, 8001, 8003, 8006, 8015, 9001, 8103)
@@ -38,7 +38,7 @@ This audit covers the high-traffic `docs/` entry points that new visitors and no
 
 | Area | Issue | Severity | Count (approx) |
 |------|-------|----------|----------------|
-| `docs/apps/README.md` | Catalog uses old app names (`marketplace-service`, `gpu-service`, `trading-service`), non-existent CLI commands, and wrong ports. Many current `apps/*` are missing. | High | 17 flagged lines |
+| `docs/apps/README.md` | Catalog uses old app names (`market-service`, `gpu-service`, `trading-service`), non-existent CLI commands, and wrong ports. Many current `apps/*` are missing. | High | 17 flagged lines |
 | `docs/getting-started/overview/introduction.md` | Describes aspirational AI trading/surveillance/analytics as current capabilities and lists old port numbers (8015, 3000). | High | 5 sections |
 | `docs/README.md` | Claims "100% complete" / "production ready" and lists outdated port numbers. No hub/shop/client path. | High | 3 sections |
 | `docs/getting-started/README.md` | User journeys use old terminology and do not surface the hub/shop/client roles from the new README. | Medium | 5 paths |
@@ -50,11 +50,11 @@ This audit covers the high-traffic `docs/` entry points that new visitors and no
 
 Current `apps/` with `README.md` (22 entries):
 
-`agent-coordinator`, `ai-engine`, `api-gateway`, `blockchain-event-bridge`, `blockchain-explorer`, `blockchain-node`, `bridge-monitor`, `coordinator-api`, `edge`, `exchange`, `ffmpeg`, `governance`, `gpu`, `marketplace`, `miner`, `pool-hub`, `shared-core`, `shared-domain`, `trading`, `wallet`, `whisper`, `zk-circuits`.
+`agent-coordinator`, `ai-engine`, `api-gateway`, `blockchain-event-bridge`, `blockchain-explorer`, `blockchain-node`, `bridge-monitor`, `coordinator-api`, `edge`, `exchange`, `ffmpeg`, `governance`, `gpu`, `market`, `miner`, `pool-hub`, `shared-core`, `shared-domain`, `trading`, `wallet`, `whisper`, `zk-circuits`.
 
 `docs/apps/` directories (17):
 
-`agents`, `blockchain`, `clients`, `compliance`, `coordinator`, `crypto`, `exchange`, `explorer`, `global-ai`, `infrastructure`, `marketplace`, `openclaw`, `wallet`.
+`agents`, `blockchain`, `clients`, `compliance`, `coordinator`, `crypto`, `exchange`, `explorer`, `global-ai`, `infrastructure`, `market`, `openclaw`, `wallet`.
 
 Gaps: no docs for `agent-coordinator`, `ai-engine`, `api-gateway`, `blockchain-event-bridge`, `blockchain-explorer`, `bridge-monitor`, `edge`, `ffmpeg`, `governance`, `gpu`, `miner`, `pool-hub`, `shared-core`, `shared-domain`, `trading`, `whisper`, `zk-circuits`.
 
@@ -68,13 +68,13 @@ Extras (may be concept/area docs, not 1:1 app docs): `agents`, `clients`, `compl
 - `aitbc coordinator-api start`
 - `aitbc agent-coordinator start`
 - `aitbc exchange start`
-- `aitbc marketplace-service start`
+- `aitbc market-service start`
 - `aitbc gpu-service start`
 - `aitbc trading-service start`
 - `aitbc ai-engine start`
 - `aitbc global-ai init`
 
-None of these top-level command groups exist in `cli/aitbc_cli/commands/`. The CLI has `system`, `node`, `market`, `marketplace`, `ai`, `agent`, `mining`, `wallet`, `exchange`, `gpu`, etc. Service startup is done via `systemctl`, not the `aitbc` CLI.
+None of these top-level command groups exist in `cli/aitbc_cli/commands/`. The CLI has `system`, `node`, `market`, `market`, `ai`, `agent`, `mining`, `wallet`, `exchange`, `gpu`, etc. Service startup is done via `systemctl`, not the `aitbc` CLI.
 
 ## Port drift
 

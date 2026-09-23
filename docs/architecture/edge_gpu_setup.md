@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide covers setting up edge GPU optimization for consumer-grade hardware in the AITBC marketplace.
+This guide covers setting up edge GPU optimization for consumer-grade hardware in the AITBC market.
 
 ## Prerequisites
 

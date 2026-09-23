@@ -110,7 +110,7 @@ def quote(ctx, gpu_id, buyer_id, duration_hours, gpu_count, max_ait, settlement,
     if max_ait is not None:
         payload["buyer_max_amount"] = str(max_ait)
     try:
-        result = client.post("/v1/marketplace/gpu/quote", json=payload)
+        result = client.post("/v1/market/gpu/quote", json=payload)
     except NetworkError as e:
         error(f"Failed to get quote: {e}")
         sys.exit(1)
@@ -340,7 +340,7 @@ def _buy_native(
         payload["buyer_max_amount"] = str(max_ait)
 
     try:
-        result = client.post("/v1/marketplace/gpu/purchase", json=payload)
+        result = client.post("/v1/market/gpu/purchase", json=payload)
     except NetworkError as e:
         error(f"Purchase failed: {e}")
         sys.exit(1)
@@ -464,7 +464,7 @@ def _buy_evm(
         payload["buyer_max_amount"] = str(max_ait)
 
     try:
-        result = client.post("/v1/marketplace/gpu/purchase", json=payload)
+        result = client.post("/v1/market/gpu/purchase", json=payload)
     except NetworkError as e:
         error(f"Coordinator notification failed: {e}")
         sys.exit(1)
@@ -486,7 +486,7 @@ def status(ctx, job_id, json_output):
     """Check the status of a GPU rental and its escrow."""
     client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=10)
     try:
-        result = client.get(f"/v1/marketplace/gpu/status/{job_id}")
+        result = client.get(f"/v1/market/gpu/status/{job_id}")
     except NetworkError as e:
         error(f"Failed to get status: {e}")
         sys.exit(1)
@@ -555,12 +555,12 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, reason, ye
     if not yes:
         click.confirm(f"Request refund for job {job_id}?", abort=True)
 
-    # The coordinator has no /v1/marketplace/gpu/refund route; refunds are
-    # served by the marketplace service's job endpoint.
-    client = AITBCHTTPClient(base_url=get_config().marketplace_service_url, timeout=30)
+    # The coordinator has no /v1/market/gpu/refund route; refunds are
+    # served by the market service's job endpoint.
+    client = AITBCHTTPClient(base_url=get_config().market_service_url, timeout=30)
     payload: dict[str, Any] = {"buyer_address": buyer_address, "reason": reason}
     try:
-        result = client.post(f"/v1/marketplace/jobs/{job_id}/refund", json=payload)
+        result = client.post(f"/v1/market/jobs/{job_id}/refund", json=payload)
     except NetworkError as e:
         error(f"Refund request failed: {e}")
         sys.exit(1)

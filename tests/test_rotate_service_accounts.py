@@ -69,7 +69,7 @@ class TestOldAccount:
     def test_derivation_is_deterministic(self, rot):
         """The point of the rotation: these keys are sha256-derivable, so the
         same name must always produce the same address."""
-        assert rot.old_account("marketplace").address == rot.old_account("marketplace").address
+        assert rot.old_account("market").address == rot.old_account("market").address
 
     def test_build_signed_signature_verifies(self, rot):
         src = rot.old_account("tester")

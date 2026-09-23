@@ -37,7 +37,7 @@ The feature catalog is split into the following sections:
 
 - [1. Blockchain Core](features/1-blockchain-core.md)
 - [2. Bridge / Cross-Chain](features/2-bridge-cross-chain.md)
-- [3. Marketplace](features/3-marketplace.md)
+- [3. Market](features/3-market.md)
 - [4. Governance](features/4-governance.md)
 - [5. Mining & Pool Hub](features/5-mining-pool-hub.md)
 - [6. Agent Coordination](features/6-agent-coordination.md)

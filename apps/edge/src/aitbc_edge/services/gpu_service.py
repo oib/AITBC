@@ -92,11 +92,11 @@ class GPUService:
             metrics = await gpu_client.get_gpu_metrics(gpu_id, limit)
         return metrics
 
-    async def advertise_to_marketplace(self) -> dict[str, Any]:
-        """Advertise this edge node's GPU capabilities to the marketplace (v0.6.6).
+    async def advertise_to_market(self) -> dict[str, Any]:
+        """Advertise this edge node's GPU capabilities to the market (v0.6.6).
 
-        POSTs the list of available GPU profiles to the marketplace service so
-        that the marketplace can include edge-hosted GPUs in offer discovery.
+        POSTs the list of available GPU profiles to the market service so
+        that the market can include edge-hosted GPUs in offer discovery.
         """
         import httpx
 
@@ -118,9 +118,9 @@ class GPUService:
         }
         try:
             async with httpx.AsyncClient(timeout=10) as client:
-                resp = await client.post(f"{settings.marketplace_url}/v1/marketplace/edge-advertise", json=payload)
+                resp = await client.post(f"{settings.market_url}/v1/market/edge-advertise", json=payload)
                 resp.raise_for_status()
                 return {"status": "advertised", "gpu_count": len(profiles), "response": resp.json()}
         except Exception as e:
-            logger.warning("Failed to advertise to marketplace: %s", e)
+            logger.warning("Failed to advertise to market: %s", e)
             return {"status": "failed", "error": str(e), "gpu_count": len(profiles)}

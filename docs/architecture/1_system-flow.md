@@ -22,7 +22,7 @@ aitbc wallet create --name <name> → aitbc wallet --wallet-name genesis send --
 └──────────┘   └──────────┘   └──────────────┘   └──────────────┘   └──────────┘   └──────────┘
                                                                   ↑
                                                            GPU service 8101
-                                                           marketplace 8102
+                                                           market 8102
                                                            pool-hub    8210
 ```
 
@@ -58,7 +58,7 @@ A shop publishes a GPU software offer with:
 aitbc market offer --service-type ollama --model-or-variant llama3.2:3b --price 0.001 --unit per_1k_tokens --gpu-device 0
 ```
 
-This first writes a `GPU_MARKETPLACE` transaction to the hub blockchain via `POST /rpc/transactions/marketplace`, then registers the offer in the local marketplace service (`http://localhost:8102/v1/marketplace/offer`) so it is discoverable from the hub.
+This first writes a `GPU_MARKET` transaction to the hub blockchain via `POST /rpc/transactions/market`, then registers the offer in the local market service (`http://localhost:8102/v1/market/offer`) so it is discoverable from the hub.
 
 ### 3. Submit a paid job
 
@@ -121,7 +121,7 @@ When the coordinator receives the miner's result:
 
 1. It verifies the result and computes a receipt.
 2. It calls `POST /rpc/escrow/{job_id}/release` on the blockchain node.
-3. The blockchain node builds and signs an `ESCROW_RELEASE` transaction and submits it to `POST /rpc/transactions/marketplace`.
+3. The blockchain node builds and signs an `ESCROW_RELEASE` transaction and submits it to `POST /rpc/transactions/market`.
 4. The transaction is included in a block, transferring compute-units from the escrow to the provider.
 
 The release is signed by the dedicated settlement key (`ESCROW_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_ADDRESS` in `/etc/aitbc/blockchain-secrets.env`); genesis is only a logged fallback and a key/address mismatch is refused before the escrow is touched. A 1.0 AIT job currently pays approximately 0.975 AIT to the provider after the network fee.
@@ -143,12 +143,12 @@ A completed, released job shows `state: COMPLETED` and `payment_status: released
 |-----------|------|-----------|----------------|
 | aitbc CLI | — | — | User interface, credential store, job formatting |
 | aitbc auth | — | `aitbc auth login` | Wallet-signed JWT generation for coordinator access |
-| Blockchain node RPC | 8202 | `aitbc blockchain`, `aitbc explorer`, `aitbc transactions` | Blocks, accounts, transactions, `/escrow/*`, `/transactions/marketplace` |
+| Blockchain node RPC | 8202 | `aitbc blockchain`, `aitbc explorer`, `aitbc transactions` | Blocks, accounts, transactions, `/escrow/*`, `/transactions/market` |
 | Coordinator API | 8203 | `aitbc ai`, `aitbc auth` (JWT via `--api-key` only) | Job submission, assignment, result collection, payment records |
 | Agent-coordinator | 8107 | `aitbc agent-comm`, `aitbc agent` | Agent messaging and orchestration (not the AI job miner) |
 | Wallet daemon | 8108 | `aitbc wallet`, `aitbc account` | Wallet operations and balance queries |
 | GPU service | 8101 | `aitbc gpu` | Local GPU discovery and resource management |
-| Marketplace | 8102 | `aitbc market` | GPU/software offers, paid jobs, escrow, IPFS hosting |
+| Market | 8102 | `aitbc market` | GPU/software offers, paid jobs, escrow, IPFS hosting |
 | Exchange | 8106 | `aitbc exchange-island` | Simple on-island exchange |
 | Pool hub | 8210 | `aitbc pool-hub` | Miner capacity, SLA, billing metrics |
 | Ollama | 11434 | — | AI model inference |

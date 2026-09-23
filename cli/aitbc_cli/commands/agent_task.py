@@ -10,7 +10,7 @@ A buyer agent hires a provider agent through the hub agent-coordinator:
 
 The negotiation messages ride ``/api/v1/agent/messages`` unencrypted — they
 carry CIDs and prices, not secrets. Escrow settlement goes through the same
-``/rpc/escrow/*`` chain routes the marketplace uses.
+``/rpc/escrow/*`` chain routes the market uses.
 """
 
 from __future__ import annotations

@@ -97,7 +97,7 @@ jobs:
         run: make test-governance
 
       # Suites that sat collectable-but-unrun in testpaths for a release cycle:
-      # exchange matching, gateway retries, wallet, marketplace, trading,
+      # exchange matching, gateway retries, wallet, market, trading,
       # agent-coordinator payout authority, security guards, core, property.
       - name: Critical service tests
         run: make test-critical

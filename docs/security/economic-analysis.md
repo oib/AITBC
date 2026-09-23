@@ -111,7 +111,7 @@ This document analyzes the token economics and potential economic attack vectors
 
 **Impact:**
 
-- Incorrect pricing in marketplace
+- Incorrect pricing in market
 - Unfair reward distribution
 - Financial losses
 
@@ -161,7 +161,7 @@ This document analyzes the token economics and potential economic attack vectors
 - Gradual unbonding
 - Slashing for malicious unstaking
 
-## Marketplace Economics
+## Market Economics
 
 ### Pricing Mechanisms
 
@@ -240,7 +240,7 @@ This document analyzes the token economics and potential economic attack vectors
 ### 3. Liquidity Crisis
 
 - Simulate liquidity withdrawal
-- Test marketplace operations
+- Test market operations
 - Verify fallback mechanisms
 
 ### 4. Validator Exit
@@ -262,7 +262,7 @@ This document analyzes the token economics and potential economic attack vectors
 - Token price and volume
 - Staking participation rate
 - Validator set composition
-- Marketplace liquidity
+- Market liquidity
 - Governance participation
 
 ### Alert Thresholds

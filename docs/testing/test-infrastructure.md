@@ -209,14 +209,14 @@ For apps using PostgreSQL:
 ### Phase 2: Medium Apps (7 apps, 260 tests)
 
 - trading-engine, plugin-security, plugin-analytics
-- global-infrastructure, plugin-marketplace
+- global-infrastructure, plugin-market
 - multi-region-load-balancer, global-ai-agents
 - Test files renamed with app-specific suffixes (e.g., test_unit_trading_engine.py)
 
 ### Phase 3: Complex Apps (4 apps)
 
 - miner (44 tests) - GPU miner with coordinator communication
-- marketplace (49 tests) - Agent-first GPU marketplace
+- market (49 tests) - Agent-first GPU market
 - agent-registry (22 tests) - Agent registry and coordination
 - blockchain-explorer (46 tests) - Blockchain exploration UI
 - Test files renamed with app-specific suffixes (e.g., test_unit_miner.py)
@@ -251,7 +251,7 @@ sys.path.insert(0, str(project_root / "apps" / "app-name"))
 ### Import File Conflicts
 
 **Problem**: Pytest import conflicts when running all apps together due to identical test file names
-**Solution**: Test files renamed with app-specific suffixes (e.g., `test_unit_marketplace.py`) to avoid module naming collisions
+**Solution**: Test files renamed with app-specific suffixes (e.g., `test_unit_market.py`) to avoid module naming collisions
 
 ### Database Lock Issues
 

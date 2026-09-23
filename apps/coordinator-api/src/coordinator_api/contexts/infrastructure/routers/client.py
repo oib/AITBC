@@ -14,7 +14,7 @@ from aitbc.rate_limiting import rate_limit
 
 from ....auth import AdminOrClientDep
 from ....config import settings
-from ...marketplace.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
+from ...market.offer_quote import OfferLookupFailed, OfferQuote, OfferUnavailable, resolve_offer
 from ...payments.acceptance import PENDING_ACCEPTANCE
 from ...payments.provider_binding import same_address
 from ...payments.services.payments import PaymentService, _computation_is_correct
@@ -34,7 +34,7 @@ _OFFER_REQUIRE = os.getenv("COORDINATOR_REQUIRE_OFFER", "false").lower() == "tru
 
 
 async def _apply_offer_quote(req: JobCreate) -> tuple[JobCreate, OfferQuote | None]:
-    """Bind a submission to the marketplace offer it names, or leave it untouched.
+    """Bind a submission to the market offer it names, or leave it untouched.
 
     Returns the request to actually submit -- its price and payee taken from the offer
     -- along with the quote, which the payment records so a settlement can later be

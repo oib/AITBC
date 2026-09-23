@@ -77,26 +77,26 @@ async function main() {
       };
     }
 
-    // Monitor AgentMarketplaceV2
-    if (deployments.AgentMarketplaceV2) {
-      console.log("\n--- AgentMarketplaceV2 Monitoring ---");
-      const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
-      const marketplace = AgentMarketplaceV2.attach(deployments.AgentMarketplaceV2);
+    // Monitor AgentMarketV2
+    if (deployments.AgentMarketV2) {
+      console.log("\n--- AgentMarketV2 Monitoring ---");
+      const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+      const market = AgentMarketV2.attach(deployments.AgentMarketV2);
 
-      // This block used to call getMarketplaceStats() and getActiveListings() and report
-      // totalListings / completedTransactions / totalVolume. AgentMarketplaceV2.sol has
+      // This block used to call getMarketStats() and getActiveListings() and report
+      // totalListings / completedTransactions / totalVolume. AgentMarketV2.sol has
       // none of that -- it has no listings concept at all. What it exposes is
       // capabilityCounter, subscriptionCounter and platformFeePercentage. Reported here
       // instead of inventing a stats struct the contract does not have.
-      const capabilities = await marketplace.capabilityCounter();
-      const subscriptions = await marketplace.subscriptionCounter();
-      const feeBasisPoints = await marketplace.platformFeePercentage();
+      const capabilities = await market.capabilityCounter();
+      const subscriptions = await market.subscriptionCounter();
+      const feeBasisPoints = await market.platformFeePercentage();
 
       console.log(`Capabilities: ${capabilities}`);
       console.log(`Subscriptions: ${subscriptions}`);
       console.log(`Platform Fee: ${Number(feeBasisPoints) / 100}%`);
 
-      healthReport.AgentMarketplaceV2 = {
+      healthReport.AgentMarketV2 = {
         capabilities: capabilities.toString(),
         subscriptions: subscriptions.toString(),
         platformFeePercentage: Number(feeBasisPoints) / 100,

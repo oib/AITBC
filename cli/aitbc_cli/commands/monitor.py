@@ -532,7 +532,7 @@ def sweepers(ctx, show_config: bool):
 
     Read-only. This reports the sweepers, it does not trigger them.
 
-    `ipfs_rental_sweeper` runs in the marketplace service, a separate process,
+    `ipfs_rental_sweeper` runs in the market service, a separate process,
     and is listed under external sweepers without a status for that reason.
     """
     fmt = ctx.obj["output_format"]
