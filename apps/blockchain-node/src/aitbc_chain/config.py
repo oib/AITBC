@@ -370,7 +370,7 @@ class ChainSettings(BaseSettings):
     island_name: str = "default"  # Human-readable island name
     is_hub: bool = False  # This node acts as a hub
     island_chain_id: str = ""  # Separate chain_id per island (empty = use default chain_id)
-    hub_discovery_url: str = "hub.example.net"  # Hub discovery DNS
+    hub_discovery_url: str = "hub.aitbc.bubuit.net"  # Hub discovery DNS
     bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
 
     # Multi-island sync sources (v0.6.3). Per-chain hub URL mapping.

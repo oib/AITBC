@@ -171,7 +171,7 @@ def escrow_release(ctx, job_id: str):
     try:
         config = get_config()
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.example.net'}"
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
             http_client = _get_rpc_client(config, rpc_url, timeout=10)
@@ -243,7 +243,7 @@ def refund_escrow(ctx: click.Context, job_id: str, reason: str) -> dict[str, Any
             output(coordinator_result, ctx.obj.get("output_format", "table"))
             return coordinator_result
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.example.net'}"
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
             http_client = _get_rpc_client(config, rpc_url, timeout=10)
@@ -299,7 +299,7 @@ def escrow_status(ctx, job_id: str):
     try:
         config = get_config()
         rpc_url = _get_blockchain_rpc_url(config)
-        hub_url = f"http://{config.hub_discovery_url or 'hub.example.net'}"
+        hub_url = f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
         result = None
         try:
             http_client = _get_rpc_client(config, rpc_url, timeout=10)
