@@ -696,7 +696,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "type": data.get("type", "transfer") if data else "transfer",
                 "signature": data.get("signature", "") if data else "",
             }
-            response = self._http_client.post("transaction", json=transaction_data)
+            response = self._http_client.post("rpc/transaction", json=transaction_data)
             result = {
                 "transaction_hash": response.get("transaction_hash", ""),
                 "from": from_address,

@@ -128,13 +128,20 @@ class RegistryClient(_BaseClient):
         limit: int = 100,
         cursor: str | None = None,
     ) -> list[RegistryEntry]:
-        """List registry entries (deprecated alias for ``list_registry``)."""
+        """List registry entries.
+
+        Hits ``GET /v1/developers`` — the coordinator-api registry surface.
+        The server has no ``role`` filter and paginates with ``offset``, so
+        ``role`` is accepted for signature compatibility but ignored, and
+        ``cursor`` is honored only when it parses as an integer offset.
+        """
         params: dict[str, Any] = {"limit": limit}
-        if role:
-            params["role"] = role
         if cursor:
-            params["cursor"] = cursor
-        payload = self._get("/v1/registry", params=params)
+            try:
+                params["offset"] = int(cursor)
+            except (TypeError, ValueError):
+                pass
+        payload = self._get("/v1/developers", params=params)
         items = payload.get("items") if isinstance(payload, dict) else payload
         if not isinstance(items, list):
             return []
@@ -214,7 +221,7 @@ class CoordinatorAPIClient:
 
     def get_grant_summary(self, grant_id: str) -> GrantSummary:
         """Fetch a grant summary."""
-        payload = self._http.get(f"/v1/grants/{grant_id}/summary")
+        payload = self._http.get(f"/v1/grants/{grant_id}")
         return GrantSummary(
             grant_id=_str(payload.get("grant_id") or payload.get("id")),
             title=_str(payload.get("title")),
