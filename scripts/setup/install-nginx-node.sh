@@ -20,7 +20,7 @@ HUB_DISCOVERY_URL=""
 if [[ -f "$AITBC_CONFIG" ]]; then
     HUB_DISCOVERY_URL="$(grep -E '^HUB_DISCOVERY_URL=' "$AITBC_CONFIG" | cut -d= -f2- | tr -d '"' || true)"
 fi
-HUB_HOST="${HUB_DISCOVERY_URL:-hub.example.net}"
+HUB_HOST="${HUB_DISCOVERY_URL:-hub.aitbc.bubuit.net}"
 BASE_DOMAIN="${HUB_HOST#hub.}"
 
 SERVER_NAME="${NODE_HOSTNAME}.${BASE_DOMAIN} ${NODE_HOSTNAME}"
