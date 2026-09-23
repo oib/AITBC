@@ -37,10 +37,11 @@ aitbc energy suggest --region de          # probe hw → watts, tariff, floor, s
 aitbc gpu update <id> --pricing <ait/h>   # set the marketplace listing price
 ```
 
-Rail caveat: `aitbc energy floor` and `energy suggest --register` target the
-**EVM contract** — they fail closed (`EVM RPC URL not configured`) on the
-current native fleet. On the native rail, registration and floor data live in
-the coordinator DB — see the next section.
+Rail selection is automatic: when `EVM_RPC_URL` +
+`ENERGY_PRICING_CONTRACT_ADDRESS` are configured the CLI uses the EVM contract;
+otherwise `energy floor`, `provider register`/`profile`/`rate` and
+`suggest --register` talk to the coordinator's `/v1/marketplace/native-energy/*`
+endpoints (public GETs for reads, miner JWT/`X-Api-Key` for writes).
 
 `energy suggest` precedence: `--tbp-watts` > nvidia-smi `power.limit` > GPU
 catalog. Tariff: `--eur-per-kwh` > `ENERGY_EUR_PER_KWH` > `--region`/
@@ -64,8 +65,13 @@ native_energy_rates(ait_per_eur_scaled, version, updated_at, ...)
 -- (gpu_count is a quote parameter, not a profile column)
 ```
 
-**Prefer the API** — both endpoints take a miner JWT (`MinerDep`) and bump
-`revision`/`version` server-side (quote signatures embed them):
+Public reads (no auth): `GET .../native-energy/profile/{resource_id}`,
+`GET .../native-energy/rate`, `GET .../native-energy/floor?resource_id&gpu_count&duration_seconds`
+(the floor endpoint returns `net_floor_units` + `net_floor_ait` directly).
+
+**Prefer the API** — write endpoints take a miner JWT or `X-Api-Key`
+(`MinerDep`) and bump `revision`/`version` server-side (quote signatures embed
+them):
 
 ```bash
 # update watts/tariff on a profile (upsert)
@@ -147,5 +153,6 @@ sync with `AIT_REFERENCE_PRICE_EUR` if the reference ever moves.
   8106; the wallet's price is under `/v1/exchange/*`.
 - `AIT_USD_PRICE` left set on a shop — a flat USD anchor that overrides the
   compute reference.
-- Re-running `provider register` on-chain for a fleet on the native rail —
-  writes to an inert contract; update the DB profile instead.
+- Forcing the EVM rail on a native fleet — the CLI now auto-selects native when
+  EVM vars are unset; only set `EVM_RPC_URL`/`ENERGY_PRICING_CONTRACT_ADDRESS`
+  on nodes that actually use the contract.

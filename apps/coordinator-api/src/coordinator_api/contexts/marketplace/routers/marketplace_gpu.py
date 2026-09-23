@@ -14,7 +14,7 @@ from sqlmodel import Session, col, func, select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+from aitbc.marketplace.energy_oracle import EVMEnergyOracle, EnergyOracleError
 from aitbc.marketplace.energy_pricing import (
     DEFAULT_FEE_BASIS_POINTS,
     EnergyQuote,
@@ -1332,4 +1332,74 @@ async def publish_native_energy_rate(
         "ait_per_eur_scaled": ait_scaled,
         "version": existing.version if existing else 1,
         "status": "published",
+    }
+
+
+@router.get("/marketplace/native-energy/profile/{resource_id}")
+async def get_native_energy_profile(
+    resource_id: str, session: Annotated[Session, Depends(get_session)]
+) -> dict[str, Any]:
+    """Read the registered AIT-native energy profile for a resource."""
+    profile = session.get(NativeEnergyProfile, resource_id)
+    if profile is None:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"no energy profile for {resource_id}")
+    return {
+        "resource_id": profile.resource_id,
+        "provider": profile.provider,
+        "model_id": profile.model_id,
+        "tbp_watts": profile.tbp_watts,
+        "eur_per_kwh_scaled": profile.eur_per_kwh_scaled,
+        "eur_per_kwh": str(Decimal(profile.eur_per_kwh_scaled) / Decimal(10**18)),
+        "enabled": profile.enabled,
+        "revision": profile.revision,
+        "updated_at": profile.updated_at.isoformat() if profile.updated_at else None,
+    }
+
+
+@router.get("/marketplace/native-energy/rate")
+async def get_native_energy_rate(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
+    """Read the published global AIT/EUR rate for native energy quotes."""
+    rate = session.get(NativeEnergyRate, 1)
+    if rate is None:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="no native energy rate configured")
+    return {
+        "ait_per_eur_scaled": rate.ait_per_eur_scaled,
+        "ait_per_eur": str(Decimal(rate.ait_per_eur_scaled) / Decimal(10**18)),
+        "version": rate.version,
+        "source_kind": rate.source_kind,
+        "enabled": rate.enabled,
+        "updated_at": rate.updated_at.isoformat() if rate.updated_at else None,
+    }
+
+
+@router.get("/marketplace/native-energy/floor")
+async def get_native_energy_floor(
+    resource_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    gpu_count: int = Query(default=1, ge=1),
+    duration_seconds: int = Query(default=3600, ge=1),
+) -> dict[str, Any]:
+    """Compute the native energy floor for the given rental terms.
+
+    Same arithmetic as the quote builder, exposed as a read so shops and
+    CLI tooling can check the floor without signing a quote.
+    """
+    oracle = NativeEnergyOracle(session)
+    try:
+        net_units = oracle.get_energy_floor(
+            resource_id=resource_id,
+            gpu_count=gpu_count,
+            duration_seconds=duration_seconds,
+            settlement_unit_scale=NATIVE_UNITS_PER_AIT,
+        )
+    except EnergyOracleError as exc:
+        raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    return {
+        "resource_id": resource_id,
+        "gpu_count": gpu_count,
+        "duration_seconds": duration_seconds,
+        "settlement_unit_scale": NATIVE_UNITS_PER_AIT,
+        "net_floor_units": net_units,
+        "net_floor_ait": str(Decimal(net_units) / Decimal(NATIVE_UNITS_PER_AIT)),
+        "rail": "native",
     }
