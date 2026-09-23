@@ -27,6 +27,10 @@ upstream marketplace_service {
     server 127.0.0.1:8102;
 }
 
+upstream exchange_service {
+    server 127.0.0.1:8106;
+}
+
 upstream gpu_service {
     server 127.0.0.1:8101;
 }
@@ -478,10 +482,12 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    # ── Wallet Service Exchange API ─────────────────────────────
+    # ── Exchange API (simple_exchange :8106) ─────────────────────
+    # Wallet's own /v1/exchange/* endpoints stay reachable via the
+    # /exchange/ prefix below (wallet_service fronts its whole app there).
 
     location /v1/exchange/ {
-        proxy_pass http://wallet_service/v1/exchange/;
+        proxy_pass http://exchange_service/v1/exchange/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -619,7 +625,7 @@ server {
     }
 
     location /v1/exchange/history {
-        proxy_pass http://127.0.0.1:8106/v1/exchange/history;
+        proxy_pass http://exchange_service/v1/exchange/history;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
