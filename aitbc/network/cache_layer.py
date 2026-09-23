@@ -8,6 +8,7 @@ from threading import Lock
 from typing import Any
 
 from ..aitbc_logging import get_logger
+from .json_types import JSONResponse
 
 
 class CacheLayer:
@@ -25,7 +26,7 @@ class CacheLayer:
         self.enable = enable
         self.ttl = ttl
         self.enable_logging = enable_logging
-        self.cache: dict[str, tuple[dict[str, Any], datetime]] = {}
+        self.cache: dict[str, tuple[JSONResponse, datetime]] = {}
         self._lock = Lock()
         self.logger = get_logger(__name__)
 
@@ -36,7 +37,7 @@ class CacheLayer:
             return f"{url}:{hashlib.sha256(param_str.encode()).hexdigest()}"
         return url
 
-    def get(self, cache_key: str) -> dict[str, Any] | None:
+    def get(self, cache_key: str) -> JSONResponse | None:
         """Get cached response if available and not expired."""
         if not self.enable:
             return None
@@ -53,7 +54,7 @@ class CacheLayer:
                         self.logger.info("Cache expired for %s", cache_key)
             return None
 
-    def set(self, cache_key: str, data: dict[str, Any]) -> None:
+    def set(self, cache_key: str, data: JSONResponse) -> None:
         """Cache response data."""
         if self.enable:
             with self._lock:
