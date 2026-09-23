@@ -1,18 +1,23 @@
 # All Routes — consolidated service route reference
 
-> **Generated** from live `/openapi.json` specs. Regenerate with:
+> **Generated** from live `/openapi.json` specs. Regenerate on each node with:
 >
 > ```bash
-> ssh hub   '/opt/aitbc/venv/bin/python /opt/aitbc/scripts/docs/gen_all_routes.py --node hub'
-> ssh node2 '/opt/aitbc/venv/bin/python /opt/aitbc/scripts/docs/gen_all_routes.py --node node2'
+> /opt/aitbc/venv/bin/python /opt/aitbc/scripts/docs/gen_all_routes.py \
+>     --node <node-name> --services "name:port,name:port,..."
 > ```
+>
+> Current inventories: hub —
+> `api-gateway:8201,blockchain-rpc:8202,coordinator-api:8203,explorer:8100,`
+> `marketplace:8102,trading:8104,governance:8105,exchange:8106,`
+> `agent-coordinator:8107,wallet:8108,pool-hub:8210`; GPU/edge node —
+> `gpu:8101,edge-api:8111,ffmpeg:8230,hermes:8270`.
 >
 > This lists every route each service exposes on its **local port**. To reach
 > them publicly, apply the nginx/gateway prefix map in
 > [`../infrastructure/PRODUCTION_ARCHITECTURE.md`](../infrastructure/PRODUCTION_ARCHITECTURE.md#-public-api-surface-nginx-on-hubhub1)
-> — e.g. a coordinator route `/v1/jobs` is served publicly at
-> `https://hub.aitbc.bubuit.net/c/v1/jobs` (fleet path) or
-> `/api/v1/coordinator/jobs` (gateway, `X-Gateway-Key` required).
+> — e.g. a coordinator route `/v1/jobs` is served publicly at `/c/v1/jobs`
+> (fleet path) or `/api/v1/coordinator/jobs` (gateway, `X-Gateway-Key` required).
 
 ## Routes on hub
 
