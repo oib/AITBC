@@ -163,9 +163,12 @@ Please include the following information in your report:
 
 ### General Inquiries
 
-- **Email**: info@aitbc.dev
-- **Website**: https://aitbc.dev
-- **Documentation**: https://docs.aitbc.dev
+- **Issues**: https://github.com/oib/AITBC/issues
+- **Security reports**: https://github.com/oib/AITBC/security
+- **Documentation**: `docs/` in this repository
+
+> `info@aitbc.dev`, `aitbc.dev`, and `docs.aitbc.dev` do not exist — the
+> `aitbc.dev` domain is not operated by the project.
 
 ### Bug Bounty Program
 
@@ -198,7 +201,6 @@ This security policy is provided under the same license as the AITBC project.
 Past security advisories and vulnerability disclosures are available at:
 
 - https://github.com/oib/AITBC/security/advisories
-- https://docs.aitbc.dev/security/advisories
 
 ## Acknowledgments
 

@@ -92,18 +92,22 @@ with CoordinatorReceiptClient(base_url="http://localhost:8203", api_key="your_ke
 ### Job Management
 
 ```bash
-# Create job from file
-aitbc job create job.yaml
+# Submit a job (prompt + payment against a marketplace offer or service)
+aitbc ai submit --prompt "classify this image" --offer-id <offer_id> --offer-quantity 1
 
-# List all jobs
-aitbc job list --status running
+# List jobs, optionally filtered by status
+aitbc ai jobs --status running
 
-# Monitor job progress
-aitbc job watch <job_id>
+# Monitor job progress (no `watch` — poll `ai status`)
+aitbc ai status --job-id <job_id>
 
-# Download results
-aitbc job download <job_id> --output ./results/
+# Fetch results
+aitbc ai results --job-id <job_id>
 ```
+
+> There is no `aitbc job` group — AI job lifecycle lives under `aitbc ai`
+> (`submit`, `pay`, `status`, `jobs`, `results`, `accept`, `cancel`,
+> `refund`).
 
 ### Marketplace Operations
 

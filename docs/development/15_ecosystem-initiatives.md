@@ -1,5 +1,11 @@
 # AITBC Ecosystem Initiatives - Implementation Summary
 
+> **Status: aspirational planning document.** The hackathon framework,
+> grant program, extension SDK, and analytics initiatives described here
+> were never implemented — the referenced `/docs/hackathon-framework.md`
+> does not exist and none of the `@aitbc.io` mailboxes are real. Kept as a
+> roadmap reference only.
+
 ## Executive Summary
 
 The AITBC ecosystem initiatives establish a comprehensive framework for driving community growth, fostering innovation, and ensuring sustainable development. This document summarizes the implemented systems for hackathons, grants, marketplace extensions, and analytics that form the foundation of AITBC's ecosystem strategy.
@@ -343,11 +349,8 @@ The ecosystem is positioned to become a leading platform for decentralized busin
 
 ### B. Contact Information
 
-- **Ecosystem Team**: ecosystem@aitbc.io
-- **Hackathons**: hackathons@aitbc.io
-- **Grants**: grants@aitbc.io
-- **Extensions**: extensions@aitbc.io
-- **Analytics**: analytics@aitbc.io
+- All `@aitbc.io` addresses below are placeholders — no such mailboxes
+  exist. Real contact: [GitHub issues](https://github.com/oib/AITBC/issues).
 
 ### C. Additional Resources
 
@@ -358,4 +361,4 @@ The ecosystem is positioned to become a leading platform for decentralized busin
 
 ---
 
-*This document represents the current state of AITBC ecosystem initiatives as of January 2024. For the latest updates, visit [aitbc.io/ecosystem](https://aitbc.io/ecosystem).*
+*This document represents an aspirational plan as of January 2024. The `aitbc.io/ecosystem` site does not exist; the repository `docs/` directory is the authoritative reference.*
