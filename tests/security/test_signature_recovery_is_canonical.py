@@ -194,3 +194,70 @@ class TestCallSitesAcceptStandardSignatures:
         signature = sign_block_hash(block_hash, PRIVATE_KEY)
 
         assert verify_block_signature(block_hash, signature, ACCOUNT.address) is True
+
+
+class TestRecoverSignerFailsClosed:
+    """V23-06: the wrapper's rejection paths, which its six call sites never assert.
+
+    ``recover_signer`` is the canonical request/proof verifier for every AITBC service,
+    and it converts every failure into ``None`` rather than propagating. Nothing pinned
+    that conversion, so a regression handing back an address for unparseable input would
+    have passed the entire suite -- every existing test signs correctly first.
+    """
+
+    @staticmethod
+    def _message() -> dict[str, str]:
+        return {"action": "bridge", "amount": "100"}
+
+    @pytest.mark.parametrize("signature", ["", None], ids=["empty", "none"])
+    def test_an_absent_signature_is_none(self, signature):
+        """Callers pass ``tx.get("signature")`` straight in, so None reaches this guard."""
+        from aitbc.crypto.crypto import recover_signer
+
+        assert recover_signer(self._message(), signature) is None
+
+    @pytest.mark.parametrize(
+        "signature",
+        ["0xdeadbeef", "zz" * 65, "0x" + (bytes(64) + bytes([2])).hex()],
+        ids=["too-short", "not-hex", "bad-recovery-id"],
+    )
+    def test_a_malformed_signature_is_none_not_an_address(self, signature):
+        from aitbc.crypto.crypto import recover_signer
+
+        assert recover_signer(self._message(), signature) is None
+
+    def test_it_swallows_what_recover_address_raises(self):
+        """The deliberate contrast with TestMalformedIsDistinguishable above.
+
+        ``recover_address`` raises so a caller can tell "unparseable" from "did not
+        match"; ``recover_signer`` collapses both to None on purpose. Changing either
+        half alone breaks a caller, so pin the two together.
+        """
+        from aitbc.crypto.crypto import recover_signer
+
+        digest = keccak(json.dumps(self._message(), sort_keys=True, separators=(",", ":")).encode())
+        with pytest.raises(SignatureMalformed):
+            recover_address(digest, "0xdeadbeef")
+
+        assert recover_signer(self._message(), "0xdeadbeef") is None
+
+    def test_an_unserialisable_message_is_none(self):
+        """json.dumps raises TypeError before any recovery happens; it must not escape."""
+        from aitbc.crypto.crypto import recover_signer
+
+        assert recover_signer({"payload": object()}, _sign(keccak(b"whatever"))) is None
+
+    def test_a_valid_signature_over_another_message_recovers_someone_else(self):
+        """recover_signer RECOVERS, it does not VERIFY -- non-None is not authentication.
+
+        A caller that treats any address as proof would accept a signature lifted from
+        an unrelated message. The only safe use is comparing the result against an
+        expected address, which is why this yields a wrong address rather than None.
+        """
+        from aitbc.crypto.crypto import recover_signer
+
+        other = json.dumps({"action": "withdraw"}, sort_keys=True, separators=(",", ":")).encode()
+        recovered = recover_signer(self._message(), _sign(keccak(other)))
+
+        assert recovered is not None
+        assert recovered.lower() != ACCOUNT.address.lower()
