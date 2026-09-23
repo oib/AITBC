@@ -68,7 +68,7 @@ def _seed_energy(db_session):
             resource_id=RESOURCE,
             provider=PROVIDER,
             model_id=RESOURCE,
-            tdp_watts=165,
+            tbp_watts=165,
             eur_per_kwh_scaled=int(Decimal("0.30") * FIXED_POINT_SCALE),
             enabled=True,
             revision=1,

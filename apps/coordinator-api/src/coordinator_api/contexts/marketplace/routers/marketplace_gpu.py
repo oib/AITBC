@@ -1248,9 +1248,9 @@ async def register_native_energy_profile(
     except Exception:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh is not a valid number") from None
 
-    tdp = int(data.get("tdp_watts", 0))
-    if tdp <= 0:
-        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="tdp_watts must be positive")
+    tbp = int(data.get("tbp_watts", 0))
+    if tbp <= 0:
+        raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="tbp_watts must be positive")
     if eur_scaled <= 0:
         raise HTTPException(status_code=http_status.HTTP_400_BAD_REQUEST, detail="eur_per_kwh must be positive")
 
@@ -1258,7 +1258,7 @@ async def register_native_energy_profile(
     if existing:
         existing.provider = data.get("provider", existing.provider)
         existing.model_id = data.get("model_id", existing.model_id)
-        existing.tdp_watts = tdp
+        existing.tbp_watts = tbp
         existing.eur_per_kwh_scaled = eur_scaled
         existing.enabled = data.get("enabled", True)
         existing.revision += 1
@@ -1269,7 +1269,7 @@ async def register_native_energy_profile(
             resource_id=resource_id,
             provider=data.get("provider", user.get("sub", "")),
             model_id=data.get("model_id", resource_id),
-            tdp_watts=tdp,
+            tbp_watts=tbp,
             eur_per_kwh_scaled=eur_scaled,
             enabled=data.get("enabled", True),
             revision=1,
@@ -1280,7 +1280,7 @@ async def register_native_energy_profile(
     return {
         "resource_id": resource_id,
         "status": "registered",
-        "tdp_watts": tdp,
+        "tbp_watts": tbp,
         "eur_per_kwh_scaled": eur_scaled,
     }
 

@@ -109,7 +109,7 @@ def provider():
 @click.option("--resource-id", required=True, help="Canonical resource ID")
 @click.option("--provider-address", required=True, help="Provider wallet address")
 @click.option("--model-id", required=True, help="GPU model ID")
-@click.option("--tdp-watts", type=int, required=True, help="GPU TDP in watts")
+@click.option("--tbp-watts", type=int, required=True, help="GPU TBP (total board power) in watts")
 @click.option("--eur-per-kwh", type=float, required=True, help="EUR per kWh tariff")
 @click.option("--wallet", help="Wallet name for signing")
 @click.option("--wallet-path", help="Direct wallet file path")
@@ -122,7 +122,7 @@ def provider_register(
     resource_id,
     provider_address,
     model_id,
-    tdp_watts,
+    tbp_watts,
     eur_per_kwh,
     wallet,
     wallet_path,
@@ -169,7 +169,7 @@ def provider_register(
     data = rpc.encode_function_call(
         abi=DEFAULT_ENERGY_PRICING_ABI,
         function_name="registerEnergyProfile",
-        args=[resource_id, provider_address, model_id, tdp_watts, eur_scaled],
+        args=[resource_id, provider_address, model_id, tbp_watts, eur_scaled],
     )
     nonce = rpc._get_web3().eth.get_transaction_count(addr)
     gas_price = int(rpc.get_gas_price()["wei"])
@@ -224,7 +224,7 @@ def provider_profile(ctx, resource_id, json_output):
         "revision": profile.revision,
         "model_id": profile.model_id,
         "provider": profile.provider,
-        "tdp_watts": profile.tdp_watts,
+        "tbp_watts": profile.tbp_watts,
         "eur_per_kwh_scaled": profile.eur_per_kwh_scaled,
         "eur_per_kwh": profile.eur_per_kwh_scaled / 1e18,
     }
@@ -236,7 +236,7 @@ def provider_profile(ctx, resource_id, json_output):
         info(f"Revision:    {profile.revision}")
         info(f"Model:       {profile.model_id}")
         info(f"Provider:    {profile.provider}")
-        info(f"TDP:         {profile.tdp_watts}W")
+        info(f"TBP:         {profile.tbp_watts}W")
         info(f"EUR/kWh:     {profile.eur_per_kwh_scaled / 1e18:.6f}")
 
 
