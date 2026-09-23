@@ -11,13 +11,13 @@ The AITBC test suite has been refactored to eliminate the shell script smell and
 pytest
 
 # Run with the convenient test runner
-python tests/test_runner.py
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner
 
 # Run all tests including slow ones
-python tests/test_runner.py --all
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --all
 
 # Run with coverage
-python tests/test_runner.py --coverage
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --coverage
 ```
 
 ### **Test Categories**
@@ -25,62 +25,62 @@ python tests/test_runner.py --coverage
 ```bash
 # Unit tests only
 pytest -m "unit"
-python tests/test_runner.py --unit
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --unit
 
 # Integration tests only
 pytest -m "integration"
-python tests/test_runner.py --integration
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --integration
 
 # CLI tests only
 pytest -m "cli"
-python tests/test_runner.py --cli
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --cli
 
 # API tests only
 pytest -m "api"
-python tests/test_runner.py --api
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --api
 
 # Blockchain tests only
 pytest -m "blockchain"
-python tests/test_runner.py --blockchain
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --blockchain
 
 # Slow tests only
 pytest -m "slow"
-python tests/test_runner.py --slow
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --slow
 
 # Performance tests only
 pytest -m "performance"
-python tests/test_runner.py --performance
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --performance
 
 # Security tests only
 pytest -m "security"
-python tests/test_runner.py --security
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --security
 ```
 
 ### **Advanced Usage**
 
 ```bash
 # Run specific test files
-pytest tests/cli/test_agent_commands.py
-pytest apps/coordinator-api/tests/test_api.py
+pytest tests/cli/test_agent_cli.py
+pytest apps/coordinator-api/tests/test_main.py
 
 # Run with verbose output
 pytest -v
-python tests/test_runner.py --verbose
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --verbose
 
 # Run with coverage
 pytest --cov=aitbc_cli --cov-report=term-missing
-python tests/test_runner.py --coverage
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --coverage
 
 # List available tests
 pytest --collect-only
-python tests/test_runner.py --list
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --list
 
 # Show available markers
 pytest --markers
-python tests/test_runner.py --markers
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --markers
 
 # Run with specific Python path
-pytest --pythonpath=cli
+pytest   # no --pythonpath flag exists; tests/conftest.py inserts sys.path entries
 
 # Run with custom options
 pytest -v --tb=short --disable-warnings
@@ -94,15 +94,15 @@ The test suite uses the following markers to categorize tests:
 |--------|-------------|-------|
 | `unit` | Unit tests (fast, isolated) | `pytest -m unit` |
 | `integration` | Integration tests (may require external services) | `pytest -m integration` |
-| `cli` | CLI command tests | `pytest -m cli` |
-| `api` | API endpoint tests | `pytest -m api` |
+| `~~cli~~` | CLI command tests | `pytest -m ~~cli~~` |
+| `~~api~~` | API endpoint tests | `pytest -m ~~api~~` |
 | `blockchain` | Blockchain-related tests | `pytest -m blockchain` |
-| `crypto` | Cryptography tests | `pytest -m crypto` |
-| `contracts` | Smart contract tests | `pytest -m contracts` |
+| `~~crypto~~` | Cryptography tests | `pytest -m ~~crypto~~` |
+| `~~contracts~~` | Smart contract tests | `pytest -m ~~contracts~~` |
 | `slow` | Slow running tests | `pytest -m slow` |
-| `performance` | Performance tests | `pytest -m performance` |
+| `~~performance~~` | Performance tests | `pytest -m ~~performance~~` |
 | `security` | Security tests | `pytest -m security` |
-| `gpu` | Tests requiring GPU resources | `pytest -m gpu` |
+| `~~gpu~~` | Tests requiring GPU resources | `pytest -m ~~gpu~~` |
 | `e2e` | End-to-end tests | `pytest -m e2e` |
 
 ## 🗂️ Test Discovery
@@ -115,6 +115,8 @@ The test suite automatically discovers tests in these directories:
 - `contracts/test/` - Smart contract tests
 - `packages/*/tests/` - Package tests
 - `scripts/test/` - Script tests
+
+> Actual `testpaths` in `pyproject.toml`: `packages/py/*/tests` + the repo test dirs — `contracts/test/` does not exist (Solidity tests are `contracts/governance/test/*.t.sol`).
 
 ## 🔧 Configuration
 
@@ -205,7 +207,7 @@ python -c "import coverage; print(coverage.Coverage().source)"
 ```bash
 pytest
 # or
-python tests/test_runner.py
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner
 ```
 
 ## 🎯 Best Practices
@@ -233,7 +235,7 @@ def test_blockchain_sync():
     """Test blockchain synchronization."""
     # Test implementation
 
-@pytest.mark.cli
+@pytest.mark.smoke   # `cli` is not a registered marker — real markers are in pyproject.toml [tool.pytest.ini_options] markers
 def test_agent_create_command():
     """Test agent creation CLI command."""
     # Test implementation
@@ -246,13 +248,13 @@ def test_agent_create_command():
 pytest -m "unit" -v
 
 # Run tests for specific module
-pytest tests/cli/test_agent_commands.py -v
+pytest tests/cli/test_agent_cli.py -v
 
 # Run tests with coverage for your changes
 pytest --cov=aitbc_cli --cov-report=term-missing
 
 # Run tests before committing
-python tests/test_runner.py --coverage
+python -m pytest   # no tests/test_runner.py exists — pytest is the runner --coverage
 ```
 
 ## 📈 Performance Tips
@@ -299,7 +301,7 @@ pytest -v -s
 
 ```bash
 # Run specific test
-pytest tests/cli/test_agent_commands.py::test_agent_create
+pytest tests/cli/test_agent_cli.py::test_agent_create
 
 # Run tests matching pattern
 pytest -k "agent_create"
@@ -313,7 +315,7 @@ pytest --lf
 - **pytest documentation**: https://docs.pytest.org/
 - **pytest-cov documentation**: https://pytest-cov.readthedocs.io/
 - **pytest-mock documentation**: https://pytest-mock.readthedocs.io/
-- **AITBC Development Guidelines**: See `docs/DEVELOPMENT_GUIDELINES.md`
+- **AITBC Development Guidelines**: See `docs/development/DEVELOPMENT_GUIDELINES.md`
 
 ---
 

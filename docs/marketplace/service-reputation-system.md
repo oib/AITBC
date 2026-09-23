@@ -191,25 +191,25 @@ Mark ratings as synced after successful propagation.
 ### Submit a Rating
 
 ```bash
-aitbc market rate <service_id> <rating> [--comment <text>] [--reviewer-id <id>]
+aitbc market rate --service-id <service_id> --rating <rating> [--comment <text>] [--reviewer-id <id>]
 ```
 
 **Example:**
 
 ```bash
-aitbc market rate ollama-llama3.2:3b 4.5 --comment "Great service!"
+aitbc market rate --service-id ollama-llama3.2:3b --rating 4.5 --comment "Great service!"
 ```
 
 ### View Ratings
 
 ```bash
-aitbc market ratings <service_id> [--limit <n>] [--offset <n>]
+aitbc market ratings --service-id <service_id> [--limit <n>] [--offset <n>]
 ```
 
 **Example:**
 
 ```bash
-aitbc market ratings ollama-llama3.2:3b --limit 10
+aitbc market ratings --service-id ollama-llama3.2:3b --limit 10
 ```
 
 ### Sync Ratings

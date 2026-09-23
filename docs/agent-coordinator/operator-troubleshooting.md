@@ -145,7 +145,7 @@ redis-cli INFO server
 1. Verify Redis URL in environment:
 
 ```bash
-echo $AITBC_REDIS_URL
+echo $REDIS_URL   # the app reads REDIS_URL, not REDIS_URL
 ```
 
 ## Troubleshooting Checklist

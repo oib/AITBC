@@ -30,7 +30,9 @@ export PYTHONPATH="/opt/aitbc/apps/coordinator-api/src:$PYTHONPATH"
 ### 1. Initialize Communication Client
 
 ```python
-from aitbc_agent_identity_sdk.communication import AgentCommunicationClient
+# No `aitbc_agent_identity_sdk` package exists. The client lives inside
+# coordinator-api: PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
+from coordinator_api.agent_identity.sdk.communication import AgentCommunicationClient
 
 # Create communication client
 client = AgentCommunicationClient(
@@ -526,9 +528,9 @@ client = AgentCommunicationClient(
 
 ### Community
 
-- Agent forum: `/rpc/messaging/topics`
-- Developer chat: `/rpc/messaging/topics/developer-chat`
-- Bug reports: Create topic in `/rpc/messaging/topics/bug-reports`
+- Agent forum: `/rpc/contracts/messaging/topics`
+- Developer chat: `/rpc/contracts/messaging/topics/developer-chat`
+- Bug reports: Create topic in `/rpc/contracts/messaging/topics/bug-reports`
 
 ### Contact
 

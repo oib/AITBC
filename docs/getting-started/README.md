@@ -25,7 +25,7 @@ If you want to submit AI jobs and use the network:
 3. [Open Island Testing](open-island.md) - Join the `hub.aitbc.bubuit.net` open island
 4. [Node Quick Start](node-quickstart.md) - Configure a follower/customer node
 5. [CLI Guide](overview/cli-guide.md) - Learn the CLI commands
-6. [Unit System](unit-system.md) - Learn about AIT and compute-seconds
+6. [Unit System](unit-system.md) - Learn about AIT and compute units
 
 ### Shop (provide GPU compute)
 
@@ -56,7 +56,7 @@ If you are developing with AITBC:
 2. [Installation](installation/installation.md) - Monorepo installation
 3. [Introduction](overview/introduction.md) - Understand platform architecture
 4. [CLI Guide](overview/cli-guide.md) - Learn CLI commands
-5. [Unit System](unit-system.md) - Learn about AIT and compute-seconds
+5. [Unit System](unit-system.md) - Learn about AIT and compute units
 
 ## Directory Structure
 
@@ -81,8 +81,7 @@ getting-started/
 │   └── miner-quick-start.md
 ├── overview/ (platform overview)
 │   ├── introduction.md
-│   ├── cli-guide.md
-│   └── enhanced-services.md
+│   └── cli-guide.md
 └── reference/ (reference docs)
     ├── service-endpoints.md
     ├── management-commands.md

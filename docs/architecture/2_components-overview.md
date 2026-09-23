@@ -34,7 +34,7 @@ Vite/TypeScript market with offer/bid functionality, stats dashboard, and mock/l
 
 Agent-first Python FastAPI blockchain explorer with complete API and built-in HTML interface. TypeScript frontend merged and deleted for simplified architecture. Production-ready on port 8100.
 
-[Learn More →](../18_explorer/)
+[Learn More →](4_blockchain-node.md)   # no docs/18_explorer/ exists
 
 ### Wallet Daemon
 
@@ -86,7 +86,7 @@ Miner registry with scoring engine, Redis/PostgreSQL backing, and comprehensive 
 
 ## Architecture Overview
 
-The AITBC platform consists of 8 core components working together to provide a complete AI blockchain computing solution:
+The AITBC platform consists of the core components below (10 listed) working together to provide a complete AI blockchain computing solution:
 
 ### Infrastructure Layer
 

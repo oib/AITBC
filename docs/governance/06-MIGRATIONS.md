@@ -17,8 +17,11 @@ The Governance Service uses Alembic for database schema migrations. Migrations a
 ├── env.py              # Migration environment
 ├── script.py.mako      # Migration template
 ├── versions/           # Migration scripts
-│   └── 001_initial_governance_schema.py
-└── alembic.ini         # Alembic configuration
+│   ├── 001_initial_governance_schema.py
+│   ├── 002_v073_onchain_governance_fields.py
+│   └── 003_v023_voting_ends_block.py
+
+`alembic.ini` sits one level up at `apps/governance/alembic.ini`.
 ```
 
 ## Running Migrations
@@ -90,11 +93,15 @@ cd /opt/aitbc/apps/governance
 - idx_tokens_holder
 - idx_tokens_voting_power
 - idx_stakes_staker
-- idx_stakes_unstakes_at
+- idx_stakes_unstake
+- idx_stakes_active
 - idx_delegations_delegator
 - idx_delegations_delegate
-- idx_execution_log_proposal
-- idx_execution_log_status
+- idx_delegations_active
+- idx_exec_log_proposal
+- idx_exec_log_status
+- idx_exec_log_timestamp
+- ix_governance_profiles_user_id
 
 ### Migration Script
 
@@ -236,7 +243,9 @@ sys.path.insert(0, '/opt/aitbc/apps/governance/src')
 Example output:
 
 ```
-<base>  -> 001_initial_governance_schema (head), Initial governance schema
+<base> -> 001_initial_governance_schema, Initial governance schema
+001 -> 002_v073_onchain_governance_fields
+002 -> 003_v023_voting_ends_block (head)
 ```
 
 ## References

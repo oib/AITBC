@@ -67,8 +67,8 @@ systemctl restart redis
 curl -H "X-Api-Key: $API_KEY" \
   http://localhost:8203/v1/jobs/{job_id}
 
-# Check miner availability
-curl http://localhost:8203/v1/miners
+# Check miner availability (the list route is admin-only)
+curl -H "X-Api-Key: $API_KEY" http://localhost:8203/v1/admin/miners
 
 # Check logs
 journalctl -u aitbc-coordinator-api -n 50
@@ -80,7 +80,7 @@ journalctl -u aitbc-coordinator-api -n 50
 
 ```bash
 # Verify miners are registered
-curl http://localhost:8203/v1/miners
+curl -H "X-Api-Key: $API_KEY" http://localhost:8203/v1/admin/miners
 
 # Register miner if needed
 curl -X POST http://localhost:8203/v1/miners/register \

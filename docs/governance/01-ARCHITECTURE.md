@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AITBC Governance system consists of two live components — the **Governance Service** (port 8105) and the **CLI Commands** — plus a set of **reference Solidity contracts** under `contracts/governance/` that document the EVM design but are **not** the operating path of the live Python chain. There is also a chain-side governance surface on the blockchain node (`/rpc/governance/*`, `X-API-Key` gated; `GOVERNANCE_EXECUTE` senders must be listed in the `governance_executors` chain parameter). These components work together to enable decentralized decision-making through token-weighted voting, staking, and delegation.
+The AITBC Governance system consists of two live components — the **Governance Service** (port 8105) and the **CLI Commands** — plus a set of **reference Solidity contracts** under `contracts/governance/` that document the EVM design but are **not** the operating path of the live Python chain. There is also a chain-side governance surface on the blockchain node (`/rpc/v1/governance/*`, `X-API-Key` gated; `GOVERNANCE_EXECUTE` senders must be listed in the `governance_executors` chain parameter). These components work together to enable decentralized decision-making through token-weighted voting, staking, and delegation.
 
 ## Components
 
@@ -30,7 +30,7 @@ The AITBC Governance system consists of two live components — the **Governance
 
 ### 2. Smart Contracts — reference design, not the operating path
 
-> **⚠️ Not the live implementation.** The Solidity contracts below are a reference EVM design. The live governance path is the Python governance service on port 8105 (`apps/governance/`) backed by the chain models — voting power is derived **server-side** from the voter's on-chain balance/stake snapshot (a caller-supplied `voting_power` in a vote request is ignored/overwritten). Chain-side, `/rpc/governance/*` routes submit `GOVERNANCE_PROPOSAL`/`GOVERNANCE_VOTE`/`GOVERNANCE_EXECUTE` transactions; `GOVERNANCE_EXECUTE` is restricted to addresses in the `governance_executors` chain parameter. None of the mechanics below (30-day locks, 2x multiplier, 10% quorum, 1-day delay) are enforced by the running system.
+> **⚠️ Not the live implementation.** The Solidity contracts below are a reference EVM design. The live governance path is the Python governance service on port 8105 (`apps/governance/`) backed by the chain models — voting power is derived **server-side** from the voter's on-chain balance/stake snapshot (a caller-supplied `voting_power` in a vote request is ignored/overwritten). Chain-side, `/rpc/v1/governance/*` routes submit `GOVERNANCE_PROPOSE`/`GOVERNANCE_VOTE`/`GOVERNANCE_EXECUTE` transactions; `GOVERNANCE_EXECUTE` is restricted to addresses in the `governance_executors` chain parameter. None of the mechanics below (30-day locks, 2x multiplier, 10% quorum, 1-day delay) are enforced by the running system.
 
 **Technology Stack:**
 
@@ -91,7 +91,7 @@ Staking is **not** part of the governance group: use `aitbc stake` / `aitbc unst
 
 1. User creates proposal via CLI (`aitbc governance propose`) or API (`POST /v1/governance/proposals` on 8105)
 2. Proposal stored in the governance service database
-3. When `enable_onchain_submission` is configured, a `GOVERNANCE_PROPOSAL` transaction is submitted to the chain
+3. When `enable_onchain_submission` is configured, a `GOVERNANCE_PROPOSE` transaction is submitted to the chain
 4. Voting period begins
 
 ### Voting Flow
@@ -150,13 +150,13 @@ Staking is **not** part of the governance group: use `aitbc stake` / `aitbc unst
 
 ### API Gateway
 
-- Route: `/governance/*`
+- Route: `/v1/governance/*`
 - Forwards requests to Governance Service (port 8105)
 
 ### Blockchain Node
 
-- `/rpc/governance/*` routes (`X-API-Key` gated) for chain-side proposal/vote/execute transactions
-- On-chain `GOVERNANCE_PROPOSAL` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` transaction types; `GOVERNANCE_EXECUTE` senders must appear in the `governance_executors` chain parameter
+- `/rpc/v1/governance/*` routes (`X-API-Key` gated) for chain-side proposal/vote/execute transactions
+- On-chain `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` transaction types; `GOVERNANCE_EXECUTE` senders must appear in the `governance_executors` chain parameter
 - Source of the on-chain balance/stake snapshot used for voting power
 
 ### Database
@@ -170,7 +170,7 @@ Staking is **not** part of the governance group: use `aitbc stake` / `aitbc unst
 ### Authentication
 
 - Wallet-based authentication for CLI commands
-- API key authentication for service-to-service communication
+- service-to-service calls go through the api-gateway; the governance service itself has no API-key middleware (X-API-Key gating lives on blockchain-node `/rpc/*`)
 
 ### Authorization
 

@@ -1,5 +1,14 @@
 # pnpm Setup for AITBC Contracts
 
+> **Superseded.** `contracts/` uses **npm**, not pnpm —
+> `contracts/package.json` declares `packageManager: npm@11.16.0` and
+> `package-lock.json` is the tracked lockfile (`.npmrc` notes the pnpm keys
+> were removed). Use `npm ci` and `npx hardhat test`. The CI workflows
+> named below (`smart-contract-tests.yml`, `deploy-testnet.yml`, …) never
+> existed; the only workflow is `.github/workflows/ci.yml`. Kept for
+> historical reference only.
+
+
 **Level**: Intermediate
 **Prerequisites**: Node.js, familiarity with package managers
 **Estimated Time**: 5 minutes

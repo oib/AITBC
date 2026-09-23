@@ -102,25 +102,24 @@ Ensure your firewall allows the following ports:
 
 ### Required Ports
 
-- **Outbound**: Port 8202 to hub.aitbc.bubuit.net (blockchain RPC)
-- **Outbound**: Port 8203 to hub.aitbc.bubuit.net (Agent coordinator)
-- **Inbound**: Port 8202 (your blockchain RPC)
-- **Inbound**: Port 7070 (P2P)
+- **Outbound**: Port 443 to hub.aitbc.bubuit.net (all hub APIs are proxied
+  through nginx — `/rpc/*` for the blockchain RPC, `/agent/*` for the agent
+  coordinator; the raw service ports 8202/8107 are loopback/LAN-only on the
+  hub)
+- **Inbound**: none strictly required on a follower/customer node — it dials
+  out to the hub. (If you run the chain node's P2P listener it binds on
+  8200 by default, not 7070 — 7070 is the hub-only gossip relay.)
 
 ### UFW Configuration Example
 
 ```bash
-# Allow outbound to hub
-ufw allow out to hub.aitbc.bubuit.net port 8202
-ufw allow out to hub.aitbc.bubuit.net port 8203
+# Allow outbound to the hub (nginx proxies all APIs on 443)
+ufw allow out to hub.aitbc.bubuit.net port 443
 
-# Allow inbound RPC
-ufw allow 8202/tcp
+# Followers need no inbound rules; if you do run a P2P listener it
+# defaults to 8200, not 7070:
+# ufw allow 8200/tcp
 
-# Allow inbound P2P
-ufw allow 7070/tcp
-
-# Enable firewall
 ufw enable
 ```
 

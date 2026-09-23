@@ -281,13 +281,13 @@ The Coordinator API runs as a systemd service behind nginx.
 
 ```bash
 # Start service
-systemctl start aitbc-coordinator
+systemctl start aitbc-coordinator-api
 
 # Check status
-systemctl status aitbc-coordinator
+systemctl status aitbc-coordinator-api
 
 # View logs
-journalctl -u aitbc-coordinator -f
+journalctl -u aitbc-coordinator-api -f
 ```
 
 ## Interactive API Documentation

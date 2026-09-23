@@ -27,7 +27,7 @@ The most secure way to store, send, and receive the network tokens. Connect to t
 
 Download the the wallet extension files to your computer.
 
-[Download Chrome Extension](/assets/aitbc-wallet.zip)
+**Browser extension: does not exist.** No `assets/`, extension manifest, or wallet-extension source exists in the repo; `website/exchange.js` connects via generic `window.ethereum` (EIP-1193).
 
 #### Step 2: Open Chrome Extensions
 
@@ -55,7 +55,7 @@ Click the the wallet icon in your toolbar to create or import an account.
 
 Click the button below to go to the Firefox installation page.
 
-[Install Firefox Extension](/firefox-wallet/install.html)
+~~Firefox extension~~ — no `firefox-wallet/` exists either
 
 #### Step 2: Click "Add to Firefox"
 

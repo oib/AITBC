@@ -117,7 +117,7 @@ aitbc wallet create --name soak-wallet
 # --to-address accepts a wallet name; the password comes from the keyring,
 # AITBC_WALLET_PASSWORD, or a TTY prompt (use --password for scripts)
 aitbc wallet --wallet-name genesis send --to-address soak-wallet --amount 1000 --password <genesis-password>
-aitbc ai submit --prompt "multi-validator soak" --wallet soak-wallet --payment 1
+aitbc ai submit --prompt "multi-validator soak" --wallet soak-wallet --payment 1 --offer-id <offer>   # paid jobs without --offer-id abort: "provider_address is required"
 ```
 
 Query block status and check the proposer changes across heights:

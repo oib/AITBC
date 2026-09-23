@@ -1,5 +1,12 @@
 # Scenario 37: ZK Proof for High-Value Jobs
 
+> **v0.14.4+ behavior.** Only `linear-1` is registered in `MODEL_CIRCUITS`;
+> any other model (e.g. `llama3.2:3b`) yields `zk_status: unsupported_model`
+> → `computation_correct=False` → escrow blocked/refunded. The `verified`/
+> `released` expectations below are pre-v0.14.4 — see scenario 34 for the
+> corrected refund flow.
+
+
 ## Goal
 
 Submit a high-value AI job that requires and receives a ZK receipt proof.
@@ -73,9 +80,9 @@ After the job completes, the stored ZK receipt proof can be verified with:
 aitbc zk verify --job-id <job-id>
 ```
 
-The CLI posts the job ID to the coordinator `/v1/zk/receipt/verify` endpoint,
-which loads the stored `zk_proof`, re-verifies it against the trusted
-`receipt_public` verification key, and returns:
+The CLI GETs `/v1/jobs/{id}/result`, extracts the stored proof, and POSTs it
+to `/v1/zk/verify` (`cli/aitbc_cli/commands/zk.py:135-156`) — it does not call
+`/v1/zk/receipt/verify`. The response is:
 
 ```json
 {

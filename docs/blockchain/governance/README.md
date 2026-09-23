@@ -28,7 +28,7 @@
 
 - **[CODEOWNERS](CODEOWNERS)** - Ownership and review routing
 - **[COMMUNITY_STRATEGY.md](COMMUNITY_STRATEGY.md)** - Community and contribution strategy
-- **agent-dao-governance.md** - agent DAO governance notes
+- **openclaw-dao-governance.md** - agent DAO governance notes
 
 ---
 

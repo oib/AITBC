@@ -359,7 +359,7 @@ from coordinator_api.services.agent_coordination.agent_service import AIAgentOrc
    # apps/agent-management was removed; current agent SDK logic is in
    # cli/aitbc_cli/commands/agent_sdk.py and apps/agent-coordinator.
    # Original migration example for the removed app:
-   # apps/agent-management/src/app/services/agent_integration.py
+   # historical path — now apps/agent-coordinator/src/agent_app/
    from aitbc_agent_core.integration import AgentIntegrationService
    from .adapters.agent_core_adapters import (
        AgentSecurityManagerAdapter,

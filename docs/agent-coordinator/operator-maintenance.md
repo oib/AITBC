@@ -67,7 +67,7 @@ systemctl restart aitbc-agent-coordinator.service
 
 ```bash
 for i in {1..3}; do
-  systemctl restart aitbc-agent-coordinator@$i.service
+  systemctl restart aitbc-agent-coordinator.service (no template unit exists — single instance only)
   sleep 10
 done
 ```

@@ -18,7 +18,7 @@
 
 ```bash
 cd /opt/aitbc/apps/agent-coordinator
-pip install -r requirements.txt
+pip install -e .   # pyproject-only app — no requirements.txt exists
 ```
 
 ### 2. Configure Environment

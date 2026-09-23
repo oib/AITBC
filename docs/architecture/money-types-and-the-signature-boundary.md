@@ -76,8 +76,8 @@ an invalid signature — with no diagnostic pointing at formatting.
 `Decimal` boundary. The repo's position is that money arithmetic must be exact; on this side of
 the boundary it is not.
 
-The mitigations available today are: the chain settles in **integer compute-seconds**
-(1 AIT = 3600), so the value that actually moves is an integer even when the payload field is a
+The mitigations available today are: the chain settles in **integer compute-units**
+(1 AIT = 36,000,000), so the value that actually moves is an integer even when the payload field is a
 float; and everything upstream of serialisation — CLI parsing, wallet balances, coordinator
 accounting — is `Decimal`, so error cannot accumulate before the wire.
 
@@ -92,7 +92,7 @@ Not a type annotation. A protocol change, roughly:
    transactions must keep verifying for the chain to remain auditable.
 2. **A canonical encoding for exact decimals** that is not "whatever `json.dumps` does".
    Fixed-point integers in the smallest unit are the usual answer and would suit a chain that
-   already settles in integer compute-seconds.
+   already settles in integer compute-units.
 3. **Coordinated client updates.** Wallets, the CLI, `aitbc-sdk`, `aitbc-agent-sdk` and any
    third-party signer all produce the signed bytes independently. They must change together.
 4. **A re-derivation story for history.** Every hash on chain was computed over the current

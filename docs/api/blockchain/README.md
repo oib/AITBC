@@ -64,25 +64,32 @@ Retrieve the latest (head) block in the blockchain. `GET /rpc/chain/head` is a c
 
 #### Get Block Range
 
-`GET /rpc/blocks-range?from={start}&to={end}`
+`GET /rpc/blocks-range?start={start}&end={end}&limit={n}&include_tx={bool}&chain_id={id}`
 
 Retrieve a range of blocks.
 
 **Parameters:**
 
-- `from` (query): Starting block height
-- `to` (query): Ending block height
+- `start` (query): Starting block height
+- `end` (query): Ending block height
+- `limit` (query): Max blocks to return
+- `include_tx` (query): Include full transaction bodies
+- `chain_id` (query): Select a non-default chain
 
 **Response:** `200 OK`
 
 ```json
-[
-  {
-    "height": 12345,
-    "hash": "0x...",
-    "timestamp": "2026-05-11T10:00:00Z"
-  }
-]
+{
+  "success": true,
+  "blocks": [
+    {
+      "height": 12345,
+      "hash": "0x...",
+      "timestamp": "2026-05-11T10:00:00Z"
+    }
+  ],
+  "count": 1
+}
 ```
 
 ### Transaction Operations

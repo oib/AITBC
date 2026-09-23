@@ -64,7 +64,7 @@ cd aitbc
 
 # Configure the GPU miner through the environment -- there is no file to copy and edit.
 export MINER_API_KEY="your-miner-api-key"
-export COORDINATOR_URL="http://your-coordinator:8203"
+export COORDINATOR_URL="http://your-coordinator:8203"   # check-ports: ignore — coordinator port is correct; read only by dev/gpu/gpu_miner_host.py (scripts/services copy hardcodes 127.0.0.1:8203)
 export LOG_PATH="/var/log/aitbc/host_gpu_miner.log"
 ```
 
@@ -79,7 +79,7 @@ Neither file exists: `scripts/gpu/` holds only a README, and the miner is at
 
 ```python
 # In gpu_miner_host.py
-EDGE_CONFIG = {
+EDGE_CONFIG = {   # fictional — no such dict exists in gpu_miner_host.py
     "enable_edge_optimization": True,
     "geographic_region": "us-west",  # Your region
     "latency_target_ms": 50,
@@ -105,7 +105,7 @@ ollama list
 
 ```bash
 # Run GPU discovery
-python scripts/services/gpu/gpu_miner_host.py --test-discovery
+python scripts/services/gpu/~~gpu_miner_host.py --test-discovery~~ — no CLI parser exists; the flag is ignored and the miner main loop runs
 
 # Expected output:
 # Discovered GPU: RTX 3060 (Ampere)
@@ -118,7 +118,7 @@ python scripts/services/gpu/gpu_miner_host.py --test-discovery
 
 ```bash
 # Test geographic latency
-python scripts/services/gpu/gpu_miner_host.py --test-latency us-east
+python scripts/services/gpu/~~gpu_miner_host.py --test-latency us-east~~ — no such flag (no argparse in the script)
 
 # Expected output:
 # Latency to us-east: 45ms
@@ -129,7 +129,7 @@ python scripts/services/gpu/gpu_miner_host.py --test-latency us-east
 
 ```bash
 # Test ML inference
-python scripts/services/gpu/gpu_miner_host.py --test-inference
+python scripts/services/gpu/~~gpu_miner_host.py --test-inference~~ — no such flag
 
 # Expected output:
 # Model: llama2:7b
@@ -181,7 +181,7 @@ apt install nvidia-driver-470
 
 ```python
 # Optimize memory usage
-OLLAMA_CONFIG = {
+OLLAMA_CONFIG = {   # fictional — no such dict exists in gpu_miner_host.py
     "num_ctx": 1024,      # Reduced context for edge
     "num_batch": 256,     # Smaller batches
     "num_gpu": 1,         # Single GPU for edge
@@ -193,7 +193,7 @@ OLLAMA_CONFIG = {
 
 ```python
 # Optimize for edge latency
-NETWORK_CONFIG = {
+NETWORK_CONFIG = {   # fictional — no such dict exists in gpu_miner_host.py
     "use_websockets": True,
     "compression": True,
     "batch_size": 10,     # Smaller batches for lower latency
@@ -205,7 +205,7 @@ NETWORK_CONFIG = {
 
 ```python
 # Power optimization settings
-POWER_CONFIG = {
+POWER_CONFIG = {   # fictional — no such dict exists in gpu_miner_host.py
     "max_power_w": 200,   # Limit power consumption
     "thermal_target_c": 75,  # Target temperature
     "auto_shutdown": True    # Shutdown when idle
@@ -235,7 +235,7 @@ nvidia-smi --query-gpu=temperature.gpu,utilization.gpu,memory.used,memory.total 
 curl http://localhost:11434/api/tags
 
 # Miner health check
-python scripts/services/gpu/gpu_miner_host.py --health-check
+python scripts/services/gpu/~~gpu_miner_host.py --health-check~~ — no such flag; health checks are hardcoded into main()
 ```
 
 ## Security Considerations

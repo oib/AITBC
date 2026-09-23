@@ -7,14 +7,13 @@
 ```
 aitbc/
 ├── apps/                    # Core microservices and web applications
-├── assets/                  # Shared frontend assets (CSS, JS, fonts)
 ├── cli/                     # Command-line interface tools
 ├── contracts/               # Solidity smart contracts (standalone)
 ├── dev/                     # Development tools and configuration
 ├── docs/                    # Markdown documentation (10 numbered sections)
-├── extensions/              # Browser extensions (Firefox wallet)
 ├── packages/                # Shared libraries and SDKs
-├── plugins/                 # Plugin integrations (Ollama)
+├── plugins/                 # Plugin integrations (hermes, openclaw, whitelabel_demo — no Ollama plugin)
+# (no top-level assets/ or extensions/ directories exist)
 ├── scripts/                 # All scripts, organized by purpose
 │   ├── agent/               # Agent CLI helper scripts
 │   ├── benchmarking/        # Performance benchmarking
@@ -43,8 +42,7 @@ aitbc/
 ├── .secrets.baseline        # detect-secrets baseline
 ├── LICENSE                  # MIT License
 ├── pyproject.toml           # Python project configuration, incl. all pytest settings
-├── poetry.lock              # Poetry lock file
-├── uv.lock                  # uv lock file
+├── poetry.lock              # Poetry lock file (no uv.lock exists)
 └── README.md
 ```
 
@@ -120,16 +118,15 @@ Ethereum/AITBC trading exchange with order book, price ticker, and admin panel.
 
 ```
 apps/exchange/
-├── server.py                # WebSocket price server
-├── simple_exchange_api.py   # Exchange REST API (SQLite)
-├── simple_exchange_api_pg.py # Exchange REST API (PostgreSQL)
-├── exchange_api.py          # Full exchange API
-├── ethereum-wallet.py        # Ethereum on-ramp integration
-├── database.py              # Database layer
-├── build.py                 # Production build script
-├── index.html               # Exchange frontend
-├── admin.html               # Admin panel
-└── scripts/                 # PostgreSQL migration
+├── simple_exchange/         # The exchange package
+│   ├── main.py              # FastAPI app / catch-all proxy
+│   ├── server.py            # Server entrypoint
+│   ├── config.py            # Settings
+│   ├── db.py                # Database layer
+│   └── handlers/            # Route handlers
+├── exchange_wrapper.sh      # systemd wrapper
+├── aitbc-exchange.service   # unit file
+└── tests/                   # Exchange tests
 ```
 
 ### wallet
@@ -167,10 +164,12 @@ Zero-knowledge proof circuits for receipt verification.
 
 ```
 apps/zk-circuits/
-├── circuits/receipt.circom  # Circom circuit definition
-├── generate_proof.js        # Proof generation
-├── test.js                  # Circuit tests
-└── benchmark.js             # Performance benchmarks
+├── *.circom                 # Top-level circuit definitions (ml_inference_verification,
+│                            #  ml_training_verification, receipt_simple, …)
+├── *.zkey / *.r1cs / *_js/  # Compiled artifacts
+├── zk_cache.py              # Cached proof helpers
+├── compile_cached.py        # Compile wrapper
+└── package.json
 ```
 
 ### agent-coordinator
@@ -320,6 +319,11 @@ apps/whisper/
 └── models/                  # Whisper models
 ```
 
+### Other app directories
+
+Also present under `apps/` (not detailed above): `hermes_agent`, `ipfs`,
+`memory`, `monitoring-service`, `shared-core`, `shared-domain`.
+
 ---
 
 ## packages/ — Shared Libraries
@@ -399,13 +403,11 @@ Each application also maintains its own `tests/` or `apps/<app>/tests/` director
 
 ```
 website/
-├── index.html               # Landing page
-├── 404.html                 # Error page
-├── docs/                    # HTML documentation (per-component pages, CSS, JS)
-├── dashboards/              # Admin and miner dashboards
-├── BrowserWallet/           # Browser wallet interface
-├── extensions/              # Packaged browser extensions (.zip, .xpi)
-└── aitbc-proxy.conf         # Nginx proxy config for website
+├── index.html               # Landing page (flat static site — no subdirectories)
+├── *.html / *.js / *.css    # explorer, marketplace, exchange, dashboards,
+│                            #  shop/customer pages, load-structured-data.js, …
+├── config.js                # API base config
+└── README.md
 ```
 
 ---
@@ -417,8 +419,8 @@ website/
 | `cli/` | AITBC CLI package (~65 top-level command groups, CI/CD, man page) |
 | `mcp-server/` | MCP operation server for live node management |
 | `examples/` | Environment and nginx configuration templates |
-| `extensions/` | Browser wallet extension source code |
+
 | `contracts/` | Standalone Solidity contracts |
-| `systemd/` | Systemd unit files (deprecated; live unit files now live in `apps/<app>/` and `scripts/`) |
+
 | `docs/` | Markdown documentation |
-| `assets/` | Shared frontend assets |
+

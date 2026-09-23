@@ -5,7 +5,9 @@
 ### Pricing Tables
 
 - `price_history`: Historical price data for ML training
-- `price_forecast`: Predicted prices with confidence intervals
+- `price_forecasts`: Predicted prices with confidence intervals
+  (migration `a0288b36720c` dropped the obsolete `price_forecast` table;
+  the live model is `price_forecasts` in `trading/domain/pricing_models.py`)
 
 ### Auction Tables ~~(DEPRECATED v0.4.7)~~
 

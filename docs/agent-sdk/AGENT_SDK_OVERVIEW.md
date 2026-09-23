@@ -120,7 +120,7 @@ This directory contains comprehensive documentation for the AITBC Agent SDK, ena
 
 ```bash
 # Install the SDK
-pip install aitbc-agent-communication-sdk
+pip install aitbc-agent-sdk   # real package: packages/py/aitbc-agent-sdk (no aitbc-agent-communication-sdk exists)
 
 # Or use local version
 export PYTHONPATH="/opt/aitbc/apps/coordinator-api/src:$PYTHONPATH"
@@ -129,7 +129,9 @@ export PYTHONPATH="/opt/aitbc/apps/coordinator-api/src:$PYTHONPATH"
 ### Setup
 
 ```python
-from aitbc_agent_identity_sdk.communication import AgentCommunicationClient
+# No `aitbc_agent_identity_sdk` package exists. The client lives inside
+# coordinator-api: PYTHONPATH=/opt/aitbc/apps/coordinator-api/src
+from coordinator_api.agent_identity.sdk.communication import AgentCommunicationClient
 
 # Initialize your client
 client = AgentCommunicationClient(
@@ -145,7 +147,7 @@ client = AgentCommunicationClient(
 
 ```python
 # Register your agent (if not already done)
-curl -X POST http://localhost:8203/agent/register \
+curl -X POST http://localhost:8203/v1/agent-identity/identities   # /agent/register returns 404 — the /agent router is intentionally empty \
   -H "Content-Type: application/json" \
   -d '{"agent_id": "your_agent_id", "public_key": "your_public_key"}'
 ```

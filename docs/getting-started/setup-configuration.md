@@ -6,9 +6,9 @@
 ## Development Mode
 
 ```bash
-cd /opt/aitbc/apps/coordinator-api/src
-source ../.venv/bin/activate
-python -m uvicorn coordinator_api.main:app --host 0.0.0.0 --port 8203
+cd /opt/aitbc
+source venv/bin/activate   # the single shared venv — no per-app .venv exists
+python -m uvicorn coordinator_api.main:app --host 0.0.0.0 --port 8203     --app-dir apps/coordinator-api/src
 ```
 
 ## Runtime Directories

@@ -21,16 +21,16 @@ The Governance Service can be configured via environment variables, configuratio
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| GOVERNANCE_PORT | Service port | 8105 | No |
-| GOVERNANCE_HOST | Service host | 0.0.0.0 | No |
+| GOVERNANCE_BIND_PORT | Service port | 8105 | No |
+| GOVERNANCE_BIND_HOST | Bind host | 127.0.0.1 (unit default) | No |
 | LOG_LEVEL | Logging level (DEBUG/INFO/WARNING/ERROR) | INFO | No |
 
 ### Blockchain Configuration
 
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
-| BLOCKCHAIN_RPC_URL | Blockchain RPC endpoint | http://localhost:8202 | No |
-| CHAIN_ID | Chain identifier | ait-hub.aitbc.bubuit.net | No |
+| GOVERNANCE_BLOCKCHAIN_RPC_URL | Blockchain RPC endpoint | http://localhost:8202 | No |
+| GOVERNANCE_DEFAULT_CHAIN_ID | Chain identifier | ait-hub.aitbc.bubuit.net | No |
 
 ## Configuration Files
 
@@ -48,20 +48,17 @@ sqlalchemy.url = sqlite:////var/lib/aitbc/data/governance_service.db
 # sqlalchemy.url = postgresql://aitbc_governance:password@localhost:5432/aitbc_governance
 ```
 
-### ~/.aitbc/config.toml
+### CLI config — `~/.aitbc.yaml`
 
-Location: User's home directory
+No `config.toml` exists. The CLI reads `~/.aitbc.yaml`, `./.aitbc.yaml`,
+or the file given by `AITBC_CONFIG_FILE` — a flat YAML map, e.g.:
 
-**CLI Configuration:**
-
-```toml
-[governance]
-service_url = "http://localhost:8105"
-
-[blockchain]
-rpc_url = "http://localhost:8202"
-chain_id = "ait-hub.aitbc.bubuit.net"
+```yaml
+governance_service_url: http://localhost:8105
+blockchain_rpc_url: http://localhost:8202
 ```
+
+Credentials live in `~/.aitbc/credentials.env`.
 
 ## Database Configuration — sqlalchemy.url = postgresql://aitbc_governance:password@localhost:5432/aitbc_governance
 
@@ -121,7 +118,7 @@ sqlalchemy.url = postgresql://aitbc_governance:your_password@localhost:5432/aitb
 **Environment Variable:**
 
 ```bash
-export GOVERNANCE_PORT=8105
+export GOVERNANCE_BIND_PORT=8105
 ```
 
 **Or modify main.py:**
@@ -137,7 +134,7 @@ if __name__ == "__main__":
 **Environment Variable:**
 
 ```bash
-export GOVERNANCE_HOST=0.0.0.0
+export GOVERNANCE_BIND_HOST=0.0.0.0
 ```
 
 ### Logging Configuration
@@ -171,16 +168,16 @@ After=network.target
 Type=simple
 User=aitbc
 WorkingDirectory=/opt/aitbc/apps/governance
-Environment="PATH=/opt/aitbc/venv/bin"
-Environment="DB_TYPE=postgresql"
-Environment="DB_HOST=localhost"
-Environment="DB_PORT=5432"
-Environment="DB_NAME=aitbc_governance"
-Environment="DB_USER=aitbc_governance"
-Environment="DB_PASS=your_password"
+EnvironmentFile=/etc/aitbc/%N.env
+# PYTHONPATH is mandatory — the package lives under src/:
+Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/governance/src"
+Environment="GOVERNANCE_BIND_HOST=127.0.0.1"
 ExecStart=/opt/aitbc/venv/bin/python -m governance_service.main
 Restart=always
 RestartSec=10
+
+See the checked-in unit `apps/governance/aitbc-governance.service` for the
+full v0.5.0 hardening block.
 
 [Install]
 WantedBy=multi-user.target
@@ -204,7 +201,7 @@ Location: `/etc/nginx/sites-available/governance`
 ```nginx
 server {
     listen 80;
-    server_name governance.aitbc.bubuit.net;
+    server_name governance.example.net;  # no governance.* vhost exists — public access is via hub.aitbc.bubuit.net / api-gateway
 
     location / {
         proxy_pass http://localhost:8105;
@@ -350,5 +347,5 @@ curl http://localhost:8105/health
 ## References
 
 - Service README: `/opt/aitbc/apps/governance/README.md`
-- Alembic Configuration: `/opt/aitbc/apps/governance/alembic/alembic.ini`
+- Alembic Configuration: `/opt/aitbc/apps/governance/alembic.ini`
 - Systemd Service: `/etc/systemd/system/aitbc-governance.service`

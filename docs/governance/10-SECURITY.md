@@ -8,29 +8,11 @@ This document covers security considerations for the Governance Service, includi
 
 ### Service-to-Service Authentication
 
-API endpoints require API key authentication for service-to-service communication.
-
-**Implementation:**
-
-```python
-# In main.py
-from fastapi import Header, HTTPException
-
-async def verify_api_key(x_api_key: str = Header(...)):
-    if x_api_key != os.getenv("API_KEY"):
-        raise HTTPException(status_code=403, detail="Invalid API key")
-    return x_api_key
-
-@app.get("/v1/governance/proposals", dependencies=[Depends(verify_api_key)])
-async def get_proposals():
-    ...
-```
-
-**Configuration:**
-
-```bash
-export API_KEY=your_secure_api_key
-```
+The governance service itself has **no** API-key middleware — there is no
+`verify_api_key` dependency or `API_KEY` env var in `apps/governance/src`.
+`X-API-Key` gating is implemented on blockchain-node `/rpc/governance/*`
+(`routers/staking.py`), a different service; external authorization is
+expected to happen at the api-gateway.
 
 ### Wallet-Based Authentication
 
@@ -61,22 +43,16 @@ def sign_message(private_key, message):
 
 User roles determine access levels:
 
-| Role | Permissions |
-|------|-------------|
-| admin | Full access to all operations |
-| voter | Can vote on proposals |
-| proposer | Can create proposals |
-| viewer | Read-only access |
+| Role | Notes |
+|------|-------|
+| member | Default role |
+| delegate | May act on delegated voting power |
+| council | Council member |
+| admin | Administrative role |
 
-**Implementation:**
-
-```python
-# In governance_service.py
-async def check_permission(user_id: str, required_role: str):
-    profile = await self.get_profile_by_user_id(user_id)
-    if not profile or profile.role != required_role:
-        raise PermissionError("Insufficient permissions")
-```
+These are the `GovernanceRole` enum values in `domain/governance.py`. There
+is **no** `check_permission`/RBAC enforcement in the service — the roles are
+stored metadata only; route handlers take no permission dependency.
 
 ### Token-Based Authorization
 
@@ -130,8 +106,7 @@ server {
 
 ```bash
 DB_PASS=your_secure_password
-API_KEY=your_secure_api_key
-PRIVATE_KEY=0x...
+PRIVATE_KEY=0x...   # never commit — wallets live under ~/.aitbc
 ```
 
 ## Smart Contract Security
@@ -234,24 +209,9 @@ function createProposal(
 
 ### API Rate Limiting
 
-**Implementation:**
-
-```python
-from slowapi import Limiter
-from slowapi.util import get_remote_address
-
-limiter = Limiter(key_func=get_remote_address)
-
-@app.get("/v1/governance/proposals")
-@limiter.limit("100/minute")
-async def get_proposals():
-    ...
-```
-
-**Limits:**
-
-- 100 requests per minute per IP
-- 1000 requests per hour per IP
+The governance service has **no** rate-limit middleware — no `slowapi`/
+`Limiter` exists in `apps/governance/src`. Rate limiting lives in the
+api-gateway (`apps/api-gateway`).
 
 ### Smart Contract Gas Limits
 

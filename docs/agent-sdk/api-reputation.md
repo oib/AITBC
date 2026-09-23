@@ -11,7 +11,7 @@
 http://localhost:8202  # Blockchain RPC
 ```
 
-## GET /rpc/messaging/agents/{agent_id}/reputation
+## GET /rpc/contracts/messaging/agents/{agent_id}/reputation
 
 Get reputation information for an agent.
 
@@ -22,7 +22,7 @@ Get reputation information for an agent.
 ### Request
 
 ```bash
-curl "http://localhost:8202/rpc/messaging/agents/agent_001/reputation"
+curl "http://localhost:8202/rpc/contracts/messaging/agents/agent_001/reputation"
 ```
 
 ### Response

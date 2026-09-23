@@ -35,8 +35,8 @@ This document defines the infrastructure requirements, service configuration, an
 | Marketplace | 8102 | Service marketplace | Required |
 | Exchange | 8106 | Trading platform | Required |
 | Agent Coordinator | 8107 | Agent management | Required |
-| PostgreSQL | 5432 | Database | Required |
-| Redis | 6379 | Cache | Required |
+| PostgreSQL | 5432 | Database | Required — **not actually required for tests**: `requires_postgres`/`requires_redis` markers auto-skip, and `tests/conftest.py` provides fakeredis fixtures; coordinator defaults to SQLite |
+| Redis | 6379 | Cache | Required — **not actually required for tests**: `requires_postgres`/`requires_redis` markers auto-skip, and `tests/conftest.py` provides fakeredis fixtures; coordinator defaults to SQLite |
 
 ## Service Orchestration (Systemd)
 
@@ -94,13 +94,13 @@ BLOCKCHAIN_DATA_DIR=/tmp/blockchain-test
 
 # Wallet
 WALLET_DAEMON_URL=http://localhost:8108
-WALLET_DATA_DIR=/tmp/wallet-test
+WALLET_DIR=/tmp/wallet-test   # real var name (wallet_app/main.py:91); AITBC_WALLET_DIR also works
 
 # Marketplace
 MARKETPLACE_URL=http://localhost:8102
 
 # Database
-POSTGRES_URL=postgresql://aitbc:test@localhost:5432/aitbc_test
+# POSTGRES_URL is not read anywhere — real E2E vars are BLOCKCHAIN_URL/COORDINATOR_URL/MARKETPLACE_URL/E2E_*/JWT_SECRET (tests/e2e/conftest.py)
 REDIS_URL=redis://localhost:6379/0
 ```
 

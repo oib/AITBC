@@ -1,5 +1,11 @@
 # Hardhat Version Investigation
 
+> **Historical record.** This investigation predates the Hardhat v3
+> migration — `contracts/package.json` now declares `hardhat ^3.12.0`
+> (not `^2.22.0`), and the `aitbc-token/` project described below does not
+> exist in the repository. Do not treat "Current State" sections as current.
+
+
 **Level**: Technical
 **Prerequisites**: Understanding of Hardhat and package management
 **Last Updated**: 2026-05-22

@@ -67,7 +67,7 @@ Monitor commands are grounded in `cli/aitbc_cli/commands/monitor.py`; explorer c
 
 ### Step 1: Run the live dashboard
 
-`aitbc monitor dashboard` renders a `rich` dashboard that clears and redraws. Options: `--refresh` (seconds, default `5`), `--duration` (seconds, `0` = indefinite). It fetches `/api/v1/dashboard` from the coordinator and prints overall status, per-service status, and health percentage. Press Ctrl+C to exit.
+`aitbc monitor dashboard` renders a `rich` dashboard that clears and redraws. Options: `--refresh` (seconds, default `5`), `--duration` (seconds, `0` = indefinite). It fetches `/v1/monitoring/dashboard` from the coordinator and prints overall status, per-service status, and health percentage. Press Ctrl+C to exit.
 
 ```bash
 aitbc monitor dashboard --refresh 5 --duration 60
