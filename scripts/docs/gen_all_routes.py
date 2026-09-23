@@ -1,43 +1,36 @@
 #!/usr/bin/env python3
-"""Generate docs/reference/all-routes.md from live service OpenAPI specs.
+"""Generate consolidated route docs from live service OpenAPI specs.
 
-Fetches /openapi.json from every reachable service on a node and renders a
-consolidated Markdown route reference. Run once per node:
+Fetches /openapi.json from each listed service on the node where it runs and
+renders a Markdown route table. The service inventory is deliberately NOT in
+the repo — pass it per run:
 
-    python3 scripts/docs/gen_all_routes.py --node hub   > /tmp/routes-hub.md
-    python3 scripts/docs/gen_all_routes.py --node node2 > /tmp/routes-node2.md
+    python3 scripts/docs/gen_all_routes.py \
+        --node <node-name> \
+        --services "api-gateway:8201,coordinator-api:8203,marketplace:8102,..."
 
-Then concatenate the outputs (plus the static header) into
-docs/reference/all-routes.md. Services that are unreachable are listed under
-"unreachable services" rather than silently dropped.
+    # or via env
+    AITBC_ROUTE_SERVICES="api-gateway:8201,..." python3 ... --node <name>
+
+Unreachable services are listed under "unreachable services" rather than
+silently dropped.
 """
 
 import argparse
 import json
+import os
 import sys
 import urllib.request
 
-FLEET = {
-    "hub": [
-        ("api-gateway", 8201),
-        ("blockchain-rpc", 8202),
-        ("coordinator-api", 8203),
-        ("explorer", 8100),
-        ("marketplace", 8102),
-        ("trading", 8104),
-        ("governance", 8105),
-        ("exchange", 8106),
-        ("agent-coordinator", 8107),
-        ("wallet", 8108),
-        ("pool-hub", 8210),
-    ],
-    "node2": [
-        ("gpu", 8101),
-        ("edge-api", 8111),
-        ("ffmpeg", 8230),
-        ("hermes", 8270),
-    ],
-}
+
+def parse_services(raw: str) -> list[tuple[str, int]]:
+    services = []
+    for item in raw.split(","):
+        name, _, port = item.strip().partition(":")
+        if not name or not port:
+            raise SystemExit(f"bad --services entry {item!r} (expected name:port)")
+        services.append((name, int(port)))
+    return services
 
 
 def fetch_openapi(port: int, timeout: float = 5.0) -> dict | None:
@@ -67,13 +60,20 @@ def render_service(name: str, port: int, spec: dict) -> list[str]:
 
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
-    parser.add_argument("--node", required=True, choices=sorted(FLEET), help="fleet node whose localhost services to scan")
+    parser.add_argument("--node", required=True, help="label for the node being scanned (heading text only)")
+    parser.add_argument(
+        "--services",
+        default=os.environ.get("AITBC_ROUTE_SERVICES", ""),
+        help="comma-separated name:port inventory, or set AITBC_ROUTE_SERVICES",
+    )
     args = parser.parse_args()
+    if not args.services:
+        parser.error("--services or AITBC_ROUTE_SERVICES is required")
 
     print(f"## Routes on {args.node}")
     print()
     unreachable = []
-    for name, port in FLEET[args.node]:
+    for name, port in parse_services(args.services):
         spec = fetch_openapi(port)
         if spec is None:
             unreachable.append(f"{name} (`:{port}`)")
