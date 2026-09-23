@@ -37,7 +37,7 @@ def aitbc_energy_floor(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Compute the on-chain energy floor for given rental terms.."""
+    """Compute the energy floor for given rental terms (EVM or native rail).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -156,7 +156,7 @@ def aitbc_energy_provider_profile(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Read a registered energy profile from the IEnergyPricing contract.."""
+    """Read a registered energy profile (EVM contract or native rail).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
@@ -191,7 +191,7 @@ def aitbc_energy_provider_rate(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Read or publish the AIT/EUR energy rate.."""
+    """Read or publish the AIT/EUR energy rate (EVM contract or native rail).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"publish": "publish", "json_output": "json-output"},
@@ -255,7 +255,7 @@ def aitbc_energy_provider_register(
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Register a GPU energy profile on the IEnergyPricing contract.."""
+    """Register a GPU energy profile (EVM contract or native rail).."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={"json_output": "json-output"},
