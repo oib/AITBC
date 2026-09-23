@@ -3398,7 +3398,7 @@
             }
           },
           "404": {
-            "description": "Not Found",
+            "description": "native energy tables not provisioned on this coordinator",
             "content": {
               "application/json": {
                 "schema": {
