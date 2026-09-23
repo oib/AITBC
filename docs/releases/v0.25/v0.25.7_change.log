@@ -93,7 +93,7 @@ Fixes during live validation
   registered values were TDP readings and must be re-registered with the
   card's real TBP where they differ.
 
-- New No electricity tariff — pass --eur-per-kwh, set ENERGY_EUR_PER_KWH, or use --region closes the shop-side pricing loop: it probes
+- New `aitbc energy suggest` closes the shop-side pricing loop: it probes
   the node (nvidia-smi power.limit for real GPU TBP, lscpu for the CPU
   model), resolves watts via the new aitbc/marketplace/hardware_catalog.py
   tables (GPU TBP, CPU sustained watts, the value-model compute
@@ -104,6 +104,13 @@ Fixes during live validation
   ready-to-run register/pricing commands. --register submits the
   registration transaction. New env keys SHOP_REGION and
   ENERGY_EUR_PER_KWH pin a shop's location/tariff once.
+
+- hub coordinator.db (live): node2-rtx4060ti switched to whole-PC billing
+  (tbp_watts 165 -> 384: 165W GPU TBP + 120W 5950X + 60W platform, /0.9 PSU
+  efficiency), revision 2; native AIT/EUR rate republished 1.5 -> 4.0
+  (v28) to match the EUR 0.25 reference; marketplace offer gpu_af4c86ae
+  repriced 0.05 -> 1.0 AIT/h. Verified floor: 0.4608 AIT/h = the real
+  EUR 0.115/h electricity cost.
 
 Live validation (2026-09-11)
 ----------------------------
