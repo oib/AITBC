@@ -245,9 +245,12 @@ Implementation:
 
 ## 📞 Security Team Contacts
 
-- **Security Lead**: security@aitbc.net
-- **Incident Response**: security-alerts@aitbc.net
-- **Compliance Officer**: compliance@aitbc.net
+- **Security reports**: [GitHub private advisories](https://github.com/oib/AITBC/security)
+- **Issues**: [github.com/oib/AITBC/issues](https://github.com/oib/AITBC/issues)
+
+> The `security@aitbc.net`, `security-alerts@aitbc.net`, and
+> `compliance@aitbc.net` mailboxes do not exist — `aitbc.net` is not an
+> AITBC domain.
 
 ---
 

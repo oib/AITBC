@@ -248,9 +248,11 @@ There is no Kubernetes NetworkPolicy. Access control is (see [Network Policy](..
 
 ### Emergency Contacts
 
-- Security Team: security@aitbc.io
-- On-call Engineer: +1-555-SECURITY
-- Incident Commander: incident@aitbc.io
+- Security reports: [GitHub private advisories](https://github.com/oib/AITBC/security)
+- Issues: [github.com/oib/AITBC/issues](https://github.com/oib/AITBC/issues)
+
+> The `security@aitbc.io` / `incident@aitbc.io` mailboxes and the
+> `+1-555-SECURITY` hotline are placeholders — none exist.
 
 ## Compliance
 
@@ -300,4 +302,4 @@ There is no Kubernetes NetworkPolicy. Access control is (see [Network Policy](..
 
 This document is updated regularly. Last updated: 2024-12-22
 
-For questions or concerns, contact the security team at security@aitbc.io
+For questions or concerns, open an issue at https://github.com/oib/AITBC/issues (the `security@aitbc.io` mailbox does not exist).

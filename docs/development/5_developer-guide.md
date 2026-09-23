@@ -286,7 +286,6 @@ def test_create_feature_invalid():
 
 ## Getting Help
 
-- **Documentation**: [https://docs.aitbc.bubuit.net](https://docs.aitbc.bubuit.net)
-- **Discord**: [Join our server](https://discord.gg/aitbc)
-- **Email**: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)
+- **Documentation**: `docs/` in this repository (no `docs.aitbc.bubuit.net` site exists)
 - **Issues**: [Report on GitHub](https://github.com/oib/AITBC/issues)
+- **Email**: [aitbc@bubuit.net](mailto:aitbc@bubuit.net) (operator domain)

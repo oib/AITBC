@@ -101,8 +101,11 @@ Please read and follow our [Code of Conduct](https://github.com/oib/AITBC/blob/m
 
 ## Getting Help
 
-- Discord: https://discord.gg/aitbc
-- Email: dev@aitbc.io
-- Documentation: https://docs.aitbc.io
+- Issues: https://github.com/oib/AITBC/issues
+- Documentation: `docs/` in this repository
+
+> There is no public Discord server or `aitbc.io` domain — the previously
+> listed `discord.gg/aitbc`, `dev@aitbc.io`, and `docs.aitbc.io` do not
+> exist.
 
 Thank you for contributing! 🎉

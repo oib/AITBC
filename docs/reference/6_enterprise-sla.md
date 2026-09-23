@@ -222,16 +222,17 @@ This document outlines the Service Level Agreement (SLA) for enterprise integrat
 
 ### Support
 
-- **Enterprise Support**: enterprise@aitbc.io
-- **Technical Support**: support@aitbc.io
-- **Security Issues**: security@aitbc.io
-- **Emergency Hotline**: +1-555-SECURITY
+> **Placeholder contacts.** No `aitbc.io` mailboxes or phone hotline exist —
+> `enterprise@`, `support@`, `security@`, `account@`, `partners@`, and
+> `billing@aitbc.io` are placeholders from the original SLA template.
+> Real support channel: [GitHub issues](https://github.com/oib/AITBC/issues);
+> security reports: [private advisories](https://github.com/oib/AITBC/security).
 
 ### Account Management
 
-- **Enterprise Customers**: account@aitbc.io
-- **Partners**: partners@aitbc.io
-- **Billing**: billing@aitbc.io
+- **Enterprise Customers**: see the support note above
+- **Partners**: see the support note above
+- **Billing**: see the support note above
 
 ## Definitions
 
