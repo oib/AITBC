@@ -96,6 +96,16 @@ jobs:
       - name: Governance tests
         run: make test-governance
 
+      # Suites that sat collectable-but-unrun in testpaths for a release cycle:
+      # exchange matching, gateway retries, wallet, marketplace, trading,
+      # agent-coordinator payout authority, security guards, core, property.
+      - name: Critical service tests
+        run: make test-critical
+
+      # Fails when a testpaths entry runs in no gate — see test_suites.py.
+      - name: Test suite parity
+        run: make test-suite-parity
+
       - name: CLI tests
         env:
           WALLET_URL: http://127.0.0.1:1
