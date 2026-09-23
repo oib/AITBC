@@ -231,8 +231,8 @@ class RPCBlockchainService(BlockchainService):
             NetworkError: If RPC call fails
         """
         try:
-            data = self.client.post("/rpc/sendTx", json=tx_data)
-            tx_hash = data.get("hash") or data.get("tx_hash")
+            data = self.client.post("/rpc/transaction", json=tx_data)
+            tx_hash = data.get("transaction_hash") or data.get("hash") or data.get("tx_hash")
             if not tx_hash:
                 raise ValueError("Transaction hash not found in response")
             logger.info("Transaction sent successfully: %s", tx_hash)

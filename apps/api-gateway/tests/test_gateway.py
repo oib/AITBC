@@ -77,3 +77,27 @@ def test_unknown_route_falls_back_to_coordinator(client):
     response = client.get("/definitely-not-a-registered-prefix/xyz")
 
     assert response.status_code != 404
+
+
+def test_escrow_prefix_forwards_to_rpc_escrow(client, monkeypatch):
+    """`/v1/escrow/X` must forward to `<rpc>/escrow/X`, not `<rpc>/X`.
+
+    The generic prefix-strip drops `v1/escrow`; without the rewrite entry the
+    registered prefix could never reach the node's `/rpc/escrow/*` routes.
+    """
+    import httpx
+
+    captured: dict[str, str] = {}
+
+    class FakeClient:
+        async def post(self, url, **kwargs):
+            captured["url"] = url
+            return httpx.Response(200, json={"ok": True})
+
+    # Patch the app the client actually serves — the module-level `app` name can
+    # go stale when test_rate_limiting reloads api_gateway.main.
+    monkeypatch.setattr(client.app.state, "http_client", FakeClient())
+    response = client.post("/v1/escrow/create", json={})
+
+    assert response.status_code == 200
+    assert captured["url"].endswith("/rpc/escrow/create")

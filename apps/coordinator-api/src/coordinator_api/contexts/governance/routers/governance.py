@@ -15,6 +15,7 @@ from aitbc.aitbc_logging import get_logger
 from aitbc.rate_limiting import rate_limit
 
 from ..domain.governance import GovernanceProfile, Proposal, TransparencyReport, Vote, VoteType
+from ..domain.slash_appeal import SlashAppeal
 from ....storage import get_session
 from ..services.governance_service import GovernanceService
 
@@ -45,6 +46,14 @@ class ProposalCreateRequest(BaseModel):
 class VoteRequest(BaseModel):
     vote_type: VoteType
     reason: str | None = None
+
+
+class SlashAppealRequest(BaseModel):
+    bond_id: str
+    reason: str = ""
+    evidence: list[str] = Field(default_factory=list)
+    provider_id: str = ""
+    slash_event_id: str = ""
 
 
 @router.post("/profiles", response_model=GovernanceProfile)
@@ -176,6 +185,38 @@ async def generate_transparency_report(
     try:
         report = await service.generate_transparency_report(period)
         return report  # type: ignore[no-any-return]
+    except Exception as e:
+        logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
+@router.post("/slash-appeals", status_code=201)
+@rate_limit(rate=60, per=60)
+async def submit_slash_appeal(
+    request: Request,
+    appeal_request: SlashAppealRequest,
+    session: Annotated[Session, Depends(get_session)],
+) -> dict[str, Any]:
+    """Submit an appeal against a bond slashing decision"""
+    try:
+        appeal = SlashAppeal(
+            bond_id=appeal_request.bond_id,
+            provider_id=appeal_request.provider_id,
+            slash_event_id=appeal_request.slash_event_id,
+            reason=appeal_request.reason,
+            evidence=appeal_request.evidence,
+        )
+        session.add(appeal)
+        session.commit()
+        session.refresh(appeal)
+        return {
+            "id": appeal.id,
+            "bond_id": appeal.bond_id,
+            "provider_id": appeal.provider_id,
+            "status": appeal.status,
+            "created_at": appeal.created_at.isoformat() + "Z" if appeal.created_at else None,
+        }
     except Exception as e:
         logger.exception("Unhandled exception")
 
