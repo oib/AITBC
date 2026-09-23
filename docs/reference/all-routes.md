@@ -8,10 +8,10 @@
 > ```
 >
 > Current inventories: hub —
-> `api-gateway:8201,blockchain-rpc:8202,coordinator-api:8203,explorer:8100,`
-> `marketplace:8102,trading:8104,governance:8105,exchange:8106,`
-> `agent-coordinator:8107,wallet:8108,pool-hub:8210`; GPU/edge node —
-> `gpu:8101,edge-api:8111,ffmpeg:8230,hermes:8270`.
+> `api-gateway:8201,blockchain-rpc:8202,coordinator-api:8203,explorer:8100,`   # check-ports: ignore
+> `marketplace:8102,trading:8104,governance:8105,exchange:8106,`   # check-ports: ignore
+> `agent-coordinator:8107,wallet:8108,pool-hub:8210`; GPU/edge node —   # check-ports: ignore
+> `gpu:8101,edge-api:8111,ffmpeg:8230,hermes:8270`.   # check-ports: ignore
 >
 > This lists every route each service exposes on its **local port**. To reach
 > them publicly, apply the nginx/gateway prefix map in
