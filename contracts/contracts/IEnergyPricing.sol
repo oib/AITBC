@@ -13,7 +13,7 @@ interface IEnergyPricing {
         uint256 revision;
         string modelId;
         address provider;
-        uint256 tdpWatts;
+        uint256 tbpWatts;
         uint256 eurPerKwh;
     }
 
@@ -54,7 +54,7 @@ interface IEnergyPricing {
         string calldata resourceId,
         address provider,
         string calldata modelId,
-        uint256 tdpWatts,
+        uint256 tbpWatts,
         uint256 eurPerKwh
     ) external;
 

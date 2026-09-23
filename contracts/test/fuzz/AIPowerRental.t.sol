@@ -302,7 +302,7 @@ contract AIPowerRentalOverflowTest is Test {
             "gpu-extreme",
             provider,
             "extreme-gpu",
-            50000, // MAX_TDP_WATTS
+            50000, // MAX_TBP_WATTS
             1_000_000 * 1e18 // MAX_EUR_PER_KWH_WHOLE * SCALE
         );
         vm.prank(publisher);

@@ -32,7 +32,7 @@ contract DynamicPricingEnergyTest is Test {
         assertEq(profile.revision, 1);
         assertEq(profile.modelId, "rtx-4060-ti");
         assertEq(profile.provider, provider);
-        assertEq(profile.tdpWatts, 165);
+        assertEq(profile.tbpWatts, 165);
         assertEq(profile.eurPerKwh, 300_000_000_000_000_000);
     }
 

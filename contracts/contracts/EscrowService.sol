@@ -122,7 +122,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
         uint256 gpuCount;
         uint256 duration;
         uint256 settlementUnitScale;
-        uint256 tdpWatts;
+        uint256 tbpWatts;
         uint256 eurPerKwh;
         uint256 aitPerEur;
         uint256 rateVersion;
@@ -531,7 +531,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             gpuCount: _gpuCount,
             duration: _duration,
             settlementUnitScale: _settlementUnitScale,
-            tdpWatts: profile.tdpWatts,
+            tbpWatts: profile.tbpWatts,
             eurPerKwh: profile.eurPerKwh,
             aitPerEur: rate.aitPerEur,
             rateVersion: rate.version,
@@ -1170,7 +1170,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             uint256 gpuCount,
             uint256 duration,
             uint256 settlementUnitScale,
-            uint256 tdpWatts,
+            uint256 tbpWatts,
             uint256 eurPerKwh,
             uint256 aitPerEur,
             uint256 rateVersion,
@@ -1186,7 +1186,7 @@ contract EscrowService is Ownable, ReentrancyGuard, Pausable {
             t.gpuCount,
             t.duration,
             t.settlementUnitScale,
-            t.tdpWatts,
+            t.tbpWatts,
             t.eurPerKwh,
             t.aitPerEur,
             t.rateVersion,

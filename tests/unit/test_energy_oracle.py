@@ -46,7 +46,7 @@ def test_get_profile() -> None:
     assert profile.resource_id == "gpu-001"
     assert profile.provider == "0xProvider"
     assert profile.model_id == "rtx-4060-ti"
-    assert profile.tdp_watts == 165
+    assert profile.tbp_watts == 165
     assert profile.eur_per_kwh_scaled == 300_000_000_000_000_000
     assert profile.enabled is True
     assert profile.revision == 3
@@ -122,7 +122,7 @@ def test_get_pinned_inputs_uses_same_block() -> None:
     profile, rate, block_number, block_hash = oracle.get_pinned_inputs("gpu-001")
     assert block_number == 12345678
     assert block_hash == "0xblockhash"
-    assert profile.tdp_watts == 165
+    assert profile.tbp_watts == 165
     assert rate.version == 7
     # Both calls should use the resolved block number, not None.
     calls = rpc.call_contract.call_args_list

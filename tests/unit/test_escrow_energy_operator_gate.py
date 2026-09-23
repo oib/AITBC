@@ -4,7 +4,7 @@
 quote with ``evaluate_quote(quote, profile=quote.to_profile(),
 rate=quote.to_rate())``. Those two arguments are derived from the quote itself,
 so every profile/rate cross-check inside ``evaluate_quote`` is tautologically
-satisfied and the energy floor is whatever ``tdp_watts`` and
+satisfied and the energy floor is whatever ``tbp_watts`` and
 ``eur_per_kwh_scaled`` the caller embedded. Unlike the coordinator's funding
 path, this route had no operator-signature check at all.
 
@@ -64,7 +64,7 @@ def unsigned_quote() -> EnergyQuote:
         resource_id="gpu-rtx4060ti-node2-001",
         provider="0x" + "a" * 40,
         model_id="rtx-4060-ti",
-        tdp_watts=165,
+        tbp_watts=165,
         eur_per_kwh_scaled=TARIFF_SCALED,
         enabled=True,
         revision=3,
@@ -148,7 +148,7 @@ def test_tampering_after_signing_is_rejected(monkeypatch, unsigned_quote) -> Non
     """Lowering the energy floor after signing invalidates the signature.
 
     This is the attack the gate exists to stop: the signature covers the
-    digest, and the digest covers ``tdp_watts`` and ``eur_per_kwh_scaled``.
+    digest, and the digest covers ``tbp_watts`` and ``eur_per_kwh_scaled``.
     """
     monkeypatch.setenv("ENERGY_OPERATOR_ADDRESS", derive_ethereum_address(OPERATOR_KEY))
     signed = _sign(unsigned_quote, OPERATOR_KEY)
@@ -156,7 +156,7 @@ def test_tampering_after_signing_is_rejected(monkeypatch, unsigned_quote) -> Non
 
     from dataclasses import replace
 
-    tampered = replace(signed, tdp_watts=1, net_energy_floor_units=1, principal_units=1)
+    tampered = replace(signed, tbp_watts=1, net_energy_floor_units=1, principal_units=1)
     assert tampered.digest_sha256() != signed.digest_sha256()
     assert _gate_rejects(tampered)
 

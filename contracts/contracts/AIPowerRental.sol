@@ -71,7 +71,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
         string modelId;
         uint256 gpuCount;
         uint256 settlementUnitScale;
-        uint256 tdpWatts;
+        uint256 tbpWatts;
         uint256 eurPerKwh;
         uint256 aitPerEur;
         uint256 rateVersion;
@@ -378,7 +378,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
             modelId: _modelId,
             gpuCount: _gpuCount,
             settlementUnitScale: _settlementUnitScale,
-            tdpWatts: profile.tdpWatts,
+            tbpWatts: profile.tbpWatts,
             eurPerKwh: profile.eurPerKwh,
             aitPerEur: rate.aitPerEur,
             rateVersion: rate.version,
@@ -479,7 +479,7 @@ contract AIPowerRental is Ownable, ReentrancyGuard, Pausable {
 
             // Snapshot the funding-time energy terms. The price and platform fee
             // were frozen at creation and are not changed here.
-            terms.tdpWatts = profile.tdpWatts;
+            terms.tbpWatts = profile.tbpWatts;
             terms.eurPerKwh = profile.eurPerKwh;
             terms.aitPerEur = rate.aitPerEur;
             terms.rateVersion = rate.version;

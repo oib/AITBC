@@ -68,7 +68,7 @@ aitbc energy provider register \
   --resource-id gpu-rtx4090-01 \
   --provider-address 0xYourProvider \
   --model-id rtx-4090 \
-  --tdp-watts 450 \
+  --tbp-watts 450 \
   --eur-per-kwh 0.32 \
   --wallet provider
 ```
@@ -108,7 +108,7 @@ verified live on the fleet.
 
 ## Verification
 
-- `provider profile --resource-id …` returns the registered TDP and tariff.
+- `provider profile --resource-id …` returns the registered TBP and tariff.
 - `floor` returns a numeric floor that scales with `--duration-seconds`.
 
 ## Troubleshooting
