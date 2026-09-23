@@ -31,10 +31,12 @@ def aitbc_http_call(
     params: Annotated[str | None, Field(description="JSON object of query parameters")],
     body: Annotated[str | None, Field(description="JSON object request body")],
     url: Annotated[str | None, Field(description="Override the service base URL")],
-    api_key: Annotated[str | None, Field(description="API key (X-API-Key) header")],
+    api_key: Annotated[str | None, Field(description="API key header (X-API-Key; X-Trading-Api-Key with --auth trading)")],
     auth_kind: Annotated[
-        Literal["none", "miner", "rpc"] | None,
-        Field(description="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key)"),
+        Literal["none", "miner", "rpc", "trading"] | None,
+        Field(
+            description="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key, 'trading' = trading service key)"
+        ),
     ],
     timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,

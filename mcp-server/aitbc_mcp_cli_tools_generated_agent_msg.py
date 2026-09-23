@@ -186,7 +186,7 @@ def aitbc_agent_msg_request_coins(
     ],
     amount: Annotated[
         int | None,
-        Field(description="Amount of AIT to request (first request auto-grants 100; subsequent require manual approval)"),
+        Field(description="Amount of AIT to request (first request auto-grants 3; subsequent require manual approval)"),
     ],
     sender: Annotated[str | None, Field(description="Sender agent ID (your agent ID for the WebSocket connection)")],
     coordinator_url: Annotated[

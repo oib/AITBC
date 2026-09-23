@@ -31,7 +31,7 @@ def aitbc_performance_benchmark(
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
 ) -> str:
-    """Run a performance benchmark against the blockchain RPC.."""
+    """Benchmark the blockchain RPC: measure read latency and report live chain stats.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
@@ -51,7 +51,6 @@ def aitbc_performance_benchmark(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_performance_optimize(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -59,11 +58,7 @@ def aitbc_performance_optimize(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Optimize system performance through the blockchain RPC.."""
-    options: dict[str, Any] = _collect_options(
-        locals(),
-        flags={},
-        values={"rpc_url": "rpc-url"},
-    )
+    options: dict[str, Any] = {}
     args = None
     command = _build_aitbc_cli_command(
         "performance",
@@ -98,7 +93,6 @@ def aitbc_performance_optimize(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_performance_tune(
-    rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -106,11 +100,7 @@ def aitbc_performance_tune(
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
     """Tune system parameters through the blockchain RPC.."""
-    options: dict[str, Any] = _collect_options(
-        locals(),
-        flags={},
-        values={"rpc_url": "rpc-url"},
-    )
+    options: dict[str, Any] = {}
     args = None
     command = _build_aitbc_cli_command(
         "performance",
