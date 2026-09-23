@@ -460,7 +460,7 @@ class SlackIntegration:
                         {
                             "type": "button",
                             "text": {"type": "plain_text", "text": "View Offer"},
-                            "url": f"https://hub.aitbc.bubuit.net/marketplace/offer/{offer['id']}"
+                            "url": f"https://hub.example.net/marketplace/offer/{offer['id']}"
                         }
                     ]
                 }

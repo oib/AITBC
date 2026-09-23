@@ -29,7 +29,7 @@ breadcrumb: Home > Scenarios > Hub↔Customer Node End-to-End
 
 This is the product path: a customer CLI on the hub (or a follower pointed at the hub) pays a shop miner for an Ollama job; escrow releases on-chain; the shop republishes a GPU software offer.
 
-Hub RPC/coordinator/exchange often bind `127.0.0.1`. Public access is nginx (`https://hub.aitbc.bubuit.net/…`) or an SSH tunnel — not raw LAN `:8202`. The CLI should use configured hub URLs (`HUB_DISCOVERY_URL` / `HUB_P2P_HOST` / `HUB_RPC_URL`), not hardcoded localhost (A6).
+Hub RPC/coordinator/exchange often bind `127.0.0.1`. Public access is nginx (`https://hub.example.net/…`) or an SSH tunnel — not raw LAN `:8202`. The CLI should use configured hub URLs (`HUB_DISCOVERY_URL` / `HUB_P2P_HOST` / `HUB_RPC_URL`), not hardcoded localhost (A6).
 
 ### Use Case
 
@@ -77,14 +77,14 @@ aitbc version
 aitbc explorer chain-head
 ```
 
-**Expected output (live):** hostname `hub.aitbc.bubuit.net`, CLI `0.10.18`, a chain height that the shop will match.
+**Expected output (live):** hostname `hub.example.net`, CLI `0.10.18`, a chain height that the shop will match.
 
 ### Step 2: Know the bind / public path
 
 Hub `8202/8203/8106/8107` are typically `127.0.0.1`. Options:
 
 1. Run customer CLI **on the hub** (this play).
-2. SSH tunnel: `ssh -L 8202:localhost:8202 -L 8203:localhost:8203 -L 8106:localhost:8106 user@hub.aitbc.bubuit.net`
+2. SSH tunnel: `ssh -L 8202:localhost:8202 -L 8203:localhost:8203 -L 8106:localhost:8106 user@hub.example.net`
 3. nginx public URLs for marketplace / miner callbacks.
 
 Do not assume shop can `curl` hub LAN ports.
@@ -93,7 +93,7 @@ Do not assume shop can `curl` hub LAN ports.
 
 ```bash
 aitbc config show
-aitbc config set --key coordinator_api_url --value http://hub.aitbc.bubuit.net/c/v1
+aitbc config set --key coordinator_api_url --value http://hub.example.net/c/v1
 ```
 
 On a follower, set hub discovery in `/etc/aitbc/node.env` (`HUB_DISCOVERY_URL`, `HUB_RPC_URL`, `HUB_P2P_HOST`). `aitbc config set` currently knows `coordinator_api_url`, `agent_coordinator_url`, `api_key`, `timeout` — other URLs come from those env files.

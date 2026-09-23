@@ -87,7 +87,7 @@ def _with_scheme(url: str) -> str:
 
     The previous form tested only for ``http://`` before prepending ``http://``, so an
     ``https://`` peer fell through the strip and came out as
-    ``http://https://hub.aitbc.bubuit.net`` — a hostname that cannot resolve. RPC genesis
+    ``http://https://hub.example.net`` — a hostname that cannot resolve. RPC genesis
     bootstrap was therefore dead against any TLS-fronted hub, and the failure read as DNS
     ("Name or service not known") rather than as a malformed URL.
 

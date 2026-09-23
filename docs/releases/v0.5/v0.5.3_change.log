@@ -221,7 +221,7 @@ No consolidation needed. Each file serves a distinct purpose.
 ### 7. Website Hardcoded URLs
 
 **Files affected:**
-- `website/exchange.js` (lines 3, 20) — hardcoded `http://hub.aitbc.bubuit.net`
+- `website/exchange.js` (lines 3, 20) — hardcoded `http://hub.example.net`
 - `website/explorer.js` (line 110) — hardcoded `ait-hub.aitbc.bubuit.net`
 - `website/marketplace.js` (lines 296, 356) — hardcoded `ait-hub.aitbc.bubuit.net`
 
@@ -231,7 +231,7 @@ No consolidation needed. Each file serves a distinct purpose.
 - Fetch chain_id from `/api/chains` endpoint where possible
 
 **DONE (Agent B, v0.5.3):**
-- ✅ `website/exchange.js` lines 3, 20: `http://hub.aitbc.bubuit.net/v1/...` → `/v1/...` (relative). Verified no absolute URLs remain in any website JS.
+- ✅ `website/exchange.js` lines 3, 20: `http://hub.example.net/v1/...` → `/v1/...` (relative). Verified no absolute URLs remain in any website JS.
 - ✅ Created `website/config.js` exposing `window.AITBC_CONFIG = { chainId, explorerApiUrl }` (frozen).
 - ✅ `website/explorer.js` line 110: `currentChain = 'ait-hub.aitbc.bubuit.net'` → `window.AITBC_CONFIG.chainId`; `EXPLORER_API_URL` now reads from config too.
 - ✅ `website/marketplace.js` lines 296, 356: hardcoded `chain_id=ait-hub.aitbc.bubuit.net` → `${window.AITBC_CONFIG.chainId}`.
@@ -450,7 +450,7 @@ grep -rn "0.0.0.0" /opt/aitbc/apps/*/src --include="*.py" 2>/dev/null | \
   grep -i "uvicorn.run\|app.run\|host=" | wc -l
 
 # P1.7: No hardcoded absolute URLs
-grep -q "http://hub.aitbc.bubuit.net" /opt/aitbc/website/*.js 2>/dev/null && \
+grep -q "http://hub.example.net" /opt/aitbc/website/*.js 2>/dev/null && \
   echo "FAIL" || echo "OK"
 
 # P1.8: mutants gitignored

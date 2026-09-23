@@ -43,7 +43,7 @@ def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
     rpc_url = getattr(config, "blockchain_rpc_url", DEFAULT_RPC_URL) or DEFAULT_RPC_URL
     if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
         hub_rpc = (
-            getattr(config, "hub_blockchain_rpc_url", None) or f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            getattr(config, "hub_blockchain_rpc_url", None) or f"https://{config.hub_discovery_url or 'hub.example.net'}"
         )
         if hub_rpc:
             hub_rpc = hub_rpc.rstrip("/")

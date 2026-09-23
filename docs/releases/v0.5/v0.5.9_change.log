@@ -69,7 +69,7 @@ The Hermes service has been reduced to a thin REST wrapper: 7 of its 11 endpoint
 | `HERMES_BIND_HOST` (127.0.0.1) | Hermes service bind | Remove | Pending §8 |
 | `HERMES_DB_PATH` | Shared by both services | Stays — now Agent Coordinator's DB | Pending §8 rename to `AGENT_DB_PATH` |
 | `HERMES_AGENT_ID` | Hermes service identity | Stays — used by Agent Coordinator handlers | Pending §8 rename to `AGENT_ID` |
-| `HUB_HERMES_URL` | CLI coin-requests execute (hub) | Update to point at Agent Coordinator | Done (§4c) — default now `https://hub.aitbc.bubuit.net/api/v1/agent` with `HUB_AGENT_URL` fallback |
+| `HUB_HERMES_URL` | CLI coin-requests execute (hub) | Update to point at Agent Coordinator | Done (§4c) — default now `https://hub.example.net/api/v1/agent` with `HUB_AGENT_URL` fallback |
 
 ---
 
@@ -184,10 +184,10 @@ with the same logic: API key auth (`COORDINATOR_API_KEY` or `SECRET_KEY`), balan
 
 **4b. `hermes status/stop/train` (currently 8203/subprocess):** Done via §9 (training commands deleted).
 
-**4c. `coin-requests execute` hub URL:** Done. Changed `HUB_HERMES_URL` default from `https://hub.aitbc.bubuit.net/api/v1/hermes` to `https://hub.aitbc.bubuit.net/api/v1/agent` (with `HUB_AGENT_URL` env var fallback for forward compatibility).
+**4c. `coin-requests execute` hub URL:** Done. Changed `HUB_HERMES_URL` default from `https://hub.example.net/api/v1/hermes` to `https://hub.example.net/api/v1/agent` (with `HUB_AGENT_URL` env var fallback for forward compatibility).
 
 **File updated:**
-- `cli/aitbc_cli/commands/coin_requests.py` — line 191: `hub_url = os.getenv("HUB_HERMES_URL", os.getenv("HUB_AGENT_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))`
+- `cli/aitbc_cli/commands/coin_requests.py` — line 191: `hub_url = os.getenv("HUB_HERMES_URL", os.getenv("HUB_AGENT_URL", "https://hub.example.net/api/v1/agent"))`
 
 **4d. Config defaults:** PENDING. `hermes_service_url` (default 8103) and `coordinator_url` (deprecated 8203) still in `cli/aitbc_cli/config.py`.
 
@@ -286,7 +286,7 @@ systemctl daemon-reload
 - `AGENT_DB_PATH` (fallback `HERMES_DB_PATH`, default `/var/lib/aitbc/data/agent_coin_requests.db`)
 - `AGENT_ID` (fallback `HERMES_AGENT_ID`, default `hub-coordinator`)
 - `AGENT_COORDINATOR_URL` (fallback `HERMES_COORDINATOR_URL`, default `http://localhost:8107`)
-- `HUB_AGENT_URL` (fallback `HUB_HERMES_URL`, default `https://hub.aitbc.bubuit.net/api/v1/agent`)
+- `HUB_AGENT_URL` (fallback `HUB_HERMES_URL`, default `https://hub.example.net/api/v1/agent`)
 - `HERMES_PORT` marked as deprecated in `aitbc/constants.py` (points to `AGENT_COORDINATOR_PORT`)
 - `HERMES_SERVICE_URL`, `HERMES_BIND_HOST` removed from examples (Hermes service deleted)
 
@@ -404,7 +404,7 @@ systemctl daemon-reload
 
 2. **TransactionService test:** `from aitbc.crypto import TransactionService` — imports OK from both Agent Coordinator and CLI contexts.
 
-3. **CLI coin-requests execute hub URL:** `HUB_HERMES_URL` default now `https://hub.aitbc.bubuit.net/api/v1/agent` (with `HUB_AGENT_URL` fallback).
+3. **CLI coin-requests execute hub URL:** `HUB_HERMES_URL` default now `https://hub.example.net/api/v1/agent` (with `HUB_AGENT_URL` fallback).
 
 4. **Hermes service removal:** `ls apps/hermes/` — directory not found. `rg -l "aitbc-hermes\.service" scripts/ apps/` — no matches.
 

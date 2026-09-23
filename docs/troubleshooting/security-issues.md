@@ -143,7 +143,7 @@ psql -d aitbc -c "SELECT version();" >> database-info.txt
 ### Support Channels
 
 - **GitHub Issues**: https://github.com/oib/AITBC/issues
-- **API reference**: https://hub.aitbc.bubuit.net/api/docs (live openapi)
+- **API reference**: https://hub.example.net/api/docs (live openapi)
 - **Community**: none — `community.aitbc.dev` does not exist; use GitHub issues
 
 ### Debug Mode

@@ -122,7 +122,7 @@ ENABLE_BLOCK_PRODUCTION=true               # false on followers
 BLOCK_TIME_SECONDS=10                      # default block interval
 
 # Subscription (followers)
-DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net
+DEFAULT_PEER_RPC_URL=https://hub.example.net
 SUBSCRIPTION_ENABLED=true
 SUBSCRIPTION_TRANSPORT=websocket
 

@@ -26,7 +26,7 @@ aitbc wallet create --name <name> → aitbc wallet --wallet-name genesis send --
                                                            pool-hub    8210
 ```
 
-Public customer access to hub services is through nginx (`https://hub.aitbc.bubuit.net/...`) because the coordinator, exchange, and wallet daemon bind `127.0.0.1` by default. The shop miner daemon runs on the follower node and polls the hub coordinator; it is not a public service.
+Public customer access to hub services is through nginx (`https://hub.example.net/...`) because the coordinator, exchange, and wallet daemon bind `127.0.0.1` by default. The shop miner daemon runs on the follower node and polls the hub coordinator; it is not a public service.
 
 ## Step-by-step flow
 

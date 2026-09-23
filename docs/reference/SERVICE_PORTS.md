@@ -201,9 +201,9 @@ The historical port migrations (e.g. wallet `8015` â†’ `8108`, exchange `8001` â
 
 ```bash
 # Public services via nginx
-curl -s https://hub.aitbc.bubuit.net/api/health
-curl -s https://hub.aitbc.bubuit.net/rpc/info
-curl -s https://hub.aitbc.bubuit.net/c/health
+curl -s https://hub.example.net/api/health
+curl -s https://hub.example.net/rpc/info
+curl -s https://hub.example.net/c/health
 
 # Direct local checks
 curl -s http://localhost:8201/health  # API gateway

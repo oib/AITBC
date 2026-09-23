@@ -136,7 +136,7 @@ class TestPeerUrlScheme:
     """RPC genesis bootstrap was dead against any TLS-fronted hub (V23-60).
 
     The deployed follower logged `Trying to fetch genesis block from
-    http://https://hub.aitbc.bubuit.net` and failed with "Name or service not known". The
+    http://https://hub.example.net` and failed with "Name or service not known". The
     normalisation tested only for `http://` before prepending `http://`, so an `https://` URL
     fell through the strip and got a second scheme bolted on.
 
@@ -148,7 +148,7 @@ class TestPeerUrlScheme:
     def test_an_https_peer_is_left_alone(self) -> None:
         from aitbc_chain.consensus.poa import _with_scheme
 
-        assert _with_scheme("https://hub.aitbc.bubuit.net") == "https://hub.aitbc.bubuit.net"
+        assert _with_scheme("https://hub.example.net") == "https://hub.example.net"
 
     def test_an_http_peer_is_left_alone(self) -> None:
         from aitbc_chain.consensus.poa import _with_scheme

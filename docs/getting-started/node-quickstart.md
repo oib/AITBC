@@ -1,6 +1,6 @@
 # Node Quick Start: Join the network
 
-This guide shows how to set up a follower node to join the AITBC blockchain network on the open island at `hub.aitbc.bubuit.net`.
+This guide shows how to set up a follower node to join the AITBC blockchain network on the open island at `hub.example.net`.
 
 ## 1. Download Chain Configuration
 
@@ -8,13 +8,13 @@ Download the sanitized chain configuration and genesis from the hub, and issue y
 
 ```bash
 mkdir -p /etc/aitbc
-curl -fsS https://hub.aitbc.bubuit.net/agent/bootstrap.env \
+curl -fsS https://hub.example.net/agent/bootstrap.env \
   -o /etc/aitbc/blockchain.env
-curl -fsS https://hub.aitbc.bubuit.net/agent/genesis.json \
+curl -fsS https://hub.example.net/agent/genesis.json \
   -o /etc/aitbc/genesis.json
 
 # Issue a peer key bound to your node_id (choose a unique one; shown once):
-curl -fsS -X POST https://hub.aitbc.bubuit.net/rpc/join \
+curl -fsS -X POST https://hub.example.net/rpc/join \
   -H 'Content-Type: application/json' -d '{"node_id":"yournode.example.com"}'
 # → add the returned value: echo 'BLOCKCHAIN_RPC_API_KEY=<peer_key>' >> /etc/aitbc/node.env
 ```
@@ -39,7 +39,7 @@ Set `default_peer_rpc_url` to the hub's **base URL** (no `/rpc` suffix). The set
 
 ```bash
 cd /opt/aitbc
-./scripts/deployment/setup.sh --open-island https://hub.aitbc.bubuit.net --node-id yournode.example.com
+./scripts/deployment/setup.sh --open-island https://hub.example.net --node-id yournode.example.com
 ```
 
 ## 3. Start the Node
@@ -59,7 +59,7 @@ systemctl status aitbc-blockchain-node
 journalctl -u aitbc-blockchain-node -f | grep -iE 'subscribed|lease|websocket|Imported block'
 
 # Compare heights after a minute or two
-watch -n 5 'echo local=$(curl -s http://localhost:8202/rpc/head | jq .height) hub=$(curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height)'
+watch -n 5 'echo local=$(curl -s http://localhost:8202/rpc/head | jq .height) hub=$(curl -s https://hub.example.net/rpc/head | jq .height)'
 ```
 
 ## 5. Claim Your Welcome Grant

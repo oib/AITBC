@@ -173,7 +173,7 @@ Followers receive blocks from the hub via a **lease-based subscription system** 
 |----------|----------|---------|-------------|
 | `subscription_enabled` | No | `true` | Enable lease-based block subscription from hub (followers) |
 | `subscription_transport` | No | `websocket` | Transport for block push: `websocket`, `http`, or `redis` |
-| `default_peer_rpc_url` | Followers | - | Hub **base** URL (e.g., `https://hub.aitbc.bubuit.net`) |
+| `default_peer_rpc_url` | Followers | - | Hub **base** URL (e.g., `https://hub.example.net`) |
 
 **How it works:**
 
@@ -187,7 +187,7 @@ Followers receive blocks from the hub via a **lease-based subscription system** 
 ```bash
 NODE_ID=your-node-id
 BLOCKCHAIN_MODE=follower
-default_peer_rpc_url=https://hub.aitbc.bubuit.net
+default_peer_rpc_url=https://hub.example.net
 subscription_enabled=true
 subscription_transport=websocket
 ```
@@ -312,7 +312,7 @@ SYNC_REDIS_URL=redis://redis.example.com:6379
 sync_manager_enabled=true
 auto_sync_enabled=true
 auto_sync_threshold=10
-default_peer_rpc_url=https://hub.aitbc.bubuit.net
+default_peer_rpc_url=https://hub.example.net
 subscription_enabled=true
 subscription_transport=websocket
 
@@ -346,7 +346,7 @@ AITBC_NODE_METRICS_PORT=9009
 
 **Source:** Generated per island and distributed out of band. **Never published over HTTP.**
 
-Until v0.23 this file was served unauthenticated from `https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env`, and this page printed the hub's live values as an "example". Both are fixed (V23-58); if you deployed before that, rotate — see [Rotating these secrets](#rotating-these-secrets).
+Until v0.23 this file was served unauthenticated from `https://hub.example.net/agent/blockchain-secrets.env`, and this page printed the hub's live values as an "example". Both are fixed (V23-58); if you deployed before that, rotate — see [Rotating these secrets](#rotating-these-secrets).
 
 ### Authentication Secrets
 
@@ -513,7 +513,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 - `enable_block_production=false`
 - `block_production_chains=` (empty)
 - `subscription_enabled=true`
-- `default_peer_rpc_url=https://hub.aitbc.bubuit.net` (base URL, no `/rpc` suffix)
+- `default_peer_rpc_url=https://hub.example.net` (base URL, no `/rpc` suffix)
 - `auto_sync_enabled=true`
 - Does **not** run `aitbc-blockchain-p2p` (hub-only service)
 - Receives blocks via lease-based subscription over RPC (WebSocket push)
@@ -534,7 +534,7 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 ```bash
 # Enable auto-sync
 auto_sync_enabled=true
-default_peer_rpc_url=https://hub.aitbc.bubuit.net
+default_peer_rpc_url=https://hub.example.net
 ```
 
 ### Issue: Fork detection errors

@@ -148,7 +148,7 @@ Hermes agents can now perform on-chain operations via CLI commands:
 
 ### RPC Endpoints
 
-All blockchain integrations use hub RPC at `hub.aitbc.bubuit.net:8202`:
+All blockchain integrations use hub RPC at `hub.example.net:8202`:
 
 - `/rpc/staking/stake`, `/rpc/staking/unstake`, `/rpc/staking/{address}`
 - `/rpc/identity/register`, `/rpc/identity/{agent_id}`, `/rpc/identity/verify`
