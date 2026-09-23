@@ -94,7 +94,7 @@ def create(ctx, island_id, island_name, chain_id):
 @click.option("--island-id", "island_id", required=True, help="The Island id.")
 @click.option("--island-name", "island_name", required=True, help="The Island name.")
 @click.option("--chain-id", "chain_id", required=True, help="The Chain id.")
-@click.option("--hub", default="hub.example.net", help="Hub domain name to connect to")
+@click.option("--hub", default="hub.aitbc.bubuit.net", help="Hub domain name to connect to")
 @click.option("--is-hub", is_flag=True, help="Register this node as a hub for the island")
 @click.option("--rpc-url", default=None, help="RPC base URL for the join request (defaults to config.blockchain_rpc_url)")
 @click.pass_context
@@ -198,7 +198,7 @@ def hub():
 @click.option("--public-address", help="Public IP address")
 @click.option("--public-port", type=int, help="Public port")
 @click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
-@click.option("--hub-discovery-url", default="hub.example.net", help="DNS hub discovery URL")
+@click.option("--hub-discovery-url", default="hub.aitbc.bubuit.net", help="DNS hub discovery URL")
 @click.pass_context
 def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
     """Register this node as a hub."""
@@ -213,7 +213,7 @@ def register(ctx, public_address, public_port, redis_url, hub_discovery_url):
   aitbc node hub unregister --redis-url redis://localhost:6379"""
 )
 @click.option("--redis-url", default="redis://localhost:6379", help="Redis URL for persistence")
-@click.option("--hub-discovery-url", default="hub.example.net", help="DNS hub discovery URL")
+@click.option("--hub-discovery-url", default="hub.aitbc.bubuit.net", help="DNS hub discovery URL")
 @click.pass_context
 def unregister(ctx, redis_url, hub_discovery_url):
     """Unregister this node as a hub."""

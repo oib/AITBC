@@ -50,7 +50,7 @@ def _marketplace_base() -> str:
     url = os.environ.get("MARKETPLACE_SERVICE_URL", "").strip()
     if url and not url.startswith(("http://127.0.0.1", "http://localhost")):
         return url.rstrip("/")
-    hub = os.environ.get("HUB_DISCOVERY_URL", "hub.example.net").strip().rstrip("/")
+    hub = os.environ.get("HUB_DISCOVERY_URL", "hub.aitbc.bubuit.net").strip().rstrip("/")
     if not hub.startswith(("http://", "https://")):
         hub = f"https://{hub}"
     return hub

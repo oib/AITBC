@@ -254,7 +254,7 @@ def _hub_rpc_url() -> str:
     from ..config import get_config
 
     config = get_config()
-    hub = config.hub_discovery_url or "hub.example.net"
+    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
     if hub.startswith(("http://", "https://")):
         return hub.rstrip("/")
     return f"https://{hub}"
