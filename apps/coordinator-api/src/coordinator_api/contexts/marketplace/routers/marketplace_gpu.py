@@ -10,6 +10,7 @@ from uuid import uuid4
 from fastapi import APIRouter, Depends, HTTPException, Query
 from fastapi import status as http_status
 from pydantic import BaseModel, Field, field_validator
+from sqlalchemy.exc import OperationalError
 from sqlmodel import Session, col, func, select
 
 from aitbc.aitbc_logging import get_logger
@@ -1340,7 +1341,11 @@ async def get_native_energy_profile(
     resource_id: str, session: Annotated[Session, Depends(get_session)]
 ) -> dict[str, Any]:
     """Read the registered AIT-native energy profile for a resource."""
-    profile = session.get(NativeEnergyProfile, resource_id)
+    try:
+        profile = session.get(NativeEnergyProfile, resource_id)
+    except OperationalError:
+        # Follower coordinators can lack the native pricing tables entirely.
+        profile = None
     if profile is None:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=f"no energy profile for {resource_id}")
     return {
@@ -1359,7 +1364,10 @@ async def get_native_energy_profile(
 @router.get("/marketplace/native-energy/rate")
 async def get_native_energy_rate(session: Annotated[Session, Depends(get_session)]) -> dict[str, Any]:
     """Read the published global AIT/EUR rate for native energy quotes."""
-    rate = session.get(NativeEnergyRate, 1)
+    try:
+        rate = session.get(NativeEnergyRate, 1)
+    except OperationalError:
+        rate = None
     if rate is None:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail="no native energy rate configured")
     return {
@@ -1394,6 +1402,11 @@ async def get_native_energy_floor(
         )
     except EnergyOracleError as exc:
         raise HTTPException(status_code=http_status.HTTP_404_NOT_FOUND, detail=str(exc)) from exc
+    except OperationalError:
+        raise HTTPException(
+            status_code=http_status.HTTP_404_NOT_FOUND,
+            detail="native energy tables not provisioned on this coordinator",
+        ) from None
     return {
         "resource_id": resource_id,
         "gpu_count": gpu_count,
