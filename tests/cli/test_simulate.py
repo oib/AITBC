@@ -1,6 +1,6 @@
 """Tests for simulate CLI commands"""
 
-from unittest.mock import Mock, patch
+from unittest.mock import Mock
 
 import pytest
 from aitbc_cli.commands.simulate import simulate
