@@ -38,9 +38,14 @@ def _api_client(ctx, coordinator_url: str | None = None, timeout: int | None = N
     if not url:
         abort(ctx, "Coordinator URL not configured")
 
-    token = ctx.obj.get("api_key") or config.api_key or ""
+    token = ctx.obj.get("api_key") or ""
     if not token:
-        token = AuthManager().get_credential("client") or ""
+        ambient = config.api_key or ""
+        stored = AuthManager().get_credential("client") or ""
+        # Bond routes require an admin/client role, which only a JWT can carry:
+        # a non-JWT ambient key authenticates as the node's miner identity and
+        # would always be rejected, so the stored client credential wins.
+        token = ambient if _looks_like_jwt(ambient) else (stored or ambient)
 
     headers: dict[str, str] | None = None
     client_kwargs: dict[str, Any] = {"base_url": url, "timeout": timeout or config.timeout or 30, "headers": headers}
