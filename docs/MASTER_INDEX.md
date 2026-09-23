@@ -58,7 +58,7 @@ docs/
 ## Directory stats
 
 - **Top-level directories**: 32
-- **Markdown files under docs/**: 871
+- **Markdown files under docs/**: 872
 
 | Directory | Files | Description |
 |---|---|---|

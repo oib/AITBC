@@ -13,6 +13,13 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
+from apps.exchange.simple_exchange.db import to_ticks
+
+
+def _tk(value: str) -> int:
+    """Ticks for a decimal-string test value, mirroring handler writes."""
+    return to_ticks(Decimal(value))
+
 
 @pytest.fixture
 def temp_db(tmp_path):
@@ -43,7 +50,11 @@ def temp_db(tmp_path):
             status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             user_address TEXT,
-            tx_hash TEXT
+            tx_hash TEXT,
+            amount_ticks INTEGER,
+            price_ticks INTEGER,
+            filled_ticks INTEGER DEFAULT 0,
+            remaining_ticks INTEGER
         )
     """)
     cursor.execute("""
@@ -234,9 +245,10 @@ class TestB1OrderMatchingAtomicity:
         # Insert a SELL order
         conn = sqlite3.connect(temp_db)
         conn.execute(
-            "INSERT INTO orders (order_type, amount, price, total, filled, remaining, status, user_address) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("SELL", "10", "1.5", "15", "0", "10", "open", "0xseller"),
+            "INSERT INTO orders (order_type, amount, price, total, filled, remaining, status, user_address,"
+            " amount_ticks, price_ticks, filled_ticks, remaining_ticks) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("SELL", "10", "1.5", "15", "0", "10", "open", "0xseller", _tk("10"), _tk("1.5"), _tk("0"), _tk("10")),
         )
         conn.commit()
         conn.close()
@@ -261,8 +273,9 @@ class TestB1OrderMatchingAtomicity:
 
                 # Insert the buy order
                 cursor.execute(
-                    "INSERT INTO orders (order_type, amount, price, total, remaining, user_address) VALUES (?, ?, ?, ?, ?, ?)",
-                    ("BUY", "5", "1.5", "7.5", "5", "0xbuyer"),
+                    "INSERT INTO orders (order_type, amount, price, total, remaining, user_address,"
+                    " amount_ticks, price_ticks, remaining_ticks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                    ("BUY", "5", "1.5", "7.5", "5", "0xbuyer", _tk("5"), _tk("1.5"), _tk("5")),
                 )
                 buy_order["id"] = cursor.lastrowid
 
@@ -294,9 +307,10 @@ class TestB1OrderMatchingAtomicity:
         # Insert a SELL order for 10 units
         conn = sqlite3.connect(temp_db)
         conn.execute(
-            "INSERT INTO orders (order_type, amount, price, total, filled, remaining, status, user_address) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("SELL", "10", "1.0", "10", "0", "10", "open", "0xseller"),
+            "INSERT INTO orders (order_type, amount, price, total, filled, remaining, status, user_address,"
+            " amount_ticks, price_ticks, filled_ticks, remaining_ticks) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("SELL", "10", "1.0", "10", "0", "10", "open", "0xseller", _tk("10"), _tk("1.0"), _tk("0"), _tk("10")),
         )
         conn.commit()
         conn.close()
@@ -316,8 +330,9 @@ class TestB1OrderMatchingAtomicity:
             conn.execute("BEGIN IMMEDIATE")
             cursor = conn.cursor()
             cursor.execute(
-                "INSERT INTO orders (order_type, amount, price, total, remaining, user_address) VALUES (?, ?, ?, ?, ?, ?)",
-                ("BUY", "10", "1.0", "10", "10", "0xbuyer"),
+                "INSERT INTO orders (order_type, amount, price, total, remaining, user_address,"
+                " amount_ticks, price_ticks, remaining_ticks) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                ("BUY", "10", "1.0", "10", "10", "0xbuyer", _tk("10"), _tk("1.0"), _tk("10")),
             )
             buy_order["id"] = cursor.lastrowid
 
@@ -354,9 +369,10 @@ class TestB1OrderMatchingAtomicity:
         # Insert a SELL order
         conn = sqlite3.connect(temp_db)
         conn.execute(
-            "INSERT INTO orders (order_type, amount, price, total, filled, remaining, status, user_address) "
-            "VALUES (?, ?, ?, ?, ?, ?, ?, ?)",
-            ("SELL", "5", "2.0", "10", "0", "5", "open", "0xseller"),
+            "INSERT INTO orders (order_type, amount, price, total, filled, remaining, status, user_address,"
+            " amount_ticks, price_ticks, filled_ticks, remaining_ticks) "
+            "VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+            ("SELL", "5", "2.0", "10", "0", "5", "open", "0xseller", _tk("5"), _tk("2.0"), _tk("0"), _tk("5")),
         )
         conn.commit()
         conn.close()

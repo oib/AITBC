@@ -15,7 +15,7 @@ from datetime import UTC, datetime
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
-from ..db import get_db_path
+from ..db import get_db_path, to_ticks
 from .base import RPC_BASE_URL, RPC_TIMEOUT
 
 logger = get_logger(__name__)
@@ -73,12 +73,12 @@ class ExchangeMixin:
         try:
             cursor = conn.cursor()
 
-            # Get sell orders
+            # Get sell orders — order by integer ticks: TEXT '10' sorts below '2'.
             cursor.execute("""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
                 FROM orders
                 WHERE order_type = 'SELL' AND status = 'open'
-                ORDER BY price ASC
+                ORDER BY price_ticks ASC, id ASC
                 LIMIT 20
             """)
 
@@ -98,12 +98,12 @@ class ExchangeMixin:
                     }
                 )
 
-            # Get buy orders
+            # Get buy orders — integer ticks, then id for deterministic FIFO ties.
             cursor.execute("""
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at
                 FROM orders
                 WHERE order_type = 'BUY' AND status = 'open'
-                ORDER BY price DESC
+                ORDER BY price_ticks DESC, id ASC
                 LIMIT 20
             """)
 
@@ -176,6 +176,18 @@ class ExchangeMixin:
 
             total_dec = amount_dec * price_dec
 
+            # Fixed-point check: amount and price must be exactly representable
+            # at 8 decimal places, or the integer tick columns cannot be
+            # written and SQL matching would silently misorder this order.
+            # `total` (amount*price) may legitimately carry >8 decimals and
+            # stays TEXT-only — it never appears in a SQL predicate.
+            try:
+                amount_ticks = to_ticks(amount_dec)
+                price_ticks = to_ticks(price_dec)
+            except ValueError:
+                self.send_error(400, "Amount or price exceeds 8-decimal precision")  # type: ignore[attr-defined]
+                return
+
             # Orders used to be broadcast to the chain via POST /rpc/sendTx, but the
             # node removed that endpoint and its replacement (/rpc/transaction)
             # requires a wallet-signed transaction the exchange cannot produce for
@@ -190,13 +202,28 @@ class ExchangeMixin:
                 conn.execute("BEGIN IMMEDIATE")
                 cursor = conn.cursor()
 
-                # Store order in local database for orderbook (B2: store as TEXT)
+                # Store order in local database for orderbook (B2: TEXT for the
+                # exact display value; tick columns carry the same values as
+                # fixed-point integers for SQL comparison and ordering).
                 cursor.execute(
                     """
-                    INSERT INTO orders (order_type, amount, price, total, remaining, user_address, tx_hash)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO orders (order_type, amount, price, total, remaining, user_address, tx_hash,
+                                        amount_ticks, price_ticks, filled_ticks, remaining_ticks)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 """,
-                    (order_type, str(amount_dec), str(price_dec), str(total_dec), str(amount_dec), user_address, tx_hash),
+                    (
+                        order_type,
+                        str(amount_dec),
+                        str(price_dec),
+                        str(total_dec),
+                        str(amount_dec),
+                        user_address,
+                        tx_hash,
+                        amount_ticks,
+                        price_ticks,
+                        0,
+                        amount_ticks,
+                    ),
                 )
 
                 order_id = cursor.lastrowid
@@ -218,11 +245,14 @@ class ExchangeMixin:
 
             self.send_json_response(order)  # type: ignore[attr-defined]
 
-        except Exception as e:
-            # Blockchain is down — return an honest error, not fake supply numbers
+        except Exception:
+            # Blockchain is down — return an honest error, not fake supply
+            # numbers. The exception stays in the log; its text carries RPC
+            # URLs and internals that must not reach the caller.
+            logger.exception("Blockchain RPC unavailable")
             self.send_json_response(  # type: ignore[attr-defined]
                 {
-                    "error": f"Blockchain RPC unavailable: {e}",
+                    "error": "Blockchain RPC unavailable",
                     "source": "error",
                 },
                 status=503,
@@ -316,8 +346,9 @@ class ExchangeMixin:
                     "history": [],
                 }
             )
-        except Exception as e:
-            self.send_json_response({"success": False, "error": str(e)}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Exchange history request failed")
+            self.send_json_response({"success": False, "error": "Exchange history unavailable"}, status=500)  # type: ignore[attr-defined]
 
     def handle_exchange_price_json(self):
         """GET /exchange/price.json — return AIT price in USD, EUR, and ETH equivalent"""
@@ -347,8 +378,9 @@ class ExchangeMixin:
                 )
             else:
                 self.send_json_response({"error": "Price unavailable"}, status=503)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("AIT price fetch failed")
+            self.send_json_response({"error": "Price unavailable"}, status=503)  # type: ignore[attr-defined]
 
     def handle_wallet_balance(self):
         """Handle wallet balance request"""
@@ -432,8 +464,9 @@ class ExchangeMixin:
                         self.send_json_response({"error": "Wallet not found", "address": address}, status=404)  # type: ignore[attr-defined]
                 else:
                     self.send_json_response({"error": f"Wallet service error: {resp.status_code}"}, status=502)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"error": f"Wallet service unavailable: {e}"}, status=503)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Wallet service call failed")
+            self.send_json_response({"error": "Wallet service unavailable"}, status=503)  # type: ignore[attr-defined]
 
     def _match_orders_in_txn(self, cursor, order: dict) -> None:
         """Match a new order against existing open orders within an existing transaction.
@@ -454,20 +487,25 @@ class ExchangeMixin:
 
         new_type = order["order_type"]
         new_price = _to_decimal(order["price"])
+        new_price_ticks = to_ticks(new_price)
         new_remaining = _to_decimal(order["remaining"])
         new_id = order.get("id")
 
-        # Find matching orders (opposite side, price-compatible)
+        # Find matching orders (opposite side, price-compatible). Comparisons
+        # and ordering run on the integer tick columns — the TEXT price column
+        # compares lexically ('10' < '2') and must never appear in a predicate.
+        # id ASC is the deterministic tiebreak; created_at is second-granularity
+        # and ties on orders placed within the same second.
         if new_type == "BUY":
             # Match against SELL orders with price <= our buy price
             cursor.execute(
                 """
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash
                 FROM orders
-                WHERE order_type = 'SELL' AND status = 'open' AND price <= ?
-                ORDER BY price ASC, created_at ASC
+                WHERE order_type = 'SELL' AND status = 'open' AND price_ticks <= ?
+                ORDER BY price_ticks ASC, id ASC
                 """,
-                (str(new_price),),
+                (new_price_ticks,),
             )
         else:
             # Match against BUY orders with price >= our sell price
@@ -475,10 +513,10 @@ class ExchangeMixin:
                 """
                 SELECT id, order_type, amount, price, total, filled, remaining, status, created_at, user_address, tx_hash
                 FROM orders
-                WHERE order_type = 'BUY' AND status = 'open' AND price >= ?
-                ORDER BY price DESC, created_at ASC
+                WHERE order_type = 'BUY' AND status = 'open' AND price_ticks >= ?
+                ORDER BY price_ticks DESC, id ASC
                 """,
-                (str(new_price),),
+                (new_price_ticks,),
             )
 
         matching_orders = cursor.fetchall()
@@ -515,10 +553,18 @@ class ExchangeMixin:
 
             cursor.execute(
                 """
-                UPDATE orders SET filled = ?, remaining = ?, status = ?
+                UPDATE orders SET filled = ?, remaining = ?, status = ?,
+                    filled_ticks = ?, remaining_ticks = ?
                 WHERE id = ?
                 """,
-                (str(new_match_filled), str(new_match_remaining), new_match_status, match_id),
+                (
+                    str(new_match_filled),
+                    str(new_match_remaining),
+                    new_match_status,
+                    to_ticks(new_match_filled),
+                    to_ticks(new_match_remaining),
+                    match_id,
+                ),
             )
 
             # Update the new order (in-memory)
@@ -533,10 +579,18 @@ class ExchangeMixin:
         if new_id:
             cursor.execute(
                 """
-                UPDATE orders SET filled = ?, remaining = ?, status = ?
+                UPDATE orders SET filled = ?, remaining = ?, status = ?,
+                    filled_ticks = ?, remaining_ticks = ?
                 WHERE id = ?
                 """,
-                (str(order.get("filled", 0)), str(order.get("remaining", 0)), order.get("status", "open"), new_id),
+                (
+                    str(order.get("filled", 0)),
+                    str(order.get("remaining", 0)),
+                    order.get("status", "open"),
+                    to_ticks(_to_decimal(order.get("filled", 0))),
+                    to_ticks(_to_decimal(order.get("remaining", 0))),
+                    new_id,
+                ),
             )
 
     def match_orders(self, order: dict) -> None:
