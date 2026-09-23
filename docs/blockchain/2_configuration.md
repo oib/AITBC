@@ -82,7 +82,7 @@ bulk catch-up is automatic.
 ```bash
 # Follower (node.env)
 BLOCKCHAIN_MODE=follower
-DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net   # hub base URL, no /rpc suffix
+DEFAULT_PEER_RPC_URL=https://hub.example.net   # hub base URL, no /rpc suffix
 SUBSCRIPTION_ENABLED=true
 SUBSCRIPTION_TRANSPORT=websocket                    # websocket | http | redis
 BLOCKCHAIN_RPC_API_KEY=<key>                        # must be in the hub's

@@ -8,7 +8,7 @@ Deployed in the AITBC Incus container:
 
 | | |
 |---|---|
-| **Domain** | hub.aitbc.bubuit.net |
+| **Domain** | hub.example.net |
 | **Nginx Config** | `/etc/nginx/sites-enabled/aitbc` |
 
 ## File Structure
@@ -77,21 +77,21 @@ see `docs/ops/peer-keys.md`.
 
 ```bash
 # Test public bootstrap + join
-curl -s https://hub.aitbc.bubuit.net/agent/bootstrap.env
-curl -s https://hub.aitbc.bubuit.net/agent/genesis.json | jq .
-curl -s -X POST https://hub.aitbc.bubuit.net/rpc/join \
+curl -s https://hub.example.net/agent/bootstrap.env
+curl -s https://hub.example.net/agent/genesis.json | jq .
+curl -s -X POST https://hub.example.net/rpc/join \
   -H 'Content-Type: application/json' -d '{"node_id":"test-node-1"}'
 
 # Test network discovery
-curl -s https://hub.aitbc.bubuit.net/rpc/network-info | jq .
+curl -s https://hub.example.net/rpc/network-info | jq .
 
 # Test health check
-curl -s https://hub.aitbc.bubuit.net/health
+curl -s https://hub.example.net/health
 
 # Real env and secrets files must still return 404 — serving them would leak
 # cluster credentials or consensus keys (V23-58)
-curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain.env
-curl -s -o /dev/null -w '%{http_code}\n' https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.example.net/agent/blockchain.env
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.example.net/agent/blockchain-secrets.env
 ```
 
 ## Security Notes

@@ -129,7 +129,7 @@
 
 ### 9. Security: Private Keys Moved from blockchain.env to node.env
 
-**Problem:** The published `blockchain.env` (served at `https://hub.aitbc.bubuit.net/agent/blockchain.env`) contained `PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `INFURA_API_KEY`, `ETH_RPC_URL`, and bridge contract addresses — all sensitive hub-only credentials exposed publicly.
+**Problem:** The published `blockchain.env` (served at `https://hub.example.net/agent/blockchain.env`) contained `PRIVATE_KEY`, `GENESIS_WALLET_PRIVATE_KEY`, `INFURA_API_KEY`, `ETH_RPC_URL`, and bridge contract addresses — all sensitive hub-only credentials exposed publicly.
 
 **Fix:**
 - Moved all Ethereum/bridge secrets from `blockchain.env` to `node.env` (private, hub-only):
@@ -250,7 +250,7 @@ All endpoints verified working through nginx reverse proxy with correct WebSocke
 
 ## Post-Deployment Fixes (Shop Node — 2026-06-20)
 
-After the v0.5.4 pull, the shop node (`<node2>`, follower of `hub.aitbc.bubuit.net`) was found in an incorrect state: `MARKET_ROLE=customer` instead of `shop`, 10 hub-only services running, backup timer not installed, and several pre-existing code bugs. The following fixes were applied:
+After the v0.5.4 pull, the shop node (`<node2>`, follower of `hub.example.net`) was found in an incorrect state: `MARKET_ROLE=customer` instead of `shop`, 10 hub-only services running, backup timer not installed, and several pre-existing code bugs. The following fixes were applied:
 
 ### 15. Shop Node Role Configuration
 
@@ -483,7 +483,7 @@ Integrated into `_periodic_sync_task` in `main.py`:
 
 **Problem:** `aitbc-blockchain-sync-wrapper.py` defaulted `AITBC_SYNC_SOURCE` to `http://127.0.0.1:8202` (the local RPC), not the hub. The sync service was syncing the node with itself — completely useless.
 
-**Fix:** Changed the default to fall back to `default_peer_rpc_url` from the environment (set to `https://hub.aitbc.bubuit.net` in `blockchain.env`). The sync service now pulls blocks from the hub.
+**Fix:** Changed the default to fall back to `default_peer_rpc_url` from the environment (set to `https://hub.example.net` in `blockchain.env`). The sync service now pulls blocks from the hub.
 
 **Files changed:** `apps/blockchain-node/aitbc-blockchain-sync-wrapper.py`
 

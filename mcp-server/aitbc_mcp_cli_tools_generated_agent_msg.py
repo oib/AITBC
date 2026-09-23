@@ -56,7 +56,7 @@ def aitbc_agent_msg_ping(
     coordinator_url: Annotated[
         str | None,
         Field(
-            description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.aitbc.bubuit.net/agent (default: from config agent_coordinator_url)"
+            description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)"
         ),
     ],
     timeout_opt: Annotated[int | None, Field(description="Seconds to wait for a PONG reply")],
@@ -192,7 +192,7 @@ def aitbc_agent_msg_request_coins(
     coordinator_url: Annotated[
         str | None,
         Field(
-            description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.aitbc.bubuit.net/agent (default: from config agent_coordinator_url)"
+            description="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)"
         ),
     ],
     password: Annotated[str | None, Field(description="Password for --wallet when it also authenticates the stream")],

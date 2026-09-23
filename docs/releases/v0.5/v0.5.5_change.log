@@ -36,7 +36,7 @@
 
 **Public URL:**
 ```
-wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=<follower_id>
+wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=<follower_id>
 ```
 
 **Files changed:**
@@ -441,8 +441,8 @@ Also fixed `setup.sh` profile detection to compose profile names from both axes 
 ### PING/PONG End-to-End
 
 ```
-$ aitbc hermes ping --coordinator-url https://hub.aitbc.bubuit.net/agent
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+$ aitbc hermes ping --coordinator-url https://hub.example.net/agent
+Connecting to wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG from hub-coordinator

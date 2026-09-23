@@ -703,7 +703,7 @@ ensure_gossip_defaults() {
             if [ -n "$hub_url" ] && [ "$hub_url" != "http://127.0.0.1:8202" ]; then
                 hub_url="$(printf '%s' "$hub_url" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
             else
-                hub_url="wss://hub.aitbc.bubuit.net/rpc/gossip/ws"
+                hub_url="wss://hub.example.net/rpc/gossip/ws"
             fi
             echo "GOSSIP_WEBSOCKET_URL=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
             log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"

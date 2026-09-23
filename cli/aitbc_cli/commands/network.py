@@ -254,7 +254,7 @@ def _hub_rpc_url() -> str:
     from ..config import get_config
 
     config = get_config()
-    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    hub = config.hub_discovery_url or "hub.example.net"
     if hub.startswith(("http://", "https://")):
         return hub.rstrip("/")
     return f"https://{hub}"
@@ -583,7 +583,7 @@ def _derive_sync_urls(url: str) -> dict[str, str]:
     name="set-sync-source",
     epilog="""Examples:
 
-  aitbc network set-sync-source --url https://hub.aitbc.bubuit.net
+  aitbc network set-sync-source --url https://hub.example.net
 
   aitbc network set-sync-source --url https://node2.example.net --env-file /etc/aitbc/aitbc-blockchain-node.env --no-restart""",
 )

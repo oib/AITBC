@@ -106,7 +106,7 @@ _aitbc_completion() {
             COMPREPLY=($(compgen -W "your_api_key_here" -- "${cur}"))
             ;;
         --url)
-            COMPREPLY=($(compgen -W "http://127.0.0.1:8203 https://hub.aitbc.bubuit.net" -- "${cur}"))
+            COMPREPLY=($(compgen -W "http://127.0.0.1:8203 https://hub.example.net" -- "${cur}"))
             ;;
     esac
 

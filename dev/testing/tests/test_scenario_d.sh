@@ -7,14 +7,14 @@ if [ -f "/etc/aitbc/.env.scenario" ]; then
     echo "✅ Loaded scenario configuration from /etc/aitbc/.env.scenario"
 else
     # Fallback to defaults
-    export HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+    export HUB_URL="${HUB_URL:-https://hub.example.net}"
     # No default for the shop node: it used to name one island's host, which
     # was wrong everywhere else and published that host in a public repo.
     export SHOP_URL="${SHOP_URL:-${AITBC_SHOP_URL:?set AITBC_SHOP_URL to the shop node URL, or provide /etc/aitbc/.env.scenario}}"
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
-HUB_URL="https://hub.aitbc.bubuit.net"
+HUB_URL="https://hub.example.net"
 BLOCKCHAIN_RPC="http://localhost:8202"
 # Scenario D: Multi-Node Connectivity Test (Updated for v0.4.x)
 

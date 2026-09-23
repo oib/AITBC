@@ -53,20 +53,20 @@ Follower                              Hub
 
 ```bash
 # From a follower node, ping the hub's coordinator
-aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.example.net/agent
 
 # With custom agent/sender IDs
 aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender my-follower \
-  --coordinator-url https://hub.aitbc.bubuit.net/agent \
+  --coordinator-url https://hub.example.net/agent \
   --timeout 10
 ```
 
 **Expected output:**
 
 ```
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+Connecting to wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG from hub-coordinator
@@ -79,7 +79,7 @@ PONG received from hub-coordinator
 |--------|---------|-------------|
 | `--agent` | `hub-coordinator` | Recipient agent ID to ping |
 | `--sender` | `follower` | Your agent ID (self-declared) |
-| `--coordinator-url` | from config | Agent Coordinator URL (direct: `http://localhost:8107`, via nginx: `https://hub.aitbc.bubuit.net/agent`) |
+| `--coordinator-url` | from config | Agent Coordinator URL (direct: `http://localhost:8107`, via nginx: `https://hub.example.net/agent`) |
 | `--timeout` | `10` | Seconds to wait for PONG reply |
 
 ### Using Python (minimal example)
@@ -88,7 +88,7 @@ PONG received from hub-coordinator
 import asyncio, json, websockets
 
 async def ping():
-    uri = "wss://hub.aitbc.bubuit.net/agent/messages/stream?agent_id=my-follower"
+    uri = "wss://hub.example.net/agent/messages/stream?agent_id=my-follower"
     async with websockets.connect(uri) as ws:
         await ws.recv()  # consume connection_established
 
@@ -201,10 +201,10 @@ See `examples/nginx/nginx-aitbc.conf.example` for the complete configuration.
 
 ```bash
 # Check if Agent Coordinator is running on the hub
-curl https://hub.aitbc.bubuit.net/health
+curl https://hub.example.net/health
 
 # Check WebSocket status endpoint
-curl https://hub.aitbc.bubuit.net/agent/ws/status
+curl https://hub.example.net/agent/ws/status
 ```
 
 ### No PONG Received
@@ -214,11 +214,11 @@ curl https://hub.aitbc.bubuit.net/agent/ws/status
 ssh hub 'systemctl status aitbc-agent-coordinator'
 
 # Test with explicit timeout
-aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent --timeout 15
+aitbc agent-msg ping --coordinator-url https://hub.example.net/agent --timeout 15
 
 # Check if nginx is proxying WebSocket correctly
 curl -v -H "Upgrade: websocket" -H "Connection: Upgrade" \
-  https://hub.aitbc.bubuit.net/agent/ws/status
+  https://hub.example.net/agent/ws/status
 ```
 
 ### Port Reference

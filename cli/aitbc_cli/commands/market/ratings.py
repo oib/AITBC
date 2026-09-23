@@ -33,7 +33,7 @@ def _marketplace_base_url(override_url: str | None = None) -> str:
     url = config.marketplace_service_url or ""
     if url and "localhost" not in url and "127.0.0.1" not in url:
         return url.rstrip("/")
-    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    hub = config.hub_discovery_url or "hub.example.net"
     if hub.startswith(("http://", "https://")):
         return hub.rstrip("/")
     return f"https://{hub}"

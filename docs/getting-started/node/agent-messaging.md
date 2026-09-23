@@ -12,13 +12,13 @@ This guide covers setting up PING/PONG messaging via the Agent Coordinator WebSo
 From a follower node, use the CLI to ping the hub:
 
 ```bash
-aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.example.net/agent
 ```
 
 Expected output:
 
 ```
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+Connecting to wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG from hub-coordinator
@@ -31,10 +31,10 @@ No daemon, polling, or registration required — the Agent Coordinator's built-i
 
 ```bash
 # Check Agent Coordinator is running on the hub (nginx /health proxies to it)
-curl https://hub.aitbc.bubuit.net/health
+curl https://hub.example.net/health
 
 # Check WebSocket status (auth-gated; a 401 response confirms the service is up)
-curl https://hub.aitbc.bubuit.net/agent/ws/status
+curl https://hub.example.net/agent/ws/status
 ```
 
 ## See Also

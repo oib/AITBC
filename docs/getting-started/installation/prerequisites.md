@@ -102,7 +102,7 @@ Ensure your firewall allows the following ports:
 
 ### Required Ports
 
-- **Outbound**: Port 443 to hub.aitbc.bubuit.net (all hub APIs are proxied
+- **Outbound**: Port 443 to hub.example.net (all hub APIs are proxied
   through nginx — `/rpc/*` for the blockchain RPC, `/agent/*` for the agent
   coordinator; the raw service ports 8202/8107 are loopback/LAN-only on the
   hub)
@@ -114,7 +114,7 @@ Ensure your firewall allows the following ports:
 
 ```bash
 # Allow outbound to the hub (nginx proxies all APIs on 443)
-ufw allow out to hub.aitbc.bubuit.net port 443
+ufw allow out to hub.example.net port 443
 
 # Followers need no inbound rules; if you do run a P2P listener it
 # defaults to 8200, not 7070:
@@ -125,12 +125,12 @@ ufw enable
 
 ### DNS Resolution
 
-Ensure your system can resolve hub.aitbc.bubuit.net:
+Ensure your system can resolve hub.example.net:
 
 ```bash
 # Test DNS resolution
-nslookup hub.aitbc.bubuit.net
-ping hub.aitbc.bubuit.net
+nslookup hub.example.net
+ping hub.example.net
 ```
 
 ## See Also

@@ -41,17 +41,17 @@ For a component-by-component status check, see [docs/releases/STATUS.md](docs/re
 
 ## Join the public network
 
-A public AITBC island is already running at **http://hub.aitbc.bubuit.net/**:
+A public AITBC island is already running at **http://hub.example.net/**:
 
 - **Island ID**: `ait-public`
 - **Chain ID**: `ait-public`
 
 ```bash
 # Fetch dynamic join instructions
-curl http://hub.aitbc.bubuit.net/agent/join/ait-public.json
+curl http://hub.example.net/agent/join/ait-public.json
 
 # Network topology, peers, and endpoints
-curl http://hub.aitbc.bubuit.net/agent/discovery.json
+curl http://hub.example.net/agent/discovery.json
 ```
 
 Then start your node:

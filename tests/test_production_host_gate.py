@@ -63,7 +63,7 @@ class TestTheDirectoryBoundary:
 class TestTheSourceMatch:
     def test_a_module_naming_the_host_matches(self, gate, tmp_path):
         f = tmp_path / "test_a.py"
-        f.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
+        f.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
 
         assert gate._names_production_host(f)
 
@@ -162,7 +162,7 @@ def test_the_hook_skips_inside_and_leaves_outside_alone(gate, monkeypatch, tmp_p
     monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
     inside = tmp_path / "test_hosted.py"
-    inside.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
+    inside.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
     outside = Path(__file__)
 
     skipped = _run_hook(gate, [inside, outside])
@@ -177,7 +177,7 @@ def test_the_opt_in_env_var_disarms_the_hook(gate, monkeypatch, tmp_path):
     monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
     inside = tmp_path / "test_hosted.py"
-    inside.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
+    inside.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
 
     assert _run_hook(gate, [inside])[inside] is False
 
@@ -200,7 +200,7 @@ def test_the_repo_wide_reach_is_measured_not_assumed(gate, monkeypatch, tmp_path
     outside_file_b = other_dir / "test_b.py"
 
     for f in (gated_file, outside_file_a, outside_file_b):
-        f.write_text('BASE_URL = "https://hub.aitbc.bubuit.net/rpc"\n')
+        f.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
 
     monkeypatch.setattr(gate, "GATED_DIR", gated_dir)
 

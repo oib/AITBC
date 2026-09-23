@@ -389,7 +389,7 @@ def peers(ctx, coordinator_url: str | None):
 @click.option(
     "--coordinator-url",
     default=None,
-    help="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.aitbc.bubuit.net/agent (default: from config agent_coordinator_url)",
+    help="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)",
 )
 @click.option("--timeout", type=int, default=10, show_default=True, help="Seconds to wait for a PONG reply")
 @click.option(
@@ -479,7 +479,7 @@ def ping(ctx, agent: str, sender: str, coordinator_url: str | None, timeout: int
 @click.option(
     "--coordinator-url",
     default=None,
-    help="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.aitbc.bubuit.net/agent (default: from config agent_coordinator_url)",
+    help="Agent Coordinator URL. Direct: http://localhost:8107. Via nginx on the hub: https://hub.example.net/agent (default: from config agent_coordinator_url)",
 )
 @click.option("--password", default=None, help="Password for --wallet when it also authenticates the stream")
 @click.option("--timeout", type=int, default=15, show_default=True, help="Seconds to wait for a response")

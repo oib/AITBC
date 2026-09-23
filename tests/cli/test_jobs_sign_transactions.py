@@ -119,7 +119,7 @@ class _Captor:
 
 
 class _Config:
-    hub_discovery_url = "hub.aitbc.bubuit.net"
+    hub_discovery_url = "hub.example.net"
 
 
 def test_the_job_record_is_signed_before_it_is_sent(monkeypatch: pytest.MonkeyPatch) -> None:
