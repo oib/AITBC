@@ -14,8 +14,9 @@ from enum import StrEnum
 from typing import Any, cast
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key
+from aitbc.crypto.crypto import derive_ethereum_address, encrypt_private_key, sign_transaction_data
 from aitbc.network import AITBCHTTPClient, Web3Client
+from aitbc.exceptions import NetworkError
 from aitbc_agent_core import get_active_brand
 
 _brand = get_active_brand()
@@ -621,6 +622,10 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         self.aitbc_chain_id = os.getenv("CHAIN_ID", "")
         self._http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
 
+    def _chain_params(self) -> dict[str, str]:
+        """Query params carrying the chain id when one is configured."""
+        return {"chain_id": self.aitbc_chain_id} if self.aitbc_chain_id else {}
+
     async def create_wallet(self, owner_address: str, security_config: dict[str, Any]) -> dict[str, Any]:
         """Create a new wallet with enhanced security"""
         try:
@@ -651,7 +656,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         try:
             if not await self.validate_address(wallet_address):
                 raise ValueError(f"Invalid AITBC address: {wallet_address}")
-            response = self._http_client.get(f"account/{wallet_address}")
+            response = self._http_client.get(f"rpc/account/{wallet_address}", params=self._chain_params())
             balance = response.get("balance", 0)
             nonce = response.get("nonce", 0)
             return {
@@ -694,8 +699,14 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
                 "nonce": await self._get_nonce(from_address),
                 "payload": data.get("payload", "") if data else "",
                 "type": data.get("type", "transfer") if data else "transfer",
-                "signature": data.get("signature", "") if data else "",
+                "chain_id": (data or {}).get("chain_id") or self.aitbc_chain_id,
             }
+            signature = data.get("signature", "") if data else ""
+            if not signature:
+                if not private_key:
+                    raise ValueError("Private key is required to sign the transaction")
+                signature = sign_transaction_data(transaction_data, private_key)
+            transaction_data["signature"] = signature
             response = self._http_client.post("rpc/transaction", json=transaction_data)
             result = {
                 "transaction_hash": response.get("transaction_hash", ""),
@@ -716,24 +727,26 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
     async def get_transaction_status(self, transaction_hash: str) -> dict[str, Any]:
         """Get transaction status using AITBC RPC"""
         try:
-            response = self._http_client.get("transactions", params={"tx_hash": transaction_hash})
-            transactions = response.get("transactions", [])
-            if not transactions:
-                return {"transaction_hash": transaction_hash, "status": "unknown", "found": False}
-            tx = transactions[0]
-            return {
-                "transaction_hash": transaction_hash,
-                "status": tx.get("status", "unknown"),
-                "from": tx.get("from", ""),
-                "to": tx.get("to", ""),
-                "amount": str(tx.get("amount", 0)),
-                "fee": tx.get("fee", 0),
-                "block_height": tx.get("block_height"),
-                "found": True,
-            }
+            tx = self._http_client.get(f"rpc/transaction/{transaction_hash}", params=self._chain_params())
+        except NetworkError as e:
+            cause = getattr(e, "__cause__", None)
+            if getattr(getattr(cause, "response", None), "status_code", None) == 404:
+                return {"transaction_hash": transaction_hash, "status": "not_found", "found": False}
+            logger.error("Error getting transaction status: %s", e)
+            raise
         except Exception as e:
             logger.error("Error getting transaction status: %s", e)
             raise
+        return {
+            "transaction_hash": transaction_hash,
+            "status": tx.get("status", "unknown"),
+            "from": tx.get("from", ""),
+            "to": tx.get("to", ""),
+            "amount": str(tx.get("amount", 0)),
+            "fee": tx.get("fee", 0),
+            "block_height": tx.get("block_height"),
+            "found": True,
+        }
 
     async def estimate_gas(
         self,
@@ -761,7 +774,7 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
 
     async def _get_nonce(self, address: str) -> int:
         try:
-            response = self._http_client.get(f"account/{address}")
+            response = self._http_client.get(f"rpc/account/{address}", params=self._chain_params())
             return response.get("nonce", 0)  # type: ignore[no-any-return]
         except Exception as e:
             logger.error("Error getting nonce for %s: %s", address, e)
@@ -823,8 +836,10 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         to_block: int | None = None,
     ) -> list[dict[str, Any]]:
         try:
-            response = self._http_client.get("transactions", params={"address": wallet_address, "limit": limit})
-            transactions = response.get("transactions", [])
+            response = self._http_client.get(
+                "rpc/transactions", params={"address": wallet_address, "limit": limit, **self._chain_params()}
+            )
+            transactions = response if isinstance(response, list) else response.get("transactions", [])
             formatted = []
             for tx in transactions:
                 formatted.append(
