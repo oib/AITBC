@@ -698,14 +698,20 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
             if amount_dec != amount_dec.to_integral_value():
                 raise ValueError("AITBC amount must be a whole number of atomic units")
             amount_int = int(amount_dec)
+            # TransactionRequest's before-validator injects "to"/"amount" into
+            # payload before signature verification, so the signed body must
+            # already contain them or the canonical JSON won't match.
+            payload = dict(data.get("payload") or {}) if data else {}
+            payload.setdefault("to", to_address)
+            payload.setdefault("amount", amount_int)
             transaction_data = {
                 "from": from_address,
                 "to": to_address,
                 "amount": amount_int,
                 "fee": gas_price or 36,
                 "nonce": await self._get_nonce(from_address),
-                "payload": data.get("payload", "") if data else "",
-                "type": data.get("type", "transfer") if data else "transfer",
+                "payload": payload,
+                "type": (data or {}).get("type", "TRANSFER"),
                 "chain_id": (data or {}).get("chain_id") or self.aitbc_chain_id,
             }
             signature = data.get("signature", "") if data else ""
