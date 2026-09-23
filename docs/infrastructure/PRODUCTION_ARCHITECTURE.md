@@ -183,7 +183,7 @@ removed from hub nginx — those services are node-local on GPU nodes only.
 | node1 | `sites-enabled/aitbc-loadbalancer` | `/rpc/` → `aitbc_backend` upstream, `/health`, `/nginx_status` (ACL), statics |
 
 Removed fleet-wide 2026-09-23: the retired `:8000-8017` service layout on node0,
-`/api/*`→`:3003` exchange-frontend stubs, `/v1/`→`10.1.223.1:8090` mock
+`/api/*`→`:3003` exchange-frontend stubs, `/v1/`→`10.1.223.1:8090` mock   # check-ports: ignore
 coordinator on node0, and all `/agent/*` JSON proxies to `:8081` — that port now
 belongs to IPFS on both node0 and node1 (the live_api.py service it fronted is
 retired). node1's `aitbc-agent` sites-enabled file was an enabled *example*
