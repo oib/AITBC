@@ -59,7 +59,7 @@ def get_chain_id() -> str:
         pass
     # Fall back to hub discovery URL config
     config = get_config()
-    hub = config.hub_discovery_url or "hub.example.net"
+    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
     return f"ait-{hub}"
 
 
@@ -87,7 +87,7 @@ def _account_balance(address: str, chain_id: str) -> int:
     """Query the hub for the canonical account balance of an address."""
     try:
         config = get_config()
-        hub = config.hub_discovery_url or "hub.example.net"
+        hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
         client = AITBCHTTPClient(base_url=f"https://{hub}", timeout=5)
         data = client.get(f"/rpc/accounts/{address}", params={"chain_id": chain_id})
         return int(data.get("balance", 0))
@@ -154,7 +154,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
     # Prefer the local blockchain RPC; the hub discovery URL may not expose /rpc.
-    for base_url in (rpc_url, f"https://{config.hub_discovery_url or 'hub.example.net'}"):
+    for base_url in (rpc_url, f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"):
         try:
             http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
             response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")

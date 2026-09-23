@@ -44,7 +44,7 @@ from .market.host import _resolve_ipfs_api
 
 logger = get_logger(__name__)
 
-DEFAULT_COORDINATOR_URL = "https://hub.example.net"
+DEFAULT_COORDINATOR_URL = "https://hub.aitbc.bubuit.net"
 
 
 def _coordinator_url(ctx, coordinator_url: str | None) -> str:
