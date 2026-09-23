@@ -2,7 +2,7 @@
 
 `testpaths` in pyproject.toml lists every suite pytest can discover, but the
 Make targets that CI invokes never ran most of them — exchange, wallet,
-marketplace, api-gateway, trading, security and the property suite sat in
+market, api-gateway, trading, security and the property suite sat in
 `testpaths` for a release cycle without a single CI run. This module is the
 one place that decides which discovered suite runs where:
 
@@ -43,7 +43,7 @@ FAST_SUITES: tuple[str, ...] = (
     "apps/exchange/tests",
     "apps/api-gateway/tests",
     "apps/wallet/tests",
-    "apps/marketplace/tests",
+    "apps/market/tests",
     "apps/trading/tests",
     "apps/agent-coordinator/tests",
     "apps/bridge-monitor/tests",

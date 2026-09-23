@@ -8,7 +8,7 @@ from aitbc.async_tasks import create_task_with_logging
 
 from .action_handlers.agent_daemon import AgentDaemonHandler
 from .action_handlers.coordinator_api import CoordinatorAPIHandler
-from .action_handlers.marketplace import MarketplaceHandler
+from .action_handlers.market import MarketHandler
 from .config import Settings
 from .event_subscribers.blocks import BlockEventSubscriber
 from .event_subscribers.contracts import ContractEventSubscriber
@@ -37,7 +37,7 @@ class BlockchainEventBridge:
         self.contract_subscriber: ContractEventSubscriber | None = None
         self.coordinator_handler: CoordinatorAPIHandler | None = None
         self.agent_daemon_handler: AgentDaemonHandler | None = None
-        self.marketplace_handler: MarketplaceHandler | None = None
+        self.market_handler: MarketHandler | None = None
 
     async def start(self) -> None:
         """Start the bridge service."""
@@ -53,9 +53,9 @@ class BlockchainEventBridge:
         if self.settings.enable_agent_daemon_trigger:
             self.agent_daemon_handler = AgentDaemonHandler(self.settings.blockchain_rpc_url)
             logger.info("Agent daemon handler initialized")
-        if self.settings.enable_marketplace_trigger:
-            self.marketplace_handler = MarketplaceHandler(self.settings.coordinator_api_url, self.settings.coordinator_api_key)
-            logger.info("Marketplace handler initialized")
+        if self.settings.enable_market_trigger:
+            self.market_handler = MarketHandler(self.settings.coordinator_api_url, self.settings.coordinator_api_key)
+            logger.info("Market handler initialized")
         if self.settings.subscribe_blocks:
             self.block_subscriber = BlockEventSubscriber(self.settings)
             self.block_subscriber.set_bridge(self)
@@ -91,7 +91,7 @@ class BlockchainEventBridge:
         for handler in (
             self.coordinator_handler,
             self.agent_daemon_handler,
-            self.marketplace_handler,
+            self.market_handler,
         ):
             if handler is not None:
                 await handler.close()
@@ -112,8 +112,8 @@ class BlockchainEventBridge:
                 transactions = block_data.get("transactions", [])
                 if transactions and self.settings.enable_coordinator_api_trigger:
                     await self._trigger_coordinator_actions(block_data, transactions)
-                if transactions and self.settings.enable_marketplace_trigger:
-                    await self._trigger_marketplace_actions(block_data, transactions)
+                if transactions and self.settings.enable_market_trigger:
+                    await self._trigger_market_actions(block_data, transactions)
                 events_processed_total.labels(event_type=event_type, status="success").inc()
                 logger.info("Processed block event: height=%s, txs=%s", block_data.get("height"), len(transactions))
             except Exception as e:
@@ -148,17 +148,17 @@ class BlockchainEventBridge:
                 actions_failed_total.labels(action_type="coordinator_api").inc()
                 logger.error("Error triggering coordinator API actions: %s", e, exc_info=True)
 
-    async def _trigger_marketplace_actions(self, block_data: dict[str, Any], transactions: list[Any]) -> None:
-        """Trigger marketplace actions based on block data."""
-        if not self.marketplace_handler:
+    async def _trigger_market_actions(self, block_data: dict[str, Any], transactions: list[Any]) -> None:
+        """Trigger market actions based on block data."""
+        if not self.market_handler:
             return
-        with action_execution_duration_seconds.labels(action_type="marketplace").time():
+        with action_execution_duration_seconds.labels(action_type="market").time():
             try:
-                await self.marketplace_handler.handle_block(block_data, transactions)
-                actions_triggered_total.labels(action_type="marketplace").inc()
+                await self.market_handler.handle_block(block_data, transactions)
+                actions_triggered_total.labels(action_type="market").inc()
             except Exception as e:
-                actions_failed_total.labels(action_type="marketplace").inc()
-                logger.error("Error triggering marketplace actions: %s", e, exc_info=True)
+                actions_failed_total.labels(action_type="market").inc()
+                logger.error("Error triggering market actions: %s", e, exc_info=True)
 
     async def _trigger_agent_daemon_actions(self, tx_data: dict[str, Any]) -> None:
         """Trigger agent daemon actions based on transaction data."""
@@ -210,18 +210,18 @@ class BlockchainEventBridge:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
                 logger.error("Error processing performance event: %s", e, exc_info=True)
 
-    async def handle_marketplace_event(self, event_log: dict[str, Any]) -> None:
-        """Handle AgentServiceMarketplace contract event."""
-        event_type = "marketplace_event"
+    async def handle_market_event(self, event_log: dict[str, Any]) -> None:
+        """Handle AgentServiceMarket contract event."""
+        event_type = "market_event"
         events_received_total.labels(event_type=event_type).inc()
         with event_processing_duration_seconds.labels(event_type=event_type).time():
             try:
-                if self.marketplace_handler:
-                    await self.marketplace_handler.handle_contract_event(event_log)
+                if self.market_handler:
+                    await self.market_handler.handle_contract_event(event_log)
                 events_processed_total.labels(event_type=event_type, status="success").inc()
             except Exception as e:
                 events_processed_total.labels(event_type=event_type, status="error").inc()
-                logger.error("Error processing marketplace event: %s", e, exc_info=True)
+                logger.error("Error processing market event: %s", e, exc_info=True)
 
     async def handle_bounty_event(self, event_log: dict[str, Any]) -> None:
         """Handle BountyIntegration contract event."""

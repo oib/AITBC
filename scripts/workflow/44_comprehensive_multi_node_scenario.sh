@@ -294,9 +294,9 @@ phase3_ai_job_submission() {
     log_info "Listing AI jobs"
     /opt/aitbc/aitbc-cli ai jobs || log_warning "Failed to list AI jobs"
 
-    # Check marketplace listings
-    log_info "Checking marketplace listings"
-    /opt/aitbc/aitbc-cli market list || log_warning "Failed to list marketplace items"
+    # Check market listings
+    log_info "Checking market listings"
+    /opt/aitbc/aitbc-cli market list || log_warning "Failed to list market items"
 
     log_success "Phase 3: AI job submission flow completed"
 }
@@ -404,10 +404,10 @@ phase8_plugin_system() {
 
     log_info "Checking plugin system"
 
-    # Browse plugin marketplace
-    log_info "Browsing plugin marketplace"
-    # Plugin marketplace would require coordinator-api plugin service
-    log_warning "Plugin marketplace requires coordinator-api plugin service, skipping for now"
+    # Browse plugin market
+    log_info "Browsing plugin market"
+    # Plugin market would require coordinator-api plugin service
+    log_warning "Plugin market requires coordinator-api plugin service, skipping for now"
 
     log_success "Phase 8: Plugin system completed (skipped - requires plugin service)"
 }

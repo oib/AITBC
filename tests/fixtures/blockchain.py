@@ -55,8 +55,8 @@ def wallet_client():
 
 
 @pytest.fixture
-def marketplace_client():
-    """Create a test client for marketplace"""
+def market_client():
+    """Create a test client for market"""
     from fastapi.testclient import TestClient
 
     try:

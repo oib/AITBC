@@ -22,7 +22,7 @@ The systemd timer runs `scripts/maintenance/aitbc-backup.sh` daily at 01:00 UTC.
 ### 1. PostgreSQL Database
 
 - **Location**: Coordinator API persistent storage
-- **Data**: Jobs, marketplace offers/bids, user sessions, configuration
+- **Data**: Jobs, market offers/bids, user sessions, configuration
 - **Backup Format**: Custom PostgreSQL dump with compression
 - **Retention**: 30 days (configurable)
 

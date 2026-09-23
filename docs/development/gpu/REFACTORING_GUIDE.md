@@ -144,7 +144,7 @@ gpu_acceleration/
 - `high_performance_cuda_accelerator.py` → Use `cuda_provider.py`
 - `fastapi_cuda_zk_api.py` → Use `api_service.py`
 - `production_cuda_zk_api.py` → Use `gpu_manager.py`
-- `marketplace_gpu_optimizer.py` → Use `gpu_manager.py`
+- `market_gpu_optimizer.py` → Use `gpu_manager.py`
 
 ## 🚀 Usage Examples
 

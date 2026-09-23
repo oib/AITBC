@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Scenario B: Software Offer Discovery and Execution (Updated for v0.4.x)
 
 echo "🚀 Scenario B: Software Offer Discovery and Execution"
@@ -18,9 +19,9 @@ else
     export BLOCKCHAIN_RPC="${BLOCKCHAIN_RPC:-http://localhost:8202}"
     echo "⚠️  Using default configuration (env file not found)"
 fi
-echo "📋 Step 1: List all marketplace offers"
+echo "📋 Step 1: List all market offers"
 echo "======================================"
-aitbc market list || echo "Marketplace not available"
+aitbc market list || echo "Market not available"
 
 echo ""
 echo "📋 Step 2: Create multiple software offers"

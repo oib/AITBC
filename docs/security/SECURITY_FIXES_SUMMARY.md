@@ -21,7 +21,7 @@
 #### Information Exposure (100+ instances fixed)
 
 - Fixed str(e) in HTTPException details across multiple files
-- Files: adaptive_learning_health.py, cross_chain_integration.py, developer_platform.py, global_marketplace.py, global_marketplace_integration.py, dynamic_pricing.py, manager.py, python_13_optimized.py
+- Files: adaptive_learning_health.py, cross_chain_integration.py, developer_platform.py, global_market.py, global_market_integration.py, dynamic_pricing.py, manager.py, python_13_optimized.py
 - Pattern: Replaced exception details with generic error messages
 - Internal logging preserved with logger.error() for debugging
 
@@ -194,9 +194,9 @@
 - apps/coordinator-api/src/app/routers/adaptive_learning_health.py
 - apps/coordinator-api/src/app/routers/cross_chain_integration.py
 - apps/coordinator-api/src/app/routers/developer_platform.py
-- apps/coordinator-api/src/app/routers/global_marketplace.py
-- apps/coordinator-api/src/app/routers/global_marketplace_integration.py
-- apps/coordinator-api/src/app/routers/marketplace_gpu.py
+- apps/coordinator-api/src/app/routers/global_market.py
+- apps/coordinator-api/src/app/routers/global_market_integration.py
+- apps/coordinator-api/src/app/routers/market_gpu.py
 - apps/coordinator-api/src/app/routers/dynamic_pricing.py
 - apps/coordinator-api/src/app/agent_identity/manager.py
 - apps/coordinator-api/src/app/python_13_optimized.py
@@ -205,7 +205,7 @@
 - apps/coordinator-api/src/app/services/adaptive_learning.py
 - apps/coordinator-api/src/app/services/agent_integration.py
 - apps/coordinator-api/src/app/services/advanced_reinforcement_learning.py
-- apps/coordinator-api/src/app/services/global_marketplace.py
+- apps/coordinator-api/src/app/services/global_market.py
 - apps/coordinator-api/src/app/routers/agent_integration_router.py
 
 ### Agent Services

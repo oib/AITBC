@@ -12,7 +12,7 @@
 - `gpu_multimodal_health.py` - GPU Multi-Modal Service (Port 8003)
 - `modality_optimization_health.py` - Modality Optimization Service (Port 8004)
 - `adaptive_learning_health.py` - Adaptive Learning Service (Port 8005)
-- `marketplace_enhanced_health.py` - Enhanced Marketplace Service (Port 8006)
+- `market_enhanced_health.py` - Enhanced Market Service (Port 8006)
 - `agent_enhanced_health.py` - agent Enhanced Service (Port 8007)
 
 **Features:**
@@ -106,7 +106,7 @@ async def collect_all_health_data() -> Dict[str, Any]:
 | GPU Multi-Modal | 8003 | ✅ | ✅ | ✅ |
 | Modality Optimization | 8004 | ✅ | ✅ | ✅ |
 | Adaptive Learning | 8005 | ✅ | ✅ | ✅ |
-| Enhanced Marketplace | 8006 | ✅ | ✅ | ✅ |
+| Enhanced Market | 8006 | ✅ | ✅ | ✅ |
 | agent Enhanced | 8007 | ✅ | ✅ | ✅ |
 
 ## 🚀 Usage Instructions

@@ -27,7 +27,7 @@ Authentication is per-service:
 
 - **Coordinator API (8203)**: the canonical customer credential is a wallet-signed JWT sent as `Authorization: Bearer <jwt>` (login flow issues the token). `X-Api-Key` remains accepted for service/legacy callers (e.g. miner routes via `require_miner`).
 - **Blockchain node RPC (8202)**: admin/control mutations (`/rpc/contracts/deploy`, `/rpc/governance/*`, `/rpc/escrow/*` (router-level, GETs included), `/rpc/gpu/*` writes, `/rpc/identity/*`, `/rpc/importBlock`, `/rpc/chains/*`) require the `X-API-Key` header. `POST /rpc/transaction` and `POST /rpc/staking/stake` are **signature-verified** (wallet signature in the body, no API key). Node-to-hub subscription routes (`/rpc/subscribe`, `/rpc/heartbeat`) take a peer key from `BLOCKCHAIN_RPC_API_KEY_PEERS`, and `/rpc/force-sync` requires an admin-signed body.
-- **Marketplace (8102)**: only the admin `POST /v1/marketplace/parameters/apply` route is key-gated (`X-Api-Key`); the rest are unauthenticated in the current deployment.
+- **Market (8102)**: only the admin `POST /v1/market/parameters/apply` route is key-gated (`X-Api-Key`); the rest are unauthenticated in the current deployment.
 
 ## Quick Start
 
@@ -111,7 +111,7 @@ WebSocket endpoints live on two services:
   `WS /api/v1/agent/presence/stream` — agent messaging/presence, proxied
   under the hub nginx `/agent/` prefix.
 
-The coordinator-api and marketplace services have no WebSocket endpoints —
+The coordinator-api and market services have no WebSocket endpoints —
 poll their REST routes instead.
 
 See [websocket.md](./websocket.md) for the full protocol.

@@ -76,7 +76,7 @@ def test_status_constant_form():
 
     A scan matching only `ast.Constant` found none of them, which would have left
     coordinator-api, blockchain-node and wallet almost entirely undocumented while
-    appearing to work on marketplace and agent-coordinator.
+    appearing to work on market and agent-coordinator.
     """
 
     def handler():
@@ -86,9 +86,9 @@ def test_status_constant_form():
 
 
 def test_json_response_carries_its_own_body_shape():
-    """`{"error": ...}` is not `{"detail": ...}`, and marketplace returns the former.
+    """`{"error": ...}` is not `{"detail": ...}`, and market returns the former.
 
-    V23-76 found seven "not found" paths in marketplace disagreeing about the status code.
+    V23-76 found seven "not found" paths in market disagreeing about the status code.
     Documenting them all as `{"detail": ...}` because that is what FastAPI would have
     produced would relocate the disagreement into the body instead of recording it.
     """
@@ -291,7 +291,7 @@ def test_five_specs_are_published():
         "agent-coordinator-openapi.json",
         "blockchain-node-openapi.json",
         "coordinator-api-openapi.json",
-        "marketplace-openapi.json",
+        "market-openapi.json",
         "wallet-openapi.json",
     ]
 
@@ -322,15 +322,15 @@ def test_every_referenced_error_schema_exists(spec_path):
         assert oer.ERROR_SCHEMA_NAME in schemas
 
 
-def test_the_marketplace_offer_routes_document_their_404():
+def test_the_market_offer_routes_document_their_404():
     """The loose end V23-76 left.
 
-    Seven marketplace routes answered 404 for a missing offer and the spec documented `200`
+    Seven market routes answered 404 for a missing offer and the spec documented `200`
     and `422` for all eight -- so the documentation asserted they agreed, at the moment one
     of them genuinely did not. Fixing that route without fixing the spec left the
     documentation saying the same wrong thing about the other six.
     """
-    spec = json.loads((API_DOCS / "marketplace-openapi.json").read_text())
+    spec = json.loads((API_DOCS / "market-openapi.json").read_text())
     # Every 404 in the service, matching the `404` sites in main.py one for one.
     #
     # The last three were added by V23-81. This test previously recorded them as absent
@@ -340,33 +340,33 @@ def test_the_marketplace_offer_routes_document_their_404():
     # behaviour is what moved them into this set; the spec still reports the routes as they
     # are, and this assertion is what stops the two drifting apart again.
     expected = {
-        ("get", "/v1/marketplace/offers/{offer_id}"),
-        ("get", "/v1/marketplace/offers/{offer_id}/history"),
-        ("post", "/v1/marketplace/offers/{offer_id}/cancel"),
-        ("post", "/v1/marketplace/dynamic-pricing"),
-        ("get", "/v1/marketplace/offer/{plugin_id}"),
-        ("delete", "/v1/marketplace/offer/{plugin_id}"),
-        ("get", "/v1/marketplace/offer-by-id/{offer_id}"),
-        ("get", "/v1/marketplace/edge/{node_id}/health"),
-        ("post", "/v1/marketplace/offers/{offer_id}/book"),
-        ("post", "/v1/marketplace/offer/{service_id}/rate"),
-        ("get", "/v1/marketplace/offer/{service_id}/ratings"),
-        ("get", "/v1/marketplace/ipfs/rental/{access_key}"),
+        ("get", "/v1/market/offers/{offer_id}"),
+        ("get", "/v1/market/offers/{offer_id}/history"),
+        ("post", "/v1/market/offers/{offer_id}/cancel"),
+        ("post", "/v1/market/dynamic-pricing"),
+        ("get", "/v1/market/offer/{plugin_id}"),
+        ("delete", "/v1/market/offer/{plugin_id}"),
+        ("get", "/v1/market/offer-by-id/{offer_id}"),
+        ("get", "/v1/market/edge/{node_id}/health"),
+        ("post", "/v1/market/offers/{offer_id}/book"),
+        ("post", "/v1/market/offer/{service_id}/rate"),
+        ("get", "/v1/market/offer/{service_id}/ratings"),
+        ("get", "/v1/market/ipfs/rental/{access_key}"),
         # Verified against main.py 2026-09-13 -- each handler returns a 404
         # JSONResponse for a missing entity; the regenerated spec documented
         # them ahead of this pin.
-        ("get", "/v1/marketplace/access/{access_key}"),
-        ("get", "/v1/marketplace/jobs/{job_id}"),
-        ("get", "/v1/marketplace/jobs/{job_id}/access"),
-        ("get", "/v1/marketplace/offer/{plugin_id}/health"),
-        ("post", "/v1/marketplace/jobs/{job_id}/cancel"),
-        ("post", "/v1/marketplace/jobs/{job_id}/pin-confirm"),
+        ("get", "/v1/market/access/{access_key}"),
+        ("get", "/v1/market/jobs/{job_id}"),
+        ("get", "/v1/market/jobs/{job_id}/access"),
+        ("get", "/v1/market/offer/{plugin_id}/health"),
+        ("post", "/v1/market/jobs/{job_id}/cancel"),
+        ("post", "/v1/market/jobs/{job_id}/pin-confirm"),
     }
     found = {(m.lower(), p) for p, m, op in _operations(spec) if "404" in op.get("responses", {})}
     assert not sorted(expected - found), f"still undocumented: {sorted(expected - found)}"
     assert not sorted(found - expected), f"documented but not in the source: {sorted(found - expected)}"
 
-    body = spec["paths"]["/v1/marketplace/offers/{offer_id}"]["get"]["responses"]["404"]
+    body = spec["paths"]["/v1/market/offers/{offer_id}"]["get"]["responses"]["404"]
     assert body["description"] == "Offer not found"
     # The shape the route actually returns, not the one FastAPI would have produced.
     assert body["content"]["application/json"]["schema"]["properties"].keys() == {"error"}

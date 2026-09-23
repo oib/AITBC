@@ -5,7 +5,7 @@ V23-45. The repo-wide rule is `Decimal` for money (CLAUDE.md, V23-33 through V23
 cross a signature and hash boundary:
 
     rpc/ai_services.py   AIJobRequest.payment, AIJobResponse.payment
-    rpc/marketplace.py   MarketplaceListing.price, MarketplaceCreateRequest.price
+    rpc/market.py   MarketListing.price, MarketCreateRequest.price
 
 `verify_transaction_signature` builds the signed message as
 `json.dumps(tx_without_sig, sort_keys=True, separators=(",", ":"))`, keccak-hashes it and
@@ -28,7 +28,7 @@ from decimal import Decimal
 import pytest
 from aitbc_chain.rpc import utils as rpc_utils
 from aitbc_chain.rpc.ai_services import AIJobRequest, AIJobResponse
-from aitbc_chain.rpc.marketplace import MarketplaceCreateRequest, MarketplaceListing
+from aitbc_chain.rpc.market import MarketCreateRequest, MarketListing
 from aitbc_chain.rpc.utils import verify_transaction_signature
 from eth_keys import keys
 from eth_utils import keccak
@@ -41,8 +41,8 @@ ADDRESS = PRIVATE_KEY.public_key.to_checksum_address()
 WIRE_MONEY_FIELDS = [
     (AIJobRequest, "payment"),
     (AIJobResponse, "payment"),
-    (MarketplaceListing, "price"),
-    (MarketplaceCreateRequest, "price"),
+    (MarketListing, "price"),
+    (MarketCreateRequest, "price"),
 ]
 
 

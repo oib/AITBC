@@ -22,7 +22,7 @@ from aitbc_agent_core import get_active_brand
 
 from ....config import settings
 from aitbc.crypto.signature_recovery import canonical_address
-from aitbc.marketplace.energy_pricing import (
+from aitbc.market.energy_pricing import (
     EnergyQuote,
     EnergyPricingError,
     SettlementRoute,
@@ -36,7 +36,7 @@ from ....storage import get_session
 from ....utils.client_resolver import resolve_client
 from ...infrastructure.domain.job import Job
 from ...infrastructure.domain.job_receipt import JobReceipt
-from ...marketplace.domain.gpu_marketplace import GPURegistry, GPUBooking
+from ...market.domain.gpu_market import GPURegistry, GPUBooking
 from ...zk_applications.services import model_registry
 from ..acceptance import (
     DISPUTED,
@@ -72,7 +72,7 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = 
     from the local ``NativeEnergyOracle`` tables instead.
     """
     if settings.native_energy_pricing:
-        from ...marketplace.services.native_energy import NativeEnergyOracle
+        from ...market.services.native_energy import NativeEnergyOracle
 
         if session is None:
             raise HTTPException(
@@ -96,7 +96,7 @@ def _resolve_authoritative_inputs(quote: EnergyQuote, session: Session | None = 
             ) from exc
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+    from aitbc.market.energy_oracle import EVMEnergyOracle
 
     contract = settings.energy_pricing_contract_address
     rpc_url = settings.eth_rpc_url

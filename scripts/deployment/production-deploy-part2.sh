@@ -52,12 +52,12 @@ else
     cat /opt/aitbc/production/logs/blockchain/blockchain_test.log
 fi
 
-# Start marketplace service on aitbc
-echo "Starting marketplace service on aitbc..."
-export MARKETPLACE_PORT=8102
-nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace.log 2>&1 &
-MARKETPLACE_PID=$!
-echo "✅ Marketplace service started on aitbc (PID: $MARKETPLACE_PID)"
+# Start market service on aitbc
+echo "Starting market service on aitbc..."
+export MARKET_PORT=8102
+nohup python production/services/market.py > /opt/aitbc/production/logs/marketplace/market.log 2>&1 &
+MARKET_PID=$!
+echo "✅ Market service started on aitbc (PID: $MARKET_PID)"
 
 echo "✅ Production services deployed to aitbc"
 
@@ -84,9 +84,9 @@ else
     cat /tmp/${NODE1_ID}_blockchain_test.log
 fi
 
-# Start marketplace service on ${NODE1_HOST}
-echo "Starting marketplace service on ${NODE1_ID}..."
-ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=${NODE1_ID} && export MARKETPLACE_PORT=8102 && nohup python production/services/marketplace.py > /opt/aitbc/production/logs/marketplace/marketplace_${NODE1_ID}.log 2>&1 &"
+# Start market service on ${NODE1_HOST}
+echo "Starting market service on ${NODE1_ID}..."
+ssh ${NODE1_HOST} "cd /opt/aitbc && source venv/bin/activate && export NODE_ID=${NODE1_ID} && export MARKET_PORT=8102 && nohup python production/services/market.py > /opt/aitbc/production/logs/marketplace/market_${NODE1_ID}.log 2>&1 &"
 
 echo "✅ Production services deployed to ${NODE1_HOST}"
 
@@ -96,15 +96,15 @@ echo "==============================="
 
 sleep 5
 
-# Test aitbc marketplace service
+# Test aitbc market service
 # Was 8002 until V23-99. 8002 is aitbc-monitoring, which answers /health 200 on this
-# host, so this printed a healthy body and called it the marketplace. Marketplace is 8102.
-echo "Testing aitbc marketplace service..."
-curl -fsS http://localhost:8102/health | head -10 || echo "aitbc marketplace not responding"
+# host, so this printed a healthy body and called it the market. Market is 8102.
+echo "Testing aitbc market service..."
+curl -fsS http://localhost:8102/health | head -10 || echo "aitbc market not responding"
 
-# Test ${NODE1_HOST} marketplace service
-echo "Testing ${NODE1_HOST} marketplace service..."
-ssh ${NODE1_HOST} "curl -sf http://localhost:8102/health" | head -10 || echo "${NODE1_HOST} marketplace not responding"
+# Test ${NODE1_HOST} market service
+echo "Testing ${NODE1_HOST} market service..."
+ssh ${NODE1_HOST} "curl -sf http://localhost:8102/health" | head -10 || echo "${NODE1_HOST} market not responding"
 
 # Test blockchain connectivity between nodes
 echo "Testing blockchain connectivity..."
@@ -139,12 +139,12 @@ for node in ['aitbc', '${NODE1_HOST}']:
         print(f'{node}: Error - {e}')
 "
 
-# Step 6: Production GPU Marketplace Test
-echo -e "${CYAN}🖥️  Step 6: Production GPU Marketplace Test${NC}"
+# Step 6: Production GPU Market Test
+echo -e "${CYAN}🖥️  Step 6: Production GPU Market Test${NC}"
 echo "========================================"
 
-# Add GPU listing to the marketplace on aitbc
-echo "Adding GPU listing to the AITBC marketplace on aitbc..."
+# Add GPU listing to the market on aitbc
+echo "Adding GPU listing to the AITBC market on aitbc..."
 curl -X POST http://localhost:8102/gpu/listings \
   -H "Content-Type: application/json" \
   -d '{
@@ -161,7 +161,7 @@ curl -X POST http://localhost:8102/gpu/listings \
   }' | head -5
 
 # Add GPU listing on ${NODE1_HOST}
-echo "Adding GPU listing to the AITBC marketplace on ${NODE1_ID}..."
+echo "Adding GPU listing to the AITBC market on ${NODE1_ID}..."
 ssh ${NODE1_HOST} "curl -X POST http://localhost:8102/gpu/listings \
   -H 'Content-Type: application/json' \
   -d '{
@@ -177,8 +177,8 @@ ssh ${NODE1_HOST} "curl -X POST http://localhost:8102/gpu/listings \
     }
   }'" | head -5
 
-# Get marketplace stats from both nodes
-echo "Getting marketplace stats..."
+# Get market stats from both nodes
+echo "Getting market stats..."
 echo "aitbc stats:"
 curl -s http://localhost:8102/stats | head -5
 
@@ -190,26 +190,26 @@ echo -e "${GREEN}🎉 PRODUCTION DEPLOYMENT COMPLETED!${NC}"
 echo "=================================="
 echo ""
 echo "✅ Production services deployed to both nodes:"
-echo "   • aitbc (localhost): Blockchain + Marketplace (port 8102)"
-echo "   • ${NODE1_HOST} (remote): Blockchain + Marketplace (port 8102)"
+echo "   • aitbc (localhost): Blockchain + Market (port 8102)"
+echo "   • ${NODE1_HOST} (remote): Blockchain + Market (port 8102)"
 echo ""
 echo "✅ Production features:"
 echo "   • Real database persistence"
 echo "   • Production logging and monitoring"
 echo "   • Multi-node coordination"
-echo "   • GPU marketplace with real hardware"
+echo "   • GPU market with real hardware"
 echo ""
 echo "✅ Services tested:"
 echo "   • Blockchain transactions on both nodes"
-echo "   • GPU marketplace listings on both nodes"
+echo "   • GPU market listings on both nodes"
 echo "   • Inter-node connectivity"
 echo ""
 echo -e "${BLUE}🚀 Production system ready for real workloads!${NC}"
 echo ""
 echo "📊 Service URLs:"
-echo "   • aitbc marketplace: http://localhost:8102"
-echo "   • ${NODE1_HOST} marketplace: http://${NODE1_HOST}:8102"
+echo "   • aitbc market: http://localhost:8102"
+echo "   • ${NODE1_HOST} market: http://${NODE1_HOST}:8102"
 echo ""
 echo "📋 Logs:"
 echo "   • Blockchain: /opt/aitbc/production/logs/blockchain/"
-echo "   • Marketplace: /opt/aitbc/production/logs/marketplace/"
+echo "   • Market: /opt/aitbc/production/logs/marketplace/"

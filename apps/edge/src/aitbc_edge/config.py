@@ -1,6 +1,6 @@
 """Configuration for Edge API Service"""
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import SettingsConfigDict
 
 from aitbc_shared import DatabaseConfig, ServiceSettings
@@ -48,8 +48,11 @@ class Settings(ServiceSettings):
     gpu_service_host: str = "localhost"
     gpu_service_port: int = 8101
 
-    # v0.6.6: Marketplace integration — edge advertises capabilities to marketplace
-    marketplace_url: str = "http://localhost:8102"
+    # v0.6.6: Market integration — edge advertises capabilities to market
+    market_url: str = Field(
+        default="http://localhost:8102",
+        validation_alias=AliasChoices("MARKET_URL", "MARKETPLACE_URL"),
+    )
 
     # v0.6.6: Agent coordinator integration — edge reports health to agent-coordinator
     agent_coordinator_url: str = "http://localhost:8107"

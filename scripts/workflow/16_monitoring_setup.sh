@@ -149,10 +149,10 @@ echo "   Active: $MINING_STATUS"
 echo "   Hash Rate: $HASH_RATE H/s"
 echo
 
-# Marketplace Status
-echo "🏪 Marketplace Status:"
-MARKETPLACE_COUNT=$(curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total 2>/dev/null)
-echo "   Active Listings: $MARKETPLACE_COUNT"
+# Market Status
+echo "🏪 Market Status:"
+MARKET_COUNT=$(curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total 2>/dev/null)
+echo "   Active Listings: $MARKET_COUNT"
 echo
 
 # AI Services Status

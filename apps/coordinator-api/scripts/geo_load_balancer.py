@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Geographic Load Balancer for AITBC Marketplace
+Geographic Load Balancer for AITBC Market
 """
 
 import asyncio

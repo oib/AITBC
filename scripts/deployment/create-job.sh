@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - Create Job Script
@@ -48,12 +49,12 @@ import json
 import time
 import random
 
-# Load job marketplace
+# Load job market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
 # Generate unique job ID
-job_id = marketplace['total_jobs'] + 1
+job_id = market['total_jobs'] + 1
 job_address = f'job_{job_id:03d}'
 
 # Create new job
@@ -72,16 +73,16 @@ new_job = {
     'created_at': time.time()
 }
 
-# Add job to marketplace
-marketplace['jobs'][job_address] = new_job
-marketplace['job_categories'][new_job['category']].append(job_address)
-marketplace['total_jobs'] += 1
-marketplace['active_jobs'] += 1
-marketplace['last_updated'] = time.time()
+# Add job to market
+market['jobs'][job_address] = new_job
+market['job_categories'][new_job['category']].append(job_address)
+market['total_jobs'] += 1
+market['active_jobs'] += 1
+market['last_updated'] = time.time()
 
-# Save updated marketplace
+# Save updated market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'w') as f:
-    json.dump(marketplace, f, indent=2)
+    json.dump(market, f, indent=2)
 
 print(f'✅ Job Created Successfully')
 print(f'   Job ID: {new_job[\"id\"]}')
@@ -93,7 +94,7 @@ print(f'   Deadline: {time.strftime(\"%Y-%m-%d %H:%M:%S\", time.gmtime(new_job[\
 "
 
 echo ""
-echo -e "${GREEN}🎉 Job '$JOB_TITLE' has been created on the AITBC marketplace!${NC}"
+echo -e "${GREEN}🎉 Job '$JOB_TITLE' has been created on the AITBC market!${NC}"
 echo ""
 echo -e "${BLUE}Next Steps:${NC}"
 echo "1. View all jobs: ./scripts/list-jobs.sh"

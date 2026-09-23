@@ -18,7 +18,7 @@ from aitbc.constants import DATA_DIR
 # Importing the models is what puts them on `gpu_metadata`; create_all builds nothing
 # otherwise. This service's tables live there rather than on the global SQLModel registry --
 # see domain/base.py (V23-72).
-from .domain import gpu_marketplace as _models  # noqa: F401
+from .domain import gpu_market as _models  # noqa: F401
 from .domain.base import gpu_metadata
 
 logger = get_logger(__name__)

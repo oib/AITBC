@@ -46,7 +46,7 @@ In addition to base services, hub nodes get:
 | `aitbc-coordinator-api` | 8203 | Coordinator API (agent management, jobs) |
 | `aitbc-api-gateway` | 8201 | Public API gateway (reverse proxy) |
 | `aitbc-exchange` | 8106 | Exchange API |
-| `aitbc-marketplace` | — | Marketplace service |
+| `aitbc-market` | — | Market service |
 | `aitbc-bridge-monitor` | — | ETH↔AIT bridge monitor |
 | `aitbc-blockchain-event-bridge` | 8205 | Blockchain event → service trigger bridge |
 | `aitbc-agent-coordinator` | 8107 | Agent coordination backend (WebSocket PING/PONG, REQUEST_COINS) |
@@ -73,7 +73,7 @@ In addition to the blockchain mode services, shop nodes get:
 | `aitbc-coordinator-api` | 8203 | Coordinator API (for local job coordination) |
 | `aitbc-edge` | 8111 | Edge compute API (GPU job dispatch, health reporting) |
 | `aitbc-pool-hub` | 8210 | Mining pool hub (pool join/leave, miner registration) |
-| `aitbc-marketplace` | 8102 | Marketplace service (hardware/software bundle listings — needed by edge) |
+| `aitbc-market` | 8102 | Market service (hardware/software bundle listings — needed by edge) |
 
 > **Note:** Shop services are added regardless of `BLOCKCHAIN_MODE`. A `hub+shop` node gets hub services PLUS shop services. A `follower+shop` node gets follower services PLUS shop services.
 
@@ -109,7 +109,7 @@ All nodes get a daily backup service enabled automatically by `setup.sh`.
 | Component | Format | Description |
 |-----------|--------|-------------|
 | PostgreSQL | `.sql.gz` | Governance database dump |
-| SQLite DBs | `.gz` | Blockchain chain DB, coordinator, marketplace, agent, wallet, GPU |
+| SQLite DBs | `.gz` | Blockchain chain DB, coordinator, market, agent, wallet, GPU |
 | Keystore | `tar.gz` | All keys in `/var/lib/aitbc/keystore/` |
 | Service configs | `tar.gz` | All files in `/etc/aitbc/` (env files, credentials, secrets) |
 | Prometheus config | `tar.gz` | `/etc/prometheus/` if present |

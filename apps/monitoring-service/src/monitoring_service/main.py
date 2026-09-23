@@ -22,13 +22,13 @@ SERVICES = {
         "name": "GPU Service",
         "port": 8101,
         "url": "http://localhost:8101",
-        "description": "GPU marketplace and miner operations",
+        "description": "GPU market and miner operations",
     },
-    "marketplace": {
-        "name": "Marketplace Service",
+    "market": {
+        "name": "Market Service",
         "port": 8102,
         "url": "http://localhost:8102",
-        "description": "Marketplace transactions",
+        "description": "Market transactions",
     },
     "trading": {
         "name": "Trading Service",

@@ -40,7 +40,7 @@ OFFERS = [
     {
         "provider_address": "bob-miner",
         "node_id": "bob-miner",
-        "service_type": "gpu_marketplace",
+        "service_type": "gpu_market",
         "model": "RTX 4090",
         "status": "active",
         "gpu_name": "RTX 4090",
@@ -73,7 +73,7 @@ def _run(fmt: str, offers: list[dict] | None):
     client = Mock()
 
     def _get(path, **kw):
-        return {"offers": offers} if "marketplace/offer" in path else {"error": "no profile"}
+        return {"offers": offers} if "market/offer" in path else {"error": "no profile"}
 
     client.get.side_effect = _get
     with (
@@ -102,7 +102,7 @@ def test_it_is_not_a_stub_anymore():
     assert "Total: 2 provider(s), 3 offer(s)" in result.output
 
 
-def test_an_empty_marketplace_says_so():
+def test_an_empty_market_says_so():
     result = _run("table", [])
     assert result.exit_code == 0, result.output
     assert "No providers are listing offers right now." in result.output

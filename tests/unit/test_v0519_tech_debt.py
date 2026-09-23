@@ -2,7 +2,7 @@
 
 Covers:
 - B1: ReputationDTO + certification refactor (no direct AgentReputation import)
-- B2: dead duplicate pricing models removed from marketplace
+- B2: dead duplicate pricing models removed from market
 - B3: unused pricing tables removed; PricingAuditLog wired into dynamic_pricing
 - B4: fakeredis fixtures work
 """
@@ -76,19 +76,19 @@ def test_certification_files_import_reputation_dto():
 
 
 # ---------------------------------------------------------------------------
-# B2 — dead duplicate pricing models removed from marketplace
+# B2 — dead duplicate pricing models removed from market
 # ---------------------------------------------------------------------------
 
-MARKETPLACE_GPU = COORD_SRC / "coordinator_api" / "contexts" / "marketplace" / "domain" / "gpu_marketplace.py"
+MARKET_GPU = COORD_SRC / "coordinator_api" / "contexts" / "market" / "domain" / "gpu_market.py"
 
 
-def test_marketplace_gpu_no_duplicate_pricing_models():
-    """gpu_marketplace.py no longer defines MarketMetrics or PriceForecast (trading is canonical)."""
-    source = MARKETPLACE_GPU.read_text()
+def test_market_gpu_no_duplicate_pricing_models():
+    """gpu_market.py no longer defines MarketMetrics or PriceForecast (trading is canonical)."""
+    source = MARKET_GPU.read_text()
     tree = ast.parse(source)
     class_names = {n.name for n in ast.walk(tree) if isinstance(n, ast.ClassDef)}
-    assert "MarketMetrics" not in class_names, "MarketMetrics duplicate still present in marketplace"
-    assert "PriceForecast" not in class_names, "PriceForecast duplicate still present in marketplace"
+    assert "MarketMetrics" not in class_names, "MarketMetrics duplicate still present in market"
+    assert "PriceForecast" not in class_names, "PriceForecast duplicate still present in market"
 
 
 # ---------------------------------------------------------------------------
@@ -129,7 +129,7 @@ def test_pricing_models_all_exports_clean():
 
 def test_dynamic_pricing_imports_pricing_audit_log():
     """dynamic_pricing.py imports and uses PricingAuditLog for the audit trail."""
-    dp = COORD_SRC / "coordinator_api" / "contexts" / "trading" / "services" / "trading_marketplace" / "dynamic_pricing.py"
+    dp = COORD_SRC / "coordinator_api" / "contexts" / "trading" / "services" / "trading_market" / "dynamic_pricing.py"
     source = dp.read_text()
     assert "PricingAuditLog" in source
     # The audit log is written in _persist_price_point and _persist_provider_strategy

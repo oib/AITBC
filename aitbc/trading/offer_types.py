@@ -5,10 +5,10 @@ chains (islands). These types are used by the offer sync service
 (``apps/trading/``), the OfferSyncClient, and the OfferCache to
 discover, cache, and track the freshness of offers from multiple chains.
 
-The offer schema mirrors the existing ``MarketplaceOffer`` model
-(``packages/aitbc-shared/aitbc_shared/models/marketplace.py``) which is
+The offer schema mirrors the existing ``MarketOffer`` model
+(``packages/aitbc-shared/aitbc_shared/models/market.py``) which is
 already chain-aware (has ``chain_id`` field from v0.6.6). The
-``OfferFSM`` (``aitbc/marketplace/offer_fsm.py``) defines the offer
+``OfferFSM`` (``aitbc/market/offer_fsm.py``) defines the offer
 lifecycle states (AVAILABLE, RESERVED, IN_USE, DELISTED, EXPIRED).
 """
 
@@ -86,7 +86,7 @@ class OfferSyncConfig:
 class SyncedOffer:
     """A cached offer with sync metadata.
 
-    Mirrors the ``MarketplaceOffer`` model fields plus sync metadata
+    Mirrors the ``MarketOffer`` model fields plus sync metadata
     (last_synced, sync_status, sync_confidence) used for staleness
     tracking and discovery ranking.
     """
@@ -94,7 +94,7 @@ class SyncedOffer:
     offer_id: str
     chain_id: str
     provider: str
-    service_type: str  # "gpu_marketplace", "compute", etc.
+    service_type: str  # "gpu_market", "compute", etc.
     price: Decimal
     quantity: int
     status: str  # OfferFSM status: available, reserved, in_use, delisted, expired

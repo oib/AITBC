@@ -225,8 +225,7 @@ class GovernanceService:
                     signed_tx,
                     "GOVERNANCE_PROPOSE",
                     proposer_address,
-                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address,
-                     "chain_id": proposal.chain_id},
+                    {"proposal_id": proposal.proposal_id, "proposer": proposer_address, "chain_id": proposal.chain_id},
                 )
                 result = await self._blockchain.submit_signed_governance_tx(signed_tx)
                 proposal.tx_hash = result.get("tx_hash") or result.get("transaction_hash")
@@ -390,9 +389,13 @@ class GovernanceService:
                     signed_tx,
                     "GOVERNANCE_VOTE",
                     voter_address,
-                    {"proposal_id": vote.proposal_id, "voter": voter_address,
-                     "vote_type": str(vote.vote_type), "voting_power": voting_power,
-                     "chain_id": vote.chain_id},
+                    {
+                        "proposal_id": vote.proposal_id,
+                        "voter": voter_address,
+                        "vote_type": str(vote.vote_type),
+                        "voting_power": voting_power,
+                        "chain_id": vote.chain_id,
+                    },
                 )
                 vote.voting_power = voting_power
                 vote.power_at_snapshot = voting_power
@@ -712,8 +715,7 @@ class GovernanceService:
                     signed_tx,
                     "GOVERNANCE_EXECUTE",
                     executor_address,
-                    {"proposal_id": proposal_id, "executor": executor_address,
-                     "chain_id": proposal.chain_id},
+                    {"proposal_id": proposal_id, "executor": executor_address, "chain_id": proposal.chain_id},
                 )
                 result = await self._blockchain.submit_signed_governance_tx(signed_tx)
                 tx_hash = result.get("tx_hash") or result.get("transaction_hash")
@@ -859,11 +861,11 @@ class GovernanceService:
             return {"applied": False, "reason": "missing target_service or parameter_name"}
 
         # Map target_service to its parameter-apply endpoint. The routes are not
-        # uniform: pool-hub mounts its router at /v1/parameters while marketplace
-        # serves /v1/marketplace/parameters/apply directly on the app.
+        # uniform: pool-hub mounts its router at /v1/parameters while market
+        # serves /v1/market/parameters/apply directly on the app.
         service_endpoints = {
             "poolhub": f"{settings.poolhub_url}/v1/parameters/apply",
-            "marketplace": f"{settings.marketplace_url}/v1/marketplace/parameters/apply",
+            "market": f"{settings.market_url}/v1/market/parameters/apply",
         }
 
         if target_service == "blockchain":
@@ -883,8 +885,8 @@ class GovernanceService:
         }
 
         headers = {}
-        if target_service == "marketplace" and settings.marketplace_api_key:
-            headers["X-Api-Key"] = settings.marketplace_api_key
+        if target_service == "market" and settings.market_api_key:
+            headers["X-Api-Key"] = settings.market_api_key
         if target_service == "poolhub" and settings.poolhub_api_key:
             # pool-hub authenticates this call on X-PoolHub-Key
             # (apps/pool-hub .../routers/parameters.py), not X-Api-Key.

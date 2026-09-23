@@ -17,12 +17,12 @@ This service connects AITBC blockchain events (blocks, transactions, smart contr
 - Monitors smart contract events via blockchain RPC:
   - AgentStaking (stake creation, rewards, tier updates)
   - PerformanceVerifier (performance verification, penalties, rewards)
-  - AgentServiceMarketplace (service listings, purchases)
+  - AgentServiceMarket (service listings, purchases)
   - BountyIntegration (bounty creation, completion)
   - CrossChainBridge (bridge initiation, completion)
 - Triggers coordinator API actions based on blockchain events
 - Triggers agent daemon actions for agent wallet transactions
-- Triggers marketplace state updates
+- Triggers market state updates
 - Configurable action handlers (enable/disable per type)
 - Prometheus metrics for monitoring
 - Health check endpoint
@@ -47,7 +47,7 @@ Environment variables:
 - `SUBSCRIBE_TRANSACTIONS` - Subscribe to transaction events (default: `true`)
 - `ENABLE_AGENT_DAEMON_TRIGGER` - Enable agent daemon triggers (default: `true`)
 - `ENABLE_COORDINATOR_API_TRIGGER` - Enable coordinator API triggers (default: `true`)
-- `ENABLE_MARKETPLACE_TRIGGER` - Enable marketplace triggers (default: `true`)
+- `ENABLE_MARKET_TRIGGER` - Enable market triggers (default: `true`)
 - ~~``ENABLE_POLLING` — fictional env var (silently ignored by Settings)
 - `POLLING_INTERVAL_SECONDS` - Polling interval in seconds (default: `60`)
 
@@ -95,7 +95,7 @@ blockchain-event-bridge/
 4. Bridge triggers appropriate action handlers:
    - Coordinator API handler for AI jobs, agent messages
    - Agent daemon handler for agent wallet transactions
-   - Marketplace handler for marketplace listings
+   - Market handler for market listings
 5. Action handlers make HTTP calls to respective services
 6. Metrics are recorded for monitoring
 

@@ -1,5 +1,5 @@
 """
-Marketplace offer commands: list, cancel, status, match, providers, offer
+Market offer commands: list, cancel, status, match, providers, offer
 """
 
 import hashlib
@@ -37,7 +37,7 @@ def _is_wallet_address(value: str | None) -> bool:
 
 
 def _compute_plugin_id(service_type: str, model: str) -> str:
-    """Derive the plugin_id used by the marketplace service."""
+    """Derive the plugin_id used by the market service."""
     return f"{service_type}-{model.replace(':', '-')}"
 
 
@@ -82,7 +82,7 @@ def _reputation_score(offer: dict[str, Any]) -> tuple[float, float, int, int]:
     """Return normalized reputation and supporting count.
 
     Prefer canonical coordinator trust score (0-1000) when available; otherwise
-    fall back to marketplace avg_rating (0-5) and rating_count.
+    fall back to market avg_rating (0-5) and rating_count.
     """
     trust_score = offer.get("trust_score")
     if trust_score is not None:
@@ -120,7 +120,7 @@ def _availability_key(offer: dict[str, Any]) -> tuple[bool, int, float, float, f
 
 
 def _sort_offers(offers: list[dict[str, Any]], sort: str) -> list[dict[str, Any]]:
-    """Sort marketplace offers according to the selected sort mode."""
+    """Sort market offers according to the selected sort mode."""
     if sort == "reputation":
         return sorted(offers, key=_reputation_key)
     if sort == "price":
@@ -204,7 +204,7 @@ def list_offers(
     mine: bool,
     output_format: str,
 ):
-    """List blockchain marketplace offers and bids, optionally filtered."""
+    """List blockchain market offers and bids, optionally filtered."""
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
@@ -220,7 +220,7 @@ def list_offers(
                 my_address = None
             my_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
 
-        # Try marketplace service API first (new approach)
+        # Try market service API first (new approach)
         try:
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
@@ -231,7 +231,7 @@ def list_offers(
             if status:
                 params["status"] = status
 
-            result = http_client.get("/v1/marketplace/offer", params=params)
+            result = http_client.get("/v1/market/offer", params=params)
 
             if result and "offers" in result and result["offers"]:
                 offers = result["offers"]
@@ -257,7 +257,7 @@ def list_offers(
                     # Sort deterministically by live reputation (trust score > avg rating).
                     offers = _sort_offers(offers, sort)
 
-                    # Format output for marketplace offers
+                    # Format output for market offers
                     market_data = []
                     for offer in offers:
                         provider_addr = offer.get("provider_address", "N/A") or "N/A"
@@ -285,17 +285,17 @@ def list_offers(
                         )
 
                     output(market_data, fmt)
-                    success(f"Found {len(offers)} marketplace offers")
+                    success(f"Found {len(offers)} market offers")
                     return
         except NetworkError as e:
-            logger.warning("Marketplace service not available: %s", e)
+            logger.warning("Market service not available: %s", e)
         except Exception as e:
-            logger.warning("Error querying marketplace service: %s", e)
+            logger.warning("Error querying market service: %s", e)
 
         # Fallback to blockchain query (original approach)
         transactions: list[dict[str, Any]] = []
         try:
-            # Query hub directly (HTTP) for confirmed GPU_MARKETPLACE transactions
+            # Query hub directly (HTTP) for confirmed GPU_MARKET transactions
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
             result = http_client.get("/rpc/transactions", params={"limit": 500})
             if result and not isinstance(result, dict):
@@ -307,20 +307,20 @@ def list_offers(
                     and tx["payload"].get("action") in ("offer", "bid", "cancel", "accept", "software_offer")
                 ]
                 transactions = tx_list
-                logger.debug("Found %s GPU_MARKETPLACE transactions from hub", len(transactions))
+                logger.debug("Found %s GPU_MARKET transactions from hub", len(transactions))
 
             # Also check hub mempool for pending transactions
             if not transactions:
                 mempool = http_client.get("/rpc/mempool")
                 if mempool and isinstance(mempool, dict) and "transactions" in mempool:
-                    transactions = [tx for tx in mempool["transactions"] if tx.get("type") == "GPU_MARKETPLACE"]
-                    logger.debug("Found %s GPU_MARKETPLACE transactions in hub mempool", len(transactions))
+                    transactions = [tx for tx in mempool["transactions"] if tx.get("type") == "GPU_MARKET"]
+                    logger.debug("Found %s GPU_MARKET transactions in hub mempool", len(transactions))
         except NetworkError as e:
             logger.error("Network error querying hub: %s", e)
             # Fallback to local blockchain RPC
             try:
                 http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-                result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKETPLACE", "limit": 200})
+                result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 200})
                 if result and not isinstance(result, dict):
                     transactions = result  # type: ignore[unreachable]
             except NetworkError:
@@ -328,10 +328,10 @@ def list_offers(
                 pass
 
         if not transactions:
-            info("No GPU marketplace offers found (blockchain endpoint not available)")
+            info("No GPU market offers found (blockchain endpoint not available)")
             return
 
-        # Format output for marketplace offers (blockchain data)
+        # Format output for market offers (blockchain data)
         blockchain_data: list[dict[str, Any]] = []
         for tx in transactions:
             # Handle both mempool format (payload is dict) and mined block format (nested payload)
@@ -369,22 +369,22 @@ def list_offers(
             gpu_device = payload.get("gpu_device", "0")
             gpu_name_display = f"{gpu_name} [GPU {gpu_device}]" if deployment_type == "local" else "N/A (cloud)"
 
-            # Get rating info from marketplace service if available
+            # Get rating info from market service if available
             rating_display = "N/A"
             try:
                 client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
                 # Use offer_id to lookup service via new endpoint
                 offer_id = payload.get("offer_id", "")
                 if offer_id:
-                    service_response = client.get(f"/v1/marketplace/offer-by-id/{offer_id}")
+                    service_response = client.get(f"/v1/market/offer-by-id/{offer_id}")
                     if service_response and not service_response.get("error"):
                         avg_rating = service_response.get("avg_rating", 0.0)
                         rating_count = service_response.get("rating_count", 0)
                         if rating_count > 0:
                             rating_display = f"⭐ {avg_rating:.1f} ({rating_count})"
             except Exception:
-                logger.debug("Marketplace service not available, skip ratings", exc_info=True)
-                pass  # Marketplace service not available, skip ratings
+                logger.debug("Market service not available, skip ratings", exc_info=True)
+                pass  # Market service not available, skip ratings
 
             blockchain_data.append(
                 {
@@ -409,7 +409,7 @@ def list_offers(
         output(blockchain_data, fmt, title="Hardware+Software Bundle Offers")
 
     except Exception as e:
-        error(f"Error listing GPU marketplace: {str(e)}")
+        error(f"Error listing GPU market: {str(e)}")
         raise click.Abort() from e
 
 
@@ -447,7 +447,7 @@ def cancel(ctx, order_ids: tuple[str, ...]):
             "amount": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKETPLACE",
+            "type": "GPU_MARKET",
             "chain_id": chain_id,
             "payload": {
                 "action": "cancel",
@@ -465,13 +465,13 @@ def cancel(ctx, order_ids: tuple[str, ...]):
         try:
             hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
+            result = http_client.post("/rpc/transactions/market", json=cancel_data)
             success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
         except NetworkError:
             rpc_url = _get_blockchain_rpc_url(config)
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-            result = http_client.post("/rpc/transactions/marketplace", json=cancel_data)
+            result = http_client.post("/rpc/transactions/market", json=cancel_data)
             success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
             output(result, ctx.obj.get("output_format", "table"))
 
@@ -504,7 +504,7 @@ def status(ctx, order_id: str):
         tx_result = None
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            tx_result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
+            tx_result = http_client.get(f"/rpc/transactions/market/{order_id}")
         except Exception:
             logger.debug("Offer lookup request failed", exc_info=True)
             pass
@@ -512,7 +512,7 @@ def status(ctx, order_id: str):
         if not tx_result:
             try:
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                tx_result = http_client.get(f"/rpc/transactions/marketplace/{order_id}")
+                tx_result = http_client.get(f"/rpc/transactions/market/{order_id}")
             except Exception:
                 logger.debug("Hub offer lookup request failed", exc_info=True)
                 pass
@@ -560,10 +560,10 @@ def status(ctx, order_id: str):
 
 
 def _purchasable_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
-    """Drop rows from /marketplace/match that carry no offer payload.
+    """Drop rows from /market/match that carry no offer payload.
 
     That endpoint used to select on transaction type alone, so settled jobs came
-    back beside real listings: GPU_MARKETPLACE carries both. They project to an
+    back beside real listings: GPU_MARKET carries both. They project to an
     empty service_type, an empty model and price 0, which the table printed as
     rows of N/A and the footer counted -- "Total: 8 offer(s)" where five were
     buyable.
@@ -596,7 +596,7 @@ def match(ctx, output_format: str):
         # Query blockchain for matching
         try:
             http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            result = http_client.get("/rpc/transactions/marketplace/match")
+            result = http_client.get("/rpc/transactions/market/match")
 
             if not result:
                 # Try hub
@@ -604,7 +604,7 @@ def match(ctx, output_format: str):
                     "localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net"
                 ).replace("http://", "https://")
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                result = http_client.get("/rpc/transactions/marketplace/match")
+                result = http_client.get("/rpc/transactions/market/match")
 
             matches = _purchasable_matches((result or {}).get("matches", []))
 
@@ -674,7 +674,7 @@ def _provider_rating(offers: list[dict[str, Any]]) -> str:
     """Summarize a provider's standing from the offers it has listed.
 
     Coordinator trust score first when any offer carries one -- it is the
-    canonical figure -- otherwise the marketplace star average, weighted by how
+    canonical figure -- otherwise the market star average, weighted by how
     many reviews each offer actually has so a single 5-star listing does not
     outvote a well-reviewed one.
     """
@@ -739,7 +739,7 @@ def _provider_rows(grouped: dict[str, list[dict[str, Any]]]) -> list[dict[str, A
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def providers(ctx, output_format: str):
-    """List the providers behind the live marketplace offers.
+    """List the providers behind the live market offers.
 
     The per-offer views are `market list` and `market match`; this is the same
     population collapsed to one row per seller, which is what you want when
@@ -753,16 +753,16 @@ def providers(ctx, output_format: str):
 
         offers: list[dict[str, Any]] = []
         try:
-            result = http_client.get("/v1/marketplace/offer")
+            result = http_client.get("/v1/market/offer")
             offers = (result or {}).get("offers") or []
         except NetworkError as e:
-            logger.warning("Marketplace service not available: %s", e)
+            logger.warning("Market service not available: %s", e)
 
         if not offers:
             # Fall back to the chain. The match endpoint returns listings only,
             # and its projection names the seller differently.
             try:
-                result = http_client.get("/rpc/transactions/marketplace/match")
+                result = http_client.get("/rpc/transactions/market/match")
                 offers = [
                     {**m, "provider_address": m.get("seller"), "status": "active"}
                     for m in _purchasable_matches((result or {}).get("matches", []))
@@ -782,7 +782,7 @@ def providers(ctx, output_format: str):
 
         rows = _provider_rows(grouped)
 
-        output(rows, fmt, title="Marketplace Providers")
+        output(rows, fmt, title="Market Providers")
         if fmt not in ("json", "yaml", "csv"):
             success(f"Total: {len(rows)} provider(s), {len(offers)} offer(s)")
 
@@ -794,7 +794,7 @@ def providers(ctx, output_format: str):
 
 
 # ---------------------------------------------------------------------------
-# Software marketplace — Ollama inference, Whisper, FFmpeg
+# Software market — Ollama inference, Whisper, FFmpeg
 # ---------------------------------------------------------------------------
 
 
@@ -827,7 +827,7 @@ def providers(ctx, output_format: str):
 @click.option("--context-window", type=int, default=4096, help="Context window size (ollama)")
 @click.option("--gpu-name", help="GPU name from nvidia-smi (auto-detected if omitted)")
 @click.option("--gpu-device", help="GPU device ID (0, 1, 2, etc.) for multi-GPU servers")
-@click.option("--gpu-offer-id", help="GPU marketplace offer ID for cross-reference")
+@click.option("--gpu-offer-id", help="GPU market offer ID for cross-reference")
 @click.option(
     "--disk-quota-mb",
     type=int,
@@ -848,7 +848,7 @@ def offer(
     gpu_offer_id: str | None,
     disk_quota_mb: int | None,
 ):
-    """List a hardware and software bundle offer in the marketplace."""
+    """List a hardware and software bundle offer in the market."""
     try:
         config = get_config()
         chain_id = get_chain_id()
@@ -1038,12 +1038,12 @@ def offer(
 
         # Find any existing active offers for the same service/model/GPU from this
         # provider. If a single identical one already exists, skip the republish.
-        # Otherwise the new offer will replace older/different ones so the marketplace
+        # Otherwise the new offer will replace older/different ones so the market
         # does not accumulate duplicate default offers every time the miner refreshes.
         replaces: list[str] = []
         try:
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            listings_result = http_client.get("/rpc/marketplace/listings")
+            listings_result = http_client.get("/rpc/market/listings")
             if listings_result and isinstance(listings_result, dict):
                 for listing in listings_result.get("listings", []):
                     if (
@@ -1079,11 +1079,11 @@ def offer(
                 if replaces:
                     info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
         except Exception:
-            logger.debug("Could not query existing marketplace listings for replacement", exc_info=True)
+            logger.debug("Could not query existing market listings for replacement", exc_info=True)
 
         # Avoid racing with a pending (unconfirmed) offer for the same service/model/GPU.
         # The chain produces blocks every ~5 minutes, so a pending offer from a recent
-        # refresh would otherwise not be visible in marketplace/listings and could lead
+        # refresh would otherwise not be visible in market/listings and could lead
         # to duplicate listings in the same block.
         try:
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
@@ -1092,7 +1092,7 @@ def offer(
                 for tx in mempool_result.get("transactions", []):
                     if tx.get("from") != wallet_address:
                         continue
-                    if tx.get("type") != "GPU_MARKETPLACE":
+                    if tx.get("type") != "GPU_MARKET":
                         continue
                     payload = tx.get("payload") or {}
                     if payload.get("action") not in ("offer", "software_offer"):
@@ -1116,7 +1116,7 @@ def offer(
             "amount": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKETPLACE",
+            "type": "GPU_MARKET",
             "chain_id": chain_id,
             "payload": {
                 "action": "software_offer",
@@ -1125,7 +1125,7 @@ def offer(
                 "provider_address": wallet_address,
                 "service_type": service_type,
                 "model": model_or_variant,
-                # not-money: wire format. This is the payload of a GPU_MARKETPLACE
+                # not-money: wire format. This is the payload of a GPU_MARKET
                 # transaction; the node hashes it for the tx id and reads "price" back
                 # as a JSON number. Decimal is not JSON-serializable and a string would
                 # change the hash, so this stays float until the protocol changes.
@@ -1152,11 +1152,11 @@ def offer(
         }
 
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        tx_result = http_client.post("/rpc/transactions/marketplace", json=offer_data)
-        success("Software offer listed on marketplace!")
+        tx_result = http_client.post("/rpc/transactions/market", json=offer_data)
+        success("Software offer listed on market!")
         output(tx_result, ctx.obj.get("output_format", "table"))
 
-        # Auto-register in hub marketplace service so agents can discover it.
+        # Auto-register in hub market service so agents can discover it.
         _health_urls = {
             "ollama": "http://localhost:11434/api/tags",
             "whisper": "http://localhost:8110/health",
@@ -1165,18 +1165,18 @@ def offer(
             "hermes": "http://localhost:8270/health",
         }
         try:
-            # P2.5: register the offer with the same marketplace service that `market list`
+            # P2.5: register the offer with the same market service that `market list`
             # queries, otherwise the offer is visible only on the local node.
-            marketplace_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
-            plugin_client = AITBCHTTPClient(base_url=marketplace_url, timeout=10)
+            market_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
+            plugin_client = AITBCHTTPClient(base_url=market_url, timeout=10)
             plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
             plugin_client.post(
-                "/v1/marketplace/offer",
+                "/v1/market/offer",
                 json={
                     "plugin_id": plugin_id,
                     "service_type": service_type,
                     "model": model_or_variant,
-                    # not-money: wire format. This is the payload of a GPU_MARKETPLACE
+                    # not-money: wire format. This is the payload of a GPU_MARKET
                     # transaction; the node hashes it for the tx id and reads "price" back
                     # as a JSON number. Decimal is not JSON-serializable and a string would
                     # change the hash, so this stays float until the protocol changes.
@@ -1201,12 +1201,10 @@ def offer(
                     "status": "active",
                 },
             )
-            info(
-                f"Software service registered in marketplace (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})"
-            )
+            info(f"Software service registered in market (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
         except Exception:
             logger.debug("Offer lookup request failed", exc_info=True)
-            pass  # Non-fatal — marketplace service may not be running
+            pass  # Non-fatal — market service may not be running
 
     except Exception as e:
         error(f"Error creating software offer: {e}")
@@ -1246,7 +1244,7 @@ def offer_list(
             hub_url = f"https://{hub_host}"
 
         client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = client.get("/v1/marketplace/offers")
+        result = client.get("/v1/market/offers")
         offers: list[dict[str, Any]] = []
         if isinstance(result, dict):
             offers = result.get("offers", result.get("data", [])) or []
@@ -1263,7 +1261,7 @@ def offer_list(
                 continue
             filtered.append(offer)
 
-        output(filtered, output_format, title="My Marketplace Offers")
+        output(filtered, output_format, title="My Market Offers")
     except Exception as e:
         error(f"Error listing offers: {e}")
         raise click.Abort() from e
@@ -1283,7 +1281,7 @@ def offer_disable(
     plugin_id: str,
     output_format: str,
 ):
-    """Disable/unregister a marketplace offer."""
+    """Disable/unregister a market offer."""
     try:
         output_format = resolve_output_format(ctx, output_format)
         config = get_config()
@@ -1296,7 +1294,7 @@ def offer_disable(
             hub_url = f"https://{hub_host}"
 
         client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-        result = client.delete(f"/v1/marketplace/offer/{plugin_id}")
+        result = client.delete(f"/v1/market/offer/{plugin_id}")
         if result and not result.get("error"):
             success(f"Disabled offer {plugin_id}")
             output(result, output_format, title="Disabled Offer")

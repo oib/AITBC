@@ -1,8 +1,8 @@
-"""Migrate legacy IpfsRentalToken rows to MarketplaceJob/Payment.
+"""Migrate legacy IpfsRentalToken rows to MarketJob/Payment.
 
-This script is idempotent.  It creates `MarketplaceJob` and
-`MarketplaceJobPayment` records for every `IpfsRentalToken` that does not
-already have a corresponding `MarketplaceJob` with the same `rental_id`.
+This script is idempotent.  It creates `MarketJob` and
+`MarketJobPayment` records for every `IpfsRentalToken` that does not
+already have a corresponding `MarketJob` with the same `rental_id`.
 It never deletes the legacy tokens.
 """
 
@@ -14,12 +14,12 @@ import sys
 from decimal import Decimal
 from pathlib import Path
 
-_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "marketplace" / "src")
+_SRC = str(Path(__file__).resolve().parent.parent / "apps" / "market" / "src")
 if _SRC not in sys.path:
     sys.path.insert(0, _SRC)
 
-from marketplace_service.domain.marketplace import IpfsRentalToken, MarketplaceJob, MarketplaceJobPayment
-from marketplace_service.storage import get_session_context, init_db
+from market_service.domain.market import IpfsRentalToken, MarketJob, MarketJobPayment
+from market_service.storage import get_session_context, init_db
 
 
 async def main() -> None:
@@ -36,8 +36,8 @@ async def main() -> None:
         tokens = list(result.scalars().all())
 
         for token in tokens:
-            # Idempotency: skip if a marketplace job with the same id exists.
-            existing = await session.get(MarketplaceJob, token.rental_id)
+            # Idempotency: skip if a market job with the same id exists.
+            existing = await session.get(MarketJob, token.rental_id)
             if existing:
                 skipped += 1
                 continue
@@ -50,7 +50,7 @@ async def main() -> None:
                 "refund_pending": "refund_pending",
             }.get(token.status, "pending")
 
-            job = MarketplaceJob(
+            job = MarketJob(
                 id=token.rental_id,
                 offer_id=token.offer_id,
                 service_type="ipfs",
@@ -77,7 +77,7 @@ async def main() -> None:
                 payment_status=payment_status,
             )
 
-            payment = MarketplaceJobPayment(
+            payment = MarketJobPayment(
                 job_id=job.id,
                 amount=Decimal("0"),  # Legacy tokens did not store price separately.
                 currency="AITBC",

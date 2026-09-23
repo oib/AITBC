@@ -12,7 +12,7 @@ Sync ratings to blockchain
 - `apps/blockchain-node/scripts/blockchain_simple.py` — Blockchain Node Service for AITBC Production
 - `apps/edge/src/aitbc_edge/clients/blockchain_rpc.py` — Blockchain RPC client for Edge API Service
 - `Coordinator API` exposes `GET /v1/sync-status` (operation `blockchain_sync_status_v1_sync_status_get`) — Blockchain Sync Status
-- `Marketplace` exposes `POST /v1/marketplace/ratings/sync` (operation `sync_ratings_v1_marketplace_ratings_sync_post`) — Sync Ratings
+- `Market` exposes `POST /v1/market/ratings/sync` (operation `sync_ratings_v1_market_ratings_sync_post`) — Sync Ratings
 - `Openapi` exposes `GET /v1/sync-status` (operation `blockchain_sync_status_v1_sync_status_get`) — Blockchain Sync Status
 
 ## Examples
@@ -23,7 +23,7 @@ Sync ratings to blockchain
 - `GET /` (`list_islands` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `GET /{island_id}` (`get_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `GET /v1/sync-status` (`blockchain_sync_status_v1_sync_status_get`) on `Coordinator API`
-- `POST /v1/marketplace/ratings/sync` (`sync_ratings_v1_marketplace_ratings_sync_post`) on `Marketplace`
+- `POST /v1/market/ratings/sync` (`sync_ratings_v1_market_ratings_sync_post`) on `Market`
 - `GET /v1/sync-status` (`blockchain_sync_status_v1_sync_status_get`) on `Openapi`
 
 ## Operational Notes

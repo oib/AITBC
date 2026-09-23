@@ -218,7 +218,7 @@ The `compute_consumer.py` module has been updated to use the coordinator API for
 The `swarm_coordinator.py` module has been updated to use coordinator APIs for various operations:
 
 - `_get_load_balancing_data()`: Fetches from `/v1/load-balancing/metrics`
-- `_get_pricing_data()`: Fetches from `/v1/marketplace/pricing/trends`
+- `_get_pricing_data()`: Fetches from `/v1/market/pricing/trends`
 - `_get_security_data()`: Fetches from `/v1/security/metrics`
 - `_register_with_swarm()`: Registers via `/v1/swarm/{swarm_id}/register`
 - `_broadcast_to_swarm_network()`: Broadcasts via `/v1/swarm/{swarm_id}/broadcast`

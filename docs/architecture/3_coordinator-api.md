@@ -113,33 +113,33 @@ Get user wallet balance
 `POST /v1/logout`
 Log out (blocklist the JWT)
 
-### GPU Marketplace Endpoints
+### GPU Market Endpoints
 
-`POST /v1/marketplace/gpu/register`
-Register a GPU on the marketplace
+`POST /v1/market/gpu/register`
+Register a GPU on the market
 
-`GET /v1/marketplace/gpu/list`
+`GET /v1/market/gpu/list`
 List available GPUs (filter by available, model, price, region)
 
-`GET /v1/marketplace/gpu/{gpu_id}`
+`GET /v1/market/gpu/{gpu_id}`
 Get GPU details
 
-`POST /v1/marketplace/gpu/{gpu_id}/book`
+`POST /v1/market/gpu/{gpu_id}/book`
 Book a GPU for a duration
 
-`POST /v1/marketplace/gpu/{gpu_id}/release`
+`POST /v1/market/gpu/{gpu_id}/release`
 Release a booked GPU
 
-`GET /v1/marketplace/gpu/{gpu_id}/reviews`
+`GET /v1/market/gpu/{gpu_id}/reviews`
 Get reviews for a GPU
 
-`POST /v1/marketplace/gpu/{gpu_id}/reviews`
+`POST /v1/market/gpu/{gpu_id}/reviews`
 Add a review for a GPU
 
-`GET /v1/marketplace/orders`
-List marketplace orders
+`GET /v1/market/orders`
+List market orders
 
-`GET /v1/marketplace/pricing/{model}`
+`GET /v1/market/pricing/{model}`
 Get pricing for a GPU model
 
 ### Payment Endpoints

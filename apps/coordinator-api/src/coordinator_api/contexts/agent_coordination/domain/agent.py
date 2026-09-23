@@ -188,8 +188,8 @@ class AgentStepExecution(SQLModel, table=True):
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
 
 
-class AgentMarketplace(SQLModel, table=True):
-    """Marketplace for AI agent workflows"""
+class AgentMarket(SQLModel, table=True):
+    """Market for AI agent workflows"""
 
     __tablename__ = "agent_marketplace"
     __table_args__ = {"extend_existing": True}
@@ -197,7 +197,7 @@ class AgentMarketplace(SQLModel, table=True):
     id: str = Field(default_factory=lambda: f"amkt_{uuid4().hex[:8]}", primary_key=True)
     workflow_id: str = Field(index=True)
 
-    # Marketplace metadata
+    # Market metadata
     title: str = Field(max_length=200)
     description: str = Field(default="")
     tags: str = Field(default="")  # JSON string of tags
@@ -306,7 +306,7 @@ __all__ = [
     "AgentExecutionRequest",
     "AgentExecutionResponse",
     "AgentExecutionStatus",
-    "AgentMarketplace",
+    "AgentMarket",
     "AgentStatus",
     "AgentStep",
     "AgentStepExecution",

@@ -20,17 +20,17 @@ This document provides answers to frequently asked questions about the AITBC pla
 
 ### What is AITBC?
 
-AITBC (Advanced Intelligence Training Blockchain Consortium) is a comprehensive blockchain platform that supports multiple use cases including AI compute resource trading, multi-chain blockchain operations, agent coordination, and enterprise-grade security. While GPU compute marketplace is one of its key capabilities, the platform also supports general blockchain operations, smart contracts, and decentralized applications.
+AITBC (Advanced Intelligence Training Blockchain Consortium) is a comprehensive blockchain platform that supports multiple use cases including AI compute resource trading, multi-chain blockchain operations, agent coordination, and enterprise-grade security. While GPU compute market is one of its key capabilities, the platform also supports general blockchain operations, smart contracts, and decentralized applications.
 
 ### How does AITBC work?
 
-AITBC uses blockchain technology to create a trustless marketplace for GPU compute. Miners register their GPUs, submit compute offers, and process jobs. Developers submit jobs which are matched with available miners. Payments are handled through smart contracts with escrow to ensure fair compensation.
+AITBC uses blockchain technology to create a trustless market for GPU compute. Miners register their GPUs, submit compute offers, and process jobs. Developers submit jobs which are matched with available miners. Payments are handled through smart contracts with escrow to ensure fair compensation.
 
 ### What are the main components?
 
 - **Blockchain Node**: Maintains the decentralized ledger
 - **Coordinator API**: Manages job submission and coordination
-- **Marketplace Service**: Matches jobs with miners
+- **Market Service**: Matches jobs with miners
 - **Wallet Daemon**: Handles cryptographic operations
 - **GPU Miner**: Processes AI jobs on GPUs
 

@@ -2,7 +2,7 @@
 set -euo pipefail
 
 # AITBC Comprehensive Testing Suite
-# Tests all blockchain functionality including marketplace scenarios
+# Tests all blockchain functionality including market scenarios
 
 # Removed set -e to allow script to continue on test failures
 # Test failures are tracked via TESTS_PASSED and TESTS_FAILED counters
@@ -172,18 +172,18 @@ if [ "$SKIP_REMOTE_TESTS" = false ]; then
     fi
 fi
 
-# 5. MARKETPLACE TESTS
+# 5. MARKET TESTS
 echo ""
-echo "5. [MARKET] MARKETPLACE FUNCTIONALITY TESTS"
+echo "5. [MARKET] MARKET FUNCTIONALITY TESTS"
 echo "===================================="
 
 if [ "$SKIP_REMOTE_TESTS" = false ]; then
-    run_test "Marketplace listings API" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/marketplace/listings | jq .total'"
+    run_test "Market listings API" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s http://localhost:$FOLLOWER_PORT/rpc/market/listings | jq .total'"
     run_test "AI submission endpoint" "ssh -o BatchMode=yes -o ConnectTimeout=5 $FOLLOWER_NODE 'curl -s -X POST http://localhost:$FOLLOWER_PORT/rpc/ai/submit \
       -H \"Content-Type: application/json\" \
       -d \"{\\\"prompt\\\": \\\"Test prompt\\\", \\\"model\\\": \\\"llama3.2:3b\\\"}\"'"
 else
-    echo "[WARN] Skipping marketplace tests (FOLLOWER_NODE not set)"
+    echo "[WARN] Skipping market tests (FOLLOWER_NODE not set)"
 fi
 
 # 6. SYSTEM HEALTH TESTS
@@ -230,7 +230,7 @@ echo "======================"
 
 run_test "Bulk sync functionality" "test -f /opt/aitbc/scripts/sync/fast_bulk_sync.sh"
 run_test "Health monitoring" "test -f /opt/aitbc/scripts/workflow/22_advanced_monitoring.sh"
-run_test "Marketplace scenario" "test -f /opt/aitbc/scripts/workflow/24_marketplace_scenario_real.sh"
+run_test "Market scenario" "test -f /opt/aitbc/scripts/workflow/24_market_scenario_real.sh"
 
 # 9. PERFORMANCE TESTS
 echo ""

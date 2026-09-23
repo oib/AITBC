@@ -1,8 +1,8 @@
-"""Provider-side IPFS hosting sweeper for marketplace rentals.
+"""Provider-side IPFS hosting sweeper for market rentals.
 
 The buyer-side ``aitbc market host`` flow creates the escrow and pins the CID on
-the *buyer's* daemon, so the marketplace job alone does not mean the provider is
-storing anything. This sweeper closes that loop: it watches the hub marketplace
+the *buyer's* daemon, so the market job alone does not mean the provider is
+storing anything. This sweeper closes that loop: it watches the hub market
 for active ``service_type=ipfs`` jobs assigned to this provider wallet, pins each
 job CID on the local island daemon (Kubo fetches the blocks from the buyer's peer
 over the private swarm), and reports ``provider_confirmed`` via pin-confirm so
@@ -31,7 +31,7 @@ from aitbc.aitbc_logging import get_logger
 
 logger = get_logger(__name__)
 
-# Job states from the marketplace lifecycle (marketplace_service.main).
+# Job states from the market lifecycle (market_service.main).
 # Anything outside this set (RELEASED/REFUNDED/CANCELED/EXPIRED/FAILED, or a
 # job that vanished from the listing) triggers unpin of a tracked pin.
 ACTIVE_STATES = frozenset({"QUEUED", "RUNNING"})
@@ -39,15 +39,15 @@ ACTIVE_STATES = frozenset({"QUEUED", "RUNNING"})
 IPFS_API_URL = os.environ.get("IPFS_API_URL", "http://127.0.0.1:5002")
 
 
-def _marketplace_base() -> str:
-    """Resolve the hub marketplace base URL.
+def _market_base() -> str:
+    """Resolve the hub market base URL.
 
-    Mirrors the CLI's ``_hub_marketplace_client`` resolution: an explicit
-    ``MARKETPLACE_SERVICE_URL`` wins (unless it is a loopback URL on a non-hub
+    Mirrors the CLI's ``_hub_market_client`` resolution: an explicit
+    ``MARKET_SERVICE_URL`` wins (unless it is a loopback URL on a non-hub
     node, which is meaningless for a provider), then ``HUB_DISCOVERY_URL``,
     then the public hub default.
     """
-    url = os.environ.get("MARKETPLACE_SERVICE_URL", "").strip()
+    url = os.environ.get("MARKET_SERVICE_URL", os.environ.get("MARKETPLACE_SERVICE_URL", "")).strip()
     if url and not url.startswith(("http://127.0.0.1", "http://localhost")):
         return url.rstrip("/")
     hub = os.environ.get("HUB_DISCOVERY_URL", "hub.aitbc.bubuit.net").strip().rstrip("/")
@@ -119,15 +119,15 @@ def _object_size(cid: str) -> int | None:
         return None
 
 
-def _fetch_jobs(marketplace_url: str, provider_address: str) -> list[dict[str, Any]] | None:
-    """Return this provider's ipfs marketplace jobs, or None on fetch failure.
+def _fetch_jobs(market_url: str, provider_address: str) -> list[dict[str, Any]] | None:
+    """Return this provider's ipfs market jobs, or None on fetch failure.
 
     None (rather than an empty list) signals "unknown" so callers do not unpin
     based on a failed fetch.
     """
     try:
         response = requests.get(
-            f"{marketplace_url}/v1/marketplace/jobs",
+            f"{market_url}/v1/market/jobs",
             params={
                 "service_type": "ipfs",
                 "provider_address": provider_address,
@@ -138,7 +138,7 @@ def _fetch_jobs(marketplace_url: str, provider_address: str) -> list[dict[str, A
         response.raise_for_status()
         data = response.json()
     except (requests.RequestException, ValueError) as e:
-        logger.warning("Could not list marketplace ipfs jobs: %s", e)
+        logger.warning("Could not list market ipfs jobs: %s", e)
         return None
     if isinstance(data, dict):
         return list(data.get("jobs", []))
@@ -152,10 +152,10 @@ def _pin_confirmed(job: dict[str, Any]) -> bool:
     return bool(payload.get("provider_confirmed"))
 
 
-def _confirm_pin(marketplace_url: str, job_id: str, size: int | None) -> bool:
+def _confirm_pin(market_url: str, job_id: str, size: int | None) -> bool:
     try:
         response = requests.post(
-            f"{marketplace_url}/v1/marketplace/jobs/{job_id}/pin-confirm",
+            f"{market_url}/v1/market/jobs/{job_id}/pin-confirm",
             json={"size": size, "provider_confirmed": True},
             timeout=20,
         )
@@ -201,7 +201,7 @@ def _pin_new_job(
 ) -> bool:
     """Pin a CID for a job not yet tracked in state. True when pinned.
 
-    Provider-side quota enforcement: the marketplace checks usage at purchase
+    Provider-side quota enforcement: the market checks usage at purchase
     time, but a crafted request could bypass the CLI, so the provider re-checks
     before spending its own disk. Jobs that are already provider-confirmed skip
     the gate -- the pin is recovery after state loss, not new spend.
@@ -250,7 +250,7 @@ def _pin_new_job(
 
 def _pin_active_job(
     job: dict[str, Any],
-    marketplace_url: str,
+    market_url: str,
     usage_by_buyer: dict[str, int],
     state: dict[str, dict[str, Any]],
     result: dict[str, int],
@@ -266,13 +266,13 @@ def _pin_active_job(
         return
     size = state[job_id].get("size")
     if not _pin_confirmed(job):
-        if _confirm_pin(marketplace_url, job_id, size):
+        if _confirm_pin(market_url, job_id, size):
             result["confirmed"] += 1
 
 
 def _pin_active_jobs(
     active_jobs: list[dict[str, Any]],
-    marketplace_url: str,
+    market_url: str,
     state: dict[str, dict[str, Any]],
     result: dict[str, int],
 ) -> None:
@@ -284,7 +284,7 @@ def _pin_active_jobs(
         usage_by_buyer[buyer] = usage_by_buyer.get(buyer, 0) + _job_size(job)
 
     for job in active_jobs:
-        _pin_active_job(job, marketplace_url, usage_by_buyer, state, result)
+        _pin_active_job(job, market_url, usage_by_buyer, state, result)
 
 
 def _unpin_stale_jobs(
@@ -322,17 +322,17 @@ def sweep_once(provider_address: str, state_path: Path | None = None) -> dict[st
         logger.debug("IPFS daemon not reachable at %s; skipping hosting sweep", IPFS_API_URL)
         return result
 
-    marketplace_url = _marketplace_base()
+    market_url = _market_base()
     state_path = state_path or _state_path()
     state = _load_state(state_path)
 
-    jobs = _fetch_jobs(marketplace_url, provider_address)
+    jobs = _fetch_jobs(market_url, provider_address)
     if jobs is None:
         result["errors"] += 1
         return result
 
     active_jobs = [j for j in jobs if str(j.get("state", "")).upper() in ACTIVE_STATES]
-    _pin_active_jobs(active_jobs, marketplace_url, state, result)
+    _pin_active_jobs(active_jobs, market_url, state, result)
     _unpin_stale_jobs(state, active_jobs, result)
 
     _save_state(state_path, state)

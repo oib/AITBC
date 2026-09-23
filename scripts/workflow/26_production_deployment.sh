@@ -285,7 +285,7 @@ if [ "$ALL_CHECKS_PASSED" = true ]; then
     echo "Next steps:"
     echo "• Monitor system performance"
     echo "• Review security logs"
-    echo "• Test marketplace scenarios"
+    echo "• Test market scenarios"
     echo "• Schedule regular maintenance"
     exit 0
 else

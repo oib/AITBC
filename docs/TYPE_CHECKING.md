@@ -30,7 +30,7 @@ A small number of targeted `# type: ignore[code]` comments remain for SQLModel/S
 | `bridge_transfer.py` | 270 | `attr-defined` | SQLModel column `in_()` not exposed as a typed attribute. |
 | `bridge_validator.py` | 91, 302 | `attr-defined` | SQLModel column `desc()` not exposed as a typed attribute. |
 
-The 2026-09-05 cleanup added a few more SQLAlchemy and `unreachable` ignores in `acceptance_sweeper.py`, `settlement_reconciler.py`, `dashboard.py`, `gpu_marketplace.py`, `exchange_island.py`, and `ai.py`. All are narrow and tied to SQLModel expression methods or defensive runtime branches that mypy cannot prove are safe.
+The 2026-09-05 cleanup added a few more SQLAlchemy and `unreachable` ignores in `acceptance_sweeper.py`, `settlement_reconciler.py`, `dashboard.py`, `gpu_market.py`, `exchange_island.py`, and `ai.py`. All are narrow and tied to SQLModel expression methods or defensive runtime branches that mypy cannot prove are safe.
 
 ### Previously Fixed Files (v0.4.23)
 

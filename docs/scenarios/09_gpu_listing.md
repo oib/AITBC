@@ -6,7 +6,7 @@
 **Last Updated**: 2026-08-19
 **Version**: 1.1
 
-> **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only marketplace with bidding was deprecated in v0.4.7. This scenario describes on-chain GPU resource registration which is still valid, but the marketplace bidding functionality referenced in prerequisites is no longer available. The current marketplace focuses on hardware+software bundles with fixed pricing.
+> **⚠️ DEPRECATION NOTICE (v0.4.7)**: The GPU-only market with bidding was deprecated in v0.4.7. This scenario describes on-chain GPU resource registration which is still valid, but the market bidding functionality referenced in prerequisites is no longer available. The current market focuses on hardware+software bundles with fixed pricing.
 
 ## Navigation Path
 
@@ -21,7 +21,7 @@ breadcrumb: Home > Scenarios > GPU Listing
 - **Previous Scenario**: [Transaction Sending](./02_transaction_sending.md)
 - **Next Scenario**: [Agent SDK Identity](./10_agent_sdk_identity.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
-- **Feature Documentation**: [Local GPU Commands](../../cli/aitbc_cli/commands/gpu_marketplace.py), [On-Chain GPU Commands](../../cli/aitbc_cli/commands/gpu_resources.py), [Resource Commands](../../cli/aitbc_cli/commands/resource.py)
+- **Feature Documentation**: [Local GPU Commands](../../cli/aitbc_cli/commands/gpu_market.py), [On-Chain GPU Commands](../../cli/aitbc_cli/commands/gpu_resources.py), [Resource Commands](../../cli/aitbc_cli/commands/resource.py)
 
 ---
 
@@ -48,7 +48,7 @@ A compute provider agent has NVIDIA GPUs and wants to advertise them on the the 
 ### Knowledge Required
 
 - Scenario 02 (Transaction Sending) — on-chain GPU registration and allocation are blockchain transactions
-- Scenario 08 (Marketplace Offers and Price Discovery) — familiarity with listing resources for sale
+- Scenario 08 (Market Offers and Price Discovery) — familiarity with listing resources for sale
 
 ### Tools Required
 
@@ -67,7 +67,7 @@ A compute provider agent has NVIDIA GPUs and wants to advertise them on the the 
 
 ## Step-by-Step Workflow
 
-> **Two command groups**: The local GPU service commands are in the `gpu` group (`cli/aitbc_cli/commands/gpu_marketplace.py`). The on-chain GPU tracking commands are in the `gpu-onchain` group (`cli/aitbc_cli/commands/gpu_resources.py`, registered with `name="gpu-onchain"`). The `resource` group (`cli/aitbc_cli/commands/resource.py`) contains experimental allocation/utilization helpers.
+> **Two command groups**: The local GPU service commands are in the `gpu` group (`cli/aitbc_cli/commands/gpu_market.py`). The on-chain GPU tracking commands are in the `gpu-onchain` group (`cli/aitbc_cli/commands/gpu_resources.py`, registered with `name="gpu-onchain"`). The `resource` group (`cli/aitbc_cli/commands/resource.py`) contains experimental allocation/utilization helpers.
 
 ### Step 1: Auto-discover local GPU specifications
 
@@ -241,7 +241,7 @@ aitbc resource deallocate alloc_12345 --force
 
 ## Code Examples Using Agent SDK
 
-The `aitbc_agent` package exposes `ComputeProvider`, an `Agent` subclass for agents that provide compute resources. It offers resources on the marketplace, manages dynamic pricing, and accepts jobs.
+The `aitbc_agent` package exposes `ComputeProvider`, an `Agent` subclass for agents that provide compute resources. It offers resources on the market, manages dynamic pricing, and accepts jobs.
 
 ### Example 1: Create a provider and offer resources
 
@@ -266,7 +266,7 @@ async def main() -> None:
     provider.coordinator_url = "http://localhost:8203"
     await provider.register()
 
-    # Offer resources on the marketplace at 0.075 AIT/hour
+    # Offer resources on the market at 0.075 AIT/hour
     ok = await provider.offer_resources(
         price_per_hour=0.075,
         availability_schedule={"monday": ["09:00-17:00"], "tuesday": ["09:00-17:00"]},
@@ -383,7 +383,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 ## Related Resources
 
-- Source: `cli/aitbc_cli/commands/gpu_marketplace.py` (`gpu` group: discover, register, unregister, update, list)
+- Source: `cli/aitbc_cli/commands/gpu_market.py` (`gpu` group: discover, register, unregister, update, list)
 - Source: `cli/aitbc_cli/commands/gpu_resources.py` (`gpu-onchain` group: register, query, allocate, allocations, list)
 - Source: `cli/aitbc_cli/commands/resource.py` (`resource` group: status, deallocate, experimental allocate/list/release/utilization/optimize)
 - SDK: `packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_provider.py` (`ComputeProvider.create_provider`, `offer_resources`, `set_availability`, `enable_dynamic_pricing`, `accept_job`)

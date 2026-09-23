@@ -34,7 +34,7 @@ SERVICE_NAMES = (
     "aiengine",
     "surveillance",
     "analytics",
-    "marketplace",
+    "market",
     "enterprise",
     "multimodal",
     "zkproofs",

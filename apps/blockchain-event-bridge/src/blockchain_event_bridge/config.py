@@ -49,14 +49,14 @@ class Settings(ServiceSettings):
     # Smart contract addresses (Phase 2)
     agent_staking_address: str | None = Field(default=None)
     performance_verifier_address: str | None = Field(default=None)
-    marketplace_address: str | None = Field(default=None)
+    market_address: str | None = Field(default=None)
     bounty_address: str | None = Field(default=None)
     bridge_address: str | None = Field(default=None)
 
     # Action handler enable/disable flags
     enable_agent_daemon_trigger: bool = Field(default=True)
     enable_coordinator_api_trigger: bool = Field(default=True)
-    enable_marketplace_trigger: bool = Field(default=True)
+    enable_market_trigger: bool = Field(default=True)
 
     # Polling interval for contract event subscriber sleep
     polling_interval_seconds: int = Field(default=60)

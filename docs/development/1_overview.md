@@ -7,15 +7,15 @@ description: Introduction to developing on the AITBC platform
 
 Welcome to the AITBC developer documentation. This guide explains how to build applications and services on the AITBC network.
 
-> **Status:** AITBC is under active development. Core blockchain, coordinator, wallet, marketplace, and CLI services are implemented. Some application categories below are designed capabilities — they are marked as such.
+> **Status:** AITBC is under active development. Core blockchain, coordinator, wallet, market, and CLI services are implemented. Some application categories below are designed capabilities — they are marked as such.
 
 ## What AITBC provides today
 
 - **Multi-island PoA blockchain** — each island is an independent chain with hub/follower nodes.
-- **Coordinator API** — FastAPI service for job submission, miner matching, marketplace offers, and payments.
-- **CLI (`aitbc`)** — wallet, blockchain, network, AI jobs, marketplace, mining, and agent operations.
+- **Coordinator API** — FastAPI service for job submission, miner matching, market offers, and payments.
+- **CLI (`aitbc`)** — wallet, blockchain, network, AI jobs, market, mining, and agent operations.
 - **Wallet daemon** — multi-chain wallet, escrow, and transaction signing.
-- **GPU marketplace** — providers list compute offers; clients submit AI inference and training jobs.
+- **GPU market** — providers list compute offers; clients submit AI inference and training jobs.
 - **Agent messaging** — PING/PONG, message routing, and discovery via the Agent Coordinator.
 
 ## What you can build
@@ -24,7 +24,7 @@ Welcome to the AITBC developer documentation. This guide explains how to build a
 
 - **Client tooling** — submit AI jobs, query results, and manage wallets.
 - **Miner/provider tooling** — register GPU offers, run inference, and earn tokens.
-- **Hub/shop node operations** — run a public or private island with blockchain, coordinator, and marketplace services.
+- **Hub/shop node operations** — run a public or private island with blockchain, coordinator, and market services.
 - **Integration scripts** — call the Coordinator API and blockchain RPC directly.
 
 ### Designed / in progress
@@ -46,7 +46,7 @@ graph TB
     end
 
     subgraph "AITBC Platform"
-        E --> G[Marketplace / GPU]
+        E --> G[Market / GPU]
         F[Blockchain Node] --> H[Miners / Shops]
         G --> I[Job Execution]
     end
@@ -68,7 +68,7 @@ A job is a unit of AI compute (inference, training, transcoding, etc.) submitted
 | Role | Config | What it does |
 |------|--------|--------------|
 | **Hub** | `BLOCKCHAIN_MODE=hub` | Produces blocks, runs coordinator and public discovery endpoints. |
-| **Shop** | `MARKET_ROLE=shop` | Provides GPU/edge compute and marketplace offers. |
+| **Shop** | `MARKET_ROLE=shop` | Provides GPU/edge compute and market offers. |
 | **Client** | `MARKET_ROLE=customer` | Consumes compute and submits jobs. |
 
 See [Getting Started](../getting-started/README.md) for the role selection guide.
@@ -76,7 +76,7 @@ See [Getting Started](../getting-started/README.md) for the role selection guide
 ### Tokens & economics
 
 - **AIT** — the native utility token.
-- **Job payments** — paid in AIT through the marketplace/escrow flow.
+- **Job payments** — paid in AIT through the market/escrow flow.
 - **Staking** — required for certain network operations.
 - **Rewards** — miners and shops earn rewards for completed jobs.
 

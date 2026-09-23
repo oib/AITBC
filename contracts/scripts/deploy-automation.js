@@ -47,18 +47,18 @@ async function main() {
     deployments.TreasuryManager = await treasuryManager.getAddress();
     console.log("TreasuryManager deployed to:", deployments.TreasuryManager);
 
-    // 4. Deploy AgentMarketplaceV2
-    console.log("\n--- Deploying AgentMarketplaceV2 ---");
-    const AgentMarketplaceV2 = await ethers.getContractFactory("AgentMarketplaceV2");
-    const agentMarketplace = await AgentMarketplaceV2.deploy(deployments.AIToken);
-    await agentMarketplace.waitForDeployment();
-    deployments.AgentMarketplaceV2 = await agentMarketplace.getAddress();
-    console.log("AgentMarketplaceV2 deployed to:", deployments.AgentMarketplaceV2);
+    // 4. Deploy AgentMarketV2
+    console.log("\n--- Deploying AgentMarketV2 ---");
+    const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+    const agentMarket = await AgentMarketV2.deploy(deployments.AIToken);
+    await agentMarket.waitForDeployment();
+    deployments.AgentMarketV2 = await agentMarket.getAddress();
+    console.log("AgentMarketV2 deployed to:", deployments.AgentMarketV2);
 
     // 5. Register contracts in registry
     console.log("\n--- Registering Contracts ---");
     await registerContract(contractRegistry, "TreasuryManager", deployments.TreasuryManager);
-    await registerContract(contractRegistry, "AgentMarketplaceV2", deployments.AgentMarketplaceV2);
+    await registerContract(contractRegistry, "AgentMarketV2", deployments.AgentMarketV2);
     console.log("Contracts registered");
 
     // 6. Initialize TreasuryManager

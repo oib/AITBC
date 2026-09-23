@@ -3,7 +3,7 @@
 ## Current State
 
 **Phase 1 (Modular Monolith Restructuring):** COMPLETED
-- 4 contexts created: marketplace, payments, blockchain, agent_identity
+- 4 contexts created: market, payments, blockchain, agent_identity
 - 8 routers moved, 8 services moved, 5 domain models moved
 - Database schema separation with table prefixes completed
 - All imports updated and compilation verified
@@ -13,7 +13,7 @@
 ## Identified Bounded Contexts
 
 ### Existing Contexts (Phase 1)
-1. **marketplace** - GPU marketplace functionality
+1. **market** - GPU market functionality
 2. **payments** - Payment processing and escrow
 3. **blockchain** - Blockchain interactions and contracts
 4. **agent_identity** - Agent identity management and verification
@@ -54,7 +54,7 @@
 
 #### 5. Trading Context
 **Routers:** trading.py
-**Services:** trading_marketplace/
+**Services:** trading_market/
 **Responsibilities:**
 - Trading operations
 - Order management

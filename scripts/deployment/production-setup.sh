@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Production-Grade Setup
@@ -32,7 +33,7 @@ cd "$AITBC_ROOT"
 
 # Create production directories
 mkdir -p /opt/aitbc/production/{logs,data,config,backups,monitoring}
-mkdir -p /opt/aitbc/production/logs/{services,blockchain,marketplace,errors}
+mkdir -p /opt/aitbc/production/logs/{services,blockchain,market,errors}
 mkdir -p /opt/aitbc/production/data/{blockchain,marketplace,agents,gpu}
 
 # Set proper permissions
@@ -142,14 +143,14 @@ SERVICES_CONFIG = {
         'log_level': 'INFO',
         'max_connections': 1000
     },
-    'marketplace': {
+    'market': {
         'host': '0.0.0.0',
         'port': 8002,
         'workers': 8,
         'log_level': 'INFO',
         'max_connections': 5000
     },
-    'gpu_marketplace': {
+    'gpu_market': {
         'host': '0.0.0.0',
         'port': 8003,
         'workers': 4,
@@ -231,8 +232,8 @@ CONSENSUS=proof_of_authority
 
 # Services
 BLOCKCHAIN_RPC_PORT=8202
-MARKETPLACE_PORT=8102
-GPU_MARKETPLACE_PORT=8003
+MARKET_PORT=8102
+GPU_MARKET_PORT=8003
 MONITORING_PORT=9000
 
 # Monitoring

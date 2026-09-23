@@ -1,7 +1,7 @@
-"""``market match`` must count offers, not every marketplace transaction.
+"""``market match`` must count offers, not every market transaction.
 
-GPU_MARKETPLACE carries listings *and* job settlements. Until 2026-09-15
-``/rpc/transactions/marketplace/match`` selected on the transaction type alone,
+GPU_MARKET carries listings *and* job settlements. Until 2026-09-15
+``/rpc/transactions/market/match`` selected on the transaction type alone,
 so settlements came back as "matches" projected to empty strings and price 0 --
 the table printed them as rows of N/A and the footer counted them.
 """

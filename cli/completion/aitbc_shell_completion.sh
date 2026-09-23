@@ -11,7 +11,7 @@ _aitbc_completion() {
 
     # Main commands
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        opts="client miner wallet auth blockchain marketplace admin config simulate help --help --version --url --api-key --output -v --debug --config-file"
+        opts="client miner wallet auth blockchain market admin config simulate help --help --version --url --api-key --output -v --debug --config-file"
         COMPREPLY=( $(compgen -W "${opts}" -- ${cur}) )
         return 0
     fi
@@ -33,8 +33,8 @@ _aitbc_completion() {
         blockchain)
             _aitbc_blockchain_completion
             ;;
-        marketplace)
-            _aitbc_marketplace_completion
+        market)
+            _aitbc_market_completion
             ;;
         admin)
             _aitbc_admin_completion
@@ -136,8 +136,8 @@ _aitbc_blockchain_completion() {
     fi
 }
 
-# Marketplace command completion
-_aitbc_marketplace_completion() {
+# Market command completion
+_aitbc_market_completion() {
     local cur prev opts
     cur="${COMP_WORDS[COMP_CWORD]}"
     prev="${COMP_WORDS[COMP_CWORD-1]}"

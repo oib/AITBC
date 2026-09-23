@@ -107,7 +107,7 @@ Extended operations for various AITBC features.
 # AI operations
 job_id = agent.submit_ai_test(model_id="model1", test_data="data")
 
-# GPU marketplace
+# GPU market
 gpus = agent.list_gpu(filters={"memory": "16GB"})
 
 # Swarm operations

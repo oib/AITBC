@@ -6,7 +6,7 @@
 
 ## Description
 
-One-shot Hermes Agent offer for the AITBC marketplace. Buyers send a prompt; the shop runs `hermes -z` and returns the final response. Pricing is per minute of wall-clock execution time. The shop node supplies the Hermes binary, configuration, and provider API keys.
+One-shot Hermes Agent offer for the AITBC market. Buyers send a prompt; the shop runs `hermes -z` and returns the final response. Pricing is per minute of wall-clock execution time. The shop node supplies the Hermes binary, configuration, and provider API keys.
 
 ## Node Type
 

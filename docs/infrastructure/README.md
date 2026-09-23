@@ -54,7 +54,7 @@ systemd services.
 #### Supporting Services
 
 - **GPU Services**: Multimodal processing
-- **Marketplace Services**: Enhanced marketplace
+- **Market Services**: Enhanced market
 - **Explorer**: Blockchain explorer
 
 There is no deployed load-balancer service; nginx on the hub terminates TLS
@@ -119,7 +119,7 @@ bash scripts/deployment/setup.sh   # add --gitea on operator nodes
 /opt/aitbc/scripts/monitoring/health_check.sh
 
 # View logs (journald)
-journalctl -f -u 'aitbc-*' 
+journalctl -f -u 'aitbc-*'
 
 # SystemD control
 systemctl status aitbc-*

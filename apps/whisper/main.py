@@ -2,7 +2,7 @@ from typing import Annotated
 
 """
 AITBC Whisper Transcription Service
-Minimal FastAPI service wrapping faster-whisper for the software marketplace.
+Minimal FastAPI service wrapping faster-whisper for the software market.
 Port: 8210
 """
 

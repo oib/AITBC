@@ -49,7 +49,7 @@ async def create_test_miner(
     # NEW: JWT auth with admin role
     user: AdminDep,
 ) -> dict[str, str]:
-    """Create a test miner for debugging marketplace sync"""
+    """Create a test miner for debugging market sync"""
     try:
         from uuid import uuid4
 
@@ -340,7 +340,7 @@ async def resolve_dispute(
     # settlement check would burn the bond for a refund that never happened, and the
     # ruling stays re-issuable on a 502, so the order matters.
     if req.outcome == "refund" and job.constraints and job.constraints.get("bond_required"):
-        from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+        from ...market.services.bond_slashing import BondSlashingService, SlashingCondition
 
         await BondSlashingService(session).slash(job, SlashingCondition.FRAUD, req.reason)
     # A-1: surface spot-check evidence in the resolution response so the
@@ -386,7 +386,7 @@ async def auto_adjudicate_disputes(
     from ...infrastructure.domain import Job
     from ...payments.acceptance import DISPUTED
     from ...payments.services.payments import PaymentService
-    from ...marketplace.services.bond_slashing import BondSlashingService, SlashingCondition
+    from ...market.services.bond_slashing import BondSlashingService, SlashingCondition
 
     payment_service = PaymentService(session)
 
@@ -530,8 +530,8 @@ def _sweeper_specs() -> list[tuple[str, Any, Any, str]]:
     from ...infrastructure.services.stale_job_reaper import reaper_enabled as stale_job_enabled
     from ...infrastructure.services.stale_miner_reaper import StaleMinerReaper
     from ...infrastructure.services.stale_miner_reaper import reaper_enabled as stale_miner_enabled
-    from ...marketplace.services.bond_slash_sweeper import BondSlashSweeper
-    from ...marketplace.services.bond_slash_sweeper import sweeper_enabled as bond_slash_enabled
+    from ...market.services.bond_slash_sweeper import BondSlashSweeper
+    from ...market.services.bond_slash_sweeper import sweeper_enabled as bond_slash_enabled
     from ...payments.services.acceptance_sweeper import AcceptanceSweeper
     from ...payments.services.acceptance_sweeper import sweeper_enabled as acceptance_enabled
     from ...payments.services.settlement_reconciler import SettlementReconciler, reconciler_enabled
@@ -661,13 +661,13 @@ def collect_sweeper_report() -> dict[str, Any]:
         "degraded": sorted(entry["name"] for entry in sweepers if not entry["healthy"]),
         # Other managed background tasks, so this endpoint never hides one.
         "other_tasks": other_tasks,
-        # Runs in the marketplace service, a separate process with its own task
+        # Runs in the market service, a separate process with its own task
         # registry, so this coordinator cannot see its status. Listed to keep
         # the absence deliberate rather than looking like an omission.
         "external_sweepers": [
             {
                 "name": "ipfs_rental_sweeper",
-                "process": "marketplace-service",
+                "process": "market-service",
                 "purpose": "Expire IPFS rentals past their grace period",
                 "status": "not visible from this process",
             }

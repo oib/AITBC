@@ -58,7 +58,7 @@
 |---------|-------------|---------------|--------|---------|
 | Account Commands | Account management | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |
 | Wallet Commands | Wallet management (basic, multisig, staking) | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |
-| Marketplace Commands | Marketplace operations | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |
+| Market Commands | Market operations | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |
 | GPU Resources Commands | GPU resource management | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |
 | Pool Hub Commands | Pool hub operations | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |
 | Edge Commands | Edge node operations | [docs/cli/CLI_DOCUMENTATION.md](../cli/README.md) | ✅ | — |

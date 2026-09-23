@@ -57,7 +57,7 @@ aitbc monitor dashboard                                  # real-time monitoring
 # Track earnings through your wallet transaction history
 aitbc wallet transactions --limit 50
 
-# Marketplace integration — publish a GPU-backed inference offer
+# Market integration — publish a GPU-backed inference offer
 # (verifies the model exists on the local Ollama at :11434 first)
 aitbc market offer \
   --service-type ollama \

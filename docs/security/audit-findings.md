@@ -780,7 +780,7 @@ agent_bridge, agent_economics, agent_memory, aitbc_logging.py, alerting.py,
 async_helpers, async_tasks.py, auth, blockchain, bridge, caching, compliance,
 compute, config, constants.py, crypto, database, data_layer, db, ethereum_rpc.py,
 exceptions.py, fusion, gossip, governance, health_checks.py, http_client,
-**init**.py, log_utils, marketplace, middleware, models, network, oracles,
+**init**.py, log_utils, market, middleware, models, network, oracles,
 parallel, profiling.py, rate_limiting.py, rewards, risk, security,
 security_headers.py, settlement, sync, tee, trading, training_setup, types,
 _version.py, utils, wallet.

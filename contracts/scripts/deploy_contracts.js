@@ -168,7 +168,7 @@ async function main() {
         console.log("\n=== Next Steps ===");
         console.log("1. Update environment variables with contract addresses");
         console.log("2. Run integration tests");
-        console.log("3. Configure marketplace API to use new contracts");
+        console.log("3. Configure market API to use new contracts");
         console.log("4. Perform security audit");
 
     } catch (error) {

@@ -12,7 +12,7 @@ from typing import Any
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
-from coordinator_api.contexts.trading.services.trading_marketplace.bid_strategy import (
+from coordinator_api.contexts.trading.services.trading_market.bid_strategy import (
     BidResult,
 )
 

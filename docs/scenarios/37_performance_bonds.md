@@ -24,7 +24,7 @@ breadcrumb: Home > Scenarios > Performance Bonds
 ## Scenario Overview
 
 This scenario demonstrates how a provider locks an on-chain performance bond,
-queries it, releases it after the lock period, and why marketplace offers are
+queries it, releases it after the lock period, and why market offers are
 rejected without an active bond.
 
 ### Use Case
@@ -38,7 +38,7 @@ blockchain node.
 - Lock a bond with `aitbc bond create`
 - Query bond status with `aitbc bond status`
 - Release a matured bond with `aitbc bond release`
-- See the marketplace offer admission fail without an active bond
+- See the market offer admission fail without an active bond
 
 ---
 
@@ -122,7 +122,7 @@ After completing this scenario, you should be able to:
 
 - Lock and release on-chain bonds using the `aitbc` CLI
 - Query bond state by ID or provider
-- Understand why marketplace offers require an active bond
+- Understand why market offers require an active bond
 
 ---
 
@@ -134,12 +134,12 @@ After completing this scenario, you should be able to:
 aitbc bond status --provider-id 0x28241C034aDF9ca346BE0C3596FF30e4905bD940
 ```
 
-### Marketplace offer admission is gated
+### Market offer admission is gated
 
 ```bash
-curl -s -X POST https://hub.example.net/rpc/transactions/marketplace \
+curl -s -X POST https://hub.example.net/rpc/transactions/market \
   -H "Content-Type: application/json" \
-  -d '{"type":"GPU_MARKETPLACE","from":"0x1111111111111111111111111111111111111111","to":"0x0000000000000000000000000000000000000000","amount":0,"fee":360000,"nonce":0,"chain_id":"ait-hub.aitbc.bubuit.net","payload":{"action":"software_offer","offer_id":"test","service_type":"whisper","price":0.1,"price_unit":"per_audio_min","provider_address":"0x1111111111111111111111111111111111111111","status":"active"}}'
+  -d '{"type":"GPU_MARKET","from":"0x1111111111111111111111111111111111111111","to":"0x0000000000000000000000000000000000000000","amount":0,"fee":360000,"nonce":0,"chain_id":"ait-hub.aitbc.bubuit.net","payload":{"action":"software_offer","offer_id":"test","service_type":"whisper","price":0.1,"price_unit":"per_audio_min","provider_address":"0x1111111111111111111111111111111111111111","status":"active"}}'
 ```
 
 **Expected output:** the `software_offer` action is **exempt** from the

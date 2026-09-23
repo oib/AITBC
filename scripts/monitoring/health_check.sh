@@ -34,7 +34,7 @@ declare -A ALL_SERVICE_ENDPOINTS=(
     ["aitbc-coordinator-api"]="http://localhost:8203/health"
     ["aitbc-api-gateway"]="http://localhost:8201/health"
     ["aitbc-exchange"]="http://localhost:8106/health"
-    ["aitbc-marketplace"]="http://localhost:8102/health"
+    ["aitbc-market"]="http://localhost:8102/health"
     ["aitbc-agent-coordinator"]="http://localhost:8107/health"
     ["aitbc-blockchain-explorer"]="http://localhost:8100/health"
     ["aitbc-blockchain-event-bridge"]="http://localhost:8205/health"
@@ -66,7 +66,7 @@ _HUB_SERVICES=(
     aitbc-coordinator-api
     aitbc-api-gateway
     aitbc-exchange
-    aitbc-marketplace
+    aitbc-market
     aitbc-bridge-monitor
     aitbc-blockchain-event-bridge
     aitbc-agent-coordinator
@@ -81,7 +81,7 @@ _SHOP_SERVICES=(
     aitbc-coordinator-api
     aitbc-edge
     aitbc-pool-hub
-    aitbc-marketplace
+    aitbc-market
 )
 
 _node_role() {

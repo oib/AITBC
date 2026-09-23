@@ -1,0 +1,335 @@
+"""Automatic provider-bond slashing (G5).
+
+The on-chain `BOND_SLASH` transaction is already implemented in the blockchain node,
+but the coordinator could only trigger it through the manual
+`/market/providers/{provider_id}/bonds/slash` admin endpoint. This service
+watches for the three conditions named in the architecture review and submits the
+slash itself, with a deterministic rule and an auditable record.
+"""
+
+from __future__ import annotations
+
+import asyncio
+import json
+import os
+from dataclasses import dataclass
+from datetime import UTC, datetime, timedelta
+from decimal import Decimal, ROUND_UP
+from enum import StrEnum
+from typing import Any
+
+from aitbc.aitbc_logging import get_logger
+from eth_account import Account
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.exceptions import NetworkError
+from aitbc.network import AITBCHTTPClient
+from aitbc.utils.units import ait_to_units
+from sqlmodel import Session, select
+
+from ....config import settings
+from ...infrastructure.domain import Job, Miner
+from ...payments.provider_binding import miner_wallet_address
+from ..domain.provider_bond import ProviderBond, ProviderBondStatus, _default_bond_min_amount, set_provider_bond_status
+
+logger = get_logger(__name__)
+
+# G5: track the next slash-authority nonce in-memory so multiple BOND_SLASH
+# transactions submitted before the next block is mined do not reuse the same
+# on-chain nonce (the blockchain RPC would return the existing hash and the
+# second slash would never be included).  This is per-coordinator-process state;
+# on restart the chain account nonce is the safe baseline and any pending slash
+# in the mempool will be observed by the next call's account lookup.
+_slash_nonce: int | None = None
+_slash_nonce_lock = asyncio.Lock()
+
+
+class SlashingCondition(StrEnum):
+    DOWNTIME = "downtime"
+    FRAUD = "fraud"
+    BAD_RESULT = "bad_result"
+
+
+# Deterministic rates: small for transient unavailability, severe for deliberate fraud.
+_SLASH_RATES: dict[SlashingCondition, Decimal] = {
+    SlashingCondition.DOWNTIME: Decimal("0.10"),
+    SlashingCondition.FRAUD: Decimal("0.50"),
+    SlashingCondition.BAD_RESULT: Decimal("0.30"),
+}
+
+
+@dataclass(frozen=True)
+class SlashRule:
+    condition: SlashingCondition
+    rate: Decimal
+    min_offenses: int = 1
+
+
+def _job_bond_required(job: Job) -> bool:
+    return bool(job.constraints and job.constraints.get("bond_required"))
+
+
+def _compute_slash_amount(bond: ProviderBond, condition: SlashingCondition) -> int:
+    """Deterministic integer amount to slash from the on-chain bond."""
+    rate = _SLASH_RATES.get(condition, Decimal("0.10"))
+    amount_decimal = (bond.amount * rate).to_integral_value(rounding=ROUND_UP)
+    if amount_decimal <= 0:
+        return 0
+    if amount_decimal > bond.amount:
+        amount_decimal = bond.amount
+    return int(amount_decimal)
+
+
+def _env_evm_address(name: str) -> str:
+    """Read an EVM address from the environment, strictly validated.
+
+    Empty/unset stays empty (the caller's missing-config checks handle it); a
+    *malformed* value raises instead of propagating a string that can never
+    compare equal to any real address.
+    """
+    raw = os.getenv(name, "").strip()
+    if not raw:
+        return ""
+    return canonical_address(raw, strict=True)
+
+
+def _miner_wallet(miner: Miner) -> str | None:
+    return miner_wallet_address(miner)
+
+
+class BondSlashingService:
+    """Submit BOND_SLASH transactions when a provider violates its bond terms."""
+
+    def __init__(self, session: Session) -> None:
+        self.session = session
+        self.blockchain_rpc_url = settings.blockchain_rpc_url
+        # Addresses come from env at a configuration boundary: strict
+        # canonicalisation converts malformed values (e.g. an inline `#` comment
+        # that systemd EnvironmentFile does not strip) into an immediate error
+        # instead of a silent every-comparison-fails mismatch downstream.
+        self.slash_authority = _env_evm_address("BOND_SLASH_AUTHORITY_ADDRESS")
+        self.slash_private_key = self._validated_slash_private_key(
+            os.getenv("BOND_SLASH_PRIVATE_KEY", ""), self.slash_authority
+        )
+        self.bond_burn_address = _env_evm_address("BOND_BURN_ADDRESS")
+        self.chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        self.tx_fee = int(os.getenv("BOND_SLASH_TX_FEE", "36"))
+
+    @staticmethod
+    def _validated_slash_private_key(private_key: str, authority: str) -> str:
+        """Return the private key only if it controls the configured authority.
+
+        A slash signed by the wrong key will be rejected on-chain. Clearing the
+        key here makes every slash call fail-safe ("slashing not configured")
+        and logs the mismatch so it is visible in the coordinator logs.
+        """
+        if not private_key or not authority:
+            return private_key
+        try:
+            derived = Account.from_key(private_key).address
+        except Exception as exc:
+            logger.error("BOND_SLASH_PRIVATE_KEY is not a valid private key: %s", exc)
+            return ""
+        if derived.lower() != authority.lower():
+            logger.error(
+                "BOND_SLASH_PRIVATE_KEY does not match BOND_SLASH_AUTHORITY_ADDRESS: derived %s, expected %s",
+                derived,
+                authority,
+            )
+            return ""
+        return private_key
+
+    def _bond_for_job(self, job: Job) -> ProviderBond | None:
+        """Return the active/locked bond backing a job, if any."""
+        if not (job.assigned_miner_id and job.payment_id):
+            return None
+        miner = self.session.get(Miner, job.assigned_miner_id)
+        if not miner:
+            return None
+        wallet = _miner_wallet(miner)
+        if not wallet:
+            return None
+
+        base_stmt = select(ProviderBond).where(
+            ProviderBond.bond_id != "",
+            ProviderBond.__table__.c.status.in_({ProviderBondStatus.ACTIVE.value, ProviderBondStatus.LOCKED.value}),  # type: ignore[attr-defined]
+        )
+
+        # If the job named an exact bond_id, prefer it.
+        if job.constraints:
+            bond_id = job.constraints.get("bond_id")
+            if bond_id:
+                bond = self.session.exec(base_stmt.where(ProviderBond.bond_id == str(bond_id))).first()
+                if bond:
+                    return bond
+
+        # Fall back to the miner's active bond.
+        return self.session.exec(base_stmt.where(ProviderBond.provider_id == miner.id)).first()
+
+    def _compute_slash_amount(self, bond: ProviderBond, condition: SlashingCondition) -> int:
+        return _compute_slash_amount(bond, condition)
+
+    async def slash(self, job: Job, condition: SlashingCondition, evidence: str) -> dict[str, Any]:
+        """Detect the condition and submit a BOND_SLASH transaction if configured."""
+        if not self.slash_authority or not self.slash_private_key or not self.bond_burn_address:
+            logger.warning("Bond slashing is not configured; skipping slash for job %s", job.id)
+            return {"slashed": False, "reason": "slashing not configured"}
+
+        if not _job_bond_required(job):
+            return {"slashed": False, "reason": "job does not require a bond"}
+
+        bond = self._bond_for_job(job)
+        if not bond:
+            logger.info("No active bond for job %s; nothing to slash", job.id)
+            return {"slashed": False, "reason": "no active bond"}
+
+        # G5 follow-up: avoid re-slashing the same continuous downtime incident
+        # every cycle. A new outage starts when the miner comes back online and
+        # then goes offline again (heartbeat newer than the last slash).
+        if condition == SlashingCondition.DOWNTIME:
+            try:
+                cooldown_seconds = int(os.getenv("BOND_SLASH_DOWNTIME_COOLDOWN_SECONDS", "300"))
+            except (TypeError, ValueError):
+                cooldown_seconds = 300
+            bond_meta = bond.meta or {}
+            last_slash_str = bond_meta.get("last_downtime_slash_at")
+            if last_slash_str:
+                last_slash = datetime.fromisoformat(str(last_slash_str))
+                miner = self.session.get(Miner, job.assigned_miner_id)
+                last_heartbeat = getattr(miner, "last_heartbeat", None)
+                # A fresh heartbeat after the last slash means this is a new outage.
+                if last_heartbeat and last_heartbeat > last_slash:
+                    pass
+                elif datetime.now(UTC) - last_slash < timedelta(seconds=cooldown_seconds):
+                    logger.info(
+                        "Downtime slash for job %s is within the %ss cooldown window; skipping",
+                        job.id,
+                        cooldown_seconds,
+                    )
+                    return {
+                        "slashed": False,
+                        "reason": "downtime slash within cooldown",
+                        "cooldown_seconds": cooldown_seconds,
+                    }
+
+        slash_amount = self._compute_slash_amount(bond, condition)
+        if slash_amount <= 0:
+            return {"slashed": False, "reason": "computed slash amount is zero"}
+
+        miner = self.session.get(Miner, job.assigned_miner_id)
+        provider = _miner_wallet(miner) if miner else ""
+        if not provider:
+            return {"slashed": False, "reason": "miner has no wallet"}
+
+        bond_id = bond.bond_id or f"bond-{provider}"
+
+        tx = self._build_slash_tx(bond_id, provider, slash_amount)
+        try:
+            tx["nonce"] = await self._get_nonce(self.slash_authority)
+            signed = self._sign_tx(tx)
+            result = await self._submit_tx(tx, signed)
+        except NetworkError as e:
+            logger.error("Network error submitting BOND_SLASH for job %s: %s", job.id, e)
+            return {"slashed": False, "reason": "network error", "error": str(e)}
+        except Exception as e:
+            logger.error("Failed to submit BOND_SLASH for job %s: %s", job.id, e)
+            return {"slashed": False, "reason": "transaction error", "error": str(e)}
+
+        tx_hash = result.get("transaction_hash") or result.get("tx_hash") or "unknown"
+        new_amount = bond.amount - Decimal(slash_amount)
+        if new_amount <= 0:
+            status = ProviderBondStatus.LIQUIDATED
+        else:
+            floor = _default_bond_min_amount()
+            required = bond.required_amount if bond.required_amount and bond.required_amount > 0 else floor
+            status = ProviderBondStatus.ACTIVE if new_amount >= required else ProviderBondStatus.SHORTFALL
+
+        slash_meta: dict[str, Any] = {
+            "slash_condition": condition.value,
+            "slash_evidence": evidence,
+            "slash_amount": str(slash_amount),
+            "slash_tx_hash": tx_hash,
+            "slash_job_id": job.id,
+            "slashed_at": datetime.now(UTC).isoformat(),
+        }
+        if condition == SlashingCondition.DOWNTIME:
+            slash_meta["last_downtime_slash_at"] = slash_meta["slashed_at"]
+            slash_meta["last_downtime_slash_job_id"] = job.id
+        bond.meta = {
+            **(bond.meta or {}),
+            **slash_meta,
+        }
+
+        bond = set_provider_bond_status(
+            self.session,
+            bond.provider_id,
+            status,
+            amount=new_amount,
+            bond_id=bond.bond_id,
+        )
+        logger.info(
+            "Bond %s slashed for %s: amount=%s tx=%s job=%s",
+            bond_id,
+            condition,
+            slash_amount,
+            tx_hash,
+            job.id,
+        )
+        return {
+            "slashed": True,
+            "bond_id": bond_id,
+            "amount": slash_amount,
+            "tx_hash": tx_hash,
+            "status": status.value,
+        }
+
+    def _build_slash_tx(self, bond_id: str, provider: str, slash_amount: int) -> dict[str, Any]:
+        return {
+            "from": self.slash_authority,
+            "to": self.bond_burn_address,
+            "amount": 0,
+            "fee": self.tx_fee,
+            "nonce": 0,
+            "type": "BOND_SLASH",
+            "chain_id": self.chain_id,
+            "payload": {
+                "bond_id": bond_id,
+                "provider": provider,
+                "amount": ait_to_units(slash_amount),
+                "to": self.bond_burn_address,
+            },
+        }
+
+    async def _get_nonce(self, address: str) -> int:
+        global _slash_nonce
+        chain_nonce = 0
+        try:
+            client = AITBCHTTPClient(timeout=5.0)
+            r = client.get(f"{self.blockchain_rpc_url}/rpc/account/{address}")
+            if isinstance(r, dict):
+                chain_nonce = int(r.get("nonce", 0))
+            elif hasattr(r, "get") and not isinstance(r, dict):  # type: ignore[unreachable]
+                chain_nonce = int(r.get("nonce", 0))
+        except Exception as e:
+            logger.warning("Failed to fetch nonce for %s: %s", address, e)
+
+        async with _slash_nonce_lock:
+            if _slash_nonce is None or chain_nonce > _slash_nonce:
+                _slash_nonce = chain_nonce
+            else:
+                _slash_nonce += 1
+            return _slash_nonce
+
+    def _sign_tx(self, tx: dict[str, Any]) -> str:
+        from aitbc.crypto.crypto import sign_transaction_hash
+        from eth_utils import keccak
+
+        has_amount = "amount" in tx
+        tx_for_sign = {k: v for k, v in tx.items() if k != "signature" and not (has_amount and k == "value")}
+        canonical = json.dumps(tx_for_sign, sort_keys=True, separators=(",", ":")).encode()
+        signing_hash = "0x" + keccak(canonical).hex()
+        return sign_transaction_hash(signing_hash, self.slash_private_key)
+
+    async def _submit_tx(self, tx: dict[str, Any], signature: str) -> dict[str, Any]:
+        client = AITBCHTTPClient(timeout=10.0)
+        body = {**tx, "signature": signature}
+        return client.post(f"{self.blockchain_rpc_url}/rpc/transaction", json=body)

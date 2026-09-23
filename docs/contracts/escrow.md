@@ -8,7 +8,7 @@ Smart Contract Escrow System
 - `DisputeReason`
 - `EscrowContract`
 - `Milestone`
-- `EscrowManager` — Manages escrow contracts for AI job marketplace
+- `EscrowManager` — Manages escrow contracts for AI job market
 
 ## Key Functions
 

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Real Production System - Mining & Multi-Chain
@@ -20,7 +21,7 @@ PYTHON_CMD="$VENV_DIR/bin/python"
 
 echo -e "${BLUE}🚀 AITBC REAL PRODUCTION SYSTEM${NC}"
 echo "=========================="
-echo "Implementing real blockchain mining, multi-chain, agent AI, real marketplace"
+echo "Implementing real blockchain mining, multi-chain, agent AI, real market"
 echo ""
 
 # Step 1: Real Blockchain Mining Implementation
@@ -363,7 +364,7 @@ cat > /opt/aitbc/production/services/agent_ai.py << 'EOF'
 #!/usr/bin/env python3
 """
 agent AI Service Integration
-Real AI agent system with marketplace integration
+Real AI agent system with market integration
 """
 
 import os
@@ -664,8 +665,8 @@ Node: {self.node_id}
             'agents': list(self.agents.values())
         }
 
-    def get_marketplace_listings(self) -> dict:
-        """Get marketplace listings for agent agents"""
+    def get_market_listings(self) -> dict:
+        """Get market listings for agent agents"""
         listings = []
 
         for agent in self.agents.values():
@@ -722,14 +723,14 @@ EOF
 chmod +x /opt/aitbc/production/services/agent_ai.py
 echo "✅ agent AI integration created"
 
-# Step 3: Real Marketplace with agent & Ollama
-echo -e "${CYAN}🏪 Step 3: Real Marketplace with AI${NC}"
+# Step 3: Real Market with agent & Ollama
+echo -e "${CYAN}🏪 Step 3: Real Market with AI${NC}"
 echo "=================================="
 
-cat > /opt/aitbc/production/services/real_marketplace.py << 'EOF'
+cat > /opt/aitbc/production/services/real_market.py << 'EOF'
 #!/usr/bin/env python3
 """
-Real Marketplace with agent AI and Ollama Tasks
+Real Market with agent AI and Ollama Tasks
 """
 
 import os
@@ -753,14 +754,14 @@ logging.basicConfig(
     level=logging.INFO,
     format='%(asctime)s [%(levelname)s] %(name)s: %(message)s',
     handlers=[
-        logging.FileHandler('/opt/aitbc/production/logs/marketplace/real_marketplace.log'),
+        logging.FileHandler('/opt/aitbc/production/logs/marketplace/real_market.log'),
         logging.StreamHandler()
     ]
 )
 logger = logging.getLogger(__name__)
 
-class RealMarketplace:
-    """Real marketplace with AI services"""
+class RealMarket:
+    """Real market with AI services"""
 
     def __init__(self):
         self.node_id = os.getenv('NODE_ID', 'aitbc')
@@ -770,18 +771,18 @@ class RealMarketplace:
         # Initialize services
         self.agent_service = agentAIService()
 
-        # Marketplace data
+        # Market data
         self.ai_services = {}
         self.gpu_listings = {}
-        self.marketplace_stats = {}
+        self.market_stats = {}
 
         self._load_data()
         self._initialize_ai_services()
 
-        logger.info(f"Real marketplace initialized for node: {self.node_id}")
+        logger.info(f"Real market initialized for node: {self.node_id}")
 
     def _load_data(self):
-        """Load marketplace data"""
+        """Load market data"""
         try:
             # Load AI services
             services_file = self.data_dir / 'ai_services.json'
@@ -798,10 +799,10 @@ class RealMarketplace:
             logger.info(f"Loaded {len(self.ai_services)} AI services, {len(self.gpu_listings)} GPU listings")
 
         except Exception as e:
-            logger.error(f"Failed to load marketplace data: {e}")
+            logger.error(f"Failed to load market data: {e}")
 
     def _save_data(self):
-        """Save marketplace data"""
+        """Save market data"""
         try:
             with open(self.data_dir / 'ai_services.json', 'w') as f:
                 json.dump(self.ai_services, f, indent=2)
@@ -809,10 +810,10 @@ class RealMarketplace:
             with open(self.data_dir / 'gpu_listings.json', 'w') as f:
                 json.dump(self.gpu_listings, f, indent=2)
 
-            logger.debug("Marketplace data saved")
+            logger.debug("Market data saved")
 
         except Exception as e:
-            logger.error(f"Failed to save marketplace data: {e}")
+            logger.error(f"Failed to save market data: {e}")
 
     def _initialize_ai_services(self):
         """Initialize AI services from agent"""
@@ -952,8 +953,8 @@ Node: {self.node_id}
                 'error': str(e)
             }
 
-    def get_marketplace_stats(self) -> dict:
-        """Get marketplace statistics"""
+    def get_market_stats(self) -> dict:
+        """Get market statistics"""
         return {
             'node_id': self.node_id,
             'ai_services': {
@@ -968,14 +969,14 @@ Node: {self.node_id}
             'total_revenue': sum(s['price_per_task'] * s['tasks_completed'] for s in self.ai_services.values())
         }
 
-# Initialize marketplace
-marketplace = RealMarketplace()
+# Initialize market
+market = RealMarket()
 
 # FastAPI app
 app = FastAPI(
-    title="AITBC Real Marketplace",
+    title="AITBC Real Market",
     version="1.0.0",
-    description="Real marketplace with agent AI and Ollama tasks"
+    description="Real market with agent AI and Ollama tasks"
 )
 
 @app.get("/health")
@@ -983,16 +984,16 @@ async def health():
     """Health check endpoint"""
     return {
         "status": "healthy",
-        "service": "real-marketplace",
-        "node_id": marketplace.node_id,
+        "service": "real-market",
+        "node_id": market.node_id,
         "timestamp": datetime.utcnow().isoformat(),
-        "stats": marketplace.get_marketplace_stats()
+        "stats": market.get_market_stats()
     }
 
 @app.get("/ai/services")
 async def get_ai_services():
     """Get all AI services"""
-    return marketplace.get_ai_services()
+    return market.get_ai_services()
 
 @app.post("/ai/execute")
 async def execute_ai_task(request: dict):
@@ -1001,7 +1002,7 @@ async def execute_ai_task(request: dict):
         service_id = request.get('service_id')
         task_data = request.get('task_data', {})
 
-        result = marketplace.execute_ai_task(service_id, task_data)
+        result = market.execute_ai_task(service_id, task_data)
         return result
 
     except Exception as e:
@@ -1009,21 +1010,21 @@ async def execute_ai_task(request: dict):
 
 @app.get("/stats")
 async def get_stats():
-    """Get marketplace statistics"""
-    return marketplace.get_marketplace_stats()
+    """Get market statistics"""
+    return market.get_market_stats()
 
 if __name__ == '__main__':
     uvicorn.run(
         app,
         host="0.0.0.0",
-        port=int(os.getenv('REAL_MARKETPLACE_PORT', 8006)),
+        port=int(os.getenv('REAL_MARKET_PORT', 8006)),
         workers=2,
         log_level="info"
     )
 EOF
 
-chmod +x /opt/aitbc/production/services/real_marketplace.py
-echo "✅ Real marketplace with AI created"
+chmod +x /opt/aitbc/production/services/real_market.py
+echo "✅ Real market with AI created"
 
 echo ""
 echo -e "${GREEN}🎉 REAL PRODUCTION SYSTEM COMPONENTS CREATED!${NC}"
@@ -1039,9 +1040,9 @@ echo "✅ agent AI Integration:"
 echo "   • Real AI agents (text generation, research, trading)"
 echo "   • Llama2 models (7B, 13B)"
 echo "   • Task execution and results"
-echo "   • Marketplace integration"
+echo "   • Market integration"
 echo ""
-echo "✅ Real Marketplace:"
+echo "✅ Real Market:"
 echo "   • agent AI services"
 echo "   • Ollama inference tasks"
 echo "   • Real commercial activity"

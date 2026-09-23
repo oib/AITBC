@@ -17,7 +17,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Existing Test Files:**
 
-- `test_full_workflow.py` - Integration tests for job execution, payment flow, P2P sync, marketplace, security
+- `test_full_workflow.py` - Integration tests for job execution, payment flow, P2P sync, market, security
 - `test_agent_coordinator.py` - Agent coordinator integration tests (141KB)
 - `test_agent_coordinator_api.py` - Agent coordinator API tests
 - `test_blockchain_nodes.py` - Blockchain node integration tests
@@ -30,13 +30,13 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **E2E Test Files:**
 
-- `tests/e2e/test_marketplace_escrow.py` - End-to-end marketplace offer, booking, and escrow lock/release (v0.7.x)
+- `tests/e2e/test_market_escrow.py` - End-to-end market offer, booking, and escrow lock/release (v0.7.x)
 
 **Scenario Scripts Location:** `/opt/aitbc/scripts/workflow/` and `/opt/aitbc/dev/testing/tests/`
 
 **Updated Scenario Scripts:**
 
-- `24_marketplace_scenario.sh` - Software offer creation, execution, escrow (v0.4.x)
+- `24_market_scenario.sh` - Software offer creation, execution, escrow (v0.4.x)
 - `test_scenario_a.sh` - Software offer creation and execution (v0.4.x)
 - `test_scenario_b.sh` - Software offer discovery and execution (v0.4.x)
 - `test_scenario_c.sh` - Container service operations (v0.4.x)
@@ -45,9 +45,9 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 ### Current Limitations
 
 1. **Mock Clients:** Most integration tests use mock clients rather than real services
-2. **Service Dependencies:** Tests require running services (blockchain, plugin registry, whisper, marketplace)
-3. **Partial E2E Coverage:** The `tests/e2e/test_marketplace_escrow.py` suite now exercises a full marketplace → escrow journey, but other user journeys remain integration-level
-4. **Environment Setup:** E2E tests rely on running services and environment variables; see `tests/e2e/test_marketplace_escrow.py` docstring
+2. **Service Dependencies:** Tests require running services (blockchain, plugin registry, whisper, market)
+3. **Partial E2E Coverage:** The `tests/e2e/test_market_escrow.py` suite now exercises a full market → escrow journey, but other user journeys remain integration-level
+4. **Environment Setup:** E2E tests rely on running services and environment variables; see `tests/e2e/test_market_escrow.py` docstring
 5. **Test Data:** No comprehensive test data fixtures for E2E scenarios
 
 ## Test Scenarios
@@ -60,9 +60,9 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 1. User creates software offer via CLI: `aitbc market offer --service-type ollama --model-or-variant llama2 --price 0.001`
 2. Offer transaction is posted on-chain
-3. Offer is automatically registered in marketplace service (port 8102)
-4. User verifies offer in plugin registry: `GET /v1/marketplace/plugins?service_type=<type>`
-5. User retrieves offer details: `GET /v1/marketplace/offer/{plugin_id}`
+3. Offer is automatically registered in market service (port 8102)
+4. User verifies offer in plugin registry: `GET /v1/market/plugins?service_type=<type>`
+5. User retrieves offer details: `GET /v1/market/offer/{plugin_id}`
 6. User lists all offers: `aitbc market list`
 
 **Success Criteria:**
@@ -71,12 +71,12 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - Offer transaction is posted on blockchain
 - Offer appears in plugin registry
 - Offer details are retrievable
-- Offer appears in marketplace list
+- Offer appears in market list
 
 **Prerequisites:**
 
 - Blockchain node running (port 8202)
-- Marketplace service running (port 8102)
+- Market service running (port 8102)
 - CLI installed and configured
 
 ### 2. Ollama Inference with Escrow
@@ -148,10 +148,10 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Steps:**
 
 1. Create software offer (auto-registers in plugin registry)
-2. Retrieve plugin by ID: `GET /v1/marketplace/plugins` (filter by `service_type`)
-3. Retrieve plugin offer details: `GET /v1/marketplace/offer/{plugin_id}`
+2. Retrieve plugin by ID: `GET /v1/market/plugins` (filter by `service_type`)
+3. Retrieve plugin offer details: `GET /v1/market/offer/{plugin_id}`
 4. List all plugins: `GET /plugins`
-5. Delete plugin: `DELETE /v1/marketplace/offer/{plugin_id}`
+5. Delete plugin: `DELETE /v1/market/offer/{plugin_id}`
 
 **Success Criteria:**
 
@@ -163,7 +163,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Prerequisites:**
 
-- Marketplace service running (port 8102)
+- Market service running (port 8102)
 - JSON store at `/var/lib/aitbc/plugins.json`
 
 ### 5. Escrow Release with Job Transaction
@@ -244,14 +244,14 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 - Redis running
 - Agent daemon running
 
-### 8. Marketplace Escrow E2E
+### 8. Market Escrow E2E
 
-**Objective:** Verify the full marketplace → job → escrow → miner → release flow through the live coordinator, marketplace, and blockchain services using pytest.
+**Objective:** Verify the full market → job → escrow → miner → release flow through the live coordinator, market, and blockchain services using pytest.
 
 **Steps:**
 
-1. Health-check the coordinator, marketplace, and blockchain RPC services
-2. Register a software-service offer via `POST /v1/marketplace/offer`
+1. Health-check the coordinator, market, and blockchain RPC services
+2. Register a software-service offer via `POST /v1/market/offer`
 3. Create a job bound to that offer via `POST /v1/jobs`
 4. Fund the test buyer from the genesis wallet and poll until the balance is on-chain
 5. Sign an `ESCROW_LOCK` transaction and create the payment/escrow via `POST /v1/payments`
@@ -262,7 +262,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 **Success Criteria:**
 
-- `tests/e2e/test_marketplace_escrow.py` passes or, if the node is not configured to settle escrow, skips cleanly at the release step
+- `tests/e2e/test_market_escrow.py` passes or, if the node is not configured to settle escrow, skips cleanly at the release step
 - Software offer registration is retrievable by `plugin_id`
 - Job creation returns `state == QUEUED` and a quoted `payment_amount`
 - Buyer account is funded from the genesis wallet after one block
@@ -274,7 +274,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 **Prerequisites:**
 
 - Coordinator API running (default `http://localhost:8203`)
-- Marketplace service running (default `http://localhost:8102`)
+- Market service running (default `http://localhost:8102`)
 - Blockchain RPC node running (default `http://localhost:8202`)
 - Block production enabled on the blockchain node
 - `E2E_NODE_WALLET_ADDRESS` (or `NODE_WALLET_ADDRESS` / `GENESIS_WALLET_ADDRESS`) set for escrow tests
@@ -286,7 +286,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 ```bash
 E2E_NODE_WALLET_ADDRESS=ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
   BLOCKCHAIN_URL=http://localhost:8202 \
-  pytest tests/e2e/test_marketplace_escrow.py -v -m e2e --timeout=300
+  pytest tests/e2e/test_market_escrow.py -v -m e2e --timeout=300
 ```
 
 ## Risks and Mitigations
@@ -312,4 +312,4 @@ E2E_NODE_WALLET_ADDRESS=ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
 
 - [E2E Test Environment](e2e-test-environment.md) - Environment setup and data management
 - [E2E Test Execution](e2e-test-execution.md) - Execution, reporting, and maintenance
-- [Marketplace CLI Commands](../../cli/CLI_USAGE_GUIDE.md) - CLI command reference
+- [Market CLI Commands](../../cli/CLI_USAGE_GUIDE.md) - CLI command reference

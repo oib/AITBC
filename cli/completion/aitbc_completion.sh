@@ -10,7 +10,7 @@ _aitbc_completion() {
 
     # Main commands
     if [[ ${COMP_CWORD} -eq 1 ]]; then
-        local commands="admin agent agent-comm analytics auth blockchain chain client config config-show deploy exchange genesis governance marketplace miner monitor multimodal node optimize plugin simulate swarm version wallet"
+        local commands="admin agent agent-comm analytics auth blockchain chain client config config-show deploy exchange genesis governance market miner monitor multimodal node optimize plugin simulate swarm version wallet"
         COMPREPLY=($(compgen -W "${commands}" -- "${cur}"))
         return 0
     fi
@@ -29,10 +29,10 @@ _aitbc_completion() {
                 COMPREPLY=($(compgen -W "${blockchain_commands}" -- "${cur}"))
             fi
             ;;
-        marketplace)
-            local marketplace_commands="agents bid gpu governance offers orders pricing review reviews test"
+        market)
+            local market_commands="agents bid gpu governance offers orders pricing review reviews test"
             if [[ ${COMP_CWORD} -eq 2 ]]; then
-                COMPREPLY=($(compgen -W "${marketplace_commands}" -- "${cur}"))
+                COMPREPLY=($(compgen -W "${market_commands}" -- "${cur}"))
             fi
             ;;
         config)

@@ -1,6 +1,6 @@
 """The ``software_job`` proof-of-work record must satisfy the endpoint that receives it.
 
-``/rpc/transactions/marketplace`` exempts only the ``offer`` and ``software_offer``
+``/rpc/transactions/market`` exempts only the ``offer`` and ``software_offer``
 actions from signature checking (V23-90, so listing works without wallet keys). Every
 other action is rejected with ``403 Signature required``. The three job commands in
 ``market/jobs.py`` built a ``software_job`` transaction with no signature field, caught
@@ -23,7 +23,7 @@ from fastapi import HTTPException
 
 from aitbc.crypto.crypto import sign_transaction_data
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS
-from aitbc_chain.rpc.transactions import submit_marketplace_transaction
+from aitbc_chain.rpc.transactions import submit_market_transaction
 from aitbc_cli.commands.market import jobs
 from aitbc_chain.rpc.utils import verify_transaction_signature
 
@@ -39,7 +39,7 @@ def _job_tx(sender: str, action: str = "software_job") -> dict[str, Any]:
         "amount": 0,
         "fee": DEFAULT_TX_FEE_UNITS,
         "nonce": 7,
-        "type": "GPU_MARKETPLACE",
+        "type": "GPU_MARKET",
         "chain_id": CHAIN_ID,
         "payload": {
             "action": action,
@@ -83,7 +83,7 @@ async def test_an_unsigned_job_record_is_refused_as_403_not_400() -> None:
     as a 400 for as long as it was.
     """
     with pytest.raises(HTTPException) as excinfo:
-        await submit_marketplace_transaction(None, _job_tx(Account.create().address))
+        await submit_market_transaction(None, _job_tx(Account.create().address))
 
     assert excinfo.value.status_code == 403
     assert "Signature required" in str(excinfo.value.detail)
@@ -99,7 +99,7 @@ async def test_an_offer_is_still_exempt_from_signing() -> None:
     tx.pop("from")
 
     with pytest.raises(HTTPException) as excinfo:
-        await submit_marketplace_transaction(None, tx)
+        await submit_market_transaction(None, tx)
 
     assert excinfo.value.status_code == 400
     assert "Sender required" in str(excinfo.value.detail)

@@ -41,8 +41,8 @@ curl -s http://127.0.0.1:8202/rpc/head 2>/dev/null | head -c 50 && echo "..." ||
 echo "Exchange Health:"
 curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
-echo "Marketplace Health:"
-curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
+echo "Market Health:"
+curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 
 echo "Trading Health:"
 curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"

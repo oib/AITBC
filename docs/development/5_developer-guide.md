@@ -45,7 +45,7 @@ The AITBC platform consists of:
 
 - **Blockchain Node** (Python/FastAPI) - Multi-validator PoA consensus with optional PBFT
 - **Coordinator API** (Python/FastAPI) - Job orchestration
-- **Marketplace Web** (TypeScript/Vite) - User interface
+- **Market Web** (TypeScript/Vite) - User interface
 - **CLI** (Python/Click) - Operator and developer tooling
 - **MCP Operation Server** (Python) - Secure live-node management
 
@@ -274,7 +274,7 @@ def test_create_feature_invalid():
 
 ### Technical
 
-- **What's the tech stack?** - Python (FastAPI/Click/SQLModel) for the blockchain node, APIs, CLI and most services; TypeScript/Vite for the marketplace frontend; Solidity for standalone contracts.
+- **What's the tech stack?** - Python (FastAPI/Click/SQLModel) for the blockchain node, APIs, CLI and most services; TypeScript/Vite for the market frontend; Solidity for standalone contracts.
 - **How do I run tests?** - Use `make test` or check specific component documentation.
 - **Where can I ask questions?** - Discord #dev channel is the best place.
 

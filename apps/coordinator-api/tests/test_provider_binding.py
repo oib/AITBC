@@ -16,7 +16,7 @@ from aitbc_shared import JobPayment
 from coordinator_api.contexts.infrastructure.domain import Job, Miner
 from coordinator_api.contexts.infrastructure.services.jobs import JobService
 from coordinator_api.contexts.infrastructure.services.miners import MinerService
-from coordinator_api.contexts.marketplace.domain.gpu_marketplace import GPURegistry
+from coordinator_api.contexts.market.domain.gpu_market import GPURegistry
 from coordinator_api.contexts.payments.provider_binding import miner_wallet_address, same_address
 from coordinator_api.schemas import JobCreate, MinerRegister
 

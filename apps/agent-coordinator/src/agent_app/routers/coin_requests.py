@@ -70,7 +70,7 @@ def _require_api_key(x_api_key: str | None) -> None:
     the only check — so it connects *as any agent* and reaches `request_coins_handler`, which
     signs and submits on the spot. `aitbc.auth.dependencies.require_miner_api_key` only
     accepts keys listed in `MINER_API_KEYS`, so `COORDINATOR_API_KEY` is no longer a miner
-    credential on coordinator-api's miner, settlement and marketplace routers. It is still
+    credential on coordinator-api's miner, settlement and market routers. It is still
     accepted here so hub operators keep working, and it must stay off the public file.
 
     `SECRET_KEY` is accepted for the same reason and carries the same warning.

@@ -137,4 +137,4 @@ COMMENT ON TABLE blocks IS 'Blockchain blocks for transaction ordering';
 COMMENT ON TABLE transactions IS 'On-chain transactions';
 COMMENT ON TABLE api_keys IS 'API authentication keys';
 COMMENT ON TABLE job_history IS 'Job event history for analytics';
-COMMENT ON TABLE gpu_reviews IS 'User reviews for GPU marketplace';
+COMMENT ON TABLE gpu_reviews IS 'User reviews for GPU market';

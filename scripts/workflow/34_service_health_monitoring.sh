@@ -206,14 +206,14 @@ check_service_metrics() {
         echo -e "${RED}❌ AI Service: Unable to get stats${NC}"
     fi
 
-    # Marketplace metrics
-    local marketplace_listings=$(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings | jq '.listings | length' 2>/dev/null || echo "0")
-    if [ "$marketplace_listings" -gt 0 ]; then
-        log_monitoring "INFO" "Marketplace" "Active listings: $marketplace_listings"
-        echo -e "${GREEN}✅ Marketplace: $marketplace_listings active listings${NC}"
+    # Market metrics
+    local market_listings=$(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings | length' 2>/dev/null || echo "0")
+    if [ "$market_listings" -gt 0 ]; then
+        log_monitoring "INFO" "Market" "Active listings: $market_listings"
+        echo -e "${GREEN}✅ Market: $market_listings active listings${NC}"
     else
-        log_monitoring "INFO" "Marketplace" "No active listings"
-        echo -e "${YELLOW}⚠️ Marketplace: No active listings${NC}"
+        log_monitoring "INFO" "Market" "No active listings"
+        echo -e "${YELLOW}⚠️ Market: No active listings${NC}"
     fi
 
     # Coordinator API metrics
@@ -279,7 +279,7 @@ SERVICE STATUS
 --------------
 Blockchain RPC: ${SERVICE_STATUS[blockchain_rpc]:-unknown}
 AI Service: ${SERVICE_STATUS[ai_service]:-unknown}
-Marketplace: ${SERVICE_STATUS[marketplace]:-unknown}
+Market: ${SERVICE_STATUS[market]:-unknown}
 Coordinator API: ${SERVICE_STATUS[coordinator_api]:-unknown}
 Contract Service: ${SERVICE_STATUS[contract_service]:-unknown}
 
@@ -293,7 +293,7 @@ SERVICE METRICS
 ---------------
 AI Jobs: $(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_jobs' 2>/dev/null || echo "N/A")
 AI Revenue: $(ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats | jq .total_revenue' 2>/dev/null || echo "N/A") AIT
-Marketplace Listings: $(curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings | jq '.listings | length' 2>/dev/null || echo "N/A")
+Market Listings: $(curl -s http://localhost:$GENESIS_PORT/rpc/market/listings | jq '.listings | length' 2>/dev/null || echo "N/A")
 Contract Files: $(find /opt/aitbc/apps/blockchain-node/src/aitbc_chain/contracts/ -name "*.py" 2>/dev/null | wc -l)
 
 RECENT ALERTS
@@ -379,7 +379,7 @@ run_quick_health_check() {
     check_service_health "Blockchain RPC" "curl -s http://localhost:$GENESIS_PORT/rpc/info"
     check_service_health "AI Service" "ssh $FOLLOWER_NODE 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats'"
     check_service_health "Coordinator API" "curl -s http://localhost:$COORDINATOR_PORT/health/live"
-    check_service_health "Marketplace" "curl -s http://localhost:$GENESIS_PORT/rpc/marketplace/listings"
+    check_service_health "Market" "curl -s http://localhost:$GENESIS_PORT/rpc/market/listings"
     echo ""
 
     # Blockchain metrics

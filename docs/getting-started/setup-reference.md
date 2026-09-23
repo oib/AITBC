@@ -114,14 +114,14 @@ curl -s https://hub.example.net/rpc/head | jq .height
 /opt/aitbc/scripts/service-management/manage-services.sh start
 
 # View logs (journald)
-journalctl -f -u 'aitbc-*' 
+journalctl -f -u 'aitbc-*'
 
 # Systemd control
 systemctl status aitbc-blockchain-node
 systemctl restart aitbc-coordinator-api
 
-# AITBC CLI (marketplace, wallet, blockchain operations)
-aitbc market list          # List marketplace offers
+# AITBC CLI (market, wallet, blockchain operations)
+aitbc market list          # List market offers
 aitbc wallet balance       # Check wallet balance
 aitbc blockchain status    # Check blockchain status
 aitbc --help               # Show all CLI commands

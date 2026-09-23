@@ -66,8 +66,8 @@ else
     echo "❌ Failed"
 fi
 
-echo -n "Marketplace: "
-if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}/health" > /dev/null 2>&1; then
+echo -n "Market: "
+if curl -fsS "http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}/health" > /dev/null 2>&1; then
     echo "✅ OK"
 else
     echo "❌ Failed"
@@ -94,7 +94,7 @@ echo "📋 Local URLs:"
 echo "   Coordinator API: http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-coordinator-api]}/v1"
 echo "   Blockchain RPC:  http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-blockchain-rpc]}/rpc"
 echo "   Exchange:        http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-exchange]}"
-echo "   Marketplace:     http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-marketplace]}"
+echo "   Market:     http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-market]}"
 echo "   Trading:         http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-trading]}"
 echo "   Wallet:          http://127.0.0.1:${AITBC_SERVICE_PORTS[aitbc-wallet]}"
 echo ""

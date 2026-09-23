@@ -18,13 +18,13 @@ from openapi_error_responses import enrich  # noqa: E402  (after the sys.path se
 sys.path.insert(0, str(Path(__file__).parent.parent))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "coordinator-api" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "blockchain-node" / "src"))
-sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "marketplace" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "market" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "wallet" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "agent-coordinator" / "src"))
 
 # Defaults for services that require environment variables to import
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
-os.environ.setdefault("MARKETPLACE_DATABASE_URL", "sqlite+aiosqlite:///./test_marketplace.db")
+os.environ.setdefault("MARKET_DATABASE_URL", "sqlite+aiosqlite:///./test_market.db")
 os.environ.setdefault("DATABASE_URL", "sqlite:///./test_api.db")
 os.environ.setdefault("WALLET_BIND_PORT", "8108")
 # A keystore directory, so not a fixed path: `/tmp/test_wallet` is guessable and shared, and
@@ -71,9 +71,9 @@ APPS = [
         "output": "blockchain-node-openapi.json",
     },
     {
-        "name": "marketplace",
-        "module": "marketplace_service.main:app",
-        "output": "marketplace-openapi.json",
+        "name": "market",
+        "module": "market_service.main:app",
+        "output": "market-openapi.json",
     },
     {
         "name": "wallet",

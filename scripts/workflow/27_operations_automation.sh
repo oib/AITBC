@@ -1,4 +1,5 @@
 #!/usr/bin/env bash
+set -euo pipefail
 
 # AITBC Operations Automation Script
 # Handles routine operations, monitoring, and maintenance
@@ -155,24 +156,24 @@ check_gpu_health() {
     fi
 }
 
-# Function to check marketplace activity
-check_marketplace_activity() {
+# Function to check market activity
+check_market_activity() {
     echo ""
-    echo "🛒 MARKETPLACE ACTIVITY CHECK"
+    echo "🛒 MARKET ACTIVITY CHECK"
     echo "==========================="
 
-    if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings' >/dev/null 2>&1; then
-        local listings=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total')
+    if ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/market/listings' >/dev/null 2>&1; then
+        local listings=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total')
         echo "Active listings: $listings"
 
         # Check AI activity
         local ai_stats=$(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/ai/stats 2>/dev/null || echo "{}"')
         echo "AI service status: Available"
 
-        log_ops "Marketplace: listings=$listings"
+        log_ops "Market: listings=$listings"
     else
-        echo "Marketplace not available"
-        log_ops "Marketplace: not available"
+        echo "Market not available"
+        log_ops "Market: not available"
     fi
 }
 
@@ -243,9 +244,9 @@ GPU STATUS
 ----------
 $(ssh aitbc "nvidia-smi --query-gpu=name,utilization.gpu,temperature.gpu --format=csv,noheader,nounits" 2>/dev/null || echo "GPU not available")
 
-MARKETPLACE STATUS
+MARKET STATUS
 ------------------
-Active Listings: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/marketplace/listings | jq .total' 2>/dev/null || echo "N/A")
+Active Listings: $(ssh aitbc 'curl -s $BLOCKCHAIN_RPC/rpc/market/listings | jq .total' 2>/dev/null || echo "N/A")
 
 SERVICES
 --------
@@ -305,7 +306,7 @@ main_operations() {
             check_system_health
             check_blockchain_health
             check_gpu_health
-            check_marketplace_activity
+            check_market_activity
             ;;
         "maintenance")
             perform_maintenance
@@ -320,7 +321,7 @@ main_operations() {
             check_system_health
             check_blockchain_health
             check_gpu_health
-            check_marketplace_activity
+            check_market_activity
             perform_maintenance
             generate_daily_report
             handle_alerts

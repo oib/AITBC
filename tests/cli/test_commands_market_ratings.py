@@ -1,8 +1,8 @@
 """`aitbc market rate` and `aitbc market ratings` against a service that does not exist.
 
 `AITBCHTTPClient` calls `raise_for_status` and re-raises everything -- including a 4xx --
-as `NetworkError`, and both commands caught that and printed "Marketplace service not
-reachable ... Ensure marketplace-service is reachable at <url>". That is a wrong diagnosis of a service
+as `NetworkError`, and both commands caught that and printed "Market service not
+reachable ... Ensure market-service is reachable at <url>". That is a wrong diagnosis of a service
 that answered, and it is the message a user would get the moment V23-81 made those two routes
 return 404 for an unknown service. These pin the branch that tells the two apart.
 
@@ -61,8 +61,8 @@ def test_ratings_still_reports_an_unreachable_service_as_unreachable(runner, mon
     _stub(monkeypatch, UNREACHABLE)
     result = runner.invoke(market, ["ratings", "--service-id", "no-such-service"], obj={})
     assert result.exit_code != 0
-    assert "Marketplace service not reachable" in result.output
-    assert "Ensure marketplace-service is reachable" in result.output
+    assert "Market service not reachable" in result.output
+    assert "Ensure market-service is reachable" in result.output
 
 
 def test_rate_reports_a_missing_service_as_missing(runner, monkeypatch):
@@ -101,8 +101,8 @@ def test_rate_still_reports_an_unreachable_service_as_unreachable(runner, monkey
         obj={},
     )
     assert result.exit_code != 0
-    assert "Marketplace service not reachable" in result.output
-    assert "Ensure marketplace-service is reachable" in result.output
+    assert "Market service not reachable" in result.output
+    assert "Ensure market-service is reachable" in result.output
 
 
 def test_rate_rejects_an_out_of_range_rating_before_any_request(runner, monkeypatch):
@@ -159,8 +159,8 @@ class _CaptureClient:
         }
 
 
-def test_rate_uses_marketplace_url_override(runner, monkeypatch):
-    """--marketplace-url is passed through to the HTTP client base URL."""
+def test_rate_uses_market_url_override(runner, monkeypatch):
+    """--market-url is passed through to the HTTP client base URL."""
     captured: list[str] = []
 
     def _client_factory(base_url: str, **kwargs):
@@ -178,7 +178,7 @@ def test_rate_uses_marketplace_url_override(runner, monkeypatch):
             "5.0",
             "--reviewer-id",
             "0x9bceE7FF5de39627FB60A4cE03eD3959357ec91e",
-            "--marketplace-url",
+            "--market-url",
             "https://market.example.com/v1/",
         ],
         obj={},
@@ -187,8 +187,8 @@ def test_rate_uses_marketplace_url_override(runner, monkeypatch):
     assert captured == ["https://market.example.com"]
 
 
-def test_ratings_uses_marketplace_url_override(runner, monkeypatch):
-    """--marketplace-url is passed through to the HTTP client base URL for ratings too."""
+def test_ratings_uses_market_url_override(runner, monkeypatch):
+    """--market-url is passed through to the HTTP client base URL for ratings too."""
     captured: list[str] = []
 
     def _client_factory(base_url: str, **kwargs):
@@ -202,7 +202,7 @@ def test_ratings_uses_marketplace_url_override(runner, monkeypatch):
             "ratings",
             "--service-id",
             "svc-1",
-            "--marketplace-url",
+            "--market-url",
             "https://market.example.com/v1/",
         ],
         obj={},

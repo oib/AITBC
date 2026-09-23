@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # AITBC Services Deployment to Incus Container
 # This script deploys all AITBC services to the 'aitbc' container
@@ -35,7 +36,7 @@ print_error() {
 
 # Stop local services
 print_status "Stopping local AITBC services..."
-sudo systemctl stop aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet 2>/dev/null || true
+sudo systemctl stop aitbc-exchange aitbc-market aitbc-trading aitbc-wallet 2>/dev/null || true
 sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true
 
 # Copy project to container
@@ -77,7 +78,7 @@ print_status "Installing Exchange, Marketplace, Trading, Wallet dependencies..."
 incus exec $CONTAINER_NAME -- bash -c "
 cd /opt/aitbc
 source venv/bin/activate
-pip install -e apps/marketplace apps/trading apps/wallet
+pip install -e apps/market apps/trading apps/wallet
 "
 
 # Install systemd service files from the repo
@@ -90,10 +91,10 @@ systemctl daemon-reload
 # Reload systemd and start services
 print_status "Starting AITBC services..."
 incus exec $CONTAINER_NAME -- systemctl enable aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p
-incus exec $CONTAINER_NAME -- systemctl enable aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet
+incus exec $CONTAINER_NAME -- systemctl enable aitbc-exchange aitbc-market aitbc-trading aitbc-wallet
 
 incus exec $CONTAINER_NAME -- systemctl start aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p
-incus exec $CONTAINER_NAME -- systemctl start aitbc-exchange aitbc-marketplace aitbc-trading aitbc-wallet
+incus exec $CONTAINER_NAME -- systemctl start aitbc-exchange aitbc-market aitbc-trading aitbc-wallet
 
 # Wait for services to start
 print_status "Waiting for services to start..."
@@ -139,6 +140,14 @@ server {
     }
 
     # Marketplace
+    location /market/ {
+        proxy_pass http://127.0.0.1:8102/;
+        proxy_set_header Host \$host;
+        proxy_set_header X-Real-IP \$remote_addr;
+        proxy_set_header X-Forwarded-For \$proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto \$scheme;
+    }
+
     location /marketplace/ {
         proxy_pass http://127.0.0.1:8102/;
         proxy_set_header Host \$host;
@@ -165,6 +174,7 @@ echo "📋 Service URLs:"
 echo "  🌐 Public IP: $CONTAINER_IP"
 echo "  💱 Exchange:        http://$CONTAINER_IP/exchange/"
 echo "  📊 Marketplace:     http://$CONTAINER_IP/marketplace/"
+echo "  📊 Market:           http://$CONTAINER_IP/market/"
 echo "  🔗 API:             http://$CONTAINER_IP/api/"
 echo "  ⛓️  Blockchain RPC:  http://$CONTAINER_IP/rpc/"
 echo ""

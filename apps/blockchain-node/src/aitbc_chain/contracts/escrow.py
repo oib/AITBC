@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """
 Smart Contract Escrow System
-Handles automated payment holding and release for AI job marketplace
+Handles automated payment holding and release for AI job market
 """
 
 import asyncio
@@ -210,7 +210,7 @@ def backfill_settlement_legs(session: Any, record: Escrow) -> bool:
 
 
 class EscrowManager:
-    """Manages escrow contracts for AI job marketplace"""
+    """Manages escrow contracts for AI job market"""
 
     def __init__(self) -> None:
         self.escrow_contracts: dict[str, EscrowContract] = {}

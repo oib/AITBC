@@ -47,13 +47,13 @@ cd /opt/aitbc
 systemctl enable aitbc-blockchain-node
 systemctl enable aitbc-blockchain-rpc
 systemctl enable aitbc-coordinator-api
-systemctl enable aitbc-marketplace
+systemctl enable aitbc-market
 
 # Start services
 systemctl start aitbc-blockchain-node
 systemctl start aitbc-blockchain-rpc
 systemctl start aitbc-coordinator-api
-systemctl start aitbc-marketplace
+systemctl start aitbc-market
 ```
 
 ### 5. Configure Nginx
@@ -68,7 +68,7 @@ upstream blockchain {
     server 127.0.0.1:8202;
 }
 
-upstream marketplace {
+upstream market {
     server 127.0.0.1:8102;
 }
 
@@ -88,8 +88,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
     }
 
-    location /v1/marketplace/ {
-        proxy_pass http://marketplace;
+    location /v1/market/ {
+        proxy_pass http://market;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
     }
