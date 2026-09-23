@@ -112,6 +112,22 @@ Fixes during live validation
   repriced 0.05 -> 1.0 AIT/h. Verified floor: 0.4608 AIT/h = the real
   EUR 0.115/h electricity cost.
 
+- `aitbc energy` is now rail-aware on the native path: floor, provider
+  profile/rate/register and suggest --register call the coordinator
+  /v1/marketplace/native-energy/* endpoints when EVM energy vars are unset
+  (new GET endpoints for profile/rate/floor alongside the existing POSTs;
+  profile+floor GETs are public, rate GET shares the MINER path so it needs
+  miner auth). Every native call tries the configured coordinator first and
+  falls back to the hub mount via hub_coordinator_url() -- a follower's
+  local coordinator may be EVM-railed or lack the tables (missing tables
+  now return 404, not 500). Miner auth resolves --api-key > stored "miner"
+  credential > config api_key (auto-loads MINER_API_KEYS from
+  /etc/aitbc/aitbc-coordinator-api.env); the client credential fallback is
+  skipped because a client-role JWT can never satisfy miner auth. Verified
+  on node2: suggest --register POSTed the 384W/0.30 profile through the
+  hub fallback (revision 3), provider rate reads v28/4.0, floor returns
+  0.4608 AIT/h.
+
 Live validation (2026-09-11)
 ----------------------------
 
