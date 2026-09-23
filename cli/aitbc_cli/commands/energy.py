@@ -28,7 +28,7 @@ from ..utils.energy_quote import (
     verify_quote,
     verify_quote_against_oracle,
 )
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger, looks_like_jwt
 
 logger = get_logger(__name__)
 
@@ -81,9 +81,9 @@ def _native_energy_request(ctx, method: str, path: str, *, miner: bool = False,
 
     last: Exception | None = None
     for base in bases:
-        explicit = ctx.obj.get("api_key") if ctx.obj else None
-        kwargs = auth_client_kwargs(
-            explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client"
+        kwargs = _miner_client_kwargs(ctx) if miner else auth_client_kwargs(
+            ctx.obj.get("api_key") if ctx.obj else None,
+            getattr(get_config(), "api_key", None),
         )
         client = AITBCHTTPClient(base_url=base, timeout=timeout, **kwargs)
         try:
@@ -94,6 +94,27 @@ def _native_energy_request(ctx, method: str, path: str, *, miner: bool = False,
             last = e
             logger.debug("native-energy %s %s via %s failed: %s", method, path, base, e)
     raise last or NetworkError("no coordinator reachable")
+
+
+def _miner_client_kwargs(ctx) -> dict:
+    """Miner credentials: ``--api-key``, the stored ``miner`` credential, or the
+    configured API key (``MINER_API_KEYS`` in the coordinator env file).
+
+    Deliberately skips the ``client`` credential fallback — a client-role JWT can
+    never satisfy a miner-gated endpoint, and sending it would suppress the
+    ``X-Api-Key`` miner key that does.
+    """
+    from ..auth import AuthManager  # late import: auth imports ..utils
+
+    explicit = ctx.obj.get("api_key") if ctx.obj else None
+    token = explicit or AuthManager().get_credential("miner", quiet=True)
+    if not token:
+        token = getattr(get_config(), "api_key", None)
+    if not token:
+        return {}
+    if looks_like_jwt(token):
+        return {"headers": {"Authorization": f"Bearer {token}"}}
+    return {"api_key": token}
 
 
 @click.group()
@@ -790,8 +811,8 @@ def suggest(
         rid = resource_id or "<resource-id>"
         prov = provider_address or "<provider-address>"
         mid = model_id or model_key or "<model-id>"
-        info("Apply with:" if not register else "Applied via --register; next:")
         if not register:
+            info("Apply with:")
             if _evm_energy_configured():
                 info(f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
                      f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff} --wallet <wallet>")
