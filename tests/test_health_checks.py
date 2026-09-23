@@ -196,19 +196,46 @@ class TestCreateBasicHealthCheck:
         assert isinstance(checker, HealthChecker)
         assert checker.service_name == "test-service"
 
-    def test_create_basic_health_check_without_psutil(self):
-        """Test create_basic_health_check handles psutil ImportError"""
-        # Skip this test as psutil import handling is complex to mock
-        pass
+    @patch("aitbc.health_checks.logger")
+    def test_a_missing_psutil_is_reported_unhealthy_not_silently_skipped(self, mock_logger):
+        """The ``except ImportError`` in create_basic_health_check is unreachable.
 
-    def test_basic_health_check_has_checks(self):
-        """Test basic health check has registered checks when psutil available"""
-        try:
-            import psutil  # noqa: F401
+        ``check_memory``/``check_disk`` import psutil lazily *inside* their bodies,
+        so ``register_check`` only stores a callable and cannot raise. The
+        ``try/except ImportError`` wrapping registration is therefore dead code, and
+        its warning ("psutil not available, skipping system health checks") can never
+        be emitted -- do not go looking for it in a service's logs.
 
+        A missing psutil instead reaches ``run_checks``, whose generic handler turns
+        it into UNHEALTHY naming both checks. For a pinned dependency that is the
+        honest answer, but it is the opposite of what the guard advertises, and
+        nothing pinned either half until now.
+        """
+        with patch.dict("sys.modules", {"psutil": None}):
             checker = create_basic_health_check("test-service")
-            # Should have memory and disk checks if psutil is available
-            assert len(checker._checks) > 0
-        except ImportError:
-            # Skip if psutil not available
-            pass
+
+            # the guard did not fire -- both checks were registered regardless
+            assert sorted(checker._checks) == ["disk", "memory"]
+            assert mock_logger.warning.call_count == 0
+
+            result = checker.run_checks()
+
+        assert result.status == HealthStatus.UNHEALTHY
+        assert "memory" in result.message
+        assert "disk" in result.message
+        for name in ("memory", "disk"):
+            assert result.details[name]["status"] == "unhealthy"
+            assert "psutil" in result.details[name]["message"]
+
+        # surfaced as one error per failing check, never as the skip warning
+        assert mock_logger.error.call_count == 2
+
+    def test_basic_health_check_registers_memory_and_disk(self):
+        """psutil is a pinned dependency (pyproject.toml), so this is unconditional.
+
+        The previous version wrapped its assertions in ``try/except ImportError`` and
+        passed silently when anything inside raised -- including a real failure of
+        ``create_basic_health_check`` itself.
+        """
+        checker = create_basic_health_check("test-service")
+        assert sorted(checker._checks) == ["disk", "memory"]
