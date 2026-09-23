@@ -11,7 +11,6 @@ Professional security audits cost $5,000-50,000+. This framework provides compre
 - **Slither** - Static analysis detector for vulnerabilities
 - **Mythril** - Symbolic execution analysis
 - **Securify** - Security pattern recognition
-- **Adel** - Deep learning vulnerability detection
 
 ### 🔐 Circom ZK Circuit Analysis
 
@@ -30,7 +29,6 @@ Professional security audits cost $5,000-50,000+. This framework provides compre
 
 - **Bandit** - Python security linter
 - **Safety** - Dependency vulnerability scanning
-- **Sema** - AI-powered code security analysis
 
 ### 🔧 System & Network Security
 

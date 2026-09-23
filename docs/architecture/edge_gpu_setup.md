@@ -59,7 +59,7 @@ systemctl enable ollama
 
 ```bash
 # Clone and setup AITBC
-git clone https://github.com/aitbc/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc
 
 # Configure the GPU miner through the environment -- there is no file to copy and edit.

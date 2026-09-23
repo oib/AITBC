@@ -42,7 +42,7 @@ set of variables exists to fix.
 | variable | required? | meaning |
 |---|---|---|
 | `AITBC_SHOP_URL` | required | base URL of the shop node. Read by 62 workflow scripts and the four scenario tests. The scenario tests first source `/etc/aitbc/.env.scenario` if it exists and only fall back to this variable, so on a configured node nothing needs to be exported. |
-| `AITBC_MARKETPLACE_URL` | required | default for `aitbc market ratings --remote-url`. Without it the flag must be given; there is no default, because the old one silently pushed every deployment's ratings to one island's marketplace. |
+| `AITBC_MARKETPLACE_URL` | required | default for `aitbc market sync-ratings --remote-url` (the `ratings`/`rate` commands take `--marketplace-url` instead). Without it the flag must be given; there is no default, because the old one silently pushed every deployment's ratings to one island's marketplace. |
 | `AITBC_FLEET_DOMAIN` | required | the domain the fleet publishes under, e.g. `example.net`. `fleet-config-check.sh` builds `hub.$AITBC_FLEET_DOMAIN` and friends from it. |
 
 ## Deployment targets

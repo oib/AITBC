@@ -1,5 +1,16 @@
 # Branch Protection Configuration Guide
 
+> **Proposal — partially fictional.** This policy names required status
+> checks from workflow files that do not exist
+> (`.github/workflows/contracts-ci.yml`, `dotenv-check.yml`,
+> `security-scanning.yml` — the only real workflow is `ci.yml`, which does
+> run lint+pytest+forge). The CODEOWNERS sample uses `@aitbc/*-team` groups
+> on a GitHub org that does not exist — the real `.github/CODEOWNERS` is
+> `* @oib`. The `gh api` examples use the slug `aitbc/aitbc`; the real repo
+> is `oib/AITBC`. Treat the check list as a template, not the configured
+> reality.
+
+
 ## Overview
 
 This document outlines the recommended branch protection settings for the AITBC
@@ -128,20 +139,20 @@ This ensures that:
 
 ```bash
 # Security files require security team review
-/security/ @aitbc/security-team
-*.pem @aitbc/security-team
+/security/ @oib
+*.pem @oib
 
 # Smart contracts require Solidity team review
-/contracts/ @aitbc/solidity-team
-*.sol @aitbc/solidity-team
+/contracts/ @oib
+*.sol @oib
 
 # CLI changes require CLI team review
-/cli/ @aitbc/cli-team
-aitbc_cli/ @aitbc/cli-team
+/cli/ @oib
+aitbc_cli/ @oib
 
 # Core files require core team review
-pyproject.toml @aitbc/core-team
-poetry.lock @aitbc/core-team
+pyproject.toml @oib
+poetry.lock @oib
 ```
 
 ## Pre-commit Hooks Integration
@@ -378,13 +389,13 @@ def test_pr_with_branch_protection():
 
 ```bash
 # Check branch protection settings
-gh api repos/aitbc/aitbc/branches/main/protection
+gh api repos/oib/AITBC/branches/main/protection
 
 # Check required status checks
-gh api repos/aitbc/aitbc/branches/main/protection/required_status_checks
+gh api repos/oib/AITBC/branches/main/protection/required_status_checks
 
 # Check CODEOWNERS rules
-gh api repos/aitbc/aitbc/contents/CODEOWNERS
+gh api repos/oib/AITBC/contents/CODEOWNERS
 
 # Check recent workflow runs
 gh run list --branch main

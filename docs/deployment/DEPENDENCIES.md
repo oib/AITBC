@@ -261,14 +261,14 @@ Certificates for that host are an operator concern, outside this repository.
 ```
 /opt/aitbc/              # Application code
 /var/lib/aitbc/          # Runtime data
-├── blockchain/          # Blockchain data
-├── coordinator/        # Coordinator data
-├── governance/         # Governance data
+├── data/<chain-id>/     # Chain databases (chain.db etc.)
+├── wallets/            # Wallet files
 └── logs/               # Application logs
-/etc/aitbc/             # Configuration
-├── blockchain.env
-├── coordinator.env
-└── governance.env
+/etc/aitbc/             # Configuration — one env file per unit
+├── blockchain.env      # shared chain config
+├── aitbc-blockchain-node.env
+├── aitbc-coordinator-api.env
+└── aitbc-<unit>.env    # per-service env (see each unit's EnvironmentFile)
 /run/aitbc/secrets/     # Runtime secrets (tmpfs)
 ```
 
@@ -340,9 +340,11 @@ The backup script requires:
 
 ## Security Dependencies
 
-### Required
+### Optional (hardening)
 
-- `ufw` (firewall)
+- `ufw` — **note:** AITBC nodes run no host firewall today; per
+  `infrastructure/NETWORK_POLICY.md` the network policy lives at the router,
+  so a ufw rule on a guest edits a control that does not exist there
 - `fail2ban` (intrusion prevention)
 - `auditd` (audit logging)
 
@@ -392,7 +394,7 @@ apt update
 apt upgrade
 
 # Security updates
-apt upgrade -y --security
+apt upgrade -y  # Debian apt has no --security flag; all upgrades are applied
 ```
 
 ### PostgreSQL Updates

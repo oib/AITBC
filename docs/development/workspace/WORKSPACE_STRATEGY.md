@@ -2,7 +2,7 @@
 
 ## 🎯 Current Workspace Usage
 
-### In-Repo Workspaces (Current)
+### In-Repo Workspaces (proposed — these directories do not exist in the repo today)
 
 ```
 /opt/aitbc/

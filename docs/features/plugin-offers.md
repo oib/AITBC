@@ -19,7 +19,7 @@ Get offers from specific plugins
 - `GET /v1/trading/offers/cache` (`get_cached_offers` in `apps/trading/src/trading_service/routers/offers.py`)
 - `GET /v1/trading/offers/subscription-status` (`get_subscription_status` in `apps/trading/src/trading_service/routers/subscriptions.py`)
 - `GET /marketplace/plugins` (`list_marketplace_plugins` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace.py`)
-- `GET /offers/cross-chain` (`get_integrated_marketplace_offers` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`)
+- `GET /offers/cross-chain` (`get_integrated_marketplace_offers` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`) *(router defined but not mounted in `main.py` — 404s today)*
 - `GET /v1/marketplace/offers` (`list_marketplace_offers_v1_marketplace_offers_get`) on `Coordinator API`
 - `GET /v1/marketplace/plugins` (`list_marketplace_plugins_v1_marketplace_plugins_get`) on `Coordinator API`
 - `GET /v1/marketplace/miner-offers` (`list_miner_offers_v1_marketplace_miner_offers_get`) on `Coordinator API`

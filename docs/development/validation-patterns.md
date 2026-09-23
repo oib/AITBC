@@ -11,8 +11,13 @@ The coordinator-api uses the following middleware stack (in order of execution):
 1. **CORSMiddleware** - CORS handling
 2. **RequestIDMiddleware** - Request ID correlation
 3. **PerformanceLoggingMiddleware** - Performance tracking
-4. **RequestValidationMiddleware** - Request/response size validation
+4. **PrometheusMetricsMiddleware** - metrics export
 5. **ErrorHandlerMiddleware** - Standardized error responses
+6. **AuthMiddleware** - route-level auth (non-test environments)
+
+`RequestValidationMiddleware` exists in `aitbc/middleware/validation.py` but
+is mounted on the api-gateway, governance, gpu, trading, and marketplace
+services — not coordinator-api.
 
 ## Request Validation Middleware
 
@@ -31,8 +36,8 @@ app.add_middleware(
 
 ### Validation Rules
 
-- **Request size**: Maximum 10MB by default
-- **Response size**: Maximum 10MB by default
+- **Request size**: Maximum 10MB by default (`max_request_size` only — the
+  `max_response_size` kwarg was removed in v0.22)
 - **Content-Length header**: Must be valid integer if present
 
 ### Error Responses
@@ -138,14 +143,15 @@ X-Process-Time: 0.123
 
 ```python
 from fastapi import Request, HTTPException
-from pydantic import BaseModel, Field, validator
+from pydantic import BaseModel, Field, field_validator
 
 class CreateUserRequest(BaseModel):
     username: str = Field(..., min_length=3, max_length=50)
-    email: str = Field(..., regex=r'^[^@]+@[^@]+\.[^@]+$')
+    email: str = Field(..., pattern=r'^[^@]+@[^@]+\.[^@]+$')
 
-    @validator('username')
-    def validate_username(cls, v):
+    @field_validator('username')
+    @classmethod
+    def validate_username(cls, v: str) -> str:
         if not v.isalnum():
             raise ValueError('Username must be alphanumeric')
         return v
@@ -180,8 +186,7 @@ Middleware can be configured in `main.py`:
 # Request validation
 app.add_middleware(
     RequestValidationMiddleware,
-    max_request_size=10*1024*1024,  # 10MB
-    max_response_size=10*1024*1024,  # 10MB
+    max_request_size=10*1024*1024,  # 10MB — request-size cap only
 )
 
 # Error handling

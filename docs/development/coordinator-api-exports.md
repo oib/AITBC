@@ -1,5 +1,13 @@
 # Coordinator-API Service Exports Documentation
 
+> **Historical record.** The flat `coordinator_api/services/` modules
+> listed below were migrated to bounded contexts
+> (`coordinator_api/contexts/<domain>/services/`); `services/` now contains
+> only `__init__.py` (a lazy-import shim). The import examples
+> (`from coordinator_api.services.X import Y`) no longer work — import from
+> the owning context instead.
+
+
 ## Lazy Import Architecture
 
 The coordinator-api services module uses a lazy import pattern to optimize startup performance and avoid importing all 101+ services at once. Only core services are exported in `__all__` and loaded on first access via `__getattr__`.

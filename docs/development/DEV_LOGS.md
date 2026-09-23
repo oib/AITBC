@@ -27,7 +27,7 @@ dev/logs/
 
 ```bash
 # Load log environment
-source /opt/aitbc/.env.dev
+source /opt/aitbc/.env.dev.logs  # created by scripts/utils/organize-dev-logs.sh
 
 # Navigate to logs
 devlogs              # Go to main logs directory

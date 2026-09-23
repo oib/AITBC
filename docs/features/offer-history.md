@@ -21,7 +21,7 @@ Get offer history
 - `GET /v1/trading/offers/sync-status` (`get_offer_sync_status` in `apps/trading/src/trading_service/routers/offers.py`)
 - `GET /v1/trading/offers/cache` (`get_cached_offers` in `apps/trading/src/trading_service/routers/offers.py`)
 - `GET /v1/trading/offers/subscription-status` (`get_subscription_status` in `apps/trading/src/trading_service/routers/subscriptions.py`)
-- `GET /offers/cross-chain` (`get_integrated_marketplace_offers` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`)
+- `GET /offers/cross-chain` (`get_integrated_marketplace_offers` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`) *(router defined but not mounted in `main.py` — 404s today)*
 - `GET /v1/marketplace/offers/{offer_id}/history` (`get_offer_history_v1_marketplace_offers__offer_id__history_get`) on `Marketplace`
 - `GET /rpc/consensus/slashing-history` (`consensus_slashing_history_route_rpc_consensus_slashing_history_get`) on `Blockchain Node`
 - `GET /v1/jobs/history` (`get_job_history_v1_jobs_history_get`) on `Coordinator API`
