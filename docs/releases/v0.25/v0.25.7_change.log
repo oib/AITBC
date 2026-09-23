@@ -93,6 +93,18 @@ Fixes during live validation
   registered values were TDP readings and must be re-registered with the
   card's real TBP where they differ.
 
+- New No electricity tariff — pass --eur-per-kwh, set ENERGY_EUR_PER_KWH, or use --region closes the shop-side pricing loop: it probes
+  the node (nvidia-smi power.limit for real GPU TBP, lscpu for the CPU
+  model), resolves watts via the new aitbc/marketplace/hardware_catalog.py
+  tables (GPU TBP, CPU sustained watts, the value-model compute
+  multipliers, a static regional EUR/kWh tariff table), sums whole-node
+  draw including PSU efficiency, and prints the per-resource register
+  watts, the energy floor in AIT/h, and the suggested market price
+  (multiplier x 1 AIT/h = EUR 0.25 compute-hour reference) with the
+  ready-to-run register/pricing commands. --register submits the
+  registration transaction. New env keys SHOP_REGION and
+  ENERGY_EUR_PER_KWH pin a shop's location/tariff once.
+
 Live validation (2026-09-11)
 ----------------------------
 
