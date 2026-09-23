@@ -1,0 +1,44 @@
+name: Nightly
+
+# The broad offline sweep: every suite classified fast+nightly in
+# scripts/ci/test_suites.py — i.e. all of testpaths minus the dirs that need a
+# running fleet, deliberate load, or a browser (see MANUAL_SUITES there).
+# Required-gate failures block merges; this catches rot in the suites that are
+# too slow or too broad for the gate before it reaches a release.
+
+on:
+  schedule:
+    - cron: "0 3 * * *"  # daily 03:00 UTC
+  workflow_dispatch:     # allow a manual run after landing risky changes
+
+jobs:
+  nightly:
+    runs-on: debian
+    env:
+      API_KEY_STORAGE_PATH: /tmp/aitbc-ci-api-keys.json
+      AITBC_IPFS_DIR: /tmp/aitbc-ci-ipfs
+      AITBC_ORACLE_DIR: /tmp/aitbc-ci-oracle
+      PYTHON: ./venv/bin/python
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Verify Python 3.13.5+
+        run: python3 -c "import sys; assert sys.version_info >= (3,13,5), f'Python {sys.version} is too old'"
+
+      - name: Set up Python venv
+        run: |
+          bash scripts/ci/setup-python-venv.sh \
+            --cache-root /opt/gitea-runner/.cache/aitbc-venvs \
+            --venv-dir ./venv \
+            --extra-packages "-r requirements-dev.txt" \
+            --mode copy
+
+      - name: Install CLI package
+        run: ./venv/bin/python -m pip install -q --force-reinstall --no-deps -e cli
+
+      - name: Test suite parity
+        run: make test-suite-parity
+
+      - name: Full offline suite
+        run: make test-nightly
