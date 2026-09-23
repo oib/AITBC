@@ -26,6 +26,7 @@ from ...agent_coordination.services.security import (
     AgentTrustManager,
     AgentTrustScore,
     AuditEventType,
+    SANDBOX_MONITORING_NOT_IMPLEMENTED,
     SecurityLevel,
 )
 from ....storage import get_session
@@ -474,7 +475,11 @@ async def monitor_sandbox(
         monitoring_data = await sandbox_manager.monitor_sandbox(execution_id)
         return monitoring_data
     except NotImplementedError as e:
-        raise HTTPException(status_code=501, detail=str(e)) from e
+        # Static text, not str(e): this arm also catches a NotImplementedError
+        # raised deeper in the stack, whose message is not guaranteed to be safe
+        # for an untrusted caller. Logging it keeps that real cause visible.
+        logger.exception("Sandbox monitoring unavailable for execution %s", execution_id)
+        raise HTTPException(status_code=501, detail=SANDBOX_MONITORING_NOT_IMPLEMENTED) from e
     except Exception as e:
         logger.error("Failed to monitor sandbox: %s", e)
         logger.exception("Unhandled exception")

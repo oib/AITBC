@@ -397,12 +397,22 @@ async def create_cross_chain_swap(request: Request, swap_data: dict[str, Any]) -
             )
             session.commit()
     except Exception as e:
-        # The lock already happened — never pretend it did not. Report the
-        # real transfer id so the operation remains trackable.
-        _logger.error("Swap record persist failed for transfer %s: %s", transfer.transfer_id, e)
+        # The lock already happened — never pretend it did not. The caller
+        # still needs the transfer id to reconcile it. The caught exception
+        # does not belong in that answer though: it carries DSNs and internal
+        # paths, and this route is reachable from the internet. It goes to the
+        # log instead, via exception() so the traceback survives the move.
+        #
+        # detail stays a string literal on purpose. It is what the published
+        # ErrorResponse schema declares, and scripts/openapi_error_responses.py
+        # lifts literal details verbatim into the spec -- an f-string here
+        # publishes the placeholders rather than the message. So the id travels
+        # as a header, where a client can read it without parsing prose.
+        _logger.exception("Swap record persist failed for transfer %s", transfer.transfer_id)
         raise HTTPException(
             status_code=500,
-            detail=(f"Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}"),
+            detail="Swap locked on-chain but the swap record could not be stored; reconcile using the X-Transfer-Id header",
+            headers={"X-Transfer-Id": transfer.transfer_id},
         ) from e
 
     release_available, release_reason = bridge.release_availability(str(from_chain))
