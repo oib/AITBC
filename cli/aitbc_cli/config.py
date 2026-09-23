@@ -1,6 +1,7 @@
 """Configuration module for AITBC CLI"""
 
 import os
+from decimal import Decimal
 from pathlib import Path
 from typing import Any
 
@@ -57,6 +58,8 @@ CONFIG_FILE_KEYS: dict[str, str] = {
     "energy_operator_address": "energy_operator_address",
     "energy_quote_lifetime_seconds": "energy_quote_lifetime_seconds",
     "energy_quote_domain": "energy_quote_domain",
+    "energy_eur_per_kwh": "energy_eur_per_kwh",
+    "shop_region": "shop_region",
     "tee_attestation_enabled": "tee_attestation_enabled",
     "timeout": "timeout",
 }
@@ -174,6 +177,12 @@ class CLIConfig(BaseAITBCConfig):
     )
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime in seconds")
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote signing domain")
+    energy_eur_per_kwh: Decimal | None = Field(
+        default=None, description="Shop electricity tariff in EUR/kWh for `aitbc energy suggest`"
+    )
+    shop_region: str | None = Field(
+        default=None, description="Shop region code (e.g. 'de') for the regional tariff table"
+    )
     native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
     tee_attestation_enabled: bool = Field(
         default=False, description="Enable TEE attestation support; default is False for fail-closed behaviour"

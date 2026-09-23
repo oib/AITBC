@@ -7,6 +7,7 @@ Commands:
   aitbc energy provider profile  - Read a registered energy profile
   aitbc energy provider rate     - Read or publish the AIT/EUR rate
   aitbc energy floor             - Compute or check the on-chain energy floor
+  aitbc energy suggest           - Hardware-based energy profile and price suggestion
 """
 
 from __future__ import annotations
@@ -397,3 +398,236 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
         info(f"Duration:    {duration_seconds}s")
         info(f"Scale:       {settlement_unit_scale}")
         info(f"Net floor:   {net_floor} units")
+
+
+@energy.command(
+    epilog="""Examples:
+
+  aitbc energy suggest --region de
+
+  aitbc energy suggest --gpu-model "RTX 4090" --eur-per-kwh 0.28
+
+  aitbc energy suggest --resource-id gpu-01 --provider-address 0x.. --register --wallet provider"""
+)
+@click.option("--gpu-model", help="GPU model override (skips nvidia-smi detection)")
+@click.option("--tbp-watts", type=int, help="Explicit per-GPU board watts (highest precedence)")
+@click.option("--gpu-count", type=int, default=1, help="GPUs covered by one registered resource")
+@click.option("--node-gpu-count", type=int, help="Total GPUs in this node (platform draw is shared across them)")
+@click.option("--cpu-watts", type=int, help="CPU sustained watts override")
+@click.option("--platform-watts", type=int, help="Board/RAM/fans/storage overhead override in watts")
+@click.option("--region", help="Region code for the tariff table (or SHOP_REGION env)")
+@click.option("--eur-per-kwh", type=float, help="Electricity tariff in EUR/kWh (or ENERGY_EUR_PER_KWH env)")
+@click.option("--ait-per-eur", type=float, help="AIT/EUR rate override (default: on-chain rate, else 4.0)")
+@click.option("--duration-seconds", type=int, default=3600, help="Floor horizon in seconds (default 1h)")
+@click.option("--resource-id", help="Resource ID used in the printed registration command / --register")
+@click.option("--provider-address", help="Provider wallet address (required for --register)")
+@click.option("--model-id", help="Model ID for registration (default: detected model)")
+@click.option("--wallet", help="Wallet name for signing (with --register)")
+@click.option("--wallet-path", help="Direct wallet file path (with --register)")
+@click.option("--password", help="Wallet password (with --register)")
+@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file (with --register)")
+@click.option("--register", is_flag=True, help="Submit the on-chain energy profile registration")
+@click.option("--json-output", is_flag=True, help="Output raw JSON")
+@click.pass_context
+def suggest(
+    ctx,
+    gpu_model,
+    tbp_watts,
+    gpu_count,
+    node_gpu_count,
+    cpu_watts,
+    platform_watts,
+    region,
+    eur_per_kwh,
+    ait_per_eur,
+    duration_seconds,
+    resource_id,
+    provider_address,
+    model_id,
+    wallet,
+    wallet_path,
+    password,
+    password_file,
+    register,
+    json_output,
+):
+    """Suggest a hardware-based energy profile and market price.
+
+    Probes the local node (nvidia-smi power limit = real GPU TBP, lscpu CPU
+    model), sums the whole-node draw, applies the electricity tariff, and
+    prints the resulting energy floor plus the compute-multiplier market
+    price suggestion (1 AIT = one reference compute-hour = EUR 0.25).
+    """
+    from aitbc.marketplace.energy_pricing import (
+        FIXED_POINT_SCALE,
+        NATIVE_UNITS_PER_AIT,
+        compute_energy_net_units,
+    )
+    from aitbc.marketplace.hardware_catalog import (
+        BASE_PLATFORM_W,
+        compute_multiplier,
+        estimate_node_power,
+        normalize_cpu_model,
+        normalize_gpu_model,
+        region_tariff,
+        resolve_cpu_watts,
+        resolve_gpu_tbp,
+    )
+    from ..utils.hardware_probe import probe_cpu_model, probe_gpus
+
+    config = get_config()
+    scale = int(FIXED_POINT_SCALE)
+
+    # --- hardware -----------------------------------------------------------
+    gpus = [] if gpu_model or tbp_watts else probe_gpus()
+    primary = gpus[0] if gpus else None
+    model_key = normalize_gpu_model(
+        gpu_model or (primary.name if primary else ""),
+        memory_gb=(primary.memory_gb if primary else None),
+    )
+    gpu_tbp, gpu_src = resolve_gpu_tbp(
+        model_key=model_key,
+        power_limit_w=(primary.power_limit_w if primary else None),
+        explicit_watts=tbp_watts,
+    )
+    if gpu_tbp <= 0:
+        error("Could not determine GPU TBP — pass --gpu-model/--tbp-watts")
+        sys.exit(1)
+
+    cpu_key = normalize_cpu_model(probe_cpu_model() or "")
+    cpu_w, cpu_src = resolve_cpu_watts(cpu_key, cpu_watts)
+    node_gpus = node_gpu_count or max(1, len(gpus))
+    est = estimate_node_power(
+        gpu_tbp_w=gpu_tbp,
+        gpu_w_source=gpu_src,
+        gpu_model_key=model_key or None,
+        gpu_count=gpu_count,
+        node_gpu_count=node_gpus,
+        cpu_watts=cpu_w,
+        cpu_w_source=cpu_src,
+        platform_watts=platform_watts if platform_watts is not None else BASE_PLATFORM_W,
+    )
+
+    # --- tariff --------------------------------------------------------------
+    from decimal import Decimal
+
+    tariff: Decimal | None = None
+    tariff_src = ""
+    if eur_per_kwh is not None:
+        tariff, tariff_src = Decimal(str(eur_per_kwh)), "manual"
+    elif config.energy_eur_per_kwh is not None:
+        tariff, tariff_src = Decimal(str(config.energy_eur_per_kwh)), "ENERGY_EUR_PER_KWH"
+    else:
+        region_code = region or config.shop_region
+        tariff = region_tariff(region_code)
+        if tariff is not None:
+            tariff_src = f"region table ({region_code.lower()})"
+    if tariff is None or tariff <= 0:
+        error("No electricity tariff — pass --eur-per-kwh, set ENERGY_EUR_PER_KWH, or use --region")
+        sys.exit(1)
+
+    # --- AIT/EUR rate ---------------------------------------------------------
+    if ait_per_eur is not None:
+        rate, rate_src = Decimal(str(ait_per_eur)), "manual"
+    else:
+        rate, rate_src = None, ""
+        if config.evm_rpc_url and config.energy_pricing_contract_address:
+            try:
+                from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+                from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+
+                rpc = EthereumRPCClient(
+                    EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id))
+                )
+                oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
+                rate = Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
+                rate_src = "on-chain rate"
+            except Exception as exc:  # oracle unavailable -> reference fallback
+                logger.warning("On-chain rate read failed (%s); using reference", exc)
+        if rate is None:
+            from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
+
+            rate, rate_src = Decimal(1) / AIT_REFERENCE_PRICE_EUR, "EUR 0.25 reference"
+
+    # --- floor + suggestion ---------------------------------------------------
+    floor_units = compute_energy_net_units(
+        tbp_watts=est.register_watts,
+        eur_per_kwh_scaled=int(tariff * scale),
+        ait_per_eur_scaled=int(rate * scale),
+        gpu_count=gpu_count,
+        duration_seconds=duration_seconds,
+        settlement_unit_scale=NATIVE_UNITS_PER_AIT,
+    )
+    floor_ait = Decimal(floor_units) / NATIVE_UNITS_PER_AIT
+    floor_per_hour = floor_ait * Decimal(3600) / duration_seconds
+    node_eur_hour = (Decimal(est.node_wall_watts) / 1000) * tariff
+
+    mult = compute_multiplier(model_key or None)
+    suggested = mult if mult is not None else None
+
+    data = {
+        "gpu_model": model_key or None,
+        "gpu_tbp_watts": est.gpu_tbp_w,
+        "gpu_tbp_source": est.gpu_w_source,
+        "cpu_watts": est.cpu_watts,
+        "cpu_source": est.cpu_w_source,
+        "platform_watts": est.platform_watts,
+        "node_gpu_count": est.node_gpu_count,
+        "node_wall_watts": est.node_wall_watts,
+        "register_watts": est.register_watts,
+        "eur_per_kwh": str(tariff),
+        "tariff_source": tariff_src,
+        "ait_per_eur": str(rate),
+        "rate_source": rate_src,
+        "duration_seconds": duration_seconds,
+        "energy_floor_ait": str(floor_ait),
+        "energy_floor_ait_per_hour": str(floor_per_hour),
+        "node_eur_per_hour": str(node_eur_hour),
+        "compute_multiplier": str(mult) if mult is not None else None,
+        "suggested_ait_per_hour": str(suggested) if suggested is not None else None,
+    }
+    if json_output:
+        output(json.dumps(data, indent=2))
+    else:
+        info(f"GPU:           {gpu_model or (primary.name if primary else '?')} — TBP {est.gpu_tbp_w}W ({est.gpu_w_source})")
+        info(f"CPU:           {cpu_key or '?'} — {est.cpu_watts}W ({est.cpu_w_source})")
+        info(f"Platform:      {est.platform_watts}W board/RAM/PSU overhead")
+        info(f"Node draw:     {est.node_wall_watts}W at the wall ({est.node_gpu_count} GPU(s))")
+        info(f"Register as:   {est.register_watts}W per resource (platform shared over node GPUs)")
+        info(f"Tariff:        {tariff} EUR/kWh ({tariff_src})")
+        info(f"AIT/EUR:       {rate} ({rate_src})")
+        info(f"Energy floor:  {floor_per_hour:.4f} AIT/h ({node_eur_hour:.4f} EUR/h node electricity)")
+        if suggested is not None:
+            info(f"Suggested:     {suggested} AIT/h (compute multiplier {mult}x = EUR {mult * Decimal('0.25')}/h)")
+            if suggested < floor_per_hour:
+                warning(f"Suggested price is below the energy floor ({floor_per_hour:.4f} AIT/h) — raise tariff margin")
+        else:
+            warning("No compute multiplier for this GPU model — set price manually at or above the floor")
+        info("")
+        info("Apply with:")
+        rid = resource_id or "<resource-id>"
+        prov = provider_address or "<provider-address>"
+        mid = model_id or model_key or "<model-id>"
+        info(f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
+             f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff} --wallet <wallet>")
+        if suggested is not None:
+            info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {suggested}}}'")
+        info("  (native quotes also need POST /v1/marketplace/native-energy/profile with the same watts/tariff)")
+
+    if register:
+        if not (resource_id and provider_address):
+            error("--register requires --resource-id and --provider-address")
+            sys.exit(1)
+        ctx.invoke(
+            provider_register,
+            resource_id=resource_id,
+            provider_address=provider_address,
+            model_id=model_id or model_key or resource_id,
+            tbp_watts=est.register_watts,
+            eur_per_kwh=float(tariff),
+            wallet=wallet,
+            wallet_path=wallet_path,
+            password=password,
+            password_file=password_file,
+            json_output=json_output,
+        )

@@ -76,13 +76,34 @@ aitbc energy provider register \
 Writes the profile to the `IEnergyPricing` contract. Fails closed with
 `EVM RPC URL not configured` when no EVM endpoint is set.
 
-### 2. Read the profile back
+### 2. Suggest a profile from detected hardware
+
+```bash
+aitbc energy suggest --region de
+```
+
+Probes the node (`nvidia-smi` power limit = the card's real TBP, `lscpu` for
+the CPU), sums the whole-node draw — GPU board power + CPU + board/RAM/fan
+overhead, divided by PSU efficiency — applies the regional EUR/kWh tariff
+(static table; `--eur-per-kwh` or `ENERGY_EUR_PER_KWH` override), and prints:
+
+- the watts to register (`register_watts` — per-GPU-equivalent: platform draw
+  is shared across the node's GPUs because the floor formula multiplies watts
+  by `--gpu-count`),
+- the resulting energy floor in AIT/hour,
+- the suggested market price (`multiplier × 1 AIT/h`, the EUR 0.25
+  compute-hour reference) when the GPU model has a multiplier entry.
+
+`--register` submits the printed `provider register` transaction directly
+(requires `--resource-id --provider-address` and a wallet).
+
+### 3. Read the profile back
 
 ```bash
 aitbc energy provider profile --resource-id gpu-rtx4090-01
 ```
 
-### 3. Compute the energy floor for a rental
+### 4. Compute the energy floor for a rental
 
 ```bash
 aitbc energy floor --resource-id gpu-rtx4090-01 \
@@ -92,7 +113,7 @@ aitbc energy floor --resource-id gpu-rtx4090-01 \
 The floor is the minimum settlement that still covers the provider's energy
 cost for the rental duration.
 
-### 4. Operator quote signing and verification
+### 5. Operator quote signing and verification
 
 ```bash
 aitbc energy operator info                          # signing status + address
