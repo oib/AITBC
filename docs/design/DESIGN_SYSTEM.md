@@ -1,5 +1,12 @@
 # AITBC Design System
 
+> **Unvendored template.** The referenced machinery does not exist in this
+> repo: no `.claude/agents/ui-ux-design.md`, no `vendor/impeccable/`, no
+> `.impeccable/config.json`, no `profiles/` dir, no `docs/sop/` — the
+> `design-system-check` gate it describes is not wired anywhere. The
+> `{{PLACEHOLDER}}` tokens are unfilled. Kept as a starter template only.
+
+
 **Consumed by**: UI/UX Design Agent (`.claude/agents/ui-ux-design.md`)
 **Configured path**: `{{DESIGN_SYSTEM_PATH}}` (default: this file)
 **Origin**: {{DESIGN_SYSTEM_ORIGIN}} (e.g. Figma export, hand-written, Claude-generated)

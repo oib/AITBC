@@ -1,5 +1,14 @@
 # AITBC Security Cleanup & GitHub Setup Guide
 
+
+> **Historical record.** This documents a cleanup completed 2026-02-19. The
+> "Files Currently Tracked That Should Be Removed" list below is a snapshot —
+> `.windsurf/`, `scripts/deployment/k8s/`, `scripts/deployment/terraform/`, and
+> `website/docs/*.html` no longer exist in the repository (verified
+> 2026-09-19). Do not re-run the removal commands; they will fail on missing
+> paths.
+
+
 ## ✅ COMPLETE SECURITY FIXES (2026-02-19)
 
 ### Critical Vulnerabilities Resolved

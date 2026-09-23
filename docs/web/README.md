@@ -2,14 +2,20 @@
 
 ## Dark-Mode-Only Decision
 
-The AITBC web interface and dashboard assets are **dark-mode-only**.
+The production `website/` interface and dashboard assets are
+**dark-mode-only**.
 
-- No optional light theme is provided.
+- No optional light theme is provided on the deployed site.
 - No `light-theme`, `light_mode`, or light-scheme CSS asset references remain
   in production source code.
 - The `scripts/ci/check_deprecation_cleanup.sh` regression check fails the
   build if any light-theme references or hardcoded dark-mode violations are
   reintroduced.
+
+Note: the shared `packages/theme-provider` library still supports
+`"light"`, `"system"`, and `"high-contrast"` modes (its default is
+`"system"`, resolved via `prefers-color-scheme`) for downstream consumers —
+the dark-only rule covers the production `website/` assets, not the library.
 
 ## Rationale
 

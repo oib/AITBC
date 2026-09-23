@@ -19,8 +19,8 @@ Create topics, post messages, vote on messages
 ## Examples
 
 - `POST /messaging/topics/create` (`create_forum_topic_route` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/contracts.py`)
-- `POST /platform/posts` (`create_community_post` in `apps/coordinator-api/src/coordinator_api/contexts/community/routers/community.py`)
-- `POST /platform/posts/{post_id}/upvote` (`upvote_community_post` in `apps/coordinator-api/src/coordinator_api/contexts/community/routers/community.py`)
+- `POST /platform/posts` (`create_community_post` in `apps/coordinator-api/src/coordinator_api/contexts/community/routers/community.py`) *(router defined but not mounted in `main.py` — 404s today)*
+- `POST /platform/posts/{post_id}/upvote` (`upvote_community_post` in `apps/coordinator-api/src/coordinator_api/contexts/community/routers/community.py`) *(router defined but not mounted in `main.py` — 404s today)*
 - `GET /messaging/topics` (`get_forum_topics_route` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/contracts.py`)
 - `GET /messaging/topics/{topic_id}/messages` (`get_topic_messages_route` in `apps/blockchain-node/src/aitbc_chain/rpc/routers/contracts.py`)
 - `POST /rpc/contracts/messaging/topics/create` (`create_forum_topic_route_rpc_contracts_messaging_topics_create_post`) on `Blockchain Node`

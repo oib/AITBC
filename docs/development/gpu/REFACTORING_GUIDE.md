@@ -217,13 +217,11 @@ with GPUAccelerationContext() as gpu:
 
 ### **Environment Variables**
 ```bash
-# Force specific backend
-export AITBC_GPU_BACKEND=cuda
-export AITBC_GPU_BACKEND=apple_silicon
-export AITBC_GPU_BACKEND=cpu
-
-# Disable fallback
-export AITBC_GPU_FALLBACK=false
+# NOTE: these vars were planned in dev/gpu/gpu_acceleration/migrate.sh
+# (unchecked TODO there) but no code reads them today — GPU backend
+# selection is automatic via nvidia-smi / torch detection.
+export AITBC_GPU_BACKEND=cuda        # planned, not implemented
+export AITBC_GPU_FALLBACK=false      # planned, not implemented
 ```
 
 ### **Configuration Options**

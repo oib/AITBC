@@ -3,6 +3,18 @@
 **Last Updated:** 2026-06-19
 **Version:** v0.5.0
 
+**Status:** **Not implemented.** No staging environment exists on the fleet —
+there is no `/etc/aitbc/staging.env`, no `ait-staging` chain ID, and no
+`staging.aitbc.*` host. The configuration blocks below are aspirational:
+`COORDINATOR_API_PORT`, `AGENT_COORDINATOR_PORT`, `GOVERNANCE_PORT`,
+`BLOCKCHAIN_NODE_PORT`, `AITBC_ENVIRONMENT`, `ENABLE_EXPERIMENTAL_FEATURES`,
+and `ENABLE_METRICS` are not read by any service (real port env vars are
+`*_BIND_PORT`, e.g. `AGENT_COORDINATOR_BIND_PORT`, `GOVERNANCE_BIND_PORT`,
+`RPC_BIND_PORT`), `deploy.sh --environment`, `health_check.sh --environment`,
+`pytest --environment`, and `tests/load/test_coordinator.js` (k6) do not
+exist. Treat this as a proposal for how staging *could* be set up.
+
+
 ## Overview
 
 The staging environment is a production-like environment used for testing changes before deploying to production. It mirrors production configuration while using separate resources to prevent any impact on production systems.

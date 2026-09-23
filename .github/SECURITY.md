@@ -1,179 +1,96 @@
 # Security Policy
 
+## Reporting a Vulnerability
+
+AITBC is developed privately on Gitea with a public GitHub mirror. To report a
+security vulnerability:
+
+- **GitHub**: use [private vulnerability reporting](https://github.com/oib/AITBC/security)
+  (Security → Report a vulnerability), or open a draft security advisory.
+- **Email**: `aitbc@bubuit.net` — the operator's direct contact.
+- Please do not file public issues for unpatched vulnerabilities.
+
+There is no public bug bounty program and no separate security team mailbox;
+reports go directly to the maintainer.
+
 ## Dependency Security Management
 
-### Automated Security Scanning
+### Tools
 
-The AITBC project implements automated dependency security scanning using multiple tools:
+Security tooling is installed via `requirements-dev.txt` and run locally or in
+CI:
 
-1. **pip-audit** - Scans Python packages for known vulnerabilities
-2. **Safety** - Checks against Python Safety Database for security issues
-3. **Bandit** - Static analysis for Python security issues
-4. **CodeQL** - Advanced static analysis for code security
+1. **pip-audit** — scans Python packages for known vulnerabilities
+2. **Safety** — checks against the Python Safety DB
+3. **Bandit** — static analysis for Python security issues
+4. **CodeQL** — configuration lives under `.github/codeql/` (`suppressions.yml`)
 
-### CI/CD Integration
+### Running a scan
 
-#### GitHub Actions
-- **Workflow**: `.github/workflows/dependency-security.yml`
-- **Triggers**:
-  - On push to main/develop branches
-  - On pull requests to main/develop
-  - Daily scheduled scan (2 AM UTC)
-  - Manual workflow dispatch
-
-#### Gitea Actions
-- **Workflow**: `.gitea/workflows/security-scanning.yml`
-- **Triggers**:
-  - On push to main/develop branches
-  - On pull requests
-  - Weekly scheduled scan
-  - Manual workflow dispatch
-
-### Security Tools Configuration
-
-#### Safety Configuration
 ```bash
-# Install safety
-pip install safety
+# Scan Python dependencies (pip-audit + safety)
+./scripts/security/dependency-scan.sh
 
-# Run safety check
-safety check --file requirements.txt
+# Scan source for hardcoded secrets
+./venv/bin/python scripts/security/scan_secrets.py
 
-# Check with JSON output for CI/CD
-safety check --file requirements.txt --json --output safety-report.json
+# Full local audit
+./venv/bin/python scripts/security/security_audit.py
 ```
 
-#### pip-audit Configuration
-```bash
-# Install pip-audit
-pip install pip-audit
+### CI/CD
 
-# Run pip-audit
-pip-audit -r requirements.txt --desc
+- `.github/workflows/ci.yml` and `.gitea/workflows/ci.yml` run the test suites,
+  docs validation, port/bind-policy checks, and Foundry contract tests on every
+  push and PR to `main`. There is currently no separate scheduled
+  dependency-security workflow — scans are run manually with the scripts above.
 
-# Export results
-pip-audit -r requirements.txt --format json --output pip-audit-report.json
-```
+### Dependency updates
 
-### Dependency Update Process
+- **Dependabot** (`.github/dependabot.yml`) opens weekly update PRs for pip,
+  npm, and GitHub Actions dependencies (Mondays 09:00, limit 5).
+- Manual updates:
+  1. Run `./scripts/security/dependency-scan.sh`
+  2. `pip install --upgrade <package>`; refresh `requirements.txt`
+  3. Re-run the scan and the test suite
+  4. Commit as `deps: update <package> to <version>`
 
-#### Automated Updates
-- **Frequency**: Daily checks, weekly updates via Dependabot
-- **Safety Checks**: All updates are scanned for vulnerabilities before PR creation
-- **Testing**: Updates must pass all tests before merging
+### Security response process
 
-#### Manual Updates
-1. Run local security scan: `./scripts/security/dependency-scan.sh`
-2. Update specific packages: `pip install --upgrade <package>`
-3. Update requirements.txt: `pip freeze > requirements.txt`
-4. Run security scan again to verify
-5. Test thoroughly
-6. Commit changes with message: `deps: update <package> to <version>`
-
-### Security Response Process
-
-#### Vulnerability Detection
 When vulnerabilities are detected:
 
-1. **Immediate Actions**:
-   - Review vulnerability severity (CVSS score)
-   - Check if affected code is in use
-   - Determine impact on production
+1. **Critical (CVSS ≥ 9.0)**: create a private advisory, patch within 24 hours,
+   deploy hotfix if needed.
+2. **High (CVSS 7.0–8.9)**: patch within 72 hours, schedule maintenance window.
+3. **Medium/Low (CVSS < 7.0)**: include in the next scheduled update; document
+   the risk assessment.
 
-2. **Critical Vulnerabilities (CVSS ≥ 9.0)**:
-   - Immediately create security issue
-   - Notify security team
-   - Patch within 24 hours
-   - Deploy hotfix if needed
-
-3. **High Vulnerabilities (CVSS 7.0-8.9)**:
-   - Create security issue
-   - Patch within 72 hours
-   - Schedule maintenance window
-
-4. **Medium/Low Vulnerabilities (CVSS < 7.0)**:
-   - Include in next scheduled update
-   - Monitor for exploits
-   - Document risk assessment
-
-#### Security Issue Template
-```markdown
-## 🔒 Security Vulnerability: [Package Name]
-
-### Vulnerability Details
-- **Package**: [package-name]
-- **Current Version**: [version]
-- **Vulnerable Version**: [version-range]
-- **CVSS Score**: [score]
-- **CVE**: [CVE-ID if available]
-
-### Impact
-- [Describe impact on the application]
-- [Affected components]
-
-### Remediation
-- **Recommended Version**: [safe-version]
-- **Update Command**: `pip install --upgrade package-name==safe-version`
-
-### Timeline
-- **Detected**: [date]
-- **Target Fix**: [date]
-- **Status**: [in-progress|fixed|monitoring]
-```
-
-### Security Best Practices
+### Security best practices
 
 #### Development
-1. **Never commit secrets** to repository
+1. **Never commit secrets** to the repository
 2. **Use environment variables** for sensitive data
 3. **Run security scans** before committing
-4. **Keep dependencies updated** regularly
+4. **Keep dependencies updated**
 5. **Review dependency licenses** for compliance
 
 #### Dependencies
-1. **Pin versions** in requirements.txt
+1. **Pin versions** in `requirements.txt`
 2. **Use virtual environments** for isolation
 3. **Audit new dependencies** before adding
 4. **Minimize attack surface** by removing unused dependencies
-5. **Use requirements-dev.txt** for development-only dependencies
+5. **Use `requirements-dev.txt`** for development-only dependencies
 
-#### Code Review
-1. **Security review** for code touching sensitive data
-2. **Input validation** for all user inputs
-3. **Error handling** without exposing sensitive information
-4. **Authentication/authorization** checks on all endpoints
-5. **Logging** without logging sensitive data
+#### Code review
+1. Security review for code touching sensitive data
+2. Input validation on all user inputs
+3. Error handling that does not expose sensitive information
+4. Authentication/authorization checks on all endpoints
+5. Logging without logging sensitive data
 
-### Security Monitoring
+### Local development security
 
-#### Automated Alerts
-- **GitHub Security Alerts**: Enabled for Python dependencies
-- **Dependabot**: Weekly dependency updates
-- **Security Scans**: Daily automated scans
-
-#### Metrics Tracked
-- Number of vulnerabilities found
-- Time to remediation
-- False positive rate
-- Scan execution time
-- Dependency update frequency
-
-### Compliance
-
-#### Standards
-- **OWASP Top 10**: Addressed in security checks
-- **CWE/SANS**: Security patterns enforced
-- **GDPR**: Data protection measures in place
-- **SOC 2**: Security controls implemented
-
-#### Reporting
-- **Security incidents**: Report to security@aitbc.io
-- **Vulnerability disclosure**: Use responsible disclosure
-- **Bug bounty**: Program available for security researchers
-
-### Local Development Security
-
-#### Pre-commit Hook
+#### Pre-commit hook
 Add to `.git/hooks/pre-commit`:
 ```bash
 #!/bin/bash
@@ -181,24 +98,12 @@ Add to `.git/hooks/pre-commit`:
 ./scripts/security/dependency-scan.sh
 ```
 
-#### VS Code Integration
-Install extensions:
-- Python Security Scanner
-- Secret Scanner
-- Dependency Cruiser
-
-#### IDE Configuration
-Enable security warnings in your IDE for:
+#### IDE configuration
+Enable warnings for:
 - Hardcoded secrets
 - SQL injection risks
 - XSS vulnerabilities
 - Insecure deserialization
-
-### Emergency Contacts
-
-- **Security Team**: security@aitbc.io
-- **Engineering Lead**: [contact]
-- **DevOps Team**: [contact]
 
 ### Resources
 
@@ -209,6 +114,4 @@ Enable security warnings in your IDE for:
 
 ---
 
-**Last Updated**: 2025-01-04
-**Version**: 1.0
-**Maintained By**: Security Team
+**Last Updated**: 2026-09-19
