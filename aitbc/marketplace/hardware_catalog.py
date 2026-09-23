@@ -86,7 +86,7 @@ CPU_TDP_W: dict[str, int] = {
     "i9_12900k": 150,
     "epyc_7742": 225,
     "epyc_9654": 360,
-    "xeon_8380": 270,
+    "xeon_platinum_8380": 270,
 }
 
 DEFAULT_CPU_WATTS = 95
@@ -153,12 +153,15 @@ def normalize_gpu_model(name: str, memory_gb: int | None = None) -> str:
 def normalize_cpu_model(name: str) -> str:
     """Reduce an lscpu "Model name" to a catalog key.
 
-    "AMD Ryzen 9 5950X 16-Core Processor" -> "ryzen_9_5950x".
+    "AMD Ryzen 9 5950X 16-Core Processor" -> "ryzen_9_5950x";
+    "Intel(R) Core(TM) i9-13900K" -> "i9_13900k";
+    "Intel(R) Xeon(R) Platinum 8380 CPU @ 2.30GHz" -> "xeon_platinum_8380".
     """
-    tokens = re.sub(r"[^a-z0-9]+", "_", name.lower()).strip("_")
-    for w in _VENDOR_WORDS + ("core", "cores", "processor", "cpu"):
-        tokens = re.sub(rf"(^|_){re.escape(w)}(_|$)", r"\1", tokens).strip("_")
-    tokens = re.sub(r"_*\d+_core_*", "_", tokens)  # "16_core" count segment
+    base = name.split("@")[0]  # drop the clock-speed suffix
+    tokens = re.sub(r"[^a-z0-9]+", "_", base.lower()).strip("_")
+    tokens = re.sub(r"_*\d+_cores?_*", "_", tokens)  # "16_core" count segment
+    for w in _VENDOR_WORDS + ("r", "tm", "core", "cores", "processor", "cpu", "generation"):
+        tokens = re.sub(rf"(^|_){re.escape(w)}(_|$)", r"\1", tokens)
     return re.sub(r"_+", "_", tokens).strip("_")
 
 
