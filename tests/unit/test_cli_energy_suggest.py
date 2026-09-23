@@ -8,6 +8,7 @@ from types import SimpleNamespace
 import pytest
 from click.testing import CliRunner
 
+from aitbc_cli.commands import energy as energy_mod
 from aitbc_cli.commands.energy import energy
 from aitbc_cli.utils.hardware_probe import GpuInfo
 
@@ -207,3 +208,50 @@ def test_floor_native_rail(runner, probed, monkeypatch):
         ("get", "/v1/marketplace/native-energy/floor",
          {"params": {"resource_id": "node9", "gpu_count": 1, "duration_seconds": 3600}, "timeout": 10})
     ]
+
+
+def test_native_request_falls_back_to_hub(runner, monkeypatch):
+    """When the local coordinator lacks the native tables, calls retry on the hub mount."""
+    from aitbc_cli.utils.http_client import NetworkError
+
+    # native rail: no EVM config (can't use `probed` — it stubs _native_energy_request)
+    fake_config = SimpleNamespace(
+        evm_rpc_url=None,
+        energy_pricing_contract_address=None,
+        energy_pricing_chain_id=1,
+        coordinator_url=None,
+        coordinator_api_url=None,
+        api_key=None,
+    )
+    monkeypatch.setattr("aitbc_cli.commands.energy.get_config", lambda: fake_config)
+
+    bases = []
+
+    class FlakyClient:
+        def __init__(self, base_url=None, **kwargs):
+            self.base_url = base_url
+            bases.append(base_url)
+
+        def get(self, path, params=None):
+            if "127.0.0.1" in (self.base_url or ""):
+                raise NetworkError("404 native tables not provisioned")
+            return {"settlement_unit_scale": 36_000_000, "net_floor_units": 1, "net_floor_ait": "0.0001"}
+
+        def post(self, path, json=None):
+            raise AssertionError("not used")
+
+    import aitbc.config.hub as hub_mod
+
+    monkeypatch.setattr(energy_mod, "AITBCHTTPClient", FlakyClient)
+    monkeypatch.setattr(hub_mod, "hub_coordinator_url", lambda: "https://hub.example/c/v1")
+
+    result = runner.invoke(
+        energy,
+        ["floor", "--resource-id", "r1", "--gpu-count", "1", "--duration-seconds", "60"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert "native" in result.output
+    assert len(bases) == 2
+    assert bases[0].startswith("http://127.0.0.1")
+    assert bases[1] == "https://hub.example/c"  # /v1 suffix trimmed before joining paths
