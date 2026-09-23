@@ -18,6 +18,15 @@ from coordinator_api.contexts.agent_coordination.domain.agent import AIAgentWork
 
 logger = get_logger(__name__)
 
+# Stated by the router as the 501 detail. It lives here so the text has one
+# source of truth, and reaches the caller without the router having to read
+# str(exc) -- that arm also catches a NotImplementedError raised anywhere
+# deeper in the stack, whose message is not guaranteed to be safe to echo.
+SANDBOX_MONITORING_NOT_IMPLEMENTED = (
+    "Sandbox runtime monitoring is not implemented — it requires container-runtime, "
+    "process, network, and filesystem integration. No fabricated metrics are served."
+)
+
 
 class SecurityLevel(StrEnum):
     """Security classification levels for agent operations"""
@@ -546,10 +555,7 @@ class AgentSandboxManager:
         )
         if not sandbox:
             raise ValueError(f"Sandbox not found for execution {execution_id}")
-        raise NotImplementedError(
-            "Sandbox runtime monitoring is not implemented — it requires container-runtime, "
-            "process, network, and filesystem integration. No fabricated metrics are served."
-        )
+        raise NotImplementedError(SANDBOX_MONITORING_NOT_IMPLEMENTED)
 
     async def cleanup_sandbox(self, execution_id: str) -> bool:
         """Clean up sandbox environment after execution"""
