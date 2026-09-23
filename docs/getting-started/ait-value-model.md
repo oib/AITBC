@@ -72,6 +72,11 @@ Reference value: ≈ €0.25 per compute hour.
 | RTX 4090 | 2.5× |
 | H100 | 10× |
 
+This table is code-backed in `aitbc/marketplace/hardware_catalog.py`
+(`GPU_COMPUTE_MULTIPLIER`); `aitbc energy suggest` uses it together with the
+per-model TBP table (`GPU_TBP_W`) to derive a shop's suggested AIT/hour.
+Keep both files in sync when adjusting the model.
+
 ## Unit System
 
 **Important**: The blockchain internally uses **compute-units** as the base unit, where **1 AIT = 36,000,000 compute-units**.
