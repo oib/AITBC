@@ -65,9 +65,11 @@ native_energy_rates(ait_per_eur_scaled, version, updated_at, ...)
 -- (gpu_count is a quote parameter, not a profile column)
 ```
 
-Public reads (no auth): `GET .../native-energy/profile/{resource_id}`,
-`GET .../native-energy/rate`, `GET .../native-energy/floor?resource_id&gpu_count&duration_seconds`
-(the floor endpoint returns `net_floor_units` + `net_floor_ait` directly).
+Reads: `GET .../native-energy/profile/{resource_id}` and
+`GET .../native-energy/floor?resource_id&gpu_count&duration_seconds` are public
+(no auth); `GET .../native-energy/rate` shares its path with the MINER POST so
+it needs miner auth too. The floor endpoint returns `net_floor_units` +
+`net_floor_ait` directly.
 
 **Prefer the API** — write endpoints take a miner JWT or `X-Api-Key`
 (`MinerDep`) and bump `revision`/`version` server-side (quote signatures embed
