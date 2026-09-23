@@ -8664,7 +8664,7 @@
             }
           },
           "500": {
-            "description": "Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}",
+            "description": "Swap locked on-chain but the swap record could not be stored; reconcile using the X-Transfer-Id header",
             "content": {
               "application/json": {
                 "schema": {
@@ -18783,7 +18783,7 @@
             }
           },
           "500": {
-            "description": "Swap locked on-chain (transfer {transfer.transfer_id}) but the swap record could not be stored: {e}",
+            "description": "Swap locked on-chain but the swap record could not be stored; reconcile using the X-Transfer-Id header",
             "content": {
               "application/json": {
                 "schema": {
