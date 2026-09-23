@@ -9,9 +9,12 @@ import sqlite3
 import urllib.parse
 from datetime import UTC, datetime
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import get_db_path
+
+logger = get_logger(__name__)
 
 
 class MarketplaceMixin:
@@ -139,8 +142,9 @@ class MarketplaceMixin:
                 conn.close()
             offer["order_id"] = order_id
             self.send_json_response(offer, status=201)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"success": False, "error": str(e)}, status=400)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Marketplace offer creation failed")
+            self.send_json_response({"success": False, "error": "Offer creation failed"}, status=400)  # type: ignore[attr-defined]
 
     def handle_marketplace_book_offer(self, path):
         if not self._require_api_key():  # type: ignore[attr-defined]
@@ -185,8 +189,9 @@ class MarketplaceMixin:
             finally:
                 conn.close()
             self.send_json_response({"success": True, "order": order, "order_id": order_id}, status=201)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"success": False, "error": str(e)}, status=400)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Marketplace offer booking failed")
+            self.send_json_response({"success": False, "error": "Booking failed"}, status=400)  # type: ignore[attr-defined]
 
     def handle_marketplace_orders(self, parsed):
         query = urllib.parse.parse_qs(parsed.query)

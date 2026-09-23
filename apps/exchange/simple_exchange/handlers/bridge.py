@@ -3,8 +3,11 @@
 import urllib.parse
 from decimal import Decimal
 
+from aitbc.aitbc_logging import get_logger
 from aitbc.utils.decimal import to_decimal as _to_decimal
 from ..config import bridge_config
+
+logger = get_logger(__name__)
 
 
 class BridgeMixin:
@@ -33,8 +36,9 @@ class BridgeMixin:
                 )
             else:
                 self.send_json_response({"error": f"No price available for {base}/{quote}"}, status=404)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Bridge price lookup failed")
+            self.send_json_response({"error": "Price unavailable"}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_status(self, tx_id):
         """GET /v1/bridge/status[/{tx_id}]"""
@@ -128,8 +132,9 @@ class BridgeMixin:
                 },
                 status=200,
             )
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Bridge deposit initiation failed")
+            self.send_json_response({"error": "Deposit initiation failed"}, status=500)  # type: ignore[attr-defined]
 
     def _verify_bridge_withdrawal_signatures(
         self, eth_address: str, ait_amount: Decimal, signatures: list[dict[str, str]]
@@ -230,8 +235,9 @@ class BridgeMixin:
                 },
                 status=501,
             )
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Bridge withdrawal request failed")
+            self.send_json_response({"error": "Withdrawal request failed"}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_deposits(self, parsed):
         """GET /v1/bridge/deposits — list bridge deposits"""
@@ -292,9 +298,11 @@ class BridgeMixin:
                     }
                 )
             else:
-                self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+                logger.exception("Bridge deposit list query failed")
+                self.send_json_response({"error": "Deposit list unavailable"}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Bridge deposit list failed")
+            self.send_json_response({"error": "Deposit list unavailable"}, status=500)  # type: ignore[attr-defined]
 
     def handle_bridge_deposit_detail(self, tx_hash):
         """GET /v1/bridge/deposit/{tx_hash} — get deposit details"""
@@ -319,9 +327,11 @@ class BridgeMixin:
             if "no such table" in str(e):
                 self.send_json_response({"error": "Deposit not found"}, status=404)  # type: ignore[attr-defined]
             else:
-                self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+                logger.exception("Bridge deposit lookup failed")
+                self.send_json_response({"error": "Deposit lookup failed"}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Bridge deposit detail failed")
+            self.send_json_response({"error": "Deposit lookup failed"}, status=500)  # type: ignore[attr-defined]
 
     def handle_cross_chain_rates(self):
         """GET /cross-chain/rates or /v1/cross-chain/rates."""
@@ -412,5 +422,6 @@ class BridgeMixin:
                     "exchange_rate": str(round(ait_amount / eth_amount, 2)),
                 }
             )
-        except Exception as e:
-            self.send_json_response({"error": str(e)}, status=500)  # type: ignore[attr-defined]
+        except Exception:
+            logger.exception("Bridge estimate failed")
+            self.send_json_response({"error": "Estimate unavailable"}, status=500)  # type: ignore[attr-defined]
