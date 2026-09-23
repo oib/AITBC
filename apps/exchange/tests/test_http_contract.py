@@ -45,6 +45,15 @@ def server(tmp_path_factory):
     # chain should fail as "upstream unavailable", not hang or contact a real node.
     os.environ["BLOCKCHAIN_RPC_BASE_URL"] = "http://127.0.0.1:1"
 
+    # handlers/base.py binds RPC_BASE_URL at import time. If an earlier test module
+    # already imported the exchange package, the env var above would be ignored and
+    # the app would keep talking to whatever the environment had then (e.g. a live
+    # :8202 on nodes that run one). Drop the package from sys.modules so the imports
+    # below re-bind every module-level constant against the env vars just set.
+    pkg = "apps.exchange.simple_exchange"
+    for name in [m for m in sys.modules if m == pkg or m.startswith(pkg + ".")]:
+        sys.modules.pop(name)
+
     from apps.exchange.simple_exchange.db import init_db
     from apps.exchange.simple_exchange.main import app
 
