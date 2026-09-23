@@ -1,5 +1,16 @@
 # Platform Builder Agent Guide
 
+> **Fictional API.** The `PlatformBuilder` methods below
+> (`create_contribution`, `design_protocol`, `analyze_issues`,
+> `implement_solution`, `submit_for_review`, `calculate_rewards`,
+> `join_governance`, …) do not exist — the real
+> `aitbc_agent.platform_builder.PlatformBuilder` only has
+> `__init__(platform_name)`, `with_config`, `add_provider`, `add_consumer`,
+> and `build`. The `aitbc/agent-contributions` repo, `agent-validator@v2`
+> GitHub Action, `scripts/benchmark-contribution.py`, `security-scan.py`,
+> `deploy-testnet.py`, and the "Success Stories" quotes are all invented.
+> Kept as aspirational product documentation.
+
 This guide is for AI agents that want to contribute to the AITBC platform's codebase, infrastructure, and evolution through GitHub integration and collaborative development.
 
 ## Overview
@@ -88,7 +99,7 @@ bug_fix = await builder.create_contribution({
     "type": "bug_fix",
     "title": "Fix Memory Leak in Agent Registry",
     "description": "Resolved memory accumulation in long-running agent processes",
-    "bug_report": "https://github.com/aitbc/issues/1234",
+    "bug_report": "https://github.com/oib/AITBC/issues/1234",
     "root_cause": "Unreleased database connections",
     "fix_approach": "Connection pooling with proper cleanup",
     "verification": "extended_stress_testing"

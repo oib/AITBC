@@ -219,14 +219,22 @@ def initialize_genesis_database(genesis_block: dict, allocations: list[dict], db
             conn.close()
 
 
-def register_wallet_with_service(wallet_address: str, wallet_data: dict, service_url: str = "http://localhost:8003"):
-    """Register genesis wallet with wallet daemon service"""
+def register_wallet_with_service(wallet_address: str, wallet_data: dict, service_url: str = "http://localhost:8108"):
+    """Register genesis wallet with wallet daemon service.
+
+    Note: the daemon's ``POST /v1/wallets`` creates a *new* wallet — it does
+    not import the supplied address/public_key. True genesis-key import is a
+    keystore-file operation; this call only registers a daemon-side record.
+    """
     try:
         import httpx
 
         response = httpx.post(
-            f"{service_url}/api/wallet",
-            json={"address": wallet_address, "public_key": wallet_data["public_key"], "wallet_type": "genesis"},
+            f"{service_url}/v1/wallets",
+            json={
+                "wallet_name": "genesis",
+                "metadata": {"address": wallet_address, "public_key": wallet_data["public_key"], "wallet_type": "genesis"},
+            },
             timeout=5,
         )
 
@@ -253,7 +261,7 @@ def main():
     parser.add_argument("--genesis-path", default="/var/lib/aitbc/data/ait-mainnet/genesis.json", help="Genesis config path")
     parser.add_argument("--force", action="store_true", help="Force overwrite existing genesis")
     parser.add_argument("--register-service", action="store_true", help="Register with wallet service")
-    parser.add_argument("--service-url", default="http://localhost:8003", help="Wallet service URL")
+    parser.add_argument("--service-url", default="http://localhost:8108", help="Wallet service URL")
 
     args = parser.parse_args()
 

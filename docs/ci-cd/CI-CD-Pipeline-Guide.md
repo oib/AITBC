@@ -1,5 +1,13 @@
 # AITBC-app CI/CD Pipeline Guide
 
+> **Foreign template — not this repository's CI.** This guide describes a
+> Next.js/yarn multi-team pipeline (Stripe, Linear, `dev` branch, ESLint,
+> `{{PRIMARY_DEV_BRANCH}}` placeholders) imported from an unrelated project —
+> none of the workflows it names exist. AITBC's real CI is
+> `.github/workflows/ci.yml` and `.gitea/workflows/ci.yml` (pytest, ruff,
+> mypy, docs validation, port/bind checks, Foundry contract tests on `main`).
+
+
 _Automated multi-team collaboration with enforced rebase-first workflow_
 
 ## 🎯 Overview

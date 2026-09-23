@@ -10,7 +10,7 @@ Get miners in a pool
 - `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/services/miners.py` — Deregister a miner from the system
 - `aitbc/network/http_pool.py` — import asyncio from typing import Any import httpx from aitbc.aitbc_logging import get_logger logger...
 - API endpoint `GET /agents/{agent_wallet}/staking-pool` implemented in `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py`
-- API endpoint `GET /miners` implemented in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/monitor.py`
+- API endpoint `GET /v1/admin/miners` implemented in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py`
 - API endpoint `POST /miners/{miner_id}/earnings` implemented in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`
 - `Blockchain Node` exposes `GET /rpc/mining/miners` (operation `list_miners_route_rpc_mining_miners_get`) — List active miners
 - `Coordinator API` exposes `GET /v1/admin/miners` (operation `list_miners_v1_admin_miners_get`) — List miners
@@ -19,7 +19,7 @@ Get miners in a pool
 ## Examples
 
 - `GET /agents/{agent_wallet}/staking-pool` (`get_staking_pool` in `apps/coordinator-api/src/coordinator_api/contexts/staking/routers/staking.py`)
-- `GET /miners` (`get_miners` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/monitor.py`)
+- `GET /v1/admin/miners` (`list_miners` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/admin.py`) — `monitor.py` no longer registers routes
 - `POST /miners/{miner_id}/earnings` (`get_miner_earnings` in `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/routers/miner.py`)
 - `GET /staking/pools` (`get_developer_staking_pools` in `apps/coordinator-api/src/coordinator_api/contexts/governance/routers/governance_enhanced.py`)
 - `GET /bridge/liquidity-pools` (`get_liquidity_pools` in `apps/coordinator-api/src/coordinator_api/contexts/cross_chain/routers/cross_chain_integration.py`)

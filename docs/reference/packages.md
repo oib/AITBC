@@ -27,7 +27,7 @@
 
 This directory contains documentation for AITBC packages organized by language and platform:
 
-- **[py/](py/)** - Python packages (aitbc-agent-core, aitbc-agent-sdk, aitbc-crypto, aitbc-sdk)
+- **Python packages** live at `packages/py/` (aitbc-agent-core, aitbc-agent-sdk, aitbc-crypto, aitbc-errors, aitbc-sdk) — no per-package docs in this directory
 
 ---
 

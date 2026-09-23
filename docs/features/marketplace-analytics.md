@@ -16,7 +16,7 @@ Get marketplace analytics and performance metrics
 
 ## Examples
 
-- `GET /analytics/marketplace-integration` (`get_marketplace_integration_analytics` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`)
+- `GET /analytics/marketplace-integration` (`get_marketplace_integration_analytics` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`) *(router defined but not mounted in `main.py` — 404s today)*
 - `GET /analytics` (`get_marketplace_analytics` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace.py`)
 - `GET /analytics/{agent_id}` (`get_performance_analytics` in `apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/agent_performance.py`)
 - `GET /{gpu_id}/metrics` (`get_gpu_metrics` in `apps/edge/src/aitbc_edge/routers/gpu.py`)

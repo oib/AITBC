@@ -11,9 +11,9 @@ AITBC services run on the following ports:
 
 - **8202** - Blockchain Node RPC
 - **8203** - Coordinator API
-- **8105** - Agent Service
+- **8105** - Governance service (`aitbc-governance`); the agent coordinator is on 8107
 - **7070** - P2P Bind Port
-- **5173** - Marketplace Web UI (development only)
+- (no marketplace web UI — `apps/marketplace-web` was never built; the live UI is the static `website/` directory)
 
 ## Firewall Recommendations
 
@@ -34,7 +34,7 @@ sudo ufw allow 22/tcp
 # Allow AITBC services
 sudo ufw allow 8202/tcp  # Blockchain Node RPC
 sudo ufw allow 8203/tcp  # Coordinator API
-sudo ufw allow 8105/tcp  # Agent Service
+sudo ufw allow 8105/tcp  # Governance service
 sudo ufw allow 7070/tcp  # P2P Bind Port
 
 # Enable firewall
@@ -55,7 +55,7 @@ sudo ufw allow from 10.0.0.0/8 to any port 8202
 # Allow Coordinator API from application servers
 sudo ufw allow from 10.0.1.0/24 to any port 8203
 
-# Allow Agent Service from agent servers
+# Allow the governance service from other nodes
 sudo ufw allow from 10.0.2.0/24 to any port 8105
 
 # Allow P2P from blockchain network
@@ -97,9 +97,9 @@ operator must confirm HTTPS and certificate coverage before enabling HSTS or
 - Configure client certificate authentication
 - Disable HTTP in production
 
-**Agent Service (8105):**
+**Governance service (8105):**
 
-- Enable TLS for agent communication
+- Enable TLS at the nginx terminator
 - Use mutual TLS for agent authentication
 
 ### Nginx Reverse Proxy Example
@@ -161,11 +161,15 @@ server {
 sudo apt install fail2ban
 
 # Configure /etc/fail2ban/jail.local
+# NOTE: AITBC units log to journald (StandardOutput=journal), not
+# /var/log/aitbc/*.log — this jail never triggers as written. Use
+# `backend = systemd` with `journalmatch` (see below) instead.
 [aitbc-api]
 enabled = true
 port = 8203
 filter = aitbc-api
-logpath = /var/log/aitbc/coordinator-api.log
+backend = systemd
+journalmatch = _SYSTEMD_UNIT=aitbc-coordinator-api.service
 maxretry = 5
 bantime = 3600
 ```
@@ -242,11 +246,8 @@ Set up alerts for:
 ### 1. Disable Unused Services
 
 ```bash
-# Disable development web UI in production
-sudo systemctl disable aitbc-marketplace-web
-
-# Disable unused ports
-sudo ufw deny 5173/tcp  # Development UI
+# No aitbc-marketplace-web unit exists and no service listens on 5173 —
+# nothing to disable.
 ```
 
 ### 2. Use VPN for Management Access

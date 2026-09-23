@@ -18,7 +18,7 @@ List all registered edge nodes
 
 - `GET /graphs` (`list_knowledge_graphs` in `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py`)
 - `POST /graphs/{graph_id}/nodes` (`contribute_knowledge` in `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py`)
-- `GET /nodes` (`list_nodes` in `apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/swarm.py`)
+- `GET /v1/marketplace/edge-advertise` (`list_edge_nodes` in `apps/marketplace/src/marketplace_service/`) — the coordinator-api `swarm.py` router is a stub that registers no routes (every `/v1/swarm/*` returns 404)
 - `POST /join` (`join_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `POST /leave` (`leave_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `GET /v1/marketplace/edge-advertise` (`list_edge_nodes_v1_marketplace_edge_advertise_get`) on `Marketplace`

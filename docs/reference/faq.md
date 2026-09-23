@@ -227,10 +227,12 @@ Yes, you can register multiple GPUs by creating multiple miner registrations, ea
 Include payment details when submitting a job:
 
 ```python
-job = client.submit_job(
-    payload={"model": "llama2", "prompt": "Hello"},
-    payment_amount=100.0,
-    payment_currency="AITBC"
+# aitbc_agent.compute_consumer.ComputeConsumer
+job = await consumer.submit_job(
+    job_type="inference",
+    input_data={"model": "llama2", "prompt": "Hello"},
+    requirements={"gpu": True},
+    max_price=100.0,
 )
 ```
 
@@ -241,8 +243,11 @@ Escrow holds the payment in a smart contract until the job is completed successf
 ### What currencies are supported?
 
 - AITBC (native token)
-- ETH (via smart contract)
-- USDC (via smart contract)
+- ETH
+- USDT
+
+(`ALLOWED_PAYMENT_CURRENCIES = ("AITBC", "ETH", "USDT")` —
+`coordinator_api/schemas/__init__.py`)
 
 ### How do I check payment status?
 
@@ -344,7 +349,7 @@ See the Deployment Guide for detailed hardware recommendations.
 - Deployment Guide
 - Troubleshooting Guide
 - [GitHub Repository](https://github.com/oib/AITBC)
-- [Community Forum](https://community.aitbc.dev/)
+- Community: none hosted — use GitHub issues (no `community.aitbc.dev` exists)
 
 ## Still Have Questions?
 
@@ -352,5 +357,5 @@ If you couldn't find the answer to your question, please:
 
 1. Search the [documentation](../)
 2. Check [GitHub Issues](https://github.com/oib/AITBC/issues)
-3. Ask in the [community forum](https://community.aitbc.dev/)
-4. Contact support at support@aitbc.dev
+3. Search the repo docs under `docs/`
+4. Email the maintainer at aitbc@bubuit.net

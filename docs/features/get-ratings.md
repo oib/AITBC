@@ -20,8 +20,8 @@ Get ratings for an offer
 - `GET /v1/trading/offers/sync-status` (`get_offer_sync_status` in `apps/trading/src/trading_service/routers/offers.py`)
 - `GET /v1/trading/offers/cache` (`get_cached_offers` in `apps/trading/src/trading_service/routers/offers.py`)
 - `GET /v1/trading/offers/subscription-status` (`get_subscription_status` in `apps/trading/src/trading_service/routers/subscriptions.py`)
-- `GET /offers/cross-chain` (`get_integrated_marketplace_offers` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`)
-- `GET /offers/{offer_id}/cross-chain-details` (`get_cross_chain_offer_details` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`)
+- `GET /offers/cross-chain` (`get_integrated_marketplace_offers` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`) *(router defined but not mounted in `main.py` — 404s today)*
+- `GET /offers/{offer_id}/cross-chain-details` (`get_cross_chain_offer_details` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`) *(router defined but not mounted in `main.py` — 404s today)*
 - `GET /v1/marketplace/offer/{service_id}/ratings` (`get_service_ratings_v1_marketplace_offer__service_id__ratings_get`) on `Marketplace`
 - `GET /v1/marketplace/offers/{offer_id}` (`get_offer_v1_marketplace_offers__offer_id__get`) on `Marketplace`
 - `GET /v1/marketplace/offers/{offer_id}/history` (`get_offer_history_v1_marketplace_offers__offer_id__history_get`) on `Marketplace`

@@ -15,7 +15,7 @@ The AITBC platform implements a comprehensive backup strategy with:
 - **Retention policies** to manage storage efficiently
 - **Key/address audit** to detect mismatched or unrecoverable private keys before they become operational failures
 
-The systemd timer runs `scripts/maintenance/aitbc-backup.sh` daily at 02:00 UTC. Output is written to `/var/backups/aitbc/<YYYYMMDD_HHMMSS>/` and retained for 30 days.
+The systemd timer runs `scripts/maintenance/aitbc-backup.sh` daily at 01:00 UTC. Output is written to `/var/backups/aitbc/<YYYYMMDD_HHMMSS>/` and retained for 30 days.
 
 ## Components
 
@@ -62,9 +62,13 @@ journalctl -u aitbc-backup.service -f
 
 | Time (UTC) | Component      | Type       | Retention |
 |------------|----------------|------------|-----------|
-| 02:00      | PostgreSQL     | Full       | 30 days   |
-| 02:01      | Redis          | Full       | 30 days   |
-| 02:02      | Ledger         | Full       | 30 days   |
+| 01:00      | PostgreSQL     | Full       | 30 days   |
+| 01:00      | Redis          | Full       | 30 days   |
+| 01:00      | Ledger         | Full       | 30 days   |
+
+(The timer fires `aitbc-backup.service` once at 01:00; the service script
+walks all components in one run — the staggered rows describe the old
+per-component timers.)
 
 ## Backup Snapshot Contents
 
@@ -88,9 +92,14 @@ The `key-audit.json` file contains only public addresses and `match: true/false`
 
 ### PostgreSQL
 
+> The `backup_*.sh` / `restore_*.sh` scripts under `scripts/maintenance/` are
+> Kubernetes-era helpers — they take a namespace argument and shell out to
+> `kubectl`. On the systemd deployment, use the `aitbc-backup` service/timer
+> path above instead.
+
 ```bash
 # Create a manual backup
-./scripts/deployment/backup_postgresql.sh default my-backup-$(date +%Y%m%d)
+./scripts/maintenance/backup_postgresql.sh default my-backup-$(date +%Y%m%d)
 
 # View available backups
 ls -la /tmp/postgresql-backups/
@@ -100,20 +109,20 @@ ls -la /tmp/postgresql-backups/
 
 ```bash
 # Create a manual backup
-./scripts/deployment/backup_redis.sh default my-redis-backup-$(date +%Y%m%d)
+./scripts/maintenance/backup_redis.sh default my-redis-backup-$(date +%Y%m%d)
 
 # Force background save before backup
-systemctl redis-cli BGSAVE
+redis-cli BGSAVE
 ```
 
 ### Ledger Storage
 
 ```bash
 # Create a full backup
-./scripts/deployment/backup_ledger.sh default my-ledger-backup-$(date +%Y%m%d)
+./scripts/maintenance/backup_ledger.sh default my-ledger-backup-$(date +%Y%m%d)
 
 # Create incremental backup
-./scripts/deployment/backup_ledger.sh default incremental-backup-$(date +%Y%m%d) true
+./scripts/maintenance/backup_ledger.sh default incremental-backup-$(date +%Y%m%d) true
 ```
 
 ## Restore Procedures
@@ -125,7 +134,7 @@ systemctl redis-cli BGSAVE
 ls -la /tmp/postgresql-backups/
 
 # Restore database
-./scripts/deployment/restore_postgresql.sh default /tmp/postgresql-backups/my-backup.sql.gz
+./scripts/maintenance/restore_postgresql.sh default /tmp/postgresql-backups/my-backup.sql.gz
 
 # Verify restore
 curl -s http://localhost:8203/health
@@ -202,7 +211,7 @@ curl -s http://localhost:8202/rpc/head
 
    ```bash
    # Restore PostgreSQL first (critical for operations)
-   ./scripts/deployment/restore_postgresql.sh default [latest-backup]
+   ./scripts/maintenance/restore_postgresql.sh default [latest-backup]
 
    # Restore Redis cache
    ./restore_redis.sh default [latest-backup]
@@ -217,9 +226,10 @@ curl -s http://localhost:8202/rpc/head
    # Check all services
    systemctl status aitbc-*
 
-   # Verify API endpoints
-   curl -s http://coordinator-api:8203/health
-   curl -s http://blockchain-node:8202/v1/health
+   # Verify API endpoints (run on the respective hosts — hub for
+   # coordinator-api, the chain node for blockchain-rpc)
+   curl -s http://localhost:8203/health
+   curl -s http://localhost:8202/health
    ```
 
 ## Monitoring and Alerting
@@ -302,10 +312,10 @@ journalctl -u aitbc-backup.service -n 50
 
 ```bash
 # Scale down application before restore
-systemctl stop coordinator-api
+systemctl stop aitbc-coordinator-api
 # Perform restore
 # Scale up after restore
-systemctl start coordinator-api
+systemctl start aitbc-coordinator-api
 ```
 
 #### Ledger Restore Incomplete

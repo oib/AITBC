@@ -18,7 +18,9 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 - **Total**: 35 vulnerabilities (7 low, 15 moderate, 13 high)
 - **Status**: Accepted as acceptable risk
 - **Rationale**: Most vulnerabilities are in Hardhat/Ethers build tools (transitive dependencies), not production runtime code
-- **Note**: npm audit fix attempted; pnpm workspaces (contracts, zk-circuits) lack npm lockfiles and use pnpm-specific overrides
+- **Note**: npm audit fix attempted; both `contracts/` and
+  `apps/zk-circuits/` are npm projects (`packageManager: npm@11.16.0`,
+  `package-lock.json`) — the pnpm-workspace claim below is outdated
 
 #### Breakdown by Package
 
@@ -58,10 +60,10 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 
 #### CI/CD Integration
 
-- **Security Scanning Workflow**: `.gitea/workflows/security-scanning.yml`
-- **Tools**: pip-audit (Python), pnpm audit (npm), cargo audit (Rust)
-- **Frequency**: On every push and PR
-- **Action**: Fail CI on new high-severity vulnerabilities
+- **Security scanning**: no dedicated workflow exists — the only CI is
+  `ci.yml` (`.github` + `.gitea`), which runs tests, not dependency scans.
+  Run `scripts/security/dependency-scan.sh` locally; Dependabot
+  (`.github/dependabot.yml`) opens weekly update PRs.
 
 ### Manual Monitoring
 
@@ -94,9 +96,9 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 #### Quarterly Review
 
 1. Evaluate major version updates for:
-   - Hardhat (currently v2.22.0, v3.7.0 available - major breaking changes)
-   - Ethers.js (currently v6.16.0)
-   - Circom (currently v0.5.46, deprecated)
+   - Hardhat (repo already on v3.x — `contracts/package.json` pins `^3.12.0`)
+   - Ethers.js
+   - Circom (note: `circom` npm package deprecated upstream)
 
 2. Assess breaking changes vs security benefits
 3. Plan upgrade testing in development environment
@@ -105,8 +107,8 @@ This document outlines the monitoring strategy for key dependencies in the AITBC
 
 #### Limitations
 
-- **pnpm workspaces**: `npm audit fix` requires npm lockfiles; pnpm workspaces (contracts, zk-circuits) use pnpm-lock.yaml
-- **Overrides**: pnpm-specific overrides in package.json only work with pnpm, not npm or yarn
+- **npm workspaces**: `contracts/` and `apps/zk-circuits/` use npm
+  (`package-lock.json` + top-level `"overrides"` in package.json)
 - **Transitive dependencies**: Manual overrides may not catch all transitive dependency paths
 
 #### Recommended Approach
@@ -174,25 +176,26 @@ The following packages have version overrides in package.json files to mitigate 
 ```json
 "overrides": {
   "uuid": "^14.0.0",
-  "elliptic": "^6.6.2",
-  "serialize-javascript": "^6.0.2",
+  "serialize-javascript": "^7.1.0",
   "tmp": "^0.2.4",
   "diff": "^5.2.2",
-  "js-yaml": "^4.1.0",
+  "js-yaml": "^4.3.2",
   "minimatch": "^9.0.0",
-  "nanoid": "^3.3.8",
-  "underscore": "^1.13.6"
+  "nanoid": "^3.3.12",
+  "underscore": "^1.13.6",
+  "bn.js": "^4.12.3",
+  "cookie": "^0.7.0",
+  "ws": "^8.21.3",
+  "adm-zip": "^0.6.1"
 }
 ```
 
 #### apps/zk-circuits/package.json
 
 ```json
-"pnpm": {
-  "overrides": {
-    "serialize-javascript": "^6.0.2",
-    "underscore": "^1.13.6"
-  }
+"overrides": {
+  "circom_runtime": { "ffjavascript": "^0.3.1" },
+  "underscore": "^1.13.8"
 }
 ```
 

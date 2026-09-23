@@ -1,5 +1,14 @@
 # AITBC Project Guidelines
 
+> **Partially stale.** The "12/12 strict MyPy" claim is wrong —
+> `pyproject.toml [tool.mypy]` enables 6 flags (`check_untyped_defs`,
+> `warn_return_any`, `warn_unused_ignores`, `warn_redundant_casts`,
+> `warn_unreachable`, `strict_optional`), an incremental migration. The doc
+> also lists `apps/agent` and `apps/agent-management` (never existed —
+> agent code lives in `apps/agent-coordinator` and `packages/py/`), and
+> `AGENT_BIND_HOST`/`AGENT_BIND_PORT`/`TRANSCODER_*` env vars that no code
+> reads.
+
 This file contains important information for AI agents working on the AITBC codebase.
 
 ## Type Safety Achievement

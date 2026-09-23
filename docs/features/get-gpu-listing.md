@@ -21,7 +21,7 @@ Get GPU listing details by ID
 - `GET /marketplace/gpu/{gpu_id}` (`get_gpu_details` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/marketplace_gpu.py`)
 - `DELETE /{gpu_id}` (`remove_gpu_listing` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
 - `GET /{gpu_id}/metrics` (`get_gpu_metrics` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
-- `GET /offers/{offer_id}/cross-chain-details` (`get_cross_chain_offer_details` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`)
+- `GET /offers/{offer_id}/cross-chain-details` (`get_cross_chain_offer_details` in `apps/coordinator-api/src/coordinator_api/contexts/marketplace/routers/global_marketplace_integration.py`) *(router defined but not mounted in `main.py` — 404s today)*
 - `GET /v1/marketplace/gpu/{gpu_id}` (`get_gpu_details_v1_marketplace_gpu__gpu_id__get`) on `Coordinator API`
 - `GET /v1/marketplace/gpu/{gpu_id}` (`get_gpu_details_v1_marketplace_gpu__gpu_id__get`) on `Openapi`
 - `GET /rpc/disputes/{dispute_id}` (`get_dispute_route_rpc_disputes__dispute_id__get`) on `Blockchain Node`

@@ -1,5 +1,14 @@
 # Dotenv Configuration Discipline
 
+> **Proposal, not implemented.** The `scripts/focused_dotenv_linter.py`
+> tool and `.github/workflows/dotenv-check.yml` workflow described here do
+> not exist — nothing runs this check. There is also no root `.env.example`
+> (services read `/etc/aitbc/<unit>.env` + per-app env files). The naming
+> conventions below are partially wrong for this codebase: real code uses
+> `ETH_RPC_URL` (not `ETHEREUM_RPC_URL`) and `*_API_KEYS` (plural). Keep the
+> discipline ideas; do not trust the "implemented" claims.
+
+
 ## 🎯 Problem Solved
 
 Having a `.env.example` file is good practice, but without automated

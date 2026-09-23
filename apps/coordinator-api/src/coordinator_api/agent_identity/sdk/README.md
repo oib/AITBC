@@ -509,9 +509,12 @@ async def manage_transactions():
 
 ## Support
 
-- **Documentation**: [https://docs.aitbc.io/agent-identity-sdk](https://docs.aitbc.io/agent-identity-sdk)
-- **Issues**: [GitHub Issues](https://github.com/aitbc/agent-identity-sdk/issues)
-- **Community**: [AITBC Discord](https://discord.gg/aitbc)
+- **Documentation**: this repository's `docs/` directory (there is no hosted
+  docs site)
+- **Issues**: [GitHub Issues](https://github.com/oib/AITBC/issues) on the
+  monorepo — this SDK ships inside `apps/coordinator-api`, there is no
+  standalone issue tracker
+- **Community**: there is no public Discord; use GitHub issues
 
 ## License
 

@@ -8,7 +8,7 @@ This guide keeps the AITBC documentation consistent, discoverable, and free of b
 - Application/service docs: `docs/apps/<area>/<service>.md`
 - Release notes: `docs/releases/<version>/`
 - Developer how-to's: `docs/development/`
-- Operational runbooks: `docs/operations/` or `docs/deployment/`
+- Operational runbooks: `docs/deployment/` or `docs/troubleshooting/`
 
 ## Feature doc structure
 

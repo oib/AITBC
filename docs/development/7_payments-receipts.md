@@ -59,7 +59,7 @@ Every completed job generates a receipt containing:
 
 ### Explorer
 
-Visit [Explorer → Receipts](https://aitbc.bubuit.net/explorer/#/receipts) to see:
+Visit the explorer on any node (port 8100 — e.g. `http://<node>:8100/#/receipts`; the public hub explorer is `https://hub.aitbc.bubuit.net/explorer/`) to see:
 
 - All recent receipts on the network
 - Filter by your address to see your history
@@ -81,7 +81,7 @@ aitbc http call coordinator-api v1/jobs/job-abc123/receipt --api-key <client-key
 ### API
 
 ```bash
-curl https://aitbc.bubuit.net/api/v1/receipts?client=<your_address>
+curl "http://<coordinator>:8203/v1/explorer/receipts?job_id=<job-id>"  # or /v1/jobs/{job_id}/receipt
 ```
 
 ## Pricing
@@ -107,7 +107,7 @@ curl https://aitbc.bubuit.net/api/v1/receipts?client=<your_address>
 
 ### Via Exchange
 
-1. Visit [Trade Exchange](https://aitbc.bubuit.net/Exchange/)
+1. Visit the Trade Exchange on the hub (`https://hub.aitbc.bubuit.net/` — the `website/` static UI)
 2. Create an account or connect wallet
 3. Send Ethereum to your deposit address
 4. Receive AITBC at current exchange rate (1 ETH = 100,000 AITBC (example rate; oracle-driven in production))
@@ -127,11 +127,11 @@ Receipts are cryptographically signed to ensure authenticity.
 ### Signature Verification
 
 ```python
-from aitbc_crypto import verify_receipt
+from aitbc_sdk.receipts import verify_receipt
 
 receipt = get_receipt("rcpt-20260124-001234")
-is_valid = verify_receipt(receipt)
-print(f"Receipt valid: {is_valid}")
+result = verify_receipt(receipt)   # -> ReceiptVerification
+print(f"Receipt valid: {result.verified}")
 ```
 
 ### On-Chain Verification

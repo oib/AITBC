@@ -43,9 +43,9 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Distributed Decision Making | Consensus-based voting with weighted decisions | docs/agents/agent-autonomy-features.md | ✅ | — |
-| Self-Healing | Automatic error detection and recovery | docs/agents/agent-autonomy-features.md | ✅ | — |
-| Autonomous Resource Management | Dynamic resource allocation and pricing | docs/agents/agent-autonomy-features.md | ✅ | — |
+| Distributed Decision Making | Consensus-based voting with weighted decisions | docs/agent/ (planned doc `agent-autonomy-features.md` not written) | ✅ | — |
+| Self-Healing | Automatic error detection and recovery | docs/agent/ (planned doc `agent-autonomy-features.md` not written) | ✅ | — |
+| Autonomous Resource Management | Dynamic resource allocation and pricing | docs/agent/ (planned doc `agent-autonomy-features.md` not written) | ✅ | — |
 
 ### Agent SDK
 
@@ -58,9 +58,9 @@
 
 | Feature | Description | Documentation | Status | Release |
 |---------|-------------|---------------|--------|---------|
-| Compute Provider | Sell computational resources | docs/agents/compute-provider.md | ✅ | — |
-| Compute Consumer | Rent computational power | docs/agents/compute-consumer-onboarding.md | ✅ | — |
-| Platform Builder | Contribute code improvements | docs/agents/platform-builder-onboarding.md | ✅ | — |
-| Swarm Coordinator | Participate in collective intelligence | docs/agents/swarm-coordinator-onboarding.md | ✅ | — |
+| Compute Provider | Sell computational resources | docs/agent/ (planned doc `compute-provider.md` not written) | ✅ | — |
+| Compute Consumer | Rent computational power | docs/agent/ (planned doc not written) | ✅ | — |
+| Platform Builder | Contribute code improvements | docs/agent/ (planned doc not written) | ✅ | — |
+| Swarm Coordinator | Participate in collective intelligence | docs/agent/ (planned doc not written) | ✅ | — |
 
 ---

@@ -36,10 +36,12 @@ Successfully implemented a comprehensive confidential transaction system for AIT
 
 ### 5. API Endpoints ✅
 
-- **/confidential/transactions**: Create and manage confidential transactions
-- **/confidential/access**: Request access to encrypted data
-- **/confidential/audit**: Regulatory access with authorization
-- **/confidential/keys**: Key registration and rotation
+- **`/v1/confidential/transactions`**: create and manage confidential transactions
+- **`/v1/confidential/transactions/{id}/access`**: request access to encrypted data
+- **`/v1/confidential/transactions/{id}/audit`**: regulatory access with authorization
+- **`/v1/confidential/keys/register`** and **`/v1/confidential/keys/rotate`**: key management
+- **`/v1/confidential/access/logs`**, **`/v1/confidential/status`**, **`/v1/confidential/payments`**
+- (mounted at `/v1`; the bare `/confidential/access|audit|keys` forms below do not exist)
 - **Rate Limiting**: Protection against abuse
 
 ### 6. Data Models ✅
@@ -73,10 +75,10 @@ Successfully implemented a comprehensive confidential transaction system for AIT
 
 ## Current Limitations
 
-### 1. Database Persistence ❌
+### 1. Database Persistence
 
-- Current implementation uses mock storage
-- Needs SQLModel/SQLAlchemy integration
+- Implemented via `contexts/confidential/models/confidential.py` (SQLModel);
+  the router is mounted in `main.py` — the mock-storage note below is stale
 - Transaction storage and querying
 - Encrypted data BLOB handling
 

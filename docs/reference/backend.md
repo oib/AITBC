@@ -1,5 +1,11 @@
 # Backend Documentation
 
+> **Phantom index.** None of the documents listed below exist in the repo —
+> this page indexes analysis reports that were moved to internal storage
+> (`/root/aitbc/`) and ports 8010-8016 are the legacy enhanced-services
+> range, not current ports. Kept as a pointer to where those files went.
+
+
 **Last Updated:** 2026-05-29
 **Generated:** 2026-03-08 13:06:38
 **Total Files**: 10

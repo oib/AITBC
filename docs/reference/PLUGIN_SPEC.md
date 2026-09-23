@@ -527,7 +527,7 @@ class MyPlugin:
       "description": "Agent management CLI commands",
       "author": "AITBC Team",
       "license": "MIT",
-      "repository": "https://github.com/aitbc/agent-cli-plugin",
+      "repository": "https://github.com/oib/AITBC",
       "download_url": "https://pypi.org/project/aitbc-agent-cli/",
       "checksum": "sha256:...",
       "tags": ["cli", "agent", "management"],

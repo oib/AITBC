@@ -107,12 +107,13 @@ pytest tests/
 
 ### Environment Variables
 
-The environment wrapper sets up:
+The environment wrapper (`scripts/aitbc-cli`) simply activates the venv and
+execs `aitbc` — it does not set `PYTHONPATH` or `AITBC_VENV`:
 
 ```bash
-PYTHONPATH=/opt/aitbc/packages/py/aitbc-sdk/src:/opt/aitbc/packages/py/aitbc-crypto/src
-AITBC_VENV=/opt/aitbc/venv
-PATH=/opt/aitbc/venv/bin:$PATH
+# scripts/aitbc-cli, in effect:
+source /opt/aitbc/venv/bin/activate
+exec aitbc "$@"
 ```
 
 ## 🔍 Troubleshooting

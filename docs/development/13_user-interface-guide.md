@@ -1,5 +1,12 @@
 # AITBC Trade Exchange - User Interface Guide
 
+> **Fictional UI.** This guide describes an account system (auto-created
+> `user_*` wallets, session tokens, 24h expiry, demo/testnet trading) that
+> was never implemented — the real `website/` exchange page is MetaMask-only
+> (`window.ethereum`, EIP-1193 `eth_requestAccounts`, `sendBridgeTransaction`)
+> with no accounts, usernames, or sessions. The `aitbc.bubuit.net` apex links
+> are also fictional (the public host is `hub.aitbc.bubuit.net`).
+
 ## Overview
 
 The AITBC Trade Exchange features a modern, intuitive interface with user authentication, wallet management, and trading capabilities.

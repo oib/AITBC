@@ -43,19 +43,22 @@ This section documents the AITBC infrastructure components, runtime architecture
 
 #### Agent Services
 
-- **Agent Registry**: Service discovery and registration
-- **Agent Coordinator**: Task coordination and management
-- **Agent Protocols**: Communication and messaging
-- **Agent Bridge**: Service integration layer
-- **Agent Compliance**: Regulatory monitoring
-- **Agent Trading**: Automated trading
+- **Agent Coordinator** (`aitbc-agent-coordinator`, port 8107): task
+  coordination and messaging
+
+The other "agent" names in older docs (Agent Registry, Agent Protocols,
+Agent Bridge, Agent Compliance, Agent Trading) are Python libraries under
+`aitbc/` (e.g. `aitbc/agent_protocols`, `aitbc/agent_bridge`), not deployed
+systemd services.
 
 #### Supporting Services
 
 - **GPU Services**: Multimodal processing
 - **Marketplace Services**: Enhanced marketplace
-- **Load Balancer**: Geographic distribution
 - **Explorer**: Blockchain explorer
+
+There is no deployed load-balancer service; nginx on the hub terminates TLS
+and proxies to the per-service ports.
 
 ## 📁 Documentation Structure
 
@@ -95,16 +98,16 @@ This section documents the AITBC infrastructure components, runtime architecture
 
 ```bash
 # Complete infrastructure setup
-bash <(curl -sSL https://raw.githubusercontent.com/oib/aitbc/main/setup.sh)
+bash <(curl -sSL https://raw.githubusercontent.com/oib/AITBC/main/scripts/deployment/setup.sh)
 ```
 
 ### Manual Setup
 
 ```bash
 # Clone and setup manually
-git clone https://github.com/aitbc/aitbc.git /opt/aitbc
+git clone https://github.com/oib/AITBC.git /opt/aitbc
 cd /opt/aitbc
-./setup.sh
+bash scripts/deployment/setup.sh   # add --gitea on operator nodes
 ```
 
 ## 📊 Service Management

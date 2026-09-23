@@ -1,5 +1,12 @@
 # Security-First Architecture Assessment: AITBC Development Standards
 
+> **External reference — not AITBC architecture.** This document describes a
+> TypeScript stack (Clerk Organizations, Prisma, RLS, `withUserContext`)
+> imported from an unrelated project. AITBC services are Python/FastAPI; the
+> real auth model is `aitbc/auth` (X-Api-Key service keys + wallet-signed JWT).
+> Do not implement the patterns below.
+
+
 **Strategic Analysis for Development Teams**
 
 > **📋 Confluence Reference**: [Security-First Architecture Assessment](https://oib.atlassian.net/wiki/spaces/WA/pages/355565570/Security-First+Architecture+Assessment+AITBC+Development+Standards)

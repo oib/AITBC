@@ -39,10 +39,10 @@ The following are typically out of scope unless they directly impact the securit
 
 ### How to Report
 
-**Primary Method**: Send an email to our security team
+**Primary Method**: Email the maintainer
 
-- **Email**: security@aitbc.dev
-- **PGP Key**: Available upon request for encrypted communications
+- **Email**: aitbc@bubuit.net
+- For sensitive reports, encrypt to a key exchanged out-of-band first
 
 **Alternative Method**: Use GitHub's private vulnerability reporting
 
@@ -116,9 +116,10 @@ Please include the following information in your report:
 ### Credit and Recognition
 
 - **Public Credit**: Reporter acknowledged in security advisories
-- **Bug Bounty**: Financial rewards for qualifying vulnerabilities
 - **Hall of Fame**: Recognition in our security acknowledgments
-- **Swag**: AITBC merchandise for significant contributions
+
+There is no bug bounty program or merchandise — AITBC is a single-operator
+project; thanks are expressed via advisory credit.
 
 ### Communication
 
@@ -155,11 +156,10 @@ Please include the following information in your report:
 
 ## Security Contacts
 
-### Security Team
+### Security Contact
 
-- **Email**: security@aitbc.dev
-- **PGP**: Available upon request
-- **Response Time**: 24 hours for critical issues
+- **Email**: aitbc@bubuit.net
+- **Response Time**: best effort for a single maintainer
 
 ### General Inquiries
 
@@ -172,9 +172,7 @@ Please include the following information in your report:
 
 ### Bug Bounty Program
 
-- **Platform**: Private program (contact security team)
-- **Rewards**: Based on severity and impact
-- **Guidelines**: Available upon request
+There is no bug bounty program.
 
 ## Legal Information
 
@@ -210,5 +208,5 @@ We thank all security researchers who contribute to the security of the AITBC pl
 
 **Last Updated**: 2026-03-04
 **Version**: 1.0
-**Contact**: security@aitbc.dev
+**Contact**: aitbc@bubuit.net
 **Project**: AITBC (AI Trading Blockchain Compute)

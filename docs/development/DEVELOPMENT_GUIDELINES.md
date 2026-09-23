@@ -1,5 +1,13 @@
 # Developer File Organization Guidelines
 
+> **Partially fictional.** The prescribed root files (`.editorconfig`,
+> `.env.example`, `pytest.ini`, `setup.sh`), the `dev/tools|tests|cache|env/`
+> layout, the root `config/` dir, `.vscode/settings.json`, and the
+> `check-file-organization.sh` / `move-to-right-folder.sh` scripts do not
+> exist in this repository. Use the real layout: apps under `apps/`, CLI
+> under `cli/`, libraries under `aitbc/` and `packages/py/`, scripts under
+> `scripts/`.
+
 ## 📁 Where to Put Files
 
 ### Essential Root Files (Keep at Root)

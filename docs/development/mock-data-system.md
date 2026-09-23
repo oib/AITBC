@@ -1,5 +1,12 @@
 # Mock Data and Placeholder System Documentation
 
+> **Historical record.** `aitbc.testing` (MockFactory, TestDataGenerator,
+> MockDatabase, TestCache) was removed as dead code, `cli/config/` was
+> renamed to `cli/config_data/`, and the default chains below
+> (`ait-devnet`/`ait-testnet` on :8025/:8027) never existed — the registry
+> seeds only `ait-hub.aitbc.bubuit.net`. `aitbc/data_layer.py` is now the
+> `aitbc/data_layer/` package. Verify each path against the tree.
+
 This document describes the mock data and placeholder systems in AITBC, including the toggle system for development/testing, data layer abstraction, testing utilities, and chain registry configuration.
 
 ## Overview

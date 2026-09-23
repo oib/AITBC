@@ -17,7 +17,8 @@ Semantic CSS variables are defined in `packages/theme-provider/src/tokens.css`:
 
 Modes are applied through the `data-aitbc-theme` attribute:
 
-- `dark` (default)
+- `system` (default — resolves via `prefers-color-scheme`)
+- `dark`
 - `light`
 - `high-contrast`
 
