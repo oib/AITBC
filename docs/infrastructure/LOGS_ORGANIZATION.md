@@ -4,9 +4,13 @@
 
 ## Log Files Location
 
-System logs are now properly organized in /var/log/aitbc:
+System logs are organized under `/var/log/aitbc`:
 
-### Current Log Files
+### Example listing
+
+A snapshot from 2026-03-29 — actual contents drift as runs complete; treat
+this as an example, not an inventory. Service logs are in journald
+(`journalctl -u aitbc-<unit>`), not in this directory.
 
 -
 - contract_endpoints_final_status.txt

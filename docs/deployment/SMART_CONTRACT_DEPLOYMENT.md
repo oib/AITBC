@@ -81,7 +81,7 @@ Configure the following secrets in your CI/CD system:
 
 ```bash
 cd /opt/aitbc/contracts
-pnpm install
+npm install
 ```
 
 ---
@@ -96,7 +96,7 @@ The testnet deployment workflow is triggered by:
 - Creating a tag matching `testnet-v*`
 - Manual trigger via `workflow_dispatch`
 
-**Workflow:** `.gitea/workflows/deploy-testnet.yml`
+**Workflow:** `.gitea/workflows/deploy-testnet.yml` — **planned, does not exist yet**; the only Gitea workflow is `ci.yml`. Deployments are run manually (below).
 
 ### Manual Deployment
 
@@ -109,13 +109,13 @@ export PRIVATE_KEY=<your-testnet-private-key>
 export TESTNET_RPC_URL=<testnet-rpc-url>
 
 # Compile contracts
-pnpm hardhat compile
+npx hardhat compile
 
 # Run tests
-pnpm hardhat test
+npx hardhat test
 
 # Deploy contracts
-pnpm hardhat run scripts/deploy-testnet.js --network testnet
+bash scripts/deploy-testnet.sh
 ```
 
 ### Contract Addresses
@@ -124,7 +124,7 @@ After deployment, record the contract addresses:
 
 - `PaymentProcessor` - Handles payment processing
 - `AgentMarketplace` - Manages agent registration and job postings
-- `StakingContract` - Handles staking and rewards
+- `AgentStaking` / `StakingPoolFactory` - handle staking and rewards
 
 ---
 
@@ -149,7 +149,7 @@ The mainnet deployment workflow is triggered by:
 - Creating a tag matching `mainnet-v*`
 - Manual trigger via `workflow_dispatch`
 
-**Workflow:** `.gitea/workflows/deploy-mainnet.yml`
+**Workflow:** `.gitea/workflows/deploy-mainnet.yml` — **planned, does not exist yet**; deployments are run manually.
 
 ### Manual Deployment — Mainnet Deployment
 
@@ -162,16 +162,16 @@ export PRIVATE_KEY=<your-mainnet-private-key>
 export MAINNET_RPC_URL=<mainnet-rpc-url>
 
 # Compile contracts (2)
-pnpm hardhat compile
+npx hardhat compile
 
 # Run security scan
-bash scripts/ci/security-scan.sh
+bash contracts/scripts/security-analysis.sh
 
 # Run contract tests
-pnpm hardhat test
+npx hardhat test
 
 # Deploy contracts (2)
-pnpm hardhat run scripts/deploy-mainnet.js --network mainnet
+npx hardhat run scripts/deploy-mainnet.js --network mainnet
 ```
 
 ### Deployment Safety
@@ -195,13 +195,13 @@ Automated verification is performed during deployment using:
 export ETHERSCAN_API_KEY=<your-etherscan-api-key>
 
 # Verify PaymentProcessor
-pnpm hardhat verify --network mainnet <PAYMENT_PROCESSOR_ADDRESS> --constructor-args scripts/deployment/args/payment-processor-args.js
+npx hardhat verify --network mainnet <PAYMENT_PROCESSOR_ADDRESS> --constructor-args <args-file.js>  # args files are written per-deploy; there is no tracked scripts/deployment/args/ dir
 
 # Verify AgentMarketplace
-pnpm hardhat verify --network mainnet <AGENT_MARKETPLACE_ADDRESS> --constructor-args scripts/deployment/args/agent-marketplace-args.js
+npx hardhat verify --network mainnet <AGENT_MARKETPLACE_ADDRESS> --constructor-args <args-file.js>
 
-# Verify StakingContract
-pnpm hardhat verify --network mainnet <STAKING_CONTRACT_ADDRESS> --constructor-args scripts/deployment/args/staking-contract-args.js
+# Verify the staking contract
+npx hardhat verify --network mainnet <STAKING_CONTRACT_ADDRESS> --constructor-args <args-file.js>
 ```
 
 ### Testnet Verification
@@ -290,7 +290,7 @@ bash scripts/monitoring/verify-monitoring.sh <network>
 curl -X POST $RPC_URL -H "Content-Type: application/json" -d '{"jsonrpc":"2.0","method":"eth_blockNumber","params":[],"id":1}'
 
 # Check account balance
-pnpm hardhat run scripts/check-balance.js --network <network>
+npx hardhat run scripts/check-balance.js --network <network>
 ```
 
 ### Verification Fails
@@ -309,7 +309,7 @@ pnpm hardhat run scripts/check-balance.js --network <network>
 curl https://api.etherscan.io/api?module=contract&action=getabiaddress&address=<CONTRACT_ADDRESS>&apikey=<API_KEY>
 
 # Re-verify with correct arguments
-pnpm hardhat verify --network <network> <ADDRESS> <CONSTRUCTOR_ARGS>
+npx hardhat verify --network <network> <ADDRESS> <CONSTRUCTOR_ARGS>
 ```
 
 ### Monitoring Not Working
@@ -367,10 +367,10 @@ curl http://localhost:9093/-/healthy
 
 ## 🔄 **Related Workflows**
 
-- **deploy-testnet.yml** - Automated testnet deployment
-- **deploy-mainnet.yml** - Automated mainnet deployment
-- **smart-contract-tests.yml** - Contract testing
-- **security-scanning.yml** - Security scanning
+None of the workflows below exist — `.gitea/workflows/` and
+`.github/workflows/` contain only `ci.yml`. Deploy, test, and scan steps are
+run manually via `contracts/scripts/` (`deploy-testnet.sh`,
+`deploy-mainnet.js`, `security-analysis.sh`, forge/hardhat tests in CI).
 
 ---
 

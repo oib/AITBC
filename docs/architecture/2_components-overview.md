@@ -145,5 +145,5 @@ Production deployments use systemd unit files under `apps/<service>/` and `scrip
 For component-specific issues:
 
 - Check individual documentation pages
-- Visit the [GitHub repository](https://github.com/aitbc/platform)
+- Visit the [GitHub repository](https://github.com/oib/AITBC)
 - Contact: [aitbc@bubuit.net](mailto:aitbc@bubuit.net)

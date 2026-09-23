@@ -6,13 +6,10 @@ This directory contains CI/CD pipeline and DevOps documentation.
 
 ### [CI-CD-Pipeline-Guide.md](./CI-CD-Pipeline-Guide.md)
 
-Complete CI/CD pipeline documentation:
-
-- Multi-team git workflow
-- Branch protection rules
-- CI validation commands
-- Code ownership (CODEOWNERS)
-- Rebase-first workflow
+> **Not implemented.** This is a foreign template describing a yarn/Next.js
+> pipeline (Stripe, Linear, `dev` branch) that was never adopted here — see
+> the banner at the top of the file. AITBC's real CI is
+> `.github/workflows/ci.yml` + `.gitea/workflows/ci.yml` on `main`.
 - Pull request process
 
 **Use this when**: Setting up CI/CD or understanding the deployment workflow.
