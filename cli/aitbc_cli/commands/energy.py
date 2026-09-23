@@ -61,6 +61,41 @@ def _coordinator_client(ctx, *, miner: bool = False, timeout: int = 30) -> AITBC
     return AITBCHTTPClient(base_url=_coordinator_base(), timeout=timeout, **kwargs)
 
 
+def _native_energy_request(ctx, method: str, path: str, *, miner: bool = False,
+                           params: dict | None = None, json_body: dict | None = None,
+                           timeout: int = 15) -> dict:
+    """Call a ``/v1/marketplace/native-energy/*`` endpoint.
+
+    Native pricing state lives on the hub coordinator; a node's local
+    coordinator may be EVM-railed or lack the tables, so fall back to the
+    hub mount (``hub_coordinator_url()``) when the local call fails.
+    """
+    from aitbc.config.hub import hub_coordinator_url
+
+    bases = [_coordinator_base()]
+    hub = (hub_coordinator_url() or "").rstrip("/")
+    if hub.endswith("/v1"):
+        hub = hub[:-3]
+    if hub and hub != bases[0]:
+        bases.append(hub)
+
+    last: Exception | None = None
+    for base in bases:
+        explicit = ctx.obj.get("api_key") if ctx.obj else None
+        kwargs = auth_client_kwargs(
+            explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client"
+        )
+        client = AITBCHTTPClient(base_url=base, timeout=timeout, **kwargs)
+        try:
+            if method == "get":
+                return client.get(path, params=params)
+            return client.post(path, json=json_body)
+        except NetworkError as e:
+            last = e
+            logger.debug("native-energy %s %s via %s failed: %s", method, path, base, e)
+    raise last or NetworkError("no coordinator reachable")
+
+
 @click.group()
 def energy():
     """Energy pricing operator and provider commands."""
@@ -166,11 +201,11 @@ def provider_register(
     """Register a GPU energy profile (EVM contract or native rail)."""
     config = get_config()
     if not _evm_energy_configured():
-        client = _coordinator_client(ctx, miner=True)
         try:
-            result = client.post(
-                "/v1/marketplace/native-energy/profile",
-                json={
+            result = _native_energy_request(
+                ctx, "post", "/v1/marketplace/native-energy/profile",
+                miner=True,
+                json_body={
                     "resource_id": resource_id,
                     "provider": provider_address,
                     "model_id": model_id,
@@ -259,9 +294,10 @@ def provider_profile(ctx, resource_id, json_output):
     """Read a registered energy profile (EVM contract or native rail)."""
     config = get_config()
     if not _evm_energy_configured():
-        client = _coordinator_client(ctx, timeout=10)
         try:
-            data = client.get(f"/v1/marketplace/native-energy/profile/{resource_id}")
+            data = _native_energy_request(
+                ctx, "get", f"/v1/marketplace/native-energy/profile/{resource_id}", timeout=10
+            )
         except NetworkError as e:
             error(f"Native energy profile lookup failed: {e}")
             sys.exit(1)
@@ -331,9 +367,10 @@ def provider_rate(
     config = get_config()
     if not _evm_energy_configured():
         if not publish:
-            client = _coordinator_client(ctx, miner=True, timeout=10)
             try:
-                data = client.get("/v1/marketplace/native-energy/rate")
+                data = _native_energy_request(
+                    ctx, "get", "/v1/marketplace/native-energy/rate", miner=True, timeout=10
+                )
             except NetworkError as e:
                 error(f"Native energy rate lookup failed: {e}")
                 sys.exit(1)
@@ -349,11 +386,11 @@ def provider_rate(
         if ait_per_eur is None:
             error("--ait-per-eur is required when --publish is set")
             sys.exit(1)
-        client = _coordinator_client(ctx, miner=True)
         try:
-            result = client.post(
-                "/v1/marketplace/native-energy/rate",
-                json={"ait_per_eur": ait_per_eur, "source_kind": source_kind},
+            result = _native_energy_request(
+                ctx, "post", "/v1/marketplace/native-energy/rate",
+                miner=True,
+                json_body={"ait_per_eur": ait_per_eur, "source_kind": source_kind},
             )
         except NetworkError as e:
             error(f"Native rate publish failed: {e}")
@@ -471,15 +508,15 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
     """Compute the energy floor for given rental terms (EVM or native rail)."""
     config = get_config()
     if not (config.evm_rpc_url and config.energy_pricing_contract_address):
-        client = _coordinator_client(ctx, timeout=10)
         try:
-            result = client.get(
-                "/v1/marketplace/native-energy/floor",
+            result = _native_energy_request(
+                ctx, "get", "/v1/marketplace/native-energy/floor",
                 params={
                     "resource_id": resource_id,
                     "gpu_count": gpu_count,
                     "duration_seconds": duration_seconds,
                 },
+                timeout=10,
             )
         except NetworkError as e:
             error(f"Native energy floor lookup failed: {e}")
@@ -682,7 +719,9 @@ def suggest(
     if rate is None and not config.evm_rpc_url:
         # native rail: the published rate lives in the coordinator DB
         try:
-            result = _coordinator_client(ctx, miner=True, timeout=10).get("/v1/marketplace/native-energy/rate")
+            result = _native_energy_request(
+                ctx, "get", "/v1/marketplace/native-energy/rate", miner=True, timeout=10
+            )
             native_rate = Decimal(str(result["ait_per_eur"]))
             if native_rate > 0:
                 rate, rate_src = native_rate, "native rate"
@@ -784,11 +823,11 @@ def suggest(
             )
             return
         # native rail: upsert the profile on the coordinator (miner auth)
-        client = _coordinator_client(ctx, miner=True)
         try:
-            result = client.post(
-                "/v1/marketplace/native-energy/profile",
-                json={
+            result = _native_energy_request(
+                ctx, "post", "/v1/marketplace/native-energy/profile",
+                miner=True,
+                json_body={
                     "resource_id": resource_id,
                     "provider": provider_address,
                     "model_id": model_id or model_key or resource_id,
