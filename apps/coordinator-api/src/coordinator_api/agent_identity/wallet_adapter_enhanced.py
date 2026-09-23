@@ -849,9 +849,8 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         to_block: int | None = None,
     ) -> list[dict[str, Any]]:
         try:
-            # /rpc/transactions returns a bare list; the client's declared
-            # dict return is wrong for it, so widen at the call site.
-            response: dict[str, Any] | list[Any] = self._http_client.get(
+            # /rpc/transactions returns a bare list, so ask for the honest union.
+            response = self._http_client.get_json(
                 "rpc/transactions", params={"address": wallet_address, "limit": limit, **self._chain_params()}
             )
             transactions = response if isinstance(response, list) else response.get("transactions", [])

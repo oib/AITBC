@@ -33,7 +33,7 @@ class TestDashboardCustomer:
     def test_customer_dashboard(self, mock_auth, mock_client_class, _mock_escrow, runner, dashboard_ctx_obj):
         mock_auth.return_value = {"Authorization": "Bearer token"}
         mock_client = mock_client_class.return_value
-        mock_client.get.side_effect = [
+        mock_client.get_json.side_effect = [
             {
                 "items": [
                     {
@@ -46,8 +46,8 @@ class TestDashboardCustomer:
                 ]
             },
             {"items": [{"wallet_id": "wallet-1", "address": "addr1"}]},
-            {"balance": 1.5},
         ]
+        mock_client.get.side_effect = [{"balance": 1.5}]
 
         from aitbc_cli.commands.dashboard import customer
 
@@ -65,7 +65,7 @@ class TestDashboardCustomer:
         """Older hubs may return a list instead of a dict."""
         mock_auth.return_value = {"Authorization": "Bearer token"}
         mock_client = mock_client_class.return_value
-        mock_client.get.side_effect = [
+        mock_client.get_json.side_effect = [
             [{"job_id": "job-1", "state": "COMPLETED"}],
             {"items": []},
         ]
@@ -115,6 +115,7 @@ class TestDashboardShop:
             return {}
 
         mock_client.get.side_effect = get_side_effect
+        mock_client.get_json.side_effect = get_side_effect
         mock_client.post.side_effect = [
             {"items": [{"job_id": "job-1", "state": "COMPLETED"}]},
             {"total_earnings": 10.0, "paid_earnings": 5.0, "pending_earnings": 5.0},
@@ -154,6 +155,7 @@ class TestDashboardShop:
             return {}
 
         mock_client.get.side_effect = get_side_effect
+        mock_client.get_json.side_effect = get_side_effect
 
         def post_side_effect(path, **kwargs):
             err = NetworkError(f"POST request failed: 405 Client Error for url: {path}")
@@ -199,6 +201,7 @@ class TestDashboardShop:
             return {}
 
         mock_client.get.side_effect = get_side_effect
+        mock_client.get_json.side_effect = get_side_effect
         mock_client.post.return_value = {}
 
         from aitbc_cli.commands.dashboard import shop
@@ -228,6 +231,7 @@ class TestDashboardShop:
             return {}
 
         mock_client.get.side_effect = get_side_effect
+        mock_client.get_json.side_effect = get_side_effect
         mock_client.post.return_value = {}
 
         from aitbc_cli.commands.dashboard import shop

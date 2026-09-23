@@ -166,7 +166,7 @@ def list_gpus_cmd(ctx):
         # Query GPU service for registered GPUs
         try:
             http_client = AITBCHTTPClient(base_url=config.gpu_service_url, timeout=10, api_key=config.gpu_api_key)
-            response = http_client.get("/v1/transactions")
+            response = http_client.get_json("/v1/transactions")
             # The gpu-service returns the transaction list directly, or a dict with
             # an 'error' key when the DB query fails.
             if isinstance(response, dict):
@@ -175,7 +175,7 @@ def list_gpus_cmd(ctx):
                     return
                 transactions = response.get("transactions", [])
             else:
-                transactions = response  # type: ignore[unreachable]
+                transactions = response
 
             if not transactions:
                 info("No registered GPUs found")

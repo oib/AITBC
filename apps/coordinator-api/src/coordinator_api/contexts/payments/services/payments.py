@@ -142,8 +142,8 @@ async def _lookup_chain_refund(blockchain_rpc_url: str, client: AsyncAITBCHTTPCl
     Raises on transport or non-2xx responses so callers do not mistake
     "could not tell" for "does not exist".
     """
-    # The RPC client declares a dict return, but /transactions returns a list.
-    txs: Any = await client.get(
+    # /rpc/transactions returns a list, so use the union-returning accessor.
+    txs = await client.get_json(
         f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_REFUND&job_id={job_id}&limit=10"
     )
     if isinstance(txs, list):
@@ -160,8 +160,8 @@ async def _lookup_chain_lock(blockchain_rpc_url: str, client: AsyncAITBCHTTPClie
     Raises on transport or non-2xx responses so callers do not mistake
     "could not tell" for "does not exist".
     """
-    # The RPC client declares a dict return, but /transactions returns a list.
-    txs: Any = await client.get(f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10")
+    # /rpc/transactions returns a list, so use the union-returning accessor.
+    txs = await client.get_json(f"{blockchain_rpc_url}/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10")
     if isinstance(txs, list):
         for tx in txs:
             if (tx.get("payload") or {}).get("job_id") == job_id:

@@ -12,7 +12,7 @@ import click
 from ..auth import AuthManager
 from ..utils import error, info, output, success
 from ..utils.address import to_canonical
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, JSONResponse, NetworkError, get_logger
 from aitbc.utils import format_ait
 
 logger = get_logger(__name__)
@@ -110,9 +110,11 @@ def _client(ctx: click.Context, base_url: str | None = None, timeout: int = 10) 
     return AITBCHTTPClient(base_url=url, timeout=timeout, headers=headers)
 
 
-def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _safe_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> JSONResponse | None:
+    # Several dashboard endpoints return a bare array, so this takes the honest union
+    # and every caller decides the shape -- see aitbc/network/json_types.py.
     try:
-        return client.get(path, params=params)
+        return client.get_json(path, params=params)
     except NetworkError as e:
         logger.warning("Dashboard GET %s failed: %s", path, e)
         return None
@@ -144,7 +146,7 @@ def _with_query(path: str, params: dict[str, Any] | None) -> str:
     return f"{path}{sep}{urlencode(params)}"
 
 
-def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> dict[str, Any] | None:
+def _safe_post_or_get(client: AITBCHTTPClient, path: str, params: dict[str, Any] | None = None) -> JSONResponse | None:
     """POST ``path``, retrying as GET when the peer only allows GET (405).
 
     The coordinator-api registers the miner job/earnings reads as POST, but a
@@ -281,13 +283,13 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
         blockchain_rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
         coord_client = _client(ctx, timeout=15)
 
-        jobs_data = _safe_get(coord_client, "/v1/jobs", {"limit": limit}) or {}
-        if isinstance(jobs_data, list):  # type: ignore[unreachable]
-            jobs = jobs_data  # type: ignore[unreachable]
+        jobs_data = _safe_get(coord_client, "/v1/jobs", {"limit": limit})
+        if isinstance(jobs_data, list):
+            jobs = jobs_data
         elif isinstance(jobs_data, dict):
             jobs = jobs_data.get("items", [])
         else:
-            jobs = []  # type: ignore[unreachable]
+            jobs = []
 
         _enrich_jobs_with_escrow(jobs, blockchain_rpc_url)
 
@@ -314,7 +316,7 @@ def customer(ctx: click.Context, limit: int, wallet_limit: int) -> None:
         wallet_balances: list[dict[str, Any]] = []
         try:
             wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
-            wallets_data = wallet_client.get("/v1/wallets") or {}
+            wallets_data = wallet_client.get_json("/v1/wallets") or {}
             wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
             chain_id = ctx.obj.get("chain_id") or "ait-devnet"
             for wallet in wallets[:wallet_limit]:
@@ -396,7 +398,9 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         miner_earnings: dict[str, Any] = {}
         if miner_id:
             jobs_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/jobs", {"limit": limit})
-            if jobs_resp:
+            if isinstance(jobs_resp, list):
+                miner_jobs = jobs_resp
+            elif jobs_resp:
                 miner_jobs = cast(list[dict[str, Any]], jobs_resp.get("jobs", jobs_resp.get("items", [])))
             earnings_resp = _safe_post_or_get(coord_client, f"/v1/miners/{miner_id}/earnings")
             if earnings_resp:
@@ -411,7 +415,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         gpus: list[dict[str, Any]] = []
         gpu_client = AITBCHTTPClient(base_url=config.gpu_service_url or "http://localhost:8101", timeout=10)
         if miner_id:
-            registered: Any = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus")
+            registered = _safe_get(gpu_client, f"/v1/miners/{miner_id}/gpus")
             if isinstance(registered, list):
                 gpus.extend(g for g in registered if isinstance(g, dict))
         discovered = _safe_get(gpu_client, "/v1/gpu/discover") or {}
@@ -461,19 +465,16 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
                 pool_hub_urls.append(DEFAULT_POOL_HUB_URL)
             for pool_hub_url in pool_hub_urls:
                 sla_client = AITBCHTTPClient(base_url=pool_hub_url, timeout=10)
-                # client.get() is annotated dict but returns whatever the
-                # endpoint produced -- /sla/violations and /sla/metrics are lists.
-                sla_status: Any = _safe_get(sla_client, "/v1/sla/status")
+                # /sla/violations and /sla/metrics return lists, /sla/status an object.
+                sla_status = _safe_get(sla_client, "/v1/sla/status")
                 if not isinstance(sla_status, dict):
                     continue
                 sla_data = dict(sla_status)
                 if miner_id:
-                    sla_violations: Any = _safe_get(
-                        sla_client, "/v1/sla/violations", {"miner_id": miner_id, "resolved": "false"}
-                    )
+                    sla_violations = _safe_get(sla_client, "/v1/sla/violations", {"miner_id": miner_id, "resolved": "false"})
                     if isinstance(sla_violations, list):
                         sla_data["open_violations_for_miner"] = len(sla_violations)
-                    sla_metrics: Any = _safe_get(sla_client, f"/v1/sla/metrics/{miner_id}", {"hours": 24})
+                    sla_metrics = _safe_get(sla_client, f"/v1/sla/metrics/{miner_id}", {"hours": 24})
                     if isinstance(sla_metrics, list):
                         latest: dict[str, Any] = {}
                         for m in sla_metrics:
@@ -489,7 +490,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         wallet_balances: list[dict[str, Any]] = []
         try:
             wallet_client = AITBCHTTPClient(base_url=config.wallet_daemon_url, timeout=10, api_key=config.wallet_api_key)
-            wallets_data = wallet_client.get("/v1/wallets") or {}
+            wallets_data = wallet_client.get_json("/v1/wallets") or {}
             wallets = wallets_data.get("items", []) if isinstance(wallets_data, dict) else []
             chain_id = ctx.obj.get("chain_id") or "ait-devnet"
             for wallet in wallets[:5]:
