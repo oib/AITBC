@@ -26,6 +26,13 @@ function updateHeroPrice(data) {
     if (heroEth && aitEth != null) {
         heroEth.innerHTML = `&asymp; ${aitEth.toFixed(6)} ETH`;
     }
+
+    // And the inverse: how many AIT 1 ETH buys (eth_eur / 0.25)
+    const heroRate = document.getElementById('hero-eth-rate');
+    if (heroRate && ethEur) {
+        const aitPerEth = ethEur / REF_EUR;
+        heroRate.innerHTML = `1 ETH &asymp; ${Math.round(aitPerEth).toLocaleString('en-US')} AIT`;
+    }
 }
 
 async function updatePriceTicker() {
