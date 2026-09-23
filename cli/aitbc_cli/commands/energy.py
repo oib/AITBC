@@ -509,7 +509,7 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
-    net_floor = oracle.get_energy_floor(
+    net_floor = oracle.get_floor(
         resource_id=resource_id,
         gpu_count=gpu_count,
         duration_seconds=duration_seconds,
