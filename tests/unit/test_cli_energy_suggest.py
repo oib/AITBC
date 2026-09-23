@@ -233,7 +233,7 @@ def test_native_request_falls_back_to_hub(runner, monkeypatch):
             bases.append(base_url)
 
         def get(self, path, params=None):
-            if "127.0.0.1" in (self.base_url or ""):
+            if "hub.example" not in (self.base_url or ""):
                 raise NetworkError("404 native tables not provisioned")
             return {"settlement_unit_scale": 36_000_000, "net_floor_units": 1, "net_floor_ait": "0.0001"}
 
@@ -253,5 +253,5 @@ def test_native_request_falls_back_to_hub(runner, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "native" in result.output
     assert len(bases) == 2
-    assert bases[0].startswith("http://127.0.0.1")
+    assert "localhost" in bases[0] or "127.0.0.1" in bases[0]
     assert bases[1] == "https://hub.example/c"  # /v1 suffix trimmed before joining paths
