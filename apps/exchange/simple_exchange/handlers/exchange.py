@@ -6,8 +6,6 @@ transaction to prevent race conditions (B1 backport). All database
 connections are closed via ``try/finally`` (B3 backport).
 """
 
-import json
-import secrets
 import sqlite3
 import urllib.error
 import urllib.parse
@@ -178,34 +176,11 @@ class ExchangeMixin:
 
             total_dec = amount_dec * price_dec
 
-            # Create order transaction on blockchain
+            # Orders used to be broadcast to the chain via POST /rpc/sendTx, but the
+            # node removed that endpoint and its replacement (/rpc/transaction)
+            # requires a wallet-signed transaction the exchange cannot produce for
+            # the user. Orders are therefore database-only and tx_hash stays empty.
             tx_hash = ""
-            try:
-                # Prepare transaction data. Nonce is a one-time value so orders cannot be
-                # replayed with the same tx hash; it is not the wallet-managed account nonce.
-                tx_data = {
-                    "from": user_address,
-                    "type": "ORDER",
-                    "order_type": order_type,
-                    "amount": str(amount_dec),
-                    "price": str(price_dec),
-                    "nonce": secrets.token_hex(8),
-                }
-
-                # Send transaction to blockchain
-                tx_url = f"{RPC_BASE_URL}/rpc/sendTx"
-                encoded_data = urllib.parse.urlencode(tx_data).encode("utf-8")
-
-                req = urllib.request.Request(
-                    tx_url, data=encoded_data, headers={"Content-Type": "application/x-www-form-urlencoded"}
-                )
-
-                with urllib.request.urlopen(req, timeout=RPC_TIMEOUT) as response:  # nosec B310 - RPC_BASE_URL is validated (module-level startswith http(s):// check in base.py) before this call
-                    tx_result = json.loads(response.read().decode())
-                tx_hash = tx_result.get("tx_hash", "")
-
-            except (urllib.error.URLError, json.JSONDecodeError) as e:
-                logger.warning("Blockchain sendTx failed, falling back to database-only order: %s", e)
 
             # B1: Insert order and match within a single transaction.
             # BEGIN IMMEDIATE acquires the write lock before we read open orders,

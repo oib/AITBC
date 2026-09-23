@@ -60,7 +60,7 @@ def test_coordinator_client_wallet_balance() -> None:
 
 def test_coordinator_client_registry() -> None:
     with patch("aitbc_sdk.client.AITBCHTTPClient") as mock_class:
-        _mock_http_client(
+        instance = _mock_http_client(
             mock_class,
             {
                 "items": [
@@ -73,12 +73,15 @@ def test_coordinator_client_registry() -> None:
         entries = client.registry.list_registry(role="developer")
         assert len(entries) == 2
         assert entries[0].id == "e1"
+        # Pin the route — /v1/registry never existed on the coordinator;
+        # the registry surface is /v1/developers.
+        assert instance.get.call_args.args[0] == "/v1/developers"
         assert entries[1].id == "e2"
 
 
 def test_coordinator_client_get_grant_summary() -> None:
     with patch("aitbc_sdk.client.AITBCHTTPClient") as mock_class:
-        _mock_http_client(
+        instance = _mock_http_client(
             mock_class,
             {
                 "grant_id": "g1",
@@ -94,6 +97,8 @@ def test_coordinator_client_get_grant_summary() -> None:
         assert summary.title == "OpenClaw"
         assert summary.requested_amount == Decimal("1000")
         assert summary.approved_amount == Decimal("500")
+        # /v1/grants/{id}/summary never existed — the grant row is the summary.
+        assert instance.get.call_args.args[0] == "/v1/grants/g1"
 
 
 def test_wallet_client_send_payment() -> None:

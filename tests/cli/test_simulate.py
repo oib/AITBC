@@ -27,20 +27,22 @@ class TestSimulateCommands:
 
     @pytest.fixture(autouse=True)
     def mock_http(self, mock_config):
-        """Mock AITBCHTTPClient for coordinator API calls"""
-        with (
-            patch("aitbc_cli.commands.simulate.AITBCHTTPClient") as mock_http_class,
-            patch("aitbc_cli.commands.simulate.get_config", return_value=mock_config),
-        ):
-            mock_instance = Mock()
-            mock_http_class.return_value = mock_instance
-            mock_instance.post.return_value = {"simulation_id": "sim_123", "status": "running", "scenario": "test_scenario"}
-            mock_instance.get.return_value = {
-                "simulation_id": "sim_123",
-                "status": "completed",
-                "results": {"total_transactions": 1000},
-            }
-            yield mock_http_class
+        """Mock HTTP client placeholder — ``simulate`` no longer calls the network.
+
+        The module-level ``AITBCHTTPClient``/``get_config`` imports were removed
+        when the dead ``/simulate/*`` calls became honest aborts, so this yields
+        a bare Mock; tests assert the aborts happen without any HTTP call.
+        """
+        mock_http_class = Mock()
+        mock_instance = Mock()
+        mock_http_class.return_value = mock_instance
+        mock_instance.post.return_value = {"simulation_id": "sim_123", "status": "running", "scenario": "test_scenario"}
+        mock_instance.get.return_value = {
+            "simulation_id": "sim_123",
+            "status": "completed",
+            "results": {"total_transactions": 1000},
+        }
+        yield mock_http_class
 
     def test_blockchain_command(self, runner, mock_config):
         """Test blockchain simulation command"""
@@ -93,46 +95,43 @@ class TestSimulateCommands:
         assert "Final Network Status" in result.output
 
     def test_run_scenario(self, runner, mock_config, mock_http):
-        """Test running a simulation scenario via coordinator API"""
+        """``simulate run`` aborts honestly — no ``/simulate/*`` endpoints exist on the agent-coordinator."""
         result = runner.invoke(
             simulate,
             ["run", "--scenario", "test_scenario", "--params", '{"nodes": 5}'],
             obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
-        assert result.exit_code == 0
-        mock_http.return_value.post.assert_called_once()
-        call_args = mock_http.return_value.post.call_args
-        assert "/simulate/run" in call_args[0][0]
+        assert result.exit_code != 0
+        mock_http.return_value.post.assert_not_called()
+        assert "not implemented" in result.output.lower()
 
     def test_status_command(self, runner, mock_config, mock_http):
-        """Test simulation status command"""
+        """``simulate status`` aborts honestly — no ``/simulate/*`` endpoints exist."""
         result = runner.invoke(
             simulate,
             ["status", "--simulation-id", "sim_123"],
             obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
-        assert result.exit_code == 0
-        mock_http.return_value.get.assert_called_once()
-        call_args = mock_http.return_value.get.call_args
-        assert "/simulate/sim_123/status" in call_args[0][0]
+        assert result.exit_code != 0
+        mock_http.return_value.get.assert_not_called()
+        assert "not implemented" in result.output.lower()
 
     def test_result_command(self, runner, mock_config, mock_http):
-        """Test simulation result command"""
+        """``simulate result`` aborts honestly — no ``/simulate/*`` endpoints exist."""
         result = runner.invoke(
             simulate,
             ["result", "--simulation-id", "sim_123"],
             obj={"config": mock_config, "output": "json", "output_format": "json"},
         )
 
-        assert result.exit_code == 0
-        mock_http.return_value.get.assert_called_once()
-        call_args = mock_http.return_value.get.call_args
-        assert "/simulate/sim_123/result" in call_args[0][0]
+        assert result.exit_code != 0
+        mock_http.return_value.get.assert_not_called()
+        assert "not implemented" in result.output.lower()
 
     def test_run_invalid_json_params(self, runner, mock_config):
-        """Test run with invalid JSON params exits with error"""
+        """``simulate run`` exits non-zero regardless of params — the endpoint is not implemented."""
         result = runner.invoke(
             simulate,
             ["run", "--scenario", "test_scenario", "--params", "not-valid-json"],
@@ -140,4 +139,3 @@ class TestSimulateCommands:
         )
 
         assert result.exit_code != 0
-        assert "Invalid JSON" in result.output or "Error" in result.output

@@ -159,6 +159,18 @@ class TestRPCBlockchainService:
         with pytest.raises(Exception, match="Network error"):
             service.get_block(100)
 
+    def test_send_transaction_posts_to_rpc_transaction(self, mock_client):
+        """``send_transaction`` posts to ``/rpc/transaction`` and reads
+        ``transaction_hash`` back — the node's real contract. ``/rpc/sendTx``
+        has never existed on the chain RPC."""
+        service, mock_http = mock_client
+        mock_http.post.return_value = {"success": True, "transaction_hash": "0xabc"}
+
+        tx_hash = service.send_transaction({"type": "TRANSFER"})
+
+        assert tx_hash == "0xabc"
+        assert mock_http.post.call_args.args[0] == "/rpc/transaction"
+
 
 class TestBlockchainServiceFactory:
     """Test BlockchainServiceFactory class."""

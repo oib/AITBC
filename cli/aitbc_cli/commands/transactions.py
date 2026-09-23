@@ -578,33 +578,13 @@ def pending(rpc_url: str | None):
 @click.option("--amount", type=DECIMAL, required=True, help="Amount to send")
 @click.option("--rpc-url", help="Blockchain RPC URL")
 def estimate_fee(from_wallet: str, to_address: str, amount: Decimal, rpc_url: str | None):
-    """Estimate the transaction fee for a transfer."""
-    if not rpc_url:
-        rpc_url = _resolve_transaction_rpc_url(None)
+    """Estimate the transaction fee for a transfer.
 
-    try:
-        test_tx = {
-            "sender": "",
-            "recipient": to_address,
-            "value": ait_to_units(amount),
-            "fee": DEFAULT_FEE_UNITS,
-            "nonce": 0,
-            "type": "transfer",
-            "payload": {},
-        }
-
-        try:
-            http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-            fee_data = http_client.post("/rpc/estimateFee", json=test_tx)
-            # the node answers in compute-units; printing that number next to "AIT"
-            # reported the 36-second default -- 0.01 AIT -- as "36.0 AIT".
-            estimated_fee = fee_data.get("estimated_fee", DEFAULT_FEE_UNITS)
-            success(f"Estimated fee: {format_ait(estimated_fee)}")
-        except NetworkError:
-            success(f"Estimated fee: {format_ait(DEFAULT_FEE_UNITS)} (default)")
-    except Exception as e:
-        error(f"Error estimating fee: {e}")
-        success(f"Estimated fee: {format_ait(DEFAULT_FEE_UNITS)} (default)")
+    The node has no fee-estimation endpoint (the old ``/rpc/estimateFee``
+    call always 404'd and fell back here), so the estimate is the flat
+    default fee applied to every transfer.
+    """
+    success(f"Estimated fee: {format_ait(DEFAULT_FEE_UNITS)} (default)")
 
 
 @transactions.command(

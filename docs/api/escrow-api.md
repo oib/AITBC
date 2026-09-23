@@ -270,7 +270,7 @@ aitbc-blockchain-rpc (port 8202)
 
 **Auto-trigger:** When a marketplace offer is booked via `POST /v1/marketplace/offers/{offer_id}/book`, the marketplace-service automatically calls `POST /rpc/escrow/create`.
 
-**API Gateway:** The gateway registers an `escrow` prefix (`/v1/escrow/*` → `BLOCKCHAIN_RPC_URL/rpc`), but its prefix-strip drops the `escrow` path segment, so `POST /v1/escrow/create` currently forwards to the nonexistent `/rpc/create`. Until the mapping is fixed, call the node directly (`POST :8202/rpc/escrow/create`) or use the doubled form `/v1/escrow/escrow/create`.
+**API Gateway:** Escrow endpoints are also accessible via the API gateway at `http://localhost:8201/v1/escrow/*` — the prefix rewrites `/v1/escrow/create` → `/rpc/escrow/create` on the node.
 
 ---
 

@@ -86,7 +86,13 @@ SERVICES: dict[str, dict[str, object]] = {
     },
     "coordinator": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/coordinator"},
     "wallet": {"base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"), "prefix": "/v1/wallet"},
-    "escrow": {"base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc", "prefix": "/v1/escrow"},
+    "escrow": {
+        "base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc",
+        "prefix": "/v1/escrow",
+        # The generic strip drops `v1/escrow`, which would forward to /rpc/create
+        # instead of /rpc/escrow/create. Rewrite keeps the escrow segment.
+        "rewrite": {"/v1/escrow/": "escrow/"},
+    },
     "plugin": {
         "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"),
         "prefix": "/v1/plugin",

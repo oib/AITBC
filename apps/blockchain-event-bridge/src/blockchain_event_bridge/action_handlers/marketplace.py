@@ -3,7 +3,6 @@
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.exceptions import NetworkError
 from aitbc.network import AsyncAITBCHTTPClient
 
 logger = get_logger(__name__)
@@ -20,12 +19,6 @@ class MarketplaceHandler:
             headers["Authorization"] = f"Bearer {api_key}"
         self._client: AsyncAITBCHTTPClient | None = None
         self._headers = headers
-
-    async def _get_client(self) -> AsyncAITBCHTTPClient:
-        """Get or create HTTP client."""
-        if self._client is None:
-            self._client = AsyncAITBCHTTPClient(base_url=self.base_url, headers=self._headers, timeout=30)
-        return self._client
 
     async def close(self) -> None:
         """Close HTTP client."""
@@ -54,15 +47,14 @@ class MarketplaceHandler:
         return marketplace_txs
 
     async def _sync_marketplace_state(self, transactions: list[dict[str, Any]]) -> None:
-        """Synchronize marketplace state with blockchain."""
-        try:
-            client = await self._get_client()
-            await client.post("/v1/marketplace/sync", json={"transactions": transactions})
-            logger.info("Successfully synced %s marketplace transactions", len(transactions))
-        except NetworkError as e:
-            logger.error("Network error syncing marketplace state: %s", e)
-        except Exception as e:
-            logger.error("Error syncing marketplace state: %s", e, exc_info=True)
+        """Synchronize marketplace state with blockchain.
+
+        coordinator-api has no transaction-ingest endpoint (the old
+        ``/v1/marketplace/sync`` never existed — ``/v1/marketplace/sync-offers``
+        is an unrelated admin action), so matching events are logged like the
+        other handlers in this module until a real sync route exists.
+        """
+        logger.info("Would sync %s marketplace transactions to coordinator API", len(transactions))
 
     async def handle_contract_event(self, event_log: dict[str, Any]) -> None:
         """Handle AgentServiceMarketplace contract event."""

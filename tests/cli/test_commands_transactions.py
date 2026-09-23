@@ -9,7 +9,6 @@ fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 from unittest.mock import patch
 
 import pytest
-from aitbc.utils import ait_to_units
 
 
 class TestTransactionsCommands:
@@ -139,43 +138,14 @@ class TestTransactionsCommands:
         assert result.exit_code == 0, result.output
         assert "Pending transactions: 0" in result.output
 
-    @patch("aitbc_cli.commands.transactions.AITBCHTTPClient")
-    def test_transactions_estimate_fee_command(self, mock_http_class, runner):
-        """``transactions estimate-fee`` estimates the transaction fee."""
-        mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"estimated_fee": 50.0}
+    def test_transactions_estimate_fee_command(self, runner):
+        """``transactions estimate-fee`` prints the flat default fee.
 
+        The node has no fee-estimation endpoint — the old ``/rpc/estimateFee``
+        call always 404'd and fell back to the default, so the command now
+        answers directly without a network call.
+        """
         from aitbc_cli.commands.transactions import transactions
-
-        result = runner.invoke(
-            transactions,
-            [
-                "estimate-fee",
-                "--from",
-                "test-wallet",
-                "--to",
-                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
-                "--amount",
-                "100",
-            ],
-        )
-
-        assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once()
-        assert "/rpc/estimateFee" in mock_client.post.call_args[0][0]
-        # --amount is AIT; the node is asked in compute-units
-        assert mock_client.post.call_args[1]["json"]["value"] == ait_to_units(100)
-        # ...and the node's answer comes back in compute-units, so 50 units is not 50 AIT
-        assert "0.00000139 AIT" in result.output
-
-    @patch("aitbc_cli.commands.transactions.AITBCHTTPClient")
-    def test_transactions_estimate_fee_network_error_default(self, mock_http_class, runner):
-        """``transactions estimate-fee`` falls back to default on NetworkError."""
-        from aitbc_cli.commands.transactions import transactions
-        from aitbc_cli.utils.http_client import NetworkError
-
-        mock_client = mock_http_class.return_value
-        mock_client.post.side_effect = NetworkError("connection refused")
 
         result = runner.invoke(
             transactions,
@@ -192,6 +162,28 @@ class TestTransactionsCommands:
 
         assert result.exit_code == 0, result.output
         # the default fee is 0.01 AIT (360_000 compute-units)
+        assert "0.01 AIT (default)" in result.output
+
+    def test_transactions_estimate_fee_no_rpc_needed(self, runner):
+        """The estimate no longer consults the node — unreachable RPC is fine."""
+        from aitbc_cli.commands.transactions import transactions
+
+        result = runner.invoke(
+            transactions,
+            [
+                "estimate-fee",
+                "--from",
+                "test-wallet",
+                "--to",
+                "0x5E2D7C7A4F8E9B1c3D5A2E8F4C6B8A0D2E4F6A8C",
+                "--amount",
+                "100",
+                "--rpc-url",
+                "http://127.0.0.1:1",
+            ],
+        )
+
+        assert result.exit_code == 0, result.output
         assert "0.01 AIT (default)" in result.output
 
     def _write_batch_file(self, tmp_path, entries):
