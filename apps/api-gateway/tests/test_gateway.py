@@ -111,9 +111,6 @@ def test_escrow_prefix_forwards_to_rpc_escrow(client, monkeypatch):
             return httpx.Response(200, json={"ok": True})
 
         async def aclose(self):
-            pass
-
-        async def aclose(self):
             # Lifespan shutdown calls aclose() before monkeypatch restores the real client.
             pass
 
