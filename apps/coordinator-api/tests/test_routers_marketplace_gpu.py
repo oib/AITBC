@@ -266,3 +266,54 @@ def test_buy_gpu_short_duration_clamps_ttl_and_escrow_timeout(
     assert job is not None
     assert job.ttl_seconds == 300
     assert job.constraints.get("min_vram_gb") is None
+
+
+def test_native_energy_profile_get(client, db_session, native_pricing):
+    """Public read of a registered native energy profile."""
+    _seed_energy(db_session)
+    resp = client.get(f"/v1/marketplace/native-energy/profile/{RESOURCE}")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["resource_id"] == RESOURCE
+    assert data["tbp_watts"] == 165
+    assert data["eur_per_kwh_scaled"] == int(Decimal("0.30") * FIXED_POINT_SCALE)
+    assert data["eur_per_kwh"] == "0.3"
+    assert data["revision"] == 1
+
+
+def test_native_energy_profile_get_404(client, native_pricing):
+    resp = client.get("/v1/marketplace/native-energy/profile/nope")
+    assert resp.status_code == 404
+
+
+def test_native_energy_rate_get(client, db_session, native_pricing):
+    _seed_energy(db_session)
+    resp = client.get("/v1/marketplace/native-energy/rate")
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["ait_per_eur_scaled"] == int(Decimal("1.5") * FIXED_POINT_SCALE)
+    assert data["ait_per_eur"] == "1.5"
+    assert data["version"] == 1
+
+
+def test_native_energy_floor_get(client, db_session, native_pricing):
+    """Floor read matches the shared pricing arithmetic (165W, 0.30 EUR/kWh, 1.5 AIT/EUR)."""
+    _seed_energy(db_session)
+    resp = client.get(
+        "/v1/marketplace/native-energy/floor",
+        params={"resource_id": RESOURCE, "gpu_count": 1, "duration_seconds": 3600},
+    )
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["rail"] == "native"
+    # 0.165 kW * 0.30 EUR/kWh * 1.5 AIT/EUR * 1h = 0.07425 AIT
+    assert data["net_floor_units"] == int(Decimal("0.07425") * 36_000_000)
+    assert Decimal(data["net_floor_ait"]) == Decimal("0.07425")
+
+
+def test_native_energy_floor_get_unknown_resource(client, native_pricing):
+    resp = client.get(
+        "/v1/marketplace/native-energy/floor",
+        params={"resource_id": "ghost", "gpu_count": 1, "duration_seconds": 60},
+    )
+    assert resp.status_code == 404
