@@ -520,7 +520,7 @@ def suggest(
     else:
         region_code = region or config.shop_region
         tariff = region_tariff(region_code)
-        if tariff is not None:
+        if tariff is not None and region_code:
             tariff_src = f"region table ({region_code.lower()})"
     if tariff is None or tariff <= 0:
         error("No electricity tariff — pass --eur-per-kwh, set ENERGY_EUR_PER_KWH, or use --region")
@@ -598,7 +598,7 @@ def suggest(
         info(f"AIT/EUR:       {rate} ({rate_src})")
         info(f"Energy floor:  {floor_per_hour:.4f} AIT/h ({node_eur_hour:.4f} EUR/h node electricity)")
         if suggested is not None:
-            info(f"Suggested:     {suggested} AIT/h (compute multiplier {mult}x = EUR {mult * Decimal('0.25')}/h)")
+            info(f"Suggested:     {suggested} AIT/h (compute multiplier {suggested}x = EUR {suggested * Decimal('0.25')}/h)")
             if suggested < floor_per_hour:
                 warning(f"Suggested price is below the energy floor ({floor_per_hour:.4f} AIT/h) — raise tariff margin")
         else:
