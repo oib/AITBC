@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
+from unittest.mock import MagicMock, patch
 
 import pytest
 from click.testing import CliRunner
@@ -74,7 +75,7 @@ def test_suggest_manual_overrides(runner, probed):
     assert data["gpu_tbp_watts"] == 450  # catalog, since gpu-model skips probe
     assert data["cpu_watts"] == 150
     assert data["eur_per_kwh"] == "0.2"
-    assert data["ait_per_eur"] == "5"
+    assert data["ait_per_eur"] == "5.0"
     assert data["suggested_ait_per_hour"] == "2.5"
 
 
