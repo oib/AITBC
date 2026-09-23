@@ -673,7 +673,7 @@ if stats['hit_rate'] < 0.7:  # 70% hit rate threshold
 For security issues or questions about these features:
 
 - **Security Policy**: See `.github/SECURITY.md`
-- **Security Issues**: security@aitbc.io
+- **Security Issues**: [GitHub private advisories](https://github.com/oib/AITBC/security) (`security@aitbc.io` does not exist)
 - **Documentation**: See inline docstrings and type hints
 - **Examples**: See test files for usage examples
 

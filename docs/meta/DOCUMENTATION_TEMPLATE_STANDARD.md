@@ -45,8 +45,10 @@
 
 ### 🆘 **Help & Support:**
 - **Documentation Issues**: [Report Issues](https://github.com/oib/AITBC/issues)
-- **Community Forum**: [AITBC Forum](https://forum.aitbc.net)
-- **Technical Support**: [AITBC Support](https://support.aitbc.net)
+- **Security Reports**: [Private advisories](https://github.com/oib/AITBC/security)
+
+<!-- Template note: no forum.aitbc.net or support.aitbc.net exists; do not
+     re-add invented community links. -->
 
 ---
 

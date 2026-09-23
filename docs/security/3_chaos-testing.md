@@ -354,7 +354,7 @@ For issues or questions:
 
 - Check the troubleshooting section
 - Review test logs for error details
-- Contact the DevOps team at devops@aitbc.io
+- Open an issue at https://github.com/oib/AITBC/issues (the `devops@aitbc.io` mailbox does not exist)
 
 ## License
 

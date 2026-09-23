@@ -298,9 +298,11 @@ systematically identify threats and their mitigations.
 
 ## Contact Information
 
-- Security Team: security@aitbc.io
-- Bug Reports: security-bugs@aitbc.io
-- Security Researchers: research@aitbc.io
+- Security reports: [GitHub private advisories](https://github.com/oib/AITBC/security)
+- Bug reports: [GitHub issues](https://github.com/oib/AITBC/issues)
+
+> The `security@aitbc.io`, `security-bugs@aitbc.io`, and
+> `research@aitbc.io` mailboxes are placeholders — none exist.
 
 ## Acknowledgments
 
