@@ -247,7 +247,7 @@ docker-compose ps
 # Access services
 # - API: http://localhost:8203
 # - Explorer: http://localhost:3000
-# - Marketplace: http://localhost:5173
+# - Market: http://localhost:5173
 ```
 
 ### Configuration

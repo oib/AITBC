@@ -21,7 +21,7 @@ DEFAULT_SERVICE_PROBES: dict[str, dict[str, Any]] = {
     "blockchain-rpc": {"port": 8202, "path": "/health"},
     "coordinator-api": {"port": 8203, "path": "/health"},
     "explorer": {"port": 8100, "path": "/health"},
-    "marketplace": {"port": 8102, "path": "/health"},
+    "market": {"port": 8102, "path": "/health"},
     "trading": {"port": 8104, "path": "/health"},
     "governance": {"port": 8105, "path": "/health"},
     "wallet": {"port": 8108, "path": "/health"},

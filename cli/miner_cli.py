@@ -39,11 +39,11 @@ Examples:
   # Submit job result
   python miner_cli.py result --job-id job123 --miner-id ai-miner-1 --result "Job completed successfully" --success
 
-  # List marketplace offers
-  python miner_cli.py marketplace list --region us-west
+  # List market offers
+  python miner_cli.py market list --region us-west
 
-  # Create marketplace offer
-  python miner_cli.py marketplace create --miner-id ai-miner-1 --price 0.75 --capacity 2
+  # Create market offer
+  python miner_cli.py market create --miner-id ai-miner-1 --price 0.75 --capacity 2
         """,
     )
 
@@ -104,17 +104,17 @@ Examples:
     earnings_parser.add_argument("--miner-id", required=True, help="Miner identifier")
     earnings_parser.add_argument("--period", choices=["day", "week", "month", "all"], default="all", help="Earnings period")
 
-    # Marketplace commands
-    marketplace_parser = subparsers.add_parser("marketplace", help="Manage marketplace offers")
-    marketplace_subparsers = marketplace_parser.add_subparsers(dest="marketplace_action", help="Marketplace actions")
+    # Market commands
+    market_parser = subparsers.add_parser("market", help="Manage market offers")
+    market_subparsers = market_parser.add_subparsers(dest="market_action", help="Market actions")
 
-    # Marketplace list
-    market_list_parser = marketplace_subparsers.add_parser("list", help="List marketplace offers")
+    # Market list
+    market_list_parser = market_subparsers.add_parser("list", help="List market offers")
     market_list_parser.add_argument("--miner-id", help="Filter by miner ID")
     market_list_parser.add_argument("--region", help="Filter by region")
 
-    # Marketplace create
-    market_create_parser = marketplace_subparsers.add_parser("create", help="Create marketplace offer")
+    # Market create
+    market_create_parser = market_subparsers.add_parser("create", help="Create market offer")
     market_create_parser.add_argument("--miner-id", required=True, help="Miner identifier")
     market_create_parser.add_argument("--price", type=float, required=True, help="Offer price per hour")
     market_create_parser.add_argument("--capacity", type=int, default=1, help="Available capacity")
@@ -185,12 +185,12 @@ Examples:
     elif args.action == "earnings":
         kwargs.update({"miner_id": args.miner_id, "period": args.period})
 
-    elif args.action == "marketplace":
+    elif args.action == "market":
         action = args.action
-        if args.marketplace_action == "list":
+        if args.market_action == "list":
             kwargs.update({"miner_id": getattr(args, "miner_id", None), "region": getattr(args, "region", None)})
-            action = "marketplace_list"
-        elif args.marketplace_action == "create":
+            action = "market_list"
+        elif args.market_action == "create":
             kwargs.update(
                 {
                     "miner_id": args.miner_id,
@@ -199,9 +199,9 @@ Examples:
                     "region": getattr(args, "region", None),
                 }
             )
-            action = "marketplace_create"
+            action = "market_create"
         else:
-            click.echo("❌ Unknown marketplace action")
+            click.echo("❌ Unknown market action")
             return
 
     result = miner_cli_dispatcher(action, **kwargs)

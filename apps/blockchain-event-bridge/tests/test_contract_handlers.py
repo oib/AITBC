@@ -2,7 +2,7 @@
 
 import pytest
 from blockchain_event_bridge.action_handlers.agent_daemon import AgentDaemonHandler
-from blockchain_event_bridge.action_handlers.marketplace import MarketplaceHandler
+from blockchain_event_bridge.action_handlers.market import MarketHandler
 
 
 @pytest.mark.asyncio
@@ -50,9 +50,9 @@ async def test_agent_daemon_handle_bridge_event():
 
 
 @pytest.mark.asyncio
-async def test_marketplace_handle_contract_event():
-    """Test marketplace handler for contract events."""
-    handler = MarketplaceHandler("http://localhost:8011")
+async def test_market_handle_contract_event():
+    """Test market handler for contract events."""
+    handler = MarketHandler("http://localhost:8011")
 
     event_log = {"topics": ["ServiceListed"], "data": '{"serviceId": "202", "provider": "0x123"}'}
 

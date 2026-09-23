@@ -1,4 +1,4 @@
-"""Publish updated GPU/storage capacity to the coordinator marketplace."""
+"""Publish updated GPU/storage capacity to the coordinator market."""
 
 from __future__ import annotations
 
@@ -24,12 +24,12 @@ def publish_capacity(
 ) -> dict[str, Any]:
     """Publish or update a provider's compute capacity.
 
-    This is a skeleton publisher. It posts to the coordinator API marketplace
+    This is a skeleton publisher. It posts to the coordinator API market
     capacity endpoint; production deployments should use the shared HTTP client
     with retries and authentication.
     """
     base = (coordinator_url or os.getenv("COORDINATOR_URL", DEFAULT_COORDINATOR_URL) or "").rstrip("/")
-    url = f"{base}/v1/marketplace/providers/{provider_id}/capacity"
+    url = f"{base}/v1/market/providers/{provider_id}/capacity"
     payload: dict[str, Any] = {
         "provider_id": provider_id,
         "capacity": capacity,

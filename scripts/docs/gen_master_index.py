@@ -38,7 +38,7 @@ DESCRIPTIONS = {
     "getting-started": "New-user onboarding and setup",
     "governance": "Governance and voting documentation",
     "infrastructure": "Infrastructure and migration docs",
-    "marketplace": "Marketplace, exchange, and trading docs",
+    "market": "Market, exchange, and trading docs",
     "meta": "Documentation standards, template, and compliance",
     "mining": "Mining operations and GPU provider docs",
     "ops": "Operational runbooks and key handling",

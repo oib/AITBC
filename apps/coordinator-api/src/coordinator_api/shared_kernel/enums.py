@@ -9,7 +9,7 @@ from enum import StrEnum
 
 
 class TransactionPriority(StrEnum):
-    """Transaction priority levels — shared by cross_chain and marketplace contexts."""
+    """Transaction priority levels — shared by cross_chain and market contexts."""
 
     LOW = "low"
     MEDIUM = "medium"

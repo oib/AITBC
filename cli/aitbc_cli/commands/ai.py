@@ -291,7 +291,7 @@ def ai():
 @click.option("--currency", default=None, help="Payment currency (default: AITBC)")
 @click.option("--buyer-address", help="Customer wallet address for escrow")
 @click.option("--provider-address", help="Provider wallet address for escrow")
-@click.option("--offer-id", help="Marketplace offer this job is bought against")
+@click.option("--offer-id", help="Market offer this job is bought against")
 @click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy (default: 1)")
 @click.option(
     "--acceptance-window", type=int, default=None, help="Seconds after completion before payment auto-releases (default: 0)"
@@ -597,7 +597,7 @@ def submit(
 @click.option("--wallet", required=True, help="Wallet name to sign the escrow lock")
 @click.option("--buyer-address", help="Override buyer/customer address")
 @click.option("--provider-address", help="Override provider address")
-@click.option("--offer-id", help="Marketplace offer this job is bought against")
+@click.option("--offer-id", help="Market offer this job is bought against")
 @click.option("--offer-quantity", type=Decimal, default=None, help="How many of the offer's price units to buy")
 @click.option("--currency", default=None, help="Payment currency (default: AITBC)")
 @click.option("--coordinator-url", help="Coordinator URL")

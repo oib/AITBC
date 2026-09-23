@@ -1,4 +1,4 @@
-"""Marketplace IPFS hosting commands (v0.25.7 first-class IPFS)."""
+"""Market IPFS hosting commands (v0.25.7 first-class IPFS)."""
 
 from __future__ import annotations
 
@@ -20,7 +20,7 @@ from ...utils.output import resolve_output_format as _resolve_output_format
 from ..ipfs import (
     _api_post,
     _daemon_available,
-    _hub_marketplace_client,
+    _hub_market_client,
     _ipfs_add_file,
     _ipfs_object_size,
     _ipfs_pin_cid,
@@ -53,42 +53,42 @@ def _resolve_ipfs_api(offer: dict[str, Any]) -> str:
     return "http://127.0.0.1:5002"
 
 
-def _marketplace_client() -> AITBCHTTPClient:
-    """Return an HTTP client for the hub marketplace service."""
-    return _hub_marketplace_client()
+def _market_client() -> AITBCHTTPClient:
+    """Return an HTTP client for the hub market service."""
+    return _hub_market_client()
 
 
-def _track_marketplace_job(
+def _track_market_job(
     job_data: dict[str, Any],
 ) -> dict[str, Any] | None:
-    """Persist a MarketplaceJob record via the marketplace service."""
+    """Persist a MarketJob record via the market service."""
     try:
-        client = _marketplace_client()
-        result = client.post("/v1/marketplace/jobs", json=job_data)
+        client = _market_client()
+        result = client.post("/v1/market/jobs", json=job_data)
         if result and not result.get("error"):
-            info(f"Registered marketplace job: {result.get('job_id')}")
+            info(f"Registered market job: {result.get('job_id')}")
             return result
-        warning(f"Marketplace job registration returned: {result}")
+        warning(f"Market job registration returned: {result}")
     except NetworkError as e:
-        warning(f"Could not register marketplace job: {e}")
+        warning(f"Could not register market job: {e}")
     return None
 
 
-def _confirm_marketplace_pin(job_id: str, size: int | None = None) -> dict[str, Any] | None:
+def _confirm_market_pin(job_id: str, size: int | None = None) -> dict[str, Any] | None:
     """Confirm a job has been pinned."""
     try:
-        client = _marketplace_client()
+        client = _market_client()
         return client.post(
-            f"/v1/marketplace/jobs/{job_id}/pin-confirm",
+            f"/v1/market/jobs/{job_id}/pin-confirm",
             json={"size": size},
         )
     except NetworkError as e:
-        warning(f"Could not confirm marketplace pin: {e}")
+        warning(f"Could not confirm market pin: {e}")
         return None
 
 
-def _release_marketplace_payment(ctx: click.Context, job_id: str) -> dict[str, Any] | None:
-    """Release escrow for a completed job via the customer blockchain, then sync the marketplace record."""
+def _release_market_payment(ctx: click.Context, job_id: str) -> dict[str, Any] | None:
+    """Release escrow for a completed job via the customer blockchain, then sync the market record."""
     config = get_config()
     rpc_url = _get_blockchain_rpc_url(config)
     rpc_client = _get_rpc_client(config, rpc_url, timeout=20)
@@ -99,13 +99,13 @@ def _release_marketplace_payment(ctx: click.Context, job_id: str) -> dict[str, A
         warning(f"Local escrow release failed: {e}")
     tx_hash = release_result.get("tx_hash") if isinstance(release_result, dict) else None
     try:
-        client = _marketplace_client()
+        client = _market_client()
         return client.post(
-            f"/v1/marketplace/jobs/{job_id}/release",
+            f"/v1/market/jobs/{job_id}/release",
             json={"tx_hash": tx_hash, "released_amount": release_result.get("released_amount") if release_result else None},
         )
     except NetworkError as e:
-        warning(f"Could not sync marketplace release: {e}")
+        warning(f"Could not sync market release: {e}")
         return None
 
 
@@ -150,7 +150,7 @@ def _check_disk_quota(
 
     With ``used_bytes=None`` only the per-item check runs (called before the
     wallet is loaded); pass the buyer's current usage to also run the
-    cumulative check across their active marketplace jobs.
+    cumulative check across their active market jobs.
     """
     if not disk_quota_mb:
         return
@@ -177,10 +177,10 @@ def _check_disk_quota(
 
 
 def _buyer_used_bytes(buyer: str, offer_id: str) -> int:
-    """Bytes the buyer already has pinned across active marketplace jobs."""
+    """Bytes the buyer already has pinned across active market jobs."""
     try:
-        used_bytes_response = _marketplace_client().get(
-            "/v1/marketplace/jobs/usage",
+        used_bytes_response = _market_client().get(
+            "/v1/market/jobs/usage",
             params={"buyer_address": buyer, "offer_id": offer_id},
         )
         return int(used_bytes_response.get("used_bytes", 0)) if used_bytes_response else 0
@@ -229,7 +229,7 @@ def _release_and_track(
     """
     release_result: dict[str, Any] | None = None
     if release_immediately:
-        release_result = _release_marketplace_payment(ctx, job_id)
+        release_result = _release_market_payment(ctx, job_id)
         if release_result and not release_result.get("error"):
             success(f"Released {total_cost:.4f} AIT to provider")
         else:
@@ -282,7 +282,7 @@ def _run_ipfs_hosting(
 
     buyer, private_key, wallet_id = get_market_wallet(ctx, require_private_key=True)
 
-    # Check quota across active marketplace jobs.
+    # Check quota across active market jobs.
     used_bytes = _buyer_used_bytes(buyer, offer.get("offer_id", offer_id_or_plugin_id))
     _check_disk_quota(disk_quota_mb, content_size, used_bytes)
 
@@ -371,20 +371,20 @@ def _run_ipfs_hosting(
         "payment_amount": str(total_cost),
     }
 
-    marketplace_result = _track_marketplace_job(job_data)
-    if not marketplace_result:
-        error("Failed to register marketplace job; the escrow is locked but no record exists.")
+    market_result = _track_market_job(job_data)
+    if not market_result:
+        error("Failed to register market job; the escrow is locked but no record exists.")
         raise click.Abort()
 
     # Confirm pin so the job transitions to RUNNING.
-    _confirm_marketplace_pin(job_id, content_size)
+    _confirm_market_pin(job_id, content_size)
 
     release_result = _release_and_track(ctx, job_id, cid, release_immediately, track, offer, buyer, provider, total_cost)
 
     output_record = (
         release_result
         if release_immediately and release_result and not release_result.get("error")
-        else marketplace_result or job_data
+        else market_result or job_data
     )
     output_record["cid"] = cid
     output_record["days"] = days
@@ -392,8 +392,8 @@ def _run_ipfs_hosting(
     output_record["access_key"] = access_key
     output_record["access_secret"] = access_secret
 
-    success(f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; marketplace job {job_id}; escrow {contract_id}")
-    output(output_record, output_format, title="IPFS Marketplace Job")
+    success(f"Hosted {cid} for {days} day(s); cost {total_cost:.4f} AIT; market job {job_id}; escrow {contract_id}")
+    output(output_record, output_format, title="IPFS Market Job")
     return output_record
 
 
@@ -421,7 +421,7 @@ def host(
     proposer_id: str | None,
     output_format: str,
 ):
-    """Host IPFS content through a marketplace offer for a number of days."""
+    """Host IPFS content through a market offer for a number of days."""
     output_format = _resolve_output_format(ctx, output_format)
     if days <= 0:
         error("--days must be a positive integer")
@@ -442,7 +442,7 @@ def host(
 
 
 def _apply_access_result(ipfs_api: str, result: dict[str, Any] | None, cid: str | None) -> str | None:
-    """Take the CID from a marketplace access response and swarm-connect to the provider."""
+    """Take the CID from a market access response and swarm-connect to the provider."""
     if result and not result.get("error"):
         cid = result.get("cid") or cid
         public_endpoint = result.get("public_endpoint") or ""
@@ -458,17 +458,17 @@ def _resolve_download_cid(
     access_secret: str | None,
     cid: str | None,
 ) -> str | None:
-    """Resolve the CID to download from a marketplace rental or access token."""
+    """Resolve the CID to download from a market rental or access token."""
     if rental_id:
         try:
-            result = _marketplace_client().get(f"/v1/marketplace/jobs/{rental_id}/access")
+            result = _market_client().get(f"/v1/market/jobs/{rental_id}/access")
             cid = _apply_access_result(ipfs_api, result, cid)
         except NetworkError as e:
             warning(f"Could not resolve rental {rental_id}: {e}")
 
     if access_key and access_secret and not cid:
         try:
-            result = _marketplace_client().get(f"/v1/marketplace/access/{access_key}", params={"access_secret": access_secret})
+            result = _market_client().get(f"/v1/market/access/{access_key}", params={"access_secret": access_secret})
             cid = _apply_access_result(ipfs_api, result, cid)
         except NetworkError as e:
             warning(f"Could not resolve access token: {e}")
@@ -518,7 +518,7 @@ def _write_download(data: bytes, output_path: str | None) -> str:
 
   aitbc market download --access-key <k> --access-secret <s> --output-path /tmp/data.txt""",
 )
-@click.option("--rental-id", "rental_id", help="Marketplace job ID for a paid rental")
+@click.option("--rental-id", "rental_id", help="Market job ID for a paid rental")
 @click.option("--access-key", "access_key", help="Rental access key")
 @click.option("--access-secret", "access_secret", help="Rental access secret")
 @click.option("--cid", "cid", help="Free CID retrieval (bypasses access token)")
@@ -536,7 +536,7 @@ def download(
     wait: bool,
     output_format: str,
 ):
-    """Download IPFS content by marketplace job, access token, or free CID."""
+    """Download IPFS content by market job, access token, or free CID."""
     output_format = _resolve_output_format(ctx, output_format)
 
     # Retrieval always happens on the buyer's local daemon — the recorded
@@ -574,7 +574,7 @@ def download(
 
   aitbc market cancel --job-id <job-id> --reason 'buyer_requested'""",
 )
-@click.option("--job-id", "job_id", required=True, help="Marketplace job ID to cancel")
+@click.option("--job-id", "job_id", required=True, help="Market job ID to cancel")
 @click.option("--reason", default="buyer_requested", help="Reason for cancellation")
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
@@ -584,17 +584,17 @@ def cancel(
     reason: str,
     output_format: str,
 ):
-    """Cancel an active marketplace job and request a refund."""
+    """Cancel an active market job and request a refund."""
     output_format = _resolve_output_format(ctx, output_format)
     try:
-        result = _marketplace_client().post(f"/v1/marketplace/jobs/{job_id}/cancel", json={"reason": reason})
+        result = _market_client().post(f"/v1/market/jobs/{job_id}/cancel", json={"reason": reason})
         if result and not result.get("error"):
-            success(f"Canceled marketplace job {job_id}")
+            success(f"Canceled market job {job_id}")
         else:
             error(f"Could not cancel job {job_id}: {result}")
             raise click.Abort()
     except NetworkError as e:
-        error(f"Marketplace cancel request failed: {e}")
+        error(f"Market cancel request failed: {e}")
         raise click.Abort() from None
 
     # Attempt an immediate on-chain refund through the customer blockchain and sync state.
@@ -614,8 +614,8 @@ def cancel(
         warning(f"Escrow refund did not return a tx_hash yet (job canceled; sweeper will retry): {refund_result}")
     else:
         try:
-            _marketplace_client().post(
-                f"/v1/marketplace/jobs/{job_id}/refund",
+            _market_client().post(
+                f"/v1/market/jobs/{job_id}/refund",
                 json={
                     "tx_hash": tx_hash,
                     "refunded_amount": refund_result.get("refunded_amount") if refund_result else None,
@@ -623,14 +623,14 @@ def cancel(
                 },
             )
         except NetworkError as e:
-            warning(f"Could not sync marketplace refund: {e}")
+            warning(f"Could not sync market refund: {e}")
 
     # Re-fetch the job to show the latest payment state.
     try:
-        final = _marketplace_client().get(f"/v1/marketplace/jobs/{job_id}")
+        final = _market_client().get(f"/v1/market/jobs/{job_id}")
     except NetworkError:
         final = result
-    output(final or result, output_format, title="Canceled Marketplace Job")
+    output(final or result, output_format, title="Canceled Market Job")
 
 
 @market.command(
@@ -657,7 +657,7 @@ def jobs(
     limit: int,
     output_format: str,
 ):
-    """List marketplace jobs."""
+    """List market jobs."""
     output_format = _resolve_output_format(ctx, output_format)
     try:
         params: dict[str, Any] = {"limit": limit}
@@ -669,8 +669,8 @@ def jobs(
             params["buyer_address"] = buyer_address
         if offer_id:
             params["offer_id"] = offer_id
-        result = _marketplace_client().get("/v1/marketplace/jobs", params=params)
-        output(result, output_format, title="Marketplace Jobs")
+        result = _market_client().get("/v1/market/jobs", params=params)
+        output(result, output_format, title="Market Jobs")
     except NetworkError as e:
-        error(f"Could not list marketplace jobs: {e}")
+        error(f"Could not list market jobs: {e}")
         raise click.Abort() from e

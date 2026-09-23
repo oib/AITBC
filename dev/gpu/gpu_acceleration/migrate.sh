@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # GPU Acceleration Migration Script
 # Helps migrate existing CUDA-specific code to the new abstraction layer
@@ -57,7 +58,7 @@ LEGACY_FILES=(
     "high_performance_cuda_accelerator.py"
     "fastapi_cuda_zk_api.py"
     "production_cuda_zk_api.py"
-    "marketplace_gpu_optimizer.py"
+    "market_gpu_optimizer.py"
 )
 
 for file in "${LEGACY_FILES[@]}"; do
@@ -372,15 +373,15 @@ gpu_acceleration/
 │   ├── high_performance_cuda_accelerator.py
 │   ├── fastapi_cuda_zk_api.py
 │   ├── production_cuda_zk_api.py
-│   └── marketplace_gpu_optimizer.py
+│   └── market_gpu_optimizer.py
 ├── cuda_kernels/                 # Existing CUDA kernels (unchanged)
 │   ├── cuda_zk_accelerator.py
 │   ├── field_operations.cu
 │   └── liboptimized_field_operations.so
 ├── parallel_processing/          # Existing parallel processing (unchanged)
 │   ├── distributed_framework.py
-│   ├── marketplace_cache_optimizer.py
-│   └── marketplace_monitor.py
+│   ├── market_cache_optimizer.py
+│   └── market_monitor.py
 ├── research/                     # Existing research (unchanged)
 │   ├── gpu_zk_research/
 │   └── research_findings.md
@@ -420,7 +421,7 @@ gpu_acceleration/
 ├── high_performance_cuda_accelerator.py  # CUDA-specific implementation
 ├── fastapi_cuda_zk_api.py               # CUDA-specific API
 ├── production_cuda_zk_api.py            # CUDA-specific production API
-└── marketplace_gpu_optimizer.py         # CUDA-specific optimizer
+└── market_gpu_optimizer.py         # CUDA-specific optimizer
 ```
 
 ### After (Refactored)

@@ -211,7 +211,7 @@ VITE_MONITORING_INTERVAL=30
 VITE_RETRY_LIMIT=3
 `;
 
-        const envFile = path.join(__dirname, "..", "..", "apps", "marketplace-web", ".env.agent-economics");
+        const envFile = path.join(__dirname, "..", "..", "apps", "market-web", ".env.agent-economics");
         fs.writeFileSync(envFile, envVars);
 
         console.log("");

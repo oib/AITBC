@@ -56,7 +56,7 @@ SERVICE_ACCOUNT_BALANCES: dict[str, int] = {
     "aitbc1aiengine": 2_000_000,
     "aitbc1surveillance": 1_500_000,
     "aitbc1analytics": 1_000_000,
-    "aitbc1marketplace": 2_000_000,
+    "aitbc1market": 2_000_000,
     "aitbc1enterprise": 3_000_000,
     "aitbc1multimodal": 1_500_000,
     "aitbc1zkproofs": 1_000_000,

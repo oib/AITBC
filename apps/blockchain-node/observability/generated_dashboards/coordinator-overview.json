@@ -349,11 +349,11 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "rate(marketplace_requests_total[1m])",
+          "expr": "rate(market_requests_total[1m])",
           "refId": "A"
         }
       ],
-      "title": "Marketplace API Throughput",
+      "title": "Market API Throughput",
       "type": "timeseries"
     },
     {
@@ -410,11 +410,11 @@
             "type": "prometheus",
             "uid": "${DS_PROMETHEUS}"
           },
-          "expr": "rate(marketplace_errors_total[1m])",
+          "expr": "rate(market_errors_total[1m])",
           "refId": "A"
         }
       ],
-      "title": "Marketplace API Error Rate",
+      "title": "Market API Error Rate",
       "type": "timeseries"
     }
   ],

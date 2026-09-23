@@ -1,4 +1,4 @@
-"""Generic white-label smart contract and marketplace roles."""
+"""Generic white-label smart contract and market roles."""
 
 from enum import StrEnum
 

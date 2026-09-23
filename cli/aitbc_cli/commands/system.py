@@ -40,7 +40,7 @@ _HEALTH_ENDPOINTS: dict[str, tuple[str, int, str, str]] = {
     "aitbc-ffmpeg": ("127.0.0.1", 8230, "/health", "GET"),
     "aitbc-governance": ("127.0.0.1", 8105, "/health", "GET"),
     "aitbc-island-ipfs": ("127.0.0.1", 5002, "/api/v0/version", "POST"),
-    "aitbc-marketplace": ("127.0.0.1", 8102, "/health", "GET"),
+    "aitbc-market": ("127.0.0.1", 8102, "/health", "GET"),
     "aitbc-monitoring": ("127.0.0.1", 8002, "/health", "GET"),
     "aitbc-trading": ("127.0.0.1", 8104, "/health", "GET"),
     "aitbc-wallet": ("127.0.0.1", 8108, "/health", "GET"),

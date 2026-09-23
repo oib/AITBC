@@ -309,13 +309,13 @@ The second WebSocket is `WS /rpc/gossip/ws?topic=<topic>` for bidirectional goss
 
 ### Escrow Operations
 
-The blockchain node also hosts the marketplace escrow service. **All escrow routes — including GET — require the `X-API-Key` header** (router-level dependency against `BLOCKCHAIN_RPC_API_KEY`).
+The blockchain node also hosts the market escrow service. **All escrow routes — including GET — require the `X-API-Key` header** (router-level dependency against `BLOCKCHAIN_RPC_API_KEY`).
 
 #### Create Escrow
 
 `POST /rpc/escrow/create`
 
-Lock buyer funds for a marketplace job. The body must include a buyer-signed `lock_tx` (or `lock_signature` plus lock fields) transferring the amount to the node wallet. See [escrow-api.md](../escrow-api.md).
+Lock buyer funds for a market job. The body must include a buyer-signed `lock_tx` (or `lock_signature` plus lock fields) transferring the amount to the node wallet. See [escrow-api.md](../escrow-api.md).
 
 #### Get Escrow State
 

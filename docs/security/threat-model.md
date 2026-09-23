@@ -12,7 +12,7 @@ The AITBC platform consists of:
 - Coordinator API (Python/FastAPI)
 - Wallet daemon
 - Agent services
-- Marketplace service
+- Market service
 
 ## Assumptions
 
@@ -179,7 +179,7 @@ The AITBC platform consists of:
 | Coordinator API | Medium | Injection, auth bypass, DoS |
 | Blockchain Node | Medium | Network attacks, consensus manipulation |
 | Wallet Daemon | High | Key theft, phishing |
-| Marketplace | Medium | Oracle manipulation, front-running |
+| Market | Medium | Oracle manipulation, front-running |
 
 ## Ongoing Monitoring
 

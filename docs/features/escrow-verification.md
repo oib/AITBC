@@ -7,7 +7,7 @@ Verify escrow payment before serving (job_id-based)
 
 ## Implementation Details
 
-- `apps/blockchain-node/src/aitbc_chain/contracts/escrow.py` — Smart Contract Escrow System Handles automated payment holding and release for AI job marketplace
+- `apps/blockchain-node/src/aitbc_chain/contracts/escrow.py` — Smart Contract Escrow System Handles automated payment holding and release for AI job market
 - `apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py` — Escrow RPC endpoints for the blockchain node. Provides create/release/refund/get endpoints backed by...
 - `apps/coordinator-api/src/coordinator_api/contexts/infrastructure/domain/job.py` — Check if job is completed
 - `Blockchain Node` exposes `POST /rpc/bridge/settlement/{escrow_id}/verify` (operation `verify_lock_route_rpc_bridge_settlement__escrow_id__verify_post`) — Verify lock proof

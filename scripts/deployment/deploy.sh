@@ -260,7 +260,7 @@ initialize_databases() {
 
     # Create databases if they don't exist
     if command -v psql &> /dev/null; then
-        for db in aitbc aitbc_coordinator aitbc_marketplace; do
+        for db in aitbc aitbc_coordinator aitbc_market; do
             if ! sudo -u postgres psql -lqt | cut -d \| -f 1 | grep -qw $db; then
                 log "Creating database: $db"
                 sudo -u postgres createdb $db || warning "Failed to create database $db"
@@ -356,7 +356,7 @@ start_services() {
         "aitbc-exchange-api"
         "aitbc-wallet"
         "aitbc-agent-coordinator"
-        "aitbc-marketplace"
+        "aitbc-market"
     )
 
     for service in "${SERVICES[@]}"; do

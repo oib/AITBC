@@ -64,7 +64,7 @@ class SettlementClient:
         self._config = config or SettlementConfig()
         # The settlement router requires X-API-Key (same control as
         # /rpc/escrow/). Fall back to the environment, matching
-        # aitbc.marketplace.blockchain_rpc; when neither is set the server
+        # aitbc.market.blockchain_rpc; when neither is set the server
         # answers 503 and this stays headerless.
         self._api_key = api_key or os.environ.get("BLOCKCHAIN_RPC_API_KEY") or None
         self._trading_api_key = trading_api_key or os.environ.get("TRADING_API_KEY") or None

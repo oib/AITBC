@@ -2,14 +2,10 @@
 
 from prometheus_client import Counter
 
-# Marketplace API metrics
-marketplace_requests_total = Counter(
-    "marketplace_requests_total", "Total number of marketplace API requests", ["endpoint", "method"]
-)
+# Market API metrics
+market_requests_total = Counter("market_requests_total", "Total number of market API requests", ["endpoint", "method"])
 
-marketplace_errors_total = Counter(
-    "marketplace_errors_total", "Total number of marketplace API errors", ["endpoint", "method", "error_type"]
-)
+market_errors_total = Counter("market_errors_total", "Total number of market API errors", ["endpoint", "method", "error_type"])
 
 # Governance/economic proposal API metrics
 governance_requests_total = Counter(

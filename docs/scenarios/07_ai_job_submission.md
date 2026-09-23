@@ -17,7 +17,7 @@ breadcrumb: Home > Scenarios > AI Job Submission
 ## See Also
 
 - **Previous Scenario**: [Basic Trading](./06_basic_trading.md)
-- **Next Scenario**: [Marketplace Offers and Price Discovery](./08_marketplace_bidding.md)
+- **Next Scenario**: [Market Offers and Price Discovery](./08_market_bidding.md)
 - **Agent SDK**: [Agent SDK Documentation](../agent-sdk/README.md)
 - **Feature Documentation**: [AI CLI Commands](../../cli/aitbc_cli/commands/ai.py), [ComputeConsumer](../../packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_consumer.py)
 
@@ -360,7 +360,7 @@ This scenario has been refreshed to reflect the current codebase megaplan (hub `
 
 - Source: `cli/aitbc_cli/commands/ai.py` (submit, jobs, status, results, service group)
 - SDK: `packages/py/aitbc-agent-sdk/src/aitbc_agent/compute_consumer.py` (`ComputeConsumer.submit_job`, `get_job_status`, `cancel_job`, `get_spending_summary`)
-- [Next Scenario: Marketplace Offers and Price Discovery](./08_marketplace_bidding.md)
+- [Next Scenario: Market Offers and Price Discovery](./08_market_bidding.md)
 
 ---
 

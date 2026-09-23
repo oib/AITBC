@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # agent Wallet Operations Script for AITBC Multi-Node Blockchain
 # This script uses agent agents to create wallets and execute cross-node transactions
 
@@ -205,7 +206,7 @@ agent execute --agent WalletAgent --task create_test_wallets || {
     cd /opt/aitbc
     source venv/bin/activate
 
-    # Create test wallets for marketplace testing
+    # Create test wallets for market testing
     ./aitbc-cli wallet create provider-wallet --type simple
     ./aitbc-cli wallet create customer-wallet --type simple
 

@@ -1,0 +1,616 @@
+"""
+Global Market API Router
+REST API endpoints for global market operations, multi-region support, and cross-chain integration
+"""
+
+from datetime import UTC, datetime, timedelta
+from typing import Annotated, Any
+
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
+from sqlmodel import Session, func, select
+
+from coordinator_api.contexts.agent_identity.services.manager import AgentIdentityManager
+from ....storage.db import get_session
+from ..domain.global_market import (
+    GlobalMarketConfig,
+    GlobalMarketOffer,
+    GlobalMarketTransaction,
+    MarketRegion,
+    MarketStatus,
+    RegionStatus,
+)
+from ..services.global_market import GlobalMarketService, RegionManager
+
+router = APIRouter(prefix="/global-market", tags=["Global Market"])
+
+
+# Dependency injection
+def get_global_market_service(session: Annotated[Session, Depends(get_session)]) -> GlobalMarketService:
+    return GlobalMarketService(session)
+
+
+def get_region_manager(session: Annotated[Session, Depends(get_session)]) -> RegionManager:
+    return RegionManager(session)
+
+
+def get_agent_identity_manager(session: Annotated[Session, Depends(get_session)]) -> AgentIdentityManager:
+    return AgentIdentityManager(session)
+
+
+# Global Market Offer Endpoints
+@router.post("/offers", response_model=dict[str, Any])
+async def create_global_offer(
+    offer_request: dict[str, Any],
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+    identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
+) -> dict[str, Any]:
+    """Create a new global market offer"""
+
+    try:
+        # Validate request data
+        required_fields = ["agent_id", "service_type", "resource_specification", "base_price", "total_capacity"]
+        for field in required_fields:
+            if field not in offer_request:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
+        # Get agent identity
+        agent_identity = await identity_manager.core.get_identity_by_agent_id(offer_request["agent_id"])
+        if not agent_identity:
+            raise HTTPException(status_code=404, detail="Agent identity not found")
+
+        # Create offer request object
+        from ..domain.global_market import GlobalMarketOfferRequest
+
+        offer_req = GlobalMarketOfferRequest(
+            agent_id=offer_request["agent_id"],
+            service_type=offer_request["service_type"],
+            resource_specification=offer_request["resource_specification"],
+            base_price=offer_request["base_price"],
+            currency=offer_request.get("currency", "USD"),
+            total_capacity=offer_request["total_capacity"],
+            regions_available=offer_request.get("regions_available", []),
+            supported_chains=offer_request.get("supported_chains", []),
+            dynamic_pricing_enabled=offer_request.get("dynamic_pricing_enabled", False),
+            expires_at=offer_request.get("expires_at"),
+        )
+
+        # Create global offer
+        offer = await market_service.create_global_offer(offer_req, agent_identity.id)
+
+        return {
+            "offer_id": offer.id,
+            "agent_id": offer.agent_id,
+            "service_type": offer.service_type,
+            "base_price": offer.base_price,
+            "currency": offer.currency,
+            "total_capacity": offer.total_capacity,
+            "available_capacity": offer.available_capacity,
+            "regions_available": offer.regions_available,
+            "supported_chains": offer.supported_chains,
+            "price_per_region": offer.price_per_region,
+            "global_status": offer.global_status,
+            "created_at": offer.created_at.isoformat(),
+        }
+
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Bad request") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error creating global offer") from None
+
+
+@router.get("/offers", response_model=list[dict[str, Any]])
+async def get_global_offers(
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+    region: str | None = None,
+    service_type: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Get global market offers with filtering"""
+
+    try:
+        # Convert status string to enum if provided
+        status_enum = None
+        if status:
+            try:
+                status_enum = MarketStatus(status)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
+
+        offers = await market_service.get_global_offers(
+            region=region, service_type=service_type, status=status_enum, limit=limit or 100, offset=offset or 0
+        )
+
+        # Convert to response format
+        response_offers = []
+        for offer in offers:
+            response_offers.append(
+                {
+                    "id": offer.id,
+                    "agent_id": offer.agent_id,
+                    "service_type": offer.service_type,
+                    "base_price": offer.base_price,
+                    "currency": offer.currency,
+                    "price_per_region": offer.price_per_region,
+                    "total_capacity": offer.total_capacity,
+                    "available_capacity": offer.available_capacity,
+                    "regions_available": offer.regions_available,
+                    "global_status": offer.global_status,
+                    "global_rating": offer.global_rating,
+                    "total_transactions": offer.total_transactions,
+                    "success_rate": offer.success_rate,
+                    "supported_chains": offer.supported_chains,
+                    "cross_chain_pricing": offer.cross_chain_pricing,
+                    "created_at": offer.created_at.isoformat(),
+                    "updated_at": offer.updated_at.isoformat(),
+                    "expires_at": offer.expires_at.isoformat() if offer.expires_at else None,
+                }
+            )
+
+        return response_offers
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting global offers") from None
+
+
+@router.get("/offers/{offer_id}", response_model=dict[str, Any])
+async def get_global_offer(
+    offer_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+) -> dict[str, Any]:
+    """Get a specific global market offer"""
+
+    try:
+        # Get the offer
+        stmt = select(GlobalMarketOffer).where(GlobalMarketOffer.id == offer_id)
+        offer = session.execute(stmt).scalars().first()
+
+        if not offer:
+            raise HTTPException(status_code=404, detail="Offer not found")
+
+        return {
+            "id": offer.id,
+            "agent_id": offer.agent_id,
+            "service_type": offer.service_type,
+            "resource_specification": offer.resource_specification,
+            "base_price": offer.base_price,
+            "currency": offer.currency,
+            "price_per_region": offer.price_per_region,
+            "total_capacity": offer.total_capacity,
+            "available_capacity": offer.available_capacity,
+            "regions_available": offer.regions_available,
+            "region_statuses": offer.region_statuses,
+            "global_status": offer.global_status,
+            "global_rating": offer.global_rating,
+            "total_transactions": offer.total_transactions,
+            "success_rate": offer.success_rate,
+            "supported_chains": offer.supported_chains,
+            "cross_chain_pricing": offer.cross_chain_pricing,
+            "dynamic_pricing_enabled": offer.dynamic_pricing_enabled,
+            "created_at": offer.created_at.isoformat(),
+            "updated_at": offer.updated_at.isoformat(),
+            "expires_at": offer.expires_at.isoformat() if offer.expires_at else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting global offer") from None
+
+
+# Global Market Transaction Endpoints
+@router.post("/transactions", response_model=dict[str, Any])
+async def create_global_transaction(
+    transaction_request: dict[str, Any],
+    background_tasks: BackgroundTasks,
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+    identity_manager: Annotated[AgentIdentityManager, Depends(get_agent_identity_manager)],
+) -> dict[str, Any]:
+    """Create a new global market transaction"""
+
+    try:
+        # Validate request data
+        required_fields = ["buyer_id", "offer_id", "quantity"]
+        for field in required_fields:
+            if field not in transaction_request:
+                raise HTTPException(status_code=400, detail=f"Missing required field: {field}")
+
+        # Get buyer identity
+        buyer_identity = await identity_manager.core.get_identity_by_agent_id(transaction_request["buyer_id"])
+        if not buyer_identity:
+            raise HTTPException(status_code=404, detail="Buyer identity not found")
+
+        # Create transaction request object
+        from ..domain.global_market import GlobalMarketTransactionRequest
+
+        tx_req = GlobalMarketTransactionRequest(
+            buyer_id=transaction_request["buyer_id"],
+            offer_id=transaction_request["offer_id"],
+            quantity=transaction_request["quantity"],
+            source_region=transaction_request.get("source_region", "global"),
+            target_region=transaction_request.get("target_region", "global"),
+            payment_method=transaction_request.get("payment_method", "crypto"),
+            source_chain=transaction_request.get("source_chain"),
+            target_chain=transaction_request.get("target_chain"),
+        )
+
+        # Create global transaction
+        transaction = await market_service.create_global_transaction(tx_req, buyer_identity.id)
+
+        return {
+            "transaction_id": transaction.id,
+            "buyer_id": transaction.buyer_id,
+            "seller_id": transaction.seller_id,
+            "offer_id": transaction.offer_id,
+            "service_type": transaction.service_type,
+            "quantity": transaction.quantity,
+            "unit_price": transaction.unit_price,
+            "total_amount": transaction.total_amount,
+            "currency": transaction.currency,
+            "source_chain": transaction.source_chain,
+            "target_chain": transaction.target_chain,
+            "cross_chain_fee": transaction.cross_chain_fee,
+            "source_region": transaction.source_region,
+            "target_region": transaction.target_region,
+            "regional_fees": transaction.regional_fees,
+            "status": transaction.status,
+            "payment_status": transaction.payment_status,
+            "delivery_status": transaction.delivery_status,
+            "created_at": transaction.created_at.isoformat(),
+        }
+
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Bad request") from None
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error creating global transaction") from None
+
+
+@router.get("/transactions", response_model=list[dict[str, Any]])
+async def get_global_transactions(
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+    user_id: str | None = None,
+    status: str | None = None,
+    limit: int = 100,
+    offset: int = 0,
+) -> list[dict[str, Any]]:
+    """Get global market transactions"""
+
+    try:
+        transactions = await market_service.get_global_transactions(
+            user_id=user_id, status=status, limit=limit or 100, offset=offset or 0
+        )
+
+        # Convert to response format
+        response_transactions = []
+        for tx in transactions:
+            response_transactions.append(
+                {
+                    "id": tx.id,
+                    "transaction_hash": tx.transaction_hash,
+                    "buyer_id": tx.buyer_id,
+                    "seller_id": tx.seller_id,
+                    "offer_id": tx.offer_id,
+                    "service_type": tx.service_type,
+                    "quantity": tx.quantity,
+                    "unit_price": tx.unit_price,
+                    "total_amount": tx.total_amount,
+                    "currency": tx.currency,
+                    "source_chain": tx.source_chain,
+                    "target_chain": tx.target_chain,
+                    "cross_chain_fee": tx.cross_chain_fee,
+                    "source_region": tx.source_region,
+                    "target_region": tx.target_region,
+                    "regional_fees": tx.regional_fees,
+                    "status": tx.status,
+                    "payment_status": tx.payment_status,
+                    "delivery_status": tx.delivery_status,
+                    "created_at": tx.created_at.isoformat(),
+                    "updated_at": tx.updated_at.isoformat(),
+                    "confirmed_at": tx.confirmed_at.isoformat() if tx.confirmed_at else None,
+                    "completed_at": tx.completed_at.isoformat() if tx.completed_at else None,
+                }
+            )
+
+        return response_transactions
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting global transactions") from None
+
+
+@router.get("/transactions/{transaction_id}", response_model=dict[str, Any])
+async def get_global_transaction(
+    transaction_id: str,
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+) -> dict[str, Any]:
+    """Get a specific global market transaction"""
+
+    try:
+        # Get the transaction
+        stmt = select(GlobalMarketTransaction).where(GlobalMarketTransaction.id == transaction_id)
+        transaction = session.execute(stmt).scalars().first()
+
+        if not transaction:
+            raise HTTPException(status_code=404, detail="Transaction not found")
+
+        return {
+            "id": transaction.id,
+            "transaction_hash": transaction.transaction_hash,
+            "buyer_id": transaction.buyer_id,
+            "seller_id": transaction.seller_id,
+            "offer_id": transaction.offer_id,
+            "service_type": transaction.service_type,
+            "quantity": transaction.quantity,
+            "unit_price": transaction.unit_price,
+            "total_amount": transaction.total_amount,
+            "currency": transaction.currency,
+            "source_chain": transaction.source_chain,
+            "target_chain": transaction.target_chain,
+            "bridge_transaction_id": transaction.bridge_transaction_id,
+            "cross_chain_fee": transaction.cross_chain_fee,
+            "source_region": transaction.source_region,
+            "target_region": transaction.target_region,
+            "regional_fees": transaction.regional_fees,
+            "status": transaction.status,
+            "payment_status": transaction.payment_status,
+            "delivery_status": transaction.delivery_status,
+            "metadata": transaction.metadata,
+            "created_at": transaction.created_at.isoformat(),
+            "updated_at": transaction.updated_at.isoformat(),
+            "confirmed_at": transaction.confirmed_at.isoformat() if transaction.confirmed_at else None,
+            "completed_at": transaction.completed_at.isoformat() if transaction.completed_at else None,
+        }
+
+    except HTTPException:
+        raise
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting global transaction") from None
+
+
+# Region Management Endpoints
+@router.get("/regions", response_model=list[dict[str, Any]])
+async def get_regions(
+    session: Annotated[Session, Depends(get_session)],
+    status: str | None = None,
+) -> list[dict[str, Any]]:
+    """Get all market regions"""
+
+    try:
+        stmt = select(MarketRegion)
+
+        if status:
+            try:
+                status_enum = RegionStatus(status)
+                stmt = stmt.where(MarketRegion.status == status_enum)
+            except ValueError:
+                raise HTTPException(status_code=400, detail=f"Invalid status: {status}") from None
+
+        regions = session.execute(stmt).scalars().all()
+
+        response_regions = []
+        for region in regions:
+            response_regions.append(
+                {
+                    "id": region.id,
+                    "region_code": region.region_code,
+                    "region_name": region.region_name,
+                    "geographic_area": region.geographic_area,
+                    "base_currency": region.base_currency,
+                    "timezone": region.timezone,
+                    "language": region.language,
+                    "load_factor": region.load_factor,
+                    "max_concurrent_requests": region.max_concurrent_requests,
+                    "priority_weight": region.priority_weight,
+                    "status": region.status.value,
+                    "health_score": region.health_score,
+                    "average_response_time": region.average_response_time,
+                    "request_rate": region.request_rate,
+                    "error_rate": region.error_rate,
+                    "api_endpoint": region.api_endpoint,
+                    "last_health_check": region.last_health_check.isoformat() if region.last_health_check else None,
+                    "created_at": region.created_at.isoformat(),
+                    "updated_at": region.updated_at.isoformat(),
+                }
+            )
+
+        return response_regions
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting regions") from None
+
+
+@router.get("/regions/{region_code}/health", response_model=dict[str, Any])
+async def get_region_health(
+    region_code: str,
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+) -> dict[str, Any]:
+    """Get health status for a specific region"""
+
+    try:
+        health_data = await market_service.get_region_health(region_code)
+        return health_data
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting region health") from None
+
+
+@router.post("/regions/{region_code}/health", response_model=dict[str, Any])
+async def update_region_health(
+    region_code: str,
+    health_metrics: dict[str, Any],
+    session: Annotated[Session, Depends(get_session)],
+    region_manager: Annotated[RegionManager, Depends(get_region_manager)],
+) -> dict[str, Any]:
+    """Update health metrics for a region"""
+
+    try:
+        region = await region_manager.update_region_health(region_code, health_metrics)
+
+        return {
+            "region_code": region.region_code,
+            "region_name": region.region_name,
+            "status": region.status.value,
+            "health_score": region.health_score,
+            "last_health_check": region.last_health_check.isoformat() if region.last_health_check else None,
+            "updated_at": region.updated_at.isoformat(),
+        }
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error updating region health") from None
+
+
+# Analytics Endpoints
+@router.get("/analytics", response_model=dict[str, Any])
+async def get_market_analytics(
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+    period_type: str | None = None,
+    start_date: datetime | None = None,
+    end_date: datetime | None = None,
+    region: str | None = None,
+    include_cross_chain: bool | None = None,
+    include_regional: bool | None = None,
+) -> dict[str, Any]:
+    """Get global market analytics"""
+
+    try:
+        # Create analytics request
+        from ..domain.global_market import GlobalMarketAnalyticsRequest
+
+        analytics_request = GlobalMarketAnalyticsRequest(
+            period_type=period_type,
+            start_date=start_date,
+            end_date=end_date,
+            region=region,
+            metrics=[],
+            include_cross_chain=include_cross_chain,
+            include_regional=include_regional,
+        )
+
+        analytics = await market_service.get_market_analytics(analytics_request)
+
+        return {
+            "period_type": analytics.period_type,
+            "period_start": analytics.period_start.isoformat(),
+            "period_end": analytics.period_end.isoformat(),
+            "region": analytics.region,
+            "total_offers": analytics.total_offers,
+            "total_transactions": analytics.total_transactions,
+            "total_volume": analytics.total_volume,
+            "average_price": analytics.average_price,
+            "average_response_time": analytics.average_response_time,
+            "success_rate": analytics.success_rate,
+            "active_buyers": analytics.active_buyers,
+            "active_sellers": analytics.active_sellers,
+            "cross_chain_transactions": analytics.cross_chain_transactions,
+            "cross_chain_volume": analytics.cross_chain_volume,
+            "regional_distribution": analytics.regional_distribution,
+            "regional_performance": analytics.regional_performance,
+            "generated_at": analytics.created_at.isoformat(),
+        }
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting market analytics") from None
+
+
+# Configuration Endpoints
+@router.get("/config", response_model=dict[str, Any])
+async def get_global_market_config(
+    session: Annotated[Session, Depends(get_session)],
+    category: str | None = None,
+) -> dict[str, Any]:
+    """Get global market configuration"""
+
+    try:
+        stmt = select(GlobalMarketConfig)
+
+        if category:
+            stmt = stmt.where(GlobalMarketConfig.category == category)
+
+        configs = session.execute(stmt).scalars().all()
+
+        config_dict = {}
+        for config in configs:
+            config_dict[config.config_key] = {
+                "value": config.config_value,
+                "type": config.config_type,
+                "description": config.description,
+                "category": config.category,
+                "is_public": config.is_public,
+                "updated_at": config.updated_at.isoformat(),
+            }
+
+        return config_dict
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting configuration") from None
+
+
+# Health and Status Endpoints
+@router.get("/health", response_model=dict[str, Any])
+async def get_global_market_health(
+    session: Annotated[Session, Depends(get_session)],
+    market_service: Annotated[GlobalMarketService, Depends(get_global_market_service)],
+) -> dict[str, Any]:
+    """Get global market health status"""
+
+    try:
+        # Get overall health metrics
+        total_regions = session.execute(select(func.count(MarketRegion.id))).scalar() or 0  # type: ignore[arg-type]
+        active_regions = (
+            session.execute(
+                select(func.count(MarketRegion.id)).where(MarketRegion.status == RegionStatus.ACTIVE)  # type: ignore[arg-type]
+            ).scalar()
+            or 0
+        )
+
+        total_offers = session.execute(select(func.count(GlobalMarketOffer.id))).scalar() or 0  # type: ignore[arg-type]
+        active_offers = (
+            session.execute(
+                select(func.count(GlobalMarketOffer.id)).where(  # type: ignore[arg-type]
+                    GlobalMarketOffer.global_status == MarketStatus.ACTIVE
+                )
+            ).scalar()
+            or 0
+        )
+
+        total_transactions = session.execute(select(func.count(GlobalMarketTransaction.id))).scalar() or 0  # type: ignore[arg-type]
+        recent_transactions = (
+            session.execute(
+                select(func.count(GlobalMarketTransaction.id)).where(  # type: ignore[arg-type]
+                    GlobalMarketTransaction.created_at >= datetime.now(UTC) - timedelta(hours=24)
+                )
+            ).scalar()
+            or 0
+        )
+
+        # Calculate health score
+        region_health_ratio = active_regions / max(total_regions, 1)
+        offer_activity_ratio = active_offers / max(total_offers, 1)
+        transaction_activity = recent_transactions / max(total_transactions, 1)
+
+        overall_health = (region_health_ratio + offer_activity_ratio + transaction_activity) / 3
+
+        return {
+            "status": "healthy" if overall_health > 0.7 else "degraded",
+            "overall_health_score": overall_health,
+            "regions": {"total": total_regions, "active": active_regions, "health_ratio": region_health_ratio},
+            "offers": {"total": total_offers, "active": active_offers, "activity_ratio": offer_activity_ratio},
+            "transactions": {
+                "total": total_transactions,
+                "recent_24h": recent_transactions,
+                "activity_rate": transaction_activity,
+            },
+            "last_updated": datetime.now(UTC).isoformat(),
+        }
+
+    except Exception:
+        raise HTTPException(status_code=500, detail="Error getting health status") from None

@@ -22,7 +22,7 @@ Register your miner with the the network.
 
 ## Registration
 
-GPU provider registration uses the `aitbc gpu` group (GPU marketplace /
+GPU provider registration uses the `aitbc gpu` group (GPU market /
 coordinator registration). The `aitbc-miner` systemd service then polls the
 coordinator for inference jobs automatically.
 

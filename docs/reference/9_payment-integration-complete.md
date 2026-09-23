@@ -20,7 +20,7 @@ The wallet-coordinator integration for job payments has been successfully implem
 3. **Wallet Payment Flow** - PASSED ✨ **NEW**
 4. **P2P Block Propagation** - PASSED
 5. **P2P Transaction Propagation** - PASSED
-6. **Marketplace Integration** - PASSED
+6. **Market Integration** - PASSED
 7. **Security Integration** - PASSED
 
 ## Implemented Features

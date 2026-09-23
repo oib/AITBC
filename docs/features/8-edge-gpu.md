@@ -11,7 +11,7 @@
 | Remove GPU Listing | Remove GPU listing | [docs/features/remove-gpu-listing.md](./remove-gpu-listing.md) | ✅ | — |
 | Scan GPUs | Scan GPUs for a miner | [docs/features/scan-gpus.md](./scan-gpus.md) | ✅ | — |
 | GPU Metrics | Get GPU metrics | [docs/features/gpu-metrics.md](./gpu-metrics.md) | ✅ | — |
-| Advertise to Marketplace | Advertise edge GPU capabilities to marketplace | [docs/features/advertise-to-marketplace.md](./advertise-to-marketplace.md) | ✅ | v0.6.6 |
+| Advertise to Market | Advertise edge GPU capabilities to market | [docs/features/advertise-to-market.md](./advertise-to-market.md) | ✅ | v0.6.6 |
 
 ### Edge Compute
 

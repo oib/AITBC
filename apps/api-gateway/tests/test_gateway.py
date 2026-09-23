@@ -57,9 +57,9 @@ def test_service_registry(client):
     assert response.status_code == 200
 
     data = response.json()
-    assert "marketplace" in data
-    assert data["marketplace"]["prefix"] == "/v1/marketplace"
-    assert data["marketplace"]["url"] == "http://localhost:8102"
+    assert "market" in data
+    assert data["market"]["prefix"] == "/v1/market"
+    assert data["market"]["url"] == "http://localhost:8102"
 
 
 def test_service_registry_covers_every_registered_service(client):
@@ -86,11 +86,11 @@ class _CaptureClient:
     "path,expected_url",
     [
         ("/v1/coordinator/jobs", "http://localhost:8203/v1/jobs"),
-        ("/v1/marketplace/jobs", "http://localhost:8102/v1/marketplace/jobs"),
-        # Coordinator-owned marketplace families must not land on :8102.
-        ("/v1/marketplace/gpu/quote", "http://localhost:8203/v1/marketplace/gpu/quote"),
-        ("/v1/marketplace/providers", "http://localhost:8203/v1/marketplace/providers"),
-        ("/v1/marketplace/orders", "http://localhost:8203/v1/marketplace/orders"),
+        ("/v1/market/jobs", "http://localhost:8102/v1/market/jobs"),
+        # Coordinator-owned market families must not land on :8102.
+        ("/v1/market/gpu/quote", "http://localhost:8203/v1/market/gpu/quote"),
+        ("/v1/market/providers", "http://localhost:8203/v1/market/providers"),
+        ("/v1/market/orders", "http://localhost:8203/v1/market/orders"),
         ("/v1/exchange/orders", "http://localhost:8106/api/orders"),
         ("/v1/trading/exchange/rates", "http://localhost:8104/v1/exchange/rates"),
         ("/v1/wallet/wallets", "http://localhost:8108/v1/wallets"),
@@ -100,7 +100,7 @@ class _CaptureClient:
         ("/v1/governance/proposals", "http://localhost:8105/v1/governance/proposals"),
         ("/v1/pool-hub/miners/heartbeat", "http://localhost:8210/v1/miners/heartbeat"),
         ("/v1/explorer/blocks/latest", "http://localhost:8100/api/blocks/latest"),
-        ("/v1/plugin/register", "http://localhost:8203/v1/marketplace/register"),
+        ("/v1/plugin/register", "http://localhost:8203/v1/market/register"),
     ],
 )
 def test_route_rewrites_to_real_upstream_path(client, monkeypatch, path, expected_url):

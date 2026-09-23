@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from decimal import Decimal
 
-from aitbc.marketplace.hardware_catalog import (
+from aitbc.market.hardware_catalog import (
     BASE_PLATFORM_W,
     PSU_EFFICIENCY,
     compute_multiplier,

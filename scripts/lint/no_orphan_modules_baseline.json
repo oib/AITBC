@@ -13,20 +13,20 @@
       "verdict": "keep",
       "why": "Named by docs/architecture/agent-service-di-architecture.md as a design target."
     },
-    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/external_providers.py": {
+    "apps/coordinator-api/src/coordinator_api/contexts/market/services/external_providers.py": {
       "lines": 159,
       "verdict": "keep",
       "why": "Documented with a working usage example in 06-external-providers.md."
     },
-    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/market_analytics.py": {
+    "apps/coordinator-api/src/coordinator_api/contexts/market/services/market_analytics.py": {
       "lines": 112,
       "verdict": "keep",
       "why": "Documented in 05-analytics.md and docs/features/market-stats.md."
     },
-    "apps/coordinator-api/src/coordinator_api/contexts/marketplace/services/resource_matcher.py": {
+    "apps/coordinator-api/src/coordinator_api/contexts/market/services/resource_matcher.py": {
       "lines": 220,
       "verdict": "keep",
-      "why": "Documented with a working usage example in docs/marketplace/advanced-marketplace/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
+      "why": "Documented with a working usage example in docs/market/advanced-market/04-ml-search.md and named by skills/agent-autonomy-testing/SKILL.md."
     },
     "apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/fhe_enhanced.py": {
       "lines": 45,

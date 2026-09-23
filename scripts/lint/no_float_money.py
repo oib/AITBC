@@ -1,13 +1,13 @@
 #!/usr/bin/env python3
 """Guard against float money in source that handles amounts.
 
-CLAUDE.md states the rule plainly: wallet, trading, marketplace and pool-hub use
+CLAUDE.md states the rule plainly: wallet, trading, market and pool-hub use
 ``Decimal`` for money, never ``float``. This checks it.
 
 It used to check a hand-maintained list of thirteen files with ``re.search(r"float\\(")``.
 That was narrow in both directions, and the two failures compounded:
 
-* **Where it looked.** Thirteen files, none of them in wallet, marketplace or pool-hub —
+* **Where it looked.** Thirteen files, none of them in wallet, market or pool-hub —
   three of the four services the rule names. Any money code written outside those
   thirteen paths was unguarded, and nothing made the list grow with the repo.
 * **What it looked for.** Only the string ``float(``. A field *declared* ``price: float``

@@ -38,7 +38,7 @@ Source code lives under `apps/` in the repository. Each app has its own `README.
 | [ffmpeg](ffmpeg/) ([ffmpeg](../../apps/ffmpeg/README.md)) | active | island | Optional | 1 systemd service(s): aitbc-ffmpeg.service | no | main.py entry point |
 | [governance](governance/) ([governance](../../apps/governance/README.md)) | active | hub | no | 1 systemd service(s): aitbc-governance.service | no | src/ directory with 7 Python file(s) |
 | [gpu](gpu/) ([gpu](../../apps/gpu/README.md)) | active | hub, island | Yes | 1 systemd service(s): aitbc-gpu.service | no | src/ directory with 9 Python file(s) |
-| [marketplace](marketplace/) ([marketplace](../../apps/marketplace/README.md)) | active | shop, hub | no | 1 systemd service(s): aitbc-marketplace.service | no | src/ directory with 9 Python file(s) |
+| [market](market/) ([market](../../apps/market/README.md)) | active | shop, hub | no | 1 systemd service(s): aitbc-market.service | no | src/ directory with 9 Python file(s) |
 | [miner](miner/) ([miner](../../apps/miner/README.md)) | active | island | Yes | 1 systemd service(s): aitbc-miner.service | no | production_miner.py entry point |
 | [pool-hub](pool-hub/) ([pool-hub](../../apps/pool-hub/README.md)) | active | hub, island | no | 1 systemd service(s): aitbc-pool-hub.service | no | src/ directory with 37 Python file(s) |
 | [shared-core](shared-core/) ([shared-core](../../apps/shared-core/README.md)) | shared library | n/a | no | No systemd service file — imported as a library by other apps. | no | src/ directory with 6 Python file(s) |

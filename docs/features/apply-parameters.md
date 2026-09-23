@@ -1,6 +1,6 @@
 # Apply Parameters
 
-Apply governance-approved parameters to marketplace
+Apply governance-approved parameters to market
 
 - **Status**: ✅
 - **Release**: v0.10.1
@@ -9,11 +9,11 @@ Apply governance-approved parameters to marketplace
 
 - `apps/governance/src/governance_service/services/governance_service.py` — Governance service for managing governance operations
 - `apps/pool-hub/src/poolhub/app/routers/parameters.py` — Request body for applying a governance-approved parameter change.
-- `apps/coordinator-api/src/coordinator_api/contexts/marketplace/domain/global_marketplace.py` — Global Marketplace Domain Models Domain models for global marketplace operations, multi-region suppo...
-- `apps/coordinator-api/alembic/versions/add_global_marketplace.py` — Add global marketplace tables Revision ID: add_global_marketplace Revises: add_cross_chain_reputatio...
+- `apps/coordinator-api/src/coordinator_api/contexts/market/domain/global_market.py` — Global Market Domain Models Domain models for global market operations, multi-region suppo...
+- `apps/coordinator-api/alembic/versions/add_global_market.py` — Add global market tables Revision ID: add_global_market Revises: add_cross_chain_reputatio...
 - `apps/coordinator-api/src/coordinator_api/contexts/governance/domain/governance.py` — Decentralized Governance Models Database models for agent DAO, voting, proposals, and governance ana...
-- `Marketplace` exposes `POST /v1/marketplace/parameters/apply` (operation `apply_marketplace_parameter_v1_marketplace_parameters_apply_post`) — Apply Marketplace Parameter
-- `Blockchain Node` exposes `POST /rpc/transactions/marketplace` (operation `submit_marketplace_transaction_route_rpc_transactions_marketplace_post`) — Submit marketplace transaction
+- `Market` exposes `POST /v1/market/parameters/apply` (operation `apply_market_parameter_v1_market_parameters_apply_post`) — Apply Market Parameter
+- `Blockchain Node` exposes `POST /rpc/transactions/market` (operation `submit_market_transaction_route_rpc_transactions_market_post`) — Submit market transaction
 - `Blockchain Node` exposes `POST /rpc/staking/stake` (operation `stake_tokens_route_rpc_staking_stake_post`) — Stake tokens
 
 ## Examples
@@ -23,8 +23,8 @@ Apply governance-approved parameters to marketplace
 - `GET /{gpu_id}` (`get_gpu_listing` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
 - `DELETE /{gpu_id}` (`remove_gpu_listing` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
 - `POST /scan` (`scan_gpus` in `apps/edge/src/aitbc_edge/routers/gpu.py`)
-- `POST /v1/marketplace/parameters/apply` (`apply_marketplace_parameter_v1_marketplace_parameters_apply_post`) on `Marketplace`
-- `POST /rpc/transactions/marketplace` (`submit_marketplace_transaction_route_rpc_transactions_marketplace_post`) on `Blockchain Node`
+- `POST /v1/market/parameters/apply` (`apply_market_parameter_v1_market_parameters_apply_post`) on `Market`
+- `POST /rpc/transactions/market` (`submit_market_transaction_route_rpc_transactions_market_post`) on `Blockchain Node`
 - `POST /rpc/staking/stake` (`stake_tokens_route_rpc_staking_stake_post`) on `Blockchain Node`
 
 ## Operational Notes

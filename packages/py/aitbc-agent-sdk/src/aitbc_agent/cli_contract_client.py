@@ -35,8 +35,8 @@ class CLIContractClient:
             self.contracts["cross_chain_atomic_swap"] = self.config.cross_chain_atomic_swap
         if hasattr(self.config, "payment_processor") and self.config.payment_processor:
             self.contracts["payment_processor"] = self.config.payment_processor
-        if hasattr(self.config, "agent_marketplace") and self.config.agent_marketplace:
-            self.contracts["agent_marketplace"] = self.config.agent_marketplace
+        if hasattr(self.config, "agent_market") and self.config.agent_market:
+            self.contracts["agent_marketplace"] = self.config.agent_market
         if hasattr(self.config, "staking_contract") and self.config.staking_contract:
             self.contracts["staking_contract"] = self.config.staking_contract
 

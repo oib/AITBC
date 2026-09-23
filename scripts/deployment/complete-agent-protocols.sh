@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Agent Protocols Implementation - Part 2
 # Complete implementation with integration layer and services
@@ -73,7 +74,7 @@ class AITBCServiceIntegration:
             "coordinator_api": "http://localhost:8203",
             "blockchain_rpc": "http://localhost:8202",
             "exchange_service": "http://localhost:8106",
-            "marketplace": "http://localhost:8102",
+            "market": "http://localhost:8102",
             "agent_registry": "http://localhost:8013"  # check-ports: ignore
         }
         self.session = None
@@ -293,7 +294,7 @@ create_agent_services() {
 #!/usr/bin/env python3
 """
 AITBC Trading Agent
-Automated trading agent for AITBC marketplace
+Automated trading agent for AITBC market
 """
 
 import asyncio

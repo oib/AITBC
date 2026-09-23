@@ -386,7 +386,7 @@ def get_node_island_info(
 
 
 # ---------------------------------------------------------------------------
-# Marketplace (local CLI)
+# Market (local CLI)
 # ---------------------------------------------------------------------------
 
 
@@ -424,7 +424,7 @@ def create_market_offer(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List a hardware/software marketplace offer."""
+    """List a hardware/software market offer."""
     group_options: dict[str, str | None] = {"wallet": wallet}
     subcommand_options: dict[str, str | None] = {"unit": unit}
     if description is not None:
@@ -471,7 +471,7 @@ def list_market_offers_cli(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List blockchain marketplace offers and bids (local CLI view)."""
+    """List blockchain market offers and bids (local CLI view)."""
     options: dict[str, str | None] = {"sort": sort}
     if provider is not None:
         options["provider"] = provider
@@ -599,7 +599,7 @@ def unpin_ipfs(
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def host_ipfs(
-    offer_id_or_plugin_id: Annotated[str, Field(description="IPFS marketplace offer or plugin ID.")],
+    offer_id_or_plugin_id: Annotated[str, Field(description="IPFS market offer or plugin ID.")],
     cid_or_file: Annotated[str, Field(description="CID or file path to host.")],
     days: Annotated[int, Field(description="Rental duration in days.", ge=1)] = 1,
     wallet: Annotated[str, Field(description="Wallet to pay for the rental.")] = "genesis",
@@ -615,7 +615,7 @@ def host_ipfs(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Rent IPFS hosting for a CID or file through a marketplace offer."""
+    """Rent IPFS hosting for a CID or file through a market offer."""
     subcommand_options: dict[str, str | None] = {
         "offer-id-or-plugin-id": offer_id_or_plugin_id,
         "cid-or-file": cid_or_file,
@@ -709,7 +709,7 @@ def get_wallet_address(
 def run_market_offer(
     offer_id_or_plugin_id: Annotated[
         str,
-        Field(description="Marketplace offer ID or plugin ID to run."),
+        Field(description="Market offer ID or plugin ID to run."),
     ],
     prompt: Annotated[str, Field(description="Prompt or input for the offer.")],
     wallet: Annotated[str, Field(description="Wallet name to sign payment.")] = "genesis",
@@ -788,7 +788,7 @@ def run_market_offer(
 @mcp.tool(annotations=ToolAnnotations(read_only_hint=True))
 def download_market_ipfs(
     cid: Annotated[str | None, Field(description="Free CID to retrieve.")] = None,
-    rental_id: Annotated[str | None, Field(description="Marketplace job ID for a paid rental.")] = None,
+    rental_id: Annotated[str | None, Field(description="Market job ID for a paid rental.")] = None,
     access_key: Annotated[str | None, Field(description="Rental access key.")] = None,
     access_secret: Annotated[str | None, Field(description="Rental access secret.")] = None,
     output: Annotated[str | None, Field(description="Output file path.")] = None,
@@ -801,7 +801,7 @@ def download_market_ipfs(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Download IPFS content by CID, marketplace job ID, or access token."""
+    """Download IPFS content by CID, market job ID, or access token."""
     subcommand_options: dict[str, str | None] = {}
     if cid:
         subcommand_options["cid"] = cid
@@ -827,7 +827,7 @@ def download_market_ipfs(
 def transcribe_market_offer(
     offer_id_or_plugin_id: Annotated[
         str,
-        Field(description="Marketplace offer ID or plugin ID to run."),
+        Field(description="Market offer ID or plugin ID to run."),
     ],
     audio_file: Annotated[str, Field(description="Remote audio file path to transcribe.")],
     wallet: Annotated[str, Field(description="Wallet name to sign payment.")] = "genesis",
@@ -880,7 +880,7 @@ def transcribe_market_offer(
 def process_market_offer(
     offer_id_or_plugin_id: Annotated[
         str,
-        Field(description="Marketplace offer ID or plugin ID to run."),
+        Field(description="Market offer ID or plugin ID to run."),
     ],
     input_file: Annotated[str, Field(description="Remote input media file to process.")],
     wallet: Annotated[str, Field(description="Wallet name to sign payment.")] = "genesis",
@@ -944,7 +944,7 @@ def rate_market_service(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Submit a 1-5 star rating for a marketplace service."""
+    """Submit a 1-5 star rating for a market service."""
     subcommand_options: dict[str, str | None] = {}
     if comment is not None:
         subcommand_options["comment"] = comment
@@ -981,7 +981,7 @@ def get_market_service_ratings(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """List ratings for a marketplace service."""
+    """List ratings for a market service."""
     options: dict[str, str | None] = {}
     if limit is not None:
         options["limit"] = str(limit)
@@ -1006,7 +1006,7 @@ def disable_market_offer(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Deactivate a local marketplace offer."""
+    """Deactivate a local market offer."""
     return _run_aitbc_cli_write(
         role,
         host,
@@ -1036,7 +1036,7 @@ def cancel_market_order(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Cancel a marketplace order."""
+    """Cancel a market order."""
     return _run_aitbc_cli_write(
         role,
         host,
@@ -1063,7 +1063,7 @@ def get_market_order_status(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Show the status of a marketplace order."""
+    """Show the status of a market order."""
     return _aitbc_cli_read_tool(role, host, "market", "status", options={"order-id": order_id})
 
 
@@ -1100,7 +1100,7 @@ def market_providers(
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def sync_market_ratings(
     wallet: Annotated[str, Field(description="Wallet name to sign the sync.")] = "genesis",
-    remote_url: Annotated[str | None, Field(description="Remote marketplace service URL.")] = None,
+    remote_url: Annotated[str | None, Field(description="Remote market service URL.")] = None,
     limit: Annotated[int | None, Field(description="Number of ratings to sync.", ge=1)] = None,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the destructive action.")] = False,
@@ -1113,7 +1113,7 @@ def sync_market_ratings(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Sync marketplace ratings to/from a remote marketplace node."""
+    """Sync market ratings to/from a remote market node."""
     subcommand_options: dict[str, str | None] = {}
     if remote_url is not None:
         subcommand_options["remote-url"] = remote_url
@@ -1152,7 +1152,7 @@ def create_market_escrow(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Create an on-chain escrow for a marketplace job."""
+    """Create an on-chain escrow for a market job."""
     _validate_evm_address(buyer, "buyer")
     _validate_evm_address(provider, "provider")
     return _run_aitbc_cli_write(
@@ -1215,7 +1215,7 @@ def refund_market_escrow(
         Field(description="Override the host for this call."),
     ] = None,
 ) -> str:
-    """Refund a marketplace escrow back to the buyer."""
+    """Refund a market escrow back to the buyer."""
     subcommand_options: dict[str, str | None] = {}
     if reason is not None:
         subcommand_options["reason"] = reason

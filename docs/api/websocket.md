@@ -9,7 +9,7 @@ The AITBC blockchain node exposes exactly **two** WebSocket endpoints, both moun
 | `WS /rpc/subscribe/ws` | Follower-node block subscription push channel | Prior lease from `POST /rpc/subscribe` (peer key) |
 | `WS /rpc/gossip/ws?topic=<topic>` | Bidirectional gossip pub/sub bridged into the node's gossip broker | Signed validator challenge for restricted topics |
 
-> The coordinator-api (port 8203) and the marketplace service (port 8102) expose **no** WebSocket endpoints. Job status is polled over REST (`GET /v1/jobs/{job_id}`).
+> The coordinator-api (port 8203) and the market service (port 8102) expose **no** WebSocket endpoints. Job status is polled over REST (`GET /v1/jobs/{job_id}`).
 >
 > There is no `?api_key=` query-parameter authentication on either WebSocket endpoint. `POST /rpc/subscribe` is authenticated with the `X-API-Key` header (peer key) and the gossip socket authenticates with an in-band signed challenge — see below.
 

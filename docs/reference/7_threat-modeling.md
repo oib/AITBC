@@ -33,7 +33,7 @@ systematically identify threats and their mitigations.
 
 - Core blockchain consensus
 - Basic transaction processing
-- Non-confidential marketplace operations
+- Non-confidential market operations
 - Network layer security
 
 ## Threat Actors

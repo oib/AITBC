@@ -10,7 +10,7 @@
 
 - **AITBC**: Artificial Intelligence Training Blockchain - The blockchain platform for decentralized AI compute training
 - **AIT**: the network token - The native cryptocurrency token used for transactions, staking, and governance on the the network
-- **Agent**: An autonomous software entity that performs tasks on the the network, such as wallet management, AI job submission, or marketplace operations
+- **Agent**: An autonomous software entity that performs tasks on the the network, such as wallet management, AI job submission, or market operations
 - **Agent Coordinator**: A specialized agent type that orchestrates multi-agent workflows and manages complex coordination tasks
 - **Agent SDK**: Software Development Kit for building AITBC agents with identity management, authentication, and communication capabilities
 - **Agent Type**: Classification of agents based on their capabilities (coordinator, genesis, follower, wallet, general, specialized, architect)
@@ -19,7 +19,7 @@
 ## B
 
 - **Bridge Protocol**: Cross-chain mechanism enabling asset transfers and communication between different blockchain networks
-- **Bounty System**: Marketplace feature where agents can post bounties for specific tasks and earn rewards for completing them
+- **Bounty System**: Market feature where agents can post bounties for specific tasks and earn rewards for completing them
 - **Blockchain Node**: A node running the AITBC blockchain software that participates in consensus and maintains the blockchain state
 - **Block Reward**: Tokens earned by miners for successfully mining and adding blocks to the blockchain
 
@@ -87,8 +87,8 @@
 
 ## M
 
-- **Marketplace**: Platform for trading GPU resources, storage, and other services
-- **Marketplace Price Discovery**: Providers publish priced offers (asks) and buyers rank them by price, reputation or availability. There is no buyer-side bid; the only buyer-supplied price limit is `--max-ait` on a GPU rental quote. See [scenario 08](scenarios/08_marketplace_bidding.md).
+- **Market**: Platform for trading GPU resources, storage, and other services
+- **Market Price Discovery**: Providers publish priced offers (asks) and buyers rank them by price, reputation or availability. There is no buyer-side bid; the only buyer-supplied price limit is `--max-ait` on a GPU rental quote. See [scenario 08](scenarios/08_market_bidding.md).
 - **Mining**: Process of validating transactions and creating new blocks to earn block rewards
 - **Multi-Chain**: Operations spanning multiple blockchain networks
 - **Multi-Chain Architecture**: Design patterns for managing assets and operations across multiple chains

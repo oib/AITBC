@@ -1,7 +1,7 @@
 # mypy: warn_unused_ignores=False
 """
 Advanced Reinforcement Learning Engine
-Main engine class for RL-based marketplace strategies and agent optimization
+Main engine class for RL-based market strategies and agent optimization
 """
 
 import asyncio
@@ -25,7 +25,7 @@ logger = get_logger(__name__)
 
 
 class AdvancedReinforcementLearningEngine:
-    """Advanced RL engine for marketplace strategies - Enhanced Implementation"""
+    """Advanced RL engine for market strategies - Enhanced Implementation"""
 
     def __init__(self) -> None:
         self.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
@@ -43,7 +43,7 @@ class AdvancedReinforcementLearningEngine:
             "muzero": self.muzero,
         }
         self.environment_types = {
-            "marketplace_trading": self.marketplace_trading_env,
+            "market_trading": self.market_trading_env,
             "resource_allocation": self.resource_allocation_env,
             "price_optimization": self.price_optimization_env,
             "service_selection": self.service_selection_env,
@@ -348,7 +348,7 @@ class AdvancedReinforcementLearningEngine:
         algorithm: str = "ppo",
         training_config: dict[str, Any] | None = None,
     ) -> ReinforcementLearningConfig:
-        """Create a new RL agent for marketplace strategies"""
+        """Create a new RL agent for market strategies"""
         config_id = f"rl_{uuid4().hex[:8]}"
         default_config = {
             "learning_rate": 0.001,
@@ -592,10 +592,10 @@ class AdvancedReinforcementLearningEngine:
             "training_time": len(reward_history) * 0.11,
         }
 
-    async def marketplace_trading_env(
+    async def market_trading_env(
         self, state: Any, action: Any, environment_type: str
     ) -> tuple[Any, float, bool, dict[str, Any]]:
-        """Marketplace trading environment simulation"""
+        """Market trading environment simulation"""
         next_state = state.copy()
         reward = np.random.random()
         done = np.random.random() > 0.95

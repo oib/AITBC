@@ -11,10 +11,10 @@ A condensed reference for common AITBC commands. For the full CLI, see [cli/READ
 |---------|------|----------------|
 | API Gateway | 8201 | Public nginx-proxied entry point |
 | Blockchain RPC | 8202 | `aitbc blockchain info`, RPC calls |
-| Coordinator API | 8203 | Job lifecycle, marketplace endpoints |
+| Coordinator API | 8203 | Job lifecycle, market endpoints |
 | Blockchain Explorer API | 8100 | Block/transaction search |
-| GPU Service | 8101 | GPU marketplace / miner operations |
-| Marketplace Service | 8102 | Marketplace transactions |
+| GPU Service | 8101 | GPU market / miner operations |
+| Market Service | 8102 | Market transactions |
 | Trading Service | 8104 | Order matching, subscription sync |
 | Governance Service | 8105 | Proposals and voting |
 | Exchange API | 8106 | Trading, bridge, deposit/withdraw |
@@ -78,7 +78,7 @@ aitbc ai results --job-id <job-id>
 aitbc ai cancel --job-id <job-id> --wallet my-wallet
 ```
 
-## Marketplace / GPU
+## Market / GPU
 
 ```bash
 aitbc market list

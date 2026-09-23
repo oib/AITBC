@@ -35,7 +35,7 @@ from aitbc.utils.paths import (
     get_data_path,
     get_keystore_path,
     get_log_path,
-    get_marketplace_data_path,
+    get_market_data_path,
     get_repo_path,
     resolve_path,
 )
@@ -132,15 +132,15 @@ class TestPaths:
         assert isinstance(result, Path)
         assert str(result).endswith("custom-chain")
 
-    def test_get_marketplace_data_path_no_subpath(self):
-        """Test get_marketplace_data_path without subpath"""
-        result = get_marketplace_data_path()
+    def test_get_market_data_path_no_subpath(self):
+        """Test get_market_data_path without subpath"""
+        result = get_market_data_path()
         assert isinstance(result, Path)
-        assert str(result).endswith("marketplace")
+        assert str(result).endswith("market")
 
-    def test_get_marketplace_data_path_with_subpath(self):
-        """Test get_marketplace_data_path with subpath"""
-        result = get_marketplace_data_path("orders")
+    def test_get_market_data_path_with_subpath(self):
+        """Test get_market_data_path with subpath"""
+        result = get_market_data_path("orders")
         assert isinstance(result, Path)
         assert str(result).endswith("orders")
 

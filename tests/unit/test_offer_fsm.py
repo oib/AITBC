@@ -1,4 +1,4 @@
-"""Unit tests for aitbc.marketplace.offer_fsm (v0.6.6 §A3).
+"""Unit tests for aitbc.market.offer_fsm (v0.6.6 §A3).
 
 Covers the full offer lifecycle state machine: valid transitions,
 invalid transitions (raise ValueError), terminal states, and helper
@@ -9,7 +9,7 @@ from __future__ import annotations
 
 import pytest
 
-from aitbc.marketplace.offer_fsm import OfferFSM, OfferStatus
+from aitbc.market.offer_fsm import OfferFSM, OfferStatus
 
 
 # ---------------------------------------------------------------------------
@@ -259,7 +259,7 @@ def test_offer_status_string_value() -> None:
 
 
 def test_package_reexport() -> None:
-    from aitbc.marketplace import OfferFSM as ExportedFSM, OfferStatus as ExportedStatus
+    from aitbc.market import OfferFSM as ExportedFSM, OfferStatus as ExportedStatus
 
     assert ExportedFSM is OfferFSM
     assert ExportedStatus is OfferStatus

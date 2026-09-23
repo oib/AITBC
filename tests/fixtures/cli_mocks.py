@@ -258,7 +258,7 @@ def mock_config():
     config.wallet_url = "http://localhost:8108"
     config.exchange_service_url = "http://localhost:8106/api/v1"
     config.gpu_service_url = "http://localhost:8101"
-    config.marketplace_service_url = "http://localhost:8102"
+    config.market_service_url = "http://localhost:8102"
     config.trading_service_url = "http://localhost:8104"
     config.governance_service_url = "http://localhost:8105"
     config.edge_api_host = "localhost"

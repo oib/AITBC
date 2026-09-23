@@ -831,7 +831,7 @@ class IPFSSubscription(ChainBase, table=True):
     expires_at_block: int = Field(default=0)
     quota_bytes: int = Field(default=0)
     # Never incremented by any writer -- quota accounting for IPFS storage is
-    # done off-chain by the marketplace (see contexts/ipfs island access docs).
+    # done off-chain by the market (see contexts/ipfs island access docs).
     used_bytes: int = Field(default=0)
     created_tx_hash: str | None = None
     updated_tx_hash: str | None = None

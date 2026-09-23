@@ -146,7 +146,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
             store=TaskEscrowStore(),
         )
         # v0.25: on-chain escrow via the same /rpc/escrow/* routes the
-        # marketplace uses. The callbacks are built per call in the tasks
+        # market uses. The callbacks are built per call in the tasks
         # router (the four-arg EscrowCallback signature can't carry the
         # task_id/lock_tx context the chain endpoints need).
         state.escrow_rpc = ChainEscrowClient(

@@ -1,7 +1,7 @@
 # CLI Commands Verification
 
 **Level**: Intermediate
-**Prerequisites**: [Scenario 26 GPU Marketplace N+1 Query Fix](./26_gpu_nplus1_query.md)
+**Prerequisites**: [Scenario 26 GPU Market N+1 Query Fix](./26_gpu_nplus1_query.md)
 **Estimated Time**: 10 minutes
 **Last Updated**: 2026-08-21
 **Version**: 1.4
@@ -16,7 +16,7 @@ breadcrumb: Home > Scenarios > CLI Commands Verification
 
 ## See Also
 
-- **Previous Scenario**: [Scenario 26 GPU Marketplace N+1 Query Fix](./26_gpu_nplus1_query.md)
+- **Previous Scenario**: [Scenario 26 GPU Market N+1 Query Fix](./26_gpu_nplus1_query.md)
 - **Next Scenario**: [Scenario 28 HTTP Client Resource Cleanup](./28_http_client_cleanup.md)
 - **Feature Documentation**: [CLI README](../../cli/README.md)
 
@@ -138,7 +138,7 @@ aitbc operations governance --help
 **Expected output:**
 
 - `aitbc market` is the GPU/software offer group used by shop providers and customers.
-- `aitbc marketplace` no longer exists — the old global chain-listings group has been removed from the CLI (`aitbc marketplace --help` returns an error).
+- `aitbc market` no longer exists — the old global chain-listings group has been removed from the CLI (`aitbc market --help` returns an error).
 - `aitbc governance` queries the governance service on port 8105.
 - `aitbc operations governance` uses the blockchain RPC vote/proposal path; the `operations` group is deprecated and hidden from `aitbc --help`.
 

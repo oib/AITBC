@@ -52,7 +52,7 @@ Stores transactions.
 | `nonce` | INTEGER | | Sender nonce |
 | `value` | INTEGER | | Transfer amount in compute-units (1 AIT = 36,000,000) |
 | `fee` | INTEGER | | Fee in compute-units |
-| `type` | VARCHAR | INDEX | `TRANSFER`, `MESSAGE`, `RECEIPT_CLAIM`, `GPU_MARKETPLACE`, `EXCHANGE`, ... |
+| `type` | VARCHAR | INDEX | `TRANSFER`, `MESSAGE`, `RECEIPT_CLAIM`, `GPU_MARKET`, `EXCHANGE`, ... |
 | `status` | VARCHAR | | `pending`, `confirmed`, ... |
 | `timestamp` | VARCHAR | NULLABLE | Client-supplied timestamp |
 | `tx_metadata` | VARCHAR | NULLABLE | JSON metadata |

@@ -23,7 +23,7 @@ upstream agent_coordinator {
     server 127.0.0.1:8107;
 }
 
-upstream marketplace_service {
+upstream market_service {
     server 127.0.0.1:8102;
 }
 
@@ -573,13 +573,48 @@ server {
     }
 
 
-    # ── Marketplace API ───────────────────────────────────────
+    # ── Market API ────────────────────────────────────────────
 
-    # Coordinator owns the public /v1/marketplace/offers + /plugins names.
-    # Exact-match beats the /v1/marketplace/ prefix below, so offers/plugins
-    # subroutes still reach the marketplace service on :8102.
+    # Coordinator owns the public /v1/market/offers + /plugins names.
+    # Exact-match beats the /v1/market/ prefix below, so offers/plugins
+    # subroutes still reach the market service on :8102.
+    location = /v1/market/offers {
+        proxy_pass http://coordinator_api/v1/market/offers;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    location = /v1/market/plugins {
+        proxy_pass http://coordinator_api/v1/market/plugins;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    location /v1/market/ {
+        proxy_pass http://market_service/v1/market/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # Legacy public spellings stay live until their removal is approved.
+    # They proxy to the canonical /v1/market/* upstream paths.
     location = /v1/marketplace/offers {
-        proxy_pass http://coordinator_api/v1/marketplace/offers;
+        proxy_pass http://coordinator_api/v1/market/offers;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -590,7 +625,7 @@ server {
     }
 
     location = /v1/marketplace/plugins {
-        proxy_pass http://coordinator_api/v1/marketplace/plugins;
+        proxy_pass http://coordinator_api/v1/market/plugins;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -601,7 +636,7 @@ server {
     }
 
     location /v1/marketplace/ {
-        proxy_pass http://marketplace_service/v1/marketplace/;
+        proxy_pass http://market_service/v1/market/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;

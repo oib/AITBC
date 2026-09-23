@@ -167,7 +167,7 @@ def aitbc_ai_pay(
     wallet: Annotated[str, Field(description="Wallet name to sign the escrow lock")],
     buyer_address: Annotated[str | None, Field(description="Override buyer/customer address")],
     provider_address: Annotated[str | None, Field(description="Override provider address")],
-    offer_id: Annotated[str | None, Field(description="Marketplace offer this job is bought against")],
+    offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")],
     offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy")],
     currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")],
     coordinator_url: Annotated[str | None, Field(description="Coordinator URL")],
@@ -488,7 +488,7 @@ def aitbc_ai_submit(
     currency: Annotated[str | None, Field(description="Payment currency (default: AITBC)")],
     buyer_address: Annotated[str | None, Field(description="Customer wallet address for escrow")],
     provider_address: Annotated[str | None, Field(description="Provider wallet address for escrow")],
-    offer_id: Annotated[str | None, Field(description="Marketplace offer this job is bought against")],
+    offer_id: Annotated[str | None, Field(description="Market offer this job is bought against")],
     offer_quantity: Annotated[str | None, Field(description="How many of the offer's price units to buy (default: 1)")],
     acceptance_window: Annotated[
         int | None, Field(description="Seconds after completion before payment auto-releases (default: 0)")

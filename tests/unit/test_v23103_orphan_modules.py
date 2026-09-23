@@ -1,6 +1,6 @@
 """V23-103: nothing stopped a module that nothing imports from being added.
 
-V23-102 deleted ``MarketplaceMonitor`` -- 280 lines of marketplace alerting that no code
+V23-102 deleted ``MarketMonitor`` -- 280 lines of market alerting that no code
 path could reach. Deleting it fixed one module. It did not fix the reason there were 21
 more behind it, which is that nothing in this repository has ever noticed when a file
 stops being imported.
@@ -67,25 +67,25 @@ class TestTheScanSeparatesReachableFromUnreachable:
         # The control. Without it, a scan that returned every file in the tree would pass
         # the test above.
         found = lint._scan()
-        assert COORD + "contexts/marketplace/services/marketplace.py" not in found
+        assert COORD + "contexts/market/services/market.py" not in found
 
     def test_a_name_that_appears_only_as_a_string_does_not_count_as_an_import(self, lint):
         """The reason the conservative count is wrong.
 
         ``external_providers`` appears as a table name string in
-        ``scripts/migration/create_advanced_marketplace_tables.py`` and ``fhe_enhanced``
+        ``scripts/migration/create_advanced_market_tables.py`` and ``fhe_enhanced``
         appears in the ``fhe.py`` router docstring. Grep calls both reachable. Neither
         string can execute the module, and an AST walk says so.
         """
         found = lint._scan()
-        assert COORD + "contexts/marketplace/services/external_providers.py" in found
+        assert COORD + "contexts/market/services/external_providers.py" in found
         assert COORD + "contexts/zk_applications/services/fhe_enhanced.py" in found
 
     def test_entrypoints_are_not_reported(self, lint):
         """Nothing imports a ``main.py``; a process starts it."""
         assert not lint._is_candidate(Path(COORD + "main.py"))
         assert not lint._is_candidate(Path(COORD + "__init__.py"))
-        assert lint._is_candidate(Path(COORD + "contexts/marketplace/services/anything.py"))
+        assert lint._is_candidate(Path(COORD + "contexts/market/services/anything.py"))
 
 
 class TestATestOnlyImportStillCountsAsReachable:
@@ -94,14 +94,14 @@ class TestATestOnlyImportStillCountsAsReachable:
     """
 
     def test_files_under_tests_are_importers_but_never_candidates(self, lint):
-        assert not lint._is_candidate(Path(COORD + "contexts/marketplace/tests/helper.py"))
+        assert not lint._is_candidate(Path(COORD + "contexts/market/tests/helper.py"))
         tracked = {p.as_posix() for p in lint._tracked_python_files()}
         assert any(p.startswith("tests/") for p in tracked), "tests must be in the importer set"
 
     def test_a_module_imported_only_by_a_test_is_not_reported(self, lint, tmp_path):
         """Synthetic, because relying on a real example ties the test to one that may be
         deleted later for unrelated reasons."""
-        module = Path(COORD + "contexts/marketplace/services/only_a_test_uses_me.py")
+        module = Path(COORD + "contexts/market/services/only_a_test_uses_me.py")
         test_file = Path("tests/unit/test_pretend.py")
 
         def fake_tracked():
@@ -192,18 +192,18 @@ class TestAKeepJustifiedByDocsCanActuallyBeImportedThatWay:
         ("doc", "module", "attr"),
         [
             (
-                "docs/marketplace/advanced-marketplace/04-ml-search.md",
-                "coordinator_api.contexts.marketplace.services.resource_matcher",
+                "docs/market/advanced-market/04-ml-search.md",
+                "coordinator_api.contexts.market.services.resource_matcher",
                 "ResourceMatcher",
             ),
             (
-                "docs/marketplace/advanced-marketplace/06-external-providers.md",
-                "coordinator_api.contexts.marketplace.services.external_providers",
+                "docs/market/advanced-market/06-external-providers.md",
+                "coordinator_api.contexts.market.services.external_providers",
                 "ExternalProviderService",
             ),
             (
-                "docs/marketplace/advanced-marketplace/05-analytics.md",
-                "coordinator_api.contexts.marketplace.services.market_analytics",
+                "docs/market/advanced-market/05-analytics.md",
+                "coordinator_api.contexts.market.services.market_analytics",
                 "MarketAnalytics",
             ),
             (

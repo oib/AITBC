@@ -6,7 +6,7 @@
 
 ## Description
 
-Central API coordinator exposing REST endpoints for agents, miners, marketplace, governance, and all core services. Built on FastAPI with SQLAlchemy and Pydantic. The primary integration hub.
+Central API coordinator exposing REST endpoints for agents, miners, market, governance, and all core services. Built on FastAPI with SQLAlchemy and Pydantic. The primary integration hub.
 
 ## Node Type
 

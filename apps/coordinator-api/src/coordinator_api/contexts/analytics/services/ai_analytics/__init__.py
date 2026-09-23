@@ -5,11 +5,11 @@ consume the analytics context's domain models.
 """
 
 from .advanced_learning import AdvancedLearningService
-from .analytics import AnalyticsEngine, DashboardManager, MarketplaceAnalytics
+from .analytics import AnalyticsEngine, DashboardManager, MarketAnalytics
 
 __all__ = [
     "AdvancedLearningService",
     "AnalyticsEngine",
     "DashboardManager",
-    "MarketplaceAnalytics",
+    "MarketAnalytics",
 ]

@@ -16,7 +16,7 @@ permission on the *directory*, not just on `api_keys.json`.
 
 `APIKeyManager()` is instantiated at module scope in `aitbc.auth`, so if the directory is not
 writable, every service that imports it dies during import and systemd restart-loops it. This
-took down coordinator-api, pool-hub, gpu, marketplace and trading at once.
+took down coordinator-api, pool-hub, gpu, market and trading at once.
 
 ```bash
 sudo chown root:aitbc /var/lib/aitbc && sudo chmod 2775 /var/lib/aitbc

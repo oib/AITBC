@@ -37,7 +37,7 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 
 **Path**: `apps/gpu`
 **Status**: active
-**Purpose**: GPU resource management and marketplace
+**Purpose**: GPU resource management and market
 **Maintainer**: @aitbc-gpu
 **Service File**: `aitbc-gpu.service`
 **Recent Activity**: Active development (last commit: 2025-06-18)
@@ -67,15 +67,15 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 **Maintainer**: @aitbc-public
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
-## Marketplace & Trading
+## Market & Trading
 
-### Marketplace
+### Market
 
-**Path**: `apps/marketplace`
+**Path**: `apps/market`
 **Status**: active
-**Purpose**: GPU and compute resource marketplace
+**Purpose**: GPU and compute resource market
 **Maintainer**: @aitbc-internal
-**Service File**: `aitbc-marketplace.service`
+**Service File**: `aitbc-market.service`
 **Recent Activity**: Active development (last commit: 2025-06-18)
 
 ### Exchange

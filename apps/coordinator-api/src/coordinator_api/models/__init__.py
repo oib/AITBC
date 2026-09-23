@@ -3,7 +3,7 @@ Models package for the AITBC Coordinator API
 """
 
 # Import basic types from types.py to avoid circular imports
-from aitbc_shared import MarketplaceOffer, JobPayment, PaymentEscrow
+from aitbc_shared import MarketOffer, JobPayment, PaymentEscrow
 from ..custom_types import (
     Constraints,
     JobState,
@@ -45,8 +45,8 @@ from ..schemas import (
     KeyRegistrationRequest,
     KeyRegistrationResponse,
     KeyRotationLog,
-    MarketplaceOfferView,
-    MarketplaceStatsView,
+    MarketOfferView,
+    MarketStatsView,
     MinerHeartbeat,
     MinerRegister,
     PollRequest,
@@ -79,7 +79,7 @@ __all__ = [
     "Job",
     "Miner",
     "JobReceipt",
-    "MarketplaceOffer",
+    "MarketOffer",
     "ServiceType",
     "ServiceRequest",
     "ServiceResponse",

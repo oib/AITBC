@@ -12,7 +12,7 @@ authenticates the agent WebSocket, where `agent_id` is a query parameter and the
 only check — so it connects as *any* agent and reaches `request_coins_handler`, which signs
 and submits on the spot rather than writing a row. And `require_miner_api_key` falls back to
 it whenever `miner_api_keys` is empty, which is the default and is what the deployed hub has,
-making it a miner credential on coordinator-api's miner, settlement and marketplace routers.
+making it a miner credential on coordinator-api's miner, settlement and market routers.
 
 So the tests that matter here are the negative ones. `FOLLOWER_API_KEY` opening `/register`
 and `/execute` is the easy half; what makes it publishable is that it opens nothing else, and

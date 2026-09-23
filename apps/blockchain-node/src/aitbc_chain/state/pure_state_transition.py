@@ -463,10 +463,10 @@ def compute_state_delta(
             escrow_context,
         )
 
-    # Value-zero types: MESSAGE and GPU_MARKETPLACE must not move funds.
-    # GPU_MARKETPLACE has no dedicated apply branch, so a nonzero value would
+    # Value-zero types: MESSAGE and GPU_MARKET must not move funds.
+    # GPU_MARKET has no dedicated apply branch, so a nonzero value would
     # execute as a plain transfer — including via the unsigned offer path.
-    if tx_type in {"MESSAGE", "GPU_MARKETPLACE"} and value != 0:
+    if tx_type in {"MESSAGE", "GPU_MARKET"} and value != 0:
         return StateDelta(
             sender=sender,
             recipient=recipient,

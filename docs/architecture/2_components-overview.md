@@ -20,7 +20,7 @@ FastAPI service for job submission, miner registration, and receipt management. 
 
 [Learn More →](../development/1_overview.md#coordinator-api)
 
-### Marketplace Web
+### Market Web
 
 ● Live
 
@@ -105,7 +105,7 @@ The AITBC platform consists of the core components below (10 listed) working tog
 
 - **AITBC CLI** - top-level command groups are shown by default (`aitbc --help`); deprecated groups are hidden from help but still invocable (`aitbc operations`)
   - Canonical groups include: `account`, `ai`, `auth`, `bond`, `bridge`, `config`, `market`, `node`, `transactions`, `wallet`, and others
-  - `aitbc market` is the default GPU/software marketplace command; the legacy `aitbc marketplace` group has been removed entirely
+  - `aitbc market` is the default GPU/software market command; the legacy `aitbc market` group has been removed entirely
   - CI/CD via Gitea Actions, man page, shell completion
 
 ## Component Interactions

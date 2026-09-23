@@ -25,10 +25,10 @@ from ..contexts.edge_gpu.routers.edge_gpu import router as edge_gpu  # noqa: E40
 from ..contexts.governance.routers.governance import router as governance  # noqa: E402
 from ..contexts.governance.routers.governance_enhanced import router as governance_enhanced  # noqa: E402
 
-# Marketplace routers moved to contexts/marketplace
-from ..contexts.marketplace.routers.marketplace import router as marketplace  # noqa: E402
-from ..contexts.marketplace.routers.marketplace_gpu import router as marketplace_gpu  # noqa: E402
-from ..contexts.marketplace.routers.marketplace_offers import router as marketplace_offers  # noqa: E402
+# Market routers moved to contexts/market
+from ..contexts.market.routers.market import router as market  # noqa: E402
+from ..contexts.market.routers.market_gpu import router as market_gpu  # noqa: E402
+from ..contexts.market.routers.market_offers import router as market_offers  # noqa: E402
 
 # Payments router moved to contexts/payments
 from ..contexts.payments.routers.payments import router as payments  # noqa: E402
@@ -142,13 +142,13 @@ __all__ = [
     "client",
     "miner",
     "admin",
-    "marketplace",
-    "marketplace_gpu",
+    "market",
+    "market_gpu",
     "explorer",
     "services",
     "users",
     "exchange",
-    "marketplace_offers",
+    "market_offers",
     "payments",
     "web_vitals",
     "edge_gpu",

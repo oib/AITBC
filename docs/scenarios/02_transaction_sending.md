@@ -29,7 +29,7 @@ This scenario covers sending AIT token transactions and tracking their status on
 
 ### Use Case
 
-An AI agent needs to transfer AIT tokens to another address — for example, paying for compute resources, settling a marketplace purchase, or distributing rewards. The agent must sign the transaction with its wallet's private key, submit it to the blockchain node, and verify that it was included in a block.
+An AI agent needs to transfer AIT tokens to another address — for example, paying for compute resources, settling a market purchase, or distributing rewards. The agent must sign the transaction with its wallet's private key, submit it to the blockchain node, and verify that it was included in a block.
 
 ### What You'll Learn
 

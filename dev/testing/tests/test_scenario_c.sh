@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 # Scenario C: Container Service Operations Test (Updated for v0.4.x)
 
 echo "🚀 Scenario C: Container Service Operations"
@@ -54,9 +55,9 @@ if [ -n "$CONTAINER" ]; then
     ssh $CONTAINER "curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo 'RPC not responding'"
 
     echo ""
-    echo "📋 Step 5: Test marketplace CLI from container"
+    echo "📋 Step 5: Test market CLI from container"
     echo "==========================================="
-    ssh $CONTAINER "aitbc market list 2>/dev/null || echo 'Marketplace CLI not available'"
+    ssh $CONTAINER "aitbc market list 2>/dev/null || echo 'Market CLI not available'"
 
     echo ""
     echo "📋 Step 6: Test plugin registry from container"
@@ -88,9 +89,9 @@ echo "Shop: $SHOP_URL"
     curl -s $BLOCKCHAIN_RPC/rpc/head | jq .height 2>/dev/null || echo "RPC not responding"
 
     echo ""
-    echo "📋 Step 3: Test marketplace CLI locally"
+    echo "📋 Step 3: Test market CLI locally"
     echo "======================================"
-    aitbc market list 2>/dev/null || echo "Marketplace CLI not available"
+    aitbc market list 2>/dev/null || echo "Market CLI not available"
 
     echo ""
     echo "📋 Step 4: Test plugin registry locally"

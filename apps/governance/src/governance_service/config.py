@@ -15,7 +15,7 @@ from functools import lru_cache
 
 from aitbc_shared.core.config import ServiceSettings
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import SettingsConfigDict
 
 
@@ -66,11 +66,17 @@ class Settings(ServiceSettings):
     # v0.10.1: Target service URLs for parameter automation (applying governance-approved
     # parameter changes to the target service's parameter API after execution).
     poolhub_url: str = Field(default="http://127.0.0.1:8210")
-    marketplace_url: str = Field(default="http://localhost:8102")
+    market_url: str = Field(
+        default="http://localhost:8102",
+        validation_alias=AliasChoices("MARKET_URL", "MARKETPLACE_URL"),
+    )
 
     # API keys for target services (set via environment; never committed).
     # These are sent as X-Api-Key when calling /v1/{service}/parameters/apply.
-    marketplace_api_key: str = Field(default="")
+    market_api_key: str = Field(
+        default="",
+        validation_alias=AliasChoices("MARKET_API_KEY", "MARKETPLACE_API_KEY"),
+    )
     poolhub_api_key: str = Field(default="")
 
 

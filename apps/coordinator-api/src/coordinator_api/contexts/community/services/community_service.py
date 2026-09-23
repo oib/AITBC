@@ -97,7 +97,7 @@ class DeveloperEcosystemService:
 
 
 class ThirdPartySolutionService:
-    """Service for managing the third-party agent solutions marketplace"""
+    """Service for managing the third-party agent solutions market"""
 
     def __init__(self, session: Session):
         self.session = session

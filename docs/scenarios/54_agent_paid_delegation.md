@@ -3,8 +3,8 @@
 ## Goal
 
 A buyer agent hires a provider agent for a paid task without going through the
-marketplace job flow: negotiation travels over `agent-msg` envelopes, payment
-locks on-chain through the same `/rpc/escrow/*` routes the marketplace uses,
+market job flow: negotiation travels over `agent-msg` envelopes, payment
+locks on-chain through the same `/rpc/escrow/*` routes the market uses,
 and the provider executes against its local services.
 
 Loop:

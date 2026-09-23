@@ -14,7 +14,7 @@ NODE_MAP=(
 SSH_USER="aitbc-admin"
 SSH_KEY="~/.ssh/aitbc-deploy-key"
 APP_DIR="/var/www/aitbc"
-SERVICES=("aitbc-coordinator-api" "aitbc-marketplace" "aitbc-agent-worker")
+SERVICES=("aitbc-coordinator-api" "aitbc-market" "aitbc-agent-worker")
 
 # Logging
 log() {

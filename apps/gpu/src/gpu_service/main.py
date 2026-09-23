@@ -18,7 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
-from aitbc.marketplace import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
+from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus  # noqa: E402
 from aitbc.utils.units import DEFAULT_TX_FEE_UNITS  # noqa: E402
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
@@ -206,7 +206,7 @@ async def get_gpu(gpu_id: str, session: Annotated[AsyncSession, Depends(get_sess
     """Get a specific GPU by ID"""
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
@@ -241,7 +241,7 @@ async def delete_gpu(
     """Delete a specific GPU by ID"""
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
@@ -267,7 +267,7 @@ async def update_gpu(
     """Update a specific GPU by ID"""
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         result = await session.execute(select(GPURegistry).where(GPURegistry.id == gpu_id))  # type: ignore[arg-type]
@@ -293,7 +293,7 @@ async def update_gpu(
         return JSONResponse(status_code=500, content={"error": "Internal server error"})
 
 
-@app.get("/v1/marketplace/edge-gpu/profiles")
+@app.get("/v1/market/edge-gpu/profiles")
 async def get_consumer_gpu_profiles(
     svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
     architecture: str | None = None,
@@ -301,13 +301,13 @@ async def get_consumer_gpu_profiles(
     min_memory_gb: int | None = None,
 ):
     """Get consumer GPU profiles"""
-    from .domain.gpu_marketplace import GPUArchitecture
+    from .domain.gpu_market import GPUArchitecture
 
     arch = GPUArchitecture(architecture) if architecture else None
     return await svc.list_profiles(architecture=arch, edge_optimized=edge_optimized, min_memory_gb=min_memory_gb)
 
 
-@app.get("/v1/marketplace/edge-gpu/metrics/{gpu_id}")
+@app.get("/v1/market/edge-gpu/metrics/{gpu_id}")
 async def get_edge_gpu_metrics(
     gpu_id: str,
     svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
@@ -317,7 +317,7 @@ async def get_edge_gpu_metrics(
     return await svc.list_metrics(gpu_id=gpu_id, limit=limit)
 
 
-@app.post("/v1/marketplace/edge-gpu/scan/{miner_id}")
+@app.post("/v1/market/edge-gpu/scan/{miner_id}")
 async def scan_edge_gpus(
     miner_id: str,
     svc: Annotated[EdgeGPUService, Depends(get_edge_service)],
@@ -339,7 +339,7 @@ class QueueJobRequest(BaseModel):
     payload: dict[str, Any]
 
 
-@app.post("/v1/marketplace/edge-gpu/optimize/inference/{gpu_id}")
+@app.post("/v1/market/edge-gpu/optimize/inference/{gpu_id}")
 async def optimize_inference(
     gpu_id: str, request: OptimizeInferenceRequest, svc: Annotated[EdgeGPUService, Depends(get_edge_service)]
 ):
@@ -423,10 +423,10 @@ async def submit_transaction(
     session: Annotated[AsyncSession, Depends(get_session_dep)],
     authenticated: Annotated[dict[str, Any], Depends(require_gpu_api_key)],
 ):
-    """Submit GPU marketplace transaction to blockchain"""
+    """Submit GPU market transaction to blockchain"""
     transaction_type = transaction_data.get("type")
     action = transaction_data.get("action")
-    if transaction_type != "gpu_marketplace":
+    if transaction_type != "gpu_market":
         return JSONResponse(status_code=400, content={"error": "Invalid transaction type for GPU service"})
     try:
         if action == "offer":
@@ -505,7 +505,7 @@ async def submit_transaction(
                 "chain_id": blockchain_tx.get("chain_id", settings.default_chain_id),
                 "blockchain_tx_hash": blockchain_tx_hash,
             }
-            from .domain.gpu_marketplace import GPURegistry
+            from .domain.gpu_market import GPURegistry
 
             gpu = GPURegistry(**gpu_data)
             session.add(gpu)
@@ -536,10 +536,10 @@ async def get_transactions(
     status: str | None = None,
     island_id: str | None = None,
 ):
-    """Query GPU marketplace transactions"""
+    """Query GPU market transactions"""
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         transactions = []
@@ -580,7 +580,7 @@ async def register_gpu(
 
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         gpu_id = gpu_data.get("gpu_id", f"gpu_{uuid4().hex[:8]}")
@@ -653,7 +653,7 @@ async def register_miner(
 
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         miner_id = miner_data.get("miner_id", f"miner_{uuid4().hex[:8]}")
@@ -675,7 +675,7 @@ async def miner_heartbeat(heartbeat_data: dict[str, Any], session: Annotated[Asy
     """Send miner heartbeat"""
     from sqlalchemy import update
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         miner_id = heartbeat_data.get("miner_id")
@@ -694,7 +694,7 @@ async def get_miner_gpus(miner_id: str, session: Annotated[AsyncSession, Depends
     """Get GPUs registered by a miner"""
     from sqlalchemy import select
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         result = await session.execute(select(GPURegistry).where(GPURegistry.miner_id == miner_id))  # type: ignore[arg-type]
@@ -778,7 +778,7 @@ async def deregister_miner(
     """Deregister miner"""
     from sqlalchemy import update
 
-    from .domain.gpu_marketplace import GPURegistry
+    from .domain.gpu_market import GPURegistry
 
     try:
         stmt = update(GPURegistry).where(GPURegistry.miner_id == miner_id).values(status="offline")  # type: ignore[arg-type]

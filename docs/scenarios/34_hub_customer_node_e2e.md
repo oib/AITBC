@@ -33,7 +33,7 @@ Hub RPC/coordinator/exchange often bind `127.0.0.1`. Public access is nginx (`ht
 
 ### Use Case
 
-Prove tokens → job → GPU → `ESCROW_RELEASE` → marketplace offer on the live two-node island.
+Prove tokens → job → GPU → `ESCROW_RELEASE` → market offer on the live two-node island.
 
 ### What You'll Learn
 
@@ -85,7 +85,7 @@ Hub `8202/8203/8106/8107` are typically `127.0.0.1`. Options:
 
 1. Run customer CLI **on the hub** (this play).
 2. SSH tunnel: `ssh -L 8202:localhost:8202 -L 8203:localhost:8203 -L 8106:localhost:8106 user@hub.example.net`
-3. nginx public URLs for marketplace / miner callbacks.
+3. nginx public URLs for market / miner callbacks.
 
 Do not assume shop can `curl` hub LAN ports.
 
@@ -196,7 +196,7 @@ aitbc account get --address 0xA54B82312beb65D0E90c21717ea372396991Fa36
 
 Live replay 2026-08-20: job `4ad8e281871640fa8b1b25716c92c2c8`, release `0xa6dab9b7…` in hub block **7548**, `test-wallet-3` **1.9500 AIT** after two releases.
 
-### Step 9: GPU marketplace offer from the shop
+### Step 9: GPU market offer from the shop
 
 On `<node2>` as the `aitbc` user (island credentials are `aitbc:aitbc` mode 600; `blockchain-secrets.env` is root:600 — do not chown as a workaround):
 
@@ -210,7 +210,7 @@ On the hub/customer:
 aitbc market list --service-type ollama
 ```
 
-**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `<node2>`, plus an on-chain `GPU_MARKETPLACE` hash. Offers published by registered agents show a live trust score (e.g. `Rating: 0.68 trust`) instead of the local review count.
+**Expected output:** `llama3.2:3b` @ `0.00100000 per_1k_tokens`, Node ID `<node2>`, plus an on-chain `GPU_MARKET` hash. Offers published by registered agents show a live trust score (e.g. `Rating: 0.68 trust`) instead of the local review count.
 
 ### Step 10: Dashboard validation
 
@@ -226,7 +226,7 @@ Shop view (on `<node2>` as `aitbc`):
 aitbc dashboard shop
 ```
 
-**Expected output:** customer summary shows jobs, payment statuses and wallet balances; shop summary shows marketplace offers, wallet addresses, and network job/miner counts. The dashboard uses the stored client/miner JWT; the customer view needs `role: client` and the shop view needs `role: miner`.
+**Expected output:** customer summary shows jobs, payment statuses and wallet balances; shop summary shows market offers, wallet addresses, and network job/miner counts. The dashboard uses the stored client/miner JWT; the customer view needs `role: client` and the shop view needs `role: miner`.
 
 ### Step 11: High-value ZK receipt proof
 
@@ -296,18 +296,18 @@ journalctl -u aitbc-coordinator-api --since "10 min ago" --no-pager | grep -c jo
 journalctl -u aitbc-miner --since "10 min ago" --no-pager | grep -i completed || true
 ```
 
-Marketplace and escrow automated e2e validation:
+Market and escrow automated e2e validation:
 
 ```bash
-# Run against a node where both marketplace and blockchain RPC are up.
+# Run against a node where both market and blockchain RPC are up.
 # Set E2E_NODE_WALLET_ADDRESS to the node wallet that receives escrow locks.
 E2E_NODE_WALLET_ADDRESS=ait1fe2d63fe87db282083b9159e5857cac788af9e03 \
   BLOCKCHAIN_URL=http://localhost:8202 \
   JWT_SECRET=<coordinator-jwt-secret> \
-  pytest tests/e2e/test_marketplace_escrow.py -v -m e2e --timeout=300
+  pytest tests/e2e/test_market_escrow.py -v -m e2e --timeout=300
 ```
 
-This suite exercises the same marketplace offer, booking, and escrow lock/release endpoints the product path uses. Tests that require the node wallet or on-chain settlement are skipped automatically when those are not configured.
+This suite exercises the same market offer, booking, and escrow lock/release endpoints the product path uses. Tests that require the node wallet or on-chain settlement are skipped automatically when those are not configured.
 
 Auth and ZK validation:
 

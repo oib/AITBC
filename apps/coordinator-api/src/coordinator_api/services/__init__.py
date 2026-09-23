@@ -2,7 +2,7 @@
 Service layer for coordinator business logic.
 
 This module uses a lazy import pattern to avoid importing all services at startup.
-Only the 4 core services (JobService, MinerService, MarketplaceService, ExplorerService)
+Only the 4 core services (JobService, MinerService, MarketService, ExplorerService)
 are exported in __all__ and loaded immediately via __getattr__.
 
 All flat service files have been migrated to their owning bounded contexts.
@@ -22,12 +22,12 @@ For services not in __all__, import them directly from their context:
 from importlib import import_module
 from typing import Any
 
-__all__ = ["JobService", "MinerService", "MarketplaceService", "ExplorerService"]
+__all__ = ["JobService", "MinerService", "MarketService", "ExplorerService"]
 
 _MODULE_BY_EXPORT = {
     "ExplorerService": "..contexts.infrastructure.services.explorer",
     "JobService": "..contexts.infrastructure.services.jobs",
-    "MarketplaceService": "..contexts.marketplace.services.marketplace",
+    "MarketService": "..contexts.market.services.market",
     "MinerService": "..contexts.infrastructure.services.miners",
 }
 

@@ -16,8 +16,8 @@ care what the server said. Only ``-f`` turns an HTTP error into a non-zero exit.
 defect, a readiness gate on ``/v1/health`` waited for a service that was already up, got a
 404, and called it ready -- ``diagnose-services.sh`` printed ``{"detail":"Not Found"}  OK``.
 
-Underneath both sat three port maps that disagreed: ``aitbc/constants.py`` had marketplace on
-8081 and exchange on 8001 (nothing has ever bound either), ``lib/services.sh`` had marketplace
+Underneath both sat three port maps that disagreed: ``aitbc/constants.py`` had market on
+8081 and exchange on 8001 (nothing has ever bound either), ``lib/services.sh`` had market
 on 8107 (agent-coordinator) and trading on 8201 (api-gateway), and only
 ``scripts/monitoring/health_check.sh`` -- rebuilt in V23-98 -- was right.
 
@@ -44,7 +44,7 @@ DOCS_DIR = REPO_ROOT / "docs"
 # table: check-openapi-drift.sh regenerates it from the live app on every commit, so a path
 # that is not in here is a path the app does not answer.
 SPEC_BACKED_PORTS: dict[int, str] = {
-    8102: "marketplace",
+    8102: "market",
     8107: "agent-coordinator",
     8108: "wallet",
     8202: "blockchain-node",
@@ -276,12 +276,12 @@ class TestPortMapsAgree:
             BLOCKCHAIN_RPC_PORT,
             COORDINATOR_API_PORT,
             EXCHANGE_PORT,
-            MARKETPLACE_PORT,
+            MARKET_PORT,
             WALLET_PORT,
         )
 
         health = {svc: port for svc, (port, _) in _endpoint_map().items()}
-        assert MARKETPLACE_PORT == health["aitbc-marketplace"]
+        assert MARKET_PORT == health["aitbc-market"]
         assert EXCHANGE_PORT == health["aitbc-exchange"]
         assert COORDINATOR_API_PORT == health["aitbc-coordinator-api"]
         assert BLOCKCHAIN_RPC_PORT == health["aitbc-blockchain-rpc"]
@@ -290,16 +290,14 @@ class TestPortMapsAgree:
 
     def test_constants_ports_are_the_ports_the_units_start(self):
         """The numbers in constants.py must be the ones the systemd units pass to uvicorn."""
-        from aitbc.constants import EXCHANGE_PORT, MARKETPLACE_PORT
+        from aitbc.constants import EXCHANGE_PORT, MARKET_PORT
 
         exchange_unit = (REPO_ROOT / "apps" / "exchange" / "aitbc-exchange.service").read_text()
         assert f"--port {EXCHANGE_PORT}" in exchange_unit, (
             f"constants.EXCHANGE_PORT={EXCHANGE_PORT} is not what aitbc-exchange.service starts"
         )
-        marketplace_unit = (REPO_ROOT / "apps" / "marketplace" / "aitbc-marketplace.service").read_text()
-        assert str(MARKETPLACE_PORT) in marketplace_unit, (
-            f"constants.MARKETPLACE_PORT={MARKETPLACE_PORT} is not what aitbc-marketplace.service starts"
-        )
+        market_unit = (REPO_ROOT / "apps" / "market" / "aitbc-market.service").read_text()
+        assert str(MARKET_PORT) in market_unit, f"constants.MARKET_PORT={MARKET_PORT} is not what aitbc-market.service starts"
 
 
 class TestUndeclaredPortInventory:
@@ -347,12 +345,12 @@ class TestSpecificRegressions:
             )
 
     def test_rotate_jwt_secret_verifies_the_service_it_names(self):
-        """The marketplace gate probed 8104, which is trading, and passed while marketplace was down."""
+        """The market gate probed 8104, which is trading, and passed while market was down."""
         text = (REPO_ROOT / "scripts" / "ops" / "rotate_jwt_secret.sh").read_text()
-        marketplace = re.search(r'"aitbc-marketplace"\)(.*?);;', text, re.DOTALL)
-        assert marketplace, "the aitbc-marketplace case is gone from rotate_jwt_secret.sh"
-        assert "8102" in marketplace.group(1), "the marketplace gate does not probe marketplace"
-        assert "8104" not in marketplace.group(1), "the marketplace gate still probes trading"
+        market = re.search(r'"aitbc-market"\)(.*?);;', text, re.DOTALL)
+        assert market, "the aitbc-market case is gone from rotate_jwt_secret.sh"
+        assert "8102" in market.group(1), "the market gate does not probe market"
+        assert "8104" not in market.group(1), "the market gate still probes trading"
 
     def test_monitoring_blackbox_targets_are_reachable_paths(self):
         text = (REPO_ROOT / "docs" / "infrastructure" / "monitoring-setup.md").read_text()

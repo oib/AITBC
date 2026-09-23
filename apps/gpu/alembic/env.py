@@ -23,7 +23,7 @@ from sqlalchemy import engine_from_config, pool
 
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
-from gpu_service.domain import gpu_marketplace  # noqa: E402,F401  (registers the tables)
+from gpu_service.domain import gpu_market  # noqa: E402,F401  (registers the tables)
 from gpu_service.domain.base import gpu_metadata  # noqa: E402
 
 config = context.config

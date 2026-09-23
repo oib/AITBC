@@ -146,7 +146,7 @@ def cached(ttl_seconds: int = 300, key_prefix: str = "") -> Callable[[Any], Any]
 
 
 CACHE_CONFIGS = {
-    "marketplace_stats": {"ttl_seconds": 300, "key_prefix": "marketplace_"},
+    "market_stats": {"ttl_seconds": 300, "key_prefix": "market_"},
     "job_list": {"ttl_seconds": 60, "key_prefix": "jobs_"},
     "miner_list": {"ttl_seconds": 120, "key_prefix": "miners_"},
     "user_balance": {"ttl_seconds": 30, "key_prefix": "balance_"},
@@ -178,17 +178,17 @@ class CacheWarmer:
     def __init__(self, session: Any) -> None:
         self.session = session
 
-    async def warm_marketplace_stats(self) -> None:
-        """Warm up marketplace statistics cache"""
+    async def warm_market_stats(self) -> None:
+        """Warm up market statistics cache"""
         try:
-            from ..contexts.marketplace.services.marketplace import MarketplaceService
+            from ..contexts.market.services.market import MarketService
 
-            service = MarketplaceService(self.session)
+            service = MarketService(self.session)
             stats = service.get_stats()
-            cache_manager.set("marketplace_stats_overview", stats, ttl_seconds=300)
-            logger.info("Marketplace stats cache warmed up")
+            cache_manager.set("market_stats_overview", stats, ttl_seconds=300)
+            logger.info("Market stats cache warmed up")
         except Exception as e:
-            logger.error("Failed to warm marketplace stats cache: %s", e)
+            logger.error("Failed to warm market stats cache: %s", e)
 
     async def warm_exchange_rates(self) -> None:
         """Warm up exchange rates cache"""

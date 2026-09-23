@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # AITBC Enhanced Services Status Check Script
 # Checks the status of all enhanced AITBC services
@@ -37,7 +38,7 @@ declare -A SERVICES=(
     ["aitbc-gpu-multimodal"]="8003:GPU Multi-Modal Service"
     ["aitbc-modality-optimization"]="8004:Modality Optimization Service"
     ["aitbc-adaptive-learning"]="8005:Adaptive Learning Service"
-    ["aitbc-marketplace-enhanced"]="8006:Enhanced Marketplace Service"
+    ["aitbc-market-enhanced"]="8006:Enhanced Market Service"
     ["aitbc-agent-enhanced"]="8007:agent Enhanced Service"
 )
 

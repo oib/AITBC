@@ -27,7 +27,7 @@ Routers = `*router*.py` / `routers/` modules; services = `services/` modules.
 | infrastructure | 13 | 10 | jobs, miners, explorer, inference, users, monitoring — the original core |
 | developer_platform | 9 | 2 | developer registry, API keys, webhooks, analytics |
 | agent_coordination | 7 | 11 | agent orchestration, swarm, messaging |
-| marketplace | 7 | 11 | marketplace, GPU marketplace, offers, bonds |
+| market | 7 | 11 | market, GPU market, offers, bonds |
 | governance | 6 | 5 | governance, enhanced governance, disputes |
 | zk_applications | 5 | 7 | ZK proof generation/verification, circuits, model registry |
 | multimodal | 4 | 5 | multimodal job handling, RL |
@@ -65,7 +65,7 @@ Routers = `*router*.py` / `routers/` modules; services = `services/` modules.
 ## Reading the map
 
 - **The core is small; the rim is not.** `infrastructure` + `payments` +
-  `marketplace` + `agent_coordination` carry the operational loop. The other
+  `market` + `agent_coordination` carry the operational loop. The other
   ~32 contexts are feature surface accumulated into the one deployable.
 - **Feature flags gate ~14 mounts.** A disabled flag removes routes at boot —
   meaning route inventory varies by deployment config, which is itself part of
@@ -81,7 +81,7 @@ Routers = `*router*.py` / `routers/` modules; services = `services/` modules.
 ## Why this exists
 
 The coordinator was meant to coordinate. It now also carries jobs, payments,
-reputation, marketplace, governance, ZK, TEE, staking, trading, bounties,
+reputation, market, governance, ZK, TEE, staking, trading, bounties,
 portfolios, knowledge, multimodal RL, compliance, developer platform, and
 ecosystem endpoints — every bounded context that is neither consensus nor
 execution landed here. Any future consolidation should be a decided
