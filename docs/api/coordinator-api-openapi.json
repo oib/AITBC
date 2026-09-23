@@ -3178,7 +3178,7 @@
             }
           },
           "400": {
-            "description": "resource_id is required / eur_per_kwh is not a valid number / tdp_watts must be positive / eur_per_kwh must be positive",
+            "description": "resource_id is required / eur_per_kwh is not a valid number / tbp_watts must be positive / eur_per_kwh must be positive",
             "content": {
               "application/json": {
                 "schema": {
