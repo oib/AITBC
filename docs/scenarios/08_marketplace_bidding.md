@@ -259,7 +259,7 @@ aitbc market run --offer-id-or-plugin-id <offer-id> --prompt 'Summarise this par
 aitbc market transcribe --offer-id-or-plugin-id <offer-id> --audio-file interview.mp3
 
 # Transcoding
-aitbc market process --offer-id-or-plugin-id <offer-id> --input clip.mov --codec h264
+aitbc market process --offer-id-or-plugin-id <offer-id> --input-file clip.mov --codec h264
 
 # One-shot agent run
 aitbc market hermes --offer-id-or-plugin-id <offer-id> --prompt 'check the chain height' --max-time 60

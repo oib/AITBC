@@ -260,7 +260,7 @@ snarkjs zkey export solidityverifier build/receipt_simple_final.zkey contracts/G
 
 ```bash
 # Deploy Groth16Verifier first (or include in ZKReceiptVerifier)
-npx hardhat run scripts/deploy-zk-verifier.ts --network sepolia
+npx hardhat run scripts/deploy-testnet.sh --network sepolia   # no deploy-zk-verifier.ts exists; deploy-testnet.sh is the checked-in script
 ```
 
 ### 3. Configure Authorization

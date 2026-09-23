@@ -35,7 +35,7 @@
 
 Implementation:
 
-- Export metrics at `/metrics` endpoint
+- Export metrics at `/v1/v1/metrics` endpoint
 - Use Prometheus for metrics collection, alerting and ad-hoc queries
 
 ### Log Aggregation

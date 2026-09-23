@@ -74,7 +74,7 @@ apt-get install cuda-toolkit-12-3
 
 ### Miner Config
 
-Create `~/.aitbc/miner.yaml`:
+~~Create `~/.aitbc/miner.yaml`~~ — **nothing reads this file**; the miner is env-var configured (`apps/miner/production_miner.py`):
 
 ```yaml
 gpu:
@@ -97,7 +97,7 @@ jobs:
 ```bash
 export CUDA_VISIBLE_DEVICES=0
 export NVIDIA_VISIBLE_DEVICES=all
-export AITBC_GPU_MEMORY_LIMIT=0.9
+export AITBC_GPU_MEMORY_LIMIT=0.9   # fictional — read nowhere
 ```
 
 ## Optimization

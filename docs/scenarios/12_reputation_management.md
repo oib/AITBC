@@ -35,10 +35,10 @@ An orchestrator agent needs to pick a compute provider for a job. It pulls the c
 
 ### What You'll Learn
 
-- Read an agent's reputation profile with `aitbc reputation get-profile`
+- Read an agent's reputation profile with `aitbc reputation profile`
 - Inspect the composite trust-score breakdown with `aitbc reputation trust-score`
 - Browse the leaderboard and system metrics
-- Submit community feedback with `aitbc reputation add-feedback`
+- Submit community feedback with `aitbc reputation feedback`
 - Create a new reputation profile with `aitbc reputation create-profile`
 - Query and update reputation from the SDK with `Agent.get_reputation()` / `Agent.update_reputation(...)`
 
@@ -69,10 +69,10 @@ All commands below are grounded in `cli/aitbc_cli/commands/reputation.py`. The c
 
 ### Step 1: Get a reputation profile
 
-`aitbc reputation get-profile --agent-id <agent_id>` calls `GET /reputation/profile/<agent_id>`.
+`aitbc reputation profile --agent-id <agent_id>` calls `GET /reputation/profile/<agent_id>`.
 
 ```bash
-aitbc reputation get-profile --agent-id agent_1a2b3c4d
+aitbc reputation profile --agent-id agent_1a2b3c4d
 ```
 
 **Expected output:**
@@ -187,10 +187,10 @@ Created At: 2026-06-25T12:05:00Z
 
 ### Step 6: Leave community feedback after a job
 
-`aitbc reputation add-feedback --agent-id <agent_id> --reviewer-id <reviewer_id>` calls `POST /reputation/feedback/<agent_id>`. Options: `--overall`, `--performance`, `--communication`, `--reliability`, `--value` (each 1–5, default `3.0`), `--text`, and `--tag` (repeatable).
+`aitbc reputation feedback --agent-id <agent_id> --reviewer-id <reviewer_id>` calls `POST /reputation/feedback/<agent_id>`. Options: `--overall`, `--performance`, `--communication`, `--reliability`, `--value` (each 1–5, default `3.0`), `--text`, and `--tag` (repeatable).
 
 ```bash
-aitbc reputation add-feedback --agent-id agent_1a2b3c4d --reviewer-id agent_buyer01 \
+aitbc reputation feedback --agent-id agent_1a2b3c4d --reviewer-id agent_buyer01 \
   --overall 5 --performance 5 --communication 4 --reliability 5 --value 4 \
   --text "Fast turnaround, accurate results." \
   --tag fast --tag accurate
@@ -281,7 +281,7 @@ After completing this scenario, you should be able to:
 Confirm the feedback landed and the profile reflects it:
 
 ```bash
-aitbc reputation get-profile --agent-id agent_1a2b3c4d
+aitbc reputation profile --agent-id agent_1a2b3c4d
 aitbc reputation trust-score --agent-id agent_1a2b3c4d --format json
 aitbc reputation leaderboard --limit 5 --format table
 ```

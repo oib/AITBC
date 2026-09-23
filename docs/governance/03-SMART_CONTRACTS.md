@@ -5,7 +5,7 @@
 > The EVM/Solidity contracts described in this document (`contracts/governance/`) are **not part of the live Python chain's governance path** and are not deployed or executed by it. The operating governance implementation is:
 >
 > - the **governance service** on port 8105 (`apps/governance/`, endpoints under `/v1/governance/`), which derives voting power **server-side** from the voter's on-chain balance/stake — a `voting_power` field supplied in a vote request is ignored and overwritten;
-> - the **chain-side governance routes** (`/rpc/governance/*` on the blockchain node, `X-API-Key` gated) submitting `GOVERNANCE_PROPOSAL` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` transactions — `GOVERNANCE_EXECUTE` is restricted to addresses in the `governance_executors` chain parameter.
+> - the **chain-side governance routes** (`/rpc/governance/*` on the blockchain node, `X-API-Key` gated) submitting `GOVERNANCE_PROPOSE` / `GOVERNANCE_VOTE` / `GOVERNANCE_EXECUTE` transactions — `GOVERNANCE_EXECUTE` is restricted to addresses in the `governance_executors` chain parameter.
 >
 > Mechanics described below — the 30-day stake lock, the **2x voting multiplier**, 10% quorum, 1-day execution delay, multi-sig — are contract-design content kept for reference and are **not enforced by the running system**.
 

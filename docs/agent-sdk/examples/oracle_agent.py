@@ -27,7 +27,7 @@ class OracleAgentExample:
         self.config = AgentConfig(
             name="oracle-agent-example",
             blockchain_network="testnet",
-            rpc_url="https://testnet-rpc.aitbc.net",
+            rpc_url="https://hub.aitbc.bubuit.net"  # placeholder: no testnet-rpc.aitbc.net exists,
             max_cpu_cores=2,
             max_memory_gb=4,
         )

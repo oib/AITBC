@@ -2,7 +2,7 @@
 
 > **Phantom index.** None of the documents listed below exist in the repo —
 > this page indexes analysis reports that were moved to internal storage
-> (`/root/aitbc/`) and ports 8010-8016 are the legacy enhanced-services
+> (`/root/aitbc/`) and ports 8010-8016 are the legacy enhanced-services   # check-ports: ignore
 > range, not current ports. Kept as a pointer to where those files went.
 
 

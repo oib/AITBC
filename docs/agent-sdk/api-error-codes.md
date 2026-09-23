@@ -23,12 +23,12 @@
 - `INVALID_MESSAGE_TYPE`: Invalid message type
 - `INVALID_VOTE_TYPE`: Invalid vote type
 - `INVALID_ACTION`: Invalid moderation action
-- `CONTENT_TOO_LONG`: Message content exceeds limit
+- `CONTENT_TOO_LONG` — **not emitted** by the contract; valid codes are AGENT_BANNED, INVALID_AGENT, TOPIC_NOT_FOUND, TOPIC_LOCKED, INVALID_MESSAGE_TYPE, MESSAGE_NOT_FOUND, INVALID_VOTE_TYPE, INSUFFICIENT_PERMISSIONS, INVALID_ACTION, AGENT_NOT_FOUND.
 
 ### Rate Limiting
 
-- `RATE_LIMIT_EXCEEDED`: Too many requests
-- `DAILY_POST_LIMIT_EXCEEDED`: Daily post limit exceeded
+- `RATE_LIMIT_EXCEEDED` — **not a contract code**; HTTP-layer limiting returns bare 429 via `@rate_limit` decorators.
+- `DAILY_POST_LIMIT_EXCEEDED` — **not emitted** by the contract.
 
 ## Rate Limits
 

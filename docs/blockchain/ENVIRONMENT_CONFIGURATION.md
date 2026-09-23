@@ -46,8 +46,8 @@ AITBC uses three environment configuration files:
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `NODE_HOST` | No | `0.0.0.0` | Override default host binding |
-| `NODE_PORT` | No | `7070` | Override default port (hub gossip relay) |
+| `NODE_HOST` | ~~No~~ — **not read anywhere** | `0.0.0.0` | fictional var; nothing reads it |
+| `NODE_PORT` | ~~No~~ — **not read anywhere** | `7070` | fictional var; the hub gossip-relay port comes from the p2p wrapper's hardcoded `--port 7070`, not env |
 
 ### Example node.env (Hub Node)
 
@@ -61,7 +61,7 @@ NODE_ID=hub
 # P2P Configuration
 p2p_node_id=node-ad4e9170aea04a349469d17758de7b27
 p2p_bind_host=0.0.0.0
-p2p_bind_port=7070
+p2p_bind_port=8200   # default is 8200 — 7070 is the hub-only gossip relay (wrapper flag); setting it here collides with aitbc-blockchain-p2p on the same host
 proposer_id=0x88A13a03119cfaefe99Bd4657b5F4DD4A2199AD7
 
 # P2P Peers (empty for hub node)
@@ -128,9 +128,9 @@ GOSSIP_BACKEND=websocket
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `API_KEY_HASH_SECRET` | Yes | - | Secret for API key hashing |
+| `API_KEY_HASH_SECRET` | Yes | - | Secret for API key hashing — written to the **coordinator-api** env (`aitbc-coordinator-api.env`), not `blockchain.env`; setup.sh strips it from blockchain.env |
 | `SECRET_KEY` | Yes | - | Application secret key |
-| `BLOCKCHAIN_API_KEY` | Yes | - | API key for blockchain access |
+| `BLOCKCHAIN_API_KEY` | ~~Yes~~ — **not read anywhere** | - | fictional var (0 code hits); RPC auth uses `RPC_API_KEYS`/api-keys storage |
 | `COORDINATOR_API_KEY` | Yes | - | API key for coordinator access |
 | `JWT_SECRET` | Yes | - | JWT signing secret |
 
@@ -147,9 +147,9 @@ GOSSIP_BACKEND=websocket
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
 | `REDIS_URL` | Yes | - | Redis connection URL |
-| `gossip_backend` | Yes | `broadcast` | Gossip backend type |
+| `gossip_backend` | No | `memory` (code default in `config.py:346`) | Gossip backend type |
 | `gossip_broadcast_url` | Yes | - | Redis URL for gossip broadcast |
-| `SYNC_REDIS_URL` | Yes | - | Redis URL for chain sync |
+| `SYNC_REDIS_URL` | ~~Yes~~ — **not read anywhere** | - | fictional var; chain sync uses subscription/heartbeat + bulk-pull RPC |
 
 ### Sync Configuration
 
@@ -417,7 +417,7 @@ from a published example.
 
 ## coordinator.env / Stale Miner Reaper Reference
 
-**Location:** `/etc/aitbc/coordinator.env` or `apps/coordinator-api/.env.example`
+**Location:** `/etc/aitbc/aitbc-coordinator-api.env` (unit `EnvironmentFile`) or `apps/coordinator-api/.env.example`
 **Purpose:** Control the background reaper that marks miners with stale heartbeats as `OFFLINE`.
 
 ### Variables
@@ -557,7 +557,7 @@ enable_block_production=false
 ```bash
 # Add to node.env (hub nodes only — followers don't need the p2p service)
 p2p_bind_host=0.0.0.0
-p2p_bind_port=7070
+p2p_bind_port=8200   # default is 8200 — 7070 is the hub-only gossip relay (wrapper flag); setting it here collides with aitbc-blockchain-p2p on the same host
 ```
 
 ### Issue: Chain ID mismatch

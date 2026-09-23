@@ -109,7 +109,7 @@ Content Types:
   - Case Studies: Monthly
 
 Distribution Channels:
-  - Blog: aitbc.dev/blog
+  - Blog: (no aitbc.dev site exists — distribution is via the GitHub repo/docs tree)
   - Newsletter: Weekly digest
   - Social Media: Daily updates
   - Community Forums: Ongoing

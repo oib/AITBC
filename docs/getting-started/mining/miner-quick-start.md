@@ -78,7 +78,7 @@ aitbc config profiles load --name mining
 
 # Performance monitoring
 aitbc monitor metrics --period 1h
-aitbc monitor alerts add --name gpu-miner-offline --type miner_offline --threshold 90
+aitbc monitor alerts --action create --name gpu-miner-offline --type miner_offline --threshold 90
 ```
 
 ## Next

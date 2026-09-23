@@ -205,10 +205,17 @@ require DB credentials, can be destructive, or need human judgement.
 
 ### Database migrations (alembic)
 
-If the update included schema changes, run alembic manually:
+`update.sh` already runs `scripts/deployment/run-migrations.sh` as its
+migration step — it reads each service's `DATABASE_URL` from
+`/etc/aitbc/aitbc-<svc>.env` and runs alembic per app. If you must run
+blockchain-node migrations manually, note its alembic default is
+`/var/lib/aitbc/data/chain.db` — a path no running node uses; islands need
+an explicit `DATABASE_URL`:
 
 ```bash
-cd /opt/aitbc/apps/blockchain-node && alembic upgrade head
+cd /opt/aitbc/apps/blockchain-node
+DATABASE_URL=sqlite:////var/lib/aitbc/data/<chain-id>/chain.db \
+  /opt/aitbc/venv/bin/alembic upgrade head
 ```
 
 Other apps with migrations:
@@ -270,12 +277,14 @@ ls -lt /var/backups/aitbc/ | head
 
 # Restore PostgreSQL (example: governance DB)
 BACKUP_DIR=/var/backups/aitbc/20260622_133800
-gunzip -c "$BACKUP_DIR/governance_postgres.sql.gz" \
+gunzip -c "$BACKUP_DIR/postgres_aitbc_governance.sql.gz" \
     | PGPASSWORD=$(cat /etc/aitbc/credentials/postgres_aitbc_governance_password) \
       psql -U aitbc_governance -h localhost aitbc_governance
 
-# Restore blockchain SQLite DB
-gunzip -c "$BACKUP_DIR/chain_blockchain.db.gz" > /var/lib/aitbc/data/blockchain.db
+# Restore blockchain SQLite DB — backup artifacts are SQL dumps
+# named chain_<island>_chain.db.gz; restore with sqlite3, not gunzip alone:
+gunzip -c "$BACKUP_DIR/chain_<island>_chain.db.gz" \
+    | sqlite3 /var/lib/aitbc/data/<chain-id>/chain.db
 
 # Roll back code
 cd /opt/aitbc

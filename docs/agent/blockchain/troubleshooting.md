@@ -103,7 +103,7 @@ cat ~/.aitbc/config.yaml
 aitbc wallet list
 
 # Check database integrity
-sqlite3 /var/lib/aitbc/blockchain.db "PRAGMA integrity_check;"
+sqlite3 /var/lib/aitbc/data/<chain-id>/chain.db "PRAGMA integrity_check;"   # real layout: $AITBC_DATA_DIR/data/<chain_id>/chain.db
 ```
 
 ## Log Locations

@@ -89,7 +89,7 @@ List governance profiles with optional filters.
   {
     "profile_id": "uuid",
     "user_id": "user123",
-    "role": "voter",
+    "role": "member",
     "created_at": "2026-06-07T00:00:00Z",
     "updated_at": "2026-06-07T00:00:00Z"
   }
@@ -112,7 +112,7 @@ Get a specific governance profile.
 {
   "profile_id": "uuid",
   "user_id": "user123",
-  "role": "voter",
+  "role": "member",
   "created_at": "2026-06-07T00:00:00Z",
   "updated_at": "2026-06-07T00:00:00Z"
 }
@@ -129,7 +129,7 @@ Create a new governance profile.
 ```json
 {
   "user_id": "user123",
-  "role": "voter"
+  "role": "member"
 }
 ```
 
@@ -139,7 +139,7 @@ Create a new governance profile.
 {
   "profile_id": "uuid",
   "user_id": "user123",
-  "role": "voter",
+  "role": "member",
   "created_at": "2026-06-07T00:00:00Z",
   "updated_at": "2026-06-07T00:00:00Z"
 }
@@ -155,7 +155,7 @@ List governance proposals with optional filters.
 
 **Query Parameters:**
 
-- `status` (optional): Filter by status (draft, active, succeeded, rejected, executed)
+- `status` (optional): Filter by status (draft, active, succeeded, defeated, executed, cancelled)
 - `category` (optional): Filter by category
 - `proposer_id` (optional): Filter by proposer ID
 
@@ -304,7 +304,11 @@ List votes with optional filters.
 
 Create a new vote.
 
-> **`voting_power` is server-derived.** The service computes voting power from the voter's on-chain balance/stake snapshot (`voter_address` identifies the on-chain account). Any `voting_power` sent in the request body is ignored and overwritten — do not rely on it.
+> **`voting_power` is server-derived.** The service computes voting power from the voter's on-chain balance/stake snapshot (`voter_address` identifies the on-chain account). Any `voting_power` sent in the request body is ignored and overwritten
+**only when `enable_onchain_submission` is enabled**. With the default
+off-chain mode, a caller-supplied nonzero `voting_power` is persisted and
+reported as `voting_power_used`; it is only recalculated when it is
+None/0. — do not rely on it.
 
 **Request Body:**
 
@@ -563,14 +567,13 @@ All endpoints may return error responses:
 
 ## Rate Limiting
 
-Rate limiting is applied to prevent abuse:
-
-- 100 requests per minute per IP
-- 1000 requests per hour per IP
+The governance service itself has no rate-limit middleware — rate limiting
+lives in the api-gateway (`apps/api-gateway`).
 
 ## Authentication
 
-Service-to-service communication requires API key authentication via the `X-API-Key` header.
+Governance-service routes carry no API-key auth dependency; `X-API-Key`
+gating exists on blockchain-node `/rpc/governance/*`, a different service.
 
 ## CORS
 

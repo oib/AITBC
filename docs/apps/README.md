@@ -26,7 +26,7 @@ Source code lives under `apps/` in the repository. Each app has its own `README.
 | App | Status | Node Type | GPU | Service(s) | Core | Source |
 |-----|--------|-----------|-----|------------|------|--------|
 | [agent-coordinator](agent-coordinator/) ([agent-coordinator](../../apps/agent-coordinator/README.md)) | active | island, hub | no | 1 systemd service(s): aitbc-agent-coordinator.service | no | src/ directory with 61 Python file(s) |
-| [ai-engine](ai-engine/) ([ai-engine](../../apps/ai-engine/README.md)) | experimental — no standalone systemd service | island, hub | Yes | No systemd service file | no | src/ directory with 2 Python file(s) |
+| [ai-engine](ai-engine/) ([ai-engine](../../apps/ai-engine/README.md)) | experimental — no standalone systemd service | island, hub | Yes | deployed — `aitbc-ai`, `aitbc-learning`, `aitbc-modality-optimization`, `aitbc-multimodal` units exist | no | src/ directory with 2 Python file(s) |
 | [api-gateway](api-gateway/) ([api-gateway](../../apps/api-gateway/README.md)) | under development | all | no | 1 systemd service(s): aitbc-api-gateway.service | yes | src/ directory with 2 Python file(s) |
 | [blockchain-event-bridge](blockchain-event-bridge/) ([blockchain-event-bridge](../../apps/blockchain-event-bridge/README.md)) | active | hub | no | 1 systemd service(s): aitbc-blockchain-event-bridge.service | no | src/ directory with 16 Python file(s) |
 | [blockchain-explorer](blockchain-explorer/) ([blockchain-explorer](../../apps/blockchain-explorer/README.md)) | Agent-First API Service - Pure JSON API for blockchain data access. | — | — | 1 systemd service: aitbc-blockchain-explorer.service | — | — |
