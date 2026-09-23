@@ -286,9 +286,12 @@ def test_native_energy_profile_get_404(client, native_pricing):
     assert resp.status_code == 404
 
 
-def test_native_energy_rate_get(client, db_session, native_pricing):
+def test_native_energy_rate_get(client, db_session, native_pricing, miner_token):
     _seed_energy(db_session)
-    resp = client.get("/v1/marketplace/native-energy/rate")
+    resp = client.get(
+        "/v1/marketplace/native-energy/rate",
+        headers={"Authorization": f"Bearer {miner_token}"},
+    )
     assert resp.status_code == 200
     data = resp.json()
     assert data["ait_per_eur_scaled"] == int(Decimal("1.5") * FIXED_POINT_SCALE)

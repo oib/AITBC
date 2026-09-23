@@ -331,7 +331,7 @@ def provider_rate(
     config = get_config()
     if not _evm_energy_configured():
         if not publish:
-            client = _coordinator_client(ctx, timeout=10)
+            client = _coordinator_client(ctx, miner=True, timeout=10)
             try:
                 data = client.get("/v1/marketplace/native-energy/rate")
             except NetworkError as e:
@@ -682,7 +682,7 @@ def suggest(
     if rate is None and not config.evm_rpc_url:
         # native rail: the published rate lives in the coordinator DB
         try:
-            result = _coordinator_client(ctx, timeout=10).get("/v1/marketplace/native-energy/rate")
+            result = _coordinator_client(ctx, miner=True, timeout=10).get("/v1/marketplace/native-energy/rate")
             native_rate = Decimal(str(result["ait_per_eur"]))
             if native_rate > 0:
                 rate, rate_src = native_rate, "native rate"
