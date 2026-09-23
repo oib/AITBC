@@ -72,6 +72,14 @@ Fixes during live validation
   exchange_service (:8106), matching the repo example; the wallet endpoint
   remains for bridge pages.
 
+- AIT fiat pricing now defaults code-wide to the compute-backed
+  reference (1 AIT = one compute-hour on the RTX 4060 Ti 16GB reference rig,
+  EUR 0.25 — AIT_REFERENCE_PRICE_EUR in aitbc/oracles/price_oracle.py).
+  Previously a missing AIT_EUR_FIXED_PRICE/AIT_USD_FIXED_PRICE env meant no
+  AIT price at all; the env vars remain as explicit overrides. The wallet
+  bridge applies the same chain, with AIT_USD_PRICE kept as an explicit USD
+  override.
+
 Live validation (2026-09-11)
 ----------------------------
 
