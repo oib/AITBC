@@ -122,6 +122,10 @@ def aitbc_governance_close(
 def aitbc_governance_execute(
     proposal_id: Annotated[str, Field(description="The Proposal id.")],
     executor_address: Annotated[str | None, Field(description="Executor wallet address (for on-chain execution)")],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_EXECUTE tx (client-signed submission)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -132,7 +136,12 @@ def aitbc_governance_execute(
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"proposal_id": "proposal-id", "executor_address": "executor-address"},
+        values={
+            "proposal_id": "proposal-id",
+            "executor_address": "executor-address",
+            "wallet_name": "wallet",
+            "password": "password",
+        },
     )
     args = None
     command = _build_aitbc_cli_command(
@@ -296,6 +305,10 @@ def aitbc_governance_propose(
     proposer_address: Annotated[str | None, Field(description="Proposer wallet address (for on-chain submission)")],
     params: Annotated[str | None, Field(description="JSON-encoded parameters for parameter_change proposals")],
     voting_days: Annotated[int | None, Field(description="Voting period in days")],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_PROPOSE tx (client-signed submission)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -315,6 +328,8 @@ def aitbc_governance_propose(
             "proposer_address": "proposer-address",
             "params": "params",
             "voting_days": "voting-days",
+            "wallet_name": "wallet",
+            "password": "password",
         },
     )
     args = None
@@ -359,6 +374,10 @@ def aitbc_governance_vote(
     voting_power: Annotated[
         float | None, Field(description="Voting power (auto-calculated from on-chain balance if enabled)")
     ],
+    wallet_name: Annotated[
+        str | None, Field(description="Wallet to sign the on-chain GOVERNANCE_VOTE tx (client-signed submission)")
+    ],
+    password: Annotated[str | None, Field(description="Wallet password")],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -376,6 +395,8 @@ def aitbc_governance_vote(
             "voter_address": "voter-address",
             "reason": "reason",
             "voting_power": "voting-power",
+            "wallet_name": "wallet",
+            "password": "password",
         },
     )
     args = None
