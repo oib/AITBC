@@ -9,7 +9,7 @@ This guide covers deploying AITBC across multiple servers for high availability 
                          |
         +----------------+----------------+
         |                |                |
-   Blockchain Node   Coordinator API   Marketplace
+   Blockchain Node   Coordinator API   Market
         |                |                |
         +----------------+----------------+
                          |
@@ -30,7 +30,7 @@ This guide covers deploying AITBC across multiple servers for high availability 
    - Payment processing
    - API gateway
 
-3. **Marketplace Service**
+3. **Market Service**
    - GPU offer management
    - Matching engine
    - Price discovery
@@ -71,7 +71,7 @@ BLOCKCHAIN_MODE=hub MARKET_ROLE=customer ./scripts/deployment/setup.sh
 ```
 
 Runs `aitbc-blockchain-p2p` (gossip relay), `aitbc-coordinator-api`,
-`aitbc-api-gateway`, `aitbc-marketplace`, `aitbc-exchange`, and the
+`aitbc-api-gateway`, `aitbc-market`, `aitbc-exchange`, and the
 agent-coordinator in addition to the base units.
 
 ### 3. Follower nodes
@@ -92,7 +92,7 @@ BLOCKCHAIN_MODE=follower MARKET_ROLE=shop HARDWARE_PROFILE=gpu ./scripts/deploym
 ```
 
 Adds `aitbc-gpu`, `aitbc-miner`, `aitbc-edge`, `aitbc-pool-hub`, and
-`aitbc-marketplace` on top of the follower set.
+`aitbc-market` on top of the follower set.
 
 ### 5. Datastores
 

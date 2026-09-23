@@ -19,14 +19,14 @@ This document classifies app shells and thin services in the AITBC repository.
 |---------|--------|---------|--------------|
 | `shared-domain` | **ACTIVE** | Shared domain models (agent, performance, portfolio, etc.) used by agent-management and other services | Used by `aitbc-agent-management` |
 | `shared-core` | **ACTIVE** | Shared core utilities (config, database, logging, security) for microservices | Used by root aitbc package |
-| `marketplace-service` | **ACTIVE** | Production GPU marketplace service with proper packaging | Standard Poetry app |
+| `market-service` | **ACTIVE** | Production GPU market service with proper packaging | Standard Poetry app |
 | `docs/enterprise` | **ACTIVE** | Enterprise integration documentation | Documentation only |
 
 ### Candidates for Removal
 
 | Service | Status | Reason | Action |
 |---------|--------|--------|--------|
-| `marketplace-debug` | **REMOVE** | Debug variant without pyproject.toml; redundant given marketplace-service exists | Remove directory |
+| `market-debug` | **REMOVE** | Debug variant without pyproject.toml; redundant given market-service exists | Remove directory |
 
 ### Non-Existent
 
@@ -50,20 +50,20 @@ This document classifies app shells and thin services in the AITBC repository.
 - **Consumers**: Root aitbc package and microservices
 - **Location**: `/opt/aitbc/apps/shared-core/src/app/core/`
 
-### marketplace-service
+### market-service
 
-- **Purpose**: Production GPU marketplace service
-- **Contents**: FastAPI app with marketplace operations
-- **Location**: `/opt/aitbc/apps/marketplace/`
+- **Purpose**: Production GPU market service
+- **Contents**: FastAPI app with market operations
+- **Location**: `/opt/aitbc/apps/market/`
 
 ## Actions Taken
 
 - [x] Classified `shared-domain` as ACTIVE
 - [x] Classified `shared-core` as ACTIVE
-- [x] Classified `marketplace-service` as ACTIVE
-- [x] Classified `marketplace-debug` for removal
+- [x] Classified `market-service` as ACTIVE
+- [x] Classified `market-debug` for removal
 - [x] Documented `docs/enterprise` as active documentation
-- [ ] Remove `marketplace-debug` directory
+- [ ] Remove `market-debug` directory
 
 ## References
 

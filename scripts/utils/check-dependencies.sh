@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Dependency Check Script
 #
@@ -35,7 +36,7 @@ REQUIRED_PACKAGES=("fastapi" "click" "uvicorn" "sqlalchemy" "pydantic")
 REQUIRED_SERVICES=("aitbc-blockchain-node.service" "aitbc-blockchain-p2p.service")
 
 # Optional services
-OPTIONAL_SERVICES=("aitbc-coordinator-api.service" "aitbc-wallet.service" "aitbc-marketplace.service")
+OPTIONAL_SERVICES=("aitbc-coordinator-api.service" "aitbc-wallet.service" "aitbc-market.service")
 
 # Flags
 VERBOSE=false

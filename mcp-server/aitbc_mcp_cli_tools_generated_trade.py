@@ -134,7 +134,7 @@ def aitbc_trade_create(
 def aitbc_trade_discover(
     source_chain: Annotated[str | None, Field(description="Filter by source chain")],
     dest_chain: Annotated[str | None, Field(description="Filter by destination chain")],
-    service_type: Annotated[str | None, Field(description="Filter by service type (e.g. gpu_marketplace)")],
+    service_type: Annotated[str | None, Field(description="Filter by service type (e.g. gpu_market)")],
     min_price: Annotated[Decimal | None, Field(description="Minimum price filter")],
     max_price: Annotated[Decimal | None, Field(description="Maximum price filter")],
     region: Annotated[str | None, Field(description="Filter by region")],

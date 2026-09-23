@@ -18,7 +18,7 @@ Synchronize git changes, coordinate blockchain state, and manage multi-node oper
 
 | Node | Role | Access |
 |------|------|--------|
-| `hub` | Hub / proposer — block production, coordinator, marketplace | `ssh hub` |
+| `hub` | Hub / proposer — block production, coordinator, market | `ssh hub` |
 | `node0` | Follower — customer GPU node | `ssh node0` |
 | `node1` | Follower — PBFT validator | `ssh node1` |
 | `node2` | Follower — shop node, commits and pushes to gitea | `ssh node2` |
@@ -39,7 +39,7 @@ For authoritative port configuration, see [Service Ports Reference](../../docs/r
 |---------|------|-------|
 | Blockchain RPC | 8202 | Main blockchain API |
 | Coordinator API | 8203 | Agent registry |
-| Marketplace | 8102 | Marketplace operations |
+| Market | 8102 | Market operations |
 | P2P Network | 7070 | Blockchain peer-to-peer |
 
 ## Prerequisites

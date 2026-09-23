@@ -43,14 +43,14 @@ invoked instead.
 | `test_explorer.py` | 39 | all 14 `explorer` subcommands, in-process through Click's `CliRunner` with the explorer client mocked — including its error paths (`NetworkError`, an empty result, an unexpected exception) |
 | `test_cli_comprehensive.py` | 25 | the command tree end to end, by running the launcher as a subprocess: `simulate`, `blockchain`, `network`, `market`, `ai`, `resource`, output formats, and the argument errors each group should reject |
 | `test_cli_basic.py` | 8 | that the launcher starts, that `--help` lists the top-level groups, and that an invalid command exits non-zero |
-| `test_gpu_marketplace.py` | 7 | that `gpu` and the six `market` subcommands are registered and their help text is what the docs claim — help-text checks, not behaviour |
+| `test_gpu_market.py` | 7 | that `gpu` and the six `market` subcommands are registered and their help text is what the docs claim — help-text checks, not behaviour |
 | `test_exchange_island.py` | 5 | argument validation on `exchange buy`, `sell` and `orderbook`: invalid amounts, currencies and trading pairs are rejected |
 | `test_island_credentials.py` | 2 | loading island credentials, including the missing-file and malformed-file paths |
 | `test_wallet_creation.py` | 1 | that a file-backed wallet is created with a real private key rather than a placeholder |
 
 ## Two kinds of test in here
 
-**In-process** (`test_explorer.py`, `test_gpu_marketplace.py`, `test_exchange_island.py`) —
+**In-process** (`test_explorer.py`, `test_gpu_market.py`, `test_exchange_island.py`) —
 Click's `CliRunner` invokes the command object directly with its client mocked. Fast,
 deterministic, and able to assert on what the command sent as well as what it printed.
 

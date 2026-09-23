@@ -23,7 +23,7 @@ A compute-unit is an **integer** on the wire. User-facing tools and APIs still w
 The previous `1 AIT = 3600` (compute-seconds) scale was too coarse:
 
 - The smallest representable payment was `0.000277... AIT`, which loses sub-second AI work.
-- The marketplace platform fee (2.5%) could not be represented for small jobs.
+- The market platform fee (2.5%) could not be represented for small jobs.
 - Sub-AIT escrow values truncated to zero in the `Escrow` DB table.
 
 The 36,000,000 scale keeps the integer-money design but adds 10,000× precision:

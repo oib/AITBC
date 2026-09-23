@@ -124,7 +124,7 @@ When reporting security issues, collect the following information:
 # Service logs
 journalctl -u aitbc-coordinator-api -n 500 > coordinator.log
 journalctl -u aitbc-blockchain-node -n 500 > blockchain.log
-journalctl -u aitbc-marketplace -n 500 > marketplace.log
+journalctl -u aitbc-market -n 500 > market.log
 
 # System information
 uname -a > system-info.txt

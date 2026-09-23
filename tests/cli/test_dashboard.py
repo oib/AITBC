@@ -94,7 +94,7 @@ class TestDashboardShop:
                 return {"model": "NVIDIA GeForce RTX 4060 Ti", "memory_gb": 15, "uuid": "GPU-x"}
             if path == "/v1/miners/shop-node/gpus":
                 return [{"id": "gpu-0", "model": "NVIDIA GeForce RTX 4060 Ti", "memory_gb": 15, "status": "online"}]
-            if path == "/v1/marketplace/offer":
+            if path == "/v1/market/offer":
                 return {
                     "offers": [
                         {

@@ -437,14 +437,14 @@ class TestB3ConnectionCleanup:
         assert handler.send_json_response.called
 
 
-class TestB2MarketplaceDecimal:
-    """B2: Verify marketplace handler uses Decimal for prices."""
+class TestB2MarketDecimal:
+    """B2: Verify market handler uses Decimal for prices."""
 
-    def test_marketplace_create_offer_stores_price_as_text(self, temp_db):
-        """Verify marketplace prices are stored as TEXT (Decimal-as-string)."""
-        from apps.exchange.simple_exchange.handlers.marketplace import MarketplaceMixin
+    def test_market_create_offer_stores_price_as_text(self, temp_db):
+        """Verify market prices are stored as TEXT (Decimal-as-string)."""
+        from apps.exchange.simple_exchange.handlers.market import MarketMixin
 
-        handler = MagicMock(spec=MarketplaceMixin)
+        handler = MagicMock(spec=MarketMixin)
         handler._require_api_key = MagicMock(return_value=True)
         handler._read_json_body = MagicMock(
             return_value={
@@ -456,13 +456,11 @@ class TestB2MarketplaceDecimal:
             }
         )
         handler.send_json_response = MagicMock()
-        handler._new_marketplace_id = MarketplaceMixin._new_marketplace_id.__get__(handler, MarketplaceMixin)
-        handler.handle_marketplace_create_offer = MarketplaceMixin.handle_marketplace_create_offer.__get__(
-            handler, MarketplaceMixin
-        )
+        handler._new_market_id = MarketMixin._new_market_id.__get__(handler, MarketMixin)
+        handler.handle_market_create_offer = MarketMixin.handle_market_create_offer.__get__(handler, MarketMixin)
 
-        with patch("apps.exchange.simple_exchange.handlers.marketplace.get_db_path", return_value=temp_db):
-            handler.handle_marketplace_create_offer()
+        with patch("apps.exchange.simple_exchange.handlers.market.get_db_path", return_value=temp_db):
+            handler.handle_market_create_offer()
 
         # Verify the price was stored as TEXT
         conn = sqlite3.connect(temp_db)

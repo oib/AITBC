@@ -7,7 +7,7 @@ Query edge node registration from blockchain
 
 ## Implementation Details
 
-- `aitbc/marketplace/blockchain_rpc.py` — from **future** import annotations import logging from typing import Any, cast import httpx logger =...
+- `aitbc/market/blockchain_rpc.py` — from **future** import annotations import logging from typing import Any, cast import httpx logger =...
 - `apps/pool-hub/src/poolhub/clients/blockchain.py` — Return the exact bytes that are hashed and signed for a transaction.
 - `apps/edge/src/aitbc_edge/clients/blockchain_rpc.py` — Blockchain RPC client for Edge API Service
 - `apps/blockchain-node/aitbc-blockchain-p2p-wrapper.py` — blockchain-p2p service wrapper

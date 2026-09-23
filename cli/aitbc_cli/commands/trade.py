@@ -338,7 +338,7 @@ def match_all(ctx, format):
 )
 @click.option("--source-chain", default=None, help="Filter by source chain")
 @click.option("--dest-chain", default=None, help="Filter by destination chain")
-@click.option("--service-type", default=None, help="Filter by service type (e.g. gpu_marketplace)")
+@click.option("--service-type", default=None, help="Filter by service type (e.g. gpu_market)")
 @click.option("--min-price", default=None, type=float, help="Minimum price filter")
 @click.option("--max-price", default=None, type=float, help="Maximum price filter")
 @click.option("--region", default=None, help="Filter by region")

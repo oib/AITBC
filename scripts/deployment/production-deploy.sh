@@ -83,12 +83,12 @@ with open('/var/lib/aitbc/data/agent_registry.json', 'r') as f:
     registry = json.load(f)
 
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
 with open('/var/lib/aitbc/data/economic_system.json', 'r') as f:
     economics = json.load(f)
 
-print(f'ECONOMY:ACTIVE:{registry[\"total_agents\"]}:{marketplace[\"total_jobs\"]}:{economics[\"network_metrics\"][\"total_transactions\"]}:{economics[\"network_metrics\"][\"total_jobs_completed\"]}')
+print(f'ECONOMY:ACTIVE:{registry[\"total_agents\"]}:{market[\"total_jobs\"]}:{economics[\"network_metrics\"][\"total_transactions\"]}:{economics[\"network_metrics\"][\"total_jobs_completed\"]}')
 " 2>/dev/null)
 
     if [[ "$economy_info" == ECONOMY:ACTIVE:* ]]; then
@@ -193,7 +193,7 @@ echo "================================="
 echo -e "${GREEN}✅ PRODUCTION SYSTEMS DEPLOYED${NC}"
 echo "   • Multi-node mesh network: ACTIVE"
 echo "   • Agent economy infrastructure: OPERATIONAL"
-echo "   • Job marketplace with transactions: LIVE"
+echo "   • Job market with transactions: LIVE"
 echo "   • Escrow and payment system: WORKING"
 echo "   • Economic tracking: REAL-TIME"
 echo ""

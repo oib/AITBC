@@ -3,7 +3,7 @@
 
 `testpaths` in pyproject.toml lists every suite pytest collects. The Make
 targets CI invokes run only some of them, and for a release cycle the gap
-silently grew: exchange, wallet, marketplace, api-gateway, trading, security
+silently grew: exchange, wallet, market, api-gateway, trading, security
 and property suites were collectable but never ran anywhere. This check pins
 testpaths to scripts/ci/test_suites.py so a suite either runs in a gate or
 carries a written reason it cannot.

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """Guard against modules that nothing imports.
 
-V23-102 deleted ``MarketplaceMonitor``: 280 lines of alerting that no code path could
+V23-102 deleted ``MarketMonitor``: 280 lines of alerting that no code path could
 reach, holding a module-level singleton whose ``start()`` nobody called. Deleting it
 answered one module and left the class of defect untouched -- at the time of writing, 22
 modules totalling 6,895 lines under ``coordinator_api`` are imported by nothing anywhere
@@ -9,8 +9,8 @@ in this repository, tests included.
 
 Unreachable code is not free. It is read during review, searched during debugging, and
 counted by every "how big is this service" question. Worse, it is *plausible*: an orphan
-looks exactly like working code, so a reader who finds ``MarketplaceMonitor`` reasonably
-concludes marketplace alerting exists. It did not. The alerting that shipped lived in
+looks exactly like working code, so a reader who finds ``MarketMonitor`` reasonably
+concludes market alerting exists. It did not. The alerting that shipped lived in
 ``MetricsCollector``, and the two disagreed about what the thresholds even meant.
 
 **This guard does not delete anything.** It fails when a *new* orphan appears, and records
@@ -127,8 +127,8 @@ def _imported_module_names(path: Path) -> set[str]:
     """Every module name this file could be importing, as bare identifiers.
 
     Dotted paths are exploded into their parts and ``from x import y`` contributes ``y``
-    as well as ``x``, because ``from .services import marketplace`` imports a *module*
-    named ``marketplace`` while ``from .services.marketplace import Svc`` imports a class.
+    as well as ``x``, because ``from .services import market`` imports a *module*
+    named ``market`` while ``from .services.market import Svc`` imports a class.
     One set covers both without having to resolve the package graph, at the cost of some
     over-matching -- which errs toward calling a module reachable, the safe direction for
     a guard whose output is a deletion candidate list.

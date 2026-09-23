@@ -5,11 +5,11 @@ import urllib.parse
 from .base import BaseHandler
 from .bridge import BridgeMixin
 from .exchange import ExchangeMixin
-from .marketplace import MarketplaceMixin
+from .market import MarketMixin
 from .wallet import WalletAPIHandler
 
 
-class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMixin):
+class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
     """Main exchange API handler — dispatches to domain mixin methods."""
 
     def do_GET(self):
@@ -21,6 +21,9 @@ class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMix
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        # Legacy public spelling stays live until its removal is approved.
+        if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
+            path = "/v1/market" + path[len("/v1/marketplace") :]
 
         if path == "/health" or path == "/api/health":
             self.health_check()
@@ -34,12 +37,12 @@ class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMix
             self.handle_treasury_balance()
         elif path == "/api/treasury-balance":
             self.handle_treasury_balance()
-        elif path == "/v1/marketplace/offers":
-            self.handle_marketplace_offers(parsed)
-        elif path.startswith("/v1/marketplace/offers/"):
-            self.handle_marketplace_offer(path)
-        elif path == "/v1/marketplace/orders":
-            self.handle_marketplace_orders(parsed)
+        elif path == "/v1/market/offers":
+            self.handle_market_offers(parsed)
+        elif path.startswith("/v1/market/offers/"):
+            self.handle_market_offer(path)
+        elif path == "/v1/market/orders":
+            self.handle_market_orders(parsed)
         elif path == "/metrics":
             self.handle_metrics()
         elif path in ("/v1/cross-chain/rates", "/cross-chain/rates"):
@@ -65,15 +68,18 @@ class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMix
         """Handle POST requests"""
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        # Legacy public spelling stays live until its removal is approved.
+        if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
+            path = "/v1/market" + path[len("/v1/marketplace") :]
 
         if path == "/api/orders":
             self.handle_place_order()
         elif path == "/api/wallet/connect":
             self.handle_wallet_connect()
-        elif path == "/v1/marketplace/offers":
-            self.handle_marketplace_create_offer()
-        elif path.startswith("/v1/marketplace/offers/") and path.endswith("/book"):
-            self.handle_marketplace_book_offer(path)
+        elif path == "/v1/market/offers":
+            self.handle_market_create_offer()
+        elif path.startswith("/v1/market/offers/") and path.endswith("/book"):
+            self.handle_market_book_offer(path)
         elif path == "/v1/bridge/deposit":
             self.handle_bridge_deposit()
         elif path == "/v1/bridge/withdraw":
@@ -86,11 +92,14 @@ class ExchangeAPIHandler(BaseHandler, MarketplaceMixin, ExchangeMixin, BridgeMix
     def do_DELETE(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
+        # Legacy public spelling stays live until its removal is approved.
+        if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
+            path = "/v1/market" + path[len("/v1/marketplace") :]
 
-        if path.startswith("/v1/marketplace/orders/"):
-            self.handle_marketplace_delete_order(parsed)
-        elif path.startswith("/v1/marketplace/offers/"):
-            self.handle_marketplace_delete_offer(parsed)
+        if path.startswith("/v1/market/orders/"):
+            self.handle_market_delete_order(parsed)
+        elif path.startswith("/v1/market/offers/"):
+            self.handle_market_delete_offer(parsed)
         else:
             self.send_error(404, "Not Found")
 

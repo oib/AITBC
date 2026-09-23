@@ -34,13 +34,13 @@ are stale/inert unless the flag is switched off. Quote JSON carries
 
 ```bash
 aitbc energy suggest --region de          # probe hw → watts, tariff, floor, suggested price
-aitbc gpu update <id> --pricing <ait/h>   # set the marketplace listing price
+aitbc gpu update <id> --pricing <ait/h>   # set the market listing price
 ```
 
 Rail selection is automatic: when `EVM_RPC_URL` +
 `ENERGY_PRICING_CONTRACT_ADDRESS` are configured the CLI uses the EVM contract;
 otherwise `energy floor`, `provider register`/`profile`/`rate` and
-`suggest --register` talk to the coordinator's `/v1/marketplace/native-energy/*`
+`suggest --register` talk to the coordinator's `/v1/market/native-energy/*`
 endpoints (public GETs for reads, `X-Api-Key` miner auth for writes and the
 rate read).
 
@@ -99,12 +99,12 @@ them):
 
 ```bash
 # update watts/tariff on a profile (upsert)
-curl -X POST http://127.0.0.1:8203/v1/marketplace/native-energy/profile \
+curl -X POST http://127.0.0.1:8203/v1/market/native-energy/profile \
   -H "X-Api-Key: <miner-key>" -H "Content-Type: application/json" \
   -d '{"resource_id":"node2-rtx4060ti","tbp_watts":384,"eur_per_kwh":0.30}'
 
 # republish the global AIT/EUR rate
-curl -X POST http://127.0.0.1:8203/v1/marketplace/native-energy/rate \
+curl -X POST http://127.0.0.1:8203/v1/market/native-energy/rate \
   -H "X-Api-Key: <miner-key>" -H "Content-Type: application/json" \
   -d '{"ait_per_eur":4.0}'
 ```
@@ -128,7 +128,7 @@ the coordinator's own oracle code, not just sqlite:
 cd /opt/aitbc && PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/coordinator-api/src \
   venv/bin/python - <<'PY'
 from sqlmodel import Session, create_engine
-from coordinator_api.contexts.marketplace.services.native_energy import NativeEnergyOracle
+from coordinator_api.contexts.market.services.native_energy import NativeEnergyOracle
 eng = create_engine("sqlite:////var/lib/aitbc/data/coordinator.db")
 with Session(eng) as s:
     o = NativeEnergyOracle(s)
@@ -139,7 +139,7 @@ PY
 ```
 
 `36_000_000` is `NATIVE_UNITS_PER_AIT` (atomic units per AIT, see
-`aitbc/marketplace/energy_pricing.py`); divide floor units by it for AIT.
+`aitbc/market/energy_pricing.py`); divide floor units by it for AIT.
 
 Sanity: `floor_ait_h ≈ watts/1000 × eur_per_kwh × ait_per_eur`. At the €0.25
 reference the floor in AIT equals the node's EUR electricity cost ÷ 0.25.

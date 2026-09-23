@@ -1,0 +1,1 @@
+"""Plugin market service tests"""

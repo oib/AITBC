@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Agent Protocols Implementation Script
 # Implements cross-chain agent communication framework
@@ -85,7 +86,7 @@ main() {
     echo ""
     echo "🚀 Agent Protocols Status: READY FOR TESTING"
     echo "📊 Next Phase: Advanced AI Trading & Analytics"
-    echo "🎯 Goal: GLOBAL AI POWER MARKETPLACE LEADERSHIP"
+    echo "🎯 Goal: GLOBAL AI POWER MARKET LEADERSHIP"
 }
 
 # Create directory structure
@@ -95,7 +96,7 @@ create_directory_structure() {
     mkdir -p "$AGENT_REGISTRY_DIR"/{src,tests,config}
     mkdir -p "$AGENT_PROTOCOLS_DIR"/{src,tests,config}
     mkdir -p "$SERVICES_DIR"/{agent-coordinator,agent-orchestrator,agent-bridge}
-    mkdir -p "$PROJECT_ROOT/apps/agents"/{trading,compliance,analytics,marketplace}
+    mkdir -p "$PROJECT_ROOT/apps/agents"/{trading,compliance,analytics,market}
 
     print_status "Directory structure created"
 }

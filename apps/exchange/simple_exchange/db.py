@@ -26,8 +26,8 @@ from aitbc.constants import DATA_DIR
 # and remain exact.
 #
 # Only ``orders`` gets tick columns: it is the only table whose monetary values
-# appear in SQL predicates or ordering. ``trades``, ``marketplace_offers`` and
-# ``marketplace_orders`` are append/read records ordered by created_at — and a
+# appear in SQL predicates or ordering. ``trades``, ``market_offers`` and
+# ``market_orders`` are append/read records ordered by created_at — and a
 # trade total (qty * price) can legitimately carry more than 8 decimals, which
 # TEXT stores exactly and an 8dp tick column could not.
 TICKS_PER_UNIT = 100_000_000
@@ -130,7 +130,7 @@ _ORDERS_SCHEMA = """
     )
 """
 
-_MARKETPLACE_OFFERS_SCHEMA = """
+_MARKET_OFFERS_SCHEMA = """
     CREATE TABLE IF NOT EXISTS marketplace_offers (
         id TEXT PRIMARY KEY,
         item TEXT NOT NULL,
@@ -143,7 +143,7 @@ _MARKETPLACE_OFFERS_SCHEMA = """
     )
 """
 
-_MARKETPLACE_ORDERS_SCHEMA = """
+_MARKET_ORDERS_SCHEMA = """
     CREATE TABLE IF NOT EXISTS marketplace_orders (
         id TEXT PRIMARY KEY,
         order_type TEXT NOT NULL,
@@ -222,7 +222,7 @@ def _migrate_real_to_text(conn, cursor, table_name, schema_sql, monetary_columns
 
 # TEXT monetary column -> INTEGER tick column, per table. Only `orders` is
 # listed: it is the sole table whose money values appear in SQL predicates or
-# ORDER BY (matching + order book). trades/marketplace_* are append/read
+# ORDER BY (matching + order book). trades/market_* are append/read
 # records ordered by created_at and keep exact TEXT only. `total` keeps no
 # tick column either: amount*price can legitimately exceed 8 decimals.
 _TICK_COLUMNS: dict[str, dict[str, str]] = {
@@ -301,8 +301,8 @@ def init_db():
     # Create tables (IF NOT EXISTS — won't alter existing tables)
     cursor.execute(_TRADES_SCHEMA)
     cursor.execute(_ORDERS_SCHEMA)
-    cursor.execute(_MARKETPLACE_OFFERS_SCHEMA)
-    cursor.execute(_MARKETPLACE_ORDERS_SCHEMA)
+    cursor.execute(_MARKET_OFFERS_SCHEMA)
+    cursor.execute(_MARKET_ORDERS_SCHEMA)
 
     # Add columns if they don't exist (for existing databases)
     try:
@@ -320,8 +320,8 @@ def init_db():
     migrations = [
         ("trades", _TRADES_SCHEMA, ["amount", "price", "total"]),
         ("orders", _ORDERS_SCHEMA, ["amount", "price", "total", "filled", "remaining"]),
-        ("marketplace_offers", _MARKETPLACE_OFFERS_SCHEMA, ["price"]),
-        ("marketplace_orders", _MARKETPLACE_ORDERS_SCHEMA, ["price"]),
+        ("marketplace_offers", _MARKET_OFFERS_SCHEMA, ["price"]),
+        ("marketplace_orders", _MARKET_ORDERS_SCHEMA, ["price"]),
     ]
     for table, schema, money_cols in migrations:
         try:

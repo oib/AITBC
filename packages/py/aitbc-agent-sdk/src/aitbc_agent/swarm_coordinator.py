@@ -64,8 +64,7 @@ class SwarmCoordinator(Agent):
     async def join_swarm(self, swarm_type: str, config: dict[str, Any]) -> bool:
         """Join a swarm for collective intelligence"""
         raise NotImplementedError(
-            "swarm backend not implemented: no coordinator serves /v1/swarm/* "
-            "endpoints; see SwarmCoordinator docstring"
+            "swarm backend not implemented: no coordinator serves /v1/swarm/* endpoints; see SwarmCoordinator docstring"
         )
         try:
             swarm_id = f"{swarm_type}-v1"
@@ -224,10 +223,10 @@ class SwarmCoordinator(Agent):
         }
 
     async def _get_pricing_data(self) -> dict[str, Any]:
-        """Get actual pricing data from coordinator marketplace API"""
+        """Get actual pricing data from coordinator market API"""
         try:
             async with httpx.AsyncClient() as client:
-                response = await client.get(f"{self.coordinator_url}/v1/marketplace/pricing/trends", timeout=10)
+                response = await client.get(f"{self.coordinator_url}/v1/market/pricing/trends", timeout=10)
                 if response.status_code == 200:
                     return response.json()
                 else:
@@ -286,8 +285,7 @@ class SwarmCoordinator(Agent):
     async def coordinate_task(self, task: str, collaborators: int) -> dict[str, Any]:
         """Coordinate a collaborative task with other agents"""
         raise NotImplementedError(
-            "swarm backend not implemented: no coordinator serves /v1/swarm/* "
-            "endpoints; see SwarmCoordinator docstring"
+            "swarm backend not implemented: no coordinator serves /v1/swarm/* endpoints; see SwarmCoordinator docstring"
         )
         try:
             # Create coordination proposal

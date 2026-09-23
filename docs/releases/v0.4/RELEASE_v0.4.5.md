@@ -292,7 +292,7 @@ Server hostname configured via include file, patched by install-nginx-node.sh sc
 
 ## 📚 Documentation
 
-- [HOWTO_WHISPER_OFFER.md](../../apps/marketplace/HOWTO_WHISPER_OFFER.md)
+- [HOWTO_WHISPER_OFFER.md](../../apps/market/HOWTO_WHISPER_OFFER.md)
 - [SETUP.md - Software Marketplace](../../getting-started/SETUP.md)
 - [SERVICE_PORTS.md](../../reference/SERVICE_PORTS.md)
 - [nginx-aitbc.conf.example](../../../examples/nginx/nginx-aitbc.conf.example)

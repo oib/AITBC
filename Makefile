@@ -89,7 +89,7 @@ test-governance:
 	$(PYTHON) -m pytest apps/governance/tests -q
 
 # The required gate for suites CI never ran even though testpaths collected
-# them: exchange matching, gateway retries, wallet sends, marketplace and
+# them: exchange matching, gateway retries, wallet sends, market and
 # trading money paths, agent-coordinator payout authority, the security AST
 # guards, core, and the property suite. The classification lives in
 # scripts/ci/test_suites.py; `make test-suite-parity` fails if a testpaths
@@ -99,7 +99,7 @@ test-critical:
 		apps/exchange/tests \
 		apps/api-gateway/tests \
 		apps/wallet/tests \
-		apps/marketplace/tests \
+		apps/market/tests \
 		apps/trading/tests \
 		apps/agent-coordinator/tests \
 		apps/bridge-monitor/tests \

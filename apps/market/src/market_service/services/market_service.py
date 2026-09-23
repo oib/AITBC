@@ -1,0 +1,1562 @@
+"""
+Market service for managing market operations
+"""
+
+import time
+from datetime import datetime
+from decimal import Decimal
+from typing import Any
+from uuid import uuid4
+
+from sqlalchemy.ext.asyncio import AsyncSession
+from sqlmodel import select
+
+from aitbc.aitbc_logging import get_logger
+from aitbc.crypto.signature_recovery import canonical_address
+from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus
+from aitbc.utils.units import ait_to_units
+
+from ..config import settings
+from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, ServiceRating, SoftwareService
+from ..domain.offer_status import spellings_of, to_offer_status
+
+logger = get_logger(__name__)
+
+
+class MarketService:
+    def __init__(self, session: AsyncSession):
+        self.session = session
+        self._rpc_client = BlockchainRPCClient(
+            rpc_url=settings.blockchain_rpc_url,
+            api_key=settings.blockchain_rpc_api_key,
+        )
+
+    async def list_offers(
+        self,
+        status: str | None = None,
+        region: str | None = None,
+        gpu_model: str | None = None,
+        chain_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """List market offers (v0.6.6: with optional chain_id filter)"""
+        try:
+            logger.info(
+                "list_offers called with filters: status=%s, region=%s, gpu_model=%s, chain_id=%s",
+                status,
+                region,
+                gpu_model,
+                chain_id,
+            )
+            stmt = select(MarketOffer)
+            if status:
+                # Matched by state, not by spelling. Filtering on the literal string meant
+                # `?status=available` did not return the offer stored as "open" and
+                # `?status=booked` did not return the one stored as "reserved" -- the same
+                # offer was visible or invisible depending on which word the caller happened
+                # to use, with nothing to tell them there was another (V23-83).
+                stmt = stmt.where(MarketOffer.status.in_(spellings_of(to_offer_status(status))))  # type: ignore[attr-defined]
+            if region:
+                stmt = stmt.where(MarketOffer.region == region)
+            if gpu_model:
+                stmt = stmt.where(MarketOffer.gpu_model == gpu_model)
+            if chain_id:
+                stmt = stmt.where(MarketOffer.chain_id == chain_id)
+            logger.info("Executing database query for offers")
+            result = list((await self.session.execute(stmt)).all())
+            logger.info("Retrieved %s offers", len(result))
+            offers_list = []
+            for row in result:
+                offer = row[0] if row else None
+                if offer:
+                    offers_list.append(
+                        {
+                            "id": offer.id,
+                            "provider": offer.provider,
+                            "capacity": offer.capacity,
+                            "price": offer.price,
+                            "sla": offer.sla,
+                            "status": offer.status,
+                            "created_at": offer.created_at.isoformat() if offer.created_at else None,
+                            "attributes": offer.attributes,
+                            "gpu_model": offer.gpu_model,
+                            "gpu_memory_gb": offer.gpu_memory_gb,
+                            "gpu_count": offer.gpu_count,
+                            "cuda_version": offer.cuda_version,
+                            "price_per_hour": offer.price_per_hour,
+                            "region": offer.region,
+                            "chain_id": offer.chain_id,
+                        }
+                    )
+            logger.info("Converted %s offers to dictionaries", len(offers_list))
+            return offers_list
+        except Exception as e:
+            logger.error("Error in list_offers: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def update_offer_status(self, offer_id: str, new_status: str) -> dict[str, Any]:
+        """Update offer status with FSM validation (v0.6.6).
+
+        Uses OfferFSM to validate state transitions. Rejects invalid transitions.
+
+        Both status words go through `to_offer_status` rather than `OfferFSM.from_string`.
+        The strict parser only accepts the five `OfferStatus` values, and neither of the two
+        words this method is actually called with is one of them: the stored status is
+        "booked" or "open", and the requested status is "cancelled". Every call therefore
+        raised, and the only caller -- `cancel_offer` -- had no handler, so the endpoint
+        answered 500 for every offer in the database (V23-83).
+        """
+        try:
+            stmt = select(MarketOffer).where(MarketOffer.id == offer_id)
+            result = (await self.session.execute(stmt)).first()
+            offer = result[0] if result else None
+            if not offer:
+                raise ValueError(f"Offer not found: {offer_id}")
+
+            # Validate transition via OfferFSM
+            current = to_offer_status(offer.status)
+            fsm = OfferFSM(current)
+            fsm.transition(to_offer_status(new_status))
+
+            offer.status = new_status
+            await self.session.commit()
+            logger.info("Offer %s status updated: %s", offer_id, new_status)
+            return {"id": offer_id, "status": new_status}
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error("Error in update_offer_status: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_offer(self, offer_id: str) -> MarketOffer | None:
+        """Get a specific market offer"""
+        try:
+            logger.info("get_offer called with offer_id=%s", offer_id)
+            stmt = select(MarketOffer).where(MarketOffer.id == offer_id)
+            result = (await self.session.execute(stmt)).first()
+            offer = result[0] if result else None
+            logger.info("Retrieved offer: %s, found: %s", offer_id, offer is not None)
+            return offer
+        except Exception as e:
+            logger.error("Error in get_offer: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def book_offer(self, offer_id: str, booking_data: dict[str, Any]) -> dict[str, Any]:
+        """Book/purchase a market offer"""
+        try:
+            logger.info("book_offer called with offer_id=%s, data keys: %s", offer_id, booking_data.keys())
+            offer = await self.get_offer(offer_id)
+            if not offer:
+                logger.error("Offer not found: %s", offer_id)
+                raise ValueError(f"Offer not found: {offer_id}")
+            # By state rather than by spelling, so the offer stored as "open" is bookable --
+            # it is available, it just says so in coordinator-api's word (V23-83).
+            current = to_offer_status(offer.status)
+            if current is not OfferStatus.AVAILABLE:
+                raise ValueError(f"Offer {offer_id} is not available (status={offer.status})")
+            # Booking is the one transition this service performed without asking the FSM:
+            # it assigned "booked" directly, which is how a status the FSM cannot parse came
+            # to be in the database in the first place. Validated before the bid is created,
+            # so a rejected transition does not leave a bid behind.
+            OfferFSM(current).transition(OfferStatus.RESERVED)
+
+            bid = await self._create_bid(offer_id, booking_data, offer)
+            offer.status = "booked"
+            self.session.add(offer)
+            await self.session.commit()
+            await self.session.refresh(bid)
+            logger.info("Created bid for offer %s: %s", offer_id, bid.id)
+            return {
+                "bid_id": bid.id,
+                "offer_id": offer_id,
+                "provider": offer.provider,
+                "status": "pending",
+                "message": "Bid created successfully",
+                "escrow_contract_id": None,
+            }
+        except Exception as e:
+            logger.error("Error in book_offer: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def create_offer(self, offer_data: dict[str, Any]) -> MarketOffer:
+        """Create a new market offer"""
+        try:
+            logger.info("create_offer called with data keys: %s", offer_data.keys())
+            if "wallet" in offer_data and "provider" not in offer_data:
+                offer_data["provider"] = offer_data["wallet"]
+                logger.info("Mapped wallet '%s' to provider", offer_data["wallet"])
+            # `status` is a plain string on the model and this method splats the request body
+            # straight into it, so until now a caller could create an offer in any state they
+            # could spell -- including one no part of this service understands, which then
+            # made every later transition on that offer fail. That is how the deployed
+            # database came to hold an offer whose status is "open" (V23-83). Validating here
+            # is what makes "every stored status parses" true rather than aspirational.
+            if "status" in offer_data:
+                to_offer_status(offer_data["status"])
+            offer = MarketOffer(**offer_data)
+            self.session.add(offer)
+            await self.session.commit()
+            await self.session.refresh(offer)
+            logger.info("Created offer with id: %s", offer.id)
+            return offer
+        except Exception as e:
+            logger.error("Error in create_offer: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_analytics(self, period_type: str = "daily") -> dict[str, Any]:
+        """Get market analytics"""
+        from sqlalchemy import func, select
+
+        offer_count_stmt = select(func.count()).select_from(MarketOffer)
+        offer_count_result = await self.session.execute(offer_count_stmt)
+        total_offers = offer_count_result.scalar() or 0
+        avg_price_stmt = select(func.avg(MarketOffer.price_per_hour)).where(MarketOffer.price_per_hour.isnot(None))  # type: ignore[union-attr]
+        avg_price_result = await self.session.execute(avg_price_stmt)
+        avg_price = avg_price_result.scalar() or 0.0
+        capacity_stmt = select(func.sum(MarketOffer.capacity))
+        capacity_result = await self.session.execute(capacity_stmt)
+        total_capacity = capacity_result.scalar() or 0
+        return {
+            "period_type": period_type,
+            "total_offers": total_offers,
+            "total_capacity": total_capacity,
+            "average_price": Decimal(avg_price).quantize(Decimal("0.01")) if avg_price else Decimal("0"),
+        }
+
+    async def list_plugins(self, plugin_type: str | None = None, status: str = "approved") -> list[dict[str, Any]]:
+        """List plugins from database"""
+        from sqlalchemy import select
+
+        from ..domain.market import Plugin
+
+        try:
+            stmt = select(Plugin)
+            if plugin_type:
+                stmt = stmt.where(Plugin.type == plugin_type)  # type: ignore[arg-type]
+            if status:
+                stmt = stmt.where(Plugin.status == status)  # type: ignore[arg-type]
+            stmt = stmt.order_by(Plugin.created_at.desc())  # type: ignore[attr-defined]
+            result = await self.session.execute(stmt)
+            plugins = result.scalars().all()
+            return [
+                {
+                    "id": p.id,
+                    "name": p.name,
+                    "description": p.description,
+                    "author": p.author,
+                    "type": p.type,
+                    "version": p.version,
+                    "ipfs_cid": p.ipfs_cid,
+                    "status": p.status,
+                    "download_count": p.download_count,
+                    "rating": p.rating,
+                    "created_at": p.created_at.isoformat() if p.created_at else None,
+                }
+                for p in plugins
+            ]
+        except Exception as e:
+            logger.error("Error in list_plugins: %s: %s", e.__class__.__name__, e)
+            raise
+
+    async def register_plugin(self, plugin_data: dict[str, Any]) -> dict[str, Any]:
+        """Register a new plugin"""
+        from ..domain.market import Plugin
+
+        try:
+            plugin = Plugin(**plugin_data)
+            self.session.add(plugin)
+            await self.session.commit()
+            await self.session.refresh(plugin)
+            logger.info("Registered plugin with id: %s", plugin.id)
+            return {"id": plugin.id, "name": plugin.name, "status": plugin.status}
+        except Exception as e:
+            logger.error("Error in register_plugin: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def list_software_services(
+        self, service_type: str | None = None, status: str | None = None, chain_id: str | None = None
+    ) -> list[dict[str, Any]]:
+        """List software services with optional filters - aggregates from blockchain and local database
+
+        v0.6.6: Uses BlockchainRPCClient for blockchain queries with chain_id filter.
+        """
+        from sqlalchemy import select
+
+        from ..domain.market import SoftwareService
+
+        try:
+            # First, try to get offers from blockchain via RPC (v0.6.6: uses BlockchainRPCClient)
+            blockchain_offers = []
+            try:
+                # Query GPU offers from blockchain with chain_id filter
+                offers = await self._rpc_client.query_offers(
+                    chain_id=chain_id,
+                    status=status if status else None,
+                )
+                for offer in offers:
+                    price_per_hour = offer.get("price_per_hour")
+                    if price_per_hour is None:
+                        logger.warning(
+                            "Skipping blockchain offer %s: missing price_per_hour",
+                            offer.get("gpu_id", offer.get("id", "unknown")),
+                        )
+                        continue
+                    try:
+                        blockchain_offers.append(
+                            {
+                                "plugin_id": offer.get("gpu_id", offer.get("id", "unknown")),
+                                "service_type": "gpu_market",
+                                "model": offer.get("model", "unknown"),
+                                "price": Decimal(str(price_per_hour)),
+                                "price_unit": "per_hour",
+                                "offer_id": offer.get("gpu_id", "unknown"),
+                                "endpoint": settings.hub_rpc_url,
+                                "public_endpoint": settings.hub_rpc_url,
+                                "health_url": f"{settings.hub_rpc_url}/health",
+                                "provider_address": offer.get("provider", offer.get("miner_id", "")),
+                                "node_id": offer.get("miner_id", "unknown"),
+                                "gpu_name": offer.get("model", "N/A"),
+                                "gpu_device": "0",
+                                "gpu_uuid": offer.get("uuid") or offer.get("hardware_uuid", "N/A"),
+                                "gpu_offer_id": offer.get("gpu_id", "N/A"),
+                                "gpu_model": offer.get("model", "N/A"),
+                                "gpu_memory_gb": offer.get("memory_gb"),
+                                "compute_capability": offer.get("compute_capability", ""),
+                                "description": offer.get("description", ""),
+                                "status": offer.get("status", "active"),
+                                "registered_at": offer.get("created_at"),
+                                "updated_at": offer.get("updated_at"),
+                                "avg_rating": 0,
+                                "rating_count": 0,
+                                "chain_id": offer.get("chain_id", chain_id),
+                                "disk_quota_mb": offer.get("disk_quota_mb"),
+                                # Blockchain verification information
+                                "block_height": offer.get("block_height"),
+                                "block_hash": offer.get("block_hash"),
+                                "block_timestamp": offer.get("block_timestamp"),
+                                "block_proposer": offer.get("block_proposer"),
+                                "tx_hash": offer.get("tx_hash", ""),
+                                "confirmed": offer.get("block_height") is not None,
+                            }
+                        )
+                    except Exception as e:
+                        logger.warning("Failed to parse blockchain offer: %s", e)
+                        continue
+
+                logger.info("Retrieved %s offers from blockchain RPC (chain_id=%s)", len(blockchain_offers), chain_id)
+            except Exception as e:
+                logger.warning("Failed to get offers from blockchain RPC: %s", e)
+
+            # Second, get offers from local database
+            query = select(SoftwareService)
+            if service_type:
+                query = query.where(SoftwareService.service_type == service_type)  # type: ignore[arg-type]
+            if status:
+                query = query.where(SoftwareService.status == status)  # type: ignore[arg-type]
+            result = await self.session.execute(query)
+            local_services = result.scalars().all()
+
+            local_offers = [
+                {
+                    "plugin_id": s.plugin_id,
+                    "service_type": s.service_type,
+                    "model": s.model,
+                    "price": s.price,
+                    "price_unit": s.price_unit,
+                    "offer_id": s.offer_id,
+                    "endpoint": s.endpoint,
+                    "public_endpoint": s.public_endpoint,
+                    "health_url": s.health_url,
+                    "provider_address": s.provider_address,
+                    "node_id": s.node_id,
+                    "gpu_name": s.gpu_name,
+                    "gpu_device": s.gpu_device,
+                    "gpu_uuid": s.gpu_uuid,
+                    "gpu_offer_id": s.gpu_offer_id,
+                    "gpu_model": s.gpu_model,
+                    "gpu_memory_gb": s.gpu_memory_gb,
+                    "compute_capability": s.compute_capability,
+                    "description": s.description,
+                    "status": s.status,
+                    "registered_at": s.registered_at.isoformat() if s.registered_at else None,
+                    "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+                    "avg_rating": s.avg_rating,
+                    "rating_count": s.rating_count,
+                    "disk_quota_mb": s.disk_quota_mb,
+                    # Blockchain verification information
+                    "block_height": s.block_height,
+                    "block_hash": s.block_hash,
+                    "block_timestamp": s.block_timestamp.isoformat() if s.block_timestamp else None,
+                    "block_proposer": s.block_proposer,
+                    "tx_hash": s.tx_hash,
+                    "confirmed": bool(s.block_height),  # Consider confirmed if it has block info
+                }
+                for s in local_services
+            ]
+
+            # Merge blockchain and local offers, preferring blockchain
+            seen_plugin_ids = set()
+            merged_offers = []
+
+            # Add blockchain offers first
+            for offer in blockchain_offers:
+                plugin_id = offer["plugin_id"]
+                if plugin_id not in seen_plugin_ids:
+                    merged_offers.append(offer)
+                    seen_plugin_ids.add(plugin_id)
+
+            # Add local offers that aren't in blockchain
+            for offer in local_offers:
+                plugin_id = offer["plugin_id"]
+                if plugin_id not in seen_plugin_ids:
+                    merged_offers.append(offer)
+                    seen_plugin_ids.add(plugin_id)
+
+            logger.info(
+                "Returning %s total offers (%s from blockchain, %s from local)",
+                len(merged_offers),
+                len(blockchain_offers),
+                len(local_offers),
+            )
+
+            return merged_offers
+        except Exception as e:
+            logger.error("Error in list_software_services: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_software_service(self, plugin_id: str) -> dict[str, Any] | None:
+        """Get a specific software service"""
+        from sqlalchemy import select
+
+        from ..domain.market import SoftwareService
+
+        try:
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
+            result = await self.session.execute(query)
+            service = result.scalar_one_or_none()
+            if not service:
+                return None
+            return {
+                "plugin_id": service.plugin_id,
+                "service_type": service.service_type,
+                "model": service.model,
+                "price": service.price,
+                "price_unit": service.price_unit,
+                "offer_id": service.offer_id,
+                "endpoint": service.endpoint,
+                "public_endpoint": service.public_endpoint,
+                "health_url": service.health_url,
+                "provider_address": service.provider_address,
+                "node_id": service.node_id,
+                "gpu_name": service.gpu_name,
+                "gpu_device": service.gpu_device,
+                "gpu_uuid": service.gpu_uuid,
+                "gpu_offer_id": service.gpu_offer_id,
+                "gpu_model": service.gpu_model,
+                "gpu_memory_gb": service.gpu_memory_gb,
+                "compute_capability": service.compute_capability,
+                "description": service.description,
+                "status": service.status,
+                "registered_at": service.registered_at.isoformat() if service.registered_at else None,
+                "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+                "avg_rating": service.avg_rating,
+                "rating_count": service.rating_count,
+                "disk_quota_mb": service.disk_quota_mb,
+            }
+        except Exception as e:
+            logger.error("Error in get_software_service: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def register_software_service(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Register or update a software service"""
+        from datetime import datetime
+
+        from sqlalchemy import select
+
+        from ..domain.market import SoftwareService
+
+        try:
+            plugin_id = data.get("plugin_id")
+            if not plugin_id:
+                service_type = data.get("service_type", "unknown")
+                model = data.get("model", "")
+                plugin_id = f"{service_type}-{model}".strip("-").replace(":", "-").replace("/", "-")
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
+            result = await self.session.execute(query)
+            existing = result.scalar_one_or_none()
+            if existing:
+                for key, value in data.items():
+                    if hasattr(existing, key) and value is not None:
+                        setattr(existing, key, value)
+                existing.updated_at = datetime.utcnow()
+                await self.session.commit()
+                await self.session.refresh(existing)
+                logger.info("Updated software service: %s", plugin_id)
+            else:
+                data["plugin_id"] = plugin_id
+                service = SoftwareService(**data)
+                self.session.add(service)
+                await self.session.commit()
+                await self.session.refresh(service)
+                existing = service
+                logger.info("Registered software service: %s", plugin_id)
+            return {
+                "plugin_id": existing.plugin_id,
+                "service_type": existing.service_type,
+                "model": existing.model,
+                "status": existing.status,
+            }
+        except Exception as e:
+            logger.error("Error in register_software_service: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def unregister_software_service(self, plugin_id: str) -> Any:
+        """Unregister a software service"""
+        from sqlalchemy import select
+
+        from ..domain.market import SoftwareService
+
+        try:
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
+            result = await self.session.execute(query)
+            service = result.scalar_one_or_none()
+            if not service:
+                # Raise rather than return an HTTP-shaped tuple: this is the service layer,
+                # and the tuple was serialized by FastAPI as a 200 with the status buried in
+                # a JSON array. Matches list_offers/update_offer_status above.
+                raise ValueError(f"Service not found: {plugin_id}")
+            await self.session.delete(service)
+            await self.session.commit()
+            logger.info("Unregistered software service: %s", plugin_id)
+            return {"plugin_id": plugin_id, "status": "unregistered"}
+        except Exception as e:
+            logger.error("Error in unregister_software_service: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def create_graph(self, graph_data: dict[str, Any]) -> dict[str, Any]:
+        """Create a new knowledge graph"""
+        from ..domain.market import KnowledgeGraph
+
+        try:
+            graph = KnowledgeGraph(**graph_data)
+            self.session.add(graph)
+            await self.session.commit()
+            await self.session.refresh(graph)
+            logger.info("Created graph with id: %s", graph.id)
+            return {"id": graph.id, "name": graph.name, "status": graph.status}
+        except Exception as e:
+            logger.error("Error in create_graph: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def add_node(self, node_data: dict[str, Any]) -> dict[str, Any]:
+        """Add a node to a knowledge graph"""
+        from ..domain.market import GraphNode
+
+        try:
+            node = GraphNode(**node_data)
+            self.session.add(node)
+            await self.session.commit()
+            await self.session.refresh(node)
+            logger.info("Added node with id: %s to graph: %s", node.id, node.graph_id)
+            return {"id": node.id, "graph_id": node.graph_id, "label": node.label}
+        except Exception as e:
+            logger.error("Error in add_node: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def add_edge(self, edge_data: dict[str, Any]) -> dict[str, Any]:
+        """Add an edge to a knowledge graph"""
+        from ..domain.market import GraphEdge
+
+        try:
+            edge = GraphEdge(**edge_data)
+            self.session.add(edge)
+            await self.session.commit()
+            await self.session.refresh(edge)
+            logger.info("Added edge with id: %s to graph: %s", edge.id, edge.graph_id)
+            return {
+                "id": edge.id,
+                "graph_id": edge.graph_id,
+                "source_node_id": edge.source_node_id,
+                "target_node_id": edge.target_node_id,
+            }
+        except Exception as e:
+            logger.error("Error in add_edge: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def query_graph(self, graph_id: str) -> dict[str, Any]:
+        """Query a knowledge graph (get all nodes and edges)"""
+        from sqlalchemy import select
+
+        from ..domain.market import GraphEdge, GraphNode
+
+        try:
+            node_stmt = select(GraphNode).where(GraphNode.graph_id == graph_id)  # type: ignore[arg-type]
+            node_result = await self.session.execute(node_stmt)
+            nodes = node_result.scalars().all()
+            edge_stmt = select(GraphEdge).where(GraphEdge.graph_id == graph_id)  # type: ignore[arg-type]
+            edge_result = await self.session.execute(edge_stmt)
+            edges = edge_result.scalars().all()
+            return {
+                "graph_id": graph_id,
+                "nodes": [{"id": n.id, "node_type": n.node_type, "label": n.label, "properties": n.properties} for n in nodes],
+                "edges": [
+                    {
+                        "id": e.id,
+                        "source_node_id": e.source_node_id,
+                        "target_node_id": e.target_node_id,
+                        "edge_type": e.edge_type,
+                        "weight": e.weight,
+                        "properties": e.properties,
+                    }
+                    for e in edges
+                ],
+            }
+        except Exception as e:
+            logger.error("Error in query_graph: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def _create_bid(self, offer_id: str, booking_data: dict[str, Any], offer: MarketOffer) -> Bid:
+        """Create and persist a bid record for a market offer booking."""
+        try:
+            buyer = booking_data.get("wallet") or booking_data.get("buyer") or "unknown"
+            price = Decimal(str(booking_data.get("price", offer.price or 0)))
+            capacity = float(booking_data.get("duration_hours", 1.0))
+            bid = Bid(
+                offer_id=offer_id,
+                provider=offer.provider or "unknown",
+                buyer=buyer,
+                capacity=capacity,
+                price=price,
+                status="pending",
+            )
+            self.session.add(bid)
+            await self.session.commit()
+            logger.info("Created bid %s for offer %s", bid.id, offer_id)
+            return bid
+        except Exception as e:
+            logger.error("Error in _create_bid: %s: %s", type(e).__name__, str(e))
+            raise
+
+    def get_current_timestamp(self) -> int:
+        """Get current Unix timestamp"""
+        return int(time.time())
+
+    async def add_service_rating(
+        self, service_id: str, rating: float, reviewer_id: str, comment: str = "", source_node: str = "local"
+    ) -> ServiceRating:
+        """Add a service rating and update service average rating"""
+        try:
+            if not 1.0 <= rating <= 5.0:
+                raise ValueError("Rating must be between 1.0 and 5.0")
+            service_rating = ServiceRating(
+                service_id=service_id, rating=rating, reviewer_id=reviewer_id, comment=comment, source_node=source_node
+            )
+            self.session.add(service_rating)
+            await self.session.commit()
+            await self.session.refresh(service_rating)
+            logger.info("Added rating %s for service %s by reviewer %s from %s", rating, service_id, reviewer_id, source_node)
+            await self._update_service_rating(service_id)
+            return service_rating
+        except Exception as e:
+            logger.error("Error in add_service_rating: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_service_ratings(self, service_id: str, limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
+        """Get ratings for a specific service"""
+        try:
+            from sqlalchemy import select
+
+            stmt = select(ServiceRating).where(ServiceRating.service_id == service_id)  # type: ignore[arg-type]
+            stmt = stmt.order_by(ServiceRating.created_at.desc())  # type: ignore[attr-defined]
+            stmt = stmt.limit(limit).offset(offset)
+            result = await self.session.execute(stmt)
+            ratings = result.scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "service_id": r.service_id,
+                    "rating": r.rating,
+                    "reviewer_id": r.reviewer_id,
+                    "comment": r.comment,
+                    "created_at": r.created_at.isoformat() if r.created_at else None,
+                    "source_node": r.source_node,
+                }
+                for r in ratings
+            ]
+        except Exception as e:
+            logger.error("Error in get_service_ratings: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_unsynced_ratings(self, limit: int = 100) -> list[dict[str, Any]]:
+        """Get ratings that haven't been synced yet"""
+        try:
+            from sqlalchemy import select
+
+            stmt = select(ServiceRating).where(ServiceRating.synced_at.is_(None)).limit(limit)  # type: ignore[union-attr]
+            result = await self.session.execute(stmt)
+            ratings = result.scalars().all()
+            return [
+                {
+                    "id": r.id,
+                    "service_id": r.service_id,
+                    "rating": r.rating,
+                    "reviewer_id": r.reviewer_id,
+                    "comment": r.comment,
+                    "created_at": r.created_at.isoformat(),
+                    "source_node": r.source_node,
+                }
+                for r in ratings
+            ]
+        except Exception as e:
+            logger.error("Error in get_unsynced_ratings: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def mark_ratings_synced(self, rating_ids: list[str]) -> int:
+        """Mark ratings as synced"""
+        try:
+            from datetime import datetime
+
+            from sqlalchemy import select
+
+            stmt = select(ServiceRating).where(ServiceRating.id.in_(rating_ids))  # type: ignore[attr-defined]
+            result = await self.session.execute(stmt)
+            ratings = result.scalars().all()
+            for rating in ratings:
+                rating.synced_at = datetime.utcnow()
+            await self.session.commit()
+            logger.info("Marked %s ratings as synced", len(ratings))
+            return len(ratings)
+        except Exception as e:
+            logger.error("Error in mark_ratings_synced: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def sync_ratings_from_remote(self, remote_ratings: list[dict[str, Any]]) -> dict[str, Any]:
+        """Sync ratings from remote node"""
+        try:
+            from datetime import datetime
+
+            from sqlalchemy import select
+
+            synced_count = 0
+            updated_count = 0
+            skipped_count = 0
+            for remote_rating in remote_ratings:
+                stmt = select(ServiceRating).where(
+                    ServiceRating.service_id == remote_rating["service_id"],
+                    ServiceRating.reviewer_id == remote_rating["reviewer_id"],
+                )
+                result = await self.session.execute(stmt)
+                existing = result.scalar_one_or_none()
+                if existing:
+                    remote_created = datetime.fromisoformat(remote_rating["created_at"])
+                    if remote_created > existing.created_at:
+                        existing.rating = remote_rating["rating"]
+                        existing.comment = remote_rating["comment"]
+                        existing.synced_at = datetime.utcnow()
+                        updated_count += 1
+                    else:
+                        skipped_count += 1
+                else:
+                    new_rating = ServiceRating(
+                        id=remote_rating["id"],
+                        service_id=remote_rating["service_id"],
+                        rating=remote_rating["rating"],
+                        reviewer_id=remote_rating["reviewer_id"],
+                        comment=remote_rating["comment"],
+                        created_at=datetime.fromisoformat(remote_rating["created_at"]),
+                        synced_at=datetime.utcnow(),
+                        source_node=remote_rating.get("source_node", "remote"),
+                    )
+                    self.session.add(new_rating)
+                    synced_count += 1
+            await self.session.commit()
+            logger.info("Synced %s new, updated %s, skipped %s ratings", synced_count, updated_count, skipped_count)
+            for remote_rating in remote_ratings:
+                await self._update_service_rating(remote_rating["service_id"])
+            return {"synced": synced_count, "updated": updated_count, "skipped": skipped_count}
+        except Exception as e:
+            logger.error("Error in sync_ratings_from_remote: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def _update_service_rating(self, service_id: str) -> None:
+        """Calculate and update service average rating"""
+        try:
+            from sqlalchemy import func, select
+
+            stmt = select(func.avg(ServiceRating.rating), func.count(ServiceRating.id))  # type: ignore[arg-type]
+            stmt = stmt.where(ServiceRating.service_id == service_id)  # type: ignore[arg-type]
+            result = await self.session.execute(stmt)
+            avg_rating, count = result.first()
+            service_stmt = select(SoftwareService).where(SoftwareService.plugin_id == service_id)  # type: ignore[arg-type]
+            service_result = await self.session.execute(service_stmt)
+            service = service_result.scalar_one_or_none()
+            if not service:
+                service_stmt = select(SoftwareService).where(SoftwareService.offer_id == service_id)  # type: ignore[arg-type]
+                service_result = await self.session.execute(service_stmt)
+                service = service_result.scalar_one_or_none()
+            if service:
+                service.avg_rating = float(avg_rating) if avg_rating else 0.0
+                service.rating_count = int(count) if count else 0
+                await self.session.commit()
+                logger.info(
+                    "Updated service %s rating: avg=%s, count=%s", service_id, service.avg_rating, service.rating_count
+                )
+        except Exception as e:
+            logger.error("Error in _update_service_rating: %s: %s", type(e).__name__, str(e))
+            raise
+
+    def _canonical_address(self, address: str) -> str:
+        """Return the canonical 0x spelling for address comparison.
+
+        The chain stores EIP-55 secp256k1/EVM addresses, so comparing the
+        canonical `0x` form produced by :func:`canonical_address` removes
+        formatting differences without accepting legacy `ait1`/`aitbc1` spellings.
+        """
+        return canonical_address(address or "")
+
+    async def complete_bid(
+        self,
+        bid_id: str,
+        tx_hash: str,
+        chain_id: str | None = None,
+    ) -> dict[str, Any]:
+        """Complete a market bid after confirming the on-chain payment."""
+        try:
+            logger.info("complete_bid called with bid_id=%s, tx_hash=%s", bid_id, tx_hash)
+            stmt = select(Bid).where(Bid.id == bid_id)
+            result = (await self.session.execute(stmt)).first()
+            bid = result[0] if result else None
+            if not bid:
+                raise ValueError(f"Bid not found: {bid_id}")
+
+            offer = await self.get_offer(bid.offer_id)
+            if not offer:
+                raise ValueError(f"Offer not found: {bid.offer_id}")
+
+            if bid.status == "completed":
+                return {
+                    "bid_id": bid_id,
+                    "offer_id": offer.id,
+                    "tx_hash": tx_hash,
+                    "status": "completed",
+                    "message": "Bid already completed",
+                }
+
+            resolved_chain_id = chain_id or settings.default_chain_id
+            tx = await self._rpc_client.get_transaction(tx_hash, chain_id=resolved_chain_id)
+            if not tx:
+                raise ValueError(f"Transaction {tx_hash} not found on chain {resolved_chain_id}")
+            if tx.get("status") != "confirmed":
+                raise ValueError(f"Transaction {tx_hash} is not confirmed")
+
+            tx_sender = self._canonical_address(str(tx.get("sender", "")))
+            tx_recipient = self._canonical_address(str(tx.get("recipient", "")))
+            expected_sender = self._canonical_address(bid.buyer)
+            expected_recipient = self._canonical_address(offer.provider or "")
+
+            if expected_sender and tx_sender != expected_sender:
+                raise ValueError(f"Transaction sender {tx_sender} does not match buyer {expected_sender}")
+            if expected_recipient and tx_recipient != expected_recipient:
+                raise ValueError(f"Transaction recipient {tx_recipient} does not match provider {expected_recipient}")
+
+            # price is stored in AIT; on-chain value is in compute-units (1 AIT = 36_000_000)
+            required_value = ait_to_units(bid.price)
+            tx_value = int(tx.get("value", 0) or 0)
+            if required_value > 0 and tx_value < required_value:
+                raise ValueError(f"Transaction value {tx_value} compute-units is less than required {required_value}")
+
+            bid.status = "completed"
+            bid.tx_hash = tx_hash
+            self.session.add(bid)
+
+            # Transition offer reserved -> in_use -> delisted (closed/sold)
+            current = to_offer_status(offer.status)
+            fsm1 = OfferFSM(current)
+            fsm1.transition(OfferStatus.IN_USE)
+            offer.status = "in_use"
+            self.session.add(offer)
+            await self.session.commit()
+
+            fsm2 = OfferFSM(OfferStatus.IN_USE)
+            fsm2.transition(OfferStatus.DELISTED)
+            offer.status = "delisted"
+            self.session.add(offer)
+            await self.session.commit()
+
+            logger.info("Bid %s completed; offer %s delisted", bid_id, offer.id)
+            return {
+                "bid_id": bid_id,
+                "offer_id": offer.id,
+                "tx_hash": tx_hash,
+                "status": "completed",
+                "message": "Bid completed successfully",
+            }
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error("Error in complete_bid: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_service_by_offer_id(self, offer_id: str) -> dict[str, Any] | None:
+        """Get a software service by offer_id"""
+        from sqlalchemy import select
+
+        try:
+            stmt = select(SoftwareService).where(SoftwareService.offer_id == offer_id)  # type: ignore[arg-type]
+            result = await self.session.execute(stmt)
+            service = result.scalar_one_or_none()
+            if not service:
+                return None
+            return {
+                "plugin_id": service.plugin_id,
+                "service_type": service.service_type,
+                "model": service.model,
+                "price": service.price,
+                "price_unit": service.price_unit,
+                "offer_id": service.offer_id,
+                "endpoint": service.endpoint,
+                "public_endpoint": service.public_endpoint,
+                "health_url": service.health_url,
+                "provider_address": service.provider_address,
+                "node_id": service.node_id,
+                "gpu_name": service.gpu_name,
+                "gpu_device": service.gpu_device,
+                "gpu_uuid": service.gpu_uuid,
+                "gpu_offer_id": service.gpu_offer_id,
+                "gpu_model": service.gpu_model,
+                "gpu_memory_gb": service.gpu_memory_gb,
+                "compute_capability": service.compute_capability,
+                "description": service.description,
+                "status": service.status,
+                "registered_at": service.registered_at.isoformat() if service.registered_at else None,
+                "updated_at": service.updated_at.isoformat() if service.updated_at else None,
+                "avg_rating": service.avg_rating,
+                "rating_count": service.rating_count,
+            }
+        except Exception as e:
+            logger.error("Error in get_service_by_offer_id: %s: %s", type(e).__name__, str(e))
+            raise
+
+    def _parse_iso_dt(self, value: Any) -> Any:
+        """Parse an ISO 8601 datetime string into a naive UTC datetime."""
+        from datetime import UTC, datetime
+
+        if value is None:
+            return None
+        if isinstance(value, datetime):
+            if value.tzinfo is not None:
+                # Convert aware datetimes to naive UTC for consistent storage.
+                return value.astimezone(UTC).replace(tzinfo=None)
+            return value
+        if isinstance(value, str):
+            parsed = datetime.fromisoformat(value.replace("Z", "+00:00"))
+            if parsed.tzinfo is not None:
+                parsed = parsed.astimezone(UTC).replace(tzinfo=None)
+            return parsed
+        raise ValueError(f"Invalid datetime value: {value!r}")
+
+    async def register_ipfs_rental_token(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Register an access token for a paid IPFS rental."""
+        from datetime import datetime
+
+        from sqlalchemy import select
+
+        from ..domain.market import IpfsRentalToken
+
+        try:
+            access_key = data.get("access_key")
+            if not access_key:
+                raise ValueError("access_key is required")
+
+            # v0.25.x: canonicalize secp256k1/EVM addresses at registration so
+            # the market DB always stores 0x EIP-55 addresses, regardless
+            # of what the CLI or offer data sent.
+            for addr_field in ("buyer_address", "provider_address"):
+                if addr_field in data and data[addr_field]:
+                    data[addr_field] = canonical_address(str(data[addr_field]))
+
+            # A token is only registered after the provider successfully pins the CID.
+            # Default to pinned=True so that normal rentals pay the provider at expiration.
+            data["pinned"] = bool(data.get("pinned", True))
+
+            # Normalize string timestamps into datetime objects for SQLite.
+            for field in ("created_at", "updated_at", "expires_at"):
+                if field in data:
+                    data[field] = self._parse_iso_dt(data[field])
+
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)
+            result = await self.session.execute(stmt)
+            existing = result.scalar_one_or_none()
+            if existing:
+                existing.access_secret = data.get("access_secret") or existing.access_secret
+                existing.cid = data.get("cid") or existing.cid
+                existing.escrow_contract_id = data.get("escrow_contract_id") or existing.escrow_contract_id
+                existing.status = data.get("status") or existing.status
+                if "pinned" in data:
+                    existing.pinned = bool(data["pinned"])
+                if "expires_at" in data:
+                    existing.expires_at = data["expires_at"]
+                existing.updated_at = datetime.utcnow()
+                await self.session.commit()
+                await self.session.refresh(existing)
+                logger.info("Updated IPFS rental token: %s", access_key)
+                return self._ipfs_token_to_dict(existing)
+            token = IpfsRentalToken(**data)
+            if not token.created_at:
+                token.created_at = datetime.utcnow()
+            if not token.updated_at:
+                token.updated_at = datetime.utcnow()
+            self.session.add(token)
+            await self.session.commit()
+            await self.session.refresh(token)
+            logger.info("Registered IPFS rental token: %s", access_key)
+            return self._ipfs_token_to_dict(token)
+        except ValueError:
+            raise
+        except Exception as e:
+            logger.error("Error in register_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
+            raise
+
+    async def get_ipfs_rental_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
+        """Validate an IPFS rental token and return its details."""
+        from datetime import datetime
+
+        from sqlalchemy import select
+
+        from ..domain.market import IpfsRentalToken
+
+        try:
+            stmt = select(IpfsRentalToken).where(IpfsRentalToken.access_key == access_key)  # type: ignore[arg-type]
+            result = await self.session.execute(stmt)
+            token = result.scalar_one_or_none()
+            if not token:
+                return None
+            if token.access_secret != access_secret:
+                return None
+            if token.status != "active":
+                return None
+            # Compare naive UTC datetimes; SQLite returns naive values.
+            if token.expires_at and token.expires_at < datetime.utcnow().replace(tzinfo=None):
+                token.status = "expired"
+                await self.session.commit()
+                return None
+            return self._ipfs_token_to_dict(token)
+        except Exception as e:
+            logger.error("Error in get_ipfs_rental_token: %s: %s", type(e).__name__, str(e))
+            raise
+
+    def _ipfs_token_to_dict(self, token: Any) -> dict[str, Any]:
+        """Serialize an IpfsRentalToken."""
+        return {
+            "access_key": token.access_key,
+            "rental_id": token.rental_id,
+            "offer_id": token.offer_id,
+            "cid": token.cid,
+            "buyer_address": token.buyer_address,
+            "provider_address": token.provider_address,
+            "escrow_contract_id": token.escrow_contract_id,
+            "ipfs_api": token.ipfs_api,
+            "public_endpoint": token.public_endpoint,
+            "disk_quota_mb": token.disk_quota_mb,
+            "size": token.size,
+            "pinned": token.pinned,
+            "status": token.status,
+            "tx_hash": token.tx_hash,
+            "created_at": token.created_at.isoformat() if token.created_at else None,
+            "expires_at": token.expires_at.isoformat() if token.expires_at else None,
+        }
+
+    # -------------------------------------------------------------------------
+    # MarketJob / MarketJobPayment (v0.25.7 first-class IPFS)
+    # -------------------------------------------------------------------------
+
+    def _job_to_dict(self, job: MarketJob) -> dict[str, Any]:
+        """Serialize a MarketJob."""
+        return {
+            "job_id": job.id,
+            "client_id": job.client_id,
+            "client_ref": job.client_ref,
+            "offer_id": job.offer_id,
+            "plugin_id": job.plugin_id,
+            "service_type": job.service_type,
+            "model": job.model,
+            "buyer_address": job.buyer_address,
+            "provider_address": job.provider_address,
+            "state": job.state,
+            "payload": job.payload,
+            "constraints": job.constraints,
+            "ttl_seconds": job.ttl_seconds,
+            "requested_at": job.requested_at.isoformat() if job.requested_at else None,
+            "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+            "completed_at": job.completed_at.isoformat() if job.completed_at else None,
+            "error": job.error,
+            "result": job.result,
+            "receipt": job.receipt,
+            "access_key": job.access_key,
+            "payment_id": job.payment_id,
+            "payment_status": job.payment_status,
+            "payment_amount": str(job.payment_amount) if job.payment_amount is not None else None,
+            "payment_token": job.payment_token,
+            "escrow_contract_id": job.escrow_contract_id,
+            "tx_hash": job.tx_hash,
+            "refund_tx_hash": job.refund_tx_hash,
+            "created_at": job.created_at.isoformat() if job.created_at else None,
+            "updated_at": job.updated_at.isoformat() if job.updated_at else None,
+        }
+
+    def _payment_to_dict(self, payment: MarketJobPayment) -> dict[str, Any]:
+        """Serialize a MarketJobPayment."""
+        return {
+            "payment_id": payment.id,
+            "job_id": payment.job_id,
+            "amount": str(payment.amount),
+            "currency": payment.currency,
+            "status": payment.status,
+            "payment_method": payment.payment_method,
+            "escrow_address": payment.escrow_address,
+            "refund_address": payment.refund_address,
+            "transaction_hash": payment.transaction_hash,
+            "refund_transaction_hash": payment.refund_transaction_hash,
+            "created_at": payment.created_at.isoformat() if payment.created_at else None,
+            "updated_at": payment.updated_at.isoformat() if payment.updated_at else None,
+            "escrowed_at": payment.escrowed_at.isoformat() if payment.escrowed_at else None,
+            "released_at": payment.released_at.isoformat() if payment.released_at else None,
+            "refunded_at": payment.refunded_at.isoformat() if payment.refunded_at else None,
+            "expires_at": payment.expires_at.isoformat() if payment.expires_at else None,
+            "meta_data": payment.meta_data,
+        }
+
+    # Reuse _parse_iso_dt from the IPFS rental token helpers above.
+
+    async def create_market_job(self, data: dict[str, Any]) -> dict[str, Any]:
+        """Create a MarketJob and MarketJobPayment for a software job."""
+        try:
+            # Canonicalize addresses at creation so the DB always stores 0x EIP-55.
+            for addr_field in ("buyer_address", "provider_address"):
+                if data.get(addr_field):
+                    data[addr_field] = canonical_address(str(data[addr_field]))
+
+            job_id = data.get("id") or uuid4().hex
+            if not job_id:
+                raise ValueError("job_id is required")
+
+            # Normalize timestamps
+            for field in ("requested_at", "expires_at", "created_at", "updated_at"):
+                if field in data:
+                    data[field] = self._parse_iso_dt(data[field])
+
+            job = MarketJob(**data)
+            job.id = job_id
+            if not job.requested_at:
+                job.requested_at = datetime.utcnow()
+            if not job.created_at:
+                job.created_at = datetime.utcnow()
+            if not job.updated_at:
+                job.updated_at = datetime.utcnow()
+
+            payment_data = data.get("payment") or {}
+            payment = MarketJobPayment(
+                id=payment_data.get("id") or uuid4().hex,
+                job_id=job.id,
+                amount=Decimal(str(payment_data.get("amount", payment_data.get("payment_amount", 0)))),
+                currency=payment_data.get("currency", "AITBC"),
+                status=payment_data.get("status", "pending"),
+                payment_method=payment_data.get("payment_method", "aitbc_token"),
+                escrow_address=payment_data.get("escrow_address"),
+                refund_address=payment_data.get("refund_address"),
+                transaction_hash=payment_data.get("transaction_hash"),
+                meta_data=payment_data.get("meta_data"),
+                created_at=datetime.utcnow(),
+                updated_at=datetime.utcnow(),
+                escrowed_at=payment_data.get("escrowed_at")
+                and self._parse_iso_dt(payment_data["escrowed_at"])
+                or (datetime.utcnow() if payment_data.get("status") == "escrowed" else None),
+                expires_at=job.expires_at,
+            )
+
+            job.access_key = (job.payload or {}).get("access_key")
+            job.payment_id = payment.id
+            job.payment_amount = payment.amount
+            job.payment_status = payment.status
+
+            self.session.add(job)
+            self.session.add(payment)
+            await self.session.commit()
+            await self.session.refresh(job)
+            await self.session.refresh(payment)
+
+            logger.info("Created market job %s", job.id)
+            return {
+                **self._job_to_dict(job),
+                "payment": self._payment_to_dict(payment),
+            }
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in create_market_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def get_market_job(self, job_id: str) -> dict[str, Any] | None:
+        """Get a MarketJob by ID, including its payment."""
+        try:
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                return None
+
+            payment: MarketJobPayment | None = None
+            if job.payment_id:
+                payment = await self.session.get(MarketJobPayment, job.payment_id)
+
+            return {
+                **self._job_to_dict(job),
+                "payment": self._payment_to_dict(payment) if payment else None,
+            }
+        except Exception as e:
+            logger.error("Error in get_market_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def list_market_jobs(
+        self,
+        buyer_address: str | None = None,
+        provider_address: str | None = None,
+        service_type: str | None = None,
+        state: str | None = None,
+        offer_id: str | None = None,
+        limit: int = 100,
+    ) -> list[dict[str, Any]]:
+        """List market jobs with optional filters."""
+        try:
+            from sqlmodel import col
+
+            stmt = select(MarketJob)
+            if buyer_address:
+                stmt = stmt.where(col(MarketJob.buyer_address) == canonical_address(buyer_address))
+            if provider_address:
+                stmt = stmt.where(col(MarketJob.provider_address) == canonical_address(provider_address))
+            if service_type:
+                stmt = stmt.where(col(MarketJob.service_type) == service_type)
+            if state:
+                stmt = stmt.where(col(MarketJob.state) == state)
+            if offer_id:
+                stmt = stmt.where(col(MarketJob.offer_id) == offer_id)
+            stmt = stmt.order_by(col(MarketJob.created_at).desc()).limit(limit)
+
+            result = await self.session.execute(stmt)
+            jobs = list(result.scalars().all())
+
+            out = []
+            for job in jobs:
+                payment = None
+                if job.payment_id:
+                    payment = await self.session.get(MarketJobPayment, job.payment_id)
+                out.append(
+                    {
+                        **self._job_to_dict(job),
+                        "payment": self._payment_to_dict(payment) if payment else None,
+                    }
+                )
+            return out
+        except Exception as e:
+            logger.error("Error in list_market_jobs: %s: %s", type(e).__name__, e)
+            raise
+
+    async def cancel_market_job(self, job_id: str, reason: str = "") -> dict[str, Any]:
+        """Cancel a market job and mark its payment for refund."""
+        try:
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            if job.state in {"CANCELED", "REFUNDED", "RELEASED", "COMPLETED"}:
+                return self._job_to_dict(job)
+
+            job.state = "CANCELED"
+            job.receipt = {"reason": reason or "buyer_requested"}
+            job.error = None
+            job.updated_at = datetime.utcnow()
+
+            payment = None
+            if job.payment_id:
+                payment = await self.session.get(MarketJobPayment, job.payment_id)
+                if payment and payment.status == "escrowed":
+                    payment.status = "refund_pending"
+                    payment.updated_at = datetime.utcnow()
+                    self.session.add(payment)
+                    job.payment_status = "refund_pending"
+
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in cancel_market_job: %s: %s", type(e).__name__, e)
+            raise
+
+    async def confirm_market_job_pin(
+        self,
+        job_id: str,
+        size: int | None = None,
+        pin_tx_hash: str | None = None,
+        provider_confirmed: bool = False,
+    ) -> dict[str, Any]:
+        """Confirm a job has been pinned and optionally transition to RUNNING."""
+        try:
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            if job.state not in {"QUEUED", "RUNNING"}:
+                return self._job_to_dict(job)
+
+            # payload is a plain JSON column: reassign, don't mutate in place,
+            # or SQLAlchemy never sees the change and the update is dropped.
+            payload = dict(job.payload or {})
+            payload["pinned"] = True
+            if size is not None:
+                payload["size"] = size
+            if pin_tx_hash:
+                payload["pin_tx_hash"] = pin_tx_hash
+            if provider_confirmed:
+                payload["provider_confirmed"] = True
+            job.payload = payload
+
+            job.state = "RUNNING"
+            job.updated_at = datetime.utcnow()
+
+            payment = None
+            if job.payment_id:
+                payment = await self.session.get(MarketJobPayment, job.payment_id)
+                if payment and payment.status == "pending":
+                    payment.status = "escrowed"
+                    payment.escrowed_at = datetime.utcnow()
+                    payment.updated_at = datetime.utcnow()
+                    self.session.add(payment)
+                    job.payment_status = "escrowed"
+
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in confirm_market_job_pin: %s: %s", type(e).__name__, e)
+            raise
+
+    async def release_market_job_payment(self, job_id: str, release_data: dict[str, Any] | None = None) -> dict[str, Any]:
+        """Release the escrow for a completed market job."""
+        try:
+            release_data = release_data or {}
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            payment: MarketJobPayment | None = None
+            if job.payment_id:
+                payment = await self.session.get(MarketJobPayment, job.payment_id)
+
+            if not job.escrow_contract_id:
+                raise ValueError(f"Job {job_id} has no escrow_contract_id")
+
+            tx_hash = release_data.get("tx_hash")
+            released_amount = release_data.get("released_amount")
+            if not tx_hash:
+                result = await self._rpc_client.release_escrow(job.id)
+                if not (result and result.get("success")):
+                    raise ValueError(f"Escrow release failed for job {job_id}: {result}")
+                tx_hash = str(result.get("tx_hash", ""))
+                released_amount = result.get("released_amount")
+
+            job.state = "RELEASED"
+            job.payment_status = "released"
+            job.tx_hash = tx_hash
+            job.completed_at = datetime.utcnow()
+            job.updated_at = datetime.utcnow()
+
+            if payment:
+                payment.status = "released"
+                payment.transaction_hash = tx_hash
+                payment.released_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
+                if released_amount is not None:
+                    payment.released_amount = Decimal(str(released_amount))
+                self.session.add(payment)
+
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in release_market_job_payment: %s: %s", type(e).__name__, e)
+            raise
+
+    async def refund_market_job_payment(
+        self, job_id: str, reason: str = "", refund_data: dict[str, Any] | None = None
+    ) -> dict[str, Any]:
+        """Refund the escrow for a failed or canceled market job."""
+        try:
+            refund_data = refund_data or {}
+            job = await self.session.get(MarketJob, job_id)
+            if not job:
+                raise ValueError(f"Job not found: {job_id}")
+
+            payment: MarketJobPayment | None = None
+            if job.payment_id:
+                payment = await self.session.get(MarketJobPayment, job.payment_id)
+
+            if not job.escrow_contract_id:
+                raise ValueError(f"Job {job_id} has no escrow_contract_id")
+
+            tx_hash = refund_data.get("tx_hash")
+            refunded_amount = refund_data.get("refunded_amount")
+            if not tx_hash:
+                result = await self._rpc_client.refund_escrow(job.id)
+                if not (result and result.get("success")):
+                    raise ValueError(f"Escrow refund failed for job {job_id}: {result}")
+                tx_hash = str(result.get("tx_hash", ""))
+                refunded_amount = result.get("refunded_amount")
+
+            job.state = "REFUNDED"
+            job.payment_status = "refunded"
+            job.refund_tx_hash = tx_hash
+            if reason:
+                job.receipt = {"reason": reason}
+            job.updated_at = datetime.utcnow()
+
+            if payment:
+                payment.status = "refunded"
+                payment.refund_transaction_hash = tx_hash
+                payment.refunded_at = datetime.utcnow()
+                payment.updated_at = datetime.utcnow()
+                if refunded_amount is not None:
+                    payment.refunded_amount = Decimal(str(refunded_amount))
+                self.session.add(payment)
+
+            self.session.add(job)
+            await self.session.commit()
+            await self.session.refresh(job)
+
+            return self._job_to_dict(job)
+        except Exception as e:
+            await self.session.rollback()
+            logger.error("Error in refund_market_job_payment: %s: %s", type(e).__name__, e)
+            raise
+
+    async def get_market_job_access_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
+        """Validate an access token and return the job details."""
+        from sqlmodel import col
+
+        try:
+            stmt = select(MarketJob).where(col(MarketJob.access_key) == access_key)
+            result = await self.session.execute(stmt)
+            job = result.scalar_one_or_none()
+            if not job:
+                return None
+
+            if (job.payload or {}).get("access_secret") != access_secret:
+                return None
+
+            if job.state in {"CANCELED", "REFUNDED", "FAILED"}:
+                return None
+
+            if job.expires_at and job.expires_at < datetime.utcnow():
+                job.state = "EXPIRED"
+                await self.session.commit()
+                return None
+
+            return {
+                "job_id": job.id,
+                "cid": job.payload.get("cid"),
+                "ipfs_api": job.payload.get("ipfs_api"),
+                "public_endpoint": job.payload.get("public_endpoint"),
+                "expires_at": job.expires_at.isoformat() if job.expires_at else None,
+                "size": job.payload.get("size"),
+            }
+        except Exception as e:
+            logger.error("Error in get_market_job_access_token: %s: %s", type(e).__name__, e)
+            raise
+
+    async def get_market_job_usage(self, buyer_address: str, offer_id: str) -> int:
+        """Return the total bytes of active IPFS storage for a buyer/offer pair."""
+        from sqlmodel import col
+
+        try:
+            stmt = (
+                select(MarketJob)
+                .where(col(MarketJob.buyer_address) == canonical_address(buyer_address))
+                .where(col(MarketJob.offer_id) == offer_id)
+                .where(col(MarketJob.service_type) == "ipfs")
+                .where(col(MarketJob.state).in_({"QUEUED", "RUNNING"}))
+            )
+            result = await self.session.execute(stmt)
+            jobs = list(result.scalars().all())
+            return sum(int(j.payload.get("size", 0) or 0) for j in jobs)
+        except Exception as e:
+            logger.error("Error in get_market_job_usage: %s: %s", type(e).__name__, e)
+            raise
+
+    async def check_software_offer_health(self, plugin_id: str) -> dict[str, Any]:
+        """Check the health of a software offer."""
+        try:
+            from sqlmodel import col
+
+            stmt = select(SoftwareService).where(col(SoftwareService.plugin_id) == plugin_id)
+            result = await self.session.execute(stmt)
+            service = result.scalar_one_or_none()
+            if not service:
+                raise ValueError(f"Service not found: {plugin_id}")
+
+            health_url = service.health_url or ""
+            if not health_url:
+                return {"healthy": False, "reason": "no health_url configured"}
+
+            if service.service_type == "ipfs" and "api/v0/version" in health_url:
+                try:
+                    import httpx
+
+                    async with httpx.AsyncClient(timeout=10.0) as client:
+                        resp = await client.post(health_url)
+                        resp.raise_for_status()
+                        data = resp.json()
+
+                    peer_id = data.get("ID") or data.get("PeerID") or data.get("id") or ""
+                    version = data.get("Version") or data.get("version") or ""
+
+                    pinned_count = None
+                    try:
+                        pin_url = health_url.replace("/api/v0/version", "/api/v0/pin/ls")
+                        async with httpx.AsyncClient(timeout=10.0) as client:
+                            pin_resp = await client.post(pin_url, params={"stream": "true"}, timeout=10.0)
+                            if pin_resp.status_code == 200:
+                                pins = [line for line in pin_resp.text.splitlines() if line.strip()]
+                                pinned_count = len(pins)
+                    except Exception:
+                        pass
+
+                    return {
+                        "healthy": True,
+                        "service_type": "ipfs",
+                        "version": version,
+                        "peer_id": peer_id,
+                        "pinned_count": pinned_count,
+                        "disk_usage_bytes": None,
+                        "quota_mb": service.disk_quota_mb,
+                    }
+                except Exception as e:
+                    return {"healthy": False, "service_type": "ipfs", "reason": str(e)}
+
+            # Generic HTTP health for other services
+            try:
+                import httpx
+
+                async with httpx.AsyncClient(timeout=10.0) as client:
+                    resp = await client.get(health_url)
+                    resp.raise_for_status()
+                return {"healthy": True, "service_type": service.service_type, "status_code": resp.status_code}
+            except Exception as e:
+                return {"healthy": False, "service_type": service.service_type, "reason": str(e)}
+        except Exception as e:
+            logger.error("Error in check_software_offer_health: %s: %s", type(e).__name__, e)
+            raise

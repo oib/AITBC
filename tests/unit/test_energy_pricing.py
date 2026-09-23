@@ -1,4 +1,4 @@
-"""Unit tests for aitbc.marketplace.energy_pricing.
+"""Unit tests for aitbc.market.energy_pricing.
 
 Tests the pure arithmetic and quote evaluation described in the energy-floor
 plan. No network, no contracts, no float money.
@@ -11,7 +11,7 @@ from decimal import Decimal
 
 import pytest
 
-from aitbc.marketplace.energy_pricing import (
+from aitbc.market.energy_pricing import (
     EnergyPricingError,
     EnergyProfile,
     EnergyQuote,

@@ -1,6 +1,6 @@
 """V23-32a: the two controls feature_flags.json reported as enabled at 100% rollout.
 
-``strict_cors_enforcement`` and ``enable_marketplace_rate_limiting`` were both marked
+``strict_cors_enforcement`` and ``enable_market_rate_limiting`` were both marked
 ``enabled: true``, ``rollout_percentage: 100.0``, dated 2026-05-24, in a manifest no code
 read. Neither existed. These tests are the difference between a claim and a control.
 """
@@ -74,7 +74,7 @@ def test_coordinator_config_rejects_wildcard_origins() -> None:
 
 
 # --------------------------------------------------------------------------------------
-# Rate limiting: the marketplace had none
+# Rate limiting: the market had none
 # --------------------------------------------------------------------------------------
 
 
@@ -104,10 +104,10 @@ def _app_with_limit(rate: int = 3, **kwargs: object) -> FastAPI:
     return app
 
 
-def test_marketplace_app_has_rate_limiting_wired_up() -> None:
+def test_market_app_has_rate_limiting_wired_up() -> None:
     """The finding was not "the limit is wrong", it was "there is no limit"."""
-    marketplace_main = REPO_ROOT / "apps/marketplace/src/marketplace_service/main.py"
-    tree = ast.parse(marketplace_main.read_text(encoding="utf-8"))
+    market_main = REPO_ROOT / "apps/market/src/market_service/main.py"
+    tree = ast.parse(market_main.read_text(encoding="utf-8"))
 
     added = {
         node.args[0].id
@@ -120,7 +120,7 @@ def test_marketplace_app_has_rate_limiting_wired_up() -> None:
     }
 
     assert "RateLimitMiddleware" in added, (
-        "apps/marketplace has no rate limiting middleware. It had none at all when "
-        "feature_flags.json reported enable_marketplace_rate_limiting as on at 100% rollout "
+        "apps/market has no rate limiting middleware. It had none at all when "
+        "feature_flags.json reported enable_market_rate_limiting as on at 100% rollout "
         "(V23-32a); do not remove it without replacing the control."
     )

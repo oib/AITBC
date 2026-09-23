@@ -7,7 +7,7 @@
 
 ## Overview
 
-The AITBC CLI provides a comprehensive command-line interface for interacting with the network. It supports wallet management, blockchain operations, AI job submission, marketplace operations, agent orchestration, system administration, and blockchain synchronization.
+The AITBC CLI provides a comprehensive command-line interface for interacting with the network. It supports wallet management, blockchain operations, AI job submission, market operations, agent orchestration, system administration, and blockchain synchronization.
 
 ## Installation
 
@@ -143,7 +143,7 @@ aitbc network test --peer <peer-address>
 
 ### 7. market
 
-Marketplace offers, orders, and escrow.
+Market offers, orders, and escrow.
 
 ```bash
 # List offers
@@ -450,7 +450,7 @@ aitbc blockchain status
 aitbc blockchain info
 ```
 
-### Marketplace Operations
+### Market Operations
 
 ```bash
 # List available offers

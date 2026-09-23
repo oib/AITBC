@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 #
 # AITBC Advanced AI Trading & Analytics Implementation
 # Implements AI-powered trading and analytics capabilities
@@ -85,7 +86,7 @@ main() {
     echo "✅ AI Monitoring set up"
     echo ""
     echo "🚀 AI Trading & Analytics Status: READY FOR DEPLOYMENT"
-    echo "📊 Next Phase: Global AI Marketplace Leadership"
+    echo "📊 Next Phase: Global AI Market Leadership"
     echo "🎯 Goal: AI-Powered Trading Excellence"
 }
 

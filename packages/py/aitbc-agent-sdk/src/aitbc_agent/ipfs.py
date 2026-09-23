@@ -159,7 +159,7 @@ class IPFSOperations:
         wallet: str = "genesis",
         pin: bool = True,
     ) -> dict:
-        """Host IPFS content through a marketplace offer."""
+        """Host IPFS content through a market offer."""
         args = [
             "--offer-id-or-plugin-id",
             offer_id_or_plugin_id,
@@ -184,7 +184,7 @@ class IPFSOperations:
         access_secret: str | None = None,
         output_path: str | None = None,
     ) -> bytes:
-        """Download IPFS content by marketplace job, access token, or free CID."""
+        """Download IPFS content by market job, access token, or free CID."""
         args: list[str] = ["download"]
         if cid:
             args.extend(["--cid", cid])
@@ -210,7 +210,7 @@ class IPFSOperations:
             return f.read()
 
     def list_market_ipfs_jobs(self, service_type: str = "ipfs", state: str | None = None) -> list:
-        """List marketplace jobs for IPFS (or other service types)."""
+        """List market jobs for IPFS (or other service types)."""
         args = ["jobs"]
         if service_type:
             args.extend(["--service-type", service_type])
@@ -224,7 +224,7 @@ class IPFSOperations:
         raise Exception(result.get("error"))
 
     def cancel_market_ipfs_job(self, job_id: str, reason: str = "buyer_requested") -> dict:
-        """Cancel a marketplace IPFS job and request a refund."""
+        """Cancel a market IPFS job and request a refund."""
         result = self.executor.execute_command(
             "market",
             ["cancel", "--job-id", job_id, "--reason", reason],

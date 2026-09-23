@@ -2,7 +2,7 @@
 
 This module provides reusable helpers for the ``aitbc market gpu`` and
 ``aitbc energy`` command groups. It wraps the canonical
-``aitbc.marketplace.energy_pricing`` types with CLI-friendly parsing,
+``aitbc.market.energy_pricing`` types with CLI-friendly parsing,
 operator-signature verification, freshness checks, and settlement
 breakdown computation so command modules stay thin.
 """
@@ -13,7 +13,7 @@ import time
 from dataclasses import dataclass
 from typing import Any
 
-from aitbc.marketplace.energy_pricing import (
+from aitbc.market.energy_pricing import (
     DEFAULT_MAX_RATE_AGE_SECONDS,
     EnergyQuote,
     RefusalCode,
@@ -23,7 +23,7 @@ from aitbc.marketplace.energy_pricing import (
     compute_native_gross_units,
     evaluate_quote,
 )
-from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+from aitbc.market.energy_oracle import EVMEnergyOracle
 from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
 
 

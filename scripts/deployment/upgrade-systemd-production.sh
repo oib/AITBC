@@ -92,17 +92,17 @@ EOF
 
 echo "✅ Blockchain service upgraded to production-grade"
 
-# Step 2: Upgrade marketplace service
-echo -e "${CYAN}🏪 Step 2: Upgrade Marketplace Service${NC}"
+# Step 2: Upgrade market service
+echo -e "${CYAN}🏪 Step 2: Upgrade Market Service${NC}"
 echo "===================================="
 
 # Backup original service
-cp /opt/aitbc/systemd/aitbc-marketplace.service /opt/aitbc/systemd/aitbc-marketplace.service.backup
+cp /opt/aitbc/systemd/aitbc-market.service /opt/aitbc/systemd/aitbc-market.service.backup
 
-# Create production-grade marketplace service
-cat > /opt/aitbc/systemd/aitbc-marketplace.service << EOF
+# Create production-grade market service
+cat > /opt/aitbc/systemd/aitbc-market.service << EOF
 [Unit]
-Description=AITBC Production Marketplace Service
+Description=AITBC Production Market Service
 After=network.target aitbc-blockchain-node.service postgresql.service redis.service
 Wants=aitbc-blockchain-node.service postgresql.service redis.service
 
@@ -113,13 +113,13 @@ Group=root
 WorkingDirectory=/opt/aitbc
 Environment=PATH=/usr/bin:/usr/local/bin:/usr/bin:/bin
 Environment=NODE_ID=${NODE_ID}
-Environment=MARKETPLACE_PORT=8102
+Environment=MARKET_PORT=8102
 Environment=WORKERS=4
 Environment=PYTHONPATH=/opt/aitbc/production/services
 EnvironmentFile=/opt/aitbc/production/.env
 
 # Production execution
-ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/marketplace.py
+ExecStart=/opt/aitbc/venv/bin/python /opt/aitbc/production/services/market.py
 ExecReload=/bin/kill -HUP \$MAINPID
 KillMode=mixed
 TimeoutStopSec=10
@@ -133,13 +133,13 @@ StartLimitIntervalSec=60
 # Production logging
 StandardOutput=journal
 StandardError=journal
-SyslogIdentifier=aitbc-marketplace-production
+SyslogIdentifier=aitbc-market-production
 
 # Production security
 NoNewPrivileges=true
 ProtectSystem=strict
 ProtectHome=true
-ReadWritePaths=/opt/aitbc/production/data/marketplace /opt/aitbc/production/logs/marketplace
+ReadWritePaths=/opt/aitbc/production/data/market /opt/aitbc/production/logs/marketplace
 
 # Production performance
 LimitNOFILE=65536
@@ -151,13 +151,13 @@ CPUQuota=25%
 WantedBy=multi-user.target
 EOF
 
-echo "✅ Marketplace service upgraded to production-grade"
+echo "✅ Market service upgraded to production-grade"
 
-# Step 3: GPU service unified into marketplace service
+# Step 3: GPU service unified into market service
 echo -e "${CYAN}🖥️  Step 3: GPU Service${NC}"
 echo "=============================="
-echo "ℹ️  GPU service (port 8101) functionality unified into the AITBC marketplace service (port 8102)"
-echo "✅ GPU service handling included in marketplace service upgrade"
+echo "ℹ️  GPU service (port 8101) functionality unified into the AITBC market service (port 8102)"
+echo "✅ GPU service handling included in market service upgrade"
 
 # Step 4: Create production monitoring service
 echo -e "${CYAN}📊 Step 4: Create Production Monitoring${NC}"
@@ -166,7 +166,7 @@ echo "======================================"
 cat > /opt/aitbc/systemd/aitbc-production-monitor.service << EOF
 [Unit]
 Description=AITBC Production Monitoring Service
-After=network.target aitbc-blockchain-node.service aitbc-marketplace.service
+After=network.target aitbc-blockchain-node.service aitbc-market.service
 
 [Service]
 Type=simple
@@ -197,14 +197,14 @@ while True:
                 data = json.load(f)
                 logger.info(f'Blockchain: {len(data.get(\"blocks\", []))} blocks')
 
-        # Monitor marketplace
-        marketplace_dir = Path('/opt/aitbc/production/data/marketplace')
-        if marketplace_dir.exists():
-            listings_file = marketplace_dir / 'gpu_listings.json'
+        # Monitor market
+        market_dir = Path('/opt/aitbc/production/data/marketplace')
+        if market_dir.exists():
+            listings_file = market_dir / 'gpu_listings.json'
             if listings_file.exists():
                 with open(listings_file, 'r') as f:
                     listings = json.load(f)
-                    logger.info(f'Marketplace: {len(listings)} GPU listings')
+                    logger.info(f'Market: {len(listings)} GPU listings')
 
         # Monitor system resources
         import psutil
@@ -250,7 +250,7 @@ systemctl daemon-reload
 # Enable production services
 echo "Enabling production services..."
 systemctl enable aitbc-blockchain-node.service
-systemctl enable aitbc-marketplace.service
+systemctl enable aitbc-market.service
 systemctl enable aitbc-production-monitor.service
 
 echo "✅ SystemD services reloaded and enabled"
@@ -262,21 +262,21 @@ echo "==============================="
 echo "Starting production services..."
 systemctl start aitbc-blockchain-node.service
 sleep 2
-systemctl start aitbc-marketplace.service
+systemctl start aitbc-market.service
 sleep 2
 systemctl start aitbc-production-monitor.service
 
 # Check service status
 echo "Checking service status..."
 systemctl status aitbc-blockchain-node.service --no-pager -l | head -10
-systemctl status aitbc-marketplace.service --no-pager -l | head -10
+systemctl status aitbc-market.service --no-pager -l | head -10
 
 # Test service endpoints
 echo "Testing service endpoints..."
 sleep 5
 # Was 8002 until V23-99. 8002 is aitbc-monitoring; it answers /health 200, so this
-# reported the marketplace ready whenever monitoring was up. Marketplace is 8102.
-curl -fsS http://localhost:8102/health | head -5 || echo "Marketplace service not ready"
+# reported the market ready whenever monitoring was up. Market is 8102.
+curl -fsS http://localhost:8102/health | head -5 || echo "Market service not ready"
 # GPU service
 curl -sf http://localhost:8101/health | head -5 || echo "GPU service endpoint not ready"
 
@@ -288,34 +288,34 @@ echo "========================"
 echo "Copying production services to ${NODE1_ID}..."
 scp -r /opt/aitbc/production ${NODE1_HOST}:/opt/aitbc/
 scp /opt/aitbc/systemd/aitbc-blockchain-node.service ${NODE1_HOST}:/opt/aitbc/systemd/
-scp /opt/aitbc/systemd/aitbc-marketplace.service ${NODE1_HOST}:/opt/aitbc/systemd/
+scp /opt/aitbc/systemd/aitbc-market.service ${NODE1_HOST}:/opt/aitbc/systemd/
 scp /opt/aitbc/systemd/aitbc-production-monitor.service ${NODE1_HOST}:/opt/aitbc/systemd/
 
 # Update services for ${NODE1_HOST} node
 echo "Configuring services for ${NODE1_ID}..."
 ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-blockchain-node.service"
-ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-marketplace.service"
+ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-market.service"
 ssh ${NODE1_HOST} "sed -i 's/^NODE_ID=.*/NODE_ID=${NODE1_ID}/' /opt/aitbc/systemd/aitbc-production-monitor.service"
 
 
 # Deploy and start services on ${NODE1_HOST}
 echo "Starting services on ${NODE1_ID}..."
 ssh ${NODE1_HOST} "systemctl daemon-reload"
-ssh ${NODE1_HOST} "systemctl enable aitbc-blockchain-node.service aitbc-marketplace.service aitbc-production-monitor.service"
+ssh ${NODE1_HOST} "systemctl enable aitbc-blockchain-node.service aitbc-market.service aitbc-production-monitor.service"
 ssh ${NODE1_HOST} "systemctl start aitbc-blockchain-node.service"
 sleep 3
-ssh ${NODE1_HOST} "systemctl start aitbc-marketplace.service"
+ssh ${NODE1_HOST} "systemctl start aitbc-market.service"
 sleep 3
 ssh ${NODE1_HOST} "systemctl start aitbc-production-monitor.service"
 
 # Check ${NODE1_HOST} services
 echo "Checking ${NODE1_HOST} services..."
 ssh ${NODE1_HOST} "systemctl status aitbc-blockchain-node.service --no-pager -l | head -5"
-ssh ${NODE1_HOST} "systemctl status aitbc-marketplace.service --no-pager -l | head -5"
+ssh ${NODE1_HOST} "systemctl status aitbc-market.service --no-pager -l | head -5"
 
 # Test ${NODE1_HOST} endpoints
 echo "Testing ${NODE1_HOST} endpoints..."
-ssh ${NODE1_HOST} "curl -sf http://localhost:8102/health | head -5" || echo "${NODE1_HOST} marketplace not ready"
+ssh ${NODE1_HOST} "curl -sf http://localhost:8102/health | head -5" || echo "${NODE1_HOST} market not ready"
 # GPU service
 ssh ${NODE1_HOST} "curl -sf http://localhost:8101/health | head -5" || echo "${NODE1_HOST} GPU service endpoint not ready"
 
@@ -325,7 +325,7 @@ echo "======================================"
 echo ""
 echo "✅ Upgraded Services:"
 echo "   • aitbc-blockchain-node.service (Production blockchain)"
-echo "   • aitbc-marketplace.service (Production marketplace with GPU support)"
+echo "   • aitbc-market.service (Production market with GPU support)"
 echo "   • aitbc-production-monitor.service (Production monitoring)"
 echo ""
 echo "✅ Production Features:"
@@ -334,15 +334,15 @@ echo "   • Production logging and monitoring"
 echo "   • Resource limits and security"
 echo "   • Automatic restart and recovery"
 echo "   • Multi-node deployment"
-echo "   • GPU marketplace unified into marketplace service"
+echo "   • GPU market unified into market service"
 echo ""
 echo "✅ Service Endpoints:"
 echo "   • aitbc (localhost):"
 echo "     - Blockchain: SystemD managed"
-echo "     - Marketplace: http://localhost:8102"
+echo "     - Market: http://localhost:8102"
 echo "   • ${NODE1_HOST} (remote):"
 echo "     - Blockchain: SystemD managed"
-echo "     - Marketplace: http://${NODE1_HOST}:8102"
+echo "     - Market: http://${NODE1_HOST}:8102"
 echo ""
 echo "✅ Monitoring:"
 echo "   • SystemD journal: journalctl -u aitbc-*"

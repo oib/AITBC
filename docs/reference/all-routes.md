@@ -9,7 +9,7 @@
 >
 > Current inventories: hub —
 > `api-gateway:8201,blockchain-rpc:8202,coordinator-api:8203,explorer:8100,`   # check-ports: ignore
-> `marketplace:8102,trading:8104,governance:8105,exchange:8106,`   # check-ports: ignore
+> `market:8102,trading:8104,governance:8105,exchange:8106,`   # check-ports: ignore
 > `agent-coordinator:8107,wallet:8108,pool-hub:8210`; GPU/edge node —   # check-ports: ignore
 > `gpu:8101,edge-api:8111,ffmpeg:8230,hermes:8270`.   # check-ports: ignore
 >
@@ -180,10 +180,10 @@
 | `GET` | `/rpc/liquidity/pools/{pool_id}` | Get a liquidity pool |
 | `GET` | `/rpc/liquidity/stakes/{address}` | List liquidity stakes for an address |
 | `GET` | `/rpc/liquidity/stakes/{stake_id}/rewards` | Get pending rewards for a stake |
-| `POST` | `/rpc/marketplace/create` | Create marketplace listing |
-| `DELETE` | `/rpc/marketplace/listing/{listing_id}` | Delete marketplace listing |
-| `GET` | `/rpc/marketplace/listing/{listing_id}` | Get marketplace listing by ID |
-| `GET` | `/rpc/marketplace/listings` | List marketplace items |
+| `POST` | `/rpc/market/create` | Create market listing |
+| `DELETE` | `/rpc/market/listing/{listing_id}` | Delete market listing |
+| `GET` | `/rpc/market/listing/{listing_id}` | Get market listing by ID |
+| `GET` | `/rpc/market/listings` | List market items |
 | `GET` | `/rpc/mempool` | Get pending transactions |
 | `GET` | `/rpc/mining/miners` | List active miners |
 | `POST` | `/rpc/mining/start` | Start mining |
@@ -206,8 +206,8 @@
 | `POST` | `/rpc/transaction` | Submit transaction |
 | `GET` | `/rpc/transaction/{tx_hash}` | Get one transaction by hash |
 | `GET` | `/rpc/transactions` | Query transactions |
-| `POST` | `/rpc/transactions/marketplace` | Submit marketplace transaction |
-| `GET` | `/rpc/transactions/marketplace/match` | Match marketplace offers |
+| `POST` | `/rpc/transactions/market` | Submit market transaction |
+| `GET` | `/rpc/transactions/market/match` | Match market offers |
 | `GET` | `/v1/account/{address}` | Get account information |
 | `GET` | `/v1/accounts` | List accounts |
 | `GET` | `/v1/accounts/{address}` | Get account information (alias) |
@@ -366,8 +366,8 @@
 | `POST` | `/v1/transaction` | Submit transaction |
 | `GET` | `/v1/transaction/{tx_hash}` | Get one transaction by hash |
 | `GET` | `/v1/transactions` | Query transactions |
-| `POST` | `/v1/transactions/marketplace` | Submit marketplace transaction |
-| `GET` | `/v1/transactions/marketplace/match` | Match marketplace offers |
+| `POST` | `/v1/transactions/market` | Submit market transaction |
+| `GET` | `/v1/transactions/market/match` | Match market offers |
 
 ### coordinator-api (`:8203`, AITBC Coordinator API v1.0.0)
 
@@ -676,35 +676,35 @@
 | `GET` | `/v1/knowledge/graphs/{graph_id}/query` | Query Knowledge Graph |
 | `POST` | `/v1/login` | Login User |
 | `POST` | `/v1/logout` | Logout User |
-| `GET` | `/v1/marketplace/bonds/{bond_id}` | Get a bond record by ID |
-| `POST` | `/v1/marketplace/gpu/bid` | Bid Gpu |
-| `GET` | `/v1/marketplace/gpu/list` | List Gpus |
-| `POST` | `/v1/marketplace/gpu/purchase` | Buy Gpu |
-| `POST` | `/v1/marketplace/gpu/quote` | Quote Gpu |
-| `POST` | `/v1/marketplace/gpu/register` | Register Gpu |
-| `POST` | `/v1/marketplace/gpu/sell` | Sell Gpu |
-| `DELETE` | `/v1/marketplace/gpu/{gpu_id}` | Delete Gpu |
-| `GET` | `/v1/marketplace/gpu/{gpu_id}` | Get Gpu Details |
-| `POST` | `/v1/marketplace/gpu/{gpu_id}/book` | Book Gpu |
-| `POST` | `/v1/marketplace/gpu/{gpu_id}/confirm` | Confirm Gpu Booking |
-| `POST` | `/v1/marketplace/gpu/{gpu_id}/release` | Release Gpu |
-| `GET` | `/v1/marketplace/gpu/{gpu_id}/reviews` | Get Gpu Reviews |
-| `POST` | `/v1/marketplace/gpu/{gpu_id}/reviews` | Add Gpu Review |
-| `GET` | `/v1/marketplace/miner-offers` | List all miner offers |
-| `POST` | `/v1/marketplace/native-energy/profile` | Register Native Energy Profile |
-| `POST` | `/v1/marketplace/native-energy/rate` | Publish Native Energy Rate |
-| `GET` | `/v1/marketplace/offers` | List marketplace offers |
-| `GET` | `/v1/marketplace/orders` | List Orders |
-| `GET` | `/v1/marketplace/plugins` | List marketplace plugins |
-| `GET` | `/v1/marketplace/pricing/{model}` | Get Pricing |
-| `POST` | `/v1/marketplace/providers/{provider_id}/bonds` | Create or update a provider bond |
-| `POST` | `/v1/marketplace/providers/{provider_id}/bonds/lock` | Lock a provider bond |
-| `POST` | `/v1/marketplace/providers/{provider_id}/bonds/release` | Release a locked provider bond |
-| `POST` | `/v1/marketplace/providers/{provider_id}/bonds/slash` | Slash a provider bond |
-| `POST` | `/v1/marketplace/providers/{provider_id}/capacity` | Publish updated provider capacity |
-| `GET` | `/v1/marketplace/providers/{provider_id}/eligibility` | Check provider bond eligibility |
-| `GET` | `/v1/marketplace/stats` | Get marketplace summary statistics |
-| `POST` | `/v1/marketplace/sync-offers` | Create offers from registered miners |
+| `GET` | `/v1/market/bonds/{bond_id}` | Get a bond record by ID |
+| `POST` | `/v1/market/gpu/bid` | Bid Gpu |
+| `GET` | `/v1/market/gpu/list` | List Gpus |
+| `POST` | `/v1/market/gpu/purchase` | Buy Gpu |
+| `POST` | `/v1/market/gpu/quote` | Quote Gpu |
+| `POST` | `/v1/market/gpu/register` | Register Gpu |
+| `POST` | `/v1/market/gpu/sell` | Sell Gpu |
+| `DELETE` | `/v1/market/gpu/{gpu_id}` | Delete Gpu |
+| `GET` | `/v1/market/gpu/{gpu_id}` | Get Gpu Details |
+| `POST` | `/v1/market/gpu/{gpu_id}/book` | Book Gpu |
+| `POST` | `/v1/market/gpu/{gpu_id}/confirm` | Confirm Gpu Booking |
+| `POST` | `/v1/market/gpu/{gpu_id}/release` | Release Gpu |
+| `GET` | `/v1/market/gpu/{gpu_id}/reviews` | Get Gpu Reviews |
+| `POST` | `/v1/market/gpu/{gpu_id}/reviews` | Add Gpu Review |
+| `GET` | `/v1/market/miner-offers` | List all miner offers |
+| `POST` | `/v1/market/native-energy/profile` | Register Native Energy Profile |
+| `POST` | `/v1/market/native-energy/rate` | Publish Native Energy Rate |
+| `GET` | `/v1/market/offers` | List market offers |
+| `GET` | `/v1/market/orders` | List Orders |
+| `GET` | `/v1/market/plugins` | List market plugins |
+| `GET` | `/v1/market/pricing/{model}` | Get Pricing |
+| `POST` | `/v1/market/providers/{provider_id}/bonds` | Create or update a provider bond |
+| `POST` | `/v1/market/providers/{provider_id}/bonds/lock` | Lock a provider bond |
+| `POST` | `/v1/market/providers/{provider_id}/bonds/release` | Release a locked provider bond |
+| `POST` | `/v1/market/providers/{provider_id}/bonds/slash` | Slash a provider bond |
+| `POST` | `/v1/market/providers/{provider_id}/capacity` | Publish updated provider capacity |
+| `GET` | `/v1/market/providers/{provider_id}/eligibility` | Check provider bond eligibility |
+| `GET` | `/v1/market/stats` | Get market summary statistics |
+| `POST` | `/v1/market/sync-offers` | Create offers from registered miners |
 | `GET` | `/v1/media/download/{token}` | Download a media file |
 | `POST` | `/v1/media/upload` | Upload a media file |
 | `POST` | `/v1/miners/heartbeat` | Send miner heartbeat |
@@ -733,7 +733,7 @@
 | `GET` | `/v1/multi-modal-rl/jobs/{job_id}` | Get Job |
 | `POST` | `/v1/multi-modal-rl/jobs/{job_id}/cancel` | Cancel Job |
 | `GET` | `/v1/multi-modal-rl/jobs/{job_id}/result` | Get Job Result |
-| `GET` | `/v1/offers` | List all marketplace offers (Fixed) |
+| `GET` | `/v1/offers` | List all market offers (Fixed) |
 | `GET` | `/v1/oracle/health` | Health check |
 | `GET` | `/v1/oracle/oracle/health` | Oracle health check |
 | `POST` | `/v1/oracle/price` | Set price (admin) |
@@ -862,7 +862,7 @@
 | `GET` | `/api/transactions/{tx_hash}` | Api Transaction |
 | `GET` | `/health` | Health |
 
-### marketplace (`:8102`, AITBC Marketplace Service v0.1.0)
+### market (`:8102`, AITBC Market Service v0.1.0)
 
 | Method | Path | Summary |
 |---|---|---|
@@ -874,48 +874,48 @@
 | `GET` | `/v1/knowledge-graph/{graph_id}` | Query Graph |
 | `POST` | `/v1/knowledge-graph/{graph_id}/edges` | Add Edge |
 | `POST` | `/v1/knowledge-graph/{graph_id}/nodes` | Add Node |
-| `GET` | `/v1/marketplace` | Get Marketplace Overview |
-| `GET` | `/v1/marketplace/access/{access_key}` | Get Marketplace Access Token |
-| `GET` | `/v1/marketplace/analytics` | Get Analytics |
-| `POST` | `/v1/marketplace/bids/{bid_id}/complete` | Complete Bid |
-| `POST` | `/v1/marketplace/dynamic-pricing` | Calculate Dynamic Pricing |
-| `GET` | `/v1/marketplace/edge-advertise` | List Edge Nodes |
-| `POST` | `/v1/marketplace/edge-advertise` | Edge Advertise |
-| `GET` | `/v1/marketplace/edge/{node_id}/health` | Get Edge Health |
-| `POST` | `/v1/marketplace/ipfs/rental-token` | Register Ipfs Rental Token |
-| `GET` | `/v1/marketplace/ipfs/rental/{access_key}` | Get Ipfs Rental Token |
-| `GET` | `/v1/marketplace/jobs` | List Marketplace Jobs |
-| `POST` | `/v1/marketplace/jobs` | Create Marketplace Job |
-| `GET` | `/v1/marketplace/jobs/usage` | Get Marketplace Job Usage |
-| `GET` | `/v1/marketplace/jobs/{job_id}` | Get Marketplace Job |
-| `GET` | `/v1/marketplace/jobs/{job_id}/access` | Get Marketplace Job Access |
-| `POST` | `/v1/marketplace/jobs/{job_id}/cancel` | Cancel Marketplace Job |
-| `POST` | `/v1/marketplace/jobs/{job_id}/pin-confirm` | Confirm Marketplace Job Pin |
-| `POST` | `/v1/marketplace/jobs/{job_id}/refund` | Refund Marketplace Job Payment |
-| `POST` | `/v1/marketplace/jobs/{job_id}/release` | Release Marketplace Job Payment |
-| `POST` | `/v1/marketplace/match` | Match Request |
-| `GET` | `/v1/marketplace/offer` | List Software Offers |
-| `POST` | `/v1/marketplace/offer` | Register Offer |
-| `GET` | `/v1/marketplace/offer-by-id/{offer_id}` | Get Offer By Id |
-| `DELETE` | `/v1/marketplace/offer/{plugin_id}` | Unregister Offer |
-| `GET` | `/v1/marketplace/offer/{plugin_id}` | Get Software Offer |
-| `GET` | `/v1/marketplace/offer/{plugin_id}/health` | Get Software Offer Health |
-| `POST` | `/v1/marketplace/offer/{service_id}/rate` | Rate Service |
-| `GET` | `/v1/marketplace/offer/{service_id}/ratings` | Get Service Ratings |
-| `GET` | `/v1/marketplace/offers` | Get Offers |
-| `POST` | `/v1/marketplace/offers` | Create Offer |
-| `GET` | `/v1/marketplace/offers/{offer_id}` | Get Offer |
-| `POST` | `/v1/marketplace/offers/{offer_id}/book` | Book Offer |
-| `POST` | `/v1/marketplace/offers/{offer_id}/cancel` | Cancel Offer |
-| `GET` | `/v1/marketplace/offers/{offer_id}/history` | Get Offer History |
-| `POST` | `/v1/marketplace/parameters/apply` | Apply Marketplace Parameter |
-| `GET` | `/v1/marketplace/performance` | Get Marketplace Performance |
-| `GET` | `/v1/marketplace/plugins` | Get Plugins |
-| `POST` | `/v1/marketplace/plugins` | Register Plugin |
-| `POST` | `/v1/marketplace/ratings/mark-synced` | Mark Ratings Synced |
-| `POST` | `/v1/marketplace/ratings/sync` | Sync Ratings |
-| `GET` | `/v1/marketplace/ratings/unsynced` | Get Unsynced Ratings |
-| `GET` | `/v1/marketplace/status` | Marketplace Status |
+| `GET` | `/v1/market` | Get Market Overview |
+| `GET` | `/v1/market/access/{access_key}` | Get Market Access Token |
+| `GET` | `/v1/market/analytics` | Get Analytics |
+| `POST` | `/v1/market/bids/{bid_id}/complete` | Complete Bid |
+| `POST` | `/v1/market/dynamic-pricing` | Calculate Dynamic Pricing |
+| `GET` | `/v1/market/edge-advertise` | List Edge Nodes |
+| `POST` | `/v1/market/edge-advertise` | Edge Advertise |
+| `GET` | `/v1/market/edge/{node_id}/health` | Get Edge Health |
+| `POST` | `/v1/market/ipfs/rental-token` | Register Ipfs Rental Token |
+| `GET` | `/v1/market/ipfs/rental/{access_key}` | Get Ipfs Rental Token |
+| `GET` | `/v1/market/jobs` | List Market Jobs |
+| `POST` | `/v1/market/jobs` | Create Market Job |
+| `GET` | `/v1/market/jobs/usage` | Get Market Job Usage |
+| `GET` | `/v1/market/jobs/{job_id}` | Get Market Job |
+| `GET` | `/v1/market/jobs/{job_id}/access` | Get Market Job Access |
+| `POST` | `/v1/market/jobs/{job_id}/cancel` | Cancel Market Job |
+| `POST` | `/v1/market/jobs/{job_id}/pin-confirm` | Confirm Market Job Pin |
+| `POST` | `/v1/market/jobs/{job_id}/refund` | Refund Market Job Payment |
+| `POST` | `/v1/market/jobs/{job_id}/release` | Release Market Job Payment |
+| `POST` | `/v1/market/match` | Match Request |
+| `GET` | `/v1/market/offer` | List Software Offers |
+| `POST` | `/v1/market/offer` | Register Offer |
+| `GET` | `/v1/market/offer-by-id/{offer_id}` | Get Offer By Id |
+| `DELETE` | `/v1/market/offer/{plugin_id}` | Unregister Offer |
+| `GET` | `/v1/market/offer/{plugin_id}` | Get Software Offer |
+| `GET` | `/v1/market/offer/{plugin_id}/health` | Get Software Offer Health |
+| `POST` | `/v1/market/offer/{service_id}/rate` | Rate Service |
+| `GET` | `/v1/market/offer/{service_id}/ratings` | Get Service Ratings |
+| `GET` | `/v1/market/offers` | Get Offers |
+| `POST` | `/v1/market/offers` | Create Offer |
+| `GET` | `/v1/market/offers/{offer_id}` | Get Offer |
+| `POST` | `/v1/market/offers/{offer_id}/book` | Book Offer |
+| `POST` | `/v1/market/offers/{offer_id}/cancel` | Cancel Offer |
+| `GET` | `/v1/market/offers/{offer_id}/history` | Get Offer History |
+| `POST` | `/v1/market/parameters/apply` | Apply Market Parameter |
+| `GET` | `/v1/market/performance` | Get Market Performance |
+| `GET` | `/v1/market/plugins` | Get Plugins |
+| `POST` | `/v1/market/plugins` | Register Plugin |
+| `POST` | `/v1/market/ratings/mark-synced` | Mark Ratings Synced |
+| `POST` | `/v1/market/ratings/sync` | Sync Ratings |
+| `GET` | `/v1/market/ratings/unsynced` | Get Unsynced Ratings |
+| `GET` | `/v1/market/status` | Market Status |
 | `GET` | `/v1/transactions` | Get Transactions |
 | `POST` | `/v1/transactions` | Submit Transaction |
 
@@ -1216,10 +1216,10 @@
 | `DELETE` | `/v1/gpu/{gpu_id}` | Delete Gpu |
 | `GET` | `/v1/gpu/{gpu_id}` | Get Gpu |
 | `PUT` | `/v1/gpu/{gpu_id}` | Update Gpu |
-| `GET` | `/v1/marketplace/edge-gpu/metrics/{gpu_id}` | Get Edge Gpu Metrics |
-| `POST` | `/v1/marketplace/edge-gpu/optimize/inference/{gpu_id}` | Optimize Inference |
-| `GET` | `/v1/marketplace/edge-gpu/profiles` | Get Consumer Gpu Profiles |
-| `POST` | `/v1/marketplace/edge-gpu/scan/{miner_id}` | Scan Edge Gpus |
+| `GET` | `/v1/market/edge-gpu/metrics/{gpu_id}` | Get Edge Gpu Metrics |
+| `POST` | `/v1/market/edge-gpu/optimize/inference/{gpu_id}` | Optimize Inference |
+| `GET` | `/v1/market/edge-gpu/profiles` | Get Consumer Gpu Profiles |
+| `POST` | `/v1/market/edge-gpu/scan/{miner_id}` | Scan Edge Gpus |
 | `POST` | `/v1/miners/heartbeat` | Miner Heartbeat |
 | `POST` | `/v1/miners/poll` | Poll Jobs |
 | `POST` | `/v1/miners/register` | Register Miner |
@@ -1246,7 +1246,7 @@
 | `GET` | `/v1/edge-gpu/balance` | Edge Gpu Balance |
 | `POST` | `/v1/edge-gpu/transfer` | Edge Gpu Transfer |
 | `GET` | `/v1/gpu/` | List Gpus |
-| `POST` | `/v1/gpu/advertise` | Advertise To Marketplace |
+| `POST` | `/v1/gpu/advertise` | Advertise To Market |
 | `POST` | `/v1/gpu/scan` | Scan Gpus |
 | `DELETE` | `/v1/gpu/{gpu_id}` | Remove Gpu Listing |
 | `GET` | `/v1/gpu/{gpu_id}` | Get Gpu Listing |
@@ -1282,4 +1282,3 @@
 | `GET` | `/capabilities` | Capabilities |
 | `GET` | `/health` | Health |
 | `POST` | `/run` | Run Hermes |
-

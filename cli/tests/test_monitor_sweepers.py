@@ -49,7 +49,7 @@ REPORT: dict[str, Any] = {
     "external_sweepers": [
         {
             "name": "ipfs_rental_sweeper",
-            "process": "marketplace-service",
+            "process": "market-service",
             "purpose": "Expire IPFS rentals past their grace period",
             "status": "not visible from this process",
         }

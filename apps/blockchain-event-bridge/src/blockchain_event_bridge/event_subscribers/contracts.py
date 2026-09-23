@@ -36,14 +36,14 @@ class ContractEventSubscriber:
         self.contract_addresses: dict[str, str] = {
             "AgentStaking": settings.agent_staking_address or "",
             "PerformanceVerifier": settings.performance_verifier_address or "",
-            "AgentServiceMarketplace": settings.marketplace_address or "",
+            "AgentServiceMarket": settings.market_address or "",
             "BountyIntegration": settings.bounty_address or "",
             "CrossChainBridge": settings.bridge_address or "",
         }
         self.event_topics: dict[str, list[str]] = {
             "AgentStaking": ["StakeCreated", "RewardsDistributed", "AgentTierUpdated"],
             "PerformanceVerifier": ["PerformanceVerified", "PenaltyApplied", "RewardIssued"],
-            "AgentServiceMarketplace": ["ServiceListed", "ServicePurchased"],
+            "AgentServiceMarket": ["ServiceListed", "ServicePurchased"],
             "BountyIntegration": ["BountyCreated", "BountyCompleted"],
             "CrossChainBridge": ["BridgeInitiated", "BridgeCompleted"],
         }
@@ -195,8 +195,8 @@ class ContractEventSubscriber:
                 await self._handle_staking_event(log)
             elif contract_name == "PerformanceVerifier":
                 await self._handle_performance_event(log)
-            elif contract_name == "AgentServiceMarketplace":
-                await self._handle_marketplace_event(log)
+            elif contract_name == "AgentServiceMarket":
+                await self._handle_market_event(log)
             elif contract_name == "BountyIntegration":
                 await self._handle_bounty_event(log)
             elif contract_name == "CrossChainBridge":
@@ -212,10 +212,10 @@ class ContractEventSubscriber:
         if self._bridge:
             await self._bridge.handle_performance_event(log)
 
-    async def _handle_marketplace_event(self, log: dict[str, Any]) -> None:
-        """Handle AgentServiceMarketplace contract event."""
+    async def _handle_market_event(self, log: dict[str, Any]) -> None:
+        """Handle AgentServiceMarket contract event."""
         if self._bridge:
-            await self._bridge.handle_marketplace_event(log)
+            await self._bridge.handle_market_event(log)
 
     async def _handle_bounty_event(self, log: dict[str, Any]) -> None:
         """Handle BountyIntegration contract event."""

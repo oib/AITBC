@@ -209,7 +209,7 @@ exchange_island = _lazy("aitbc_cli.commands.exchange_island", "exchange_island",
 explorer = _lazy("aitbc_cli.commands.explorer", "explorer", name="explorer", group=True)
 genesis = _lazy("aitbc_cli.commands.genesis", "genesis", name="genesis", group=True)
 governance = _lazy("aitbc_cli.commands.governance", "governance", name="governance", group=True)
-gpu = _lazy("aitbc_cli.commands.gpu_marketplace", "gpu", name="gpu", group=True)
+gpu = _lazy("aitbc_cli.commands.gpu_market", "gpu", name="gpu", group=True)
 gpu_onchain = _lazy("aitbc_cli.commands.gpu_resources", "gpu", name="gpu-onchain", group=True)
 grant = _lazy("aitbc_cli.commands.grant", "grant", name="grant", group=True)
 health = _lazy("aitbc_cli.commands.health", "health", name="health", group=False)

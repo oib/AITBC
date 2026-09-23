@@ -1084,7 +1084,7 @@
           "admin"
         ],
         "summary": "Create a test miner for debugging",
-        "description": "Create a test miner for debugging marketplace sync",
+        "description": "Create a test miner for debugging market sync",
         "operationId": "create_test_miner_v1_admin_debug_create_test_miner_post",
         "parameters": [
           {
@@ -1709,13 +1709,13 @@
         }
       }
     },
-    "/v1/marketplace/offers": {
+    "/v1/market/offers": {
       "get": {
         "tags": [
-          "marketplace"
+          "market"
         ],
-        "summary": "List marketplace offers",
-        "operationId": "list_marketplace_offers_v1_marketplace_offers_get",
+        "summary": "List market offers",
+        "operationId": "list_market_offers_v1_market_offers_get",
         "parameters": [
           {
             "name": "status",
@@ -1767,9 +1767,9 @@
                 "schema": {
                   "type": "array",
                   "items": {
-                    "$ref": "#/components/schemas/MarketplaceOfferView"
+                    "$ref": "#/components/schemas/MarketOfferView"
                   },
-                  "title": "Response List Marketplace Offers V1 Marketplace Offers Get"
+                  "title": "Response List Market Offers V1 Market Offers Get"
                 }
               }
             }
@@ -1797,20 +1797,20 @@
         }
       }
     },
-    "/v1/marketplace/stats": {
+    "/v1/market/stats": {
       "get": {
         "tags": [
-          "marketplace"
+          "market"
         ],
-        "summary": "Get marketplace summary statistics",
-        "operationId": "get_marketplace_stats_v1_marketplace_stats_get",
+        "summary": "Get market summary statistics",
+        "operationId": "get_market_stats_v1_market_stats_get",
         "responses": {
           "200": {
             "description": "Successful Response",
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MarketplaceStatsView"
+                  "$ref": "#/components/schemas/MarketStatsView"
                 }
               }
             }
@@ -1818,14 +1818,14 @@
         }
       }
     },
-    "/v1/marketplace/plugins": {
+    "/v1/market/plugins": {
       "get": {
         "tags": [
-          "marketplace"
+          "market"
         ],
-        "summary": "List marketplace plugins",
-        "description": "List available marketplace plugins",
-        "operationId": "list_marketplace_plugins_v1_marketplace_plugins_get",
+        "summary": "List market plugins",
+        "description": "List available market plugins",
+        "operationId": "list_market_plugins_v1_market_plugins_get",
         "parameters": [
           {
             "name": "limit",
@@ -1859,7 +1859,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response List Marketplace Plugins V1 Marketplace Plugins Get"
+                  "title": "Response List Market Plugins V1 Market Plugins Get"
                 }
               }
             }
@@ -1887,14 +1887,14 @@
         }
       }
     },
-    "/v1/marketplace/providers/{provider_id}/capacity": {
+    "/v1/market/providers/{provider_id}/capacity": {
       "post": {
         "tags": [
-          "marketplace"
+          "market"
         ],
         "summary": "Publish updated provider capacity",
         "description": "Publish updated provider capacity after reinvestment.",
-        "operationId": "update_provider_capacity_v1_marketplace_providers__provider_id__capacity_post",
+        "operationId": "update_provider_capacity_v1_market_providers__provider_id__capacity_post",
         "parameters": [
           {
             "name": "provider_id",
@@ -1922,7 +1922,7 @@
             "content": {
               "application/json": {
                 "schema": {
-                  "$ref": "#/components/schemas/MarketplaceOfferView"
+                  "$ref": "#/components/schemas/MarketOfferView"
                 }
               }
             }
@@ -1950,14 +1950,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/register": {
+    "/v1/market/gpu/register": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Register Gpu",
-        "description": "Register a GPU in the marketplace.",
-        "operationId": "register_gpu_v1_marketplace_gpu_register_post",
+        "description": "Register a GPU in the market.",
+        "operationId": "register_gpu_v1_market_gpu_register_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -1978,7 +1978,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Register Gpu V1 Marketplace Gpu Register Post"
+                  "title": "Response Register Gpu V1 Market Gpu Register Post"
                 }
               }
             }
@@ -1996,14 +1996,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/list": {
+    "/v1/market/gpu/list": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "List Gpus",
         "description": "List GPUs with optional filters.",
-        "operationId": "list_gpus_v1_marketplace_gpu_list_get",
+        "operationId": "list_gpus_v1_market_gpu_list_get",
         "parameters": [
           {
             "name": "available",
@@ -2097,7 +2097,7 @@
                     "type": "object",
                     "additionalProperties": true
                   },
-                  "title": "Response List Gpus V1 Marketplace Gpu List Get"
+                  "title": "Response List Gpus V1 Market Gpu List Get"
                 }
               }
             }
@@ -2115,14 +2115,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/{gpu_id}": {
+    "/v1/market/gpu/{gpu_id}": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Get Gpu Details",
         "description": "Get GPU details.",
-        "operationId": "get_gpu_details_v1_marketplace_gpu__gpu_id__get",
+        "operationId": "get_gpu_details_v1_market_gpu__gpu_id__get",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2142,7 +2142,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Gpu Details V1 Marketplace Gpu  Gpu Id  Get"
+                  "title": "Response Get Gpu Details V1 Market Gpu  Gpu Id  Get"
                 }
               }
             }
@@ -2161,11 +2161,11 @@
       },
       "delete": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Delete Gpu",
-        "description": "Delete (unregister) a GPU from the marketplace.",
-        "operationId": "delete_gpu_v1_marketplace_gpu__gpu_id__delete",
+        "description": "Delete (unregister) a GPU from the market.",
+        "operationId": "delete_gpu_v1_market_gpu__gpu_id__delete",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2213,7 +2213,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Delete Gpu V1 Marketplace Gpu  Gpu Id  Delete"
+                  "title": "Response Delete Gpu V1 Market Gpu  Gpu Id  Delete"
                 }
               }
             }
@@ -2241,14 +2241,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/quote": {
+    "/v1/market/gpu/quote": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Quote Gpu",
-        "description": "Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.\n\nThe returned quote is valid for a short window. The buyer funds it through\nPOST /marketplace/gpu/purchase using the same job_id and energy_quote.",
-        "operationId": "quote_gpu_v1_marketplace_gpu_quote_post",
+        "description": "Prepare an unsigned energy quote and a bound job for a fixed-duration GPU rental.\n\nThe returned quote is valid for a short window. The buyer funds it through\nPOST /market/gpu/purchase using the same job_id and energy_quote.",
+        "operationId": "quote_gpu_v1_market_gpu_quote_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -2267,7 +2267,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Quote Gpu V1 Marketplace Gpu Quote Post"
+                  "title": "Response Quote Gpu V1 Market Gpu Quote Post"
                 }
               }
             }
@@ -2295,14 +2295,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/purchase": {
+    "/v1/market/gpu/purchase": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Buy Gpu",
-        "description": "Buy GPU compute from marketplace with blockchain payment and AI job scheduling.",
-        "operationId": "buy_gpu_v1_marketplace_gpu_purchase_post",
+        "description": "Buy GPU compute from market with blockchain payment and AI job scheduling.",
+        "operationId": "buy_gpu_v1_market_gpu_purchase_post",
         "parameters": [
           {
             "name": "Authorization",
@@ -2339,7 +2339,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Buy Gpu V1 Marketplace Gpu Purchase Post"
+                  "title": "Response Buy Gpu V1 Market Gpu Purchase Post"
                 }
               }
             }
@@ -2387,14 +2387,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/sell": {
+    "/v1/market/gpu/sell": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Sell Gpu",
-        "description": "List GPU for sale on marketplace with specified price.",
-        "operationId": "sell_gpu_v1_marketplace_gpu_sell_post",
+        "description": "List GPU for sale on market with specified price.",
+        "operationId": "sell_gpu_v1_market_gpu_sell_post",
         "parameters": [
           {
             "name": "Authorization",
@@ -2431,7 +2431,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Sell Gpu V1 Marketplace Gpu Sell Post"
+                  "title": "Response Sell Gpu V1 Market Gpu Sell Post"
                 }
               }
             }
@@ -2449,14 +2449,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/{gpu_id}/book": {
+    "/v1/market/gpu/{gpu_id}/book": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Book Gpu",
         "description": "Book a GPU with dynamic pricing.",
-        "operationId": "book_gpu_v1_marketplace_gpu__gpu_id__book_post",
+        "operationId": "book_gpu_v1_market_gpu__gpu_id__book_post",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2502,7 +2502,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Book Gpu V1 Marketplace Gpu  Gpu Id  Book Post"
+                  "title": "Response Book Gpu V1 Market Gpu  Gpu Id  Book Post"
                 }
               }
             }
@@ -2540,14 +2540,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/{gpu_id}/release": {
+    "/v1/market/gpu/{gpu_id}/release": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Release Gpu",
         "description": "Release a booked GPU.",
-        "operationId": "release_gpu_v1_marketplace_gpu__gpu_id__release_post",
+        "operationId": "release_gpu_v1_market_gpu__gpu_id__release_post",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2583,7 +2583,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Release Gpu V1 Marketplace Gpu  Gpu Id  Release Post"
+                  "title": "Response Release Gpu V1 Market Gpu  Gpu Id  Release Post"
                 }
               }
             }
@@ -2601,14 +2601,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/{gpu_id}/confirm": {
+    "/v1/market/gpu/{gpu_id}/confirm": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Confirm Gpu Booking",
         "description": "Confirm a booking (client ACK).",
-        "operationId": "confirm_gpu_booking_v1_marketplace_gpu__gpu_id__confirm_post",
+        "operationId": "confirm_gpu_booking_v1_market_gpu__gpu_id__confirm_post",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2654,7 +2654,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Confirm Gpu Booking V1 Marketplace Gpu  Gpu Id  Confirm Post"
+                  "title": "Response Confirm Gpu Booking V1 Market Gpu  Gpu Id  Confirm Post"
                 }
               }
             }
@@ -2695,7 +2695,7 @@
     "/v1/tasks/ollama": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Submit Ollama Task",
         "description": "Submit an Ollama inference task to the persistent Redis queue.",
@@ -2757,7 +2757,7 @@
     "/v1/payments/send": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Send Payment",
         "description": "Record a real payment for a task or booking and return its actual status.",
@@ -2836,14 +2836,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/{gpu_id}/reviews": {
+    "/v1/market/gpu/{gpu_id}/reviews": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Get Gpu Reviews",
         "description": "Get GPU reviews.",
-        "operationId": "get_gpu_reviews_v1_marketplace_gpu__gpu_id__reviews_get",
+        "operationId": "get_gpu_reviews_v1_market_gpu__gpu_id__reviews_get",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2875,7 +2875,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Gpu Reviews V1 Marketplace Gpu  Gpu Id  Reviews Get"
+                  "title": "Response Get Gpu Reviews V1 Market Gpu  Gpu Id  Reviews Get"
                 }
               }
             }
@@ -2894,11 +2894,11 @@
       },
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Add Gpu Review",
         "description": "Add a review for a GPU.",
-        "operationId": "add_gpu_review_v1_marketplace_gpu__gpu_id__reviews_post",
+        "operationId": "add_gpu_review_v1_market_gpu__gpu_id__reviews_post",
         "parameters": [
           {
             "name": "gpu_id",
@@ -2928,7 +2928,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Add Gpu Review V1 Marketplace Gpu  Gpu Id  Reviews Post"
+                  "title": "Response Add Gpu Review V1 Market Gpu  Gpu Id  Reviews Post"
                 }
               }
             }
@@ -2966,14 +2966,14 @@
         }
       }
     },
-    "/v1/marketplace/orders": {
+    "/v1/market/orders": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "List Orders",
         "description": "List orders (bookings).",
-        "operationId": "list_orders_v1_marketplace_orders_get",
+        "operationId": "list_orders_v1_market_orders_get",
         "parameters": [
           {
             "name": "status",
@@ -3015,7 +3015,7 @@
                     "type": "object",
                     "additionalProperties": true
                   },
-                  "title": "Response List Orders V1 Marketplace Orders Get"
+                  "title": "Response List Orders V1 Market Orders Get"
                 }
               }
             }
@@ -3033,14 +3033,14 @@
         }
       }
     },
-    "/v1/marketplace/pricing/{model}": {
+    "/v1/market/pricing/{model}": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Get Pricing",
         "description": "Get enhanced pricing information for a model with dynamic pricing.",
-        "operationId": "get_pricing_v1_marketplace_pricing__model__get",
+        "operationId": "get_pricing_v1_market_pricing__model__get",
         "parameters": [
           {
             "name": "model",
@@ -3060,7 +3060,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Pricing V1 Marketplace Pricing  Model  Get"
+                  "title": "Response Get Pricing V1 Market Pricing  Model  Get"
                 }
               }
             }
@@ -3088,14 +3088,14 @@
         }
       }
     },
-    "/v1/marketplace/gpu/bid": {
+    "/v1/market/gpu/bid": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Bid Gpu",
         "description": "Place a bid on a GPU",
-        "operationId": "bid_gpu_v1_marketplace_gpu_bid_post",
+        "operationId": "bid_gpu_v1_market_gpu_bid_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3116,7 +3116,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Bid Gpu V1 Marketplace Gpu Bid Post"
+                  "title": "Response Bid Gpu V1 Market Gpu Bid Post"
                 }
               }
             }
@@ -3134,14 +3134,14 @@
         }
       }
     },
-    "/v1/marketplace/native-energy/profile": {
+    "/v1/market/native-energy/profile": {
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Register Native Energy Profile",
         "description": "Register or update an AIT-native energy profile for a GPU resource.",
-        "operationId": "register_native_energy_profile_v1_marketplace_native_energy_profile_post",
+        "operationId": "register_native_energy_profile_v1_market_native_energy_profile_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3162,7 +3162,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Register Native Energy Profile V1 Marketplace Native Energy Profile Post"
+                  "title": "Response Register Native Energy Profile V1 Market Native Energy Profile Post"
                 }
               }
             }
@@ -3190,14 +3190,14 @@
         }
       }
     },
-    "/v1/marketplace/native-energy/rate": {
+    "/v1/market/native-energy/rate": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Get Native Energy Rate",
         "description": "Read the published global AIT/EUR rate for native energy quotes.",
-        "operationId": "get_native_energy_rate_v1_marketplace_native_energy_rate_get",
+        "operationId": "get_native_energy_rate_v1_market_native_energy_rate_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3206,7 +3206,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Get Native Energy Rate V1 Marketplace Native Energy Rate Get"
+                  "title": "Response Get Native Energy Rate V1 Market Native Energy Rate Get"
                 }
               }
             }
@@ -3225,11 +3225,11 @@
       },
       "post": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Publish Native Energy Rate",
         "description": "Publish or update the global AIT/EUR rate for native energy quotes.",
-        "operationId": "publish_native_energy_rate_v1_marketplace_native_energy_rate_post",
+        "operationId": "publish_native_energy_rate_v1_market_native_energy_rate_post",
         "requestBody": {
           "content": {
             "application/json": {
@@ -3250,7 +3250,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Publish Native Energy Rate V1 Marketplace Native Energy Rate Post"
+                  "title": "Response Publish Native Energy Rate V1 Market Native Energy Rate Post"
                 }
               }
             }
@@ -3278,14 +3278,14 @@
         }
       }
     },
-    "/v1/marketplace/native-energy/profile/{resource_id}": {
+    "/v1/market/native-energy/profile/{resource_id}": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Get Native Energy Profile",
         "description": "Read the registered AIT-native energy profile for a resource.",
-        "operationId": "get_native_energy_profile_v1_marketplace_native_energy_profile__resource_id__get",
+        "operationId": "get_native_energy_profile_v1_market_native_energy_profile__resource_id__get",
         "parameters": [
           {
             "name": "resource_id",
@@ -3305,7 +3305,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Native Energy Profile V1 Marketplace Native Energy Profile  Resource Id  Get"
+                  "title": "Response Get Native Energy Profile V1 Market Native Energy Profile  Resource Id  Get"
                 }
               }
             }
@@ -3333,14 +3333,14 @@
         }
       }
     },
-    "/v1/marketplace/native-energy/floor": {
+    "/v1/market/native-energy/floor": {
       "get": {
         "tags": [
-          "marketplace-gpu"
+          "market-gpu"
         ],
         "summary": "Get Native Energy Floor",
         "description": "Compute the native energy floor for the given rental terms.\n\nSame arithmetic as the quote builder, exposed as a read so shops and\nCLI tooling can check the floor without signing a quote.",
-        "operationId": "get_native_energy_floor_v1_marketplace_native_energy_floor_get",
+        "operationId": "get_native_energy_floor_v1_market_native_energy_floor_get",
         "parameters": [
           {
             "name": "resource_id",
@@ -3382,7 +3382,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Get Native Energy Floor V1 Marketplace Native Energy Floor Get"
+                  "title": "Response Get Native Energy Floor V1 Market Native Energy Floor Get"
                 }
               }
             }
@@ -3410,14 +3410,14 @@
         }
       }
     },
-    "/v1/marketplace/sync-offers": {
+    "/v1/market/sync-offers": {
       "post": {
         "tags": [
-          "marketplace-offers"
+          "market-offers"
         ],
         "summary": "Create offers from registered miners",
-        "description": "Create marketplace offers from all registered miners",
-        "operationId": "sync_offers_v1_marketplace_sync_offers_post",
+        "description": "Create market offers from all registered miners",
+        "operationId": "sync_offers_v1_market_sync_offers_post",
         "parameters": [
           {
             "name": "Authorization",
@@ -3444,7 +3444,7 @@
                 "schema": {
                   "type": "object",
                   "additionalProperties": true,
-                  "title": "Response Sync Offers V1 Marketplace Sync Offers Post"
+                  "title": "Response Sync Offers V1 Market Sync Offers Post"
                 }
               }
             }
@@ -3462,14 +3462,14 @@
         }
       }
     },
-    "/v1/marketplace/miner-offers": {
+    "/v1/market/miner-offers": {
       "get": {
         "tags": [
-          "marketplace-offers"
+          "market-offers"
         ],
         "summary": "List all miner offers",
         "description": "List all offers created from miners",
-        "operationId": "list_miner_offers_v1_marketplace_miner_offers_get",
+        "operationId": "list_miner_offers_v1_market_miner_offers_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -3477,10 +3477,10 @@
               "application/json": {
                 "schema": {
                   "items": {
-                    "$ref": "#/components/schemas/MarketplaceOfferView"
+                    "$ref": "#/components/schemas/MarketOfferView"
                   },
                   "type": "array",
-                  "title": "Response List Miner Offers V1 Marketplace Miner Offers Get"
+                  "title": "Response List Miner Offers V1 Market Miner Offers Get"
                 }
               }
             }
@@ -3491,10 +3491,10 @@
     "/v1/offers": {
       "get": {
         "tags": [
-          "marketplace-offers"
+          "market-offers"
         ],
-        "summary": "List all marketplace offers (Fixed)",
-        "description": "List all marketplace offers - Fixed version to avoid AttributeError",
+        "summary": "List all market offers (Fixed)",
+        "description": "List all market offers - Fixed version to avoid AttributeError",
         "operationId": "list_all_offers_v1_offers_get",
         "responses": {
           "200": {
@@ -3525,14 +3525,14 @@
         }
       }
     },
-    "/v1/marketplace/providers/{provider_id}/bonds": {
+    "/v1/market/providers/{provider_id}/bonds": {
       "post": {
         "tags": [
-          "marketplace-bonds"
+          "market-bonds"
         ],
         "summary": "Create or update a provider bond",
         "description": "Create or top-up a provider performance bond record.\n\nThe bond's ``required_amount`` is raised to the global floor if the caller\nsupplies a smaller value, and the bond is left ``PENDING`` until the posted\n``amount`` meets that floor.",
-        "operationId": "create_bond_v1_marketplace_providers__provider_id__bonds_post",
+        "operationId": "create_bond_v1_market_providers__provider_id__bonds_post",
         "parameters": [
           {
             "name": "provider_id",
@@ -3594,14 +3594,14 @@
         }
       }
     },
-    "/v1/marketplace/providers/{provider_id}/eligibility": {
+    "/v1/market/providers/{provider_id}/eligibility": {
       "get": {
         "tags": [
-          "marketplace-bonds"
+          "market-bonds"
         ],
         "summary": "Check provider bond eligibility",
         "description": "Return whether a provider is eligible for high-value jobs.",
-        "operationId": "get_eligibility_v1_marketplace_providers__provider_id__eligibility_get",
+        "operationId": "get_eligibility_v1_market_providers__provider_id__eligibility_get",
         "parameters": [
           {
             "name": "provider_id",
@@ -3653,14 +3653,14 @@
         }
       }
     },
-    "/v1/marketplace/bonds/{bond_id}": {
+    "/v1/market/bonds/{bond_id}": {
       "get": {
         "tags": [
-          "marketplace-bonds"
+          "market-bonds"
         ],
         "summary": "Get a bond record by ID",
         "description": "Return a single bond record.",
-        "operationId": "get_bond_by_id_v1_marketplace_bonds__bond_id__get",
+        "operationId": "get_bond_by_id_v1_market_bonds__bond_id__get",
         "parameters": [
           {
             "name": "bond_id",
@@ -3722,14 +3722,14 @@
         }
       }
     },
-    "/v1/marketplace/providers/{provider_id}/bonds/lock": {
+    "/v1/market/providers/{provider_id}/bonds/lock": {
       "post": {
         "tags": [
-          "marketplace-bonds"
+          "market-bonds"
         ],
         "summary": "Lock a provider bond",
         "description": "Lock a provider's bond while a high-value job is in flight.",
-        "operationId": "lock_bond_v1_marketplace_providers__provider_id__bonds_lock_post",
+        "operationId": "lock_bond_v1_market_providers__provider_id__bonds_lock_post",
         "parameters": [
           {
             "name": "provider_id",
@@ -3781,14 +3781,14 @@
         }
       }
     },
-    "/v1/marketplace/providers/{provider_id}/bonds/release": {
+    "/v1/market/providers/{provider_id}/bonds/release": {
       "post": {
         "tags": [
-          "marketplace-bonds"
+          "market-bonds"
         ],
         "summary": "Release a locked provider bond",
         "description": "Release a locked bond back to active status.",
-        "operationId": "release_bond_v1_marketplace_providers__provider_id__bonds_release_post",
+        "operationId": "release_bond_v1_market_providers__provider_id__bonds_release_post",
         "parameters": [
           {
             "name": "provider_id",
@@ -3840,14 +3840,14 @@
         }
       }
     },
-    "/v1/marketplace/providers/{provider_id}/bonds/slash": {
+    "/v1/market/providers/{provider_id}/bonds/slash": {
       "post": {
         "tags": [
-          "marketplace-bonds"
+          "market-bonds"
         ],
         "summary": "Slash a provider bond",
         "description": "Slash a provider's bond for misbehavior.",
-        "operationId": "slash_bond_v1_marketplace_providers__provider_id__bonds_slash_post",
+        "operationId": "slash_bond_v1_market_providers__provider_id__bonds_slash_post",
         "parameters": [
           {
             "name": "provider_id",
@@ -8532,7 +8532,7 @@
           "portfolio"
         ],
         "summary": "Get Unified Portfolio",
-        "description": "Get unified portfolio view aggregating data from all AITBC services\n\nAggregates data from:\n- Wallet service (8108): Wallet balances\n- Exchange service (8106): Exchange rates\n- Marketplace service (8102): Marketplace stats\n- Trading service (8104): Trading analytics\n- AI service (8005): AI trade signals (simulation-labelled)",
+        "description": "Get unified portfolio view aggregating data from all AITBC services\n\nAggregates data from:\n- Wallet service (8108): Wallet balances\n- Exchange service (8106): Exchange rates\n- Market service (8102): Market stats\n- Trading service (8104): Trading analytics\n- AI service (8005): AI trade signals (simulation-labelled)",
         "operationId": "get_unified_portfolio_v1_portfolio_unified_get",
         "parameters": [
           {
@@ -37937,7 +37937,7 @@
               }
             ],
             "title": "Offer Id",
-            "description": "Marketplace offer the amount was quoted from"
+            "description": "Market offer the amount was quoted from"
           },
           "offer_unit_price": {
             "anyOf": [
@@ -39070,49 +39070,7 @@
         "title": "MLVerifyRequest",
         "description": "Body for both ML verify endpoints.\n\n``verification_key`` is absent by design: the key is chosen server-side from the circuit,\nbecause a verifier that accepts the key from the party being verified checks nothing."
       },
-      "MarketStatsResponse": {
-        "properties": {
-          "price": {
-            "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Price"
-          },
-          "price_change_24h": {
-            "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Price Change 24H"
-          },
-          "daily_volume": {
-            "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Daily Volume"
-          },
-          "daily_volume_eth": {
-            "type": "string",
-            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
-            "title": "Daily Volume Eth"
-          },
-          "total_payments": {
-            "type": "integer",
-            "title": "Total Payments"
-          },
-          "pending_payments": {
-            "type": "integer",
-            "title": "Pending Payments"
-          }
-        },
-        "type": "object",
-        "required": [
-          "price",
-          "price_change_24h",
-          "daily_volume",
-          "daily_volume_eth",
-          "total_payments",
-          "pending_payments"
-        ],
-        "title": "MarketStatsResponse"
-      },
-      "MarketplaceOfferView": {
+      "MarketOfferView": {
         "properties": {
           "id": {
             "type": "string",
@@ -39246,9 +39204,51 @@
           "status",
           "created_at"
         ],
-        "title": "MarketplaceOfferView"
+        "title": "MarketOfferView"
       },
-      "MarketplaceStatsView": {
+      "MarketStatsResponse": {
+        "properties": {
+          "price": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Price"
+          },
+          "price_change_24h": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Price Change 24H"
+          },
+          "daily_volume": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Daily Volume"
+          },
+          "daily_volume_eth": {
+            "type": "string",
+            "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$",
+            "title": "Daily Volume Eth"
+          },
+          "total_payments": {
+            "type": "integer",
+            "title": "Total Payments"
+          },
+          "pending_payments": {
+            "type": "integer",
+            "title": "Pending Payments"
+          }
+        },
+        "type": "object",
+        "required": [
+          "price",
+          "price_change_24h",
+          "daily_volume",
+          "daily_volume_eth",
+          "total_payments",
+          "pending_payments"
+        ],
+        "title": "MarketStatsResponse"
+      },
+      "MarketStatsView": {
         "properties": {
           "totalOffers": {
             "type": "integer",
@@ -39275,7 +39275,7 @@
           "averagePrice",
           "activeBids"
         ],
-        "title": "MarketplaceStatsView"
+        "title": "MarketStatsView"
       },
       "MetaLearningRequest": {
         "properties": {
@@ -40311,10 +40311,10 @@
             "type": "object",
             "title": "Exchange"
           },
-          "marketplace": {
+          "market": {
             "additionalProperties": true,
             "type": "object",
-            "title": "Marketplace"
+            "title": "Market"
           },
           "trading": {
             "additionalProperties": true,
@@ -40338,7 +40338,7 @@
           "agent_address",
           "wallet",
           "exchange",
-          "marketplace",
+          "market",
           "trading",
           "ai_signals",
           "summary"
@@ -42542,7 +42542,7 @@
           "critical"
         ],
         "title": "TransactionPriority",
-        "description": "Transaction priority levels \u2014 shared by cross_chain and marketplace contexts."
+        "description": "Transaction priority levels \u2014 shared by cross_chain and market contexts."
       },
       "TransactionStatus": {
         "type": "string",
@@ -43814,7 +43814,7 @@
               }
             ],
             "title": "Offer Id",
-            "description": "Marketplace offer this job is bought against"
+            "description": "Market offer this job is bought against"
           },
           "offer_quantity": {
             "anyOf": [
@@ -43872,8 +43872,8 @@
       "description": "Admin operations"
     },
     {
-      "name": "marketplace",
-      "description": "GPU Marketplace"
+      "name": "market",
+      "description": "GPU Market"
     },
     {
       "name": "exchange",

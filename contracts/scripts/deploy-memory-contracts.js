@@ -179,7 +179,7 @@ VITE_MEMORY_BATCH_SIZE=50
 VITE_MEMORY_EXPIRY_DAYS=30
 `;
 
-        const envFile = path.join(__dirname, "..", "..", "apps", "marketplace-web", ".env.memory");
+        const envFile = path.join(__dirname, "..", "..", "apps", "market-web", ".env.memory");
         fs.writeFileSync(envFile, envVars);
 
         console.log("");

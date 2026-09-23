@@ -8,7 +8,7 @@
 - Mapped 61 routers to bounded contexts
 - Identified cross-context dependencies between routers and services
 - Created context-specific subdirectory structure for:
-  - `contexts/marketplace/` (routers, services, domain, storage)
+  - `contexts/market/` (routers, services, domain, storage)
   - `contexts/payments/` (routers, services, domain, storage)
   - `contexts/blockchain/` (routers, services, domain, storage)
   - `contexts/agent_identity/` (routers, services, domain, storage)
@@ -17,12 +17,12 @@
 
 **Completed Tasks:**
 - Extracted context-specific services to context directories:
-  - Marketplace: marketplace.py, marketplace_enhanced.py, marketplace_enhanced_simple.py, global_marketplace.py, global_marketplace_integration.py
+  - Market: market.py, market_enhanced.py, market_enhanced_simple.py, global_market.py, global_market_integration.py
   - Payments: payments.py
   - Blockchain: blockchain.py
   - Agent Identity: (already existed in agent_identity/ directory)
 - Extracted domain models to context directories:
-  - Marketplace: marketplace.py, gpu_marketplace.py, global_marketplace.py
+  - Market: market.py, gpu_market.py, global_market.py
   - Payments: payment.py
   - Agent Identity: agent_identity.py
 - Updated all imports in moved files to reference correct paths
@@ -32,7 +32,7 @@
 
 **Completed Tasks:**
 - Moved routers to context directories:
-  - Marketplace: marketplace.py, marketplace_gpu.py, marketplace_offers.py, global_marketplace.py, global_marketplace_integration.py
+  - Market: market.py, market_gpu.py, market_offers.py, global_market.py, global_market_integration.py
   - Payments: payments.py
   - Blockchain: blockchain.py
   - Agent Identity: agent_identity.py
@@ -44,12 +44,12 @@
 
 **Completed Tasks:**
 - Created context-specific SQLAlchemy schema files:
-  - `contexts/marketplace/storage/schema.py` - defines marketplace_ prefix
+  - `contexts/market/storage/schema.py` - defines marketplace_ prefix
   - `contexts/payments/storage/schema.py` - defines payments_ prefix
   - `contexts/blockchain/storage/schema.py` - defines blockchain_ prefix
   - `contexts/agent_identity/storage/schema.py` - defines agent_identity_ prefix
 - Updated domain models to use context-prefixed table names:
-  - Marketplace: MarketplaceOffer -> marketplace_offer, MarketplaceBid -> marketplace_bid
+  - Market: MarketOffer -> market_offer, MarketBid -> market_bid
   - Payments: JobPayment -> payments_job_payment, PaymentEscrow -> payments_escrow
   - Agent Identity: AgentIdentity -> agent_identity_identity, CrossChainMapping -> agent_identity_cross_chain_mapping, IdentityVerification -> agent_identity_verification
 - Created Alembic migration script: `alembic/versions/001_context_table_prefixes.py`
@@ -63,7 +63,7 @@
 - main.py successfully imports routers from context directories
 
 **Code Metrics:**
-- Contexts created: 4 (marketplace, payments, blockchain, agent_identity)
+- Contexts created: 4 (market, payments, blockchain, agent_identity)
 - Routers moved: 8
 - Services moved: 8
 - Domain models moved: 5
@@ -72,7 +72,7 @@
 ## Next Steps (Phase 2: Microservice Extraction)
 
 According to the decomposition plan, Phase 2 involves:
-1. Week 5: Marketplace Service Extraction
+1. Week 5: Market Service Extraction
 2. Week 6: Agent Identity Service Extraction
 3. Week 7: Payments Service Extraction
 4. Week 8: Validation & Monitoring
@@ -81,11 +81,11 @@ According to the decomposition plan, Phase 2 involves:
 
 **Created:**
 - `/opt/aitbc/apps/coordinator-api/src/app/contexts/__init__.py`
-- `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/__init__.py`
-- `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/routers/__init__.py`
-- `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/services/__init__.py`
-- `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/domain/__init__.py`
-- `/opt/aitbc/apps/coordinator-api/src/app/contexts/marketplace/storage/__init__.py`
+- `/opt/aitbc/apps/coordinator-api/src/app/contexts/market/__init__.py`
+- `/opt/aitbc/apps/coordinator-api/src/app/contexts/market/routers/__init__.py`
+- `/opt/aitbc/apps/coordinator-api/src/app/contexts/market/services/__init__.py`
+- `/opt/aitbc/apps/coordinator-api/src/app/contexts/market/domain/__init__.py`
+- `/opt/aitbc/apps/coordinator-api/src/app/contexts/market/storage/__init__.py`
 - `/opt/aitbc/apps/coordinator-api/src/app/contexts/payments/__init__.py`
 - `/opt/aitbc/apps/coordinator-api/src/app/contexts/payments/routers/__init__.py`
 - `/opt/aitbc/apps/coordinator-api/src/app/contexts/payments/services/__init__.py`
@@ -107,18 +107,18 @@ According to the decomposition plan, Phase 2 involves:
 - `/opt/aitbc/apps/coordinator-api/src/app/routers/governance.py` - Fixed syntax error
 
 **Moved (Routers):**
-- marketplace.py, marketplace_gpu.py, marketplace_offers.py, global_marketplace.py, global_marketplace_integration.py → contexts/marketplace/routers/
+- market.py, market_gpu.py, market_offers.py, global_market.py, global_market_integration.py → contexts/market/routers/
 - payments.py → contexts/payments/routers/
 - blockchain.py → contexts/blockchain/routers/
 - agent_identity.py → contexts/agent_identity/routers/
 
 **Moved (Services):**
-- marketplace.py, marketplace_enhanced.py, marketplace_enhanced_simple.py, global_marketplace.py, global_marketplace_integration.py → contexts/marketplace/services/
+- market.py, market_enhanced.py, market_enhanced_simple.py, global_market.py, global_market_integration.py → contexts/market/services/
 - payments.py → contexts/payments/services/
 - blockchain.py → contexts/blockchain/services/
 
 **Moved (Domain):**
-- marketplace.py, gpu_marketplace.py, global_marketplace.py → contexts/marketplace/domain/
+- market.py, gpu_market.py, global_market.py → contexts/market/domain/
 - payment.py → contexts/payments/domain/
 - agent_identity.py → contexts/agent_identity/domain/
 

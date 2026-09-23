@@ -9,7 +9,7 @@ import os
 import platform
 from typing import Annotated, Any
 
-from pydantic import Field, SecretStr, field_validator, model_validator
+from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
@@ -186,7 +186,7 @@ class Settings(BaseAITBCConfig):
             "http://localhost:8202",  # Blockchain Node RPC
             "http://localhost:8106",  # Exchange API
             "http://localhost:8101",  # GPU service
-            "http://localhost:8102",  # Marketplace
+            "http://localhost:8102",  # Market
             "http://localhost:8103",  # Edge
             "http://localhost:8104",  # Trading
             "http://localhost:8105",  # Governance
@@ -227,9 +227,21 @@ class Settings(BaseAITBCConfig):
     rate_limit_miner_register: str = Field(default="30/minute", description="Rate limit for miner registration")
     rate_limit_miner_heartbeat: str = Field(default="60/minute", description="Rate limit for miner heartbeat")
     rate_limit_admin_stats: str = Field(default="20/minute", description="Rate limit for admin stats")
-    rate_limit_marketplace_list: str = Field(default="100/minute", description="Rate limit for marketplace list")
-    rate_limit_marketplace_stats: str = Field(default="50/minute", description="Rate limit for marketplace stats")
-    rate_limit_marketplace_bid: str = Field(default="30/minute", description="Rate limit for marketplace bid")
+    rate_limit_market_list: str = Field(
+        default="100/minute",
+        description="Rate limit for market list",
+        validation_alias=AliasChoices("RATE_LIMIT_MARKET_LIST", "RATE_LIMIT_MARKETPLACE_LIST"),
+    )
+    rate_limit_market_stats: str = Field(
+        default="50/minute",
+        description="Rate limit for market stats",
+        validation_alias=AliasChoices("RATE_LIMIT_MARKET_STATS", "RATE_LIMIT_MARKETPLACE_STATS"),
+    )
+    rate_limit_market_bid: str = Field(
+        default="30/minute",
+        description="Rate limit for market bid",
+        validation_alias=AliasChoices("RATE_LIMIT_MARKET_BID", "RATE_LIMIT_MARKETPLACE_BID"),
+    )
     rate_limit_exchange_payment: str = Field(default="20/minute", description="Rate limit for exchange payment")
 
     # Receipt Signing
@@ -260,7 +272,7 @@ class Settings(BaseAITBCConfig):
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
     native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
 
-    # Operator key used to sign EnergyQuote payloads returned by the marketplace.
+    # Operator key used to sign EnergyQuote payloads returned by the market.
     # Stored as SecretStr so it cannot leak through repr/logs. When unset, the
     # coordinator returns unsigned quotes (legacy behaviour) and the CLI must
     # refuse to fund them.
@@ -379,7 +391,7 @@ def validate_critical_environment_variables() -> None:
 
         get_logger(__name__).warning(
             "MINER_API_KEYS is empty: every X-Api-Key request to the miner, settlement and "
-            "marketplace routers will be refused. Set it in /etc/aitbc/aitbc-coordinator-api.env "
+            "market routers will be refused. Set it in /etc/aitbc/aitbc-coordinator-api.env "
             "(JSON array form) — see docs/ops/follower-api-key.md."
         )
 

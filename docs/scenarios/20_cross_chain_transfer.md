@@ -350,7 +350,7 @@ async def main():
     # Configure contract integration with the atomic swap contract address
     contract_config = ContractConfig(
         payment_processor="0xpayment...",
-        agent_marketplace="0xmarket...",
+        agent_market="0xmarket...",
         staking_contract="0xstaking...",
         treasury_manager="0xtreasury...",
         cross_chain_atomic_swap="0xatomic_swap_contract",
@@ -427,7 +427,7 @@ from aitbc_agent.contract_integration import ContractConfig
 async def main():
     contract_config = ContractConfig(
         payment_processor="0xpayment...",
-        agent_marketplace="0xmarket...",
+        agent_market="0xmarket...",
         staking_contract="0xstaking...",
         treasury_manager="0xtreasury...",
         cross_chain_atomic_swap="0xatomic_swap_contract",

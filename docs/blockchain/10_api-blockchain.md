@@ -34,7 +34,7 @@ transaction into the mempool for the next block.
 | `amount` | int | yes | Transfer amount in compute-units (1 AIT = 36,000,000) |
 | `fee` | int | no | Fee in compute-units (default `DEFAULT_TX_FEE_UNITS`) |
 | `nonce` | int | no | Sender nonce (default 0; must equal the account nonce) |
-| `type` | string | no | `TRANSFER` (default), `MESSAGE`, `RECEIPT_CLAIM`, `GPU_MARKETPLACE`, `EXCHANGE`, ... |
+| `type` | string | no | `TRANSFER` (default), `MESSAGE`, `RECEIPT_CLAIM`, `GPU_MARKET`, `EXCHANGE`, ... |
 | `payload` | object | no | Type-specific payload; `to`/`amount` are mirrored into it |
 | `signature` | string | yes | secp256k1 signature over the transaction fields |
 

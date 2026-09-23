@@ -66,7 +66,7 @@ async def api_activity_timeline(
         labels = sorted(data.keys())
         type_colors = {
             "TRANSFER": "#10b981",
-            "GPU_MARKETPLACE": "#3b82f6",
+            "GPU_MARKET": "#3b82f6",
             "ESCROW_RELEASE": "#8b5cf6",
             "GPU_REGISTER": "#ef4444",
         }
@@ -98,20 +98,20 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
         async with aiosqlite.connect(str(chain_db_path)) as conn:
             cursor = await conn.cursor()
 
-            # Total AIT from TRANSFER + GPU_MARKETPLACE transactions (sum of values)
+            # Total AIT from TRANSFER + GPU_MARKET transactions (sum of values)
             await cursor.execute("""
                 SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
                 FROM "transaction"
-                WHERE type IN ('TRANSFER', 'GPU_MARKETPLACE')
+                WHERE type IN ('TRANSFER', 'GPU_MARKET')
             """)
             row = await cursor.fetchone()
             # V23-46: fetchone() is Row | None. An aggregate always returns a row, but
             # only while the table exists -- otherwise this is a TypeError on None.
             total_ait = (row[0] if row else 0) or 0
 
-            # Active offers (GPU_MARKETPLACE transactions)
+            # Active offers (GPU_MARKET transactions)
             await cursor.execute("""
-                SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
+                SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKET'
             """)
             row = await cursor.fetchone()
             active_offers = (row[0] if row else 0) or 0
@@ -123,9 +123,9 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
             row = await cursor.fetchone()
             unique_nodes = (row[0] if row else 0) or 0
 
-            # Unique providers from GPU_MARKETPLACE payload
+            # Unique providers from GPU_MARKET payload
             await cursor.execute("""
-                SELECT payload FROM "transaction" WHERE type = 'GPU_MARKETPLACE'
+                SELECT payload FROM "transaction" WHERE type = 'GPU_MARKET'
             """)
             providers = set()
             rows = await cursor.fetchall()
@@ -236,7 +236,7 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAU
             tx_type, tx_value, created_at, payload = tx
             if first_tx_date is None:
                 first_tx_date = created_at
-            if tx_type == "GPU_MARKETPLACE":
+            if tx_type == "GPU_MARKET":
                 gpu_offers += 1
             try:
                 total_volume += float(tx_value or 0)

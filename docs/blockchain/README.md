@@ -15,7 +15,7 @@ Comprehensive Windsurf workflows for multi-node blockchain deployment and operat
 - **Core Setup** - Prerequisites, environment configuration, and basic node setup
 - **Operations** - Daily operations, monitoring, and troubleshooting
 - **Advanced Features** - Smart contracts, security testing, and performance optimization
-- **Marketplace Testing** - GPU provider testing, transaction tracking, and verification procedures
+- **Market Testing** - GPU provider testing, transaction tracking, and verification procedures
 - **Production Deployment** - Security hardening, monitoring, and scaling strategies
 - **Reference** - Configuration overview, verification commands, and best practices
 
@@ -26,7 +26,7 @@ The AITBC blockchain supports the following transaction types:
 - **TRANSFER**: Standard value transfer between accounts
 - **MESSAGE**: On-chain messaging (amount=0, fee-only) - allows sending short text messages without balance transfers
 - **RECEIPT_CLAIM**: Claim rewards from job completion receipts
-- **GPU_MARKETPLACE**: GPU marketplace transactions (bids, offers, purchases)
+- **GPU_MARKET**: GPU market transactions (bids, offers, purchases)
 - **EXCHANGE**: Exchange transactions (orders, trades, swaps, liquidity)
 
 ### MESSAGE Transaction Type

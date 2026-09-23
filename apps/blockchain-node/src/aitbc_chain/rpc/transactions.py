@@ -28,6 +28,7 @@ from .utils import (
 
 _logger = get_logger(__name__)
 
+
 class TransactionRequest(BaseModel):
     """Transaction request model"""
 
@@ -219,7 +220,7 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
 
 
 def _market_bond_min_amount() -> int:
-    return int(os.getenv("MARKET_BOND_MIN_AMOUNT", "0"))
+    return int(os.getenv("MARKET_BOND_MIN_AMOUNT", os.getenv("MARKETPLACE_BOND_MIN_AMOUNT", "0")))
 
 
 def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> bool:
@@ -246,8 +247,8 @@ def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> 
 
 
 @rate_limit(rate=50, per=60)
-async def submit_marketplace_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
-    """Submit a marketplace transaction"""
+async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
+    """Submit a market transaction"""
     from ..mempool import get_mempool
 
     try:
@@ -259,16 +260,16 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         signature = tx_data.get("signature") or tx_data.get("sig")
         sender = tx_data.get("from")
         payload = tx_data.get("payload") or {}
-        is_offer = tx_data.get("type") == "GPU_MARKETPLACE" and payload.get("action") in OFFER_ACTIONS
+        is_offer = tx_data.get("type") == "GPU_MARKET" and payload.get("action") in OFFER_ACTIONS
         is_hardware_offer = is_offer and payload.get("action") == "offer"
         if is_offer:
             # GPU/software offers are value-zero listings; they are still traceable to sender
             # by the public key / address, but requiring a secp256k1 signature here would break
-            # the marketplace CLI which does not manage wallet private keys (V23-90).
+            # the market CLI which does not manage wallet private keys (V23-90).
             if not sender:
                 raise HTTPException(status_code=400, detail="Sender required")
             # Enforce the value-zero premise the exemption rests on: consensus has no
-            # GPU_MARKETPLACE branch, so an unsigned offer carrying an amount falls
+            # GPU_MARKET branch, so an unsigned offer carrying an amount falls
             # through to the generic transfer and debits `sender` — an address the
             # caller does not control — with no signature anywhere in the path.
             try:
@@ -313,25 +314,25 @@ async def submit_marketplace_transaction(request: Request, tx_data: dict[str, An
         tx_hash = mempool.add(tx_data_dict, chain_id=chain_id)
         _queue_peer_fanout(chain_id, tx_data_dict)
 
-        return {"success": True, "transaction_hash": tx_hash, "message": "Marketplace transaction submitted to mempool"}
+        return {"success": True, "transaction_hash": tx_hash, "message": "Market transaction submitted to mempool"}
     except HTTPException:
         # Raised deliberately above (403 for missing/invalid signature or bond).
         # Re-raise so callers can distinguish "not signed" from "malformed".
         raise
     except Exception as e:
-        _logger.error("Failed to submit marketplace transaction: %s", e)
-        raise HTTPException(status_code=400, detail=f"Failed to submit marketplace transaction: {str(e)}") from e
+        _logger.error("Failed to submit market transaction: %s", e)
+        raise HTTPException(status_code=400, detail=f"Failed to submit market transaction: {str(e)}") from e
 
 
 @rate_limit(rate=10, per=60)
-async def match_marketplace(request: Request, chain_id: str | None = None) -> dict[str, Any]:
-    """Return active marketplace listings that could be matched against bids."""
+async def match_market(request: Request, chain_id: str | None = None) -> dict[str, Any]:
+    """Return active market listings that could be matched against bids."""
     chain_id = get_chain_id(chain_id)
     with session_scope(chain_id) as session:
         offers = session.exec(
             select(Transaction)
             .where(Transaction.chain_id == chain_id)
-            .where(Transaction.type == "GPU_MARKETPLACE")
+            .where(Transaction.type == "GPU_MARKET")
             .where(Transaction.status == "confirmed")
         ).all()
         cancelled_ids: set[str] = set()

@@ -45,7 +45,7 @@ async function main() {
       const registry = ContractRegistry.attach(deployments.ContractRegistry);
 
       // Contracts that should be registered in the registry
-      const contractsToRegister = ["TreasuryManager", "AgentMarketplaceV2", "RewardDistributor", "PerformanceAggregator"];
+      const contractsToRegister = ["TreasuryManager", "AgentMarketV2", "RewardDistributor", "PerformanceAggregator"];
 
       for (const [name, address] of Object.entries(deployments)) {
         if (name === "ContractRegistry" || name === "AIToken") continue;

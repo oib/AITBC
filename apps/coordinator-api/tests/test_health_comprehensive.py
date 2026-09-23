@@ -1,7 +1,7 @@
 """
 Comprehensive health endpoint tests for AITBC services
 
-Tests both internal service health and external marketplace health endpoints.
+Tests both internal service health and external market health endpoints.
 """
 
 from unittest.mock import Mock, patch

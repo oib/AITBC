@@ -4,7 +4,7 @@
 
 Run non-inference jobs on the GPU shop: audio transcription with OpenAI Whisper
 and media re-encoding with FFmpeg. The shop advertises these capabilities and
-marketplace offers exist for them.
+market offers exist for them.
 
 ## Preconditions
 
@@ -41,8 +41,8 @@ marketplace offers exist for them.
    - `result.output_format`: `mp3`
    - `result.output_size_bytes`: > 0
 
-5. Verify marketplace service offers with the CLI (`aitbc market list` reads
-   the same marketplace service the curl call hit):
+5. Verify market service offers with the CLI (`aitbc market list` reads
+   the same market service the curl call hit):
    ```bash
    aitbc market list --service-type whisper
    aitbc market list --service-type ffmpeg
@@ -57,5 +57,5 @@ marketplace offers exist for them.
 - The canonical CLI `aitbc ai submit` accepts `--type`, `--input`, and
   `--output-format`.
 - `aitbc market offer` on-chain listing currently requires a provider bond and
-  correct `0x` address spelling; the service-level marketplace offers in
+  correct `0x` address spelling; the service-level market offers in
   step 5 are a working default-shop alternative.

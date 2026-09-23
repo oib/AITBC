@@ -111,7 +111,7 @@ class ComputeProvider(Agent):
         availability_schedule: dict[str, Any],
         max_concurrent_jobs: int = 3,
     ) -> bool:
-        """Offer computational resources on the marketplace"""
+        """Offer computational resources on the market"""
         try:
             offer = ResourceOffer(
                 provider_id=self.identity.id,
@@ -123,8 +123,8 @@ class ComputeProvider(Agent):
                 max_concurrent_jobs=max_concurrent_jobs,
             )
 
-            # Submit to marketplace
-            await self._submit_to_marketplace(offer)
+            # Submit to market
+            await self._submit_to_market(offer)
             self.current_offers.append(offer)
 
             logger.info("Resource offer submitted: %s AITBC/hour", price_per_hour)
@@ -140,7 +140,7 @@ class ComputeProvider(Agent):
             # Update all current offers with new schedule
             for offer in self.current_offers:
                 offer.availability_schedule = schedule
-                await self._update_marketplace_offer(offer)
+                await self._update_market_offer(offer)
 
             logger.info("Availability schedule updated")
             return True
@@ -199,10 +199,10 @@ class ComputeProvider(Agent):
 
                 new_price = self.dynamic_pricing["base_rate"] * Decimal(str(multiplier))
 
-                # Update marketplace offers
+                # Update market offers
                 for offer in self.current_offers:
                     offer.price_per_hour = new_price
-                    await self._update_marketplace_offer(offer)
+                    await self._update_market_offer(offer)
 
                 logger.debug("Dynamic pricing: utilization=%.2f, price=%s AITBC/h", current_utilization, new_price)
 
@@ -309,8 +309,8 @@ class ComputeProvider(Agent):
             "current_offers": len(self.current_offers),
         }
 
-    async def _submit_to_marketplace(self, offer: ResourceOffer) -> str:
-        """Submit resource offer to marketplace"""
+    async def _submit_to_market(self, offer: ResourceOffer) -> str:
+        """Submit resource offer to market"""
         try:
             offer_data = {
                 "provider_id": offer.provider_id,
@@ -323,7 +323,7 @@ class ComputeProvider(Agent):
                 "quality_guarantee": offer.quality_guarantee,
             }
 
-            response = await self.http_client.post("/v1/marketplace/offers", json=offer_data)
+            response = await self.http_client.post("/v1/market/offers", json=offer_data)
 
             if response.status_code == 201:
                 result = response.json()
@@ -332,15 +332,15 @@ class ComputeProvider(Agent):
                 return offer_id
             else:
                 logger.error("Failed to submit offer: %s", response.status_code)
-                raise NetworkError(f"Marketplace submission failed: {response.status_code}")
+                raise NetworkError(f"Market submission failed: {response.status_code}")
         except NetworkError:
             raise
         except Exception as e:
-            logger.error("Error submitting to marketplace: %s", e)
+            logger.error("Error submitting to market: %s", e)
             raise
 
-    async def _update_marketplace_offer(self, offer: ResourceOffer) -> None:
-        """Update existing marketplace offer"""
+    async def _update_market_offer(self, offer: ResourceOffer) -> None:
+        """Update existing market offer"""
         try:
             offer_data = {
                 "provider_id": offer.provider_id,
@@ -353,17 +353,17 @@ class ComputeProvider(Agent):
                 "quality_guarantee": offer.quality_guarantee,
             }
 
-            response = await self.http_client.put(f"/v1/marketplace/offers/{offer.provider_id}", json=offer_data)
+            response = await self.http_client.put(f"/v1/market/offers/{offer.provider_id}", json=offer_data)
 
             if response.status_code == 200:
                 logger.info("Offer updated successfully: %s", offer.provider_id)
             else:
                 logger.error("Failed to update offer: %s", response.status_code)
-                raise NetworkError(f"Marketplace update failed: {response.status_code}")
+                raise NetworkError(f"Market update failed: {response.status_code}")
         except NetworkError:
             raise
         except Exception as e:
-            logger.error("Error updating marketplace offer: %s", e)
+            logger.error("Error updating market offer: %s", e)
             raise
 
     @classmethod

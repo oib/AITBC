@@ -602,7 +602,7 @@ class BlockImportMixin(SyncBase):
                     # Bump tx_data nonce/value to the live account state before
                     # applying, mirroring the block producer.  Blocks may contain
                     # multiple same-sender transactions that share the stored nonce
-                    # (e.g. parallel-validated GPU_MARKETPLACE offers); the follower
+                    # (e.g. parallel-validated GPU_MARKET offers); the follower
                     # must apply them with the current account nonce, not the stored
                     # one, or the second transaction fails and the state root diverges.
                     if raw_from not in {"bridge_release", "bridge_refund"} and sender_acct is not None:

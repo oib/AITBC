@@ -60,7 +60,7 @@ def _sample_offer(
     offer_id: str = "offer_001",
     chain_id: str = "ait-hub",
     price: float = 2.5,
-    service_type: str = "gpu_marketplace",
+    service_type: str = "gpu_market",
     status: str = "available",
     attributes: dict | None = None,
 ) -> SyncedOffer:
@@ -272,8 +272,8 @@ class TestOfferSubscription:
         assert sub.matches(_sample_event(chain_id="ait-island1")) is False
 
     def test_matches_service_type(self) -> None:
-        sub = OfferSubscription(service_type="gpu_marketplace")
-        offer = _sample_offer(service_type="gpu_marketplace")
+        sub = OfferSubscription(service_type="gpu_market")
+        offer = _sample_offer(service_type="gpu_market")
         assert sub.matches(_sample_event(offer=offer)) is True
         offer2 = _sample_offer(service_type="compute")
         assert sub.matches(_sample_event(offer=offer2)) is False
@@ -304,7 +304,7 @@ class TestOfferSubscription:
 
     def test_matches_deleted_event_chain_only(self) -> None:
         """Deleted events carry no offer — only chain filter applies."""
-        sub = OfferSubscription(chain_id="ait-hub", service_type="gpu_marketplace", min_price=1.0)
+        sub = OfferSubscription(chain_id="ait-hub", service_type="gpu_market", min_price=1.0)
         deleted = OfferEvent(
             event_type=OfferEventType.DELETED.value,
             offer_id="o1",

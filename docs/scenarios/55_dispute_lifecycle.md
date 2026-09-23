@@ -1,7 +1,7 @@
 # Dispute Lifecycle
 
 **Level**: Intermediate
-**Prerequisites**: Scenario 08 Marketplace Bidding (an on-chain agreement to dispute)
+**Prerequisites**: Scenario 08 Market Bidding (an on-chain agreement to dispute)
 **Estimated Time**: 25 minutes
 **Last Updated**: 2026-09-16
 **Version**: 1.0
@@ -30,7 +30,7 @@ breadcrumb: Home > Scenarios > Dispute Lifecycle
 > settle the disputed escrow.
 
 This scenario walks the full dispute lifecycle: a customer files a dispute
-against a marketplace agreement, attaches evidence, arbitrators vote, and an
+against a market agreement, attaches evidence, arbitrators vote, and an
 operator rules on the escrowed payment.
 
 ### Use Case
@@ -51,7 +51,7 @@ customer opens a dispute instead of accepting the escrow release.
 ## Prerequisites
 
 - A node wallet (Scenario 01) for signing the dispute transaction
-- An existing agreement ID — create one via Scenario 08 (marketplace order) or
+- An existing agreement ID — create one via Scenario 08 (market order) or
   Scenario 06 (escrowed trade)
 - Arbitrator/operator credentials are required for `vote`, `evidence verify`,
   and `resolve` — filing and reading disputes need none.

@@ -2,7 +2,7 @@
 
 ## Overview
 
-The AITBC Miner is a standalone binary for Debian stable (trixie) that allows GPU owners to participate in the AITBC decentralized compute marketplace.
+The AITBC Miner is a standalone binary for Debian stable (trixie) that allows GPU owners to participate in the AITBC decentralized compute market.
 
 **Inference Backends:**
 - **vLLM** (recommended): Optimized LLM inference engine with better performance

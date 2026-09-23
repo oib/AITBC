@@ -1,7 +1,7 @@
 """The metadata this service's tables live on.
 
 `apps/coordinator-api` carries its own copy of these models under
-`contexts/marketplace/domain/gpu_marketplace.py` -- same table names, same columns. Both
+`contexts/market/domain/gpu_market.py` -- same table names, same columns. Both
 register on SQLModel's one process-global `MetaData` by default, so importing the two into a
 single process used to raise `Table 'gpu_registry' is already defined`.
 

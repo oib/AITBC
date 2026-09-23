@@ -9,7 +9,7 @@ An AITBC node is configured by two independent axes:
 | Role | Axis | What it does | Typical profile |
 |------|------|--------------|-----------------|
 | **Hub** | `BLOCKCHAIN_MODE=hub` | Produces and broadcasts blocks, runs the coordinator, exchange, and public discovery endpoints. | `hub` |
-| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, marketplace, and mining services; sells compute to the network. | `provider-gpu` (with GPU) or `server-no-gpu` (without GPU) |
+| **Shop** | `MARKET_ROLE=shop` | Provides GPU, edge, market, and mining services; sells compute to the network. | `provider-gpu` (with GPU) or `server-no-gpu` (without GPU) |
 | **Client** | `MARKET_ROLE=customer` | Consumes compute: submits jobs, queries results, and syncs as a follower. Also called the **customer node**. | `customer-no-gpu` |
 
 A single node can combine roles. For example, a hub can also be a shop, and a follower can be a client or a shop. See [Service Selection](setup-service-selection.md) for the full service matrix.

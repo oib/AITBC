@@ -16,12 +16,12 @@ logger = get_logger(__name__)
 from . import get_wallet_address, market
 
 
-def _marketplace_base_url(override_url: str | None = None) -> str:
-    """Return a public marketplace service URL.
+def _market_base_url(override_url: str | None = None) -> str:
+    """Return a public market service URL.
 
-    ``override_url`` wins when given (e.g. via ``--marketplace-url``). The
-    configured ``marketplace_service_url`` is used next when it points off the
-    local box. Otherwise fall back to the hub's public marketplace endpoint so
+    ``override_url`` wins when given (e.g. via ``--market-url``). The
+    configured ``market_service_url`` is used next when it points off the
+    local box. Otherwise fall back to the hub's public market endpoint so
     ratings work from any follower.
     """
     if override_url:
@@ -30,7 +30,7 @@ def _marketplace_base_url(override_url: str | None = None) -> str:
             url = url[:-3].rstrip("/")
         return url
     config = get_config()
-    url = config.marketplace_service_url or ""
+    url = config.market_service_url or ""
     if url and "localhost" not in url and "127.0.0.1" not in url:
         return url.rstrip("/")
     hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
@@ -51,10 +51,10 @@ def _marketplace_base_url(override_url: str | None = None) -> str:
 @click.option("--rating", "rating", required=True, type=float, help="The Rating.")
 @click.option("--comment", help="Optional comment/review text")
 @click.option("--reviewer-id", help="Reviewer ID (defaults to wallet address)")
-@click.option("--marketplace-url", help="Override the marketplace service URL")
+@click.option("--market-url", help="Override the market service URL")
 @click.pass_context
-def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, marketplace_url: str):
-    """Rate a marketplace service offer on a 1-5 scale."""
+def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, market_url: str):
+    """Rate a market service offer on a 1-5 scale."""
     try:
         # Validate rating scale
         if not (1.0 <= rating <= 5.0):
@@ -65,10 +65,10 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
         if not reviewer_id:
             reviewer_id = get_wallet_address()
 
-        # Call marketplace service API
-        client = AITBCHTTPClient(base_url=_marketplace_base_url(marketplace_url), timeout=10)
+        # Call market service API
+        client = AITBCHTTPClient(base_url=_market_base_url(market_url), timeout=10)
         response = client.post(
-            f"/v1/marketplace/offer/{service_id}/rate",
+            f"/v1/market/offer/{service_id}/rate",
             json={"rating": rating, "reviewer_id": reviewer_id, "comment": comment or ""},
         )
 
@@ -99,8 +99,8 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
         if "404" in str(e):
             error(f"No such service: {service_id}")
         else:
-            error(f"Marketplace service not reachable: {e}")
-            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url(marketplace_url)}")
+            error(f"Market service not reachable: {e}")
+            error(f"Ensure market-service is reachable at {_market_base_url(market_url)}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error rating service: {e}")
@@ -118,14 +118,14 @@ def rate(ctx, service_id: str, rating: float, comment: str, reviewer_id: str, ma
 @click.option("--service-id", "service_id", required=True, help="The Service id.")
 @click.option("--limit", default=50, help="Number of ratings to return")
 @click.option("--offset", default=0, help="Offset for pagination")
-@click.option("--marketplace-url", help="Override the marketplace service URL")
+@click.option("--market-url", help="Override the market service URL")
 @click.pass_context
-def ratings(ctx, service_id: str, limit: int, offset: int, marketplace_url: str):
-    """View ratings for a marketplace service offer."""
+def ratings(ctx, service_id: str, limit: int, offset: int, market_url: str):
+    """View ratings for a market service offer."""
     try:
-        # Call marketplace service API
-        client = AITBCHTTPClient(base_url=_marketplace_base_url(marketplace_url), timeout=10)
-        response = client.get(f"/v1/marketplace/offer/{service_id}/ratings", params={"limit": limit, "offset": offset})
+        # Call market service API
+        client = AITBCHTTPClient(base_url=_market_base_url(market_url), timeout=10)
+        response = client.get(f"/v1/market/offer/{service_id}/ratings", params={"limit": limit, "offset": offset})
 
         service_info = response.get("service_info", {})
         ratings_list = response.get("ratings", [])
@@ -147,8 +147,8 @@ def ratings(ctx, service_id: str, limit: int, offset: int, marketplace_url: str)
         if "404" in str(e):
             error(f"No such service: {service_id}")
         else:
-            error(f"Marketplace service not reachable: {e}")
-            error(f"Ensure marketplace-service is reachable at {_marketplace_base_url(marketplace_url)}")
+            error(f"Market service not reachable: {e}")
+            error(f"Ensure market-service is reachable at {_market_base_url(market_url)}")
         raise click.Abort() from e
     except Exception as e:
         error(f"Error getting ratings: {e}")
@@ -163,23 +163,23 @@ def ratings(ctx, service_id: str, limit: int, offset: int, marketplace_url: str)
 
   aitbc market sync-ratings --output json""",
 )
-# The default used to name one island's marketplace host, which sent every
+# The default used to name one island's market host, which sent every
 # other deployment's ratings to a stranger. There is no sensible default, so
-# the URL has to be given -- by flag or by AITBC_MARKETPLACE_URL.
+# the URL has to be given -- by flag or by AITBC_MARKET_URL.
 @click.option(
     "--remote-url",
-    default=lambda: os.getenv("AITBC_MARKETPLACE_URL"),
+    default=lambda: os.getenv("AITBC_MARKET_URL", os.getenv("AITBC_MARKETPLACE_URL")),
     required=True,
-    help="Remote marketplace service URL (default: $AITBC_MARKETPLACE_URL)",
+    help="Remote market service URL (default: $AITBC_MARKET_URL)",
 )
 @click.option("--limit", default=100, help="Number of ratings to sync")
 @click.pass_context
 def sync_ratings(ctx, remote_url: str, limit: int):
-    """Sync ratings to and from a remote marketplace node."""
+    """Sync ratings to and from a remote market node."""
     try:
         # Get local unsynced ratings
         local_client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=10)
-        unsynced_response = local_client.get("/v1/marketplace/ratings/unsynced", params={"limit": limit})
+        unsynced_response = local_client.get("/v1/market/ratings/unsynced", params={"limit": limit})
         unsynced_ratings = unsynced_response.get("ratings", [])
 
         if unsynced_ratings:
@@ -187,12 +187,12 @@ def sync_ratings(ctx, remote_url: str, limit: int):
 
             # Push to remote
             remote_client = AITBCHTTPClient(base_url=remote_url, timeout=30)
-            sync_response = remote_client.post("/v1/marketplace/ratings/sync", json=unsynced_ratings)
+            sync_response = remote_client.post("/v1/market/ratings/sync", json=unsynced_ratings)
 
             if sync_response.get("status") == "success":
                 # Mark local ratings as synced
                 rating_ids = [r["id"] for r in unsynced_ratings]
-                mark_response = local_client.post("/v1/marketplace/ratings/mark-synced", json={"rating_ids": rating_ids})
+                mark_response = local_client.post("/v1/market/ratings/mark-synced", json={"rating_ids": rating_ids})
 
                 success(
                     f"Synced {sync_response.get('synced', 0)} new, {sync_response.get('updated', 0)} updated ratings to remote"

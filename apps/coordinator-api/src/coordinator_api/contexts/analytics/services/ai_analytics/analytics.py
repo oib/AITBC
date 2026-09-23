@@ -1,6 +1,6 @@
 """
-Marketplace Analytics Service
-Implements comprehensive analytics, insights, and reporting for the marketplace
+Market Analytics Service
+Implements comprehensive analytics, insights, and reporting for the market
 """
 
 from datetime import UTC, datetime, timedelta
@@ -602,13 +602,13 @@ class DashboardManager:
         }
 
     async def create_default_dashboard(
-        self, session: Session, owner_id: str, dashboard_name: str = "Marketplace Analytics"
+        self, session: Session, owner_id: str, dashboard_name: str = "Market Analytics"
     ) -> DashboardConfig:
         """Create a default analytics dashboard"""
         dashboard = DashboardConfig(
             dashboard_id=f"dash_{uuid4().hex[:8]}",
             name=dashboard_name,
-            description="Default marketplace analytics dashboard",
+            description="Default market analytics dashboard",
             dashboard_type="default",
             layout={"columns": 12, "row_height": 30, "margin": [10, 10], "container_padding": [10, 10]},
             widgets=list(self.default_widgets.values()),
@@ -696,8 +696,8 @@ class DashboardManager:
         return dashboard
 
 
-class MarketplaceAnalytics:
-    """Main marketplace analytics service"""
+class MarketAnalytics:
+    """Main market analytics service"""
 
     def __init__(self, session: Session):
         self.session = session

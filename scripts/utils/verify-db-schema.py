@@ -6,7 +6,7 @@ such as a stamped alembic_version that does not actually include all columns.
 
 Covers the SQLite databases used by the production services:
   coordinator, blockchain (per-island chain.db), keystore, wallet_ledger,
-  governance, trading, gpu, edge, marketplace, exchange and hermes coin requests.
+  governance, trading, gpu, edge, market, exchange and hermes coin requests.
 
 Any other non-empty .db files found under the data directory are reported as
 unverified warnings so they are not silently ignored.
@@ -332,7 +332,7 @@ KNOWN_DBS: dict[str, Any] = {
         "type": "sqlmodel",
         "path": _data_dir() / "gpu_service.db",
         "modules": [
-            "gpu_service.domain.gpu_marketplace",
+            "gpu_service.domain.gpu_market",
             "gpu_service.domain.base",
             "aitbc_shared.models",
         ],
@@ -356,16 +356,16 @@ KNOWN_DBS: dict[str, Any] = {
         "metadata": ["sqlmodel.SQLModel.metadata"],
         "required_tables": ["compute_requests"],
     },
-    "marketplace": {
+    "market": {
         "type": "sqlmodel",
         "path": _data_dir() / "marketplace_service.db",
         "modules": [
-            "marketplace_service.domain.marketplace",
-            "marketplace_service.domain.global_marketplace",
-            "marketplace_service.domain.base",
+            "market_service.domain.market",
+            "market_service.domain.global_market",
+            "market_service.domain.base",
         ],
         "metadata": [
-            "marketplace_service.domain.base.marketplace_metadata",
+            "market_service.domain.base.market_metadata",
             "sqlmodel.SQLModel.metadata",
         ],
         "required_tables": ["bids", "marketplaceoffer"],
@@ -512,7 +512,7 @@ DB_SERVICE_MAP: dict[str, str | None] = {
     "trading": "aitbc-trading",
     "gpu": "aitbc-gpu",
     "edge": "aitbc-edge",
-    "marketplace": "aitbc-marketplace",
+    "market": "aitbc-market",
     "exchange": "aitbc-exchange",
     "hermes": "aitbc-agent-coordinator",
     "agent_management": "aitbc-agent-coordinator",
@@ -569,7 +569,7 @@ def _get_allowed_services(role: str) -> set[str] | None:
         "aitbc-coordinator-api",
         "aitbc-api-gateway",
         "aitbc-exchange",
-        "aitbc-marketplace",
+        "aitbc-market",
         "aitbc-bridge-monitor",
         "aitbc-blockchain-event-bridge",
         "aitbc-agent-coordinator",
@@ -582,7 +582,7 @@ def _get_allowed_services(role: str) -> set[str] | None:
         "aitbc-coordinator-api",
         "aitbc-edge",
         "aitbc-pool-hub",
-        "aitbc-marketplace",
+        "aitbc-market",
     }
 
     services: set[str] = set(infra) | set(base)

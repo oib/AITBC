@@ -129,6 +129,6 @@ All systemd service files moved from `systemd/` to `apps/<service>/`:
 - Wallet: `apps/wallet/`
 - Exchange: `apps/exchange/`
 - Explorer: `apps/blockchain-explorer/`
-- Marketplace: `apps/marketplace-service/`
+- Market: `apps/market-service/`
 
 See `aitbc-node-management` skill's `references/restructure-paths-2026-05-29.md` for the full mapping.

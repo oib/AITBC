@@ -11,7 +11,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 **Current Port Architecture:**
 
 - **Public Services (8200-8203)**: API Gateway (8201), Blockchain P2P (8200), Blockchain RPC (8202), Coordinator API failover (8203)
-- **Internal Services (8101-8108)**: GPU (8101), Marketplace (8102), Agent (8107), Trading (8104), Governance (8105), Exchange (8106), Agent Coordinator (8107), Wallet (8108)
+- **Internal Services (8101-8108)**: GPU (8101), Market (8102), Agent (8107), Trading (8104), Governance (8105), Exchange (8106), Agent Coordinator (8107), Wallet (8108)
 
 ## Completed Phases
 
@@ -20,7 +20,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 - Dependency Management Consolidation
 - Test Coverage Improvement (Target 50%)
 - Exception Handling Improvement
-- Coordinator-API Monolith Breakup (GPU service extracted, Marketplace/Trading/Governance Service foundations created)
+- Coordinator-API Monolith Breakup (GPU service extracted, Market/Trading/Governance Service foundations created)
 
 ### Phase 7-10: Microservices Setup (Completed)
 
@@ -33,13 +33,13 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 - Updated CLI configuration to include individual microservice URLs
   - `gpu_service_url`: http://localhost:8101
-  - `marketplace_service_url`: http://localhost:8102
+  - `market_service_url`: http://localhost:8102
   - `trading_service_url`: http://localhost:8104
   - `governance_service_url`: http://localhost:8105
-- Updated GPU marketplace CLI commands to use GPU service URL
-- Updated marketplace CLI commands to use marketplace service URL
+- Updated GPU market CLI commands to use GPU service URL
+- Updated market CLI commands to use market service URL
 - Updated unified CLI handlers to use microservice URLs
-- CLI now communicates directly with microservices for GPU and marketplace operations
+- CLI now communicates directly with microservices for GPU and market operations
 
 ### Phase 12: API Gateway Routing (Completed)
 
@@ -51,7 +51,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 ### Phase 13: API Gateway Testing (Completed)
 
 - Tested GPU service routing through API Gateway
-- Tested Marketplace service routing through API Gateway
+- Tested Market service routing through API Gateway
 - Tested Trading service routing through API Gateway
 - Tested Governance service routing through API Gateway
 
@@ -62,7 +62,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
   - Miner operations (register, poll, heartbeat, result, earnings, capabilities)
   - AI job operations (submit, tasks)
   - Explorer operations (transactions, receipts, blocks)
-  - Plugin operations (register, marketplace, analytics)
+  - Plugin operations (register, market, analytics)
   - agent operations (deploy, scale, optimize, edge, routing)
   - Multimodal operations (agents, process, benchmark)
   - Optimization operations (agents, tune, predict)
@@ -139,7 +139,7 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 - Created Monitoring Service (port 8107) for system health and metrics
 - Implemented monitoring endpoints: GET /dashboard, GET /dashboard/summary, GET /dashboard/metrics
-- Service monitors all microservices (GPU, Marketplace, Trading, Governance, AI)
+- Service monitors all microservices (GPU, Market, Trading, Governance, AI)
 - Configured systemd service for Monitoring Service
 - Updated API Gateway to include Monitoring Service routing (/monitoring prefix)
 - All monitoring operations now query Monitoring Service instead of coordinator-api
@@ -162,8 +162,8 @@ This document tracks the migration of the AITBC monolithic coordinator-api to a 
 
 ### Phase 27: Plugin Service Migration (Completed)
 
-- Created Plugin Service (port 8109) for plugin registration, marketplace, and analytics
-- Implemented plugin endpoints: register, marketplace/plugins, analytics/plugins
+- Created Plugin Service (port 8109) for plugin registration, market, and analytics
+- Implemented plugin endpoints: register, market/plugins, analytics/plugins
 - Configured systemd service for Plugin Service
 - Updated API Gateway to include Plugin Service routing (/plugin prefix)
 - Added plugin_service_url to CLI configuration
@@ -219,8 +219,8 @@ These services are accessible directly without nginx proxy (typically P2P protoc
 
 #### Internal Services (Localhost Only) - Contiguous Range 8101-8108
 
-- **GPU Service** (port 8101) - GPU marketplace + miner operations
-- **Marketplace Service** (port 8102) - Marketplace transactions + advanced features
+- **GPU Service** (port 8101) - GPU market + miner operations
+- **Market Service** (port 8102) - Market transactions + advanced features
 - **Agent Service** (port 8107) - Agent messaging and orchestration
 - **Trading Service** (port 8104) - Trading + explorer operations + exchange features
 - **Governance Service** (port 8105) - Governance transactions + advanced features
@@ -234,9 +234,9 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Endpoints:
      - `/health` - Health check
      - `/gpu/status` - GPU status
-     - `/v1/transactions` - GPU marketplace transactions (POST/GET)
-     - `/v1/marketplace/edge-gpu/profiles` - Edge GPU profiles
-     - `/v1/marketplace/edge-gpu/{gpu_id}/optimize` - Edge GPU optimization
+     - `/v1/transactions` - GPU market transactions (POST/GET)
+     - `/v1/market/edge-gpu/profiles` - Edge GPU profiles
+     - `/v1/market/edge-gpu/{gpu_id}/optimize` - Edge GPU optimization
      - `/v1/miners/register` - Register or update miner
      - `/v1/miners/heartbeat` - Send miner heartbeat
      - `/v1/miners/{miner_id}/gpus` - Get GPUs registered by miner
@@ -249,13 +249,13 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - Database: PostgreSQL (aitbc_gpu)
    - Models: GPURegistry, ConsumerGPUProfile, EdgeGPUMetrics, GPUBooking, GPUReview
 
-2. **Marketplace Service** (port 8102)
+2. **Market Service** (port 8102)
    - Endpoints:
      - `/health` - Health check
-     - `/v1/transactions` - Marketplace transactions (POST/GET)
-     - `/v1/marketplace/analytics` - Marketplace analytics
-   - Database: PostgreSQL (aitbc_marketplace)
-   - Models: MarketplaceOffer (MarketplaceBid deprecated in v0.4.7 - GPU auction functionality removed)
+     - `/v1/transactions` - Market transactions (POST/GET)
+     - `/v1/market/analytics` - Market analytics
+   - Database: PostgreSQL (aitbc_market)
+   - Models: MarketOffer (MarketBid deprecated in v0.4.7 - GPU auction functionality removed)
 
 3. **Trading Service** (port 8104)
    - Endpoints:
@@ -323,7 +323,7 @@ These services are accessible directly without nginx proxy (typically P2P protoc
    - All internal services are accessible only via API Gateway
    - Service registry:
      - `/gpu` → GPU service (8101)
-     - `/marketplace` → Marketplace service (8102)
+     - `/market` → Market service (8102)
      - `/agent` → Agent service (8107)
      - `/trading` → Trading service (8104)
      - `/governance` → Governance service (8105)
@@ -349,7 +349,7 @@ The CLI configuration has been updated to use microservice URLs:
 ```python
 # /opt/aitbc/cli/aitbc_cli/config.py
 gpu_service_url: str = "http://localhost:8101"
-marketplace_service_url: str = "http://localhost:8102"
+market_service_url: str = "http://localhost:8102"
 agent_service_url: str = "http://localhost:8107"
 trading_service_url: str = "http://localhost:8104"
 governance_service_url: str = "http://localhost:8105"
@@ -363,18 +363,18 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 
 ### Migrated to Microservices
 
-- GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
-- Marketplace transactions (offers, bids)
-- Marketplace advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
+- GPU market transactions (offer, bid, list, cancel, accept, status, match)
+- Market transactions (offers, bids)
+- Market advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
 - Trading transactions (requests, matches, agreements, settlements)
 - Trading exchange features (Bitcoin payments, rates, market stats, wallet operations)
 - Governance transactions (proposals, votes)
 - Governance advanced features (proposal execution, parameters, voting power)
 - Miner operations (register, heartbeat, get GPUs, poll, result, fail, earnings, capabilities, deregister)
 - Explorer operations (blocks, transactions, receipts)
-- ✓ GPU marketplace transactions (offer, bid, list, cancel, accept, status, match)
-- ✓ Marketplace transactions (offers, bids)
-- ✓ Marketplace advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
+- ✓ GPU market transactions (offer, bid, list, cancel, accept, status, match)
+- ✓ Market transactions (offers, bids)
+- ✓ Market advanced features (overview, GPU listings, offer history, cancel, performance, dynamic pricing)
 - ✓ Trading transactions (requests, matches, agreements, settlements)
 - ✓ Trading exchange features (Bitcoin payments, rates, market stats, wallet operations)
 - ✓ Governance transactions (proposals, votes)
@@ -387,7 +387,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 **Phase 1 Migration - COMPLETE (2026-06-02):**
 
 - GPU Service (8101): Miner operations ✅
-- Marketplace Service (8102): Core + advanced marketplace features ✅
+- Market Service (8102): Core + advanced market features ✅
 - Agent Service (8107): All features ✅
 - Trading Service (8104): Core trading + exchange features ✅
 - Governance Service (8105): Core governance + advanced features ✅
@@ -410,9 +410,9 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 
 **Migration Progress:**
 
-- GPU marketplace transactions: ✓ 100% migrated to GPU Service
-- Marketplace transactions: ✓ 100% migrated to Marketplace Service
-- Marketplace advanced features: ✓ 100% migrated to Marketplace Service
+- GPU market transactions: ✓ 100% migrated to GPU Service
+- Market transactions: ✓ 100% migrated to Market Service
+- Market advanced features: ✓ 100% migrated to Market Service
 - Trading transactions: ✓ 100% migrated to Trading Service
 - Trading exchange features: ✓ 100% migrated to Trading Service
 - Governance transactions: ✓ 100% migrated to Governance Service
@@ -423,8 +423,8 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 
 **Services Status:**
 
-- GPU Service (8101): Fully operational with marketplace + miner operations
-- Marketplace Service (8102): Fully operational with marketplace + advanced features
+- GPU Service (8101): Fully operational with market + miner operations
+- Market Service (8102): Fully operational with market + advanced features
 - Agent Service (8107): Fully operational with agent messaging and orchestration
 - Trading Service (8104): Fully operational with trading + explorer + exchange operations
 - Governance Service (8105): Fully operational with governance + advanced features
@@ -440,7 +440,7 @@ coordinator_url: str = "http://localhost:8203"  # Legacy failover
 
 - Miner commands: Updated to use GPU Service
 - Explorer commands: Updated to use Trading Service
-- Marketplace commands: Updated to use Marketplace Service
+- Market commands: Updated to use Market Service
 - Job commands: Updated to use AI Service
 - Monitor commands: Updated to use AI Service for job metrics, Monitoring Service for system metrics
 - Admin job commands: Updated to use AI Service
@@ -512,7 +512,7 @@ ufw allow 8203/tcp
 ```bash
 # Internal microservices - block external access (contiguous range 8101-8108)
 ufw deny 8101/tcp  # GPU Service
-ufw deny 8102/tcp  # Marketplace Service
+ufw deny 8102/tcp  # Market Service
 ufw deny 8107/tcp  # Agent Service
 ufw deny 8104/tcp  # Trading Service
 ufw deny 8105/tcp  # Governance Service
@@ -542,7 +542,7 @@ ExecStart=/opt/aitbc/venv/bin/python -m uvicorn gateway.main:app --host 0.0.0.0 
 All microservices are managed by systemd:
 
 - `aitbc-gpu.service` - GPU Service (port 8101)
-- `aitbc-marketplace.service` - Marketplace Service (port 8102)
+- `aitbc-market.service` - Market Service (port 8102)
 - `aitbc-agent.service` - Agent Service (port 8107)
 - `aitbc-trading.service` - Trading Service (port 8104)
 - `aitbc-governance.service` - Governance Service (port 8105)
@@ -559,7 +559,7 @@ All microservices are managed by systemd:
 Each microservice has its own PostgreSQL database:
 
 - `aitbc_gpu` - GPU Service database
-- `aitbc_marketplace` - Marketplace Service database
+- `aitbc_market` - Market Service database
 - `aitbc_trading` - Trading Service database
 - `aitbc_governance` - Governance Service database
 - `aitbc` - Coordinator API database (legacy)
@@ -583,7 +583,7 @@ Each microservice has its own PostgreSQL database:
 The Phase 1 microservice migration is complete. All core functionality has been successfully migrated to dedicated microservices:
 
 - GPU Service (8101) - Miner operations
-- Marketplace Service (8102) - Core + advanced marketplace features
+- Market Service (8102) - Core + advanced market features
 - Agent Service (8107) - Agent messaging and orchestration
 - Trading Service (8104) - Trading + explorer + exchange features
 - Governance Service (8105) - Governance + advanced features

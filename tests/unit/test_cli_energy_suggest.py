@@ -24,12 +24,8 @@ def runner() -> CliRunner:
 @pytest.fixture
 def probed(monkeypatch):
     # probes are imported lazily inside the command; patch at the source module
-    monkeypatch.setattr(
-        "aitbc_cli.utils.hardware_probe.probe_gpus", lambda timeout=10: [GPU_4060TI]
-    )
-    monkeypatch.setattr(
-        "aitbc_cli.utils.hardware_probe.probe_cpu_model", lambda timeout=10: LSCPU_5950X
-    )
+    monkeypatch.setattr("aitbc_cli.utils.hardware_probe.probe_gpus", lambda timeout=10: [GPU_4060TI])
+    monkeypatch.setattr("aitbc_cli.utils.hardware_probe.probe_cpu_model", lambda timeout=10: LSCPU_5950X)
     # deterministic config: no env files, no on-chain rate read
     fake_config = SimpleNamespace(
         evm_rpc_url=None,
@@ -42,6 +38,7 @@ def probed(monkeypatch):
         api_key=None,
     )
     monkeypatch.setattr("aitbc_cli.commands.energy.get_config", lambda: fake_config)
+
     # no coordinator reachable in unit tests -> rate falls back to the reference
     def _no_coordinator(*args, **kwargs):
         raise RuntimeError("no coordinator in tests")
@@ -50,9 +47,7 @@ def probed(monkeypatch):
 
 
 def test_suggest_reference_rig(runner, probed):
-    result = runner.invoke(
-        energy, ["suggest", "--region", "de", "--json-output"], catch_exceptions=False
-    )
+    result = runner.invoke(energy, ["suggest", "--region", "de", "--json-output"], catch_exceptions=False)
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["gpu_model"] == "rtx_4060_ti_16gb"
@@ -73,8 +68,18 @@ def test_suggest_reference_rig(runner, probed):
 def test_suggest_manual_overrides(runner, probed):
     result = runner.invoke(
         energy,
-        ["suggest", "--gpu-model", "RTX 4090", "--eur-per-kwh", "0.20", "--ait-per-eur", "5",
-         "--cpu-watts", "150", "--json-output"],
+        [
+            "suggest",
+            "--gpu-model",
+            "RTX 4090",
+            "--eur-per-kwh",
+            "0.20",
+            "--ait-per-eur",
+            "5",
+            "--cpu-watts",
+            "150",
+            "--json-output",
+        ],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
@@ -90,8 +95,7 @@ def test_suggest_manual_overrides(runner, probed):
 def test_suggest_multi_gpu_platform_share(runner, probed):
     result = runner.invoke(
         energy,
-        ["suggest", "--gpu-model", "RTX 4090", "--node-gpu-count", "2",
-         "--eur-per-kwh", "0.30", "--json-output"],
+        ["suggest", "--gpu-model", "RTX 4090", "--node-gpu-count", "2", "--eur-per-kwh", "0.30", "--json-output"],
         catch_exceptions=False,
     )
     data = json.loads(result.output)
@@ -103,8 +107,7 @@ def test_suggest_multi_gpu_platform_share(runner, probed):
 def test_suggest_unknown_gpu_floor_only(runner, probed):
     result = runner.invoke(
         energy,
-        ["suggest", "--gpu-model", "Mystery Card 9000", "--tbp-watts", "200",
-         "--eur-per-kwh", "0.30", "--json-output"],
+        ["suggest", "--gpu-model", "Mystery Card 9000", "--tbp-watts", "200", "--eur-per-kwh", "0.30", "--json-output"],
         catch_exceptions=False,
     )
     assert result.exit_code == 0, result.output
@@ -122,9 +125,7 @@ def test_suggest_requires_tariff(runner, probed, monkeypatch):
 
 
 def test_suggest_register_requires_ids(runner, probed):
-    result = runner.invoke(
-        energy, ["suggest", "--region", "de", "--register"], catch_exceptions=False
-    )
+    result = runner.invoke(energy, ["suggest", "--region", "de", "--register"], catch_exceptions=False)
     assert result.exit_code != 0
     assert "resource-id" in result.output
 
@@ -138,14 +139,12 @@ def test_suggest_uses_native_rate(runner, probed, monkeypatch):
         return {"ait_per_eur": "4.0"}
 
     monkeypatch.setattr("aitbc_cli.commands.energy._native_energy_request", fake_request)
-    result = runner.invoke(
-        energy, ["suggest", "--region", "de", "--json-output"], catch_exceptions=False
-    )
+    result = runner.invoke(energy, ["suggest", "--region", "de", "--json-output"], catch_exceptions=False)
     assert result.exit_code == 0, result.output
     data = json.loads(result.output)
     assert data["rate_source"] == "native rate"
     assert data["ait_per_eur"] == "4.0"
-    assert calls == [("get", "/v1/marketplace/native-energy/rate", {"miner": True, "timeout": 10})]
+    assert calls == [("get", "/v1/market/native-energy/rate", {"miner": True, "timeout": 10})]
 
 
 def test_suggest_register_native_posts_profile(runner, probed, monkeypatch):
@@ -162,8 +161,14 @@ def test_suggest_register_native_posts_profile(runner, probed, monkeypatch):
     result = runner.invoke(
         energy,
         [
-            "suggest", "--region", "de", "--register",
-            "--resource-id", "node9-rtx4060ti", "--provider-address", "0xabc",
+            "suggest",
+            "--region",
+            "de",
+            "--register",
+            "--resource-id",
+            "node9-rtx4060ti",
+            "--provider-address",
+            "0xabc",
         ],
         catch_exceptions=False,
     )
@@ -172,7 +177,7 @@ def test_suggest_register_native_posts_profile(runner, probed, monkeypatch):
     post_calls = [c for c in calls if c[0] == "post"]
     assert len(post_calls) == 1
     _, path, kwargs = post_calls[0]
-    assert path == "/v1/marketplace/native-energy/profile"
+    assert path == "/v1/market/native-energy/profile"
     assert kwargs["miner"] is True
     assert kwargs["json_body"] == {
         "resource_id": "node9-rtx4060ti",
@@ -205,8 +210,11 @@ def test_floor_native_rail(runner, probed, monkeypatch):
     assert "native" in result.output
     assert "1658880" in result.output
     assert calls == [
-        ("get", "/v1/marketplace/native-energy/floor",
-         {"params": {"resource_id": "node9", "gpu_count": 1, "duration_seconds": 3600}, "timeout": 10})
+        (
+            "get",
+            "/v1/market/native-energy/floor",
+            {"params": {"resource_id": "node9", "gpu_count": 1, "duration_seconds": 3600}, "timeout": 10},
+        )
     ]
 
 

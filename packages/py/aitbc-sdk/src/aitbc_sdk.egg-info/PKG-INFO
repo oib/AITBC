@@ -8,7 +8,7 @@ Project-URL: Homepage, https://github.com/oib/AITBC
 Project-URL: Documentation, https://aitbc.bubuit.net/docs/
 Project-URL: Repository, https://github.com/oib/AITBC.git
 Project-URL: Bug Tracker, https://github.com/oib/AITBC/issues
-Keywords: ai-compute,blockchain,gpu-marketplace,zk-proofs
+Keywords: ai-compute,blockchain,gpu-market,zk-proofs
 Classifier: Development Status :: 4 - Beta
 Classifier: Intended Audience :: Developers
 Classifier: License :: OSI Approved :: MIT License
@@ -32,7 +32,7 @@ Requires-Dist: mypy>=1.5.0; extra == "dev"
 
 # AITBC SDK
 
-Python client SDK for interacting with AITBC coordinator services, blockchain nodes, and marketplace components.
+Python client SDK for interacting with AITBC coordinator services, blockchain nodes, and market components.
 
 ## Installation
 
@@ -93,7 +93,7 @@ if __name__ == "__main__":
 
 - **Job Management**: Submit, monitor, and retrieve computation jobs
 - **Receipt Verification**: Cryptographically verify job completion receipts
-- **Marketplace Integration**: Browse and participate in GPU marketplace
+- **Market Integration**: Browse and participate in GPU market
 - **Blockchain Integration**: Interact with AITBC blockchain for settlement
 - **Zero-Knowledge Support**: Private computation with ZK proof verification
 
@@ -144,7 +144,7 @@ receipts = await client.get_job_receipts(job.id)
 is_valid = await client.verify_receipt(receipt)
 ```
 
-### Marketplace Operations
+### Market Operations
 
 ```python
 # List available services

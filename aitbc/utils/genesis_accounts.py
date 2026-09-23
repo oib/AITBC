@@ -25,7 +25,7 @@ SERVICE_ACCOUNT_NAMES: tuple[str, ...] = (
     "aitbc1aiengine",
     "aitbc1surveillance",
     "aitbc1analytics",
-    "aitbc1marketplace",
+    "aitbc1market",
     "aitbc1enterprise",
     "aitbc1multimodal",
     "aitbc1zkproofs",

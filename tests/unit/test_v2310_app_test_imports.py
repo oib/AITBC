@@ -65,7 +65,7 @@ def _top_level_imports(test_file: Path) -> set[str]:
 
     Module scope only — ``tree.body``, not ``ast.walk``. An import inside a test function is
     reached only when that test runs and often follows a deliberate ``sys.path`` insertion
-    (``apps/marketplace``'s tests import ``gpu_service`` that way). Those do not decide
+    (``apps/market``'s tests import ``gpu_service`` that way). Those do not decide
     whether the suite collects, which is what this is about.
     """
     try:

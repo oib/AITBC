@@ -64,7 +64,7 @@ watch -n 5 'echo local=$(curl -s http://localhost:8202/rpc/head | jq .height) hu
 
 ## 5. Claim Your Welcome Grant
 
-Every new node gets a one-time **3 AIT** grant (≈ 3 compute-hours) — enough to try marketplace jobs and transactions:
+Every new node gets a one-time **3 AIT** grant (≈ 3 compute-hours) — enough to try market jobs and transactions:
 
 ```bash
 aitbc wallet create --name my-wallet   # if you don't have one yet

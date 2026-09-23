@@ -29,14 +29,14 @@ from .escrow import _escrow_create, _get_blockchain_rpc_url, _get_rpc_client
 
 
 def _compute_plugin_id(service_type: str, model: str) -> str:
-    """Derive the plugin_id used by the marketplace service."""
+    """Derive the plugin_id used by the market service."""
     return f"{service_type}-{model.replace(':', '-')}"
 
 
 def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str) -> str | None:
     """Submit the ``software_job`` proof-of-work record and return its transaction hash.
 
-    ``/rpc/transactions/marketplace`` exempts only the ``offer`` and ``software_offer``
+    ``/rpc/transactions/market`` exempts only the ``offer`` and ``software_offer``
     actions from signature checking (V23-90, so listing works without wallet private
     keys). Every other action, this one included, is refused with 403 "Signature
     required". All three job commands built this record unsigned, caught the refusal,
@@ -62,7 +62,7 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
             # Public hubs are exposed over HTTPS.
             hub_url = f"https://{hub_host}"
         client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-        job_tx_hash: str | None = client.post("/rpc/transactions/marketplace", json=job_data).get("transaction_hash")
+        job_tx_hash: str | None = client.post("/rpc/transactions/market", json=job_data).get("transaction_hash")
         info(f"Job recorded on-chain: {job_tx_hash}")
         return job_tx_hash
     except Exception as e:
@@ -70,10 +70,10 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
         return None
 
 
-def _resolve_offer_from_marketplace(http_client: AITBCHTTPClient, offer_id_or_plugin_id: str) -> dict[str, Any] | None:
-    """Resolve an offer from the marketplace service by offer_id or plugin_id."""
+def _resolve_offer_from_market(http_client: AITBCHTTPClient, offer_id_or_plugin_id: str) -> dict[str, Any] | None:
+    """Resolve an offer from the market service by offer_id or plugin_id."""
     try:
-        result = http_client.get("/v1/marketplace/offer")
+        result = http_client.get("/v1/market/offer")
         offers = result.get("offers", []) if result else []
     except Exception:
         return None
@@ -99,7 +99,7 @@ def _resolve_offer_from_marketplace(http_client: AITBCHTTPClient, offer_id_or_pl
 
 
 def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plugin_id: str) -> dict[str, Any] | None:
-    """Resolve an offer from on-chain GPU_MARKETPLACE transactions."""
+    """Resolve an offer from on-chain GPU_MARKET transactions."""
     try:
         result = http_client.get("/rpc/transactions", params={"limit": 1000})
     except Exception:
@@ -129,7 +129,7 @@ def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plu
 
 
 def _resolve_offer(ctx, offer_id_or_plugin_id: str) -> dict[str, Any]:
-    """Resolve an offer by on-chain offer_id or marketplace plugin_id."""
+    """Resolve an offer by on-chain offer_id or market plugin_id."""
     config = get_config()
     hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
     if hub_host.startswith(("http://", "https://")):
@@ -141,8 +141,8 @@ def _resolve_offer(ctx, offer_id_or_plugin_id: str) -> dict[str, Any]:
         hub_url = f"https://{hub_host}"
     http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
-    # Prefer the marketplace service, which has the liveliest view and plugin_id.
-    offer = _resolve_offer_from_marketplace(http_client, offer_id_or_plugin_id)
+    # Prefer the market service, which has the liveliest view and plugin_id.
+    offer = _resolve_offer_from_market(http_client, offer_id_or_plugin_id)
     if offer:
         return offer
 
@@ -440,7 +440,7 @@ def _run_whisper(
             "amount": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKETPLACE",
+            "type": "GPU_MARKET",
             "chain_id": chain_id,
             "payload": {
                 "action": "software_job",
@@ -609,7 +609,7 @@ def _run_ffmpeg(
             "amount": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKETPLACE",
+            "type": "GPU_MARKET",
             "chain_id": chain_id,
             "payload": {
                 "action": "software_job",
@@ -750,7 +750,7 @@ def _run_hermes(
             "amount": 0,
             "fee": DEFAULT_TX_FEE_UNITS,
             "nonce": get_next_nonce(wallet_address),
-            "type": "GPU_MARKETPLACE",
+            "type": "GPU_MARKET",
             "chain_id": chain_id,
             "payload": {
                 "action": "software_job",

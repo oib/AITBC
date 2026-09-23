@@ -34,7 +34,7 @@ _SERVICE_BASES: dict[str, str] = {
     "gpu": "http://127.0.0.1:8101",
     "edge": "http://127.0.0.1:8111",
     "ipfs": "http://127.0.0.1:5002",
-    "marketplace": "http://127.0.0.1:8102",
+    "market": "http://127.0.0.1:8102",
     "monitoring": "http://127.0.0.1:8002",
     "pool-hub": "http://127.0.0.1:8210",
     "trading": "http://127.0.0.1:8104",
@@ -102,7 +102,7 @@ def http():
 
   aitbc http call blockchain-rpc height
 
-  aitbc http call marketplace v1/offers --params '{"limit": "5"}'
+  aitbc http call market v1/offers --params '{"limit": "5"}'
 
   aitbc http call wallet v1/wallets --method POST --body '{"wallet_id": "genesis"}'""",
 )

@@ -1,4 +1,5 @@
 #!/bin/bash
+set -euo pipefail
 
 # ============================================================================
 # AITBC Mesh Network - List Jobs Script
@@ -18,7 +19,7 @@ AITBC_ROOT="${AITBC_ROOT:-/opt/aitbc}"
 VENV_DIR="$AITBC_ROOT/venv"
 PYTHON_CMD="$VENV_DIR/bin/python"
 
-echo -e "${BLUE}💼 AITBC Job Marketplace${NC}"
+echo -e "${BLUE}💼 AITBC Job Market${NC}"
 echo "======================"
 
 cd "$AITBC_ROOT"
@@ -27,25 +28,25 @@ import sys
 import json
 import time
 
-# Load job marketplace
+# Load job market
 with open('/var/lib/aitbc/data/job_marketplace.json', 'r') as f:
-    marketplace = json.load(f)
+    market = json.load(f)
 
-print(f'Total Jobs: {marketplace[\"total_jobs\"]}')
-print(f'Active Jobs: {marketplace[\"active_jobs\"]}')
-print(f'Completed Jobs: {marketplace[\"completed_jobs\"]}')
-print(f'Last Updated: {time.strftime(\"%Y-%m-%d %H:%M:%S\", time.gmtime(marketplace[\"last_updated\"]))}')
+print(f'Total Jobs: {market[\"total_jobs\"]}')
+print(f'Active Jobs: {market[\"active_jobs\"]}')
+print(f'Completed Jobs: {market[\"completed_jobs\"]}')
+print(f'Last Updated: {time.strftime(\"%Y-%m-%d %H:%M:%S\", time.gmtime(market[\"last_updated\"]))}')
 print()
 
 # Calculate total budget
-total_budget = sum(job.get('budget', 0) for job in marketplace['jobs'].values())
+total_budget = sum(job.get('budget', 0) for job in market['jobs'].values())
 print(f'Total Budget: {total_budget:.2f} AITBC')
 print()
 
-if marketplace['jobs']:
+if market['jobs']:
     print('Job Listings:')
     print('=' * 80)
-    for i, (job_id, job) in enumerate(marketplace['jobs'].items(), 1):
+    for i, (job_id, job) in enumerate(market['jobs'].items(), 1):
         print(f'{i}. {job[\"title\"]}')
         print(f'   Job ID: {job_id}')
         print(f'   Client: {job[\"client\"]}')

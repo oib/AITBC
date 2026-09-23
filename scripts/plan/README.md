@@ -264,7 +264,7 @@ python -m pytest tests/contracts/ -v   # Phase 5
 ### **Production Ready**
 - ✅ Block production stable
 - ✅ Transaction processing efficient
-- ✅ Agent marketplace functional
+- ✅ Agent market functional
 - ✅ Smart contracts operational
 
 ---
