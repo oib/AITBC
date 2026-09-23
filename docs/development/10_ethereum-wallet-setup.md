@@ -148,6 +148,6 @@ GET /api/exchange/rates
 
 For issues or questions:
 
-- Check the logs: `journalctl -u aitbc-coordinator -f`
+- Check the logs: `journalctl -u aitbc-coordinator-api -f`
 - API documentation: `https://aitbc.bubuit.net/api/docs`
 - Admin panel: `https://aitbc.bubuit.net/admin/stats`

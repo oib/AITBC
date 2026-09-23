@@ -3,7 +3,7 @@
 ## Architecture Overview
 
 ```
-Clients → RPC /sendTx → Mempool → PoA Proposer → Block (with Transactions)
+Clients → RPC /transaction → Mempool → PoA Proposer → Block (with Transactions)
                                       ↓
                               Circuit Breaker
                               (graceful degradation)

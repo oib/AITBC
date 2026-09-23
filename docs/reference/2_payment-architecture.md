@@ -1,5 +1,12 @@
 # AITBC Payment Architecture
 
+> **Historical record.** This is a point-in-time design document. Several
+> endpoints below (`/api/v1/token/escrow/create`, `/api/v1/escrow/create`,
+> `/api/exchange/purchase`, `/api/exchange/rate`) were never implemented —
+> the shipped escrow surface is `POST /rpc/escrow/create` on the blockchain
+> node, and the exchange exposes `/v1/bridge/*` plus `/api/orders*`. Verify
+> against `docs/api/` and the service OpenAPI before relying on a path here.
+
 ## Overview
 
 The AITBC platform uses a dual-currency system:
