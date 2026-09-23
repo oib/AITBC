@@ -22852,6 +22852,60 @@
         }
       }
     },
+    "/v1/governance/slash-appeals": {
+      "post": {
+        "tags": [
+          "governance"
+        ],
+        "summary": "Submit Slash Appeal",
+        "description": "Submit an appeal against a bond slashing decision",
+        "operationId": "submit_slash_appeal_v1_governance_slash_appeals_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/SlashAppealRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "201": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Submit Slash Appeal V1 Governance Slash Appeals Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/ml-zk/prove/training": {
       "post": {
         "tags": [
@@ -41201,6 +41255,41 @@
         ],
         "title": "SetPriceRequest",
         "description": "Request to set a price"
+      },
+      "SlashAppealRequest": {
+        "properties": {
+          "bond_id": {
+            "type": "string",
+            "title": "Bond Id"
+          },
+          "reason": {
+            "type": "string",
+            "title": "Reason",
+            "default": ""
+          },
+          "evidence": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Evidence"
+          },
+          "provider_id": {
+            "type": "string",
+            "title": "Provider Id",
+            "default": ""
+          },
+          "slash_event_id": {
+            "type": "string",
+            "title": "Slash Event Id",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "bond_id"
+        ],
+        "title": "SlashAppealRequest"
       },
       "StableDiffusionRequest": {
         "properties": {

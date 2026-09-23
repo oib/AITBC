@@ -8194,7 +8194,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BridgeBatchRequest"
+                "$ref": "#/components/schemas/BridgeBatchConfirmRequest"
               }
             }
           },
@@ -18313,7 +18313,7 @@
           "content": {
             "application/json": {
               "schema": {
-                "$ref": "#/components/schemas/BridgeBatchRequest"
+                "$ref": "#/components/schemas/BridgeBatchConfirmRequest"
               }
             }
           },
@@ -21146,6 +21146,26 @@
         ],
         "title": "BlockHeaderRequest",
         "description": "Request body for POST /bridge/block-headers."
+      },
+      "BridgeBatchConfirmRequest": {
+        "properties": {
+          "confirmations": {
+            "items": {
+              "additionalProperties": true,
+              "type": "object"
+            },
+            "type": "array",
+            "minItems": 1,
+            "title": "Confirmations",
+            "description": "List of confirmation dicts"
+          }
+        },
+        "type": "object",
+        "required": [
+          "confirmations"
+        ],
+        "title": "BridgeBatchConfirmRequest",
+        "description": "Request body for POST /batch/confirm.\n\nDistinct from ``BridgeBatchRequest``: the confirm handler reads\n``confirmations`` (matching ``BridgeClient.batch_confirm``), not\n``transfers``. Sharing the lock schema left this endpoint returning\n400 for every request."
       },
       "BridgeBatchRequest": {
         "properties": {
