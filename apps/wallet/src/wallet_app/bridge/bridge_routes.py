@@ -48,7 +48,7 @@ from .bridge_monitor import (
     poll_once,
     set_bridge_polling_enabled,
 )
-from .price_api import calculate_ait_amount, calculate_eth_amount, get_exchange_rate
+from .price_api import AIT_REFERENCE_PRICE_EUR, calculate_ait_amount, calculate_eth_amount, get_exchange_rate
 
 exchange_router = APIRouter(prefix="/v1/exchange", tags=["exchange"])
 bridge_router = APIRouter(prefix="/v1/bridge", tags=["bridge"])
@@ -465,7 +465,7 @@ async def exchange_price_json() -> dict[str, Any]:
         return {"error": rate_info.get("error", "Price unavailable")}
     return {
         "price_usd": str(rate_info["ait_usd"]),
-        "price_eur": str(rate_info.get("ait_eur", "0.25")),
+        "price_eur": str(rate_info.get("ait_eur") or AIT_REFERENCE_PRICE_EUR),
         "price_eth": str(rate_info.get("eth_ait_rate_usd") and 1 / rate_info["eth_ait_rate_usd"] or 0),
         "eth_eur": str(rate_info.get("eth_eur", "0")),
         "currency": "USD",
