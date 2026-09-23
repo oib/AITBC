@@ -301,7 +301,7 @@ aitbc bridge status
 aitbc bridge stop
 
 # Use a custom RPC URL
-aitbc bridge start --rpc-url http://localhost:8202
+aitbc bridge start   # wraps `systemctl start aitbc-blockchain-event-bridge` — takes no options
 ```
 
 **Expected output (start):**

@@ -1,5 +1,14 @@
 # API Endpoints
 
+> **Planned-surface document.** Most routes below are **not implemented** —
+> the marketplace service only mounts `/v1/marketplace/plugins` (GET/POST),
+> `/v1/marketplace/dynamic-pricing`, `/v1/marketplace/pricing/{model}`,
+> `/v1/marketplace/analytics`, etc. The `gpu/{id}/pricing/*`, `gpu/search`,
+> `recommendations/*`, `gpu/{id}/similar`, `analytics/realtime|trends|forecast`,
+> `external/*`, and `plugins/install|enable|disable` routes do not exist;
+> the underlying `ResourceMatcher`/`MarketAnalytics`/`ExternalProviderService`
+> are service-layer Python APIs only.
+
 ## Pricing Endpoints
 
 ### Get Price Forecast

@@ -35,8 +35,12 @@ curl http://localhost:8105/health
 
 ```bash
 aitbc governance --help
-aitbc governance stake --address 0x123... --amount 1000 --lock-days 30
-aitbc governance voting-power <address>
+aitbc governance list
+aitbc governance get --proposal-id prop-123
+aitbc stake --wallet-name my-wallet --amount 1000 --duration 30
+# governance stake/voting-power exist only under the deprecated
+# `aitbc operations governance` group — the canonical `aitbc governance`
+# group has no stake or voting-power subcommand.
 ```
 
 ### Database Migrations

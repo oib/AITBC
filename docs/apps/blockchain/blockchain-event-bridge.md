@@ -48,7 +48,7 @@ Environment variables:
 - `ENABLE_AGENT_DAEMON_TRIGGER` - Enable agent daemon triggers (default: `true`)
 - `ENABLE_COORDINATOR_API_TRIGGER` - Enable coordinator API triggers (default: `true`)
 - `ENABLE_MARKETPLACE_TRIGGER` - Enable marketplace triggers (default: `true`)
-- `ENABLE_POLLING` - Enable polling layer (default: `false`)
+- ~~``ENABLE_POLLING` — fictional env var (silently ignored by Settings)
 - `POLLING_INTERVAL_SECONDS` - Polling interval in seconds (default: `60`)
 
 ## Running

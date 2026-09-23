@@ -1,5 +1,13 @@
 # Scenario 48: Performance bonds for high-value jobs
 
+> **v0.14.4+ behavior.** Only `linear-1` is registered in `MODEL_CIRCUITS`;
+> any other model (e.g. `llama3.2:3b`) yields `zk_status: unsupported_model`
+> → `computation_correct=False` → escrow blocked/refunded. The `verified`/
+> `released` expectations below are pre-v0.14.4 — see scenario 34 for the
+> corrected refund flow.
+
+> Payment ≥10 fires the default ZK+TEE gates — the shop model is unregistered → refund, not release.
+
 ## Goal
 
 Require an active provider performance bond for high-value AI jobs and verify that

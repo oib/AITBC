@@ -1,5 +1,11 @@
 # Row Level Security (RLS) Policy Catalog
 
+> **Foreign template — not implemented.** This catalog describes a
+> PostgreSQL + Prisma RLS design (`withUserContext`/`withAdminContext`
+> TypeScript helpers, `{{DB_SUPERUSER_ROLE}}` placeholders, a `user` table)
+> that exists nowhere in this repo. AITBC uses SQLAlchemy/SQLModel with no
+> RLS layer; sibling `RLS_IMPLEMENTATION_GUIDE.md` carries the same caveat.
+
 ## 📋 Overview
 
 This document provides a comprehensive, human-readable catalog of all Row Level Security (RLS) policies in the AITBC application database. It serves as the definitive reference for understanding data access controls at the database level.

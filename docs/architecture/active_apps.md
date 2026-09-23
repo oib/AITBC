@@ -45,7 +45,7 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 ### AI Engine
 
 **Path**: `apps/ai-engine`
-**Status**: under development
+**Status**: deployed (aitbc-api-gateway is in the live fleet)
 **Purpose**: AI model training and inference
 **Maintainer**: @aitbc-public
 **Service Files**: `aitbc-ai.service`, `aitbc-learning.service`, `aitbc-modality-optimization.service`, `aitbc-multimodal.service`
@@ -243,13 +243,13 @@ This document lists AITBC applications and their status as of v0.10.18. Some ent
 ## Summary
 
 - **Total Applications**: 26
-- **Active**: 24
+- **Active**: see per-app rows — the historical 24/2 split does not reconcile with the rows (19+3+2+1+1)
 - **Under Development**: 2
 - **Shared Libraries**: 2
 - **Experimental**: 1
 - **Deprecated**: 1
 
-All active applications have recent git activity (within the last 6 months) and are either:
+~~All active applications have recent git activity~~ — the per-app "last commit: 2025-06-18" stamps are stale (doc dated 2026-08-21) and are either:
 
 - Referenced in CI workflows
 - Have systemd service files

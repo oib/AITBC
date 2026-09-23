@@ -141,10 +141,13 @@ curl -X POST http://localhost:8105/v1/governance/delegate \
 aitbc governance --help
 
 # Test staking
-aitbc governance stake --address 0x123... --amount 1000 --lock-days 30
+aitbc operations governance stake --address 0x123... --amount 1000 --lock-days 30
+# (deprecated group — canonical `aitbc governance` has no stake subcommand;
+#  top-level `aitbc stake` is the wallet-level staking command)
 
 # Test voting power query
-aitbc governance voting-power 0x123...
+aitbc operations governance voting-power --address 0x123...
+# (deprecated group — canonical `aitbc governance` has no voting-power subcommand)
 ```
 
 ## Test Data

@@ -22,7 +22,7 @@ Set `BLOCKCHAIN_MODE=follower` on follower nodes to enable:
 
 - Subscription client connects to hub's RPC URL (`default_peer_rpc_url`)
 - Registers a lease via `POST /rpc/subscribe`
-- Receives blocks via WebSocket on `wss://hub/rpc/subscribe/ws`
+- Receives blocks via WebSocket on `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws`
 - Automatic lease renewal via heartbeat (`POST /rpc/heartbeat`)
 - Falls back to periodic pull sync if subscription fails
 
@@ -32,7 +32,8 @@ Configure in `/etc/aitbc/blockchain.env`:
 
 ```bash
 # Required: Hub RPC URL for follower subscription
-default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc
+default_peer_rpc_url=https://hub.aitbc.bubuit.net
+# (bare base URL, no /rpc suffix — the client appends /rpc/subscribe etc. itself; https, not http)
 
 # Lease-based subscription settings (followers)
 subscription_enabled=true
@@ -53,9 +54,11 @@ Hub nodes provide these endpoints (proxied through nginx):
 
 **WebSocket endpoints** (via nginx with upgrade headers):
 
-- `ws://hub/rpc/subscribe/ws` - Real-time block push to subscribed followers
-- `ws://hub/rpc/blocks` - Block stream (public)
-- `ws://hub/rpc/transactions` - Transaction stream (public)
+- `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` - Real-time block push to subscribed followers
+- `wss://hub.aitbc.bubuit.net/rpc/gossip/ws` - Gossip WebSocket (validators/peers)
+
+(There are no `/rpc/blocks` or `/rpc/transactions` WebSocket routes — the
+chain RPC exposes only `/rpc/subscribe/ws` and `/rpc/gossip/ws`.)
 
 ## Sync Modes
 
@@ -86,7 +89,8 @@ The blockchain node supports two synchronization modes for block propagation:
   ```bash
   subscription_enabled=true
   subscription_transport=websocket
-  default_peer_rpc_url=http://hub.aitbc.bubuit.net/rpc
+  default_peer_rpc_url=https://hub.aitbc.bubuit.net
+# (bare base URL, no /rpc suffix — the client appends /rpc/subscribe etc. itself; https, not http)
   ```
 
 ### Sync Mode Selection

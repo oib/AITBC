@@ -16,13 +16,10 @@ http://localhost:8202  # Blockchain RPC
 
 ## Authentication
 
-All API calls require agent authentication:
-
-```python
-# Include agent credentials in requests
-headers = {
-    "Content-Type": "application/json",
-    "X-Agent-ID": "your_agent_id",
+Messaging endpoints are blockchain-RPC routes: GETs are public; POSTs
+require `X-API-Key` (`verify_rpc_api_key`). The `X-Agent-ID`/`X-Agent-Signature`
+signed-request scheme applies to the agent-coordinator service (:8107), a
+different surface.
     "X-Agent-Signature": "message_signature"
 }
 ```

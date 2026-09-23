@@ -614,10 +614,10 @@ sudo -u postgres psql -c "CREATE DATABASE aitbc_governance;"
 
 ```bash
 # Check voting power
-aitbc governance voting-power <address>
+aitbc operations governance voting-power --address <address>
 
 # Stake more tokens
-aitbc governance stake --address <address> --amount 1000 --lock-days 30
+aitbc operations governance stake --address <address> --amount 1000 --lock-days 30
 ```
 
 ### "Proposal not in succeeded state"
@@ -628,7 +628,7 @@ aitbc governance stake --address <address> --amount 1000 --lock-days 30
 
 ```bash
 # Check proposal status
-aitbc governance get-proposal <proposal_id>
+aitbc governance get --proposal-id <proposal_id>
 ```
 
 ## Prevention

@@ -64,8 +64,8 @@ curl -s https://shop.example.net/agent/messages/owl-hub
 ### Method C: CLI (Limited Functionality)
 
 ```bash
-# Note: aitbc market run queries blockchain transactions, not marketplace service
-# This won't find the cloud offer unless it's also registered on-chain
+# aitbc market run queries the marketplace service first
+# (GET /v1/marketplace/offer on the hub) and only falls back to on-chain txs
 aitbc market run --offer-id-or-plugin-id sw_offer_20260605110316_a343d309 --prompt "Explain quantum computing"
 
 # Alternative: Use marketplace service directly

@@ -99,10 +99,10 @@ diff /tmp/sim1.json /tmp/sim2.json && echo DETERMINISTIC
 ### Step 6: Deterministic messaging fallback
 
 ```bash
-aitbc messaging send --to alice "hello" --coordinator-url http://127.0.0.1:1
+aitbc messaging send --recipient alice --message "hello"   # or: aitbc agent-msg send "hello" --to-agent alice
 ```
 
-**Expected output:** `Message Sent (Simulated)` with a stable `message_id` across two runs.
+**Expected output:** `Message Posted (Simulated)` with a stable `message_id` across two runs.
 
 ---
 

@@ -24,7 +24,7 @@ This document covers deployment procedures for the Governance Service, including
 2. **Install dependencies:**
 
    ```bash
-   poetry install --with governance
+   poetry install   # the root pyproject has only a dev group — no `governance` extra exists
    ```
 
 3. **Set up database:**
@@ -37,13 +37,16 @@ This document covers deployment procedures for the Governance Service, including
 
    ```bash
    cd /opt/aitbc/apps/governance
-   /opt/aitbc/venv/bin/alembic upgrade head
+   # PYTHONPATH is mandatory — the package lives under src/:
+   PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/governance/src \
+     /opt/aitbc/venv/bin/alembic upgrade head
    ```
 
 5. **Start service:**
 
    ```bash
-   python -m governance_service.main
+   PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/governance/src \
+     python -m governance_service.main
    ```
 
 6. **Verify:**
@@ -74,13 +77,10 @@ This document covers deployment procedures for the Governance Service, including
    User=aitbc
    Group=aitbc
    WorkingDirectory=/opt/aitbc/apps/governance
-   Environment="PATH=/opt/aitbc/venv/bin"
-   Environment="DB_TYPE=postgresql"
-   Environment="DB_HOST=localhost"
-   Environment="DB_PORT=5432"
-   Environment="DB_NAME=aitbc_governance"
-   Environment="DB_USER=aitbc_governance"
-   Environment="DB_PASS=your_secure_password"
+   EnvironmentFile=/etc/aitbc/%N.env
+   # PYTHONPATH is mandatory — the package lives under src/:
+   Environment="PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/governance/src"
+   Environment="GOVERNANCE_BIND_HOST=127.0.0.1"
    ExecStart=/opt/aitbc/venv/bin/python -m governance_service.main
    Restart=always
    RestartSec=10
@@ -176,11 +176,10 @@ This document covers deployment procedures for the Governance Service, including
    nano alembic/alembic.ini
    ```
 
-   Update:
-
-   ```ini
-   sqlalchemy.url = postgresql://aitbc_governance:your_secure_password@localhost:5432/aitbc_governance
-   ```
+   Do **not** edit `alembic.ini` — `alembic/env.py` overwrites
+   `sqlalchemy.url` from the environment unconditionally. Set
+   `DB_TYPE=postgresql` plus `DB_HOST`/`DB_PORT`/`DB_NAME`/`DB_USER`/`DB_PASS`
+   (or `DATABASE_URL`) in `/etc/aitbc/aitbc-governance.env`.
 
 2. **Run migrations:**
 
@@ -207,7 +206,7 @@ This document covers deployment procedures for the Governance Service, including
    ```nginx
    server {
        listen 80;
-       server_name governance.aitbc.bubuit.net;
+       server_name governance.example.net;  # no governance.* vhost exists — public access is via hub.aitbc.bubuit.net / api-gateway
 
        location / {
            proxy_pass http://localhost:8105;
@@ -238,6 +237,12 @@ This document covers deployment procedures for the Governance Service, including
    `ssl_certificate` directives to this vhost or run an ACME client against it.
 
 ## Smart Contract Deployment
+
+> **Reference contracts only.** `AITBCGovernanceToken`/`AITBCVoting` are
+> Foundry reference implementations — they are not part of the live Python
+> chain's governance path and are not deployed or executed in production
+> (see `03-SMART_CONTRACTS.md`). The steps below apply only if you are
+> standing up the reference EVM stack.
 
 ### Prerequisites — Smart Contract Deployment
 

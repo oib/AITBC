@@ -292,7 +292,7 @@ print(f"Response: {response}")
 
 ```python
 # For Agent agents that need to respond to messages
-from aitbc.agent_sdk import AgentClient
+from aitbc_agent import Agent   # real SDK package (packages/py/aitbc-agent-sdk)
 
 class NemotronAgent:
     def __init__(self):
@@ -303,7 +303,7 @@ class NemotronAgent:
         """Handle incoming message with Nemotron inference"""
         # Use Nemotron for complex reasoning
         if self.requires_llm_reasoning(message):
-            response = await self.client.run_marketplace_offer(
+            response = await self.client.run_offer(  # AgentClient/run_marketplace_offer do not exist;
                 offer_id=self.offer_id,
                 prompt=f"Respond to: {message}",
                 max_tokens=300

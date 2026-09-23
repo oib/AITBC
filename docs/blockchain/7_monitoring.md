@@ -97,7 +97,7 @@ curl -s http://localhost:8203/health
 
 ### Dashboard Flow
 
-The web dashboard at `/opt/aitbc/website/dashboards/metrics.html` consumes:
+The web dashboard at `the monitoring service JSON endpoints (`apps/monitoring-service` — `/dashboard`, `/dashboard/metrics`); no `website/dashboards/` exists` consumes:
 
 - `GET /metrics` for live JSON metrics
 - `GET /health` for API health-state checks
@@ -153,7 +153,7 @@ curl -s http://localhost:8202/metrics
 
 ```bash
 # Open the metrics dashboard in a browser
-# File location: /opt/aitbc/website/dashboards/metrics.html
+# File location: the monitoring service JSON endpoints (`apps/monitoring-service` — `/dashboard`, `/dashboard/metrics`); no `website/dashboards/` exists
 ```
 
 The dashboard polls:
