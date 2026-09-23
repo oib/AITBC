@@ -179,6 +179,23 @@ RESPONSE_FACTORIES = frozenset(
     {"JSONResponse", "ORJSONResponse", "UJSONResponse", "PlainTextResponse", "HTMLResponse", "Response"}
 )
 
+# Legacy BaseHTTPRequestHandler-style helpers that build responses the
+# RESPONSE_FACTORIES check cannot see: send_json_response(payload, status=N)
+# takes its status as a kwarg, send_error(N, msg) as the first positional.
+_LEGACY_SEND_HELPERS = frozenset({"send_json_response", "send_error"})
+
+
+def _legacy_send_5xx(node: ast.Call) -> bool:
+    """True for send_json_response(..., status=5xx) / send_error(5xx, ...)."""
+    if not (isinstance(node.func, ast.Attribute) and node.func.attr in _LEGACY_SEND_HELPERS):
+        return False
+    for kw in node.keywords:
+        if kw.arg == "status":
+            return _is_5xx_status(kw.value)
+    if node.func.attr == "send_error" and node.args:
+        return _is_5xx_status(node.args[0])
+    return False
+
 
 def _is_response_construct(node: ast.expr) -> bool:
     """True for a Starlette/FastAPI response object built in a `return`, not raised."""
@@ -205,6 +222,9 @@ def _five_xx_constructs(tree: ast.AST) -> list[ast.Call]:
     found: list[ast.Call] = []
     for node in ast.walk(tree):
         if not isinstance(node, ast.Call):
+            continue
+        if _legacy_send_5xx(node):
+            found.append(node)
             continue
         if not (_is_http_exception_construct(node) or _is_response_construct(node)):
             continue
