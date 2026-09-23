@@ -7,7 +7,11 @@ to provide their own wallet address — no mock address generation.
 
 import os
 
+from aitbc.aitbc_logging import get_logger
+
 from .base import BaseHandler
+
+logger = get_logger(__name__)
 
 WALLET_SERVICE_URL = os.getenv("WALLET_SERVICE_URL", "http://localhost:8108")
 
@@ -73,10 +77,11 @@ class WalletAPIHandler(BaseHandler):
                             },
                             status=502,
                         )
-            except Exception as e:
+            except Exception:
+                logger.exception("Wallet service call failed")
                 self.send_json_response(
                     {
-                        "error": f"Wallet service unavailable: {e}",
+                        "error": "Wallet service unavailable",
                         "address": address,
                     },
                     status=503,
@@ -135,10 +140,11 @@ class WalletAPIHandler(BaseHandler):
                             },
                             status=502,
                         )
-            except Exception as e:
+            except Exception:
+                logger.exception("Wallet service call failed")
                 self.send_json_response(
                     {
-                        "error": f"Wallet service unavailable: {e}",
+                        "error": "Wallet service unavailable",
                         "address": address,
                     },
                     status=503,
