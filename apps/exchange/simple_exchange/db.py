@@ -10,8 +10,68 @@ migrates them to TEXT via table rebuild.
 
 import os
 import sqlite3
+from decimal import Decimal, InvalidOperation
 
 from aitbc.constants import DATA_DIR
+
+# Fixed-point representation for SQL comparisons.
+#
+# Monetary columns keep their TEXT (Decimal-as-string) values as the canonical
+# API/display format, but TEXT cannot be compared numerically: '10' < '2'
+# lexically, so order matching could fill a buy limited to 2 against a sell
+# priced 10, and miss a sell priced 2 for a buy limited to 10. Each monetary
+# column on ``orders`` therefore carries a parallel INTEGER column holding the
+# value in ticks of ``TICKS_PER_UNIT`` (8 decimal places). All SQL comparisons
+# and ORDER BY clauses run on tick columns; TEXT columns are written alongside
+# and remain exact.
+#
+# Only ``orders`` gets tick columns: it is the only table whose monetary values
+# appear in SQL predicates or ordering. ``trades``, ``marketplace_offers`` and
+# ``marketplace_orders`` are append/read records ordered by created_at — and a
+# trade total (qty * price) can legitimately carry more than 8 decimals, which
+# TEXT stores exactly and an 8dp tick column could not.
+TICKS_PER_UNIT = 100_000_000
+TICK_DECIMAL_PLACES = 8
+_INT64_MAX = (2**63) - 1
+
+
+def to_ticks(value: Decimal) -> int:
+    """Convert a Decimal to integer ticks — fail closed, never round.
+
+    Raises ValueError for non-finite values, values with more than
+    TICK_DECIMAL_PLACES decimals, or magnitudes that overflow int64.
+    """
+    if not value.is_finite():
+        raise ValueError("monetary value must be finite")
+    scaled = value * TICKS_PER_UNIT
+    integral = scaled.to_integral_exact()
+    if scaled != integral:
+        raise ValueError(f"monetary value has more than {TICK_DECIMAL_PLACES} decimal places: {value}")
+    ticks = int(integral)
+    if abs(ticks) > _INT64_MAX:
+        raise ValueError("monetary value exceeds int64 tick range")
+    return ticks
+
+
+def ticks_to_decimal(ticks: int) -> Decimal:
+    """Convert integer ticks back to the exact Decimal value."""
+    return (Decimal(ticks) / TICKS_PER_UNIT).normalize()
+
+
+class TickMigrationError(RuntimeError):
+    """Monetary values that cannot be represented exactly as ticks.
+
+    Carries the offending (table, row_id, column, raw_value) rows so the
+    operator can repair them; the migration commits nothing on failure.
+    """
+
+    def __init__(self, failures: list[tuple[str, object, str, str]]):
+        self.failures = failures
+        preview = "; ".join(f"{t}#{rid}.{col}={val!r}" for t, rid, col, val in failures[:20])
+        super().__init__(
+            f"{len(failures)} value(s) not representable at {TICK_DECIMAL_PLACES} decimal places: {preview}"
+            + (" ..." if len(failures) > 20 else "")
+        )
 
 
 def get_db_path():
@@ -62,7 +122,11 @@ _ORDERS_SCHEMA = """
         status TEXT DEFAULT 'open' CHECK(status IN ('open', 'filled', 'cancelled')),
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         user_address TEXT,
-        tx_hash TEXT
+        tx_hash TEXT,
+        amount_ticks INTEGER CHECK(amount_ticks >= 0),
+        price_ticks INTEGER CHECK(price_ticks >= 0),
+        filled_ticks INTEGER DEFAULT 0 CHECK(filled_ticks >= 0),
+        remaining_ticks INTEGER CHECK(remaining_ticks >= 0)
     )
 """
 
@@ -156,6 +220,73 @@ def _migrate_real_to_text(conn, cursor, table_name, schema_sql, monetary_columns
     return True
 
 
+# TEXT monetary column -> INTEGER tick column, per table. Only `orders` is
+# listed: it is the sole table whose money values appear in SQL predicates or
+# ORDER BY (matching + order book). trades/marketplace_* are append/read
+# records ordered by created_at and keep exact TEXT only. `total` keeps no
+# tick column either: amount*price can legitimately exceed 8 decimals.
+_TICK_COLUMNS: dict[str, dict[str, str]] = {
+    "orders": {
+        "amount": "amount_ticks",
+        "price": "price_ticks",
+        "filled": "filled_ticks",
+        "remaining": "remaining_ticks",
+    },
+}
+
+
+def _migrate_add_tick_columns(cursor) -> None:
+    """Add and backfill INTEGER tick columns for the orders TEXT columns.
+
+    Two properties matter here:
+
+    - The backfill is NULL-driven, not column-presence-driven. sqlite3
+      autocommits DDL when no transaction is open, so a migration that fails
+      after ALTER TABLE leaves the columns present but empty; checking column
+      presence alone would then skip the backfill forever. Selecting rows with
+      a NULL tick cell makes re-runs resume correctly.
+    - Values are converted in Python — never SQL CAST, which silently
+      truncates — and any value not exactly representable at
+      TICK_DECIMAL_PLACES decimals aborts the migration via
+      TickMigrationError. The caller wraps this in a transaction and rolls
+      back on failure.
+    """
+    for table, columns in _TICK_COLUMNS.items():
+        if table not in _ALLOWED_TABLES:
+            raise ValueError(f"Table '{table}' not in allowed list for migration")
+        existing = _get_column_types(cursor, table)
+        if not existing:
+            continue
+        for tick_col in (tick for tick in columns.values() if tick not in existing):
+            if not _is_valid_identifier(tick_col):
+                raise ValueError(f"Invalid column name: {tick_col}")
+            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {tick_col} INTEGER CHECK({tick_col} >= 0)")
+
+        tick_cols = list(columns.values())
+        null_filter = " OR ".join(f"{tick} IS NULL" for tick in tick_cols)
+        src_cols = list(columns)
+        # all identifiers come from the hardcoded _TICK_COLUMNS map, not input
+        cursor.execute(f"SELECT id, {', '.join(src_cols)} FROM {table} WHERE {null_filter}")  # nosec B608
+        failures: list[tuple[str, object, str, str]] = []
+        backfill: list[tuple[object, dict[str, int]]] = []
+        for row in cursor.fetchall():
+            row_id = row[0]
+            values: dict[str, int] = {}
+            for i, src in enumerate(src_cols):
+                raw = row[1 + i]
+                try:
+                    values[columns[src]] = to_ticks(Decimal(str(raw)))
+                except (InvalidOperation, ValueError):
+                    failures.append((table, row_id, src, str(raw)))
+            backfill.append((row_id, values))
+        if failures:
+            raise TickMigrationError(failures)
+        for row_id, values in backfill:
+            assignments = ", ".join(f"{tick_col} = ?" for tick_col in values)
+            # table/tick columns come from _TICK_COLUMNS; only values are bound
+            cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*values.values(), row_id))  # nosec B608
+
+
 def init_db():
     """Initialize SQLite database.
 
@@ -204,5 +335,19 @@ def init_db():
 
             logging.getLogger(__name__).warning("Could not migrate %s: %s", table, e)
 
-    conn.commit()
+    # Tick columns: added/backfilled fail-closed inside an explicit
+    # transaction so ALTER + backfill commit or roll back together. A value
+    # that cannot be represented exactly at 8 decimals aborts startup —
+    # serving a book that matches lexically is worse than not serving one.
+    # Run the read-only preflight script
+    # (scripts/ops/exchange-ticks-preflight.py) before deploy.
+    conn.commit()  # settle whatever implicit txn the migrations above opened
+    try:
+        conn.execute("BEGIN IMMEDIATE")
+        _migrate_add_tick_columns(cursor)
+        conn.commit()
+    except Exception:
+        conn.rollback()
+        raise
+
     conn.close()
