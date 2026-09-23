@@ -4,7 +4,6 @@ from __future__ import annotations
 
 import json
 from types import SimpleNamespace
-from unittest.mock import MagicMock
 
 import pytest
 from click.testing import CliRunner
@@ -46,7 +45,7 @@ def probed(monkeypatch):
     def _no_coordinator(*args, **kwargs):
         raise RuntimeError("no coordinator in tests")
 
-    monkeypatch.setattr("aitbc_cli.commands.energy._coordinator_client", _no_coordinator)
+    monkeypatch.setattr("aitbc_cli.commands.energy._native_energy_request", _no_coordinator)
 
 
 def test_suggest_reference_rig(runner, probed):
@@ -129,17 +128,15 @@ def test_suggest_register_requires_ids(runner, probed):
     assert "resource-id" in result.output
 
 
-def _fake_client(get_return=None, post_return=None):
-    client = MagicMock()
-    client.get.return_value = get_return or {}
-    client.post.return_value = post_return or {}
-    return client
-
-
 def test_suggest_uses_native_rate(runner, probed, monkeypatch):
     """With no EVM configured, the published native rate feeds the suggestion."""
-    client = _fake_client(get_return={"ait_per_eur": "4.0"})
-    monkeypatch.setattr("aitbc_cli.commands.energy._coordinator_client", lambda *a, **k: client)
+    calls = []
+
+    def fake_request(ctx, method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {"ait_per_eur": "4.0"}
+
+    monkeypatch.setattr("aitbc_cli.commands.energy._native_energy_request", fake_request)
     result = runner.invoke(
         energy, ["suggest", "--region", "de", "--json-output"], catch_exceptions=False
     )
@@ -147,13 +144,20 @@ def test_suggest_uses_native_rate(runner, probed, monkeypatch):
     data = json.loads(result.output)
     assert data["rate_source"] == "native rate"
     assert data["ait_per_eur"] == "4.0"
-    client.get.assert_called_once_with("/v1/marketplace/native-energy/rate")
+    assert calls == [("get", "/v1/marketplace/native-energy/rate", {"miner": True, "timeout": 10})]
 
 
 def test_suggest_register_native_posts_profile(runner, probed, monkeypatch):
     """--register on the native rail upserts the profile via the coordinator API."""
-    client = _fake_client(get_return={"ait_per_eur": "4.0"}, post_return={"status": "ok"})
-    monkeypatch.setattr("aitbc_cli.commands.energy._coordinator_client", lambda *a, **k: client)
+    calls = []
+
+    def fake_request(ctx, method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        if method == "get":
+            return {"ait_per_eur": "4.0"}
+        return {"status": "ok"}
+
+    monkeypatch.setattr("aitbc_cli.commands.energy._native_energy_request", fake_request)
     result = runner.invoke(
         energy,
         [
@@ -164,28 +168,33 @@ def test_suggest_register_native_posts_profile(runner, probed, monkeypatch):
     )
     assert result.exit_code == 0, result.output
     assert "Native energy profile registered" in result.output
-    client.post.assert_called_once_with(
-        "/v1/marketplace/native-energy/profile",
-        json={
-            "resource_id": "node9-rtx4060ti",
-            "provider": "0xabc",
-            "model_id": "rtx_4060_ti_16gb",
-            "tbp_watts": 384,
-            "eur_per_kwh": 0.33,
-        },
-    )
+    post_calls = [c for c in calls if c[0] == "post"]
+    assert len(post_calls) == 1
+    _, path, kwargs = post_calls[0]
+    assert path == "/v1/marketplace/native-energy/profile"
+    assert kwargs["miner"] is True
+    assert kwargs["json_body"] == {
+        "resource_id": "node9-rtx4060ti",
+        "provider": "0xabc",
+        "model_id": "rtx_4060_ti_16gb",
+        "tbp_watts": 384,
+        "eur_per_kwh": 0.33,
+    }
 
 
 def test_floor_native_rail(runner, probed, monkeypatch):
     """`energy floor` reads the native floor endpoint when EVM is unconfigured."""
-    client = _fake_client(
-        get_return={
+    calls = []
+
+    def fake_request(ctx, method, path, **kwargs):
+        calls.append((method, path, kwargs))
+        return {
             "settlement_unit_scale": 36_000_000,
             "net_floor_units": 1_658_880,
             "net_floor_ait": "0.04608",
         }
-    )
-    monkeypatch.setattr("aitbc_cli.commands.energy._coordinator_client", lambda *a, **k: client)
+
+    monkeypatch.setattr("aitbc_cli.commands.energy._native_energy_request", fake_request)
     result = runner.invoke(
         energy,
         ["floor", "--resource-id", "node9", "--gpu-count", "1", "--duration-seconds", "3600"],
@@ -194,7 +203,7 @@ def test_floor_native_rail(runner, probed, monkeypatch):
     assert result.exit_code == 0, result.output
     assert "native" in result.output
     assert "1658880" in result.output
-    client.get.assert_called_once_with(
-        "/v1/marketplace/native-energy/floor",
-        params={"resource_id": "node9", "gpu_count": 1, "duration_seconds": 3600},
-    )
+    assert calls == [
+        ("get", "/v1/marketplace/native-energy/floor",
+         {"params": {"resource_id": "node9", "gpu_count": 1, "duration_seconds": 3600}, "timeout": 10})
+    ]
