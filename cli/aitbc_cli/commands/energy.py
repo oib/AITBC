@@ -429,7 +429,7 @@ def provider_rate(
 
     scale = 10**18
     ait_scaled = int(ait_per_eur * scale)
-    data = rpc.encode_function_call(
+    calldata = rpc.encode_function_call(
         abi=DEFAULT_ENERGY_PRICING_ABI,
         function_name="publishEnergyRate",
         args=[ait_scaled, observed_at, source_kind],
@@ -443,7 +443,7 @@ def provider_rate(
         "gas": 200_000,
         "gasPrice": gas_price,
         "chainId": config.energy_pricing_chain_id,
-        "data": data,
+        "data": calldata,
         "value": 0,
     }
     raw = rpc.sign_transaction(tx, private_key)
@@ -469,7 +469,8 @@ def provider_rate(
 @click.pass_context
 def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, json_output):
     """Compute the energy floor for given rental terms (EVM or native rail)."""
-    if not _evm_energy_configured():
+    config = get_config()
+    if not (config.evm_rpc_url and config.energy_pricing_contract_address):
         client = _coordinator_client(ctx, timeout=10)
         try:
             result = client.get(
@@ -503,7 +504,6 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
             info(f"Net floor:   {result.get('net_floor_units')} units ({result.get('net_floor_ait')} AIT)")
         return
 
-    config = get_config()
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
     from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
