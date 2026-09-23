@@ -63,7 +63,7 @@ class TestTheDirectoryBoundary:
 class TestTheSourceMatch:
     def test_a_module_naming_the_host_matches(self, gate, tmp_path):
         f = tmp_path / "test_a.py"
-        f.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
+        f.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
 
         assert gate._names_production_host(f)
 
@@ -84,9 +84,9 @@ class TestTheWriteMatch:
         """The exact shape that escaped the old gate and forked a node."""
         f = tmp_path / "test_import.py"
         f.write_text(
-            'import requests\n'
+            "import requests\n"
             'BASE = "http://127.0.0.1:8202/rpc"\n'
-            'def test_import_a_block():\n'
+            "def test_import_a_block():\n"
             '    requests.post(f"{BASE}/importBlock", json={}, timeout=10)\n'
         )
 
@@ -96,15 +96,15 @@ class TestTheWriteMatch:
     @pytest.mark.parametrize(
         "line",
         [
-            'requests.post(url, json={})',
-            'requests.put(url, json={})',
-            'requests.patch(url, json={})',
-            'requests.delete(url)',
-            'httpx.post(url, json={})',
-            'self.client.post(url, json={})',
-            'await client.post(url, json={})',
-            'response = requests.post(\n    url,\n    json={},\n)',
-            'requests.post (url)',
+            "requests.post(url, json={})",
+            "requests.put(url, json={})",
+            "requests.patch(url, json={})",
+            "requests.delete(url)",
+            "httpx.post(url, json={})",
+            "self.client.post(url, json={})",
+            "await client.post(url, json={})",
+            "response = requests.post(\n    url,\n    json={},\n)",
+            "requests.post (url)",
         ],
     )
     def test_every_call_shape_in_this_directory_matches(self, gate, tmp_path, line):
@@ -116,9 +116,7 @@ class TestTheWriteMatch:
     def test_a_read_only_module_does_not_match(self, gate, tmp_path):
         f = tmp_path / "test_read.py"
         f.write_text(
-            'import requests\n'
-            'def test_head():\n'
-            '    assert requests.get("http://127.0.0.1:8202/rpc/head", timeout=5).ok\n'
+            'import requests\ndef test_head():\n    assert requests.get("http://127.0.0.1:8202/rpc/head", timeout=5).ok\n'
         )
 
         assert not gate._sends_http_writes(f)
@@ -162,7 +160,7 @@ def test_the_hook_skips_inside_and_leaves_outside_alone(gate, monkeypatch, tmp_p
     monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
     inside = tmp_path / "test_hosted.py"
-    inside.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
+    inside.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
     outside = Path(__file__)
 
     skipped = _run_hook(gate, [inside, outside])
@@ -177,7 +175,7 @@ def test_the_opt_in_env_var_disarms_the_hook(gate, monkeypatch, tmp_path):
     monkeypatch.setattr(gate, "GATED_DIR", tmp_path)
 
     inside = tmp_path / "test_hosted.py"
-    inside.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
+    inside.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
 
     assert _run_hook(gate, [inside])[inside] is False
 
@@ -200,7 +198,7 @@ def test_the_repo_wide_reach_is_measured_not_assumed(gate, monkeypatch, tmp_path
     outside_file_b = other_dir / "test_b.py"
 
     for f in (gated_file, outside_file_a, outside_file_b):
-        f.write_text('BASE_URL = "https://hub.example.net/rpc"\n')
+        f.write_text('BASE_URL = "https://fleet-host.bubuit.net/rpc"\n')
 
     monkeypatch.setattr(gate, "GATED_DIR", gated_dir)
 
@@ -229,9 +227,9 @@ def test_a_localhost_writer_inside_the_directory_is_gated(gate, monkeypatch, tmp
 
     inside = tmp_path / "test_localhost_import.py"
     inside.write_text(
-        'import requests\n'
+        "import requests\n"
         'BASE = "http://127.0.0.1:8202/rpc"\n'
-        'def test_import_a_block():\n'
+        "def test_import_a_block():\n"
         '    requests.post(f"{BASE}/importBlock", json={}, timeout=10)\n'
     )
 
@@ -246,9 +244,7 @@ def test_a_read_only_module_inside_the_directory_still_runs(gate, monkeypatch, t
 
     inside = tmp_path / "test_read_only.py"
     inside.write_text(
-        'import requests\n'
-        'def test_head():\n'
-        '    assert requests.get("http://127.0.0.1:8202/rpc/head", timeout=5).ok\n'
+        'import requests\ndef test_head():\n    assert requests.get("http://127.0.0.1:8202/rpc/head", timeout=5).ok\n'
     )
 
     assert _run_hook(gate, [inside])[inside] is False
@@ -349,11 +345,7 @@ def test_every_writer_in_the_real_directory_is_gated(gate, monkeypatch):
     monkeypatch.delenv(gate.ALLOW_ENV, raising=False)
     verification = GATE_CONFTEST.parent
 
-    writers = [
-        f
-        for f in sorted(verification.glob("*.py"))
-        if f.name != "conftest.py" and gate._sends_http_writes(f)
-    ]
+    writers = [f for f in sorted(verification.glob("*.py")) if f.name != "conftest.py" and gate._sends_http_writes(f)]
     assert writers, "expected this directory to still contain modules that write"
 
     skipped = _run_hook(gate, writers)
@@ -371,9 +363,7 @@ class TestTheScriptGuard:
 
     @staticmethod
     def _load_guard():
-        spec = importlib.util.spec_from_file_location(
-            "_verification_write_guard", GATE_CONFTEST.parent / "_write_guard.py"
-        )
+        spec = importlib.util.spec_from_file_location("_verification_write_guard", GATE_CONFTEST.parent / "_write_guard.py")
         module = importlib.util.module_from_spec(spec)
         spec.loader.exec_module(module)
         return module
