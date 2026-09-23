@@ -9,6 +9,7 @@ authenticated while REQUIRE_AUTH defaults to true (so everything 401'd).
 They now exercise the real surface. Routing tests run with auth disabled via conftest.
 """
 
+import httpx
 import pytest
 import api_gateway.main as gateway
 from api_gateway.main import SERVICES
@@ -67,21 +68,49 @@ def test_service_registry_covers_every_registered_service(client):
     assert set(response.json()) == set(SERVICES)
 
 
-@pytest.mark.parametrize("service", ["marketplace", "coordinator", "exchange", "wallet", "agent-coordinator"])
-def test_route_reaches_proxy(client, service):
-    """A registered prefix reaches the proxy rather than being rejected by the gateway.
+class _CaptureClient:
+    """Records the upstream URL the proxy built; satisfies lifespan aclose."""
 
-    Deliberately does not assert a specific status: whether the backend answers (2xx),
-    is absent (5xx), or rejects the call itself (a backend 401) depends on what is
-    running, and the gateway is not responsible for that. What it is responsible for is
-    resolving the prefix and not throttling -- 404 or 429 would mean it never proxied.
+    def __init__(self):
+        self.url = ""
 
-    401 is not excluded here because a backend can legitimately return one and it is
-    indistinguishable from a gateway 401 by status alone; gateway auth has its own test.
-    """
-    response = client.get(f"/v1/{service}/health")
+    async def get(self, url, **kwargs):
+        self.url = url
+        return httpx.Response(200, json={"ok": True})
 
-    assert response.status_code not in (404, 429)
+    async def aclose(self):
+        pass
+
+
+@pytest.mark.parametrize(
+    "path,expected_url",
+    [
+        ("/v1/coordinator/jobs", "http://localhost:8203/v1/jobs"),
+        ("/v1/marketplace/jobs", "http://localhost:8102/v1/marketplace/jobs"),
+        # Coordinator-owned marketplace families must not land on :8102.
+        ("/v1/marketplace/gpu/quote", "http://localhost:8203/v1/marketplace/gpu/quote"),
+        ("/v1/marketplace/providers", "http://localhost:8203/v1/marketplace/providers"),
+        ("/v1/marketplace/orders", "http://localhost:8203/v1/marketplace/orders"),
+        ("/v1/exchange/orders", "http://localhost:8106/api/orders"),
+        ("/v1/trading/exchange/rates", "http://localhost:8104/v1/exchange/rates"),
+        ("/v1/wallet/wallets", "http://localhost:8108/v1/wallets"),
+        ("/v1/wallet/exchange/price", "http://localhost:8108/v1/exchange/price"),
+        ("/v1/agent/messages/send", "http://localhost:8107/api/v1/agent/messages/send"),
+        ("/v1/agent-coordinator/agents", "http://localhost:8107/v1/agents"),
+        ("/v1/governance/proposals", "http://localhost:8105/v1/governance/proposals"),
+        ("/v1/pool-hub/miners/heartbeat", "http://localhost:8210/v1/miners/heartbeat"),
+        ("/v1/explorer/blocks/latest", "http://localhost:8100/api/blocks/latest"),
+        ("/v1/plugin/register", "http://localhost:8203/v1/marketplace/register"),
+    ],
+)
+def test_route_rewrites_to_real_upstream_path(client, monkeypatch, path, expected_url):
+    """Every registered prefix must forward to a path its backend actually serves."""
+    capture = _CaptureClient()
+    monkeypatch.setattr(client.app.state, "http_client", capture)
+    response = client.get(path)
+
+    assert response.status_code == 200
+    assert capture.url == expected_url
 
 
 def test_unknown_route_returns_404(client):
