@@ -39,6 +39,9 @@ def aitbc_http_call(
         ),
     ],
     timeout_opt: Annotated[int | None, Field(description="Request timeout in seconds")],
+    idempotency_key: Annotated[
+        str | None, Field(description="Idempotency-Key header for write requests; enables safe retry of ambiguous outcomes")
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
@@ -57,6 +60,7 @@ def aitbc_http_call(
             "api_key": "api-key",
             "auth_kind": "auth",
             "timeout_opt": "timeout",
+            "idempotency_key": "idempotency-key",
         },
     )
     args = [] + ([service] if service is not None else []) + ([path] if path is not None else [])
