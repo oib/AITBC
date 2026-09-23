@@ -39,7 +39,7 @@ Direct RPC endpoint testing for integration verification. Admin/control mutation
 ### Staking
 
 ```bash
-curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
+curl -X POST http://hub.example.net:8202/rpc/staking/stake \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net", "signature": "<sig>", "nonce": <n>, "timestamp": <unix>}'
@@ -48,7 +48,7 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/staking/stake \
 ### Identity
 
 ```bash
-curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/identity/register \
+curl -X POST http://hub.example.net:8202/rpc/identity/register \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"agent_id": "test_agent", "agent_address": "<wallet_address>", "display_name": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
@@ -58,7 +58,7 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/identity/register \
 
 ```bash
 # Test governance endpoint via the blockchain RPC
-curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
+curl -X POST http://hub.example.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
@@ -68,16 +68,16 @@ curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/governance/proposal \
 
 ```bash
 # GPU registration via the blockchain RPC
-curl -X POST http://hub.aitbc.bubuit.net:8202/rpc/gpu/register \
+curl -X POST http://hub.example.net:8202/rpc/gpu/register \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -d '{"gpu_id": "GPU-test", "miner_id": "miner-001", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "registered_by": "<wallet_address>", "chain_id": "ait-hub.aitbc.bubuit.net"}'
 
 # GPU query via the blockchain RPC
-curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
+curl -X GET "http://hub.example.net:8202/rpc/gpu/info/GPU-test?chain_id=ait-hub.aitbc.bubuit.net"
 
 # GPU list via the blockchain RPC
-curl -X GET "http://hub.aitbc.bubuit.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
+curl -X GET "http://hub.example.net:8202/rpc/gpus?chain_id=ait-hub.aitbc.bubuit.net"
 ```
 
 ## CLI Verification

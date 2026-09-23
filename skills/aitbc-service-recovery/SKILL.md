@@ -48,7 +48,7 @@ systemctl start aitbc-hermes-agent.service        # agent nodes (node2 shop agen
 | Wallet service: exit code, missing COORDINATOR_API_KEY | Add `echo "key" > /etc/aitbc/credentials/coordinator_api_key && chmod 600` |
 | Sync service exits immediately | Add Agent vars to `/etc/aitbc/node.env` (see below) OR set `AGENT_DAEMON_CHAINS` |
 | P2P immediate FIN from hub | `p2p_peers` must use port **7070** (not 8106 — that's Exchange API) |
-| Sync baseline stuck at wrong height | Force-sync requires an admin signature: POST `/rpc/force-sync` with `{"peer_url":"http://hub.aitbc.bubuit.net:8202","admin_address":"<admin>","admin_signature":"<sig>"}` — a bare curl returns 403 |
+| Sync baseline stuck at wrong height | Force-sync requires an admin signature: POST `/rpc/force-sync` with `{"peer_url":"http://hub.example.net:8202","admin_address":"<admin>","admin_signature":"<sig>"}` — a bare curl returns 403 |
 | Services fail with "resources" | `systemctl reset-failed` then restart |
 | Following the wrong chain | Check `CHAIN_ID` and `default_peer_rpc_url` in `blockchain.env`/`node.env` (the legacy `SYNC_*` env vars and `aitbc-blockchain-sync.service` no longer exist) |
 
@@ -59,7 +59,7 @@ Read by `agent_stream.py` / `agent_task poll` — the old `AGENT_AGENT_IDS` /
 
 ```
 AGENT_ID=my-agent                                  # or HERMES_AGENT_ID (fallback)
-AGENT_COORDINATOR_URL=http://hub.aitbc.bubuit.net:8107  # or HERMES_COORDINATOR_URL
+AGENT_COORDINATOR_URL=http://hub.example.net:8107  # or HERMES_COORDINATOR_URL
 AITBC_DEFAULT_WALLET=my-agent-wallet               # wallet signing inbox polls
 ```
 

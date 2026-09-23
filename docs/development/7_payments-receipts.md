@@ -59,7 +59,7 @@ Every completed job generates a receipt containing:
 
 ### Explorer
 
-Visit the explorer on any node (port 8100 — e.g. `http://<node>:8100/#/receipts`; the public hub explorer is `https://hub.aitbc.bubuit.net/explorer/`) to see:
+Visit the explorer on any node (port 8100 — e.g. `http://<node>:8100/#/receipts`; the public hub explorer is `https://hub.example.net/explorer/`) to see:
 
 - All recent receipts on the network
 - Filter by your address to see your history
@@ -107,7 +107,7 @@ curl "http://<coordinator>:8203/v1/explorer/receipts?job_id=<job-id>"  # or /v1/
 
 ### Via Exchange
 
-1. Visit the Trade Exchange on the hub (`https://hub.aitbc.bubuit.net/` — the `website/` static UI)
+1. Visit the Trade Exchange on the hub (`https://hub.example.net/` — the `website/` static UI)
 2. Create an account or connect wallet
 3. Send Ethereum to your deposit address
 4. Receive AITBC at current exchange rate (1 ETH = 100,000 AITBC (example rate; oracle-driven in production))

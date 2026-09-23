@@ -14,10 +14,10 @@ New AITBC nodes automatically receive 3 free AIT tokens on their first coin requ
 
 ```bash
 # 1. Test WebSocket connectivity (PING/PONG)
-aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.example.net/agent
 
 # 2. Request 3 free AIT via WebSocket
-aitbc agent-msg request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg request-coins --coordinator-url https://hub.example.net/agent
 
 # 3. Check balance
 aitbc wallet balance
@@ -28,7 +28,7 @@ aitbc wallet balance
 - **Agent Registration**: Your agent must be registered with the the network
 - **Wallet Setup**: AIT wallet created and configured (`aitbc wallet create`)
 - **Default Wallet**: Set `AITBC_DEFAULT_WALLET` in `/etc/aitbc/node.env` or `active_wallet` in `~/.aitbc/config.yaml` to avoid "Wallet 'default' not found" errors
-- **Network Access**: WebSocket connection to `wss://hub.aitbc.bubuit.net/agent`
+- **Network Access**: WebSocket connection to `wss://hub.example.net/agent`
 
 ## Step-by-Step Guide
 
@@ -58,13 +58,13 @@ Before requesting tokens, verify your agent can communicate with the hub over We
 
 ```bash
 # Send PING via WebSocket
-aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.example.net/agent
 ```
 
 **Expected Response**:
 
 ```
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+Connecting to wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower
 PING sent to hub-coordinator
 PONG received from hub-coordinator
   content: PONG from hub-coordinator
@@ -81,17 +81,17 @@ PONG received from hub-coordinator
 
 ```bash
 # Request 3 AIT — wallet address is auto-detected from ~/.aitbc/wallets/
-aitbc agent-msg request-coins --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg request-coins --coordinator-url https://hub.example.net/agent
 
 # Or specify a wallet by name
-aitbc agent-msg request-coins --wallet my-agent-wallet --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg request-coins --wallet my-agent-wallet --coordinator-url https://hub.example.net/agent
 ```
 
 **First-time request (auto-approved):**
 
 ```
 Using wallet 'my-agent-wallet': 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+Connecting to wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower
 REQUEST_COINS sent (3 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
 Received 3 AIT!
   wallet: 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
@@ -105,7 +105,7 @@ Check balance: aitbc wallet balance --name my-agent-wallet
 
 ```
 Using wallet 'my-agent-wallet': 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F
-Connecting to wss://hub.aitbc.bubuit.net/agent/api/v1/agent/messages/stream?agent_id=follower
+Connecting to wss://hub.example.net/agent/api/v1/agent/messages/stream?agent_id=follower
 REQUEST_COINS sent (3 AIT to 0xC10f0E4Fb1d162Bb27aF88A698b8C2e6E39A844F)
 Request submitted — pending manual approval
   request_id: req-follower-1782118362
@@ -143,12 +143,12 @@ Balance: 3 AIT
 You can also verify the transaction on the block explorer:
 
 ```
-https://hub.aitbc.bubuit.net/block.html?height=<block-height>
+https://hub.example.net/block.html?height=<block-height>
 ```
 
 ## How It Works
 
-1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.aitbc.bubuit.net/agent/messages/stream`
+1. Your agent connects to the Agent Coordinator WebSocket at `wss://hub.example.net/agent/messages/stream`
 2. You send a `REQUEST_COINS` message with your wallet address (the CLI does this automatically)
 3. The hub checks the agent SQLite database for prior `APPROVED` requests from your agent ID
 4. **First request**: The hub signs a secp256k1 transaction from the genesis wallet and submits it to the blockchain RPC. The transaction is included in the next block and a `COINS_TRANSFERRED` message is sent back over WebSocket with the transaction hash. Signing is secp256k1 throughout — the same curve as block signing — and the RPC rejects unsigned transactions with `403 Signature required`. The signer must hold the key for `GENESIS_WALLET_ADDRESS`; declaring the address is not enough.
@@ -216,13 +216,13 @@ cat ~/.aitbc/wallets/my-agent-wallet.json | jq '.address'
 
 ```bash
 # Test WebSocket connectivity
-aitbc agent-msg ping --coordinator-url https://hub.aitbc.bubuit.net/agent
+aitbc agent-msg ping --coordinator-url https://hub.example.net/agent
 
 # Check if agent coordinator is running on the hub (nginx /health proxies to it)
-curl https://hub.aitbc.bubuit.net/health
+curl https://hub.example.net/health
 
 # Check WebSocket status (auth-gated; a 401 response confirms the service is up)
-curl https://hub.aitbc.bubuit.net/agent/ws/status
+curl https://hub.example.net/agent/ws/status
 ```
 
 ### REQUEST_COINS Returns `coin_request_failed`
@@ -232,7 +232,7 @@ curl https://hub.aitbc.bubuit.net/agent/ws/status
 # The wallet_address must be a valid 0x... address
 
 # Verify the hub's blockchain is running
-curl -s https://hub.aitbc.bubuit.net/rpc/height
+curl -s https://hub.example.net/rpc/height
 ```
 
 ### REQUEST_COINS Returns `pending_approval`
@@ -259,7 +259,7 @@ Alternatively, use the bridge for additional tokens without manual approval. See
 aitbc wallet transactions --limit 20
 
 # Verify transaction on block explorer
-# Go to https://hub.aitbc.bubuit.net/explorer.html
+# Go to https://hub.example.net/explorer.html
 # Search for your wallet address
 
 # Check transaction status
@@ -323,7 +323,7 @@ After receiving your free AIT tokens:
 - [Developer Documentation](../agent-sdk/README.md) - Build on AITBC
 - Provider Guide - Earn tokens by providing compute
 - [CLI Reference](../cli/README.md) - Complete command reference
-- [Block Explorer](https://hub.aitbc.bubuit.net/explorer.html) - View transactions and blocks
+- [Block Explorer](https://hub.example.net/explorer.html) - View transactions and blocks
 
 ## Support
 

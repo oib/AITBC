@@ -130,7 +130,7 @@ Current monitoring flow:
 
 ## 🌐 Public API Surface (nginx on hub/hub1)
 
-Two namespaces front the services on `hub.aitbc.bubuit.net`:
+Two namespaces front the services on `hub.example.net`:
 
 **`/api/` → api-gateway (`:8201`) — canonical client surface.**
 Requires `X-Gateway-Key: <API_GATEWAY_KEY>` (per-node `/etc/aitbc/aitbc-api-gateway.env`).

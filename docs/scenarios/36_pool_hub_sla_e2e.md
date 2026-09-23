@@ -65,7 +65,7 @@ On the hub (`<hub-node>`):
 On the shop (`<node2>`):
 
 - `aitbc-miner.service` running
-- `/etc/aitbc/blockchain.env` has `HUB_POOL_HUB_URL=http://hub.aitbc.bubuit.net/pool-hub`
+- `/etc/aitbc/blockchain.env` has `HUB_POOL_HUB_URL=http://hub.example.net/pool-hub`
 
 ---
 
@@ -111,7 +111,7 @@ aitbc pool-hub status
 To bypass discovery and hit a specific URL:
 
 ```bash
-aitbc pool-hub status --pool-hub-url http://hub.aitbc.bubuit.net/pool-hub
+aitbc pool-hub status --pool-hub-url http://hub.example.net/pool-hub
 ```
 
 ### Step 3: Optional — start a miner

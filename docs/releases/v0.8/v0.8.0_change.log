@@ -58,7 +58,7 @@ aitbc trade chains
   "chains": [
     {
       "chain_id": "ait-hub.aitbc.bubuit.net",
-      "endpoint": "https://hub.aitbc.bubuit.net",
+      "endpoint": "https://hub.example.net",
       "status": "active",
       "block_height": 12345,
       "offers_count": 42

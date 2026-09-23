@@ -43,7 +43,7 @@ systemctl restart aitbc-blockchain-node
 
 ```bash
 # Test reachability of the hub RPC (public nginx endpoint)
-curl -s https://hub.aitbc.bubuit.net/rpc/head
+curl -s https://hub.example.net/rpc/head
 
 # Check firewall
 ufw status
@@ -78,7 +78,7 @@ systemctl start aitbc-blockchain-node
 curl http://localhost:8202/rpc/head
 
 # Compare with the proposer (public endpoint; raw :8202 is internal-only)
-curl https://hub.aitbc.bubuit.net/rpc/head
+curl https://hub.example.net/rpc/head
 ```
 
 **Solutions:**
@@ -89,7 +89,7 @@ curl https://hub.aitbc.bubuit.net/rpc/head
 # Force-sync is admin-signed (verify_admin_signature), not API-key gated
 curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"peer_url": "https://hub.aitbc.bubuit.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
+  -d '{"peer_url": "https://hub.example.net", "admin_address": "<admin_addr>", "admin_signature": "<sig>"}'
 ```
 
 1. Last resort — resync from scratch (destroys local chain state)

@@ -1,8 +1,8 @@
 """Keep the production-probing verification scripts out of automated runs.
 
 Several files in this directory are not unit tests. They point at the live deployment --
-``BASE_URL = "https://hub.aitbc.bubuit.net/rpc"`` and
-``COORDINATOR_URL = "https://hub.aitbc.bubuit.net/api"`` -- read the current head, and then
+``BASE_URL = "https://hub.example.net/rpc"`` and
+``COORDINATOR_URL = "https://hub.example.net/api"`` -- read the current head, and then
 POST: newly constructed blocks to ``/rpc/importBlock``, jobs to ``/v1/jobs``, miner results to
 ``/v1/miners/{id}/result``. A passing run means blocks were accepted into production and real
 jobs and payments were created there. They are named ``test_*.py``, so any ``pytest tests/``

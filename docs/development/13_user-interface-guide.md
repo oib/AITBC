@@ -5,7 +5,7 @@
 > was never implemented — the real `website/` exchange page is MetaMask-only
 > (`window.ethereum`, EIP-1193 `eth_requestAccounts`, `sendBridgeTransaction`)
 > with no accounts, usernames, or sessions. The `aitbc.bubuit.net` apex links
-> are also fictional (the public host is `hub.aitbc.bubuit.net`).
+> are also fictional (the public host is `hub.example.net`).
 
 ## Overview
 

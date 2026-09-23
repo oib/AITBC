@@ -27,7 +27,7 @@ LOG_FILE="${LOG_DIR}/sync-verification.log"
 #
 # A target is either a bare host, which is assumed to speak the node RPC over http on
 # RPC_PORT, or a full base URL, which is used verbatim. The second form is what lets CI
-# point this at the public island (https://hub.aitbc.bubuit.net): since AITBC-136 the
+# point this at the public island (https://hub.example.net): since AITBC-136 the
 # workflows run on a separate runner that cannot reach the private fleet nodes, so a
 # check hardcoded to them reports on infrastructure the job has no route to.
 #

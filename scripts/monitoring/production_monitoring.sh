@@ -71,7 +71,7 @@ write_monitoring_env() {
 
 # What "the API is up" means here. Defaults to this node's coordinator-api.
 # On a hub, the public edge is the more useful target:
-#AITBC_API_HEALTH_URL="https://hub.aitbc.bubuit.net/api/health"
+#AITBC_API_HEALTH_URL="https://hub.example.net/api/health"
 
 # Units to watch. A unit this node does not have is skipped, not alerted.
 #AITBC_COORDINATOR_UNIT="aitbc-coordinator-api"

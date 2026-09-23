@@ -22,7 +22,7 @@ If you want to submit AI jobs and use the network:
 
 1. [Prerequisites](installation/prerequisites.md) - Check system requirements
 2. [Quick Start](installation/quick-start.md) - One-command installation
-3. [Open Island Testing](open-island.md) - Join the `hub.aitbc.bubuit.net` open island
+3. [Open Island Testing](open-island.md) - Join the `hub.example.net` open island
 4. [Node Quick Start](node-quickstart.md) - Configure a follower/customer node
 5. [CLI Guide](overview/cli-guide.md) - Learn the CLI commands
 6. [Unit System](unit-system.md) - Learn about AIT and compute units

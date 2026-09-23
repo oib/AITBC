@@ -8,7 +8,7 @@ by-default path in the tree that moves money.
 It had no tests. The CLI that drives it was covered by `tests/cli/test_commands_coin_requests.py`,
 which was deleted in the `test(cleanup)` sweep, leaving the whole path uncovered on both sides
 while the hub was publishing the key that opens it at
-`https://hub.aitbc.bubuit.net/agent/blockchain-secrets.env` (V23-58).
+`https://hub.example.net/agent/blockchain-secrets.env` (V23-58).
 
 The tests below split into two groups:
 

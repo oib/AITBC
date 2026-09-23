@@ -21,7 +21,7 @@ def mock_config():
     config.coordinator_url = "http://localhost:8000"
     config.api_key = "test_key"
     config.blockchain_rpc_url = "http://localhost:8202"
-    config.hub_discovery_url = "hub.aitbc.bubuit.net"
+    config.hub_discovery_url = "hub.example.net"
     config.governance_service_url = "http://localhost:8105"
     return config
 

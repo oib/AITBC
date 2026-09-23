@@ -117,5 +117,5 @@ The more AI work contributed, the more value is created. AIT aims to connect hum
 ## See Also
 
 - [Free AIT — Early Adopter Program](./free-ait.md)
-- [Exchange Tool](https://hub.aitbc.bubuit.net/exchange.html)
+- [Exchange Tool](https://hub.example.net/exchange.html)
 - [Setup Guide](./SETUP.md)

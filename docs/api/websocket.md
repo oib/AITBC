@@ -16,9 +16,9 @@ The AITBC blockchain node exposes exactly **two** WebSocket endpoints, both moun
 ## Connection URLs
 
 - Development: `ws://localhost:8202/rpc/subscribe/ws` and `ws://localhost:8202/rpc/gossip/ws?topic=<topic>`
-- Production (public hub, via nginx): `wss://hub.aitbc.bubuit.net/rpc/subscribe/ws` and `wss://hub.aitbc.bubuit.net/rpc/gossip/ws?topic=<topic>`
+- Production (public hub, via nginx): `wss://hub.example.net/rpc/subscribe/ws` and `wss://hub.example.net/rpc/gossip/ws?topic=<topic>`
 
-The raw `http://hub.aitbc.bubuit.net:8202` address is internal-only; external clients go through the nginx TLS endpoint.
+The raw `http://hub.example.net:8202` address is internal-only; external clients go through the nginx TLS endpoint.
 
 ## Block subscription — `WS /rpc/subscribe/ws`
 
@@ -27,7 +27,7 @@ This is the channel follower nodes use to receive pushed blocks. The WebSocket a
 ### Step 1 — acquire a lease
 
 ```bash
-curl -X POST https://hub.aitbc.bubuit.net/rpc/subscribe \
+curl -X POST https://hub.example.net/rpc/subscribe \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <PEER_KEY>" \
   -d '{"node_id": "<your-node-id>", "chain_id": "ait-hub.aitbc.bubuit.net", "transport": "websocket"}'
@@ -45,7 +45,7 @@ import json
 import websockets
 
 async def follow_blocks(node_id: str, chain_id: str):
-    uri = "wss://hub.aitbc.bubuit.net/rpc/subscribe/ws"
+    uri = "wss://hub.example.net/rpc/subscribe/ws"
 
     async with websockets.connect(uri) as websocket:
         # First message MUST be the subscription handshake.
@@ -137,7 +137,7 @@ The same general guidance applies: implement reconnection with exponential backo
 
 ## Security considerations
 
-- Use `wss://` in production. The public endpoint is `wss://hub.aitbc.bubuit.net/rpc/...` behind nginx TLS termination.
+- Use `wss://` in production. The public endpoint is `wss://hub.example.net/rpc/...` behind nginx TLS termination.
 - Keep peer keys and validator private keys out of client-side code and out of the repo.
 - A peer key only ever unlocks lease management (`/rpc/subscribe`, `/rpc/heartbeat`, lease revocation); it does not authorize governance, chain control, or settlement routes.
 
@@ -147,4 +147,4 @@ The same general guidance applies: implement reconnection with exponential backo
 - **Closed with `1008` on `/rpc/gossip/ws`** — missing `?topic=` parameter, per-IP connection cap hit, or a failed/missing validator auth on a restricted topic.
 - **Closed with `1009`** — message exceeded `GOSSIP_MAX_MESSAGE_SIZE` (default 1 MiB).
 - **`{"error": "Not a validator"}`** — the `address` in `auth_response` is not in the node's `VALIDATOR_SET`.
-- **Connection refused on `:8202`** — that port is internal-only; use the nginx `wss://hub.aitbc.bubuit.net/rpc/...` path.
+- **Connection refused on `:8202`** — that port is internal-only; use the nginx `wss://hub.example.net/rpc/...` path.

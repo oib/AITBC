@@ -151,7 +151,7 @@ run_cli_tests() {
     }
 
     run_cli_test "chain:list:aitbc" aitbc chain list --node-url http://127.0.0.1:8202
-    run_cli_test "chain:list:${NODE1_HOST}" aitbc chain list --node-url https://hub.aitbc.bubuit.net/rpc
+    run_cli_test "chain:list:${NODE1_HOST}" aitbc chain list --node-url https://hub.example.net/rpc
     run_cli_test "analytics:summary:aitbc" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
     run_cli_test "analytics:summary:${NODE1_HOST}" aitbc analytics summary --chain-id ait-hub.aitbc.bubuit.net
     run_cli_test "marketplace:list:aitbc" aitbc market list

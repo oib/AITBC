@@ -61,7 +61,7 @@ aitbc blockchain info
 aitbc blockchain list
 aitbc network status
 aitbc network peers
-aitbc network subscribe --hub-url https://hub.aitbc.bubuit.net
+aitbc network subscribe --hub-url https://hub.example.net
 
 # RPC helpers
 curl http://localhost:8202/rpc/head | python3 -m json.tool

@@ -77,7 +77,7 @@ ISLAND_ID=550e8400-e29b-41d4-a716-446655440000
 ISLAND_NAME=default
 IS_HUB=false
 ISLAND_CHAIN_ID=ait-island-default
-HUB_DISCOVERY_URL=hub.aitbc.bubuit.net
+HUB_DISCOVERY_URL=hub.example.net
 BRIDGE_ISLANDS=
 ```
 
@@ -104,7 +104,7 @@ the services.
 ### Joining an Existing Island
 
 ```bash
-aitbc node island join --island-id <island-id> --island-name <island-name> --chain-id <chain-id> [--is-hub] [--hub hub.aitbc.bubuit.net]
+aitbc node island join --island-id <island-id> --island-name <island-name> --chain-id <chain-id> [--is-hub] [--hub hub.example.net]
 ```
 
 The join call posts to the hub's `/rpc/islands/join` and requires the node's
@@ -182,7 +182,7 @@ connectivity is configured entirely through the environment:
 
 ```bash
 # node.env (follower)
-DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net   # hub base URL, no /rpc
+DEFAULT_PEER_RPC_URL=https://hub.example.net   # hub base URL, no /rpc
 SUBSCRIPTION_ENABLED=true
 SUBSCRIPTION_TRANSPORT=websocket
 BLOCKCHAIN_RPC_API_KEY=<key>   # must be present in the hub's
@@ -203,10 +203,10 @@ supported for nodes that do need to discover or advertise a public endpoint
 
 ```bash
 # Comma-separated STUN servers
-STUN_SERVERS=stun.l.google.com:19302,jitsi.bubuit.net:3478
+STUN_SERVERS=stun.l.google.com:19302,stun.example.net:3478
 
 # TURN relay (future support)
-TURN_SERVER=jitsi.bubuit.net:3478
+TURN_SERVER=turn.example.net:3478
 ```
 
 ## Troubleshooting
@@ -215,8 +215,8 @@ TURN_SERVER=jitsi.bubuit.net:3478
 
 ```bash
 # From a follower — the subscribe flow uses plain HTTPS
-curl -s https://hub.aitbc.bubuit.net/rpc/status
-curl -s https://hub.aitbc.bubuit.net/rpc/network-info
+curl -s https://hub.example.net/rpc/status
+curl -s https://hub.example.net/rpc/network-info
 
 # Follow the subscribe/heartbeat loop in the node log
 journalctl -u aitbc-blockchain-node -f | grep -iE "subscri|heartbeat|lease"

@@ -77,7 +77,7 @@ curl -s http://localhost:8202/health
 ```
 
 Compare the post-upgrade height/head hash against the hub
-(`curl -s https://hub.aitbc.bubuit.net/rpc/head`) — a restarted follower
+(`curl -s https://hub.example.net/rpc/head`) — a restarted follower
 should converge within a few bulk-sync passes; the hub should resume
 producing at the `block_time_seconds` cadence.
 

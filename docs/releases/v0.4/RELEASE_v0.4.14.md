@@ -426,7 +426,7 @@ curl http://127.0.0.1:8105/v1/governance/status
 
 **7.6 Blockchain Node Sync Fixes**
 
-- ✅ Fixed `default_peer_rpc_url` in `blockchain.env` to point to hub (`https://hub.aitbc.bubuit.net`)
+- ✅ Fixed `default_peer_rpc_url` in `blockchain.env` to point to hub (`https://hub.example.net`)
 - ✅ Changed all hub URLs from HTTP to HTTPS in `blockchain.env` (fixes 308 redirect errors)
 - ✅ Removed `/rpc` suffix from hub URLs to prevent double `/rpc` in sync requests
 - ✅ Fixed genesis block hash validation in `sync.py` — normalizes hashes missing `0x` prefix

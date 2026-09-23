@@ -64,7 +64,7 @@ Found in the operator's `journalctl` output while confirming V23-59 had worked:
 
 ### [V23-68](change.log#L1151) — a key named for a coordinator, published as if it were a faucet token
 
-The hub publishes `COORDINATOR_API_KEY` in `https://hub.aitbc.bubuit.net/agent/blockchain.env`, a file it serves to anyone (200, 1215 bytes). The intent is sound — an island needs to call `/register` and `/execute` without an operator handing out credentials — but that key is not scoped to those two endpoints:
+The hub publishes `COORDINATOR_API_KEY` in `https://hub.example.net/agent/blockchain.env`, a file it serves to anyone (200, 1215 bytes). The intent is sound — an island needs to call `/register` and `/execute` without an operator handing out credentials — but that key is not scoped to those two endpoints:
 
 ### [V23-68b](change.log#L4147) — the fix for a published credential, and the two ways it could not have worked · CONFIRMED → RESOLVED
 

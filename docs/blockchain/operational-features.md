@@ -68,7 +68,7 @@ POST /rpc/force-sync
 Content-Type: application/json
 
 {
-  "peer_url": "https://hub.aitbc.bubuit.net",
+  "peer_url": "https://hub.example.net",
   "admin_address": "0x<admin address>",
   "admin_signature": "0x<secp256k1 signature over the request>",
   "target_height": 2000
@@ -100,7 +100,7 @@ To manually trigger synchronization:
 ```bash
 curl -X POST http://localhost:8202/rpc/force-sync \
   -H "Content-Type: application/json" \
-  -d '{"peer_url":"https://hub.aitbc.bubuit.net","admin_address":"0x...","admin_signature":"0x..."}'
+  -d '{"peer_url":"https://hub.example.net","admin_address":"0x...","admin_signature":"0x..."}'
 ```
 
 ## Export

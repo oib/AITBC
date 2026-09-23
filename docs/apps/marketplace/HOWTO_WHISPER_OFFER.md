@@ -117,7 +117,7 @@ Tell the hub agent:
 The hub can also discover the offer programmatically:
 
 ```
-GET https://hub.aitbc.bubuit.net/api/v1/plugin/plugins?service_type=whisper
+GET https://hub.example.net/api/v1/plugin/plugins?service_type=whisper
 ```
 
 (or `GET http://localhost:8102/v1/marketplace/plugins?service_type=whisper` directly on the hub) <!-- check-ports: ignore -->

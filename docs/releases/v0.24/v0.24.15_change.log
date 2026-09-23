@@ -4,7 +4,7 @@
 
 - **Stall state:** `<hub-node>` `/rpc/height` = 14547; `<node1>` `/rpc/height` = 14548; both heads 7.5+ hours old. `<hub-node>` logs showed `Selected proposer ... is not a local key, skipping proposal at height 14548` and periodic sync pulling from itself.
 - **Root cause:**
-  1. `<hub-node>` `default_peer_rpc_url` was `http://hub.aitbc.bubuit.net` (self-reference), so it could never learn `<node1>`'s head over HTTP.
+  1. `<hub-node>` `default_peer_rpc_url` was `http://hub.example.net` (self-reference), so it could never learn `<node1>`'s head over HTTP.
   2. `<node1>` was not publicly reachable for RPC; its container nginx `aitbc-loadbalancer` upstream pointed to a dead `127.0.0.1:8006` backend instead of the blockchain node on `8202`.
   3. The `<incus-host>` Incus host reverse proxy for `<node1-fqdn>`/`node1.example.net` was not enabled in sites-enabled.
 - **Actions:**
