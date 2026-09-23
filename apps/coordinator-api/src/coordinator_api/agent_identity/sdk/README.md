@@ -23,7 +23,7 @@ pip install aitbc-agent-identity-sdk
 
 ```python
 import asyncio
-from aitbc_agent_identity_sdk import AgentIdentityClient
+from coordinator_api.agent_identity.sdk import AgentIdentityClient
 
 async def main():
     # Initialize the client
@@ -324,7 +324,7 @@ class ChainType(str, Enum):
 The SDK provides specific exceptions for different error types:
 
 ```python
-from aitbc_agent_identity_sdk import (
+from coordinator_api.agent_identity.sdk import (
     AgentIdentityError,
     ValidationError,
     NetworkError,
@@ -354,7 +354,7 @@ The SDK provides convenience functions for common operations:
 ### Create Identity with Wallets
 
 ```python
-from aitbc_agent_identity_sdk import create_identity_with_wallets
+from coordinator_api.agent_identity.sdk import create_identity_with_wallets
 
 identity = await create_identity_with_wallets(
     client=client,
@@ -367,7 +367,7 @@ identity = await create_identity_with_wallets(
 ### Verify Identity on All Chains
 
 ```python
-from aitbc_agent_identity_sdk import verify_identity_on_all_chains
+from coordinator_api.agent_identity.sdk import verify_identity_on_all_chains
 
 results = await verify_identity_on_all_chains(
     client=client,
@@ -380,7 +380,7 @@ results = await verify_identity_on_all_chains(
 ### Get Identity Summary
 
 ```python
-from aitbc_agent_identity_sdk import get_identity_summary
+from coordinator_api.agent_identity.sdk import get_identity_summary
 
 summary = await get_identity_summary(client, "agent_123")
 print(f"Total balance: {summary['metrics']['total_balance']}")
@@ -429,7 +429,7 @@ pytest tests/test_agent_identity_sdk.py -v
 
 ```python
 import asyncio
-from aitbc_agent_identity_sdk import AgentIdentityClient, VerificationType
+from coordinator_api.agent_identity.sdk import AgentIdentityClient, VerificationType
 
 async def setup_agent():
     async with AgentIdentityClient() as client:

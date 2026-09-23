@@ -40,14 +40,10 @@ All service users:
 
 ### Service Isolation Status
 
-**Currently Isolated:** 11/26 services (42%)
-
-- Public services: 3/26
-- Internal services: 3/26
-- Blockchain services: 3/26
-- Specialized services: 2/26
-
-**Remaining Services:** 15/26 still run as root
+**Current state:** every app unit under `apps/*/` runs as `User=aitbc`
+(verified across the fleet — only `aitbc-hermes-agent` uses a dedicated
+`aitbc-hermes` user). The 11/26 isolation count below is a stale snapshot
+from before the fleet-wide `User=aitbc` rollout.
 
 For detailed service isolation configuration, see Service Isolation Documentation.
 

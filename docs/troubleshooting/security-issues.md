@@ -25,12 +25,15 @@ tail -f /var/log/nginx/access.log
 1. Review API keys
 
 ```bash
-# List all API keys
-curl -H "X-Admin-Key: $ADMIN_KEY" \
-  http://localhost:8203/v1/admin/api-keys
+# API keys are file-backed — there are no /v1/admin/api-keys routes.
+# Inspect the storage file (path from API_KEY_STORAGE_PATH, typically
+# /etc/aitbc/credentials/ or the service env):
+sudo cat "$(grep -oP 'API_KEY_STORAGE_PATH=\K.*' \
+  /etc/aitbc/aitbc-coordinator-api.env)"
 
-# Revoke suspicious keys
-curl -X DELETE http://localhost:8203/v1/admin/api-keys/{key_id}
+# Rotate a key: edit the storage file / rotate via the provisioning
+# script, then restart:
+sudo systemctl restart aitbc-coordinator-api
 ```
 
 1. Enable rate limiting
@@ -140,8 +143,8 @@ psql -d aitbc -c "SELECT version();" >> database-info.txt
 ### Support Channels
 
 - **GitHub Issues**: https://github.com/oib/AITBC/issues
-- **Documentation**: https://aitbc.bubuit.net/docs/
-- **Community**: https://community.aitbc.dev/
+- **API reference**: https://hub.aitbc.bubuit.net/api/docs (live openapi)
+- **Community**: none — `community.aitbc.dev` does not exist; use GitHub issues
 
 ### Debug Mode
 
@@ -149,7 +152,7 @@ Enable debug mode for detailed logging:
 
 ```bash
 # Edit environment
-echo "DEBUG=true" >> /etc/aitbc/coordinator.env
+echo "DEBUG=true" >> /etc/aitbc/aitbc-coordinator-api.env   # the unit's real EnvironmentFile
 
 # Restart service
 systemctl restart aitbc-coordinator-api

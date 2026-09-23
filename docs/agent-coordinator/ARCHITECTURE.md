@@ -53,8 +53,8 @@ The Load Balancer distributes tasks across eligible agents using configurable st
 - `ROUND_ROBIN` - Distributes tasks in circular order
 - `WEIGHTED_ROUND_ROBIN` - Based on agent performance weights
 - `RESOURCE_BASED` - Based on CPU/memory metrics
-- `GEOGRAPHIC` - Based on agent location
-- `RANDOM` - For testing purposes
+- `~~GEOGRAPHIC~~ (not in enum)` - Based on agent location
+- `~~RANDOM~~ (not in enum)` - For testing purposes
 
 **Key Classes:**
 
@@ -302,9 +302,9 @@ The load balancer uses the following criteria to select agents:
 
 ### Environment Variables
 
-- `AITBC_REDIS_URL` - Redis connection URL (default: redis://localhost:6379)
-- `AITBC_COORDINATOR_PORT` - Coordinator service port (default: 8107)
-- `AITBC_LOG_LEVEL` - Logging level (default: INFO)
+- `REDIS_URL` - Redis connection URL (default: redis://localhost:6379)
+- `AGENT_COORDINATOR_BIND_PORT` - Coordinator service port (default: 8107)
+- `LOG_LEVEL` - Logging level (default: INFO)
 
 ### Load Balancing Configuration
 
@@ -333,7 +333,7 @@ The load balancer uses the following criteria to select agents:
 
 - `GET /tasks/status` - Task distribution statistics
 - `GET /health` - Service health check
-- Future: Prometheus metrics endpoint
+- `GET /v1/metrics` already exists (routers/monitoring.py:17)
 
 ## Security
 

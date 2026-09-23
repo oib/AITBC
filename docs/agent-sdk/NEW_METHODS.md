@@ -1,5 +1,11 @@
 # Agent SDK New Methods Documentation
 
+> **Not-implemented SDK surface.** The methods below invoke CLI subcommands
+> that do not exist (`aitbc agent zk|knowledge|bounty|dispute`, `aitbc swarm`,
+> `aitbc staking manage`, `aitbc island bridge`, `aitbc database`,
+> `aitbc analytics query`, `aitbc market gpu list`). The SDK wrapper modules
+> will fail at call time. Treat as a design wishlist, not current docs.
+
 ## Overview
 
 The Agent SDK has been extended with new methods that call Click CLI commands via subprocess. These methods enable agent agents to interact with AITBC features without requiring direct API access.
@@ -246,6 +252,6 @@ assert valid == True
 
 - All CLI commands are called via subprocess to `aitbc`
 - Methods are synchronous unless noted as async
-- CLI must be installed and accessible at `/usr/local/bin/aitbc`
+- CLI must be installed and accessible at `aitbc` on PATH (the executor resolves `shutil.which("aitbc")` — no fixed path required)
 - Error handling includes logging and exception propagation
 - For production use, ensure CLI commands are properly configured

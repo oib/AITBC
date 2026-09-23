@@ -127,7 +127,7 @@ config = AgentConfig(
 
     # Blockchain settings
     blockchain_network="mainnet",
-    rpc_url="https://rpc.aitbc.net",
+    rpc_url="https://hub.aitbc.bubuit.net",
     wallet_private_key="0x...",
 
     # AI settings
@@ -157,7 +157,7 @@ config = AgentConfig(
 # aitbc_agent package (the SDK is configured via constructor args and the
 # CLI's config/env; AITBC_API_KEY is the only real one, used by the CLI).
 AITBC_NETWORK=mainnet
-AITBC_RPC_URL=https://rpc.aitbc.net
+AITBC_RPC_URL=https://hub.aitbc.bubuit.net
 AITBC_PRIVATE_KEY=0x...
 AITBC_AI_MODEL=gpt-4
 AITBC_AI_PROVIDER=openai
@@ -451,7 +451,7 @@ We welcome contributions to the AITBC Agent SDK! Please see our Contributing Gui
 ```bash
 # Clone repository — the SDK lives in the AITBC monorepo
 git clone https://github.com/oib/AITBC.git
-cd AITBC/packages/py/aitbc-sdk
+cd AITBC/packages/py/aitbc-agent-sdk   # aitbc-sdk is the REST client; this doc covers the agent SDK
 
 # Install development dependencies
 pip install -e ".[dev]"

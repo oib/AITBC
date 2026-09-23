@@ -1,10 +1,18 @@
 # Scenario 46: Confidential AI job with TEE attestation
 
+> **v0.14.4+ behavior.** Escrow releases only for VERIFIED **registered**
+> attestations — an unregistered enclave (`unregistered_enclave`) or a
+> missing quote (`tee_quote_missing`) triggers a refund. The coordinator no
+> longer auto-generates simulated quotes; `ai submit
+> --tee-attestation-required` also aborts client-side unless
+> `TEE_ATTESTATION_ENABLED` is set.
+
+
 > **Simulated TEE path only.** The `aitbc tee` group was briefly deregistered in
 > `9079fb74a` (1 Sep) and re-registered in `87c5f2df16`, so `aitbc tee ...`
 > commands below do run. However, attestation, verification, and enclave
 > registration go through the **simulated/coordinator-side TEE path**
-> (`SIMULATED_TEE=1`) — no live node has SGX/SEV/TPM hardware, so nothing here
+> (`TEE_ATTESTATION_ENABLED=1   # TEE_ATTESTATION_ENABLED is fictional — nothing reads it`) — no live node has SGX/SEV/TPM hardware, so nothing here
 > proves a hardware root of trust. The coordinator-side attestation API
 > (`/v1/tee/attestations/...`) is live. Hardware-backed TEE stays deferred to
 > release 2.0; see `docs/releases/STATUS.md` and
@@ -43,7 +51,7 @@ export WALLET=customer-wallet
 # Log in once with a funded customer wallet; subsequent commands use the stored token.
 aitbc auth login --wallet "$WALLET" --coordinator-url "$COORDINATOR_API_URL"
 
-aitbc tee register --enclave-id enc-live-01 --agent-id hub-coordinator
+aitbc tee register --enclave-id enc-live-01 --public-key <enclave-pubkey>   # --public-key is required; --agent-id is deprecated/ignored
 ```
 
 Expected output:
@@ -140,7 +148,7 @@ Expected response:
 
 ## Notes
 
-- This scenario uses the simulated TEE path (`SIMULATED_TEE=1`). Real SGX/TDX
+- This scenario uses the simulated TEE path (`TEE_ATTESTATION_ENABLED=1   # TEE_ATTESTATION_ENABLED is fictional — nothing reads it`). Real SGX/TDX
   attestation is deferred to **release 2.0** and will stay deferred until
   TEE-capable hardware is available to the fleet; no validator host currently has
   an enclave runtime. See "Deferred to v2.0 — hardware-backed TEE" in

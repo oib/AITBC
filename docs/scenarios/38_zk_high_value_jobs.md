@@ -1,5 +1,12 @@
 # Scenario 38: ZK Proofs for High-Value Jobs
 
+> **v0.14.4+ behavior.** Only `linear-1` is registered in `MODEL_CIRCUITS`;
+> any other model (e.g. `llama3.2:3b`) yields `zk_status: unsupported_model`
+> → `computation_correct=False` → escrow blocked/refunded. The `verified`/
+> `released` expectations below are pre-v0.14.4 — see scenario 34 for the
+> corrected refund flow.
+
+
 **Level**: Intermediate
 **Prerequisites**: Scenario 07 AI Job Submission, Scenario 37 Performance Bonds
 **Estimated Time**: 15 minutes

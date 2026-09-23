@@ -122,7 +122,7 @@ When the coordinator receives the miner's result:
 1. It verifies the result and computes a receipt.
 2. It calls `POST /rpc/escrow/{job_id}/release` on the blockchain node.
 3. The blockchain node builds and signs an `ESCROW_RELEASE` transaction and submits it to `POST /rpc/transactions/marketplace`.
-4. The transaction is included in a block, transferring compute-seconds from the escrow to the provider.
+4. The transaction is included in a block, transferring compute-units from the escrow to the provider.
 
 The release is signed by the dedicated settlement key (`ESCROW_RELEASE_PRIVATE_KEY` / `ESCROW_RELEASE_ADDRESS` in `/etc/aitbc/blockchain-secrets.env`); genesis is only a logged fallback and a key/address mismatch is refused before the escrow is touched. A 1.0 AIT job currently pays approximately 0.975 AIT to the provider after the network fee.
 

@@ -9,7 +9,7 @@
 | Status | active |
 | Node Type | hub |
 | GPU Required | no |
-| Service | No systemd service file |
+| Service | Unit file: `aitbc-pool-hub.service` (checked in at `apps/pool-hub/`) |
 | Core Service | no |
 | Source | src/ directory with 37 Python file(s) |
 

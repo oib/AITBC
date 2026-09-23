@@ -13,8 +13,8 @@
 - `ROUND_ROBIN` - Circular distribution
 - `WEIGHTED_ROUND_ROBIN` - Performance-based
 - `RESOURCE_BASED` - CPU/memory metrics
-- `GEOGRAPHIC` - Location-based
-- `RANDOM` - Random selection (testing)
+- `~~GEOGRAPHIC~~ (not in LoadBalancingStrategy enum)` - Location-based
+- `~~RANDOM~~ (not in enum)` - Random selection (testing)
 
 ### Changing Strategy
 

@@ -41,8 +41,8 @@ See [CLI Guide](cli-guide.md) and [customer↔hub end-to-end scenario](../../sce
 
 ```bash
 # List a GPU offer and start mining
-aitbc market offer --gpu-id gpu-0 --memory 24 --price 100
-aitbc mining start --wallet my-wallet
+aitbc market offer --service-type ollama --model-or-variant llama3.2 --price 100 --unit gpu-second
+aitbc mining start --wallet-name my-wallet
 ```
 
 See [Miner Quick Start](../mining/miner-quick-start.md) for the full shop path.
@@ -85,13 +85,11 @@ The following areas are on the roadmap and are partially implemented or aspirati
 
 ## Chain-specific token system
 
-AITBC uses chain-specific tokens for isolation:
-
-- **AITBC-AIT-DEVNET**: devnet tokens for testing
-- **AITBC-AIT-TESTNET**: testnet tokens
-- **AITBC-MAINNET**: mainnet tokens
-
-Tokens are chain-specific and non-transferable between chains.
+AITBC balances are tracked per chain — a balance on one island does not
+carry to another. The currency symbol is `AIT`/`AITBC` everywhere; chain
+**IDs** are `ait-devnet`, `ait-testnet`, `ait-mainnet`, and
+`ait-hub.aitbc.bubuit.net` — there are no chain-specific token tickers
+like `AITBC-AIT-DEVNET`.
 
 ## Next steps
 
