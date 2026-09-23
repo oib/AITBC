@@ -84,11 +84,13 @@ class AITBCHTTPClient:
             return endpoint
         return f"{self.base_url}/{endpoint.lstrip('/')}"
 
-    def _build_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+    def _build_headers(self, headers: dict[str, str] | None = None, idempotency_key: str | None = None) -> dict[str, str]:
         """Build request headers with correlation ID if set."""
         req_headers = {**self.headers, **(headers or {})}
         if self.correlation_id:
             req_headers["X-Request-ID"] = self.correlation_id
+        if idempotency_key:
+            req_headers["Idempotency-Key"] = idempotency_key
         return req_headers
 
     def get(
@@ -153,7 +155,7 @@ class AITBCHTTPClient:
             return response.json()
 
         try:
-            result: JSONResponse = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request, method="GET")
             self.cache.set(cache_key, result)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
@@ -176,6 +178,7 @@ class AITBCHTTPClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform POST request.
@@ -185,12 +188,17 @@ class AITBCHTTPClient:
             data: Form data
             json: JSON data
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header; when set,
+                ambiguous post-send failures are retried on the assumption
+                the upstream deduplicates by key
 
         Returns:
             Decoded JSON object
 
         Raises:
             TypeError: If the endpoint returned a JSON array
+            AmbiguousRequestError: a post-send failure occurred and no
+                idempotency key was given — the write may have committed
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -198,7 +206,7 @@ class AITBCHTTPClient:
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("POST %s with json=%s", url, json)
@@ -210,7 +218,9 @@ class AITBCHTTPClient:
             return response.json()
 
         try:
-            result: JSONResponse = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(
+                _make_request, method="POST", retry_ambiguous=bool(idempotency_key)
+            )
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -232,6 +242,7 @@ class AITBCHTTPClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform PUT request.
@@ -241,6 +252,9 @@ class AITBCHTTPClient:
             data: Form data
             json: JSON data
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header (PUT is
+                spec-idempotent, so ambiguous retries are already allowed;
+                the key lets the upstream deduplicate explicitly)
 
         Returns:
             Decoded JSON object
@@ -254,7 +268,7 @@ class AITBCHTTPClient:
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("PUT %s with json=%s", url, json)
@@ -266,7 +280,7 @@ class AITBCHTTPClient:
             return response.json()
 
         try:
-            result: JSONResponse = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request, method="PUT")
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -283,7 +297,11 @@ class AITBCHTTPClient:
             raise NetworkError(f"PUT request failed: {e}") from e
 
     def patch(
-        self, endpoint: str, json: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+        self,
+        endpoint: str,
+        json: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform PATCH request.
@@ -292,14 +310,21 @@ class AITBCHTTPClient:
             endpoint: API endpoint
             json: JSON body
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header; when set,
+                ambiguous post-send failures are retried (PATCH is not
+                spec-idempotent)
 
         Returns:
             Decoded JSON object
+
+        Raises:
+            AmbiguousRequestError: a post-send failure occurred and no
+                idempotency key was given — the write may have committed
         """
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("PATCH %s with json=%s", url, json)
@@ -311,7 +336,9 @@ class AITBCHTTPClient:
             return response.json() if response.content else {}
 
         try:
-            result: JSONResponse = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(
+                _make_request, method="PATCH", retry_ambiguous=bool(idempotency_key)
+            )
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -328,7 +355,11 @@ class AITBCHTTPClient:
             raise NetworkError(f"PATCH request failed: {e}") from e
 
     def delete(
-        self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform DELETE request.
@@ -337,6 +368,9 @@ class AITBCHTTPClient:
             endpoint: API endpoint
             params: Query parameters
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header (DELETE is
+                spec-idempotent; the key lets the upstream deduplicate
+                explicitly)
 
         Returns:
             Decoded JSON object
@@ -350,7 +384,7 @@ class AITBCHTTPClient:
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("DELETE %s with params=%s", url, params)
@@ -362,7 +396,7 @@ class AITBCHTTPClient:
             return response.json() if response.content else {}
 
         try:
-            result: JSONResponse = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request, method="DELETE")
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
@@ -473,11 +507,13 @@ class AsyncAITBCHTTPClient:
             return endpoint
         return f"{self.base_url}/{endpoint.lstrip('/')}"
 
-    def _build_headers(self, headers: dict[str, str] | None = None) -> dict[str, str]:
+    def _build_headers(self, headers: dict[str, str] | None = None, idempotency_key: str | None = None) -> dict[str, str]:
         """Build request headers with correlation ID if set."""
         req_headers = {**self.headers, **(headers or {})}
         if self.correlation_id:
             req_headers["X-Request-ID"] = self.correlation_id
+        if idempotency_key:
+            req_headers["Idempotency-Key"] = idempotency_key
         return req_headers
 
     async def get(
@@ -538,11 +574,12 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                return await client.get(url, params=params, headers=req_headers)
+                response = await client.get(url, params=params, headers=req_headers)
+                response.raise_for_status()
+                return response
 
         try:
-            response = await self.retry_policy.execute_async(_make_request)
-            response.raise_for_status()
+            response = await self.retry_policy.execute_async(_make_request, method="GET")
             result: JSONResponse = response.json()
             self.cache.set(cache_key, result)
             self.circuit_breaker.record_success()
@@ -566,6 +603,7 @@ class AsyncAITBCHTTPClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform async POST request.
@@ -575,12 +613,17 @@ class AsyncAITBCHTTPClient:
             data: Form data
             json: JSON data
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header; when set,
+                ambiguous post-send failures are retried on the assumption
+                the upstream deduplicates by key
 
         Returns:
             Decoded JSON object
 
         Raises:
             TypeError: If the endpoint returned a JSON array
+            AmbiguousRequestError: a post-send failure occurred and no
+                idempotency key was given — the write may have committed
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -588,7 +631,7 @@ class AsyncAITBCHTTPClient:
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("POST %s with json=%s", url, json)
@@ -596,11 +639,14 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                return await client.post(url, data=data, json=json, headers=req_headers)
+                response = await client.post(url, data=data, json=json, headers=req_headers)
+                response.raise_for_status()
+                return response
 
         try:
-            response = await self.retry_policy.execute_async(_make_request)
-            response.raise_for_status()
+            response = await self.retry_policy.execute_async(
+                _make_request, method="POST", retry_ambiguous=bool(idempotency_key)
+            )
             result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
@@ -623,6 +669,7 @@ class AsyncAITBCHTTPClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform async PUT request.
@@ -632,6 +679,9 @@ class AsyncAITBCHTTPClient:
             data: Form data
             json: JSON data
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header (PUT is
+                spec-idempotent, so ambiguous retries are already allowed;
+                the key lets the upstream deduplicate explicitly)
 
         Returns:
             Decoded JSON object
@@ -645,7 +695,7 @@ class AsyncAITBCHTTPClient:
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("PUT %s with json=%s", url, json)
@@ -653,11 +703,12 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                return await client.put(url, data=data, json=json, headers=req_headers)
+                response = await client.put(url, data=data, json=json, headers=req_headers)
+                response.raise_for_status()
+                return response
 
         try:
-            response = await self.retry_policy.execute_async(_make_request)
-            response.raise_for_status()
+            response = await self.retry_policy.execute_async(_make_request, method="PUT")
             result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
@@ -680,6 +731,7 @@ class AsyncAITBCHTTPClient:
         data: dict[str, Any] | None = None,
         json: dict[str, Any] | None = None,
         headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform async PATCH request.
@@ -689,14 +741,21 @@ class AsyncAITBCHTTPClient:
             data: Form data
             json: JSON data
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header; when set,
+                ambiguous post-send failures are retried (PATCH is not
+                spec-idempotent)
 
         Returns:
             Decoded JSON object
+
+        Raises:
+            AmbiguousRequestError: a post-send failure occurred and no
+                idempotency key was given — the write may have committed
         """
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("PATCH %s with json=%s", url, json)
@@ -704,11 +763,14 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                return await client.patch(url, data=data, json=json, headers=req_headers)
+                response = await client.patch(url, data=data, json=json, headers=req_headers)
+                response.raise_for_status()
+                return response
 
         try:
-            response = await self.retry_policy.execute_async(_make_request)
-            response.raise_for_status()
+            response = await self.retry_policy.execute_async(
+                _make_request, method="PATCH", retry_ambiguous=bool(idempotency_key)
+            )
             result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
@@ -726,7 +788,11 @@ class AsyncAITBCHTTPClient:
             raise NetworkError(f"PATCH request failed: {e}") from e
 
     async def delete(
-        self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+        self,
+        endpoint: str,
+        params: dict[str, Any] | None = None,
+        headers: dict[str, str] | None = None,
+        idempotency_key: str | None = None,
     ) -> dict[str, Any]:
         """
         Perform async DELETE request.
@@ -735,6 +801,9 @@ class AsyncAITBCHTTPClient:
             endpoint: API endpoint
             params: Query parameters
             headers: Additional headers
+            idempotency_key: sent as the Idempotency-Key header (DELETE is
+                spec-idempotent; the key lets the upstream deduplicate
+                explicitly)
 
         Returns:
             Decoded JSON object
@@ -748,7 +817,7 @@ class AsyncAITBCHTTPClient:
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
         self.rate_limiter.check()
-        req_headers = self._build_headers(headers)
+        req_headers = self._build_headers(headers, idempotency_key)
 
         if self.enable_logging:
             self.logger.info("DELETE %s with params=%s", url, params)
@@ -756,11 +825,12 @@ class AsyncAITBCHTTPClient:
 
         async def _make_request():
             async with httpx.AsyncClient(timeout=self.timeout) as client:
-                return await client.delete(url, params=params, headers=req_headers)
+                response = await client.delete(url, params=params, headers=req_headers)
+                response.raise_for_status()
+                return response
 
         try:
-            response = await self.retry_policy.execute_async(_make_request)
-            response.raise_for_status()
+            response = await self.retry_policy.execute_async(_make_request, method="DELETE")
             result = response.json() if response.content else {}
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()

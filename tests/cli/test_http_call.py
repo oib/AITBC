@@ -88,3 +88,52 @@ class TestHttpCallAuth:
         assert result.exit_code != 0
         assert "trading API key" in result.output
         mock_http_class.assert_not_called()
+
+
+class TestHttpCallIdempotencyKey:
+    """--idempotency-key flows into the client's write methods so ambiguous
+    post-send failures may be retried against a deduplicating upstream."""
+
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.http.get_config")
+    def test_post_passes_idempotency_key(self, mock_get_config, mock_http_class, runner):
+        from aitbc_cli.commands.http import http
+
+        mock_get_config.return_value = SimpleNamespace(api_key=None)
+        client = mock_http_class.return_value
+        client.post.return_value = {"ok": True}
+
+        result = runner.invoke(
+            http,
+            [
+                "call",
+                "wallet",
+                "v1/wallets",
+                "--method",
+                "POST",
+                "--body",
+                '{"wallet_id": "genesis"}',
+                "--idempotency-key",
+                "op-123",
+            ],
+        )
+
+        assert result.exit_code == 0
+        assert client.post.call_args.kwargs["idempotency_key"] == "op-123"
+
+    @patch("aitbc_cli.commands.http.AITBCHTTPClient")
+    @patch("aitbc_cli.commands.http.get_config")
+    def test_post_without_key_passes_none(self, mock_get_config, mock_http_class, runner):
+        from aitbc_cli.commands.http import http
+
+        mock_get_config.return_value = SimpleNamespace(api_key=None)
+        client = mock_http_class.return_value
+        client.post.return_value = {"ok": True}
+
+        result = runner.invoke(
+            http,
+            ["call", "wallet", "v1/wallets", "--method", "POST", "--body", '{"wallet_id": "genesis"}'],
+        )
+
+        assert result.exit_code == 0
+        assert client.post.call_args.kwargs["idempotency_key"] is None

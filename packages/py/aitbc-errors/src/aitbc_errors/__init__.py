@@ -86,3 +86,16 @@ class RateLimitError(AITBCError):
     """Raised when rate limit is exceeded"""
 
     pass
+
+
+class AmbiguousRequestError(NetworkError):
+    """A non-idempotent request may have reached the server, but the outcome
+    is unknown (post-send failure or an error response). The caller must
+    reconcile state rather than blindly retry.
+
+    Subclasses NetworkError so existing ``except NetworkError`` handlers keep
+    working; callers that need to distinguish "definitely never sent" from
+    "outcome unknown" catch this type specifically.
+    """
+
+    pass

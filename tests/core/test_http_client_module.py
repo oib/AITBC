@@ -441,3 +441,66 @@ class TestAsyncAITBCHTTPClient:
 
         with pytest.raises(http_client.CircuitBreakerOpenError):
             await client.post("/test")
+
+
+class TestIdempotencyKeyPlumbing:
+    """idempotency_key sets the Idempotency-Key header and unlocks ambiguous
+    retries for POST/PATCH (they are not spec-idempotent)."""
+
+    @patch("requests.Session.post")
+    def test_post_sets_idempotency_key_header(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {"ok": True}
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
+        client.post("/test", json={"a": 1}, idempotency_key="op-7")
+
+        headers = mock_post.call_args.kwargs["headers"]
+        assert headers["Idempotency-Key"] == "op-7"
+
+    @patch("requests.Session.post")
+    def test_post_without_key_sends_no_header(self, mock_post):
+        mock_response = Mock()
+        mock_response.json.return_value = {"ok": True}
+        mock_response.raise_for_status = Mock()
+        mock_post.return_value = mock_response
+
+        client = http_client.AITBCHTTPClient(base_url="https://api.example.com")
+        client.post("/test", json={"a": 1})
+
+        headers = mock_post.call_args.kwargs["headers"]
+        assert "Idempotency-Key" not in headers
+
+    @patch("requests.Session.post")
+    def test_post_ambiguous_failure_raises_without_key(self, mock_post):
+        import requests as req
+
+        mock_post.side_effect = req.ReadTimeout("read timed out")
+        client = http_client.AITBCHTTPClient(base_url="https://api.example.com", max_retries=2)
+
+        from aitbc_errors import AmbiguousRequestError
+
+        with pytest.raises(AmbiguousRequestError):
+            client.post("/test", json={"a": 1})
+        assert mock_post.call_count == 1
+
+    @patch("requests.Session.post")
+    def test_post_ambiguous_failure_retries_with_key(self, mock_post):
+        import requests as req
+
+        mock_response = Mock()
+        mock_response.json.return_value = {"ok": True}
+        mock_response.raise_for_status = Mock()
+        mock_post.side_effect = [req.ReadTimeout("read timed out"), mock_response]
+
+        client = http_client.AITBCHTTPClient(base_url="https://api.example.com", max_retries=2)
+        result = client.post("/test", json={"a": 1}, idempotency_key="op-9")
+
+        assert result == {"ok": True}
+        assert mock_post.call_count == 2
+        # The same key goes out on every attempt — a fresh key would defeat
+        # upstream dedup.
+        for call in mock_post.call_args_list:
+            assert call.kwargs["headers"]["Idempotency-Key"] == "op-9"
