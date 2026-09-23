@@ -527,27 +527,27 @@ def suggest(
         sys.exit(1)
 
     # --- AIT/EUR rate ---------------------------------------------------------
+    rate: Decimal | None = None
+    rate_src = ""
     if ait_per_eur is not None:
         rate, rate_src = Decimal(str(ait_per_eur)), "manual"
-    else:
-        rate, rate_src = None, ""
-        if config.evm_rpc_url and config.energy_pricing_contract_address:
-            try:
-                from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-                from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+    elif config.evm_rpc_url and config.energy_pricing_contract_address:
+        try:
+            from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+            from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
-                rpc = EthereumRPCClient(
-                    EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id))
-                )
-                oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
-                rate = Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
-                rate_src = "on-chain rate"
-            except Exception as exc:  # oracle unavailable -> reference fallback
-                logger.warning("On-chain rate read failed (%s); using reference", exc)
-        if rate is None:
-            from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
+            rpc = EthereumRPCClient(
+                EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id))
+            )
+            oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
+            rate = Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
+            rate_src = "on-chain rate"
+        except Exception as exc:  # oracle unavailable -> reference fallback
+            logger.warning("On-chain rate read failed (%s); using reference", exc)
+    if rate is None:
+        from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
 
-            rate, rate_src = Decimal(1) / AIT_REFERENCE_PRICE_EUR, "EUR 0.25 reference"
+        rate, rate_src = Decimal(1) / AIT_REFERENCE_PRICE_EUR, "EUR 0.25 reference"
 
     # --- floor + suggestion ---------------------------------------------------
     floor_units = compute_energy_net_units(
