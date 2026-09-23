@@ -61,7 +61,7 @@ while [[ $# -gt 0 ]]; do
             echo "  --help                 Show this help message"
             echo ""
             echo "Examples:"
-            echo "  $0 --open-island https://hub.aitbc.bubuit.net --node-id my-node"
+            echo "  $0 --open-island https://hub.example.net --node-id my-node"
             echo "  $0 --gitea"
             echo "  $0 --gitea https://gitea.example.com/oib/aitbc.git"
             exit 0

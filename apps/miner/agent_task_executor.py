@@ -51,7 +51,7 @@ logger = get_logger(__name__)
 
 # --- Configuration ---------------------------------------------------------
 
-COORDINATOR_URL = os.environ.get("AGENT_COORDINATOR_URL") or os.environ.get("COORDINATOR_URL", "https://hub.aitbc.bubuit.net")
+COORDINATOR_URL = os.environ.get("AGENT_COORDINATOR_URL") or os.environ.get("COORDINATOR_URL", "https://hub.example.net")
 AGENT_EXECUTOR_ID = os.environ.get("AGENT_EXECUTOR_ID") or os.environ.get("MINER_ID", "aitbc-miner-1")
 STATE_PATH = Path(os.environ.get("AGENT_EXECUTOR_STATE", "/var/lib/aitbc/data/agent_executor_state.json"))
 HTTP_TIMEOUT = int(os.environ.get("AGENT_EXECUTOR_HTTP_TIMEOUT", "30"))

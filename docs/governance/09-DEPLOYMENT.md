@@ -206,7 +206,7 @@ This document covers deployment procedures for the Governance Service, including
    ```nginx
    server {
        listen 80;
-       server_name governance.example.net;  # no governance.* vhost exists — public access is via hub.aitbc.bubuit.net / api-gateway
+       server_name governance.example.net;  # no governance.* vhost exists — public access is via hub.example.net / api-gateway
 
        location / {
            proxy_pass http://localhost:8105;

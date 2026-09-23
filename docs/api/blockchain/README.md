@@ -6,10 +6,10 @@ The Blockchain Node API provides access to blockchain operations including block
 
 ## Base URL
 
-- Production (public hub, via nginx): `https://hub.aitbc.bubuit.net/rpc`
+- Production (public hub, via nginx): `https://hub.example.net/rpc`
 - Development: `http://localhost:8202/rpc`
 
-The raw `http://hub.aitbc.bubuit.net:8202` listener is internal-only; external clients must go through the nginx TLS endpoint.
+The raw `http://hub.example.net:8202` listener is internal-only; external clients must go through the nginx TLS endpoint.
 
 ## API Documentation
 
@@ -177,12 +177,12 @@ Retrieve network configuration for joining the island. The node derives the publ
   "supported_chains": ["ait-hub.aitbc.bubuit.net"],
   "is_hub": true,
   "role": "hub",
-  "public_rpc_url": "https://hub.aitbc.bubuit.net/rpc",
-  "subscription_websocket_url": "wss://hub.aitbc.bubuit.net/rpc/subscribe/ws",
-  "gossip_websocket_url": "wss://hub.aitbc.bubuit.net/rpc/gossip/ws",
+  "public_rpc_url": "https://hub.example.net/rpc",
+  "subscription_websocket_url": "wss://hub.example.net/rpc/subscribe/ws",
+  "gossip_websocket_url": "wss://hub.example.net/rpc/gossip/ws",
   "gossip_auth_required": true,
   "validators": [],
-  "default_peer_rpc_url": "https://hub.aitbc.bubuit.net",
+  "default_peer_rpc_url": "https://hub.example.net",
   "connection_instructions": "Set default_peer_rpc_url=... and enable subscription (subscription_transport=websocket). Register via POST .../rpc/subscribe, then receive blocks via WebSocket at .../rpc/subscribe/ws. Extend the lease with POST .../rpc/heartbeat.",
   "version": "0.7.6"
 }

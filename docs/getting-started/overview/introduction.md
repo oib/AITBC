@@ -52,7 +52,7 @@ See [Miner Quick Start](../mining/miner-quick-start.md) for the full shop path.
 ```bash
 # Install and start the hub profile
 sudo /opt/aitbc/scripts/deployment/setup.sh \
-  --open-island https://hub.aitbc.bubuit.net \
+  --open-island https://hub.example.net \
   --node-id <unique-node-id>
 
 # Start the blockchain node

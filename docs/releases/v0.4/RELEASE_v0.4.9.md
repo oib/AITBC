@@ -176,8 +176,8 @@ GET  /v1/exchange/history         # Get transaction history
 #### WebSocket Streams
 
 ```
-ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/price/{pair}
-ws://hub.aitbc.bubuit.net:8106/v1/exchange/stream/status/{tx_id}
+ws://hub.example.net:8106/v1/exchange/stream/price/{pair}
+ws://hub.example.net:8106/v1/exchange/stream/status/{tx_id}
 ```
 
 ### Website Update — 📋 Detailed Features

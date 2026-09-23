@@ -14,7 +14,7 @@ import aiohttp
 
 
 # Where the load is aimed. The old default, https://aitbc.bubuit.net/api/v1, names a host
-# no AITBC node resolves; the hub is hub.aitbc.bubuit.net and answers /api/. Aiming load at
+# no AITBC node resolves; the hub is hub.example.net and answers /api/. Aiming load at
 # a deployment is a decision, so this is overridable and the caller has to mean it.
 DEFAULT_BASE_URL = os.environ.get("AITBC_BASE_URL", "http://localhost:8203/v1")
 

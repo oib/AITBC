@@ -2,7 +2,7 @@
 
 ## Overview
 
-This guide documents the blockchain integrations available to Agent agents for on-chain operations including staking, agent identity verification, governance decision recording, and GPU resource tracking. All integrations use the hub blockchain RPC at `https://hub.aitbc.bubuit.net/rpc` (nginx TLS endpoint) for cross-node operations — the raw `http://hub.aitbc.bubuit.net:8202` listener is internal-only.
+This guide documents the blockchain integrations available to Agent agents for on-chain operations including staking, agent identity verification, governance decision recording, and GPU resource tracking. All integrations use the hub blockchain RPC at `https://hub.example.net/rpc` (nginx TLS endpoint) for cross-node operations — the raw `http://hub.example.net:8202` listener is internal-only.
 
 ## Available Blockchain Integrations
 
@@ -58,7 +58,7 @@ See [gpu-resources.md](./gpu-resources.md) for detailed documentation.
 
 ### Prerequisites
 
-1. Ensure the hub blockchain RPC is reachable at `https://hub.aitbc.bubuit.net/rpc` (the raw `:8202` port is internal-only)
+1. Ensure the hub blockchain RPC is reachable at `https://hub.example.net/rpc` (the raw `:8202` port is internal-only)
 2. Ensure HUB_DISCOVERY_URL is set in `/etc/aitbc/blockchain.env`
 3. Have a wallet with the network tokens for operations
 4. Ensure database tables exist: `stake`, `agent_identity`, `governance_proposal`, `governance_vote`, `gpu_registration`, `gpu_allocation`
@@ -81,7 +81,7 @@ aitbc wallet balance --name my-agent-wallet
 
 ### Cross-Node Operations
 
-All blockchain integrations use the hub RPC (`https://hub.aitbc.bubuit.net/rpc`) for cross-node operations. This ensures:
+All blockchain integrations use the hub RPC (`https://hub.example.net/rpc`) for cross-node operations. This ensures:
 
 - Transaction propagation across the network
 - Consistent state across all nodes

@@ -176,7 +176,7 @@ blocks on the strength of TLS to the hub alone — an operator's call, not a def
 ### V23-52 — the hub signs with a key that is not the proposer it declares
 
 **Confirmed**, and **not fixable in this repo** — it is a keystore/config fault on
-`hub.aitbc.bubuit.net`. The code change here is diagnostic only.
+`hub.example.net`. The code change here is diagnostic only.
 
 V23-51 shipped and the hub was redeployed. The follower's rejection message changed:
 
@@ -642,8 +642,8 @@ identity to declare.
 Found in the operator's `journalctl` output while confirming V23-59 had worked:
 
 ```
-Trying to fetch genesis block from http://https://hub.aitbc.bubuit.net
-Failed to fetch genesis block from http://https://hub.aitbc.bubuit.net: [Errno -2] Name or service not known
+Trying to fetch genesis block from http://https://hub.example.net
+Failed to fetch genesis block from http://https://hub.example.net: [Errno -2] Name or service not known
 RPC bootstrap for genesis block failed for all peers
 ```
 
@@ -1150,7 +1150,7 @@ wallet — the double grant did not become a double payout, by luck rather than 
 
 ### V23-68 — a key named for a coordinator, published as if it were a faucet token
 
-The hub publishes `COORDINATOR_API_KEY` in `https://hub.aitbc.bubuit.net/agent/blockchain.env`,
+The hub publishes `COORDINATOR_API_KEY` in `https://hub.example.net/agent/blockchain.env`,
 a file it serves to anyone (200, 1215 bytes). The intent is sound — an island needs to call
 `/register` and `/execute` without an operator handing out credentials — but that key is not
 scoped to those two endpoints:
@@ -1734,7 +1734,7 @@ nothing to it.
 **The `tests/verification` gate named three modules and seven needed gating.** That directory's
 `conftest.py` skips production-probing scripts unless `AITBC_ALLOW_PRODUCTION_WRITE_TESTS=1`,
 because several of its files are not tests: they read the live mainnet head from
-`https://hub.aitbc.bubuit.net/rpc` and POST newly constructed blocks back to it, and one of
+`https://hub.example.net/rpc` and POST newly constructed blocks back to it, and one of
 them creates jobs, polls as a miner, submits results and triggers a refund against the live
 coordinator. A passing run means that happened. The gate listed `test_block_import`,
 `test_block_import_complete` and `test_cross_node_blockchain`. It missed `test_minimal`,
@@ -4372,7 +4372,7 @@ misconfiguration to repair on a follower — it is a service the node is right n
 The same file already knew this. Forty lines further down, `execute` resolves the hub properly:
 
 ```python
-hub_url = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.aitbc.bubuit.net/api/v1/agent"))
+hub_url = os.getenv("HUB_AGENT_URL", os.getenv("HUB_HERMES_URL", "https://hub.example.net/api/v1/agent"))
 ```
 
 Two functions in one file, one reaching the hub and one reaching a dead local port.
@@ -4381,7 +4381,7 @@ Two functions in one file, one reaching the hub and one reaching a dead local po
 
 `send_agent_notification()` sent no `x-api-key` header, while the request/approve/execute calls
 in the same file (lines 230, 251) all do. So even pointed at a URL that exists, it gets 401:
-`POST https://hub.aitbc.bubuit.net/api/v1/hermes/messages/send` and its `/api/v1/agent/*` twin
+`POST https://hub.example.net/api/v1/hermes/messages/send` and its `/api/v1/agent/*` twin
 both answer 401 to an unauthenticated POST. The URL fix alone would have moved the failure from
 "connection refused" to "Unauthorized" and no further.
 
@@ -4400,7 +4400,7 @@ no config.
 
 | | Before | After |
 | --- | --- | --- |
-| URL resolution | `AGENT_COORDINATOR_URL` → `HERMES_COORDINATOR_URL` → `http://localhost:8107` | New `_agent_api_base()`: local origin if set (`+ /api/v1/agent`), else the hub base `HUB_AGENT_URL` → `HUB_HERMES_URL` → `https://hub.aitbc.bubuit.net/api/v1/agent` |
+| URL resolution | `AGENT_COORDINATOR_URL` → `HERMES_COORDINATOR_URL` → `http://localhost:8107` | New `_agent_api_base()`: local origin if set (`+ /api/v1/agent`), else the hub base `HUB_AGENT_URL` → `HUB_HERMES_URL` → `https://hub.example.net/api/v1/agent` |
 | Credential | none sent | `x-api-key` from `COORDINATOR_API_KEY` or `SECRET_KEY`; header omitted when neither is set |
 | `FOLLOWER_API_KEY` | n/a | deliberately **not** accepted here — it is published, and V23-68 confines it to `/register` and `/execute` |
 | 401/403 | `Failed to send notification: <body>` | names the status and says agent messaging needs a hub credential |
@@ -4433,7 +4433,7 @@ listened on 8103 here since the conversion.
   15 run. Counting them as verification before V23-93 would have been counting a skip.
 - `pre-commit run --files` on the three changed files: clean.
 - Live host, after the edit: `_agent_api_base()` under the deployed environment resolves to
-  `https://hub.aitbc.bubuit.net/api/v1/hermes` (from `HUB_HERMES_URL` in `blockchain.env`) with
+  `https://hub.example.net/api/v1/hermes` (from `HUB_HERMES_URL` in `blockchain.env`) with
   a credential present, and `HERMES_COORDINATOR_URL` no longer reaches the process.
 - `systemd-run -p EnvironmentFile=/etc/aitbc/node.env /usr/bin/env` still parses the file and
   emits no `HERMES_COORDINATOR_URL`. The eight units that load `node.env` are

@@ -42,7 +42,7 @@
 
 #### Join an Open Island as Follower
 
-To join an existing AITBC hub (e.g., `https://hub.aitbc.bubuit.net`) as a follower node:
+To join an existing AITBC hub (e.g., `https://hub.example.net`) as a follower node:
 
 ```bash
 # 1. Clone the repository
@@ -53,10 +53,10 @@ cd /opt/aitbc
 # /agent/bootstrap.env is a sanitized public copy — the hub's real env file
 # carries consensus keys and is never served (V23-58).
 mkdir -p /etc/aitbc
-curl -fsS https://hub.aitbc.bubuit.net/agent/bootstrap.env -o /etc/aitbc/blockchain.env
-curl -fsS https://hub.aitbc.bubuit.net/agent/genesis.json  -o /etc/aitbc/genesis.json
+curl -fsS https://hub.example.net/agent/bootstrap.env -o /etc/aitbc/blockchain.env
+curl -fsS https://hub.example.net/agent/genesis.json  -o /etc/aitbc/genesis.json
 # Issue a peer key for this node (bound to node_id, shown once):
-curl -fsS -X POST https://hub.aitbc.bubuit.net/rpc/join \
+curl -fsS -X POST https://hub.example.net/rpc/join \
   -H 'Content-Type: application/json' -d '{"node_id":"your-node-id"}'
 # → store the returned peer_key as BLOCKCHAIN_RPC_API_KEY in node.env
 # blockchain-secrets.env is NOT published (V23-58) -- blockchain-node does not read it.
@@ -68,7 +68,7 @@ cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 # Edit NODE_ID in /etc/aitbc/node.env to a unique value for your node
 
 # 4. Run setup script (non-interactive mode)
-./scripts/deployment/setup.sh --open-island https://hub.aitbc.bubuit.net --node-id your-node-id
+./scripts/deployment/setup.sh --open-island https://hub.example.net --node-id your-node-id
 
 # 5. Start blockchain node (follower only needs blockchain-node, not blockchain-p2p)
 systemctl start aitbc-blockchain-node
@@ -80,7 +80,7 @@ The node will automatically:
 
 - Connect to the hub's base URL (`default_peer_rpc_url` from `node.env`; must not end in `/rpc`)
 - Register a subscription lease via `POST /rpc/subscribe`
-- Receive blocks via WebSocket push (`wss://hub.aitbc.bubuit.net/rpc/subscribe/ws`)
+- Receive blocks via WebSocket push (`wss://hub.example.net/rpc/subscribe/ws`)
 - Send periodic heartbeats to maintain the lease
 - Fall back to periodic pull sync if subscription fails
 - Join the island with the configured `CHAIN_ID`
@@ -98,10 +98,10 @@ journalctl -u aitbc-blockchain-node | grep "Imported block"
 
 # Check local node height vs hub
 curl -s http://localhost:8202/rpc/head | jq .height
-curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height
+curl -s https://hub.example.net/rpc/head | jq .height
 ```
 
-- [Open Island Testing](open-island.md) - Join hub.aitbc.bubuit.net
+- [Open Island Testing](open-island.md) - Join hub.example.net
 
 ## Common Commands
 

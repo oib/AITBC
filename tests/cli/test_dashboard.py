@@ -11,7 +11,7 @@ def dashboard_ctx_obj():
     config.coordinator_api_url = "http://localhost:8203"
     config.wallet_daemon_url = "http://localhost:8108"
     config.gpu_service_url = "http://localhost:8101"
-    config.hub_discovery_url = "hub.aitbc.bubuit.net"
+    config.hub_discovery_url = "hub.example.net"
     config.node_id = "shop-node"
     config.chain_id = "ait-devnet"
     return {

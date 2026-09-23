@@ -14,7 +14,7 @@ from aitbc.network import AITBCHTTPClient
 logger = get_logger(__name__)
 
 # Configuration
-COORDINATOR_URL = "https://hub.aitbc.bubuit.net/api"
+COORDINATOR_URL = "https://hub.example.net/api"
 CLIENT_KEY = "test_client_key_123"
 MINER_KEY = "${MINER_API_KEY}"
 

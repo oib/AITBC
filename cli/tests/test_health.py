@@ -85,9 +85,9 @@ def test_health_accepts_full_url(runner, monkeypatch):
 
     result = runner.invoke(
         cli,
-        ["health", "--host", "https://hub.aitbc.bubuit.net"],
+        ["health", "--host", "https://hub.example.net"],
         obj={"output_format": "table"},
     )
 
     assert result.exit_code == 0, result.output
-    assert any("https://hub.aitbc.bubuit.net/health" in c for c in calls)
+    assert any("https://hub.example.net/health" in c for c in calls)

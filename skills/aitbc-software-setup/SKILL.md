@@ -96,7 +96,7 @@ cp /opt/aitbc/examples/node.env.open-island /etc/aitbc/node.env
 
 Edit `/etc/aitbc/node.env`:
 ```bash
-P2P_PEERS=hub.aitbc.bubuit.net:7070
+P2P_PEERS=hub.example.net:7070
 ```
 
 ## Service File Locations (Post-Restructure)

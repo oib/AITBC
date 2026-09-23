@@ -53,7 +53,7 @@ def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str
     """
     try:
         job_data["signature"] = sign_transaction_data(job_data, private_key)
-        hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        hub_host = config.hub_discovery_url or "hub.example.net"
         if hub_host.startswith(("http://", "https://")):
             hub_url = hub_host.rstrip("/")
         elif "localhost" in hub_host or "127.0.0.1" in hub_host:
@@ -131,7 +131,7 @@ def _resolve_offer_from_blockchain(http_client: AITBCHTTPClient, offer_id_or_plu
 def _resolve_offer(ctx, offer_id_or_plugin_id: str) -> dict[str, Any]:
     """Resolve an offer by on-chain offer_id or marketplace plugin_id."""
     config = get_config()
-    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    hub_host = config.hub_discovery_url or "hub.example.net"
     if hub_host.startswith(("http://", "https://")):
         hub_url = hub_host.rstrip("/")
     elif "localhost" in hub_host or "127.0.0.1" in hub_host:

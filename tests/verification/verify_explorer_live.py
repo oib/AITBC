@@ -13,7 +13,7 @@ def main():
     # Check API endpoint
     print("\n1. Testing API endpoint...")
     try:
-        response = requests.get("https://hub.aitbc.bubuit.net/api/explorer/blocks")
+        response = requests.get("https://hub.example.net/api/explorer/blocks")
         if response.status_code == 200:
             data = response.json()
             print(f"✅ API is working - Found {len(data['items'])} blocks")
@@ -38,7 +38,7 @@ def main():
 
     # Get the JS file
     try:
-        js_response = requests.get("https://hub.aitbc.bubuit.net/explorer/assets/index-IsD_hiHT.js")
+        js_response = requests.get("https://hub.example.net/explorer/assets/index-IsD_hiHT.js")
         if js_response.status_code == 200:
             js_content = js_response.text
 
@@ -64,7 +64,7 @@ def main():
 
     for endpoint, name in endpoints:
         try:
-            response = requests.get(f"https://hub.aitbc.bubuit.net{endpoint}")
+            response = requests.get(f"https://hub.example.net{endpoint}")
             if response.status_code == 200:
                 data = response.json()
                 print(f"✅ {name}: {len(data['items'])} items")
@@ -76,12 +76,12 @@ def main():
     print("\n" + "=" * 60)
     print("✅ Explorer is successfully using LIVE data!")
     print("\n📊 Live Data Sources:")
-    print("   • Blocks: https://hub.aitbc.bubuit.net/api/explorer/blocks")
-    print("   • Transactions: https://hub.aitbc.bubuit.net/api/explorer/transactions")
-    print("   • Addresses: https://hub.aitbc.bubuit.net/api/explorer/addresses")
-    print("   • Receipts: https://hub.aitbc.bubuit.net/api/explorer/receipts")
+    print("   • Blocks: https://hub.example.net/api/explorer/blocks")
+    print("   • Transactions: https://hub.example.net/api/explorer/transactions")
+    print("   • Addresses: https://hub.example.net/api/explorer/addresses")
+    print("   • Receipts: https://hub.example.net/api/explorer/receipts")
 
-    print("\n💡 Visitors to https://hub.aitbc.bubuit.net/explorer/ will now see:")
+    print("\n💡 Visitors to https://hub.example.net/explorer/ will now see:")
     print("   • Real blockchain data")
     print("   • Actual transactions")
     print("   • Live network activity")

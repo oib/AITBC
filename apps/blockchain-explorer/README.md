@@ -95,7 +95,7 @@ curl "http://localhost:8100/api/analytics/provider-reputation/0x1234567890123456
 ```
 
 ### For Humans (Web UI)
-Visit: `https://hub.aitbc.bubuit.net/explorer.html`
+Visit: `https://hub.example.net/explorer.html`
 
 The web UI provides:
 - Real-time blockchain visualization with live feed ticker

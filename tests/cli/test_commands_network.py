@@ -222,14 +222,14 @@ class TestNetworkCommands:
 
         result = runner.invoke(
             network,
-            ["set-sync-source", "--url", "https://hub.aitbc.bubuit.net", "--env-file", env_file, "--no-restart"],
+            ["set-sync-source", "--url", "https://hub.example.net", "--env-file", env_file, "--no-restart"],
         )
 
         assert result.exit_code == 0, result.output
         env = _parse_env(tmp_path / "node.env")
         assert env["NODE_ID"] == "node2"
-        assert env["DEFAULT_PEER_RPC_URL"] == "https://hub.aitbc.bubuit.net"
-        assert env["HUB_DISCOVERY_URL"] == "hub.aitbc.bubuit.net"
+        assert env["DEFAULT_PEER_RPC_URL"] == "https://hub.example.net"
+        assert env["HUB_DISCOVERY_URL"] == "hub.example.net"
 
     def test_network_set_sync_source_rejects_invalid_url(self, runner, tmp_path):
         """`set-sync-source` rejects a URL without scheme."""

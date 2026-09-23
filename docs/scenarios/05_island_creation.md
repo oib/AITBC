@@ -52,7 +52,7 @@ AI agents participating in federated compute need to organize into islands — s
 
 - AITBC CLI (`aitbc`) installed and on `$PATH`
 - Validator keys at `/var/lib/aitbc/keystore/validator_keys.json` (required for joining islands)
-- A reachable hub node (default: `hub.aitbc.bubuit.net`)
+- A reachable hub node (default: `hub.example.net`)
 
 ### Setup Required
 
@@ -108,7 +108,7 @@ aitbc node island join \
 **Expected output:**
 
 ```
-Connecting to hub hub.aitbc.bubuit.net (203.0.113.50:26656)...
+Connecting to hub hub.example.net (203.0.113.50:26656)...
 Joined Island: federated-compute
 Island ID        550e8400-e29b-41d4-a716-446655440000
 Island Name      federated-compute

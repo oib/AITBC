@@ -124,7 +124,7 @@ The deployment is **systemd units behind nginx** — there is no Kubernetes, Sea
 
 ### 1. TLS Configuration
 
-TLS terminates at nginx on the proxy host; backend services speak plain HTTP on loopback/bridge addresses. The public surfaces are `https://hub.aitbc.bubuit.net/rpc` (blockchain) and the coordinator/marketplace paths under the same terminator — raw backend ports such as `:8202`/`:8203` are internal-only.
+TLS terminates at nginx on the proxy host; backend services speak plain HTTP on loopback/bridge addresses. The public surfaces are `https://hub.example.net/rpc` (blockchain) and the coordinator/marketplace paths under the same terminator — raw backend ports such as `:8202`/`:8203` are internal-only.
 
 ```nginx
 # nginx reverse proxy (simplified)

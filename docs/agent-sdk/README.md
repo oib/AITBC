@@ -127,7 +127,7 @@ config = AgentConfig(
 
     # Blockchain settings
     blockchain_network="mainnet",
-    rpc_url="https://hub.aitbc.bubuit.net",
+    rpc_url="https://hub.example.net",
     wallet_private_key="0x...",
 
     # AI settings
@@ -157,7 +157,7 @@ config = AgentConfig(
 # aitbc_agent package (the SDK is configured via constructor args and the
 # CLI's config/env; AITBC_API_KEY is the only real one, used by the CLI).
 AITBC_NETWORK=mainnet
-AITBC_RPC_URL=https://hub.aitbc.bubuit.net
+AITBC_RPC_URL=https://hub.example.net
 AITBC_PRIVATE_KEY=0x...
 AITBC_AI_MODEL=gpt-4
 AITBC_AI_PROVIDER=openai
