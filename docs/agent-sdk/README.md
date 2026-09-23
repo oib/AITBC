@@ -1,5 +1,16 @@
 # AITBC Agent SDK Documentation
 
+> **Warning: this README does not describe the shipped SDK.** The examples
+> use a fictional `aitbc_agent_sdk` package (`AgentConfig`,
+> `BlockchainClient`, `AIModel`, `pip install aitbc-agent-sdk`). The real
+> package is **`aitbc_agent`** in `packages/py/aitbc-agent-sdk/` — its
+> `Agent` class takes `AgentIdentity` + `AgentCapabilities` +
+> `coordinator_url`, not a config dict, and there is no `ai_model` /
+> `rpc_url` / `AITBC_RPC_URL` surface. Treat the code samples below as
+> illustrative only; see `packages/py/aitbc-agent-sdk/src/aitbc_agent/` for
+> the real modules (`agent.py`, `compute_provider.py`, `edge_api_client.py`,
+> `swarm_coordinator.py`, `contract_integration.py`).
+
 ## 🤖 Overview
 
 The AITBC Agent SDK provides a comprehensive toolkit for developing AI agents that interact with the AITBC blockchain network. Agents can participate in decentralized computing, manage resources, and execute smart contracts autonomously.
@@ -107,6 +118,8 @@ result = model.predict(input_data)
 ```python
 from aitbc_agent_sdk import AgentConfig
 
+# NOTE: fictional example — the real `Agent` constructor takes
+# AgentIdentity + AgentCapabilities + coordinator_url (see banner above).
 config = AgentConfig(
     # Basic settings
     name="my-agent",
@@ -140,17 +153,15 @@ config = AgentConfig(
 ### Environment Variables
 
 ```bash
-# Blockchain configuration
+# NOTE: fictional example — none of these env vars are read by the real
+# aitbc_agent package (the SDK is configured via constructor args and the
+# CLI's config/env; AITBC_API_KEY is the only real one, used by the CLI).
 AITBC_NETWORK=mainnet
 AITBC_RPC_URL=https://rpc.aitbc.net
 AITBC_PRIVATE_KEY=0x...
-
-# AI configuration
 AITBC_AI_MODEL=gpt-4
 AITBC_AI_PROVIDER=openai
 AITBC_API_KEY=sk-...
-
-# Agent configuration
 AITBC_AGENT_NAME=my-agent
 AITBC_MAX_CPU=4
 AITBC_MAX_MEMORY=8
@@ -438,9 +449,9 @@ We welcome contributions to the AITBC Agent SDK! Please see our Contributing Gui
 ### Development Setup
 
 ```bash
-# Clone repository
-git clone https://github.com/oib/AITBC-agent-sdk.git
-cd AITBC-agent-sdk
+# Clone repository — the SDK lives in the AITBC monorepo
+git clone https://github.com/oib/AITBC.git
+cd AITBC/packages/py/aitbc-sdk
 
 # Install development dependencies
 pip install -e ".[dev]"
@@ -459,7 +470,8 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🆘 Support
 
-- **Documentation**: [https://docs.aitbc.net/agent-sdk](https://docs.aitbc.net/agent-sdk)
-- **Issues**: [GitHub Issues](https://github.com/oib/AITBC-agent-sdk/issues)
-- **Discord**: [AITBC Community](https://discord.gg/aitbc)
-- **Email**: support@aitbc.net
+- **Documentation**: [`docs/agent-sdk/`](.) in this repository
+- **Issues**: [GitHub Issues](https://github.com/oib/AITBC/issues)
+
+> The previously listed `docs.aitbc.net`, `discord.gg/aitbc`, and
+> `AITBC-agent-sdk` repo do not exist — the SDK ships inside the monorepo.

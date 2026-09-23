@@ -15,35 +15,35 @@ The AITBC Trade Exchange now supports Ethereum deposits for purchasing the netwo
 
 ### Backend Features
 
-- **Payment API**: `/api/exchange/create-payment` creates payment requests
-- **Status Tracking**: `/api/exchange/payment-status/{id}` checks payment status
-- **Exchange Rates**: `/api/exchange/rates` provides current ETH/AITBC rates
+- **Payment API**: `/v1/exchange/create-payment` creates payment requests
+- **Status Tracking**: `/v1/exchange/payment-status/{id}` checks payment status
+- **Exchange Rates**: `/v1/exchange/rates` provides current ETH/AITBC rates
 
 ## Configuration
 
 ### Ethereum Settings
 
 ```python
-ETHEREUM_CONFIG = {
-    'testnet': True,                    # Using Ethereum testnet
-    'main_address': '0x0000000000000000000000000000000000000000',
-    'exchange_rate': 100000,           # 1 ETH = 100,000 AITBC (example rate; oracle-driven in production)
-    'min_confirmations': 1,
-    'payment_timeout': 3600            # 1 hour expiry
+# apps/coordinator-api/.../infrastructure/routers/exchange.py — the live
+# config is a module-level dict, not environment variables:
+ETH_CONFIG = {
+    "testnet": True,
+    "main_address": "0x0000000000000000000000000000000000000000",  # placeholder
+    "exchange_rate": 1000,     # 1 ETH = 1,000 AITBC
+    "min_confirmations": 12,
+    "payment_timeout": 3600,   # 1 hour expiry
 }
 ```
 
 ### Environment Variables
 
-```bash
-ETHEREUM_TESTNET=true
-ETHEREUM_ADDRESS=0x0000000000000000000000000000000000000000
-ETHEREUM_PRIVATE_KEY=your_private_key
-BLOCKCHAIN_API_KEY=your_blockchain_api_key
-WEBHOOK_SECRET=your_webhook_secret
-MIN_CONFIRMATIONS=1
-ETH_TO_AITBC_RATE=100000
-```
+> **No ETH exchange env vars exist.** `ETHEREUM_TESTNET`, `ETHEREUM_ADDRESS`,
+> `ETHEREUM_PRIVATE_KEY`, `BLOCKCHAIN_API_KEY`, `WEBHOOK_SECRET`,
+> `MIN_CONFIRMATIONS`, and `ETH_TO_AITBC_RATE` were documented historically
+> but no code reads them — `ETH_CONFIG` above is hardcoded in the router.
+> The standalone exchange service's real env vars are `BRIDGE_FEE_RATE`,
+> `BRIDGE_ETH_ADDRESS`, `MIN_ETH_DEPOSIT`, `ETH_NETWORK`,
+> `EXCHANGE_WEBHOOK_SECRET`, and `EXCHANGE_API_KEY`.
 
 ## How It Works
 
@@ -88,7 +88,7 @@ ETH_TO_AITBC_RATE=100000
 ### Create Payment Request
 
 ```http
-POST /api/exchange/create-payment
+POST /v1/exchange/create-payment
 {
     "user_id": "user_wallet_address",
     "aitbc_amount": 1000,
@@ -99,14 +99,16 @@ POST /api/exchange/create-payment
 ### Check Payment Status
 
 ```http
-GET /api/exchange/payment-status/{payment_id}
+GET /v1/exchange/payment-status/{payment_id}
 ```
 
 ### Get Exchange Rates
 
 ```http
-GET /api/exchange/rates
+GET /v1/exchange/rates
 ```
+
+Also mounted on coordinator-api (`:8203`): `POST /v1/exchange/confirm-payment/{payment_id}` and `GET /v1/exchange/market-stats`.
 
 ## Testing
 
@@ -149,5 +151,4 @@ GET /api/exchange/rates
 For issues or questions:
 
 - Check the logs: `journalctl -u aitbc-coordinator-api -f`
-- API documentation: `https://aitbc.bubuit.net/api/docs`
-- Admin panel: `https://aitbc.bubuit.net/admin/stats`
+- API documentation: `http://<host>:8203/docs` (FastAPI Swagger UI on coordinator-api)

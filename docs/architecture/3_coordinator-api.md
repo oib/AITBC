@@ -243,21 +243,35 @@ The Coordinator API can be configured via environment variables.
 ### Environment Variables
 
 ```bash
-# Database
-DATABASE_URL=sqlite:///coordinator.db
+# Security — separate key lists per caller class (comma-separated)
+CLIENT_API_KEYS=key1,key2
+MINER_API_KEYS=key3,key4
+ADMIN_API_KEYS=key5
 
-# API Settings
-API_HOST=0.0.0.0
-API_PORT=8203
+# Auth / signing
+JWT_SECRET=<secret>
+HMAC_SECRET=<secret>
+SETTLEMENT_PRIVATE_KEY=<hex>          # signs settlement txs
 
-# Security
-SECRET_KEY=<YOUR_SECRET_KEY>
-API_KEYS=key1,key2,key3
+# Chain integration
+BLOCKCHAIN_RPC_URL=http://localhost:8202
+BLOCKCHAIN_RPC_API_KEY=<key>
+ETH_RPC_URL=<ethereum-rpc-endpoint>
 
-# Exchange
-ETHEREUM_ADDRESS=0x0000...
-ETH_TO_AITBC_RATE=100000
+# Consensus / proposer
+CHAIN_ID=aitbc
+PROPOSER_ID=<name>
+VALIDATOR_SET=<addr1,addr2>
+PBFT_CONSENSUS_ENABLED=true
 ```
+
+> `API_HOST`, `API_PORT`, `API_KEYS`, `ETHEREUM_ADDRESS`, and
+> `ETH_TO_AITBC_RATE` were documented historically but are **not read** —
+> env names come from the pydantic `Settings` fields
+> (`apps/coordinator-api/src/coordinator_api/config.py`), e.g. `APP_HOST`,
+> `PORT`, `DB_*`, `JWT_SECRET`, `*_API_KEYS`. `SECRET_KEY` is still read as
+> a fallback secret source. The fleet's live env files are
+> `/etc/aitbc/aitbc-coordinator-api{,-override}.env`.
 
 ## Deployment
 
@@ -280,9 +294,9 @@ journalctl -u aitbc-coordinator -f
 
 Interactive API documentation is available via Swagger UI and ReDoc.
 
-- [Swagger UI](https://aitbc.bubuit.net/api/docs)
-- [ReDoc](https://aitbc.bubuit.net/api/redoc)
-- [OpenAPI Spec](https://aitbc.bubuit.net/api/openapi.json)
+- Swagger UI: `http://<host>:8203/docs` (FastAPI's built-in docs on the coordinator-api port)
+- ReDoc: `http://<host>:8203/redoc`
+- OpenAPI spec: `http://<host>:8203/openapi.json`
 
 ## Data Models
 
