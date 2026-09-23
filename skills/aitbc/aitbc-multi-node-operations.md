@@ -16,15 +16,19 @@ Synchronize git changes, coordinate blockchain state, and manage multi-node oper
 
 ## Node Architecture
 
-| Node | Hostname | Role | Access |
-|------|----------|------|--------|
-| Hub / Proposer | `hub` (hub.aitbc, 10.177.61.28) | Block production, coordinator, marketplace | `ssh hub` |
-| Follower | `node0` (10.1.223.93) | Customer GPU node | `ssh node0` |
-| Follower / PBFT | `node1` (10.1.223.40) | Validator | `ssh node1` |
-| Follower / shop | `node2` (10.1.223.136) | Shop node, commits/pushes to gitea | `ssh node2` |
-| Demoted follower | `hub1` (192.168.100.10) | Old hub, pull-only replica | `ssh hub1` |
+| Node | Role | Access |
+|------|------|--------|
+| `hub` | Hub / proposer — block production, coordinator, marketplace | `ssh hub` |
+| `node0` | Follower — customer GPU node | `ssh node0` |
+| `node1` | Follower — PBFT validator | `ssh node1` |
+| `node2` | Follower — shop node, commits and pushes to gitea | `ssh node2` |
+| `hub1` | Demoted follower — old hub, pull-only replica | `ssh hub1` |
 
-Legacy names `aitbc`, `aitbc1`..`aitbc3`, `node3`, and `hub2.aitbc.bubuit.net` are retired — `aitbc3` in older docs means today's `node2`.
+Hostnames and addresses are deliberately absent: they name individual machines, so they live in
+your local `~/.ssh/config` rather than in this repository. Every command below reaches a node
+through its alias, so a correct ssh config is the only prerequisite.
+
+Legacy aliases `aitbc`, `aitbc1`..`aitbc3`, `node3`, and the old `hub2` FQDN are retired — `aitbc3` in older docs means today's `node2`.
 
 ## Port Reference (Same on All Nodes)
 
