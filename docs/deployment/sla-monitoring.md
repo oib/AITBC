@@ -80,25 +80,31 @@ The SLA monitoring system provides:
 Add to pool-hub `.env`:
 
 ```bash
+# Pool-hub settings use the POOLHUB_ env prefix (poolhub/settings.py,
+# env_prefix="poolhub_").
+
+# Both schedulers default OFF — enabling billing sync makes pool-hub POST to
+# {coordinator_billing_url}/api/billing/usage, a route that does not exist in
+# coordinator-api, so it only produces hourly failures today.
+POOLHUB_ENABLE_SLA_COLLECTION=false
+POOLHUB_ENABLE_BILLING_SYNC=false
+
 # Coordinator-API Billing Integration
-COORDINATOR_BILLING_URL=http://localhost:8203
+POOLHUB_COORDINATOR_BILLING_URL=http://localhost:8203
 COORDINATOR_API_KEY=your_api_key_here
 
-# SLA Configuration
-SLA_UPTIME_THRESHOLD=95.0
-SLA_RESPONSE_TIME_THRESHOLD=1000.0
-SLA_COMPLETION_RATE_THRESHOLD=90.0
-SLA_CAPACITY_THRESHOLD=80.0
+# SLA thresholds are configured via POOLHUB_SLA_THRESHOLDS (JSON dict), e.g.
+# POOLHUB_SLA_THRESHOLDS='{"uptime":95.0,"response_time":1000.0,
+#   "completion_rate":90.0,"capacity":80.0}'
 
 # Capacity Planning
-CAPACITY_FORECAST_HOURS=168
-CAPACITY_ALERT_THRESHOLD_PCT=80.0
+POOLHUB_CAPACITY_FORECAST_HOURS=168
 
 # Billing Sync
-BILLING_SYNC_INTERVAL_HOURS=1
+POOLHUB_BILLING_SYNC_INTERVAL_HOURS=1
 
 # SLA Collection
-SLA_COLLECTION_INTERVAL_SECONDS=300
+POOLHUB_SLA_COLLECTION_INTERVAL_SECONDS=300
 ```
 
 ### Settings File
@@ -214,7 +220,7 @@ alembic upgrade head
 #### Get SLA Metrics for a Miner
 
 ```bash
-GET /sla/metrics/{miner_id}?hours=24
+GET /v1/sla/metrics/{miner_id}?hours=24
 ```
 
 Response:
@@ -237,19 +243,19 @@ Response:
 #### Get All SLA Metrics
 
 ```bash
-GET /sla/metrics?hours=24
+GET /v1/sla/metrics?hours=24
 ```
 
 #### Get SLA Violations
 
 ```bash
-GET /sla/violations?resolved=false&miner_id=miner_001
+GET /v1/sla/violations?resolved=false&miner_id=miner_001
 ```
 
 #### Trigger SLA Metrics Collection
 
 ```bash
-POST /sla/metrics/collect
+POST /v1/sla/metrics/collect
 ```
 
 Response:
@@ -272,13 +278,13 @@ Response:
 #### Get Capacity Snapshots
 
 ```bash
-GET /sla/capacity/snapshots?hours=24
+GET /v1/sla/capacity/snapshots?hours=24
 ```
 
 #### Get Capacity Forecast
 
 ```bash
-GET /sla/capacity/forecast?hours_ahead=168
+GET /v1/sla/capacity/forecast?hours_ahead=168
 ```
 
 Response:
@@ -297,7 +303,7 @@ Response:
 #### Get Scaling Recommendations
 
 ```bash
-GET /sla/capacity/recommendations
+GET /v1/sla/capacity/recommendations
 ```
 
 Response:
@@ -320,7 +326,7 @@ Response:
 #### Configure Capacity Alerts
 
 ```bash
-POST /sla/capacity/alerts/configure
+POST /v1/sla/capacity/alerts/configure
 ```
 
 Request:
@@ -337,13 +343,13 @@ Request:
 #### Get Billing Usage
 
 ```bash
-GET /sla/billing/usage?hours=24&tenant_id=tenant_001
+GET /v1/sla/billing/usage?hours=24&tenant_id=tenant_001
 ```
 
 #### Sync Billing Usage
 
 ```bash
-POST /sla/billing/sync
+POST /v1/sla/billing/sync
 ```
 
 Request:
@@ -358,7 +364,7 @@ Request:
 #### Record Usage Event
 
 ```bash
-POST /sla/billing/usage/record
+POST /v1/sla/billing/usage/record
 ```
 
 Request:
@@ -377,7 +383,7 @@ Request:
 #### Generate Invoice
 
 ```bash
-POST /sla/billing/invoice/generate
+POST /v1/sla/billing/invoice/generate
 ```
 
 Request:
@@ -395,7 +401,7 @@ Request:
 #### Get SLA Status
 
 ```bash
-GET /sla/status
+GET /v1/sla/status
 ```
 
 Response:
@@ -456,14 +462,14 @@ await sla.stop()
 
 ### Prometheus Metrics
 
-SLA metrics are exposed to Prometheus with the namespace `poolhub`:
-
-- `poolhub_sla_uptime_pct` - Miner uptime percentage
-- `poolhub_sla_response_time_ms` - Response time in milliseconds
-- `poolhub_sla_completion_rate_pct` - Job completion rate percentage
-- `poolhub_sla_capacity_availability_pct` - Capacity availability percentage
-- `poolhub_sla_violations_total` - Total SLA violations
-- `poolhub_billing_sync_errors_total` - Billing sync errors
+Pool-hub exposes Prometheus metrics with the namespace `poolhub`, but only
+the match/matcher series are implemented (`poolhub_match_requests_total`,
+`poolhub_match_candidates_total`, `poolhub_match_failures_total`,
+`poolhub_match_latency_seconds`, `poolhub_miners_online` — see
+`poolhub/app/prometheus.py`). **The `poolhub_sla_*` and
+`poolhub_billing_*` series below are planned, not exported** — do not build
+alerts on them. The alert rules further down reference these nonexistent
+series and would never fire.
 
 ### Alert Rules
 

@@ -25,7 +25,7 @@
 
 ## 📦 **Contents**
 
-- **PORT_MAPPING_GUIDE.md** - Authoritative port and endpoint mapping reference
+- **SERVICE_PORTS.md** - Authoritative port and endpoint mapping reference
 
 ---
 

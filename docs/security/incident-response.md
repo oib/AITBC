@@ -27,16 +27,15 @@ This guide covers incident response planning, checklists, and emergency contacts
 
 ## Emergency Contacts
 
+AITBC is operated by a single maintainer — there are no separate security,
+management, or legal mailboxes:
+
 ```bash
-# Security team
-SECURITY_TEAM_EMAIL="security@aitbc.dev"
-SECURITY_TEAM_PHONE="+1-555-0100"
+# Security contact (all severities)
+SECURITY_CONTACT="aitbc@bubuit.net"
 
-# Management
-MANAGEMENT_EMAIL="management@aitbc.dev"
-
-# Legal
-LEGAL_EMAIL="legal@aitbc.dev"
+# Or open a private security advisory on GitHub:
+# https://github.com/oib/AITBC/security
 ```
 
 ## See Also

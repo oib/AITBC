@@ -1,6 +1,17 @@
 # Security Remediation Testing Procedures
 
 **Date:** 2026-05-11
+
+> **Historical record.** These procedures were written for the 2026-05-11
+> remediation series. File paths below reflect the pre-2026-07-07 layout:
+> `src/app/` packages were renamed to per-service packages
+> (`src/coordinator_api/`), `receipt.circom` is now
+> `receipt_{model,public,simple}.circom`, `zk_memory_verification.py` was
+> removed in v0.5.15, `staging.aitbc.com` is not a real host (the example
+> below now targets coordinator-api directly on :8203), and `DEMO_MODE_ENABLED` is a code
+> constant, not an env var. Verify each path against the source tree before
+> running.
+
 **Purpose:** Test completed security remediations before deployment
 
 ## Test Environment Setup
@@ -438,12 +449,13 @@ export ZK_PROOF_ENABLED=false
 # Run health checks
 ./scripts/monitoring/health_check.sh
 
-# Test endpoints
-curl -X POST http://staging.aitbc.com/zk/membership/verify \
-  -H "Content-Type: application/json" \
-  -d '{"group_id":"miners","nullifier":"0x...","proof":"test"}'
+# Test endpoints (run on the host where coordinator-api listens, port 8203)
+# NOTE: /zk/membership/verify is part of the zk_applications router, which is
+# exported but not currently mounted in coordinator_api/main.py — the route
+# returns 404 today. The live ZK surface is /v1/zk/* (e.g. /v1/zk/info).
+curl -X GET http://localhost:8203/v1/zk/info
 
-# Expected: 503 Service Unavailable with message about demo mode
+# Expected: 200 with ZK service info
 ```
 
 ## Test Results Documentation

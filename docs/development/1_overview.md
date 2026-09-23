@@ -84,7 +84,7 @@ See [Getting Started](../getting-started/README.md) for the role selection guide
 
 - **Blockchain**: Custom multi-island PoA consensus (`apps/blockchain-node`).
 - **Smart contracts**: Solidity contracts in `contracts/`, primarily for ZK receipt verification.
-- **APIs**: FastAPI / REST, OpenAPI specs in `docs/openapi/`.
+- **APIs**: FastAPI / REST, OpenAPI specs under `docs/api/<service>/openapi.json`.
 - **WebSockets**: Real-time agent messaging and block subscription.
 - **Language**: Python 3.13 (Poetry-managed monorepo).
 
@@ -121,7 +121,7 @@ aitbc --help
 ## Developer resources
 
 - [CLI README](../cli/README.md) — command reference.
-- [API OpenAPI specs](../openapi/) — generated API documentation.
+- [API OpenAPI specs](../api/) — generated per-service `openapi.json` snapshots.
 - [AITBC App Catalog](../apps/) — per-service documentation.
 - [Release Status](../releases/STATUS.md) — what is implemented vs. planned.
 

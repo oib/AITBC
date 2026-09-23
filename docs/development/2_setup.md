@@ -19,7 +19,7 @@ This guide helps you set up a development environment for building on AITBC.
 ### 1. Clone Repository
 
 ```bash
-git clone https://github.com/aitbc/aitbc.git
+git clone https://github.com/oib/AITBC.git
 cd aitbc
 ```
 
@@ -55,7 +55,7 @@ sudo ./scripts/deployment/setup.sh
 
 ```bash
 # Check services
-aitbc status
+aitbc system status        # or: aitbc health
 
 # Run tests
 pytest
@@ -81,7 +81,6 @@ Create `.env` file:
 ```bash
 AITBC_API_KEY=your_dev_key
 AITBC_BASE_URL=http://localhost:8203
-AITBC_NETWORK=testnet
 ```
 
 ## Next Steps

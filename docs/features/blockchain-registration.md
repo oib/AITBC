@@ -19,7 +19,7 @@ Register edge node on blockchain on startup
 ## Examples
 
 - `POST /graphs/{graph_id}/nodes` (`contribute_knowledge` in `apps/coordinator-api/src/coordinator_api/contexts/knowledge/routers/knowledge.py`)
-- `POST /nodes/register` (`register_node` in `apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/swarm.py`)
+- `POST /nodes/register` (`register_node` in `apps/coordinator-api/src/coordinator_api/contexts/agent_coordination/routers/swarm.py`) *(the `swarm.py` router is intentionally unimplemented — every `/v1/swarm/*` returns 404)*
 - `POST /consensus/node/register` (`register_consensus_node` in `apps/agent-coordinator/src/agent_app/routers/consensus.py`)
 - `POST /join` (`join_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)
 - `POST /leave` (`leave_island` in `apps/edge/src/aitbc_edge/routers/islands.py`)

@@ -25,7 +25,7 @@ The AITBC platform consists of:
 
 ### Security Assumptions
 
-- TLS is used for all network communication
+- TLS terminates at nginx; backend service-to-service traffic is cleartext HTTP on the LAN (see `ssl-tls-configuration.md`)
 - Authentication tokens are properly validated
 - Input validation is performed on all endpoints
 - Secrets are stored securely (environment variables, secret managers)
