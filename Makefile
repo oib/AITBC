@@ -88,6 +88,37 @@ live-dry-run:
 test-governance:
 	$(PYTHON) -m pytest apps/governance/tests -q
 
+# The required gate for suites CI never ran even though testpaths collected
+# them: exchange matching, gateway retries, wallet sends, marketplace and
+# trading money paths, agent-coordinator payout authority, the security AST
+# guards, core, and the property suite. The classification lives in
+# scripts/ci/test_suites.py; `make test-suite-parity` fails if a testpaths
+# entry lands in no gate again.
+test-critical:
+	$(PYTHON) -m pytest -q \
+		apps/exchange/tests \
+		apps/api-gateway/tests \
+		apps/wallet/tests \
+		apps/marketplace/tests \
+		apps/trading/tests \
+		apps/agent-coordinator/tests \
+		apps/bridge-monitor/tests \
+		tests/security \
+		tests/core \
+		tests/property_tests \
+		tests/smoke
+
+# The scheduled sweep: every offline-safe suite (fast + nightly classes), with
+# manual-only dirs — live fleet, load, browser UI — excluded via --ignore.
+# The dir list comes from the same classification the parity guard checks.
+test-nightly:
+	$(PYTHON) -m pytest -q $(shell $(PYTHON) scripts/ci/test_suites.py nightly)
+
+# Fails when a testpaths entry is classified for no gate — or a classified
+# path disappears without the classification being updated.
+test-suite-parity:
+	$(PYTHON) scripts/ci/check_test_suite_parity.py
+
 # docs/api/ is generated, not written. Regenerate rather than editing a spec by hand.
 openapi:
 	$(PYTHON) scripts/extract_openapi_specs.py
