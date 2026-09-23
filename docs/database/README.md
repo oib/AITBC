@@ -6,7 +6,7 @@ This directory contains all database-related documentation including schema, sec
 
 ### [DATA_DICTIONARY.md](./DATA_DICTIONARY.md)
 
-**Single source of truth** for database schema:
+intended schema reference (currently an unpopulated template — see the file):
 
 - Table definitions and relationships
 - Column specifications and constraints
@@ -56,7 +56,7 @@ Standard Operating Procedure for database migrations:
 
 ## ⚠️ Important Notes
 
-1. **Always use RLS context helpers** - Never make direct Prisma calls
+1. **Always use RLS context helpers** - Never bypass the SQLAlchemy/SQLModel layer
 2. **Test RLS policies** - Verify isolation between users
 3. **Follow migration SOP** - Schema changes require ARCHitect approval
 4. **Update DATA_DICTIONARY.md** - Keep schema documentation current

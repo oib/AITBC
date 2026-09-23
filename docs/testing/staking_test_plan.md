@@ -8,7 +8,7 @@
 
 
 ## Overview
-Test plan for the AgentStaking smart contract (`/opt/aitbc/contracts/contracts/AgentStaking.sol`) and the Python staking service (`/opt/aitbc/apps/coordinator-api/src/app/services/staking_service.py`).
+Test plan for the AgentStaking smart contract (`/opt/aitbc/contracts/contracts/AgentStaking.sol`) and the Python staking service (`/opt/aitbc/apps/coordinator-api/src/coordinator_api/contexts/staking/services/staking_service.py`).
 
 ## Test Environment
 - Contract: AgentStaking.sol (Solidity ^0.8.19)

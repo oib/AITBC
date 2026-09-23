@@ -25,7 +25,12 @@ breadcrumb: Home > Scenarios > Security Setup
 
 ## Scenario Overview
 
-This scenario demonstrates how to run security audits, perform security scans, and apply security patches using the `aitbc security` command group. These commands help maintain the security posture of an AITBC deployment.
+This scenario demonstrates the `aitbc security` command group.
+
+> **Stub commands.** `aitbc security audit|scan|patch` currently return
+> hardcoded placeholder results (`cli/aitbc_cli/commands/security.py`) —
+> they perform no real audit, scan, or patching. This scenario documents
+> the intended UX, not real security functionality.
 
 ### Use Case
 
@@ -62,7 +67,7 @@ A node operator wants to verify the security of their AITBC deployment by runnin
 
 ### Step 1: Run a Security Audit
 
-The `audit` subcommand produces a security score, a vulnerability count, and a list of recommendations. It takes no additional options beyond the global output format.
+The `audit` subcommand produces a security score, a vulnerability count, and a list of recommendations. It takes no additional options beyond the global output format. (Stub: returns a fixed `A+`/0-vulnerabilities result.)
 
 ```bash
 aitbc security audit
@@ -80,7 +85,7 @@ Recommendations     []
 
 ### Step 2: Perform a Security Scan
 
-The `scan` subcommand runs a security scan that reports the action taken, completion status, and number of issues found.
+The `scan` subcommand reports the action taken, completion status, and number of issues found. (Stub: always reports `completed`/`0`.)
 
 ```bash
 aitbc security scan
@@ -98,7 +103,7 @@ Issues Found      0
 
 ### Step 3: Apply Security Patches
 
-The `patch` subcommand applies available security patches and reports the completion status.
+The `patch` subcommand reports completion status. (Stub: applies nothing.)
 
 ```bash
 aitbc security patch

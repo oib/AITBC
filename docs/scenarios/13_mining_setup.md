@@ -175,7 +175,7 @@ import json
 
 def start_mining(wallet: str, threads: int = 4, rpc: str = "http://localhost:8202") -> str:
     out = subprocess.run(
-        ["aitbc", "mining", "start", wallet, "--threads", str(threads), "--rpc-url", rpc],
+        ["aitbc", "mining", "start", "--wallet-name", wallet, "--threads", str(threads), "--rpc-url", rpc],
         capture_output=True, text=True, check=True,
     )
     return out.stdout

@@ -1,8 +1,15 @@
 # Database Schema
 
+> **Schema snapshot.** This reflects the initial migration (001) only.
+> Migrations 002/003 and the domain model add many columns
+> (`proposal_type`, `proposal_value`, `quorum_required`, `yes_votes`/`no_votes`,
+> `execution_tx_hash`, `chain_id`, `block_height`, `tx_hash`, `voting_ends_block`,
+> `power_at_snapshot`, `delegated_from`, `signature`, …). The authoritative
+> schema is `apps/governance/src/governance_service/domain/governance.py`.
+
 ## Overview
 
-The Governance Service uses SQLModel with SQLite (default) or PostgreSQL (production). The schema includes 9 tables and 14 indexes for performance optimization.
+The Governance Service uses SQLModel with SQLite (default) or PostgreSQL (production). The schema includes 9 tables; migration 001 alone creates 18 named indexes (plus per-column `index=True` indexes) for performance optimization.
 
 ## Tables
 
@@ -14,7 +21,7 @@ User governance profiles for managing user roles and permissions.
 |--------|------|-------------|
 | profile_id | UUID | Primary key |
 | user_id | VARCHAR | User identifier |
-| role | VARCHAR | User role (admin, voter, etc.) |
+| role | VARCHAR | User role (`member`, `delegate`, `council`, `admin`) |
 | created_at | TIMESTAMP | Creation timestamp |
 | updated_at | TIMESTAMP | Last update timestamp |
 
@@ -29,7 +36,7 @@ Governance proposals with v0.4.12 enhancements including execution tracking.
 | title | VARCHAR | Proposal title |
 | description | TEXT | Proposal description |
 | category | VARCHAR | Proposal category |
-| status | VARCHAR | Status (draft, active, succeeded, rejected, executed) |
+| status | VARCHAR | Status (draft, active, succeeded, defeated, executed, cancelled) |
 | voting_starts | TIMESTAMP | Voting start time |
 | voting_ends | TIMESTAMP | Voting end time |
 | executed_at | TIMESTAMP | Execution timestamp |
@@ -113,7 +120,9 @@ DAO treasury records for financial tracking.
 | Column | Type | Description |
 |--------|------|-------------|
 | treasury_id | VARCHAR | Primary key |
-| balance | DECIMAL | Treasury balance |
+| total_balance | DECIMAL | Treasury balance |
+| allocated_funds | DECIMAL | Funds allocated to proposals |
+| asset_breakdown | JSONB | Per-asset balances |
 | last_updated | TIMESTAMP | Last update timestamp |
 
 ### transparency_reports
@@ -123,10 +132,14 @@ Governance analytics reports.
 | Column | Type | Description |
 |--------|------|-------------|
 | report_id | UUID | Primary key |
-| report_type | VARCHAR | Report type |
 | period | VARCHAR | Reporting period |
-| data | JSONB | Report data |
-| created_at | TIMESTAMP | Creation timestamp |
+| total_proposals | INTEGER | Proposals in period |
+| passed_proposals | INTEGER | Passed proposals |
+| active_voters | INTEGER | Active voters |
+| treasury_inflow | DECIMAL | Treasury inflow |
+| treasury_outflow | DECIMAL | Treasury outflow |
+| metrics | JSONB | Additional metrics |
+| generated_at | TIMESTAMP | Generation timestamp |
 
 ## Indexes
 
@@ -156,12 +169,15 @@ Governance analytics reports.
 ### Stake Indexes
 
 - `idx_stakes_staker` - Staker queries
-- `idx_stakes_unstakes_at` - Unstake scheduling
+- `idx_stakes_unstake` - Unstake scheduling
 
 ### Execution Log Indexes
 
-- `idx_execution_log_proposal` - Proposal execution history
-- `idx_execution_log_status` - Status filtering
+- `idx_exec_log_proposal` - Proposal execution history
+- `idx_exec_log_status` - Status filtering
+- `idx_exec_log_timestamp` - Timestamp ordering
+- `idx_delegations_active` / `idx_stakes_active` - Active-record queries
+- `ix_governance_profiles_user_id` - Profile lookup
 
 ## Database Types
 

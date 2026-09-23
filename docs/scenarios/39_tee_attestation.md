@@ -1,5 +1,13 @@
 # Scenario 39: Confidential job with TEE attestation
 
+> **v0.14.4+ behavior.** Escrow releases only for VERIFIED **registered**
+> attestations — an unregistered enclave (`unregistered_enclave`) or a
+> missing quote (`tee_quote_missing`) triggers a refund. The coordinator no
+> longer auto-generates simulated quotes; `ai submit
+> --tee-attestation-required` also aborts client-side unless
+> `TEE_ATTESTATION_ENABLED` is set.
+
+
 ## Goal
 
 Run an inference job that requires a verified TEE attestation and confirm

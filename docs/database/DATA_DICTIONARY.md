@@ -1,6 +1,10 @@
 # 📊 AITBC Database Data Dictionary
 
-> **Single Source of Truth for AI Agents and Development Context**
+> **Unpopulated template — not the schema source of truth.** Every field
+> below is a `[DATE]`/`[VERSION]`/`[COUNT]` placeholder, and the stack it
+> names (PostgreSQL + Prisma ORM + RLS) is not the AITBC stack — the repo
+> uses SQLAlchemy/SQLModel + Alembic with SQLite defaults. The real chain
+> schema doc is `docs/apps/blockchain-node/SCHEMA.md`.
 >
 > **Last Updated**: [DATE] (AITBC-XXX - [Description])
 > **Schema Version**: [VERSION]
@@ -12,7 +16,7 @@
 
 ## 🎯 Purpose
 
-This document serves as the **single source of truth** for your database schema. It provides:
+This document was intended as the single source of truth for a PostgreSQL/Prisma schema that was never adopted. It remains an unpopulated template. It provides:
 
 1. **Complete table definitions** with column types, constraints, and purposes
 2. **RLS (Row Level Security) policy documentation** for data access control

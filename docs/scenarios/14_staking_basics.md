@@ -67,7 +67,9 @@ All commands below are grounded in `cli/aitbc_cli/commands/wallet/staking.py`. T
 
 ### Step 1: Stake tokens on-chain
 
-`aitbc stake --amount <amount>` (or `aitbc wallet stake`) signs `{address, amount (compute units), chain_id, action: "stake"}` with the wallet key and posts `{address, amount, lock_days, chain_id, signature, nonce, timestamp}` to `POST /rpc/staking/stake` (mutating `/rpc/*` routes also require the `X-API-Key` header — the CLI sends it from config/env automatically). `--duration` is the lock in days (default `30`); `--wallet-name`/`--wallet-path`/`--rpc-url` are accepted directly.
+`aitbc stake --amount <amount>` (or `aitbc wallet stake`) signs `{address, amount (compute units), chain_id, action: "stake"}` with the wallet key and posts `{address, amount, lock_days, chain_id, signature, nonce, timestamp}` to `POST /rpc/staking/stake` (stake/unstake are deliberately signature-verified with **no** `X-API-Key`
+header — see `rpc/routers/staking.py:47`; only other mutating routes such as
+`/rpc/identity/*` and `/rpc/governance/*` require the key). `--duration` is the lock in days (default `30`); `--wallet-name`/`--wallet-path`/`--rpc-url` are accepted directly.
 
 ```bash
 aitbc stake --wallet-name staker --amount 100.0 --duration 90

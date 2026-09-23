@@ -67,7 +67,7 @@ Production Solidity contracts live in `contracts/contracts/`:
 ### Development and verification
 
 - [ZK Verification Guide](ZK-VERIFICATION.md) — off-chain proof generation and on-chain verification
-- [pnpm Setup](PNPM_SETUP.md) — package manager configuration for contract development
+- [pnpm Setup](PNPM_SETUP.md) — **superseded**: `contracts/` uses npm (`npm ci`, `npx hardhat`); kept for historical reference
 - [Hardhat Version Investigation](HARDHAT_VERSION_INVESTIGATION.md) — historical toolchain notes
 
 ## See Also

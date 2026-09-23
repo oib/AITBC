@@ -23,7 +23,7 @@ alembic revision --autogenerate -m "Add agent identity tables"
 alembic upgrade head
 
 # Verify tables were created
-psql -d aitbc_db -c "\dt agent_*"
+sqlite3 /var/lib/aitbc/data/coordinator.db ".tables" | grep agent_   # coordinator-api defaults to SQLite — no aitbc_db exists
 ```
 
 ### **2. Dependencies Installation** (Required)
@@ -41,7 +41,7 @@ echo "aiodns>=3.0.0" >> requirements.txt
 
 ```bash
 # Copy configuration template
-cp .env.agent-identity.example .env.agent-identity
+# no .env.agent-identity* template exists — edit /etc/aitbc/aitbc-coordinator-api.env
 
 # Update your main .env file with agent identity settings
 # Add the blockchain RPC URLs and other configurations
@@ -62,7 +62,7 @@ curl -X GET "http://localhost:8203/v1/agent-identity/registry/health"
 
 ```bash
 # Run the integration tests
-python test_agent_identity_integration.py
+python -m pytest apps/coordinator-api/tests/test_agent_identity_sdk.py   # the standalone file does not exist
 
 # Run the example script
 python examples/agent_identity_sdk_example.py
@@ -77,28 +77,11 @@ python examples/agent_identity_sdk_example.py
 Add these to your production environment:
 
 ```bash
-# Blockchain RPC Endpoints
-ETHEREUM_RPC_URL=https://mainnet.infura.io/v3/YOUR_PROJECT_ID
-POLYGON_RPC_URL=https://polygon-rpc.com
-BSC_RPC_URL=https://bsc-dataseed1.binance.org
-ARBITRUM_RPC_URL=https://arb1.arbitrum.io/rpc
-OPTIMISM_RPC_URL=https://mainnet.optimism.io
-AVALANCHE_RPC_URL=https://api.avax.network/ext/bc/C/rpc
-
-# Agent Identity Settings
-AGENT_IDENTITY_ENABLE_VERIFICATION=true
-AGENT_IDENTITY_DEFAULT_VERIFICATION_LEVEL=basic
-AGENT_IDENTITY_REPUTATION_SYNC_INTERVAL=3600
-
-# Security Settings
-AGENT_IDENTITY_MAX_IDENTITIES_PER_OWNER=100
-AGENT_IDENTITY_MAX_CHAINS_PER_IDENTITY=10
-AGENT_IDENTITY_VERIFICATION_EXPIRY_DAYS=30
-
-# Performance Settings
-AGENT_IDENTITY_CACHE_TTL=300
-AGENT_IDENTITY_BATCH_SIZE=50
-AGENT_IDENTITY_RATE_LIMIT=100
+# None of the ETHEREUM_*/POLYGON_*/BSC_*/ARBITRUM_*/OPTIMISM_*/AVALANCHE_*_RPC_URL
+# or AGENT_IDENTITY_* names below are read anywhere in coordinator-api — the
+# only AGENT_IDENTITY_* hits are SQL table-name constants. Real configuration
+# is the coordinator-api env file (/etc/aitbc/aitbc-coordinator-api.env) plus
+# the service's pydantic Settings fields.
 ```
 
 ### **Database Tables Created**
@@ -125,7 +108,7 @@ AGENT_IDENTITY_RATE_LIMIT=100
 pytest tests/test_agent_identity_sdk.py -v
 
 # Run integration tests
-python test_agent_identity_integration.py
+python -m pytest apps/coordinator-api/tests/test_agent_identity_sdk.py   # the standalone file does not exist
 ```
 
 ### **API Testing**

@@ -38,7 +38,7 @@ def genesis():
 @click.option("--proposer", help="Proposer address (defaults to genesis wallet)")
 @click.option("--force", is_flag=True, help="Force overwrite existing genesis")
 @click.option("--register-service", is_flag=True, help="Register genesis wallet with wallet service")
-@click.option("--service-url", default="http://localhost:8003", help="Wallet service URL")
+@click.option("--service-url", default="http://localhost:8108", help="Wallet service URL")
 @click.pass_context
 def init(
     ctx,
