@@ -41,7 +41,27 @@ Rail selection is automatic: when `EVM_RPC_URL` +
 `ENERGY_PRICING_CONTRACT_ADDRESS` are configured the CLI uses the EVM contract;
 otherwise `energy floor`, `provider register`/`profile`/`rate` and
 `suggest --register` talk to the coordinator's `/v1/marketplace/native-energy/*`
-endpoints (public GETs for reads, miner JWT/`X-Api-Key` for writes).
+endpoints (public GETs for reads, `X-Api-Key` miner auth for writes and the
+rate read).
+
+**Coordinator selection**: native pricing state lives on the hub coordinator
+DB. Shop/follower nodes run a local coordinator replica that may be EVM-railed
+or lack the native tables — every native CLI call therefore tries the
+configured coordinator first, then falls back to the hub mount resolved by
+`hub_coordinator_url()` (`HUB_COORDINATOR_URL`/`COORDINATOR_API_URL` env, else
+`https://<hub>/c/v1` from discovery config). A local 404/500 on a native
+endpoint means "not provisioned here", not failure.
+
+**Miner credential**: the coordinator's `MinerDep` accepts a `role: "miner"`
+JWT or an `X-Api-Key` present in `MINER_API_KEYS`/`miner_api_keys`. Wallet
+login only mints `client`/`admin` roles, so in practice the working credential
+is a miner API key. The CLI resolves it as `--api-key` > stored `miner`
+credential (`aitbc auth login --credential-name miner`) > `api_key` from
+config — which auto-loads the first `MINER_API_KEYS` entry from
+`/etc/aitbc/aitbc-coordinator-api.env`. The operator fleet shares one miner
+key, so node env files already satisfy hub auth; a stored *client* credential
+is deliberately skipped (a client-role JWT can never pass miner auth and would
+suppress the key).
 
 `energy suggest` precedence: `--tbp-watts` > nvidia-smi `power.limit` > GPU
 catalog. Tariff: `--eur-per-kwh` > `ENERGY_EUR_PER_KWH` > `--region`/
@@ -69,21 +89,23 @@ Reads: `GET .../native-energy/profile/{resource_id}` and
 `GET .../native-energy/floor?resource_id&gpu_count&duration_seconds` are public
 (no auth); `GET .../native-energy/rate` shares its path with the MINER POST so
 it needs miner auth too. The floor endpoint returns `net_floor_units` +
-`net_floor_ait` directly.
+`net_floor_ait` directly. On a coordinator without the native tables all three
+return 404 (not 500) — let the CLI fall back to the hub rather than debugging
+the local DB.
 
-**Prefer the API** — write endpoints take a miner JWT or `X-Api-Key`
+**Prefer the API** — write endpoints take the miner `X-Api-Key`
 (`MinerDep`) and bump `revision`/`version` server-side (quote signatures embed
 them):
 
 ```bash
 # update watts/tariff on a profile (upsert)
 curl -X POST http://127.0.0.1:8203/v1/marketplace/native-energy/profile \
-  -H "Authorization: Bearer <miner-jwt>" -H "Content-Type: application/json" \
+  -H "X-Api-Key: <miner-key>" -H "Content-Type: application/json" \
   -d '{"resource_id":"node2-rtx4060ti","tbp_watts":384,"eur_per_kwh":0.30}'
 
 # republish the global AIT/EUR rate
 curl -X POST http://127.0.0.1:8203/v1/marketplace/native-energy/rate \
-  -H "Authorization: Bearer <miner-jwt>" -H "Content-Type: application/json" \
+  -H "X-Api-Key: <miner-key>" -H "Content-Type: application/json" \
   -d '{"ait_per_eur":4.0}'
 ```
 
