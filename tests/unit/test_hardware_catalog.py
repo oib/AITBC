@@ -42,6 +42,9 @@ class TestNormalizeCpuModel:
     def test_intel(self):
         assert normalize_cpu_model("Intel(R) Core(TM) i9-13900K") == "i9_13900k"
 
+    def test_xeon_clock_suffix(self):
+        assert normalize_cpu_model("Intel(R) Xeon(R) Platinum 8380 CPU @ 2.30GHz") == "xeon_platinum_8380"
+
 
 class TestResolvers:
     def test_gpu_precedence(self):
