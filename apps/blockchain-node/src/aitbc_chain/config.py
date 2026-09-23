@@ -476,6 +476,7 @@ class ChainSettings(BaseSettings):
     bridge_supported_chains: str = ""  # Comma-separated list of chain IDs the bridge serves
     bridge_batch_size: int = 10  # Max transfers per batch operation
     bridge_monitor_interval: int = 60  # Seconds between bridge health checks
+    bridge_header_sync_batch: int = 500  # Max block headers mirrored into the bridge table per finalizer pass
     bridge_stuck_transfer_timeout: int = 3600  # Seconds before a pending transfer is flagged as stuck
     bridge_refund_delay_seconds: int = 0  # Minimum seconds after lock_time before a refund is allowed (0 = no delay)
     bridge_max_lock_amount: int = 0  # Maximum amount that can be locked in a single transfer (0 = unlimited)

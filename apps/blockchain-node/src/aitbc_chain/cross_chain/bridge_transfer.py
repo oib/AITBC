@@ -957,8 +957,21 @@ class BridgeTransferMixin(BridgeBase):
                 start_height = max(0, head.height - 2 * finality_blocks - 5)
             else:
                 start_height = int(last_stored) + 1
+            # Bounded per pass: an unbounded select loads every block from the
+            # gap start to the chain head into memory at once, and a node that
+            # has been down long enough for that to matter is exactly the node
+            # that cannot afford it. A host behind by more than one batch
+            # catches up over successive passes rather than in one, which still
+            # converges with room to spare: 500 headers every
+            # ``bridge_monitor_interval`` (60s) against roughly one block a
+            # minute of production. Both halves -- the bound and the
+            # convergence -- are pinned by test_bridge_header_sync_bound.py.
+            batch = max(1, int(getattr(settings, "bridge_header_sync_batch", 500)))
             new_blocks = session.exec(
-                select(Block).where(Block.chain_id == chain_id, Block.height >= start_height).order_by(Block.height.asc())  # type: ignore[attr-defined]
+                select(Block)
+                .where(Block.chain_id == chain_id, Block.height >= start_height)
+                .order_by(Block.height.asc())  # type: ignore[attr-defined]
+                .limit(batch)
             ).all()
         stored = 0
         for block in new_blocks:
