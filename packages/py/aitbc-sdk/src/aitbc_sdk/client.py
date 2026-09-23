@@ -38,14 +38,9 @@ class _BaseClient:
         except NetworkError as exc:
             raise AITBCConnectionError(str(exc)) from exc
 
-    def _post(
-        self,
-        path: str,
-        json: dict[str, Any] | None = None,
-        params: dict[str, Any] | None = None,
-    ) -> dict[str, Any]:
+    def _post(self, path: str, json: dict[str, Any] | None = None) -> dict[str, Any]:
         try:
-            return self._http.post(path, json=json, params=params)
+            return self._http.post(path, json=json)
         except RateLimitError as exc:
             raise AITBCRateLimitError(str(exc)) from exc
         except NetworkError as exc:
