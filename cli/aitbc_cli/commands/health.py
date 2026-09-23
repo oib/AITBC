@@ -88,7 +88,7 @@ def _probe_url(url: str, timeout: float) -> dict[str, Any]:
 
   aitbc health --host 198.51.100.20 --services blockchain-rpc,edge
 
-  aitbc health --host https://hub.aitbc.bubuit.net"""
+  aitbc health --host https://hub.example.net"""
 )
 @click.option("--host", "host", required=True, help="Remote host to probe (hostname, IP, or http(s):// URL).")
 @click.option(

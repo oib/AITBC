@@ -23,7 +23,7 @@ set -euo pipefail
 
 CHAIN_ID="${CHAIN_ID:-ait-hub.aitbc.bubuit.net}"
 DB="${DB:-/var/lib/aitbc/data/${CHAIN_ID}/chain.db}"
-HUB="${HUB:-https://hub.aitbc.bubuit.net}"
+HUB="${HUB:-https://hub.example.net}"
 ANCHOR="${ANCHOR:-105627}"   # last block that cannot verify; sync resumes at ANCHOR+1
 DRY_RUN="${DRY_RUN:-0}"
 PY="${PY:-/opt/aitbc/venv/bin/python}"

@@ -115,9 +115,9 @@ def test_join_island():
             island_id="ait-test-island",
             island_name="test",
             chain_id="ait-test",
-            hub="hub.aitbc.bubuit.net",
+            hub="hub.example.net",
             is_hub=False,
-            rpc_url="https://hub.aitbc.bubuit.net/rpc",
+            rpc_url="https://hub.example.net/rpc",
             dry_run=False,
             confirm=True,
             role="shop",
@@ -129,8 +129,8 @@ def test_join_island():
     assert "--island-id=ait-test-island" in cmd
     assert "--island-name=test" in cmd
     assert "--chain-id=ait-test" in cmd
-    assert "--hub=hub.aitbc.bubuit.net" in cmd
-    assert "--rpc-url=https://hub.aitbc.bubuit.net/rpc" in cmd
+    assert "--hub=hub.example.net" in cmd
+    assert "--rpc-url=https://hub.example.net/rpc" in cmd
     assert "--is-hub" not in cmd
 
 
@@ -328,7 +328,7 @@ def test_set_aitbc_config():
     result = json.loads(
         aitbc_mcp_cli_tools.set_aitbc_config(
             key="coordinator.url",
-            value="https://hub.aitbc.bubuit.net",
+            value="https://hub.example.net",
             global_config=True,
             dry_run=False,
             confirm=True,
@@ -339,7 +339,7 @@ def test_set_aitbc_config():
     cmd = _last_command()
     assert "config set" in cmd
     assert "coordinator.url" in cmd
-    assert "https://hub.aitbc.bubuit.net" in cmd
+    assert "https://hub.example.net" in cmd
     assert "--global" in cmd
 
 

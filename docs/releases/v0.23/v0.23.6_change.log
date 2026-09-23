@@ -5,7 +5,7 @@
 ### V23-13 — production endpoint hardcoded into marketplace responses, over plaintext HTTP · CONFIRMED → RESOLVED
 
 `apps/marketplace/src/marketplace_service/services/marketplace_service.py:269–271` writes
-`http://hub.aitbc.bubuit.net/rpc` into `endpoint`, `public_endpoint` and `health_url` on
+`http://hub.example.net/rpc` into `endpoint`, `public_endpoint` and `health_url` on
 every offer built from blockchain data. Not from config, and `http://` rather than `https://`
 — the CLI's own help text (`cli/aitbc_cli/commands/agent.py:183`) uses `https://` for the
 same host.

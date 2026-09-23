@@ -60,7 +60,7 @@ manual resync command exists.
 ```bash
 # Compare local height against the hub
 aitbc blockchain height
-curl -s https://hub.aitbc.bubuit.net/rpc/head | jq .height
+curl -s https://hub.example.net/rpc/head | jq .height
 
 # Is the subscription lease active? (run on the hub)
 curl -s http://localhost:8202/rpc/subscribers | jq
@@ -79,7 +79,7 @@ journalctl -u aitbc-blockchain-node -f | grep -iE "subscri|heartbeat|lease|bulk"
   self-proposed. The node then only catches up in bursts via bulk sync. Set a
   unique `proposer_id` (or leave it empty) in the follower's `node.env`.
 - **`DEFAULT_PEER_RPC_URL` wrong** — must be the hub *base* URL
-  (`https://hub.aitbc.bubuit.net`), no `/rpc` suffix.
+  (`https://hub.example.net`), no `/rpc` suffix.
 - **Sync disabled** — verify `SYNC_MANAGER_ENABLED=true`,
   `SUBSCRIPTION_ENABLED=true`, `AUTO_SYNC_ENABLED=true`.
 - **Gap keeps exceeding the sync** — check `auto_sync_threshold` (default 10)
@@ -103,10 +103,10 @@ journalctl -u aitbc-blockchain-node -f | grep -iE "propos|block"
 
 ```bash
 # Can the follower reach the hub at all?
-curl -s https://hub.aitbc.bubuit.net/rpc/status
+curl -s https://hub.example.net/rpc/status
 
 # Is the API key accepted?
-curl -s -X POST https://hub.aitbc.bubuit.net/rpc/subscribe \
+curl -s -X POST https://hub.example.net/rpc/subscribe \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -H "Content-Type: application/json" \
   -d '{"node_id":"test","transport":"websocket","chain_id":"ait-hub.aitbc.bubuit.net"}'
@@ -151,7 +151,7 @@ sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db "PRAGMA integrity_
    ```bash
    curl -X POST http://localhost:8202/rpc/force-sync \
      -H "Content-Type: application/json" \
-     -d '{"peer_url":"https://hub.aitbc.bubuit.net",
+     -d '{"peer_url":"https://hub.example.net",
           "admin_address":"0x<admin>",
           "admin_signature":"0x<signature over the body>"}'
    ```

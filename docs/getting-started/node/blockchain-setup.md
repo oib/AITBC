@@ -35,7 +35,7 @@ curl -fsS http://localhost:8202/health
 
 - Ubuntu Linux system
 - Python 3.13+
-- Network access to hub.aitbc.bubuit.net
+- Network access to hub.example.net
 - AITBC codebase installed
 
 **Hardware Requirements:**
@@ -86,7 +86,7 @@ GOSSIP_BROADCAST_URL=redis://127.0.0.1:6379
 MEMPOOL_BACKEND=database
 MEMPOOL_DB_URL=postgresql+psycopg2://aitbc_mempool:password@localhost:5432/aitbc_mempool
 PROPOSER_ID=<your-proposer-address>
-DEFAULT_PEER_RPC_URL=https://hub.aitbc.bubuit.net   # hub base URL, no /rpc suffix
+DEFAULT_PEER_RPC_URL=https://hub.example.net   # hub base URL, no /rpc suffix
 P2P_NODE_ID=<your-node-id>
 ```
 

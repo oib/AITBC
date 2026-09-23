@@ -137,7 +137,7 @@ aitbc bond status --provider-id 0x28241C034aDF9ca346BE0C3596FF30e4905bD940
 ### Marketplace offer admission is gated
 
 ```bash
-curl -s -X POST https://hub.aitbc.bubuit.net/rpc/transactions/marketplace \
+curl -s -X POST https://hub.example.net/rpc/transactions/marketplace \
   -H "Content-Type: application/json" \
   -d '{"type":"GPU_MARKETPLACE","from":"0x1111111111111111111111111111111111111111","to":"0x0000000000000000000000000000000000000000","amount":0,"fee":360000,"nonce":0,"chain_id":"ait-hub.aitbc.bubuit.net","payload":{"action":"software_offer","offer_id":"test","service_type":"whisper","price":0.1,"price_unit":"per_audio_min","provider_address":"0x1111111111111111111111111111111111111111","status":"active"}}'
 ```

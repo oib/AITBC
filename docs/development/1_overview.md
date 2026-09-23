@@ -95,7 +95,7 @@ See [Getting Started](../getting-started/README.md) for the role selection guide
 ```bash
 # From the monorepo root
 sudo ./scripts/deployment/setup.sh \
-  --open-island https://hub.aitbc.bubuit.net \
+  --open-island https://hub.example.net \
   --node-id <unique-node-id>
 
 # Verify the CLI

@@ -80,7 +80,7 @@ These are operator hardening plays (21–35). The A/B task ids in each play are 
 
 1. **Install the AITBC CLI** — `aitbc` on `$PATH` (entry point: `aitbc_cli.core.main:main`). Version on the live nodes is `0.10.18`.
 2. **Prefer CLI over HTTP.** If a step cannot be done with `aitbc`, that is a CLI gap: fix the CLI, then keep the scenario in sync.
-3. **Know which node you are on.** Hub services (coordinator 8203, exchange 8106, agent-coordinator 8107) often bind `127.0.0.1`. Shop/customer CLIs reach them through nginx (`https://hub.aitbc.bubuit.net/…`) or an SSH tunnel, not raw LAN ports. See scenario 34.
+3. **Know which node you are on.** Hub services (coordinator 8203, exchange 8106, agent-coordinator 8107) often bind `127.0.0.1`. Shop/customer CLIs reach them through nginx (`https://hub.example.net/…`) or an SSH tunnel, not raw LAN ports. See scenario 34.
 4. **Run a node** — blockchain RPC `8202`, coordinator `8203`, wallet `8108`. Authoritative ports: [Service Ports Reference](../reference/SERVICE_PORTS.md).
 5. **Work through 01 → 20**, then the two-node product path **34 + 36**. Intermediate 21–33/35 are operator hardening, not a second beginner track.
 6. **Use the template** — [_TEMPLATE.md](./_TEMPLATE.md).

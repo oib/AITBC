@@ -47,7 +47,7 @@ Use `aitbc agent-msg` for direct messaging through the Agent Coordinator (port 8
 aitbc agent-msg ping \
   --agent hub-coordinator \
   --sender my-follower-agent \
-  --coordinator-url https://hub.aitbc.bubuit.net/agent \
+  --coordinator-url https://hub.example.net/agent \
   --timeout 10
 
 # Send a message
@@ -57,7 +57,7 @@ aitbc agent-msg send "hello" --to-agent hub-coordinator
 aitbc agent-msg request-coins \
   --sender my-agent \
   --wallet my-wallet \
-  --coordinator-url https://hub.aitbc.bubuit.net/agent
+  --coordinator-url https://hub.example.net/agent
 ```
 
 ## REST endpoints

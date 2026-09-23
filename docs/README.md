@@ -32,7 +32,7 @@ This is the documentation hub for AITBC. For the project overview and welcome pa
 
 ## Status
 
-AITBC is under active development. Core blockchain, coordinator, wallet, marketplace, and CLI services are implemented and run on the public hub at `hub.aitbc.bubuit.net`. For a component-by-component view, see [releases/STATUS.md](releases/STATUS.md).
+AITBC is under active development. Core blockchain, coordinator, wallet, marketplace, and CLI services are implemented and run on the public hub at `hub.example.net`. For a component-by-component view, see [releases/STATUS.md](releases/STATUS.md).
 
 ## Navigation
 

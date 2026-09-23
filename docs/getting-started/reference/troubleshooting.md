@@ -14,7 +14,7 @@ journalctl -u aitbc-blockchain-node -f
 journalctl -u aitbc-blockchain-rpc -f
 
 # Verify hub connectivity (public path via nginx; :8202 is internal-only)
-curl -s https://hub.aitbc.bubuit.net/rpc/health
+curl -s https://hub.example.net/rpc/health
 ```
 
 ## Genesis Block Mismatch
@@ -70,7 +70,7 @@ systemctl start aitbc-blockchain-node.service
 
 ```bash
 # Test RPC connectivity (public path via nginx; :8202 is internal-only)
-curl -v https://hub.aitbc.bubuit.net/rpc/health
+curl -v https://hub.example.net/rpc/health
 
 # Test coordinator connectivity (coordinator-api port)
 curl -v http://localhost:8203/health   # check-ports: ignore
@@ -80,7 +80,7 @@ iptables -L -n
 ufw status
 
 # Check DNS resolution
-nslookup hub.aitbc.bubuit.net
+nslookup hub.example.net
 ```
 
 ## See Also

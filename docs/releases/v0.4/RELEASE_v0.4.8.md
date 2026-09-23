@@ -173,7 +173,7 @@ location /api/v1/agent/messages/stream {
    - Remove timestamp parsing (systemd provides timestamps)
 
 4. **Update WebSocket Clients**
-   - Change WebSocket URL from `ws://hub.aitbc.bubuit.net/c/hermes/stream` to `ws://hub.aitbc.bubuit.net/api/v1/agent/messages/stream`
+   - Change WebSocket URL from `ws://hub.example.net/c/hermes/stream` to `ws://hub.example.net/api/v1/agent/messages/stream`
 
 5. **Update Subscription API**
    - Change endpoint from `/rpc/subscription/register` to `/rpc/subscribe`

@@ -44,7 +44,7 @@ aitbc wallet --wallet-name my-agent-wallet unstake --stake-id <stake_id>
 #   signature: over {"address", "amount", "chain_id", "action": "stake", "nonce", "timestamp"}
 #   nonce:     must equal the account's current on-chain nonce
 #   timestamp: unix seconds, within 300 s of server time (STAKE_AUTH_MAX_AGE_SECONDS)
-curl -X POST https://hub.aitbc.bubuit.net/rpc/staking/stake \
+curl -X POST https://hub.example.net/rpc/staking/stake \
   -H "Content-Type: application/json" \
   -d '{"address": "<wallet_address>", "amount": 1000000000000000000, "lock_days": 30, "chain_id": "ait-hub.aitbc.bubuit.net", "signature": "<sig>", "nonce": <account_nonce>, "timestamp": <unix_seconds>}'
 ```
