@@ -15,6 +15,7 @@ from urllib.parse import urlparse
 from aitbc.aitbc_logging import get_logger  # noqa: F401 — re-export
 from aitbc.exceptions import NetworkError  # noqa: F401 — re-export
 from aitbc.network.client import AITBCHTTPClient  # noqa: F401 — re-export
+from aitbc.network.json_types import JSONResponse  # noqa: F401 — re-export
 
 # Constants
 KEYSTORE_DIR = "/var/lib/aitbc/keystore"

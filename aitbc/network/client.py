@@ -3,7 +3,7 @@ HTTP client implementations for AITBC applications
 """
 
 from datetime import UTC, datetime
-from typing import Any, cast
+from typing import Any
 
 import httpx
 import requests
@@ -12,6 +12,7 @@ from ..aitbc_logging import get_logger
 from ..exceptions import CircuitBreakerOpenError, NetworkError, RateLimitError, RetryError
 from .cache_layer import CacheLayer
 from .circuit_breaker import CircuitBreaker
+from .json_types import JSONResponse, expect_object
 from .rate_limiter import RateLimiter
 from .retry_policy import RetryPolicy
 
@@ -94,6 +95,28 @@ class AITBCHTTPClient:
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
         """
+        Perform GET request for an endpoint that returns a JSON object.
+
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            headers: Additional headers
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            TypeError: If the endpoint returned a JSON array -- use get_json() for those
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        return expect_object(self.get_json(endpoint, params=params, headers=headers), self._build_url(endpoint))
+
+    def get_json(
+        self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> JSONResponse:
+        """
         Perform GET request.
 
         Args:
@@ -102,7 +125,8 @@ class AITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON body: an object, or an array for the endpoints that
+            return one. The caller must check the shape.
 
         Raises:
             NetworkError: If request fails
@@ -129,14 +153,14 @@ class AITBCHTTPClient:
             return response.json()
 
         try:
-            result = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request)
             self.cache.set(cache_key, result)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("GET %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -163,9 +187,10 @@ class AITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
 
         Raises:
+            TypeError: If the endpoint returned a JSON array
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -185,13 +210,13 @@ class AITBCHTTPClient:
             return response.json()
 
         try:
-            result = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("POST %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -218,9 +243,10 @@ class AITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
 
         Raises:
+            TypeError: If the endpoint returned a JSON array
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -240,13 +266,13 @@ class AITBCHTTPClient:
             return response.json()
 
         try:
-            result = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("PUT %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -268,7 +294,7 @@ class AITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
         """
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
@@ -285,13 +311,13 @@ class AITBCHTTPClient:
             return response.json() if response.content else {}
 
         try:
-            result = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("PATCH %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -313,9 +339,10 @@ class AITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
 
         Raises:
+            TypeError: If the endpoint returned a JSON array
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -335,13 +362,13 @@ class AITBCHTTPClient:
             return response.json() if response.content else {}
 
         try:
-            result = self.retry_policy.execute(_make_request)
+            result: JSONResponse = self.retry_policy.execute(_make_request)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("DELETE %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -457,6 +484,28 @@ class AsyncAITBCHTTPClient:
         self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
     ) -> dict[str, Any]:
         """
+        Perform async GET request for an endpoint that returns a JSON object.
+
+        Args:
+            endpoint: API endpoint
+            params: Query parameters
+            headers: Additional headers
+
+        Returns:
+            Decoded JSON object
+
+        Raises:
+            TypeError: If the endpoint returned a JSON array -- use get_json() for those
+            NetworkError: If request fails
+            CircuitBreakerOpenError: If circuit breaker is open
+            RateLimitError: If rate limit is exceeded
+        """
+        return expect_object(await self.get_json(endpoint, params=params, headers=headers), self._build_url(endpoint))
+
+    async def get_json(
+        self, endpoint: str, params: dict[str, Any] | None = None, headers: dict[str, str] | None = None
+    ) -> JSONResponse:
+        """
         Perform async GET request.
 
         Args:
@@ -465,7 +514,8 @@ class AsyncAITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON body: an object, or an array for the endpoints that
+            return one. The caller must check the shape.
 
         Raises:
             NetworkError: If request fails
@@ -493,14 +543,14 @@ class AsyncAITBCHTTPClient:
         try:
             response = await self.retry_policy.execute_async(_make_request)
             response.raise_for_status()
-            result = response.json()
+            result: JSONResponse = response.json()
             self.cache.set(cache_key, result)
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("GET %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return result
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -527,9 +577,10 @@ class AsyncAITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
 
         Raises:
+            TypeError: If the endpoint returned a JSON array
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -550,13 +601,13 @@ class AsyncAITBCHTTPClient:
         try:
             response = await self.retry_policy.execute_async(_make_request)
             response.raise_for_status()
-            result = response.json()
+            result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("POST %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -583,9 +634,10 @@ class AsyncAITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
 
         Raises:
+            TypeError: If the endpoint returned a JSON array
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -606,13 +658,13 @@ class AsyncAITBCHTTPClient:
         try:
             response = await self.retry_policy.execute_async(_make_request)
             response.raise_for_status()
-            result = response.json()
+            result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("PUT %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -639,7 +691,7 @@ class AsyncAITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
         """
         url = self._build_url(endpoint)
         self.circuit_breaker.check()
@@ -657,13 +709,13 @@ class AsyncAITBCHTTPClient:
         try:
             response = await self.retry_policy.execute_async(_make_request)
             response.raise_for_status()
-            result = response.json()
+            result: JSONResponse = response.json()
             self.circuit_breaker.record_success()
             self.rate_limiter.record_request()
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("PATCH %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
@@ -685,9 +737,10 @@ class AsyncAITBCHTTPClient:
             headers: Additional headers
 
         Returns:
-            Response data as dictionary
+            Decoded JSON object
 
         Raises:
+            TypeError: If the endpoint returned a JSON array
             NetworkError: If request fails
             CircuitBreakerOpenError: If circuit breaker is open
             RateLimitError: If rate limit is exceeded
@@ -714,7 +767,7 @@ class AsyncAITBCHTTPClient:
             if self.enable_logging:
                 elapsed = (datetime.now(UTC) - start_time).total_seconds()
                 self.logger.info("DELETE %s succeeded in %ss", url, elapsed)
-            return cast(dict[str, Any], result)
+            return expect_object(result, url)
         except (RateLimitError, CircuitBreakerOpenError):
             raise
         except RetryError as e:
