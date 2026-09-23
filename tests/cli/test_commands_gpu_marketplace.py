@@ -119,8 +119,12 @@ class TestGPUMarketplaceCommands:
         """``gpu list-gpus`` lists registered GPUs from the mocked GPU service."""
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {
-            "gpus": [
+        # list-gpus reads /v1/transactions, which returns a bare array on the happy
+        # path, so the command calls get_json() rather than get(); the key is
+        # "transactions", not "gpus" -- with the wrong key this test only ever
+        # exercised the empty branch.
+        mock_client.get_json.return_value = {
+            "transactions": [
                 {"id": "gpu-0", "model": "RTX 4090", "memory_gb": 24, "price_per_hour": 0.5, "status": "active"},
             ]
         }
@@ -130,7 +134,9 @@ class TestGPUMarketplaceCommands:
         result = runner.invoke(gpu, ["list-gpus"])
 
         assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
+        mock_client.get_json.assert_called_once()
+        assert "gpu-0" in result.output
+        assert "RTX 4090" in result.output
 
     @patch("aitbc_cli.commands.gpu_marketplace.AITBCHTTPClient")
     @patch("aitbc_cli.commands.gpu_marketplace.get_config")
@@ -138,13 +144,14 @@ class TestGPUMarketplaceCommands:
         """``gpu list-gpus`` handles an empty GPU list gracefully."""
         mock_get_config.return_value = mock_config
         mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"gpus": []}
+        mock_client.get_json.return_value = {"transactions": []}
 
         from aitbc_cli.commands.gpu_marketplace import gpu
 
         result = runner.invoke(gpu, ["list-gpus"])
 
         assert result.exit_code == 0, result.output
+        assert "No registered GPUs found" in result.output
 
 
 if __name__ == "__main__":
