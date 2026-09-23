@@ -5,6 +5,7 @@ from decimal import Decimal
 from unittest.mock import patch
 
 from aitbc.oracles.price_oracle import (
+    AIT_REFERENCE_PRICE_EUR,
     ChainlinkOracle,
     CoinGeckoOracle,
     PriceOracle,
@@ -64,6 +65,52 @@ class TestPriceOracle:
         oracle = PriceOracle()
         with patch.dict(os.environ, {"AIT_USD_FIXED_PRICE": "invalid"}):
             result = oracle.get_price("AIT", "USD")
+        assert result is None
+
+    def test_get_price_ait_reference_default_eur(self):
+        oracle = PriceOracle()
+        with patch.dict(os.environ) as env:
+            env.pop("AIT_EUR_FIXED_PRICE", None)
+            env.pop("AIT_USD_FIXED_PRICE", None)
+            result = oracle.get_price("AIT", "EUR")
+        assert result is not None
+        assert result.price == AIT_REFERENCE_PRICE_EUR
+        assert result.source == "reference"
+
+    def test_get_price_ait_reference_derives_usd(self):
+        oracle = PriceOracle()
+        eth_usd = PriceResult(base="ETH", quote="USD", price=Decimal("2600"), source="test")
+        eth_eur = PriceResult(base="ETH", quote="EUR", price=Decimal("2400"), source="test")
+        with patch.dict(os.environ) as env:
+            env.pop("AIT_EUR_FIXED_PRICE", None)
+            env.pop("AIT_USD_FIXED_PRICE", None)
+            with patch.object(oracle._coingecko, "get_price", side_effect=[eth_usd, eth_eur]):
+                result = oracle.get_price("AIT", "USD")
+        assert result is not None
+        assert result.price == Decimal("0.25") * Decimal("2600") / Decimal("2400")
+        assert result.source == "derived"
+
+    def test_get_price_ait_reference_derives_eth(self):
+        oracle = PriceOracle()
+        eth_usd = PriceResult(base="ETH", quote="USD", price=Decimal("2600"), source="test")
+        eth_eur = PriceResult(base="ETH", quote="EUR", price=Decimal("2400"), source="test")
+        with patch.dict(os.environ) as env:
+            env.pop("AIT_EUR_FIXED_PRICE", None)
+            env.pop("AIT_USD_FIXED_PRICE", None)
+            with patch.object(oracle._coingecko, "get_price", side_effect=[eth_usd, eth_eur]):
+                result = oracle.get_price("AIT", "ETH")
+        assert result is not None
+        assert result.price == Decimal("0.25") / Decimal("2400")
+        assert result.source == "derived"
+
+    def test_get_price_ait_reference_eth_oracle_down(self):
+        oracle = PriceOracle()
+        with patch.dict(os.environ) as env:
+            env.pop("AIT_EUR_FIXED_PRICE", None)
+            env.pop("AIT_USD_FIXED_PRICE", None)
+            with patch.object(oracle._coingecko, "get_price", return_value=None):
+                with patch.object(oracle._chainlink, "get_price", return_value=None):
+                    result = oracle.get_price("AIT", "USD")
         assert result is None
 
     def test_get_price_chainlink_fallback(self):

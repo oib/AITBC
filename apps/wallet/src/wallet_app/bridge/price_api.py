@@ -10,11 +10,13 @@ from decimal import Decimal
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
 
 logger = get_logger(__name__)
 
-# Default AIT price in USD (fallback only; derived from oracle/fixed price when possible)
-_AIT_USD_DEFAULT = Decimal(os.getenv("AIT_USD_PRICE", "0.25"))
+# Last-resort flat USD value — only used when no ETH prices are available to
+# convert the EUR-anchored compute reference and no env override is set.
+_AIT_USD_FALLBACK = Decimal("0.25")
 
 
 def _ait_usd_price(eth_usd: Decimal | None = None, eth_eur: Decimal | None = None) -> Decimal:
@@ -22,8 +24,11 @@ def _ait_usd_price(eth_usd: Decimal | None = None, eth_eur: Decimal | None = Non
 
     Priority:
       1. AIT_EUR_FIXED_PRICE env, derived via live ETH/USD and ETH/EUR.
-      2. AIT_USD_FIXED_PRICE env.
-      3. AIT_USD_PRICE env.
+      2. AIT_USD_FIXED_PRICE env (legacy flat USD override).
+      3. AIT_USD_PRICE env (explicit USD override).
+      4. Compute-backed reference — EUR 0.25 per compute-hour on the RTX 4060
+         Ti 16GB reference rig, converted to USD via live ETH prices.
+      5. Flat USD fallback when no ETH prices are available at all.
     """
     eur_fixed = os.getenv("AIT_EUR_FIXED_PRICE")
     if eur_fixed and eth_usd is not None and eth_eur is not None and eth_eur > 0:
@@ -38,7 +43,15 @@ def _ait_usd_price(eth_usd: Decimal | None = None, eth_eur: Decimal | None = Non
             return Decimal(usd_fixed)
         except Exception:
             logger.warning("Invalid AIT_USD_FIXED_PRICE: %s", usd_fixed)
-    return _AIT_USD_DEFAULT
+    usd_env = os.getenv("AIT_USD_PRICE")
+    if usd_env:
+        try:
+            return Decimal(usd_env)
+        except Exception:
+            logger.warning("Invalid AIT_USD_PRICE: %s", usd_env)
+    if eth_usd is not None and eth_eur is not None and eth_eur > 0:
+        return AIT_REFERENCE_PRICE_EUR * eth_usd / eth_eur
+    return _AIT_USD_FALLBACK
 
 
 async def get_eth_prices() -> dict[str, Decimal] | None:
