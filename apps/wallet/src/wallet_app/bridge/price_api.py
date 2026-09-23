@@ -1,15 +1,15 @@
 """
 ETH-AIT Price API
-Fetches ETH price from CoinGecko and calculates AIT exchange rate.
+Fetches ETH price via the shared price oracle and calculates AIT exchange rate.
 """
 
+import asyncio
 import os
 from datetime import datetime
 from decimal import Decimal
 from typing import Any
 
 from aitbc.aitbc_logging import get_logger
-from aitbc.network import SharedHttpClient
 
 logger = get_logger(__name__)
 
@@ -43,41 +43,37 @@ def _ait_usd_price(eth_usd: Decimal | None = None, eth_eur: Decimal | None = Non
 
 async def get_eth_prices() -> dict[str, Decimal] | None:
     """
-    Fetch current ETH price in USD and EUR from CoinGecko API.
-    Returns None if API call fails.
+    Fetch current ETH price in USD and EUR via the shared price oracle
+    (Chainlink → CoinGecko, with in-memory and on-disk caching).
+    Falls back to ETH_USD_FIXED_PRICE / ETH_EUR_FIXED_PRICE env vars.
+    Returns None if no source yields both prices.
     """
     try:
-        url = "https://api.coingecko.com/api/v3/simple/price"
-        params = {"ids": "ethereum", "vs_currencies": "usd,eur"}
+        from aitbc.oracles.price_oracle import get_price_oracle
 
-        response = await SharedHttpClient.get(url, params=params, timeout=10.0)
-        response.raise_for_status()
-
-        data = response.json()
-        eth_data = data.get("ethereum", {})
-        eth_usd = eth_data.get("usd")
-        eth_eur = eth_data.get("eur")
+        oracle = get_price_oracle()
+        eth_usd = await asyncio.to_thread(oracle.get_price, "ETH", "USD")
+        eth_eur = await asyncio.to_thread(oracle.get_price, "ETH", "EUR")
 
         if eth_usd and eth_eur:
-            return {"usd": Decimal(str(eth_usd)), "eur": Decimal(str(eth_eur))}
-
-        return None
+            return {"usd": eth_usd.price, "eur": eth_eur.price}
     except Exception as e:
         logger.error("Failed to fetch ETH prices: %s", e)
-        fixed_usd = os.getenv("ETH_USD_FIXED_PRICE")
-        fixed_eur = os.getenv("ETH_EUR_FIXED_PRICE")
-        if fixed_usd:
-            try:
-                return {"usd": Decimal(str(fixed_usd)), "eur": Decimal(str(fixed_eur or fixed_usd))}
-            except Exception:
-                logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
-        return None
+
+    fixed_usd = os.getenv("ETH_USD_FIXED_PRICE")
+    fixed_eur = os.getenv("ETH_EUR_FIXED_PRICE")
+    if fixed_usd:
+        try:
+            return {"usd": Decimal(str(fixed_usd)), "eur": Decimal(str(fixed_eur or fixed_usd))}
+        except Exception:
+            logger.warning("Invalid fixed ETH price env: %s / %s", fixed_usd, fixed_eur)
+    return None
 
 
 async def get_eth_price_usd() -> Decimal | None:
     """
-    Fetch current ETH price in USD from CoinGecko API.
-    Returns None if API call fails.
+    Fetch current ETH price in USD via the shared price oracle.
+    Returns None if no price source is available.
     """
     prices = await get_eth_prices()
     return prices["usd"] if prices else None
