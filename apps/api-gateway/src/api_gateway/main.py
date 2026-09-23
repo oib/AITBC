@@ -84,7 +84,16 @@ COORDINATOR_URL = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
 # ratings, ipfs, match, ...) belongs to the marketplace service on :8102.
 # These must be listed before the generic "marketplace" entry: the first
 # prefix match in dict order wins.
-_MARKETPLACE_COORDINATOR_PREFIXES = ("gpu", "providers", "bonds", "miner-offers", "native-energy", "orders", "pricing", "sync-offers")
+_MARKETPLACE_COORDINATOR_PREFIXES = (
+    "gpu",
+    "providers",
+    "bonds",
+    "miner-offers",
+    "native-energy",
+    "orders",
+    "pricing",
+    "sync-offers",
+)
 SERVICES: dict[str, dict[str, object]] = {
     "escrow": {
         "base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc",
@@ -251,8 +260,32 @@ async def list_services() -> dict[str, dict[str, object]]:
     return {service_name: {"prefix": config["prefix"], "url": config["base_url"]} for service_name, config in SERVICES.items()}
 
 
-async def proxy_with_retry(client: httpx.AsyncClient, method: str, url: str, **kwargs: object) -> httpx.Response:
-    """Proxy request with retry logic for transient failures."""
+# Errors raised before the request left this process — TCP connect refused,
+# connect timeout, pool timeout. Retrying is safe for every method because
+# nothing reached upstream.
+_UNSENT_REQUEST_ERRORS = (httpx.ConnectError, httpx.ConnectTimeout, httpx.PoolTimeout)
+
+
+class AmbiguousUpstreamError(Exception):
+    """The upstream may have accepted the request before its response was lost.
+
+    Raised instead of replaying a non-idempotent write; the caller must
+    reconcile state (or retry with an Idempotency-Key) rather than risk a
+    duplicate side effect.
+    """
+
+
+async def proxy_with_retry(
+    client: httpx.AsyncClient, method: str, url: str, *, retry_ambiguous: bool = False, **kwargs: object
+) -> httpx.Response:
+    """Proxy request with retry logic for transient failures.
+
+    Pre-send failures are retried for every method. Post-send failures —
+    read/write timeouts, mid-stream network errors — are ambiguous: the
+    upstream may have committed the request before the response was lost, so
+    they are retried only for safe methods or writes whose Idempotency-Key the
+    upstream deduplicates. Non-idempotent writes get AmbiguousUpstreamError.
+    """
     max_retries = 3
     retry_delay = 0.5
     for attempt in range(max_retries):
@@ -269,15 +302,19 @@ async def proxy_with_retry(client: httpx.AsyncClient, method: str, url: str, **k
                 return await client.patch(url, **kwargs)  # type: ignore[arg-type]
             elif method == "OPTIONS":
                 return await client.options(url, **kwargs)  # type: ignore[arg-type]
-        except httpx.TimeoutException:
+            elif method == "HEAD":
+                return await client.head(url, **kwargs)  # type: ignore[arg-type]
+        except _UNSENT_REQUEST_ERRORS:
             if attempt < max_retries - 1:
-                logger.warning("Timeout on attempt %s/%s, retrying...", attempt + 1, max_retries)
+                logger.warning("Upstream unreachable before send on attempt %s/%s, retrying...", attempt + 1, max_retries)
                 await asyncio.sleep(retry_delay * (attempt + 1))
                 continue
             raise
-        except httpx.ConnectError:
+        except httpx.TransportError as exc:
+            if not retry_ambiguous:
+                raise AmbiguousUpstreamError(url) from exc
             if attempt < max_retries - 1:
-                logger.warning("Connection error on attempt %s/%s, retrying...", attempt + 1, max_retries)
+                logger.warning("Post-send failure on attempt %s/%s, retrying...", attempt + 1, max_retries)
                 await asyncio.sleep(retry_delay * (attempt + 1))
                 continue
             raise
@@ -335,20 +372,55 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
         headers.pop("x-gateway-key", None)
         if getattr(request.state, "gateway_bearer_auth", False):
             headers.pop("authorization", None)
+        # Propagate correlation — the middleware sets state.request_id but does
+        # not inject it into the incoming headers.
+        headers["x-request-id"] = request.state.request_id
         kwargs: dict[str, object] = {"headers": headers, "params": request.query_params}
         if request.method in ["POST", "PUT", "PATCH"]:
             body = await request.body()
             kwargs["content"] = body
-        response = await proxy_with_retry(client, request.method, target_url, **kwargs)
+        # Safe methods replay freely. A write replays post-send failures only
+        # when it carries an Idempotency-Key the upstream deduplicates.
+        retry_ambiguous = request.method in ("GET", "HEAD", "OPTIONS") or "idempotency-key" in request.headers
+        response = await proxy_with_retry(client, request.method, target_url, retry_ambiguous=retry_ambiguous, **kwargs)
         # Framing and hop-by-hop headers describe the upstream connection, not
         # this one — forwarding them produces malformed responses (nginx 502).
         upstream_headers = {
             k: v
             for k, v in response.headers.items()
             if k.lower()
-            not in ("content-length", "content-encoding", "transfer-encoding", "connection", "keep-alive", "server", "date", "te", "trailer", "upgrade")
+            not in (
+                "content-length",
+                "content-encoding",
+                "transfer-encoding",
+                "connection",
+                "keep-alive",
+                "server",
+                "date",
+                "te",
+                "trailer",
+                "upgrade",
+            )
         }
         return Response(content=response.content, status_code=response.status_code, headers=upstream_headers)
+    except AmbiguousUpstreamError:
+        logger.error(
+            "Ambiguous outcome for %s %s: upstream may have accepted it; not retried without Idempotency-Key",
+            request.method,
+            target_url,
+        )
+        record_failure(service_name)
+        return JSONResponse(
+            status_code=503,
+            content={
+                "error": {
+                    "type": "outcome_unknown",
+                    "message": "The upstream may have accepted this request before its response was lost. "
+                    "Reconcile the operation or retry with an Idempotency-Key.",
+                    "service": service_name,
+                }
+            },
+        )
     except httpx.RequestError:
         logger.error("Service unavailable after retries")
         record_failure(service_name)
