@@ -3,8 +3,10 @@ Bridge management commands for federated mesh.
 
 v0.7.0 §B5: Replaced simulated data stubs with actual RPC calls.
 - ``request`` calls ``POST /islands/bridge`` on the blockchain node
-- ``approve``/``reject`` call the bridge manager via RPC (islands module)
 - ``list-bridges`` calls ``GET /bridge/health`` for cross-chain bridge status
+- ``approve``/``reject`` have no server-side counterpart: the islands module
+  completes bridge requests in one step and has no pending-request workflow,
+  so both commands abort with an explanation instead of hitting dead routes.
 """
 
 import asyncio
@@ -47,38 +49,22 @@ def request_bridge_command(ctx, target_island_id):
 
 def approve_bridge_command(ctx, request_id, approving_node_id):
     """Approve a bridge request"""
-    rpc_url = _get_rpc_url(ctx)
-    try:
-        http_client = _rpc_client(rpc_url)
-        result = http_client.post(
-            "/rpc/islands/bridge/approve",
-            json={"bridge_id": request_id, "approving_node_id": approving_node_id},
-        )
-        output(result, ctx.obj.get("output", "table"), title="Bridge Approved")
-    except NetworkError as e:
-        error(f"Cannot connect to blockchain node at {rpc_url}: {e}")
-        raise click.Abort() from e
-    except Exception as e:
-        error(f"Error approving bridge request: {e}")
-        raise click.Abort() from e
+    error(
+        "Bridge approval is not implemented on the blockchain node: "
+        "POST /rpc/islands/bridge completes a bridge request in one step and "
+        "the islands module has no pending-request workflow to approve."
+    )
+    raise click.Abort()
 
 
 def reject_bridge_command(ctx, request_id, reason):
     """Reject a bridge request"""
-    rpc_url = _get_rpc_url(ctx)
-    try:
-        http_client = _rpc_client(rpc_url)
-        result = http_client.post(
-            "/rpc/islands/bridge/reject",
-            json={"bridge_id": request_id, "reason": reason or ""},
-        )
-        output(result, ctx.obj.get("output", "table"), title="Bridge Rejected")
-    except NetworkError as e:
-        error(f"Cannot connect to blockchain node at {rpc_url}: {e}")
-        raise click.Abort() from e
-    except Exception as e:
-        error(f"Error rejecting bridge request: {e}")
-        raise click.Abort() from e
+    error(
+        "Bridge rejection is not implemented on the blockchain node: "
+        "POST /rpc/islands/bridge completes a bridge request in one step and "
+        "the islands module has no pending-request workflow to reject."
+    )
+    raise click.Abort()
 
 
 def list_bridges_command(ctx):

@@ -6,8 +6,6 @@ Converted from skipped stubs to functional tests using the shared CLI mock
 fixtures (see ``tests/fixtures/cli_mocks.py`` and ``tests/cli/conftest.py``).
 """
 
-from unittest.mock import patch
-
 import pytest
 
 
@@ -112,82 +110,32 @@ class TestSimulateCommands:
         assert result.exit_code == 0, result.output
         assert "Network Topology" in result.output
 
-    @patch("aitbc_cli.commands.simulate.get_config")
-    @patch("aitbc_cli.commands.simulate.AITBCHTTPClient")
-    def test_simulate_run_command(self, mock_http_class, mock_get_config, runner):
-        """``simulate run`` submits a simulation to the coordinator-api."""
-        mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"simulation_id": "sim-123", "status": "started"}
-
+    def test_simulate_run_not_implemented(self, runner):
+        """``simulate run`` aborts honestly — the agent-coordinator has no ``/simulate/*`` endpoints."""
         from aitbc_cli.commands.simulate import simulate
-
-        result = runner.invoke(simulate, ["run", "--scenario", "test-scenario"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.post.assert_called_once()
-        assert "/simulate/run" in mock_client.post.call_args[0][0]
-
-    @patch("aitbc_cli.commands.simulate.get_config")
-    @patch("aitbc_cli.commands.simulate.AITBCHTTPClient")
-    def test_simulate_run_command_with_params(self, mock_http_class, mock_get_config, runner):
-        """``simulate run --params`` passes JSON params to the simulation."""
-        mock_client = mock_http_class.return_value
-        mock_client.post.return_value = {"simulation_id": "sim-456", "status": "started"}
-
-        from aitbc_cli.commands.simulate import simulate
-
-        result = runner.invoke(
-            simulate,
-            ["run", "--scenario", "test-scenario", "--params", '{"key": "value"}'],
-        )
-
-        assert result.exit_code == 0, result.output
-        _, kwargs = mock_client.post.call_args
-        assert kwargs.get("json", {}).get("params") == {"key": "value"}
-
-    @patch("aitbc_cli.commands.simulate.get_config")
-    @patch("aitbc_cli.commands.simulate.AITBCHTTPClient")
-    def test_simulate_status_command(self, mock_http_class, mock_get_config, runner):
-        """``simulate status`` fetches simulation status from coordinator-api."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"simulation_id": "sim-123", "status": "running"}
-
-        from aitbc_cli.commands.simulate import simulate
-
-        result = runner.invoke(simulate, ["status", "--simulation-id", "sim-123"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        assert "sim-123" in mock_client.get.call_args[0][0]
-
-    @patch("aitbc_cli.commands.simulate.get_config")
-    @patch("aitbc_cli.commands.simulate.AITBCHTTPClient")
-    def test_simulate_result_command(self, mock_http_class, mock_get_config, runner):
-        """``simulate result`` fetches simulation results from coordinator-api."""
-        mock_client = mock_http_class.return_value
-        mock_client.get.return_value = {"simulation_id": "sim-123", "results": []}
-
-        from aitbc_cli.commands.simulate import simulate
-
-        result = runner.invoke(simulate, ["result", "--simulation-id", "sim-123"])
-
-        assert result.exit_code == 0, result.output
-        mock_client.get.assert_called_once()
-        assert "sim-123" in mock_client.get.call_args[0][0]
-
-    @patch("aitbc_cli.commands.simulate.get_config")
-    @patch("aitbc_cli.commands.simulate.AITBCHTTPClient")
-    def test_simulate_run_network_error(self, mock_http_class, mock_get_config, runner):
-        """``simulate run`` aborts on NetworkError."""
-        from aitbc_cli.commands.simulate import simulate
-        from aitbc_cli.utils.http_client import NetworkError
-
-        mock_client = mock_http_class.return_value
-        mock_client.post.side_effect = NetworkError("connection refused")
 
         result = runner.invoke(simulate, ["run", "--scenario", "test-scenario"])
 
         assert result.exit_code != 0
+        assert "not implemented" in result.output.lower()
+
+    def test_simulate_status_not_implemented(self, runner):
+        """``simulate status`` aborts honestly — no ``/simulate/*`` endpoints exist."""
+        from aitbc_cli.commands.simulate import simulate
+
+        result = runner.invoke(simulate, ["status", "--simulation-id", "sim-123"])
+
+        assert result.exit_code != 0
+        assert "not implemented" in result.output.lower()
+
+    def test_simulate_result_not_implemented(self, runner):
+        """``simulate result`` aborts honestly — no ``/simulate/*`` endpoints exist."""
+        from aitbc_cli.commands.simulate import simulate
+
+        result = runner.invoke(simulate, ["result", "--simulation-id", "sim-123"])
+
+        assert result.exit_code != 0
+        assert "not implemented" in result.output.lower()
 
 
 if __name__ == "__main__":
