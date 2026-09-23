@@ -85,7 +85,7 @@ docs/
 | [marketplace](marketplace/) | 27 | Marketplace, exchange, and trading docs |
 | [meta](meta/) | 5 | Documentation standards, template, and compliance |
 | [mining](mining/) | 7 | Mining operations and GPU provider docs |
-| [ops](ops/) | 2 | Operational runbooks and key handling |
+| [ops](ops/) | 3 | Operational runbooks and key handling |
 | [reference](reference/) | 19 | Quick lookup: ports, glossary, FAQ |
 | [releases](releases/) | 314 | Release notes, changelogs, and status |
 | [scenarios](scenarios/) | 61 | End-to-end usage scenarios |
