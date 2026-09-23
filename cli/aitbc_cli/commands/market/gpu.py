@@ -555,10 +555,12 @@ def refund(ctx, job_id, wallet, wallet_path, password, password_file, reason, ye
     if not yes:
         click.confirm(f"Request refund for job {job_id}?", abort=True)
 
-    client = AITBCHTTPClient(base_url=_coordinator_url(), timeout=30, headers=_auth_headers(ctx))
-    payload: dict[str, Any] = {"job_id": job_id, "buyer_address": buyer_address, "reason": reason}
+    # The coordinator has no /v1/marketplace/gpu/refund route; refunds are
+    # served by the marketplace service's job endpoint.
+    client = AITBCHTTPClient(base_url=get_config().marketplace_service_url, timeout=30)
+    payload: dict[str, Any] = {"buyer_address": buyer_address, "reason": reason}
     try:
-        result = client.post("/v1/marketplace/gpu/refund", json=payload)
+        result = client.post(f"/v1/marketplace/jobs/{job_id}/refund", json=payload)
     except NetworkError as e:
         error(f"Refund request failed: {e}")
         sys.exit(1)

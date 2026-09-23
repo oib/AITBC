@@ -206,7 +206,9 @@ def subscribe(ctx, node_id, transport, chain_id, duration, rpc_url):
             abort(ctx, "chain-id is required. Set SUPPORTED_CHAINS in /etc/aitbc/node.env or use --chain-id option")
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        from ..config import get_config
+
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
         subscription_data = {"node_id": node_id, "transport": transport, "chain_id": chain_id, "duration": duration}
         result = http_client.post("/rpc/subscribe", json=subscription_data)
         output(result, ctx.obj.get("output_format", "table"), title="Subscription Registered")
@@ -235,9 +237,11 @@ def heartbeat(ctx, node_id, duration, rpc_url):
             abort(ctx, "node-id is required. Set NODE_ID in /etc/aitbc/node.env or use --node-id option")
 
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
+        from ..config import get_config
+
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10, api_key=get_config().blockchain_rpc_api_key)
         heartbeat_data = {"node_id": node_id, "duration": duration}
-        result = http_client.post("/rpc/subscription/heartbeat", json=heartbeat_data)
+        result = http_client.post("/rpc/heartbeat", json=heartbeat_data)
         output(result, ctx.obj.get("output_format", "table"), title="Lease Extended")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)

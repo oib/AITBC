@@ -9,10 +9,8 @@ from typing import Any
 
 import click
 
-from ..config import get_config
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
-from ..utils.output import error, output, success
+from ..utils.http_client import get_logger
 from ..utils.simulation import make_rng
 
 logger = get_logger(__name__)
@@ -408,27 +406,18 @@ def ai_jobs(jobs, models, duration_range, delay, seed):
 @click.option("--async-run", is_flag=True, help="Run simulation asynchronously")
 @click.pass_context
 def run(ctx, scenario: str, params: str | None, async_run: bool):
-    """Run a named simulation scenario with optional parameters."""
-    config = get_config()
+    """Run a named simulation scenario with optional parameters.
 
-    try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        sim_data = {"scenario": scenario, "async": async_run}
-
-        if params:
-            try:
-                sim_data["params"] = json.loads(params)
-            except json.JSONDecodeError:
-                abort(ctx, "Invalid JSON parameters")
-        result = http_client.post("/simulate/run", json=sim_data)
-        success(f"Simulation '{scenario}' started")
-        output(result, ctx.obj.get("output_format", "table"))
-    except NetworkError as e:
-        error(f"Network error: {e}")
-        ctx.exit(1)
-    except Exception as e:
-        error(f"Error running simulation: {e}")
-        ctx.exit(1)
+    The agent-coordinator has no server-side simulation endpoint (the old
+    ``POST /simulate/run`` call always 404'd). The working simulators are the
+    local subcommands: ``aitbc simulate blockchain|wallets|price|network``.
+    """
+    abort(
+        ctx,
+        f"Server-side simulation is not implemented: no '/simulate/run' endpoint exists "
+        f"on the agent-coordinator. Run the scenario locally instead, e.g. "
+        f"'aitbc simulate {scenario}'.",
+    )
 
 
 @simulate.command(
@@ -442,19 +431,10 @@ def run(ctx, scenario: str, params: str | None, async_run: bool):
 @click.pass_context
 def status(ctx, simulation_id: str):
     """Get the status of a running simulation."""
-    config = get_config()
-
-    try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        status_data = http_client.get(f"/simulate/{simulation_id}/status")
-        success(f"Simulation {simulation_id} Status:")
-        output(status_data, ctx.obj.get("output_format", "table"))
-    except NetworkError as e:
-        error(f"Network error: {e}")
-        ctx.exit(1)
-    except Exception as e:
-        error(f"Error fetching simulation status: {e}")
-        ctx.exit(1)
+    abort(
+        ctx,
+        "Server-side simulation is not implemented: no '/simulate/*' endpoints exist on the agent-coordinator.",
+    )
 
 
 @simulate.command(
@@ -468,18 +448,10 @@ def status(ctx, simulation_id: str):
 @click.pass_context
 def result(ctx, simulation_id: str):
     """Get the results of a completed simulation."""
-    config = get_config()
-
-    try:
-        http_client = AITBCHTTPClient(base_url=config.agent_coordinator_url, timeout=10)
-        result_data = http_client.get(f"/simulate/{simulation_id}/result")
-        success(f"Simulation {simulation_id} Results:")
-        output(result_data, ctx.obj.get("output_format", "table"))
-    except NetworkError as e:
-        error(f"Network error: {e}")
-        ctx.exit(1)
-    except Exception as e:
-        error(f"Error fetching simulation results: {e}")
+    abort(
+        ctx,
+        "Server-side simulation is not implemented: no '/simulate/*' endpoints exist on the agent-coordinator.",
+    )
 
 
 if __name__ == "__main__":
