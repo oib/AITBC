@@ -60,6 +60,18 @@ Fixes during live validation
 - CLI release/refund sync looks up both `tx_hash` and `refund_tx_hash` keys from
   the blockchain RPC response.
 
+- Wallet bridge price endpoints ("/v1/exchange/*", "/exchange/price.json")
+  now fetch ETH prices through the shared PriceOracle (Chainlink -> CoinGecko
+  with in-memory + on-disk caching) instead of uncached direct CoinGecko calls,
+  ending intermittent "Failed to fetch ETH prices" 503s caused by CoinGecko
+  429 rate-limiting on the hub.
+- hub: added AIT_EUR_FIXED_PRICE=0.25 to /etc/aitbc/blockchain.env (the v0.5.6
+  convention was missing there, so the exchange oracle could not produce an AIT
+  price and :8106/exchange/price.json returned 503).
+- hub: repointed nginx /exchange/price.json from wallet_service to
+  exchange_service (:8106), matching the repo example; the wallet endpoint
+  remains for bridge pages.
+
 Live validation (2026-09-11)
 ----------------------------
 
