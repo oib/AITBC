@@ -23,7 +23,8 @@ UPDATE_SCRIPT = REPO_ROOT / "scripts" / "deployment" / "update.sh"
 def update(remote: str, branch: str):
     """Pull the latest code from git and run the deployment update script."""
     git_dir = REPO_ROOT / ".git"
-    if not git_dir.is_dir():
+    # .git is a file (not a dir) in linked worktrees — check existence, not dir-ness.
+    if not git_dir.exists():
         error(f"{REPO_ROOT} is not a git repository. Install or clone AITBC first.")
         return
 

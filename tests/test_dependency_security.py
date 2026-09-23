@@ -61,7 +61,7 @@ class TestDependencySecurity:
         assert "Dependency Security" in content
         assert "Safety" in content
         assert "pip-audit" in content
-        assert "Security Response" in content
+        assert "Security response" in content
 
     def test_dependabot_config_exists(self):
         """Test that Dependabot configuration exists"""
