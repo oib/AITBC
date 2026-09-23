@@ -82,6 +82,11 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     "/v1/miners/*": AuthLevel.MINER,
     "/v1/marketplace/gpu/register": AuthLevel.MINER,
     "/v1/marketplace/native-energy/profile": AuthLevel.MINER,
+    # Public reads: GET profile/{id} and GET floor share no path with a write
+    # route, so they can stay NONE. GET /rate shares its path with the MINER
+    # POST, so it stays miner-gated (the CLI sends miner creds regardless).
+    "/v1/marketplace/native-energy/profile/*": AuthLevel.NONE,
+    "/v1/marketplace/native-energy/floor": AuthLevel.NONE,
     "/v1/marketplace/native-energy/rate": AuthLevel.MINER,
     "/v1/marketplace/gpu/sell": AuthLevel.MINER,
     "/v1/marketplace/gpu/*/release": AuthLevel.MINER,
