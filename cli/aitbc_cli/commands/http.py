@@ -121,6 +121,11 @@ def http():
     help="Use configured API key for auth ('miner' = coordinator/miner key, 'rpc' = blockchain RPC key, 'trading' = trading service key)",
 )
 @click.option("--timeout", type=int, default=30, help="Request timeout in seconds")
+@click.option(
+    "--idempotency-key",
+    default=None,
+    help="Idempotency-Key header for write requests; enables safe retry of ambiguous outcomes",
+)
 @OUTPUT_FORMAT_OPTION
 @click.pass_context
 def call_http(
@@ -134,6 +139,7 @@ def call_http(
     api_key: str | None,
     auth_kind: str,
     timeout: int,
+    idempotency_key: str | None,
     output_format: str,
 ):
     """Call an AITBC HTTP endpoint by service name and path."""
@@ -214,13 +220,13 @@ def call_http(
         if method == "GET":
             result = client.get(path, params=query_params)
         elif method == "POST":
-            result = client.post(path, json=request_body)
+            result = client.post(path, json=request_body, idempotency_key=idempotency_key)
         elif method == "PUT":
-            result = client.put(path, json=request_body)
+            result = client.put(path, json=request_body, idempotency_key=idempotency_key)
         elif method == "PATCH":
-            result = client.patch(path, json=request_body)
+            result = client.patch(path, json=request_body, idempotency_key=idempotency_key)
         else:  # DELETE
-            result = client.delete(path, params=query_params)
+            result = client.delete(path, params=query_params, idempotency_key=idempotency_key)
         output(result, output_format, title=f"{method} {service}/{path}")
     except NetworkError as e:
         raise click.ClickException(f"Network error calling {service}/{path}: {e}") from e
