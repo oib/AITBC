@@ -42,7 +42,7 @@ class NativeEnergyOracle:
             resource_id=profile.resource_id,
             provider=profile.provider,
             model_id=profile.model_id,
-            tdp_watts=profile.tdp_watts,
+            tbp_watts=profile.tbp_watts,
             eur_per_kwh_scaled=profile.eur_per_kwh_scaled,
             enabled=profile.enabled,
             revision=profile.revision,
@@ -80,7 +80,7 @@ class NativeEnergyOracle:
         profile = self.get_profile(resource_id)
         rate = self.get_rate()
         return compute_energy_net_units(
-            tdp_watts=profile.tdp_watts,
+            tbp_watts=profile.tbp_watts,
             eur_per_kwh_scaled=profile.eur_per_kwh_scaled,
             ait_per_eur_scaled=rate.ait_per_eur_scaled,
             gpu_count=gpu_count,

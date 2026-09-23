@@ -40,7 +40,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
     uint256 public constant ENERGY_SECONDS_PER_HOUR = 3600;
     uint256 public constant MAX_GPU_COUNT = 10000;
     uint256 public constant MAX_DURATION_SECONDS = 86400 * 365;
-    uint256 public constant MAX_TDP_WATTS = 50000;
+    uint256 public constant MAX_TBP_WATTS = 50000;
     uint256 public constant MAX_EUR_PER_KWH_WHOLE = 1_000_000;
     uint256 public constant MAX_AIT_PER_EUR_WHOLE = 1_000_000_000;
     uint256 public constant MAX_SETTLEMENT_UNIT_SCALE = 1e36;
@@ -781,13 +781,13 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
         string calldata _resourceId,
         address _provider,
         string calldata _modelId,
-        uint256 _tdpWatts,
+        uint256 _tbpWatts,
         uint256 _eurPerKwh
     ) external override onlyOwner {
         require(bytes(_resourceId).length > 0, "Empty resource id");
         require(_provider != address(0), "Invalid provider address");
         require(bytes(_modelId).length > 0, "Empty model id");
-        require(_tdpWatts > 0 && _tdpWatts <= MAX_TDP_WATTS, "Invalid TDP watts");
+        require(_tbpWatts > 0 && _tbpWatts <= MAX_TBP_WATTS, "Invalid TBP watts");
         require(
             _eurPerKwh > 0 && _eurPerKwh <= MAX_EUR_PER_KWH_WHOLE * ENERGY_FIXED_POINT_SCALE,
             "Invalid EUR/kWh"
@@ -800,7 +800,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
             revision: revision,
             modelId: _modelId,
             provider: _provider,
-            tdpWatts: _tdpWatts,
+            tbpWatts: _tbpWatts,
             eurPerKwh: _eurPerKwh
         });
 
@@ -908,7 +908,7 @@ contract DynamicPricing is Ownable, ReentrancyGuard, Pausable, IEnergyPricing {
         }
 
         uint256 pre1 = Math.mulDiv(
-            Math.mulDiv(profile.tdpWatts, _gpuCount, 1),
+            Math.mulDiv(profile.tbpWatts, _gpuCount, 1),
             Math.mulDiv(_durationSeconds, profile.eurPerKwh, 1),
             1
         );

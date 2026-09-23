@@ -60,7 +60,7 @@ def _print_quote(quote_dict: dict[str, Any], breakdown: dict[str, Any] | None = 
     info(f"Model:        {quote.model_id}")
     info(f"GPUs:         {quote.gpu_count}")
     info(f"Duration:     {quote.duration_seconds}s ({quote.duration_seconds / 3600:.2f}h)")
-    info(f"TDP:          {quote.tdp_watts}W")
+    info(f"TBP:          {quote.tbp_watts}W")
     info(f"EUR/kWh:      {quote.eur_per_kwh_scaled / 1e18:.6f}")
     info(f"AIT/EUR:      {quote.ait_per_eur_scaled / 1e18:.6f}")
     info(f"Net floor:    {quote.net_energy_floor_units} units")

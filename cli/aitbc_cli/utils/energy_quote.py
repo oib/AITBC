@@ -127,7 +127,7 @@ def verify_quote(
     # Recompute the energy floor from the quote's own inputs and check it
     # matches the stored value. This catches tampering with the floor field.
     recomputed = compute_energy_net_units(
-        tdp_watts=quote.tdp_watts,
+        tbp_watts=quote.tbp_watts,
         eur_per_kwh_scaled=quote.eur_per_kwh_scaled,
         ait_per_eur_scaled=quote.ait_per_eur_scaled,
         gpu_count=quote.gpu_count,

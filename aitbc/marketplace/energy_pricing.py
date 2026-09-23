@@ -18,7 +18,7 @@ The authoritative formula is:
 
 where
   * T = ``eur_per_kwh_scaled`` (EUR/kWh * S)
-  * W = ``tdp_watts`` (registered GPU TDP)
+  * W = ``tbp_watts`` (registered GPU TBP, total board power)
   * Q = ``gpu_count`` (positive integer)
   * D = ``duration_seconds`` (integer seconds)
   * R = ``ait_per_eur_scaled`` (AIT/EUR * S)
@@ -65,7 +65,7 @@ DEFAULT_QUOTE_LIFETIME_SECONDS = 300
 DEFAULT_MAX_RATE_AGE_SECONDS = 300
 FUTURE_TIMESTAMP_TOLERANCE_SECONDS = 60
 
-MAX_TDP_WATTS = 50_000
+MAX_TBP_WATTS = 50_000
 MAX_GPU_COUNT = 10_000
 MAX_DURATION_SECONDS = 86400 * 365
 MAX_SETTLEMENT_UNIT_SCALE = 10**36
@@ -125,13 +125,13 @@ class EnergyProfile:
     resource_id: str
     provider: str
     model_id: str
-    tdp_watts: int
+    tbp_watts: int
     eur_per_kwh_scaled: int
     enabled: bool = True
     revision: int = 0
 
     def __post_init__(self) -> None:
-        _require_positive_int(self.tdp_watts, "tdp_watts", max_value=MAX_TDP_WATTS)
+        _require_positive_int(self.tbp_watts, "tbp_watts", max_value=MAX_TBP_WATTS)
         _require_scaled_positive(self.eur_per_kwh_scaled, "eur_per_kwh_scaled")
         if self.eur_per_kwh_scaled > FIXED_POINT_SCALE * MAX_EUR_PER_KWH_WHOLE:
             raise EnergyPricingError("eur_per_kwh_scaled out of range")
@@ -198,7 +198,7 @@ class EnergyQuote:
     gpu_count: int
     duration_seconds: int
     eur_per_kwh_scaled: int
-    tdp_watts: int
+    tbp_watts: int
     ait_per_eur_scaled: int
     rate_version: int
     rate_observed_at: int
@@ -229,7 +229,7 @@ class EnergyQuote:
         )
         _require_positive_int(self.gpu_count, "gpu_count", max_value=MAX_GPU_COUNT)
         _require_positive_int(self.duration_seconds, "duration_seconds", max_value=MAX_DURATION_SECONDS)
-        _require_positive_int(self.tdp_watts, "tdp_watts", max_value=MAX_TDP_WATTS)
+        _require_positive_int(self.tbp_watts, "tbp_watts", max_value=MAX_TBP_WATTS)
         _require_scaled_positive(self.eur_per_kwh_scaled, "eur_per_kwh_scaled")
         if self.eur_per_kwh_scaled > FIXED_POINT_SCALE * MAX_EUR_PER_KWH_WHOLE:
             raise EnergyPricingError("eur_per_kwh_scaled out of range")
@@ -280,7 +280,7 @@ class EnergyQuote:
             resource_id=self.resource_id,
             provider=self.provider,
             model_id=self.model_id,
-            tdp_watts=self.tdp_watts,
+            tbp_watts=self.tbp_watts,
             eur_per_kwh_scaled=self.eur_per_kwh_scaled,
             enabled=True,
             revision=self.profile_revision,
@@ -443,7 +443,7 @@ def to_scaled(
 
 
 def compute_energy_net_units(
-    tdp_watts: int,
+    tbp_watts: int,
     eur_per_kwh_scaled: int,
     ait_per_eur_scaled: int,
     gpu_count: int,
@@ -456,7 +456,7 @@ def compute_energy_net_units(
     Uses exact integer arithmetic and ceiling. The result is checked to fit in
     a uint256 so it can be mirrored in the EVM contracts.
     """
-    _require_positive_int(tdp_watts, "tdp_watts", max_value=MAX_TDP_WATTS)
+    _require_positive_int(tbp_watts, "tbp_watts", max_value=MAX_TBP_WATTS)
     _require_scaled_positive(eur_per_kwh_scaled, "eur_per_kwh_scaled")
     _require_scaled_positive(ait_per_eur_scaled, "ait_per_eur_scaled")
     _require_positive_int(gpu_count, "gpu_count", max_value=MAX_GPU_COUNT)
@@ -472,7 +472,7 @@ def compute_energy_net_units(
     if ait_per_eur_scaled > fixed_point_scale * MAX_AIT_PER_EUR_WHOLE:
         raise EnergyPricingError("ait_per_eur_scaled out of range")
 
-    numerator = tdp_watts * eur_per_kwh_scaled * ait_per_eur_scaled * gpu_count * duration_seconds * settlement_unit_scale
+    numerator = tbp_watts * eur_per_kwh_scaled * ait_per_eur_scaled * gpu_count * duration_seconds * settlement_unit_scale
     denominator = WATTS_PER_KILOWATT * SECONDS_PER_HOUR * fixed_point_scale * fixed_point_scale
 
     # Detect numbers that would not fit in an OZ Math.mulDiv step. The product
@@ -613,7 +613,7 @@ def build_minimum_quote(
     )
 
     net = compute_energy_net_units(
-        tdp_watts=profile.tdp_watts,
+        tbp_watts=profile.tbp_watts,
         eur_per_kwh_scaled=profile.eur_per_kwh_scaled,
         ait_per_eur_scaled=rate.ait_per_eur_scaled,
         gpu_count=gpu_count,
@@ -648,7 +648,7 @@ def build_minimum_quote(
         gpu_count=gpu_count,
         duration_seconds=duration_seconds,
         eur_per_kwh_scaled=profile.eur_per_kwh_scaled,
-        tdp_watts=profile.tdp_watts,
+        tbp_watts=profile.tbp_watts,
         ait_per_eur_scaled=rate.ait_per_eur_scaled,
         rate_version=rate.version,
         rate_observed_at=rate.observed_at,
@@ -696,8 +696,8 @@ def evaluate_quote(
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "provider mismatch")
     if quote.model_id != profile.model_id:
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "model_id mismatch")
-    if quote.tdp_watts != profile.tdp_watts:
-        return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "tdp_watts mismatch")
+    if quote.tbp_watts != profile.tbp_watts:
+        return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "tbp_watts mismatch")
     if quote.eur_per_kwh_scaled != profile.eur_per_kwh_scaled:
         return _refusal(quote, RefusalCode.PROFILE_MISMATCH, "eur_per_kwh mismatch")
     if quote.profile_revision != profile.revision:
@@ -721,7 +721,7 @@ def evaluate_quote(
         return _refusal(quote, RefusalCode.FUTURE_TIMESTAMP, "rate submitted in future")
 
     floor = compute_energy_net_units(
-        tdp_watts=quote.tdp_watts,
+        tbp_watts=quote.tbp_watts,
         eur_per_kwh_scaled=quote.eur_per_kwh_scaled,
         ait_per_eur_scaled=quote.ait_per_eur_scaled,
         gpu_count=quote.gpu_count,
