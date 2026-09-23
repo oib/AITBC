@@ -656,7 +656,14 @@ class AITBCWalletAdapter(EnhancedWalletAdapter):
         try:
             if not await self.validate_address(wallet_address):
                 raise ValueError(f"Invalid AITBC address: {wallet_address}")
-            response = self._http_client.get(f"rpc/account/{wallet_address}", params=self._chain_params())
+            try:
+                response = self._http_client.get(f"rpc/account/{wallet_address}", params=self._chain_params())
+            except NetworkError as e:
+                cause = getattr(e, "__cause__", None)
+                # An address that has never transacted has no chain account yet.
+                if getattr(getattr(cause, "response", None), "status_code", None) != 404:
+                    raise
+                response = {}
             balance = response.get("balance", 0)
             nonce = response.get("nonce", 0)
             return {
