@@ -1036,6 +1036,9 @@ class BridgeTransferMixin(BridgeBase):
            standard confirm path once the lock has finality,
         3. mark confirmed transfers ``completed`` once the release tx is
            sealed on the target chain.
+
+        Each pass runs on a worker thread, never on the event loop -- see the
+        comment on the call below.
         """
         interval = getattr(settings, "bridge_monitor_interval", 60)
         relayer_enabled = getattr(settings, "bridge_relayer_enabled", True) and getattr(
@@ -1044,7 +1047,20 @@ class BridgeTransferMixin(BridgeBase):
         while True:
             try:
                 for chain_id in self._known_chains():
-                    self._finalizer_pass(chain_id, relayer_enabled)
+                    # Every phase of a pass is synchronous SQLModel work, and the
+                    # first pass after a restart is a backfill: one commit per
+                    # block the bridge header table is behind, measured at 0.75
+                    # headers/second. Called inline it never yielded, and this
+                    # coroutine is started as a task during lifespan startup --
+                    # so uvicorn never finished starting and the RPC socket
+                    # stayed unbound for the whole backfill, while systemd
+                    # reported the unit active (running) throughout.
+                    #
+                    # to_thread is sound here: _finalizer_pass and everything it
+                    # calls are plain ``def``, and every session is opened inside
+                    # the call from a NullPool engine with check_same_thread
+                    # disabled, so no session or connection crosses a thread.
+                    await asyncio.to_thread(self._finalizer_pass, chain_id, relayer_enabled)
             except Exception:
                 logger.exception("Bridge release finalizer loop failed")
             await asyncio.sleep(interval)
