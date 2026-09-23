@@ -340,7 +340,7 @@ pip freeze > requirements.txt
 
 - **Documentation**: See inline docstrings and type hints
 - **Examples**: Check test files for comprehensive examples
-- **Security Issues**: security@aitbc.io
+- **Security Issues**: [GitHub security advisories](https://github.com/oib/AITBC/security) (the `security@aitbc.io` address does not exist)
 - **General Issues**: Create GitHub issue
 
 ---

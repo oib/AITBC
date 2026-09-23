@@ -630,15 +630,14 @@ npm run build:extensions
 1. **Deploy to production**:
 
 ```bash
-# Copy extension files
-cp -r src/extensions/* /var/www/aitbc.bubuit.net/marketplace/extensions/
+# Extensions are Python modules inside the coordinator-api source tree —
+# there is no `src/extensions/` directory, no `npm run build:extensions`
+# script, and no separate marketplace_extensions.py file. Add the router
+# module under apps/coordinator-api/src/coordinator_api/contexts/, register
+# it in main.py, then deploy like any code change:
 
-# Update API
-scp apps/coordinator-api/src/coordinator_api/routers/marketplace_extensions.py \
-  aitbc:/opt/coordinator-api/src/coordinator_api/routers/
-
-# Restart services
-ssh aitbc "systemctl restart coordinator-api"
+cd /opt/aitbc && git push origin HEAD:main
+ssh node2 "cd /opt/aitbc && git pull --ff-only && sudo systemctl restart aitbc-coordinator-api"
 ```
 
 ## Best Practices

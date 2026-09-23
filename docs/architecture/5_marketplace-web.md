@@ -2,9 +2,13 @@
 
 > **Important:** This document describes the Marketplace Web architecture. For authoritative port configuration, see [Service Ports Reference](../reference/SERVICE_PORTS.md).
 
-Vite/TypeScript marketplace with offer/bid functionality, stats dashboard, and mock/live data toggle. Production UI ready.
-
-● Live
+> **Status: the app described here was never built.** No
+> `apps/marketplace-web` directory exists; there is no Vite/React frontend.
+> The live marketplace UI is the static site in `website/` (vanilla
+> HTML/JS — `marketplace.html`, `explorer.html`, `shop-dashboard.html`,
+> `customer-dashboard.html`), and `packages/web` holds only a small shared
+> component library (`@aitbc/web`). This document is kept as a design
+> reference for the envisioned React app.
 
 ## Overview
 
@@ -401,6 +405,5 @@ if (import.meta.env.DEV) {
 
 ## Support
 
-- Documentation: [docs.aitbc.bubuit.net](https://docs.aitbc.bubuit.net)
-- Discord: [discord.gg/aitbc](https://discord.gg/aitbc)
+- Documentation: `docs/` in this repository (no `docs.aitbc.bubuit.net` site exists)
 - Issues: [GitHub Issues](https://github.com/oib/AITBC/issues)

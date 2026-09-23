@@ -100,7 +100,8 @@ For detailed setup, see [docs/getting-started/SETUP.md](docs/getting-started/SET
 On a **shop** node, list a GPU offer:
 
 ```bash
-aitbc market offer --gpu-id gpu-0 --memory 24 --price 100
+aitbc market offer --service-type ollama --model-or-variant llama3.2:3b \
+  --price 0.001 --unit per_1k_tokens
 ```
 
 On a **client** node, submit a job to the hub's coordinator:
