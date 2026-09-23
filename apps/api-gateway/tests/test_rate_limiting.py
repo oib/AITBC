@@ -29,6 +29,10 @@ def throttled_client(monkeypatch):
             yield client, gateway
     finally:
         # Restore the shared module state for any test importing it afterwards.
+        # The env override is still active here, so point it at the shared
+        # limit first -- reloading under "3/minute" would leave the restored
+        # module throttled for every later test file.
+        monkeypatch.setenv("API_GATEWAY_RATE_LIMIT", "10000/minute")
         importlib.reload(gateway)
 
 
