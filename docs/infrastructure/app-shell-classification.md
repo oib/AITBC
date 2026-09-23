@@ -2,6 +2,13 @@
 
 **Last Updated:** 2026-05-28
 
+> **Historical record.** Package paths below predate the per-service package
+> rename — `src/app/domain/` is now `src/shared_domain/`, `src/app/core/` is
+> `src/shared_core/`, and `src/app/` in each app became a per-service package
+> (`agent_app`, `coordinator_api`, …). The `aitbc-agent-management` consumer
+> no longer exists as a unit. The classification decisions still apply; the
+> paths do not.
+
 This document classifies app shells and thin services in the AITBC repository.
 
 ## Classification
