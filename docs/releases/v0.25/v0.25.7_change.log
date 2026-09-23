@@ -80,6 +80,19 @@ Fixes during live validation
   bridge applies the same chain, with AIT_USD_PRICE kept as an explicit USD
   override.
 
+- Energy pricing now bills on GPU TBP (total board power) instead of TDP:
+  the registered power field renamed end-to-end (tbp_watts / tbpWatts /
+  --tbp-watts) across aitbc.marketplace, the coordinator model +
+  /marketplace/native-energy/profile API, the CLI, Solidity
+  profile/agreement structs, the generated MCP wrapper, and tests.
+  Struct encoding is positional so the deployed contract ABI still
+  decodes; the signed quote canonical key changed, so quotes signed
+  before the cutover fail verification (they expire in 300s). On hub the
+  coordinator.db column was renamed in place
+  (ALTER TABLE ... RENAME COLUMN tdp_watts TO tbp_watts); previously
+  registered values were TDP readings and must be re-registered with the
+  card's real TBP where they differ.
+
 Live validation (2026-09-11)
 ----------------------------
 
