@@ -6,6 +6,7 @@ time; the routing tests run with auth disabled via conftest, so enabling it need
 
 import importlib
 
+import httpx
 import pytest
 from fastapi.testclient import TestClient
 
@@ -27,8 +28,22 @@ def authed_gateway(monkeypatch):
         importlib.reload(gateway)
 
 
+class _CaptureClient:
+    """Records the forwarded request; satisfies lifespan aclose."""
+
+    def __init__(self):
+        self.headers: dict[str, str] = {}
+
+    async def get(self, url, **kwargs):
+        self.headers = kwargs.get("headers", {})
+        return httpx.Response(200, json={"ok": True})
+
+    async def aclose(self):
+        pass
+
+
 def test_proxy_requires_credentials(authed_gateway):
-    response = authed_gateway.get("/v1/gpu/health")
+    response = authed_gateway.get("/v1/coordinator/health")
 
     assert response.status_code == 401
 
@@ -39,16 +54,60 @@ def test_proxy_rejects_wrong_key(authed_gateway):
     verify_auth draws that line deliberately, and compares with hmac.compare_digest so the
     check is constant-time.
     """
-    response = authed_gateway.get("/v1/gpu/health", headers={"Authorization": "Bearer wrong-key"})
+    response = authed_gateway.get("/v1/coordinator/health", headers={"X-Gateway-Key": "wrong-key"})
 
     assert response.status_code == 403
 
 
-def test_proxy_accepts_correct_key(authed_gateway):
-    """A valid key gets past the gateway; whatever the backend then answers is its own."""
-    response = authed_gateway.get("/v1/gpu/health", headers={"Authorization": "Bearer test-gateway-key"})
+def test_proxy_accepts_gateway_key_header(authed_gateway):
+    """X-Gateway-Key is the canonical credential."""
+    response = authed_gateway.get("/v1/coordinator/health", headers={"X-Gateway-Key": "test-gateway-key"})
 
     assert response.status_code != 401
+
+
+def test_proxy_accepts_bearer_alias(authed_gateway):
+    """Bearer carrying the gateway key still works for existing callers."""
+    response = authed_gateway.get("/v1/coordinator/health", headers={"Authorization": "Bearer test-gateway-key"})
+
+    assert response.status_code != 401
+
+
+def test_gateway_key_is_not_forwarded(authed_gateway, monkeypatch):
+    """The gateway credential must not leak upstream in either header."""
+    import api_gateway.main as gateway
+
+    capture = _CaptureClient()
+    monkeypatch.setattr(gateway.app.state, "http_client", capture)
+    authed_gateway.get("/v1/coordinator/health", headers={"X-Gateway-Key": "test-gateway-key"})
+
+    assert "x-gateway-key" not in capture.headers
+    assert "authorization" not in capture.headers
+
+
+def test_bearer_alias_is_not_forwarded(authed_gateway, monkeypatch):
+    """Bearer carrying the *gateway* key is stripped — upstreams expect their own token."""
+    import api_gateway.main as gateway
+
+    capture = _CaptureClient()
+    monkeypatch.setattr(gateway.app.state, "http_client", capture)
+    authed_gateway.get("/v1/coordinator/health", headers={"Authorization": "Bearer test-gateway-key"})
+
+    assert "authorization" not in capture.headers
+
+
+def test_service_jwt_passes_through(authed_gateway, monkeypatch):
+    """Gateway key + a service Bearer token stack: the JWT reaches the upstream."""
+    import api_gateway.main as gateway
+
+    capture = _CaptureClient()
+    monkeypatch.setattr(gateway.app.state, "http_client", capture)
+    authed_gateway.get(
+        "/v1/coordinator/health",
+        headers={"X-Gateway-Key": "test-gateway-key", "Authorization": "Bearer service-jwt"},
+    )
+
+    assert capture.headers.get("authorization") == "Bearer service-jwt"
 
 
 def test_health_is_reachable_without_credentials(authed_gateway):

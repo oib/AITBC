@@ -16,7 +16,7 @@ from contextlib import asynccontextmanager  # noqa: E402
 import httpx  # noqa: E402
 from fastapi import Depends, FastAPI, HTTPException, Request, Response, status  # noqa: E402
 from fastapi.responses import JSONResponse  # noqa: E402
-from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
+from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
@@ -69,23 +69,23 @@ def rate_limit(limit: str) -> Callable[[_F], _F]:
 
 
 security = HTTPBearer(auto_error=False)
+# Gateway auth lives in X-Gateway-Key, not Authorization: the proxy forwards
+# Authorization upstream, where Bearer must remain the service's own credential
+# (JWT / peer key). A Bearer carrying the gateway key is still accepted for
+# backward compatibility but is stripped before forwarding.
+gateway_key_header = APIKeyHeader(name="X-Gateway-Key", auto_error=False)
 API_KEY = os.getenv("API_GATEWAY_KEY", "")
 REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "true").lower() == "true"
 # Applied to the catch-all proxy route below, which fronts every backend service.
 # slowapi syntax, e.g. "100/minute", "20/second".
 RATE_LIMIT = os.getenv("API_GATEWAY_RATE_LIMIT", "100/minute")
+COORDINATOR_URL = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
+# Coordinator-owned sub-families of /v1/marketplace — the rest (jobs, offers,
+# ratings, ipfs, match, ...) belongs to the marketplace service on :8102.
+# These must be listed before the generic "marketplace" entry: the first
+# prefix match in dict order wins.
+_MARKETPLACE_COORDINATOR_PREFIXES = ("gpu", "providers", "bonds", "miner-offers", "native-energy", "orders", "pricing", "sync-offers")
 SERVICES: dict[str, dict[str, object]] = {
-    "gpu": {"base_url": os.getenv("GPU_SERVICE_URL", "http://localhost:8101"), "prefix": "/v1/gpu"},
-    "marketplace": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/marketplace"},
-    "trading": {"base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8104"), "prefix": "/v1/trading"},
-    "governance": {"base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8105"), "prefix": "/v1/governance"},
-    "exchange": {"base_url": os.getenv("EXCHANGE_SERVICE_URL", "http://localhost:8106"), "prefix": "/v1/exchange"},
-    "agent-coordinator": {
-        "base_url": os.getenv("AGENT_COORDINATOR_URL", "http://localhost:8107"),
-        "prefix": "/v1/agent-coordinator",
-    },
-    "coordinator": {"base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"), "prefix": "/v1/coordinator"},
-    "wallet": {"base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"), "prefix": "/v1/wallet"},
     "escrow": {
         "base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc",
         "prefix": "/v1/escrow",
@@ -93,12 +93,69 @@ SERVICES: dict[str, dict[str, object]] = {
         # instead of /rpc/escrow/create. Rewrite keeps the escrow segment.
         "rewrite": {"/v1/escrow/": "escrow/"},
     },
+    **{
+        f"marketplace-{sub}": {
+            "base_url": COORDINATOR_URL,
+            "prefix": f"/v1/marketplace/{sub}",
+            "rewrite": {f"/v1/marketplace/{sub}": f"v1/marketplace/{sub}"},
+        }
+        for sub in _MARKETPLACE_COORDINATOR_PREFIXES
+    },
+    "marketplace": {
+        "base_url": os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
+        "prefix": "/v1/marketplace",
+        "rewrite": {"/v1/marketplace": "v1/marketplace"},
+    },
+    "coordinator": {"base_url": COORDINATOR_URL, "prefix": "/v1/coordinator", "rewrite": {"/v1/coordinator": "v1"}},
+    "governance": {
+        "base_url": os.getenv("GOVERNANCE_SERVICE_URL", "http://localhost:8105"),
+        "prefix": "/v1/governance",
+        "rewrite": {"/v1/governance": "v1/governance"},
+    },
+    "exchange": {
+        "base_url": os.getenv("EXCHANGE_SERVICE_URL", "http://localhost:8106"),
+        "prefix": "/v1/exchange",
+        # The exchange service dispatches legacy /api/* paths internally.
+        "rewrite": {"/v1/exchange": "api"},
+    },
+    "trading": {
+        "base_url": os.getenv("TRADING_SERVICE_URL", "http://localhost:8104"),
+        "prefix": "/v1/trading",
+        # Trading serves /v1/exchange/*, /v1/blocks, /v1/explorer — alias to its v1 root.
+        "rewrite": {"/v1/trading": "v1"},
+    },
+    "wallet": {
+        "base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"),
+        "prefix": "/v1/wallet",
+        "rewrite": {"/v1/wallet": "v1"},
+    },
+    "agent-coordinator": {
+        "base_url": os.getenv("AGENT_COORDINATOR_URL", "http://localhost:8107"),
+        "prefix": "/v1/agent-coordinator",
+        "rewrite": {"/v1/agent-coordinator": "v1"},
+    },
+    # Agent-coordinator's internal message/auth surface lives at /api/v1/agent/*.
+    "agent": {
+        "base_url": os.getenv("AGENT_COORDINATOR_URL", "http://localhost:8107"),
+        "prefix": "/v1/agent",
+        "rewrite": {"/v1/agent": "api/v1/agent"},
+    },
+    "pool-hub": {
+        "base_url": os.getenv("POOL_HUB_URL", "http://localhost:8210"),
+        "prefix": "/v1/pool-hub",
+        "rewrite": {"/v1/pool-hub": "v1"},
+    },
+    "explorer": {
+        "base_url": os.getenv("EXPLORER_SERVICE_URL", "http://localhost:8100"),
+        "prefix": "/v1/explorer",
+        # The explorer serves /api/* paths.
+        "rewrite": {"/v1/explorer": "api"},
+    },
     "plugin": {
-        "base_url": os.getenv("COORDINATOR_API_URL", "http://localhost:8203"),
+        "base_url": COORDINATOR_URL,
         "prefix": "/v1/plugin",
         "rewrite": {"/v1/plugin/": "/v1/marketplace/"},
     },
-    "ffmpeg": {"base_url": os.getenv("FFMPEG_SERVICE_URL", "http://localhost:8230"), "prefix": "/v1/ffmpeg"},
 }
 
 
@@ -130,16 +187,23 @@ if SLOWAPI_AVAILABLE:
         )
 
 
-def verify_auth(credentials: Annotated[HTTPAuthorizationCredentials, Depends(security)]) -> bool:
-    """Verify authentication if required."""
+def verify_auth(
+    request: Request,
+    credentials: Annotated[HTTPAuthorizationCredentials | None, Depends(security)],
+) -> bool:
+    """Verify gateway authentication (X-Gateway-Key, or Bearer as a legacy alias)."""
     if not REQUIRE_AUTH:
         return True
-    if not credentials:
+    gateway_key = request.headers.get("X-Gateway-Key")
+    bearer = credentials.credentials if credentials else None
+    if not gateway_key and not bearer:
         raise HTTPException(status_code=status.HTTP_401_UNAUTHORIZED, detail="Missing authentication credentials")
     if not API_KEY:
         raise HTTPException(status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="API gateway key not configured")
-    if not hmac.compare_digest(credentials.credentials, API_KEY):
+    if not hmac.compare_digest(gateway_key or bearer or "", API_KEY):
         raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="Invalid authentication credentials")
+    # Bearer carried the gateway credential, not a service token — do not leak it upstream.
+    request.state.gateway_bearer_auth = not gateway_key and bool(bearer)
     return True
 
 
@@ -264,6 +328,10 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
         headers = dict(request.headers)
         headers.pop("host", None)
         headers.pop("content-length", None)
+        # The gateway credential never leaves this layer.
+        headers.pop("x-gateway-key", None)
+        if getattr(request.state, "gateway_bearer_auth", False):
+            headers.pop("authorization", None)
         kwargs: dict[str, object] = {"headers": headers, "params": request.query_params}
         if request.method in ["POST", "PUT", "PATCH"]:
             body = await request.body()

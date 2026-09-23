@@ -56,9 +56,9 @@ def test_service_registry(client):
     assert response.status_code == 200
 
     data = response.json()
-    assert "gpu" in data
-    assert data["gpu"]["prefix"] == "/v1/gpu"
-    assert data["gpu"]["url"] == "http://localhost:8101"
+    assert "marketplace" in data
+    assert data["marketplace"]["prefix"] == "/v1/marketplace"
+    assert data["marketplace"]["url"] == "http://localhost:8102"
 
 
 def test_service_registry_covers_every_registered_service(client):
@@ -67,7 +67,7 @@ def test_service_registry_covers_every_registered_service(client):
     assert set(response.json()) == set(SERVICES)
 
 
-@pytest.mark.parametrize("service", ["gpu", "marketplace", "trading", "governance", "wallet"])
+@pytest.mark.parametrize("service", ["marketplace", "coordinator", "exchange", "wallet", "agent-coordinator"])
 def test_route_reaches_proxy(client, service):
     """A registered prefix reaches the proxy rather than being rejected by the gateway.
 
