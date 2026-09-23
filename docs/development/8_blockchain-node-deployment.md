@@ -103,10 +103,13 @@ WantedBy=multi-user.target
 | GET | `/rpc/head` | Chain head |
 | GET | `/rpc/blocks/{height}` | Block by height |
 | GET | `/rpc/blocks` | Latest blocks |
-| GET | `/rpc/tx/{hash}` | Transaction by hash |
-| POST | `/rpc/sendTx` | Submit transaction |
+| GET | `/rpc/transaction/{hash}` | Transaction by hash |
+| POST | `/rpc/transaction` | Submit transaction |
 | POST | `/rpc/importBlock` | Import block from peer |
-| GET | `/rpc/syncStatus` | Sync status |
+| GET | `/rpc/sync/config` | Sync optimization configuration |
+
+There is no `/rpc/syncStatus` or `/rpc/sync/status` route — sync progress is
+observed via `aitbc blockchain sync-status` and the node logs.
 
 ## Monitoring
 

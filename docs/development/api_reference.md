@@ -61,9 +61,11 @@ Optimize ML inference request for edge GPU.
 
 ## ML ZK Proof Endpoints
 
-### POST /v1/ml-zk/prove/inference
+### POST /v1/ml-zk/prove/modular
 
-Generate ZK proof for ML inference correctness.
+Generate a ZK proof over the modular ML circuit (inference correctness). The
+coordinator-api serves `/v1/ml-zk/prove/{training,modular}` and
+`/v1/ml-zk/verify/{training,inference}` — there is no `/v1/ml-zk/prove/inference`.
 
 **Request:**
 
@@ -86,9 +88,10 @@ Generate ZK proof for ML inference correctness.
 
 Verify ZK proof for ML inference.
 
-### POST /v1/ml-zk/fhe/inference
+### POST /v1/fhe/inference
 
-Perform ML inference on encrypted data using FHE.
+Perform ML inference on encrypted data using FHE (mounted under `/v1/fhe`,
+not `/v1/ml-zk`).
 
 **Request:**
 

@@ -64,7 +64,7 @@ encrypted_result = fhe_service.encrypted_inference(
 ### FHE Inference Endpoint
 
 ```bash
-POST /v1/ml-zk/fhe/inference
+POST /v1/fhe/inference
 {
   "scheme": "ckks",
   "provider": "tenseal",

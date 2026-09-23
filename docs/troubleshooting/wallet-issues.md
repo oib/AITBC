@@ -59,8 +59,8 @@ python -c "from aitbc_crypto import Wallet; w = Wallet(); print(w.address)"
 **Diagnosis:**
 
 ```bash
-# Check wallet keys
-curl http://localhost:8108/v1/keys
+# List wallets (the daemon exposes /v1/wallets*, not /v1/keys)
+curl http://localhost:8108/v1/wallets
 
 # Check transaction logs
 journalctl -u aitbc-wallet -n 50 | grep -i transaction
@@ -74,8 +74,11 @@ journalctl -u aitbc-wallet -n 50 | grep -i transaction
 # Check private key exists
 ls -la /var/lib/aitbc/wallet/private_key
 
-# Regenerate keys if needed
-curl -X POST http://localhost:8108/v1/keys/regenerate
+# There is no key-regeneration endpoint — a wallet's key cannot be
+# regenerated in place. Create a new wallet instead (admin API key required):
+curl -X POST http://localhost:8108/v1/wallets \
+  -H "Content-Type: application/json" -H "X-API-Key: $ADMIN_API_KEY" \
+  -d '{"chain_id": "ait-mainnet", "wallet_id": "replacement-wallet", "password": "..."}'
 ```
 
 1. Check key permissions
