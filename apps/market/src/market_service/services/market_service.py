@@ -2,6 +2,7 @@
 Market service for managing market operations
 """
 
+import hmac
 import time
 from datetime import datetime
 from decimal import Decimal
@@ -1030,7 +1031,7 @@ class MarketService:
             token = result.scalar_one_or_none()
             if not token:
                 return None
-            if token.access_secret != access_secret:
+            if not hmac.compare_digest(token.access_secret, access_secret):
                 return None
             if token.status != "active":
                 return None
@@ -1455,7 +1456,7 @@ class MarketService:
             if not job:
                 return None
 
-            if (job.payload or {}).get("access_secret") != access_secret:
+            if not hmac.compare_digest((job.payload or {}).get("access_secret") or "", access_secret):
                 return None
 
             if job.state in {"CANCELED", "REFUNDED", "FAILED"}:

@@ -740,6 +740,11 @@ class ChainSettings(BaseSettings):
         security-relevant change that used to happen silently, so a stale value
         left over from a past migration was invisible; a malformed value fails
         closed, which is the safe direction but is just as easy to miss.
+
+        In production the kill-switch is additionally horizon-limited: a
+        skip-until more than 48h out is almost certainly an operator mistake
+        or a leftover from a long-forgotten incident, so the node refuses to
+        start rather than run with signature validation off indefinitely.
         """
         if not self.sync_validate_signatures or not self.sync_validate_signatures_skip_until:
             return self
@@ -747,23 +752,39 @@ class ChainSettings(BaseSettings):
         # imported, before aitbc_chain.logger can be safely pulled in.
         import logging
 
+        from aitbc.utils.env import is_production
+
         logger = logging.getLogger(__name__)
         try:
-            from datetime import UTC, datetime
+            from datetime import UTC, datetime, timedelta
 
-            if datetime.now(UTC) < datetime.fromisoformat(self.sync_validate_signatures_skip_until):
-                self.sync_validate_signatures = False
-                logger.warning(
-                    "Block proposer signature validation is DISABLED by "
-                    "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=%s; it re-enables itself after that time",
-                    self.sync_validate_signatures_skip_until,
-                )
+            skip_until = datetime.fromisoformat(self.sync_validate_signatures_skip_until)
+            # Naive timestamps are read as UTC — a naive/aware comparison would
+            # otherwise raise TypeError outside the ValueError guard below.
+            if skip_until.tzinfo is None:
+                skip_until = skip_until.replace(tzinfo=UTC)
         except ValueError:
             logger.warning(
                 "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=%r is not a valid ISO timestamp; "
                 "leaving block proposer signature validation ENABLED",
                 self.sync_validate_signatures_skip_until,
             )
+            return self
+        if datetime.now(UTC) >= skip_until:
+            return self
+        horizon = skip_until - datetime.now(UTC)
+        if is_production() and horizon > timedelta(hours=48):
+            raise ValueError(
+                "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL="
+                f"{self.sync_validate_signatures_skip_until} disables block proposer signature "
+                f"validation for {horizon.days} days; production nodes may skip at most 48h"
+            )
+        self.sync_validate_signatures = False
+        logger.warning(
+            "Block proposer signature validation is DISABLED by "
+            "SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=%s; it re-enables itself after that time",
+            self.sync_validate_signatures_skip_until,
+        )
         return self
 
     def mesh_peer_url_list(self) -> list[str]:

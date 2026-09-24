@@ -211,9 +211,9 @@ class TestBlockHeaderSignature:
             assert loaded is not None
             assert loaded.signature == ""
 
-    def test_verify_block_signature_empty_legacy(self, rpc_engine) -> None:
-        """Empty signature is accepted (legacy block, backward-compatible)."""
-        from aitbc_chain.consensus.poa import PoAProposer
+    def test_verify_block_signature_empty_rejected(self, rpc_engine) -> None:
+        """Empty signature is rejected — unsigned blocks fail closed."""
+        from aitbc.crypto.consensus_signing import verify_block_signature
 
         block = Block(
             chain_id="chain-a",
@@ -224,11 +224,11 @@ class TestBlockHeaderSignature:
             tx_count=0,
             signature="",
         )
-        assert PoAProposer.verify_block_signature(block) is True
+        assert verify_block_signature(block, block.signature, block.proposer) is False
 
     def test_verify_block_signature_valid(self, rpc_engine) -> None:
         """Valid block signature recovers to the proposer's address."""
-        from aitbc_chain.consensus.poa import PoAProposer
+        from aitbc.crypto.consensus_signing import verify_block_signature
 
         acct = EthAccount.create()
         block_hash = "0x" + "cd" * 32
@@ -245,11 +245,11 @@ class TestBlockHeaderSignature:
             tx_count=0,
             signature=sig.to_hex(),
         )
-        assert PoAProposer.verify_block_signature(block) is True
+        assert verify_block_signature(block, block.signature, block.proposer) is True
 
     def test_verify_block_signature_wrong_signer(self, rpc_engine) -> None:
         """Signature from a different signer is rejected."""
-        from aitbc_chain.consensus.poa import PoAProposer
+        from aitbc.crypto.consensus_signing import verify_block_signature
 
         signer = EthAccount.create()
         proposer = EthAccount.create()
@@ -266,7 +266,7 @@ class TestBlockHeaderSignature:
             tx_count=0,
             signature=sig.to_hex(),
         )
-        assert PoAProposer.verify_block_signature(block) is False
+        assert verify_block_signature(block, block.signature, block.proposer) is False
 
     def test_verify_block_signature_accepts_ethereum_encoded_v(self, rpc_engine) -> None:
         """A signature with recovery id 27/28 must verify.
@@ -279,8 +279,8 @@ class TestBlockHeaderSignature:
         `except Exception: return False` reported it as a bad signature rather than an
         unsupported encoding.
         """
+        from aitbc.crypto.consensus_signing import verify_block_signature
         from aitbc.crypto.crypto import sign_transaction_hash
-        from aitbc_chain.consensus.poa import PoAProposer
 
         acct = EthAccount.create()
         block_hash = "0x" + "cd" * 32
@@ -298,11 +298,11 @@ class TestBlockHeaderSignature:
             tx_count=0,
             signature=signature,
         )
-        assert PoAProposer.verify_block_signature(block) is True
+        assert verify_block_signature(block, block.signature, block.proposer) is True
 
     def test_verify_block_signature_rejects_nonsense_recovery_id(self, rpc_engine) -> None:
         """Normalising 27/28 must not turn into accepting any recovery id at all."""
-        from aitbc_chain.consensus.poa import PoAProposer
+        from aitbc.crypto.consensus_signing import verify_block_signature
 
         acct = EthAccount.create()
         block_hash = "0x" + "cd" * 32
@@ -319,11 +319,11 @@ class TestBlockHeaderSignature:
             tx_count=0,
             signature="0x" + mangled.hex(),
         )
-        assert PoAProposer.verify_block_signature(block) is False
+        assert verify_block_signature(block, block.signature, block.proposer) is False
 
     def test_verify_block_signature_corrupt(self, rpc_engine) -> None:
         """Corrupt signature is rejected."""
-        from aitbc_chain.consensus.poa import PoAProposer
+        from aitbc.crypto.consensus_signing import verify_block_signature
 
         block = Block(
             chain_id="chain-a",
@@ -334,7 +334,7 @@ class TestBlockHeaderSignature:
             tx_count=0,
             signature="0x" + "00" * 65,  # corrupt
         )
-        assert PoAProposer.verify_block_signature(block) is False
+        assert verify_block_signature(block, block.signature, block.proposer) is False
 
 
 # ---------------------------------------------------------------------------
