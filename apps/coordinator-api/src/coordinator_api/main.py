@@ -112,6 +112,277 @@ except ImportError:
     logger.warning("Multi-modal RL router not available (missing torch)")
 
 
+async def _maybe_start_sweeper(
+    task_manager, name: str, enabled: Callable[[], bool], factory, on_msg: str, off_msg: str
+) -> None:
+    """Start a background sweeper when its env flag is on; log either way."""
+    if enabled():
+        await task_manager.start_task(name, factory().run_forever)
+        logger.info(on_msg)
+    else:
+        logger.info(off_msg)
+
+
+async def _start_sweepers(task_manager) -> None:
+    """Register the coordinator's periodic sweepers/reconcilers.
+
+    # Retry escrow releases that completed but never settled on-chain. Off by
+    # default: it re-drives real payouts, so it is opted into per deployment.
+    # P2.1 zk_refund_sweeper: refund escrows for jobs whose ZK receipt could
+    # not be verified — breaks the steady-state loop where a failed proof
+    # leaves funds escrowed forever because release_payment keeps refusing.
+    # AcceptanceSweeper (G3): release escrow once a customer's acceptance
+    # window expires — performs the release the window deferred.
+    # StuckEscrowSweeper: refund escrows stuck in canceled/failed/expired/
+    # unresolved disputed states, so a never-completing job does not leave
+    # buyer funds locked on-chain.
+    # payments_operation_reconciler: expire stale pending ledger rows to
+    # failed/uncertain and purge terminal rows past retention.
+    # BondSlashSweeper (G5): slash provider bonds when a condition trips.
+    # StaleMinerReaper (G5): stale-heartbeat miners go OFFLINE.
+    # StaleJobReaper (G3/G5): expire orphaned QUEUED/RUNNING jobs so held
+    # escrow can be refunded and re-matching stops.
+    """
+    from aitbc.operation_reconciler import OperationReconciler
+
+    from .contexts.infrastructure.services.stale_job_reaper import (
+        StaleJobReaper,
+        reaper_enabled as stale_job_reaper_enabled,
+    )
+    from .contexts.infrastructure.services.stale_miner_reaper import (
+        StaleMinerReaper,
+        reaper_enabled as stale_miner_reaper_enabled,
+    )
+    from .contexts.market.services.bond_slash_sweeper import (
+        BondSlashSweeper,
+        sweeper_enabled as bond_slash_sweeper_enabled,
+    )
+    from .contexts.payments.acceptance import default_window_seconds
+    from .contexts.payments.operations import get_operations_ledger
+    from .contexts.payments.services.acceptance_sweeper import AcceptanceSweeper, sweeper_enabled
+    from .contexts.payments.services.settlement_reconciler import SettlementReconciler, reconciler_enabled
+    from .contexts.payments.services.stuck_escrow_sweeper import StuckEscrowSweeper, stuck_escrow_sweeper_enabled
+    from .contexts.payments.services.zk_refund_sweeper import ZkRefundSweeper, zk_refund_sweeper_enabled
+
+    await _maybe_start_sweeper(
+        task_manager,
+        "escrow_settlement_reconciler",
+        reconciler_enabled,
+        SettlementReconciler,
+        "Escrow settlement reconciler enabled",
+        "Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)",
+    )
+    await _maybe_start_sweeper(
+        task_manager,
+        "zk_refund_sweeper",
+        zk_refund_sweeper_enabled,
+        ZkRefundSweeper,
+        "ZK refund sweeper enabled",
+        "ZK refund sweeper disabled (set COORDINATOR_ZK_REFUND_SWEEP_ENABLED=true to enable)",
+    )
+    await _maybe_start_sweeper(
+        task_manager,
+        "acceptance_window_sweeper",
+        sweeper_enabled,
+        AcceptanceSweeper,
+        f"Acceptance window enabled: {default_window_seconds()}s before escrow auto-releases",
+        "Acceptance window disabled (COORDINATOR_ACCEPTANCE_WINDOW_SECONDS=0); escrow releases on result",
+    )
+    await _maybe_start_sweeper(
+        task_manager,
+        "stuck_escrow_sweeper",
+        stuck_escrow_sweeper_enabled,
+        StuckEscrowSweeper,
+        "Stuck escrow sweeper enabled",
+        "Stuck escrow sweeper disabled (set COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=true to enable)",
+    )
+
+    # Not opt-in like the sweepers: the payments operation ledger sweep must
+    # run whenever the service does.
+    await task_manager.start_task(
+        "payments_operation_reconciler",
+        OperationReconciler(get_operations_ledger, env_prefix="COORDINATOR_OPS").run_forever,
+    )
+
+    await _maybe_start_sweeper(
+        task_manager,
+        "bond_slash_sweeper",
+        bond_slash_sweeper_enabled,
+        BondSlashSweeper,
+        "Bond slash sweeper started",
+        "Bond slash sweeper disabled (BOND_SLASH_SWEEPER_ENABLED=false)",
+    )
+    await _maybe_start_sweeper(
+        task_manager,
+        "stale_miner_reaper",
+        stale_miner_reaper_enabled,
+        StaleMinerReaper,
+        "Stale miner reaper started",
+        "Stale miner reaper disabled (COORDINATOR_STALE_MINER_REAPER_ENABLED=false)",
+    )
+    await _maybe_start_sweeper(
+        task_manager,
+        "stale_job_reaper",
+        stale_job_reaper_enabled,
+        StaleJobReaper,
+        "Stale job reaper started",
+        "Stale job reaper disabled (COORDINATOR_STALE_JOB_REAPER_ENABLED=false)",
+    )
+
+
+async def _init_databases() -> None:
+    """Consolidated database initialization — failures are non-fatal."""
+    from .storage.db import init_async_db, init_db
+
+    try:
+        init_db()
+        logger.info("Database initialized successfully")
+    except Exception as e:
+        logger.warning("Database initialization failed (non-fatal): %s", e)
+    try:
+        await init_async_db()
+        logger.info("Async database initialized successfully")
+    except Exception as e:
+        logger.warning("Async database initialization failed (non-fatal): %s", e)
+
+
+async def _init_redis_state() -> None:
+    """Connect the Redis state manager singleton (falls back to in-memory).
+
+    Routers call get_instance_sync() at import time, which creates the singleton
+    without calling _init(). We must call _init() here to actually connect to
+    Redis. On hot-reload, the singleton persists but the Redis client may be
+    bound to a closed event loop — detect and reconnect.
+    """
+    try:
+        from .contexts.infrastructure.services.redis_state import RedisStateManager
+
+        state = RedisStateManager.get_instance_sync()
+        if state._is_stale_loop():
+            logger.info("Redis state manager: stale event loop detected, reconnecting...")
+            await state._reconnect()
+        elif not state._initialized:
+            await state._init()
+        if state._redis is not None:
+            logger.info("Redis state manager connected successfully")
+        else:
+            logger.info("Redis state manager running in in-memory mode (REDIS_ENABLED=%s)", settings.redis.enabled)
+    except Exception as e:
+        logger.warning("Redis state manager initialization failed (non-fatal, falls back to in-memory): %s", e)
+
+
+def _warmup_database() -> None:
+    """Run a trivial query so the first request doesn't pay connect cost."""
+    try:
+        from sqlmodel import select
+
+        from .contexts.infrastructure.domain import Job
+        from .storage import get_session
+
+        session_gen = get_session()
+        session = next(session_gen)
+        try:
+            test_query = select(Job).limit(1)
+            session.execute(test_query).scalars().first()
+        finally:
+            session.close()
+        logger.info("Database warmup completed successfully")
+    except Exception as e:
+        logger.warning("Database warmup failed: %s", e)
+
+
+def _log_duplicate_routes(app: FastAPI) -> None:
+    """Warn about (method, path) pairs registered twice.
+
+    Note: This will be enforced once Agent B removes duplicate router
+    registrations (Goal 12). For now, we only log warnings to avoid breaking
+    the current system.
+    """
+    route_pairs = set()
+    duplicates = []
+    for route in app.routes:
+        if hasattr(route, "methods") and hasattr(route, "path"):
+            for method in route.methods:
+                pair = (method, route.path)
+                if pair in route_pairs:
+                    duplicates.append(pair)
+                route_pairs.add(pair)
+    if duplicates:
+        logger.warning("Found duplicate route registrations: %s", duplicates)
+
+
+def _log_startup_summary() -> None:
+    """Consolidated startup summary."""
+    logger.info(
+        "Coordinator API started: host=%s port=%s db=%s env=%s",
+        settings.app_host,
+        settings.port,
+        settings.database.adapter,
+        settings.environment,
+    )
+    logger.info(
+        "Rate limits: jobs=%s miner_reg=%s miner_hb=%s admin=%s market=%s exchange=%s",
+        settings.rate_limit_jobs_submit,
+        settings.rate_limit_miner_register,
+        settings.rate_limit_miner_heartbeat,
+        settings.rate_limit_admin_stats,
+        settings.rate_limit_market_list,
+        settings.rate_limit_exchange_payment,
+    )
+    logger.info("Audit logging: %s", settings.audit_log_dir)
+
+
+async def _startup(app: FastAPI, task_manager) -> None:
+    """Startup phase of the lifespan: init stores, warm up, start sweepers."""
+    await _init_databases()
+    await _init_redis_state()
+
+    logger.info("Warming up database connections...")
+    _warmup_database()
+    if settings.environment == "production":
+        logger.info("Production environment detected, configuration validated by Pydantic model validator")
+
+    _log_duplicate_routes(app)
+
+    import anyio
+
+    audit_dir = anyio.Path(settings.audit_log_dir)
+    await audit_dir.mkdir(parents=True, exist_ok=True)
+
+    _log_startup_summary()
+    await _start_sweepers(task_manager)
+
+    logger.info("🚀 Coordinator API is ready to serve requests")
+
+
+async def _shutdown(task_manager) -> None:
+    """Graceful shutdown: drain requests, close DBs, stop background tasks."""
+    try:
+        logger.info("Initiating graceful shutdown sequence...")
+        logger.info("Stopping new request processing")
+        import asyncio
+
+        logger.info("Waiting for in-flight requests to complete...")
+        await asyncio.sleep(1)
+        logger.info("Closing database connections...")
+        try:
+            logger.info("Database connections closed successfully")
+        except Exception as e:
+            logger.warning("Error closing database connections: %s", e)
+        try:
+            await close_async_db()
+            logger.info("Async database connections closed successfully")
+        except Exception as e:
+            logger.warning("Error closing async database connections: %s", e)
+        logger.info("Stopping background tasks...")
+        await task_manager.stop_all()
+        logger.info("Cleaning up rate limiting state...")
+        logger.info("Cleaning up audit resources...")
+        logger.info("Graceful shutdown completed")
+    except Exception as e:
+        logger.error("Error during shutdown: %s", e)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Coordinator API."""
@@ -123,207 +394,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     logger.info("Starting Coordinator API")
     lifecycle_state.set_state(lifecycle_state.STARTING)
     try:
-        # Consolidated database initialization
-        from .storage.db import init_async_db, init_db
-
-        try:
-            init_db()
-            logger.info("Database initialized successfully")
-        except Exception as e:
-            logger.warning("Database initialization failed (non-fatal): %s", e)
-        try:
-            await init_async_db()
-            logger.info("Async database initialized successfully")
-        except Exception as e:
-            logger.warning("Async database initialization failed (non-fatal): %s", e)
-
-        # Initialize Redis state manager (used by agent, exchange, swarm, training, users routers)
-        # Note: routers call get_instance_sync() at import time, which creates the singleton
-        # without calling _init(). We must call _init() here to actually connect to Redis.
-        # On hot-reload, the singleton persists but the Redis client may be bound to a
-        # closed event loop — detect and reconnect.
-        try:
-            from .contexts.infrastructure.services.redis_state import RedisStateManager
-
-            state = RedisStateManager.get_instance_sync()
-            if state._is_stale_loop():
-                logger.info("Redis state manager: stale event loop detected, reconnecting...")
-                await state._reconnect()
-            elif not state._initialized:
-                await state._init()
-            if state._redis is not None:
-                logger.info("Redis state manager connected successfully")
-            else:
-                logger.info("Redis state manager running in in-memory mode (REDIS_ENABLED=%s)", settings.redis.enabled)
-        except Exception as e:
-            logger.warning("Redis state manager initialization failed (non-fatal, falls back to in-memory): %s", e)
-        logger.info("Warming up database connections...")
-        try:
-            from sqlmodel import select
-
-            from .contexts.infrastructure.domain import Job
-            from .storage import get_session
-
-            session_gen = get_session()
-            session = next(session_gen)
-            try:
-                test_query = select(Job).limit(1)
-                session.execute(test_query).scalars().first()
-            finally:
-                session.close()
-            logger.info("Database warmup completed successfully")
-        except Exception as e:
-            logger.warning("Database warmup failed: %s", e)
-        if settings.environment == "production":
-            logger.info("Production environment detected, configuration validated by Pydantic model validator")
-
-        # Check for duplicate routes
-        route_pairs = set()
-        duplicates = []
-        for route in app.routes:
-            if hasattr(route, "methods") and hasattr(route, "path"):
-                for method in route.methods:
-                    pair = (method, route.path)
-                    if pair in route_pairs:
-                        duplicates.append(pair)
-                    route_pairs.add(pair)
-        if duplicates:
-            logger.warning("Found duplicate route registrations: %s", duplicates)
-            # Note: This will be enforced once Agent B removes duplicate router registrations (Goal 12)
-            # For now, we only log warnings to avoid breaking the current system
-        import anyio
-
-        audit_dir = anyio.Path(settings.audit_log_dir)
-        await audit_dir.mkdir(parents=True, exist_ok=True)
-
-        # Consolidated startup summary
-        logger.info(
-            "Coordinator API started: host=%s port=%s db=%s env=%s",
-            settings.app_host,
-            settings.port,
-            settings.database.adapter,
-            settings.environment,
-        )
-        logger.info(
-            "Rate limits: jobs=%s miner_reg=%s miner_hb=%s admin=%s market=%s exchange=%s",
-            settings.rate_limit_jobs_submit,
-            settings.rate_limit_miner_register,
-            settings.rate_limit_miner_heartbeat,
-            settings.rate_limit_admin_stats,
-            settings.rate_limit_market_list,
-            settings.rate_limit_exchange_payment,
-        )
-        logger.info("Audit logging: %s", settings.audit_log_dir)
-        # Retry escrow releases that completed but never settled on-chain. Off by
-        # default: it re-drives real payouts, so it is opted into per deployment.
-        from .contexts.payments.services.settlement_reconciler import (
-            SettlementReconciler,
-            reconciler_enabled,
-        )
-
-        if reconciler_enabled():
-            await task_manager.start_task("escrow_settlement_reconciler", SettlementReconciler().run_forever)
-            logger.info("Escrow settlement reconciler enabled")
-        else:
-            logger.info("Escrow settlement reconciler disabled (set ESCROW_RECONCILER_ENABLED=true to enable)")
-
-        # P2.1: refund escrows for jobs whose ZK receipt could not be verified.
-        # This is what breaks the steady-state loop where a failed proof leaves
-        # funds escrowed forever because `release_payment` keeps refusing.
-        from .contexts.payments.services.zk_refund_sweeper import (
-            ZkRefundSweeper,
-            zk_refund_sweeper_enabled,
-        )
-
-        if zk_refund_sweeper_enabled():
-            await task_manager.start_task("zk_refund_sweeper", ZkRefundSweeper().run_forever)
-            logger.info("ZK refund sweeper enabled")
-        else:
-            logger.info("ZK refund sweeper disabled (set COORDINATOR_ZK_REFUND_SWEEP_ENABLED=true to enable)")
-
-        # G3: release escrow once a customer's acceptance window expires. Not opt-in
-        # the way the reconciler is: the reconciler re-drives payouts that should
-        # already have happened, while this one performs the release the window
-        # deferred. Without it, holding a payment would mean never paying it.
-        from .contexts.payments.acceptance import default_window_seconds
-        from .contexts.payments.services.acceptance_sweeper import AcceptanceSweeper, sweeper_enabled
-
-        if sweeper_enabled():
-            await task_manager.start_task("acceptance_window_sweeper", AcceptanceSweeper().run_forever)
-            logger.info("Acceptance window enabled: %ss before escrow auto-releases", default_window_seconds())
-        else:
-            logger.info("Acceptance window disabled (COORDINATOR_ACCEPTANCE_WINDOW_SECONDS=0); escrow releases on result")
-
-        # G3 follow-up: refund escrows stuck in canceled, failed, expired, or
-        # unresolved disputed states. Without this, a job that never completes still
-        # leaves the buyer's funds locked on-chain.
-        from .contexts.payments.services.stuck_escrow_sweeper import (
-            StuckEscrowSweeper,
-            stuck_escrow_sweeper_enabled,
-        )
-
-        if stuck_escrow_sweeper_enabled():
-            await task_manager.start_task("stuck_escrow_sweeper", StuckEscrowSweeper().run_forever)
-            logger.info("Stuck escrow sweeper enabled")
-        else:
-            logger.info("Stuck escrow sweeper disabled (set COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=true to enable)")
-
-        # The payments operation ledger needs a periodic sweep the same way the
-        # escrow sweepers do: stale ``pending`` rows expire to failed/uncertain
-        # and terminal rows past retention are purged.
-        from aitbc.operation_reconciler import OperationReconciler
-
-        from .contexts.payments.operations import get_operations_ledger
-
-        await task_manager.start_task(
-            "payments_operation_reconciler",
-            OperationReconciler(get_operations_ledger, env_prefix="COORDINATOR_OPS").run_forever,
-        )
-
-        # G5: slash provider bonds automatically when a condition is detected.
-        from .contexts.market.services.bond_slash_sweeper import (
-            BondSlashSweeper,
-            sweeper_enabled as bond_slash_sweeper_enabled,
-        )
-
-        if bond_slash_sweeper_enabled():
-            await task_manager.start_task("bond_slash_sweeper", BondSlashSweeper().run_forever)
-            logger.info("Bond slash sweeper started")
-        else:
-            logger.info("Bond slash sweeper disabled (BOND_SLASH_SWEEPER_ENABLED=false)")
-
-        # G5: mark miners whose last heartbeat is stale as OFFLINE so the
-        # dashboard and status endpoints do not keep them in the online pool.
-        from .contexts.infrastructure.services.stale_miner_reaper import (
-            StaleMinerReaper,
-            reaper_enabled as stale_miner_reaper_enabled,
-        )
-
-        if stale_miner_reaper_enabled():
-            await task_manager.start_task("stale_miner_reaper", StaleMinerReaper().run_forever)
-            logger.info("Stale miner reaper started")
-        else:
-            logger.info("Stale miner reaper disabled (COORDINATOR_STALE_MINER_REAPER_ENABLED=false)")
-
-        # G3/G5: proactively expire abandoned QUEUED/RUNNING jobs whose TTL has
-        # passed or whose assigned miner has gone dark. JobService._ensure_not_expired
-        # already performs this transition but only on incidental reads of a
-        # specific job; this reaper makes sure an orphaned job (nobody polling it)
-        # still gets expired, so StuckEscrowSweeper can refund its held escrow and
-        # BondSlashSweeper stops re-matching it every cycle.
-        from .contexts.infrastructure.services.stale_job_reaper import (
-            StaleJobReaper,
-            reaper_enabled as stale_job_reaper_enabled,
-        )
-
-        if stale_job_reaper_enabled():
-            await task_manager.start_task("stale_job_reaper", StaleJobReaper().run_forever)
-            logger.info("Stale job reaper started")
-        else:
-            logger.info("Stale job reaper disabled (COORDINATOR_STALE_JOB_REAPER_ENABLED=false)")
-
-        logger.info("🚀 Coordinator API is ready to serve requests")
-
+        await _startup(app, task_manager)
         lifecycle_state.set_state(lifecycle_state.RUNNING)
         yield
     except Exception as e:
@@ -332,38 +403,11 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     finally:
         lifecycle_state.set_state(lifecycle_state.SHUTTING_DOWN)
         logger.info("Shutting down Coordinator API")
-        try:
-            logger.info("Initiating graceful shutdown sequence...")
-            logger.info("Stopping new request processing")
-            import asyncio
-
-            logger.info("Waiting for in-flight requests to complete...")
-            await asyncio.sleep(1)
-            logger.info("Closing database connections...")
-            try:
-                logger.info("Database connections closed successfully")
-            except Exception as e:
-                logger.warning("Error closing database connections: %s", e)
-            try:
-                await close_async_db()
-                logger.info("Async database connections closed successfully")
-            except Exception as e:
-                logger.warning("Error closing async database connections: %s", e)
-            logger.info("Stopping background tasks...")
-            await task_manager.stop_all()
-            logger.info("Cleaning up rate limiting state...")
-            logger.info("Cleaning up audit resources...")
-            logger.info("Graceful shutdown completed")
-        except Exception as e:
-            logger.error("Error during shutdown: %s", e)
-
+        await _shutdown(task_manager)
         lifecycle_state.set_state(lifecycle_state.STOPPED)
 
 
-def create_app() -> FastAPI:
-    # Validate critical environment variables at startup
-    validate_critical_environment_variables()
-
+def _assert_production_config() -> None:
     # Fail closed: production must have auth enabled and not be in test mode
     if settings.environment == "production":
         assert settings.auth_enabled and not settings.test_mode, (
@@ -382,38 +426,8 @@ def create_app() -> FastAPI:
         if not provider.available:
             raise RuntimeError("Production FHE provider is not available; install 'tenseal'")
 
-    limiter = Limiter(key_func=get_remote_address)
 
-    # Disable docs and redoc in production
-    docs_url = "/docs" if settings.debug else None
-    redoc_url = "/redoc" if settings.debug else None
-
-    app = FastAPI(
-        title="AITBC Coordinator API",
-        description="API for coordinating AI training jobs and blockchain operations",
-        version="1.0.0",
-        docs_url=docs_url,
-        redoc_url=redoc_url,
-        lifespan=lifespan,
-        openapi_components={"securitySchemes": {"ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-Api-Key"}}},
-        openapi_tags=[
-            {"name": "health", "description": "Health check endpoints"},
-            {"name": "client", "description": "Client operations"},
-            {"name": "miner", "description": "Miner operations"},
-            {"name": "admin", "description": "Admin operations"},
-            {"name": "market", "description": "GPU Market"},
-            {"name": "exchange", "description": "Exchange operations"},
-            {"name": "governance", "description": "Governance operations"},
-            {"name": "zk", "description": "Zero-Knowledge proofs"},
-        ],
-    )
-    app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
-    setup_cors(
-        app,
-        allow_origins=settings.allow_origins,
-        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
-    )
+def _add_middleware(app: FastAPI) -> None:
     app.add_middleware(RequestIDMiddleware)
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
@@ -468,185 +482,9 @@ def create_app() -> FastAPI:
             metrics_collector.record_api_response_time(duration)
             metrics_collector.update_cache_stats(cache_manager.get_stats())
 
-    app.include_router(client, prefix="/v1")
-    if admin:
-        app.include_router(admin, prefix="/v1")
-    app.include_router(market, prefix="/v1")
-    app.include_router(market_gpu, prefix="/v1")
-    app.include_router(market_offers, prefix="/v1")
-    app.include_router(market_bonds.router, prefix="/v1")
-    app.include_router(monitor, prefix="/v1")
-    app.include_router(miner, prefix="/v1")
-    app.include_router(islands_proxy, prefix="/v1")
-    app.include_router(cross_chain, prefix="/v1")
 
-    # Optional routers with consolidated logging
-    optional_routers = []
-    try:
-        from .contexts.zk_applications.routers.zk_proofs import router as zk_proofs_router
-
-        app.include_router(zk_proofs_router, prefix="/v1")
-        optional_routers.append("zk_proofs")
-    except Exception as e:
-        logger.warning("Failed to include ZK proofs router: %s", e)
-    if settings.fhe_enabled:
-        try:
-            from .contexts.zk_applications.routers.fhe import router as fhe_router
-
-            app.include_router(fhe_router, prefix="/v1")
-            optional_routers.append("fhe")
-        except Exception as e:
-            logger.warning("Failed to include FHE router: %s", e)
-    try:
-        from .contexts.blockchain.routers.oracle import router as oracle_router
-
-        app.include_router(oracle_router, prefix="/v1")
-        optional_routers.append("oracle")
-    except Exception as e:
-        logger.warning("Failed to include Oracle router: %s", e)
-    try:
-        from .contexts.governance.routers.disputes import router as disputes_router
-
-        app.include_router(disputes_router, prefix="/v1")
-        optional_routers.append("disputes")
-        from .contexts.governance.services.dispute_resolution import init_dispute_service
-        from .storage.db import get_session
-
-        init_dispute_service(get_session)
-    except Exception as e:
-        logger.warning("Failed to include disputes router: %s", e)
-    app.include_router(portfolio_router, prefix="/v1")
-    try:
-        from .contexts.bounty.routers.bounty_flat import router as bounty_router
-
-        app.include_router(bounty_router, prefix="/v1")
-        optional_routers.append("bounty")
-    except Exception as e:
-        logger.warning("Failed to include Bounty router: %s", e)
-    try:
-        from .contexts.agent_coordination.routers.agent_messaging import router as messaging_router
-
-        app.include_router(messaging_router, prefix="/v1")
-        optional_routers.append("agent")
-    except Exception as e:
-        logger.warning("Failed to include Agent router: %s", e)
-
-    # Core routers
-    app.include_router(confidential, prefix="/v1")
-    app.include_router(swarm, prefix="/v1")
-    app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
-    app.include_router(media, prefix="/v1")
-    app.include_router(payments, prefix="/v1")
-    app.include_router(inference, prefix="/v1")
-    app.include_router(explorer, prefix="/v1")
-    app.include_router(services, prefix="/v1")
-    app.include_router(users, prefix="/v1")
-    app.include_router(exchange, prefix="/v1")
-    app.include_router(web_vitals, prefix="/v1")
-    app.include_router(monitoring_dashboard, prefix="/v1")
-    # Mounted 2026-09-25: imported and exported from routers/__init__.py but never
-    # passed to include_router(), so every /v1/partners/* path returned 404. The
-    # router now persists to integration_partner/partner_webhook tables and stores
-    # only SHA-256 hashes of issued credentials.
-    app.include_router(partners, prefix="/v1")
-    app.include_router(agent_router, prefix="/v1/agents")
-    # Mounted 2026-09-11: the router was imported and exported from routers/__init__.py
-    # but never passed to include_router(), so every /v1/agents/integration/* path --
-    # including the production/alerts endpoint referenced by docs/blockchain/7_monitoring.md
-    # -- returned 404. All 15 of its endpoints carry AdminDep.
-    app.include_router(agent_integration_router, prefix="/v1")
-    # Mounted 2026-09-11: same story as agent_integration_router above -- imported
-    # and exported from routers/__init__.py, never passed to include_router(), so all
-    # six /v1/agent-creativity/* paths returned 404. Its endpoints carried no auth
-    # dependency at all, so mounting it as it stood would have opened five
-    # unauthenticated writes; they now take AdminDep, matching agent_router.
-    app.include_router(agent_creativity, prefix="/v1")
-    app.include_router(agent_identity, prefix="/v1")
-    app.include_router(developer_platform, prefix="/v1")
-    app.include_router(developer_registry, prefix="/v1")
-    app.include_router(governance_enhanced, prefix="/v1")
-    app.include_router(grants_router, prefix="/v1")
-    app.include_router(economic_proposals_router, prefix="/v1")
-    app.include_router(tee_attestation_router, prefix="/v1")
-    app.include_router(hipaa_router, prefix="/v1")
-
-    # More optional routers
-    try:
-        app.include_router(governance, prefix="/v1")
-        optional_routers.append("governance")
-    except Exception as e:
-        logger.warning("Failed to include governance router: %s", e)
-
-    if ml_zk_proofs:
-        app.include_router(ml_zk_proofs, prefix="/v1")
-        optional_routers.append("ml_zk_proofs")
-
-    try:
-        from .contexts.staking.routers.staking import router as staking_router
-
-        app.include_router(staking_router, prefix="/v1")
-        optional_routers.append("staking")
-    except Exception as e:
-        logger.warning("Failed to include staking router: %s", e)
-    try:
-        from .routers import agent_security_router
-
-        if agent_security_router:
-            app.include_router(agent_security_router, prefix="/v1")
-            optional_routers.append("agent_security")
-        else:
-            logger.warning("Security router not available")
-    except Exception as e:
-        logger.warning("Failed to include security router: %s", e)
-    try:
-        from .routers import trading
-
-        if trading:
-            app.include_router(trading, prefix="/v1")
-            optional_routers.append("trading")
-        else:
-            logger.warning("Trading router not available")
-    except Exception as e:
-        logger.warning("Failed to include trading router: %s", e)
-    try:
-        from .routers import reputation
-
-        if reputation:
-            app.include_router(reputation, prefix="/v1")
-            optional_routers.append("reputation")
-        else:
-            logger.warning("Reputation router not available")
-    except Exception as e:
-        logger.warning("Failed to include reputation router: %s", e)
-    try:
-        from .routers import rewards
-
-        if rewards:
-            app.include_router(rewards, prefix="/v1")
-            optional_routers.append("rewards")
-        else:
-            logger.warning("Rewards router not available")
-    except Exception as e:
-        logger.warning("Failed to include rewards router: %s", e)
-    try:
-        from .contexts.knowledge.routers.knowledge import router as knowledge_router
-
-        app.include_router(knowledge_router, prefix="/v1")
-        optional_routers.append("knowledge")
-    except Exception as e:
-        logger.warning("Failed to include Knowledge Graph router: %s", e)
-
-    # Core routers
-    app.include_router(blockchain, prefix="/v1")
-    app.include_router(edge_gpu, prefix="/v1")
-    app.include_router(multi_modal_rl, prefix="/v1")
-    app.include_router(agent_performance, prefix="/v1")
-
-    # Log optional routers summary
-    if optional_routers:
-        logger.info("Optional routers loaded: %s", ", ".join(optional_routers))
-
-    # Prometheus metrics
+def _register_rate_limit_metrics(app: FastAPI) -> None:
+    """Prometheus mount, dedicated rate-limit registry, 429 handler, scrape endpoint."""
     metrics_app = make_asgi_app()
     app.mount("/prometheus", metrics_app)
     rate_limit_registry = CollectorRegistry()
@@ -697,11 +535,23 @@ def create_app() -> FastAPI:
         """Rate limiting metrics endpoint."""
         return Response(content=generate_latest(rate_limit_registry), media_type=CONTENT_TYPE_LATEST)
 
+
+def _register_metrics_and_handlers(app: FastAPI) -> None:
+    """Live metrics, error handlers, health endpoints."""
+    _register_rate_limit_metrics(app)
+
     @app.get("/metrics", tags=["health"], summary="Live JSON metrics for dashboard consumption")
     async def live_metrics() -> dict[str, Any]:
         return build_live_metrics_payload(
             cache_stats=cache_manager.get_stats(), dispatcher=alert_dispatcher, collector=metrics_collector
         )
+
+    _register_error_handlers(app)
+    _register_health_endpoints(app)
+
+
+def _register_error_handlers(app: FastAPI) -> None:
+    """Structured handlers for unhandled, AITBC, and validation errors."""
 
     @app.exception_handler(Exception)
     async def general_exception_handler(request: Request, exc: Exception) -> JSONResponse:
@@ -743,6 +593,10 @@ def create_app() -> FastAPI:
             request_id=request_id,
         )
         return JSONResponse(status_code=422, content=error_response.model_dump())
+
+
+def _register_health_endpoints(app: FastAPI) -> None:
+    """Health, liveness, and readiness probes."""
 
     @app.get("/health", tags=["health"], summary="Service healthcheck")
     async def health() -> dict[str, str]:
@@ -787,7 +641,9 @@ def create_app() -> FastAPI:
             logger.error("Readiness check failed", extra={"exc": str(e)})
             return JSONResponse(status_code=503, content={"status": "not ready", "error": "Service not ready"})
 
-    # Startup guard: fail if duplicate routes are registered
+
+def _check_duplicate_routes(app: FastAPI) -> None:
+    """Startup guard: warn on duplicate (method, path) registrations."""
     _seen_routes: set[tuple[str, str]] = set()
     for route in app.routes:
         if hasattr(route, "methods") and hasattr(route, "path"):
@@ -798,6 +654,336 @@ def create_app() -> FastAPI:
                 if key in _seen_routes:
                     logger.warning(f"Duplicate route registered: {method} {route.path}")
                 _seen_routes.add(key)
+
+
+# Loader functions keep real ``from`` imports (inside the function body, so the
+# import still happens lazily at registration time and failures stay caught by
+# _opt) — importlib.import_module on a computed string would be invisible to the
+# orphan-module checker's AST scan.
+def _load_zk_proofs_router():
+    from .contexts.zk_applications.routers.zk_proofs import router
+
+    return router
+
+
+def _load_fhe_router():
+    from .contexts.zk_applications.routers.fhe import router
+
+    return router
+
+
+def _load_oracle_router():
+    from .contexts.blockchain.routers.oracle import router
+
+    return router
+
+
+def _load_disputes_router():
+    from .contexts.governance.routers.disputes import router
+
+    return router
+
+
+def _load_bounty_router():
+    from .contexts.bounty.routers.bounty_flat import router
+
+    return router
+
+
+def _load_agent_messaging_router():
+    from .contexts.agent_coordination.routers.agent_messaging import router
+
+    return router
+
+
+def _load_staking_router():
+    from .contexts.staking.routers.staking import router
+
+    return router
+
+
+def _load_agent_security_router():
+    from .routers import agent_security_router
+
+    return agent_security_router
+
+
+def _load_trading_router():
+    from .routers import trading
+
+    return trading
+
+
+def _load_reputation_router():
+    from .routers import reputation
+
+    return reputation
+
+
+def _load_rewards_router():
+    from .routers import rewards
+
+    return rewards
+
+
+def _load_knowledge_router():
+    from .contexts.knowledge.routers.knowledge import router
+
+    return router
+
+
+def _opt(app: FastAPI, loaded: list[str], entry: tuple) -> None:
+    """Include one optional router; failures stay non-fatal with their original log text."""
+    name, loader, fail_msg, na_msg, post = entry
+    try:
+        router = loader()
+        if router is None:
+            if na_msg:
+                logger.warning(na_msg)
+            return
+        app.include_router(router, prefix="/v1")
+        loaded.append(name)
+        if post:
+            post()
+    except Exception as e:
+        logger.warning("%s: %s", fail_msg, e)
+
+
+def _init_dispute_service() -> None:
+    from .contexts.governance.services.dispute_resolution import init_dispute_service
+    from .storage.db import get_session
+
+    init_dispute_service(get_session)
+
+
+def _register_routers(app: FastAPI) -> None:
+    app.include_router(client, prefix="/v1")
+    if admin:
+        app.include_router(admin, prefix="/v1")
+    app.include_router(market, prefix="/v1")
+    app.include_router(market_gpu, prefix="/v1")
+    app.include_router(market_offers, prefix="/v1")
+    app.include_router(market_bonds.router, prefix="/v1")
+    app.include_router(monitor, prefix="/v1")
+    app.include_router(miner, prefix="/v1")
+    app.include_router(islands_proxy, prefix="/v1")
+    app.include_router(cross_chain, prefix="/v1")
+
+    # Optional routers with consolidated logging
+    optional_routers: list[str] = []
+    opt = lambda *a: _opt(app, optional_routers, *a)  # noqa: E731
+    opt(
+        (
+            "zk_proofs",
+            _load_zk_proofs_router,
+            "Failed to include ZK proofs router",
+            None,
+            None,
+        )
+    )
+    if settings.fhe_enabled:
+        opt(
+            (
+                "fhe",
+                _load_fhe_router,
+                "Failed to include FHE router",
+                None,
+                None,
+            )
+        )
+    opt(
+        (
+            "oracle",
+            _load_oracle_router,
+            "Failed to include Oracle router",
+            None,
+            None,
+        )
+    )
+    opt(
+        (
+            "disputes",
+            _load_disputes_router,
+            "Failed to include disputes router",
+            None,
+            _init_dispute_service,
+        )
+    )
+    app.include_router(portfolio_router, prefix="/v1")
+    opt(
+        (
+            "bounty",
+            _load_bounty_router,
+            "Failed to include Bounty router",
+            None,
+            None,
+        )
+    )
+    opt(
+        (
+            "agent",
+            _load_agent_messaging_router,
+            "Failed to include Agent router",
+            None,
+            None,
+        )
+    )
+
+    # Core routers
+    app.include_router(confidential, prefix="/v1")
+    app.include_router(swarm, prefix="/v1")
+    app.include_router(ipfs, prefix="/v1/ipfs", tags=["ipfs"])
+    app.include_router(media, prefix="/v1")
+    app.include_router(payments, prefix="/v1")
+    app.include_router(inference, prefix="/v1")
+    app.include_router(explorer, prefix="/v1")
+    app.include_router(services, prefix="/v1")
+    app.include_router(users, prefix="/v1")
+    app.include_router(exchange, prefix="/v1")
+    app.include_router(web_vitals, prefix="/v1")
+    app.include_router(monitoring_dashboard, prefix="/v1")
+    # Mounted 2026-09-25: imported and exported from routers/__init__.py but never
+    # passed to include_router(), so every /v1/partners/* path returned 404. The
+    # router now persists to integration_partner/partner_webhook tables and stores
+    # only SHA-256 hashes of issued credentials.
+    app.include_router(partners, prefix="/v1")
+    app.include_router(agent_router, prefix="/v1/agents")
+    # Mounted 2026-09-11: the router was imported and exported from routers/__init__.py
+    # but never passed to include_router(), so every /v1/agents/integration/* path --
+    # including the production/alerts endpoint referenced by docs/blockchain/7_monitoring.md
+    # -- returned 404. All 15 of its endpoints carry AdminDep.
+    app.include_router(agent_integration_router, prefix="/v1")
+    # Mounted 2026-09-11: same story as agent_integration_router above -- imported
+    # and exported from routers/__init__.py, never passed to include_router(), so all
+    # six /v1/agent-creativity/* paths returned 404. Its endpoints carried no auth
+    # dependency at all, so mounting it as it stood would have opened five
+    # unauthenticated writes; they now take AdminDep, matching agent_router.
+    app.include_router(agent_creativity, prefix="/v1")
+    app.include_router(agent_identity, prefix="/v1")
+    app.include_router(developer_platform, prefix="/v1")
+    app.include_router(developer_registry, prefix="/v1")
+    app.include_router(governance_enhanced, prefix="/v1")
+    app.include_router(grants_router, prefix="/v1")
+    app.include_router(economic_proposals_router, prefix="/v1")
+    app.include_router(tee_attestation_router, prefix="/v1")
+    app.include_router(hipaa_router, prefix="/v1")
+
+    # More optional routers
+    opt(("governance", lambda: governance, "Failed to include governance router", None, None))
+    if ml_zk_proofs:
+        app.include_router(ml_zk_proofs, prefix="/v1")
+        optional_routers.append("ml_zk_proofs")
+    opt(
+        (
+            "staking",
+            _load_staking_router,
+            "Failed to include staking router",
+            None,
+            None,
+        )
+    )
+    opt(
+        (
+            "agent_security",
+            _load_agent_security_router,
+            "Failed to include security router",
+            "Security router not available",
+            None,
+        )
+    )
+    opt(
+        (
+            "trading",
+            _load_trading_router,
+            "Failed to include trading router",
+            "Trading router not available",
+            None,
+        )
+    )
+    opt(
+        (
+            "reputation",
+            _load_reputation_router,
+            "Failed to include reputation router",
+            "Reputation router not available",
+            None,
+        )
+    )
+    opt(
+        (
+            "rewards",
+            _load_rewards_router,
+            "Failed to include rewards router",
+            "Rewards router not available",
+            None,
+        )
+    )
+    opt(
+        (
+            "knowledge",
+            _load_knowledge_router,
+            "Failed to include Knowledge Graph router",
+            None,
+            None,
+        )
+    )
+
+    # Core routers
+    app.include_router(blockchain, prefix="/v1")
+    app.include_router(edge_gpu, prefix="/v1")
+    app.include_router(multi_modal_rl, prefix="/v1")
+    app.include_router(agent_performance, prefix="/v1")
+
+    # Log optional routers summary
+    if optional_routers:
+        logger.info("Optional routers loaded: %s", ", ".join(optional_routers))
+
+
+def create_app() -> FastAPI:
+    # Validate critical environment variables at startup
+    validate_critical_environment_variables()
+
+    _assert_production_config()
+
+    limiter = Limiter(key_func=get_remote_address)
+
+    # Disable docs and redoc in production
+    docs_url = "/docs" if settings.debug else None
+    redoc_url = "/redoc" if settings.debug else None
+
+    app = FastAPI(
+        title="AITBC Coordinator API",
+        description="API for coordinating AI training jobs and blockchain operations",
+        version="1.0.0",
+        docs_url=docs_url,
+        redoc_url=redoc_url,
+        lifespan=lifespan,
+        openapi_components={"securitySchemes": {"ApiKeyAuth": {"type": "apiKey", "in": "header", "name": "X-Api-Key"}}},
+        openapi_tags=[
+            {"name": "health", "description": "Health check endpoints"},
+            {"name": "client", "description": "Client operations"},
+            {"name": "miner", "description": "Miner operations"},
+            {"name": "admin", "description": "Admin operations"},
+            {"name": "market", "description": "GPU Market"},
+            {"name": "exchange", "description": "Exchange operations"},
+            {"name": "governance", "description": "Governance operations"},
+            {"name": "zk", "description": "Zero-Knowledge proofs"},
+        ],
+    )
+    app.state.limiter = limiter
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
+    setup_cors(
+        app,
+        allow_origins=settings.allow_origins,
+        allow_methods=["GET", "POST", "PUT", "DELETE", "OPTIONS"],
+    )
+    _add_middleware(app)
+
+    _register_routers(app)
+
+    _register_metrics_and_handlers(app)
+
+    _check_duplicate_routes(app)
 
     # Added last so it wraps everything: auth, rate limiting and logging all
     # see the canonical path, never the pre-rename /v1/marketplace spelling.

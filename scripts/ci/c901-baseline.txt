@@ -5,7 +5,6 @@
       1 aitbc/health_checks.py
       1 aitbc/market/energy_pricing.py
       1 aitbc/network/island_registry.py
-      1 aitbc/operations.py
       1 aitbc/oracles/price_oracle.py
       1 aitbc/sync/parallel_fetcher.py
       1 aitbc/trading/subscription_client.py
@@ -84,7 +83,6 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/bid_strategy.py
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/dynamic_pricing.py
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py
-      2 apps/coordinator-api/src/coordinator_api/main.py
       1 apps/ffmpeg/main.py
       2 apps/governance/src/governance_service/services/governance_service.py
       1 apps/gpu/src/gpu_service/main.py
@@ -111,14 +109,12 @@
       2 cli/aitbc_cli/commands/energy.py
       1 cli/aitbc_cli/commands/exchange_island.py
       1 cli/aitbc_cli/commands/genesis.py
-      1 cli/aitbc_cli/commands/http.py
       2 cli/aitbc_cli/commands/ipfs.py
       1 cli/aitbc_cli/commands/market/__init__.py
       1 cli/aitbc_cli/commands/market/escrow.py
       2 cli/aitbc_cli/commands/market/exchange.py
       1 cli/aitbc_cli/commands/market/gpu.py
       2 cli/aitbc_cli/commands/market/jobs.py
-      3 cli/aitbc_cli/commands/market/offers.py
       2 cli/aitbc_cli/commands/monitor.py
       1 cli/aitbc_cli/commands/node/island.py
       1 cli/aitbc_cli/commands/node/monitor.py
@@ -136,10 +132,7 @@
       1 cli/aitbc_cli/utils/error_handling.py
       1 cli/aitbc_cli/utils/help_quality.py
       1 cli/aitbc_cli/utils/wallet_loader.py
-      1 cli/examples/client.py
       1 cli/examples/client_enhanced.py
-      1 cli/extended_features.py
-      1 cli/miner_cli.py
       2 cli/miner_management.py
       1 cli/tests/run_cli_tests.py
       1 cli_gap_analysis.py

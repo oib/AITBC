@@ -9,7 +9,7 @@ import subprocess
 import socket
 from datetime import datetime
 from decimal import Decimal
-from typing import Any
+from typing import Any, cast
 
 import click
 from tabulate import tabulate
@@ -220,112 +220,13 @@ def list_offers(
                 my_address = None
             my_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
 
-        # Try market service API first (new approach)
-        try:
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-
-            # Build query parameters
-            params: dict[str, Any] = {}
-            if service_type:
-                params["service_type"] = service_type
-            if status:
-                params["status"] = status
-
-            result = http_client.get("/v1/market/offer", params=params)
-
-            if result and "offers" in result and result["offers"]:
-                offers = result["offers"]
-
-                # Apply additional filters
-                if provider:
-                    offers = [o for o in offers if o.get("provider_address") == provider]
-                if status:
-                    offers = [o for o in offers if o.get("status") == status]
-                if service_type:
-                    offers = [o for o in offers if o.get("service_type") == service_type]
-                if mine:
-                    offers = [o for o in offers if o.get("provider_address") == my_address or o.get("node_id") == my_node_id]
-
-                if offers:
-                    # Enrich offers with canonical coordinator reputation data.
-                    # The /reputation/... path is relative to the /v1 root, so
-                    # normalize the configured URL (service root or .../v1).
-                    coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
-                    for offer in offers:
-                        _reputation_for_offer(http_client, coordinator_url, offer)
-
-                    # Sort deterministically by live reputation (trust score > avg rating).
-                    offers = _sort_offers(offers, sort)
-
-                    # Format output for market offers
-                    market_data = []
-                    for offer in offers:
-                        provider_addr = offer.get("provider_address", "N/A") or "N/A"
-                        public_ep = offer.get("public_endpoint", "N/A") or "N/A"
-                        market_data.append(
-                            {
-                                "Offer ID": offer.get("offer_id", "N/A"),
-                                "Plugin ID": offer.get("plugin_id", "N/A"),
-                                "Service Type": offer.get("service_type", "N/A"),
-                                "Model": offer.get("model", "N/A"),
-                                "Price": f"{offer.get('price', 0)} {offer.get('price_unit', 'units')}",
-                                "Provider": provider_addr[:16] + "..." if len(provider_addr) > 16 else provider_addr,
-                                "Node ID": offer.get("node_id", "N/A"),
-                                "GPU": f"{offer.get('gpu_name', 'N/A')} ({offer.get('gpu_device', 'N/A')})",
-                                "Memory (GB)": offer.get("gpu_memory_gb") or "N/A",
-                                "Disk Quota (MB)": offer.get("disk_quota_mb")
-                                if offer.get("disk_quota_mb") is not None
-                                else "N/A",
-                                "Endpoint": public_ep[:30] + "..." if len(public_ep) > 30 else public_ep,
-                                "Status": offer.get("status", "unknown"),
-                                "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust"
-                                if offer.get("trust_score") is not None
-                                else f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
-                            }
-                        )
-
-                    output(market_data, fmt)
-                    success(f"Found {len(offers)} market offers")
-                    return
-        except NetworkError as e:
-            logger.warning("Market service not available: %s", e)
-        except Exception as e:
-            logger.warning("Error querying market service: %s", e)
+        if _list_offers_via_market_api(
+            hub_url, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
+        ):
+            return
 
         # Fallback to blockchain query (original approach)
-        transactions: list[dict[str, Any]] = []
-        try:
-            # Query hub directly (HTTP) for confirmed GPU_MARKET transactions
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
-            result = http_client.get("/rpc/transactions", params={"limit": 500})
-            if result and not isinstance(result, dict):
-                # Filter by payload action since hub doesn't store type field
-                tx_list = [  # type: ignore[unreachable]
-                    tx
-                    for tx in result
-                    if isinstance(tx.get("payload"), dict)
-                    and tx["payload"].get("action") in ("offer", "bid", "cancel", "accept", "software_offer")
-                ]
-                transactions = tx_list
-                logger.debug("Found %s GPU_MARKET transactions from hub", len(transactions))
-
-            # Also check hub mempool for pending transactions
-            if not transactions:
-                mempool = http_client.get("/rpc/mempool")
-                if mempool and isinstance(mempool, dict) and "transactions" in mempool:
-                    transactions = [tx for tx in mempool["transactions"] if tx.get("type") == "GPU_MARKET"]
-                    logger.debug("Found %s GPU_MARKET transactions in hub mempool", len(transactions))
-        except NetworkError as e:
-            logger.error("Network error querying hub: %s", e)
-            # Fallback to local blockchain RPC
-            try:
-                http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-                result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 200})
-                if result and not isinstance(result, dict):
-                    transactions = result  # type: ignore[unreachable]
-            except NetworkError:
-                logger.debug("Local blockchain RPC unavailable for transactions", exc_info=True)
-                pass
+        transactions = _collect_market_txs(hub_url, config)
 
         if not transactions:
             info("No GPU market offers found (blockchain endpoint not available)")
@@ -334,83 +235,204 @@ def list_offers(
         # Format output for market offers (blockchain data)
         blockchain_data: list[dict[str, Any]] = []
         for tx in transactions:
-            # Handle both mempool format (payload is dict) and mined block format (nested payload)
-            if isinstance(tx, dict):
-                if "payload" in tx:
-                    # Mined block format - nested payload
-                    payload = tx["payload"]
-                    if isinstance(payload, str):
-                        try:
-                            payload = json.loads(payload)
-                        except json.JSONDecodeError:
-                            logger.debug("Failed to parse transaction payload JSON", exc_info=True)
-                            continue
-                elif "action" in tx:
-                    # Direct format (mempool or simplified)
-                    payload = tx
-                else:
-                    continue
-
-            action = payload.get("action")
-
-            # Only show hardware+software bundle offers
-            if action != "software_offer":
-                continue
-            if status and payload.get("status") != status:
-                continue
-            if provider and payload.get("provider_address") != provider:
-                continue
-            if mine:
-                if payload.get("provider_address") != my_address and payload.get("provider_node_id") != my_node_id:
-                    continue
-
-            gpu_name = payload.get("gpu_name", "N/A")
-            deployment_type = payload.get("deployment_type", "local")
-            gpu_device = payload.get("gpu_device", "0")
-            gpu_name_display = f"{gpu_name} [GPU {gpu_device}]" if deployment_type == "local" else "N/A (cloud)"
-
-            # Get rating info from market service if available
-            rating_display = "N/A"
-            try:
-                client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
-                # Use offer_id to lookup service via new endpoint
-                offer_id = payload.get("offer_id", "")
-                if offer_id:
-                    service_response = client.get(f"/v1/market/offer-by-id/{offer_id}")
-                    if service_response and not service_response.get("error"):
-                        avg_rating = service_response.get("avg_rating", 0.0)
-                        rating_count = service_response.get("rating_count", 0)
-                        if rating_count > 0:
-                            rating_display = f"⭐ {avg_rating:.1f} ({rating_count})"
-            except Exception:
-                logger.debug("Market service not available, skip ratings", exc_info=True)
-                pass  # Market service not available, skip ratings
-
-            blockchain_data.append(
-                {
-                    "Offer ID": payload.get("offer_id", ""),
-                    "Plugin ID": payload.get("offer_id", ""),
-                    "Type": payload.get("service_type", "").upper(),
-                    "Model": payload.get("model", ""),
-                    "GPU": gpu_name_display[:35] + "..." if len(gpu_name_display) > 35 else gpu_name_display,
-                    "Memory (GB)": payload.get("memory_gb", "N/A"),
-                    "Disk Quota (MB)": payload.get("disk_quota_mb", "N/A"),
-                    "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
-                    "Rating": rating_display,
-                    "Status": payload.get("status", "active"),
-                    "Provider": (payload.get("provider_address", "") or "")[:30] + "...",
-                    "Description": (payload.get("description", "")[:35] + "...")
-                    if len(payload.get("description", "")) > 35
-                    else payload.get("description", ""),
-                    "Created": payload.get("created_at", "")[:19] if payload.get("created_at") else "N/A",
-                }
-            )
+            row = _chain_offer_row(tx, status, provider, mine, my_address, my_node_id)
+            if row is not None:
+                blockchain_data.append(row)
 
         output(blockchain_data, fmt, title="Hardware+Software Bundle Offers")
 
     except Exception as e:
         error(f"Error listing GPU market: {str(e)}")
         raise click.Abort() from e
+
+
+def _offer_row(offer: dict[str, Any]) -> dict[str, Any]:
+    provider_addr = offer.get("provider_address", "N/A") or "N/A"
+    public_ep = offer.get("public_endpoint", "N/A") or "N/A"
+    return {
+        "Offer ID": offer.get("offer_id", "N/A"),
+        "Plugin ID": offer.get("plugin_id", "N/A"),
+        "Service Type": offer.get("service_type", "N/A"),
+        "Model": offer.get("model", "N/A"),
+        "Price": f"{offer.get('price', 0)} {offer.get('price_unit', 'units')}",
+        "Provider": provider_addr[:16] + "..." if len(provider_addr) > 16 else provider_addr,
+        "Node ID": offer.get("node_id", "N/A"),
+        "GPU": f"{offer.get('gpu_name', 'N/A')} ({offer.get('gpu_device', 'N/A')})",
+        "Memory (GB)": offer.get("gpu_memory_gb") or "N/A",
+        "Disk Quota (MB)": offer.get("disk_quota_mb") if offer.get("disk_quota_mb") is not None else "N/A",
+        "Endpoint": public_ep[:30] + "..." if len(public_ep) > 30 else public_ep,
+        "Status": offer.get("status", "unknown"),
+        "Rating": f"{offer.get('trust_score', 0) / 1000:.2f} trust"
+        if offer.get("trust_score") is not None
+        else f"{offer.get('avg_rating', 0):.1f} ({offer.get('rating_count', 0)} reviews)",
+    }
+
+
+def _filter_offers(offers, provider, status, service_type, mine, my_address, my_node_id):
+    """Apply the optional provider/status/service-type/--mine filters."""
+    if provider:
+        offers = [o for o in offers if o.get("provider_address") == provider]
+    if status:
+        offers = [o for o in offers if o.get("status") == status]
+    if service_type:
+        offers = [o for o in offers if o.get("service_type") == service_type]
+    if mine:
+        offers = [o for o in offers if o.get("provider_address") == my_address or o.get("node_id") == my_node_id]
+    return offers
+
+
+def _list_offers_via_market_api(
+    hub_url, config, fmt, provider, status, service_type, sort, mine, my_address, my_node_id
+) -> bool:
+    """Try the market service API; True when it produced output."""
+    try:
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+
+        # Build query parameters
+        params: dict[str, Any] = {}
+        if service_type:
+            params["service_type"] = service_type
+        if status:
+            params["status"] = status
+
+        result = http_client.get("/v1/market/offer", params=params)
+
+        if not (result and "offers" in result and result["offers"]):
+            return False
+        offers = _filter_offers(result["offers"], provider, status, service_type, mine, my_address, my_node_id)
+        if not offers:
+            return False
+
+        # Enrich offers with canonical coordinator reputation data.
+        # The /reputation/... path is relative to the /v1 root, so
+        # normalize the configured URL (service root or .../v1).
+        coordinator_url = normalize_base_url(config.coordinator_api_url or hub_url)
+        for offer in offers:
+            _reputation_for_offer(http_client, coordinator_url, offer)
+
+        # Sort deterministically by live reputation (trust score > avg rating).
+        offers = _sort_offers(offers, sort)
+
+        output([_offer_row(offer) for offer in offers], fmt)
+        success(f"Found {len(offers)} market offers")
+        return True
+    except NetworkError as e:
+        logger.warning("Market service not available: %s", e)
+    except Exception as e:
+        logger.warning("Error querying market service: %s", e)
+    return False
+
+
+def _collect_market_txs(hub_url: str, config) -> list[dict[str, Any]]:
+    """Collect GPU_MARKET transactions from the hub, then local RPC."""
+    transactions: list[dict[str, Any]] = []
+    try:
+        # Query hub directly (HTTP) for confirmed GPU_MARKET transactions
+        http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
+        result = http_client.get("/rpc/transactions", params={"limit": 500})
+        if result and not isinstance(result, dict):
+            # Filter by payload action since hub doesn't store type field
+            transactions = [  # type: ignore[unreachable]
+                tx
+                for tx in result
+                if isinstance(tx.get("payload"), dict)
+                and tx["payload"].get("action") in ("offer", "bid", "cancel", "accept", "software_offer")
+            ]
+            logger.debug("Found %s GPU_MARKET transactions from hub", len(transactions))
+
+        # Also check hub mempool for pending transactions
+        if not transactions:
+            mempool = http_client.get("/rpc/mempool")
+            if mempool and isinstance(mempool, dict) and "transactions" in mempool:
+                transactions = [tx for tx in mempool["transactions"] if tx.get("type") == "GPU_MARKET"]
+                logger.debug("Found %s GPU_MARKET transactions in hub mempool", len(transactions))
+    except NetworkError as e:
+        logger.error("Network error querying hub: %s", e)
+        # Fallback to local blockchain RPC
+        try:
+            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
+            result = http_client.get("/rpc/transactions", params={"transaction_type": "GPU_MARKET", "limit": 200})
+            if result and not isinstance(result, dict):
+                transactions = result  # type: ignore[unreachable]
+        except NetworkError:
+            logger.debug("Local blockchain RPC unavailable for transactions", exc_info=True)
+    return transactions
+
+
+def _offer_rating(offer_id: str) -> str:
+    """Rating string for an offer id via the local market service, or N/A."""
+    try:
+        client = AITBCHTTPClient(base_url="http://localhost:8102", timeout=5)
+        if offer_id:
+            service_response = client.get(f"/v1/market/offer-by-id/{offer_id}")
+            if service_response and not service_response.get("error"):
+                avg_rating = service_response.get("avg_rating", 0.0)
+                rating_count = service_response.get("rating_count", 0)
+                if rating_count > 0:
+                    return f"⭐ {avg_rating:.1f} ({rating_count})"
+    except Exception:
+        logger.debug("Market service not available, skip ratings", exc_info=True)
+    return "N/A"
+
+
+def _tx_payload(tx: dict[str, Any]) -> dict[str, Any] | None:
+    """Unwrap the payload from a mempool (flat) or mined-block (nested) tx."""
+    if "payload" in tx:
+        payload = tx["payload"]
+        if isinstance(payload, str):
+            try:
+                parsed: dict[str, Any] = json.loads(payload)
+                return parsed
+            except json.JSONDecodeError:
+                logger.debug("Failed to parse transaction payload JSON", exc_info=True)
+                return None
+        return cast(dict[str, Any], payload)
+    if "action" in tx:
+        return tx
+    return None
+
+
+def _chain_offer_row(tx, status, provider, mine, my_address, my_node_id) -> dict[str, Any] | None:
+    """Build one output row from a chain tx, or None when filtered out."""
+    if not isinstance(tx, dict):
+        return None
+    payload = _tx_payload(tx)
+    if payload is None:
+        return None
+
+    # Only show hardware+software bundle offers
+    if payload.get("action") != "software_offer":
+        return None
+    if status and payload.get("status") != status:
+        return None
+    if provider and payload.get("provider_address") != provider:
+        return None
+    if mine:
+        if payload.get("provider_address") != my_address and payload.get("provider_node_id") != my_node_id:
+            return None
+
+    gpu_name = payload.get("gpu_name", "N/A")
+    deployment_type = payload.get("deployment_type", "local")
+    gpu_device = payload.get("gpu_device", "0")
+    gpu_name_display = f"{gpu_name} [GPU {gpu_device}]" if deployment_type == "local" else "N/A (cloud)"
+
+    return {
+        "Offer ID": payload.get("offer_id", ""),
+        "Plugin ID": payload.get("offer_id", ""),
+        "Type": payload.get("service_type", "").upper(),
+        "Model": payload.get("model", ""),
+        "GPU": gpu_name_display[:35] + "..." if len(gpu_name_display) > 35 else gpu_name_display,
+        "Memory (GB)": payload.get("memory_gb", "N/A"),
+        "Disk Quota (MB)": payload.get("disk_quota_mb", "N/A"),
+        "Price": f"{payload.get('price', 0)} AIT/{payload.get('price_unit', '')}",
+        "Rating": _offer_rating(payload.get("offer_id", "")),
+        "Status": payload.get("status", "active"),
+        "Provider": (payload.get("provider_address", "") or "")[:30] + "...",
+        "Description": (payload.get("description", "")[:35] + "...")
+        if len(payload.get("description", "")) > 35
+        else payload.get("description", ""),
+        "Created": payload.get("created_at", "")[:19] if payload.get("created_at") else "N/A",
+    }
 
 
 @market.command(
@@ -500,39 +522,23 @@ def status(ctx, order_id: str):
             else (config.hub_discovery_url or blockchain_rpc_url)
         )
 
-        # Query blockchain for transaction status
-        tx_result = None
-        try:
-            http_client = AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10)
-            tx_result = http_client.get(f"/rpc/transactions/market/{order_id}")
-        except Exception:
-            logger.debug("Offer lookup request failed", exc_info=True)
-            pass
-
+        # Query blockchain for transaction status, then escrow state —
+        # primary RPC first, hub as fallback for both.
+        tx_result = _try_get(
+            AITBCHTTPClient(base_url=config.blockchain_rpc_url, timeout=10), f"/rpc/transactions/market/{order_id}"
+        )
         if not tx_result:
-            try:
-                http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-                tx_result = http_client.get(f"/rpc/transactions/market/{order_id}")
-            except Exception:
-                logger.debug("Hub offer lookup request failed", exc_info=True)
-                pass
+            tx_result = _try_get(
+                AITBCHTTPClient(base_url=hub_url, timeout=10),
+                f"/rpc/transactions/market/{order_id}",
+                "Hub offer lookup request failed",
+            )
 
-        # Query escrow state from blockchain node
-        escrow_result = None
-        try:
-            http_client = _get_rpc_client(config, config.blockchain_rpc_url, timeout=10)
-            escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
-        except Exception:
-            logger.debug("Offer lookup request failed", exc_info=True)
-            pass
-
+        escrow_result = _try_get(_get_rpc_client(config, config.blockchain_rpc_url, timeout=10), f"/rpc/escrow/{order_id}")
         if not escrow_result:
-            try:
-                http_client = _get_rpc_client(config, hub_url, timeout=10)
-                escrow_result = http_client.get(f"/rpc/escrow/{order_id}")
-            except Exception:
-                logger.debug("Hub offer lookup request failed", exc_info=True)
-                pass
+            escrow_result = _try_get(
+                _get_rpc_client(config, hub_url, timeout=10), f"/rpc/escrow/{order_id}", "Hub offer lookup request failed"
+            )
 
         combined: dict = {}
         if tx_result and isinstance(tx_result, dict):
@@ -557,6 +563,15 @@ def status(ctx, order_id: str):
     except Exception as e:
         error(f"Error checking order status: {e}")
         raise click.Abort() from e
+
+
+def _try_get(client: AITBCHTTPClient, path: str, log_msg: str = "Offer lookup request failed"):
+    """GET that returns None instead of raising — probes are best-effort."""
+    try:
+        return client.get(path)
+    except Exception:
+        logger.debug(log_msg, exc_info=True)
+        return None
 
 
 def _purchasable_matches(matches: list[dict[str, Any]]) -> list[dict[str, Any]]:
@@ -729,6 +744,272 @@ def _provider_rows(grouped: dict[str, list[dict[str, Any]]]) -> list[dict[str, A
     return rows
 
 
+def _resolve_offer_gpu(service_type: str, is_cloud: bool, gpu_name, gpu_device) -> dict[str, Any]:
+    """Fill in gpu_* offer fields — explicit args, nvidia-smi discovery, or stubs."""
+    gpu: dict[str, Any] = {
+        "gpu_name": gpu_name,
+        "gpu_device": gpu_device,
+        "gpu_uuid": None,
+        "gpu_memory_gb": 0,
+        "compute_capability": "",
+        "gpu_model": "",
+    }
+    if service_type == "ipfs":
+        gpu.update(gpu_name="N/A (IPFS)", gpu_device="N/A", gpu_uuid="N/A", compute_capability="N/A", gpu_model="N/A")
+    if not is_cloud and service_type != "ipfs":
+        _discover_offer_gpu(gpu)
+    elif gpu_name is None and is_cloud:
+        gpu.update(gpu_name="N/A (cloud)", gpu_device="N/A", gpu_uuid="N/A", compute_capability="N/A", gpu_model="N/A")
+    elif gpu_device is None and not is_cloud:
+        gpu["gpu_device"] = "0"  # Default to first GPU
+    return gpu
+
+
+def _discover_offer_gpu(gpu: dict[str, Any]) -> None:
+    """Populate gpu fields from nvidia-smi, honoring an explicit name/device pick."""
+    gpu_name, gpu_device = gpu["gpu_name"], gpu["gpu_device"]
+    discovered_gpus = _discover_local_gpus()
+    selected_gpu = None
+    if discovered_gpus:
+        if gpu_device is not None:
+            selected_gpu = next((g for g in discovered_gpus if g["index"] == gpu_device), discovered_gpus[0])
+        elif gpu_name is not None:
+            selected_gpu = next((g for g in discovered_gpus if g["name"] == gpu_name), discovered_gpus[0])
+        else:
+            selected_gpu = discovered_gpus[0]
+    if selected_gpu:
+        gpu.update(
+            gpu_name=selected_gpu["name"],
+            gpu_device=selected_gpu["index"],
+            gpu_uuid=selected_gpu["uuid"],
+            gpu_memory_gb=selected_gpu["memory_gb"],
+            compute_capability=selected_gpu["compute_capability"],
+            gpu_model=selected_gpu["name"],
+        )
+        info(
+            f"Auto-detected GPU: {gpu['gpu_name']} ({gpu['gpu_memory_gb']} GB, "
+            f"compute {gpu['compute_capability']}, device {gpu['gpu_device']}, UUID: {gpu['gpu_uuid']})"
+        )
+    elif gpu_name is None:
+        warning("Failed to auto-detect GPU info")
+        gpu.update(gpu_name="Unknown GPU", gpu_device="0", gpu_model="Unknown GPU")
+    else:
+        gpu["gpu_model"] = gpu_name
+        if gpu_device is None:
+            gpu["gpu_device"] = "0"
+
+
+def _ipfs_public_multiaddr(addrs: list[str]) -> str:
+    """First non-loopback, non-private /ip4/ multiaddr; last addr as fallback."""
+    for addr in addrs:
+        m = re.match(r"/ip4/(\d+\.\d+\.\d+\.\d+)", addr)
+        if not m:
+            continue
+        first, second = (int(o) for o in m.group(1).split(".")[:2])
+        if first == 127 or first == 10 or (first == 172 and 16 <= second <= 31) or (first == 192 and second == 168):
+            continue
+        return addr
+    return addrs[-1] if addrs else ""
+
+
+def _verify_ollama(model_or_variant: str) -> None:
+    try:
+        client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=5)
+        tags = client.get("/api/tags")
+        models = [m["name"] for m in tags.get("models", [])]
+        if model_or_variant not in models:
+            error(f"Model '{model_or_variant}' not found in local Ollama. Available: {', '.join(models)}")
+            raise click.Abort()
+        info(f"Verified Ollama model: {model_or_variant}")
+    except NetworkError as e:
+        error(f"Ollama not reachable at localhost:11434: {e}")
+        raise click.Abort() from e
+
+
+def _verify_whisper(model_or_variant: str) -> None:
+    try:
+        client = AITBCHTTPClient(base_url="http://localhost:8110", timeout=5)
+        health = client.get("/health")
+        if not health.get("ready"):
+            error("Whisper service is not ready at localhost:8110")
+            raise click.Abort()
+        loaded = health.get("model", "")
+        info(f"Verified Whisper service: model={loaded} device={health.get('device')}")
+    except NetworkError as e:
+        error(f"Whisper service not reachable at localhost:8110: {e}")
+        error("Start it with: systemctl start aitbc-whisper")
+        raise click.Abort() from e
+
+
+def _verify_ffmpeg(model_or_variant: str) -> None:
+    try:
+        client = AITBCHTTPClient(base_url="http://localhost:8230", timeout=5)
+        health = client.get("/health")
+        if health.get("status") != "ok":
+            error("FFmpeg service is not ready at localhost:8230")
+            raise click.Abort()
+        info("Verified FFmpeg service")
+    except NetworkError as e:
+        error(f"FFmpeg service not reachable at localhost:8230: {e}")
+        error("Start it with: systemctl start aitbc-ffmpeg")
+        raise click.Abort() from e
+
+
+def _verify_hermes(model_or_variant: str) -> None:
+    try:
+        client = AITBCHTTPClient(base_url="http://localhost:8270", timeout=5)
+        health = client.get("/health")
+        if not health.get("ready"):
+            error("Hermes Agent service is not ready at localhost:8270")
+            raise click.Abort()
+        info(f"Verified Hermes Agent service: {health.get('version', 'unknown')}")
+    except NetworkError as e:
+        error(f"Hermes Agent service not reachable at localhost:8270: {e}")
+        error("Start it with: systemctl start aitbc-hermes-agent")
+        raise click.Abort() from e
+
+
+_SERVICE_VERIFIERS = {
+    "ollama": _verify_ollama,
+    "whisper": _verify_whisper,
+    "ffmpeg": _verify_ffmpeg,
+    "hermes": _verify_hermes,
+}
+
+
+def _verify_offer_service(service_type: str, model_or_variant: str) -> tuple[int, str]:
+    """Probe the local service; abort when unreachable. Returns (ipfs_port, public_multiaddr)."""
+    verifier = _SERVICE_VERIFIERS.get(service_type)
+    if verifier is not None:
+        verifier(model_or_variant)
+        return 0, ""
+    if service_type == "ipfs":
+        return _probe_ipfs()
+    return 0, ""
+
+
+def _probe_ipfs() -> tuple[int, str]:
+    """Find the IPFS API port (island 5002, default 5001) and peer's public multiaddr."""
+    ipfs_port = 0
+    ipfs_client = None
+    for candidate_port in (5002, 5001):
+        try:
+            client = AITBCHTTPClient(base_url=f"http://localhost:{candidate_port}", timeout=5)
+            if client.post("/api/v0/version").get("Version"):
+                ipfs_port = candidate_port
+                ipfs_client = client
+                info(f"Verified IPFS daemon on localhost:{ipfs_port}")
+                break
+        except NetworkError:
+            continue
+    if not ipfs_port or ipfs_client is None:
+        error("IPFS daemon not reachable at localhost:5001 or localhost:5002")
+        error("Start it with: systemctl start aitbc-island-ipfs")
+        raise click.Abort()
+    try:
+        identity = ipfs_client.post("/api/v0/id")
+        info(f"IPFS peer id: {identity.get('ID', '')}")
+        return ipfs_port, _ipfs_public_multiaddr(identity.get("Addresses", []))
+    except NetworkError as e:
+        error(f"Could not query IPFS peer identity: {e}")
+        raise click.Abort() from e
+
+
+def _offer_endpoints(config, service_type: str, ipfs_port: int, ipfs_public_multiaddr: str) -> tuple[str, str]:
+    """Public nginx-routed endpoint buyers use + the local loopback endpoint."""
+    local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0, "hermes": 8270}
+    local_port = ipfs_port if service_type == "ipfs" and ipfs_port else local_ports.get(service_type, 8110)
+    hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    base_domain = hub_hostname.removeprefix("hub.")
+    node_hostname = socket.getfqdn()
+    # If FQDN doesn't end with the base domain, construct it from short hostname + base domain
+    if base_domain and not node_hostname.endswith(base_domain):
+        node_hostname = f"{socket.gethostname()}.{base_domain}"
+    # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
+    nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs", "hermes": "hermes"}
+    nginx_path = nginx_paths.get(service_type, service_type)
+    public = ipfs_public_multiaddr or f"https://{node_hostname}/{nginx_path}"
+    return public, f"http://localhost:{local_port}"
+
+
+def _listing_is_identical(
+    listing, description, service_type, model_or_variant, price, unit, gpu, disk_quota_mb, public_endpoint
+) -> bool:
+    return (
+        float(listing.get("price", 0)) == float(price)
+        and listing.get("price_unit") == unit
+        and listing.get("description", "") == (description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}")
+        and listing.get("gpu_name", "") == (gpu["gpu_name"] or "")
+        and listing.get("gpu_model", "") == (gpu["gpu_model"] or "")
+        and str(listing.get("gpu_device", "")) == str(gpu["gpu_device"] or "")
+        and listing.get("memory_gb") == gpu["gpu_memory_gb"]
+        and listing.get("disk_quota_mb") == disk_quota_mb
+        and listing.get("compute_capability", "") == (gpu["compute_capability"] or "")
+        and listing.get("endpoint", "") == public_endpoint
+    )
+
+
+def _find_replaced_offers(
+    hub_url, wallet_address, service_type, model_or_variant, gpu, disk_quota_mb, public_endpoint, description, price, unit
+) -> list[str] | None:
+    """Active listings this offer supersedes; None when an identical one exists (skip)."""
+    try:
+        result = AITBCHTTPClient(base_url=hub_url, timeout=10).get("/rpc/market/listings")
+        if not (result and isinstance(result, dict)):
+            return []
+        listings = result.get("listings", [])
+        replaces = [
+            lst["listing_id"]
+            for lst in listings
+            if lst.get("seller_address") == wallet_address
+            and lst.get("service_type") == service_type
+            and lst.get("model") == model_or_variant
+            and lst.get("gpu_uuid") == (gpu["gpu_uuid"] or "N/A")
+            and lst.get("listing_id")
+        ]
+        # A single identical active offer means republish would be a no-op — skip it.
+        if len(replaces) == 1:
+            listing = next(lst for lst in listings if lst.get("listing_id") == replaces[0])
+            if _listing_is_identical(
+                listing, description, service_type, model_or_variant, price, unit, gpu, disk_quota_mb, public_endpoint
+            ):
+                info(f"Identical {service_type}/{model_or_variant} offer already active ({listing['listing_id']}); skipping")
+                return None
+        if replaces:
+            info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
+        return replaces
+    except Exception:
+        logger.debug("Could not query existing market listings for replacement", exc_info=True)
+        return []
+
+
+def _mempool_has_pending_offer(hub_url, wallet_address, service_type, model_or_variant, gpu_uuid) -> bool:
+    """True when a matching unconfirmed offer is already queued — avoids same-block duplicates."""
+    try:
+        result = AITBCHTTPClient(base_url=hub_url, timeout=10).get("/rpc/mempool?limit=100")
+        if not (result and isinstance(result, dict)):
+            return False
+        for tx in result.get("transactions", []):
+            if tx.get("from") != wallet_address or tx.get("type") != "GPU_MARKET":
+                continue
+            payload = tx.get("payload") or {}
+            if payload.get("action") not in ("offer", "software_offer"):
+                continue
+            if (
+                payload.get("service_type") == service_type
+                and payload.get("model") == model_or_variant
+                and payload.get("gpu_uuid") == (gpu_uuid or "N/A")
+            ):
+                info(
+                    f"Pending {service_type}/{model_or_variant} offer already in mempool "
+                    f"(tx_hash: {tx.get('tx_hash', 'unknown')}); skipping to avoid duplicate"
+                )
+                return True
+    except Exception:
+        logger.debug("Could not query mempool for pending offers", exc_info=True)
+    return False
+
+
 @market.command(
     epilog="""Examples:
 
@@ -861,254 +1142,32 @@ def offer(
         deployment_type = "cloud" if is_cloud else "local"
         info(f"Auto-detected deployment type: {deployment_type}")
 
-        # IPFS hosting offers use a Kubo daemon, not a GPU
-        ipfs_port = 0
-        ipfs_peer_id = ""
-        ipfs_public_multiaddr = ""
-
         if disk_quota_mb is None and service_type == "ipfs":
             disk_quota_mb = 100
 
-        # Auto-detect GPU info from nvidia-smi if not provided and not cloud
-        gpu_uuid = None
-        gpu_memory_gb = 0
-        compute_capability = ""
-        gpu_model = ""
-        if service_type == "ipfs":
-            gpu_name = "N/A (IPFS)"
-            gpu_device = "N/A"
-            gpu_uuid = "N/A"
-            gpu_memory_gb = 0
-            compute_capability = "N/A"
-            gpu_model = "N/A"
-        if not is_cloud and service_type != "ipfs":
-            discovered_gpus = _discover_local_gpus()
-            selected_gpu = None
-            if discovered_gpus:
-                if gpu_device is not None:
-                    selected_gpu = next((g for g in discovered_gpus if g["index"] == gpu_device), discovered_gpus[0])
-                elif gpu_name is not None:
-                    selected_gpu = next((g for g in discovered_gpus if g["name"] == gpu_name), discovered_gpus[0])
-                else:
-                    selected_gpu = discovered_gpus[0]
-            if selected_gpu:
-                gpu_name = selected_gpu["name"]
-                gpu_device = selected_gpu["index"]
-                gpu_uuid = selected_gpu["uuid"]
-                gpu_memory_gb = selected_gpu["memory_gb"]
-                compute_capability = selected_gpu["compute_capability"]
-                gpu_model = gpu_name
-                info(
-                    f"Auto-detected GPU: {gpu_name} ({gpu_memory_gb} GB, compute {compute_capability}, "
-                    f"device {gpu_device}, UUID: {gpu_uuid})"
-                )
-            elif gpu_name is None:
-                warning("Failed to auto-detect GPU info")
-                gpu_name = "Unknown GPU"
-                gpu_device = "0"
-                gpu_model = "Unknown GPU"
-            else:
-                gpu_model = gpu_name
-                if gpu_device is None:
-                    gpu_device = "0"
-        elif gpu_name is None and is_cloud:
-            gpu_name = "N/A (cloud)"
-            gpu_device = "N/A"
-            gpu_uuid = "N/A"
-            gpu_memory_gb = 0
-            compute_capability = "N/A"
-            gpu_model = "N/A"
-        elif gpu_device is None and not is_cloud:
-            gpu_device = "0"  # Default to first GPU
-
-        # Verify the service is actually running locally or reachable for cloud
-        if service_type == "ollama":
-            try:
-                ol_client = AITBCHTTPClient(base_url="http://localhost:11434", timeout=5)
-                tags = ol_client.get("/api/tags")
-                models = [m["name"] for m in tags.get("models", [])]
-                if model_or_variant not in models:
-                    error(f"Model '{model_or_variant}' not found in local Ollama. Available: {', '.join(models)}")
-                    raise click.Abort()
-                info(f"Verified Ollama model: {model_or_variant}")
-            except NetworkError as e:
-                error(f"Ollama not reachable at localhost:11434: {e}")
-                raise click.Abort() from e
-        elif service_type == "whisper":
-            try:
-                w_client = AITBCHTTPClient(base_url="http://localhost:8110", timeout=5)
-                health = w_client.get("/health")
-                if not health.get("ready"):
-                    error("Whisper service is not ready at localhost:8110")
-                    raise click.Abort()
-                loaded = health.get("model", "")
-                info(f"Verified Whisper service: model={loaded} device={health.get('device')}")
-            except NetworkError as e:
-                error(f"Whisper service not reachable at localhost:8110: {e}")
-                error("Start it with: systemctl start aitbc-whisper")
-                raise click.Abort() from e
-        elif service_type == "ffmpeg":
-            try:
-                f_client = AITBCHTTPClient(base_url="http://localhost:8230", timeout=5)
-                health = f_client.get("/health")
-                if health.get("status") != "ok":
-                    error("FFmpeg service is not ready at localhost:8230")
-                    raise click.Abort()
-                info("Verified FFmpeg service")
-            except NetworkError as e:
-                error(f"FFmpeg service not reachable at localhost:8230: {e}")
-                error("Start it with: systemctl start aitbc-ffmpeg")
-                raise click.Abort() from e
-        elif service_type == "hermes":
-            try:
-                h_client = AITBCHTTPClient(base_url="http://localhost:8270", timeout=5)
-                health = h_client.get("/health")
-                if not health.get("ready"):
-                    error("Hermes Agent service is not ready at localhost:8270")
-                    raise click.Abort()
-                info(f"Verified Hermes Agent service: {health.get('version', 'unknown')}")
-            except NetworkError as e:
-                error(f"Hermes Agent service not reachable at localhost:8270: {e}")
-                error("Start it with: systemctl start aitbc-hermes-agent")
-                raise click.Abort() from e
-
-        elif service_type == "ipfs":
-            # Try island IPFS API (5002) then default IPFS API (5001)
-            for _candidate_port in (5002, 5001):
-                try:
-                    ipfs_client = AITBCHTTPClient(base_url=f"http://localhost:{_candidate_port}", timeout=5)
-                    _version = ipfs_client.post("/api/v0/version")
-                    if _version.get("Version"):
-                        ipfs_port = _candidate_port
-                        info(f"Verified IPFS daemon on localhost:{ipfs_port}")
-                        break
-                except NetworkError:
-                    continue
-            if not ipfs_port:
-                error("IPFS daemon not reachable at localhost:5001 or localhost:5002")
-                error("Start it with: systemctl start aitbc-island-ipfs")
-                raise click.Abort()
-            try:
-                _id = ipfs_client.post("/api/v0/id")
-                ipfs_peer_id = _id.get("ID", "")
-                _addrs = _id.get("Addresses", [])
-                # Pick the first non-loopback, non-private /ip4/ address as the public multiaddr
-                for _addr in _addrs:
-                    _m = re.match(r"/ip4/(\d+\.\d+\.\d+\.\d+)", _addr)
-                    if _m:
-                        _octets = _m.group(1).split(".")
-                        _first = int(_octets[0])
-                        _second = int(_octets[1])
-                        if _first == 127:
-                            continue
-                        if _first == 10 or (_first == 172 and 16 <= _second <= 31) or (_first == 192 and _second == 168):
-                            continue
-                        ipfs_public_multiaddr = _addr
-                        break
-                if not ipfs_public_multiaddr and _addrs:
-                    ipfs_public_multiaddr = _addrs[-1]
-                info(f"IPFS peer id: {ipfs_peer_id}")
-            except NetworkError as e:
-                error(f"Could not query IPFS peer identity: {e}")
-                raise click.Abort() from e
+        gpu = _resolve_offer_gpu(service_type, is_cloud, gpu_name, gpu_device)
+        ipfs_port, ipfs_public_multiaddr = _verify_offer_service(service_type, model_or_variant)
+        public_endpoint, local_endpoint = _offer_endpoints(config, service_type, ipfs_port, ipfs_public_multiaddr)
 
         provider_node_id = hashlib.sha256(socket.gethostname().encode()).hexdigest()
         offer_id = f"sw_offer_{datetime.now().strftime('%Y%m%d%H%M%S')}_{hashlib.sha256(f'{service_type}{model_or_variant}{price}'.encode()).hexdigest()[:8]}"
 
-        # Build public endpoint so remote buyers know where to send jobs
-        _local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0, "hermes": 8270}
-        _local_port = _local_ports.get(service_type, 8110)
-        if service_type == "ipfs" and ipfs_port:
-            _local_port = ipfs_port
-        _hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
-        _base_domain = _hub_hostname.removeprefix("hub.")
-        _node_hostname = socket.getfqdn()
-        # If FQDN doesn't end with the base domain, construct it from short hostname + base domain
-        if _base_domain and not _node_hostname.endswith(_base_domain):
-            _node_hostname = f"{socket.gethostname()}.{_base_domain}"
-        # nginx routes: /whisper/ → :8110, /ollama/ → :11434 (see deployment/nginx-aitbc.conf)
-        _nginx_paths = {"ollama": "ollama", "whisper": "whisper", "ffmpeg": "ffmpeg", "ipfs": "ipfs", "hermes": "hermes"}
-        _nginx_path = _nginx_paths.get(service_type, service_type)
-        if service_type == "ipfs":
-            _public_endpoint = ipfs_public_multiaddr or f"https://{_node_hostname}/{_nginx_path}"
-            _local_endpoint = f"http://localhost:{_local_port}"
-        else:
-            _public_endpoint = f"https://{_node_hostname}/{_nginx_path}"
-            _local_endpoint = f"http://localhost:{_local_port}"
-
-        # Find any existing active offers for the same service/model/GPU from this
-        # provider. If a single identical one already exists, skip the republish.
-        # Otherwise the new offer will replace older/different ones so the market
-        # does not accumulate duplicate default offers every time the miner refreshes.
-        replaces: list[str] = []
-        try:
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            listings_result = http_client.get("/rpc/market/listings")
-            if listings_result and isinstance(listings_result, dict):
-                for listing in listings_result.get("listings", []):
-                    if (
-                        listing.get("seller_address") == wallet_address
-                        and listing.get("service_type") == service_type
-                        and listing.get("model") == model_or_variant
-                        and listing.get("gpu_uuid") == (gpu_uuid or "N/A")
-                        and listing.get("listing_id")
-                    ):
-                        replaces.append(listing["listing_id"])
-                # If there is exactly one matching active offer and it is identical to
-                # the one we are about to publish, skip the transaction entirely.
-                if len(replaces) == 1:
-                    listing = next(lst for lst in listings_result.get("listings", []) if lst.get("listing_id") == replaces[0])
-                    expected_description = description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}"
-                    is_identical = (
-                        float(listing.get("price", 0)) == float(price)
-                        and listing.get("price_unit") == unit
-                        and listing.get("description", "") == expected_description
-                        and listing.get("gpu_name", "") == (gpu_name or "")
-                        and listing.get("gpu_model", "") == (gpu_model or "")
-                        and str(listing.get("gpu_device", "")) == str(gpu_device or "")
-                        and listing.get("memory_gb") == gpu_memory_gb
-                        and listing.get("disk_quota_mb") == disk_quota_mb
-                        and listing.get("compute_capability", "") == (compute_capability or "")
-                        and listing.get("endpoint", "") == _public_endpoint
-                    )
-                    if is_identical:
-                        info(
-                            f"Identical {service_type}/{model_or_variant} offer already active ({listing['listing_id']}); skipping"
-                        )
-                        return
-                if replaces:
-                    info(f"Replacing {len(replaces)} existing {service_type}/{model_or_variant} offer(s)")
-        except Exception:
-            logger.debug("Could not query existing market listings for replacement", exc_info=True)
-
-        # Avoid racing with a pending (unconfirmed) offer for the same service/model/GPU.
-        # The chain produces blocks every ~5 minutes, so a pending offer from a recent
-        # refresh would otherwise not be visible in market/listings and could lead
-        # to duplicate listings in the same block.
-        try:
-            http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
-            mempool_result = http_client.get("/rpc/mempool?limit=100")
-            if mempool_result and isinstance(mempool_result, dict):
-                for tx in mempool_result.get("transactions", []):
-                    if tx.get("from") != wallet_address:
-                        continue
-                    if tx.get("type") != "GPU_MARKET":
-                        continue
-                    payload = tx.get("payload") or {}
-                    if payload.get("action") not in ("offer", "software_offer"):
-                        continue
-                    if (
-                        payload.get("service_type") == service_type
-                        and payload.get("model") == model_or_variant
-                        and payload.get("gpu_uuid") == (gpu_uuid or "N/A")
-                    ):
-                        info(
-                            f"Pending {service_type}/{model_or_variant} offer already in mempool "
-                            f"(tx_hash: {tx.get('tx_hash', 'unknown')}); skipping to avoid duplicate"
-                        )
-                        return
-        except Exception:
-            logger.debug("Could not query mempool for pending offers", exc_info=True)
+        replaces = _find_replaced_offers(
+            hub_url,
+            wallet_address,
+            service_type,
+            model_or_variant,
+            gpu,
+            disk_quota_mb,
+            public_endpoint,
+            description,
+            price,
+            unit,
+        )
+        if replaces is None:
+            return
+        if _mempool_has_pending_offer(hub_url, wallet_address, service_type, model_or_variant, gpu["gpu_uuid"]):
+            return
 
         offer_data = {
             "from": wallet_address,
@@ -1133,20 +1192,20 @@ def offer(
                 "price_unit": unit,
                 "context_window": context_window if service_type == "ollama" else None,
                 "deployment_type": deployment_type,
-                "gpu_name": gpu_name,
-                "gpu_model": gpu_model,
-                "gpu_device": gpu_device,
-                "gpu_uuid": gpu_uuid,
+                "gpu_name": gpu["gpu_name"],
+                "gpu_model": gpu["gpu_model"],
+                "gpu_device": gpu["gpu_device"],
+                "gpu_uuid": gpu["gpu_uuid"],
                 "gpu_offer_id": gpu_offer_id,
-                "memory_gb": gpu_memory_gb,
+                "memory_gb": gpu["gpu_memory_gb"],
                 "disk_quota_mb": disk_quota_mb,
-                "compute_capability": compute_capability,
+                "compute_capability": gpu["compute_capability"],
                 "replaces": replaces,
                 "status": "active",
                 "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                 "island_id": island_id,
                 "chain_id": chain_id,
-                "endpoint": _public_endpoint,
+                "endpoint": public_endpoint,
                 "created_at": datetime.now().isoformat(),
             },
         }
@@ -1183,20 +1242,20 @@ def offer(
                     "price": float(price),
                     "price_unit": unit,
                     "offer_id": offer_id,
-                    "endpoint": _local_endpoint,
-                    "public_endpoint": _public_endpoint,
+                    "endpoint": local_endpoint,
+                    "public_endpoint": public_endpoint,
                     "health_url": _health_urls.get(service_type, ""),
                     "provider_address": wallet_address,
                     "node_id": provider_node_id,
                     "deployment_type": deployment_type,
-                    "gpu_name": gpu_name,
-                    "gpu_model": gpu_model,
-                    "gpu_device": gpu_device,
-                    "gpu_uuid": gpu_uuid,
+                    "gpu_name": gpu["gpu_name"],
+                    "gpu_model": gpu["gpu_model"],
+                    "gpu_device": gpu["gpu_device"],
+                    "gpu_uuid": gpu["gpu_uuid"],
                     "gpu_offer_id": gpu_offer_id,
-                    "gpu_memory_gb": gpu_memory_gb,
+                    "gpu_memory_gb": gpu["gpu_memory_gb"],
                     "disk_quota_mb": disk_quota_mb,
-                    "compute_capability": compute_capability,
+                    "compute_capability": gpu["compute_capability"],
                     "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
                     "status": "active",
                 },
