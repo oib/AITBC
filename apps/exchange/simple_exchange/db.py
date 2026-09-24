@@ -257,34 +257,46 @@ def _migrate_add_tick_columns(cursor) -> None:
         existing = _get_column_types(cursor, table)
         if not existing:
             continue
-        for tick_col in (tick for tick in columns.values() if tick not in existing):
-            if not _is_valid_identifier(tick_col):
-                raise ValueError(f"Invalid column name: {tick_col}")
-            cursor.execute(f"ALTER TABLE {table} ADD COLUMN {tick_col} INTEGER CHECK({tick_col} >= 0)")
+        _add_missing_tick_columns(cursor, table, columns, existing)
+        _backfill_tick_columns(cursor, table, columns)
 
-        tick_cols = list(columns.values())
-        null_filter = " OR ".join(f"{tick} IS NULL" for tick in tick_cols)
-        src_cols = list(columns)
-        # all identifiers come from the hardcoded _TICK_COLUMNS map, not input
-        cursor.execute(f"SELECT id, {', '.join(src_cols)} FROM {table} WHERE {null_filter}")  # nosec B608
-        failures: list[tuple[str, object, str, str]] = []
-        backfill: list[tuple[object, dict[str, int]]] = []
-        for row in cursor.fetchall():
-            row_id = row[0]
-            values: dict[str, int] = {}
-            for i, src in enumerate(src_cols):
-                raw = row[1 + i]
-                try:
-                    values[columns[src]] = to_ticks(Decimal(str(raw)))
-                except (InvalidOperation, ValueError):
-                    failures.append((table, row_id, src, str(raw)))
-            backfill.append((row_id, values))
-        if failures:
-            raise TickMigrationError(failures)
-        for row_id, values in backfill:
-            assignments = ", ".join(f"{tick_col} = ?" for tick_col in values)
-            # table/tick columns come from _TICK_COLUMNS; only values are bound
-            cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*values.values(), row_id))  # nosec B608
+
+def _add_missing_tick_columns(cursor, table: str, columns: dict, existing: dict) -> None:
+    for tick_col in (tick for tick in columns.values() if tick not in existing):
+        if not _is_valid_identifier(tick_col):
+            raise ValueError(f"Invalid column name: {tick_col}")
+        cursor.execute(f"ALTER TABLE {table} ADD COLUMN {tick_col} INTEGER CHECK({tick_col} >= 0)")
+
+
+def _backfill_tick_columns(cursor, table: str, columns: dict) -> None:
+    """Convert rows with a NULL tick cell to fixed-point integers.
+
+    Fail-closed: any value not representable at TICK_DECIMAL_PLACES aborts the
+    migration via TickMigrationError before a single UPDATE is issued.
+    """
+    tick_cols = list(columns.values())
+    null_filter = " OR ".join(f"{tick} IS NULL" for tick in tick_cols)
+    src_cols = list(columns)
+    # all identifiers come from the hardcoded _TICK_COLUMNS map, not input
+    cursor.execute(f"SELECT id, {', '.join(src_cols)} FROM {table} WHERE {null_filter}")  # nosec B608
+    failures: list[tuple[str, object, str, str]] = []
+    backfill: list[tuple[object, dict[str, int]]] = []
+    for row in cursor.fetchall():
+        row_id = row[0]
+        values: dict[str, int] = {}
+        for i, src in enumerate(src_cols):
+            raw = row[1 + i]
+            try:
+                values[columns[src]] = to_ticks(Decimal(str(raw)))
+            except (InvalidOperation, ValueError):
+                failures.append((table, row_id, src, str(raw)))
+        backfill.append((row_id, values))
+    if failures:
+        raise TickMigrationError(failures)
+    for row_id, values in backfill:
+        assignments = ", ".join(f"{tick_col} = ?" for tick_col in values)
+        # table/tick columns come from _TICK_COLUMNS; only values are bound
+        cursor.execute(f"UPDATE {table} SET {assignments} WHERE id = ?", (*values.values(), row_id))  # nosec B608
 
 
 def init_db():
