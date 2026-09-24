@@ -286,12 +286,16 @@ def _operations(spec):
                 yield path, method, operation
 
 
-def test_five_specs_are_published():
+def test_the_published_specs_are_published():
     assert [p.name for p in SPECS] == [
         "agent-coordinator-openapi.json",
         "blockchain-node-openapi.json",
         "coordinator-api-openapi.json",
+        "explorer-openapi.json",
+        "governance-openapi.json",
         "market-openapi.json",
+        "pool-hub-openapi.json",
+        "trading-openapi.json",
         "wallet-openapi.json",
     ]
 

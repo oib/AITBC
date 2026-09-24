@@ -1997,7 +1997,12 @@ def register_account(
 def force_sync_chain(
     peer_data: Annotated[
         dict[str, Any],
-        Field(description="Force sync peer data (peer_url, target_height, etc.)."),
+        Field(
+            description=(
+                "Force sync peer data. Required: peer_url, admin_address, admin_signature, "
+                "issued_at (ISO-8601 UTC, <5 min old), nonce (unique per request)."
+            )
+        ),
     ],
     dry_run: Annotated[
         bool,

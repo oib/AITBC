@@ -1,13 +1,15 @@
 import hashlib
 import json
+import secrets
 from contextlib import contextmanager
-from datetime import datetime
+from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
 
 import pytest
 from aitbc_chain.config import settings
 from aitbc_chain.models import Account, Block, Transaction
 from aitbc_chain.rpc import sync as rpc_sync
+from aitbc_chain.rpc import utils as rpc_utils
 from eth_account import Account as EthAccount
 from eth_keys import keys
 from eth_utils import keccak
@@ -20,13 +22,32 @@ def _hex(value: str) -> str:
     return "0x" + hashlib.sha256(value.encode()).hexdigest()
 
 
+@pytest.fixture(autouse=True)
+def _clear_admin_nonce_cache():
+    """The replay cache is module-global; isolate it per test."""
+    rpc_utils._used_admin_nonces.clear()
+    yield
+    rpc_utils._used_admin_nonces.clear()
+
+
 @pytest.fixture
 def admin_signer(monkeypatch):
-    """Create an admin account, trust it, and return a payload-signing function."""
+    """Create an admin account, trust it, and return a payload-signing function.
+
+    The signer injects the freshness fields the replay guard requires. Pass
+    overrides to change them — ``None`` removes the field before signing.
+    """
     admin = EthAccount.create()
     monkeypatch.setattr(settings, "bridge_admin_addresses", admin.address.lower())
 
-    def _sign(payload: dict) -> dict:
+    def _sign(payload: dict, **overrides) -> dict:
+        payload.setdefault("issued_at", datetime.now(UTC).isoformat())
+        payload.setdefault("nonce", secrets.token_hex(16))
+        for key, value in overrides.items():
+            if value is None:
+                payload.pop(key, None)
+            else:
+                payload[key] = value
         payload["admin_address"] = admin.address.lower()
         message = json.dumps(payload, sort_keys=True, separators=(",", ":")).encode()
         pk = keys.PrivateKey(admin.key)
@@ -451,3 +472,212 @@ async def test_import_chain_preserves_other_chains_on_hash_conflict(isolated_eng
     # chain-a blocks must be untouched — a hash collision on another chain is
     # not a conflict under the (chain_id, hash) uniqueness model.
     assert [block.height for block in chain_a_blocks_after] == [0, 1]
+
+
+def _valid_import_payload(chain_id: str = "chain-a") -> dict:
+    return {
+        "chain_id": chain_id,
+        "blocks": [
+            {
+                "chain_id": chain_id,
+                "height": 0,
+                "hash": _hex(f"{chain_id}-import-block-0"),
+                "parent_hash": "0x00",
+                "proposer": "node-a",
+                "timestamp": "2026-01-02T00:00:00",
+                "tx_count": 0,
+            }
+        ],
+    }
+
+
+@pytest.mark.asyncio
+async def test_import_chain_rejects_replayed_signed_payload(isolated_engine, mock_request, admin_signer):
+    """A captured signed request must not be usable twice (replay protection)."""
+    from fastapi import HTTPException
+
+    signed = admin_signer(_valid_import_payload())
+
+    result = await rpc_sync.import_chain(mock_request, signed)
+    assert result["success"] is True
+
+    # Replaying the byte-identical payload (same nonce) is rejected even
+    # though the admin signature itself is still valid.
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, dict(signed))
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_import_chain_rejects_stale_issued_at(isolated_engine, mock_request, admin_signer):
+    """Signatures older than the freshness window are rejected."""
+    from fastapi import HTTPException
+
+    stale = (datetime.now(UTC) - timedelta(minutes=10)).isoformat()
+    signed = admin_signer(_valid_import_payload(), issued_at=stale)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_import_chain_rejects_missing_issued_at(isolated_engine, mock_request, admin_signer):
+    from fastapi import HTTPException
+
+    signed = admin_signer(_valid_import_payload(), issued_at=None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_import_chain_rejects_missing_nonce(isolated_engine, mock_request, admin_signer):
+    from fastapi import HTTPException
+
+    signed = admin_signer(_valid_import_payload(), nonce=None)
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_import_chain_rejects_nonce_reuse_on_different_payload(isolated_engine, mock_request, admin_signer):
+    """The nonce binds the signature to one request, not just one payload."""
+    from fastapi import HTTPException
+
+    shared_nonce = secrets.token_hex(16)
+    first = admin_signer(_valid_import_payload("chain-a"), nonce=shared_nonce)
+    assert (await rpc_sync.import_chain(mock_request, first))["success"] is True
+
+    second = admin_signer(_valid_import_payload("chain-b"), nonce=shared_nonce)
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, second)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_signature_rejects_wrong_target_node(isolated_engine, mock_request, admin_signer, monkeypatch):
+    """A payload signed for a different node is rejected (target binding)."""
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(settings, "p2p_node_id", "node-under-test")
+    monkeypatch.setattr(settings, "proposer_id", "")
+    signed = admin_signer(_valid_import_payload(), target_node_id="some-other-node")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_signature_accepts_matching_target(isolated_engine, mock_request, admin_signer, monkeypatch):
+    """Correctly targeted payloads still pass the binding check."""
+    monkeypatch.setattr(settings, "p2p_node_id", "node-under-test")
+    monkeypatch.setattr(settings, "chain_id", "chain-a")
+    signed = admin_signer(_valid_import_payload(), target_node_id="node-under-test", target_chain_id="chain-a")
+    result = await rpc_sync.import_chain(mock_request, signed)
+    assert result["success"] is True
+
+
+@pytest.mark.asyncio
+async def test_admin_signature_rejects_wrong_target_chain(isolated_engine, mock_request, admin_signer, monkeypatch):
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(settings, "chain_id", "chain-a")
+    signed = admin_signer(_valid_import_payload(), target_chain_id="chain-elsewhere")
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize(
+    "peer_url",
+    [
+        "http://127.0.0.1:8006",
+        "http://127.0.0.2:8006",
+        "http://localhost:8006",
+        "http://0.0.0.0:8006",
+        "http://169.254.169.254:80",
+        "http://[::1]:8006",
+        "http://[::ffff:127.0.0.1]:8006",
+        "http://[fe80::1]:8006",
+        "http://[::ffff:169.254.169.254]:80",
+    ],
+)
+async def test_force_sync_rejects_forbidden_peer_addresses(mock_request, admin_signer, peer_url):
+    """Loopback, link-local/metadata, mapped and unspecified peers are SSRF."""
+    from fastapi import HTTPException
+
+    signed = admin_signer({"peer_url": peer_url})
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.force_sync(mock_request, signed)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_force_sync_rejects_hostname_resolving_to_loopback(mock_request, admin_signer, monkeypatch):
+    """A public-looking hostname that resolves to loopback is rejected."""
+    import socket
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(
+        socket, "getaddrinfo", lambda *a, **k: [(socket.AF_INET, socket.SOCK_STREAM, 6, "", ("127.0.0.1", 8006))]
+    )
+    signed = admin_signer({"peer_url": "http://peer.example.net:8006"})
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.force_sync(mock_request, signed)
+    assert exc_info.value.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_force_sync_allows_private_peer_ips(mock_request, admin_signer, monkeypatch):
+    """RFC1918 peers stay reachable — fleet nodes sync over internal LANs."""
+    import requests
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(requests, "get", Mock(return_value=Mock(status_code=503)))
+    signed = admin_signer({"peer_url": "http://10.1.223.136:8006"})
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.force_sync(mock_request, signed)
+    # Passed signature + freshness + SSRF, failed only on the peer fetch.
+    assert exc_info.value.status_code == 400
+    assert "Failed to fetch peer chain" in exc_info.value.detail
+
+
+def test_destructive_routes_require_api_key(admin_signer, monkeypatch, isolated_engine):
+    """POST /rpc/import-chain and /rpc/force-sync reject without X-API-Key."""
+    import requests
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    from aitbc_chain.rpc import escrow_routes
+    from aitbc_chain.rpc.routers import core
+
+    monkeypatch.setattr(escrow_routes, "_RPC_API_KEY", "test-api-key")
+    # Keep force_sync's peer fetch off the network — it must fail fast with
+    # a non-200 rather than dialing the (literal) test IP.
+    monkeypatch.setattr(requests, "get", Mock(return_value=Mock(status_code=502)))
+    app = FastAPI()
+    app.include_router(core.router, prefix="/rpc")
+    client = TestClient(app, raise_server_exceptions=False)
+
+    import_payload = admin_signer(_valid_import_payload())
+    assert client.post("/rpc/import-chain", json=import_payload).status_code == 403
+    assert client.post("/rpc/import-chain", json=import_payload, headers={"X-API-Key": "wrong"}).status_code == 403
+
+    # A second signed payload (fresh nonce) reaches the handler with the key.
+    import_payload2 = admin_signer(_valid_import_payload())
+    assert client.post("/rpc/import-chain", json=import_payload2, headers={"X-API-Key": "test-api-key"}).status_code == 200
+
+    sync_payload = admin_signer({"peer_url": "http://10.9.9.9:8006"})
+    assert client.post("/rpc/force-sync", json=sync_payload).status_code == 403
+
+    sync_payload2 = admin_signer({"peer_url": "http://10.9.9.9:8006"})
+    resp = client.post("/rpc/force-sync", json=sync_payload2, headers={"X-API-Key": "test-api-key"})
+    # API key accepted; the handler then fails on the peer fetch, not auth.
+    assert resp.status_code == 400
