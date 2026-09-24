@@ -128,7 +128,7 @@ Current monitoring flow:
 - Environment variables are protected
 - SSL certificates in `/etc/aitbc/production/certs/` (if used)
 
-## 🌐 Public API Surface (nginx on hub/hub1)
+## 🌐 Public API Surface
 
 Two namespaces front the services on `hub.example.net`:
 
@@ -170,24 +170,25 @@ agent join/coin-request flows authenticate with their own nonce/peer-key scheme
 and must stay reachable without a gateway key.
 
 GPU (`:8101`), FFmpeg (`:8230`), whisper, ollama and peertube-pruner blocks were
-removed from hub nginx — those services are node-local on GPU nodes only.
+removed from the public edge nginx — those services are node-local on GPU
+nodes only.
 
-### Per-node public surfaces (post-2026-09-23 dedup)
+### Public surfaces by node kind (post-2026-09-23 dedup)
 
-| node | file(s) | live surface |
-|---|---|---|
-| hub / hub1 | `sites-enabled/aitbc` | `/api/` (gateway, keyed) + `/c/` `/rpc/` `/agent/` `/exchange/` `/v1/*` fleet paths; `/v1/` catch-all → 404, agent-coordinator families via regex |
-| node2 | `sites-enabled/aitbc` | `/api/` (gateway, keyed — enabled 2026-09-23), `/c/` `/rpc/` → local services, `/v1/` → edge API `:8111`, `/whisper/` `/ffmpeg/` `/ollama/` `/peertube/` `/hermes/` node-local |
-| node0 | `sites-enabled/aitbc` (`localhost`) | `/rpc/` `:8202` + static `/opt/aitbc/website` + `/health` |
-| node0 | `sites-enabled/aitbc.bubuit.net` | `/rpc/` `:8202`, `/wallet/` `:8002`, statics, `/health` |
-| node1 | `sites-enabled/aitbc-loadbalancer` | `/rpc/` → `aitbc_backend` upstream, `/health`, `/nginx_status` (ACL), statics |
+A node serves one of three surfaces, depending on which services it runs. A node
+may present more than one.
 
-Removed fleet-wide 2026-09-23: the retired `:8000-8017` service layout on node0,
-`/api/*`→`:3003` exchange-frontend stubs, `/v1/`→`10.1.223.1:8090` mock   # check-ports: ignore
-coordinator on node0, and all `/agent/*` JSON proxies to `:8081` — that port now
-belongs to IPFS on both node0 and node1 (the live_api.py service it fronted is
-retired). node1's `aitbc-agent` sites-enabled file was an enabled *example*
-config; removed (backup in `/etc/nginx/` on each node).
+| node kind | live surface |
+|---|---|
+| public edge | `/api/` (gateway, keyed) + `/c/` `/rpc/` `/agent/` `/exchange/` `/v1/*` fleet paths; `/v1/` catch-all → 404, agent-coordinator families via regex |
+| compute node | `/api/` (gateway, keyed), `/c/` `/rpc/` → local services, `/v1/` → edge API `:8111`, plus node-local `/whisper/` `/ffmpeg/` `/ollama/` `/peertube/` `/hermes/` blocks |
+| chain node | `/rpc/` → `:8202` directly or via an `aitbc_backend` upstream, `/wallet/` `:8002`, `/health`, `/nginx_status` (ACL), statics |
+
+Retired in the 2026-09-23 dedup: the old `:8000-8017` service layout, the
+`/api/*`→`:3003` exchange-frontend stubs, the mock `/v1/` coordinator, and all
+`/agent/*` JSON proxies to `:8081` — that port now belongs to IPFS (the
+`live_api.py` service it fronted is retired). An `aitbc-agent` sites-enabled file
+shipped as an enabled *example* config and was removed.
 
 ## 📋 Architecture Status
 
