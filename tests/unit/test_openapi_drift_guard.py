@@ -15,8 +15,14 @@ The obvious pattern -- `apps/*/src/` -- is the one this catches: 127 of those mo
 `aitbc/` and `packages/py/`, and they are where the shared models are, including the money
 fields whose Decimal conversion was one of the three drifts that had gone unnoticed.
 
-The last two tests are about a different property the hook needs and did not have: that the
-generated spec is a function of the code and not of the environment it was generated in.
+One group is about a property the hook needs and did not have: that the generated spec is a
+function of the code and not of the environment it was generated in.
+
+The last group is about the half of the question a diff cannot ask. Comparing the committed
+specs against generated ones says nothing about a spec that is *not* generated -- nothing
+rewrites it, so it never appears as drift. `docs/api/blockchain/openapi.json` used that hole to
+publish three paths for an API with 328 of them, at a version the node had left behind months
+earlier, for three months of green checks.
 """
 
 import json
@@ -30,6 +36,7 @@ import pytest
 REPO = Path(__file__).resolve().parents[2]
 CONFIG = REPO / ".pre-commit-config.yaml"
 EXTRACTOR = REPO / "scripts" / "extract_openapi_specs.py"
+UNACCOUNTED = REPO / "scripts" / "ci" / "unaccounted_openapi_specs.py"
 
 # Generates the specs and reports which of the repo's own files that took, as JSON.
 #
@@ -250,3 +257,89 @@ def test_no_debug_only_route_is_published():
     agent_spec = json.loads((REPO / "docs" / "api" / "agent-coordinator-openapi.json").read_text())
     agent_published = [path for path in agent_spec["paths"] if path in _AGENT_COORDINATOR_REMOVED_ROUTES]
     assert not agent_published, f"removed mock routes in the agent-coordinator spec: {sorted(agent_published)}"
+
+
+def _unaccounted(docs_dir: Path, *generated: str) -> list[str]:
+    """The published specs under `docs_dir` that `generated` does not account for."""
+    result = subprocess.run(
+        [sys.executable, str(UNACCOUNTED), "--docs-dir", str(docs_dir), *generated],
+        cwd=REPO,
+        capture_output=True,
+        text=True,
+    )
+    assert result.returncode == 0, result.stderr[-2000:]
+    return result.stdout.split()
+
+
+def _write(path: Path, text: str) -> Path:
+    path.parent.mkdir(parents=True, exist_ok=True)
+    path.write_text(text)
+    return path
+
+
+def test_a_spec_no_application_generates_is_reported_however_deep_it_sits(tmp_path):
+    """The exact shape of the stub that survived three months of a green drift check.
+
+    `docs/api/blockchain/openapi.json` was one directory down and named plainly, and the old
+    discovery step looked one directory deep for `*-openapi.json`. Neither half of that matched,
+    so the file was never compared with anything -- not stale-looking, simply absent from the
+    question. Depth and extension are both varied here because both were load bearing: a rule
+    that trusts either one rebuilds the hole.
+    """
+    _write(tmp_path / "nested" / "openapi.json", json.dumps({"openapi": "3.1.0", "paths": {}}))
+    _write(tmp_path / "deeper" / "still" / "api.yaml", "openapi: 3.1.0\npaths: {}\n")
+    _write(tmp_path / "swagger-era.json", json.dumps({"swagger": "2.0", "paths": {}}))
+
+    assert _unaccounted(tmp_path) == [
+        f"{tmp_path}/deeper/still/api.yaml",
+        f"{tmp_path}/nested/openapi.json",
+        f"{tmp_path}/swagger-era.json",
+    ]
+
+
+def test_generated_specs_are_not_reported_at_any_depth(tmp_path):
+    """The file set still comes from the generator, which is what keeps this from being a list.
+
+    A spec is accounted for by being one the extractor just wrote, not by matching a name -- so
+    renaming an app's output, or moving it into a subdirectory, changes nothing here. The
+    previous version of this could not have said that: it compared by basename at depth one.
+    """
+    _write(tmp_path / "market-openapi.json", json.dumps({"openapi": "3.1.0"}))
+    _write(tmp_path / "v2" / "market-openapi.json", json.dumps({"openapi": "3.1.0"}))
+
+    assert _unaccounted(tmp_path, "market-openapi.json", "v2/market-openapi.json") == []
+    # ...and naming alone is not enough: the same file is reported once it is not generated.
+    assert _unaccounted(tmp_path, "market-openapi.json") == [f"{tmp_path}/v2/market-openapi.json"]
+
+
+def test_hand_written_json_that_is_not_a_spec_is_left_alone(tmp_path):
+    """docs/api/examples/ is full of hand-written request bodies and has to stay usable.
+
+    This is why the test is the document's own `openapi`/`swagger` key rather than "any JSON
+    the generator did not write". A rule that failed on every hand-written file under docs/api/
+    would be switched off within a week, and then the nested-stub hole would be back.
+
+    Malformed JSON is deliberately not reported either: it is a real problem, but it is not
+    drift, and answering a syntax error with "run `make openapi`" sends the reader nowhere.
+    """
+    _write(tmp_path / "examples" / "create-order.json", json.dumps({"amount": "1.00"}))
+    _write(tmp_path / "examples" / "paths.json", json.dumps({"paths": {"/v1/health": {}}}))
+    _write(tmp_path / "examples" / "truncated.json", '{"openapi": "3.1.0",')
+    _write(tmp_path / "examples" / "notes.md", "# not a spec\n")
+
+    assert _unaccounted(tmp_path) == []
+
+
+def test_docs_api_publishes_nothing_no_application_generates():
+    """The property asserted against the repo itself, which is where it has to hold.
+
+    The suite above proves the scanner works on fixtures; this is the one that goes red when
+    someone commits a spec by hand. It is a separate assertion from the end-to-end drift test
+    because it fails for a different reason and is fixed a different way -- that one means
+    "regenerate", this one means "this file has no owner and never will".
+    """
+    generated = sorted(p.name for p in (REPO / "docs" / "api").glob("*.json"))
+    orphans = _unaccounted(REPO / "docs" / "api", *generated)
+    assert not orphans, (
+        f"these are published as API specs but no application generates them, so nothing will ever update them: {orphans}"
+    )
