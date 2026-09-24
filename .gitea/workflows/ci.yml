@@ -96,8 +96,45 @@ jobs:
       - name: CLI docs sync check
         run: bash scripts/ci/check-cli-docs.sh
 
+      - name: Docs link check
+        run: bash scripts/validate_docs.sh
+
+      - name: Docs master index drift check
+        run: python3 scripts/docs/gen_master_index.py --check
+
+      - name: Docs port consistency check
+        run: python3 scripts/docs/check_ports.py
+
+      - name: Service bind policy check
+        run: python3 scripts/docs/check_bind_policy.py
+
       - name: Live scenario dry-run
         env:
           WALLET_URL: http://127.0.0.1:1
           BLOCKCHAIN_RPC_URL: http://127.0.0.1:1
         run: make live-dry-run
+
+  # Forge suite only -- the Hardhat suite runs as a step in the main ci job,
+  # matching the GitHub workflow layout.
+  contracts:
+    runs-on: debian
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          # forge-std / openzeppelin live in git submodules pinned in .gitmodules
+          submodules: recursive
+
+      - name: Set up Foundry
+        run: |
+          if ! command -v forge >/dev/null 2>&1 && [ ! -x "$HOME/.foundry/bin/forge" ]; then
+            curl -L https://foundry.paradigm.xyz | bash
+            "$HOME/.foundry/bin/foundryup"
+          fi
+          export PATH="$HOME/.foundry/bin:$PATH"
+          forge --version
+
+      - name: Forge tests
+        working-directory: contracts
+        run: |
+          export PATH="$HOME/.foundry/bin:$PATH"
+          forge test -vvv
