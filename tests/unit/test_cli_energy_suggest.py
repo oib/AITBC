@@ -263,3 +263,46 @@ def test_native_request_falls_back_to_hub(runner, monkeypatch):
     assert len(bases) == 2
     assert "localhost" in bases[0] or "127.0.0.1" in bases[0]
     assert bases[1] == "https://hub.example/c"  # /v1 suffix trimmed before joining paths
+
+
+def test_native_request_prefers_override_url(runner, monkeypatch):
+    """NATIVE_COORDINATOR_URL/native_coordinator_url is tried before local+hub."""
+
+    fake_config = SimpleNamespace(
+        evm_rpc_url=None,
+        energy_pricing_contract_address=None,
+        energy_pricing_chain_id=1,
+        coordinator_url=None,
+        coordinator_api_url=None,
+        api_key=None,
+        native_coordinator_url="https://primary.example/v1",
+    )
+    monkeypatch.setattr("aitbc_cli.commands.energy.get_config", lambda: fake_config)
+
+    bases = []
+
+    class FlakyClient:
+        def __init__(self, base_url=None, **kwargs):
+            self.base_url = base_url
+            bases.append(base_url)
+
+        def get(self, path, params=None):
+            if "primary.example" not in (self.base_url or ""):
+                raise AssertionError("override must be tried first")
+            return {"settlement_unit_scale": 1, "net_floor_units": 1, "net_floor_ait": "0.0"}
+
+        def post(self, path, json=None):
+            raise AssertionError("not used")
+
+    import aitbc.config.hub as hub_mod
+
+    monkeypatch.setattr(energy_mod, "AITBCHTTPClient", FlakyClient)
+    monkeypatch.setattr(hub_mod, "hub_coordinator_url", lambda: "https://hub.example/c/v1")
+
+    result = runner.invoke(
+        energy,
+        ["floor", "--resource-id", "r1", "--gpu-count", "1", "--duration-seconds", "60"],
+        catch_exceptions=False,
+    )
+    assert result.exit_code == 0, result.output
+    assert bases == ["https://primary.example"]  # /v1 trimmed, first call answered
