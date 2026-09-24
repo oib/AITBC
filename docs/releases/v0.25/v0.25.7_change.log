@@ -352,3 +352,59 @@ Tests: 6 new `TestWebSocketLeaseLifecycle` cases cover shared-lease
 refcounting, per-connection subscribers, invalid-lease close, renewal
 failure tolerance, and validation-error tolerance. 94/94 trading tests
 pass on node2; service redeployed on node0/node1/node2.
+
+## 2026-09-24 — Security/quality megaplan (review passes 1+2)
+
+Two adversarial review passes over the whole tree produced a nine-phase
+program; all phases landed direct-to-main:
+
+- **compare_digest** for IPFS-token, job-payload, and partner API-key
+  comparisons (market_service.py, partners.py).
+- **Dead PoAProposer.verify_block_signature deleted** — it accepted empty
+  signatures and verified raw hashes instead of the canonical header.
+  Bridge-security tests repointed at aitbc.crypto.consensus_signing.
+- **SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL production guard**: nodes refuse to
+  start in production with a bypass window more than 24h ahead; naive ISO
+  timestamps normalize to UTC instead of crashing; fleet-config-check.sh
+  flags the knob whenever set.
+- **Marketplace secrets hashed at rest**: IpfsRentalToken.access_secret and
+  job.payload access_secret store SHA-256 digests; a startup migration in
+  init_db() rewrites legacy plaintext rows. GET /v1/market/jobs/{id}/access
+  no longer returns access_secret and requires the market API key.
+- **Partners registry DB-backed + mounted**: integration_partner and
+  partner_webhook tables (alembic revision add_partner_integration_tables),
+  SHA-256-hashed api_key/api_secret, hash-indexed lookup. The router was
+  imported but never mounted before; also fixed a required-nullable
+  `secret` field (Pydantic v2) and route ordering so /partners/webhooks and
+  /partners/analytics/usage no longer collide with /partners/{partner_id}.
+- **Mechanical sweep**: all 81 datetime.utcnow() sites converted to
+  datetime.now(UTC).replace(tzinfo=None) (naive-UTC preserved — SQLAlchemy
+  truncates tzinfo on SQLite) with ruff DTZ003 enabled; six shell=True
+  sites in container-deploy.py converted to argv lists / bash -c inside
+  incus; dead create_permissive_cors_config() deleted.
+- **Dead deps dropped**: aioredis, asyncio-mqtt, ipfshttpclient,
+  click-completion, schedule; locust/hypothesis moved to the dev group;
+  poetry.lock + requirements*.txt regenerated.
+- **Gitea CI parity**: docs-link, master-index, port-consistency, and
+  bind-policy checks ported from the GitHub workflow; new contracts job
+  runs forge test (foundryup install if the runner lacks it).
+- **BLE001/S110 ratchet**: scripts/ci/check-except-ratchet.sh +
+  except-baseline.txt (497 files) gate new broad/silent exception growth;
+  wired into make except-ratchet, make ci, and the Gitea pipeline. Wallet
+  address-derivation silent excepts now log at debug.
+- **Smoke tests for zero-test apps**: ffmpeg, whisper, hermes_agent,
+  monitoring-service, ipfs (kubo_log), shared-core, shared-domain, plus
+  bridge-monitor storage CRUD — all registered in testpaths + FAST_SUITES.
+  Caught a real bug: an empty shared_core/core/database/ package shadowed
+  database.py, so `import shared_core` raised ImportError. Fixed.
+- **Alembic env.py sys.path hacks removed** (trading, gpu, governance,
+  edge) — run-migrations.sh already sets PYTHONPATH.
+
+Stale notes corrected: pyproject.toml mypy-ignore comment (0 files carry
+it, ~1,290 type: ignore sites), AGENTS.md Hardhat-in-CI claim, and the
+package-semver vs release-train version split documented in
+docs/releases/README.md.
+
+Deferred: the loose tests/*.py reorg — moving 58 root-level test modules
+risks silently un-gating suites under the testpaths/parity machinery and
+warrants its own pass.
