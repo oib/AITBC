@@ -134,6 +134,17 @@ Fixes during live validation
   https://hub.aitbc.bubuit.net/c/v1 so shop-side energy calls skip the
   local coordinator 404 probe entirely.
 
+- node2 exchange.env: AIT_USD_PRICE=1.0 flat USD override replaced with
+  AIT_EUR_FIXED_PRICE=0.25, matching hub/hub1 and the EUR 0.25 reference.
+  The stale value had been masking itself anyway: the wallet's ETH price
+  fetch was broken by a zstd-compressed /var/lib/aitbc/price_cache.json
+  (written Aug 16 by an unknown writer) that _read_disk_cache choked on
+  with UnicodeDecodeError -- the catch covered JSONDecodeError only, so
+  the whole CoinGecko path died with a misattributed 'fetch failed'
+  warning. price_oracle now logs+ignores corrupt caches; file removed;
+  aitbc-wallet restarted and now reports ait_eur=0.25, ait_usd~0.285,
+  1 ETH ~ 9383 AIT, consistent with the hub exchange.
+
 Live validation (2026-09-11)
 ----------------------------
 
