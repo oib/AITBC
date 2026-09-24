@@ -239,11 +239,8 @@ def create_basic_health_check(service_name: str) -> HealthChecker:
         else:
             return (HealthStatus.HEALTHY, f"Disk usage: {percent:.1f}%", {"percent": percent})
 
-    try:
-        checker.register_check("memory", check_memory)
-        checker.register_check("disk", check_disk)
-    except ImportError:
-        logger.warning("psutil not available, skipping system health checks")
+    checker.register_check("memory", check_memory)
+    checker.register_check("disk", check_disk)
     return checker
 
 
