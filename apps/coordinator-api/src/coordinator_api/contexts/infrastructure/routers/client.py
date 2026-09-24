@@ -171,6 +171,57 @@ async def submit_job(
     return service.to_view(job)  # type: ignore[no-any-return]
 
 
+# Declared above the parameterized routes below on purpose. Starlette matches in
+# declaration order, so moving this back down makes it unreachable -- the request
+# binds the literal segment as the path parameter instead, and the caller gets a
+# plausible-looking answer from the wrong handler rather than a routing error.
+# Pinned by tests/security/test_no_unreachable_routes.py.
+@router.get("/jobs/history", summary="Get job history")
+@rate_limit(rate=200, per=60)
+@cached(**get_cache_config("job_list"))
+async def get_job_history(
+    request: Request,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
+    limit: int = 20,
+    offset: int = 0,
+    status: str | None = None,
+    job_type: str | None = None,
+    from_time: str | None = None,
+    to_time: str | None = None,
+) -> dict:
+    """Get job history with time range filtering"""
+    service = JobService(session)
+    filters = {}
+    if status:
+        try:
+            filters["state"] = JobState(status.upper())
+        except ValueError:
+            pass
+    if job_type:
+        filters["job_type"] = job_type  # type: ignore[assignment]
+    try:
+        jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
+        return {
+            "items": service.to_views(jobs),
+            "total": len(jobs),
+            "limit": limit,
+            "offset": offset,
+            "from_time": from_time,
+            "to_time": to_time,
+        }
+    except Exception:
+        return {
+            "items": [],
+            "total": 0,
+            "limit": limit,
+            "offset": offset,
+            "from_time": from_time,
+            "to_time": to_time,
+            "error": "Failed to list jobs",
+        }
+
+
 @router.get("/jobs/{job_id}", response_model=JobView, summary="Get job status")
 @rate_limit(rate=200, per=60)
 async def get_job(
@@ -281,52 +332,6 @@ async def list_jobs(
         filters["job_type"] = job_type  # type: ignore[assignment]
     jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
     return {"items": service.to_views(jobs), "total": len(jobs), "limit": limit, "offset": offset}
-
-
-@router.get("/jobs/history", summary="Get job history")
-@rate_limit(rate=200, per=60)
-@cached(**get_cache_config("job_list"))
-async def get_job_history(
-    request: Request,
-    session: Annotated[Session, Depends(get_session)],
-    user: AdminOrClientDep,
-    limit: int = 20,
-    offset: int = 0,
-    status: str | None = None,
-    job_type: str | None = None,
-    from_time: str | None = None,
-    to_time: str | None = None,
-) -> dict:
-    """Get job history with time range filtering"""
-    service = JobService(session)
-    filters = {}
-    if status:
-        try:
-            filters["state"] = JobState(status.upper())
-        except ValueError:
-            pass
-    if job_type:
-        filters["job_type"] = job_type  # type: ignore[assignment]
-    try:
-        jobs = service.list_jobs(client_id=user["sub"], limit=limit, offset=offset, **filters)
-        return {
-            "items": service.to_views(jobs),
-            "total": len(jobs),
-            "limit": limit,
-            "offset": offset,
-            "from_time": from_time,
-            "to_time": to_time,
-        }
-    except Exception:
-        return {
-            "items": [],
-            "total": 0,
-            "limit": limit,
-            "offset": offset,
-            "from_time": from_time,
-            "to_time": to_time,
-            "error": "Failed to list jobs",
-        }
 
 
 @router.get("/blocks", summary="Get blockchain blocks")
