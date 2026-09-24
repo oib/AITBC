@@ -1,15 +1,11 @@
 """Alembic environment for trading service (v0.8.0)."""
 
 import os
-import sys
 from logging.config import fileConfig
-from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Add src directory to sys.path for module imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Importing the models is what registers them on trading_metadata.
 from trading_service.domain import exchange_payment as _exchange_payment  # noqa: F401

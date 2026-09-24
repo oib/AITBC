@@ -528,6 +528,15 @@ testpaths = [
     # apps/memory is a FastAPI service whose tests were not collected because neither
     # the src nor the tests directory was in pythonpath/testpaths.
     "apps/memory/tests",
+    # Smoke coverage for previously zero-test apps (V25 review pass 2). Root-layout
+    # apps load main.py under unique module names to avoid sys.modules collisions.
+    "apps/ffmpeg/tests",
+    "apps/hermes_agent/tests",
+    "apps/ipfs/tests",
+    "apps/monitoring-service/tests",
+    "apps/shared-core/tests",
+    "apps/shared-domain/tests",
+    "apps/whisper/tests",
 ]
 markers = [
     "slow: marks tests as slow (deselect with '-m \"not slow\"')",
