@@ -1698,6 +1698,47 @@
           }
         }
       }
+    },
+    "/ready": {
+      "get": {
+        "summary": "Ready Check",
+        "description": "Readiness probe \u2014 503 while an enabled required feature is unavailable.\n\nRequired: the keystore, wallet ledger and operation-ledger databases\n(all local sqlite, proving the data dir is writable and queryable) and\nthe blockchain RPC the send/balance routes broadcast through. The\ncoordinator URL is deliberately absent \u2014 it only serves receipt\nverification, which is not part of the wallet's required surface.",
+        "operationId": "ready_check_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "503": {
+            "description": "readiness check failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    },
+                    "failed": {
+                      "title": "Failed"
+                    },
+                    "service": {
+                      "title": "Service"
+                    },
+                    "status": {
+                      "title": "Status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

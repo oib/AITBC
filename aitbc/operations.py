@@ -147,6 +147,11 @@ class OperationLedger:
             # the idempotent CREATE inside the caller's transaction instead.
             pass
 
+    @property
+    def db_path(self) -> str:
+        """Filesystem path of the ledger database (readiness checks read this)."""
+        return self._path
+
     def _connect(self) -> sqlite3.Connection:
         return sqlite3.connect(self._path, timeout=self._timeout)
 

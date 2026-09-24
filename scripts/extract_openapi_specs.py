@@ -21,6 +21,7 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "blockchain-node"
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "market" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "wallet" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "agent-coordinator" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "api-gateway" / "src"))
 
 # Defaults for services that require environment variables to import
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
@@ -53,6 +54,24 @@ os.environ.setdefault("JWT_SECRET", "openapi-spec-extraction-placeholder-jwt")
 # this is not hypothetical: any generation from inside a test process produced the wrong spec,
 # which is how it was found (V23-82). The published spec is the production surface.
 os.environ["DEBUG"] = "false"
+
+# Same for the gateway's service URLs: api-v2-map.json records the upstream each
+# qualifier forwards to, so generating on a host that exports MARKET_SERVICE_URL
+# or friends would publish that host's topology into the committed file. Pop
+# them so the map always records the deployment-agnostic defaults.
+for _service_url_env in (
+    "MARKET_SERVICE_URL",
+    "MARKETPLACE_SERVICE_URL",
+    "COORDINATOR_URL",
+    "GOVERNANCE_SERVICE_URL",
+    "EXCHANGE_SERVICE_URL",
+    "TRADING_SERVICE_URL",
+    "WALLET_SERVICE_URL",
+    "AGENT_COORDINATOR_URL",
+    "POOL_HUB_URL",
+    "EXPLORER_SERVICE_URL",
+):
+    os.environ.pop(_service_url_env, None)
 
 REPO_DIR = Path(__file__).parent.parent
 DOCS_DIR = REPO_DIR / "docs"
@@ -88,6 +107,59 @@ APPS = [
         "output": "agent-coordinator-openapi.json",
     },
 ]
+
+
+# Which /api/v2 qualifier each extracted app answers for. Apps without a
+# committed spec still get a qualifier entry — the map documents the whole
+# surface, with "spec": null marking the undocumented upstreams.
+V2_QUALIFIER_FOR_APP = {
+    "coordinator-api": "coordinator",
+    "blockchain-node": "chain",
+    "market": "market",
+    "wallet": "wallet",
+    "agent-coordinator": "agent-coordinator",
+}
+
+_V2_HTTP_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
+
+
+def build_v2_map(specs: dict[str, dict]) -> dict:
+    """The generated /api/v2 route map.
+
+    Qualifiers and base URLs come from api_gateway.main's own tables, so the
+    committed map cannot drift from what the gateway serves without the drift
+    check noticing. Every spec path p on a service is reachable publicly at
+    /api/v2/<qualifier><p> — the gateway forwards the remainder verbatim.
+    """
+    from api_gateway.main import _V2_SERVICE_ENV, _V2_SERVICE_URLS
+
+    services: dict[str, dict] = {}
+    for qualifier in sorted(_V2_SERVICE_URLS):
+        app_name = next((a for a, q in V2_QUALIFIER_FOR_APP.items() if q == qualifier), None)
+        spec = specs.get(app_name) if app_name else None
+        operations = []
+        if spec:
+            for path, methods in sorted(spec.get("paths", {}).items()):
+                operations.append(
+                    {
+                        "public": f"/api/v2/{qualifier}{path}",
+                        "upstream": path,
+                        "methods": sorted(m.upper() for m in methods if m.upper() in _V2_HTTP_METHODS),
+                    }
+                )
+        services[qualifier] = {
+            "env": _V2_SERVICE_ENV[qualifier],
+            "base_url": _V2_SERVICE_URLS[qualifier],
+            "spec": f"{app_name}-openapi.json" if app_name else None,
+            "operations": operations,
+        }
+    return {
+        "api": "v2",
+        "public_prefix": "/api/v2",
+        "gateway_prefix": "/v2",
+        "rule": "/api/v2/<service>/<upstream path> forwards <upstream path> to the service verbatim",
+        "services": services,
+    }
 
 
 def extract_openapi_spec(app_config: dict) -> dict | None:
@@ -135,11 +207,13 @@ def main():
     print("Extracting OpenAPI specs...")
 
     failed = []
+    specs: dict[str, dict] = {}
     for app_config in APPS:
         print(f"  Extracting {app_config['name']}...")
         spec = extract_openapi_spec(app_config)
 
         if spec:
+            specs[app_config["name"]] = spec
             output_path = out_dir / app_config["output"]
             with open(output_path, "w") as f:
                 json.dump(spec, f, indent=2)
@@ -151,6 +225,14 @@ def main():
         else:
             print(f"    ✗ Failed to extract {app_config['name']}")
             failed.append(app_config["name"])
+
+    if not failed:
+        v2_map = build_v2_map(specs)
+        map_path = out_dir / "api-v2-map.json"
+        with open(map_path, "w") as f:
+            json.dump(v2_map, f, indent=2)
+            f.write("\n")
+        print(f"  ✓ Saved to {map_path}")
 
     print(f"\nOpenAPI specs saved to {out_dir}")
 

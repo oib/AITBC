@@ -6,8 +6,10 @@
       1 aitbc/market/energy_pricing.py
       1 aitbc/network/island_registry.py
       2 aitbc/network/retry_policy.py
+      1 aitbc/operations.py
       1 aitbc/oracles/price_oracle.py
       1 aitbc/sync/parallel_fetcher.py
+      1 aitbc/trading/subscription_client.py
       1 apps/agent-coordinator/src/agent_app/config.py
       1 apps/agent-coordinator/src/agent_app/consensus/distributed_consensus.py
       1 apps/agent-coordinator/src/agent_app/routers/auth.py
@@ -35,7 +37,9 @@
       5 apps/blockchain-node/src/aitbc_chain/main.py
       3 apps/blockchain-node/src/aitbc_chain/p2p_network.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/accounts.py
+      1 apps/blockchain-node/src/aitbc_chain/rpc/agent_staking.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/blocks.py
+      1 apps/blockchain-node/src/aitbc_chain/rpc/bridge.py
       4 apps/blockchain-node/src/aitbc_chain/rpc/escrow_routes.py
       1 apps/blockchain-node/src/aitbc_chain/rpc/market.py
       2 apps/blockchain-node/src/aitbc_chain/rpc/staking.py
@@ -84,7 +88,9 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/trading/services/trading_market/gpu_optimizer.py
       2 apps/coordinator-api/src/coordinator_api/contexts/zk_applications/services/zk_proofs.py
       2 apps/coordinator-api/src/coordinator_api/main.py
+      1 apps/exchange/simple_exchange/db.py
       1 apps/exchange/simple_exchange/handlers/__init__.py
+      1 apps/exchange/simple_exchange/handlers/exchange.py
       1 apps/ffmpeg/main.py
       2 apps/governance/src/governance_service/services/governance_service.py
       1 apps/gpu/src/gpu_service/main.py
@@ -98,6 +104,7 @@
       1 apps/trading/src/trading_service/services/offer_subscription_service.py
       1 apps/wallet/scripts/import_file_wallets.py
       1 apps/wallet/src/wallet_app/api_jsonrpc.py
+      1 apps/wallet/src/wallet_app/api_rest.py
       2 apps/wallet/src/wallet_app/bridge/bridge_monitor.py
       1 apps/wallet/src/wallet_app/main.py
       3 cli/aitbc_cli/commands/agent.py
@@ -107,15 +114,15 @@
       1 cli/aitbc_cli/commands/auth.py
       1 cli/aitbc_cli/commands/coin_requests.py
       2 cli/aitbc_cli/commands/dashboard.py
-      1 cli/aitbc_cli/commands/energy.py
+      2 cli/aitbc_cli/commands/energy.py
       1 cli/aitbc_cli/commands/exchange_island.py
       1 cli/aitbc_cli/commands/genesis.py
       1 cli/aitbc_cli/commands/http.py
       2 cli/aitbc_cli/commands/ipfs.py
+      1 cli/aitbc_cli/commands/market/__init__.py
       1 cli/aitbc_cli/commands/market/escrow.py
       2 cli/aitbc_cli/commands/market/exchange.py
       1 cli/aitbc_cli/commands/market/gpu.py
-      1 cli/aitbc_cli/commands/market/__init__.py
       2 cli/aitbc_cli/commands/market/jobs.py
       3 cli/aitbc_cli/commands/market/offers.py
       2 cli/aitbc_cli/commands/monitor.py
@@ -125,9 +132,9 @@
       2 cli/aitbc_cli/commands/simulate.py
       1 cli/aitbc_cli/commands/sync.py
       3 cli/aitbc_cli/commands/transactions.py
+      1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py
-      1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/misc.py
       1 cli/aitbc_cli/core/chain_manager.py
       1 cli/aitbc_cli/core/genesis_generator.py
@@ -135,13 +142,13 @@
       1 cli/aitbc_cli/utils/error_handling.py
       1 cli/aitbc_cli/utils/help_quality.py
       1 cli/aitbc_cli/utils/wallet_loader.py
-      1 cli/examples/client_enhanced.py
       1 cli/examples/client.py
+      1 cli/examples/client_enhanced.py
       1 cli/extended_features.py
-      1 cli_gap_analysis.py
       1 cli/miner_cli.py
       2 cli/miner_management.py
       1 cli/tests/run_cli_tests.py
+      1 cli_gap_analysis.py
       1 dev/gpu/gpu_miner_host.py
       1 mcp-server/aitbc_mcp_cli_tools.py
       3 mcp-server/aitbc_mcp_server.py

@@ -7,7 +7,7 @@ from dataclasses import asdict, dataclass
 from datetime import datetime
 from enum import Enum
 from typing import Any
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 
 from .aitbc_logging import get_logger
 
@@ -268,3 +268,23 @@ def create_simple_health_response(
     if extra_fields:
         response.update(extra_fields)
     return response
+
+
+def run_readiness_checks(checks: Mapping[str, Callable[[], object]]) -> list[str]:
+    """Run named readiness checks, returning the names of those that failed.
+
+    Each callable raises (or returns ``False``) when its dependency is
+    unavailable. Exceptions are logged here -- not raised -- so the /ready
+    handler can answer 503 carrying only the failed check names. The exception
+    text itself never leaves the process: readiness probes are unauthenticated
+    and a dependency error can carry a DSN, hostname or key path.
+    """
+    failed: list[str] = []
+    for name, check in checks.items():
+        try:
+            if check() is False:
+                raise RuntimeError("check returned False")
+        except Exception:
+            logger.exception("Readiness check failed: %s", name)
+            failed.append(name)
+    return failed
