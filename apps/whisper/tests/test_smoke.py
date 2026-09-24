@@ -28,8 +28,8 @@ def test_safe_suffix_accepts_normal_extension() -> None:
 
 
 def test_safe_suffix_rejects_missing_or_oversized() -> None:
-    assert whisper_main._safe_suffix(None) == ".mp4"
-    assert whisper_main._safe_suffix("clip." + "a" * 64) == ".mp4"
+    assert whisper_main._safe_suffix(None) == ".wav"
+    assert whisper_main._safe_suffix("clip." + "a" * 64) == ".wav"
 
 
 def test_health_reports_not_ready_without_model() -> None:
