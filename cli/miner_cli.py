@@ -19,8 +19,7 @@ except ImportError:
 _WALLET_EXAMPLE = "0x94ad80f4790bb3baFe6bDc0F5AD33353239AB3e8"
 
 
-def main():
-    """Main CLI entry point for miner management"""
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         description="AITBC AI Compute Miner Management",
         formatter_class=argparse.RawDescriptionHelpFormatter,
@@ -120,121 +119,102 @@ Examples:
     market_create_parser.add_argument("--capacity", type=int, default=1, help="Available capacity")
     market_create_parser.add_argument("--region", help="Geographic region")
 
+    return parser
+
+
+_ACTION_FIELDS = {
+    "register": ("miner_id", "wallet", "capabilities", "gpu_memory", "models", "pricing", "concurrency", "region"),
+    "status": ("miner_id",),
+    "heartbeat": ("miner_id", "inflight", "status"),
+    "poll": ("miner_id", "max_wait", "auto_execute"),
+    "result": ("job_id", "miner_id", "result", "result_file", "success", "duration"),
+    "update": ("miner_id", "capabilities", "gpu_memory", "models", "pricing", "concurrency", "region", "wallet"),
+    "earnings": ("miner_id", "period"),
+}
+
+
+def _market_kwargs(args, kwargs: dict) -> tuple[str, dict] | None:
+    if args.market_action == "list":
+        kwargs.update({"miner_id": getattr(args, "miner_id", None), "region": getattr(args, "region", None)})
+        return "market_list", kwargs
+    if args.market_action == "create":
+        kwargs.update(
+            {
+                "miner_id": args.miner_id,
+                "price": args.price,
+                "capacity": args.capacity,
+                "region": getattr(args, "region", None),
+            }
+        )
+        return "market_create", kwargs
+    click.echo("❌ Unknown market action")
+    return None
+
+
+def _action_kwargs(args) -> tuple[str, dict] | None:
+    """Map parsed args to the dispatcher's (action, kwargs) pair."""
+    kwargs = {"coordinator_url": args.coordinator_url, "api_key": args.api_key}
+
+    if args.action == "market":
+        return _market_kwargs(args, kwargs)
+
+    for field in _ACTION_FIELDS.get(args.action, ()):
+        kwargs[field] = getattr(args, field)
+    return args.action, kwargs
+
+
+def _display_result(action: str, result) -> None:
+    if not result:
+        click.echo("❌ No response from server")
+        return
+    click.echo("\n" + "=" * 60)
+    click.echo(f"🤖 AITBC Miner Management - {action.upper()}")
+    click.echo("=" * 60)
+    if "status" in result:
+        click.echo(f"Status: {result['status']}")
+    if result.get("status", "").startswith("✅"):
+        _display_success_fields(result)
+    else:
+        # Error or info - show all relevant fields
+        for key, value in result.items():
+            if key != "action":
+                click.echo(f"{key}: {value}")
+    click.echo("=" * 60)
+
+
+def _display_success_fields(result) -> None:
+    """Success - show details."""
+    for key, value in result.items():
+        if key in ("action", "status"):
+            continue
+        if isinstance(value, dict):
+            click.echo(f"{key}:")
+            for k, v in value.items():
+                click.echo(f"  {k}: {v}")
+        elif isinstance(value, list):
+            click.echo(f"{key}:")
+            for item in value:
+                click.echo(f"  - {item}")
+        else:
+            click.echo(f"{key}: {value}")
+
+
+def main():
+    """Main CLI entry point for miner management"""
+    parser = _build_parser()
     args = parser.parse_args()
 
     if not args.action:
         parser.print_help()
         return
 
-    # Initialize action variable
-    action = args.action
-
-    # Prepare kwargs for the dispatcher
-    kwargs = {"coordinator_url": args.coordinator_url, "api_key": args.api_key}
-
-    # Add action-specific arguments
-    if args.action == "register":
-        kwargs.update(
-            {
-                "miner_id": args.miner_id,
-                "wallet": args.wallet,
-                "capabilities": args.capabilities,
-                "gpu_memory": args.gpu_memory,
-                "models": args.models,
-                "pricing": args.pricing,
-                "concurrency": args.concurrency,
-                "region": args.region,
-            }
-        )
-
-    elif args.action == "status":
-        kwargs["miner_id"] = args.miner_id
-
-    elif args.action == "heartbeat":
-        kwargs.update({"miner_id": args.miner_id, "inflight": args.inflight, "status": args.status})
-
-    elif args.action == "poll":
-        kwargs.update({"miner_id": args.miner_id, "max_wait": args.max_wait, "auto_execute": args.auto_execute})
-
-    elif args.action == "result":
-        kwargs.update(
-            {
-                "job_id": args.job_id,
-                "miner_id": args.miner_id,
-                "result": args.result,
-                "result_file": args.result_file,
-                "success": args.success,
-                "duration": args.duration,
-            }
-        )
-
-    elif args.action == "update":
-        kwargs.update(
-            {
-                "miner_id": args.miner_id,
-                "capabilities": args.capabilities,
-                "gpu_memory": args.gpu_memory,
-                "models": args.models,
-                "pricing": args.pricing,
-                "concurrency": args.concurrency,
-                "region": args.region,
-                "wallet": args.wallet,
-            }
-        )
-
-    elif args.action == "earnings":
-        kwargs.update({"miner_id": args.miner_id, "period": args.period})
-
-    elif args.action == "market":
-        action = args.action
-        if args.market_action == "list":
-            kwargs.update({"miner_id": getattr(args, "miner_id", None), "region": getattr(args, "region", None)})
-            action = "market_list"
-        elif args.market_action == "create":
-            kwargs.update(
-                {
-                    "miner_id": args.miner_id,
-                    "price": args.price,
-                    "capacity": args.capacity,
-                    "region": getattr(args, "region", None),
-                }
-            )
-            action = "market_create"
-        else:
-            click.echo("❌ Unknown market action")
-            return
+    resolved = _action_kwargs(args)
+    if resolved is None:
+        return
+    action, kwargs = resolved
 
     result = miner_cli_dispatcher(action, **kwargs)
-
-    # Display results
-    if result:
-        click.echo("\n" + "=" * 60)
-        click.echo(f"🤖 AITBC Miner Management - {action.upper()}")
-        click.echo("=" * 60)
-        if "status" in result:
-            click.echo(f"Status: {result['status']}")
-        if result.get("status", "").startswith("✅"):
-            # Success - show details
-            for key, value in result.items():
-                if key not in ["action", "status"]:
-                    if isinstance(value, dict | list):
-                        click.echo(f"{key}:")
-                        if isinstance(value, dict):
-                            for k, v in value.items():
-                                click.echo(f"  {k}: {v}")
-                        else:
-                            for item in value:
-                                click.echo(f"  - {item}")
-                    else:
-                        click.echo(f"{key}: {value}")
-        else:
-            # Error or info - show all relevant fields
-            for key, value in result.items():
-                if key != "action":
-                    click.echo(f"{key}: {value}")
-        click.echo("=" * 60)
-    else:
-        click.echo("❌ No response from server")
+    _display_result(action, result)
 
 
 if __name__ == "__main__":

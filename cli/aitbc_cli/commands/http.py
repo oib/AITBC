@@ -9,7 +9,7 @@ internal services.
 from __future__ import annotations
 
 import json
-from typing import Any
+from typing import Any, cast
 
 import click
 
@@ -96,6 +96,47 @@ def http():
     pass
 
 
+def _json_option(raw: str | None, name: str) -> dict[str, Any] | None:
+    if not raw:
+        return None
+    try:
+        return cast(dict[str, Any], json.loads(raw))
+    except json.JSONDecodeError as e:
+        raise click.ClickException(f"Invalid --{name} JSON: {e}") from e
+
+
+def _resolve_auth_key(api_key: str | None, auth_kind: str) -> str | None:
+    """Resolve the configured API key for --auth kinds; --api-key wins."""
+    if api_key or auth_kind == "none":
+        return None
+    try:
+        config = get_config()
+        if auth_kind == "miner":
+            return config.api_key or _resolve_miner_api_key()
+        if auth_kind == "rpc":
+            return config.blockchain_rpc_api_key
+        if auth_kind == "trading":
+            trading_key = config.trading_api_key
+            return trading_key.get_secret_value() if trading_key else None
+    except Exception:
+        if auth_kind == "miner":
+            return _resolve_miner_api_key()
+    return None
+
+
+def _send(client: AITBCHTTPClient, method: str, path: str, query_params, request_body, idempotency_key):
+    if method == "GET":
+        return client.get(path, params=query_params)
+    if method == "POST":
+        return client.post(path, json=request_body, idempotency_key=idempotency_key)
+    if method == "PUT":
+        return client.put(path, json=request_body, idempotency_key=idempotency_key)
+    if method == "PATCH":
+        return client.patch(path, json=request_body, idempotency_key=idempotency_key)
+    # else: DELETE — unmatched method names fall through to delete, as before
+    return client.delete(path, params=query_params, idempotency_key=idempotency_key)
+
+
 @http.command(
     name="call",
     epilog="""Examples:
@@ -153,40 +194,9 @@ def call_http(
         if not base_url:
             raise click.ClickException(f"Unknown service: {service}. Use --url or one of: {', '.join(sorted(_SERVICE_BASES))}")
 
-    query_params: dict[str, Any] | None = None
-    if params:
-        try:
-            query_params = json.loads(params)
-        except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid --params JSON: {e}") from e
-
-    request_body: dict[str, Any] | None = None
-    if body:
-        try:
-            request_body = json.loads(body)
-        except json.JSONDecodeError as e:
-            raise click.ClickException(f"Invalid --body JSON: {e}") from e
-
-    resolved_key: str | None = None
-    if not api_key:
-        if auth_kind == "miner":
-            try:
-                resolved_key = get_config().api_key
-            except Exception:
-                resolved_key = None
-            if not resolved_key:
-                resolved_key = _resolve_miner_api_key()
-        elif auth_kind == "rpc":
-            try:
-                resolved_key = get_config().blockchain_rpc_api_key
-            except Exception:
-                resolved_key = None
-        elif auth_kind == "trading":
-            try:
-                trading_key = get_config().trading_api_key
-                resolved_key = trading_key.get_secret_value() if trading_key else None
-            except Exception:
-                resolved_key = None
+    query_params = _json_option(params, "params")
+    request_body = _json_option(body, "body")
+    resolved_key = _resolve_auth_key(api_key, auth_kind)
 
     output_format = resolve_output_format(ctx, output_format)
     method = method.upper()
@@ -217,16 +227,7 @@ def call_http(
             **auth_client_kwargs(api_key, resolved_key),
         )
     try:
-        if method == "GET":
-            result = client.get(path, params=query_params)
-        elif method == "POST":
-            result = client.post(path, json=request_body, idempotency_key=idempotency_key)
-        elif method == "PUT":
-            result = client.put(path, json=request_body, idempotency_key=idempotency_key)
-        elif method == "PATCH":
-            result = client.patch(path, json=request_body, idempotency_key=idempotency_key)
-        else:  # DELETE
-            result = client.delete(path, params=query_params, idempotency_key=idempotency_key)
+        result = _send(client, method, path, query_params, request_body, idempotency_key)
         output(result, output_format, title=f"{method} {service}/{path}")
     except NetworkError as e:
         raise click.ClickException(f"Network error calling {service}/{path}: {e}") from e
