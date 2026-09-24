@@ -267,129 +267,218 @@ class PaymentService:
             )
         return job
 
+    def _payment_meta(self, payment_data: JobPaymentCreate) -> dict[str, Any]:
+        """Collect the caller-supplied payment fields to persist in meta_data."""
+        meta: dict[str, Any] = {}
+        if payment_data.provider_address:
+            meta["provider_address"] = payment_data.provider_address
+        if payment_data.auto_reinvest_pct is not None:
+            meta["auto_reinvest_pct"] = str(payment_data.auto_reinvest_pct)
+        # G1: the advertised terms, stored as strings beside the payee they name.
+        # Without them a released escrow records only the total, and there is no
+        # way to check afterwards that it matched the offer the buyer saw.
+        if payment_data.offer_id:
+            meta["offer_id"] = payment_data.offer_id
+        if payment_data.offer_unit_price is not None:
+            meta["offer_unit_price"] = str(payment_data.offer_unit_price)
+        if payment_data.offer_price_unit:
+            meta["offer_price_unit"] = payment_data.offer_price_unit
+        if payment_data.offer_quantity is not None:
+            meta["offer_quantity"] = str(payment_data.offer_quantity)
+        return meta
+
+    def _check_quote_job_binding(self, job: Job, quote: EnergyQuote) -> None:
+        """§4.6: bind the quote to the actual GPU resource and job terms.
+
+        The job's energy fields are set at quote time by the GPU quote
+        endpoint; verifying them here prevents a buyer from swapping
+        the quote for a different resource/duration after the job was
+        created.
+        """
+        if not job.protected:
+            return
+        if job.resource_id and quote.resource_id != job.resource_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Energy quote resource_id {quote.resource_id} does not match job resource_id {job.resource_id}",
+            )
+        if job.model_id and quote.model_id != job.model_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Energy quote model_id {quote.model_id} does not match job model_id {job.model_id}",
+            )
+        if job.gpu_count is not None and quote.gpu_count != job.gpu_count:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Energy quote gpu_count {quote.gpu_count} does not match job gpu_count {job.gpu_count}",
+            )
+        if job.duration_seconds is not None and quote.duration_seconds != job.duration_seconds:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Energy quote duration {quote.duration_seconds}s does not match job duration {job.duration_seconds}s",
+            )
+
+    def _evaluate_energy_quote(self, quote: EnergyQuote, meta: dict[str, Any]) -> Decimal:
+        """Verify the operator signature and evaluate against the oracle snapshot.
+
+        Returns the exact buyer charge converted to AITBC for display.
+        """
+        # A-4: Verify the operator signature against the configured operator
+        # address so a self-attested quote cannot fund a rental.
+        # Fail-closed: if ENERGY_OPERATOR_ADDRESS is not set, reject.
+        if not settings.energy_operator_address:
+            raise HTTPException(
+                status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
+                detail="ENERGY_OPERATOR_ADDRESS is not configured; refusing protected funding",
+            )
+        if not quote.verify_operator_signature(settings.energy_operator_address):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Energy quote operator signature is missing or invalid",
+            )
+        # Evaluate against the authoritative oracle snapshot rather than
+        # the quote's embedded profile/rate. This prevents a caller from
+        # embedding arbitrary terms and funding below the real floor.
+        authoritative_profile, authoritative_rate = _resolve_authoritative_inputs(quote, self.session)
+        result = evaluate_quote(
+            quote=quote,
+            profile=authoritative_profile,
+            rate=authoritative_rate,
+            now=int(time.time()),
+            max_rate_age_seconds=settings.energy_max_rate_age_seconds,
+        )
+        if not result.approved:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Quote refused: {result.refusal_reason} ({result.refusal_code})",
+            )
+        if result.breakdown is None:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Quote evaluation did not return a funding breakdown",
+            )
+        # The display amount is the exact buyer charge converted to AITBC.
+        meta["energy_quote"] = quote.to_dict(include_signature=True)
+        meta["energy_quote_digest"] = quote.digest_sha256().hex()
+        meta["energy_buyer_charge_units"] = result.breakdown.buyer_charge_units
+        meta["energy_provider_credit_units"] = result.breakdown.provider_credit_units
+        meta["energy_platform_fee_units"] = result.breakdown.platform_fee_units
+        meta["energy_net_floor_units"] = result.breakdown.net_units
+        meta["energy_settlement_route"] = quote.settlement_route.value
+        meta["energy_is_protected"] = True
+        return units_to_ait(result.breakdown.buyer_charge_units)
+
+    def _resolve_payment_quote(
+        self,
+        job: Job,
+        job_id: str,
+        payment_data: JobPaymentCreate,
+        meta: dict[str, Any],
+    ) -> tuple[Decimal, EnergyQuote | None]:
+        """E1: validate the signed energy quote for fixed-duration GPU rentals.
+
+        Returns the charge amount and the parsed quote (None when the payment
+        is not protected/quote-backed).
+        """
+        if not (payment_data.protected or payment_data.energy_quote):
+            return payment_data.amount, None
+        if payment_data.payment_method not in ("aitbc_token", "evm"):
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Protected fixed-duration GPU rentals are only supported with aitbc_token or evm settlement",
+            )
+        if not payment_data.energy_quote:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Protected payment requires an energy quote",
+            )
+        try:
+            quote = EnergyQuote.from_dict(payment_data.energy_quote)
+        except EnergyPricingError as exc:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail=f"Invalid energy quote: {exc}",
+            ) from exc
+        if quote.job_id != job_id:
+            raise HTTPException(
+                status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
+                detail="Energy quote is bound to a different job",
+            )
+        self._check_quote_job_binding(job, quote)
+        amount = self._evaluate_energy_quote(quote, meta)
+        # The quote names the provider; fall back to it when the caller
+        # did not supply an explicit provider_address.
+        if not payment_data.provider_address and quote.provider:
+            payment_data.provider_address = quote.provider
+            meta["provider_address"] = quote.provider
+        if not payment_data.buyer_address and quote.buyer:
+            payment_data.buyer_address = quote.buyer
+        return amount, quote
+
+    async def _route_escrow(
+        self,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+        quote: EnergyQuote | None,
+    ) -> None:
+        """Create the escrow/verification appropriate to the payment method."""
+        if payment_data.payment_method == "aitbc_token":
+            try:
+                escrow = await self._create_token_escrow(
+                    payment,
+                    payment_data,
+                    buyer_address=payment_data.buyer_address,
+                    provider_address=payment_data.provider_address,
+                )
+                if escrow is not None:
+                    self.session.add(escrow)
+            except Exception as e:
+                logger.warning("Token escrow not available, skipping payment: %s", e)
+                payment.status = "skipped"
+        elif payment_data.payment_method == "ethereum":
+            escrow = await self._create_crypto_escrow(payment)
+            if escrow is not None:
+                self.session.add(escrow)
+        elif payment_data.payment_method == "evm":
+            # EVM protected rental: the buyer funds the rental directly
+            # on-chain through AIPowerRental.startRental. The coordinator
+            # verifies the transaction and records the agreement/escrow id
+            # but does not sign or submit any transaction on the buyer's
+            # behalf.
+            assert quote is not None
+            await self._verify_evm_protected_payment(payment, payment_data, quote)
+
+    def _sync_job_payment(self, job: Job, payment: JobPayment, payment_data: JobPaymentCreate) -> None:
+        """Keep the denormalized job row in step with the authoritative payment.
+
+        G4: the dispatch gate in JobService reads job.payment_status, so every
+        entry point that creates a payment has to leave it in step. Without this a
+        client retrying a skipped escrow through POST /v1/payments would lock the
+        funds but never clear the gate, and the job would sit queued until its TTL.
+        """
+        job.payment_id = payment.id
+        job.payment_status = payment.status
+        # D: keep the denormalized job row in sync with the authoritative
+        # JobPayment row for display/listing purposes. Security and threshold
+        # checks must use JobPayment.amount directly.
+        job.payment_amount = payment.amount
+        job.payment_token = payment_data.currency
+        # E1: copy the protected rental binding to the job for dispatch.
+        if payment_data.protected and payment_data.energy_quote:
+            quote = EnergyQuote.from_dict(payment_data.energy_quote)
+            job.protected = True
+            job.resource_id = quote.resource_id
+            job.model_id = quote.model_id
+            job.gpu_count = quote.gpu_count
+            job.duration_seconds = quote.duration_seconds
+            job.energy_quote_snapshot = quote.to_dict(include_signature=False)
+
     async def create_payment(self, client_id: str, job_id: str, payment_data: JobPaymentCreate) -> JobPayment:
         """Create a new payment for a job with ACID compliance"""
         job = self._require_owned_job(job_id, client_id)
         try:
-            meta: dict[str, Any] = {}
-            if payment_data.provider_address:
-                meta["provider_address"] = payment_data.provider_address
-            if payment_data.auto_reinvest_pct is not None:
-                meta["auto_reinvest_pct"] = str(payment_data.auto_reinvest_pct)
-            # G1: the advertised terms, stored as strings beside the payee they name.
-            # Without them a released escrow records only the total, and there is no
-            # way to check afterwards that it matched the offer the buyer saw.
-            if payment_data.offer_id:
-                meta["offer_id"] = payment_data.offer_id
-            if payment_data.offer_unit_price is not None:
-                meta["offer_unit_price"] = str(payment_data.offer_unit_price)
-            if payment_data.offer_price_unit:
-                meta["offer_price_unit"] = payment_data.offer_price_unit
-            if payment_data.offer_quantity is not None:
-                meta["offer_quantity"] = str(payment_data.offer_quantity)
-
-            # E1: validate the signed energy quote for fixed-duration GPU rentals.
-            amount = payment_data.amount
-            if payment_data.protected or payment_data.energy_quote:
-                if payment_data.payment_method not in ("aitbc_token", "evm"):
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Protected fixed-duration GPU rentals are only supported with aitbc_token or evm settlement",
-                    )
-                if not payment_data.energy_quote:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Protected payment requires an energy quote",
-                    )
-                try:
-                    quote = EnergyQuote.from_dict(payment_data.energy_quote)
-                except EnergyPricingError as exc:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=f"Invalid energy quote: {exc}",
-                    ) from exc
-                if quote.job_id != job_id:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Energy quote is bound to a different job",
-                    )
-                # §4.6: bind the quote to the actual GPU resource and job terms.
-                # The job's energy fields are set at quote time by the GPU quote
-                # endpoint; verifying them here prevents a buyer from swapping
-                # the quote for a different resource/duration after the job was
-                # created.
-                if job.protected:
-                    if job.resource_id and quote.resource_id != job.resource_id:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail=f"Energy quote resource_id {quote.resource_id} does not match job resource_id {job.resource_id}",
-                        )
-                    if job.model_id and quote.model_id != job.model_id:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail=f"Energy quote model_id {quote.model_id} does not match job model_id {job.model_id}",
-                        )
-                    if job.gpu_count is not None and quote.gpu_count != job.gpu_count:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail=f"Energy quote gpu_count {quote.gpu_count} does not match job gpu_count {job.gpu_count}",
-                        )
-                    if job.duration_seconds is not None and quote.duration_seconds != job.duration_seconds:
-                        raise HTTPException(
-                            status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                            detail=f"Energy quote duration {quote.duration_seconds}s does not match job duration {job.duration_seconds}s",
-                        )
-                # A-4: Verify the operator signature against the configured operator
-                # address so a self-attested quote cannot fund a rental.
-                # Fail-closed: if ENERGY_OPERATOR_ADDRESS is not set, reject.
-                if not settings.energy_operator_address:
-                    raise HTTPException(
-                        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-                        detail="ENERGY_OPERATOR_ADDRESS is not configured; refusing protected funding",
-                    )
-                if not quote.verify_operator_signature(settings.energy_operator_address):
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Energy quote operator signature is missing or invalid",
-                    )
-                # Evaluate against the authoritative oracle snapshot rather than
-                # the quote's embedded profile/rate. This prevents a caller from
-                # embedding arbitrary terms and funding below the real floor.
-                authoritative_profile, authoritative_rate = _resolve_authoritative_inputs(quote, self.session)
-                result = evaluate_quote(
-                    quote=quote,
-                    profile=authoritative_profile,
-                    rate=authoritative_rate,
-                    now=int(time.time()),
-                    max_rate_age_seconds=settings.energy_max_rate_age_seconds,
-                )
-                if not result.approved:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail=f"Quote refused: {result.refusal_reason} ({result.refusal_code})",
-                    )
-                if result.breakdown is None:
-                    raise HTTPException(
-                        status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
-                        detail="Quote evaluation did not return a funding breakdown",
-                    )
-                # The display amount is the exact buyer charge converted to AITBC.
-                amount = units_to_ait(result.breakdown.buyer_charge_units)
-                meta["energy_quote"] = quote.to_dict(include_signature=True)
-                meta["energy_quote_digest"] = quote.digest_sha256().hex()
-                meta["energy_buyer_charge_units"] = result.breakdown.buyer_charge_units
-                meta["energy_provider_credit_units"] = result.breakdown.provider_credit_units
-                meta["energy_platform_fee_units"] = result.breakdown.platform_fee_units
-                meta["energy_net_floor_units"] = result.breakdown.net_units
-                meta["energy_settlement_route"] = quote.settlement_route.value
-                meta["energy_is_protected"] = True
-                # The quote names the provider; fall back to it when the caller
-                # did not supply an explicit provider_address.
-                if not payment_data.provider_address and quote.provider:
-                    payment_data.provider_address = quote.provider
-                    meta["provider_address"] = quote.provider
-                if not payment_data.buyer_address and quote.buyer:
-                    payment_data.buyer_address = quote.buyer
+            meta = self._payment_meta(payment_data)
+            amount, quote = self._resolve_payment_quote(job, job_id, payment_data, meta)
 
             payment = JobPayment(
                 job_id=job_id,
@@ -400,50 +489,8 @@ class PaymentService:
                 meta_data=meta if meta else None,
             )
             self.session.add(payment)
-            if payment_data.payment_method == "aitbc_token":
-                try:
-                    escrow = await self._create_token_escrow(
-                        payment,
-                        payment_data,
-                        buyer_address=payment_data.buyer_address,
-                        provider_address=payment_data.provider_address,
-                    )
-                    if escrow is not None:
-                        self.session.add(escrow)
-                except Exception as e:
-                    logger.warning("Token escrow not available, skipping payment: %s", e)
-                    payment.status = "skipped"
-            elif payment_data.payment_method == "ethereum":
-                escrow = await self._create_crypto_escrow(payment)
-                if escrow is not None:
-                    self.session.add(escrow)
-            elif payment_data.payment_method == "evm":
-                # EVM protected rental: the buyer funds the rental directly
-                # on-chain through AIPowerRental.startRental. The coordinator
-                # verifies the transaction and records the agreement/escrow id
-                # but does not sign or submit any transaction on the buyer's
-                # behalf.
-                await self._verify_evm_protected_payment(payment, payment_data, quote)
-            # G4: the dispatch gate in JobService reads job.payment_status, so every
-            # entry point that creates a payment has to leave it in step. Without this a
-            # client retrying a skipped escrow through POST /v1/payments would lock the
-            # funds but never clear the gate, and the job would sit queued until its TTL.
-            job.payment_id = payment.id
-            job.payment_status = payment.status
-            # D: keep the denormalized job row in sync with the authoritative
-            # JobPayment row for display/listing purposes. Security and threshold
-            # checks must use JobPayment.amount directly.
-            job.payment_amount = payment.amount
-            job.payment_token = payment_data.currency
-            # E1: copy the protected rental binding to the job for dispatch.
-            if payment_data.protected and payment_data.energy_quote:
-                quote = EnergyQuote.from_dict(payment_data.energy_quote)
-                job.protected = True
-                job.resource_id = quote.resource_id
-                job.model_id = quote.model_id
-                job.gpu_count = quote.gpu_count
-                job.duration_seconds = quote.duration_seconds
-                job.energy_quote_snapshot = quote.to_dict(include_signature=False)
+            await self._route_escrow(payment, payment_data, quote)
+            self._sync_job_payment(job, payment, payment_data)
             self.session.add(job)
             self.session.commit()
             self.session.refresh(payment)
@@ -595,8 +642,7 @@ class PaymentService:
         if meta.get("energy_is_protected"):
             amount_units = int(meta["energy_buyer_charge_units"])
         else:
-            amount_ait = payment.amount
-            amount_units = ait_to_units(amount_ait)
+            amount_units = ait_to_units(payment.amount)
             if amount_units <= 0:
                 amount_units = ait_to_units(Decimal("1"))
         if fee is None:
@@ -627,47 +673,41 @@ class PaymentService:
             },
         }
         if meta.get("energy_is_protected"):
-            tx["payload"]["energy_quote_id"] = meta["energy_quote"]["quote_id"]
-            tx["payload"]["energy_quote_digest"] = meta["energy_quote_digest"]
-            # E1: mirror the energy-quote settlement metadata in the lock payload
-            # so it matches the transaction the buyer signed locally.
-            eq = meta["energy_quote"]
-            if eq.get("settlement_route"):
-                tx["payload"]["settlement_route"] = eq["settlement_route"]
-            if eq.get("settlement_asset"):
-                tx["payload"]["settlement_asset"] = eq["settlement_asset"]
-            if eq.get("settlement_unit_scale") is not None:
-                tx["payload"]["settlement_unit_scale"] = eq["settlement_unit_scale"]
+            self._mirror_energy_lock_payload(tx["payload"], meta)
         return tx, amount_units
 
-    async def _create_token_escrow(
+    def _mirror_energy_lock_payload(self, payload: dict[str, Any], meta: dict[str, Any]) -> None:
+        """Mirror the energy-quote settlement metadata in the lock payload (E1)
+        so it matches the transaction the buyer signed locally."""
+        payload["energy_quote_id"] = meta["energy_quote"]["quote_id"]
+        payload["energy_quote_digest"] = meta["energy_quote_digest"]
+        eq = meta["energy_quote"]
+        if eq.get("settlement_route"):
+            payload["settlement_route"] = eq["settlement_route"]
+        if eq.get("settlement_asset"):
+            payload["settlement_asset"] = eq["settlement_asset"]
+        if eq.get("settlement_unit_scale") is not None:
+            payload["settlement_unit_scale"] = eq["settlement_unit_scale"]
+
+    def _canonicalize_escrow_party(self, role: str, address: str | None) -> str | None:
+        if not address:
+            return None
+        try:
+            canonical = canonical_address(address)
+        except Exception:
+            logger.warning("Invalid %s address for escrow: %s", role, address)
+            return None
+        if not validate_address(canonical):
+            logger.warning("Invalid %s address for escrow: %s", role, canonical)
+            return None
+        return canonical
+
+    def _resolve_escrow_parties(
         self,
         payment: JobPayment,
-        payment_data: JobPaymentCreate,
-        buyer_address: str | None = None,
-        provider_address: str | None = None,
-    ) -> PaymentEscrow | None:
-        """Create an escrow for token payments using the blockchain escrow contract.
-
-        Requires a buyer-signed ESCROW_LOCK transaction so the on-chain contract is
-        backed by real funds. The hub never signs on behalf of the buyer; without a
-        pre-signed lock, no escrow is created.
-        """
-        # Idempotency: a payment that already has an escrow must not POST a second
-        # /rpc/escrow/create. The chain side also guards (an existing ESCROW_LOCK for
-        # the job short-circuits the route), but stopping here avoids the round-trip
-        # and keeps the coordinator ledger authoritative about what it already did.
-        existing_escrow = (
-            self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
-        )
-        if existing_escrow is not None or payment.escrowed_at is not None or payment.escrow_address:
-            logger.warning(
-                "Refusing to double-lock payment %s for job %s: escrow already exists",
-                payment.id,
-                payment.job_id,
-            )
-            return existing_escrow
-
+        buyer_address: str | None,
+        provider_address: str | None,
+    ) -> tuple[str, str] | None:
         # G2: the buyer must be explicit. Never fall back to GENESIS_ADDRESS; in this
         # environment GENESIS_ADDRESS is the legacy proposer/node wallet and using it
         # as a buyer would create self-send escrow locks.
@@ -682,24 +722,10 @@ class PaymentService:
         # With no provider named, no escrow is created; the payment then stays unsecured
         # and _payment_blocks_dispatch keeps the job out of the queue.
         provider = provider_address or os.getenv("PAYMENT_PROVIDER_ADDRESS")
-        if buyer:
-            try:
-                buyer = canonical_address(buyer)
-            except Exception:
-                logger.warning("Invalid buyer address for escrow: %s", buyer)
-                return None
-            if not validate_address(buyer):
-                logger.warning("Invalid buyer address for escrow: %s", buyer)
-                return None
-        if provider:
-            try:
-                provider = canonical_address(provider)
-            except Exception:
-                logger.warning("Invalid provider address for escrow: %s", provider)
-                return None
-            if not validate_address(provider):
-                logger.warning("Invalid provider address for escrow: %s", provider)
-                return None
+        buyer = self._canonicalize_escrow_party("buyer", buyer)
+        if buyer is None:
+            return None
+        provider = self._canonicalize_escrow_party("provider", provider)
         if not buyer or not provider:
             logger.warning("No buyer or provider address available for escrow; skipping payment")
             return None
@@ -730,6 +756,87 @@ class PaymentService:
                 provider,
             )
             return None
+        return buyer, provider
+
+    async def _submit_escrow_create(
+        self,
+        payment: JobPayment,
+        buyer: str,
+        provider: str,
+        lock_tx: dict[str, Any],
+        meta: dict[str, Any],
+    ) -> PaymentEscrow:
+        """POST the buyer-signed lock to the chain and persist the resulting escrow row."""
+        client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
+        payload = {
+            "job_id": payment.job_id,
+            "buyer": buyer,
+            "provider": provider,
+            "amount": str(payment.amount),
+            "lock_tx": lock_tx,
+        }
+        if meta.get("energy_is_protected"):
+            payload["energy_quote"] = meta["energy_quote"]
+            payload["energy_quote_digest"] = meta["energy_quote_digest"]
+        response = await client.post(
+            f"{self.blockchain_rpc_url}/rpc/escrow/create",
+            json=payload,
+        )
+        escrow_data = response
+        contract_id = escrow_data.get("contract_id")
+        payment.escrow_address = contract_id
+        payment.status = "escrowed"
+        payment.escrowed_at = datetime.now(UTC)
+        payment.updated_at = datetime.now(UTC)
+        if payment.meta_data is None:
+            payment.meta_data = {}
+        payment.meta_data["buyer_address"] = buyer
+        payment.meta_data["provider_address"] = provider
+        escrow = PaymentEscrow(
+            payment_id=payment.id,
+            amount=payment.amount,
+            currency=payment.currency,
+            address=contract_id,
+            expires_at=datetime.now(UTC) + timedelta(hours=1),
+        )
+        if escrow is not None:
+            self.session.add(escrow)
+        self.session.commit()
+        logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
+        return escrow
+
+    async def _create_token_escrow(
+        self,
+        payment: JobPayment,
+        payment_data: JobPaymentCreate,
+        buyer_address: str | None = None,
+        provider_address: str | None = None,
+    ) -> PaymentEscrow | None:
+        """Create an escrow for token payments using the blockchain escrow contract.
+
+        Requires a buyer-signed ESCROW_LOCK transaction so the on-chain contract is
+        backed by real funds. The hub never signs on behalf of the buyer; without a
+        pre-signed lock, no escrow is created.
+        """
+        # Idempotency: a payment that already has an escrow must not POST a second
+        # /rpc/escrow/create. The chain side also guards (an existing ESCROW_LOCK for
+        # the job short-circuits the route), but stopping here avoids the round-trip
+        # and keeps the coordinator ledger authoritative about what it already did.
+        existing_escrow = (
+            self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment.id)).scalars().first()
+        )
+        if existing_escrow is not None or payment.escrowed_at is not None or payment.escrow_address:
+            logger.warning(
+                "Refusing to double-lock payment %s for job %s: escrow already exists",
+                payment.id,
+                payment.job_id,
+            )
+            return existing_escrow
+
+        parties = self._resolve_escrow_parties(payment, buyer_address, provider_address)
+        if parties is None:
+            return None
+        buyer, provider = parties
 
         try:
             nonce = payment_data.buyer_lock_nonce
@@ -748,43 +855,7 @@ class PaymentService:
                 )
                 return None
 
-            client = AsyncAITBCHTTPClient(timeout=10.0, api_key=self.blockchain_rpc_api_key)
-            payload = {
-                "job_id": payment.job_id,
-                "buyer": buyer,
-                "provider": provider,
-                "amount": str(payment.amount),
-                "lock_tx": lock_tx,
-            }
-            if meta.get("energy_is_protected"):
-                payload["energy_quote"] = meta["energy_quote"]
-                payload["energy_quote_digest"] = meta["energy_quote_digest"]
-            response = await client.post(
-                f"{self.blockchain_rpc_url}/rpc/escrow/create",
-                json=payload,
-            )
-            escrow_data = response
-            contract_id = escrow_data.get("contract_id")
-            payment.escrow_address = contract_id
-            payment.status = "escrowed"
-            payment.escrowed_at = datetime.now(UTC)
-            payment.updated_at = datetime.now(UTC)
-            if payment.meta_data is None:
-                payment.meta_data = {}
-            payment.meta_data["buyer_address"] = buyer
-            payment.meta_data["provider_address"] = provider
-            escrow = PaymentEscrow(
-                payment_id=payment.id,
-                amount=payment.amount,
-                currency=payment.currency,
-                address=contract_id,
-                expires_at=datetime.now(UTC) + timedelta(hours=1),
-            )
-            if escrow is not None:
-                self.session.add(escrow)
-            self.session.commit()
-            logger.info("Created %s escrow for payment %s", _brand.token_symbol, payment.id)
-            return escrow
+            return await self._submit_escrow_create(payment, buyer, provider, lock_tx, meta)
         except NetworkError as e:
             logger.warning("Token escrow endpoint not available: %s", e)
             return None
@@ -962,6 +1033,148 @@ class PaymentService:
         """
         return get_receipt_of_record(self.session, job)
 
+    def _release_attempts_exhausted(
+        self,
+        payment: JobPayment,
+        job_id: str,
+        payment_id: str,
+        meta: dict[str, Any],
+        attempts: int,
+    ) -> bool:
+        """Move the payment to settlement_failed once release retries hit the bound."""
+        if attempts < max_release_attempts():
+            return False
+        now = datetime.now(UTC)
+        payment.status = SETTLEMENT_FAILED
+        payment.updated_at = now
+        meta[META_RELEASE_BLOCKED_AT] = now.isoformat()
+        payment.meta_data = meta
+        stuck_job = self.session.get(Job, job_id)
+        if stuck_job is not None:
+            stuck_job.payment_status = SETTLEMENT_FAILED
+            self.session.add(stuck_job)
+        self.session.add(payment)
+        self.session.commit()
+        logger.critical(
+            "Escrow release for job %s payment %s failed %s times; marking settlement_failed "
+            "and stopping automatic retries (refund and the admin retry route still work)",
+            job_id,
+            payment_id,
+            attempts,
+        )
+        return True
+
+    def _build_release_body(self, reason: str | None, payment: JobPayment, job: Job | None) -> dict[str, Any]:
+        release_body: dict[str, Any] = {"reason": reason or "Job completed successfully"}
+        meta = payment.meta_data or {}
+        if meta.get("energy_is_protected"):
+            release_body["energy_is_protected"] = True
+            release_body["energy_quote"] = meta.get("energy_quote")
+            release_body["energy_quote_digest"] = meta.get("energy_quote_digest")
+        provider_address = meta.get("provider_address")
+        auto_reinvest_pct = meta.get("auto_reinvest_pct")
+        # P2.4: if the payment was created before constraints stored reinvest, fall
+        # back to the job's constraints.
+        if auto_reinvest_pct is None and job and job.constraints:
+            auto_reinvest_pct = job.constraints.get("auto_reinvest_pct")
+        if provider_address and auto_reinvest_pct:
+            release_body["provider_address"] = provider_address
+            release_body["auto_reinvest_pct"] = str(auto_reinvest_pct)
+            release_body["auto_reinvest_address"] = provider_address
+        return release_body
+
+    def _record_release_outcome(
+        self,
+        payment: JobPayment,
+        job: Job,
+        payment_id: str,
+        job_id: str,
+        release_data: dict[str, Any],
+    ) -> None:
+        # Prefer the settlement time the chain reports. On a reconciliation
+        # retry that is the original settlement, not this retry, so the payment
+        # keeps the time the provider was actually paid.
+        settled_at = _parse_settled_at(release_data.get("released_at")) or datetime.now(UTC)
+        payment.status = "released"
+        payment.released_at = settled_at
+        payment.updated_at = datetime.now(UTC)
+        payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
+        if job is not None:
+            job.payment_status = payment.status
+            self.session.add(job)
+        reinvest_stake_id = release_data.get("reinvest_stake_id")
+        reinvest_amount = release_data.get("reinvest_amount")
+        if reinvest_stake_id or reinvest_amount:
+            meta = dict(payment.meta_data or {})
+            if reinvest_stake_id:
+                meta["reinvest_stake_id"] = str(reinvest_stake_id)
+            if reinvest_amount:
+                meta["reinvest_amount"] = str(reinvest_amount)
+            meta["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
+            payment.meta_data = meta
+            # Mirror onto the denormalised job receipt so the JobView and
+            # the CLI can show it. The JobReceipt payload is the signed
+            # record and is not touched; job.receipt is only a display
+            # copy. Doing it here rather than in the miner-result router
+            # is what matters: the release may equally come from the
+            # acceptance sweeper, the client-accept route, the admin
+            # retry, or the reconciler, and none of those ran the router
+            # helper (GAP-43).
+            if job.receipt:
+                receipt_with_reinvest = dict(job.receipt)
+                receipt_with_reinvest["reinvest_status"] = meta["reinvest_status"]
+                if reinvest_stake_id:
+                    receipt_with_reinvest["reinvest_stake_id"] = meta["reinvest_stake_id"]
+                if reinvest_amount:
+                    receipt_with_reinvest["reinvest_amount"] = meta["reinvest_amount"]
+                job.receipt = receipt_with_reinvest
+        escrow = self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
+        if escrow:
+            escrow.is_released = True
+            escrow.released_at = settled_at
+        self._release_gpu_if_rental(job)
+        self.session.commit()
+        logger.info("Released payment %s for job %s", payment_id, job_id)
+
+    async def _submit_release(
+        self,
+        client: AsyncAITBCHTTPClient,
+        payment: JobPayment,
+        job: Job,
+        payment_id: str,
+        job_id: str,
+        reason: str | None,
+    ) -> bool:
+        try:
+            release_body = self._build_release_body(reason, payment, job)
+            release_data = await client.post(
+                f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
+                json=release_body,
+            )
+            # The RPC reports success only once the ESCROW_RELEASE transaction is
+            # accepted on-chain. Leave the payment escrowed otherwise, so it can be
+            # retried rather than recorded as paid with no settlement behind it.
+            if release_data.get("success") is False or release_data.get("settlement_status") == "unsettled":
+                logger.error(
+                    "Escrow release for job %s was not settled on-chain (%s); payment %s stays escrowed",
+                    job_id,
+                    release_data.get("message"),
+                    payment_id,
+                )
+                return False
+            if not release_data.get("tx_hash"):
+                logger.error(
+                    "Escrow release for job %s succeeded without a settlement hash; payment %s stays escrowed",
+                    job_id,
+                    payment_id,
+                )
+                return False
+            self._record_release_outcome(payment, job, payment_id, job_id, release_data)
+            return True
+        except NetworkError as e:
+            logger.error("Failed to release payment: %s", e)
+            return False
+
     async def release_payment(self, client_id: str, job_id: str, payment_id: str, reason: str | None = None) -> bool:
         """Release payment from escrow to miner using the blockchain escrow contract."""
         payment = self.session.get(JobPayment, payment_id)
@@ -981,25 +1194,7 @@ class PaymentService:
         # through the admin retry-release route once the blocker is fixed.
         meta = dict(payment.meta_data or {})
         attempts = int(meta.get(META_RELEASE_ATTEMPTS) or 0)
-        if attempts >= max_release_attempts():
-            now = datetime.now(UTC)
-            payment.status = SETTLEMENT_FAILED
-            payment.updated_at = now
-            meta[META_RELEASE_BLOCKED_AT] = now.isoformat()
-            payment.meta_data = meta
-            stuck_job = self.session.get(Job, job_id)
-            if stuck_job is not None:
-                stuck_job.payment_status = SETTLEMENT_FAILED
-                self.session.add(stuck_job)
-            self.session.add(payment)
-            self.session.commit()
-            logger.critical(
-                "Escrow release for job %s payment %s failed %s times; marking settlement_failed "
-                "and stopping automatic retries (refund and the admin retry route still work)",
-                job_id,
-                payment_id,
-                attempts,
-            )
+        if self._release_attempts_exhausted(payment, job_id, payment_id, meta, attempts):
             return False
         meta[META_RELEASE_ATTEMPTS] = attempts + 1
         payment.meta_data = meta
@@ -1030,95 +1225,7 @@ class PaymentService:
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
-            try:
-                release_body: dict[str, Any] = {"reason": reason or "Job completed successfully"}
-                meta = payment.meta_data or {}
-                if meta.get("energy_is_protected"):
-                    release_body["energy_is_protected"] = True
-                    release_body["energy_quote"] = meta.get("energy_quote")
-                    release_body["energy_quote_digest"] = meta.get("energy_quote_digest")
-                provider_address = meta.get("provider_address")
-                auto_reinvest_pct = meta.get("auto_reinvest_pct")
-                # P2.4: if the payment was created before constraints stored reinvest, fall
-                # back to the job's constraints.
-                if auto_reinvest_pct is None and job and job.constraints:
-                    auto_reinvest_pct = job.constraints.get("auto_reinvest_pct")
-                if provider_address and auto_reinvest_pct:
-                    release_body["provider_address"] = provider_address
-                    release_body["auto_reinvest_pct"] = str(auto_reinvest_pct)
-                    release_body["auto_reinvest_address"] = provider_address
-                release_data = await client.post(
-                    f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/release",
-                    json=release_body,
-                )
-                # The RPC reports success only once the ESCROW_RELEASE transaction is
-                # accepted on-chain. Leave the payment escrowed otherwise, so it can be
-                # retried rather than recorded as paid with no settlement behind it.
-                if release_data.get("success") is False or release_data.get("settlement_status") == "unsettled":
-                    logger.error(
-                        "Escrow release for job %s was not settled on-chain (%s); payment %s stays escrowed",
-                        job_id,
-                        release_data.get("message"),
-                        payment_id,
-                    )
-                    return False
-                if not release_data.get("tx_hash"):
-                    logger.error(
-                        "Escrow release for job %s succeeded without a settlement hash; payment %s stays escrowed",
-                        job_id,
-                        payment_id,
-                    )
-                    return False
-                # Prefer the settlement time the chain reports. On a reconciliation
-                # retry that is the original settlement, not this retry, so the payment
-                # keeps the time the provider was actually paid.
-                settled_at = _parse_settled_at(release_data.get("released_at")) or datetime.now(UTC)
-                payment.status = "released"
-                payment.released_at = settled_at
-                payment.updated_at = datetime.now(UTC)
-                payment.transaction_hash = release_data.get("tx_hash") or release_data.get("transaction_hash")
-                if job is not None:
-                    job.payment_status = payment.status
-                    self.session.add(job)
-                reinvest_stake_id = release_data.get("reinvest_stake_id")
-                reinvest_amount = release_data.get("reinvest_amount")
-                if reinvest_stake_id or reinvest_amount:
-                    meta = dict(payment.meta_data or {})
-                    if reinvest_stake_id:
-                        meta["reinvest_stake_id"] = str(reinvest_stake_id)
-                    if reinvest_amount:
-                        meta["reinvest_amount"] = str(reinvest_amount)
-                    meta["reinvest_status"] = "staked" if reinvest_stake_id else "scheduled"
-                    payment.meta_data = meta
-                    # Mirror onto the denormalised job receipt so the JobView and
-                    # the CLI can show it. The JobReceipt payload is the signed
-                    # record and is not touched; job.receipt is only a display
-                    # copy. Doing it here rather than in the miner-result router
-                    # is what matters: the release may equally come from the
-                    # acceptance sweeper, the client-accept route, the admin
-                    # retry, or the reconciler, and none of those ran the router
-                    # helper (GAP-43).
-                    if job.receipt:
-                        receipt_with_reinvest = dict(job.receipt)
-                        receipt_with_reinvest["reinvest_status"] = meta["reinvest_status"]
-                        if reinvest_stake_id:
-                            receipt_with_reinvest["reinvest_stake_id"] = meta["reinvest_stake_id"]
-                        if reinvest_amount:
-                            receipt_with_reinvest["reinvest_amount"] = meta["reinvest_amount"]
-                        job.receipt = receipt_with_reinvest
-                escrow = (
-                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
-                )
-                if escrow:
-                    escrow.is_released = True
-                    escrow.released_at = settled_at
-                self._release_gpu_if_rental(job)
-                self.session.commit()
-                logger.info("Released payment %s for job %s", payment_id, job_id)
-                return True
-            except NetworkError as e:
-                logger.error("Failed to release payment: %s", e)
-                return False
+            return await self._submit_release(client, payment, job, payment_id, job_id, reason)
         except Exception as e:
             logger.error("Error releasing payment: %s", e)
             return False
@@ -1149,6 +1256,121 @@ class PaymentService:
             booking.end_time = datetime.now(UTC)
             self.session.add(booking)
 
+    def _mark_refunded(
+        self,
+        payment: JobPayment,
+        job: Job,
+        payment_id: str,
+        refund_tx_hash: str | None,
+    ) -> None:
+        payment.status = "refunded"
+        payment.refunded_at = datetime.now(UTC)
+        payment.updated_at = datetime.now(UTC)
+        payment.refund_transaction_hash = refund_tx_hash
+        job.payment_status = payment.status
+        self.session.add(job)
+        escrow = self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
+        if escrow:
+            escrow.is_refunded = True
+            escrow.is_active = False
+            escrow.refunded_at = datetime.now(UTC)
+        self.session.commit()
+
+    async def _fetch_escrow_state(self, client: AsyncAITBCHTTPClient, job_id: str) -> tuple[str | None, bool]:
+        """Return (on-chain escrow state, escrow-missing) for the job."""
+        try:
+            escrow_info = await client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
+            return (escrow_info.get("state") if isinstance(escrow_info, dict) else None), False
+        except NetworkError as e:
+            cause = e.__cause__
+            if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
+                return None, True
+            logger.error("Could not fetch escrow state for %s: %s", job_id, e)
+            raise
+
+    async def _reconcile_refund_state(
+        self,
+        client: AsyncAITBCHTTPClient,
+        payment: JobPayment,
+        job: Job,
+        payment_id: str,
+        job_id: str,
+    ) -> bool | None:
+        """Resolve a refund against the on-chain escrow state.
+
+        Returns True when the refund was recorded locally (unbacked or already
+        refunded on-chain), False when the escrow settled and cannot refund, and
+        None when a real refund transaction still has to be submitted.
+        """
+        # Check whether the on-chain escrow is already in a final state.
+        escrow_state, escrow_not_found = await self._fetch_escrow_state(client, job_id)
+
+        # H1: unbacked escrow guard. A payment row may be 'escrowed' but the
+        # ESCROW_LOCK transaction was never persisted on-chain. No funds moved,
+        # so the safe recovery is to mark it refunded and stop retrying.
+        # The correct check is whether an ESCROW_LOCK tx exists on-chain, not
+        # whether the payment has been released (transaction_hash is a release hash).
+        # Only run this for held states; a 'pending' payment has no lock by construction.
+        if (
+            payment.status in HELD_STATES
+            and escrow_not_found
+            and not await _lookup_chain_lock(self.blockchain_rpc_url, client, job_id)
+        ):
+            logger.warning(
+                "Escrow for job %s not found on-chain and payment %s has no lock tx; "
+                "treating as unbacked escrow and marking refunded",
+                job_id,
+                payment_id,
+            )
+            self._mark_refunded(payment, job, payment_id, None)
+            logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
+            return True
+
+        if escrow_state == "refunded":
+            # B-residue: do not trust a pre-5b0455921 local SHA-256 string.
+            # Only accept the DB marker when the same hash is visible on-chain.
+            chain_refund_hash = await _lookup_chain_refund(self.blockchain_rpc_url, client, job_id)
+            if chain_refund_hash:
+                self._mark_refunded(payment, job, payment_id, chain_refund_hash)
+                logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
+                return True
+            # No on-chain refund exists yet; fall through to submit a real one.
+
+        if escrow_state in {"released", "expired"}:
+            logger.error("Escrow for job %s is in %s state, cannot refund", job_id, escrow_state)
+            return False
+        return None
+
+    async def _submit_refund(
+        self,
+        client: AsyncAITBCHTTPClient,
+        payment: JobPayment,
+        job: Job,
+        payment_id: str,
+        job_id: str,
+        reason: str,
+    ) -> bool:
+        # V23-47: refund is an escrow contract operation, not a wallet endpoint.
+        try:
+            refund_data = await client.post(
+                f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
+                json={"reason": reason},
+            )
+            if not refund_data or not refund_data.get("success"):
+                logger.error("Blockchain escrow refund failed for %s: %s", job_id, refund_data)
+                return False
+            self._mark_refunded(
+                payment,
+                job,
+                payment_id,
+                refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash"),
+            )
+            logger.info("Refunded payment %s for job %s", payment_id, job_id)
+            return True
+        except NetworkError as e:
+            logger.error("Failed to submit refund transaction: %s", e)
+            raise
+
     async def refund_payment(self, client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
         """Refund payment to client"""
         payment = self.session.get(JobPayment, payment_id)
@@ -1173,112 +1395,10 @@ class PaymentService:
             return False
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
-            # Check whether the on-chain escrow is already in a final state.
-            escrow_state = None
-            escrow_not_found = False
-            try:
-                escrow_info = await client.get(f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}")
-                if isinstance(escrow_info, dict):
-                    escrow_state = escrow_info.get("state")
-            except NetworkError as e:
-                cause = e.__cause__
-                if isinstance(cause, httpx.HTTPStatusError) and cause.response.status_code == 404:
-                    escrow_not_found = True
-                else:
-                    logger.error("Could not fetch escrow state for %s: %s", job_id, e)
-                    raise
-
-            # H1: unbacked escrow guard. A payment row may be 'escrowed' but the
-            # ESCROW_LOCK transaction was never persisted on-chain. No funds moved,
-            # so the safe recovery is to mark it refunded and stop retrying.
-            # The correct check is whether an ESCROW_LOCK tx exists on-chain, not
-            # whether the payment has been released (transaction_hash is a release hash).
-            # Only run this for held states; a 'pending' payment has no lock by construction.
-            if (
-                payment.status in HELD_STATES
-                and escrow_not_found
-                and not await _lookup_chain_lock(self.blockchain_rpc_url, client, job_id)
-            ):
-                logger.warning(
-                    "Escrow for job %s not found on-chain and payment %s has no lock tx; "
-                    "treating as unbacked escrow and marking refunded",
-                    job_id,
-                    payment_id,
-                )
-                payment.status = "refunded"
-                payment.refunded_at = datetime.now(UTC)
-                payment.updated_at = datetime.now(UTC)
-                payment.refund_transaction_hash = None
-                job.payment_status = "refunded"
-                self.session.add(job)
-                escrow = (
-                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
-                )
-                if escrow:
-                    escrow.is_refunded = True
-                    escrow.is_active = False
-                    escrow.refunded_at = datetime.now(UTC)
-                self.session.commit()
-                logger.info("Marked unbacked payment %s as refunded for job %s", payment_id, job_id)
-                return True
-
-            if escrow_state == "refunded":
-                # B-residue: do not trust a pre-5b0455921 local SHA-256 string.
-                # Only accept the DB marker when the same hash is visible on-chain.
-                chain_refund_hash = await _lookup_chain_refund(self.blockchain_rpc_url, client, job_id)
-                if chain_refund_hash:
-                    payment.status = "refunded"
-                    payment.refunded_at = datetime.now(UTC)
-                    payment.updated_at = datetime.now(UTC)
-                    payment.refund_transaction_hash = chain_refund_hash
-                    job.payment_status = payment.status
-                    self.session.add(job)
-                    escrow = (
-                        self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id))
-                        .scalars()
-                        .first()
-                    )
-                    if escrow:
-                        escrow.is_refunded = True
-                        escrow.is_active = False
-                        escrow.refunded_at = datetime.now(UTC)
-                    self.session.commit()
-                    logger.info("Marked payment %s as refunded (escrow already refunded) for job %s", payment_id, job_id)
-                    return True
-                # No on-chain refund exists yet; fall through to submit a real one.
-
-            if escrow_state in {"released", "expired"}:
-                logger.error("Escrow for job %s is in %s state, cannot refund", job_id, escrow_state)
-                return False
-
-            try:
-                # V23-47: refund is an escrow contract operation, not a wallet endpoint.
-                refund_data = await client.post(
-                    f"{self.blockchain_rpc_url}/rpc/escrow/{job_id}/refund",
-                    json={"reason": reason},
-                )
-                if not refund_data or not refund_data.get("success"):
-                    logger.error("Blockchain escrow refund failed for %s: %s", job_id, refund_data)
-                    return False
-                payment.status = "refunded"
-                payment.refunded_at = datetime.now(UTC)
-                payment.updated_at = datetime.now(UTC)
-                payment.refund_transaction_hash = refund_data.get("refund_tx_hash") or refund_data.get("transaction_hash")
-                job.payment_status = payment.status
-                self.session.add(job)
-                escrow = (
-                    self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
-                )
-                if escrow:
-                    escrow.is_refunded = True
-                    escrow.is_active = False
-                    escrow.refunded_at = datetime.now(UTC)
-                self.session.commit()
-                logger.info("Refunded payment %s for job %s", payment_id, job_id)
-                return True
-            except NetworkError as e:
-                logger.error("Failed to submit refund transaction: %s", e)
-                raise
+            reconciled = await self._reconcile_refund_state(client, payment, job, payment_id, job_id)
+            if reconciled is not None:
+                return reconciled
+            return await self._submit_refund(client, payment, job, payment_id, job_id, reason)
         except Exception as e:
             logger.error("Error refunding payment: %s", e)
             raise
