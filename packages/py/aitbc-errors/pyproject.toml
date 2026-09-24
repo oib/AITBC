@@ -6,7 +6,7 @@ authors = [
     {name = "AITBC Team", email = "team@aitbc.dev"}
 ]
 readme = "README.md"
-requires-python = ">=3.13.5,<3.14"
+requires-python = ">=3.13.5,<3.15"
 # Intentionally empty, and it must stay that way. The whole point of this
 # package is that anything can import an AITBC exception without dragging in
 # a web framework. Adding a dependency here defeats it.
