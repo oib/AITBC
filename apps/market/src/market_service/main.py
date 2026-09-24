@@ -1001,8 +1001,17 @@ async def refund_market_job_payment(
 
 
 @app.get("/v1/market/jobs/{job_id}/access")
-async def get_market_job_access(job_id: str, svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
-    """Return the access metadata for a market job (customer only)."""
+async def get_market_job_access(
+    job_id: str,
+    svc: Annotated[MarketService, Depends(get_market_service)],
+    authenticated: Annotated[dict[str, Any], Depends(require_market_api_key)],
+) -> Any:
+    """Return the access metadata for a market job (customer only).
+
+    access_secret is no longer returned: it is stored as a digest, so the
+    plaintext cannot be recovered here — the customer receives it once in
+    the CLI output at purchase time.
+    """
     try:
         logger.info("GET /v1/market/jobs/%s/access called", job_id)
         job = await svc.get_market_job(job_id)
@@ -1013,7 +1022,6 @@ async def get_market_job_access(job_id: str, svc: Annotated[MarketService, Depen
             "ipfs_api": job.get("payload", {}).get("ipfs_api"),
             "public_endpoint": job.get("payload", {}).get("public_endpoint"),
             "access_key": job.get("payload", {}).get("access_key"),
-            "access_secret": job.get("payload", {}).get("access_secret"),
             "expires_at": job.get("expires_at"),
             "size": job.get("payload", {}).get("size"),
         }

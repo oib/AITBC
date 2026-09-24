@@ -2,7 +2,9 @@
 Market service for managing market operations
 """
 
+import hashlib
 import hmac
+import re
 import time
 from datetime import datetime
 from decimal import Decimal
@@ -22,6 +24,28 @@ from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, Servi
 from ..domain.offer_status import spellings_of, to_offer_status
 
 logger = get_logger(__name__)
+
+_SECRET_HASH_RE = re.compile(r"^[0-9a-f]{64}$")
+
+
+def hash_access_secret(secret: str) -> str:
+    """SHA-256 hex digest of an access secret — the only form stored at rest."""
+    return hashlib.sha256(secret.encode()).hexdigest()
+
+
+def is_hashed_secret(value: str) -> bool:
+    """True when a stored access_secret is already a sha256 hexdigest.
+
+    token_urlsafe(32) plaintext is at most 43 chars and can contain '-_',
+    so a 64-char lowercase-hex value is unambiguously a digest.
+    """
+    return bool(_SECRET_HASH_RE.match(value or ""))
+
+
+def _secret_matches(stored: str, provided: str) -> bool:
+    """Constant-time secret check that tolerates pre-hash plaintext rows."""
+    candidate = hash_access_secret(provided) if is_hashed_secret(stored) else provided
+    return hmac.compare_digest(stored, candidate)
 
 
 class MarketService:
@@ -968,6 +992,10 @@ class MarketService:
             if not access_key:
                 raise ValueError("access_key is required")
 
+            # Store only the digest — a DB leak must not hand out working credentials.
+            if data.get("access_secret") and not is_hashed_secret(data["access_secret"]):
+                data["access_secret"] = hash_access_secret(data["access_secret"])
+
             # v0.25.x: canonicalize secp256k1/EVM addresses at registration so
             # the market DB always stores 0x EIP-55 addresses, regardless
             # of what the CLI or offer data sent.
@@ -1031,7 +1059,7 @@ class MarketService:
             token = result.scalar_one_or_none()
             if not token:
                 return None
-            if not hmac.compare_digest(token.access_secret, access_secret):
+            if not _secret_matches(token.access_secret, access_secret):
                 return None
             if token.status != "active":
                 return None
@@ -1144,6 +1172,13 @@ class MarketService:
             for field in ("requested_at", "expires_at", "created_at", "updated_at"):
                 if field in data:
                     data[field] = self._parse_iso_dt(data[field])
+
+            # Store only the digest of the payload access secret.
+            payload = data.get("payload")
+            if isinstance(payload, dict):
+                secret = payload.get("access_secret")
+                if secret and not is_hashed_secret(secret):
+                    payload["access_secret"] = hash_access_secret(secret)
 
             job = MarketJob(**data)
             job.id = job_id
@@ -1456,7 +1491,7 @@ class MarketService:
             if not job:
                 return None
 
-            if not hmac.compare_digest((job.payload or {}).get("access_secret") or "", access_secret):
+            if not _secret_matches((job.payload or {}).get("access_secret") or "", access_secret):
                 return None
 
             if job.state in {"CANCELED", "REFUNDED", "FAILED"}:

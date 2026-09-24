@@ -15,6 +15,7 @@ from typing import Any, cast
 from aitbc_shared import MarketOffer
 from sqlalchemy import inspect, text
 from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
+from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
@@ -119,7 +120,39 @@ async def init_db() -> None:
             await conn.run_sync(
                 cast(Callable[[Any], None], lambda sync_conn, t=table: _ensure_table_columns_sync(sync_conn, t))
             )
+    await _migrate_access_secrets()
     logger.info("Market service database initialized")
+
+
+async def _migrate_access_secrets() -> None:
+    """Hash plaintext access_secret values left by pre-migration versions.
+
+    Idempotent: values that are already 64-char sha256 hexdigests are left
+    alone, so this is safe to run on every startup. Covers both the
+    ``ipfs_rental_token.access_secret`` column and ``market_job.payload``
+    JSON. Imported lazily so module import order is unchanged.
+    """
+    from .domain.market import IpfsRentalToken, MarketJob
+    from .services.market_service import hash_access_secret, is_hashed_secret
+
+    changed = 0
+    async with AsyncSession(engine) as session:
+        for token in (await session.execute(select(IpfsRentalToken))).scalars():
+            if token.access_secret and not is_hashed_secret(token.access_secret):
+                token.access_secret = hash_access_secret(token.access_secret)
+                changed += 1
+        for job in (await session.execute(select(MarketJob))).scalars():
+            payload = job.payload
+            if isinstance(payload, dict):
+                secret = payload.get("access_secret")
+                if secret and not is_hashed_secret(secret):
+                    payload = dict(payload)
+                    payload["access_secret"] = hash_access_secret(secret)
+                    job.payload = payload
+                    changed += 1
+        if changed:
+            await session.commit()
+            logger.info("Migrated %d plaintext access_secret values to sha256 digests", changed)
 
 
 async def get_session() -> AsyncIterator[AsyncSession]:
