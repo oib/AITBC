@@ -138,7 +138,10 @@ class CoinGeckoOracle:
         try:
             with open(self._disk_cache_path) as f:
                 return cast(dict[str, Any], json.load(f))
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
+        except FileNotFoundError:
+            return {}
+        except (json.JSONDecodeError, UnicodeDecodeError, OSError) as e:
+            logger.warning("Ignoring corrupt price cache %s: %s", self._disk_cache_path, e)
             return {}
 
     def _write_disk_cache(self, cache: dict[str, Any]) -> None:
