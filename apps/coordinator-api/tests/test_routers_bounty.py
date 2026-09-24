@@ -116,19 +116,25 @@ class TestBountyRouter:
         response = client.get("/v1/bounty/stats")
         assert response.status_code == 200
         data = response.json()
-        # /stats is shadowed by /{bounty_id} route, returns bounty details
-        assert data["bounty_id"] == "stats"
-        assert "title" in data
-        assert "status" in data
+        # A "bounty_id" key here means /{bounty_id} was declared first and swallowed
+        # this path -- see tests/security/test_no_unreachable_routes.py.
+        assert "bounty_id" not in data
+        assert set(data) == {
+            "total_bounties",
+            "open_bounties",
+            "claimed_bounties",
+            "completed_bounties",
+            "total_reward",
+            "completion_rate",
+        }
 
     def test_bounty_health(self, client: TestClient):
         """Test bounty health endpoint"""
         response = client.get("/v1/bounty/health")
         assert response.status_code == 200
         data = response.json()
-        # /health is shadowed by /{bounty_id} route, returns bounty details
-        assert data["bounty_id"] == "health"
-        assert data["status"] == "open"
+        # status "open" would mean get_bounty() answered instead of bounty_health().
+        assert data == {"status": "healthy", "total_bounties": 0, "service": "bounty"}
 
 
 @pytest.mark.integration
