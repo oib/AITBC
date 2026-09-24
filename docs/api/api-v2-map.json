@@ -5432,6 +5432,42 @@
           ]
         },
         {
+          "public": "/api/v2/coordinator/v1/partners/analytics/usage",
+          "upstream": "/v1/partners/analytics/usage",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/partners/register",
+          "upstream": "/v1/partners/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/partners/webhooks",
+          "upstream": "/v1/partners/webhooks",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/partners/webhooks/{webhook_id}",
+          "upstream": "/v1/partners/webhooks/{webhook_id}",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/partners/{partner_id}",
+          "upstream": "/v1/partners/{partner_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/coordinator/v1/payments",
           "upstream": "/v1/payments",
           "methods": [
