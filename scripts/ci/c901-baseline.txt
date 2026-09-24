@@ -73,7 +73,6 @@
       1 apps/coordinator-api/src/coordinator_api/contexts/market/routers/market_gpu.py
       1 apps/coordinator-api/src/coordinator_api/contexts/market/services/bond_slashing.py
       1 apps/coordinator-api/src/coordinator_api/contexts/market/services/global_market_integration.py
-      5 apps/coordinator-api/src/coordinator_api/contexts/payments/services/payments.py
       1 apps/coordinator-api/src/coordinator_api/contexts/payments/services/zk_refund_sweeper.py
       1 apps/coordinator-api/src/coordinator_api/contexts/portfolio/routers/portfolio.py
       1 apps/coordinator-api/src/coordinator_api/contexts/rewards/routers/rewards.py
