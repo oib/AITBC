@@ -206,7 +206,12 @@ repos:
         entry: bash scripts/ci/check-openapi-drift.sh
         language: system
         pass_filenames: false
-        files: ^(aitbc/|aitbc_agent_core/|packages/py/|packages/aitbc-shared/|apps/(agent-coordinator|api-gateway|blockchain-node|coordinator-api|market|wallet|governance|pool-hub|trading)/src/|apps/blockchain-explorer/|scripts/(extract_openapi_specs|openapi_error_responses)\.py)
+        # docs/api/ specs are in the pattern because the check now also fails on a published
+        # spec no app generates, and that file is the only thing that changes when one is
+        # added -- without it the guard would sleep through the commit that introduces the
+        # problem and only complain on some later, unrelated app change. Narrowed to the spec
+        # extensions so editing the prose in docs/api/ does not pay for a spec generation.
+        files: ^(aitbc/|aitbc_agent_core/|packages/py/|packages/aitbc-shared/|apps/(agent-coordinator|api-gateway|blockchain-node|coordinator-api|market|wallet|governance|pool-hub|trading)/src/|apps/blockchain-explorer/|docs/api/.*\.(json|ya?ml)$|scripts/(extract_openapi_specs|openapi_error_responses)\.py|scripts/ci/(check-openapi-drift\.sh|unaccounted_openapi_specs\.py))
         stages: [pre-commit]
 
   # Security checks with Bandit (only on pre-push to save time).
