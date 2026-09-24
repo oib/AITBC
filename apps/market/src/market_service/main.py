@@ -3,6 +3,7 @@ Market Service main application
 Manages hardware+software bundle market operations
 """
 
+import asyncio
 import json
 import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
@@ -203,7 +204,13 @@ async def health() -> HealthResponse:
 
 @app.get("/ready")
 async def ready() -> Any:
-    """Readiness check - verifies database connectivity"""
+    """Readiness check - verifies required dependencies are reachable.
+
+    The service database carries the offers, and the operation ledger (a
+    separate sqlite file) carries the replay-safe writes from Phase E; a
+    missing ledger means idempotent mutations silently lose their dedup, so
+    it is part of readiness, not an afterthought.
+    """
     try:
         from .storage import get_session_context
 
@@ -211,6 +218,11 @@ async def ready() -> Any:
             from sqlalchemy import text
 
             await session.execute(text("SELECT 1"))
+        from aitbc.health_checks import run_readiness_checks
+
+        failed = await asyncio.to_thread(run_readiness_checks, {"operations_db": _check_operations_db})
+        if failed:
+            raise RuntimeError("operations ledger unavailable")
         return {"status": "ready", "service": "market-service"}
     except Exception:
         # A failed dependency check carries the DSN -- host, port, user -- and
@@ -220,6 +232,17 @@ async def ready() -> Any:
             status_code=503,
             content={"status": "not_ready", "service": "market-service", "error": "readiness check failed"},
         )
+
+
+def _check_operations_db() -> None:
+    """The operation-ledger sqlite file opens and answers a trivial query."""
+    import sqlite3
+
+    conn = sqlite3.connect(_get_operations_ledger().db_path)
+    try:
+        conn.execute("SELECT 1")
+    finally:
+        conn.close()
 
 
 @app.get("/live")

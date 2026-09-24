@@ -11,6 +11,7 @@ import urllib.error
 import urllib.parse
 import urllib.request
 from datetime import UTC, datetime
+from pathlib import Path
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.operations import BeginStatus, request_hash
@@ -316,6 +317,32 @@ class ExchangeMixin:
     def health_check(self):
         """Health check"""
         self.send_json_response({"status": "ok", "timestamp": datetime.now(UTC).isoformat()})  # type: ignore[attr-defined]
+
+    def ready_check(self):
+        """Readiness probe — 503 while an enabled required feature is unavailable.
+
+        The order book needs only its own database. The bridge deposit/withdraw
+        surface is enabled by default and additionally needs the deposits store
+        the bridge-monitor service initializes; deployments that do not run the
+        bridge should set BRIDGE_DEPOSIT_ENABLED=false rather than be reported
+        ready with dead endpoints.
+        """
+        from aitbc.health_checks import run_readiness_checks
+
+        from ..config import bridge_config
+
+        checks = {"database": _check_exchange_db}
+        if bridge_config.deposit_enabled or bridge_config.withdraw_enabled:
+            checks["bridge_storage"] = _check_bridge_storage
+        failed = run_readiness_checks(checks)
+        if failed:
+            self.send_json_response(  # type: ignore[attr-defined]
+                {"status": "not_ready", "error": "readiness check failed", "failed": failed}, status=503
+            )
+            return
+        self.send_json_response(  # type: ignore[attr-defined]
+            {"status": "ready", "checks": sorted(checks), "timestamp": datetime.now(UTC).isoformat()}
+        )
 
     def handle_metrics(self):
         """Prometheus metrics endpoint"""
@@ -639,3 +666,32 @@ class ExchangeMixin:
             raise
         finally:
             conn.close()
+
+
+def _check_exchange_db() -> None:
+    """The exchange database answers a trivial query."""
+    conn = sqlite3.connect(get_db_path())
+    try:
+        conn.execute("SELECT 1")
+    finally:
+        conn.close()
+
+
+def _check_bridge_storage() -> None:
+    """The bridge monitor's deposits store exists and has its schema.
+
+    Created by the bridge-monitor service, not this one — a missing file or
+    missing table means deposits cannot be served, so readiness fails.
+    """
+    from aitbc.constants import DATA_DIR
+
+    path = Path(DATA_DIR) / "bridge_deposits.db"
+    if not path.exists():
+        raise RuntimeError("bridge deposits database not initialized")
+    conn = sqlite3.connect(path)
+    try:
+        row = conn.execute("SELECT 1 FROM sqlite_master WHERE type='table' AND name='bridge_deposits'").fetchone()
+        if row is None:
+            raise RuntimeError("bridge deposits table missing")
+    finally:
+        conn.close()

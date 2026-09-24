@@ -3,11 +3,12 @@ from __future__ import annotations
 import asyncio
 import base64
 import os
-from collections.abc import AsyncGenerator
+from collections.abc import AsyncGenerator, Callable
 from contextlib import asynccontextmanager
 
 import uvicorn
-from fastapi import FastAPI
+from fastapi import FastAPI, Response
+from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.async_tasks import create_task_with_logging
@@ -231,9 +232,72 @@ def create_app() -> FastAPI:
 
     @app.get("/health")
     async def health_check() -> dict[str, str]:
-        return {"status": "ok", "env": "dev", "python_version": "3.13.5"}
+        import sys
+
+        return {
+            "status": "ok",
+            "env": settings.app_env,
+            "python_version": f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}",
+        }
+
+    @app.get("/ready")
+    async def ready_check() -> Response:
+        """Readiness probe — 503 while an enabled required feature is unavailable.
+
+        Required: the keystore, wallet ledger and operation-ledger databases
+        (all local sqlite, proving the data dir is writable and queryable) and
+        the blockchain RPC the send/balance routes broadcast through. The
+        coordinator URL is deliberately absent — it only serves receipt
+        verification, which is not part of the wallet's required surface.
+        """
+        from aitbc.health_checks import run_readiness_checks
+
+        checks = _wallet_readiness_checks()
+        failed = await asyncio.to_thread(run_readiness_checks, checks)
+        if failed:
+            return JSONResponse(
+                status_code=503,
+                content={"status": "not_ready", "service": "wallet", "error": "readiness check failed", "failed": failed},
+            )
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ready", "service": "wallet", "checks": sorted(checks)},
+        )
 
     return app
+
+
+def _sqlite_check(path: object) -> Callable[[], None]:
+    """A sqlite database at ``path`` opens and answers a trivial query."""
+    import sqlite3
+
+    def check() -> None:
+        conn = sqlite3.connect(str(path))
+        try:
+            conn.execute("SELECT 1")
+        finally:
+            conn.close()
+
+    return check
+
+
+def _rpc_check() -> None:
+    """The blockchain node's RPC answers /health — send and balance routes die without it."""
+    import httpx
+
+    resp = httpx.get(f"{settings.blockchain_rpc_url}/health", timeout=3.0)
+    resp.raise_for_status()
+
+
+def _wallet_readiness_checks() -> dict[str, Callable[[], None]]:
+    from .api_rest import get_operations_ledger
+
+    return {
+        "keystore_db": _sqlite_check(settings.ledger_db_path.parent / "keystore.db"),
+        "ledger_db": _sqlite_check(settings.ledger_db_path),
+        "operations_db": _sqlite_check(get_operations_ledger().db_path),
+        "blockchain_rpc": _rpc_check,
+    }
 
 
 app = create_app()

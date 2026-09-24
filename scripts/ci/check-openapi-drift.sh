@@ -50,7 +50,7 @@ fi
 specs=()
 while IFS= read -r path; do
   specs+=("$(basename "$path")")
-done < <(find "$tmp" -maxdepth 1 -name '*-openapi.json' | sort)
+done < <(find "$tmp" -maxdepth 1 \( -name '*-openapi.json' -o -name 'api-v2-map.json' \) | sort)
 
 if [ ${#specs[@]} -eq 0 ]; then
   echo "The extractor succeeded but produced no specs, so nothing was compared." >&2
@@ -65,7 +65,7 @@ for spec in "${specs[@]}"; do
 done
 
 if [ ${#drifted[@]} -eq 0 ]; then
-  echo "✅ OpenAPI: docs/api/ matches the applications (${#specs[@]} specs)"
+  echo "✅ OpenAPI: docs/api/ matches the applications (${#specs[@]} generated files)"
   exit 0
 fi
 

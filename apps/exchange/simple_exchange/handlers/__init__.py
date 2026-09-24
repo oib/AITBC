@@ -27,6 +27,8 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
 
         if path == "/health" or path == "/api/health":
             self.health_check()
+        elif path == "/ready" or path == "/api/ready":
+            self.ready_check()
         elif path.startswith("/api/trades/recent"):
             self.get_recent_trades(parsed)
         elif path.startswith("/api/orders/orderbook"):

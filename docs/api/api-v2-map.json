@@ -1,0 +1,6671 @@
+{
+  "api": "v2",
+  "public_prefix": "/api/v2",
+  "gateway_prefix": "/v2",
+  "rule": "/api/v2/<service>/<upstream path> forwards <upstream path> to the service verbatim",
+  "services": {
+    "agent-coordinator": {
+      "env": "AGENT_COORDINATOR_URL",
+      "base_url": "http://localhost:8107",
+      "spec": "agent-coordinator-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/agent-coordinator/",
+          "upstream": "/",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/auth/login",
+          "upstream": "/api/v1/agent/auth/login",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/auth/nonce",
+          "upstream": "/api/v1/agent/auth/nonce",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/auth/session",
+          "upstream": "/api/v1/agent/auth/session",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/coin-requests/execute",
+          "upstream": "/api/v1/agent/coin-requests/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/coin-requests/register",
+          "upstream": "/api/v1/agent/coin-requests/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/keys/register",
+          "upstream": "/api/v1/agent/keys/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/keys/{agent_id}",
+          "upstream": "/api/v1/agent/keys/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/agents/capability/{capability}",
+          "upstream": "/api/v1/agent/messages/agents/capability/{capability}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/agents/service/{service}",
+          "upstream": "/api/v1/agent/messages/agents/service/{service}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/broadcast",
+          "upstream": "/api/v1/agent/messages/broadcast",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/discover",
+          "upstream": "/api/v1/agent/messages/discover",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/history",
+          "upstream": "/api/v1/agent/messages/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/id/{message_id}",
+          "upstream": "/api/v1/agent/messages/id/{message_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/id/{message_id}/read",
+          "upstream": "/api/v1/agent/messages/id/{message_id}/read",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/inbox",
+          "upstream": "/api/v1/agent/messages/inbox",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/load-balancer/stats",
+          "upstream": "/api/v1/agent/messages/load-balancer/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/load-balancer/strategy",
+          "upstream": "/api/v1/agent/messages/load-balancer/strategy",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/peers",
+          "upstream": "/api/v1/agent/messages/peers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/peers/add",
+          "upstream": "/api/v1/agent/messages/peers/add",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/peers/remove",
+          "upstream": "/api/v1/agent/messages/peers/remove",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/peers/{agent_id}",
+          "upstream": "/api/v1/agent/messages/peers/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/registry/stats",
+          "upstream": "/api/v1/agent/messages/registry/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/send",
+          "upstream": "/api/v1/agent/messages/send",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/subscribe",
+          "upstream": "/api/v1/agent/messages/subscribe",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/subscriptions/{agent_id}",
+          "upstream": "/api/v1/agent/messages/subscriptions/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/unsubscribe",
+          "upstream": "/api/v1/agent/messages/unsubscribe",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/messages/{agent_id}",
+          "upstream": "/api/v1/agent/messages/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/workflows",
+          "upstream": "/api/v1/agent/workflows",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/workflows/executions",
+          "upstream": "/api/v1/agent/workflows/executions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/workflows/executions/{execution_id}/cancel",
+          "upstream": "/api/v1/agent/workflows/executions/{execution_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/workflows/{workflow_id}/execute",
+          "upstream": "/api/v1/agent/workflows/{workflow_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/workflows/{workflow_id}/status",
+          "upstream": "/api/v1/agent/workflows/{workflow_id}/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/agent/ws/status",
+          "upstream": "/api/v1/agent/ws/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/api-key/generate",
+          "upstream": "/api/v1/auth/api-key/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/api-key/validate",
+          "upstream": "/api/v1/auth/api-key/validate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/api-key/{api_key}",
+          "upstream": "/api/v1/auth/api-key/{api_key}",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/login",
+          "upstream": "/api/v1/auth/login",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/refresh",
+          "upstream": "/api/v1/auth/refresh",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/api/v1/auth/validate",
+          "upstream": "/api/v1/auth/validate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/advanced-features/status",
+          "upstream": "/v1/advanced-features/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/discover",
+          "upstream": "/v1/agents/discover",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/nonce",
+          "upstream": "/v1/agents/nonce",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/register",
+          "upstream": "/v1/agents/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/{agent_id}",
+          "upstream": "/v1/agents/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/{agent_id}/heartbeat",
+          "upstream": "/v1/agents/{agent_id}/heartbeat",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/{agent_id}/identity",
+          "upstream": "/v1/agents/{agent_id}/identity",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/agents/{agent_id}/status",
+          "upstream": "/v1/agents/{agent_id}/status",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/learning/experience",
+          "upstream": "/v1/ai/learning/experience",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/learning/predict",
+          "upstream": "/v1/ai/learning/predict",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/learning/recommend",
+          "upstream": "/v1/ai/learning/recommend",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/learning/statistics",
+          "upstream": "/v1/ai/learning/statistics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/ml-model/create",
+          "upstream": "/v1/ai/ml-model/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/ml-model/{model_id}/predict",
+          "upstream": "/v1/ai/ml-model/{model_id}/predict",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/ml-model/{model_id}/train",
+          "upstream": "/v1/ai/ml-model/{model_id}/train",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/neural-network/create",
+          "upstream": "/v1/ai/neural-network/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/neural-network/{network_id}/predict",
+          "upstream": "/v1/ai/neural-network/{network_id}/predict",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/neural-network/{network_id}/train",
+          "upstream": "/v1/ai/neural-network/{network_id}/train",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/ai/statistics",
+          "upstream": "/v1/ai/statistics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/alerts",
+          "upstream": "/v1/alerts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/alerts/rules",
+          "upstream": "/v1/alerts/rules",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/alerts/stats",
+          "upstream": "/v1/alerts/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/alerts/{alert_id}/resolve",
+          "upstream": "/v1/alerts/{alert_id}/resolve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/auth/stats",
+          "upstream": "/v1/auth/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/algorithm",
+          "upstream": "/v1/consensus/algorithm",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/node/register",
+          "upstream": "/v1/consensus/node/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/node/{node_id}/status",
+          "upstream": "/v1/consensus/node/{node_id}/status",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/proposal/create",
+          "upstream": "/v1/consensus/proposal/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/proposal/{proposal_id}",
+          "upstream": "/v1/consensus/proposal/{proposal_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/proposal/{proposal_id}/vote",
+          "upstream": "/v1/consensus/proposal/{proposal_id}/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/consensus/statistics",
+          "upstream": "/v1/consensus/statistics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/metrics",
+          "upstream": "/v1/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/metrics/health",
+          "upstream": "/v1/metrics/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/metrics/summary",
+          "upstream": "/v1/metrics/summary",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/protected/admin",
+          "upstream": "/v1/protected/admin",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/protected/operator",
+          "upstream": "/v1/protected/operator",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/roles",
+          "upstream": "/v1/roles",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/roles/{role}",
+          "upstream": "/v1/roles/{role}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/sla",
+          "upstream": "/v1/sla",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/sla/{sla_id}/record",
+          "upstream": "/v1/sla/{sla_id}/record",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/system/health",
+          "upstream": "/v1/system/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/system/status",
+          "upstream": "/v1/system/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/escrow-config",
+          "upstream": "/v1/tasks/escrow-config",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/escrow/expire-stale",
+          "upstream": "/v1/tasks/escrow/expire-stale",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/escrow/{escrow_id}",
+          "upstream": "/v1/tasks/escrow/{escrow_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/queues",
+          "upstream": "/v1/tasks/queues",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/queues/stats",
+          "upstream": "/v1/tasks/queues/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/queues/{priority}/clear",
+          "upstream": "/v1/tasks/queues/{priority}/clear",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/status",
+          "upstream": "/v1/tasks/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/submit",
+          "upstream": "/v1/tasks/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/{task_id}/complete",
+          "upstream": "/v1/tasks/{task_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/{task_id}/escrow",
+          "upstream": "/v1/tasks/{task_id}/escrow",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/tasks/{task_id}/fail",
+          "upstream": "/v1/tasks/{task_id}/fail",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/users/{user_id}/permissions",
+          "upstream": "/v1/users/{user_id}/permissions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/users/{user_id}/permissions/grant",
+          "upstream": "/v1/users/{user_id}/permissions/grant",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/users/{user_id}/permissions/{permission}",
+          "upstream": "/v1/users/{user_id}/permissions/{permission}",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
+          "public": "/api/v2/agent-coordinator/v1/users/{user_id}/role",
+          "upstream": "/v1/users/{user_id}/role",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        }
+      ]
+    },
+    "chain": {
+      "env": "BLOCKCHAIN_RPC_URL",
+      "base_url": "http://127.0.0.1:8202",
+      "spec": "blockchain-node-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/chain/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/metrics",
+          "upstream": "/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/ready",
+          "upstream": "/ready",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/account/{address}",
+          "upstream": "/rpc/account/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/accounts",
+          "upstream": "/rpc/accounts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/accounts/{address}",
+          "upstream": "/rpc/accounts/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/agents/{agent_wallet}/distribute",
+          "upstream": "/rpc/agent-staking/agents/{agent_wallet}/distribute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/claim-rewards",
+          "upstream": "/rpc/agent-staking/claim-rewards",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/performance",
+          "upstream": "/rpc/agent-staking/performance",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/stake",
+          "upstream": "/rpc/agent-staking/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/stake/{stake_id}/add",
+          "upstream": "/rpc/agent-staking/stake/{stake_id}/add",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/stake/{stake_id}/complete",
+          "upstream": "/rpc/agent-staking/stake/{stake_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/agent-staking/stake/{stake_id}/unbond",
+          "upstream": "/rpc/agent-staking/stake/{stake_id}/unbond",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/ai/job/{job_id}",
+          "upstream": "/rpc/ai/job/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/ai/job/{job_id}/cancel",
+          "upstream": "/rpc/ai/job/{job_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/ai/jobs",
+          "upstream": "/rpc/ai/jobs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/ai/stats",
+          "upstream": "/rpc/ai/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/ai/submit",
+          "upstream": "/rpc/ai/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/balance/{address}",
+          "upstream": "/rpc/balance/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/balance/{address}/reconcile",
+          "upstream": "/rpc/balance/{address}/reconcile",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/block",
+          "upstream": "/rpc/block",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/block/{height}",
+          "upstream": "/rpc/block/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/blocks-range",
+          "upstream": "/rpc/blocks-range",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/blocks/{height}",
+          "upstream": "/rpc/blocks/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bond/provider/{provider}",
+          "upstream": "/rpc/bond/provider/{provider}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bond/{bond_id}",
+          "upstream": "/rpc/bond/{bond_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bounty/deploy",
+          "upstream": "/rpc/bounty/deploy",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bounty/{bounty_id}/dispute",
+          "upstream": "/rpc/bounty/{bounty_id}/dispute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bounty/{bounty_id}/expire",
+          "upstream": "/rpc/bounty/{bounty_id}/expire",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bounty/{bounty_id}/submit",
+          "upstream": "/rpc/bounty/{bounty_id}/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bounty/{bounty_id}/verify",
+          "upstream": "/rpc/bounty/{bounty_id}/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/balance/{chain_id}",
+          "upstream": "/rpc/bridge/balance/{chain_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/batch/confirm",
+          "upstream": "/rpc/bridge/batch/confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/batch/lock",
+          "upstream": "/rpc/bridge/batch/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/block-headers",
+          "upstream": "/rpc/bridge/block-headers",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/block-headers/{chain_id}/{height}",
+          "upstream": "/rpc/bridge/block-headers/{chain_id}/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/confirm",
+          "upstream": "/rpc/bridge/confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/health",
+          "upstream": "/rpc/bridge/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/lock",
+          "upstream": "/rpc/bridge/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/oracle/status",
+          "upstream": "/rpc/bridge/oracle/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/pending",
+          "upstream": "/rpc/bridge/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/security/status",
+          "upstream": "/rpc/bridge/security/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/create",
+          "upstream": "/rpc/bridge/settlement/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/dispute",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/dispute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/execute",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/extend-timeout",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/extend-timeout",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/lock",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/proofs",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/proofs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/refund",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/refund",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/resolve",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/resolve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/settle",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/settle",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/status",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/settlement/{escrow_id}/verify",
+          "upstream": "/rpc/bridge/settlement/{escrow_id}/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/status/{transfer_id}",
+          "upstream": "/rpc/bridge/status/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/transfer/{transfer_id}",
+          "upstream": "/rpc/bridge/transfer/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/transfer/{transfer_id}/proof",
+          "upstream": "/rpc/bridge/transfer/{transfer_id}/proof",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/unlock",
+          "upstream": "/rpc/bridge/unlock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/validators/register",
+          "upstream": "/rpc/bridge/validators/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/bridge/validators/{chain_id}",
+          "upstream": "/rpc/bridge/validators/{chain_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/chain/head",
+          "upstream": "/rpc/chain/head",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/chains",
+          "upstream": "/rpc/chains",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/chains/start",
+          "upstream": "/rpc/chains/start",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/chains/stop",
+          "upstream": "/rpc/chains/stop",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/consensus/slashing-history",
+          "upstream": "/rpc/consensus/slashing-history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/consensus/status",
+          "upstream": "/rpc/consensus/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/consensus/validators",
+          "upstream": "/rpc/consensus/validators",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts",
+          "upstream": "/rpc/contracts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/call",
+          "upstream": "/rpc/contracts/call",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/deploy",
+          "upstream": "/rpc/contracts/deploy",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/deploy/messaging",
+          "upstream": "/rpc/contracts/deploy/messaging",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/agents/{agent_id}/reputation",
+          "upstream": "/rpc/contracts/messaging/agents/{agent_id}/reputation",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/messages/post",
+          "upstream": "/rpc/contracts/messaging/messages/post",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/messages/search",
+          "upstream": "/rpc/contracts/messaging/messages/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/messages/{message_id}/moderate",
+          "upstream": "/rpc/contracts/messaging/messages/{message_id}/moderate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/messages/{message_id}/vote",
+          "upstream": "/rpc/contracts/messaging/messages/{message_id}/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/state",
+          "upstream": "/rpc/contracts/messaging/state",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/topics",
+          "upstream": "/rpc/contracts/messaging/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/topics/create",
+          "upstream": "/rpc/contracts/messaging/topics/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/messaging/topics/{topic_id}/messages",
+          "upstream": "/rpc/contracts/messaging/topics/{topic_id}/messages",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/contracts/verify",
+          "upstream": "/rpc/contracts/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/bridge",
+          "upstream": "/rpc/cross-chain/bridge",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/bridge/{bridge_id}",
+          "upstream": "/rpc/cross-chain/bridge/{bridge_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/pools",
+          "upstream": "/rpc/cross-chain/pools",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/rates",
+          "upstream": "/rpc/cross-chain/rates",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/stats",
+          "upstream": "/rpc/cross-chain/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/swap/{swap_id}",
+          "upstream": "/rpc/cross-chain/swap/{swap_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/cross-chain/swaps",
+          "upstream": "/rpc/cross-chain/swaps",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/active",
+          "upstream": "/rpc/disputes/active",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/arbitrators",
+          "upstream": "/rpc/disputes/arbitrators",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/arbitrators/authorize",
+          "upstream": "/rpc/disputes/arbitrators/authorize",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/arbitrators/{arbitrator_address}",
+          "upstream": "/rpc/disputes/arbitrators/{arbitrator_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/evidence",
+          "upstream": "/rpc/disputes/evidence",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/file",
+          "upstream": "/rpc/disputes/file",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/user/{user_address}",
+          "upstream": "/rpc/disputes/user/{user_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/verify-evidence",
+          "upstream": "/rpc/disputes/verify-evidence",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/vote",
+          "upstream": "/rpc/disputes/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/{dispute_id}",
+          "upstream": "/rpc/disputes/{dispute_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/{dispute_id}/evidence",
+          "upstream": "/rpc/disputes/{dispute_id}/evidence",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/disputes/{dispute_id}/votes",
+          "upstream": "/rpc/disputes/{dispute_id}/votes",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/edge/info/{node_id}",
+          "upstream": "/rpc/edge/info/{node_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/edge/register",
+          "upstream": "/rpc/edge/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/escrow/create",
+          "upstream": "/rpc/escrow/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/escrow/{job_id}",
+          "upstream": "/rpc/escrow/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/escrow/{job_id}/refund",
+          "upstream": "/rpc/escrow/{job_id}/refund",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/escrow/{job_id}/release",
+          "upstream": "/rpc/escrow/{job_id}/release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/eth_getLogs",
+          "upstream": "/rpc/eth_getLogs",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/export-chain",
+          "upstream": "/rpc/export-chain",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/force-sync",
+          "upstream": "/rpc/force-sync",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/genesis_allocations",
+          "upstream": "/rpc/genesis_allocations",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/governance/proposal",
+          "upstream": "/rpc/governance/proposal",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/governance/proposal/{proposal_id}",
+          "upstream": "/rpc/governance/proposal/{proposal_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/governance/proposal/{proposal_id}/execute",
+          "upstream": "/rpc/governance/proposal/{proposal_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/governance/vote",
+          "upstream": "/rpc/governance/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/gpu/allocate",
+          "upstream": "/rpc/gpu/allocate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/gpu/allocations/{gpu_id}",
+          "upstream": "/rpc/gpu/allocations/{gpu_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/gpu/info/{gpu_id}",
+          "upstream": "/rpc/gpu/info/{gpu_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/gpu/register",
+          "upstream": "/rpc/gpu/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/gpus",
+          "upstream": "/rpc/gpus",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/head",
+          "upstream": "/rpc/head",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/heartbeat",
+          "upstream": "/rpc/heartbeat",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/height",
+          "upstream": "/rpc/height",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/identity/register",
+          "upstream": "/rpc/identity/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/identity/verify",
+          "upstream": "/rpc/identity/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/identity/{agent_id}",
+          "upstream": "/rpc/identity/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/import-chain",
+          "upstream": "/rpc/import-chain",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/importBlock",
+          "upstream": "/rpc/importBlock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/info",
+          "upstream": "/rpc/info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/islands",
+          "upstream": "/rpc/islands",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/islands/bridge",
+          "upstream": "/rpc/islands/bridge",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/islands/join",
+          "upstream": "/rpc/islands/join",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/islands/leave",
+          "upstream": "/rpc/islands/leave",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/islands/{island_id}",
+          "upstream": "/rpc/islands/{island_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/join",
+          "upstream": "/rpc/join",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/lease/{node_id}",
+          "upstream": "/rpc/lease/{node_id}",
+          "methods": [
+            "DELETE",
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/build-claim",
+          "upstream": "/rpc/liquidity/build-claim",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/build-deposit",
+          "upstream": "/rpc/liquidity/build-deposit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/build-withdraw",
+          "upstream": "/rpc/liquidity/build-withdraw",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/pools",
+          "upstream": "/rpc/liquidity/pools",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/pools/{pool_id}",
+          "upstream": "/rpc/liquidity/pools/{pool_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/stakes/{address}",
+          "upstream": "/rpc/liquidity/stakes/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/liquidity/stakes/{stake_id}/rewards",
+          "upstream": "/rpc/liquidity/stakes/{stake_id}/rewards",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/market/create",
+          "upstream": "/rpc/market/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/market/listing/{listing_id}",
+          "upstream": "/rpc/market/listing/{listing_id}",
+          "methods": [
+            "DELETE",
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/market/listings",
+          "upstream": "/rpc/market/listings",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/mempool",
+          "upstream": "/rpc/mempool",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/mining/miners",
+          "upstream": "/rpc/mining/miners",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/mining/start",
+          "upstream": "/rpc/mining/start",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/mining/status",
+          "upstream": "/rpc/mining/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/mining/stop",
+          "upstream": "/rpc/mining/stop",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/network-info",
+          "upstream": "/rpc/network-info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/pending",
+          "upstream": "/rpc/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/proposer",
+          "upstream": "/rpc/proposer",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/register-account",
+          "upstream": "/rpc/register-account",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/staking/stake",
+          "upstream": "/rpc/staking/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/staking/unstake",
+          "upstream": "/rpc/staking/unstake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/staking/{address}",
+          "upstream": "/rpc/staking/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/state/delta",
+          "upstream": "/rpc/state/delta",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/state/snapshot",
+          "upstream": "/rpc/state/snapshot",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/status",
+          "upstream": "/rpc/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/subscribe",
+          "upstream": "/rpc/subscribe",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/subscribers",
+          "upstream": "/rpc/subscribers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/swap",
+          "upstream": "/rpc/swap",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/sync/config",
+          "upstream": "/rpc/sync/config",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/transaction",
+          "upstream": "/rpc/transaction",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/transaction/{tx_hash}",
+          "upstream": "/rpc/transaction/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/transactions",
+          "upstream": "/rpc/transactions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/transactions/market",
+          "upstream": "/rpc/transactions/market",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/rpc/transactions/market/match",
+          "upstream": "/rpc/transactions/market/match",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/account/{address}",
+          "upstream": "/v1/account/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/accounts",
+          "upstream": "/v1/accounts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/accounts/{address}",
+          "upstream": "/v1/accounts/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/agents/{agent_wallet}/distribute",
+          "upstream": "/v1/agent-staking/agents/{agent_wallet}/distribute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/claim-rewards",
+          "upstream": "/v1/agent-staking/claim-rewards",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/performance",
+          "upstream": "/v1/agent-staking/performance",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/stake",
+          "upstream": "/v1/agent-staking/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/stake/{stake_id}/add",
+          "upstream": "/v1/agent-staking/stake/{stake_id}/add",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/stake/{stake_id}/complete",
+          "upstream": "/v1/agent-staking/stake/{stake_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/agent-staking/stake/{stake_id}/unbond",
+          "upstream": "/v1/agent-staking/stake/{stake_id}/unbond",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/ai/job/{job_id}",
+          "upstream": "/v1/ai/job/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/ai/job/{job_id}/cancel",
+          "upstream": "/v1/ai/job/{job_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/ai/jobs",
+          "upstream": "/v1/ai/jobs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/ai/stats",
+          "upstream": "/v1/ai/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/ai/submit",
+          "upstream": "/v1/ai/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/balance/{address}",
+          "upstream": "/v1/balance/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/balance/{address}/reconcile",
+          "upstream": "/v1/balance/{address}/reconcile",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/block",
+          "upstream": "/v1/block",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/block/{height}",
+          "upstream": "/v1/block/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/blocks-range",
+          "upstream": "/v1/blocks-range",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/blocks/{height}",
+          "upstream": "/v1/blocks/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bond/provider/{provider}",
+          "upstream": "/v1/bond/provider/{provider}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bond/{bond_id}",
+          "upstream": "/v1/bond/{bond_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bounty/deploy",
+          "upstream": "/v1/bounty/deploy",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bounty/{bounty_id}/dispute",
+          "upstream": "/v1/bounty/{bounty_id}/dispute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bounty/{bounty_id}/expire",
+          "upstream": "/v1/bounty/{bounty_id}/expire",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bounty/{bounty_id}/submit",
+          "upstream": "/v1/bounty/{bounty_id}/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bounty/{bounty_id}/verify",
+          "upstream": "/v1/bounty/{bounty_id}/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/balance/{chain_id}",
+          "upstream": "/v1/bridge/balance/{chain_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/batch/confirm",
+          "upstream": "/v1/bridge/batch/confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/batch/lock",
+          "upstream": "/v1/bridge/batch/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/block-headers",
+          "upstream": "/v1/bridge/block-headers",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/block-headers/{chain_id}/{height}",
+          "upstream": "/v1/bridge/block-headers/{chain_id}/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/confirm",
+          "upstream": "/v1/bridge/confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/health",
+          "upstream": "/v1/bridge/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/lock",
+          "upstream": "/v1/bridge/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/oracle/status",
+          "upstream": "/v1/bridge/oracle/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/pending",
+          "upstream": "/v1/bridge/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/security/status",
+          "upstream": "/v1/bridge/security/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/create",
+          "upstream": "/v1/bridge/settlement/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}",
+          "upstream": "/v1/bridge/settlement/{escrow_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/dispute",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/dispute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/execute",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/extend-timeout",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/extend-timeout",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/lock",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/proofs",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/proofs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/refund",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/refund",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/resolve",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/resolve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/settle",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/settle",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/status",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/settlement/{escrow_id}/verify",
+          "upstream": "/v1/bridge/settlement/{escrow_id}/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/status/{transfer_id}",
+          "upstream": "/v1/bridge/status/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/transfer/{transfer_id}",
+          "upstream": "/v1/bridge/transfer/{transfer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/transfer/{transfer_id}/proof",
+          "upstream": "/v1/bridge/transfer/{transfer_id}/proof",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/unlock",
+          "upstream": "/v1/bridge/unlock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/validators/register",
+          "upstream": "/v1/bridge/validators/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/validators/{chain_id}",
+          "upstream": "/v1/bridge/validators/{chain_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/chain/head",
+          "upstream": "/v1/chain/head",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/chains",
+          "upstream": "/v1/chains",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/chains/start",
+          "upstream": "/v1/chains/start",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/chains/stop",
+          "upstream": "/v1/chains/stop",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/consensus/slashing-history",
+          "upstream": "/v1/consensus/slashing-history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/consensus/status",
+          "upstream": "/v1/consensus/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/consensus/validators",
+          "upstream": "/v1/consensus/validators",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts",
+          "upstream": "/v1/contracts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/call",
+          "upstream": "/v1/contracts/call",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/deploy",
+          "upstream": "/v1/contracts/deploy",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/deploy/messaging",
+          "upstream": "/v1/contracts/deploy/messaging",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/agents/{agent_id}/reputation",
+          "upstream": "/v1/contracts/messaging/agents/{agent_id}/reputation",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/messages/post",
+          "upstream": "/v1/contracts/messaging/messages/post",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/messages/search",
+          "upstream": "/v1/contracts/messaging/messages/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/messages/{message_id}/moderate",
+          "upstream": "/v1/contracts/messaging/messages/{message_id}/moderate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/messages/{message_id}/vote",
+          "upstream": "/v1/contracts/messaging/messages/{message_id}/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/state",
+          "upstream": "/v1/contracts/messaging/state",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/topics",
+          "upstream": "/v1/contracts/messaging/topics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/topics/create",
+          "upstream": "/v1/contracts/messaging/topics/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/messaging/topics/{topic_id}/messages",
+          "upstream": "/v1/contracts/messaging/topics/{topic_id}/messages",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/contracts/verify",
+          "upstream": "/v1/contracts/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/bridge",
+          "upstream": "/v1/cross-chain/bridge",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/bridge/{bridge_id}",
+          "upstream": "/v1/cross-chain/bridge/{bridge_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/pools",
+          "upstream": "/v1/cross-chain/pools",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/rates",
+          "upstream": "/v1/cross-chain/rates",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/stats",
+          "upstream": "/v1/cross-chain/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/swap/{swap_id}",
+          "upstream": "/v1/cross-chain/swap/{swap_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/cross-chain/swaps",
+          "upstream": "/v1/cross-chain/swaps",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/active",
+          "upstream": "/v1/disputes/active",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/arbitrators",
+          "upstream": "/v1/disputes/arbitrators",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/arbitrators/authorize",
+          "upstream": "/v1/disputes/arbitrators/authorize",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/arbitrators/{arbitrator_address}",
+          "upstream": "/v1/disputes/arbitrators/{arbitrator_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/evidence",
+          "upstream": "/v1/disputes/evidence",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/file",
+          "upstream": "/v1/disputes/file",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/user/{user_address}",
+          "upstream": "/v1/disputes/user/{user_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/verify-evidence",
+          "upstream": "/v1/disputes/verify-evidence",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/vote",
+          "upstream": "/v1/disputes/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/{dispute_id}",
+          "upstream": "/v1/disputes/{dispute_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/{dispute_id}/evidence",
+          "upstream": "/v1/disputes/{dispute_id}/evidence",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/disputes/{dispute_id}/votes",
+          "upstream": "/v1/disputes/{dispute_id}/votes",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/edge/info/{node_id}",
+          "upstream": "/v1/edge/info/{node_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/edge/register",
+          "upstream": "/v1/edge/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/eth_getLogs",
+          "upstream": "/v1/eth_getLogs",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/export-chain",
+          "upstream": "/v1/export-chain",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/force-sync",
+          "upstream": "/v1/force-sync",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/genesis_allocations",
+          "upstream": "/v1/genesis_allocations",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/governance/proposal",
+          "upstream": "/v1/governance/proposal",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/governance/proposal/{proposal_id}",
+          "upstream": "/v1/governance/proposal/{proposal_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/governance/proposal/{proposal_id}/execute",
+          "upstream": "/v1/governance/proposal/{proposal_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/governance/vote",
+          "upstream": "/v1/governance/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/gpu/allocate",
+          "upstream": "/v1/gpu/allocate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/gpu/allocations/{gpu_id}",
+          "upstream": "/v1/gpu/allocations/{gpu_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/gpu/info/{gpu_id}",
+          "upstream": "/v1/gpu/info/{gpu_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/gpu/register",
+          "upstream": "/v1/gpu/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/gpus",
+          "upstream": "/v1/gpus",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/head",
+          "upstream": "/v1/head",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/heartbeat",
+          "upstream": "/v1/heartbeat",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/height",
+          "upstream": "/v1/height",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/identity/register",
+          "upstream": "/v1/identity/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/identity/verify",
+          "upstream": "/v1/identity/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/identity/{agent_id}",
+          "upstream": "/v1/identity/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/import-chain",
+          "upstream": "/v1/import-chain",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/importBlock",
+          "upstream": "/v1/importBlock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/info",
+          "upstream": "/v1/info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/islands",
+          "upstream": "/v1/islands",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/islands/bridge",
+          "upstream": "/v1/islands/bridge",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/islands/join",
+          "upstream": "/v1/islands/join",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/islands/leave",
+          "upstream": "/v1/islands/leave",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/islands/{island_id}",
+          "upstream": "/v1/islands/{island_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/join",
+          "upstream": "/v1/join",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/lease/{node_id}",
+          "upstream": "/v1/lease/{node_id}",
+          "methods": [
+            "DELETE",
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/build-claim",
+          "upstream": "/v1/liquidity/build-claim",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/build-deposit",
+          "upstream": "/v1/liquidity/build-deposit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/build-withdraw",
+          "upstream": "/v1/liquidity/build-withdraw",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/pools",
+          "upstream": "/v1/liquidity/pools",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/pools/{pool_id}",
+          "upstream": "/v1/liquidity/pools/{pool_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/stakes/{address}",
+          "upstream": "/v1/liquidity/stakes/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/liquidity/stakes/{stake_id}/rewards",
+          "upstream": "/v1/liquidity/stakes/{stake_id}/rewards",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/mempool",
+          "upstream": "/v1/mempool",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/mining/miners",
+          "upstream": "/v1/mining/miners",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/mining/start",
+          "upstream": "/v1/mining/start",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/mining/status",
+          "upstream": "/v1/mining/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/mining/stop",
+          "upstream": "/v1/mining/stop",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/network-info",
+          "upstream": "/v1/network-info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/pending",
+          "upstream": "/v1/pending",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/proposer",
+          "upstream": "/v1/proposer",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/register-account",
+          "upstream": "/v1/register-account",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/staking/stake",
+          "upstream": "/v1/staking/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/staking/unstake",
+          "upstream": "/v1/staking/unstake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/staking/{address}",
+          "upstream": "/v1/staking/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/state/delta",
+          "upstream": "/v1/state/delta",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/state/snapshot",
+          "upstream": "/v1/state/snapshot",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/status",
+          "upstream": "/v1/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/subscribe",
+          "upstream": "/v1/subscribe",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/subscribers",
+          "upstream": "/v1/subscribers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/swap",
+          "upstream": "/v1/swap",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/sync/config",
+          "upstream": "/v1/sync/config",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/transaction",
+          "upstream": "/v1/transaction",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/transaction/{tx_hash}",
+          "upstream": "/v1/transaction/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/transactions",
+          "upstream": "/v1/transactions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/transactions/market",
+          "upstream": "/v1/transactions/market",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/transactions/market/match",
+          "upstream": "/v1/transactions/market/match",
+          "methods": [
+            "GET"
+          ]
+        }
+      ]
+    },
+    "coordinator": {
+      "env": "COORDINATOR_URL",
+      "base_url": "http://localhost:8203",
+      "spec": "coordinator-api-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/coordinator/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/health/live",
+          "upstream": "/health/live",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/health/ready",
+          "upstream": "/health/ready",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/metrics",
+          "upstream": "/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/rate-limit-metrics",
+          "upstream": "/rate-limit-metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/accounts/{address}",
+          "upstream": "/v1/accounts/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/debug-settings",
+          "upstream": "/v1/admin/debug-settings",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/debug/create-test-miner",
+          "upstream": "/v1/admin/debug/create-test-miner",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/disputes/auto-adjudicate",
+          "upstream": "/v1/admin/disputes/auto-adjudicate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/disputes/{job_id}/resolve",
+          "upstream": "/v1/admin/disputes/{job_id}/resolve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/jobs",
+          "upstream": "/v1/admin/jobs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/miners",
+          "upstream": "/v1/admin/miners",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/payments/{job_id}/retry-release",
+          "upstream": "/v1/admin/payments/{job_id}/retry-release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/stats",
+          "upstream": "/v1/admin/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/status",
+          "upstream": "/v1/admin/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/sweepers",
+          "upstream": "/v1/admin/sweepers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/admin/test-key",
+          "upstream": "/v1/admin/test-key",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-creativity/capabilities",
+          "upstream": "/v1/agent-creativity/capabilities",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-creativity/capabilities/{agent_id}",
+          "upstream": "/v1/agent-creativity/capabilities/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-creativity/capabilities/{capability_id}/enhance",
+          "upstream": "/v1/agent-creativity/capabilities/{capability_id}/enhance",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-creativity/capabilities/{capability_id}/evaluate",
+          "upstream": "/v1/agent-creativity/capabilities/{capability_id}/evaluate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-creativity/ideation/generate",
+          "upstream": "/v1/agent-creativity/ideation/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-creativity/synthesis/cross-domain",
+          "upstream": "/v1/agent-creativity/synthesis/cross-domain",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/address/{chain_address}/resolve/{chain_id}",
+          "upstream": "/v1/agent-identity/address/{chain_address}/resolve/{chain_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/chains/supported",
+          "upstream": "/v1/agent-identity/chains/supported",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities",
+          "upstream": "/v1/agent-identity/identities",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/batch-verify",
+          "upstream": "/v1/agent-identity/identities/batch-verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/import",
+          "upstream": "/v1/agent-identity/identities/import",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/search",
+          "upstream": "/v1/agent-identity/identities/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}",
+          "upstream": "/v1/agent-identity/identities/{agent_id}",
+          "methods": [
+            "GET",
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/cross-chain/mapping",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/cross-chain/mapping",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/cross-chain/register",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/cross-chain/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/cross-chain/{chain_id}",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/cross-chain/{chain_id}",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/cross-chain/{chain_id}/verify",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/cross-chain/{chain_id}/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/deactivate",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/deactivate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/export",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/export",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/migrate",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/migrate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/resolve/{chain_id}",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/resolve/{chain_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/sync-reputation",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/sync-reputation",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/wallets",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/wallets",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/balance",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/balance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/export",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/export",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/sign",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/sign",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/transactions",
+          "upstream": "/v1/agent-identity/identities/{agent_id}/wallets/{chain_id}/transactions",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/registry/cleanup-expired",
+          "upstream": "/v1/agent-identity/registry/cleanup-expired",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/registry/health",
+          "upstream": "/v1/agent-identity/registry/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-identity/registry/statistics",
+          "upstream": "/v1/agent-identity/registry/statistics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/analytics/{agent_id}",
+          "upstream": "/v1/agent-performance/analytics/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/capabilities",
+          "upstream": "/v1/agent-performance/capabilities",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/capabilities/{agent_id}",
+          "upstream": "/v1/agent-performance/capabilities/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/meta-learning/models",
+          "upstream": "/v1/agent-performance/meta-learning/models",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/meta-learning/models/{model_id}/adapt",
+          "upstream": "/v1/agent-performance/meta-learning/models/{model_id}/adapt",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/optimize",
+          "upstream": "/v1/agent-performance/optimize",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/profiles",
+          "upstream": "/v1/agent-performance/profiles",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/profiles/{agent_id}",
+          "upstream": "/v1/agent-performance/profiles/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/profiles/{agent_id}/metrics",
+          "upstream": "/v1/agent-performance/profiles/{agent_id}/metrics",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/resources",
+          "upstream": "/v1/agent-performance/resources",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/resources/allocate",
+          "upstream": "/v1/agent-performance/resources/allocate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agent-performance/resources/{allocation_id}/deallocate",
+          "upstream": "/v1/agent-performance/resources/{allocation_id}/deallocate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/executions",
+          "upstream": "/v1/agents/executions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/executions/{execution_id}/status",
+          "upstream": "/v1/agents/executions/{execution_id}/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/config",
+          "upstream": "/v1/agents/integration/deployments/config",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/configs",
+          "upstream": "/v1/agents/integration/deployments/configs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/configs/{config_id}",
+          "upstream": "/v1/agents/integration/deployments/configs/{config_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/instances",
+          "upstream": "/v1/agents/integration/deployments/instances",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/instances/{instance_id}",
+          "upstream": "/v1/agents/integration/deployments/instances/{instance_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/{config_id}/deploy",
+          "upstream": "/v1/agents/integration/deployments/{config_id}/deploy",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/{config_id}/health",
+          "upstream": "/v1/agents/integration/deployments/{config_id}/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/{config_id}/rollback",
+          "upstream": "/v1/agents/integration/deployments/{config_id}/rollback",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/deployments/{config_id}/scale",
+          "upstream": "/v1/agents/integration/deployments/{config_id}/scale",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/integrations/zk/{execution_id}",
+          "upstream": "/v1/agents/integration/integrations/zk/{execution_id}",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/metrics/deployments/{deployment_id}",
+          "upstream": "/v1/agents/integration/metrics/deployments/{deployment_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/production/alerts",
+          "upstream": "/v1/agents/integration/production/alerts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/production/dashboard",
+          "upstream": "/v1/agents/integration/production/dashboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/production/deploy",
+          "upstream": "/v1/agents/integration/production/deploy",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/integration/production/health",
+          "upstream": "/v1/agents/integration/production/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/audit-logs",
+          "upstream": "/v1/agents/security/audit-logs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/audit-logs/{audit_id}",
+          "upstream": "/v1/agents/security/audit-logs/{audit_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/executions/{execution_id}/security-monitor",
+          "upstream": "/v1/agents/security/executions/{execution_id}/security-monitor",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/policies",
+          "upstream": "/v1/agents/security/policies",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/policies/{policy_id}",
+          "upstream": "/v1/agents/security/policies/{policy_id}",
+          "methods": [
+            "DELETE",
+            "GET",
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/sandbox/{execution_id}/cleanup",
+          "upstream": "/v1/agents/security/sandbox/{execution_id}/cleanup",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/sandbox/{execution_id}/create",
+          "upstream": "/v1/agents/security/sandbox/{execution_id}/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/sandbox/{execution_id}/monitor",
+          "upstream": "/v1/agents/security/sandbox/{execution_id}/monitor",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/scan",
+          "upstream": "/v1/agents/security/scan",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/security-dashboard",
+          "upstream": "/v1/agents/security/security-dashboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/security-stats",
+          "upstream": "/v1/agents/security/security-stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/trust-scores",
+          "upstream": "/v1/agents/security/trust-scores",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/trust-scores/{entity_type}/{entity_id}",
+          "upstream": "/v1/agents/security/trust-scores/{entity_type}/{entity_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/trust-scores/{entity_type}/{entity_id}/update",
+          "upstream": "/v1/agents/security/trust-scores/{entity_type}/{entity_id}/update",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/security/validate-workflow/{workflow_id}",
+          "upstream": "/v1/agents/security/validate-workflow/{workflow_id}",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/supported",
+          "upstream": "/v1/agents/supported",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/test",
+          "upstream": "/v1/agents/test",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/workflows",
+          "upstream": "/v1/agents/workflows",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/workflows/{workflow_id}",
+          "upstream": "/v1/agents/workflows/{workflow_id}",
+          "methods": [
+            "DELETE",
+            "GET",
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/workflows/{workflow_id}/cancel",
+          "upstream": "/v1/agents/workflows/{workflow_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/workflows/{workflow_id}/execute",
+          "upstream": "/v1/agents/workflows/{workflow_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/workflows/{workflow_id}/executions",
+          "upstream": "/v1/agents/workflows/{workflow_id}/executions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/{agent_wallet}/apy",
+          "upstream": "/v1/agents/{agent_wallet}/apy",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/{agent_wallet}/distribute-earnings",
+          "upstream": "/v1/agents/{agent_wallet}/distribute-earnings",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/{agent_wallet}/metrics",
+          "upstream": "/v1/agents/{agent_wallet}/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/{agent_wallet}/performance",
+          "upstream": "/v1/agents/{agent_wallet}/performance",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/agents/{agent_wallet}/staking-pool",
+          "upstream": "/v1/agents/{agent_wallet}/staking-pool",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/auth/nonce",
+          "upstream": "/v1/auth/nonce",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/blocks",
+          "upstream": "/v1/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/blocks/hash/{block_hash}",
+          "upstream": "/v1/blocks/hash/{block_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/blocks/{height}",
+          "upstream": "/v1/blocks/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/claim",
+          "upstream": "/v1/bounty/claim",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/create",
+          "upstream": "/v1/bounty/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/health",
+          "upstream": "/v1/bounty/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/list",
+          "upstream": "/v1/bounty/list",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/stats",
+          "upstream": "/v1/bounty/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/submit",
+          "upstream": "/v1/bounty/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/verify",
+          "upstream": "/v1/bounty/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/bounty/{bounty_id}",
+          "upstream": "/v1/bounty/{bounty_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/access/logs",
+          "upstream": "/v1/confidential/access/logs",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/keys/register",
+          "upstream": "/v1/confidential/keys/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/keys/rotate",
+          "upstream": "/v1/confidential/keys/rotate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/payments",
+          "upstream": "/v1/confidential/payments",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/status",
+          "upstream": "/v1/confidential/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/transactions",
+          "upstream": "/v1/confidential/transactions",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/transactions/{transaction_id}",
+          "upstream": "/v1/confidential/transactions/{transaction_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/transactions/{transaction_id}/access",
+          "upstream": "/v1/confidential/transactions/{transaction_id}/access",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/confidential/transactions/{transaction_id}/audit",
+          "upstream": "/v1/confidential/transactions/{transaction_id}/audit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/create-request",
+          "upstream": "/v1/cross-chain/bridge/create-request",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/liquidity-pools",
+          "upstream": "/v1/cross-chain/bridge/liquidity-pools",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/request/{bridge_request_id}",
+          "upstream": "/v1/cross-chain/bridge/request/{bridge_request_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/request/{bridge_request_id}/cancel",
+          "upstream": "/v1/cross-chain/bridge/request/{bridge_request_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/statistics",
+          "upstream": "/v1/cross-chain/bridge/statistics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/whitelist",
+          "upstream": "/v1/cross-chain/bridge/whitelist",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/bridge/whitelist/add",
+          "upstream": "/v1/cross-chain/bridge/whitelist/add",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/chains/supported",
+          "upstream": "/v1/cross-chain/chains/supported",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/chains/{chain_id}/info",
+          "upstream": "/v1/cross-chain/chains/{chain_id}/info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/config",
+          "upstream": "/v1/cross-chain/config",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/health",
+          "upstream": "/v1/cross-chain/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/transactions/history",
+          "upstream": "/v1/cross-chain/transactions/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/transactions/optimize-routing",
+          "upstream": "/v1/cross-chain/transactions/optimize-routing",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/transactions/statistics",
+          "upstream": "/v1/cross-chain/transactions/statistics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/transactions/submit",
+          "upstream": "/v1/cross-chain/transactions/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/wallets/create",
+          "upstream": "/v1/cross-chain/wallets/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/wallets/verify-signature",
+          "upstream": "/v1/cross-chain/wallets/verify-signature",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/wallets/{wallet_address}/balance",
+          "upstream": "/v1/cross-chain/wallets/{wallet_address}/balance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/wallets/{wallet_address}/sign",
+          "upstream": "/v1/cross-chain/wallets/{wallet_address}/sign",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/cross-chain/wallets/{wallet_address}/transactions",
+          "upstream": "/v1/cross-chain/wallets/{wallet_address}/transactions",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/analytics/overview",
+          "upstream": "/v1/developer-platform/analytics/overview",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/bounties",
+          "upstream": "/v1/developer-platform/bounties",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/bounties/my-submissions",
+          "upstream": "/v1/developer-platform/bounties/my-submissions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/bounties/stats",
+          "upstream": "/v1/developer-platform/bounties/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/bounties/{bounty_id}",
+          "upstream": "/v1/developer-platform/bounties/{bounty_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/bounties/{bounty_id}/review",
+          "upstream": "/v1/developer-platform/bounties/{bounty_id}/review",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/bounties/{bounty_id}/submit",
+          "upstream": "/v1/developer-platform/bounties/{bounty_id}/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/certifications",
+          "upstream": "/v1/developer-platform/certifications",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/certifications/types",
+          "upstream": "/v1/developer-platform/certifications/types",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/certifications/verify/{certification_id}",
+          "upstream": "/v1/developer-platform/certifications/verify/{certification_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/certifications/{wallet_address}",
+          "upstream": "/v1/developer-platform/certifications/{wallet_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/claim-rewards",
+          "upstream": "/v1/developer-platform/claim-rewards",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/health",
+          "upstream": "/v1/developer-platform/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/hubs",
+          "upstream": "/v1/developer-platform/hubs",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/hubs/{hub_id}/developers",
+          "upstream": "/v1/developer-platform/hubs/{hub_id}/developers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/leaderboard",
+          "upstream": "/v1/developer-platform/leaderboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/profile/{wallet_address}",
+          "upstream": "/v1/developer-platform/profile/{wallet_address}",
+          "methods": [
+            "GET",
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/register",
+          "upstream": "/v1/developer-platform/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/rewards/{address}",
+          "upstream": "/v1/developer-platform/rewards/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/stake",
+          "upstream": "/v1/developer-platform/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/staking-stats",
+          "upstream": "/v1/developer-platform/staking-stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/staking/{address}",
+          "upstream": "/v1/developer-platform/staking/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/stats/{wallet_address}",
+          "upstream": "/v1/developer-platform/stats/{wallet_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developer-platform/unstake",
+          "upstream": "/v1/developer-platform/unstake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developers",
+          "upstream": "/v1/developers",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/developers/{wallet_address}",
+          "upstream": "/v1/developers/{wallet_address}",
+          "methods": [
+            "GET",
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/",
+          "upstream": "/v1/disputes/",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/arbitrators/register",
+          "upstream": "/v1/disputes/arbitrators/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/evidence",
+          "upstream": "/v1/disputes/evidence",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/file",
+          "upstream": "/v1/disputes/file",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/health",
+          "upstream": "/v1/disputes/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/vote",
+          "upstream": "/v1/disputes/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/disputes/{dispute_id}",
+          "upstream": "/v1/disputes/{dispute_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/economic-proposals",
+          "upstream": "/v1/economic-proposals",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/economic-proposals/{proposal_id}",
+          "upstream": "/v1/economic-proposals/{proposal_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/economic-proposals/{proposal_id}/execute",
+          "upstream": "/v1/economic-proposals/{proposal_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/economic-proposals/{proposal_id}/votes",
+          "upstream": "/v1/economic-proposals/{proposal_id}/votes",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/edge-gpu/discover",
+          "upstream": "/v1/edge-gpu/discover",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/edge-gpu/metrics",
+          "upstream": "/v1/edge-gpu/metrics",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/edge-gpu/metrics/{gpu_id}",
+          "upstream": "/v1/edge-gpu/metrics/{gpu_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/edge-gpu/optimize",
+          "upstream": "/v1/edge-gpu/optimize",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/edge-gpu/profiles",
+          "upstream": "/v1/edge-gpu/profiles",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/exchange/confirm-payment/{payment_id}",
+          "upstream": "/v1/exchange/confirm-payment/{payment_id}",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/exchange/create-payment",
+          "upstream": "/v1/exchange/create-payment",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/exchange/market-stats",
+          "upstream": "/v1/exchange/market-stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/exchange/payment-status/{payment_id}",
+          "upstream": "/v1/exchange/payment-status/{payment_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/exchange/rates",
+          "upstream": "/v1/exchange/rates",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/addresses",
+          "upstream": "/v1/explorer/addresses",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/blocks",
+          "upstream": "/v1/explorer/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/blocks/by-hash/{block_hash}",
+          "upstream": "/v1/explorer/blocks/by-hash/{block_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/receipts",
+          "upstream": "/v1/explorer/receipts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/transactions",
+          "upstream": "/v1/explorer/transactions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/transactions/by-hash/{tx_hash}",
+          "upstream": "/v1/explorer/transactions/by-hash/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/explorer/transactions/{tx_hash}",
+          "upstream": "/v1/explorer/transactions/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/add",
+          "upstream": "/v1/fhe/add",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/context/generate",
+          "upstream": "/v1/fhe/context/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/context/{context_id}",
+          "upstream": "/v1/fhe/context/{context_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/decrypt",
+          "upstream": "/v1/fhe/decrypt",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/encrypt",
+          "upstream": "/v1/fhe/encrypt",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/health",
+          "upstream": "/v1/fhe/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/inference",
+          "upstream": "/v1/fhe/inference",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/fhe/multiply-scalar",
+          "upstream": "/v1/fhe/multiply-scalar",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/analytics/governance",
+          "upstream": "/v1/governance-enhanced/analytics/governance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/analytics/regional-health/{region}",
+          "upstream": "/v1/governance-enhanced/analytics/regional-health/{region}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/compliance/check/{user_address}",
+          "upstream": "/v1/governance-enhanced/compliance/check/{user_address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/health",
+          "upstream": "/v1/governance-enhanced/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/jurisdictions",
+          "upstream": "/v1/governance-enhanced/jurisdictions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/profiles/create",
+          "upstream": "/v1/governance-enhanced/profiles/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/profiles/delegate",
+          "upstream": "/v1/governance-enhanced/profiles/delegate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/profiles/{user_id}",
+          "upstream": "/v1/governance-enhanced/profiles/{user_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/regional-councils",
+          "upstream": "/v1/governance-enhanced/regional-councils",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/regional-proposals",
+          "upstream": "/v1/governance-enhanced/regional-proposals",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/regional-proposals/{proposal_id}/vote",
+          "upstream": "/v1/governance-enhanced/regional-proposals/{proposal_id}/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/staking/calculate-rewards",
+          "upstream": "/v1/governance-enhanced/staking/calculate-rewards",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/staking/distribute-rewards/{pool_id}",
+          "upstream": "/v1/governance-enhanced/staking/distribute-rewards/{pool_id}",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/staking/pools",
+          "upstream": "/v1/governance-enhanced/staking/pools",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/status",
+          "upstream": "/v1/governance-enhanced/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/treasury/allocate",
+          "upstream": "/v1/governance-enhanced/treasury/allocate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/treasury/balance",
+          "upstream": "/v1/governance-enhanced/treasury/balance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance-enhanced/treasury/transactions",
+          "upstream": "/v1/governance-enhanced/treasury/transactions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/analytics/reports",
+          "upstream": "/v1/governance/analytics/reports",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/profiles",
+          "upstream": "/v1/governance/profiles",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/profiles/{profile_id}/delegate",
+          "upstream": "/v1/governance/profiles/{profile_id}/delegate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/proposals",
+          "upstream": "/v1/governance/proposals",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/proposals/{proposal_id}/execute",
+          "upstream": "/v1/governance/proposals/{proposal_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/proposals/{proposal_id}/process",
+          "upstream": "/v1/governance/proposals/{proposal_id}/process",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/proposals/{proposal_id}/vote",
+          "upstream": "/v1/governance/proposals/{proposal_id}/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/governance/slash-appeals",
+          "upstream": "/v1/governance/slash-appeals",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/grants",
+          "upstream": "/v1/grants",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/grants/{grant_id}",
+          "upstream": "/v1/grants/{grant_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/grants/{grant_id}/disburse",
+          "upstream": "/v1/grants/{grant_id}/disburse",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/grants/{grant_id}/milestones",
+          "upstream": "/v1/grants/{grant_id}/milestones",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/grants/{grant_id}/process",
+          "upstream": "/v1/grants/{grant_id}/process",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/grants/{grant_id}/vote",
+          "upstream": "/v1/grants/{grant_id}/vote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/hipaa/consent",
+          "upstream": "/v1/hipaa/consent",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/hipaa/consent/{consent_id}/revoke",
+          "upstream": "/v1/hipaa/consent/{consent_id}/revoke",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/hipaa/phi/access",
+          "upstream": "/v1/hipaa/phi/access",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/hipaa/phi/delete",
+          "upstream": "/v1/hipaa/phi/delete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/inference/batch",
+          "upstream": "/v1/inference/batch",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/inference/generate",
+          "upstream": "/v1/inference/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/inference/generate/stream",
+          "upstream": "/v1/inference/generate/stream",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/inference/health",
+          "upstream": "/v1/inference/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/inference/models",
+          "upstream": "/v1/inference/models",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/inference/models/{model_name}/pull",
+          "upstream": "/v1/inference/models/{model_name}/pull",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/batch-upload",
+          "upstream": "/v1/ipfs/batch-upload",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/create-deal",
+          "upstream": "/v1/ipfs/create-deal",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/delete",
+          "upstream": "/v1/ipfs/delete",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/health",
+          "upstream": "/v1/ipfs/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/island/swarm-key",
+          "upstream": "/v1/ipfs/island/swarm-key",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/list/{agent_id}",
+          "upstream": "/v1/ipfs/list/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/retrieve",
+          "upstream": "/v1/ipfs/retrieve",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/stats",
+          "upstream": "/v1/ipfs/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ipfs/upload",
+          "upstream": "/v1/ipfs/upload",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/islands/",
+          "upstream": "/v1/islands/",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/islands/bridge",
+          "upstream": "/v1/islands/bridge",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/islands/join",
+          "upstream": "/v1/islands/join",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/islands/leave",
+          "upstream": "/v1/islands/leave",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/islands/{island_id}",
+          "upstream": "/v1/islands/{island_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs",
+          "upstream": "/v1/jobs",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/history",
+          "upstream": "/v1/jobs/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}",
+          "upstream": "/v1/jobs/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/accept",
+          "upstream": "/v1/jobs/{job_id}/accept",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/cancel",
+          "upstream": "/v1/jobs/{job_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/payment",
+          "upstream": "/v1/jobs/{job_id}/payment",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/receipt",
+          "upstream": "/v1/jobs/{job_id}/receipt",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/receipts",
+          "upstream": "/v1/jobs/{job_id}/receipts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/reject",
+          "upstream": "/v1/jobs/{job_id}/reject",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/jobs/{job_id}/result",
+          "upstream": "/v1/jobs/{job_id}/result",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/knowledge/graphs",
+          "upstream": "/v1/knowledge/graphs",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/knowledge/graphs/{graph_id}",
+          "upstream": "/v1/knowledge/graphs/{graph_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/knowledge/graphs/{graph_id}/join",
+          "upstream": "/v1/knowledge/graphs/{graph_id}/join",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/knowledge/graphs/{graph_id}/nodes",
+          "upstream": "/v1/knowledge/graphs/{graph_id}/nodes",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/knowledge/graphs/{graph_id}/query",
+          "upstream": "/v1/knowledge/graphs/{graph_id}/query",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/login",
+          "upstream": "/v1/login",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/logout",
+          "upstream": "/v1/logout",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/bonds/{bond_id}",
+          "upstream": "/v1/market/bonds/{bond_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/bid",
+          "upstream": "/v1/market/gpu/bid",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/list",
+          "upstream": "/v1/market/gpu/list",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/purchase",
+          "upstream": "/v1/market/gpu/purchase",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/quote",
+          "upstream": "/v1/market/gpu/quote",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/register",
+          "upstream": "/v1/market/gpu/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/sell",
+          "upstream": "/v1/market/gpu/sell",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/{gpu_id}",
+          "upstream": "/v1/market/gpu/{gpu_id}",
+          "methods": [
+            "DELETE",
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/{gpu_id}/book",
+          "upstream": "/v1/market/gpu/{gpu_id}/book",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/{gpu_id}/confirm",
+          "upstream": "/v1/market/gpu/{gpu_id}/confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/{gpu_id}/release",
+          "upstream": "/v1/market/gpu/{gpu_id}/release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/gpu/{gpu_id}/reviews",
+          "upstream": "/v1/market/gpu/{gpu_id}/reviews",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/miner-offers",
+          "upstream": "/v1/market/miner-offers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/native-energy/floor",
+          "upstream": "/v1/market/native-energy/floor",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/native-energy/profile",
+          "upstream": "/v1/market/native-energy/profile",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/native-energy/profile/{resource_id}",
+          "upstream": "/v1/market/native-energy/profile/{resource_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/native-energy/rate",
+          "upstream": "/v1/market/native-energy/rate",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/offers",
+          "upstream": "/v1/market/offers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/orders",
+          "upstream": "/v1/market/orders",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/plugins",
+          "upstream": "/v1/market/plugins",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/pricing/{model}",
+          "upstream": "/v1/market/pricing/{model}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds",
+          "upstream": "/v1/market/providers/{provider_id}/bonds",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/lock",
+          "upstream": "/v1/market/providers/{provider_id}/bonds/lock",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/release",
+          "upstream": "/v1/market/providers/{provider_id}/bonds/release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/bonds/slash",
+          "upstream": "/v1/market/providers/{provider_id}/bonds/slash",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/capacity",
+          "upstream": "/v1/market/providers/{provider_id}/capacity",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/providers/{provider_id}/eligibility",
+          "upstream": "/v1/market/providers/{provider_id}/eligibility",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/stats",
+          "upstream": "/v1/market/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/market/sync-offers",
+          "upstream": "/v1/market/sync-offers",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/media/download/{token}",
+          "upstream": "/v1/media/download/{token}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/media/upload",
+          "upstream": "/v1/media/upload",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/heartbeat",
+          "upstream": "/v1/miners/heartbeat",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/poll",
+          "upstream": "/v1/miners/poll",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/register",
+          "upstream": "/v1/miners/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{job_id}/fail",
+          "upstream": "/v1/miners/{job_id}/fail",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{job_id}/result",
+          "upstream": "/v1/miners/{job_id}/result",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}",
+          "upstream": "/v1/miners/{miner_id}",
+          "methods": [
+            "DELETE"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}/capabilities",
+          "upstream": "/v1/miners/{miner_id}/capabilities",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}/earnings",
+          "upstream": "/v1/miners/{miner_id}/earnings",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}/jobs",
+          "upstream": "/v1/miners/{miner_id}/jobs",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}/jobs/{job_id}/complete",
+          "upstream": "/v1/miners/{miner_id}/jobs/{job_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/miners/{miner_id}/jobs/{job_id}/fail",
+          "upstream": "/v1/miners/{miner_id}/jobs/{job_id}/fail",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ml-zk/circuits",
+          "upstream": "/v1/ml-zk/circuits",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ml-zk/prove/modular",
+          "upstream": "/v1/ml-zk/prove/modular",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ml-zk/prove/training",
+          "upstream": "/v1/ml-zk/prove/training",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ml-zk/verify/inference",
+          "upstream": "/v1/ml-zk/verify/inference",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/ml-zk/verify/training",
+          "upstream": "/v1/ml-zk/verify/training",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/monitoring/dashboard",
+          "upstream": "/v1/monitoring/dashboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/monitoring/dashboard/metrics",
+          "upstream": "/v1/monitoring/dashboard/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/monitoring/dashboard/summary",
+          "upstream": "/v1/monitoring/dashboard/summary",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/monitoring/metrics",
+          "upstream": "/v1/monitoring/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/multi-modal-rl/health",
+          "upstream": "/v1/multi-modal-rl/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/multi-modal-rl/jobs",
+          "upstream": "/v1/multi-modal-rl/jobs",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/multi-modal-rl/jobs/{job_id}",
+          "upstream": "/v1/multi-modal-rl/jobs/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/multi-modal-rl/jobs/{job_id}/cancel",
+          "upstream": "/v1/multi-modal-rl/jobs/{job_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/multi-modal-rl/jobs/{job_id}/result",
+          "upstream": "/v1/multi-modal-rl/jobs/{job_id}/result",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/offers",
+          "upstream": "/v1/offers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/oracle/health",
+          "upstream": "/v1/oracle/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/oracle/oracle/health",
+          "upstream": "/v1/oracle/oracle/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/oracle/price",
+          "upstream": "/v1/oracle/price",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/oracle/price/{pair}",
+          "upstream": "/v1/oracle/price/{pair}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/oracle/prices",
+          "upstream": "/v1/oracle/prices",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/payments",
+          "upstream": "/v1/payments",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/payments/send",
+          "upstream": "/v1/payments/send",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/payments/{payment_id}",
+          "upstream": "/v1/payments/{payment_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/payments/{payment_id}/receipt",
+          "upstream": "/v1/payments/{payment_id}/receipt",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/payments/{payment_id}/refund",
+          "upstream": "/v1/payments/{payment_id}/refund",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/payments/{payment_id}/release",
+          "upstream": "/v1/payments/{payment_id}/release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/portfolio/health",
+          "upstream": "/v1/portfolio/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/portfolio/summary",
+          "upstream": "/v1/portfolio/summary",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/portfolio/unified",
+          "upstream": "/v1/portfolio/unified",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/register",
+          "upstream": "/v1/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/cross-chain/analytics",
+          "upstream": "/v1/reputation/cross-chain/analytics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/cross-chain/events",
+          "upstream": "/v1/reputation/cross-chain/events",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/cross-chain/leaderboard",
+          "upstream": "/v1/reputation/cross-chain/leaderboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/events/{agent_id}",
+          "upstream": "/v1/reputation/events/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/feedback/{agent_id}",
+          "upstream": "/v1/reputation/feedback/{agent_id}",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/job-completion",
+          "upstream": "/v1/reputation/job-completion",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/leaderboard",
+          "upstream": "/v1/reputation/leaderboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/metrics",
+          "upstream": "/v1/reputation/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/profile/{agent_id}",
+          "upstream": "/v1/reputation/profile/{agent_id}",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/profile/{agent_id}/region",
+          "upstream": "/v1/reputation/profile/{agent_id}/region",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/profile/{agent_id}/specialization",
+          "upstream": "/v1/reputation/profile/{agent_id}/specialization",
+          "methods": [
+            "PUT"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/trust-score/{agent_id}",
+          "upstream": "/v1/reputation/trust-score/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/{agent_id}/cross-chain",
+          "upstream": "/v1/reputation/{agent_id}/cross-chain",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/reputation/{agent_id}/cross-chain/sync",
+          "upstream": "/v1/reputation/{agent_id}/cross-chain/sync",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/analytics",
+          "upstream": "/v1/rewards/analytics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/batch-process",
+          "upstream": "/v1/rewards/batch-process",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/calculate-and-distribute",
+          "upstream": "/v1/rewards/calculate-and-distribute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/distributions/{agent_id}",
+          "upstream": "/v1/rewards/distributions/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/leaderboard",
+          "upstream": "/v1/rewards/leaderboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/milestones/{agent_id}",
+          "upstream": "/v1/rewards/milestones/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/profile",
+          "upstream": "/v1/rewards/profile",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/profile/{agent_id}",
+          "upstream": "/v1/rewards/profile/{agent_id}",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/simulate-reward",
+          "upstream": "/v1/rewards/simulate-reward",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/tier-progress/{agent_id}",
+          "upstream": "/v1/rewards/tier-progress/{agent_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/rewards/tiers",
+          "upstream": "/v1/rewards/tiers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services",
+          "upstream": "/v1/services",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/blender/render",
+          "upstream": "/v1/services/blender/render",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/ffmpeg/transcode",
+          "upstream": "/v1/services/ffmpeg/transcode",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/llm/inference",
+          "upstream": "/v1/services/llm/inference",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/llm/stream",
+          "upstream": "/v1/services/llm/stream",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/stable-diffusion/generate",
+          "upstream": "/v1/services/stable-diffusion/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/stable-diffusion/img2img",
+          "upstream": "/v1/services/stable-diffusion/img2img",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/whisper/transcribe",
+          "upstream": "/v1/services/whisper/transcribe",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/whisper/translate",
+          "upstream": "/v1/services/whisper/translate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/{name}",
+          "upstream": "/v1/services/{name}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/services/{name}/test",
+          "upstream": "/v1/services/{name}/test",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stake",
+          "upstream": "/v1/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stake/{stake_id}",
+          "upstream": "/v1/stake/{stake_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stake/{stake_id}/add",
+          "upstream": "/v1/stake/{stake_id}/add",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stake/{stake_id}/complete",
+          "upstream": "/v1/stake/{stake_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stake/{stake_id}/rewards",
+          "upstream": "/v1/stake/{stake_id}/rewards",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stake/{stake_id}/unbond",
+          "upstream": "/v1/stake/{stake_id}/unbond",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/stakes",
+          "upstream": "/v1/stakes",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/staking/claim-rewards",
+          "upstream": "/v1/staking/claim-rewards",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/staking/leaderboard",
+          "upstream": "/v1/staking/leaderboard",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/staking/my-positions",
+          "upstream": "/v1/staking/my-positions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/staking/my-rewards",
+          "upstream": "/v1/staking/my-rewards",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/staking/risk-assessment/{agent_wallet}",
+          "upstream": "/v1/staking/risk-assessment/{agent_wallet}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/staking/stats",
+          "upstream": "/v1/staking/stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/state/dump",
+          "upstream": "/v1/state/dump",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/status",
+          "upstream": "/v1/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/supply",
+          "upstream": "/v1/supply",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/sync-status",
+          "upstream": "/v1/sync-status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/tasks/ollama",
+          "upstream": "/v1/tasks/ollama",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/tee/attestations",
+          "upstream": "/v1/tee/attestations",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/tee/attestations/{attestation_id}",
+          "upstream": "/v1/tee/attestations/{attestation_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/tee/enclaves",
+          "upstream": "/v1/tee/enclaves",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/tee/enclaves/{enclave_id}",
+          "upstream": "/v1/tee/enclaves/{enclave_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/agents/{agent_id}/summary",
+          "upstream": "/v1/trading/agents/{agent_id}/summary",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/analytics",
+          "upstream": "/v1/trading/analytics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/matches",
+          "upstream": "/v1/trading/matches",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/matches/{match_id}",
+          "upstream": "/v1/trading/matches/{match_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/negotiations",
+          "upstream": "/v1/trading/negotiations",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/negotiations/{negotiation_id}",
+          "upstream": "/v1/trading/negotiations/{negotiation_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/requests",
+          "upstream": "/v1/trading/requests",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/requests/{request_id}",
+          "upstream": "/v1/trading/requests/{request_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/requests/{request_id}/matches",
+          "upstream": "/v1/trading/requests/{request_id}/matches",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/trading/simulate-match",
+          "upstream": "/v1/trading/simulate-match",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/transactions/{tx_hash}",
+          "upstream": "/v1/transactions/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/users/me",
+          "upstream": "/v1/users/me",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/users/{user_id}/balance",
+          "upstream": "/v1/users/{user_id}/balance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/users/{user_id}/transactions",
+          "upstream": "/v1/users/{user_id}/transactions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/validators",
+          "upstream": "/v1/validators",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/web-vitals",
+          "upstream": "/v1/web-vitals",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/web-vitals/health",
+          "upstream": "/v1/web-vitals/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/zk/generate",
+          "upstream": "/v1/zk/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/zk/health",
+          "upstream": "/v1/zk/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/zk/health/computation-correct",
+          "upstream": "/v1/zk/health/computation-correct",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/zk/info",
+          "upstream": "/v1/zk/info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/zk/receipt/verify",
+          "upstream": "/v1/zk/receipt/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/coordinator/v1/zk/verify",
+          "upstream": "/v1/zk/verify",
+          "methods": [
+            "POST"
+          ]
+        }
+      ]
+    },
+    "exchange": {
+      "env": "EXCHANGE_SERVICE_URL",
+      "base_url": "http://localhost:8106",
+      "spec": null,
+      "operations": []
+    },
+    "explorer": {
+      "env": "EXPLORER_SERVICE_URL",
+      "base_url": "http://localhost:8100",
+      "spec": null,
+      "operations": []
+    },
+    "governance": {
+      "env": "GOVERNANCE_SERVICE_URL",
+      "base_url": "http://localhost:8105",
+      "spec": null,
+      "operations": []
+    },
+    "market": {
+      "env": "MARKET_SERVICE_URL",
+      "base_url": "http://localhost:8102",
+      "spec": "market-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/market/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/live",
+          "upstream": "/live",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/metrics",
+          "upstream": "/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/ready",
+          "upstream": "/ready",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/knowledge-graph",
+          "upstream": "/v1/knowledge-graph",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/knowledge-graph/{graph_id}",
+          "upstream": "/v1/knowledge-graph/{graph_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/knowledge-graph/{graph_id}/edges",
+          "upstream": "/v1/knowledge-graph/{graph_id}/edges",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/knowledge-graph/{graph_id}/nodes",
+          "upstream": "/v1/knowledge-graph/{graph_id}/nodes",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market",
+          "upstream": "/v1/market",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/access/{access_key}",
+          "upstream": "/v1/market/access/{access_key}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/analytics",
+          "upstream": "/v1/market/analytics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/bids/{bid_id}/complete",
+          "upstream": "/v1/market/bids/{bid_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/dynamic-pricing",
+          "upstream": "/v1/market/dynamic-pricing",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/edge-advertise",
+          "upstream": "/v1/market/edge-advertise",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/edge/{node_id}/health",
+          "upstream": "/v1/market/edge/{node_id}/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/ipfs/rental-token",
+          "upstream": "/v1/market/ipfs/rental-token",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/ipfs/rental/{access_key}",
+          "upstream": "/v1/market/ipfs/rental/{access_key}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs",
+          "upstream": "/v1/market/jobs",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/usage",
+          "upstream": "/v1/market/jobs/usage",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}",
+          "upstream": "/v1/market/jobs/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/access",
+          "upstream": "/v1/market/jobs/{job_id}/access",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/cancel",
+          "upstream": "/v1/market/jobs/{job_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/pin-confirm",
+          "upstream": "/v1/market/jobs/{job_id}/pin-confirm",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/refund",
+          "upstream": "/v1/market/jobs/{job_id}/refund",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/jobs/{job_id}/release",
+          "upstream": "/v1/market/jobs/{job_id}/release",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/match",
+          "upstream": "/v1/market/match",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offer",
+          "upstream": "/v1/market/offer",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offer-by-id/{offer_id}",
+          "upstream": "/v1/market/offer-by-id/{offer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offer/{plugin_id}",
+          "upstream": "/v1/market/offer/{plugin_id}",
+          "methods": [
+            "DELETE",
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offer/{plugin_id}/health",
+          "upstream": "/v1/market/offer/{plugin_id}/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offer/{service_id}/rate",
+          "upstream": "/v1/market/offer/{service_id}/rate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offer/{service_id}/ratings",
+          "upstream": "/v1/market/offer/{service_id}/ratings",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offers",
+          "upstream": "/v1/market/offers",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offers/{offer_id}",
+          "upstream": "/v1/market/offers/{offer_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offers/{offer_id}/book",
+          "upstream": "/v1/market/offers/{offer_id}/book",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offers/{offer_id}/cancel",
+          "upstream": "/v1/market/offers/{offer_id}/cancel",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/offers/{offer_id}/history",
+          "upstream": "/v1/market/offers/{offer_id}/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/parameters/apply",
+          "upstream": "/v1/market/parameters/apply",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/performance",
+          "upstream": "/v1/market/performance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/plugins",
+          "upstream": "/v1/market/plugins",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/ratings/mark-synced",
+          "upstream": "/v1/market/ratings/mark-synced",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/ratings/sync",
+          "upstream": "/v1/market/ratings/sync",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/ratings/unsynced",
+          "upstream": "/v1/market/ratings/unsynced",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/market/status",
+          "upstream": "/v1/market/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/market/v1/transactions",
+          "upstream": "/v1/transactions",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        }
+      ]
+    },
+    "pool-hub": {
+      "env": "POOL_HUB_URL",
+      "base_url": "http://localhost:8210",
+      "spec": null,
+      "operations": []
+    },
+    "trading": {
+      "env": "TRADING_SERVICE_URL",
+      "base_url": "http://localhost:8104",
+      "spec": null,
+      "operations": []
+    },
+    "wallet": {
+      "env": "WALLET_SERVICE_URL",
+      "base_url": "http://localhost:8108",
+      "spec": "wallet-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/wallet/exchange/price.json",
+          "upstream": "/exchange/price.json",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/ready",
+          "upstream": "/ready",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/deposit",
+          "upstream": "/v1/bridge/deposit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/deposit/{tx_hash}",
+          "upstream": "/v1/bridge/deposit/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/deposits",
+          "upstream": "/v1/bridge/deposits",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/estimate",
+          "upstream": "/v1/bridge/estimate",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/poll",
+          "upstream": "/v1/bridge/poll",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/polling",
+          "upstream": "/v1/bridge/polling",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/price",
+          "upstream": "/v1/bridge/price",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/status",
+          "upstream": "/v1/bridge/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/withdraw/build",
+          "upstream": "/v1/bridge/withdraw/build",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/withdraw/estimate",
+          "upstream": "/v1/bridge/withdraw/estimate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/withdraw/submit",
+          "upstream": "/v1/bridge/withdraw/submit",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/withdraw/{ait_tx_hash}",
+          "upstream": "/v1/bridge/withdraw/{ait_tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/bridge/withdrawals",
+          "upstream": "/v1/bridge/withdrawals",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/calculate",
+          "upstream": "/v1/exchange/calculate",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/deposits",
+          "upstream": "/v1/exchange/deposits",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/deposits/{deposit_id}",
+          "upstream": "/v1/exchange/deposits/{deposit_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/deposits/{deposit_id}/complete",
+          "upstream": "/v1/exchange/deposits/{deposit_id}/complete",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/deposits/{deposit_id}/verify",
+          "upstream": "/v1/exchange/deposits/{deposit_id}/verify",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/history",
+          "upstream": "/v1/exchange/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/price",
+          "upstream": "/v1/exchange/price",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/exchange/status",
+          "upstream": "/v1/exchange/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/receipts/{job_id}",
+          "upstream": "/v1/receipts/{job_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/receipts/{job_id}/history",
+          "upstream": "/v1/receipts/{job_id}/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/rpc",
+          "upstream": "/v1/rpc",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/wallets",
+          "upstream": "/v1/wallets",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/wallets/{wallet_id}/balance",
+          "upstream": "/v1/wallets/{wallet_id}/balance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/wallets/{wallet_id}/send",
+          "upstream": "/v1/wallets/{wallet_id}/send",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/wallets/{wallet_id}/sign",
+          "upstream": "/v1/wallets/{wallet_id}/sign",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/wallet/v1/wallets/{wallet_id}/unlock",
+          "upstream": "/v1/wallets/{wallet_id}/unlock",
+          "methods": [
+            "POST"
+          ]
+        }
+      ]
+    }
+  }
+}

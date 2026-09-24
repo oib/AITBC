@@ -21,6 +21,51 @@ Each API includes an OpenAPI 3.1.0 specification that can be used with API docum
 - Postman
 - API clients
 
+## Service-qualified API (`/api/v2`)
+
+The gateway also serves a service-qualified surface:
+
+```
+/api/v2/<service>/<upstream path>
+```
+
+The qualifier selects the upstream service and the remainder of the path is
+forwarded **verbatim** — `/api/v2/market/v1/market/offers` reaches the market
+service's `/v1/market/offers`, and `/api/v2/chain/rpc/status` reaches the
+blockchain node's `/rpc/status`. Unlike the `/v1/*` table, no path is shared
+between services, so a coordinator route and a market route can never claim
+each other's traffic; the coordinator's market routes live at
+`/api/v2/coordinator/v1/market/*`, the market service's at
+`/api/v2/market/v1/market/*`.
+
+`GET /api/v2` returns the qualifier directory. The generated route map —
+`api-v2-map.json` in this directory — lists every documented upstream path
+per qualifier and is checked into CI: it is produced by
+`make openapi`/`scripts/extract_openapi_specs.py` from the gateway's own
+table, so it cannot disagree with what the gateway serves. Upstreams without
+a committed spec appear with `"spec": null`.
+
+The legacy `/v1/*` routes remain live and unchanged; `/api/v2` is additive.
+
+## Readiness
+
+Production services expose `/ready` (coordinator: `/health/ready`) that
+returns 503 while an **enabled required feature** is unavailable — database
+connectivity always, plus per-service required dependencies:
+
+- **wallet**: keystore/ledger/operation-ledger sqlite files and the
+  blockchain RPC that send and balance routes broadcast through.
+- **exchange**: its database, plus the bridge monitor's deposits store when
+  `BRIDGE_DEPOSIT_ENABLED`/`BRIDGE_WITHDRAW_ENABLED` is on.
+- **blockchain-node**: chain database and a non-empty chain set, plus a
+  signable proposer key when block production is enabled.
+- **market**: service database and the operation-ledger file.
+- **api-gateway**: its proxy client, plus any upstreams declared in
+  `GATEWAY_REQUIRED_SERVICES`.
+
+A failing check reports only its name; the reason is logged server-side,
+since `/ready` is unauthenticated and dependency errors can carry DSNs.
+
 ## Authentication
 
 Authentication is per-service:
