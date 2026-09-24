@@ -445,4 +445,4 @@ All five nodes converged at height **3183** and continued producing new blocks. 
 - Investigate and clean historical `chain.db.pre*` and `predeploy` backups.
 - Continue watching the stale <node1> worker process (`aitbc_chain.main` / `uvicorn` hanging in `deactivating`).
 - Consider reducing the 300-second round timeout after safety testing.
-- Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/v0.25/v0.25.2_change.log` on the shop node.
+- Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/v0.25/v0.25.7_change.log` on the shop node.
