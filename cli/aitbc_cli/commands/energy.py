@@ -11,7 +11,7 @@ Commands:
 
 Rail selection is automatic: when ``EVM_RPC_URL`` + ``ENERGY_PRICING_CONTRACT_ADDRESS``
 are configured the EVM ``IEnergyPricing`` contract is used; otherwise commands talk to
-the coordinator's ``/v1/market/native-energy/*`` endpoints (miner auth for writes).
+the coordinator's ``/v1/marketplace/native-energy/*`` endpoints (miner auth for writes).
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ from ..utils.energy_quote import (
     verify_quote,
     verify_quote_against_oracle,
 )
-from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger, looks_like_jwt
+from ..utils.http_client import AITBCHTTPClient, NetworkError, auth_client_kwargs, get_logger
 
 logger = get_logger(__name__)
 
@@ -43,7 +43,9 @@ def _coordinator_base() -> str:
     """Coordinator API base URL (native pricing rail lives here)."""
     config = get_config()
     url = (
-        getattr(config, "coordinator_url", None) or getattr(config, "coordinator_api_url", None) or "http://localhost:8203"
+        getattr(config, "coordinator_url", None)
+        or getattr(config, "coordinator_api_url", None)
+        or "http://localhost:8203"
     ).rstrip("/")
     if url.endswith("/v1"):
         url = url[:-3]
@@ -53,21 +55,16 @@ def _coordinator_base() -> str:
 def _coordinator_client(ctx, *, miner: bool = False, timeout: int = 30) -> AITBCHTTPClient:
     """HTTP client for the coordinator, with miner-credential auth when needed."""
     explicit = ctx.obj.get("api_key") if ctx.obj else None
-    kwargs = auth_client_kwargs(explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client")
+    kwargs = auth_client_kwargs(
+        explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client"
+    )
     return AITBCHTTPClient(base_url=_coordinator_base(), timeout=timeout, **kwargs)
 
 
-def _native_energy_request(
-    ctx,
-    method: str,
-    path: str,
-    *,
-    miner: bool = False,
-    params: dict | None = None,
-    json_body: dict | None = None,
-    timeout: int = 15,
-) -> dict:
-    """Call a ``/v1/market/native-energy/*`` endpoint.
+def _native_energy_request(ctx, method: str, path: str, *, miner: bool = False,
+                           params: dict | None = None, json_body: dict | None = None,
+                           timeout: int = 15) -> dict:
+    """Call a ``/v1/marketplace/native-energy/*`` endpoint.
 
     Native pricing state lives on the hub coordinator; a node's local
     coordinator may be EVM-railed or lack the tables, so fall back to the
@@ -91,13 +88,9 @@ def _native_energy_request(
 
     last: Exception | None = None
     for base in bases:
-        kwargs = (
-            _miner_client_kwargs(ctx)
-            if miner
-            else auth_client_kwargs(
-                ctx.obj.get("api_key") if ctx.obj else None,
-                getattr(get_config(), "api_key", None),
-            )
+        explicit = ctx.obj.get("api_key") if ctx.obj else None
+        kwargs = auth_client_kwargs(
+            explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client"
         )
         client = AITBCHTTPClient(base_url=base, timeout=timeout, **kwargs)
         try:
@@ -108,27 +101,6 @@ def _native_energy_request(
             last = e
             logger.debug("native-energy %s %s via %s failed: %s", method, path, base, e)
     raise last or NetworkError("no coordinator reachable")
-
-
-def _miner_client_kwargs(ctx) -> dict:
-    """Miner credentials: ``--api-key``, the stored ``miner`` credential, or the
-    configured API key (``MINER_API_KEYS`` in the coordinator env file).
-
-    Deliberately skips the ``client`` credential fallback — a client-role JWT can
-    never satisfy a miner-gated endpoint, and sending it would suppress the
-    ``X-Api-Key`` miner key that does.
-    """
-    from ..auth import AuthManager  # late import: auth imports ..utils
-
-    explicit = ctx.obj.get("api_key") if ctx.obj else None
-    token = explicit or AuthManager().get_credential("miner", quiet=True)
-    if not token:
-        token = getattr(get_config(), "api_key", None)
-    if not token:
-        return {}
-    if looks_like_jwt(token):
-        return {"headers": {"Authorization": f"Bearer {token}"}}
-    return {"api_key": token}
 
 
 @click.group()
@@ -236,13 +208,11 @@ def provider_register(
     """Register a GPU energy profile (EVM contract or native rail)."""
     config = get_config()
     if not _evm_energy_configured():
+        client = _coordinator_client(ctx, miner=True)
         try:
-            result = _native_energy_request(
-                ctx,
-                "post",
-                "/v1/market/native-energy/profile",
-                miner=True,
-                json_body={
+            result = client.post(
+                "/v1/marketplace/native-energy/profile",
+                json={
                     "resource_id": resource_id,
                     "provider": provider_address,
                     "model_id": model_id,
@@ -287,7 +257,7 @@ def provider_register(
     # Build and submit the registerEnergyProfile call via the EVM client.
     # We use the IEnergyPricing ABI directly since it's a separate contract.
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.market.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
+    from aitbc.marketplace.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     scale = 10**18
@@ -331,8 +301,9 @@ def provider_profile(ctx, resource_id, json_output):
     """Read a registered energy profile (EVM contract or native rail)."""
     config = get_config()
     if not _evm_energy_configured():
+        client = _coordinator_client(ctx, timeout=10)
         try:
-            data = _native_energy_request(ctx, "get", f"/v1/market/native-energy/profile/{resource_id}", timeout=10)
+            data = client.get(f"/v1/marketplace/native-energy/profile/{resource_id}")
         except NetworkError as e:
             error(f"Native energy profile lookup failed: {e}")
             sys.exit(1)
@@ -356,7 +327,7 @@ def provider_profile(ctx, resource_id, json_output):
         sys.exit(1)
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.market.energy_oracle import EVMEnergyOracle
+    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
@@ -402,8 +373,9 @@ def provider_rate(
     config = get_config()
     if not _evm_energy_configured():
         if not publish:
+            client = _coordinator_client(ctx, miner=True, timeout=10)
             try:
-                data = _native_energy_request(ctx, "get", "/v1/market/native-energy/rate", miner=True, timeout=10)
+                data = client.get("/v1/marketplace/native-energy/rate")
             except NetworkError as e:
                 error(f"Native energy rate lookup failed: {e}")
                 sys.exit(1)
@@ -419,13 +391,11 @@ def provider_rate(
         if ait_per_eur is None:
             error("--ait-per-eur is required when --publish is set")
             sys.exit(1)
+        client = _coordinator_client(ctx, miner=True)
         try:
-            result = _native_energy_request(
-                ctx,
-                "post",
-                "/v1/market/native-energy/rate",
-                miner=True,
-                json_body={"ait_per_eur": ait_per_eur, "source_kind": source_kind},
+            result = client.post(
+                "/v1/marketplace/native-energy/rate",
+                json={"ait_per_eur": ait_per_eur, "source_kind": source_kind},
             )
         except NetworkError as e:
             error(f"Native rate publish failed: {e}")
@@ -443,7 +413,7 @@ def provider_rate(
         sys.exit(1)
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.market.energy_oracle import EVMEnergyOracle
+    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
@@ -497,7 +467,7 @@ def provider_rate(
         error("A private key is required to publish a rate")
         sys.exit(1)
 
-    from aitbc.market.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
+    from aitbc.marketplace.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
 
     scale = 10**18
     ait_scaled = int(ait_per_eur * scale)
@@ -543,17 +513,15 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
     """Compute the energy floor for given rental terms (EVM or native rail)."""
     config = get_config()
     if not (config.evm_rpc_url and config.energy_pricing_contract_address):
+        client = _coordinator_client(ctx, timeout=10)
         try:
-            result = _native_energy_request(
-                ctx,
-                "get",
-                "/v1/market/native-energy/floor",
+            result = client.get(
+                "/v1/marketplace/native-energy/floor",
                 params={
                     "resource_id": resource_id,
                     "gpu_count": gpu_count,
                     "duration_seconds": duration_seconds,
                 },
-                timeout=10,
             )
         except NetworkError as e:
             error(f"Native energy floor lookup failed: {e}")
@@ -579,7 +547,7 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
         return
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.market.energy_oracle import EVMEnergyOracle
+    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
@@ -667,12 +635,12 @@ def suggest(
     prints the resulting energy floor plus the compute-multiplier market
     price suggestion (1 AIT = one reference compute-hour = EUR 0.25).
     """
-    from aitbc.market.energy_pricing import (
+    from aitbc.marketplace.energy_pricing import (
         FIXED_POINT_SCALE,
         NATIVE_UNITS_PER_AIT,
         compute_energy_net_units,
     )
-    from aitbc.market.hardware_catalog import (
+    from aitbc.marketplace.hardware_catalog import (
         BASE_PLATFORM_W,
         compute_multiplier,
         estimate_node_power,
@@ -743,9 +711,11 @@ def suggest(
     elif config.evm_rpc_url and config.energy_pricing_contract_address:
         try:
             from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-            from aitbc.market.energy_oracle import EVMEnergyOracle
+            from aitbc.marketplace.energy_oracle import EVMEnergyOracle
 
-            rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
+            rpc = EthereumRPCClient(
+                EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id))
+            )
             oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
             rate = Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
             rate_src = "on-chain rate"
@@ -754,7 +724,7 @@ def suggest(
     if rate is None and not config.evm_rpc_url:
         # native rail: the published rate lives in the coordinator DB
         try:
-            result = _native_energy_request(ctx, "get", "/v1/market/native-energy/rate", miner=True, timeout=10)
+            result = _coordinator_client(ctx, miner=True, timeout=10).get("/v1/marketplace/native-energy/rate")
             native_rate = Decimal(str(result["ait_per_eur"]))
             if native_rate > 0:
                 rate, rate_src = native_rate, "native rate"
@@ -823,19 +793,15 @@ def suggest(
         rid = resource_id or "<resource-id>"
         prov = provider_address or "<provider-address>"
         mid = model_id or model_key or "<model-id>"
+        info("Apply with:" if not register else "Applied via --register; next:")
         if not register:
-            info("Apply with:")
             if _evm_energy_configured():
-                info(
-                    f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
-                    f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff} --wallet <wallet>"
-                )
-                info("  (native quotes also need POST /v1/market/native-energy/profile with the same watts/tariff)")
+                info(f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
+                     f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff} --wallet <wallet>")
+                info("  (native quotes also need POST /v1/marketplace/native-energy/profile with the same watts/tariff)")
             else:
-                info(
-                    f"  aitbc energy suggest --register --resource-id {rid} --provider-address {prov} "
-                    f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff}"
-                )
+                info(f"  aitbc energy suggest --register --resource-id {rid} --provider-address {prov} "
+                     f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff}")
                 info("  (posts the profile to the coordinator's native-energy endpoint)")
         if suggested is not None:
             info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {suggested}}}'")
@@ -860,13 +826,11 @@ def suggest(
             )
             return
         # native rail: upsert the profile on the coordinator (miner auth)
+        client = _coordinator_client(ctx, miner=True)
         try:
-            result = _native_energy_request(
-                ctx,
-                "post",
-                "/v1/market/native-energy/profile",
-                miner=True,
-                json_body={
+            result = client.post(
+                "/v1/marketplace/native-energy/profile",
+                json={
                     "resource_id": resource_id,
                     "provider": provider_address,
                     "model_id": model_id or model_key or resource_id,
