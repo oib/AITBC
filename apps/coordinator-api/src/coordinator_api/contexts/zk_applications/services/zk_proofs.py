@@ -213,6 +213,11 @@ def _verification_key_mismatch(zkey_path: Path, vkey_path: Path) -> str | None:
     if absent:
         return f"verification key {vkey_path.name} is missing {', '.join(absent)}. {export_it}"
 
+    return _vkey_shape_mismatch(vkey, declared, vkey_path, export_it)
+
+
+def _vkey_shape_mismatch(vkey: dict, declared: int, vkey_path: Path, export_it: str) -> str | None:
+    """Check IC length and that every coordinate is a decimal bn128 field element."""
     ic = vkey.get("IC")
     if not isinstance(ic, list) or len(ic) != declared + 1:
         found = len(ic) if isinstance(ic, list) else "no list"
@@ -230,6 +235,25 @@ def _verification_key_mismatch(zkey_path: Path, vkey_path: Path) -> str | None:
                 )
 
     return None
+
+
+def _computation_correct(circuit_name: str, public_signals: list[str], is_verified: bool) -> bool:
+    """Evaluate the circuit's success signal, if it declares one.
+
+    No success signal: a verified Groth16 proof only shows that the statement
+    selected by the public inputs is internally consistent. It does not, on its
+    own, show that the statement is the one the coordinator wanted (e.g.
+    receipt_public only proves hash consistency; receipt_model needs
+    public-signal binding in verify_model_proof).
+    """
+    success_index = CIRCUIT_SUCCESS_SIGNALS.get(circuit_name)
+    if not is_verified or success_index is None:
+        return False
+    if success_index == -1:
+        success_value = public_signals[-1] if public_signals else None
+    else:
+        success_value = public_signals[success_index] if len(public_signals) > success_index else None
+    return success_value == "1"
 
 
 class ZKProofService:
@@ -506,54 +530,51 @@ class ZKProofService:
                     vkey = json.load(f)
             except FileNotFoundError:
                 return {"verified": False, "error": f"Verification key not found at {vkey_path}"}
-            # process.exit(0) is required: snarkjs keeps worker threads alive after
-            # groth16.verify, so Node never leaves the event loop and communicate() hangs
-            # (V23-91).
-            script = f"\nconst snarkjs = require('snarkjs');\n\nasync function main() {{\n    try {{\n        const vKey = {json.dumps(vkey)};\n        const proof = {json.dumps(proof)};\n        const publicSignals = {json.dumps(public_signals)};\n\n        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);\n        console.log(verified);\n        process.exit(0);\n    }} catch (error) {{\n        console.error('Error:', error.message);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
-            with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
-                f.write(script)
-                script_file = f.name
-            try:
-                proc = await asyncio.create_subprocess_exec(
-                    "node",
-                    script_file,
-                    stdout=asyncio.subprocess.PIPE,
-                    stderr=asyncio.subprocess.PIPE,
-                    cwd=str(self.circuits_dir),
-                    env=_node_env(),
-                )
-                stdout, stderr = await proc.communicate()
-                if proc.returncode != 0:
-                    error = stderr.decode()
-                    logger.error("Proof verification failed: %s", error)
-                    return {
-                        "verified": False,
-                        "computation_correct": False,
-                        "privacy_preserved": False,
-                        "error": error,
-                    }
-                is_verified = stdout.decode().strip() == "true"
-                success_index = CIRCUIT_SUCCESS_SIGNALS.get(circuit_name)
-                if is_verified and success_index is not None:
-                    if success_index == -1:
-                        success_value = public_signals[-1] if public_signals else None
-                    else:
-                        success_value = public_signals[success_index] if len(public_signals) > success_index else None
-                    computation_correct = success_value == "1"
-                else:
-                    # No success signal: a verified Groth16 proof only shows that the
-                    # statement selected by the public inputs is internally consistent.
-                    # It does not, on its own, show that the statement is the one the
-                    # coordinator wanted (e.g. receipt_public only proves hash
-                    # consistency; receipt_model needs public-signal binding in
-                    # verify_model_proof).
-                    computation_correct = False
-                return {"verified": is_verified, "computation_correct": computation_correct, "privacy_preserved": is_verified}
-            finally:
-                os.unlink(script_file)
+            is_verified, error = await self._snarkjs_groth16_verify(vkey, proof, public_signals)
+            if error is not None:
+                return {
+                    "verified": False,
+                    "computation_correct": False,
+                    "privacy_preserved": False,
+                    "error": error,
+                }
+            computation_correct = _computation_correct(circuit_name, public_signals, is_verified)
+            return {"verified": is_verified, "computation_correct": computation_correct, "privacy_preserved": is_verified}
         except Exception as e:
             logger.error("Failed to verify proof: %s", e)
             return {"verified": False, "error": str(e)}
+
+    async def _snarkjs_groth16_verify(
+        self, vkey: dict[str, Any], proof: dict[str, Any], public_signals: list[str]
+    ) -> tuple[bool, str | None]:
+        """Run snarkjs groth16.verify in a Node subprocess.
+
+        Returns ``(verified, None)`` on success or ``(False, stderr)`` when the
+        verifier itself fails. process.exit(0) is required: snarkjs keeps worker
+        threads alive after groth16.verify, so Node never leaves the event loop
+        and communicate() hangs (V23-91).
+        """
+        script = f"\nconst snarkjs = require('snarkjs');\n\nasync function main() {{\n    try {{\n        const vKey = {json.dumps(vkey)};\n        const proof = {json.dumps(proof)};\n        const publicSignals = {json.dumps(public_signals)};\n\n        const verified = await snarkjs.groth16.verify(vKey, publicSignals, proof);\n        console.log(verified);\n        process.exit(0);\n    }} catch (error) {{\n        console.error('Error:', error.message);\n        process.exit(1);\n    }}\n}}\n\nmain();\n"
+        with tempfile.NamedTemporaryFile(mode="w", suffix=".js", delete=False) as f:
+            f.write(script)
+            script_file = f.name
+        try:
+            proc = await asyncio.create_subprocess_exec(
+                "node",
+                script_file,
+                stdout=asyncio.subprocess.PIPE,
+                stderr=asyncio.subprocess.PIPE,
+                cwd=str(self.circuits_dir),
+                env=_node_env(),
+            )
+            stdout, stderr = await proc.communicate()
+            if proc.returncode != 0:
+                error = stderr.decode()
+                logger.error("Proof verification failed: %s", error)
+                return False, error
+            return stdout.decode().strip() == "true", None
+        finally:
+            os.unlink(script_file)
 
     async def _prepare_inputs(self, receipt: Receipt, job_result: JobResult, privacy_level: str) -> dict[str, Any]:
         """Prepare `receipt_public` inputs: public Poseidon hash of 4 private receipt fields."""

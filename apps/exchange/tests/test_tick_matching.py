@@ -219,6 +219,7 @@ class TestPlaceOrderBoundary:
         handler.send_error = MagicMock()
         handler.send_json_response = MagicMock()
         handler.handle_place_order = ExchangeMixin.handle_place_order.__get__(handler, ExchangeMixin)
+        handler._parse_order_payload = ExchangeMixin._parse_order_payload.__get__(handler, ExchangeMixin)
         handler._match_orders_in_txn = ExchangeMixin._match_orders_in_txn.__get__(handler, ExchangeMixin)
         return handler
 
