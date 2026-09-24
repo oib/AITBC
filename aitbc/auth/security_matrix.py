@@ -30,12 +30,18 @@ class AuthLevel(Enum):
 ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
     # Public infrastructure routes
     "/health": AuthLevel.NONE,
+    # The probe paths coordinator-api actually serves. Until 2026-09-24 these read
+    # "/v1/health/live" and "/v1/health/ready", alongside a "/v1/health" -- three
+    # paths no service has ever served. The two the app does serve had no entry, so
+    # they fell through to deny-by-default and answered 401 to every caller, probe
+    # or not. Same "/v1" drift that tests/unit/test_v2399_health_gate_paths.py
+    # records for the scripts and runbooks; it outlived that cleanup in here.
+    # Pinned by tests/security/test_security_matrix_matches_routes.py.
+    "/health/live": AuthLevel.NONE,
+    "/health/ready": AuthLevel.NONE,
     "/docs": AuthLevel.NONE,
     "/openapi.json": AuthLevel.NONE,
     "/redoc": AuthLevel.NONE,
-    "/v1/health": AuthLevel.NONE,
-    "/v1/health/live": AuthLevel.NONE,
-    "/v1/health/ready": AuthLevel.NONE,
     "/v1/status": AuthLevel.NONE,
     "/v1/sync-status": AuthLevel.NONE,
     # Public authentication routes
