@@ -1,13 +1,9 @@
 import os
-import sys
 from logging.config import fileConfig
-from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-# Add src directory to sys.path for module imports
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Importing the models is what registers them on governance_metadata.
 from governance_service.domain import governance as _models  # noqa: F401

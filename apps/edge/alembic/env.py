@@ -13,14 +13,11 @@ synchronous operation.
 
 from __future__ import annotations
 
-import sys
 from logging.config import fileConfig
-from pathlib import Path
 
 from alembic import context
 from sqlalchemy import engine_from_config, pool
 
-sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 # Importing the schema modules is what registers the tables on SQLModel.metadata.
 from aitbc_edge.schemas import database, gpu, island, metrics, serve  # noqa: E402,F401
