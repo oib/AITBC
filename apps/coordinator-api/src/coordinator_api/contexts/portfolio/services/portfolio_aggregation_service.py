@@ -10,6 +10,7 @@ from typing import Any
 
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.env_compat import market_getenv
 from aitbc.http_client import RequestIDPropagatingClient
 from aitbc.utils.units import units_to_ait
 
@@ -23,7 +24,7 @@ class PortfolioAggregationService:
         # Service URLs follow the api-gateway convention: env override, loopback default.
         self.wallet_service_url = os.getenv("WALLET_SERVICE_URL", "http://localhost:8108")
         self.exchange_service_url = os.getenv("EXCHANGE_SERVICE_URL", "http://localhost:8106")
-        self.market_service_url = os.getenv("MARKET_SERVICE_URL", "http://localhost:8102")
+        self.market_service_url = market_getenv("MARKET_SERVICE_URL", "http://localhost:8102")
         self.trading_service_url = os.getenv("TRADING_SERVICE_URL", "http://localhost:8104")
         self.ai_service_url = os.getenv("AI_SERVICE_URL", "http://localhost:8005")
         # Wallet admin routes (/v1/wallets) require X-API-Key = WALLET_API_KEY,

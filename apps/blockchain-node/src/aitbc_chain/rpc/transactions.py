@@ -3,7 +3,6 @@ Transaction-related RPC endpoints.
 """
 
 import asyncio
-import os
 from datetime import UTC, datetime
 from typing import Any
 
@@ -12,6 +11,7 @@ from pydantic import BaseModel, Field, model_validator
 from sqlmodel import col, select
 from sqlalchemy import literal_column
 
+from aitbc.env_compat import market_getenv
 from aitbc.rate_limiting import rate_limit
 from aitbc.utils import DEFAULT_TX_FEE_UNITS
 
@@ -220,7 +220,7 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
 
 
 def _market_bond_min_amount() -> int:
-    return int(os.getenv("MARKET_BOND_MIN_AMOUNT", "0"))
+    return int(market_getenv("MARKET_BOND_MIN_AMOUNT", "0"))
 
 
 def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> bool:
