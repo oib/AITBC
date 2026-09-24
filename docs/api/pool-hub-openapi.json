@@ -1,0 +1,2802 @@
+{
+  "openapi": "3.1.0",
+  "info": {
+    "title": "AITBC Pool Hub",
+    "version": "0.1.0"
+  },
+  "paths": {
+    "/v1/match": {
+      "post": {
+        "tags": [
+          "match"
+        ],
+        "summary": "Find top miners for a job",
+        "operationId": "match_endpoint_v1_match_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MatchRequestPayload"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/MatchResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "match_failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/health": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Pool Hub health status",
+        "operationId": "health_endpoint_health_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HealthResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/metrics": {
+      "get": {
+        "tags": [
+          "metrics"
+        ],
+        "summary": "Prometheus metrics",
+        "operationId": "metrics_endpoint_metrics_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/services/": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "summary": "List Service Configs",
+        "description": "List all service configurations for the miner",
+        "operationId": "list_service_configs_v1_services__get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/ServiceConfigResponse"
+                  },
+                  "title": "Response List Service Configs V1 Services  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/services/{service_type}": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Get Service Config",
+        "description": "Get configuration for a specific service",
+        "operationId": "get_service_config_v1_services__service_type__get",
+        "parameters": [
+          {
+            "name": "service_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      },
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Create Or Update Service Config",
+        "description": "Create or update service configuration",
+        "operationId": "create_or_update_service_config_v1_services__service_type__post",
+        "parameters": [
+          {
+            "name": "service_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceConfigCreate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Invalid service type: {service_type}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "patch": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Patch Service Config",
+        "description": "Partially update service configuration",
+        "operationId": "patch_service_config_v1_services__service_type__patch",
+        "parameters": [
+          {
+            "name": "service_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ServiceConfigUpdate"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ServiceConfigResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service configuration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      },
+      "delete": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Delete Service Config",
+        "description": "Delete service configuration",
+        "operationId": "delete_service_config_v1_services__service_type__delete",
+        "parameters": [
+          {
+            "name": "service_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Delete Service Config V1 Services  Service Type  Delete"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service configuration not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/services/templates/{service_type}": {
+      "get": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Get Service Template",
+        "description": "Get default configuration template for a service",
+        "operationId": "get_service_template_v1_services_templates__service_type__get",
+        "parameters": [
+          {
+            "name": "service_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Type"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Service Template V1 Services Templates  Service Type  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Unknown service type: {service_type}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/services/validate/{service_type}": {
+      "post": {
+        "tags": [
+          "services"
+        ],
+        "summary": "Validate Service Config",
+        "description": "Validate service configuration against miner capabilities",
+        "operationId": "validate_service_config_v1_services_validate__service_type__post",
+        "parameters": [
+          {
+            "name": "service_type",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Type"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Config Data"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Validate Service Config V1 Services Validate  Service Type  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Miner not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/miners/register": {
+      "post": {
+        "tags": [
+          "miners"
+        ],
+        "summary": "Register Miner",
+        "description": "Register a miner with the pool hub.",
+        "operationId": "register_miner_v1_miners_register_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MinerRegisterRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Register Miner V1 Miners Register Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/miners/heartbeat": {
+      "post": {
+        "tags": [
+          "miners"
+        ],
+        "summary": "Miner Heartbeat",
+        "description": "Record a miner heartbeat.",
+        "operationId": "miner_heartbeat_v1_miners_heartbeat_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/MinerHeartbeatRequest"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Miner Heartbeat V1 Miners Heartbeat Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/miners/status": {
+      "get": {
+        "tags": [
+          "miners"
+        ],
+        "summary": "Miner Status",
+        "description": "Return the authenticated miner's status.",
+        "operationId": "miner_status_v1_miners_status_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Miner Status V1 Miners Status Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/validation/service/{service_id}": {
+      "post": {
+        "tags": [
+          "validation"
+        ],
+        "summary": "Validate Service",
+        "description": "Validate if miner can run a specific service with given configuration",
+        "operationId": "validate_service_v1_validation_service__service_id__post",
+        "parameters": [
+          {
+            "name": "service_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Service Id"
+            }
+          },
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "additionalProperties": true,
+                "title": "Config"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Validate Service V1 Validation Service  Service Id  Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/validation/compatible-services": {
+      "get": {
+        "tags": [
+          "validation"
+        ],
+        "summary": "Get Compatible Services",
+        "description": "Get list of services compatible with miner hardware, sorted by compatibility score",
+        "operationId": "get_compatible_services_v1_validation_compatible_services_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Get Compatible Services V1 Validation Compatible Services Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/validation/batch": {
+      "post": {
+        "tags": [
+          "validation"
+        ],
+        "summary": "Validate Multiple Services",
+        "description": "Validate multiple service configurations in batch",
+        "operationId": "validate_multiple_services_v1_validation_batch_post",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "array",
+                "items": {
+                  "type": "object",
+                  "additionalProperties": true
+                },
+                "title": "Validations"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "type": "object",
+                    "additionalProperties": true
+                  },
+                  "title": "Response Validate Multiple Services V1 Validation Batch Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/validation/hardware-profile": {
+      "get": {
+        "tags": [
+          "validation"
+        ],
+        "summary": "Get Hardware Profile",
+        "description": "Get miner's hardware profile with capabilities assessment",
+        "operationId": "get_hardware_profile_v1_validation_hardware_profile_get",
+        "parameters": [
+          {
+            "name": "authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Hardware Profile V1 Validation Hardware Profile Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "401": {
+            "description": "Missing or malformed Authorization header / Invalid or unknown API key",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/metrics/{miner_id}": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Miner Sla Metrics",
+        "description": "Get SLA metrics for a specific miner",
+        "operationId": "get_miner_sla_metrics_v1_sla_metrics__miner_id__get",
+        "parameters": [
+          {
+            "name": "miner_id",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Miner Id"
+            }
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SLAMetricResponse"
+                  },
+                  "title": "Response Get Miner Sla Metrics V1 Sla Metrics  Miner Id  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/metrics": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get All Sla Metrics",
+        "description": "Get SLA metrics across all miners",
+        "operationId": "get_all_sla_metrics_v1_sla_metrics_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SLAMetricResponse"
+                  },
+                  "title": "Response Get All Sla Metrics V1 Sla Metrics Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/violations": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Sla Violations",
+        "description": "Get SLA violations",
+        "operationId": "get_sla_violations_v1_sla_violations_get",
+        "parameters": [
+          {
+            "name": "miner_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Miner Id"
+            }
+          },
+          {
+            "name": "resolved",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "boolean",
+              "default": false,
+              "title": "Resolved"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/SLAViolationResponse"
+                  },
+                  "title": "Response Get Sla Violations V1 Sla Violations Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/metrics/collect": {
+      "post": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Collect Sla Metrics",
+        "description": "Trigger SLA metrics collection for all miners",
+        "operationId": "collect_sla_metrics_v1_sla_metrics_collect_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Collect Sla Metrics V1 Sla Metrics Collect Post"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/capacity/snapshots": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Capacity Snapshots",
+        "description": "Get capacity planning snapshots",
+        "operationId": "get_capacity_snapshots_v1_sla_capacity_snapshots_get",
+        "parameters": [
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "array",
+                  "items": {
+                    "$ref": "#/components/schemas/CapacitySnapshotResponse"
+                  },
+                  "title": "Response Get Capacity Snapshots V1 Sla Capacity Snapshots Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/capacity/forecast": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Capacity Forecast",
+        "description": "Get capacity forecast from coordinator-api",
+        "operationId": "get_capacity_forecast_v1_sla_capacity_forecast_get",
+        "parameters": [
+          {
+            "name": "hours_ahead",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 8760,
+              "minimum": 1,
+              "default": 168,
+              "title": "Hours Ahead"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Capacity Forecast V1 Sla Capacity Forecast Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/capacity/recommendations": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Scaling Recommendations",
+        "description": "Get auto-scaling recommendations from coordinator-api",
+        "operationId": "get_scaling_recommendations_v1_sla_capacity_recommendations_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Scaling Recommendations V1 Sla Capacity Recommendations Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/capacity/alerts/configure": {
+      "post": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Configure Capacity Alerts",
+        "description": "Configure capacity alerts",
+        "operationId": "configure_capacity_alerts_v1_sla_capacity_alerts_configure_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "additionalProperties": true,
+                "type": "object",
+                "title": "Alert Config"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Configure Capacity Alerts V1 Sla Capacity Alerts Configure Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/billing/usage": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Billing Usage",
+        "description": "Get billing usage data from coordinator-api",
+        "operationId": "get_billing_usage_v1_sla_billing_usage_get",
+        "parameters": [
+          {
+            "name": "tenant_id",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Tenant Id"
+            }
+          },
+          {
+            "name": "hours",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "maximum": 168,
+              "minimum": 1,
+              "default": 24,
+              "title": "Hours"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Get Billing Usage V1 Sla Billing Usage Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/billing/sync": {
+      "post": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Sync Billing Usage",
+        "description": "Trigger billing sync with coordinator-api",
+        "operationId": "sync_billing_usage_v1_sla_billing_sync_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageSyncRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Sync Billing Usage V1 Sla Billing Sync Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/billing/usage/record": {
+      "post": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Record Usage",
+        "description": "Record a single usage event to coordinator-api billing",
+        "operationId": "record_usage_v1_sla_billing_usage_record_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/UsageRecordRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Record Usage V1 Sla Billing Usage Record Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/billing/invoice/generate": {
+      "post": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Generate Invoice",
+        "description": "Trigger invoice generation in coordinator-api",
+        "operationId": "generate_invoice_v1_sla_billing_invoice_generate_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/InvoiceGenerationRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Generate Invoice V1 Sla Billing Invoice Generate Post"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/sla/status": {
+      "get": {
+        "tags": [
+          "SLA"
+        ],
+        "summary": "Get Sla Status",
+        "description": "Get overall SLA status",
+        "operationId": "get_sla_status_v1_sla_status_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Get Sla Status V1 Sla Status Get"
+                }
+              }
+            }
+          },
+          "500": {
+            "description": "Internal server error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parameters/apply": {
+      "post": {
+        "tags": [
+          "parameters"
+        ],
+        "summary": "Apply Parameter Change",
+        "description": "Apply a governance-approved parameter change to pool-hub service config.\n\nThe proposal_id must be provided \u2014 this endpoint is called by the\ngovernance service after a proposal has passed and the timelock has\nexpired. The parameter change is validated against the allowed\nparameters list.",
+        "operationId": "apply_parameter_change_v1_parameters_apply_post",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/ParameterChangeRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ParameterChangeResponse"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "Parameter '{change.parameter_name}' is not governance-controllable. Allowed: {list(GOVERNANCE_PARAMETERS.keys())} / Parameter '{change.parameter_name}' expects type {expected_type.__name__}, got {type(change.new_value).__name__} / Invalid parameter",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "404": {
+            "description": "Service config for '{change.target_service}' not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "Expected old value {change.old_value} does not match actual {old_value}",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/parameters/list": {
+      "get": {
+        "tags": [
+          "parameters"
+        ],
+        "summary": "List Governance Parameters",
+        "description": "List parameters that can be changed via governance.",
+        "operationId": "list_governance_parameters_v1_parameters_list_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "items": {
+                    "additionalProperties": true,
+                    "type": "object"
+                  },
+                  "type": "array",
+                  "title": "Response List Governance Parameters V1 Parameters List Get"
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "CapacitySnapshotResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "total_miners": {
+            "type": "integer",
+            "title": "Total Miners"
+          },
+          "active_miners": {
+            "type": "integer",
+            "title": "Active Miners"
+          },
+          "total_parallel_capacity": {
+            "type": "integer",
+            "title": "Total Parallel Capacity"
+          },
+          "total_queue_length": {
+            "type": "integer",
+            "title": "Total Queue Length"
+          },
+          "capacity_utilization_pct": {
+            "type": "number",
+            "title": "Capacity Utilization Pct"
+          },
+          "forecast_capacity": {
+            "type": "integer",
+            "title": "Forecast Capacity"
+          },
+          "recommended_scaling": {
+            "type": "string",
+            "title": "Recommended Scaling"
+          },
+          "scaling_reason": {
+            "type": "string",
+            "title": "Scaling Reason"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "total_miners",
+          "active_miners",
+          "total_parallel_capacity",
+          "total_queue_length",
+          "capacity_utilization_pct",
+          "forecast_capacity",
+          "recommended_scaling",
+          "scaling_reason",
+          "timestamp"
+        ],
+        "title": "CapacitySnapshotResponse"
+      },
+      "HTTPValidationError": {
+        "properties": {
+          "detail": {
+            "items": {
+              "$ref": "#/components/schemas/ValidationError"
+            },
+            "type": "array",
+            "title": "Detail"
+          }
+        },
+        "type": "object",
+        "title": "HTTPValidationError"
+      },
+      "HealthResponse": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status"
+          },
+          "db": {
+            "type": "boolean",
+            "title": "Db"
+          },
+          "redis": {
+            "type": "boolean",
+            "title": "Redis"
+          },
+          "miners_online": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Miners Online"
+          },
+          "db_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Db Error"
+          },
+          "redis_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redis Error"
+          },
+          "miners_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Miners Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "status",
+          "db",
+          "redis"
+        ],
+        "title": "HealthResponse"
+      },
+      "InvoiceGenerationRequest": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "period_start": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Period Start"
+          },
+          "period_end": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Period End"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "period_start",
+          "period_end"
+        ],
+        "title": "InvoiceGenerationRequest"
+      },
+      "MatchCandidate": {
+        "properties": {
+          "miner_id": {
+            "type": "string",
+            "title": "Miner Id"
+          },
+          "addr": {
+            "type": "string",
+            "title": "Addr"
+          },
+          "proto": {
+            "type": "string",
+            "title": "Proto"
+          },
+          "score": {
+            "type": "number",
+            "title": "Score"
+          },
+          "explain": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Explain"
+          },
+          "eta_ms": {
+            "anyOf": [
+              {
+                "type": "integer"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Eta Ms"
+          },
+          "price": {
+            "anyOf": [
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Price"
+          }
+        },
+        "type": "object",
+        "required": [
+          "miner_id",
+          "addr",
+          "proto",
+          "score"
+        ],
+        "title": "MatchCandidate",
+        "description": "A miner offered for a job.\n\n``price`` is ``Decimal``, not ``float``: it is read from ``Miner.base_price``\n(``Numeric(20, 8)``) in ``routers/match.py`` and written back to ``MatchResult.price``\n(``Numeric(20, 8)``) in ``repositories/match_repository.py``. Declaring it ``float``\nput a binary floating-point round trip in the middle of that path, losing precision at\nthe eighth decimal for no reason. ``score`` stays ``float`` \u2014 it is a ranking weight,\nnot money."
+      },
+      "MatchRequestPayload": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "requirements": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Requirements"
+          },
+          "hints": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Hints"
+          },
+          "top_k": {
+            "type": "integer",
+            "maximum": 50.0,
+            "minimum": 1.0,
+            "title": "Top K",
+            "default": 1
+          },
+          "redis_error": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Redis Error"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id"
+        ],
+        "title": "MatchRequestPayload"
+      },
+      "MatchResponse": {
+        "properties": {
+          "job_id": {
+            "type": "string",
+            "title": "Job Id"
+          },
+          "candidates": {
+            "items": {
+              "$ref": "#/components/schemas/MatchCandidate"
+            },
+            "type": "array",
+            "title": "Candidates"
+          }
+        },
+        "type": "object",
+        "required": [
+          "job_id",
+          "candidates"
+        ],
+        "title": "MatchResponse"
+      },
+      "MinerHeartbeatRequest": {
+        "properties": {
+          "status": {
+            "type": "string",
+            "title": "Status",
+            "default": "active"
+          },
+          "current_jobs": {
+            "type": "integer",
+            "title": "Current Jobs",
+            "default": 0
+          },
+          "gpu_utilization": {
+            "type": "integer",
+            "title": "Gpu Utilization",
+            "default": 0
+          },
+          "memory_used": {
+            "type": "integer",
+            "title": "Memory Used",
+            "default": 0
+          },
+          "memory_total": {
+            "type": "integer",
+            "title": "Memory Total",
+            "default": 0
+          },
+          "network_latency_ms": {
+            "type": "number",
+            "title": "Network Latency Ms",
+            "default": 0.0
+          }
+        },
+        "type": "object",
+        "title": "MinerHeartbeatRequest"
+      },
+      "MinerRegisterRequest": {
+        "properties": {
+          "miner_id": {
+            "type": "string",
+            "title": "Miner Id"
+          },
+          "api_key": {
+            "type": "string",
+            "title": "Api Key"
+          },
+          "addr": {
+            "type": "string",
+            "title": "Addr",
+            "default": "localhost"
+          },
+          "proto": {
+            "type": "string",
+            "title": "Proto",
+            "default": "http"
+          },
+          "gpu_vram_gb": {
+            "type": "number",
+            "title": "Gpu Vram Gb",
+            "default": 0.0
+          },
+          "gpu_name": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Gpu Name"
+          },
+          "cpu_cores": {
+            "type": "integer",
+            "title": "Cpu Cores",
+            "default": 1
+          },
+          "ram_gb": {
+            "type": "number",
+            "title": "Ram Gb",
+            "default": 0.0
+          },
+          "max_parallel": {
+            "type": "integer",
+            "title": "Max Parallel",
+            "default": 1
+          },
+          "base_price": {
+            "type": "string",
+            "title": "Base Price",
+            "default": "0.01"
+          },
+          "tags": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Tags"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities"
+          },
+          "region": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Region",
+            "default": "localhost"
+          },
+          "chain_id": {
+            "type": "string",
+            "title": "Chain Id",
+            "default": "ait-hub"
+          },
+          "wallet_address": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Wallet Address"
+          }
+        },
+        "type": "object",
+        "required": [
+          "miner_id",
+          "api_key"
+        ],
+        "title": "MinerRegisterRequest"
+      },
+      "ParameterChangeRequest": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "title": "Proposal Id",
+            "description": "Governance proposal ID that approved this change"
+          },
+          "target_service": {
+            "type": "string",
+            "title": "Target Service",
+            "description": "Service type to update (e.g. whisper, llm_inference)"
+          },
+          "parameter_name": {
+            "type": "string",
+            "title": "Parameter Name",
+            "description": "Name of the parameter to change"
+          },
+          "old_value": {
+            "title": "Old Value",
+            "description": "Expected old value (for validation)"
+          },
+          "new_value": {
+            "title": "New Value",
+            "description": "New value to apply"
+          },
+          "description": {
+            "type": "string",
+            "title": "Description",
+            "description": "Human-readable description of the change",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "target_service",
+          "parameter_name",
+          "new_value"
+        ],
+        "title": "ParameterChangeRequest",
+        "description": "Request body for applying a governance-approved parameter change."
+      },
+      "ParameterChangeResponse": {
+        "properties": {
+          "proposal_id": {
+            "type": "string",
+            "title": "Proposal Id"
+          },
+          "applied": {
+            "type": "boolean",
+            "title": "Applied"
+          },
+          "parameter_name": {
+            "type": "string",
+            "title": "Parameter Name"
+          },
+          "old_value": {
+            "title": "Old Value"
+          },
+          "new_value": {
+            "title": "New Value"
+          },
+          "applied_at": {
+            "type": "string",
+            "title": "Applied At"
+          },
+          "message": {
+            "type": "string",
+            "title": "Message",
+            "default": ""
+          }
+        },
+        "type": "object",
+        "required": [
+          "proposal_id",
+          "applied",
+          "parameter_name",
+          "old_value",
+          "new_value",
+          "applied_at"
+        ],
+        "title": "ParameterChangeResponse",
+        "description": "Response after applying a parameter change."
+      },
+      "SLAMetricResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "miner_id": {
+            "type": "string",
+            "title": "Miner Id"
+          },
+          "metric_type": {
+            "type": "string",
+            "title": "Metric Type"
+          },
+          "metric_value": {
+            "type": "number",
+            "title": "Metric Value"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          },
+          "is_violation": {
+            "type": "boolean",
+            "title": "Is Violation"
+          },
+          "timestamp": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Timestamp"
+          },
+          "metadata": {
+            "additionalProperties": {
+              "type": "string"
+            },
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "miner_id",
+          "metric_type",
+          "metric_value",
+          "threshold",
+          "is_violation",
+          "timestamp"
+        ],
+        "title": "SLAMetricResponse"
+      },
+      "SLAViolationResponse": {
+        "properties": {
+          "id": {
+            "type": "string",
+            "format": "uuid",
+            "title": "Id"
+          },
+          "miner_id": {
+            "type": "string",
+            "title": "Miner Id"
+          },
+          "violation_type": {
+            "type": "string",
+            "title": "Violation Type"
+          },
+          "severity": {
+            "type": "string",
+            "title": "Severity"
+          },
+          "metric_value": {
+            "type": "number",
+            "title": "Metric Value"
+          },
+          "threshold": {
+            "type": "number",
+            "title": "Threshold"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At"
+          },
+          "resolved_at": {
+            "anyOf": [
+              {
+                "type": "string",
+                "format": "date-time"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Resolved At"
+          }
+        },
+        "type": "object",
+        "required": [
+          "id",
+          "miner_id",
+          "violation_type",
+          "severity",
+          "metric_value",
+          "threshold",
+          "created_at",
+          "resolved_at"
+        ],
+        "title": "SLAViolationResponse"
+      },
+      "ServiceConfigCreate": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether service is enabled",
+            "default": false
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config",
+            "description": "Service-specific configuration"
+          },
+          "pricing": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Pricing",
+            "description": "Pricing configuration"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities",
+            "description": "Service capabilities"
+          },
+          "max_concurrent": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Concurrent",
+            "description": "Maximum concurrent jobs",
+            "default": 1
+          }
+        },
+        "type": "object",
+        "title": "ServiceConfigCreate",
+        "description": "Service configuration creation request"
+      },
+      "ServiceConfigResponse": {
+        "properties": {
+          "enabled": {
+            "type": "boolean",
+            "title": "Enabled",
+            "description": "Whether service is enabled",
+            "default": false
+          },
+          "config": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Config",
+            "description": "Service-specific configuration"
+          },
+          "pricing": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Pricing",
+            "description": "Pricing configuration"
+          },
+          "capabilities": {
+            "items": {
+              "type": "string"
+            },
+            "type": "array",
+            "title": "Capabilities",
+            "description": "Service capabilities"
+          },
+          "max_concurrent": {
+            "type": "integer",
+            "maximum": 10.0,
+            "minimum": 1.0,
+            "title": "Max Concurrent",
+            "description": "Maximum concurrent jobs",
+            "default": 1
+          },
+          "service_type": {
+            "type": "string",
+            "title": "Service Type",
+            "description": "Service type"
+          },
+          "created_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Created At",
+            "description": "Creation time"
+          },
+          "updated_at": {
+            "type": "string",
+            "format": "date-time",
+            "title": "Updated At",
+            "description": "Last update time"
+          }
+        },
+        "type": "object",
+        "required": [
+          "service_type",
+          "created_at",
+          "updated_at"
+        ],
+        "title": "ServiceConfigResponse",
+        "description": "Service configuration response"
+      },
+      "ServiceConfigUpdate": {
+        "properties": {
+          "enabled": {
+            "anyOf": [
+              {
+                "type": "boolean"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Enabled",
+            "description": "Whether service is enabled"
+          },
+          "config": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Config",
+            "description": "Service-specific configuration"
+          },
+          "pricing": {
+            "anyOf": [
+              {
+                "additionalProperties": true,
+                "type": "object"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Pricing",
+            "description": "Pricing configuration"
+          },
+          "capabilities": {
+            "anyOf": [
+              {
+                "items": {
+                  "type": "string"
+                },
+                "type": "array"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Capabilities",
+            "description": "Service capabilities"
+          },
+          "max_concurrent": {
+            "anyOf": [
+              {
+                "type": "integer",
+                "maximum": 10.0,
+                "minimum": 1.0
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Max Concurrent",
+            "description": "Maximum concurrent jobs"
+          }
+        },
+        "type": "object",
+        "title": "ServiceConfigUpdate",
+        "description": "Service configuration update request"
+      },
+      "UsageRecordRequest": {
+        "properties": {
+          "tenant_id": {
+            "type": "string",
+            "title": "Tenant Id"
+          },
+          "resource_type": {
+            "type": "string",
+            "title": "Resource Type"
+          },
+          "quantity": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              }
+            ],
+            "title": "Quantity"
+          },
+          "unit_price": {
+            "anyOf": [
+              {
+                "type": "number"
+              },
+              {
+                "type": "string",
+                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Unit Price"
+          },
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id"
+          },
+          "metadata": {
+            "additionalProperties": true,
+            "type": "object",
+            "title": "Metadata"
+          }
+        },
+        "type": "object",
+        "required": [
+          "tenant_id",
+          "resource_type",
+          "quantity"
+        ],
+        "title": "UsageRecordRequest"
+      },
+      "UsageSyncRequest": {
+        "properties": {
+          "miner_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Miner Id"
+          },
+          "hours_back": {
+            "type": "integer",
+            "maximum": 168.0,
+            "minimum": 1.0,
+            "title": "Hours Back",
+            "default": 24
+          }
+        },
+        "type": "object",
+        "title": "UsageSyncRequest"
+      },
+      "ValidationError": {
+        "properties": {
+          "loc": {
+            "items": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "integer"
+                }
+              ]
+            },
+            "type": "array",
+            "title": "Location"
+          },
+          "msg": {
+            "type": "string",
+            "title": "Message"
+          },
+          "type": {
+            "type": "string",
+            "title": "Error Type"
+          },
+          "input": {
+            "title": "Input"
+          },
+          "ctx": {
+            "type": "object",
+            "title": "Context"
+          }
+        },
+        "type": "object",
+        "required": [
+          "loc",
+          "msg",
+          "type"
+        ],
+        "title": "ValidationError"
+      },
+      "ErrorResponse": {
+        "title": "ErrorResponse",
+        "type": "object",
+        "properties": {
+          "detail": {
+            "type": "string",
+            "title": "Detail"
+          }
+        },
+        "required": [
+          "detail"
+        ],
+        "description": "Raised as `HTTPException`; FastAPI serialises it under `detail`."
+      }
+    }
+  }
+}
