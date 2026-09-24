@@ -5,6 +5,10 @@ import os
 from http.server import BaseHTTPRequestHandler
 from urllib.request import urlopen
 
+from aitbc.operations import BeginResult, BeginStatus, OperationLedger
+
+from ..db import get_db_path
+
 MAX_BODY_BYTES = 2 * 1024 * 1024  # 2 MB
 RPC_TIMEOUT = 10  # seconds
 
@@ -13,8 +17,61 @@ if not RPC_BASE_URL.startswith(("http://", "https://")):
     raise RuntimeError(f"BLOCKCHAIN_RPC_BASE_URL must start with http:// or https://, got: {RPC_BASE_URL}")
 
 
+def _idempotency_key(handler) -> str:
+    """The request's Idempotency-Key header, or "".
+
+    Reads via getattr so MagicMock(spec=Mixin) handlers in tests — which lack
+    the ``headers`` attribute BaseHTTPRequestHandler provides — don't break.
+    """
+    headers = getattr(handler, "headers", None)
+    if headers is None:
+        return ""
+    return (headers.get("Idempotency-Key") or "").strip()
+
+
+_operation_ledgers: dict[str, OperationLedger] = {}
+
+
+def get_operation_ledger() -> OperationLedger:
+    """Return this service's operation ledger, one row per Idempotency-Key.
+
+    The ledger lives inside the exchange database file so handlers can pass
+    their own connection to ``begin``/``complete`` and commit the operation
+    record atomically with the domain write.
+    """
+    path = get_db_path()
+    ledger = _operation_ledgers.get(path)
+    if ledger is None:
+        ledger = OperationLedger(path, service="exchange")
+        _operation_ledgers[path] = ledger
+    return ledger
+
+
 class BaseHandler(BaseHTTPRequestHandler):
     """Shared base handler with common JSON/CORS helpers."""
+
+    def _send_operation_result(self, begin: BeginResult) -> None:
+        """Respond for a non-EXECUTE ``begin`` outcome.
+
+        REPLAY returns the originally recorded response verbatim; the other
+        outcomes are 409s with distinct honest messages.
+        """
+        if begin.status is BeginStatus.REPLAY:
+            self.send_json_response(begin.result, status=begin.response_status or 200)
+            return
+        if begin.status is BeginStatus.CONFLICT:
+            self.send_json_response({"error": "Idempotency-Key was already used with a different request"}, status=409)
+            return
+        if begin.status is BeginStatus.UNCERTAIN:
+            self.send_json_response(
+                {
+                    "error": "A previous attempt with this Idempotency-Key did not complete and its "
+                    "outcome is unknown; it must be resolved before retrying"
+                },
+                status=409,
+            )
+            return
+        self.send_json_response({"error": "A request with this Idempotency-Key is already in progress"}, status=409)
 
     def _rpc_get(self, path: str) -> dict:
         """Fetch JSON from blockchain RPC with timeout.

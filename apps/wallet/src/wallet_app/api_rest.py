@@ -8,6 +8,7 @@ from typing import Annotated, Any, cast
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.operations import BeginStatus, OperationLedger, request_hash
 from aitbc.rate_limiting import rate_limit
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.utils import format_ait
@@ -17,6 +18,7 @@ from eth_typing import ChecksumAddress
 from eth_utils import to_checksum_address
 
 from .deps import get_keystore, get_ledger, get_receipt_service, require_admin_api_key
+from .settings import settings
 from .keystore.persistent_service import PersistentKeystoreService
 from .ledger_mock import SQLiteLedgerAdapter
 
@@ -48,6 +50,24 @@ from .receipts.service import ReceiptValidationResult, ReceiptVerifierService
 from .security import wipe_buffer
 
 logger = get_logger(__name__)
+
+
+_operations_ledger: OperationLedger | None = None
+
+
+def get_operations_ledger() -> OperationLedger:
+    """The wallet's operation ledger — one durable row per Idempotency-Key.
+
+    A broadcast that times out may or may not have landed, so wallet send
+    operations run with ``allow_adopt=False`` and terminal failure handling:
+    ambiguous outcomes become ``uncertain`` and require operator resolution
+    rather than risking a double-send.
+    """
+    global _operations_ledger
+    if _operations_ledger is None:
+        db_path = os.getenv("WALLET_OPERATIONS_DB") or str(settings.ledger_db_path.parent / "wallet_operations.db")
+        _operations_ledger = OperationLedger(db_path, service="wallet")
+    return _operations_ledger
 
 
 router = APIRouter(tags=["wallets", "receipts"])
@@ -317,7 +337,38 @@ def send_transaction(
     This endpoint creates, signs, and broadcasts a real transaction
     using the wallet's private key.
     """
+    idempotency_key = (request.headers.get("Idempotency-Key") or "").strip()
+    operation_attempt = 0
     try:
+        if idempotency_key:
+            begin = get_operations_ledger().begin(
+                idempotency_key,
+                "send_transaction",
+                request_hash({"wallet_id": wallet_id, "body": tx_request.model_dump()}),
+                allow_adopt=False,
+            )
+            if begin.status is BeginStatus.REPLAY:
+                return WalletTransactionResponse(**(begin.result or {}))
+            if begin.status is BeginStatus.CONFLICT:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="Idempotency-Key was already used with a different request",
+                )
+            if begin.status is BeginStatus.UNCERTAIN:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail=(
+                        "A previous attempt with this Idempotency-Key did not complete and its "
+                        "outcome is unknown; check wallet history or resolve it before retrying"
+                    ),
+                )
+            if begin.status is BeginStatus.IN_PROGRESS:
+                raise HTTPException(
+                    status_code=status.HTTP_409_CONFLICT,
+                    detail="A request with this Idempotency-Key is already in progress",
+                )
+            operation_attempt = begin.attempt
+
         ip_address = request.client.host if request.client else "unknown"
 
         # Call the keystore to sign and submit
@@ -336,6 +387,11 @@ def send_transaction(
         if not result.get("success"):
             error_msg = result.get("error", "Transaction failed")
             logger.warning("Transaction submission failed", extra={"wallet_id": wallet_id, "error": error_msg})
+            if idempotency_key and operation_attempt:
+                # Domain failure (bad password, insufficient funds, nonce
+                # conflict) is still ambiguous for a broadcast op — a retry
+                # would sign a fresh transaction. Terminal: operator resolves.
+                get_operations_ledger().fail(idempotency_key, operation_attempt, error_msg, terminal=True)
             raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=error_msg)
 
         logger.info(
@@ -343,7 +399,7 @@ def send_transaction(
             extra={"wallet_id": wallet_id, "tx_hash": result.get("tx_hash"), "recipient": result.get("recipient")},
         )
 
-        return WalletTransactionResponse(
+        response = WalletTransactionResponse(
             success=True,
             tx_hash=result.get("tx_hash", ""),
             status=result.get("status", "pending"),
@@ -353,11 +409,21 @@ def send_transaction(
             fee=result.get("fee", 0),
             nonce=result.get("nonce", 0),
         )
+        if idempotency_key and operation_attempt:
+            get_operations_ledger().complete(idempotency_key, operation_attempt, response.model_dump())
+        return response
 
     except HTTPException:
         raise
     except Exception as exc:
         logger.error("Unexpected error in transaction submission", extra={"wallet_id": wallet_id, "error": str(exc)})
+        if idempotency_key and operation_attempt:
+            # An exception here means the submit outcome is unknown — the tx
+            # may have broadcast. Terminal so a retry cannot double-send.
+            try:
+                get_operations_ledger().fail(idempotency_key, operation_attempt, type(exc).__name__, terminal=True)
+            except Exception:
+                logger.error("Failed to record operation failure", extra={"wallet_id": wallet_id})
         raise HTTPException(
             status_code=status.HTTP_500_INTERNAL_SERVER_ERROR, detail="Internal error - see server logs"
         ) from exc

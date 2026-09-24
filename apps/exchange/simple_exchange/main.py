@@ -20,7 +20,7 @@ from fastapi.responses import Response
 from aitbc.aitbc_logging import configure_logging, get_logger
 from .db import init_db
 from .handlers import ExchangeAPIHandler
-from .handlers.base import MAX_BODY_BYTES
+from .handlers.base import MAX_BODY_BYTES, get_operation_ledger
 
 configure_logging(level="INFO", service_name="exchange", to_file=True)
 logger = get_logger(__name__)
@@ -132,6 +132,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Initialize the exchange database on startup."""
     logger.info("Starting AITBC Exchange Service")
     init_db()
+    # Expire stale pending operation rows — unreachable from a crash (ledger
+    # writes share the domain transaction) but possible after a DB restore.
+    get_operation_ledger().reconcile()
     yield
     # Let in-flight handler threads finish their writes before exit.
     _HANDLER_POOL.shutdown(wait=True)

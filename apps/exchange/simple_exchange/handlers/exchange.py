@@ -13,10 +13,11 @@ import urllib.request
 from datetime import UTC, datetime
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.operations import BeginStatus, request_hash
 from aitbc.utils.decimal import to_decimal as _to_decimal
 
 from ..db import get_db_path, to_ticks
-from .base import RPC_BASE_URL, RPC_TIMEOUT
+from .base import RPC_BASE_URL, RPC_TIMEOUT, _idempotency_key, get_operation_ledger
 
 logger = get_logger(__name__)
 
@@ -198,9 +199,22 @@ class ExchangeMixin:
             # BEGIN IMMEDIATE acquires the write lock before we read open orders,
             # preventing concurrent requests from double-matching the same counterparty.
             conn = sqlite3.connect(get_db_path(), timeout=30)
+            operation_attempt = 0
+            idempotency_key = _idempotency_key(self)
             try:
                 conn.execute("BEGIN IMMEDIATE")
                 cursor = conn.cursor()
+
+                # The ledger row shares this transaction: commit persists the
+                # order and its idempotency record atomically, and a crash
+                # before commit rolls both back so a replay starts clean.
+                if idempotency_key:
+                    begin = get_operation_ledger().begin(idempotency_key, "place_order", request_hash(data), conn=conn)
+                    if begin.status is not BeginStatus.EXECUTE:
+                        conn.rollback()
+                        self._send_operation_result(begin)  # type: ignore[attr-defined]
+                        return
+                    operation_attempt = begin.attempt
 
                 # Store order in local database for orderbook (B2: TEXT for the
                 # exact display value; tick columns carry the same values as
@@ -236,9 +250,15 @@ class ExchangeMixin:
                 # B1: Match within the same transaction (holds the write lock)
                 self._match_orders_in_txn(cursor, order)
 
+                if idempotency_key and not get_operation_ledger().complete(
+                    idempotency_key, operation_attempt, order, conn=conn
+                ):
+                    raise RuntimeError("operation lease superseded mid-transaction")
                 conn.commit()
             except Exception:
                 conn.rollback()
+                if idempotency_key and operation_attempt:
+                    get_operation_ledger().fail(idempotency_key, operation_attempt, "order placement failed")
                 raise
             finally:
                 conn.close()
