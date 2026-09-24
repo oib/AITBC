@@ -20,7 +20,7 @@ def test_parse_line_logfmt() -> None:
         'time="2026-09-24T10:00:00Z" level=warn msg="slow dial" source=swarm/dial.go:42 peer=12D3'
     )
     assert level == "WARN"
-    assert component == "swarm"
+    assert component == "swarm/dial"
     assert "slow dial" in message
 
 
@@ -46,5 +46,5 @@ def test_parse_logfmt_requires_level_and_msg() -> None:
 
 
 def test_component_from_source_strips_go_suffix() -> None:
-    assert _component_from_source("swarm/dial.go:42") == "swarm"
+    assert _component_from_source("swarm/dial.go:42") == "swarm/dial"
     assert _component_from_source("plain") == "plain"
