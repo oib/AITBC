@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from aitbc_shared import MarketOffer
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
@@ -28,8 +28,8 @@ class Plugin(MarketBase, table=True):
     ipfs_cid: str | None = Field(default=None, index=True)  # IPFS CID for plugin code
     plugin_metadata: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     status: str = Field(default="pending", index=True)  # pending, approved, rejected
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
     download_count: int = Field(default=0)
     rating: float = Field(default=0.0)
 
@@ -59,8 +59,8 @@ class SoftwareService(MarketBase, table=True):
     compute_capability: str | None = Field(default=None)  # CUDA compute capability
     description: str = Field(default="")
     status: str = Field(default="active", index=True)  # active, inactive
-    registered_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    registered_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
     disk_quota_mb: int | None = Field(default=None)  # Per-customer disk quota (e.g. 100 MB for IPFS)
     avg_rating: float = Field(default=0.0)  # Average service rating (1-5 scale)
     rating_count: int = Field(default=0)  # Number of ratings received
@@ -85,7 +85,7 @@ class Bid(MarketBase, table=True):
     price: Decimal = Field(default=Decimal("0"), sa_column=Column(Numeric(20, 8)))
     status: str = Field(default="pending", index=True)  # pending, completed, active, cancelled
     tx_hash: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
 
 
 class IpfsRentalToken(MarketBase, table=True):
@@ -108,9 +108,9 @@ class IpfsRentalToken(MarketBase, table=True):
     pinned: bool = Field(default=True)  # whether the provider pinned the CID
     status: str = Field(default="active", index=True)  # active, expired, refunded, released, refund_pending
     tx_hash: str | None = Field(default=None)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
     expires_at: datetime | None = Field(default=None)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 
 
 class MarketJob(MarketBase, table=True):
@@ -137,7 +137,7 @@ class MarketJob(MarketBase, table=True):
     payload: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     constraints: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     ttl_seconds: int = Field(default=2_592_000)
-    requested_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    requested_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
     expires_at: datetime | None = Field(default=None)
     completed_at: datetime | None = Field(default=None)
     error: str | None = Field(default=None)
@@ -160,8 +160,8 @@ class MarketJob(MarketBase, table=True):
     tx_hash: str | None = Field(default=None)
     refund_tx_hash: str | None = Field(default=None)
 
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 
 
 class MarketJobPayment(MarketBase, table=True):
@@ -191,8 +191,8 @@ class MarketJobPayment(MarketBase, table=True):
     refunded_amount: Decimal | None = Field(default=None, sa_column=Column(Numeric(20, 8), nullable=True))
 
     # Timestamps
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
     escrowed_at: datetime | None = Field(default=None)
     released_at: datetime | None = Field(default=None)
     refunded_at: datetime | None = Field(default=None)
@@ -212,7 +212,7 @@ class ServiceRating(MarketBase, table=True):
     rating: float = Field(default=0.0)  # Rating value (1-5 scale)
     reviewer_id: str = Field(index=True)  # ID of the user providing the rating
     comment: str = Field(default="")  # Optional comment/review text
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
     synced_at: datetime | None = Field(default=None, nullable=True)  # Last sync timestamp
     source_node: str = Field(default="local", index=True)  # Origin node of the rating
 
@@ -225,8 +225,8 @@ class KnowledgeGraph(MarketBase, table=True):
     description: str = Field(default="")
     owner: str = Field(index=True)
     status: str = Field(default="active", index=True)  # active, archived, deleted
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 
 
 class GraphNode(MarketBase, table=True):
@@ -237,8 +237,8 @@ class GraphNode(MarketBase, table=True):
     node_type: str = Field(index=True)  # entity, concept, relation, etc.
     label: str = Field(index=True)
     properties: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 
 
 class GraphEdge(MarketBase, table=True):
@@ -251,8 +251,8 @@ class GraphEdge(MarketBase, table=True):
     edge_type: str = Field(index=True)  # relates_to, depends_on, etc.
     properties: dict[str, Any] = Field(default_factory=dict, sa_column=Column(JSON, nullable=False))
     weight: float = Field(default=1.0)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 
 
 class EdgeNodeAdvertisement(MarketBase, table=True):
@@ -273,5 +273,5 @@ class EdgeNodeAdvertisement(MarketBase, table=True):
     health_score: float = Field(default=1.0, ge=0.0, le=1.0)
     last_health_check: datetime | None = Field(default=None)
     status: str = Field(default="active", index=True)
-    created_at: datetime = Field(default_factory=datetime.utcnow, nullable=False, index=True)
-    updated_at: datetime = Field(default_factory=datetime.utcnow, nullable=False)
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False, index=True)
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)

@@ -1,7 +1,7 @@
 """Analytics routes — activity timeline, network stats, top addresses, provider reputation, overview."""
 
 import json
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -248,7 +248,7 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAU
         if first_tx_date:
             try:
                 first_dt = datetime.strptime(first_tx_date, "%Y-%m-%d %H:%M:%S")
-                days_active = (datetime.utcnow() - first_dt).days
+                days_active = (datetime.now(UTC).replace(tzinfo=None) - first_dt).days
             except Exception:
                 pass
 

@@ -7,7 +7,7 @@ from typing import cast
 import subprocess
 import sys
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -154,7 +154,7 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
             ],
             "firing": sum(1 for a in raw_alerts if a.get("state") == "firing"),
             "pending": sum(1 for a in raw_alerts if a.get("state") == "pending"),
-            "checked_at": datetime.utcnow().isoformat(),
+            "checked_at": datetime.now(UTC).replace(tzinfo=None).isoformat(),
         }
 
     if not watch:
@@ -193,7 +193,7 @@ def alerts(ctx: click.Context, prometheus_url: str | None, watch: bool, interval
                                 "description": alert.get("annotations", {}).get("description"),
                                 "labels": alert.get("labels"),
                                 "active_at": alert.get("activeAt"),
-                                "timestamp": datetime.utcnow().isoformat(),
+                                "timestamp": datetime.now(UTC).replace(tzinfo=None).isoformat(),
                             },
                             sort_keys=True,
                         )
