@@ -3,6 +3,7 @@ Partner Router - Third-party integration management
 """
 
 import hashlib
+import hmac
 import secrets
 from datetime import UTC, datetime
 from typing import Annotated, Any
@@ -270,7 +271,7 @@ def verify_partner_api_key(partner_id: str, api_key: str) -> dict[str, Any] | No
         return None
 
     # Check API key
-    if partner["api_key"] != api_key:
+    if not hmac.compare_digest(partner["api_key"], api_key):
         return None
 
     return partner  # type: ignore[no-any-return]
@@ -279,7 +280,7 @@ def verify_partner_api_key(partner_id: str, api_key: str) -> dict[str, Any] | No
 def find_partner_by_api_key(api_key: str) -> dict[str, Any] | None:
     """Find partner by API key"""
     for partner in PARTNERS_DB.values():
-        if partner["api_key"] == api_key:
+        if hmac.compare_digest(partner["api_key"], api_key):
             return partner  # type: ignore[no-any-return]
     return None
 
