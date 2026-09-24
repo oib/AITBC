@@ -1449,7 +1449,7 @@ async def edge_advertise(
     Edge nodes call this endpoint on startup to advertise their available
     GPU resources. If the node_id already exists, the record is updated.
     """
-    from datetime import datetime
+    from datetime import UTC, datetime
     from sqlalchemy import select
 
     from .domain.market import EdgeNodeAdvertisement
@@ -1468,7 +1468,7 @@ async def edge_advertise(
     result = await session.execute(stmt)
     existing = result.scalars().first()
 
-    now = datetime.utcnow()
+    now = datetime.now(UTC).replace(tzinfo=None)
     if existing:
         existing.endpoint = request.endpoint
         existing.gpu_models = gpu_models
