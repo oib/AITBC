@@ -13,7 +13,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from aitbc_shared.core.config import ServiceSettings
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from pydantic_settings import SettingsConfigDict
 
 
@@ -49,11 +49,11 @@ class Settings(ServiceSettings):
     # ServiceSettings also provides app_host/app_port)
     market_bind_host: str = Field(
         default="0.0.0.0",
-        validation_alias=AliasChoices("MARKET_BIND_HOST", "MARKETPLACE_BIND_HOST"),
+        validation_alias="MARKET_BIND_HOST",
     )  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     market_bind_port: int = Field(
         default=8102,
-        validation_alias=AliasChoices("MARKET_BIND_PORT", "MARKETPLACE_BIND_PORT"),
+        validation_alias="MARKET_BIND_PORT",
     )
 
 

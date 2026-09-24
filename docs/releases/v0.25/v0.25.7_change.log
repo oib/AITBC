@@ -209,6 +209,40 @@ A code-review-driven remediation arc landed across eight commits:
 - CI (`7b46b37d4`): a required fast gate plus a broader scheduled gate;
   `046df80d2` repaired suites and regenerated artifacts broken on main.
 
+
+Phase H — compatibility removal + wallet loopback + remaining ledger coverage
+-----------------------------------------------------------------------------
+
+Operator decisions applied (this cycle):
+
+- **Marketplace compatibility removed.** The `/v1/marketplace/*` rewrite
+  aliases, `MARKETPLACE_*` env fallback readers, and the coordinator's
+  legacy-path middleware are gone. Frozen identifiers stay: `marketplace.db`
+  filenames, `marketplace_*` table names, `MARKETPLACE_TABLE_PREFIX`, chain
+  strings, and historical release text.
+- **Wallet reads restricted to loopback.** `/v1/wallets` list/balance reads
+  are no longer proxied through the public nginx/gateway surface — local
+  tooling keeps direct `127.0.0.1:8108` access; authenticated wallet writes
+  still route via the gateway. `wallet` was dropped from the v1 route table,
+  `GATEWAY_SERVICES`, and the generated v2 map.
+- **`POST /v1/market/match` ledgered** (`allow_adopt=False`): an offer
+  reservation that crashes before task submission flips `uncertain` (409)
+  rather than risking a double-reserve on silent retry.
+- **Coordinator payments migrated to `OperationLedger`.**
+  `POST /v1/payments`, `/payments/{id}/release`, and `/payments/{id}/refund`
+  now bind `Idempotency-Key` to a durable verdict — replays return the
+  recorded response verbatim (response_model-normalized so it is
+  byte-identical), key reuse with a different body returns 409, and a crash
+  that strands a row `pending` past its lease goes `uncertain` instead of
+  re-driving a settlement. The service layer's existing state/on-chain
+  checks remain as the backstop for keyless callers. The generic sweeper
+  moved to `aitbc.operation_reconciler` (market's module re-exports it with
+  `MARKET_OPS_*` env names); coordinator runs it under
+  `COORDINATOR_OPS_*` tunables from lifespan.
+- **Housekeeping**: gateway auth tests no longer hit a live coordinator
+  (hermetic `_CaptureClient` like their neighbors); `AGENTS.md`/`STATUS.md`
+  now point at this log instead of the retired v0.25.2 file.
+
 Deployment notes: operation-ledger sqlite files auto-create beside each
 service's data dir on first mutation; no migration is required. Nodes already
 run `aitbc-market.service` (the `aitbc-marketplace.service` unit is gone);
