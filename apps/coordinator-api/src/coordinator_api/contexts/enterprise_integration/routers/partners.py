@@ -45,7 +45,7 @@ class WebhookCreate(BaseModel):
 
     url: str = Field(..., pattern=r"^https?://")
     events: list[str] = Field(..., min_length=1)
-    secret: str | None = Field(max_length=100)
+    secret: str | None = Field(default=None, max_length=100)
 
 
 class WebhookResponse(BaseModel):
