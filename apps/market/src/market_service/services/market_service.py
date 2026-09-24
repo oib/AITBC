@@ -868,26 +868,7 @@ class MarketService:
 
             resolved_chain_id = chain_id or settings.default_chain_id
             tx = await self._rpc_client.get_transaction(tx_hash, chain_id=resolved_chain_id)
-            if not tx:
-                raise ValueError(f"Transaction {tx_hash} not found on chain {resolved_chain_id}")
-            if tx.get("status") != "confirmed":
-                raise ValueError(f"Transaction {tx_hash} is not confirmed")
-
-            tx_sender = self._canonical_address(str(tx.get("sender", "")))
-            tx_recipient = self._canonical_address(str(tx.get("recipient", "")))
-            expected_sender = self._canonical_address(bid.buyer)
-            expected_recipient = self._canonical_address(offer.provider or "")
-
-            if expected_sender and tx_sender != expected_sender:
-                raise ValueError(f"Transaction sender {tx_sender} does not match buyer {expected_sender}")
-            if expected_recipient and tx_recipient != expected_recipient:
-                raise ValueError(f"Transaction recipient {tx_recipient} does not match provider {expected_recipient}")
-
-            # price is stored in AIT; on-chain value is in compute-units (1 AIT = 36_000_000)
-            required_value = ait_to_units(bid.price)
-            tx_value = int(tx.get("value", 0) or 0)
-            if required_value > 0 and tx_value < required_value:
-                raise ValueError(f"Transaction value {tx_value} compute-units is less than required {required_value}")
+            self._verify_bid_payment_tx(bid, offer, tx, tx_hash, resolved_chain_id)
 
             bid.status = "completed"
             bid.tx_hash = tx_hash
@@ -920,6 +901,36 @@ class MarketService:
         except Exception as e:
             logger.error("Error in complete_bid: %s: %s", type(e).__name__, str(e))
             raise
+
+    def _verify_bid_payment_tx(
+        self,
+        bid: Any,
+        offer: Any,
+        tx: dict[str, Any] | None,
+        tx_hash: str,
+        resolved_chain_id: str,
+    ) -> None:
+        """Raise ValueError unless the tx confirms the bid payment to the provider."""
+        if not tx:
+            raise ValueError(f"Transaction {tx_hash} not found on chain {resolved_chain_id}")
+        if tx.get("status") != "confirmed":
+            raise ValueError(f"Transaction {tx_hash} is not confirmed")
+
+        tx_sender = self._canonical_address(str(tx.get("sender", "")))
+        tx_recipient = self._canonical_address(str(tx.get("recipient", "")))
+        expected_sender = self._canonical_address(bid.buyer)
+        expected_recipient = self._canonical_address(offer.provider or "")
+
+        if expected_sender and tx_sender != expected_sender:
+            raise ValueError(f"Transaction sender {tx_sender} does not match buyer {expected_sender}")
+        if expected_recipient and tx_recipient != expected_recipient:
+            raise ValueError(f"Transaction recipient {tx_recipient} does not match provider {expected_recipient}")
+
+        # price is stored in AIT; on-chain value is in compute-units (1 AIT = 36_000_000)
+        required_value = ait_to_units(bid.price)
+        tx_value = int(tx.get("value", 0) or 0)
+        if required_value > 0 and tx_value < required_value:
+            raise ValueError(f"Transaction value {tx_value} compute-units is less than required {required_value}")
 
     async def get_service_by_offer_id(self, offer_id: str) -> dict[str, Any] | None:
         """Get a software service by offer_id"""

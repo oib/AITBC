@@ -43,9 +43,7 @@ def _coordinator_base() -> str:
     """Coordinator API base URL (native pricing rail lives here)."""
     config = get_config()
     url = (
-        getattr(config, "coordinator_url", None)
-        or getattr(config, "coordinator_api_url", None)
-        or "http://localhost:8203"
+        getattr(config, "coordinator_url", None) or getattr(config, "coordinator_api_url", None) or "http://localhost:8203"
     ).rstrip("/")
     if url.endswith("/v1"):
         url = url[:-3]
@@ -55,15 +53,20 @@ def _coordinator_base() -> str:
 def _coordinator_client(ctx, *, miner: bool = False, timeout: int = 30) -> AITBCHTTPClient:
     """HTTP client for the coordinator, with miner-credential auth when needed."""
     explicit = ctx.obj.get("api_key") if ctx.obj else None
-    kwargs = auth_client_kwargs(
-        explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client"
-    )
+    kwargs = auth_client_kwargs(explicit, getattr(get_config(), "api_key", None), credential="miner" if miner else "client")
     return AITBCHTTPClient(base_url=_coordinator_base(), timeout=timeout, **kwargs)
 
 
-def _native_energy_request(ctx, method: str, path: str, *, miner: bool = False,
-                           params: dict | None = None, json_body: dict | None = None,
-                           timeout: int = 15) -> dict:
+def _native_energy_request(
+    ctx,
+    method: str,
+    path: str,
+    *,
+    miner: bool = False,
+    params: dict | None = None,
+    json_body: dict | None = None,
+    timeout: int = 15,
+) -> dict:
     """Call a ``/v1/market/native-energy/*`` endpoint.
 
     Native pricing state lives on the hub coordinator; a node's local
@@ -356,92 +359,70 @@ def provider_profile(ctx, resource_id, json_output):
         info(f"EUR/kWh:     {profile.eur_per_kwh_scaled / 1e18:.6f}")
 
 
-@provider.command("rate")
-@click.option("--publish", is_flag=True, help="Publish a new rate (requires wallet)")
-@click.option("--ait-per-eur", type=float, help="AIT per EUR rate to publish")
-@click.option("--observed-at", type=int, help="Unix timestamp when the rate was observed")
-@click.option("--source-kind", default="manual", help="Rate source kind")
-@click.option("--wallet", help="Wallet name for signing")
-@click.option("--wallet-path", help="Direct wallet file path")
-@click.option("--password", help="Wallet password")
-@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
-@click.option("--json-output", is_flag=True, help="Output raw JSON")
-@click.pass_context
-def provider_rate(
-    ctx, publish, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output
-):
-    """Read or publish the AIT/EUR energy rate (EVM contract or native rail)."""
-    config = get_config()
-    if not _evm_energy_configured():
-        if not publish:
-            try:
-                data = _native_energy_request(ctx, "get", "/v1/market/native-energy/rate", miner=True, timeout=10)
-            except NetworkError as e:
-                error(f"Native energy rate lookup failed: {e}")
-                sys.exit(1)
-            if json_output:
-                output(json.dumps(data, indent=2))
-            else:
-                info("Rail:          native (coordinator DB)")
-                info(f"Enabled:       {data.get('enabled')}")
-                info(f"Version:       {data.get('version')}")
-                info(f"AIT/EUR:       {data.get('ait_per_eur')}")
-                info(f"Source:        {data.get('source_kind')}")
-            return
-        if ait_per_eur is None:
-            error("--ait-per-eur is required when --publish is set")
-            sys.exit(1)
-        try:
-            result = _native_energy_request(
-                ctx,
-                "post",
-                "/v1/market/native-energy/rate",
-                miner=True,
-                json_body={"ait_per_eur": ait_per_eur, "source_kind": source_kind},
-            )
-        except NetworkError as e:
-            error(f"Native rate publish failed: {e}")
-            sys.exit(1)
-        if json_output:
-            output(json.dumps(result, indent=2))
-        else:
-            success(f"Native energy rate published: {ait_per_eur} AIT/EUR (v{result.get('version')})")
-        return
-    if not config.evm_rpc_url:
-        error("EVM RPC URL not configured (set EVM_RPC_URL)")
-        sys.exit(1)
-    if not config.energy_pricing_contract_address:
-        error("IEnergyPricing contract address not configured")
-        sys.exit(1)
-
-    from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.market.energy_oracle import EVMEnergyOracle
-
-    rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
-    oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
-
+def _native_rate_command(ctx, publish, ait_per_eur, source_kind, json_output) -> None:
+    """Read or publish the rate via the coordinator's native-energy endpoints."""
     if not publish:
-        rate = oracle.get_rate()
-        data = {
-            "enabled": rate.enabled,
-            "version": rate.version,
-            "ait_per_eur_scaled": rate.ait_per_eur_scaled,
-            "ait_per_eur": rate.ait_per_eur_scaled / 1e18,
-            "observed_at": rate.observed_at,
-            "submitted_at": rate.submitted_at,
-            "source_kind": rate.source_kind,
-        }
+        try:
+            data = _native_energy_request(ctx, "get", "/v1/market/native-energy/rate", miner=True, timeout=10)
+        except NetworkError as e:
+            error(f"Native energy rate lookup failed: {e}")
+            sys.exit(1)
         if json_output:
             output(json.dumps(data, indent=2))
         else:
-            info(f"Enabled:       {rate.enabled}")
-            info(f"Version:       {rate.version}")
-            info(f"AIT/EUR:       {rate.ait_per_eur_scaled / 1e18:.6f}")
-            info(f"Observed at:   {rate.observed_at}")
-            info(f"Submitted at:  {rate.submitted_at}")
-            info(f"Source:        {rate.source_kind}")
+            info("Rail:          native (coordinator DB)")
+            info(f"Enabled:       {data.get('enabled')}")
+            info(f"Version:       {data.get('version')}")
+            info(f"AIT/EUR:       {data.get('ait_per_eur')}")
+            info(f"Source:        {data.get('source_kind')}")
         return
+    if ait_per_eur is None:
+        error("--ait-per-eur is required when --publish is set")
+        sys.exit(1)
+    try:
+        result = _native_energy_request(
+            ctx,
+            "post",
+            "/v1/market/native-energy/rate",
+            miner=True,
+            json_body={"ait_per_eur": ait_per_eur, "source_kind": source_kind},
+        )
+    except NetworkError as e:
+        error(f"Native rate publish failed: {e}")
+        sys.exit(1)
+    if json_output:
+        output(json.dumps(result, indent=2))
+    else:
+        success(f"Native energy rate published: {ait_per_eur} AIT/EUR (v{result.get('version')})")
 
+
+def _evm_rate_read(oracle, json_output) -> None:
+    """Read and display the current on-chain rate."""
+    rate = oracle.get_rate()
+    data = {
+        "enabled": rate.enabled,
+        "version": rate.version,
+        "ait_per_eur_scaled": rate.ait_per_eur_scaled,
+        "ait_per_eur": rate.ait_per_eur_scaled / 1e18,
+        "observed_at": rate.observed_at,
+        "submitted_at": rate.submitted_at,
+        "source_kind": rate.source_kind,
+    }
+    if json_output:
+        output(json.dumps(data, indent=2))
+    else:
+        info(f"Enabled:       {rate.enabled}")
+        info(f"Version:       {rate.version}")
+        info(f"AIT/EUR:       {rate.ait_per_eur_scaled / 1e18:.6f}")
+        info(f"Observed at:   {rate.observed_at}")
+        info(f"Submitted at:  {rate.submitted_at}")
+        info(f"Source:        {rate.source_kind}")
+
+
+def _evm_rate_publish(
+    ctx, config, rpc, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output
+) -> None:
+    """Sign and submit a publishEnergyRate transaction on the EVM rail."""
     # Publish a new rate.
     if ait_per_eur is None:
         error("--ait-per-eur is required when --publish is set")
@@ -502,6 +483,231 @@ def provider_rate(
     else:
         success(f"Energy rate published: {ait_per_eur} AIT/EUR")
         info(f"TX hash: {tx_hash}")
+
+
+@provider.command("rate")
+@click.option("--publish", is_flag=True, help="Publish a new rate (requires wallet)")
+@click.option("--ait-per-eur", type=float, help="AIT per EUR rate to publish")
+@click.option("--observed-at", type=int, help="Unix timestamp when the rate was observed")
+@click.option("--source-kind", default="manual", help="Rate source kind")
+@click.option("--wallet", help="Wallet name for signing")
+@click.option("--wallet-path", help="Direct wallet file path")
+@click.option("--password", help="Wallet password")
+@click.option("--password-file", type=click.Path(exists=True), help="Wallet password file")
+@click.option("--json-output", is_flag=True, help="Output raw JSON")
+@click.pass_context
+def provider_rate(
+    ctx, publish, ait_per_eur, observed_at, source_kind, wallet, wallet_path, password, password_file, json_output
+):
+    """Read or publish the AIT/EUR energy rate (EVM contract or native rail)."""
+    config = get_config()
+    if not _evm_energy_configured():
+        _native_rate_command(ctx, publish, ait_per_eur, source_kind, json_output)
+        return
+    if not config.evm_rpc_url:
+        error("EVM RPC URL not configured (set EVM_RPC_URL)")
+        sys.exit(1)
+    if not config.energy_pricing_contract_address:
+        error("IEnergyPricing contract address not configured")
+        sys.exit(1)
+
+    from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+    from aitbc.market.energy_oracle import EVMEnergyOracle
+
+    rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
+    oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
+
+    if not publish:
+        _evm_rate_read(oracle, json_output)
+        return
+
+    _evm_rate_publish(
+        ctx,
+        config,
+        rpc,
+        ait_per_eur,
+        observed_at,
+        source_kind,
+        wallet,
+        wallet_path,
+        password,
+        password_file,
+        json_output,
+    )
+
+
+def _evm_rate_value(config, scale):
+    """Read the AIT/EUR rate from the EVM oracle; None when unreachable."""
+    from decimal import Decimal
+
+    try:
+        from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
+        from aitbc.market.energy_oracle import EVMEnergyOracle
+
+        rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
+        oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
+        return Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
+    except Exception as exc:  # oracle unavailable -> reference fallback
+        logger.warning("On-chain rate read failed (%s); using reference", exc)
+        return None
+
+
+def _native_rate_value(ctx):
+    """Read the published AIT/EUR rate from the coordinator DB; None on failure."""
+    from decimal import Decimal
+
+    try:
+        result = _native_energy_request(ctx, "get", "/v1/market/native-energy/rate", miner=True, timeout=10)
+        native_rate = Decimal(str(result["ait_per_eur"]))
+        if native_rate > 0:
+            return native_rate
+    except Exception as exc:  # coordinator unavailable -> reference fallback
+        logger.warning("Native rate read failed (%s); using reference", exc)
+    return None
+
+
+def _resolve_ait_rate(ctx, config, ait_per_eur, scale):
+    """Resolve the AIT/EUR rate: manual flag, on-chain/native rail, or reference."""
+    from decimal import Decimal
+
+    if ait_per_eur is not None:
+        return Decimal(str(ait_per_eur)), "manual"
+    if config.evm_rpc_url and config.energy_pricing_contract_address:
+        rate = _evm_rate_value(config, scale)
+        if rate is not None:
+            return rate, "on-chain rate"
+    elif not config.evm_rpc_url:
+        # native rail: the published rate lives in the coordinator DB
+        rate = _native_rate_value(ctx)
+        if rate is not None:
+            return rate, "native rate"
+    from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
+
+    return Decimal(1) / AIT_REFERENCE_PRICE_EUR, "EUR 0.25 reference"
+
+
+def _resolve_tariff(config, eur_per_kwh, region):
+    """Resolve the EUR/kWh tariff: flag, env, or the region tariff table."""
+    from decimal import Decimal
+
+    from aitbc.market.hardware_catalog import region_tariff
+
+    tariff: Decimal | None = None
+    tariff_src = ""
+    if eur_per_kwh is not None:
+        tariff, tariff_src = Decimal(str(eur_per_kwh)), "manual"
+    elif config.energy_eur_per_kwh is not None:
+        tariff, tariff_src = Decimal(str(config.energy_eur_per_kwh)), "ENERGY_EUR_PER_KWH"
+    else:
+        region_code = region or config.shop_region
+        tariff = region_tariff(region_code)
+        if tariff is not None and region_code:
+            tariff_src = f"region table ({region_code.lower()})"
+    if tariff is None or tariff <= 0:
+        error("No electricity tariff — pass --eur-per-kwh, set ENERGY_EUR_PER_KWH, or use --region")
+        sys.exit(1)
+    return tariff, tariff_src
+
+
+def _suggest_hardware(gpu_model, tbp_watts, gpu_count, node_gpu_count, cpu_watts, platform_watts):
+    """Probe/resolve GPU + CPU power into a node-power estimate."""
+    from aitbc.market.hardware_catalog import (
+        BASE_PLATFORM_W,
+        estimate_node_power,
+        normalize_cpu_model,
+        normalize_gpu_model,
+        resolve_cpu_watts,
+        resolve_gpu_tbp,
+    )
+    from ..utils.hardware_probe import probe_cpu_model, probe_gpus
+
+    gpus = [] if gpu_model or tbp_watts else probe_gpus()
+    primary = gpus[0] if gpus else None
+    model_key = normalize_gpu_model(
+        gpu_model or (primary.name if primary else ""),
+        memory_gb=(primary.memory_gb if primary else None),
+    )
+    gpu_tbp, gpu_src = resolve_gpu_tbp(
+        model_key=model_key,
+        power_limit_w=(primary.power_limit_w if primary else None),
+        explicit_watts=tbp_watts,
+    )
+    if gpu_tbp <= 0:
+        error("Could not determine GPU TBP — pass --gpu-model/--tbp-watts")
+        sys.exit(1)
+
+    cpu_key = normalize_cpu_model(probe_cpu_model() or "")
+    cpu_w, cpu_src = resolve_cpu_watts(cpu_key, cpu_watts)
+    node_gpus = node_gpu_count or max(1, len(gpus))
+    est = estimate_node_power(
+        gpu_tbp_w=gpu_tbp,
+        gpu_w_source=gpu_src,
+        gpu_model_key=model_key or None,
+        gpu_count=gpu_count,
+        node_gpu_count=node_gpus,
+        cpu_watts=cpu_w,
+        cpu_w_source=cpu_src,
+        platform_watts=platform_watts if platform_watts is not None else BASE_PLATFORM_W,
+    )
+    return est, model_key, cpu_key, primary
+
+
+def _register_suggestion(
+    ctx,
+    *,
+    resource_id,
+    provider_address,
+    model_id,
+    model_key,
+    register_watts,
+    tariff,
+    wallet,
+    wallet_path,
+    password,
+    password_file,
+    json_output,
+) -> None:
+    """Submit the suggested profile via the configured rail."""
+    if not (resource_id and provider_address):
+        error("--register requires --resource-id and --provider-address")
+        sys.exit(1)
+    if _evm_energy_configured():
+        ctx.invoke(
+            provider_register,
+            resource_id=resource_id,
+            provider_address=provider_address,
+            model_id=model_id or model_key or resource_id,
+            tbp_watts=register_watts,
+            eur_per_kwh=float(tariff),
+            wallet=wallet,
+            wallet_path=wallet_path,
+            password=password,
+            password_file=password_file,
+            json_output=json_output,
+        )
+        return
+    # native rail: upsert the profile on the coordinator (miner auth)
+    try:
+        result = _native_energy_request(
+            ctx,
+            "post",
+            "/v1/market/native-energy/profile",
+            miner=True,
+            json_body={
+                "resource_id": resource_id,
+                "provider": provider_address,
+                "model_id": model_id or model_key or resource_id,
+                "tbp_watts": register_watts,
+                "eur_per_kwh": float(tariff),
+            },
+        )
+    except NetworkError as e:
+        error(f"Native profile registration failed: {e}")
+        sys.exit(1)
+    if json_output:
+        output(json.dumps(result, indent=2))
+    else:
+        success(f"Native energy profile registered: {resource_id} ({register_watts}W, {tariff} EUR/kWh)")
 
 
 @energy.command()
@@ -644,100 +850,23 @@ def suggest(
         NATIVE_UNITS_PER_AIT,
         compute_energy_net_units,
     )
-    from aitbc.market.hardware_catalog import (
-        BASE_PLATFORM_W,
-        compute_multiplier,
-        estimate_node_power,
-        normalize_cpu_model,
-        normalize_gpu_model,
-        region_tariff,
-        resolve_cpu_watts,
-        resolve_gpu_tbp,
-    )
-    from ..utils.hardware_probe import probe_cpu_model, probe_gpus
+    from aitbc.market.hardware_catalog import compute_multiplier
 
     config = get_config()
     scale = int(FIXED_POINT_SCALE)
 
     # --- hardware -----------------------------------------------------------
-    gpus = [] if gpu_model or tbp_watts else probe_gpus()
-    primary = gpus[0] if gpus else None
-    model_key = normalize_gpu_model(
-        gpu_model or (primary.name if primary else ""),
-        memory_gb=(primary.memory_gb if primary else None),
-    )
-    gpu_tbp, gpu_src = resolve_gpu_tbp(
-        model_key=model_key,
-        power_limit_w=(primary.power_limit_w if primary else None),
-        explicit_watts=tbp_watts,
-    )
-    if gpu_tbp <= 0:
-        error("Could not determine GPU TBP — pass --gpu-model/--tbp-watts")
-        sys.exit(1)
-
-    cpu_key = normalize_cpu_model(probe_cpu_model() or "")
-    cpu_w, cpu_src = resolve_cpu_watts(cpu_key, cpu_watts)
-    node_gpus = node_gpu_count or max(1, len(gpus))
-    est = estimate_node_power(
-        gpu_tbp_w=gpu_tbp,
-        gpu_w_source=gpu_src,
-        gpu_model_key=model_key or None,
-        gpu_count=gpu_count,
-        node_gpu_count=node_gpus,
-        cpu_watts=cpu_w,
-        cpu_w_source=cpu_src,
-        platform_watts=platform_watts if platform_watts is not None else BASE_PLATFORM_W,
+    est, model_key, cpu_key, primary = _suggest_hardware(
+        gpu_model, tbp_watts, gpu_count, node_gpu_count, cpu_watts, platform_watts
     )
 
     # --- tariff --------------------------------------------------------------
     from decimal import Decimal
 
-    tariff: Decimal | None = None
-    tariff_src = ""
-    if eur_per_kwh is not None:
-        tariff, tariff_src = Decimal(str(eur_per_kwh)), "manual"
-    elif config.energy_eur_per_kwh is not None:
-        tariff, tariff_src = Decimal(str(config.energy_eur_per_kwh)), "ENERGY_EUR_PER_KWH"
-    else:
-        region_code = region or config.shop_region
-        tariff = region_tariff(region_code)
-        if tariff is not None and region_code:
-            tariff_src = f"region table ({region_code.lower()})"
-    if tariff is None or tariff <= 0:
-        error("No electricity tariff — pass --eur-per-kwh, set ENERGY_EUR_PER_KWH, or use --region")
-        sys.exit(1)
+    tariff, tariff_src = _resolve_tariff(config, eur_per_kwh, region)
 
     # --- AIT/EUR rate ---------------------------------------------------------
-    rate: Decimal | None = None
-    rate_src = ""
-    if ait_per_eur is not None:
-        rate, rate_src = Decimal(str(ait_per_eur)), "manual"
-    elif config.evm_rpc_url and config.energy_pricing_contract_address:
-        try:
-            from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-            from aitbc.market.energy_oracle import EVMEnergyOracle
-
-            rpc = EthereumRPCClient(
-                EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id))
-            )
-            oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
-            rate = Decimal(oracle.get_rate().ait_per_eur_scaled) / scale
-            rate_src = "on-chain rate"
-        except Exception as exc:  # oracle unavailable -> reference fallback
-            logger.warning("On-chain rate read failed (%s); using reference", exc)
-    if rate is None and not config.evm_rpc_url:
-        # native rail: the published rate lives in the coordinator DB
-        try:
-            result = _native_energy_request(ctx, "get", "/v1/market/native-energy/rate", miner=True, timeout=10)
-            native_rate = Decimal(str(result["ait_per_eur"]))
-            if native_rate > 0:
-                rate, rate_src = native_rate, "native rate"
-        except Exception as exc:  # coordinator unavailable -> reference fallback
-            logger.warning("Native rate read failed (%s); using reference", exc)
-    if rate is None:
-        from aitbc.oracles.price_oracle import AIT_REFERENCE_PRICE_EUR
-
-        rate, rate_src = Decimal(1) / AIT_REFERENCE_PRICE_EUR, "EUR 0.25 reference"
+    rate, rate_src = _resolve_ait_rate(ctx, config, ait_per_eur, scale)
 
     # --- floor + suggestion ---------------------------------------------------
     floor_units = compute_energy_net_units(
@@ -800,54 +929,32 @@ def suggest(
         info("Apply with:" if not register else "Applied via --register; next:")
         if not register:
             if _evm_energy_configured():
-                info(f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
-                     f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff} --wallet <wallet>")
+                info(
+                    f"  aitbc energy provider register --resource-id {rid} --provider-address {prov} "
+                    f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff} --wallet <wallet>"
+                )
                 info("  (native quotes also need POST /v1/market/native-energy/profile with the same watts/tariff)")
             else:
-                info(f"  aitbc energy suggest --register --resource-id {rid} --provider-address {prov} "
-                     f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff}")
+                info(
+                    f"  aitbc energy suggest --register --resource-id {rid} --provider-address {prov} "
+                    f"--model-id {mid} --tbp-watts {est.register_watts} --eur-per-kwh {tariff}"
+                )
                 info("  (posts the profile to the coordinator's native-energy endpoint)")
         if suggested is not None:
             info(f"  aitbc gpu update --gpu-id <gpu-id> --pricing '{{\"price_per_hour\": {suggested}}}'")
 
     if register:
-        if not (resource_id and provider_address):
-            error("--register requires --resource-id and --provider-address")
-            sys.exit(1)
-        if _evm_energy_configured():
-            ctx.invoke(
-                provider_register,
-                resource_id=resource_id,
-                provider_address=provider_address,
-                model_id=model_id or model_key or resource_id,
-                tbp_watts=est.register_watts,
-                eur_per_kwh=float(tariff),
-                wallet=wallet,
-                wallet_path=wallet_path,
-                password=password,
-                password_file=password_file,
-                json_output=json_output,
-            )
-            return
-        # native rail: upsert the profile on the coordinator (miner auth)
-        try:
-            result = _native_energy_request(
-                ctx,
-                "post",
-                "/v1/market/native-energy/profile",
-                miner=True,
-                json_body={
-                    "resource_id": resource_id,
-                    "provider": provider_address,
-                    "model_id": model_id or model_key or resource_id,
-                    "tbp_watts": est.register_watts,
-                    "eur_per_kwh": float(tariff),
-                },
-            )
-        except NetworkError as e:
-            error(f"Native profile registration failed: {e}")
-            sys.exit(1)
-        if json_output:
-            output(json.dumps(result, indent=2))
-        else:
-            success(f"Native energy profile registered: {resource_id} ({est.register_watts}W, {tariff} EUR/kWh)")
+        _register_suggestion(
+            ctx,
+            resource_id=resource_id,
+            provider_address=provider_address,
+            model_id=model_id,
+            model_key=model_key,
+            register_watts=est.register_watts,
+            tariff=tariff,
+            wallet=wallet,
+            wallet_path=wallet_path,
+            password=password,
+            password_file=password_file,
+            json_output=json_output,
+        )
