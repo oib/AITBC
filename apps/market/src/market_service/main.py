@@ -97,23 +97,6 @@ app.add_middleware(
 app.add_middleware(ErrorHandlerMiddleware)
 
 
-# Legacy public spelling stays live until its removal is approved: rewrite
-# /v1/marketplace/* to the canonical /v1/market/* before routing so callers
-# pinned to the old paths keep working during rolling deploys.
-class _LegacyMarketPathMiddleware:
-    def __init__(self, app):
-        self.app = app
-
-    async def __call__(self, scope, receive, send):
-        if scope["type"] == "http":
-            path = scope.get("path", "")
-            if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
-                scope = dict(scope)
-                scope["path"] = "/v1/market" + path[len("/v1/marketplace") :]
-        await self.app(scope, receive, send)
-
-
-app.add_middleware(_LegacyMarketPathMiddleware)
 get_session_dep = get_session
 
 
@@ -135,11 +118,7 @@ def _get_operations_ledger() -> OperationLedger:
     """
     global _operations_ledger
     if _operations_ledger is None:
-        db_path = (
-            os.getenv("MARKET_OPERATIONS_DB")
-            or os.getenv("MARKETPLACE_OPERATIONS_DB")  # compat: one release of legacy env names
-            or str(DATA_DIR / "data" / "market_operations.db")
-        )
+        db_path = os.getenv("MARKET_OPERATIONS_DB") or str(DATA_DIR / "data" / "market_operations.db")
         _operations_ledger = OperationLedger(db_path, service="market")
     return _operations_ledger
 
@@ -447,12 +426,26 @@ class MatchRequest(BaseModel):
 
 
 @app.post("/v1/market/match")
-async def match_request(request: MatchRequest, svc: Annotated[MatchingService, Depends(get_matching_service)]) -> Any:
+async def match_request(
+    request: MatchRequest, http_request: Request, svc: Annotated[MatchingService, Depends(get_matching_service)]
+) -> Any:
     """Match a compute request to the best available GPU offer (v0.6.6).
 
     Uses price-time priority matching and integrates with the agent-coordinator
     task queue. Reserves the matched offer via OfferFSM.
+
+    Ledgered like the other mutating routes: the reservation commits before
+    the coordinator task is submitted, so a retry cannot tell whether the
+    first attempt reserved an offer (and possibly already queued the job).
+    ``allow_adopt=False`` -- a replayed match would reserve a second offer,
+    so ambiguous outcomes go ``uncertain`` and 409 until reconciled rather
+    than silently double-reserving.
     """
+    key, attempt, early = await _begin_operation(
+        http_request, "match_request", request.model_dump(mode="python"), allow_adopt=False
+    )
+    if early is not None:
+        return early
     try:
         logger.info("POST /v1/market/match called (chain_id=%s)", request.chain_id)
         match = await svc.match_and_assign(
@@ -461,9 +454,13 @@ async def match_request(request: MatchRequest, svc: Annotated[MatchingService, D
             preferred_region=request.preferred_region,
             chain_id=request.chain_id,
         )
-        return {"status": "success", "match": match}
+        result = {"status": "success", "match": match}
+        if key:
+            await _get_operations_ledger().complete_async(key, attempt, result)
+        return result
     except Exception as e:
         logger.error("Error in POST /v1/market/match: %s: %s", type(e).__name__, str(e))
+        await _fail_operation(key, attempt, type(e).__name__)
         raise
 
 
@@ -1555,7 +1552,7 @@ if __name__ == "__main__":
 
     # Allow configuration via environment variable for multi-node deployments
     # Default to 0.0.0.0 to accept connections from other nodes
-    host = os.getenv("MARKET_BIND_HOST", os.getenv("MARKETPLACE_BIND_HOST", "0.0.0.0"))  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-    port = int(os.getenv("MARKET_BIND_PORT", os.getenv("MARKETPLACE_BIND_PORT", "8102")))
+    host = os.getenv("MARKET_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    port = int(os.getenv("MARKET_BIND_PORT", "8102"))
 
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)

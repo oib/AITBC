@@ -15,7 +15,7 @@ from functools import lru_cache
 
 from aitbc_shared.core.config import ServiceSettings
 
-from pydantic import AliasChoices, Field
+from pydantic import Field
 from pydantic_settings import SettingsConfigDict
 
 
@@ -68,14 +68,14 @@ class Settings(ServiceSettings):
     poolhub_url: str = Field(default="http://127.0.0.1:8210")
     market_url: str = Field(
         default="http://localhost:8102",
-        validation_alias=AliasChoices("MARKET_URL", "MARKETPLACE_URL"),
+        validation_alias="MARKET_URL",
     )
 
     # API keys for target services (set via environment; never committed).
     # These are sent as X-Api-Key when calling /v1/{service}/parameters/apply.
     market_api_key: str = Field(
         default="",
-        validation_alias=AliasChoices("MARKET_API_KEY", "MARKETPLACE_API_KEY"),
+        validation_alias="MARKET_API_KEY",
     )
     poolhub_api_key: str = Field(default="")
 

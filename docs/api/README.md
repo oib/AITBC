@@ -47,6 +47,10 @@ a committed spec appear with `"spec": null`.
 
 The legacy `/v1/*` routes remain live and unchanged; `/api/v2` is additive.
 
+The wallet daemon is **not** a public service and is absent from both route
+tables — its unauthenticated reads are loopback-only by design; operators
+reach it on `localhost:8108`.
+
 ## Readiness
 
 Production services expose `/ready` (coordinator: `/health/ready`) that

@@ -71,3 +71,36 @@ class TestCancelOfferIdempotency:
         r2 = client.post(f"/v1/market/offers/{offer_id}/cancel", headers={"Idempotency-Key": "x1"})
         assert r2.status_code == 200
         assert r2.json() == r1.json()
+
+
+class TestMatchRequestIdempotency:
+    """``POST /v1/market/match`` reserves an offer before the coordinator task
+    is queued -- a replay must not reserve a second one."""
+
+    BODY = {"requirements": {"gpu_model": "any"}, "max_price": "10"}
+
+    def _seed_offer(self, client) -> None:
+        r = client.post("/v1/market/offers", json={"provider": "0xp", "price": "1"}, headers={"Idempotency-Key": "m-seed"})
+        assert r.status_code == 200
+
+    def test_match_replays_verbatim(self, client):
+        self._seed_offer(client)
+        r1 = client.post("/v1/market/match", json=self.BODY, headers={"Idempotency-Key": "m1"})
+        assert r1.status_code == 200
+        r2 = client.post("/v1/market/match", json=self.BODY, headers={"Idempotency-Key": "m1"})
+        assert r2.status_code == 200
+        assert r2.json() == r1.json()
+
+    def test_match_same_key_different_body_conflicts(self, client):
+        self._seed_offer(client)
+        client.post("/v1/market/match", json=self.BODY, headers={"Idempotency-Key": "m2"})
+        r = client.post("/v1/market/match", json={**self.BODY, "max_price": "999"}, headers={"Idempotency-Key": "m2"})
+        assert r.status_code == 409
+
+    def test_match_no_match_result_is_memoized(self, client):
+        """With no offers, ``no_match`` is the recorded outcome and replays."""
+        r1 = client.post("/v1/market/match", json=self.BODY, headers={"Idempotency-Key": "m3"})
+        assert r1.status_code == 200
+        r2 = client.post("/v1/market/match", json=self.BODY, headers={"Idempotency-Key": "m3"})
+        assert r2.status_code == 200
+        assert r2.json() == r1.json()

@@ -220,7 +220,7 @@ async def get_mempool(request: Request, chain_id: str | None = None, limit: int 
 
 
 def _market_bond_min_amount() -> int:
-    return int(os.getenv("MARKET_BOND_MIN_AMOUNT", os.getenv("MARKETPLACE_BOND_MIN_AMOUNT", "0")))
+    return int(os.getenv("MARKET_BOND_MIN_AMOUNT", "0"))
 
 
 def _has_active_bond(session, chain_id: str, provider: str, min_amount: int) -> bool:

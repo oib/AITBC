@@ -352,7 +352,6 @@ async def get_mempool_api_route(request: Request, chain_id: str | None = None, l
 
 
 @router.post("/transactions/market", summary="Submit market transaction")
-@router.post("/transactions/marketplace", include_in_schema=False)
 @rate_limit(rate=50, per=60)
 async def submit_market_transaction_route(request: Request, tx_data: dict[str, Any]) -> dict[str, Any]:
     """Submit a market transaction"""
@@ -360,7 +359,6 @@ async def submit_market_transaction_route(request: Request, tx_data: dict[str, A
 
 
 @router.get("/transactions/market/match", summary="Match market offers")
-@router.get("/transactions/marketplace/match", include_in_schema=False)
 @rate_limit(rate=10, per=60)
 async def match_market_route(request: Request, chain_id: str | None = None) -> dict[str, Any]:
     """Return active market listings for price discovery / matching."""

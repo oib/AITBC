@@ -93,8 +93,6 @@ class _CaptureClient:
         ("/v1/market/orders", "http://localhost:8203/v1/market/orders"),
         ("/v1/exchange/orders", "http://localhost:8106/api/orders"),
         ("/v1/trading/exchange/rates", "http://localhost:8104/v1/exchange/rates"),
-        ("/v1/wallet/wallets", "http://localhost:8108/v1/wallets"),
-        ("/v1/wallet/exchange/price", "http://localhost:8108/v1/exchange/price"),
         ("/v1/agent/messages/send", "http://localhost:8107/api/v1/agent/messages/send"),
         ("/v1/agent-coordinator/agents", "http://localhost:8107/v1/agents"),
         ("/v1/governance/proposals", "http://localhost:8105/v1/governance/proposals"),

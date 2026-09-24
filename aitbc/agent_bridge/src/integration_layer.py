@@ -32,7 +32,7 @@ class AITBCServiceIntegration:
             "coordinator_api": os.getenv("COORDINATOR_API_URL", f"http://localhost:{COORDINATOR_API_PORT}"),
             "blockchain_rpc": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL),
             "exchange_service": os.getenv("EXCHANGE_SERVICE_URL", f"http://localhost:{EXCHANGE_PORT}"),
-            "market": os.getenv("MARKET_SERVICE_URL", os.getenv("MARKETPLACE_SERVICE_URL", f"http://localhost:{MARKET_PORT}")),
+            "market": os.getenv("MARKET_SERVICE_URL", f"http://localhost:{MARKET_PORT}"),
             "agent_coordinator": os.getenv("AGENT_COORDINATOR_URL", f"http://localhost:{AGENT_COORDINATOR_PORT}"),
         }
         self.session: aiohttp.ClientSession | None = None

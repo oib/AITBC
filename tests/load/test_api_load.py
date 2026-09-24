@@ -73,8 +73,8 @@ class SimpleMarketUser(HttpUser):
 BlockchainLoadUser.host = "http://localhost:8202"
 
 # Allow hosts to be overridden via environment variables
-if os.getenv("MARKET_HOST") or os.getenv("MARKETPLACE_HOST"):
-    SimpleMarketUser.host = os.getenv("MARKET_HOST", os.getenv("MARKETPLACE_HOST"))
+if os.getenv("MARKET_HOST"):
+    SimpleMarketUser.host = os.getenv("MARKET_HOST")
 
 if os.getenv("BLOCKCHAIN_HOST"):
     BlockchainLoadUser.host = os.getenv("BLOCKCHAIN_HOST")

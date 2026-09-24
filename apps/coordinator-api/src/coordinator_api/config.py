@@ -9,7 +9,7 @@ import os
 import platform
 from typing import Annotated, Any
 
-from pydantic import AliasChoices, Field, SecretStr, field_validator, model_validator
+from pydantic import Field, SecretStr, field_validator, model_validator
 from pydantic_settings import BaseSettings, NoDecode, SettingsConfigDict
 
 from aitbc.config import BaseAITBCConfig
@@ -230,17 +230,17 @@ class Settings(BaseAITBCConfig):
     rate_limit_market_list: str = Field(
         default="100/minute",
         description="Rate limit for market list",
-        validation_alias=AliasChoices("RATE_LIMIT_MARKET_LIST", "RATE_LIMIT_MARKETPLACE_LIST"),
+        validation_alias="RATE_LIMIT_MARKET_LIST",
     )
     rate_limit_market_stats: str = Field(
         default="50/minute",
         description="Rate limit for market stats",
-        validation_alias=AliasChoices("RATE_LIMIT_MARKET_STATS", "RATE_LIMIT_MARKETPLACE_STATS"),
+        validation_alias="RATE_LIMIT_MARKET_STATS",
     )
     rate_limit_market_bid: str = Field(
         default="30/minute",
         description="Rate limit for market bid",
-        validation_alias=AliasChoices("RATE_LIMIT_MARKET_BID", "RATE_LIMIT_MARKETPLACE_BID"),
+        validation_alias="RATE_LIMIT_MARKET_BID",
     )
     rate_limit_exchange_payment: str = Field(default="20/minute", description="Rate limit for exchange payment")
 

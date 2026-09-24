@@ -266,6 +266,18 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         else:
             logger.info("Stuck escrow sweeper disabled (set COORDINATOR_STUCK_ESCROW_SWEEP_ENABLED=true to enable)")
 
+        # The payments operation ledger needs a periodic sweep the same way the
+        # escrow sweepers do: stale ``pending`` rows expire to failed/uncertain
+        # and terminal rows past retention are purged.
+        from aitbc.operation_reconciler import OperationReconciler
+
+        from .contexts.payments.operations import get_operations_ledger
+
+        await task_manager.start_task(
+            "payments_operation_reconciler",
+            OperationReconciler(get_operations_ledger, env_prefix="COORDINATOR_OPS").run_forever,
+        )
+
         # G5: slash provider bonds automatically when a condition is detected.
         from .contexts.market.services.bond_slash_sweeper import (
             BondSlashSweeper,
@@ -404,23 +416,6 @@ def create_app() -> FastAPI:
     app.add_middleware(PerformanceLoggingMiddleware)
     app.add_middleware(PrometheusMetricsMiddleware)
     app.add_middleware(ErrorHandlerMiddleware)
-
-    # Legacy public spelling stays live until its removal is approved: rewrite
-    # /v1/marketplace/* to the canonical /v1/market/* before routing so callers
-    # pinned to the old paths keep working during rolling deploys.
-    class _LegacyMarketPathMiddleware:
-        def __init__(self, app):
-            self.app = app
-
-        async def __call__(self, scope, receive, send):
-            if scope["type"] == "http":
-                path = scope.get("path", "")
-                if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
-                    scope = dict(scope)
-                    scope["path"] = "/v1/market" + path[len("/v1/marketplace") :]
-            await self.app(scope, receive, send)
-
-    app.add_middleware(_LegacyMarketPathMiddleware)
 
     # Enable route-level authentication in non-test environments.
     if settings.auth_enabled and not settings.test_mode:

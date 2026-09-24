@@ -21,10 +21,6 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
 
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        # Legacy public spelling stays live until its removal is approved.
-        if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
-            path = "/v1/market" + path[len("/v1/marketplace") :]
-
         if path == "/health" or path == "/api/health":
             self.health_check()
         elif path == "/ready" or path == "/api/ready":
@@ -70,10 +66,6 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
         """Handle POST requests"""
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        # Legacy public spelling stays live until its removal is approved.
-        if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
-            path = "/v1/market" + path[len("/v1/marketplace") :]
-
         if path == "/api/orders":
             self.handle_place_order()
         elif path == "/api/wallet/connect":
@@ -94,10 +86,6 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
     def do_DELETE(self):
         parsed = urllib.parse.urlparse(self.path)
         path = parsed.path
-        # Legacy public spelling stays live until its removal is approved.
-        if path == "/v1/marketplace" or path.startswith("/v1/marketplace/"):
-            path = "/v1/market" + path[len("/v1/marketplace") :]
-
         if path.startswith("/v1/market/orders/"):
             self.handle_market_delete_order(parsed)
         elif path.startswith("/v1/market/offers/"):

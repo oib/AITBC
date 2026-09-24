@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 # The market service, which owns the offer registry. It listens on loopback on
 # the hub; ``config.py`` already names the same port in its CORS origins.
-MARKET_BASE_URL = os.getenv("MARKET_SERVICE_URL", os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102")).rstrip("/")
+MARKET_BASE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:8102").rstrip("/")
 
 # Job submission blocks on this call, so it is deliberately short. A slow registry
 # should fail the submission, not hold a client connection open.
