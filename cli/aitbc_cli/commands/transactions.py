@@ -21,7 +21,7 @@ from aitbc.utils.validation import validate_address_strict
 from ..config import get_config
 from ..utils import DECIMAL, error, success
 from ..utils.error_handling import abort
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 from ..utils.wallet import decrypt_private_key
 from ..utils.wallet_paths import wallet_dir
 
@@ -340,7 +340,10 @@ def send(
                 success("Transaction status (via Explorer):")
                 click.echo(json.dumps(result, indent=2))
             except NetworkError as e:
-                error(f"Explorer API unavailable: {e}")
+                if http_response_status(e) == 404:
+                    error(f"Transaction {tx_hash} not found")
+                else:
+                    error(f"Explorer API unavailable: {e}")
             except Exception as e:
                 error(f"Error checking status via Explorer: {e}")
 
@@ -509,7 +512,10 @@ def status(tx_hash: str, rpc_url: str | None, use_explorer: bool):
             success(f"Transaction status for {tx_hash} (via Explorer)")
             click.echo(json.dumps(result, indent=2))
         except NetworkError as e:
-            error(f"Explorer API unavailable: {e}")
+            if http_response_status(e) == 404:
+                error(f"Transaction {tx_hash} not found")
+            else:
+                error(f"Explorer API unavailable: {e}")
         except Exception as e:
             error(f"Error: {e}")
     else:
