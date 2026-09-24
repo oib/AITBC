@@ -203,3 +203,19 @@ service's data dir on first mutation; no migration is required. Nodes already
 run `aitbc-market.service` (the `aitbc-marketplace.service` unit is gone);
 `MARKETPLACE_*` env vars need no change this release. `GATEWAY_REQUIRED_SERVICES`
 is optional — when set, unknown names fail gateway readiness.
+
+Live validation (2026-09-24)
+----------------------------
+
+- Rolled out to all five service-bearing nodes (hub1 -> node2 -> hub ->
+  node0/node1): every `/ready` returns 200 with the expected check set;
+  gateway `/ready` honours `GATEWAY_REQUIRED_SERVICES` per node.
+- `/api/v2` verified through the gateway with `X-Gateway-Key`: `market`,
+  `chain`, and `exchange` qualifiers forward 200; unknown/empty qualifiers
+  404; unauthenticated proxied calls 401 as before.
+- hub proposer re-verified `assert_can_sign` out-of-band before restart;
+  chain producing at height 21029 post-restart. Note: the RPC unit
+  deliberately forces `AITBC_FORCE_ENABLE_BLOCK_PRODUCTION=false`, so the
+  RPC-served `/ready` checks db+chains only -- the signing gate applies to
+  the `aitbc-blockchain-node` daemon (startup-enforced), not the RPC face.
+- Zero errors across all restarted units' journals post-rollout.
