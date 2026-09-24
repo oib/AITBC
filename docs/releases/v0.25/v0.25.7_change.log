@@ -264,3 +264,25 @@ Live validation (2026-09-24)
   RPC-served `/ready` checks db+chains only -- the signing gate applies to
   the `aitbc-blockchain-node` daemon (startup-enforced), not the RPC face.
 - Zero errors across all restarted units' journals post-rollout.
+
+Phase H live validation (2026-09-24, commit 14563fed3)
+-----------------------------------------------------
+
+- Rolled out canary-first: hub1 -> node2 -> hub -> node0/node1. Per node:
+  ff-only pull, touched-unit restarts, readiness + routing verification.
+- nginx on hub/hub1: the /v1/marketplace/* location blocks were renamed to
+  canonical /v1/market/* (coordinator-family regex, offers/plugins exact
+  matches, market-service prefix). /v1/marketplace/* now falls through to
+  the 404 catch-all; /v1/market/* answers 200/401-by-auth as appropriate.
+- GATEWAY_REQUIRED_SERVICES updated on hub, hub1, node2 to drop `wallet`
+  (unknown names fail readiness by design -- the envs would otherwise have
+  pinned the gateway unready). Gateway /ready green everywhere.
+- Verified with the gateway key on hub1+node2: /api/v1/marketplace/* 404,
+  /api/v1/wallet/* 404, /api/v2/wallet/* 404, canonical market routes 200.
+- Wallet loopback restriction was already live in nginx on hub/hub1
+  (applied 2026-09-14); the gateway-side removal landed in this commit.
+- coordinator_operations.db created on coordinator startup on hub, hub1,
+  node2; payments_operation_reconciler runs from lifespan.
+- node0/node1 carry blockchain-rpc + governance only; restarted and ready.
+- Zero errors across all restarted units' journals; hub producing at
+  height 21128 post-restart.
