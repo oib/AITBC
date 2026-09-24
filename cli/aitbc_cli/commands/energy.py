@@ -257,7 +257,7 @@ def provider_register(
     # Build and submit the registerEnergyProfile call via the EVM client.
     # We use the IEnergyPricing ABI directly since it's a separate contract.
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.marketplace.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
+    from aitbc.market.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     scale = 10**18
@@ -327,7 +327,7 @@ def provider_profile(ctx, resource_id, json_output):
         sys.exit(1)
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+    from aitbc.market.energy_oracle import EVMEnergyOracle
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
@@ -413,7 +413,7 @@ def provider_rate(
         sys.exit(1)
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+    from aitbc.market.energy_oracle import EVMEnergyOracle
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
@@ -467,7 +467,7 @@ def provider_rate(
         error("A private key is required to publish a rate")
         sys.exit(1)
 
-    from aitbc.marketplace.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
+    from aitbc.market.energy_oracle import DEFAULT_ENERGY_PRICING_ABI
 
     scale = 10**18
     ait_scaled = int(ait_per_eur * scale)
@@ -547,7 +547,7 @@ def floor(ctx, resource_id, gpu_count, duration_seconds, settlement_unit_scale, 
         return
 
     from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-    from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+    from aitbc.market.energy_oracle import EVMEnergyOracle
 
     rpc = EthereumRPCClient(EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id)))
     oracle = EVMEnergyOracle(rpc, config.energy_pricing_contract_address, config.energy_pricing_chain_id)
@@ -635,12 +635,12 @@ def suggest(
     prints the resulting energy floor plus the compute-multiplier market
     price suggestion (1 AIT = one reference compute-hour = EUR 0.25).
     """
-    from aitbc.marketplace.energy_pricing import (
+    from aitbc.market.energy_pricing import (
         FIXED_POINT_SCALE,
         NATIVE_UNITS_PER_AIT,
         compute_energy_net_units,
     )
-    from aitbc.marketplace.hardware_catalog import (
+    from aitbc.market.hardware_catalog import (
         BASE_PLATFORM_W,
         compute_multiplier,
         estimate_node_power,
@@ -711,7 +711,7 @@ def suggest(
     elif config.evm_rpc_url and config.energy_pricing_contract_address:
         try:
             from aitbc.ethereum_rpc import EthereumConfig, EthereumRPCClient
-            from aitbc.marketplace.energy_oracle import EVMEnergyOracle
+            from aitbc.market.energy_oracle import EVMEnergyOracle
 
             rpc = EthereumRPCClient(
                 EthereumConfig(rpc_url=config.evm_rpc_url, network=str(config.energy_pricing_chain_id))
