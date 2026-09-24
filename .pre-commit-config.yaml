@@ -206,7 +206,7 @@ repos:
         entry: bash scripts/ci/check-openapi-drift.sh
         language: system
         pass_filenames: false
-        files: ^(aitbc/|aitbc_agent_core/|packages/py/|packages/aitbc-shared/|apps/(agent-coordinator|blockchain-node|coordinator-api|market|wallet)/src/|scripts/(extract_openapi_specs|openapi_error_responses)\.py)
+        files: ^(aitbc/|aitbc_agent_core/|packages/py/|packages/aitbc-shared/|apps/(agent-coordinator|api-gateway|blockchain-node|coordinator-api|market|wallet)/src/|scripts/(extract_openapi_specs|openapi_error_responses)\.py)
         stages: [pre-commit]
 
   # Security checks with Bandit (only on pre-push to save time).
