@@ -19,7 +19,6 @@
       1 apps/agent-coordinator/src/agent_app/routing/agent_discovery.py
       1 apps/agent-coordinator/src/agent_app/routing/load_balancer.py
       1 apps/agent-coordinator/src/agent_app/websocket/agent_stream.py
-      2 apps/api-gateway/src/api_gateway/main.py
       1 apps/blockchain-explorer/routers/analytics.py
       1 apps/blockchain-explorer/routers/blocks.py
       1 apps/blockchain-explorer/routers/search.py
