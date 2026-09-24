@@ -358,3 +358,72 @@ class TestGenerateEthereumPrivateKey:
 
             with pytest.raises(ValueError, match="Failed to generate private key"):
                 crypto.generate_ethereum_private_key()
+
+
+# ============================================================================
+# secp256k1 Private-Key Range Tests
+# ============================================================================
+
+
+class TestPrivateKeyRangeGuard:
+    """`sign_transaction_hash` rejects scalars outside ``[1, n-1]``.
+
+    eth-account accepts a key of 0 and returns a signature nothing can recover
+    from, so this guard is the only thing standing between a misconfigured
+    validator and blocks whose signatures silently fail to verify. Both edges
+    are pinned deliberately: an off-by-one either way is a consensus bug rather
+    than a style question -- widening it admits unusable keys, narrowing it
+    rejects the single largest legitimate one.
+    """
+
+    ORDER = 0xFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFFEBAAEDCE6AF48A03BBFD25E8CD0364141
+    DIGEST = "11" * 32
+
+    @staticmethod
+    def _hex(value: int) -> str:
+        """A scalar as the 64-character hex string the function is handed."""
+        return format(value, "064x")
+
+    def test_order_constant_is_the_secp256k1_group_order(self):
+        """A typo in the constant would silently move every bound that uses it."""
+        assert crypto._SECP256K1_ORDER == self.ORDER
+
+    @pytest.mark.parametrize(
+        "value",
+        [0, ORDER, ORDER + 1, 2**256 - 1],
+        ids=["zero", "the-order-itself", "one-past-the-order", "all-ones"],
+    )
+    def test_rejects_a_scalar_outside_the_group(self, value):
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
+            from eth_account import Account as MockAccount
+
+            with pytest.raises(ValueError, match="out of range for secp256k1"):
+                crypto.sign_transaction_hash(self.DIGEST, self._hex(value))
+
+            # The guard must short-circuit: reaching from_key at all would mean
+            # eth-account saw a key the guard existed to stop.
+            MockAccount.from_key.assert_not_called()
+
+    def test_rejects_an_out_of_range_key_carrying_an_0x_prefix(self):
+        """Prefix stripping runs first, so the guard must still see the scalar."""
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
+            from eth_account import Account as MockAccount
+
+            with pytest.raises(ValueError, match="out of range for secp256k1"):
+                crypto.sign_transaction_hash(self.DIGEST, "0x" + self._hex(0))
+            MockAccount.from_key.assert_not_called()
+
+    @pytest.mark.parametrize("value", [1, ORDER - 1], ids=["smallest-valid", "largest-valid"])
+    def test_accepts_both_edges_of_the_valid_range(self, value):
+        """The narrowing off-by-one: these two keys must survive the guard."""
+        with patch.dict("sys.modules", {"eth_account": Mock()}):
+            from eth_account import Account as MockAccount
+
+            signed = Mock()
+            signed.signature.hex.return_value = "0xdeadbeef"
+            MockAccount.from_key.return_value.unsafe_sign_hash.return_value = signed
+
+            result = crypto.sign_transaction_hash(self.DIGEST, self._hex(value))
+
+            assert result == "0xdeadbeef"
+            MockAccount.from_key.assert_called_once_with(self._hex(value))
