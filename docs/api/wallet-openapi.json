@@ -425,6 +425,16 @@
               }
             }
           },
+          "409": {
+            "description": "Idempotency-Key was already used with a different request / A previous attempt with this Idempotency-Key did not complete and its outcome is unknown; check wallet history or resolve it before retrying / A request with this Idempotency-Key is already in progress",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "500": {
             "description": "Internal error - see server logs",
             "content": {

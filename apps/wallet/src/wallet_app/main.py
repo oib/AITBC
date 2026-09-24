@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import asyncio
 import base64
 import os
 from collections.abc import AsyncGenerator
@@ -188,6 +189,25 @@ async def _import_file_wallets() -> None:
             return
 
 
+async def _operations_reconcile_loop() -> None:
+    """Periodically expire stale pending operation rows.
+
+    Wallet send operations use ``allow_adopt=False``, so expired leases become
+    ``uncertain`` for operator resolution rather than silently re-driving a
+    possibly-broadcast transaction.
+    """
+    from .api_rest import get_operations_ledger
+
+    interval = int(os.getenv("WALLET_OPS_SWEEP_INTERVAL_SECONDS", "300"))
+    while True:
+        try:
+            await get_operations_ledger().reconcile_async()
+            await asyncio.to_thread(get_operations_ledger().purge)
+        except Exception:
+            logger.exception("Operation ledger reconciliation failed")
+        await asyncio.sleep(interval)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
     init_db()
@@ -196,6 +216,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None]:
 
     create_task_with_logging(_import_genesis_wallet_from_env(), name="import_genesis_wallet")
     create_task_with_logging(_import_file_wallets(), name="import_file_wallets")
+    create_task_with_logging(_operations_reconcile_loop(), name="operations_reconcile")
     yield
 
 
