@@ -168,7 +168,7 @@ def ratings(ctx, service_id: str, limit: int, offset: int, market_url: str):
 # the URL has to be given -- by flag or by AITBC_MARKET_URL.
 @click.option(
     "--remote-url",
-    default=lambda: os.getenv("AITBC_MARKET_URL", os.getenv("AITBC_MARKETPLACE_URL")),
+    default=lambda: os.getenv("AITBC_MARKET_URL"),
     required=True,
     help="Remote market service URL (default: $AITBC_MARKET_URL)",
 )

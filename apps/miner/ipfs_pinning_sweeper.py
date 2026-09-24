@@ -47,7 +47,7 @@ def _market_base() -> str:
     node, which is meaningless for a provider), then ``HUB_DISCOVERY_URL``,
     then the public hub default.
     """
-    url = os.environ.get("MARKET_SERVICE_URL", os.environ.get("MARKETPLACE_SERVICE_URL", "")).strip()
+    url = os.environ.get("MARKET_SERVICE_URL", "").strip()
     if url and not url.startswith(("http://127.0.0.1", "http://localhost")):
         return url.rstrip("/")
     hub = os.environ.get("HUB_DISCOVERY_URL", "hub.aitbc.bubuit.net").strip().rstrip("/")

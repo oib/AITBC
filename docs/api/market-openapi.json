@@ -501,7 +501,7 @@
     "/v1/market/match": {
       "post": {
         "summary": "Match Request",
-        "description": "Match a compute request to the best available GPU offer (v0.6.6).\n\nUses price-time priority matching and integrates with the agent-coordinator\ntask queue. Reserves the matched offer via OfferFSM.",
+        "description": "Match a compute request to the best available GPU offer (v0.6.6).\n\nUses price-time priority matching and integrates with the agent-coordinator\ntask queue. Reserves the matched offer via OfferFSM.\n\nLedgered like the other mutating routes: the reservation commits before\nthe coordinator task is submitted, so a retry cannot tell whether the\nfirst attempt reserved an offer (and possibly already queued the job).\n``allow_adopt=False`` -- a replayed match would reserve a second offer,\nso ambiguous outcomes go ``uncertain`` and 409 until reconciled rather\nthan silently double-reserving.",
         "operationId": "match_request_v1_market_match_post",
         "requestBody": {
           "content": {

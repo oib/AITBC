@@ -28,12 +28,12 @@ from .domain.base import market_metadata
 
 logger = get_logger(__name__)
 DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
-DATABASE_URL = os.getenv("MARKET_DATABASE_URL", os.getenv("MARKETPLACE_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB)))
+DATABASE_URL = os.getenv("MARKET_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
 engine = create_async_engine(DATABASE_URL, echo=False)
 logger.info(
     "Storage module loaded: engine=%s, DATABASE_URL=%s",
     engine,
-    os.getenv("MARKET_DATABASE_URL", os.getenv("MARKETPLACE_DATABASE_URL", "not set")),
+    os.getenv("MARKET_DATABASE_URL", "not set"),
 )
 
 
