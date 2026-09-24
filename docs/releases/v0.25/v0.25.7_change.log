@@ -300,3 +300,31 @@ Phase H live validation (2026-09-24, commit 14563fed3)
   existing sweepers.
 - Pre-existing failures fixed by `e1da8bdd9`: the two refund tests that
   used to fail locally now mock get_json for on-chain tx lookups.
+
+CI repair chain (2026-09-24)
+----------------------------
+
+- `d0a2679aa` restored `AgentMarketplaceV2` in every
+  `getContractFactory` call the market rename had changed to the
+  nonexistent `AgentMarketV2` artifact (test + monitor + two deploy
+  scripts); label-only uses keep the new naming.
+- `af73e335a` restored a comma the FQDN scrub had moved inside a
+  comment in two agent-sdk examples (lint-strict syntax error).
+- `d8c8f912f` restored `/v1/market/*` native-energy paths and the
+  `_native_energy_request` call sites a rebase had reverted to
+  `_coordinator_client` + `/v1/marketplace/*` -- hub fallback and
+  `NATIVE_COORDINATOR_URL` were dead code in production, masked live
+  only by the compat middleware phase H then removed. Also added
+  `apps/api-gateway` to the openapi-drift hook files pattern
+  (a1645e8ac had added it to spec generation without the pattern).
+- `960f9986a` clears ambient `DEBUG` in `TestLocalhostRpcGuard` env
+  isolation; the nightly runner exports DEBUG=true and the production
+  validator correctly rejected it.
+- `2036f0793` guards zk proof tests on the node toolchain:
+  `test_zk_receipt` skipif was a truthy literal that never skipped;
+  `test_receipt_model` had no guard. New `poseidon_lite_available()`
+  sits beside `snarkjs_available()`; tests skip only where the
+  zk-circuits node_modules toolchain is absent.
+- Push gate green on run 20172 (17m full suite). Nightly run 20154
+  had additionally caught the refund/DEBUG/zk failures above; its
+  remaining phase8 live-service checks are env-gated by design.
