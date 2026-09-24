@@ -641,7 +641,10 @@ async def test_force_sync_allows_private_peer_ips(mock_request, admin_signer, mo
     from fastapi import HTTPException
 
     monkeypatch.setattr(requests, "get", Mock(return_value=Mock(status_code=503)))
-    signed = admin_signer({"peer_url": "http://10.1.223.136:8006"})
+    # Deliberately a non-routable RFC1918 literal with no relation to any real
+    # deployment: this file is public, and the SSRF check under test only rejects
+    # loopback/link-local/multicast/reserved, so any private address exercises it.
+    signed = admin_signer({"peer_url": "http://192.168.1.136:8006"})
     with pytest.raises(HTTPException) as exc_info:
         await rpc_sync.force_sync(mock_request, signed)
     # Passed signature + freshness + SSRF, failed only on the peer fetch.
@@ -674,10 +677,10 @@ def test_destructive_routes_require_api_key(admin_signer, monkeypatch, isolated_
     import_payload2 = admin_signer(_valid_import_payload())
     assert client.post("/rpc/import-chain", json=import_payload2, headers={"X-API-Key": "test-api-key"}).status_code == 200
 
-    sync_payload = admin_signer({"peer_url": "http://10.9.9.9:8006"})
+    sync_payload = admin_signer({"peer_url": "http://192.168.1.9:8006"})
     assert client.post("/rpc/force-sync", json=sync_payload).status_code == 403
 
-    sync_payload2 = admin_signer({"peer_url": "http://10.9.9.9:8006"})
+    sync_payload2 = admin_signer({"peer_url": "http://192.168.1.9:8006"})
     resp = client.post("/rpc/force-sync", json=sync_payload2, headers={"X-API-Key": "test-api-key"})
     # API key accepted; the handler then fails on the peer fetch, not auth.
     assert resp.status_code == 400
