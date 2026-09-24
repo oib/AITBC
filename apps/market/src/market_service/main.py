@@ -3,16 +3,19 @@ Market Service main application
 Manages hardware+software bundle market operations
 """
 
+import json
 import os
 from aitbc.constants import BLOCKCHAIN_RPC_URL as _DEFAULT_RPC_URL
+from aitbc.constants import DATA_DIR
 from collections.abc import AsyncIterator
 from contextlib import asynccontextmanager
 from decimal import Decimal
 from typing import Annotated, Any
 
 import httpx
-from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException
+from fastapi import BackgroundTasks, Depends, FastAPI, HTTPException, Request
 from aitbc.middleware import setup_cors
+from fastapi.encoders import jsonable_encoder
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
 from pydantic import BaseModel, Field
@@ -23,6 +26,7 @@ from aitbc.auth import APIKeyAuthenticator  # noqa: E402
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.market import OfferStatus  # noqa: E402
+from aitbc.operations import BeginStatus, OperationLedger, request_hash  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
     PerformanceLoggingMiddleware,
@@ -46,19 +50,23 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the Market Service."""
     from .services.ipfs_rental_sweeper import IpfsRentalSweeper
     from .services.market_job_sweeper import MarketJobSweeper
+    from .services.operation_reconciler import OperationReconciler
 
     logger.info("Starting Market Service")
     await init_db()
     sweeper = IpfsRentalSweeper()
     job_sweeper = MarketJobSweeper()
+    ops_reconciler = OperationReconciler(_get_operations_ledger)
     await sweeper.start()
     await job_sweeper.start()
+    await ops_reconciler.start()
     try:
         yield
     finally:
         logger.info("Shutting down Market Service")
         await sweeper.stop()
         await job_sweeper.stop()
+        await ops_reconciler.stop()
 
 
 app = FastAPI(
@@ -113,6 +121,78 @@ class HealthResponse(BaseModel):
 
     status: str
     service: str
+
+
+_operations_ledger: OperationLedger | None = None
+
+
+def _get_operations_ledger() -> OperationLedger:
+    """The market service's operation ledger — one durable row per Idempotency-Key.
+
+    Kept in its own SQLite file beside the service database; the ledger's
+    begin/complete calls are single-row writes run via ``asyncio.to_thread``.
+    """
+    global _operations_ledger
+    if _operations_ledger is None:
+        db_path = (
+            os.getenv("MARKET_OPERATIONS_DB")
+            or os.getenv("MARKETPLACE_OPERATIONS_DB")  # compat: one release of legacy env names
+            or str(DATA_DIR / "data" / "market_operations.db")
+        )
+        _operations_ledger = OperationLedger(db_path, service="market")
+    return _operations_ledger
+
+
+async def _begin_operation(
+    request: Request, operation_type: str, payload: dict[str, Any], *, allow_adopt: bool = True
+) -> tuple[str, int, JSONResponse | None]:
+    """Dedupe a mutating request by its ``Idempotency-Key`` header.
+
+    Returns (key, attempt, None) when the caller should execute, or
+    (key, 0, response) when the ledger already has a verdict — replays return
+    the originally recorded response verbatim; conflicts, in-flight
+    duplicates and uncertain operations get distinct 409s.
+    """
+    key = (request.headers.get("Idempotency-Key") or "").strip()
+    if not key:
+        return "", 0, None
+    begin = await _get_operations_ledger().begin_async(key, operation_type, request_hash(payload), allow_adopt=allow_adopt)
+    if begin.status is BeginStatus.EXECUTE:
+        return key, begin.attempt, None
+    if begin.status is BeginStatus.REPLAY:
+        return key, 0, JSONResponse(status_code=begin.response_status or 200, content=begin.result)
+    detail = {
+        BeginStatus.CONFLICT: "Idempotency-Key was already used with a different request",
+        BeginStatus.UNCERTAIN: (
+            "A previous attempt with this Idempotency-Key did not complete and its "
+            "outcome is unknown; resolve it before retrying"
+        ),
+    }.get(begin.status, "A request with this Idempotency-Key is already in progress")
+    return key, 0, JSONResponse(status_code=409, content={"error": detail})
+
+
+async def _reject_operation(key: str, attempt: int, response: JSONResponse) -> JSONResponse:
+    """Record a deterministic rejection as the operation's result.
+
+    The Idempotency-Key binds to whatever the first attempt answered — a
+    replay of a rejected request gets the same rejection, not a re-check
+    against mutated state. Takes the JSONResponse rather than parts so the
+    literal ``JSONResponse(status_code=..., content=...)`` stays in the
+    handler body, where the OpenAPI error-response extractor can see it.
+    """
+    if key and attempt:
+        body = json.loads(bytes(response.body)) if response.body else None
+        await _get_operations_ledger().complete_async(key, attempt, body, response_status=response.status_code)
+    return response
+
+
+async def _fail_operation(key: str, attempt: int, error: str, *, terminal: bool = False) -> None:
+    """Mark an attempt failed after an unexpected exception."""
+    if key and attempt:
+        try:
+            await _get_operations_ledger().fail_async(key, attempt, error, terminal=terminal)
+        except Exception:
+            logger.error("Failed to record operation failure for key %s", key)
 
 
 @app.get("/health")
@@ -252,9 +332,13 @@ async def book_offer(
     offer_id: str,
     booking_data: dict[str, Any],
     background_tasks: BackgroundTasks,
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
 ) -> Any:
     """Book/purchase a market offer"""
+    key, attempt, early = await _begin_operation(request, "book_offer", {"offer_id": offer_id, "body": booking_data})
+    if early is not None:
+        return early
     try:
         logger.info("POST /v1/market/offers/%s/book called with data keys: %s", offer_id, booking_data.keys())
         # `svc.book_offer` signals both "no such offer" and "offer is not available" by
@@ -264,9 +348,13 @@ async def book_offer(
         # wrong state, same body. The service keeps its ValueErrors as the backstop.
         offer = await svc.get_offer(offer_id)
         if not offer:
-            return JSONResponse(status_code=404, content={"error": "Offer not found"})
+            return await _reject_operation(key, attempt, JSONResponse(status_code=404, content={"error": "Offer not found"}))
         if try_to_offer_status(offer.status) is not OfferStatus.AVAILABLE:
-            return JSONResponse(status_code=400, content={"error": f"Offer is not available (status={offer.status})"})
+            return await _reject_operation(
+                key,
+                attempt,
+                JSONResponse(status_code=400, content={"error": f"Offer is not available (status={offer.status})"}),
+            )
         result = await svc.book_offer(offer_id, booking_data)
         logger.info("POST /v1/market/offers/%s/book completed", offer_id)
         buyer = booking_data.get("wallet") or booking_data.get("buyer")
@@ -276,6 +364,8 @@ async def book_offer(
         if bid_id and buyer and provider and amount:
             background_tasks.add_task(_create_escrow_bg, bid_id, buyer, provider, amount)
             result["escrow_contract_id"] = "(pending — created in background)"
+        if key:
+            await _get_operations_ledger().complete_async(key, attempt, result)
         return result
     except ValueError as e:
         # The pre-check narrows the window but does not close it: another request can book
@@ -289,9 +379,10 @@ async def book_offer(
         # again below on `amount`, after the bid has been committed, where answering 400
         # would deny a booking that happened.
         logger.info("Rejecting booking of offer %s: %s", offer_id, e)
-        return JSONResponse(status_code=400, content={"error": str(e)})
+        return await _reject_operation(key, attempt, JSONResponse(status_code=400, content={"error": str(e)}))
     except Exception as e:
         logger.error("Error in POST /v1/market/offers/%s/book: %s: %s", offer_id, type(e).__name__, str(e))
+        await _fail_operation(key, attempt, type(e).__name__)
         raise
 
 
@@ -299,20 +390,27 @@ async def book_offer(
 async def complete_bid(
     bid_id: str,
     request_data: dict[str, Any],
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
 ) -> Any:
     """Complete a market bid after on-chain payment confirms."""
+    tx_hash = request_data.get("tx_hash") or request_data.get("transaction_hash", "")
+    if not tx_hash:
+        return JSONResponse(status_code=400, content={"error": "tx_hash is required"})
+    key, attempt, early = await _begin_operation(request, "complete_bid", {"bid_id": bid_id, "body": request_data})
+    if early is not None:
+        return early
     try:
-        tx_hash = request_data.get("tx_hash") or request_data.get("transaction_hash", "")
-        if not tx_hash:
-            return JSONResponse(status_code=400, content={"error": "tx_hash is required"})
         result = await svc.complete_bid(bid_id, tx_hash)
+        if key:
+            await _get_operations_ledger().complete_async(key, attempt, jsonable_encoder(result))
         return result
     except ValueError as e:
         logger.info("Rejecting bid completion: %s", e)
-        return JSONResponse(status_code=400, content={"error": str(e)})
+        return await _reject_operation(key, attempt, JSONResponse(status_code=400, content={"error": str(e)}))
     except Exception as e:
         logger.error("Error in POST /v1/market/bids/%s/complete: %s: %s", bid_id, type(e).__name__, str(e))
+        await _fail_operation(key, attempt, type(e).__name__)
         raise
 
 
@@ -347,8 +445,12 @@ async def match_request(request: MatchRequest, svc: Annotated[MatchingService, D
 
 
 @app.post("/v1/market/offers")
-async def create_offer(offer_data: dict[str, Any], svc: Annotated[MarketService, Depends(get_market_service)]) -> Any:
+async def create_offer(
+    offer_data: dict[str, Any], request: Request, svc: Annotated[MarketService, Depends(get_market_service)]
+) -> Any:
     """Create a new market offer"""
+    key = ""
+    attempt = 0
     try:
         logger.info("POST /v1/market/offers called with data keys: %s", offer_data.keys())
         if "provider" not in offer_data:
@@ -358,17 +460,28 @@ async def create_offer(offer_data: dict[str, Any], svc: Annotated[MarketService,
                 offer_data["provider"] = offer_data["metadata"]["provider"]
             else:
                 offer_data["provider"] = "default-provider"
+        # Re-executing a crashed create would mint a second offer id, so this
+        # op is non-adoptable: an expired lease goes ``uncertain`` for operator
+        # resolution instead of risking a duplicate.
+        key, attempt, early = await _begin_operation(request, "create_offer", offer_data, allow_adopt=False)
+        if early is not None:
+            return early
         result = await svc.create_offer(offer_data)
         logger.info("POST /v1/market/offers created offer with id: %s", result.id)
+        if key:
+            await _get_operations_ledger().complete_async(key, attempt, jsonable_encoder(result))
         return result
     except ValueError as e:
         # Only reachable from the status validation the service now does: a request naming a
         # state this service does not have. 400 rather than the 500 that splatting the body
         # into the model produced for every other kind of bad field (V23-83).
         logger.info("Rejecting offer creation: %s", e)
-        return JSONResponse(status_code=400, content={"error": str(e)})
+        return await _reject_operation(key, attempt, JSONResponse(status_code=400, content={"error": str(e)}))
     except Exception as e:
         logger.error("Error in POST /v1/market/offers: %s: %s", type(e).__name__, str(e))
+        # create_offer may have committed before raising — terminal so a
+        # retry cannot mint a duplicate offer.
+        await _fail_operation(key, attempt, type(e).__name__, terminal=True)
         raise
 
 
@@ -440,6 +553,7 @@ async def get_offer_history(offer_id: str, svc: Annotated[MarketService, Depends
 @app.post("/v1/market/offers/{offer_id}/cancel")
 async def cancel_offer(
     offer_id: str,
+    request: Request,
     svc: Annotated[MarketService, Depends(get_market_service)],
     # `reason: str | None` with no default is a *required* query parameter to FastAPI, and the
     # published spec said so. Cancelling without one answered 422 -- so the 500 underneath was
@@ -449,18 +563,25 @@ async def cancel_offer(
 ) -> Any:
     """Cancel offer (migrated from Coordinator API)"""
     logger.info("POST /v1/market/offers/%s/cancel called", offer_id)
+    key, attempt, early = await _begin_operation(request, "cancel_offer", {"offer_id": offer_id, "reason": reason})
+    if early is not None:
+        return early
     offer = await svc.get_offer(offer_id)
     if not offer:
-        return JSONResponse(status_code=404, content={"error": "Offer not found"})
+        return await _reject_operation(key, attempt, JSONResponse(status_code=404, content={"error": "Offer not found"}))
 
     current = try_to_offer_status(offer.status)
     if current is OfferStatus.DELISTED:
         # Compared by state: "closed" and "delisted" are this end state too, and an offer
         # stored under either used to fall through to the transition and be told the
         # transition was invalid, rather than that it was already cancelled.
-        return JSONResponse(status_code=400, content={"error": "Offer already cancelled"})
+        return await _reject_operation(
+            key, attempt, JSONResponse(status_code=400, content={"error": "Offer already cancelled"})
+        )
     if current is None:
-        return JSONResponse(status_code=400, content={"error": f"Offer has an unknown status: '{offer.status}'"})
+        return await _reject_operation(
+            key, attempt, JSONResponse(status_code=400, content={"error": f"Offer has an unknown status: '{offer.status}'"})
+        )
     try:
         await svc.update_offer_status(offer_id, "cancelled")
     except ValueError:
@@ -469,9 +590,10 @@ async def cancel_offer(
         # buyer who has reserved. 400 rather than 409 to match `book_offer` over this same
         # resource, where 409 is reserved for optimistic-concurrency mismatches (V23-81).
         logger.info("Refusing to cancel offer %s in status %s", offer_id, offer.status)
-        return JSONResponse(
-            status_code=400,
-            content={"error": f"Offer cannot be cancelled while it is {offer.status}"},
+        return await _reject_operation(
+            key,
+            attempt,
+            JSONResponse(status_code=400, content={"error": f"Offer cannot be cancelled while it is {offer.status}"}),
         )
     cancelled_offer = {
         "offer_id": offer_id,
@@ -479,6 +601,8 @@ async def cancel_offer(
         "cancelled_at": svc.get_current_timestamp(),
         "reason": reason or "user_requested",
     }
+    if key:
+        await _get_operations_ledger().complete_async(key, attempt, cancelled_offer)
     logger.info("Cancelled offer %s", offer_id)
     return cancelled_offer
 
