@@ -1,10 +1,9 @@
 name: CI
 
+# CI is gitea-only (actions on the public GitHub mirror are manual-trigger).
+# Forks that want per-push CI can restore push/pull_request here.
 on:
-  push:
-    branches: [main]
-  pull_request:
-    branches: [main]
+  workflow_dispatch:
 
 jobs:
   ci:
