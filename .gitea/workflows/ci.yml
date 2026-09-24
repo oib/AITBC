@@ -20,8 +20,8 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v4
 
-      - name: Verify Python 3.13.5+
-        run: python3 -c "import sys; assert sys.version_info >= (3,13,5), f'Python {sys.version} is too old'"
+      - name: Verify Python 3.13.5
+        run: python3 -c "import sys; assert sys.version_info[:3] == (3,13,5), f'Python {sys.version} — AITBC pins exactly 3.13.5'"
 
       - name: Set up Python venv
         run: |
