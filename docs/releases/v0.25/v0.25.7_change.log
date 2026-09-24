@@ -328,3 +328,27 @@ CI repair chain (2026-09-24)
 - Push gate green on run 20172 (17m full suite). Nightly run 20154
   had additionally caught the refund/DEBUG/zk failures above; its
   remaining phase8 live-service checks are env-gated by design.
+
+## 2026-09-24 — Trading WebSocket lifecycle fix (dfd19ca17)
+
+Fixed three latent bugs in `apps/trading/src/trading_service/routers/subscriptions.py`
+where WebSocket state was shared incorrectly across connections:
+
+- **Shared event hook overwritten per connection**: each socket assigned
+  `sub_svc._on_event` on the singleton `OfferSubscriptionService`. The
+  callback is now wired once in `get_subscription_service()` and lazily
+  forwards to the notification service.
+- **Lease revoked for sibling connections**: leases are keyed by `node_id`
+  and shared by all of a node's sockets, but any single disconnect revoked
+  it, killing the remaining connections. A per-node refcount now revokes
+  the lease only when the last socket closes.
+- **Notification registration clobbered**: `subscriber_id` was
+  `node_id:chain_id`, so a second socket from the same node overwrote the
+  first's notify callback. IDs are now unique per connection.
+- **Silent exception swallowing**: renewal/validation/revocation/unregister
+  failures now log at debug instead of `except Exception: pass`.
+
+Tests: 6 new `TestWebSocketLeaseLifecycle` cases cover shared-lease
+refcounting, per-connection subscribers, invalid-lease close, renewal
+failure tolerance, and validation-error tolerance. 94/94 trading tests
+pass on node2; service redeployed on node0/node1/node2.

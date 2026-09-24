@@ -28,6 +28,7 @@ from typing import Any
 import requests
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.env_compat import market_getenv
 
 logger = get_logger(__name__)
 
@@ -47,7 +48,7 @@ def _market_base() -> str:
     node, which is meaningless for a provider), then ``HUB_DISCOVERY_URL``,
     then the public hub default.
     """
-    url = os.environ.get("MARKET_SERVICE_URL", "").strip()
+    url = market_getenv("MARKET_SERVICE_URL", "").strip()
     if url and not url.startswith(("http://127.0.0.1", "http://localhost")):
         return url.rstrip("/")
     hub = os.environ.get("HUB_DISCOVERY_URL", "hub.aitbc.bubuit.net").strip().rstrip("/")

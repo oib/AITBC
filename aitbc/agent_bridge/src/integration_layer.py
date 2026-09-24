@@ -20,6 +20,7 @@ from aitbc.constants import (
     EXCHANGE_PORT,
     MARKET_PORT,
 )
+from aitbc.env_compat import market_getenv
 
 logger = logging.getLogger(__name__)
 
@@ -32,7 +33,7 @@ class AITBCServiceIntegration:
             "coordinator_api": os.getenv("COORDINATOR_API_URL", f"http://localhost:{COORDINATOR_API_PORT}"),
             "blockchain_rpc": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL),
             "exchange_service": os.getenv("EXCHANGE_SERVICE_URL", f"http://localhost:{EXCHANGE_PORT}"),
-            "market": os.getenv("MARKET_SERVICE_URL", f"http://localhost:{MARKET_PORT}"),
+            "market": market_getenv("MARKET_SERVICE_URL", f"http://localhost:{MARKET_PORT}"),
             "agent_coordinator": os.getenv("AGENT_COORDINATOR_URL", f"http://localhost:{AGENT_COORDINATOR_PORT}"),
         }
         self.session: aiohttp.ClientSession | None = None

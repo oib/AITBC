@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import Any
 
 from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
-from aitbc.middleware import setup_cors
+from aitbc.middleware import LegacyPathRewriteMiddleware, setup_cors
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
 from prometheus_client import CONTENT_TYPE_LATEST, generate_latest
@@ -396,6 +396,9 @@ def create_app() -> FastAPI:
         allow_methods=["GET", "POST", "OPTIONS"],
         allow_headers=["Content-Type", "Authorization", "X-API-Key"],
     )
+    # Added last so it wraps everything, including the websocket router: this is
+    # the only app here serving /rpc/market/*, so it takes that alias too.
+    app.add_middleware(LegacyPathRewriteMiddleware)
     app.include_router(rpc_router, prefix="/rpc", tags=["rpc"])
     # Also mount the RPC router under /v1 so the public API examples
     # (e.g. /v1/blocks/{height}) work against the blockchain node directly.
