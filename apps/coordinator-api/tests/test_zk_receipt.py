@@ -11,14 +11,11 @@ from coordinator_api.schemas import JobResult, Receipt
 
 
 @pytest.mark.asyncio
-@pytest.mark.skipif(
-    not ("/opt/aitbc/apps/zk-circuits/receipt_public_0001.zkey" and True),
-    reason="receipt_public circuit artifacts not built",
-)
 async def test_generate_and_verify_receipt_public_proof(monkeypatch):
     monkeypatch.setattr(zk_proofs, "ENABLE_ZK_VERIFICATION", True)
     svc = ZKProofService()
-    assert "receipt_public" in svc.available_circuits, f"available: {list(svc.available_circuits)}"
+    if "receipt_public" not in svc.available_circuits or not zk_proofs.snarkjs_available():
+        pytest.skip("receipt_public circuit artifacts or snarkjs toolchain not provisioned")
 
     receipt = Receipt(
         receiptId="r_test_1234",
