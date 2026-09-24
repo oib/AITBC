@@ -598,6 +598,9 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
+    # /v1/marketplace/* needs NO nginx alias: the app's LegacyPathRewriteMiddleware
+    # rewrites it to /v1/market/* and emits X-AITBC-Deprecated-Path. Rewriting here
+    # would hide the legacy spelling from the app and suppress that signal.
     location /v1/market/ {
         proxy_pass http://market_service/v1/market/;
         proxy_set_header Host $host;

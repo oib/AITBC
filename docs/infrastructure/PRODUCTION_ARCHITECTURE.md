@@ -165,6 +165,20 @@ CLI/agent/node traffic): `/c/` → coordinator `/v1` (CLI canonical),
 `offers`/`plugins` exist on both services — `:8102` owns the public `/v1/` name;
 the coordinator versions are reachable via `/c/` or `/api/v1/coordinator/market/…`.
 
+`/v1/marketplace/*` (and `/rpc/marketplace/*` on the chain node) are the
+marketplace → market rename's compat aliases, implemented in-app by
+`LegacyPathRewriteMiddleware` (`aitbc/middleware/legacy_paths.py`) on the
+market service, coordinator-api and blockchain-node — deliberately not in
+nginx, so the rewrite runs ahead of auth and rate limiting and every response
+carries `X-AITBC-Deprecated-Path: <legacy-path>` for finding remaining
+callers; each distinct legacy path also logs a warning once. The aliases stay
+until removal is explicitly approved.
+
+The same rename renamed `MARKETPLACE_*` environment variables to `MARKET_*`.
+`market_getenv` (`aitbc/env_compat.py`) reads the canonical name first and
+falls back to the legacy spelling with a one-time warning — the canonical
+name always wins — for one release.
+
 `/api/v1/agent/*` bypasses the gateway on purpose (public nginx carve-outs):
 agent join/coin-request flows authenticate with their own nonce/peer-key scheme
 and must stay reachable without a gateway key.
