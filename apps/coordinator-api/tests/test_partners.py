@@ -1,12 +1,21 @@
-"""Tests for the DB-backed partner registry router."""
+"""Tests for the DB-backed partner registry router.
+
+The router is deliberately not mounted on the production app (see main.py) —
+nothing delivers webhooks yet, so open registration would be dead attack
+surface. These tests mount it on a minimal app to keep full coverage.
+"""
 
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Generator
 
+import pytest
 from sqlmodel import Session, select
 
 from coordinator_api.contexts.enterprise_integration.domain.partner import Partner, PartnerWebhook
+from coordinator_api.contexts.enterprise_integration.routers.partners import router as partners_router
+from coordinator_api.storage import get_session
 
 REGISTER_BODY = {
     "name": "Test Explorer",
@@ -15,6 +24,22 @@ REGISTER_BODY = {
     "contact": "ops@example.com",
     "integration_type": "explorer",
 }
+
+
+@pytest.fixture
+def client(db_session):
+    """TestClient over a minimal app mounting only the partners router."""
+    from fastapi import FastAPI
+    from fastapi.testclient import TestClient
+
+    test_app = FastAPI()
+    test_app.include_router(partners_router, prefix="/v1")
+
+    def override_get_session() -> Generator[Session]:
+        yield db_session
+
+    test_app.dependency_overrides[get_session] = override_get_session
+    yield TestClient(test_app)
 
 
 def _register(client) -> dict:

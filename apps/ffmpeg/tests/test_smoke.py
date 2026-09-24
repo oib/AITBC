@@ -10,7 +10,6 @@ from __future__ import annotations
 import importlib.util
 from pathlib import Path
 
-import pytest
 from fastapi.testclient import TestClient
 
 _spec = importlib.util.spec_from_file_location(
