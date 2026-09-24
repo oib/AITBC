@@ -12,12 +12,14 @@ import click
 from ...config import get_config
 from ...utils import DECIMAL, error, output, resolve_output_format, success
 from ...utils.address import to_eip55
-from ...utils.http_client import AITBCHTTPClient, NetworkError
+from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.money import wallet_amount as _wallet_amount
 from ...utils.wallet_paths import find_wallet_file, wallet_search_dirs
 from aitbc.utils import ait_to_units, format_ait
 from . import _get_wallet_password, _load_wallet, _save_wallet, get_wallet_client, wallet
 import yaml
+
+logger = get_logger(__name__)
 
 
 @wallet.command(
@@ -313,8 +315,8 @@ def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
             if len(pub_bytes) == 65 and pub_bytes[0] == 0x04:
                 pub_bytes = pub_bytes[1:]
             return keys.PublicKey(pub_bytes).to_checksum_address()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("address derivation from public_key failed: %s", e)
 
     private_key = wallet_data.get("private_key")
     if isinstance(private_key, str) and private_key:
@@ -322,8 +324,8 @@ def _derive_wallet_address(wallet_data: dict[str, Any]) -> str | None:
             from eth_account import Account
 
             return cast(str, Account.from_key(private_key).address)
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("address derivation from private_key failed: %s", e)
 
     return None
 
@@ -413,8 +415,8 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
             with open(wallet_path) as f:
                 data = json.load(f)
             return cast(str | None, data.get("address"))
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("reading address from %s failed: %s", wallet_path, e)
 
     client = get_wallet_client()
     try:
@@ -423,8 +425,8 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
             if item.get("wallet_id") == wallet_name:
                 meta = item.get("metadata", {}) or {}
                 return cast(str | None, meta.get("address") or meta.get("original_address") or item.get("address"))
-    except Exception:
-        pass
+    except Exception as e:
+        logger.debug("wallet daemon lookup for %s failed: %s", wallet_name, e)
 
     for directory in wallet_search_dirs():
         wallet_path = directory / f"{wallet_name}.json"
@@ -433,8 +435,8 @@ def _resolve_wallet_address(ctx, wallet_name: str) -> str | None:
                 with open(wallet_path) as f:
                     data = json.load(f)
                 return cast(str | None, data.get("address"))
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("reading address from %s failed: %s", wallet_path, e)
 
     return None
 
@@ -767,9 +769,10 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         from ...utils.chain_id import get_chain_id
 
         chain_id = get_chain_id(rpc_url, override=None, timeout=5)
-    except Exception:
+    except Exception as e:
         import os
 
+        logger.debug("chain_id lookup via %s failed, falling back to env: %s", rpc_url, e)
         chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
 
     # Get actual nonce from blockchain
@@ -778,7 +781,8 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
         account_data = http_client.get(f"/rpc/account/{sender_address}")
         actual_nonce = account_data.get("nonce", 0)
-    except Exception:
+    except Exception as e:
+        logger.debug("nonce lookup for %s failed, defaulting to 0: %s", sender_address, e)
         actual_nonce = 0
 
     # Get private key for signing
