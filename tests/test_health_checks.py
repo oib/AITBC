@@ -198,23 +198,24 @@ class TestCreateBasicHealthCheck:
 
     @patch("aitbc.health_checks.logger")
     def test_a_missing_psutil_is_reported_unhealthy_not_silently_skipped(self, mock_logger):
-        """The ``except ImportError`` in create_basic_health_check is unreachable.
+        """A missing psutil surfaces as UNHEALTHY, never as a silent skip.
 
         ``check_memory``/``check_disk`` import psutil lazily *inside* their bodies,
-        so ``register_check`` only stores a callable and cannot raise. The
-        ``try/except ImportError`` wrapping registration is therefore dead code, and
-        its warning ("psutil not available, skipping system health checks") can never
-        be emitted -- do not go looking for it in a service's logs.
+        so ``register_check`` only stores a callable and cannot raise. Registration
+        was once wrapped in ``try/except ImportError`` logging "psutil not available,
+        skipping system health checks"; that branch could not execute and has been
+        removed. Do not re-add it -- it advertised a graceful degradation this module
+        does not perform, and the warning never reached anyone's logs.
 
-        A missing psutil instead reaches ``run_checks``, whose generic handler turns
-        it into UNHEALTHY naming both checks. For a pinned dependency that is the
-        honest answer, but it is the opposite of what the guard advertises, and
-        nothing pinned either half until now.
+        What happens instead is asserted below: a missing psutil reaches
+        ``run_checks``, whose generic handler turns it into UNHEALTHY naming both
+        checks. For a dependency pinned in pyproject.toml that is the honest answer,
+        and this test is what stops it drifting back to a silent skip.
         """
         with patch.dict("sys.modules", {"psutil": None}):
             checker = create_basic_health_check("test-service")
 
-            # the guard did not fire -- both checks were registered regardless
+            # registration is unconditional -- both checks present despite the stub
             assert sorted(checker._checks) == ["disk", "memory"]
             assert mock_logger.warning.call_count == 0
 
