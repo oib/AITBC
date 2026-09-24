@@ -3,12 +3,16 @@ Utility functions for blockchain RPC endpoints.
 """
 
 import json
-import threading
+import math
+import sqlite3
 import time
 from datetime import UTC, datetime
+from pathlib import Path
 from typing import Any
 
 from fastapi import HTTPException
+
+from aitbc.constants import DATA_DIR
 
 from ..config import settings
 from ..logger import get_logger
@@ -265,16 +269,20 @@ def get_bridge_admin_addresses() -> set[str]:
 
 _ADMIN_MAX_SKEW_SECS = 300
 _ADMIN_NONCE_TTL_SECS = 600
-_used_admin_nonces: dict[str, float] = {}
-_admin_nonce_lock = threading.Lock()
 
 
 def _parse_issued_at(value: Any) -> float | None:
-    """Epoch seconds for an issued_at given as a number or ISO-8601 string."""
+    """Epoch seconds for an issued_at given as a number or ISO-8601 string.
+
+    Non-finite numbers are rejected: ``json`` accepts ``NaN``/``Infinity``
+    literals, and ``abs(now - nan) > SKEW`` is False, which would otherwise
+    let a NaN-signed payload stay "fresh" forever.
+    """
     if isinstance(value, bool):
         return None
     if isinstance(value, (int, float)):
-        return float(value)
+        ts = float(value)
+        return ts if math.isfinite(ts) else None
     if isinstance(value, str):
         try:
             dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
@@ -282,34 +290,79 @@ def _parse_issued_at(value: Any) -> float | None:
             return None
         if dt.tzinfo is None:
             dt = dt.replace(tzinfo=UTC)
-        return dt.timestamp()
+        try:
+            ts = dt.timestamp()
+        except (OverflowError, OSError):
+            return None
+        return ts if math.isfinite(ts) else None
     return None
 
 
+def _nonce_db_path() -> Path:
+    """Nonce store shared by every RPC worker process on this node.
+
+    A dedicated file next to the chain databases — deliberately NOT a table
+    in ``chain.db``: ``/rpc/import-chain`` can wipe the chain database, and a
+    replay cache wiped along with it would silently reopen the window.
+    """
+    return DATA_DIR / "data" / "admin_nonces.db"
+
+
 def _nonce_seen(nonce: str) -> bool:
-    """Register a nonce; True when it was already used within the TTL."""
+    """Register ``nonce`` in the shared store; True when already used.
+
+    The PRIMARY KEY constraint makes check-and-insert atomic across the
+    hub's four gunicorn workers — an in-memory dict would give each worker
+    its own cache and let one captured request replay once per worker. The
+    file also survives service restarts, which an in-memory cache does not.
+    """
+    db_path = _nonce_db_path()
+    db_path.parent.mkdir(parents=True, exist_ok=True)
     now = time.time()
-    with _admin_nonce_lock:
-        for n in [n for n, exp in _used_admin_nonces.items() if exp <= now]:
-            _used_admin_nonces.pop(n, None)
-        if nonce in _used_admin_nonces:
+    conn = sqlite3.connect(db_path, timeout=5)
+    try:
+        conn.execute("CREATE TABLE IF NOT EXISTS admin_nonce (nonce TEXT PRIMARY KEY, expires_at REAL NOT NULL)")
+        conn.execute("DELETE FROM admin_nonce WHERE expires_at <= ?", (now,))
+        conn.commit()
+        try:
+            conn.execute(
+                "INSERT INTO admin_nonce (nonce, expires_at) VALUES (?, ?)",
+                (nonce, now + _ADMIN_NONCE_TTL_SECS),
+            )
+            conn.commit()
+            return False
+        except sqlite3.IntegrityError:
             return True
-        _used_admin_nonces[nonce] = now + _ADMIN_NONCE_TTL_SECS
-        return False
+    finally:
+        conn.close()
 
 
 def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
-    """Replay guard for admin-signed payloads: fresh issued_at + unique nonce.
+    """Replay guard for admin-signed payloads.
 
-    When the signer includes ``target_node_id`` / ``target_chain_id`` they are
-    part of the signed message, so a captured payload cannot be replayed
-    against a different node or chain — the fields cannot be stripped without
+    Requires ``issued_at`` within the skew window, a ``target_chain_id``
+    matching this node's chain, and a single-use ``nonce``. ``target_node_id``
+    is optional but verified when present — all three fields are part of the
+    signed message, so they cannot be stripped or swapped without
     invalidating the signature.
     """
     issued = _parse_issued_at(sign_payload.get("issued_at"))
     if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
-        _logger.warning("Rejected admin request: missing or stale issued_at")
+        _logger.warning("Rejected admin request: missing, non-finite or stale issued_at")
         return False
+    local_chain = settings.chain_id or "ait-mainnet"
+    target_chain = sign_payload.get("target_chain_id")
+    if not isinstance(target_chain, str) or not target_chain or target_chain != local_chain:
+        _logger.warning("Rejected admin request: target_chain_id '%s' does not match chain '%s'", target_chain, local_chain)
+        return False
+    target_node = sign_payload.get("target_node_id")
+    if target_node is not None:
+        local_node = settings.p2p_node_id or settings.proposer_id or ""
+        # Fail closed: a request naming a target node cannot be honoured by a
+        # node with no configured identity — it cannot prove it is the target.
+        if not local_node or str(target_node) != local_node:
+            _logger.warning("Rejected admin request: target_node_id '%s' does not match this node", target_node)
+            return False
     nonce = sign_payload.get("nonce")
     if not isinstance(nonce, str) or not nonce:
         _logger.warning("Rejected admin request: missing nonce")
@@ -317,20 +370,6 @@ def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
     if _nonce_seen(nonce):
         _logger.warning("Rejected admin request: nonce already used")
         return False
-    target_node = sign_payload.get("target_node_id")
-    if target_node is not None:
-        local_node = settings.p2p_node_id or settings.proposer_id or ""
-        if local_node and str(target_node) != local_node:
-            _logger.warning("Rejected admin request: target_node_id '%s' does not match this node", target_node)
-            return False
-    target_chain = sign_payload.get("target_chain_id")
-    if target_chain is not None:
-        local_chain = settings.chain_id or "ait-mainnet"
-        if str(target_chain) != local_chain:
-            _logger.warning(
-                "Rejected admin request: target_chain_id '%s' does not match chain '%s'", target_chain, local_chain
-            )
-            return False
     return True
 
 
@@ -342,10 +381,12 @@ def verify_admin_signature(payload: dict[str, Any], admin_address: str | None, a
     ``admin_address`` and that address must appear in ``bridge_admin_addresses``.
 
     The signed payload must also carry ``issued_at`` (ISO-8601 or epoch
-    seconds, within ±5 minutes of node time) and a unique ``nonce`` — a
-    captured signature cannot be replayed once its window closes. If the
-    payload includes ``target_node_id`` / ``target_chain_id`` they must match
-    this node, binding the signature to its intended destination.
+    seconds, within ±5 minutes of node time), a ``target_chain_id`` matching
+    this node's chain, and a unique ``nonce`` — a captured signature cannot
+    be replayed once its window closes. ``target_node_id`` is optional but
+    must match this node when present, binding the signature to its intended
+    destination. Nonces are recorded in a sqlite file shared by all RPC
+    worker processes.
     """
     if not admin_address or not admin_signature:
         return False

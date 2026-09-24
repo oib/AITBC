@@ -1,6 +1,7 @@
 import hashlib
 import json
 import secrets
+import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from unittest.mock import Mock
@@ -23,11 +24,11 @@ def _hex(value: str) -> str:
 
 
 @pytest.fixture(autouse=True)
-def _clear_admin_nonce_cache():
-    """The replay cache is module-global; isolate it per test."""
-    rpc_utils._used_admin_nonces.clear()
-    yield
-    rpc_utils._used_admin_nonces.clear()
+def _isolated_nonce_store(tmp_path, monkeypatch):
+    """Point the shared nonce store at a per-test file, never the real DATA_DIR."""
+    db_path = tmp_path / "admin_nonces.db"
+    monkeypatch.setattr(rpc_utils, "_nonce_db_path", lambda: db_path)
+    return db_path
 
 
 @pytest.fixture
@@ -43,6 +44,7 @@ def admin_signer(monkeypatch):
     def _sign(payload: dict, **overrides) -> dict:
         payload.setdefault("issued_at", datetime.now(UTC).isoformat())
         payload.setdefault("nonce", secrets.token_hex(16))
+        payload.setdefault("target_chain_id", settings.chain_id or "ait-mainnet")
         for key, value in overrides.items():
             if value is None:
                 payload.pop(key, None)
@@ -684,3 +686,85 @@ def test_destructive_routes_require_api_key(admin_signer, monkeypatch, isolated_
     resp = client.post("/rpc/force-sync", json=sync_payload2, headers={"X-API-Key": "test-api-key"})
     # API key accepted; the handler then fails on the peer fetch, not auth.
     assert resp.status_code == 400
+
+
+@pytest.mark.asyncio
+async def test_import_chain_rejects_nonce_used_by_another_worker(
+    isolated_engine, mock_request, admin_signer, _isolated_nonce_store
+):
+    """The nonce store is shared: a nonce consumed via a *separate* sqlite
+    connection (a sibling gunicorn worker) still rejects the request."""
+    import sqlite3
+
+    from fastapi import HTTPException
+
+    signed = admin_signer(_valid_import_payload())
+    conn = sqlite3.connect(_isolated_nonce_store)
+    conn.execute("CREATE TABLE IF NOT EXISTS admin_nonce (nonce TEXT PRIMARY KEY, expires_at REAL NOT NULL)")
+    conn.execute("INSERT INTO admin_nonce (nonce, expires_at) VALUES (?, ?)", (signed["nonce"], time.time() + 600))
+    conn.commit()
+    conn.close()
+
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+@pytest.mark.parametrize("bad_issued_at", [float("nan"), float("inf"), float("-inf")])
+async def test_import_chain_rejects_non_finite_issued_at(isolated_engine, mock_request, admin_signer, bad_issued_at):
+    """json accepts NaN/Infinity literals; ``abs(now - nan) > skew`` is False,
+    so a non-finite timestamp must be rejected explicitly, not trusted fresh."""
+    from fastapi import HTTPException
+
+    signed = admin_signer(_valid_import_payload(), issued_at=bad_issued_at)
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_signature_rejects_missing_target_chain(isolated_engine, mock_request, admin_signer):
+    """target_chain_id is required — payloads without it cannot be replayed
+    across chains."""
+    from fastapi import HTTPException
+
+    signed = admin_signer(_valid_import_payload(), target_chain_id=None)
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_admin_signature_rejects_target_when_node_has_no_identity(
+    isolated_engine, mock_request, admin_signer, monkeypatch
+):
+    """Fail closed: a payload naming a target node cannot be honoured by a
+    node with no configured identity to match it against."""
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(settings, "p2p_node_id", "")
+    monkeypatch.setattr(settings, "proposer_id", "")
+    signed = admin_signer(_valid_import_payload(), target_node_id="any-node")
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.import_chain(mock_request, signed)
+    assert exc_info.value.status_code == 403
+
+
+@pytest.mark.asyncio
+async def test_force_sync_rejects_scoped_ipv6_resolution(mock_request, admin_signer, monkeypatch):
+    """getaddrinfo can return scoped literals like ``fe80::1%eth0`` that
+    ``ip_address()`` cannot parse — must be a clean 400, not a 500."""
+    import socket
+
+    from fastapi import HTTPException
+
+    monkeypatch.setattr(
+        socket,
+        "getaddrinfo",
+        lambda *a, **k: [(socket.AF_INET6, socket.SOCK_STREAM, 6, "", ("fe80::1%eth0", 8006, 0, 2))],
+    )
+    signed = admin_signer({"peer_url": "http://peer.example.net:8006"})
+    with pytest.raises(HTTPException) as exc_info:
+        await rpc_sync.force_sync(mock_request, signed)
+    assert exc_info.value.status_code == 400
