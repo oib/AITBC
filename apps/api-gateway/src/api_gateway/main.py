@@ -9,7 +9,7 @@ Routes requests to microservices
 import asyncio  # noqa: E402
 import hmac  # noqa: E402
 import os  # noqa: E402
-from collections.abc import AsyncIterator, Callable  # noqa: E402
+from collections.abc import AsyncIterator, Awaitable, Callable  # noqa: E402
 from typing import Any, TypeVar  # noqa: E402
 from contextlib import asynccontextmanager  # noqa: E402
 
@@ -19,6 +19,7 @@ from fastapi.responses import JSONResponse  # noqa: E402
 from fastapi.security import APIKeyHeader, HTTPAuthorizationCredentials, HTTPBearer  # noqa: E402
 
 from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
+from aitbc.env_compat import market_getenv  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
@@ -94,7 +95,7 @@ _MARKET_COORDINATOR_PREFIXES = (
     "pricing",
     "sync-offers",
 )
-_MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:8102")
+_MARKET_SERVICE_URL = market_getenv("MARKET_SERVICE_URL", "http://localhost:8102")
 SERVICES: dict[str, dict[str, object]] = {
     "escrow": {
         "base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc",
@@ -115,6 +116,23 @@ SERVICES: dict[str, dict[str, object]] = {
         "base_url": _MARKET_SERVICE_URL,
         "prefix": "/v1/market",
         "rewrite": {"/v1/market": "v1/market"},
+    },
+    # Pre-rename spelling. The marketplace → market rename promised these
+    # aliases and never shipped them, so every caller still on the old paths
+    # broke. They mirror the carving above -- and must keep mirroring it, or a
+    # coordinator-owned sub-family would land on the market service instead.
+    **{
+        f"marketplace-{sub}": {
+            "base_url": COORDINATOR_URL,
+            "prefix": f"/v1/marketplace/{sub}",
+            "rewrite": {f"/v1/marketplace/{sub}": f"v1/market/{sub}"},
+        }
+        for sub in _MARKET_COORDINATOR_PREFIXES
+    },
+    "marketplace": {
+        "base_url": _MARKET_SERVICE_URL,
+        "prefix": "/v1/marketplace",
+        "rewrite": {"/v1/marketplace": "v1/market"},
     },
     "coordinator": {"base_url": COORDINATOR_URL, "prefix": "/v1/coordinator", "rewrite": {"/v1/coordinator": "v1"}},
     "governance": {
@@ -384,22 +402,10 @@ async def proxy_with_retry(
     """
     max_retries = 3
     retry_delay = 0.5
+    send: Callable[..., Awaitable[httpx.Response]] = getattr(client, method.lower())
     for attempt in range(max_retries):
         try:
-            if method == "GET":
-                return await client.get(url, **kwargs)  # type: ignore[arg-type]
-            elif method == "POST":
-                return await client.post(url, **kwargs)  # type: ignore[arg-type]
-            elif method == "PUT":
-                return await client.put(url, **kwargs)  # type: ignore[arg-type]
-            elif method == "DELETE":
-                return await client.delete(url, **kwargs)  # type: ignore[arg-type]
-            elif method == "PATCH":
-                return await client.patch(url, **kwargs)  # type: ignore[arg-type]
-            elif method == "OPTIONS":
-                return await client.options(url, **kwargs)  # type: ignore[arg-type]
-            elif method == "HEAD":
-                return await client.head(url, **kwargs)  # type: ignore[arg-type]
+            return await send(url, **kwargs)
         except _UNSENT_REQUEST_ERRORS:
             if attempt < max_retries - 1:
                 logger.warning("Upstream unreachable before send on attempt %s/%s, retrying...", attempt + 1, max_retries)
@@ -417,18 +423,13 @@ async def proxy_with_retry(
     raise httpx.RequestError("Max retries exceeded")
 
 
-@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
-@rate_limit(RATE_LIMIT)
-async def proxy_request(path: str, request: Request, authenticated: Annotated[bool, Depends(verify_auth)]) -> Response:
-    """Proxy request to appropriate microservice with rate limiting and circuit breaker.
+def _resolve_target(path: str) -> tuple[str, str] | JSONResponse:
+    """Resolve an incoming path to ``(service name, upstream URL)``.
 
-    The rate_limit decorator must sit below @app.api_route so slowapi wraps the handler
-    before FastAPI registers it. It was previously defined but applied to nothing, so the
-    limiter, its 429 handler and app.state.limiter were all wired up while every request
-    passed unthrottled.
+    ``v2/`` paths are service-qualified: the qualifier picks the upstream and
+    the rest goes verbatim. Everything else goes through the v1 prefix table.
+    Returns a JSONResponse (404) when nothing claims the path.
     """
-    service_name: str | None = None
-    target_url: str | None = None
     if path.startswith("v2/"):
         # Service-qualified surface (publicly /api/v2/<service>/<path>): the
         # qualifier picks the upstream and the rest of the path goes verbatim —
@@ -446,31 +447,79 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
                 status_code=status.HTTP_404_NOT_FOUND,
                 content={"error": f"/api/v2/{qualifier} requires an upstream path"},
             )
-        service_name = qualifier
-        target_url = f"{base}/{upstream_path}"
+        return qualifier, f"{base}/{upstream_path}"
+    resolved = resolve_v1_route(path)
+    if resolved is not None:
+        return resolved
+    return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"})
+
+
+def _upstream_headers(response: httpx.Response) -> dict[str, str]:
+    """Response headers safe to forward to the client.
+
+    Framing and hop-by-hop headers describe the upstream connection, not
+    this one — forwarding them produces malformed responses (nginx 502).
+    """
+    hop_by_hop = {
+        "content-length",
+        "content-encoding",
+        "transfer-encoding",
+        "connection",
+        "keep-alive",
+        "server",
+        "date",
+        "te",
+        "trailer",
+        "upgrade",
+    }
+    return {k: v for k, v in response.headers.items() if k.lower() not in hop_by_hop}
+
+
+def resolve_v1_route(path: str) -> tuple[str, str] | None:
+    """Map a v1 request path to its ``(service name, upstream URL)``.
+
+    ``path`` carries no leading slash, the way FastAPI's catch-all hands it over.
+    The first prefix in ``SERVICES`` order that claims the path wins, which is what
+    keeps the coordinator-owned sub-families ahead of the generic market entry.
+    Returns None when nothing claims it.
+    """
+    for name, config in SERVICES.items():
+        prefix = str(config["prefix"]).lstrip("/")
+        if path == prefix or path.startswith(prefix + "/"):
+            matched = name
+            break
     else:
-        for name, config in SERVICES.items():
-            prefix = config["prefix"].lstrip("/")  # type: ignore
-            if path == prefix or path.startswith(prefix + "/"):
-                service_name = name
+        return None
+
+    target_path = path
+    rewrite = config.get("rewrite")
+    if isinstance(rewrite, dict):
+        for old_prefix, new_prefix in rewrite.items():
+            old = str(old_prefix).lstrip("/")
+            if target_path.startswith(old):
+                target_path = str(new_prefix).lstrip("/") + target_path[len(old) :]
                 break
-        if service_name:
-            service_config = SERVICES[service_name]
-            target_path = path
-            prefix = service_config["prefix"].lstrip("/")  # type: ignore
-            if "rewrite" in service_config:
-                for old_prefix, new_prefix in service_config["rewrite"].items():  # type: ignore
-                    if target_path.startswith(old_prefix.lstrip("/")):
-                        remaining_path = target_path[len(old_prefix.lstrip("/")) :]
-                        target_path = new_prefix.lstrip("/") + remaining_path
-                        break
-            elif path.startswith(prefix):
-                target_path = path[len(prefix) :].lstrip("/")
-            if target_path.endswith("/"):
-                target_path = target_path.rstrip("/")
-            target_url = f"{service_config['base_url']}/{target_path}"
-    if not service_name or target_url is None:
-        return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"})
+    elif path.startswith(prefix):
+        target_path = path[len(prefix) :].lstrip("/")
+    if target_path.endswith("/"):
+        target_path = target_path.rstrip("/")
+    return matched, f"{config['base_url']}/{target_path}"
+
+
+@app.api_route("/{path:path}", methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"])
+@rate_limit(RATE_LIMIT)
+async def proxy_request(path: str, request: Request, authenticated: Annotated[bool, Depends(verify_auth)]) -> Response:
+    """Proxy request to appropriate microservice with rate limiting and circuit breaker.
+
+    The rate_limit decorator must sit below @app.api_route so slowapi wraps the handler
+    before FastAPI registers it. It was previously defined but applied to nothing, so the
+    limiter, its 429 handler and app.state.limiter were all wired up while every request
+    passed unthrottled.
+    """
+    resolved = _resolve_target(path)
+    if isinstance(resolved, JSONResponse):
+        return resolved
+    service_name, target_url = resolved
     if not check_circuit_breaker(service_name):
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
@@ -499,26 +548,7 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
         # when it carries an Idempotency-Key the upstream deduplicates.
         retry_ambiguous = request.method in ("GET", "HEAD", "OPTIONS") or "idempotency-key" in request.headers
         response = await proxy_with_retry(client, request.method, target_url, retry_ambiguous=retry_ambiguous, **kwargs)
-        # Framing and hop-by-hop headers describe the upstream connection, not
-        # this one — forwarding them produces malformed responses (nginx 502).
-        upstream_headers = {
-            k: v
-            for k, v in response.headers.items()
-            if k.lower()
-            not in (
-                "content-length",
-                "content-encoding",
-                "transfer-encoding",
-                "connection",
-                "keep-alive",
-                "server",
-                "date",
-                "te",
-                "trailer",
-                "upgrade",
-            )
-        }
-        return Response(content=response.content, status_code=response.status_code, headers=upstream_headers)
+        return Response(content=response.content, status_code=response.status_code, headers=_upstream_headers(response))
     except AmbiguousUpstreamError:
         logger.error(
             "Ambiguous outcome for %s %s: upstream may have accepted it; not retried without Idempotency-Key",

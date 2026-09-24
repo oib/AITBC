@@ -20,7 +20,6 @@ point of asking.
 
 from __future__ import annotations
 
-import os
 from dataclasses import dataclass
 from decimal import Decimal, InvalidOperation
 from typing import Any
@@ -29,6 +28,7 @@ from urllib.parse import quote as urlquote
 import httpx
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.env_compat import market_getenv
 
 from ..payments.provider_binding import looks_like_wallet_address
 
@@ -36,7 +36,7 @@ logger = get_logger(__name__)
 
 # The market service, which owns the offer registry. It listens on loopback on
 # the hub; ``config.py`` already names the same port in its CORS origins.
-MARKET_BASE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:8102").rstrip("/")
+MARKET_BASE_URL = market_getenv("MARKET_SERVICE_URL", "http://localhost:8102").rstrip("/")
 
 # Job submission blocks on this call, so it is deliberately short. A slow registry
 # should fail the submission, not hold a client connection open.

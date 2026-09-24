@@ -28,8 +28,10 @@ from aitbc.aitbc_logging import configure_logging, get_logger  # noqa: E402
 from aitbc.health_checks import create_simple_health_response  # noqa: E402
 from aitbc.market import OfferStatus  # noqa: E402
 from aitbc.operations import BeginStatus, OperationLedger, request_hash  # noqa: E402
+from aitbc.env_compat import market_getenv  # noqa: E402
 from aitbc.middleware import (  # noqa: E402
     ErrorHandlerMiddleware,
+    LegacyPathRewriteMiddleware,
     PerformanceLoggingMiddleware,
     RequestIDMiddleware,
     RequestValidationMiddleware,
@@ -95,6 +97,9 @@ app.add_middleware(
     error_message="Market rate limit exceeded",
 )
 app.add_middleware(ErrorHandlerMiddleware)
+# Added last so it wraps everything: the rate limiter and the error handler
+# see the canonical path, never the pre-rename /v1/marketplace spelling.
+app.add_middleware(LegacyPathRewriteMiddleware)
 
 
 get_session_dep = get_session
@@ -118,7 +123,7 @@ def _get_operations_ledger() -> OperationLedger:
     """
     global _operations_ledger
     if _operations_ledger is None:
-        db_path = os.getenv("MARKET_OPERATIONS_DB") or str(DATA_DIR / "data" / "market_operations.db")
+        db_path = market_getenv("MARKET_OPERATIONS_DB") or str(DATA_DIR / "data" / "market_operations.db")
         _operations_ledger = OperationLedger(db_path, service="market")
     return _operations_ledger
 
@@ -1552,7 +1557,7 @@ if __name__ == "__main__":
 
     # Allow configuration via environment variable for multi-node deployments
     # Default to 0.0.0.0 to accept connections from other nodes
-    host = os.getenv("MARKET_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
-    port = int(os.getenv("MARKET_BIND_PORT", "8102"))
+    host = market_getenv("MARKET_BIND_HOST", "0.0.0.0")  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
+    port = int(market_getenv("MARKET_BIND_PORT", "8102"))
 
     uvicorn.run(app, host=host, port=port, log_level="critical", access_log=False)
