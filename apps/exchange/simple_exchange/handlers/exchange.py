@@ -129,6 +129,54 @@ class ExchangeMixin:
 
         self.send_json_response({"buys": buys, "sells": sells})  # type: ignore[attr-defined]
 
+    def _parse_order_payload(self, data: dict):
+        """Validate an order POST body; send_error and return None on rejection.
+
+        Returns ``(order_type, user_address, amount, price, total,
+        amount_ticks, price_ticks)`` — Decimals for display/total and fixed-point
+        ticks for SQL predicates.
+        """
+        order_type = data.get("order_type")
+        amount_raw = data.get("amount")
+        price_raw = data.get("price")
+        user_address = data.get("user_address")
+
+        if not all([order_type, amount_raw, price_raw, user_address]):
+            self.send_error(400, "Missing required fields")  # type: ignore[attr-defined]
+            return None
+
+        if order_type not in ["BUY", "SELL"]:
+            self.send_error(400, "Invalid order type")  # type: ignore[attr-defined]
+            return None
+
+        # B2: Convert to Decimal for exact monetary arithmetic
+        try:
+            amount_dec = _to_decimal(amount_raw)
+            price_dec = _to_decimal(price_raw)
+        except Exception:
+            self.send_error(400, "Invalid amount or price")  # type: ignore[attr-defined]
+            return None
+
+        if amount_dec <= 0 or price_dec <= 0:
+            self.send_error(400, "Amount and price must be positive")  # type: ignore[attr-defined]
+            return None
+
+        total_dec = amount_dec * price_dec
+
+        # Fixed-point check: amount and price must be exactly representable
+        # at 8 decimal places, or the integer tick columns cannot be
+        # written and SQL matching would silently misorder this order.
+        # `total` (amount*price) may legitimately carry >8 decimals and
+        # stays TEXT-only — it never appears in a SQL predicate.
+        try:
+            amount_ticks = to_ticks(amount_dec)
+            price_ticks = to_ticks(price_dec)
+        except ValueError:
+            self.send_error(400, "Amount or price exceeds 8-decimal precision")  # type: ignore[attr-defined]
+            return None
+
+        return order_type, user_address, amount_dec, price_dec, total_dec, amount_ticks, price_ticks
+
     def handle_place_order(self):
         """Place a new order on the blockchain.
 
@@ -151,44 +199,10 @@ class ExchangeMixin:
             return
 
         try:
-            order_type = data.get("order_type")
-            amount_raw = data.get("amount")
-            price_raw = data.get("price")
-            user_address = data.get("user_address")
-
-            if not all([order_type, amount_raw, price_raw, user_address]):
-                self.send_error(400, "Missing required fields")  # type: ignore[attr-defined]
+            parsed = self._parse_order_payload(data)
+            if parsed is None:
                 return
-
-            if order_type not in ["BUY", "SELL"]:
-                self.send_error(400, "Invalid order type")  # type: ignore[attr-defined]
-                return
-
-            # B2: Convert to Decimal for exact monetary arithmetic
-            try:
-                amount_dec = _to_decimal(amount_raw)
-                price_dec = _to_decimal(price_raw)
-            except Exception:
-                self.send_error(400, "Invalid amount or price")  # type: ignore[attr-defined]
-                return
-
-            if amount_dec <= 0 or price_dec <= 0:
-                self.send_error(400, "Amount and price must be positive")  # type: ignore[attr-defined]
-                return
-
-            total_dec = amount_dec * price_dec
-
-            # Fixed-point check: amount and price must be exactly representable
-            # at 8 decimal places, or the integer tick columns cannot be
-            # written and SQL matching would silently misorder this order.
-            # `total` (amount*price) may legitimately carry >8 decimals and
-            # stays TEXT-only — it never appears in a SQL predicate.
-            try:
-                amount_ticks = to_ticks(amount_dec)
-                price_ticks = to_ticks(price_dec)
-            except ValueError:
-                self.send_error(400, "Amount or price exceeds 8-decimal precision")  # type: ignore[attr-defined]
-                return
+            order_type, user_address, amount_dec, price_dec, total_dec, amount_ticks, price_ticks = parsed
 
             # Orders used to be broadcast to the chain via POST /rpc/sendTx, but the
             # node removed that endpoint and its replacement (/rpc/transaction)

@@ -87,6 +87,31 @@ class RetryPolicy:
             f"unknown ({exc!r}); not retried. Pass an Idempotency-Key to opt into retry."
         )
 
+    def _backoff_secs(self, attempt: int) -> float:
+        """Seconds to wait before attempt N (0 for the first attempt)."""
+        if attempt == 0:
+            return 0
+        backoff_time: float = 2 ** (attempt - 1)
+        if self.enable_logging:
+            self.logger.info("Retry attempt %s/%s after %ss backoff", attempt, self.max_retries, backoff_time)
+        return backoff_time
+
+    def _check_or_raise(self, attempt: int, exc: BaseException, method: str, retry_ambiguous: bool, presend: bool) -> None:
+        """Decide a failed attempt's fate: return to retry, or raise.
+
+        Raises AmbiguousRequestError when the failure may have committed a
+        non-idempotent write, and RetryError once retries are exhausted.
+        """
+        if not self._retry_allowed(method, retry_ambiguous, presend=presend):
+            raise self._ambiguous(method, exc) from exc
+        if attempt < self.max_retries:
+            if self.enable_logging:
+                self.logger.warning("Request failed (attempt %s/%s): %s", attempt + 1, self.max_retries + 1, exc)
+            return
+        if self.enable_logging:
+            self.logger.error("All retry attempts exhausted: %s", exc)
+        raise RetryError(f"Retry attempts exhausted: {exc}") from exc
+
     def execute(self, request_func: Callable, *args, method: str = "GET", retry_ambiguous: bool = False, **kwargs) -> Any:
         """
         Execute request with retry logic and exponential backoff.
@@ -114,39 +139,18 @@ class RetryPolicy:
         last_error: requests.RequestException | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                if attempt > 0:
-                    backoff_time = 2 ** (attempt - 1)
-                    if self.enable_logging:
-                        self.logger.info("Retry attempt %s/%s after %ss backoff", attempt, self.max_retries, backoff_time)
-                    time.sleep(backoff_time)
+                if backoff := self._backoff_secs(attempt):
+                    time.sleep(backoff)
                 return request_func(*args, **kwargs)
             except requests.HTTPError as e:
                 if e.response is not None and 400 <= e.response.status_code < 500:
                     raise
                 # A response (even 5xx) means the request reached the server.
-                if not self._retry_allowed(method, retry_ambiguous, presend=False):
-                    raise self._ambiguous(method, e) from e
                 last_error = e
-                if attempt < self.max_retries:
-                    if self.enable_logging:
-                        self.logger.warning("Request failed (attempt %s/%s): %s", attempt + 1, self.max_retries + 1, e)
-                    continue
-                else:
-                    if self.enable_logging:
-                        self.logger.error("All retry attempts exhausted: %s", e)
-                    raise RetryError(f"Retry attempts exhausted: {e}") from e
+                self._check_or_raise(attempt, e, method, retry_ambiguous, presend=False)
             except requests.RequestException as e:
-                if not self._retry_allowed(method, retry_ambiguous, presend=_is_presend_requests(e)):
-                    raise self._ambiguous(method, e) from e
                 last_error = e
-                if attempt < self.max_retries:
-                    if self.enable_logging:
-                        self.logger.warning("Request failed (attempt %s/%s): %s", attempt + 1, self.max_retries + 1, e)
-                    continue
-                else:
-                    if self.enable_logging:
-                        self.logger.error("All retry attempts exhausted: %s", e)
-                    raise RetryError(f"Retry attempts exhausted: {e}") from e
+                self._check_or_raise(attempt, e, method, retry_ambiguous, presend=_is_presend_requests(e))
         raise RetryError(f"Request failed: {last_error}")
 
     async def execute_async(
@@ -176,36 +180,15 @@ class RetryPolicy:
         last_error: httpx.HTTPError | None = None
         for attempt in range(self.max_retries + 1):
             try:
-                if attempt > 0:
-                    backoff_time = 2 ** (attempt - 1)
-                    if self.enable_logging:
-                        self.logger.info("Retry attempt %s/%s after %ss backoff", attempt, self.max_retries, backoff_time)
-                    await asyncio.sleep(backoff_time)
+                if backoff := self._backoff_secs(attempt):
+                    await asyncio.sleep(backoff)
                 return await request_func(*args, **kwargs)
             except httpx.HTTPStatusError as e:
                 if e.response is not None and 400 <= e.response.status_code < 500:
                     raise
-                if not self._retry_allowed(method, retry_ambiguous, presend=False):
-                    raise self._ambiguous(method, e) from e
                 last_error = e
-                if attempt < self.max_retries:
-                    if self.enable_logging:
-                        self.logger.warning("Request failed (attempt %s/%s): %s", attempt + 1, self.max_retries + 1, e)
-                    continue
-                else:
-                    if self.enable_logging:
-                        self.logger.error("All retry attempts exhausted: %s", e)
-                    raise RetryError(f"Retry attempts exhausted: {e}") from e
+                self._check_or_raise(attempt, e, method, retry_ambiguous, presend=False)
             except httpx.HTTPError as e:
-                if not self._retry_allowed(method, retry_ambiguous, presend=isinstance(e, _PRESEND_HTTPX)):
-                    raise self._ambiguous(method, e) from e
                 last_error = e
-                if attempt < self.max_retries:
-                    if self.enable_logging:
-                        self.logger.warning("Request failed (attempt %s/%s): %s", attempt + 1, self.max_retries + 1, e)
-                    continue
-                else:
-                    if self.enable_logging:
-                        self.logger.error("All retry attempts exhausted: %s", e)
-                    raise RetryError(f"Retry attempts exhausted: {e}") from e
+                self._check_or_raise(attempt, e, method, retry_ambiguous, presend=isinstance(e, _PRESEND_HTTPX))
         raise RetryError(f"Request failed: {last_error}")
