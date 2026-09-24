@@ -55,6 +55,9 @@ jobs:
       - name: C901 complexity ratchet
         run: make c901-ratchet
 
+      - name: BLE001/S110 exception ratchet
+        run: make except-ratchet
+
       - name: No float money
         run: make no-float-money
 

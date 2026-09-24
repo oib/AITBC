@@ -10,12 +10,13 @@ PYTHON ?= $(shell \
 	elif [ -x ./venv/bin/python ]; then echo ./venv/bin/python; \
 	else command -v python3; fi)
 
-.PHONY: help lint lint-strict lint-report c901-ratchet no-float-money typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance live-dry-run openapi openapi-check version-check ci
+.PHONY: help lint lint-strict lint-report c901-ratchet except-ratchet no-float-money typecheck test test-smoke test-integration test-e2e test-apps test-cli test-governance live-dry-run openapi openapi-check version-check ci
 
 help:
 	@echo "make lint            ruff over the repo, fail on any finding (the CI lint gate)"
 	@echo "make lint-report     ruff over the repo, report findings without failing (local convenience)"
 	@echo "make c901-ratchet    fail if cyclomatic complexity grows vs scripts/ci/c901-baseline.txt"
+	@echo "make except-ratchet   fail if BLE001/S110 counts grow vs scripts/ci/except-baseline.txt"
 	@echo "make typecheck       mypy over all clean apps (the CI type gate)"
 	@echo "make test            unit tests (fast, no external services)"
 	@echo "make test-smoke      smoke tests (import production modules, no services)"
@@ -41,6 +42,9 @@ lint-report:
 
 c901-ratchet:
 	PYTHON=$(PYTHON) bash scripts/ci/check-c901-ratchet.sh
+
+except-ratchet:
+	PYTHON=$(PYTHON) bash scripts/ci/check-except-ratchet.sh
 
 no-float-money:
 	$(PYTHON) scripts/lint/no_float_money.py
@@ -137,4 +141,4 @@ openapi-check:
 version-check:
 	$(PYTHON) scripts/ci/check-version-consistency.py
 
-ci: lint-strict c901-ratchet no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi-check version-check
+ci: lint-strict c901-ratchet except-ratchet no-float-money typecheck test test-apps test-cli test-governance live-dry-run openapi-check version-check
