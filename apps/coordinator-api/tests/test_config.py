@@ -186,7 +186,7 @@ class TestLocalhostRpcGuard:
 
     @pytest.fixture(autouse=True)
     def _clean_env(self, monkeypatch):
-        for var in ("ENVIRONMENT", "APP_ENV", "NODE_ENV", "ALLOW_LOCAL_BLOCKCHAIN_RPC"):
+        for var in ("ENVIRONMENT", "APP_ENV", "NODE_ENV", "ALLOW_LOCAL_BLOCKCHAIN_RPC", "DEBUG"):
             monkeypatch.delenv(var, raising=False)
 
     @pytest.mark.parametrize("var", ["ENVIRONMENT", "APP_ENV", "NODE_ENV"])
