@@ -5,7 +5,7 @@ from typing import Any
 
 import aiosqlite
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
@@ -130,7 +130,7 @@ async def api_non_empty_blocks(
 async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for block by hash"""
     if not validate_tx_hash(hash):
-        return {}
+        raise HTTPException(status_code=400, detail="Invalid block hash")
     # Strip 0x prefix for comparison
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
@@ -230,7 +230,9 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
                             if clean_block_hash and clean_block_hash.lower() == clean_hash.lower():
                                 return normalize_block(block)
 
-        return {}
+        raise HTTPException(status_code=404, detail="Block not found")
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Error getting block by hash %s", hash)
         return {}
@@ -294,6 +296,8 @@ async def api_blocks_by_address(
 async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for block data"""
     block_data = await get_block(height, chain_id)  # type: ignore[arg-type]
+    if not block_data:
+        raise HTTPException(status_code=404, detail="Block not found")
 
     # Add transactions for this block
     try:

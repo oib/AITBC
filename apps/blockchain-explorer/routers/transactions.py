@@ -6,7 +6,7 @@ from typing import Any
 
 import aiosqlite
 import httpx
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.utils import format_ait
@@ -24,7 +24,7 @@ router = APIRouter()
 async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> dict[str, Any]:
     """API endpoint for transaction by hash"""
     if not validate_tx_hash(hash):
-        return {}
+        raise HTTPException(status_code=400, detail="Invalid transaction hash")
     # Strip 0x prefix for comparison
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
@@ -69,7 +69,9 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
             if response.status_code == 200:
                 return response.json()  # type: ignore[no-any-return]
 
-        return {}
+        raise HTTPException(status_code=404, detail="Transaction not found")
+    except HTTPException:
+        raise
     except Exception:
         logger.exception("Error getting transaction by hash %s", hash)
         return {}
@@ -137,7 +139,7 @@ async def api_transaction(tx_hash: str, chain_id: str | None = DEFAULT_CHAIN) ->
     """API endpoint for transaction data, normalized for frontend"""
     tx = await get_transaction(tx_hash, chain_id if chain_id else DEFAULT_CHAIN)
     if not tx:
-        return {}
+        raise HTTPException(status_code=404, detail="Transaction not found")
     # Try to parse payload for additional fields
     payload_data = {}
     try:
