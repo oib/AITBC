@@ -131,7 +131,8 @@ get_allowed_services() {
         aitbc-miner
         aitbc-coordinator-api
         aitbc-edge
-        aitbc-pool-hub
+        # aitbc-pool-hub is not a shop-side service — add it via
+        # EXTRA_SERVICES on hosts that should run one.
         aitbc-market
         aitbc-hermes-agent
         aitbc-whisper
