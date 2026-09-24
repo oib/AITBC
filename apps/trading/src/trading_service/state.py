@@ -80,6 +80,15 @@ def set_lease_tracker(tracker: Any) -> None:
     _lease_tracker = tracker
 
 
+async def _forward_events_to_notifications(event: Any) -> None:
+    """Forward offer events to the notification service.
+
+    Wired once on the singleton :class:`OfferSubscriptionService`; resolves
+    the notification service lazily so initialization order does not matter.
+    """
+    await get_notification_service().process_event(event)
+
+
 def get_subscription_service() -> OfferSubscriptionService:
     """Get or create the global OfferSubscriptionService."""
     global _subscription_service
@@ -97,6 +106,7 @@ def get_subscription_service() -> OfferSubscriptionService:
             return _PollingSyncWrapper()
 
         _subscription_service = OfferSubscriptionService(
+            on_event_callback=_forward_events_to_notifications,
             gossip_client=gossip,
             lease_tracker=tracker,
             offer_sync_factory=_sync_factory,
