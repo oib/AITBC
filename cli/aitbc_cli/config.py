@@ -95,6 +95,14 @@ class CLIConfig(BaseAITBCConfig):
     gpu_api_key: str | None = Field(default=None, description="API key for the local GPU service")
     market_service_url: str = Field(default="http://127.0.0.1:8102", description="Market Service URL")
     coordinator_api_url: str = Field(default="", description="Coordinator API URL")
+    native_coordinator_url: str | None = Field(
+        default=None,
+        description=(
+            "Coordinator base URL holding the native energy tables (NATIVE_COORDINATOR_URL). "
+            "On shop/follower nodes point this at the hub mount (e.g. https://<hub>/c/v1) so "
+            "native-energy calls try it before the local coordinator."
+        ),
+    )
     trading_service_url: str = Field(default="http://localhost:8104", description="Trading Service URL")
     trading_api_key: SecretStr | None = Field(
         default=None,
