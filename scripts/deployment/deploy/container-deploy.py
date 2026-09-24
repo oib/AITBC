@@ -6,21 +6,19 @@ Uses the canonical systemd service files from the repo.
 
 import os
 import subprocess
-
-
-# The `shell=True` calls here are marked `# nosec B602`. Every command is a literal, or a
-# literal composed with `container`, which is assigned the constant "aitbc" below and never
-# read from anywhere. A shell is needed for `cd X && source Y && pip install` and for
-# `2>/dev/null || true`. If a container name ever arrives from a flag or the environment,
-# these stop being safe and the markers have to go.
+import time
 
 
 def run_command(cmd, container=None):
     """Run command locally or in container"""
     if container:
-        cmd = f"incus exec {container} -- {cmd}"
-    print(f"Running: {cmd}")
-    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)  # nosec B602
+        # bash -c inside the container preserves the `cd X && source Y && ...`
+        # compound-command semantics without a local shell or string concat.
+        argv = ["incus", "exec", container, "--", "bash", "-c", cmd]
+    else:
+        argv = ["bash", "-c", cmd]
+    print(f"Running: {' '.join(argv)}")
+    result = subprocess.run(argv, capture_output=True, text=True)
     if result.returncode != 0:
         print(f"Error: {result.stderr}")
         return False
@@ -36,15 +34,19 @@ def deploy_to_container():
     # Stop local services
     print("\n📋 Stopping local services...")
     subprocess.run(
-        "sudo systemctl stop aitbc-exchange aitbc-market aitbc-trading aitbc-wallet 2>/dev/null || true", shell=True
+        ["sudo", "systemctl", "stop", "aitbc-exchange", "aitbc-market", "aitbc-trading", "aitbc-wallet"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
     subprocess.run(
-        "sudo systemctl stop aitbc-coordinator-api aitbc-blockchain-rpc aitbc-blockchain-p2p 2>/dev/null || true", shell=True
+        ["sudo", "systemctl", "stop", "aitbc-coordinator-api", "aitbc-blockchain-rpc", "aitbc-blockchain-p2p"],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
     )
 
     # Copy project to container
     print("\n📁 Copying project to container...")
-    subprocess.run(f"incus file push -r /opt/aitbc {container}/opt/", shell=True)  # nosec B602
+    subprocess.run(["incus", "file", "push", "-r", "/opt/aitbc", f"{container}/opt/"])
 
     # Setup Python environment in container
     print("\n🐍 Setting up Python environment...")
@@ -80,7 +82,7 @@ def deploy_to_container():
 
     # Wait for services to start
     print("\n⏳ Waiting for services to start...")
-    subprocess.run("sleep 5", shell=True)
+    time.sleep(5)
 
     print("\n✅ Services deployed to container!")
     print("\n📋 Access URLs:")

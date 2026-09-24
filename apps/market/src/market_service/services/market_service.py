@@ -6,7 +6,7 @@ import hashlib
 import hmac
 import re
 import time
-from datetime import datetime
+from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
 from uuid import uuid4
@@ -493,7 +493,7 @@ class MarketService:
 
     async def register_software_service(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register or update a software service"""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         from sqlalchemy import select
 
@@ -512,7 +512,7 @@ class MarketService:
                 for key, value in data.items():
                     if hasattr(existing, key) and value is not None:
                         setattr(existing, key, value)
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 await self.session.commit()
                 await self.session.refresh(existing)
                 logger.info("Updated software service: %s", plugin_id)
@@ -738,7 +738,7 @@ class MarketService:
     async def mark_ratings_synced(self, rating_ids: list[str]) -> int:
         """Mark ratings as synced"""
         try:
-            from datetime import datetime
+            from datetime import UTC, datetime
 
             from sqlalchemy import select
 
@@ -746,7 +746,7 @@ class MarketService:
             result = await self.session.execute(stmt)
             ratings = result.scalars().all()
             for rating in ratings:
-                rating.synced_at = datetime.utcnow()
+                rating.synced_at = datetime.now(UTC).replace(tzinfo=None)
             await self.session.commit()
             logger.info("Marked %s ratings as synced", len(ratings))
             return len(ratings)
@@ -757,7 +757,7 @@ class MarketService:
     async def sync_ratings_from_remote(self, remote_ratings: list[dict[str, Any]]) -> dict[str, Any]:
         """Sync ratings from remote node"""
         try:
-            from datetime import datetime
+            from datetime import UTC, datetime
 
             from sqlalchemy import select
 
@@ -776,7 +776,7 @@ class MarketService:
                     if remote_created > existing.created_at:
                         existing.rating = remote_rating["rating"]
                         existing.comment = remote_rating["comment"]
-                        existing.synced_at = datetime.utcnow()
+                        existing.synced_at = datetime.now(UTC).replace(tzinfo=None)
                         updated_count += 1
                     else:
                         skipped_count += 1
@@ -788,7 +788,7 @@ class MarketService:
                         reviewer_id=remote_rating["reviewer_id"],
                         comment=remote_rating["comment"],
                         created_at=datetime.fromisoformat(remote_rating["created_at"]),
-                        synced_at=datetime.utcnow(),
+                        synced_at=datetime.now(UTC).replace(tzinfo=None),
                         source_node=remote_rating.get("source_node", "remote"),
                     )
                     self.session.add(new_rating)
@@ -981,7 +981,7 @@ class MarketService:
 
     async def register_ipfs_rental_token(self, data: dict[str, Any]) -> dict[str, Any]:
         """Register an access token for a paid IPFS rental."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         from sqlalchemy import select
 
@@ -1024,16 +1024,16 @@ class MarketService:
                     existing.pinned = bool(data["pinned"])
                 if "expires_at" in data:
                     existing.expires_at = data["expires_at"]
-                existing.updated_at = datetime.utcnow()
+                existing.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 await self.session.commit()
                 await self.session.refresh(existing)
                 logger.info("Updated IPFS rental token: %s", access_key)
                 return self._ipfs_token_to_dict(existing)
             token = IpfsRentalToken(**data)
             if not token.created_at:
-                token.created_at = datetime.utcnow()
+                token.created_at = datetime.now(UTC).replace(tzinfo=None)
             if not token.updated_at:
-                token.updated_at = datetime.utcnow()
+                token.updated_at = datetime.now(UTC).replace(tzinfo=None)
             self.session.add(token)
             await self.session.commit()
             await self.session.refresh(token)
@@ -1047,7 +1047,7 @@ class MarketService:
 
     async def get_ipfs_rental_token(self, access_key: str, access_secret: str) -> dict[str, Any] | None:
         """Validate an IPFS rental token and return its details."""
-        from datetime import datetime
+        from datetime import UTC, datetime
 
         from sqlalchemy import select
 
@@ -1064,7 +1064,7 @@ class MarketService:
             if token.status != "active":
                 return None
             # Compare naive UTC datetimes; SQLite returns naive values.
-            if token.expires_at and token.expires_at < datetime.utcnow().replace(tzinfo=None):
+            if token.expires_at and token.expires_at < datetime.now(UTC).replace(tzinfo=None).replace(tzinfo=None):
                 token.status = "expired"
                 await self.session.commit()
                 return None
@@ -1183,11 +1183,11 @@ class MarketService:
             job = MarketJob(**data)
             job.id = job_id
             if not job.requested_at:
-                job.requested_at = datetime.utcnow()
+                job.requested_at = datetime.now(UTC).replace(tzinfo=None)
             if not job.created_at:
-                job.created_at = datetime.utcnow()
+                job.created_at = datetime.now(UTC).replace(tzinfo=None)
             if not job.updated_at:
-                job.updated_at = datetime.utcnow()
+                job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             payment_data = data.get("payment") or {}
             payment = MarketJobPayment(
@@ -1201,11 +1201,11 @@ class MarketService:
                 refund_address=payment_data.get("refund_address"),
                 transaction_hash=payment_data.get("transaction_hash"),
                 meta_data=payment_data.get("meta_data"),
-                created_at=datetime.utcnow(),
-                updated_at=datetime.utcnow(),
+                created_at=datetime.now(UTC).replace(tzinfo=None),
+                updated_at=datetime.now(UTC).replace(tzinfo=None),
                 escrowed_at=payment_data.get("escrowed_at")
                 and self._parse_iso_dt(payment_data["escrowed_at"])
-                or (datetime.utcnow() if payment_data.get("status") == "escrowed" else None),
+                or (datetime.now(UTC).replace(tzinfo=None) if payment_data.get("status") == "escrowed" else None),
                 expires_at=job.expires_at,
             )
 
@@ -1307,14 +1307,14 @@ class MarketService:
             job.state = "CANCELED"
             job.receipt = {"reason": reason or "buyer_requested"}
             job.error = None
-            job.updated_at = datetime.utcnow()
+            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             payment = None
             if job.payment_id:
                 payment = await self.session.get(MarketJobPayment, job.payment_id)
                 if payment and payment.status == "escrowed":
                     payment.status = "refund_pending"
-                    payment.updated_at = datetime.utcnow()
+                    payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     self.session.add(payment)
                     job.payment_status = "refund_pending"
 
@@ -1357,15 +1357,15 @@ class MarketService:
             job.payload = payload
 
             job.state = "RUNNING"
-            job.updated_at = datetime.utcnow()
+            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             payment = None
             if job.payment_id:
                 payment = await self.session.get(MarketJobPayment, job.payment_id)
                 if payment and payment.status == "pending":
                     payment.status = "escrowed"
-                    payment.escrowed_at = datetime.utcnow()
-                    payment.updated_at = datetime.utcnow()
+                    payment.escrowed_at = datetime.now(UTC).replace(tzinfo=None)
+                    payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
                     self.session.add(payment)
                     job.payment_status = "escrowed"
 
@@ -1406,14 +1406,14 @@ class MarketService:
             job.state = "RELEASED"
             job.payment_status = "released"
             job.tx_hash = tx_hash
-            job.completed_at = datetime.utcnow()
-            job.updated_at = datetime.utcnow()
+            job.completed_at = datetime.now(UTC).replace(tzinfo=None)
+            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             if payment:
                 payment.status = "released"
                 payment.transaction_hash = tx_hash
-                payment.released_at = datetime.utcnow()
-                payment.updated_at = datetime.utcnow()
+                payment.released_at = datetime.now(UTC).replace(tzinfo=None)
+                payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 if released_amount is not None:
                     payment.released_amount = Decimal(str(released_amount))
                 self.session.add(payment)
@@ -1459,13 +1459,13 @@ class MarketService:
             job.refund_tx_hash = tx_hash
             if reason:
                 job.receipt = {"reason": reason}
-            job.updated_at = datetime.utcnow()
+            job.updated_at = datetime.now(UTC).replace(tzinfo=None)
 
             if payment:
                 payment.status = "refunded"
                 payment.refund_transaction_hash = tx_hash
-                payment.refunded_at = datetime.utcnow()
-                payment.updated_at = datetime.utcnow()
+                payment.refunded_at = datetime.now(UTC).replace(tzinfo=None)
+                payment.updated_at = datetime.now(UTC).replace(tzinfo=None)
                 if refunded_amount is not None:
                     payment.refunded_amount = Decimal(str(refunded_amount))
                 self.session.add(payment)
@@ -1497,7 +1497,7 @@ class MarketService:
             if job.state in {"CANCELED", "REFUNDED", "FAILED"}:
                 return None
 
-            if job.expires_at and job.expires_at < datetime.utcnow():
+            if job.expires_at and job.expires_at < datetime.now(UTC).replace(tzinfo=None):
                 job.state = "EXPIRED"
                 await self.session.commit()
                 return None

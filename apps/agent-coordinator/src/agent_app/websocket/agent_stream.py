@@ -476,9 +476,9 @@ def _record_coin_request(sender: str, amount: int, wallet_address: str, tx_hash:
         return
     try:
         import sqlite3
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         conn = sqlite3.connect(db_path)
         conn.execute(
             "INSERT INTO coin_requests (id, sender, recipient, amount, wallet_address, status, "
@@ -515,9 +515,9 @@ def _record_pending_coin_request(sender: str, amount: int, wallet_address: str) 
     db_path = os.getenv("AGENT_DB_PATH", os.getenv("HERMES_DB_PATH", "/var/lib/aitbc/data/agent_coin_requests.db"))
     try:
         import sqlite3
-        from datetime import datetime, timedelta
+        from datetime import UTC, datetime, timedelta
 
-        now = datetime.utcnow()
+        now = datetime.now(UTC).replace(tzinfo=None)
         request_id = f"req-{sender}-{int(now.timestamp())}"
         conn = sqlite3.connect(db_path)
         conn.execute(

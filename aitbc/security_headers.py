@@ -237,20 +237,3 @@ def create_strict_cors_config(allowed_origins: list[str]) -> CORSConfig:
         expose_headers=["X-Request-ID"],
         max_age=3600,
     )
-
-
-def create_permissive_cors_config() -> CORSConfig:
-    """
-    Create permissive CORS configuration (for development)
-
-    Returns:
-        CORSConfig with permissive settings
-    """
-    return CORSConfig(
-        allow_origins=["*"],
-        allow_methods=["GET", "POST", "PUT", "DELETE", "PATCH", "OPTIONS"],
-        allow_headers=["*"],
-        allow_credentials=False,
-        expose_headers=["*"],
-        max_age=86400,
-    )
