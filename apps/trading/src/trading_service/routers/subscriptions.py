@@ -3,6 +3,7 @@
 from decimal import Decimal
 import asyncio
 import json
+import secrets
 import time
 from typing import Any
 
@@ -11,7 +12,7 @@ from fastapi.responses import JSONResponse
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
-from aitbc.trading.subscription_types import OfferEvent, OfferNotification, OfferSubscription
+from aitbc.trading.subscription_types import OfferNotification, OfferSubscription
 
 from ..config import settings
 from ..state import (
@@ -23,6 +24,11 @@ from ..state import (
 
 router = APIRouter(tags=["subscriptions"])
 logger = get_logger(__name__)
+
+# Active WebSocket connections per node_id. Subscription leases are keyed
+# by node_id and shared by all of a node's connections, so the lease is
+# revoked only when the node's last connection closes.
+_ws_connections_by_node: dict[str, int] = {}
 
 
 @router.post("/v1/trading/offers/subscribe")
@@ -115,7 +121,10 @@ async def offer_subscription_websocket(websocket: WebSocket):
             await websocket.close(code=1008)
             return
 
-        subscriber_id = f"{node_id}:{chain_id}"
+        # Unique per connection: two sockets from the same node must not
+        # overwrite each other's notification registration.
+        subscriber_id = f"{node_id}:{chain_id}:{secrets.token_hex(4)}"
+        _ws_connections_by_node[node_id] = _ws_connections_by_node.get(node_id, 0) + 1
 
         # v0.10.1 §B19: Register a lease for this subscriber
         lease_expiry: float = 0.0
@@ -139,8 +148,8 @@ async def offer_subscription_websocket(websocket: WebSocket):
         async def _notify(notification: OfferNotification) -> None:
             try:
                 await websocket.send_json(notification.to_dict())
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Notification send failed for %s: %s", subscriber_id, e)
 
         await notif_svc.register_subscriber(subscriber_id, subscription, _notify)
 
@@ -157,12 +166,6 @@ async def offer_subscription_websocket(websocket: WebSocket):
             }
         )
 
-        # Event forwarding: inject events into notification service
-        async def _forward_to_notifications(event: OfferEvent) -> None:
-            await notif_svc.process_event(event)
-
-        sub_svc._on_event = _forward_to_notifications  # noqa: SLF001
-
         # Heartbeat + receive loop
         async def _heartbeat() -> None:
             try:
@@ -171,13 +174,13 @@ async def offer_subscription_websocket(websocket: WebSocket):
                     # v0.10.1 §B19: Renew lease on each heartbeat
                     try:
                         await sub_svc.renew_lease(node_id=node_id)
-                    except Exception:
-                        pass
+                    except Exception as e:
+                        logger.debug("Lease renewal failed for %s: %s", node_id, e)
                     await websocket.send_json({"type": "ping", "timestamp": time.time()})
             except WebSocketDisconnect:
                 pass
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Offer heartbeat task ended for %s: %s", subscriber_id, e)
 
         async def _receive_loop() -> None:
             try:
@@ -194,15 +197,17 @@ async def offer_subscription_websocket(websocket: WebSocket):
                                     await websocket.send_json({"error": "lease expired"})
                                     await websocket.close(code=1008)
                                     return
-                            except Exception:
-                                pass  # tolerate lease-check errors
+                            except Exception as e:
+                                # Tolerate lease-check errors; the lease TTL
+                                # still bounds a dead subscription.
+                                logger.debug("Lease validation failed for %s: %s", node_id, e)
                             continue
                     except json.JSONDecodeError:
                         continue
             except WebSocketDisconnect:
                 pass
-            except Exception:
-                pass
+            except Exception as e:
+                logger.debug("Offer receive task ended for %s: %s", subscriber_id, e)
 
         heartbeat_task = create_task_with_logging(_heartbeat(), name="trading_offer_heartbeat")
         receive_task = create_task_with_logging(_receive_loop(), name="trading_offer_receive")
@@ -220,18 +225,26 @@ async def offer_subscription_websocket(websocket: WebSocket):
         logger.error("Offer WebSocket error for %s: %s", subscriber_id, e)
     finally:
         if subscriber_id:
-            await notif_svc.unregister_subscriber(subscriber_id)
-            # v0.10.1 §B19: Revoke lease on disconnect
+            node_id = subscriber_id.split(":", 1)[0]
             try:
-                parts = subscriber_id.split(":", 1)
-                if len(parts) == 2:
-                    await sub_svc.revoke_lease(parts[0])
-            except Exception:
-                pass
+                await notif_svc.unregister_subscriber(subscriber_id)
+            except Exception as e:
+                logger.debug("Unregistering subscriber %s failed: %s", subscriber_id, e)
+            # v0.10.1 §B19: Revoke the node's lease only when its last
+            # WebSocket connection closes — sibling connections share it.
+            remaining = _ws_connections_by_node.get(node_id, 0) - 1
+            if remaining > 0:
+                _ws_connections_by_node[node_id] = remaining
+            else:
+                _ws_connections_by_node.pop(node_id, None)
+                try:
+                    await sub_svc.revoke_lease(node_id)
+                except Exception as e:
+                    logger.debug("Lease revocation failed for %s: %s", node_id, e)
         try:
             await websocket.close()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.debug("WebSocket close failed for %s: %s", subscriber_id, e)
 
 
 @router.get("/v1/trading/offers/subscription-status")
