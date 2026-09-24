@@ -68,21 +68,21 @@ def test_economics_stats():
 
 # Task-based health check tests
 @pytest.mark.skipif(
-    not os.getenv("MARKET_HEALTH_URL", os.getenv("MARKETPLACE_HEALTH_URL")),
+    not os.getenv("MARKET_HEALTH_URL"),
     reason="MARKET_HEALTH_URL not set; market health check skipped",
 )
 def test_market_health_primary():
     """Test primary market health endpoint"""
-    _check_health(os.environ.get("MARKET_HEALTH_URL") or os.environ["MARKETPLACE_HEALTH_URL"])
+    _check_health(os.environ.get("MARKET_HEALTH_URL", ""))
 
 
 @pytest.mark.skipif(
-    not os.getenv("MARKET_HEALTH_URL_ALT", os.getenv("MARKETPLACE_HEALTH_URL_ALT")),
+    not os.getenv("MARKET_HEALTH_URL_ALT"),
     reason="MARKET_HEALTH_URL_ALT not set; alt market health check skipped",
 )
 def test_market_health_secondary():
     """Test secondary market health endpoint"""
-    _check_health(os.environ.get("MARKET_HEALTH_URL_ALT") or os.environ["MARKETPLACE_HEALTH_URL_ALT"])
+    _check_health(os.environ.get("MARKET_HEALTH_URL_ALT", ""))
 
 
 @pytest.mark.skipif(not os.getenv("BLOCKCHAIN_RPC_URL"), reason="BLOCKCHAIN_RPC_URL not set; blockchain RPC check skipped")

@@ -28,7 +28,7 @@ def blockchain_url() -> str:
 @pytest.fixture(scope="session")
 def market_url() -> str:
     """Market URL"""
-    return os.getenv("MARKET_URL", os.getenv("MARKETPLACE_URL", "http://localhost:8102"))
+    return os.getenv("MARKET_URL", "http://localhost:8102")
 
 
 @pytest.fixture(scope="session")

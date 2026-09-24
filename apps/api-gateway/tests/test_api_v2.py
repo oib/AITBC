@@ -18,10 +18,12 @@ from fastapi.testclient import TestClient
 import api_gateway.main as gateway
 
 _REPO_ROOT = Path(__file__).resolve().parents[3]
+# Specs whose service is exposed through the gateway. wallet-openapi.json
+# stays committed but documents the loopback-only wallet daemon surface --
+# it is deliberately not a v2 qualifier since Phase H.
 _SPEC_FOR_QUALIFIER = {
     "market": "market-openapi.json",
     "coordinator": "coordinator-api-openapi.json",
-    "wallet": "wallet-openapi.json",
     "chain": "blockchain-node-openapi.json",
     "agent-coordinator": "agent-coordinator-openapi.json",
 }
@@ -91,13 +93,13 @@ def test_v2_index_lists_qualifiers(client):
     body = resp.json()
     assert body["api"] == "v2"
     services = body["services"]
-    for qualifier in ("market", "coordinator", "exchange", "wallet", "chain"):
+    for qualifier in ("market", "coordinator", "exchange", "chain"):
         assert qualifier in services
         assert services[qualifier]["prefix"] == f"/api/v2/{qualifier}"
         assert services[qualifier]["env"]
         assert services[qualifier]["url"]
     # v1-only spellings and route families are not v2 services.
-    for excluded in ("marketplace", "escrow", "plugin"):
+    for excluded in ("marketplace", "escrow", "plugin", "wallet"):
         assert excluded not in services
 
 
@@ -138,7 +140,7 @@ def test_v2_post_forwards_body_and_idempotency_key(client, monkeypatch):
     monkeypatch.setattr(gateway.app.state, "http_client", recorder)
 
     resp = client.post(
-        "/v2/wallet/v1/wallets/0xabc/send",
+        "/v2/market/v1/market/offers",
         json={"to": "0xdef", "amount": "1"},
         headers={"Idempotency-Key": "k-1"},
     )
@@ -170,6 +172,7 @@ def test_v2_missing_upstream_path_404(client, monkeypatch):
 def test_v2_marketplace_is_not_a_qualifier(client):
     # The legacy spelling stays on v1 only; v2 publishes canonical names.
     assert client.get("/v2/marketplace/v1/market/offers").status_code == 404
+    assert client.get("/v2/wallet/v1/wallets").status_code == 404
 
 
 def test_v2_qualifiers_cover_every_committed_spec():
@@ -242,7 +245,7 @@ class TestGatewayReadiness:
     def test_required_service_unreachable(self, client, monkeypatch):
         recorder = _RecordingClient()
         recorder.fail = httpx.ConnectError("refused")
-        monkeypatch.setenv("GATEWAY_REQUIRED_SERVICES", "wallet")
+        monkeypatch.setenv("GATEWAY_REQUIRED_SERVICES", "market")
         monkeypatch.setattr(gateway.app.state, "http_client", recorder)
         assert client.get("/ready").status_code == 503
 

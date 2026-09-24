@@ -161,13 +161,6 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
-    location /v1/chains/ {
-        proxy_pass http://wallet_service/v1/chains/;
-        proxy_set_header Host $host;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
-    }
-
     # ── Public bootstrap for self-serve joining ─────────────────────────────
     #
     # Two files are public: genesis.json (public chain data) and bootstrap.env
@@ -606,41 +599,6 @@ server {
     }
 
     location /v1/market/ {
-        proxy_pass http://market_service/v1/market/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    # Legacy public spellings stay live until their removal is approved.
-    # They proxy to the canonical /v1/market/* upstream paths.
-    location = /v1/marketplace/offers {
-        proxy_pass http://coordinator_api/v1/market/offers;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    location = /v1/marketplace/plugins {
-        proxy_pass http://coordinator_api/v1/market/plugins;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
-    }
-
-    location /v1/marketplace/ {
         proxy_pass http://market_service/v1/market/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;

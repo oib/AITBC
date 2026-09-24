@@ -80,10 +80,10 @@ REQUIRE_AUTH = os.getenv("API_GATEWAY_REQUIRE_AUTH", "true").lower() == "true"
 # slowapi syntax, e.g. "100/minute", "20/second".
 RATE_LIMIT = os.getenv("API_GATEWAY_RATE_LIMIT", "100/minute")
 COORDINATOR_URL = os.getenv("COORDINATOR_API_URL", "http://localhost:8203")
-# Coordinator-owned sub-families of /v1/marketplace — the rest (jobs, offers,
-# ratings, ipfs, match, ...) belongs to the marketplace service on :8102.
+# Coordinator-owned sub-families of /v1/market — the rest (jobs, offers,
+# ratings, ipfs, match, ...) belongs to the market service on :8102.
 # The coordinator-owned market sub-routes must be listed before the generic
-# "market"/"marketplace" entries: the first prefix match in dict order wins.
+# "market" entry: the first prefix match in dict order wins.
 _MARKET_COORDINATOR_PREFIXES = (
     "gpu",
     "providers",
@@ -94,10 +94,7 @@ _MARKET_COORDINATOR_PREFIXES = (
     "pricing",
     "sync-offers",
 )
-_MARKET_SERVICE_URL = os.getenv(
-    "MARKET_SERVICE_URL",
-    os.getenv("MARKETPLACE_SERVICE_URL", "http://localhost:8102"),
-)
+_MARKET_SERVICE_URL = os.getenv("MARKET_SERVICE_URL", "http://localhost:8102")
 SERVICES: dict[str, dict[str, object]] = {
     "escrow": {
         "base_url": os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL) + "/rpc",
@@ -114,25 +111,10 @@ SERVICES: dict[str, dict[str, object]] = {
         }
         for sub in _MARKET_COORDINATOR_PREFIXES
     },
-    # Legacy public spellings stay live until their removal is approved; they
-    # rewrite to the coordinator's canonical /v1/market/* routes.
-    **{
-        f"marketplace-{sub}": {
-            "base_url": COORDINATOR_URL,
-            "prefix": f"/v1/marketplace/{sub}",
-            "rewrite": {f"/v1/marketplace/{sub}": f"v1/market/{sub}"},
-        }
-        for sub in _MARKET_COORDINATOR_PREFIXES
-    },
     "market": {
         "base_url": _MARKET_SERVICE_URL,
         "prefix": "/v1/market",
         "rewrite": {"/v1/market": "v1/market"},
-    },
-    "marketplace": {
-        "base_url": _MARKET_SERVICE_URL,
-        "prefix": "/v1/marketplace",
-        "rewrite": {"/v1/marketplace": "v1/market"},
     },
     "coordinator": {"base_url": COORDINATOR_URL, "prefix": "/v1/coordinator", "rewrite": {"/v1/coordinator": "v1"}},
     "governance": {
@@ -151,11 +133,6 @@ SERVICES: dict[str, dict[str, object]] = {
         "prefix": "/v1/trading",
         # Trading serves /v1/exchange/*, /v1/blocks, /v1/explorer — alias to its v1 root.
         "rewrite": {"/v1/trading": "v1"},
-    },
-    "wallet": {
-        "base_url": os.getenv("WALLET_SERVICE_URL", "http://localhost:8108"),
-        "prefix": "/v1/wallet",
-        "rewrite": {"/v1/wallet": "v1"},
     },
     "agent-coordinator": {
         "base_url": os.getenv("AGENT_COORDINATOR_URL", "http://localhost:8107"),
@@ -192,8 +169,7 @@ SERVICES: dict[str, dict[str, object]] = {
 # Public shape: /api/v2/<service>/<upstream path>. The qualifier selects the
 # upstream; everything after it is forwarded verbatim. v1's prefix table above
 # cannot express that — /v1/market is carved up between the market service and
-# coordinator-owned sub-families, and /v1/marketplace aliases the whole thing —
-# so v2 does not reuse it. Here /api/v2/market/v1/market/gpu goes to the market
+# coordinator-owned sub-families — so v2 does not reuse it. Here /api/v2/market/v1/market/gpu goes to the market
 # service (which answers 404 for a route it does not own) and the coordinator's
 # copy lives honestly at /api/v2/coordinator/v1/market/gpu.
 #
@@ -207,7 +183,6 @@ _V2_SERVICE_ENV: dict[str, str] = {
     "governance": "GOVERNANCE_SERVICE_URL",
     "exchange": "EXCHANGE_SERVICE_URL",
     "trading": "TRADING_SERVICE_URL",
-    "wallet": "WALLET_SERVICE_URL",
     "agent-coordinator": "AGENT_COORDINATOR_URL",
     "pool-hub": "POOL_HUB_URL",
     "explorer": "EXPLORER_SERVICE_URL",

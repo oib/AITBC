@@ -94,7 +94,6 @@ class MarketCreateRequest(BaseModel):
 
 
 @router.get("/market/listings", summary="List market items", tags=["market"])
-@router.get("/marketplace/listings", include_in_schema=False)
 async def market_listings() -> dict[str, Any]:
     """Get all market listings from blockchain"""
     try:
@@ -186,7 +185,6 @@ async def market_listings() -> dict[str, Any]:
 
 
 @router.post("/market/create", summary="Create market listing", tags=["market"])
-@router.post("/marketplace/create", include_in_schema=False)
 async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
     """Create a new market listing"""
     try:
@@ -249,7 +247,6 @@ async def market_create(request: MarketCreateRequest) -> dict[str, Any]:
 
 
 @router.get("/market/listing/{listing_id}", summary="Get market listing by ID", tags=["market"])
-@router.get("/marketplace/listing/{listing_id}", include_in_schema=False)
 async def market_get_listing(listing_id: str) -> dict[str, Any]:
     """Get a specific market listing"""
     try:
@@ -272,7 +269,6 @@ async def market_get_listing(listing_id: str) -> dict[str, Any]:
 
 
 @router.delete("/market/listing/{listing_id}", summary="Delete market listing", tags=["market"])
-@router.delete("/marketplace/listing/{listing_id}", include_in_schema=False)
 async def market_delete_listing(listing_id: str) -> dict[str, Any]:
     """Delete a market listing"""
     try:

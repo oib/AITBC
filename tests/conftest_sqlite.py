@@ -45,7 +45,7 @@ def test_db_url(sqlite_db_path):
     """Override DATABASE_URL for tests."""
     original = os.environ.get("DATABASE_URL")
     original_market = os.environ.get("MARKET_DATABASE_URL")
-    original_legacy_market = os.environ.pop("MARKETPLACE_DATABASE_URL", None)
+
     os.environ["DATABASE_URL"] = sqlite_db_path
     os.environ["MARKET_DATABASE_URL"] = sqlite_db_path
     yield sqlite_db_path
@@ -57,8 +57,6 @@ def test_db_url(sqlite_db_path):
         os.environ.pop("MARKET_DATABASE_URL", None)
     else:
         os.environ["MARKET_DATABASE_URL"] = original_market
-    if original_legacy_market is not None:
-        os.environ["MARKETPLACE_DATABASE_URL"] = original_legacy_market
 
 
 @pytest.fixture(scope="function")

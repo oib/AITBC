@@ -59,15 +59,23 @@ def test_proxy_rejects_wrong_key(authed_gateway):
     assert response.status_code == 403
 
 
-def test_proxy_accepts_gateway_key_header(authed_gateway):
+def test_proxy_accepts_gateway_key_header(authed_gateway, monkeypatch):
     """X-Gateway-Key is the canonical credential."""
+    import api_gateway.main as gateway
+
+    # Hermetic: a live upstream is not required to prove the credential passes
+    # the gate — a 401 would mean the gateway rejected before forwarding.
+    monkeypatch.setattr(gateway.app.state, "http_client", _CaptureClient())
     response = authed_gateway.get("/v1/coordinator/health", headers={"X-Gateway-Key": "test-gateway-key"})
 
     assert response.status_code != 401
 
 
-def test_proxy_accepts_bearer_alias(authed_gateway):
+def test_proxy_accepts_bearer_alias(authed_gateway, monkeypatch):
     """Bearer carrying the gateway key still works for existing callers."""
+    import api_gateway.main as gateway
+
+    monkeypatch.setattr(gateway.app.state, "http_client", _CaptureClient())
     response = authed_gateway.get("/v1/coordinator/health", headers={"Authorization": "Bearer test-gateway-key"})
 
     assert response.status_code != 401
