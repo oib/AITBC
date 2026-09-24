@@ -26,6 +26,12 @@ _SPEC_FOR_QUALIFIER = {
     "coordinator": "coordinator-api-openapi.json",
     "chain": "blockchain-node-openapi.json",
     "agent-coordinator": "agent-coordinator-openapi.json",
+    "governance": "governance-openapi.json",
+    "pool-hub": "pool-hub-openapi.json",
+    "trading": "trading-openapi.json",
+    "explorer": "explorer-openapi.json",
+    # exchange has no spec: it is a BaseHTTPRequestHandler service, so there
+    # is no app.openapi() to extract. Its qualifier keeps "spec": null.
 }
 
 

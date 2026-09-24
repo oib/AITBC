@@ -43,7 +43,9 @@ each other's traffic; the coordinator's market routes live at
 per qualifier and is checked into CI: it is produced by
 `make openapi`/`scripts/extract_openapi_specs.py` from the gateway's own
 table, so it cannot disagree with what the gateway serves. Upstreams without
-a committed spec appear with `"spec": null`.
+a committed spec appear with `"spec": null` — currently only `exchange`,
+which is a `BaseHTTPRequestHandler` service and has no `app.openapi()` to
+extract; every other qualifier's spec is generated.
 
 The legacy `/v1/*` routes remain live and unchanged; `/api/v2` is additive.
 
