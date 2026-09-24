@@ -320,6 +320,7 @@ select = [
     "G002", # logging statement uses .format() or % formatting
     "B008", # do not perform function calls in argument defaults
     "B023", # function definition does not bind loop variable
+    "DTZ003", # datetime.utcnow() is deprecated — use datetime.now(UTC)
 ]
 ignore = [
     "E501",  # line too long, handled by black
