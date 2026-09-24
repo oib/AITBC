@@ -20917,6 +20917,50 @@
           }
         }
       }
+    },
+    "/ready": {
+      "get": {
+        "tags": [
+          "health"
+        ],
+        "summary": "Readiness probe",
+        "description": "503 while an enabled required feature is unavailable.\n\nRequired for every node: its chain database and a non-empty chain set.\nWhen block production is enabled the node must additionally hold the\nkey for its declared proposer identity \u2014 the same gate startup applies,\nre-evaluated so a node whose key later goes missing stops receiving\ntraffic instead of proposing blocks it cannot sign.",
+        "operationId": "ready_ready_get",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {}
+              }
+            }
+          },
+          "503": {
+            "description": "readiness check failed",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "error": {
+                      "title": "Error"
+                    },
+                    "failed": {
+                      "title": "Failed"
+                    },
+                    "service": {
+                      "title": "Service"
+                    },
+                    "status": {
+                      "title": "Status"
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
     }
   },
   "components": {

@@ -187,6 +187,38 @@ SERVICES: dict[str, dict[str, object]] = {
 }
 
 
+# ── /api/v2 service-qualified surface ────────────────────────────────────────
+#
+# Public shape: /api/v2/<service>/<upstream path>. The qualifier selects the
+# upstream; everything after it is forwarded verbatim. v1's prefix table above
+# cannot express that — /v1/market is carved up between the market service and
+# coordinator-owned sub-families, and /v1/marketplace aliases the whole thing —
+# so v2 does not reuse it. Here /api/v2/market/v1/market/gpu goes to the market
+# service (which answers 404 for a route it does not own) and the coordinator's
+# copy lives honestly at /api/v2/coordinator/v1/market/gpu.
+#
+# The table below deliberately excludes: the coordinator sub-prefix entries
+# (v1 collision artifacts), "plugin" (a rewrite alias), "marketplace" (a legacy
+# spelling kept for v1 only), and "escrow" (a route family on the chain node,
+# reachable as /api/v2/chain/rpc/escrow/*).
+_V2_SERVICE_ENV: dict[str, str] = {
+    "market": "MARKET_SERVICE_URL",
+    "coordinator": "COORDINATOR_URL",
+    "governance": "GOVERNANCE_SERVICE_URL",
+    "exchange": "EXCHANGE_SERVICE_URL",
+    "trading": "TRADING_SERVICE_URL",
+    "wallet": "WALLET_SERVICE_URL",
+    "agent-coordinator": "AGENT_COORDINATOR_URL",
+    "pool-hub": "POOL_HUB_URL",
+    "explorer": "EXPLORER_SERVICE_URL",
+    "chain": "BLOCKCHAIN_RPC_URL",
+}
+# Base URLs come out of the SERVICES table so one env override moves both
+# spellings; "chain" has no v1 entry and reads the node URL directly.
+_V2_SERVICE_URLS: dict[str, str] = {name: str(SERVICES[name]["base_url"]) for name in _V2_SERVICE_ENV if name != "chain"}
+_V2_SERVICE_URLS["chain"] = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     """Lifecycle events for the API Gateway."""
@@ -194,7 +226,9 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
     app.state.http_client = httpx.AsyncClient(timeout=30.0)
     yield
     logger.info("Shutting down API Gateway")
-    await app.state.http_client.aclose()
+    client = getattr(app.state, "http_client", None)
+    if client is not None:
+        await client.aclose()
 
 
 app = FastAPI(
@@ -236,7 +270,7 @@ def verify_auth(
 
 
 circuit_breaker_state: dict[str, dict[str, object]] = {
-    name: {"failures": 0, "last_failure_time": None, "is_open": False} for name in SERVICES
+    name: {"failures": 0, "last_failure_time": None, "is_open": False} for name in (*SERVICES, *_V2_SERVICE_URLS)
 }
 CIRCUIT_BREAKER_THRESHOLD = 5
 CIRCUIT_BREAKER_TIMEOUT = 60
@@ -277,6 +311,74 @@ async def health() -> dict[str, str]:
 async def list_services() -> dict[str, dict[str, object]]:
     """List registered services"""
     return {service_name: {"prefix": config["prefix"], "url": config["base_url"]} for service_name, config in SERVICES.items()}
+
+
+@app.get("/v2")
+async def api_v2_index() -> dict[str, object]:
+    """The service-qualified API surface.
+
+    Reached publicly as /api/v2 (nginx mounts the gateway at /api/). Each
+    qualifier forwards the remainder of the path to its upstream verbatim;
+    docs/api/api-v2-map.json is the generated route map for this table.
+    """
+    return {
+        "api": "v2",
+        "rule": "/api/v2/<service>/<upstream path> forwards <upstream path> to the service verbatim",
+        "services": {
+            name: {"prefix": f"/api/v2/{name}", "url": url, "env": _V2_SERVICE_ENV[name]}
+            for name, url in sorted(_V2_SERVICE_URLS.items())
+        },
+    }
+
+
+@app.get("/ready")
+async def ready() -> Response:
+    """Readiness probe — 503 while an enabled required feature is unavailable.
+
+    A proxy is not unready because one upstream is: its other routes still
+    work and the circuit breaker already reports the broken one. The required
+    surface is therefore just the proxy client, plus whatever upstreams the
+    operator explicitly declared in GATEWAY_REQUIRED_SERVICES (service names
+    from /services or v2 qualifiers; an unrecognized name fails the check —
+    a typo'd requirement must not silently pass).
+    """
+    if getattr(app.state, "http_client", None) is None:
+        logger.error("Readiness check failed: http_client")
+        return JSONResponse(
+            status_code=503,
+            content={
+                "status": "not_ready",
+                "service": "api-gateway",
+                "error": "readiness check failed",
+                "failed": ["http_client"],
+            },
+        )
+    required = [s.strip() for s in os.getenv("GATEWAY_REQUIRED_SERVICES", "").split(",") if s.strip()]
+    upstreams: dict[str, str] = {name: str(cfg["base_url"]) for name, cfg in SERVICES.items()}
+    upstreams.update(_V2_SERVICE_URLS)
+    failed: list[str] = []
+    for name in required:
+        base = upstreams.get(name)
+        if base is None:
+            logger.error("GATEWAY_REQUIRED_SERVICES names unknown service: %s", name)
+            failed.append(name)
+            continue
+        try:
+            resp = await app.state.http_client.get(f"{base}/health", timeout=3.0)
+            if resp.status_code >= 400:
+                failed.append(name)
+        except Exception:
+            logger.exception("Readiness check failed for required service: %s", name)
+            failed.append(name)
+    if failed:
+        return JSONResponse(
+            status_code=503,
+            content={"status": "not_ready", "service": "api-gateway", "error": "readiness check failed", "failed": failed},
+        )
+    return JSONResponse(
+        status_code=200,
+        content={"status": "ready", "service": "api-gateway", "required": required},
+    )
 
 
 # Errors raised before the request left this process — TCP connect refused,
@@ -351,32 +453,54 @@ async def proxy_request(path: str, request: Request, authenticated: Annotated[bo
     passed unthrottled.
     """
     service_name: str | None = None
-    for name, config in SERVICES.items():
-        prefix = config["prefix"].lstrip("/")  # type: ignore
-        if path == prefix or path.startswith(prefix + "/"):
-            service_name = name
-            break
-    if not service_name:
+    target_url: str | None = None
+    if path.startswith("v2/"):
+        # Service-qualified surface (publicly /api/v2/<service>/<path>): the
+        # qualifier picks the upstream and the rest of the path goes verbatim —
+        # no rewrites, no sub-prefix carving, so nothing here can collide with
+        # the v1 table.
+        qualifier, _, upstream_path = path[len("v2/") :].partition("/")
+        base = _V2_SERVICE_URLS.get(qualifier)
+        if base is None:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"error": f"Unknown /api/v2 service: {qualifier}"},
+            )
+        if not upstream_path:
+            return JSONResponse(
+                status_code=status.HTTP_404_NOT_FOUND,
+                content={"error": f"/api/v2/{qualifier} requires an upstream path"},
+            )
+        service_name = qualifier
+        target_url = f"{base}/{upstream_path}"
+    else:
+        for name, config in SERVICES.items():
+            prefix = config["prefix"].lstrip("/")  # type: ignore
+            if path == prefix or path.startswith(prefix + "/"):
+                service_name = name
+                break
+        if service_name:
+            service_config = SERVICES[service_name]
+            target_path = path
+            prefix = service_config["prefix"].lstrip("/")  # type: ignore
+            if "rewrite" in service_config:
+                for old_prefix, new_prefix in service_config["rewrite"].items():  # type: ignore
+                    if target_path.startswith(old_prefix.lstrip("/")):
+                        remaining_path = target_path[len(old_prefix.lstrip("/")) :]
+                        target_path = new_prefix.lstrip("/") + remaining_path
+                        break
+            elif path.startswith(prefix):
+                target_path = path[len(prefix) :].lstrip("/")
+            if target_path.endswith("/"):
+                target_path = target_path.rstrip("/")
+            target_url = f"{service_config['base_url']}/{target_path}"
+    if not service_name or target_url is None:
         return JSONResponse(status_code=status.HTTP_404_NOT_FOUND, content={"error": "Not found"})
     if not check_circuit_breaker(service_name):
         return JSONResponse(
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             content={"error": f"Circuit breaker is open for {service_name}, service temporarily unavailable"},
         )
-    service_config = SERVICES[service_name]
-    target_path = path
-    prefix = service_config["prefix"].lstrip("/")  # type: ignore
-    if "rewrite" in service_config:
-        for old_prefix, new_prefix in service_config["rewrite"].items():  # type: ignore
-            if target_path.startswith(old_prefix.lstrip("/")):
-                remaining_path = target_path[len(old_prefix.lstrip("/")) :]
-                target_path = new_prefix.lstrip("/") + remaining_path
-                break
-    elif path.startswith(prefix):
-        target_path = path[len(prefix) :].lstrip("/")
-    if target_path.endswith("/"):
-        target_path = target_path.rstrip("/")
-    target_url = f"{service_config['base_url']}/{target_path}"
     client = app.state.http_client
     try:
         headers = dict(request.headers)
