@@ -6,7 +6,7 @@ import click
 
 from ..config import get_config
 from ..utils import error, success
-from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger
+from ..utils.http_client import AITBCHTTPClient, NetworkError, get_logger, http_response_status
 
 logger = get_logger(__name__)
 
@@ -27,6 +27,13 @@ def get_explorer_client() -> AITBCHTTPClient:
     """Get Explorer API client"""
     config = get_config()
     return AITBCHTTPClient(base_url=config.explorer_api_url, timeout=30)
+
+
+def _explorer_failure(e: NetworkError, not_found_msg: str) -> str:
+    """A 404 answer means 'not found'; only real outages are 'unavailable'."""
+    if http_response_status(e) == 404:
+        return not_found_msg
+    return f"Explorer API unavailable: {e}"
 
 
 @explorer.command(
@@ -135,7 +142,7 @@ def block(height: int, chain_id: str | None):
         else:
             error(f"Block at height {height} not found")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        error(_explorer_failure(e, f"Block at height {height} not found"))
     except Exception as e:
         error(f"Error getting block: {e}")
 
@@ -162,7 +169,7 @@ def block_by_hash(block_hash: str, chain_id: str | None):
         else:
             error(f"Block with hash {block_hash} not found")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        error(_explorer_failure(e, f"Block with hash {block_hash} not found"))
     except Exception as e:
         error(f"Error getting block by hash: {e}")
 
@@ -189,7 +196,7 @@ def transaction(tx_hash: str, chain_id: str | None):
         else:
             error(f"Transaction {tx_hash} not found")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        error(_explorer_failure(e, f"Transaction {tx_hash} not found"))
     except Exception as e:
         error(f"Error getting transaction: {e}")
 
@@ -216,7 +223,7 @@ def transaction_by_hash(tx_hash: str, chain_id: str | None):
         else:
             error(f"Transaction {tx_hash} not found")
     except NetworkError as e:
-        error(f"Explorer API unavailable: {e}")
+        error(_explorer_failure(e, f"Transaction {tx_hash} not found"))
     except Exception as e:
         error(f"Error getting transaction details: {e}")
 
