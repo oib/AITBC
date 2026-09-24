@@ -43,7 +43,11 @@ def is_hashed_secret(value: str) -> bool:
 
 
 def _secret_matches(stored: str, provided: str) -> bool:
-    """Constant-time secret check that tolerates pre-hash plaintext rows."""
+    """Constant-time secret check that tolerates pre-hash plaintext rows.
+
+    The plaintext path is insurance for databases restored from a
+    pre-migration backup — remove it at the next secret rotation.
+    """
     candidate = hash_access_secret(provided) if is_hashed_secret(stored) else provided
     return hmac.compare_digest(stored, candidate)
 
