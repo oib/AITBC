@@ -60,6 +60,11 @@ def snarkjs_available() -> bool:
     return (SNARKJS_NODE_PATH / "snarkjs" / "package.json").is_file()
 
 
+def poseidon_lite_available() -> bool:
+    """Whether ``NODE_PATH`` will resolve poseidon-lite for the hash subprocesses."""
+    return (SNARKJS_NODE_PATH / "poseidon-lite" / "package.json").is_file()
+
+
 VERIFICATION_DISABLED = (
     "ZK proof verification is not enabled on this coordinator. Set "
     "COORDINATOR_ENABLE_ZK_VERIFICATION=true to enable it, and read the trusted-setup "
