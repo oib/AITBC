@@ -3,7 +3,7 @@ name = "aitbc"
 version = "0.10.18"
 description = "AI Agent Compute Network - Main Project"
 authors = [{name = "AITBC Team"}]
-requires-python = ">=3.13.5,<3.14"
+requires-python = "==3.13.5"
 dynamic = ["dependencies"]
 
 # [project] above is the canonical metadata block (PEP 621); poetry 2.x reads
@@ -14,7 +14,7 @@ dynamic = ["dependencies"]
 package-mode = true
 
 [tool.poetry.dependencies]
-python = ">=3.13.5,<3.14"
+python = "==3.13.5"
 # Core Web Framework
 fastapi = "0.136.3"
 uvicorn = {extras = ["standard"], version = "0.49.0"}
