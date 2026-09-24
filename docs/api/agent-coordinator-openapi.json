@@ -5078,9 +5078,9 @@
     },
     "/v1/protected/admin": {
       "get": {
-        "summary": "Protected Admin",
-        "description": "Protected admin endpoint",
-        "operationId": "protected_admin_v1_protected_admin_get",
+        "summary": "Admin Only Endpoint",
+        "description": "Admin-only endpoint example",
+        "operationId": "admin_only_endpoint_v1_protected_admin_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5089,7 +5089,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Protected Admin V1 Protected Admin Get"
+                  "title": "Response Admin Only Endpoint V1 Protected Admin Get"
                 }
               }
             }
@@ -5104,28 +5104,8 @@
               }
             }
           },
-          "403": {
-            "description": "Admin role required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "429": {
             "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {
@@ -5144,9 +5124,9 @@
     },
     "/v1/protected/operator": {
       "get": {
-        "summary": "Protected Operator",
-        "description": "Protected operator endpoint",
-        "operationId": "protected_operator_v1_protected_operator_get",
+        "summary": "Operator Endpoint",
+        "description": "Operator and admin endpoint example",
+        "operationId": "operator_endpoint_v1_protected_operator_get",
         "responses": {
           "200": {
             "description": "Successful Response",
@@ -5155,7 +5135,7 @@
                 "schema": {
                   "additionalProperties": true,
                   "type": "object",
-                  "title": "Response Protected Operator V1 Protected Operator Get"
+                  "title": "Response Operator Endpoint V1 Protected Operator Get"
                 }
               }
             }
@@ -5170,28 +5150,8 @@
               }
             }
           },
-          "403": {
-            "description": "Admin or operator role required",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
           "429": {
             "description": "Rate limit exceeded",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
             "content": {
               "application/json": {
                 "schema": {

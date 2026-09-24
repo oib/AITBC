@@ -4,12 +4,12 @@ import asyncio
 import os
 import time
 from collections import defaultdict
-from collections.abc import AsyncIterator
+from collections.abc import AsyncIterator, Callable
 from contextlib import asynccontextmanager
 from pathlib import Path
 from typing import Any
 
-from fastapi import APIRouter, FastAPI, HTTPException, Request
+from fastapi import APIRouter, FastAPI, HTTPException, Request, Response
 from aitbc.middleware import setup_cors
 from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import JSONResponse, PlainTextResponse
@@ -39,6 +39,21 @@ try:
 except ImportError:
     market_router = None
 _app_logger = get_logger("aitbc_chain.app")
+
+
+def _effective_block_production_enabled() -> bool:
+    """Whether block production is on for this node, env override applied.
+
+    The override exists so a follower can be pressed into producing during
+    failover; /ready evaluates the same effective value as startup so a node
+    that was told to produce but cannot sign is reported unready rather than
+    silently unhealthy.
+    """
+    enabled = settings.enable_block_production
+    override = _env_value("AITBC_FORCE_ENABLE_BLOCK_PRODUCTION", "ENABLE_BLOCK_PRODUCTION", "enable_block_production")
+    if override is not None:
+        enabled = override.strip().lower() in {"1", "true", "yes", "on"}
+    return enabled
 
 
 def _env_value(*names: str) -> str | None:
@@ -248,12 +263,7 @@ async def lifespan(app: FastAPI) -> AsyncIterator[None]:
         _app_logger.warning("Failed to initialize multi-chain manager: %s", e)
 
     proposers = []
-    block_production_override = _env_value(
-        "AITBC_FORCE_ENABLE_BLOCK_PRODUCTION", "ENABLE_BLOCK_PRODUCTION", "enable_block_production"
-    )
-    block_production_enabled = settings.enable_block_production
-    if block_production_override is not None:
-        block_production_enabled = block_production_override.strip().lower() in {"1", "true", "yes", "on"}
+    block_production_enabled = _effective_block_production_enabled()
 
     if block_production_enabled and settings.proposer_id:
         # Outside the try below: that block turns any failure into a warning and carries on,
@@ -415,8 +425,62 @@ def create_app() -> FastAPI:
             "node_wallet": get_node_wallet_address(),
         }
 
+    @metrics_router.get("/ready", tags=["health"], summary="Readiness probe")
+    async def ready() -> Response:
+        """503 while an enabled required feature is unavailable.
+
+        Required for every node: its chain database and a non-empty chain set.
+        When block production is enabled the node must additionally hold the
+        key for its declared proposer identity — the same gate startup applies,
+        re-evaluated so a node whose key later goes missing stops receiving
+        traffic instead of proposing blocks it cannot sign.
+        """
+        from aitbc.health_checks import run_readiness_checks
+
+        checks: dict[str, Callable[[], object]] = {
+            "database": _check_chain_db,
+            "supported_chains": _check_supported_chains,
+        }
+        if _effective_block_production_enabled():
+            checks["block_production"] = _check_can_sign
+        failed = await asyncio.to_thread(run_readiness_checks, checks)
+        if failed:
+            return JSONResponse(
+                status_code=503,
+                content={
+                    "status": "not_ready",
+                    "service": "blockchain-node",
+                    "error": "readiness check failed",
+                    "failed": failed,
+                },
+            )
+        return JSONResponse(
+            status_code=200,
+            content={"status": "ready", "service": "blockchain-node", "checks": sorted(checks)},
+        )
+
     app.include_router(metrics_router)
     return app
+
+
+def _check_chain_db() -> None:
+    """The default chain's database answers a trivial query."""
+    from sqlalchemy import text
+
+    with session_scope() as session:
+        session.execute(text("SELECT 1"))
+
+
+def _check_supported_chains() -> bool:
+    """At least one chain is configured to be served."""
+    return bool([c for c in settings.supported_chains.split(",") if c.strip()] or settings.chain_id)
+
+
+def _check_can_sign() -> None:
+    """The node still controls the key for its declared proposer identity."""
+    from .proposer_identity import assert_can_sign
+
+    assert_can_sign(settings.proposer_id, settings.proposer_key, settings.keystore_path)
 
 
 app = create_app()

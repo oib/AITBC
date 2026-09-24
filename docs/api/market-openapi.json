@@ -28,7 +28,7 @@
     "/ready": {
       "get": {
         "summary": "Ready",
-        "description": "Readiness check - verifies database connectivity",
+        "description": "Readiness check - verifies required dependencies are reachable.\n\nThe service database carries the offers, and the operation ledger (a\nseparate sqlite file) carries the replay-safe writes from Phase E; a\nmissing ledger means idempotent mutations silently lose their dedup, so\nit is part of readiness, not an afterthought.",
         "operationId": "ready_ready_get",
         "responses": {
           "200": {

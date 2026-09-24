@@ -50,6 +50,20 @@ def test_ready_check(client):
     assert data["status"] == "ready"
 
 
+def test_ready_fails_when_operations_ledger_unavailable(client, monkeypatch):
+    """The Phase E ledger is part of the required surface — a broken ledger
+    means idempotent mutations silently lose dedup."""
+    import sqlite3
+
+    def boom():
+        raise sqlite3.OperationalError("readonly")
+
+    monkeypatch.setattr("market_service.main._check_operations_db", boom)
+    response = client.get("/ready")
+    assert response.status_code == 503
+    assert response.json()["status"] == "not_ready"
+
+
 def test_live_check(client):
     """Test liveness endpoint"""
     response = client.get("/live")
