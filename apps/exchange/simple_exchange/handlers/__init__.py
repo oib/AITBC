@@ -12,38 +12,43 @@ from .wallet import WalletAPIHandler
 class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
     """Main exchange API handler — dispatches to domain mixin methods."""
 
-    def do_GET(self):
-        """Handle GET requests"""
-        # Validate path to prevent SSRF
-        if not self.path or self.path.startswith(("//", "\\\\", "..")):
-            self.send_error(400, "Invalid path")
-            return
-
-        parsed = urllib.parse.urlparse(self.path)
-        path = parsed.path
-        if path == "/health" or path == "/api/health":
+    def _get_service_routes(self, path: str) -> bool:
+        if path in ("/health", "/api/health"):
             self.health_check()
-        elif path == "/ready" or path == "/api/ready":
+        elif path in ("/ready", "/api/ready"):
             self.ready_check()
-        elif path.startswith("/api/trades/recent"):
+        elif path == "/metrics":
+            self.handle_metrics()
+        else:
+            return False
+        return True
+
+    def _get_api_routes(self, path: str, parsed) -> bool:
+        if path.startswith("/api/trades/recent"):
             self.get_recent_trades(parsed)
         elif path.startswith("/api/orders/orderbook"):
             self.get_orderbook()
         elif path.startswith("/api/wallet/balance"):
             self.handle_wallet_balance()
-        elif path == "/api/total-supply":
+        elif path in ("/api/total-supply", "/api/treasury-balance"):
             self.handle_treasury_balance()
-        elif path == "/api/treasury-balance":
-            self.handle_treasury_balance()
-        elif path == "/v1/market/offers":
+        else:
+            return False
+        return True
+
+    def _get_market_routes(self, path: str, parsed) -> bool:
+        if path == "/v1/market/offers":
             self.handle_market_offers(parsed)
         elif path.startswith("/v1/market/offers/"):
             self.handle_market_offer(path)
         elif path == "/v1/market/orders":
             self.handle_market_orders(parsed)
-        elif path == "/metrics":
-            self.handle_metrics()
-        elif path in ("/v1/cross-chain/rates", "/cross-chain/rates"):
+        else:
+            return False
+        return True
+
+    def _get_bridge_routes(self, path: str, parsed) -> bool:
+        if path in ("/v1/cross-chain/rates", "/cross-chain/rates"):
             self.handle_cross_chain_rates()
         elif path == "/v1/bridge/price":
             self.handle_bridge_price(parsed)
@@ -55,7 +60,27 @@ class ExchangeAPIHandler(BaseHandler, MarketMixin, ExchangeMixin, BridgeMixin):
             self.handle_bridge_deposits(parsed)
         elif path.startswith("/v1/bridge/deposit/"):
             self.handle_bridge_deposit_detail(path.split("/")[-1])
-        elif path == "/v1/exchange/history":
+        else:
+            return False
+        return True
+
+    def do_GET(self):
+        """Handle GET requests"""
+        # Validate path to prevent SSRF
+        if not self.path or self.path.startswith(("//", "\\\\", "..")):
+            self.send_error(400, "Invalid path")
+            return
+
+        parsed = urllib.parse.urlparse(self.path)
+        path = parsed.path
+        if (
+            self._get_service_routes(path)
+            or self._get_api_routes(path, parsed)
+            or self._get_market_routes(path, parsed)
+            or self._get_bridge_routes(path, parsed)
+        ):
+            return
+        if path == "/v1/exchange/history":
             self.handle_exchange_history(parsed)
         elif path == "/exchange/price.json":
             self.handle_exchange_price_json()
