@@ -392,7 +392,12 @@ check_prerequisites() {
 
     # Verify versions after installation
     python_version=$(python3 -c "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}')")
-    require_min_version "$python_version" "3.13.5" "Python"
+    # AITBC pins exactly Python 3.13.5 — requirements markers are
+    # python_full_version == "3.13.5", so any other interpreter would
+    # install nothing and fail obscurely later.
+    if [ "$python_version" != "3.13.5" ]; then
+        error "Python $python_version found; AITBC requires exactly 3.13.5"
+    fi
 
     node_version=$(node -v | sed 's/v//')
     require_min_version "$node_version" "24.14.0" "Node.js"
