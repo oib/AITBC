@@ -345,4 +345,5 @@ Rate limits are applied **per route** with `@rate_limit(rate=..., per=...)` deco
 
 ## OpenAPI Specification
 
-The complete OpenAPI 3.1.0 specification is available in [openapi.json](./openapi.json).
+The complete OpenAPI 3.1.0 specification is generated from the application and lives in
+[blockchain-node-openapi.json](../blockchain-node-openapi.json).
