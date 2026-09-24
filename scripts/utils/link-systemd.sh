@@ -125,16 +125,22 @@ get_allowed_services() {
         aitbc-blockchain-explorer
     )
 
-    # Shop-specific services (GPU provider, regardless of blockchain mode)
+    # Shop-specific services (market provider, regardless of blockchain mode)
     local shop_services=(
-        aitbc-gpu
-        aitbc-miner
         aitbc-coordinator-api
         aitbc-edge
-        # aitbc-pool-hub is not a shop-side service — add it via
-        # EXTRA_SERVICES on hosts that should run one.
         aitbc-market
         aitbc-hermes-agent
+        # aitbc-pool-hub is not a shop-side service — add it via
+        # EXTRA_SERVICES on hosts that should run one.
+    )
+
+    # GPU services — a shop node offers these only when it declares GPU
+    # hardware. Each is either the GPU provider itself or is configured for
+    # CUDA in its own unit file (WHISPER_DEVICE=cuda, FFMPEG_HW_ACCEL=cuda).
+    local gpu_services=(
+        aitbc-gpu
+        aitbc-miner
         aitbc-whisper
         aitbc-ffmpeg
     )
@@ -166,6 +172,14 @@ get_allowed_services() {
     # Axis 2: MARKET_ROLE (independent of blockchain mode)
     if [ "$market_role" = "shop" ]; then
         for s in "${shop_services[@]}"; do services+=("$s"); done
+
+        # Axis 3: HARDWARE_PROFILE narrows the shop set, it never adds to it.
+        # A shop node without GPU hardware still offers the market services but
+        # none of the GPU ones; a customer node offers no GPU services at all,
+        # whatever hardware it happens to have.
+        if [ "$hardware_profile" = "gpu" ]; then
+            for s in "${gpu_services[@]}"; do services+=("$s"); done
+        fi
     fi
 
     # Print unique services
