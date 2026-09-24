@@ -32,203 +32,151 @@ def save_state(state):
         json.dump(state, f, indent=2)
 
 
+def _contract_deploy(kwargs, state, result):
+    name = kwargs.get("name", "unknown")
+    contract_id = "0x" + uuid.uuid4().hex[:40]
+    state["contracts"].append({"id": contract_id, "name": name, "timestamp": time.time()})
+    save_state(state)
+    result["address"] = contract_id
+    result["message"] = f"Contract {name} deployed successfully"
+
+
+def _mining_start(kwargs, state, result):
+    state["mining"]["active"] = True
+    state["mining"]["hashrate"] = 150.5
+    save_state(state)
+    result["message"] = "Mining started"
+
+
+def _mining_stop(kwargs, state, result):
+    state["mining"]["active"] = False
+    state["mining"]["hashrate"] = 0
+    save_state(state)
+    result["message"] = "Mining stopped"
+
+
+def _agent_message_send(kwargs, state, result):
+    msg = {"to": kwargs.get("to"), "content": kwargs.get("content"), "timestamp": time.time()}
+    state["messages"].append(msg)
+    save_state(state)
+    result["message"] = "Message sent"
+
+
+def _market_sell(kwargs, state, result):
+    import random
+
+    order_id = "order_" + str(random.randint(10000, 99999))
+    state["orders"].append({"id": order_id, "item": kwargs.get("item"), "price": kwargs.get("price")})
+    save_state(state)
+    result["message"] = f"Listed {kwargs.get('item')} for {kwargs.get('price')}"
+    result["order_id"] = order_id
+
+
+def _automate_workflow(kwargs, state, result):
+    name = kwargs.get("name")
+    state["workflows"].append({"name": name, "status": "created"})
+    save_state(state)
+    result["message"] = f"Workflow {name} created"
+
+
+def _market_status(kwargs, state, result):
+    result["status"] = "active"
+    result["active_orders"] = len(state["orders"])
+
+
+# Commands that read or mutate cli_extended_state.json. Each takes
+# (kwargs, state, result) and is responsible for save_state() itself.
+_STATEFUL = {
+    "contract_deploy": _contract_deploy,
+    "contract_list": lambda kw, st, r: r.update({"contracts": st["contracts"]}),
+    "mining_start": _mining_start,
+    "mining_stop": _mining_stop,
+    "mining_status": lambda kw, st, r: r.update({"mining": st["mining"]}),
+    "agent_message_send": _agent_message_send,
+    "agent_messages": lambda kw, st, r: r.update({"messages": st["messages"]}),
+    "market_status": _market_status,
+    "market_sell": _market_sell,
+    "market_orders": lambda kw, st, r: r.update({"orders": st["orders"]}),
+    "automate_workflow": _automate_workflow,
+}
+
+
+def _analytics_export(kwargs):
+    import tempfile
+
+    return {"file": tempfile.gettempdir() + "/analytics_export.csv"}
+
+
+# Commands whose reply depends only on kwargs (or not at all): each maps to a
+# dict merged into result.
+_SIMPLE = {
+    "contract_call": lambda kw: {"output": "Call successful", "result": {"value": 42}},
+    "network_sync_status": lambda kw: {"status": "synchronized", "progress": "100%"},
+    "network_ping": lambda kw: {"node": kw.get("node"), "latency_ms": 5.2, "status": "reachable"},
+    "network_propagate": lambda kw: {"message": "Data propagated", "nodes_reached": 2},
+    "wallet_backup": lambda kw: {"path": f"{get_data_path('backups')}/{kw.get('name')}.backup"},
+    "wallet_export": lambda kw: {"path": f"{get_data_path('exports')}/{kw.get('name')}.key"},
+    "wallet_sync": lambda kw: {"status": "Wallets synchronized"},
+    "ai_status": lambda kw: {"status": "Processing", "job_id": kw.get("job_id", "unknown")},
+    "ai_results": lambda kw: {"results": {"output": "AI computation completed successfully."}},
+    "ai_service_list": lambda kw: {"services": [{"name": "coordinator", "status": "running"}]},
+    "ai_service_test": lambda kw: {"status": "passed", "latency": "120ms"},
+    "ai_service_status": lambda kw: {"status": "running", "uptime": "5d 12h"},
+    "resource_status": lambda kw: {"cpu": "12%", "memory": "45%", "gpu": "80%"},
+    "resource_allocate": lambda kw: {"message": f"Allocated {kw.get('amount')} of {kw.get('type')}"},
+    "resource_optimize": lambda kw: {"message": f"Optimized for {kw.get('target')}"},
+    "resource_benchmark": lambda kw: {"score": 9850, "type": kw.get("type")},
+    "resource_monitor": lambda kw: {"message": "Monitoring started"},
+    "ollama_models": lambda kw: {"models": ["llama2:7b", "mistral:7b"]},
+    "ollama_pull": lambda kw: {"message": f"Pulled {kw.get('model')}"},
+    "ollama_run": lambda kw: {"output": "Ollama test response"},
+    "ollama_status": lambda kw: {"status": "running"},
+    "market_buy": lambda kw: {"message": f"Bought {kw.get('item')} for {kw.get('price')}"},
+    "market_cancel": lambda kw: {"message": f"Cancelled order {kw.get('order')}"},
+    "economics_model": lambda kw: {"model": kw.get("type"), "efficiency": "95%"},
+    "economics_forecast": lambda kw: {"forecast": "positive", "growth": "5.2%"},
+    "economics_optimize": lambda kw: {"target": kw.get("target"), "improvement": "12%"},
+    "economics_market_analyze": lambda kw: {"trend": "bullish", "volume": "High"},
+    "economics_trends": lambda kw: {"trends": ["AI compute up 15%", "Storage down 2%"]},
+    "economics_distributed_cost_optimize": lambda kw: {"savings": "150 AIT/day"},
+    "economics_revenue_share": lambda kw: {"shared_with": kw.get("node"), "amount": "50 AIT"},
+    "economics_workload_balance": lambda kw: {"status": "balanced", "nodes": kw.get("nodes")},
+    "economics_sync": lambda kw: {"status": "synchronized"},
+    "economics_strategy_optimize": lambda kw: {"strategy": "global", "status": "optimized"},
+    "analytics_report": lambda kw: {"report_type": kw.get("type"), "summary": "All systems nominal"},
+    "analytics_metrics": lambda kw: {"metrics": {"tx_rate": 15, "block_time": 30.1}},
+    "analytics_export": _analytics_export,
+    "analytics_predict": lambda kw: {"prediction": "stable", "confidence": "98%"},
+    "analytics_optimize": lambda kw: {"optimized": kw.get("target")},
+    "automate_schedule": lambda kw: {"message": "Scheduled successfully"},
+    "automate_monitor": lambda kw: {"message": f"Monitoring workflow {kw.get('name')}"},
+    "cluster_status": lambda kw: {"nodes": 2, "health": "good"},
+    "cluster_sync": lambda kw: {"message": "Cluster synchronized"},
+    "cluster_balance": lambda kw: {"message": "Workload balanced across cluster"},
+    "cluster_coordinate": lambda kw: {"action": kw.get("action"), "status": "coordinated"},
+    "performance_benchmark": lambda kw: {"score": 14200, "cpu_score": 4500, "io_score": 9700},
+    "performance_optimize": lambda kw: {"target": kw.get("target", "latency"), "improvement": "18%"},
+    "performance_tune": lambda kw: {"message": "Parameters tuned aggressively"},
+    "performance_resource_optimize": lambda kw: {"message": "Global resources optimized"},
+    "performance_cache_optimize": lambda kw: {"strategy": kw.get("strategy"), "message": "Cache optimized"},
+    "security_audit": lambda kw: {"status": "passed", "vulnerabilities": 0},
+    "security_scan": lambda kw: {"status": "clean"},
+    "security_patch": lambda kw: {"message": "All critical patches applied"},
+    "compliance_check": lambda kw: {"standard": kw.get("standard"), "status": "compliant"},
+    "compliance_report": lambda kw: {"format": kw.get("format"), "path": f"{get_data_path('reports')}/compliance.pdf"},
+    "script_run": lambda kw: {"file": kw.get("file"), "output": "Script executed successfully"},
+    "api_monitor": lambda kw: {"endpoint": kw.get("endpoint"), "status": "Monitoring active"},
+    "api_test": lambda kw: {"endpoint": kw.get("endpoint"), "status": "200 OK"},
+}
+
+
 def handle_extended_command(command, args, kwargs):
     state = load_state()
     result = {"status": "success", "command": command}
-    if command == "contract_deploy":
-        name = kwargs.get("name", "unknown")
-        contract_id = "0x" + uuid.uuid4().hex[:40]
-        state["contracts"].append({"id": contract_id, "name": name, "timestamp": time.time()})
-        save_state(state)
-        result["address"] = contract_id
-        result["message"] = f"Contract {name} deployed successfully"
-    elif command == "contract_list":
-        result["contracts"] = state["contracts"]
-    elif command == "contract_call":
-        result["output"] = "Call successful"
-        result["result"] = {"value": 42}
-    elif command == "mining_start":
-        state["mining"]["active"] = True
-        state["mining"]["hashrate"] = 150.5
-        save_state(state)
-        result["message"] = "Mining started"
-    elif command == "mining_stop":
-        state["mining"]["active"] = False
-        state["mining"]["hashrate"] = 0
-        save_state(state)
-        result["message"] = "Mining stopped"
-    elif command == "mining_status":
-        result["mining"] = state["mining"]
-    elif command == "agent_message_send":
-        msg = {"to": kwargs.get("to"), "content": kwargs.get("content"), "timestamp": time.time()}
-        state["messages"].append(msg)
-        save_state(state)
-        result["message"] = "Message sent"
-    elif command == "agent_messages":
-        result["messages"] = state["messages"]
-    elif command == "network_sync_status":
-        result["status"] = "synchronized"
-        result["progress"] = "100%"
-    elif command == "network_ping":
-        result["node"] = kwargs.get("node")
-        result["latency_ms"] = 5.2
-        result["status"] = "reachable"
-    elif command == "network_propagate":
-        result["message"] = "Data propagated"
-        result["nodes_reached"] = 2
-    elif command == "wallet_backup":
-        result["path"] = f"{get_data_path('backups')}/{kwargs.get('name')}.backup"
-    elif command == "wallet_export":
-        result["path"] = f"{get_data_path('exports')}/{kwargs.get('name')}.key"
-    elif command == "wallet_sync":
-        result["status"] = "Wallets synchronized"
-    elif command == "ai_status":
-        result["status"] = "Processing"
-        result["job_id"] = kwargs.get("job_id", "unknown")
-    elif command == "ai_results":
-        result["results"] = {"output": "AI computation completed successfully."}
-    elif command == "ai_service_list":
-        result["services"] = [{"name": "coordinator", "status": "running"}]
-    elif command == "ai_service_test":
-        result["status"] = "passed"
-        result["latency"] = "120ms"
-    elif command == "ai_service_status":
-        result["status"] = "running"
-        result["uptime"] = "5d 12h"
-    elif command == "resource_status":
-        result["cpu"] = "12%"
-        result["memory"] = "45%"
-        result["gpu"] = "80%"
-    elif command == "resource_allocate":
-        result["message"] = f"Allocated {kwargs.get('amount')} of {kwargs.get('type')}"
-    elif command == "resource_optimize":
-        result["message"] = f"Optimized for {kwargs.get('target')}"
-    elif command == "resource_benchmark":
-        result["score"] = 9850
-        result["type"] = kwargs.get("type")
-    elif command == "resource_monitor":
-        result["message"] = "Monitoring started"
-    elif command == "ollama_models":
-        result["models"] = ["llama2:7b", "mistral:7b"]
-    elif command == "ollama_pull":
-        result["message"] = f"Pulled {kwargs.get('model')}"
-    elif command == "ollama_run":
-        result["output"] = "Ollama test response"
-    elif command == "ollama_status":
-        result["status"] = "running"
-    elif command == "market_status":
-        result["status"] = "active"
-        result["active_orders"] = len(state["orders"])
-    elif command == "market_buy":
-        result["message"] = f"Bought {kwargs.get('item')} for {kwargs.get('price')}"
-    elif command == "market_sell":
-        import random
-
-        order_id = "order_" + str(random.randint(10000, 99999))
-        state["orders"].append({"id": order_id, "item": kwargs.get("item"), "price": kwargs.get("price")})
-        save_state(state)
-        result["message"] = f"Listed {kwargs.get('item')} for {kwargs.get('price')}"
-        result["order_id"] = order_id
-    elif command == "market_orders":
-        result["orders"] = state["orders"]
-    elif command == "market_cancel":
-        result["message"] = f"Cancelled order {kwargs.get('order')}"
-    elif command == "economics_model":
-        result["model"] = kwargs.get("type")
-        result["efficiency"] = "95%"
-    elif command == "economics_forecast":
-        result["forecast"] = "positive"
-        result["growth"] = "5.2%"
-    elif command == "economics_optimize":
-        result["target"] = kwargs.get("target")
-        result["improvement"] = "12%"
-    elif command == "economics_market_analyze":
-        result["trend"] = "bullish"
-        result["volume"] = "High"
-    elif command == "economics_trends":
-        result["trends"] = ["AI compute up 15%", "Storage down 2%"]
-    elif command == "economics_distributed_cost_optimize":
-        result["savings"] = "150 AIT/day"
-    elif command == "economics_revenue_share":
-        result["shared_with"] = kwargs.get("node")
-        result["amount"] = "50 AIT"
-    elif command == "economics_workload_balance":
-        result["status"] = "balanced"
-        result["nodes"] = kwargs.get("nodes")
-    elif command == "economics_sync":
-        result["status"] = "synchronized"
-    elif command == "economics_strategy_optimize":
-        result["strategy"] = "global"
-        result["status"] = "optimized"
-    elif command == "analytics_report":
-        result["report_type"] = kwargs.get("type")
-        result["summary"] = "All systems nominal"
-    elif command == "analytics_metrics":
-        result["metrics"] = {"tx_rate": 15, "block_time": 30.1}
-    elif command == "analytics_export":
-        import tempfile
-
-        result["file"] = tempfile.gettempdir() + "/analytics_export.csv"
-    elif command == "analytics_predict":
-        result["prediction"] = "stable"
-        result["confidence"] = "98%"
-    elif command == "analytics_optimize":
-        result["optimized"] = kwargs.get("target")
-    elif command == "automate_workflow":
-        name = kwargs.get("name")
-        state["workflows"].append({"name": name, "status": "created"})
-        save_state(state)
-        result["message"] = f"Workflow {name} created"
-    elif command == "automate_schedule":
-        result["message"] = "Scheduled successfully"
-    elif command == "automate_monitor":
-        result["message"] = f"Monitoring workflow {kwargs.get('name')}"
-    elif command == "cluster_status":
-        result["nodes"] = 2
-        result["health"] = "good"
-    elif command == "cluster_sync":
-        result["message"] = "Cluster synchronized"
-    elif command == "cluster_balance":
-        result["message"] = "Workload balanced across cluster"
-    elif command == "cluster_coordinate":
-        result["action"] = kwargs.get("action")
-        result["status"] = "coordinated"
-    elif command == "performance_benchmark":
-        result["score"] = 14200
-        result["cpu_score"] = 4500
-        result["io_score"] = 9700
-    elif command == "performance_optimize":
-        result["target"] = kwargs.get("target", "latency")
-        result["improvement"] = "18%"
-    elif command == "performance_tune":
-        result["message"] = "Parameters tuned aggressively"
-    elif command == "performance_resource_optimize":
-        result["message"] = "Global resources optimized"
-    elif command == "performance_cache_optimize":
-        result["strategy"] = kwargs.get("strategy")
-        result["message"] = "Cache optimized"
-    elif command == "security_audit":
-        result["status"] = "passed"
-        result["vulnerabilities"] = 0
-    elif command == "security_scan":
-        result["status"] = "clean"
-    elif command == "security_patch":
-        result["message"] = "All critical patches applied"
-    elif command == "compliance_check":
-        result["standard"] = kwargs.get("standard")
-        result["status"] = "compliant"
-    elif command == "compliance_report":
-        result["format"] = kwargs.get("format")
-        result["path"] = f"{get_data_path('reports')}/compliance.pdf"
-    elif command == "script_run":
-        result["file"] = kwargs.get("file")
-        result["output"] = "Script executed successfully"
-    elif command == "api_monitor":
-        result["endpoint"] = kwargs.get("endpoint")
-        result["status"] = "Monitoring active"
-    elif command == "api_test":
-        result["endpoint"] = kwargs.get("endpoint")
-        result["status"] = "200 OK"
+    if command in _STATEFUL:
+        _STATEFUL[command](kwargs, state, result)
+    elif command in _SIMPLE:
+        result.update(_SIMPLE[command](kwargs))
     return result
 
 

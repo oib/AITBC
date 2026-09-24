@@ -100,13 +100,12 @@ class AITBCClient:
             else:
                 print(f"❌ Error listing blocks: {response.status_code}")
                 return None
-
         except Exception as e:
             print(f"❌ Error: {e}")
             return None
 
 
-def main():
+def _build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="AITBC Client CLI")
     parser.add_argument("--url", default=DEFAULT_COORDINATOR, help="Coordinator URL")
     parser.add_argument("--api-key", default=DEFAULT_API_KEY, help="API key")
@@ -139,6 +138,146 @@ def main():
     # Quick demo command
     _ = subparsers.add_parser("demo", help="Submit a demo job")
 
+    return parser
+
+
+def _cmd_submit(client: AITBCClient, args) -> None:
+    task_data = {}
+    if args.task:
+        task_data["task"] = args.task
+    if args.model:
+        task_data["model"] = args.model
+    if args.prompt:
+        task_data["prompt"] = args.prompt
+        task_data["parameters"] = {"prompt": args.prompt}
+
+    print(f"📤 Submitting {args.type} job...")
+    job_id = client.submit_job(args.type, task_data, args.ttl)
+
+    if job_id:
+        print("✅ Job submitted successfully!")
+        print(f"   Job ID: {job_id}")
+        print(f"   Track with: python3 cli/client.py status {job_id}")
+
+
+def _cmd_status(client: AITBCClient, args) -> None:
+    print(f"🔍 Checking status for job {args.job_id}...")
+    status = client.get_job_status(args.job_id)
+
+    if status:
+        print("📊 Job Status:")
+        print(f"   ID: {status['job_id']}")
+        print(f"   State: {status['state']}")
+        print(f"   Miner: {status.get('assigned_miner_id', 'None')}")
+        print(f"   Created: {status['requested_at']}")
+        if status.get("expires_at"):
+            print(f"   Expires: {status['expires_at']}")
+
+
+def _cmd_blocks(client: AITBCClient, args) -> None:
+    print(f"📦 Recent blocks (last {args.limit}):")
+    blocks = client.list_blocks(args.limit)
+
+    if blocks:
+        for i, block in enumerate(blocks, 1):
+            print(f"\n{i}. Height: {block['height']}")
+            print(f"   Hash: {block['hash']}")
+            print(f"   Time: {block['timestamp']}")
+            print(f"   Proposer: {block['proposer']}")
+
+
+def _print_receipt_metrics(receipts: list) -> None:
+    print("\n📈 Receipt Metrics (recent)")
+    if not receipts:
+        print("   No receipts found")
+        return
+    status_counts: dict[str, int] = {}
+    total_units = 0.0
+    unit_type = None
+    for receipt in receipts:
+        status_label = receipt.get("status") or receipt.get("state") or "Unknown"
+        status_counts[status_label] = status_counts.get(status_label, 0) + 1
+        payload = receipt.get("payload") or {}
+        units = payload.get("units")
+        if isinstance(units, int | float):
+            total_units += float(units)
+            if unit_type is None:
+                unit_type = payload.get("unit_type")
+
+    print(f"   Receipts: {len(receipts)}")
+    for status_label, count in status_counts.items():
+        print(f"   {status_label}: {count}")
+    if total_units:
+        unit_suffix = f" {unit_type}" if unit_type else ""
+        print(f"   Total Units: {total_units}{unit_suffix}")
+
+
+def _cmd_browser(client: AITBCClient, args) -> None:
+    blocks = client.list_blocks(args.block_limit) or []
+    transactions = client.list_transactions(args.tx_limit) or []
+    receipts = client.list_receipts(args.receipt_limit, job_id=args.job_id) or []
+
+    print("🧭 Blockchain Browser Snapshot")
+    if blocks:
+        block = blocks[0]
+        tx_count = block.get("txCount", block.get("tx_count"))
+        print("\n🧱 Latest Block")
+        print(f"   Height: {block.get('height')}")
+        print(f"   Hash: {block.get('hash')}")
+        print(f"   Time: {block.get('timestamp')}")
+        print(f"   Tx Count: {tx_count}")
+        print(f"   Proposer: {block.get('proposer')}")
+    else:
+        print("\n🧱 Latest Block: none found")
+
+    print("\n🧾 Latest Transactions")
+    if not transactions:
+        print("   No transactions found")
+    for tx in transactions:
+        tx_hash = tx.get("hash") or tx.get("tx_hash")
+        from_addr = tx.get("from") or tx.get("from_address")
+        to_addr = tx.get("to") or tx.get("to_address")
+        value = tx.get("value")
+        status = tx.get("status")
+        block_ref = tx.get("block")
+        print(f"   - {tx_hash} | block {block_ref} | {status}")
+        print(f"     from: {from_addr} -> to: {to_addr} | value: {value}")
+
+    _print_receipt_metrics(receipts)
+
+
+def _cmd_demo(client: AITBCClient, args) -> None:
+    print("🎭 Submitting demo inference job...")
+    job_id = client.submit_job(
+        "inference",
+        {"task": "text-generation", "model": "llama-2-7b", "prompt": "What is AITBC?", "parameters": {"max_tokens": 100}},
+    )
+
+    if job_id:
+        print("✅ Demo job submitted!")
+        print(f"   Job ID: {job_id}")
+
+        # Check status after a moment
+        import time
+
+        time.sleep(2)
+        status = client.get_job_status(job_id)
+        if status:
+            print(f"\n📊 Status: {status['state']}")
+            print(f"   Miner: {status.get('assigned_miner_id', 'unassigned')}")
+
+
+_COMMANDS = {
+    "submit": _cmd_submit,
+    "status": _cmd_status,
+    "blocks": _cmd_blocks,
+    "browser": _cmd_browser,
+    "demo": _cmd_demo,
+}
+
+
+def main():
+    parser = _build_parser()
     args = parser.parse_args()
 
     if not args.command:
@@ -146,123 +285,9 @@ def main():
         return
 
     client = AITBCClient(args.url, args.api_key)
-
-    if args.command == "submit":
-        task_data = {}
-        if args.task:
-            task_data["task"] = args.task
-        if args.model:
-            task_data["model"] = args.model
-        if args.prompt:
-            task_data["prompt"] = args.prompt
-            task_data["parameters"] = {"prompt": args.prompt}
-
-        print(f"📤 Submitting {args.type} job...")
-        job_id = client.submit_job(args.type, task_data, args.ttl)
-
-        if job_id:
-            print("✅ Job submitted successfully!")
-            print(f"   Job ID: {job_id}")
-            print(f"   Track with: python3 cli/client.py status {job_id}")
-
-    elif args.command == "status":
-        print(f"🔍 Checking status for job {args.job_id}...")
-        status = client.get_job_status(args.job_id)
-
-        if status:
-            print("📊 Job Status:")
-            print(f"   ID: {status['job_id']}")
-            print(f"   State: {status['state']}")
-            print(f"   Miner: {status.get('assigned_miner_id', 'None')}")
-            print(f"   Created: {status['requested_at']}")
-            if status.get("expires_at"):
-                print(f"   Expires: {status['expires_at']}")
-
-    elif args.command == "blocks":
-        print(f"📦 Recent blocks (last {args.limit}):")
-        blocks = client.list_blocks(args.limit)
-
-        if blocks:
-            for i, block in enumerate(blocks, 1):
-                print(f"\n{i}. Height: {block['height']}")
-                print(f"   Hash: {block['hash']}")
-                print(f"   Time: {block['timestamp']}")
-                print(f"   Proposer: {block['proposer']}")
-
-    elif args.command == "browser":
-        blocks = client.list_blocks(args.block_limit) or []
-        transactions = client.list_transactions(args.tx_limit) or []
-        receipts = client.list_receipts(args.receipt_limit, job_id=args.job_id) or []
-
-        print("🧭 Blockchain Browser Snapshot")
-        if blocks:
-            block = blocks[0]
-            tx_count = block.get("txCount", block.get("tx_count"))
-            print("\n🧱 Latest Block")
-            print(f"   Height: {block.get('height')}")
-            print(f"   Hash: {block.get('hash')}")
-            print(f"   Time: {block.get('timestamp')}")
-            print(f"   Tx Count: {tx_count}")
-            print(f"   Proposer: {block.get('proposer')}")
-        else:
-            print("\n🧱 Latest Block: none found")
-
-        print("\n🧾 Latest Transactions")
-        if not transactions:
-            print("   No transactions found")
-        for tx in transactions:
-            tx_hash = tx.get("hash") or tx.get("tx_hash")
-            from_addr = tx.get("from") or tx.get("from_address")
-            to_addr = tx.get("to") or tx.get("to_address")
-            value = tx.get("value")
-            status = tx.get("status")
-            block_ref = tx.get("block")
-            print(f"   - {tx_hash} | block {block_ref} | {status}")
-            print(f"     from: {from_addr} -> to: {to_addr} | value: {value}")
-
-        print("\n📈 Receipt Metrics (recent)")
-        if not receipts:
-            print("   No receipts found")
-        else:
-            status_counts: dict[str, int] = {}
-            total_units = 0.0
-            unit_type = None
-            for receipt in receipts:
-                status_label = receipt.get("status") or receipt.get("state") or "Unknown"
-                status_counts[status_label] = status_counts.get(status_label, 0) + 1
-                payload = receipt.get("payload") or {}
-                units = payload.get("units")
-                if isinstance(units, int | float):
-                    total_units += float(units)
-                    if unit_type is None:
-                        unit_type = payload.get("unit_type")
-
-            print(f"   Receipts: {len(receipts)}")
-            for status_label, count in status_counts.items():
-                print(f"   {status_label}: {count}")
-            if total_units:
-                unit_suffix = f" {unit_type}" if unit_type else ""
-                print(f"   Total Units: {total_units}{unit_suffix}")
-
-    elif args.command == "demo":
-        print("🎭 Submitting demo inference job...")
-        job_id = client.submit_job(
-            "inference",
-            {"task": "text-generation", "model": "llama-2-7b", "prompt": "What is AITBC?", "parameters": {"max_tokens": 100}},
-        )
-
-        if job_id:
-            print("✅ Demo job submitted!")
-            print(f"   Job ID: {job_id}")
-
-            # Check status after a moment
-            import time
-
-            time.sleep(2)
-            status = client.get_job_status(job_id)
-            if status:
-                print(f"\n📊 Status: {status['state']}")
-                print(f"   Miner: {status.get('assigned_miner_id', 'unassigned')}")
+    handler = _COMMANDS.get(args.command)
+    if handler:
+        handler(client, args)
 
 
 if __name__ == "__main__":
