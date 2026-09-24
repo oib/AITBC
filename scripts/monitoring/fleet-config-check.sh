@@ -104,6 +104,25 @@ for var in $VARS; do
     done
 done
 
+echo "=== signature-validation kill-switch check ==="
+# SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL disables proposer-signature validation
+# until a timestamp. It is a deliberate escape hatch for migrations, but a
+# value left set on a node is silent consensus weakening: flag it whenever
+# it is set at all, on any host.
+skip_flagged=0
+for h in $HOSTS; do
+    val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "grep -h '^SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null | tail -1 | cut -d= -f2-" \
+        2>/dev/null || echo "UNREACHABLE")
+    if [ -n "$val" ] && [ "$val" != "UNREACHABLE" ]; then
+        skip_flagged=1
+        printf "  %-14s SET: %s <- signature validation disabled until then\n" "$h" "$val"
+    fi
+done
+if [ "$skip_flagged" -eq 0 ]; then
+    echo "  SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL unset on all hosts"
+fi
+
 echo "=== *_ADDRESS value-shape check ==="
 # systemd EnvironmentFile does not strip inline `#` comments: a comment on an
 # assignment line becomes part of the value (measured 110 bytes instead of 42
