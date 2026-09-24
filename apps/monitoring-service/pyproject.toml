@@ -10,6 +10,9 @@ fastapi = ">=0.115.6"
 httpx = ">=0.28.1"
 # uvicorn is used as the ASGI server at runtime but is not imported directly
 uvicorn = {extras = ["standard"], version = "^0.32.0"}
+# Security floor for a transitive dep: anyio <4.14.2 is flagged for a TLS
+# hostname-spoofing advisory.
+anyio = ">=4.14.2"
 
 [tool.poetry.group.dev.dependencies]
 pytest = ">=9.0.3"
