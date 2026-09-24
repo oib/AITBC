@@ -10,11 +10,12 @@ from typing import Annotated, Any
 
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
-from sqlalchemy.orm import Session
+from sqlmodel import Session, select
 
 from aitbc.rate_limiting import rate_limit
 
 from ....storage import get_session
+from ..domain.partner import Partner, PartnerWebhook
 
 router = APIRouter(tags=["partners"])
 
@@ -57,9 +58,26 @@ class WebhookResponse(BaseModel):
     created_at: datetime
 
 
-# Mock partner storage (in production, use database)
-PARTNERS_DB: dict[str, Any] = {}
-WEBHOOKS_DB: dict[str, Any] = {}
+RATE_LIMITS = {
+    "explorer": {"requests_per_minute": 1000, "requests_per_hour": 50000},
+    "analytics": {"requests_per_minute": 500, "requests_per_hour": 25000},
+    "wallet": {"requests_per_minute": 100, "requests_per_hour": 5000},
+    "exchange": {"requests_per_minute": 2000, "requests_per_hour": 100000},
+    "other": {"requests_per_minute": 100, "requests_per_hour": 5000},
+}
+
+VALID_EVENTS = [
+    "block.created",
+    "transaction.confirmed",
+    "market.offer_created",
+    "market.bid_placed",
+    "governance.proposal_created",
+    "governance.vote_cast",
+]
+
+
+def _hash(value: str) -> str:
+    return hashlib.sha256(value.encode()).hexdigest()
 
 
 @router.post("/partners/register", response_model=PartnerResponse)
@@ -75,35 +93,31 @@ async def register_partner(
     api_secret = secrets.token_urlsafe(32)
 
     # Set rate limits based on integration type
-    rate_limits = {
-        "explorer": {"requests_per_minute": 1000, "requests_per_hour": 50000},
-        "analytics": {"requests_per_minute": 500, "requests_per_hour": 25000},
-        "wallet": {"requests_per_minute": 100, "requests_per_hour": 5000},
-        "exchange": {"requests_per_minute": 2000, "requests_per_hour": 100000},
-        "other": {"requests_per_minute": 100, "requests_per_hour": 5000},
-    }
+    rate_limit = RATE_LIMITS.get(partner.integration_type, RATE_LIMITS["other"])
 
-    # Store partner (in production, save to database)
-    PARTNERS_DB[partner_id] = {
-        "id": partner_id,
-        "name": partner.name,
-        "description": partner.description,
-        "website": partner.website,
-        "contact": partner.contact,
-        "integration_type": partner.integration_type,
-        "api_key": api_key,
-        "api_secret_hash": hashlib.sha256(api_secret.encode()).hexdigest(),
-        "rate_limit": rate_limits.get(partner.integration_type, rate_limits["other"]),
-        "created_at": datetime.now(UTC),
-        "status": "active",
-    }
+    # Store partner — only the hashes of the credentials are persisted
+    row = Partner(
+        id=partner_id,
+        name=partner.name,
+        description=partner.description,
+        website=partner.website,
+        contact=partner.contact,
+        integration_type=partner.integration_type,
+        api_key_hash=_hash(api_key),
+        api_secret_hash=_hash(api_secret),
+        rate_limit=rate_limit,
+        status="active",
+        created_at=datetime.now(UTC),
+    )
+    session.add(row)
+    session.commit()
 
     return PartnerResponse(
         partner_id=partner_id,
         api_key=api_key,
         api_secret=api_secret,
-        rate_limit=PARTNERS_DB[partner_id]["rate_limit"],
-        created_at=PARTNERS_DB[partner_id]["created_at"],
+        rate_limit=rate_limit,
+        created_at=row.created_at,
     )
 
 
@@ -115,18 +129,18 @@ async def get_partner(
     """Get partner information"""
 
     # Verify API key
-    partner = verify_partner_api_key(partner_id, api_key)
+    partner = verify_partner_api_key(session, partner_id, api_key)
     if not partner:
         raise HTTPException(401, "Invalid credentials")
 
     # Return safe partner info
     return {
-        "partner_id": partner["id"],
-        "name": partner["name"],
-        "integration_type": partner["integration_type"],
-        "rate_limit": partner["rate_limit"],
-        "created_at": partner["created_at"],
-        "status": partner["status"],
+        "partner_id": partner.id,
+        "name": partner.name,
+        "integration_type": partner.integration_type,
+        "rate_limit": partner.rate_limit,
+        "created_at": partner.created_at,
+        "status": partner.status,
     }
 
 
@@ -138,46 +152,38 @@ async def create_webhook(
     """Create a webhook subscription"""
 
     # Verify partner from API key
-    partner = find_partner_by_api_key(api_key)
+    partner = find_partner_by_api_key(session, api_key)
     if not partner:
         raise HTTPException(401, "Invalid API key")
 
     # Validate events
-    valid_events = [
-        "block.created",
-        "transaction.confirmed",
-        "market.offer_created",
-        "market.bid_placed",
-        "governance.proposal_created",
-        "governance.vote_cast",
-    ]
-
     for event in webhook.events:
-        if event not in valid_events:
+        if event not in VALID_EVENTS:
             raise HTTPException(400, f"Invalid event: {event}")
 
     # Generate webhook secret if not provided
-    if not webhook.secret:
-        webhook.secret = secrets.token_urlsafe(32)
+    secret = webhook.secret or secrets.token_urlsafe(32)
 
     # Create webhook
     webhook_id = secrets.token_urlsafe(16)
-    WEBHOOKS_DB[webhook_id] = {
-        "id": webhook_id,
-        "partner_id": partner["id"],
-        "url": webhook.url,
-        "events": webhook.events,
-        "secret": webhook.secret,
-        "status": "active",
-        "created_at": datetime.now(UTC),
-    }
+    row = PartnerWebhook(
+        id=webhook_id,
+        partner_id=partner.id,
+        url=webhook.url,
+        events=webhook.events,
+        secret=secret,
+        status="active",
+        created_at=datetime.now(UTC),
+    )
+    session.add(row)
+    session.commit()
 
     return WebhookResponse(
         webhook_id=webhook_id,
-        url=webhook.url,
-        events=webhook.events,
+        url=row.url,
+        events=row.events,
         status="active",
-        created_at=WEBHOOKS_DB[webhook_id]["created_at"],
+        created_at=row.created_at,
     )
 
 
@@ -189,25 +195,22 @@ async def list_webhooks(
     """List partner webhooks"""
 
     # Verify partner
-    partner = find_partner_by_api_key(api_key)
+    partner = find_partner_by_api_key(session, api_key)
     if not partner:
         raise HTTPException(401, "Invalid API key")
 
     # Get webhooks for partner
-    webhooks = []
-    for webhook in WEBHOOKS_DB.values():
-        if webhook["partner_id"] == partner["id"]:
-            webhooks.append(
-                WebhookResponse(
-                    webhook_id=webhook["id"],
-                    url=webhook["url"],
-                    events=webhook["events"],
-                    status=webhook["status"],
-                    created_at=webhook["created_at"],
-                )
-            )
-
-    return webhooks
+    rows = session.exec(select(PartnerWebhook).where(PartnerWebhook.partner_id == partner.id)).all()
+    return [
+        WebhookResponse(
+            webhook_id=row.id,
+            url=row.url,
+            events=row.events,
+            status=row.status,
+            created_at=row.created_at,
+        )
+        for row in rows
+    ]
 
 
 @router.delete("/partners/webhooks/{webhook_id}")
@@ -218,17 +221,18 @@ async def delete_webhook(
     """Delete a webhook"""
 
     # Verify partner
-    partner = find_partner_by_api_key(api_key)
+    partner = find_partner_by_api_key(session, api_key)
     if not partner:
         raise HTTPException(401, "Invalid API key")
 
     # Find webhook
-    webhook = WEBHOOKS_DB.get(webhook_id)
-    if not webhook or webhook["partner_id"] != partner["id"]:
+    webhook = session.get(PartnerWebhook, webhook_id)
+    if not webhook or webhook.partner_id != partner.id:
         raise HTTPException(404, "Webhook not found")
 
     # Delete webhook
-    del WEBHOOKS_DB[webhook_id]
+    session.delete(webhook)
+    session.commit()
 
     return {"message": "Webhook deleted successfully"}
 
@@ -241,7 +245,7 @@ async def get_usage_analytics(
     """Get API usage analytics"""
 
     # Verify partner
-    partner = find_partner_by_api_key(api_key)
+    partner = find_partner_by_api_key(session, api_key)
     if not partner:
         raise HTTPException(401, "Invalid API key")
 
@@ -249,7 +253,7 @@ async def get_usage_analytics(
     usage = {
         "period": period,
         "requests": {"total": 15420, "blocks": 5000, "transactions": 8000, "market": 2000, "analytics": 420},
-        "rate_limit": {"used": 15420, "limit": partner["rate_limit"]["requests_per_hour"], "percentage": 30.84},
+        "rate_limit": {"used": 15420, "limit": partner.rate_limit["requests_per_hour"], "percentage": 30.84},
         "errors": {"4xx": 12, "5xx": 3},
         "top_endpoints": [
             {"endpoint": "/blocks", "requests": 5000},
@@ -264,25 +268,22 @@ async def get_usage_analytics(
 # Helper functions
 
 
-def verify_partner_api_key(partner_id: str, api_key: str) -> dict[str, Any] | None:
+def verify_partner_api_key(session: Session, partner_id: str, api_key: str) -> Partner | None:
     """Verify partner credentials"""
-    partner = PARTNERS_DB.get(partner_id)
+    partner = session.get(Partner, partner_id)
     if not partner:
         return None
 
     # Check API key
-    if not hmac.compare_digest(partner["api_key"], api_key):
+    if not hmac.compare_digest(partner.api_key_hash, _hash(api_key)):
         return None
 
-    return partner  # type: ignore[no-any-return]
+    return partner
 
 
-def find_partner_by_api_key(api_key: str) -> dict[str, Any] | None:
+def find_partner_by_api_key(session: Session, api_key: str) -> Partner | None:
     """Find partner by API key"""
-    for partner in PARTNERS_DB.values():
-        if hmac.compare_digest(partner["api_key"], api_key):
-            return partner  # type: ignore[no-any-return]
-    return None
+    return session.exec(select(Partner).where(Partner.api_key_hash == _hash(api_key))).first()
 
 
 # Export the router
