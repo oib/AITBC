@@ -15,6 +15,17 @@ def enable_zk_verification(monkeypatch):
     monkeypatch.setattr(zk_proofs, "ENABLE_ZK_VERIFICATION", True)
 
 
+@pytest.fixture(autouse=True)
+def require_receipt_model_toolchain():
+    svc = ZKProofService()
+    if (
+        "receipt_model" not in svc.available_circuits
+        or not zk_proofs.snarkjs_available()
+        or not zk_proofs.poseidon_lite_available()
+    ):
+        pytest.skip("receipt_model circuit artifacts or node toolchain not provisioned")
+
+
 @pytest.mark.asyncio
 async def test_receipt_model_generates_and_verifies():
     svc = ZKProofService()
