@@ -210,6 +210,8 @@ class BridgeClient:
         epoch: int = 0,
         admin_address: str | None = None,
         admin_signature: str | None = None,
+        issued_at: str | None = None,
+        nonce: str | None = None,
     ) -> dict[str, Any]:
         """Register a validator for bridge operations."""
         payload: dict[str, Any] = {
@@ -221,6 +223,10 @@ class BridgeClient:
         }
         if admin_address:
             payload["admin_address"] = admin_address
+        if issued_at:
+            payload["issued_at"] = issued_at
+        if nonce:
+            payload["nonce"] = nonce
         if admin_signature:
             payload["admin_signature"] = admin_signature
         resp = await self._ensure_client().post("/bridge/validators/register", json=payload)

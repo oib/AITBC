@@ -4,7 +4,9 @@ Sync-related RPC endpoints.
 
 import asyncio
 import json
+import socket
 from datetime import UTC, datetime
+from ipaddress import ip_address
 from typing import Any, cast
 from urllib.parse import urlparse
 
@@ -305,6 +307,21 @@ async def import_chain(request: Request, import_data: dict[str, Any]) -> dict[st
             raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+def _address_is_forbidden(ip: Any) -> bool:
+    """True for addresses a peer URL must never point at.
+
+    IPv4-mapped IPv6 addresses are checked as their embedded IPv4 address so
+    ``::ffff:127.0.0.1`` is treated as loopback. Private and global addresses
+    are allowed (fleet peers sync over internal LANs); everything else —
+    loopback, link-local/cloud-metadata, reserved, multicast, unspecified —
+    is forbidden.
+    """
+    mapped = getattr(ip, "ipv4_mapped", None)
+    if mapped is not None:
+        ip = mapped
+    return bool(ip.is_loopback or ip.is_link_local or ip.is_multicast or ip.is_reserved or ip.is_unspecified)
+
+
 @rate_limit(rate=50, per=60)
 async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""
@@ -319,17 +336,29 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
         if not parsed.scheme or parsed.scheme not in ["http", "https"]:
             raise HTTPException(status_code=400, detail="Invalid URL scheme")
         hostname = parsed.hostname
-        if hostname:
-            if (
-                hostname in ["localhost", "127.0.0.1", "::1"]
-                or hostname.startswith("192.168.")
-                or hostname.startswith("10.")
-                or hostname.startswith("172.16.")
-            ):
-                raise HTTPException(status_code=400, detail="Invalid peer URL")
+        if not hostname:
+            raise HTTPException(status_code=400, detail="Invalid peer URL")
+        # SSRF guard: resolve the host and reject loopback, link-local
+        # (cloud metadata), reserved, multicast and unspecified addresses.
+        # Private/global addresses stay allowed — fleet peers are
+        # internal-addressed (10.x) and sync over the LAN.
+        try:
+            port = parsed.port or (443 if parsed.scheme == "https" else 80)
+        except ValueError as e:
+            raise HTTPException(status_code=400, detail="Invalid peer URL port") from e
+        try:
+            infos = await asyncio.to_thread(socket.getaddrinfo, hostname, port)
+            resolved = {ip_address(info[4][0]) for info in infos}
+        except socket.gaierror as e:
+            raise HTTPException(status_code=400, detail=f"Cannot resolve peer host: {e}") from e
+        if not resolved or any(_address_is_forbidden(ip) for ip in resolved):
+            raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address")
+
         import requests
 
-        response = requests.get(f"{peer_url}/rpc/export-chain", timeout=30)
+        # Redirects stay off so a peer cannot bounce the request at an
+        # internal target after the URL check above.
+        response = await asyncio.to_thread(requests.get, f"{peer_url}/rpc/export-chain", timeout=30, allow_redirects=False)
         if response.status_code != 200:
             raise HTTPException(status_code=400, detail=f"Failed to fetch peer chain: {response.status_code}")
         peer_chain_data = response.json()

@@ -132,17 +132,25 @@ class TestNetworkCommands:
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_force_sync_command(self, mock_http_class, runner, mock_blockchain_rpc):
-        """``network force-sync`` triggers sync via the mocked RPC."""
+        """``network force-sync`` posts a signed peer_url payload via the mocked RPC."""
         mock_client = mock_http_class.return_value
+        mock_client.get.return_value = {"node_id": "node-x", "chain_id": "ait-mainnet"}
         mock_client.post.return_value = {"status": "syncing"}
 
         from aitbc_cli.commands.network import network
 
-        result = runner.invoke(network, ["force-sync"])
+        result = runner.invoke(
+            network,
+            ["force-sync", "--peer-url", "http://peer.example:8006", "--admin-private-key", "0x" + "ab" * 32],
+        )
 
         assert result.exit_code == 0, result.output
         mock_client.post.assert_called_once()
         assert "/rpc/force-sync" in mock_client.post.call_args[0][0]
+        sent = mock_client.post.call_args.kwargs.get("json", {})
+        assert sent["peer_url"] == "http://peer.example:8006"
+        assert sent["admin_signature"] and sent["nonce"] and sent["issued_at"]
+        assert sent["target_node_id"] == "node-x" and sent["target_chain_id"] == "ait-mainnet"
 
     @patch("aitbc_cli.commands.network.AITBCHTTPClient")
     def test_network_force_sync_aborts_on_network_error(self, mock_http_class, runner):

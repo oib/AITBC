@@ -3,6 +3,9 @@ Utility functions for blockchain RPC endpoints.
 """
 
 import json
+import threading
+import time
+from datetime import UTC, datetime
 from typing import Any
 
 from fastapi import HTTPException
@@ -260,12 +263,89 @@ def get_bridge_admin_addresses() -> set[str]:
     return {a.strip().lower() for a in settings.bridge_admin_addresses.split(",") if a.strip()}
 
 
+_ADMIN_MAX_SKEW_SECS = 300
+_ADMIN_NONCE_TTL_SECS = 600
+_used_admin_nonces: dict[str, float] = {}
+_admin_nonce_lock = threading.Lock()
+
+
+def _parse_issued_at(value: Any) -> float | None:
+    """Epoch seconds for an issued_at given as a number or ISO-8601 string."""
+    if isinstance(value, bool):
+        return None
+    if isinstance(value, (int, float)):
+        return float(value)
+    if isinstance(value, str):
+        try:
+            dt = datetime.fromisoformat(value.replace("Z", "+00:00"))
+        except ValueError:
+            return None
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=UTC)
+        return dt.timestamp()
+    return None
+
+
+def _nonce_seen(nonce: str) -> bool:
+    """Register a nonce; True when it was already used within the TTL."""
+    now = time.time()
+    with _admin_nonce_lock:
+        for n in [n for n, exp in _used_admin_nonces.items() if exp <= now]:
+            _used_admin_nonces.pop(n, None)
+        if nonce in _used_admin_nonces:
+            return True
+        _used_admin_nonces[nonce] = now + _ADMIN_NONCE_TTL_SECS
+        return False
+
+
+def _check_request_freshness(sign_payload: dict[str, Any]) -> bool:
+    """Replay guard for admin-signed payloads: fresh issued_at + unique nonce.
+
+    When the signer includes ``target_node_id`` / ``target_chain_id`` they are
+    part of the signed message, so a captured payload cannot be replayed
+    against a different node or chain — the fields cannot be stripped without
+    invalidating the signature.
+    """
+    issued = _parse_issued_at(sign_payload.get("issued_at"))
+    if issued is None or abs(time.time() - issued) > _ADMIN_MAX_SKEW_SECS:
+        _logger.warning("Rejected admin request: missing or stale issued_at")
+        return False
+    nonce = sign_payload.get("nonce")
+    if not isinstance(nonce, str) or not nonce:
+        _logger.warning("Rejected admin request: missing nonce")
+        return False
+    if _nonce_seen(nonce):
+        _logger.warning("Rejected admin request: nonce already used")
+        return False
+    target_node = sign_payload.get("target_node_id")
+    if target_node is not None:
+        local_node = settings.p2p_node_id or settings.proposer_id or ""
+        if local_node and str(target_node) != local_node:
+            _logger.warning("Rejected admin request: target_node_id '%s' does not match this node", target_node)
+            return False
+    target_chain = sign_payload.get("target_chain_id")
+    if target_chain is not None:
+        local_chain = settings.chain_id or "ait-mainnet"
+        if str(target_chain) != local_chain:
+            _logger.warning(
+                "Rejected admin request: target_chain_id '%s' does not match chain '%s'", target_chain, local_chain
+            )
+            return False
+    return True
+
+
 def verify_admin_signature(payload: dict[str, Any], admin_address: str | None, admin_signature: str | None) -> bool:
     """Verify that an administrative request was signed by a configured bridge admin.
 
     The signed message is the canonical JSON of ``payload`` excluding the
     ``admin_signature`` field. The recovered signer must match
     ``admin_address`` and that address must appear in ``bridge_admin_addresses``.
+
+    The signed payload must also carry ``issued_at`` (ISO-8601 or epoch
+    seconds, within ±5 minutes of node time) and a unique ``nonce`` — a
+    captured signature cannot be replayed once its window closes. If the
+    payload includes ``target_node_id`` / ``target_chain_id`` they must match
+    this node, binding the signature to its intended destination.
     """
     if not admin_address or not admin_signature:
         return False
@@ -280,4 +360,6 @@ def verify_admin_signature(payload: dict[str, Any], admin_address: str | None, a
         return False
 
     sign_payload = {k: v for k, v in payload.items() if k != "admin_signature"}
-    return verify_request_signature(admin_address, admin_signature, sign_payload)
+    if not verify_request_signature(admin_address, admin_signature, sign_payload):
+        return False
+    return _check_request_freshness(sign_payload)
