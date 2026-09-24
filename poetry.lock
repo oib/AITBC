@@ -209,6 +209,20 @@ files = [
 ]
 
 [[package]]
+name = "aitbc-errors"
+version = "0.1.0"
+description = "AITBC exception hierarchy. Deliberately dependency-free."
+optional = false
+python-versions = ">=3.13.5,<3.15"
+groups = ["main"]
+files = []
+develop = true
+
+[package.source]
+type = "directory"
+url = "packages/py/aitbc-errors"
+
+[[package]]
 name = "aitbc-shared"
 version = "0.1.0"
 description = "Shared ORM models and utilities for AITBC applications"
@@ -8701,4 +8715,4 @@ sqlcipher = ["sqlcipher3-binary"]
 [metadata]
 lock-version = "2.1"
 python-versions = ">=3.13.5,<3.14.1 || >3.14.1,<3.15"
-content-hash = "7181db3ea70e8aadc4873c3ae16e2547b408831bc166626763507b95229318c4"
+content-hash = "6b9615a525d170efb1d3047b536ed58337e1c0ac233497595ed4568dc0624068"
