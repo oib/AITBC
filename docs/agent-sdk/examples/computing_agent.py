@@ -26,7 +26,7 @@ class ComputingAgentExample:
         self.config = AgentConfig(
             name="computing-agent-example",
             blockchain_network="testnet",
-            rpc_url="https://hub.example.net"  # placeholder: no testnet-rpc.aitbc.net exists,
+            rpc_url="https://hub.example.net",  # placeholder: no testnet-rpc.aitbc.net exists
             ai_model="gpt-3.5-turbo",
             max_cpu_cores=4,
             max_memory_gb=8,
