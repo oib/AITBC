@@ -128,6 +128,12 @@ Fixes during live validation
   hub fallback (revision 3), provider rate reads v28/4.0, floor returns
   0.4608 AIT/h.
 
+- `NATIVE_COORDINATOR_URL` (config key native_coordinator_url) pins the
+  authoritative native-energy coordinator and is tried before the local
+  coordinator + hub discovery fallback -- set on node2 to
+  https://hub.aitbc.bubuit.net/c/v1 so shop-side energy calls skip the
+  local coordinator 404 probe entirely.
+
 Live validation (2026-09-11)
 ----------------------------
 
