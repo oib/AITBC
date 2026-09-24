@@ -483,3 +483,148 @@ class TestWebSocketEndpoint:
             json={"chain_id": "ait-hub"},
         )
         assert response.status_code == 400
+
+
+# ---------------------------------------------------------------------------
+# WebSocket lease lifecycle tests — connection-scoped cleanup (B19 fix)
+# ---------------------------------------------------------------------------
+
+
+def _wait_for(condition, timeout: float = 2.0) -> bool:
+    """Poll until condition() is true; the app's cleanup runs async on the portal."""
+    import time
+
+    deadline = time.time() + timeout
+    while time.time() < deadline:
+        if condition():
+            return True
+        time.sleep(0.01)
+    return condition()
+
+
+class TestWebSocketLeaseLifecycle:
+    """Leases are keyed by node_id and shared by all of a node's sockets.
+
+    Revoking on any single disconnect used to kill sibling connections;
+    the refcount must hold the lease until the node's last socket closes.
+    """
+
+    def _subscribe(self, client, node_id: str):
+        ws = client.websocket_connect("/v1/trading/offers/subscribe/ws")
+        ws.__enter__()
+        ws.send_json({"node_id": node_id, "chain_id": "ait-hub"})
+        assert ws.receive_json()["status"] == "subscribed"
+        return ws
+
+    def test_event_callback_wired_once_not_per_connection(self, client) -> None:
+        """The shared event hook is set at service construction; connecting
+        a socket must not overwrite it with a per-connection closure."""
+        from trading_service.state import _forward_events_to_notifications, get_subscription_service
+
+        svc = get_subscription_service()
+        assert svc._on_event is _forward_events_to_notifications
+        ws = self._subscribe(client, "ws-node-callback")
+        assert svc._on_event is _forward_events_to_notifications
+        ws.__exit__(None, None, None)
+
+    def test_two_connections_share_lease_until_last_close(self, client) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from trading_service.routers import subscriptions as subs
+        from trading_service.state import get_subscription_service
+
+        svc = get_subscription_service()
+        node_id = "ws-node-shared"
+        subs._ws_connections_by_node.pop(node_id, None)
+
+        with patch.object(svc, "revoke_lease", new=AsyncMock(wraps=svc.revoke_lease)) as revoke:
+            ws1 = self._subscribe(client, node_id)
+            ws2 = self._subscribe(client, node_id)
+            assert subs._ws_connections_by_node[node_id] == 2
+
+            ws2.__exit__(None, None, None)
+            assert _wait_for(lambda: subs._ws_connections_by_node.get(node_id) == 1)
+            # Sibling still open — the shared lease must not be revoked.
+            assert revoke.await_count == 0
+
+            ws1.__exit__(None, None, None)
+            assert _wait_for(lambda: node_id not in subs._ws_connections_by_node)
+            assert revoke.await_count == 1
+
+    def test_subscribers_registered_per_connection(self, client) -> None:
+        """Two sockets from one node register distinct subscribers so the
+        second does not clobber the first's notification callback."""
+        from trading_service.routers import subscriptions as subs
+        from trading_service.state import get_notification_service
+
+        node_id = "ws-node-distinct"
+        subs._ws_connections_by_node.pop(node_id, None)
+        notif = get_notification_service()
+
+        ws1 = self._subscribe(client, node_id)
+        ws2 = self._subscribe(client, node_id)
+        matching = [k for k in notif._subscribers if k.startswith(f"{node_id}:")]  # noqa: SLF001
+        assert len(matching) == 2
+
+        ws2.__exit__(None, None, None)
+        assert _wait_for(
+            lambda: len([k for k in notif._subscribers if k.startswith(f"{node_id}:")]) == 1  # noqa: SLF001
+        )
+        ws1.__exit__(None, None, None)
+
+    def test_invalid_lease_closes_socket(self, client) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from starlette.websockets import WebSocketDisconnect
+
+        from trading_service.routers import subscriptions as subs
+        from trading_service.state import get_subscription_service
+
+        svc = get_subscription_service()
+        node_id = "ws-node-invalid-lease"
+        subs._ws_connections_by_node.pop(node_id, None)
+
+        with patch.object(svc, "validate_lease", new=AsyncMock(return_value=False)):
+            ws = self._subscribe(client, node_id)
+            ws.send_json({"type": "pong"})
+            assert ws.receive_json() == {"error": "lease expired"}
+            with pytest.raises(WebSocketDisconnect):
+                ws.receive_json()
+            ws.__exit__(None, None, None)
+
+    def test_lease_renewal_failure_keeps_connection(self, client, monkeypatch) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from trading_service.config import settings
+        from trading_service.routers import subscriptions as subs
+        from trading_service.state import get_subscription_service
+
+        svc = get_subscription_service()
+        node_id = "ws-node-renewal"
+        subs._ws_connections_by_node.pop(node_id, None)
+        monkeypatch.setattr(settings, "offer_subscription_heartbeat_seconds", 0.05)
+
+        with patch.object(svc, "renew_lease", new=AsyncMock(side_effect=RuntimeError("redis down"))):
+            ws = self._subscribe(client, node_id)
+            # The heartbeat survives the renewal failure and still sends a ping.
+            msg = ws.receive_json()
+            assert msg["type"] == "ping"
+            ws.__exit__(None, None, None)
+
+    def test_lease_validation_error_tolerated(self, client) -> None:
+        from unittest.mock import AsyncMock, patch
+
+        from trading_service.routers import subscriptions as subs
+        from trading_service.state import get_subscription_service
+
+        svc = get_subscription_service()
+        node_id = "ws-node-validate-err"
+        subs._ws_connections_by_node.pop(node_id, None)
+
+        with patch.object(svc, "validate_lease", new=AsyncMock(side_effect=RuntimeError("boom"))):
+            ws = self._subscribe(client, node_id)
+            ws.send_json({"type": "pong"})
+            # Validation errors are tolerated; the socket stays open for more.
+            ws.send_json({"type": "pong"})
+            assert subs._ws_connections_by_node.get(node_id) == 1
+            ws.__exit__(None, None, None)
