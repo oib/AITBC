@@ -6085,14 +6085,321 @@
     "explorer": {
       "env": "EXPLORER_SERVICE_URL",
       "base_url": "http://localhost:8100",
-      "spec": null,
-      "operations": []
+      "spec": "explorer-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/explorer/api/analytics/activity",
+          "upstream": "/api/analytics/activity",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/analytics/network-stats",
+          "upstream": "/api/analytics/network-stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/analytics/overview",
+          "upstream": "/api/analytics/overview",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/analytics/provider-reputation/{provider_id}",
+          "upstream": "/api/analytics/provider-reputation/{provider_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/analytics/top-addresses",
+          "upstream": "/api/analytics/top-addresses",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/blocks/by-address/{address}",
+          "upstream": "/api/blocks/by-address/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/blocks/by-hash/{hash}",
+          "upstream": "/api/blocks/by-hash/{hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/blocks/latest",
+          "upstream": "/api/blocks/latest",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/blocks/non-empty",
+          "upstream": "/api/blocks/non-empty",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/blocks/{height}",
+          "upstream": "/api/blocks/{height}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/chain/head",
+          "upstream": "/api/chain/head",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/chains",
+          "upstream": "/api/chains",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/export/blocks",
+          "upstream": "/api/export/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/export/search",
+          "upstream": "/api/export/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/search/blocks",
+          "upstream": "/api/search/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/search/transactions",
+          "upstream": "/api/search/transactions",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/transactions/by-hash/{hash}",
+          "upstream": "/api/transactions/by-hash/{hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/transactions/search",
+          "upstream": "/api/transactions/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/api/transactions/{tx_hash}",
+          "upstream": "/api/transactions/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/explorer/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        }
+      ]
     },
     "governance": {
       "env": "GOVERNANCE_SERVICE_URL",
       "base_url": "http://localhost:8105",
-      "spec": null,
-      "operations": []
+      "spec": "governance-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/governance/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/live",
+          "upstream": "/live",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/metrics",
+          "upstream": "/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/ready",
+          "upstream": "/ready",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/analytics",
+          "upstream": "/v1/governance/analytics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/delegate",
+          "upstream": "/v1/governance/delegate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/execute",
+          "upstream": "/v1/governance/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/params",
+          "upstream": "/v1/governance/params",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/profiles",
+          "upstream": "/v1/governance/profiles",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/profiles/{profile_id}",
+          "upstream": "/v1/governance/profiles/{profile_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals",
+          "upstream": "/v1/governance/proposals",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals/{proposal_id}",
+          "upstream": "/v1/governance/proposals/{proposal_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals/{proposal_id}/aggregate-votes",
+          "upstream": "/v1/governance/proposals/{proposal_id}/aggregate-votes",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals/{proposal_id}/close",
+          "upstream": "/v1/governance/proposals/{proposal_id}/close",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals/{proposal_id}/execute",
+          "upstream": "/v1/governance/proposals/{proposal_id}/execute",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals/{proposal_id}/execute-cross-chain",
+          "upstream": "/v1/governance/proposals/{proposal_id}/execute-cross-chain",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/proposals/{proposal_id}/propagate",
+          "upstream": "/v1/governance/proposals/{proposal_id}/propagate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/stake",
+          "upstream": "/v1/governance/stake",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/status",
+          "upstream": "/v1/governance/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/treasury",
+          "upstream": "/v1/governance/treasury",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/votes",
+          "upstream": "/v1/governance/votes",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/governance/voting-power/{address}",
+          "upstream": "/v1/governance/voting-power/{address}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/governance/v1/transactions",
+          "upstream": "/v1/transactions",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        }
+      ]
     },
     "market": {
       "env": "MARKET_SERVICE_URL",
@@ -6426,14 +6733,555 @@
     "pool-hub": {
       "env": "POOL_HUB_URL",
       "base_url": "http://localhost:8210",
-      "spec": null,
-      "operations": []
+      "spec": "pool-hub-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/pool-hub/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/metrics",
+          "upstream": "/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/match",
+          "upstream": "/v1/match",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/miners/heartbeat",
+          "upstream": "/v1/miners/heartbeat",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/miners/register",
+          "upstream": "/v1/miners/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/miners/status",
+          "upstream": "/v1/miners/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/parameters/apply",
+          "upstream": "/v1/parameters/apply",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/parameters/list",
+          "upstream": "/v1/parameters/list",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/services/",
+          "upstream": "/v1/services/",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/services/templates/{service_type}",
+          "upstream": "/v1/services/templates/{service_type}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/services/validate/{service_type}",
+          "upstream": "/v1/services/validate/{service_type}",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/services/{service_type}",
+          "upstream": "/v1/services/{service_type}",
+          "methods": [
+            "DELETE",
+            "GET",
+            "PATCH",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/billing/invoice/generate",
+          "upstream": "/v1/sla/billing/invoice/generate",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/billing/sync",
+          "upstream": "/v1/sla/billing/sync",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/billing/usage",
+          "upstream": "/v1/sla/billing/usage",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/billing/usage/record",
+          "upstream": "/v1/sla/billing/usage/record",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/capacity/alerts/configure",
+          "upstream": "/v1/sla/capacity/alerts/configure",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/capacity/forecast",
+          "upstream": "/v1/sla/capacity/forecast",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/capacity/recommendations",
+          "upstream": "/v1/sla/capacity/recommendations",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/capacity/snapshots",
+          "upstream": "/v1/sla/capacity/snapshots",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/metrics",
+          "upstream": "/v1/sla/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/metrics/collect",
+          "upstream": "/v1/sla/metrics/collect",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/metrics/{miner_id}",
+          "upstream": "/v1/sla/metrics/{miner_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/status",
+          "upstream": "/v1/sla/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/sla/violations",
+          "upstream": "/v1/sla/violations",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/validation/batch",
+          "upstream": "/v1/validation/batch",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/validation/compatible-services",
+          "upstream": "/v1/validation/compatible-services",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/validation/hardware-profile",
+          "upstream": "/v1/validation/hardware-profile",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/pool-hub/v1/validation/service/{service_id}",
+          "upstream": "/v1/validation/service/{service_id}",
+          "methods": [
+            "POST"
+          ]
+        }
+      ]
     },
     "trading": {
       "env": "TRADING_SERVICE_URL",
       "base_url": "http://localhost:8104",
-      "spec": null,
-      "operations": []
+      "spec": "trading-openapi.json",
+      "operations": [
+        {
+          "public": "/api/v2/trading/api/v1/blocks",
+          "upstream": "/api/v1/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/health",
+          "upstream": "/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/live",
+          "upstream": "/live",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/metrics",
+          "upstream": "/metrics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/ready",
+          "upstream": "/ready",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/blocks",
+          "upstream": "/v1/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/blocks/{block_id}",
+          "upstream": "/v1/blocks/{block_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/confirm-payment/{payment_id}",
+          "upstream": "/v1/exchange/confirm-payment/{payment_id}",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/create-payment",
+          "upstream": "/v1/exchange/create-payment",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/market-stats",
+          "upstream": "/v1/exchange/market-stats",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/payment-status/{payment_id}",
+          "upstream": "/v1/exchange/payment-status/{payment_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/rates",
+          "upstream": "/v1/exchange/rates",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/wallet/balance",
+          "upstream": "/v1/exchange/wallet/balance",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/exchange/wallet/info",
+          "upstream": "/v1/exchange/wallet/info",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/explorer/blocks",
+          "upstream": "/v1/explorer/blocks",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/explorer/receipts",
+          "upstream": "/v1/explorer/receipts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/explorer/transactions/{tx_hash}",
+          "upstream": "/v1/explorer/transactions/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/receipts",
+          "upstream": "/v1/receipts",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/agreements",
+          "upstream": "/v1/trading/agreements",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/analytics",
+          "upstream": "/v1/trading/analytics",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/chains",
+          "upstream": "/v1/trading/chains",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/chains/register",
+          "upstream": "/v1/trading/chains/register",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/chains/{chain_id}/health",
+          "upstream": "/v1/trading/chains/{chain_id}/health",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain",
+          "upstream": "/v1/trading/inter-chain",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain/create",
+          "upstream": "/v1/trading/inter-chain/create",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain/history",
+          "upstream": "/v1/trading/inter-chain/history",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain/match-all",
+          "upstream": "/v1/trading/inter-chain/match-all",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain/{trade_id}",
+          "upstream": "/v1/trading/inter-chain/{trade_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain/{trade_id}/match",
+          "upstream": "/v1/trading/inter-chain/{trade_id}/match",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/inter-chain/{trade_id}/status",
+          "upstream": "/v1/trading/inter-chain/{trade_id}/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/matches",
+          "upstream": "/v1/trading/matches",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/cache",
+          "upstream": "/v1/trading/offers/cache",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/discover",
+          "upstream": "/v1/trading/offers/discover",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/heartbeat",
+          "upstream": "/v1/trading/offers/heartbeat",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/search",
+          "upstream": "/v1/trading/offers/search",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/subscribe",
+          "upstream": "/v1/trading/offers/subscribe",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/subscription-status",
+          "upstream": "/v1/trading/offers/subscription-status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/sync",
+          "upstream": "/v1/trading/offers/sync",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/offers/sync-status",
+          "upstream": "/v1/trading/offers/sync-status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/requests",
+          "upstream": "/v1/trading/requests",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/requests/{request_id}",
+          "upstream": "/v1/trading/requests/{request_id}",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/status",
+          "upstream": "/v1/trading/status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/trades/{trade_id}/lock-escrow",
+          "upstream": "/v1/trading/trades/{trade_id}/lock-escrow",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/trades/{trade_id}/settle",
+          "upstream": "/v1/trading/trades/{trade_id}/settle",
+          "methods": [
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/trading/trades/{trade_id}/settlement-status",
+          "upstream": "/v1/trading/trades/{trade_id}/settlement-status",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/transactions",
+          "upstream": "/v1/transactions",
+          "methods": [
+            "GET",
+            "POST"
+          ]
+        },
+        {
+          "public": "/api/v2/trading/v1/transactions/{tx_hash}",
+          "upstream": "/v1/transactions/{tx_hash}",
+          "methods": [
+            "GET"
+          ]
+        }
+      ]
     }
   }
 }
