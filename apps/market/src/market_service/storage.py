@@ -129,8 +129,9 @@ async def _migrate_access_secrets() -> None:
 
     Idempotent: values that are already 64-char sha256 hexdigests are left
     alone, so this is safe to run on every startup. Covers both the
-    ``ipfs_rental_token.access_secret`` column and ``market_job.payload``
-    JSON. Imported lazily so module import order is unchanged.
+    ``ipfs_rental_token.access_secret`` column and the ``payload`` JSON
+    on ``MarketJob`` rows. Imported lazily so module import order is
+    unchanged.
     """
     from .domain.market import IpfsRentalToken, MarketJob
     from .services.market_service import hash_access_secret, is_hashed_secret
