@@ -351,11 +351,18 @@ async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, A
             resolved = {ip_address(info[4][0]) for info in infos}
         except socket.gaierror as e:
             raise HTTPException(status_code=400, detail=f"Cannot resolve peer host: {e}") from e
+        except ValueError as e:
+            # getaddrinfo can return scoped literals (e.g. "fe80::1%eth0")
+            # that ip_address() cannot parse — unparseable means forbidden.
+            raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address") from e
         if not resolved or any(_address_is_forbidden(ip) for ip in resolved):
             raise HTTPException(status_code=400, detail="Peer URL resolves to a forbidden address")
 
         import requests
 
+        # requests re-resolves the hostname at connect time, so DNS could in
+        # principle answer differently than the check above (TOCTOU). Accepted
+        # residual risk: the route requires an admin signature plus X-API-Key.
         # Redirects stay off so a peer cannot bounce the request at an
         # internal target after the URL check above.
         response = await asyncio.to_thread(requests.get, f"{peer_url}/rpc/export-chain", timeout=30, allow_redirects=False)

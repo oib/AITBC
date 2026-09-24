@@ -212,6 +212,8 @@ class BridgeClient:
         admin_signature: str | None = None,
         issued_at: str | None = None,
         nonce: str | None = None,
+        target_chain_id: str | None = None,
+        target_node_id: str | None = None,
     ) -> dict[str, Any]:
         """Register a validator for bridge operations."""
         payload: dict[str, Any] = {
@@ -227,6 +229,10 @@ class BridgeClient:
             payload["issued_at"] = issued_at
         if nonce:
             payload["nonce"] = nonce
+        if target_chain_id:
+            payload["target_chain_id"] = target_chain_id
+        if target_node_id:
+            payload["target_node_id"] = target_node_id
         if admin_signature:
             payload["admin_signature"] = admin_signature
         resp = await self._ensure_client().post("/bridge/validators/register", json=payload)
