@@ -23,7 +23,22 @@
 
 ---
 
-## 📦 **Release History**
+## � **Two version numbers, on purpose**
+
+The repository carries two version schemes that are **not** expected to match:
+
+- **Package semver** — `aitbc/_version.py` (currently `0.10.18`). This is the
+  version `pip`, `make version-check`, and `aitbc --version` report. It bumps
+  with API/library-level changes.
+- **Release train** — `v0.25.x` directory names under `docs/releases/`. This is
+  the operational release series the change logs, deployment notes, and fleet
+  rollouts are organized by.
+
+They diverged when the release-train numbering jumped ahead of the package
+semver; reconciling them would rename either the installed package version or
+the historical log directories, so the distinction is documented instead.
+
+## �📦 **Release History**
 
 Read the release notes newest-first:
 

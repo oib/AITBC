@@ -43,8 +43,6 @@ slowapi = "0.1.9"
 limits = "5.8.0"
 prometheus-client = "0.21.1"
 pyjwt = {extras = ["crypto"], version = "2.13.0"}
-# Load Testing
-locust = "2.44.1"
 # HTTP Client & Networking
 httpx = "0.28.1"
 requests = "2.34.2"
@@ -72,7 +70,6 @@ pycuda = {version = "2026.1", optional = true, markers = "platform_machine == 'x
 click = ">=8.4.2,<9.0.0"
 rich = "15.0.0"
 typer = "0.25.1"
-click-completion = "0.5.2"
 tabulate = "0.10.0"
 colorama = "0.4.6"
 keyring = "25.7.0"
@@ -85,16 +82,11 @@ sentry-sdk = "2.61.1"
 # Utilities
 python-dateutil = "2.9.0.post0"
 pytz = "2026.2"
-schedule = "1.2.2"
 aiofiles = "25.1.0"
 pyyaml = "6.0.3"
 filelock = "3.29.0"
 # Async Support
-asyncio-mqtt = "0.16.2"
 websockets = "14.2"
-# IPFS & Distributed Storage
-ipfshttpclient = "0.7.0"
-aioredis = "2.0.1"
 # Image Processing (for AI services)
 pillow = {version = "12.3.0", optional = true}
 opencv-python = {version = "4.13.0.92", optional = true}
@@ -103,7 +95,6 @@ redis = "8.0.0"
 psutil = "7.2.2"
 tenseal = {version = "0.3.17", optional = true, markers = "platform_machine == 'x86_64' and sys_platform == 'linux'"}
 idna = "3.18"
-hypothesis = "6.156.1"
 bcrypt = "4.3.0"
 eth-utils = "6.0.0"
 eth-keys = "0.8.0"
@@ -143,6 +134,9 @@ types-tabulate = "0.9.0.20241207"
 types-pytz = "2026.2.0.20260518"
 tqdm = "4.68.1"
 ipython = "9.5.0"
+# Test-only tools (imported exclusively under tests/)
+locust = "2.44.1"
+hypothesis = "6.156.1"
 fakeredis = "2.36.2"
 openapi-spec-validator = "0.9.0"
 libcst = "1.9.0"
@@ -278,9 +272,9 @@ ignore_missing_imports = true
 # - Developers should add type annotations to any files they touch
 # - Use `mypy --follow-imports=skip <file>` to check individual files during development
 #
-# NOTE: per-file-ignores in pyproject.toml is NOT supported by mypy 2.0.0
-# Instead, # mypy: ignore-errors has been added directly to 73 source files
-# See: apps/coordinator-api/src/app/services/tenant_management.py (and 72 others)
+# NOTE: per-file-ignores in pyproject.toml is NOT supported by mypy 2.0.0.
+# No source file carries `# mypy: ignore-errors`; suppressions instead use
+# inline `# type: ignore[<code>]` comments (~1,290 sites as of 2026-09).
 
 # Gradual type checking approach - no apps currently ignored
 
