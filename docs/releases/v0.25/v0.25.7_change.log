@@ -153,3 +153,53 @@ Live validation (2026-09-11)
 - node2: `MarketplaceJob` / `MarketplaceJobPayment` rows show `state=RELEASED`,
   `payment_status=released`.
 - hub: `ESCROW_LOCK`, `ESCROW_RELEASE` and `ESCROW_REFUND` transactions settled on chain.
+
+### Replay-safe writes, service readiness, market rename, and /api/v2 (2026-09-24)
+
+A code-review-driven remediation arc landed across eight commits:
+
+- **Exchange matching on integer ticks** (`b81e8addd`): order matching compared
+  monetary `TEXT` columns lexicographically in SQL, so `"9" > "10"`. Orders now
+  carry parallel `*_ticks` integer columns (8-decimal fixed point) and matching
+  runs on them; the migration fails closed on unrepresentable values.
+- **Gateway replay safety** (`1736c4b79`, `33392c8d6`): the gateway retried
+  non-idempotent methods (including `POST`) after timeouts, so a slow-but-
+  committed write could execute twice. Retries now distinguish pre-send
+  connection failures (always safe) from ambiguous post-send failures (retried
+  only for safe methods or writes carrying `Idempotency-Key`, which is
+  forwarded through the proxy).
+- **Exchange thread-pool dispatch** (`594b49d9d`): synchronous sqlite handlers
+  ran on the FastAPI event-loop thread; they now run on a bounded pool.
+- **Exception-text hygiene** (`1ffb4690a`): exchange 5xx bodies no longer echo
+  the caught exception.
+- **`marketplace` -> `market` rename** (`da0ca3cef`): Python symbols, routes,
+  systemd units, env vars, gateway/CLI/MCP service names. Compatibility kept:
+  `/v1/marketplace/*` stays live as aliases, `MARKETPLACE_*` env vars still
+  work for one release via fallback readers. Frozen: database file/table
+  names, `MARKETPLACE_TABLE_PREFIX`, chain/genesis strings, release docs.
+- **Durable operation ledger** (`a44d637c3`): `aitbc.operations.OperationLedger`
+  gives one row per `Idempotency-Key` (`pending -> completed/failed/uncertain`)
+  with leased begin, replay-verbatim REPLAY, body-hash CONFLICT, and
+  attempt-guarded completion. Exchange order/offer mutations join the ledger
+  record in the same `BEGIN IMMEDIATE`; wallet send refuses to silently
+  re-sign a possibly-broadcast transaction (409 + `uncertain`); market
+  offer/bid mutations memoize results. `scripts/ops/reconcile-operations.py`
+  sweeps/inspects/resolves all three ledgers.
+- **Readiness + `/api/v2`** (`a1645e8ac`): `/ready` now returns 503 while an
+  enabled required feature is unavailable (db always; bridge store when
+  enabled on exchange; keystore/ledger/RPC on wallet; signable proposer key
+  when block production is enabled on the node; operations ledger on market;
+  `GATEWAY_REQUIRED_SERVICES` upstreams on the gateway). Failed checks return
+  only their names. The gateway also serves `/api/v2/<service>/<path>` —
+  qualifier picks the upstream, the path forwards verbatim, so coordinator
+  and market routes can never collide. `/v1/*` unchanged. The route map
+  `docs/api/api-v2-map.json` is generated from the gateway table and
+  enforced by the OpenAPI drift check.
+- CI (`7b46b37d4`): a required fast gate plus a broader scheduled gate;
+  `046df80d2` repaired suites and regenerated artifacts broken on main.
+
+Deployment notes: operation-ledger sqlite files auto-create beside each
+service's data dir on first mutation; no migration is required. Nodes already
+run `aitbc-market.service` (the `aitbc-marketplace.service` unit is gone);
+`MARKETPLACE_*` env vars need no change this release. `GATEWAY_REQUIRED_SERVICES`
+is optional — when set, unknown names fail gateway readiness.
