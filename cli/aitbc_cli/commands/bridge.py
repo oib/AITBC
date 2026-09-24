@@ -540,6 +540,8 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
                 admin_signature=payload.get("admin_signature"),
                 issued_at=payload.get("issued_at"),
                 nonce=payload.get("nonce"),
+                target_chain_id=payload.get("target_chain_id"),
+                target_node_id=payload.get("target_node_id"),
             )
 
     try:
