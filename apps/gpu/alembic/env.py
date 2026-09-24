@@ -14,6 +14,7 @@ through an event loop.
 
 from __future__ import annotations
 
+import sys
 from logging.config import fileConfig
 
 from alembic import context
