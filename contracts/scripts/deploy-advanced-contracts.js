@@ -148,7 +148,7 @@ async function main() {
 
         // Deploy AgentMarketV2 contract
         console.log("📦 Deploying AgentMarketV2 contract...");
-        const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+        const AgentMarketV2 = await ethers.getContractFactory("AgentMarketplaceV2");
         const agentMarketV2 = await AgentMarketV2.deploy(
             paymentTokenAddress,
             paymentProcessorAddress,

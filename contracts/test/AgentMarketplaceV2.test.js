@@ -2,7 +2,7 @@ import { expect } from "chai";
 import { network } from "hardhat";
 const { ethers } = await network.getOrCreate();
 
-describe("AgentMarketV2", function () {
+describe("AgentMarketplaceV2", function () {
   let market, paymentToken;
   let deployer, provider, consumer;
   let capabilityId;
@@ -23,7 +23,7 @@ describe("AgentMarketV2", function () {
     await paymentToken.transfer(consumer.address, ethers.parseEther("10000"));
 
     // Deploy Market
-    const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+    const AgentMarketV2 = await ethers.getContractFactory("AgentMarketplaceV2");
     market = await AgentMarketV2.deploy(await paymentToken.getAddress());
     await market.waitForDeployment();
 

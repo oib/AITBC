@@ -49,7 +49,7 @@ async function main() {
 
     // 4. Deploy AgentMarketV2
     console.log("\n--- Deploying AgentMarketV2 ---");
-    const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+    const AgentMarketV2 = await ethers.getContractFactory("AgentMarketplaceV2");
     const agentMarket = await AgentMarketV2.deploy(deployments.AIToken);
     await agentMarket.waitForDeployment();
     deployments.AgentMarketV2 = await agentMarket.getAddress();
