@@ -55,6 +55,38 @@ async def create_agent_identity(
         raise HTTPException(status_code=400, detail="Failed to create agent identity") from e
 
 
+# Declared above the parameterized routes below on purpose. Starlette matches in
+# declaration order, so moving this back down makes it unreachable -- the request
+# binds the literal segment as the path parameter instead, and the caller gets a
+# plausible-looking answer from the wrong handler rather than a routing error.
+# Pinned by tests/security/test_no_unreachable_routes.py.
+@router.get("/identities/search", response_model=dict[str, Any])
+async def search_agent_identities(
+    chains: list[int] | None,
+    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
+    query: str = "",
+    status: IdentityStatus | None = None,
+    verification_level: VerificationType | None = None,
+    min_reputation: float | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """Search agent identities with advanced filters"""
+    try:
+        result = await manager.search_agent_identities(
+            query=query or "",
+            chains=chains,
+            status=status,
+            verification_level=verification_level,
+            min_reputation=min_reputation,
+            limit=limit or 50,
+            offset=offset or 0,
+        )
+        return result
+    except Exception:
+        raise HTTPException(status_code=500, detail="Operation failed") from None
+
+
 @router.get("/identities/{agent_id}", response_model=dict[str, Any])
 async def get_agent_identity(
     agent_id: str, manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)]
@@ -449,33 +481,6 @@ async def sign_message(
 
 
 # Search and Discovery Endpoints
-
-
-@router.get("/identities/search", response_model=dict[str, Any])
-async def search_agent_identities(
-    chains: list[int] | None,
-    manager: Annotated[AgentIdentityManager, Depends(get_identity_manager)],
-    query: str = "",
-    status: IdentityStatus | None = None,
-    verification_level: VerificationType | None = None,
-    min_reputation: float | None = None,
-    limit: int = 50,
-    offset: int = 0,
-) -> dict[str, Any]:
-    """Search agent identities with advanced filters"""
-    try:
-        result = await manager.search_agent_identities(
-            query=query or "",
-            chains=chains,
-            status=status,
-            verification_level=verification_level,
-            min_reputation=min_reputation,
-            limit=limit or 50,
-            offset=offset or 0,
-        )
-        return result
-    except Exception:
-        raise HTTPException(status_code=500, detail="Operation failed") from None
 
 
 @router.post("/identities/{agent_id}/sync-reputation", response_model=dict[str, Any])

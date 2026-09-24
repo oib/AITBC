@@ -106,6 +106,31 @@ async def list_bounties(request: Request, status: str | None = None, tag: str | 
     return {"bounties": [], "count": 0, "filters": {"status": status, "tag": tag}}
 
 
+# Declared above the parameterized routes below on purpose. Starlette matches in
+# declaration order, so moving this back down makes it unreachable -- the request
+# binds the literal segment as the path parameter instead, and the caller gets a
+# plausible-looking answer from the wrong handler rather than a routing error.
+# Pinned by tests/security/test_no_unreachable_routes.py.
+@router.get("/stats", summary="Get bounty statistics")
+@rate_limit(rate=50, per=60)
+async def get_stats(request: Request) -> dict[str, Any]:
+    """Get platform-wide bounty statistics"""
+    return {
+        "total_bounties": 0,
+        "open_bounties": 0,
+        "claimed_bounties": 0,
+        "completed_bounties": 0,
+        "total_reward": 0,
+        "completion_rate": 0,
+    }
+
+
+@router.get("/health", summary="Health check for bounty service")
+async def bounty_health(request: Request) -> dict[str, Any]:
+    """Check bounty service health"""
+    return {"status": "healthy", "total_bounties": 0, "service": "bounty"}
+
+
 @router.get("/{bounty_id}", summary="Get bounty details")
 @rate_limit(rate=100, per=60)
 async def get_bounty(request: Request, bounty_id: str) -> dict[str, Any]:
@@ -146,23 +171,3 @@ async def verify_solution(request: Request, req: VerifySolutionRequest) -> dict[
         "verified": req.approved,
         "status": "completed" if req.approved else "rejected",
     }
-
-
-@router.get("/stats", summary="Get bounty statistics")
-@rate_limit(rate=50, per=60)
-async def get_stats(request: Request) -> dict[str, Any]:
-    """Get platform-wide bounty statistics"""
-    return {
-        "total_bounties": 0,
-        "open_bounties": 0,
-        "claimed_bounties": 0,
-        "completed_bounties": 0,
-        "total_reward": 0,
-        "completion_rate": 0,
-    }
-
-
-@router.get("/health", summary="Health check for bounty service")
-async def bounty_health(request: Request) -> dict[str, Any]:
-    """Check bounty service health"""
-    return {"status": "healthy", "total_bounties": 0, "service": "bounty"}
