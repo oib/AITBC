@@ -82,14 +82,12 @@ class TestPaymentServiceRefund:
         mock_client = AsyncMock()
         # The node reports the escrow as refunded with a stale local hash, but the
         # on-chain transaction lookup returns the authoritative real hash.
-        mock_client.get.side_effect = [
-            {"state": "refunded", "refund_tx_hash": "0xstalelocal"},
-            [
-                {
-                    "tx_hash": "0xrealrefundtx",
-                    "payload": {"job_id": job_id, "action": "escrow_refund"},
-                }
-            ],
+        mock_client.get.return_value = {"state": "refunded", "refund_tx_hash": "0xstalelocal"}
+        mock_client.get_json.return_value = [
+            {
+                "tx_hash": "0xrealrefundtx",
+                "payload": {"job_id": job_id, "action": "escrow_refund"},
+            }
         ]
         mock_client.post.return_value = {}  # Should not be called
         mock_client_cls.return_value = mock_client
@@ -98,9 +96,8 @@ class TestPaymentServiceRefund:
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is True
 
-        assert mock_client.get.call_count == 2
-        mock_client.get.assert_any_call("http://127.0.0.1:8202/rpc/escrow/job-refund-1")
-        mock_client.get.assert_any_call(
+        mock_client.get.assert_called_once_with("http://127.0.0.1:8202/rpc/escrow/job-refund-1")
+        mock_client.get_json.assert_called_once_with(
             "http://127.0.0.1:8202/rpc/transactions?transaction_type=ESCROW_REFUND&job_id=job-refund-1&limit=10"
         )
         mock_client.post.assert_not_called()
@@ -176,10 +173,8 @@ class TestPaymentServiceRefund:
         mock_client = AsyncMock()
         # Escrow row says refunded with a stale local hash, but the chain has no
         # ESCROW_REFUND yet, so the node should resubmit and return the real hash.
-        mock_client.get.side_effect = [
-            {"state": "refunded", "refund_tx_hash": "0xstalelocalhash"},
-            [],  # no on-chain ESCROW_REFUND yet
-        ]
+        mock_client.get.return_value = {"state": "refunded", "refund_tx_hash": "0xstalelocalhash"}
+        mock_client.get_json.return_value = []  # no on-chain ESCROW_REFUND yet
         mock_client.post.return_value = {
             "success": True,
             "refund_tx_hash": "0xrealonchainrefund",
@@ -216,17 +211,17 @@ class TestPaymentServiceRefund:
         exc.__cause__ = cause
 
         mock_client = AsyncMock()
-        # First GET for /rpc/escrow/{job_id} 404s; second GET for ESCROW_LOCK returns none.
-        mock_client.get.side_effect = [exc, []]
+        # GET /rpc/escrow/{job_id} 404s; get_json for ESCROW_LOCK txs returns none.
+        mock_client.get.side_effect = exc
+        mock_client.get_json.return_value = []
         mock_client_cls.return_value = mock_client
 
         service = PaymentService(payment_session)
         result = asyncio.run(service.refund_payment("client-1", job_id, payment_id, "test"))
         assert result is True
 
-        assert mock_client.get.call_count == 2
-        mock_client.get.assert_any_call(f"http://127.0.0.1:8202/rpc/escrow/{job_id}")
-        mock_client.get.assert_any_call(
+        mock_client.get.assert_called_once_with(f"http://127.0.0.1:8202/rpc/escrow/{job_id}")
+        mock_client.get_json.assert_called_once_with(
             f"http://127.0.0.1:8202/rpc/transactions?transaction_type=ESCROW_LOCK&job_id={job_id}&limit=10"
         )
         mock_client.post.assert_not_called()
