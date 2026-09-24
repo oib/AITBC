@@ -33,6 +33,13 @@ async def session() -> AsyncIterator[AsyncSession]:
         yield session
 
 
+def _unique(prefix: str) -> str:
+    """Per-attempt unique key — pytest-rerunfailures retries share the session DB."""
+    from uuid import uuid4
+
+    return f"{prefix}_{uuid4().hex[:8]}"
+
+
 def _token_data(access_key: str, secret: str) -> dict[str, Any]:
     return {
         "access_key": access_key,
@@ -49,12 +56,13 @@ def _token_data(access_key: str, secret: str) -> dict[str, Any]:
 
 async def test_register_stores_digest_not_plaintext(session: AsyncSession) -> None:
     svc = MarketService(session)
-    await svc.register_ipfs_rental_token(_token_data("ak_hash_1", "plain-secret"))
+    ak1 = _unique("ak1")
+    await svc.register_ipfs_rental_token(_token_data(ak1, "plain-secret"))
 
-    stored = await svc.get_ipfs_rental_token("ak_hash_1", "plain-secret")
+    stored = await svc.get_ipfs_rental_token(ak1, "plain-secret")
     assert stored is not None
 
-    row = await session.get(IpfsRentalToken, "ak_hash_1")
+    row = await session.get(IpfsRentalToken, ak1)
     assert row is not None
     assert is_hashed_secret(row.access_secret)
     assert row.access_secret == hash_access_secret("plain-secret")
@@ -63,31 +71,35 @@ async def test_register_stores_digest_not_plaintext(session: AsyncSession) -> No
 
 async def test_wrong_secret_rejected(session: AsyncSession) -> None:
     svc = MarketService(session)
-    await svc.register_ipfs_rental_token(_token_data("ak_hash_2", "right-secret"))
-    assert await svc.get_ipfs_rental_token("ak_hash_2", "wrong-secret") is None
+    ak2 = _unique("ak2")
+    await svc.register_ipfs_rental_token(_token_data(ak2, "right-secret"))
+    assert await svc.get_ipfs_rental_token(ak2, "wrong-secret") is None
 
 
 async def test_upsert_rehashes_new_secret(session: AsyncSession) -> None:
     svc = MarketService(session)
-    await svc.register_ipfs_rental_token(_token_data("ak_hash_3", "first-secret"))
-    await svc.register_ipfs_rental_token(_token_data("ak_hash_3", "second-secret"))
+    ak3 = _unique("ak3")
+    await svc.register_ipfs_rental_token(_token_data(ak3, "first-secret"))
+    await svc.register_ipfs_rental_token(_token_data(ak3, "second-secret"))
 
-    assert await svc.get_ipfs_rental_token("ak_hash_3", "first-secret") is None
-    assert await svc.get_ipfs_rental_token("ak_hash_3", "second-secret") is not None
+    assert await svc.get_ipfs_rental_token(ak3, "first-secret") is None
+    assert await svc.get_ipfs_rental_token(ak3, "second-secret") is not None
 
 
 async def test_legacy_plaintext_row_still_verifies(session: AsyncSession) -> None:
     """Rows written before the migration keep working until init_db rewrites them."""
-    token = IpfsRentalToken(**_token_data("ak_legacy", "legacy-secret"))
+    akl = _unique("akl")
+    token = IpfsRentalToken(**_token_data(akl, "legacy-secret"))
     session.add(token)
     await session.commit()
 
     svc = MarketService(session)
-    assert await svc.get_ipfs_rental_token("ak_legacy", "legacy-secret") is not None
+    assert await svc.get_ipfs_rental_token(akl, "legacy-secret") is not None
 
 
 async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
     svc = MarketService(session)
+    jak = _unique("jak")
     job = await svc.create_market_job(
         {
             "offer_id": "offer-1",
@@ -96,7 +108,7 @@ async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
             "provider_address": "0x241D3e44d42b6d4c270d0231780913f14386d90C",
             "payload": {
                 "cid": "QmTest",
-                "access_key": "job_ak_1",
+                "access_key": jak,
                 "access_secret": "job-secret",
             },
         }
@@ -108,15 +120,17 @@ async def test_job_payload_secret_hashed(session: AsyncSession) -> None:
     assert is_hashed_secret(row.payload["access_secret"])
     assert "job-secret" not in row.payload["access_secret"]
 
-    assert await svc.get_market_job_access_token("job_ak_1", "job-secret") is not None
-    assert await svc.get_market_job_access_token("job_ak_1", "nope") is None
+    assert await svc.get_market_job_access_token(jak, "job-secret") is not None
+    assert await svc.get_market_job_access_token(jak, "nope") is None
 
 
 async def test_migrate_access_secrets_upgrades_plaintext_rows(session: AsyncSession) -> None:
     """The startup migration hashes rows written by pre-migration versions."""
     from market_service import storage
 
-    token = IpfsRentalToken(**_token_data("ak_migrate", "old-plaintext"))
+    akm = _unique("akm")
+    jakm = _unique("jakm")
+    token = IpfsRentalToken(**_token_data(akm, "old-plaintext"))
     session.add(token)
     job = MarketJob(
         offer_id="offer-1",
@@ -124,7 +138,7 @@ async def test_migrate_access_secrets_upgrades_plaintext_rows(session: AsyncSess
         buyer_address="0xab0797ae8cff09b313c71cab2f894b342b6e1d76",
         provider_address="0x241d3e44d42b6d4c270d0231780913f14386d90c",
         state="RUNNING",
-        payload={"cid": "QmX", "access_key": "job_ak_mig", "access_secret": "old-job-secret"},
+        payload={"cid": "QmX", "access_key": jakm, "access_secret": "old-job-secret"},
     )
     session.add(job)
     await session.commit()
@@ -137,8 +151,8 @@ async def test_migrate_access_secrets_upgrades_plaintext_rows(session: AsyncSess
     assert is_hashed_secret(job.payload["access_secret"])
 
     svc = MarketService(session)
-    assert await svc.get_ipfs_rental_token("ak_migrate", "old-plaintext") is not None
-    assert await svc.get_market_job_access_token("job_ak_mig", "old-job-secret") is not None
+    assert await svc.get_ipfs_rental_token(akm, "old-plaintext") is not None
+    assert await svc.get_market_job_access_token(jakm, "old-job-secret") is not None
 
 
 def test_access_endpoint_requires_api_key() -> None:
