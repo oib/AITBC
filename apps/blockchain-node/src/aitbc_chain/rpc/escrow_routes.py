@@ -6,6 +6,7 @@ Provides create/release/refund/get endpoints backed by EscrowManager and Escrow 
 from __future__ import annotations
 from aitbc.constants import BLOCKCHAIN_RPC_URL
 
+import hmac
 import json
 import os
 from datetime import UTC, datetime, timedelta
@@ -98,7 +99,7 @@ def verify_rpc_api_key(api_key: str | None = Security(_api_key_header)) -> str:
             status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
             detail="Escrow RPC is not configured for authentication",
         )
-    if api_key != _RPC_API_KEY:
+    if api_key is None or not hmac.compare_digest(api_key.encode(), _RPC_API_KEY.encode()):
         _logger.warning("Rejected escrow RPC request: missing or invalid X-API-Key")
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
@@ -127,7 +128,10 @@ def verify_rpc_peer_key(api_key: str | None = Security(_api_key_header)) -> str:
     bound to a single node_id — the subscription routes enforce that binding,
     so an issued key can only ever manage its own lease.
     """
-    if api_key and (api_key == _RPC_API_KEY or api_key in _RPC_API_PEER_KEYS):
+    if api_key and (
+        hmac.compare_digest(api_key.encode(), _RPC_API_KEY.encode())
+        or any(hmac.compare_digest(api_key.encode(), k.encode()) for k in _RPC_API_PEER_KEYS)
+    ):
         return api_key
     if api_key:
         from .peer_keys import is_issued_key

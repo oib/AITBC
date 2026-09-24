@@ -6,6 +6,7 @@ FastAPI service wrapping FFmpeg with GPU acceleration (NVENC/NVDEC)
 Port: 8230
 """
 
+import asyncio
 import hashlib
 import os
 import subprocess
@@ -45,7 +46,7 @@ async def lifespan(app: FastAPI):
     """Lifespan context manager for FFmpeg service"""
     # Verify FFmpeg with GPU support is available
     try:
-        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=15)
+        result = await _run_cmd(["ffmpeg", "-hwaccels"], timeout=15)
         if _hw_accel not in result.stdout:
             logger.warning(f"{_hw_accel} hardware acceleration not available in FFmpeg")
         else:
@@ -79,6 +80,32 @@ async def _reject_oversized_body(request: Request, call_next):
             content={"detail": f"Upload exceeds the {_MAX_UPLOAD_BYTES // (1024 * 1024)}MB limit"},
         )
     return await call_next(request)
+
+
+async def _run_cmd(cmd: list[str], timeout: float) -> subprocess.CompletedProcess[str]:
+    """Run a subprocess without blocking the event loop.
+
+    Uses the asyncio subprocess API so a long-running job leaves the loop
+    free to serve /health, and a timeout really kills the child instead of
+    abandoning a worker thread (asyncio.to_thread cannot kill the process).
+    """
+    proc = await asyncio.create_subprocess_exec(
+        *cmd,
+        stdout=asyncio.subprocess.PIPE,
+        stderr=asyncio.subprocess.PIPE,
+    )
+    try:
+        stdout, stderr = await asyncio.wait_for(proc.communicate(), timeout=timeout)
+    except TimeoutError:
+        proc.kill()
+        await proc.wait()
+        raise
+    return subprocess.CompletedProcess(
+        cmd,
+        proc.returncode if proc.returncode is not None else 1,
+        stdout.decode(errors="replace"),
+        stderr.decode(errors="replace"),
+    )
 
 
 def _safe_suffix(filename: str | None) -> str:
@@ -127,7 +154,7 @@ async def _spool_upload(file: UploadFile, suffix: str) -> str:
 async def health():
     """Health check endpoint"""
     try:
-        result = subprocess.run(["ffmpeg", "-version"], capture_output=True, text=True, timeout=15)
+        result = await _run_cmd(["ffmpeg", "-version"], timeout=15)
         return create_simple_health_response(
             "ffmpeg",
             status="ok",
@@ -151,12 +178,7 @@ async def capabilities():
         # Get GPU info
         gpu_info = {}
         try:
-            result = subprocess.run(
-                ["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"],
-                capture_output=True,
-                text=True,
-                timeout=15,
-            )
+            result = await _run_cmd(["nvidia-smi", "--query-gpu=name,memory.total", "--format=csv,noheader"], timeout=15)
             if result.returncode == 0:
                 gpu_info = {
                     "name": result.stdout.strip().split(",")[0],
@@ -168,7 +190,7 @@ async def capabilities():
         # Get supported encoders
         encoders = []
         try:
-            result = subprocess.run(["ffmpeg", "-encoders"], capture_output=True, text=True, timeout=10)
+            result = await _run_cmd(["ffmpeg", "-encoders"], timeout=10)
             if result.returncode == 0:
                 # Parse encoders (focus on hardware encoders)
                 for line in result.stdout.split("\n"):
@@ -203,7 +225,7 @@ async def process_video(
 
     # Validate GPU acceleration is available
     try:
-        result = subprocess.run(["ffmpeg", "-hwaccels"], capture_output=True, text=True, timeout=15)
+        result = await _run_cmd(["ffmpeg", "-hwaccels"], timeout=15)
         if _hw_accel not in result.stdout:
             logger.exception("Unhandled exception")
 
@@ -282,12 +304,7 @@ async def process_video(
         cmd.extend(["-y", output_path])
 
         # Run FFmpeg
-        process = subprocess.run(
-            cmd,
-            capture_output=True,
-            text=True,
-            timeout=3600,  # 1 hour timeout
-        )
+        process = await _run_cmd(cmd, timeout=3600)  # 1 hour timeout
 
         elapsed = round(time.time() - t_start, 2)
 
