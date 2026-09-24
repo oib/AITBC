@@ -26,18 +26,28 @@ from aitbc_mcp_server import (
 
 @mcp.tool(annotations=ToolAnnotations(destructive_hint=True, open_world_hint=False))
 def aitbc_network_force_sync(
+    peer_url: Annotated[str, Field(description="Peer base URL to import the chain from")],
+    admin_private_key: Annotated[str, Field(description="Bridge admin private key hex for the destructive-op signature")],
     rpc_url: Annotated[str | None, Field(description="Blockchain RPC URL")],
+    admin_address: Annotated[
+        str | None, Field(description="Admin address (defaults to address derived from --admin-private-key)")
+    ],
     role: Annotated[NodeRole | None, Field(description="Node role to query.")] = None,
     host: Annotated[str | None, Field(description="Override the host for this call.")] = None,
     timeout: Annotated[int, Field(description="Timeout in seconds.", ge=5, le=600)] = 120,
     dry_run: Annotated[bool, Field(description="Show the command without executing it.")] = True,
     confirm: Annotated[bool, Field(description="Confirm the action.")] = False,
 ) -> str:
-    """Force the local node to synchronize with the network.."""
+    """Force the local node to wipe and re-import its chain from a peer.."""
     options: dict[str, Any] = _collect_options(
         locals(),
         flags={},
-        values={"rpc_url": "rpc-url"},
+        values={
+            "rpc_url": "rpc-url",
+            "peer_url": "peer-url",
+            "admin_private_key": "admin-private-key",
+            "admin_address": "admin-address",
+        },
     )
     args = None
     command = _build_aitbc_cli_command(

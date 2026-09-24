@@ -11,7 +11,9 @@ for bridge multi-sig management.
 import asyncio
 import json
 import os
+import secrets
 import subprocess
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -511,6 +513,16 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
     }
     if admin_private_key and admin_address:
         payload["admin_address"] = admin_address
+        # Freshness/target fields the node's replay guard requires in signed payloads
+        payload["issued_at"] = datetime.now(UTC).isoformat()
+        payload["nonce"] = secrets.token_hex(16)
+        payload["target_chain_id"] = chain_id
+        try:
+            info = httpx.get(f"{rpc_url.rstrip('/')}/network-info", timeout=5).json()
+            if info.get("node_id") not in (None, "unknown"):
+                payload["target_node_id"] = info["node_id"]
+        except Exception:
+            pass
         # Admin signature covers the payload excluding admin_signature itself
         sign_payload = {k: v for k, v in payload.items() if k != "admin_signature"}
         payload["admin_signature"] = _sign_dict(admin_private_key, sign_payload)
@@ -524,7 +536,10 @@ def register_validator(ctx, chain_id, address, public_key, private_key, admin_pr
                 public_key=public_key,
                 signature=signature,
                 epoch=epoch,
-                **{"admin_address": payload.get("admin_address"), "admin_signature": payload.get("admin_signature")},
+                admin_address=payload.get("admin_address"),
+                admin_signature=payload.get("admin_signature"),
+                issued_at=payload.get("issued_at"),
+                nonce=payload.get("nonce"),
             )
 
     try:
@@ -688,7 +703,19 @@ def store_header(ctx, proof_file, admin_private_key, admin_address, rpc_url):
         "confirmation_count": 0,
         "finality_confirmed": False,
         "admin_address": proposer,
+        "issued_at": datetime.now(UTC).isoformat(),
+        "nonce": secrets.token_hex(16),
     }
+    # Bind to the receiving node's identity (the stored chain is the SOURCE
+    # chain, which may differ from this node's own chain_id).
+    try:
+        info = httpx.get(f"{rpc_url.rstrip('/')}/network-info", timeout=5).json()
+        if info.get("node_id") not in (None, "unknown"):
+            header_data["target_node_id"] = info["node_id"]
+        if info.get("chain_id"):
+            header_data["target_chain_id"] = info["chain_id"]
+    except Exception:
+        pass
     # Admin signature over the request payload, excluding admin_signature itself
     admin_signature = _sign_dict(admin_private_key, header_data)
     header_data["admin_signature"] = admin_signature

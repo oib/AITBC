@@ -8,11 +8,11 @@ Buyers pay per minute of wall-clock execution time.
 
 from __future__ import annotations
 
+import asyncio
 import hashlib
 import json
 import os
 import shutil
-import subprocess
 import tempfile
 import time
 from contextlib import asynccontextmanager
@@ -61,24 +61,31 @@ def _find_hermes() -> str | None:
     return None
 
 
-def _discover_version() -> str | None:
+async def _discover_version() -> str | None:
     """Try to discover the hermes version once at startup."""
     if not _HERMES_PATH:
         return None
     try:
-        result = subprocess.run(
-            [_HERMES_PATH, "--version"],
-            capture_output=True,
-            text=True,
-            timeout=10,
-            check=False,
+        proc = await asyncio.create_subprocess_exec(
+            _HERMES_PATH,
+            "--version",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
         )
+        try:
+            out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=10)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            raise
+        stdout = out_b.decode(errors="replace")
+        stderr = err_b.decode(errors="replace")
         # The first line contains the version, e.g. "Hermes Agent v0.20.4 ..."
-        first = result.stdout.strip().splitlines()[0] if result.stdout.strip() else ""
+        first = stdout.strip().splitlines()[0] if stdout.strip() else ""
         if first:
             return first
-        if result.stderr.strip():
-            return result.stderr.strip().splitlines()[0]
+        if stderr.strip():
+            return stderr.strip().splitlines()[0]
     except Exception as e:
         logger.warning("Could not determine hermes version: %s", e)
     return None
@@ -90,7 +97,7 @@ async def lifespan(app: FastAPI):
     global _HERMES_PATH, _HERMES_VERSION
     _HERMES_PATH = _find_hermes()
     if _HERMES_PATH:
-        _HERMES_VERSION = _discover_version()
+        _HERMES_VERSION = await _discover_version()
         logger.info("Hermes agent service ready: %s", _HERMES_VERSION or _HERMES_PATH)
     else:
         logger.error("hermes binary not found in PATH")
@@ -202,26 +209,27 @@ async def run_hermes(request: HermesRunRequest):
         command = _build_command(request, usage_path)
 
         t_start = time.time()
+        # Async subprocess keeps the event loop free for the duration of the
+        # run (up to max_time) so /health stays responsive; on timeout the
+        # child is killed and whatever output it produced is still collected.
+        proc = await asyncio.create_subprocess_exec(
+            *command,
+            cwd=tmpdir,
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+            start_new_session=True,
+        )
         try:
-            result = subprocess.run(
-                command,
-                cwd=tmpdir,
-                capture_output=True,
-                text=True,
-                timeout=request.max_time,
-                start_new_session=True,
-            )
-            elapsed = time.time() - t_start
-            stdout = result.stdout
-            stderr = result.stderr
-            returncode = result.returncode
+            out_b, err_b = await asyncio.wait_for(proc.communicate(), timeout=request.max_time)
             timed_out = False
-        except subprocess.TimeoutExpired as e:
-            elapsed = time.time() - t_start
-            stdout = e.stdout or ""
-            stderr = e.stderr or ""
-            returncode = -1
+        except TimeoutError:
+            proc.kill()
+            out_b, err_b = await proc.communicate()
             timed_out = True
+        elapsed = time.time() - t_start
+        stdout = out_b.decode(errors="replace")
+        stderr = err_b.decode(errors="replace")
+        returncode = -1 if timed_out else (proc.returncode or 0)
 
         # Try to read usage report if it was produced
         usage: dict[str, Any] = {}
