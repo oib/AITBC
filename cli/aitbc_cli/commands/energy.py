@@ -75,12 +75,19 @@ def _native_energy_request(
     """
     from aitbc.config.hub import hub_coordinator_url
 
-    bases = [_coordinator_base()]
-    hub = (hub_coordinator_url() or "").rstrip("/")
-    if hub.endswith("/v1"):
-        hub = hub[:-3]
-    if hub and hub != bases[0]:
-        bases.append(hub)
+    def _norm(url: str | None) -> str:
+        u = (url or "").rstrip("/")
+        return u[:-3] if u.endswith("/v1") else u
+
+    bases: list[str] = []
+    for candidate in (
+        getattr(get_config(), "native_coordinator_url", None),  # priority override
+        _coordinator_base(),
+        hub_coordinator_url(),
+    ):
+        base = _norm(candidate)
+        if base and base not in bases:
+            bases.append(base)
 
     last: Exception | None = None
     for base in bases:
