@@ -383,7 +383,9 @@ typical deployment only one host has; the IDE host may have no npm at all. That
 matters more than it looks: the Hardhat suites are the *only* coverage for
 `AgentStaking`, `PaymentProcessor` and `EscrowService`, which forge reports at
 or near 0% lines. If that host is unavailable, those contracts are effectively
-untested, and CI does not run this suite.
+untested there. Both CI pipelines (`.github/workflows/ci.yml` and
+`.gitea/workflows/ci.yml`) do run `npx hardhat test`; the caveat applies only
+to local dev hosts without a Node toolchain.
 
 ## Wallet key mismatches
 
