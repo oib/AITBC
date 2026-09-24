@@ -72,6 +72,59 @@ def transactions():
     pass
 
 
+def _prompt_wallet_password() -> str:
+    """Prompt for a wallet password on a TTY, or abort when none is available."""
+    if not sys.stdin.isatty():
+        abort(
+            None,
+            "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
+        )
+    import getpass
+
+    try:
+        return getpass.getpass("Enter wallet password: ")
+    except Exception as e:
+        abort(None, f"Password prompt failed: {e}", from_exception=e)
+        raise  # unreachable: abort always raises
+
+
+def _load_sender_private_key(sender_keystore: Path, sender_data: dict[str, Any], password: str):
+    """Decrypt the wallet's private key, or read it for unencrypted wallets."""
+    private_key_hex: str | None
+    try:
+        if sender_data.get("encrypted") and isinstance(sender_data.get("private_key"), dict):
+            private_key_hex = decrypt_private_key(sender_keystore, password)
+        elif sender_data.get("encrypted_private_key"):
+            private_key_hex = decrypt_private_key(sender_keystore, password)
+        else:
+            # Unencrypted wallet (created with --no-encrypt)
+            private_key_hex = sender_data.get("private_key")
+            if not private_key_hex:
+                error("Wallet does not contain private key")
+                return None
+
+        # Strip 0x prefix if present
+        if isinstance(private_key_hex, str) and private_key_hex.startswith("0x"):
+            private_key_hex = private_key_hex[2:]
+
+        return keys.PrivateKey(bytes.fromhex(private_key_hex))
+    except Exception as e:
+        logger.error("Error loading private key: %s", e)
+        error(f"Error loading private key: {e}")
+        return None
+
+
+def _resolve_nonce(rpc_url: str, sender_address: str) -> int:
+    """Fetch the sender's on-chain nonce, defaulting to 0 when unreachable."""
+    try:
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
+        account_data = http_client.get(f"/rpc/account/{sender_address}")
+        nonce: int = account_data.get("nonce", 0)
+        return nonce
+    except Exception:
+        return 0
+
+
 def _send_transaction_impl(
     from_wallet: str,
     to_address: str,
@@ -114,26 +167,8 @@ def _send_transaction_impl(
     sender_address = sender_data["address"]
 
     # Decrypt private key if wallet is encrypted, otherwise use directly
-    try:
-        if sender_data.get("encrypted") and isinstance(sender_data.get("private_key"), dict):
-            private_key_hex = decrypt_private_key(sender_keystore, password)
-        elif sender_data.get("encrypted_private_key"):
-            private_key_hex = decrypt_private_key(sender_keystore, password)
-        else:
-            # Unencrypted wallet (created with --no-encrypt)
-            private_key_hex = sender_data.get("private_key")
-            if not private_key_hex:
-                error("Wallet does not contain private key")
-                return None
-
-        # Strip 0x prefix if present
-        if isinstance(private_key_hex, str) and private_key_hex.startswith("0x"):
-            private_key_hex = private_key_hex[2:]
-
-        private_key = keys.PrivateKey(bytes.fromhex(private_key_hex))
-    except Exception as e:
-        logger.error("Error loading private key: %s", e)
-        error(f"Error loading private key: {e}")
+    private_key = _load_sender_private_key(sender_keystore, sender_data, password)
+    if private_key is None:
         return None
 
     # Resolve chain_id and nonce from the blockchain node
@@ -141,17 +176,10 @@ def _send_transaction_impl(
 
     chain_id = get_chain_id(rpc_url, override=None, timeout=5)
 
-    actual_nonce = 0
-    try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=5)
-        account_data = http_client.get(f"/rpc/account/{sender_address}")
-        actual_nonce = account_data.get("nonce", 0)
-    except Exception:
-        actual_nonce = 0
     # Batch callers pass a per-sender offset: the chain's account nonce does not
     # move while earlier batch transactions sit in the mempool, so every entry
     # would otherwise sign with the same nonce and only the first could be mined.
-    actual_nonce += nonce_offset
+    actual_nonce = _resolve_nonce(rpc_url, sender_address) + nonce_offset
 
     # Convert AIT to compute-units (chain unit)
     amount_seconds = ait_to_units(amount)
@@ -198,6 +226,46 @@ def _send_transaction_impl(
         return None
 
 
+def _resolve_send_password(from_wallet: str, password: str | None, password_file: str | None) -> str | None:
+    """Resolve the wallet password: flag, file, env, empty for unencrypted, else prompt."""
+    if password is not None:
+        # Password provided via flag (even if empty string)
+        return password
+    if password_file:
+        with open(password_file) as f:
+            return f.read().strip()
+    if "AITBC_WALLET_PASSWORD" in os.environ:
+        # Environment variable is set (even if empty)
+        return os.environ["AITBC_WALLET_PASSWORD"]
+
+    # Check if wallet is unencrypted
+    sender_keystore = wallet_dir() / f"{from_wallet}.json"
+    if sender_keystore.exists():
+        with open(sender_keystore) as f:
+            sender_data = json.load(f)
+        # If wallet has no encrypted_private_key, it's unencrypted
+        if not sender_data.get("encrypted_private_key"):
+            return ""  # Empty password for unencrypted wallets
+    # Wallet is encrypted or missing — the prompt fails for a missing file later
+    # in _send_transaction_impl, matching the original ordering.
+    return _prompt_wallet_password()
+
+
+def _parse_payload_json(payload: str | None) -> dict[str, Any] | None:
+    """Parse the --payload JSON object, reporting errors instead of raising."""
+    if not payload:
+        return None
+    try:
+        parsed_payload = json.loads(payload)
+        if not isinstance(parsed_payload, dict):
+            error("Payload must be a JSON object")
+            return None
+        return parsed_payload
+    except json.JSONDecodeError as e:
+        error(f"Invalid payload JSON: {e}")
+        return None
+
+
 @transactions.command(
     epilog="""Examples:
 
@@ -235,53 +303,7 @@ def send(
     # 4. Check if wallet is unencrypted (skip password)
     # 5. Interactive getpass prompt (only if TTY)
 
-    if password is not None:
-        # Password provided via flag (even if empty string)
-        pass
-    elif password_file:
-        with open(password_file) as f:
-            password = f.read().strip()
-    elif "AITBC_WALLET_PASSWORD" in os.environ:
-        # Environment variable is set (even if empty)
-        password = os.environ["AITBC_WALLET_PASSWORD"]
-    else:
-        # Check if wallet is unencrypted
-        keystore_dir = wallet_dir()
-        sender_keystore = keystore_dir / f"{from_wallet}.json"
-        if sender_keystore.exists():
-            with open(sender_keystore) as f:
-                sender_data = json.load(f)
-            # If wallet has no encrypted_private_key, it's unencrypted
-            if not sender_data.get("encrypted_private_key"):
-                password = ""  # Empty password for unencrypted wallets
-            else:
-                # Wallet is encrypted, need password
-                if not sys.stdin.isatty():
-                    abort(
-                        None,
-                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
-                    )
-                else:
-                    import getpass
-
-                    try:
-                        password = getpass.getpass("Enter wallet password: ")
-                    except Exception as e:
-                        abort(None, f"Password prompt failed: {e}", from_exception=e)
-        else:
-            # Wallet file doesn't exist, will fail later in _send_transaction_impl
-            if not sys.stdin.isatty():
-                abort(
-                    None,
-                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
-                )
-            else:
-                import getpass
-
-                try:
-                    password = getpass.getpass("Enter wallet password: ")
-                except Exception as e:
-                    abort(None, f"Password prompt failed: {e}", from_exception=e)
+    password = _resolve_send_password(from_wallet, password, password_file)
 
     if not rpc_url:
         rpc_url = _resolve_transaction_rpc_url(None)
@@ -292,13 +314,8 @@ def send(
 
     parsed_payload: dict[str, Any] | None = None
     if payload:
-        try:
-            parsed_payload = json.loads(payload)
-            if not isinstance(parsed_payload, dict):
-                error("Payload must be a JSON object")
-                return
-        except json.JSONDecodeError as e:
-            error(f"Invalid payload JSON: {e}")
+        parsed_payload = _parse_payload_json(payload)
+        if parsed_payload is None:
             return
 
     tx_hash = _send_transaction_impl(
@@ -326,6 +343,92 @@ def send(
                 error(f"Explorer API unavailable: {e}")
             except Exception as e:
                 error(f"Error checking status via Explorer: {e}")
+
+
+def _resolve_batch_password(transactions_file: str, password: str | None, password_file: str | None) -> str | None:
+    """Resolve the wallet password: flag, file, env, unencrypted first wallet, else prompt."""
+    if password is not None:
+        # Password provided via flag (even if empty string)
+        return password
+    if password_file:
+        with open(password_file) as f:
+            return f.read().strip()
+    if "AITBC_WALLET_PASSWORD" in os.environ:
+        # Environment variable is set (even if empty)
+        return os.environ["AITBC_WALLET_PASSWORD"]
+
+    # Check if first wallet is unencrypted
+    with open(transactions_file) as f:
+        transactions_data = json.load(f)
+    if transactions_data:
+        first_wallet = transactions_data[0].get("from_wallet")
+        sender_keystore = wallet_dir() / f"{first_wallet}.json"
+        if sender_keystore.exists():
+            with open(sender_keystore) as f:
+                sender_data = json.load(f)
+            # If wallet has no encrypted_private_key, it's unencrypted
+            if not sender_data.get("encrypted_private_key"):
+                return ""  # Empty password for unencrypted wallets
+    # Wallet is encrypted, missing, or the file is empty — prompt.
+    return _prompt_wallet_password()
+
+
+def _process_batch_entry(
+    tx: dict[str, Any],
+    password: str,
+    rpc_url: str,
+    seen_entries: set,
+    seen_hashes: set,
+    nonce_offsets: dict[str, int],
+    results: list,
+) -> None:
+    """Send one batch entry, deduping identical entries and duplicate hashes."""
+    try:
+        # amounts come out of a JSON batch file as numbers; convert at the boundary
+        amount = Decimal(str(tx["amount"]))
+        # default fee matches `send --fee` (0.001 AIT), not the old 10 AIT
+        fee = Decimal(str(tx.get("fee", "0.001")))
+        entry_key = (tx["from_wallet"], str(tx["to_address"]).lower(), amount, fee)
+        if entry_key in seen_entries:
+            results.append({"transaction": tx, "hash": None, "success": False, "error": "duplicate batch entry"})
+            error(f"Duplicate batch entry skipped: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
+            return
+        seen_entries.add(entry_key)
+
+        from_wallet = tx["from_wallet"]
+        tx_hash = _send_transaction_impl(
+            from_wallet,
+            tx["to_address"],
+            amount,
+            fee,
+            password,
+            rpc_url=rpc_url,
+            nonce_offset=nonce_offsets.get(from_wallet, 0),
+        )
+        if tx_hash:
+            nonce_offsets[from_wallet] = nonce_offsets.get(from_wallet, 0) + 1
+            if tx_hash in seen_hashes:
+                results.append(
+                    {
+                        "transaction": tx,
+                        "hash": tx_hash,
+                        "success": False,
+                        "error": f"duplicate transaction hash {tx_hash}",
+                    }
+                )
+                error(f"Transaction produced a duplicate hash: {tx['from_wallet']} → {tx['to_address']}")
+                return
+            seen_hashes.add(tx_hash)
+        results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
+
+        if tx_hash:
+            success(f"Transaction sent: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
+        else:
+            error(f"Transaction failed: {tx['from_wallet']} → {tx['to_address']}")
+
+    except Exception as e:
+        results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
+        error(f"Transaction error: {e}")
 
 
 @transactions.command(
@@ -359,71 +462,7 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     # 4. Check if wallet is unencrypted (skip password)
     # 5. Interactive getpass prompt (only if TTY)
 
-    if password is not None:
-        # Password provided via flag (even if empty string)
-        pass
-    elif password_file:
-        with open(password_file) as f:
-            password = f.read().strip()
-    elif "AITBC_WALLET_PASSWORD" in os.environ:
-        # Environment variable is set (even if empty)
-        password = os.environ["AITBC_WALLET_PASSWORD"]
-    else:
-        # Check if first wallet is unencrypted
-        with open(transactions_file) as f:
-            transactions_data = json.load(f)
-        if transactions_data:
-            first_wallet = transactions_data[0].get("from_wallet")
-            keystore_dir = wallet_dir()
-            sender_keystore = keystore_dir / f"{first_wallet}.json"
-            if sender_keystore.exists():
-                with open(sender_keystore) as f:
-                    sender_data = json.load(f)
-                # If wallet has no encrypted_private_key, it's unencrypted
-                if not sender_data.get("encrypted_private_key"):
-                    password = ""  # Empty password for unencrypted wallets
-                else:
-                    # Wallet is encrypted, need password
-                    if not sys.stdin.isatty():
-                        abort(
-                            None,
-                            "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
-                        )
-                    else:
-                        import getpass
-
-                        try:
-                            password = getpass.getpass("Enter wallet password: ")
-                        except Exception as e:
-                            abort(None, f"Password prompt failed: {e}", from_exception=e)
-            else:
-                # Wallet file doesn't exist
-                if not sys.stdin.isatty():
-                    abort(
-                        None,
-                        "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
-                    )
-                else:
-                    import getpass
-
-                    try:
-                        password = getpass.getpass("Enter wallet password: ")
-                    except Exception as e:
-                        abort(None, f"Password prompt failed: {e}", from_exception=e)
-        else:
-            # Empty transactions file
-            if not sys.stdin.isatty():
-                abort(
-                    None,
-                    "No TTY available for password prompt. Use --password or --password-file, or set AITBC_WALLET_PASSWORD environment variable.",
-                )
-            else:
-                import getpass
-
-                try:
-                    password = getpass.getpass("Enter wallet password: ")
-                except Exception as e:
-                    abort(None, f"Password prompt failed: {e}", from_exception=e)
+    password = _resolve_batch_password(transactions_file, password, password_file)
 
     if not rpc_url:
         rpc_url = _resolve_transaction_rpc_url(None)
@@ -443,54 +482,9 @@ def batch(transactions_file: str, password: str | None, password_file: str | Non
     seen_hashes: set[str] = set()
     nonce_offsets: dict[str, int] = {}
 
-    results = []
+    results: list[dict[str, Any]] = []
     for tx in transactions_data:
-        try:
-            # amounts come out of a JSON batch file as numbers; convert at the boundary
-            amount = Decimal(str(tx["amount"]))
-            # default fee matches `send --fee` (0.001 AIT), not the old 10 AIT
-            fee = Decimal(str(tx.get("fee", "0.001")))
-            entry_key = (tx["from_wallet"], str(tx["to_address"]).lower(), amount, fee)
-            if entry_key in seen_entries:
-                results.append({"transaction": tx, "hash": None, "success": False, "error": "duplicate batch entry"})
-                error(f"Duplicate batch entry skipped: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
-                continue
-            seen_entries.add(entry_key)
-
-            from_wallet = tx["from_wallet"]
-            tx_hash = _send_transaction_impl(
-                from_wallet,
-                tx["to_address"],
-                amount,
-                fee,
-                password,
-                rpc_url=rpc_url,
-                nonce_offset=nonce_offsets.get(from_wallet, 0),
-            )
-            if tx_hash:
-                nonce_offsets[from_wallet] = nonce_offsets.get(from_wallet, 0) + 1
-                if tx_hash in seen_hashes:
-                    results.append(
-                        {
-                            "transaction": tx,
-                            "hash": tx_hash,
-                            "success": False,
-                            "error": f"duplicate transaction hash {tx_hash}",
-                        }
-                    )
-                    error(f"Transaction produced a duplicate hash: {tx['from_wallet']} → {tx['to_address']}")
-                    continue
-                seen_hashes.add(tx_hash)
-            results.append({"transaction": tx, "hash": tx_hash, "success": tx_hash is not None})
-
-            if tx_hash:
-                success(f"Transaction sent: {tx['from_wallet']} → {tx['to_address']} ({tx['amount']} AIT)")
-            else:
-                error(f"Transaction failed: {tx['from_wallet']} → {tx['to_address']}")
-
-        except Exception as e:
-            results.append({"transaction": tx, "hash": None, "success": False, "error": str(e)})
-            error(f"Transaction error: {e}")
+        _process_batch_entry(tx, password, rpc_url, seen_entries, seen_hashes, nonce_offsets, results)
 
     success(f"Batch completed: {len([r for r in results if r['success']])}/{len(results)} successful")
 
