@@ -286,3 +286,17 @@ Phase H live validation (2026-09-24, commit 14563fed3)
 - node0/node1 carry blockchain-rpc + governance only; restarted and ready.
 - Zero errors across all restarted units' journals; hub producing at
   height 21128 post-restart.
+- Phase H rollout (2026-09-24): canary hub1 -> node2 -> hub -> node0/node1,
+  all at `14563fed3` or later. nginx on hub/hub1 re-pointed from
+  /v1/marketplace/* to /v1/market/* (public callers never saw the interim
+  spellings upstream anyway); node2 needs no nginx work (edge fronts /v1/);
+  node0/node1 expose neither market nor wallet publicly.
+  `GATEWAY_REQUIRED_SERVICES` dropped `wallet` on all three gateway nodes.
+- Verified live: /v1/marketplace/* -> 404, /v1/market/* -> 200 through
+  nginx and the gateway; /api/v1/wallet/* and v2 wallet qualifier -> 404;
+  /v1/wallets stays loopback-only at nginx (was already restricted
+  2026-09-14). coordinator_operations.db auto-created at startup;
+  payments_operation_reconciler registered in lifespan alongside the
+  existing sweepers.
+- Pre-existing failures fixed by `e1da8bdd9`: the two refund tests that
+  used to fail locally now mock get_json for on-chain tx lookups.
