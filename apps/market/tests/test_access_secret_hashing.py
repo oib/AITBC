@@ -138,6 +138,7 @@ async def test_migrate_access_secrets_upgrades_plaintext_rows(session: AsyncSess
         buyer_address="0xab0797ae8cff09b313c71cab2f894b342b6e1d76",
         provider_address="0x241d3e44d42b6d4c270d0231780913f14386d90c",
         state="RUNNING",
+        access_key=jakm,  # denormalized column — create_market_job copies it from payload
         payload={"cid": "QmX", "access_key": jakm, "access_secret": "old-job-secret"},
     )
     session.add(job)
@@ -163,4 +164,6 @@ def test_access_endpoint_requires_api_key() -> None:
 
     client = TestClient(app)
     response = client.get("/v1/market/jobs/some-job/access")
-    assert response.status_code in (401, 403)
+    # 401/403 = rejected with a configured key; 501 = no key configured
+    # (APIKeyAuthenticator fails closed either way).
+    assert response.status_code in (401, 403, 501)
