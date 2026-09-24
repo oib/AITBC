@@ -77,6 +77,7 @@ from .routers import (
     miner,
     monitor,
     multi_modal_rl,
+    partners,
     services,
     swarm,
     users,
@@ -543,6 +544,11 @@ def create_app() -> FastAPI:
     app.include_router(exchange, prefix="/v1")
     app.include_router(web_vitals, prefix="/v1")
     app.include_router(monitoring_dashboard, prefix="/v1")
+    # Mounted 2026-09-25: imported and exported from routers/__init__.py but never
+    # passed to include_router(), so every /v1/partners/* path returned 404. The
+    # router now persists to integration_partner/partner_webhook tables and stores
+    # only SHA-256 hashes of issued credentials.
+    app.include_router(partners, prefix="/v1")
     app.include_router(agent_router, prefix="/v1/agents")
     # Mounted 2026-09-11: the router was imported and exported from routers/__init__.py
     # but never passed to include_router(), so every /v1/agents/integration/* path --
