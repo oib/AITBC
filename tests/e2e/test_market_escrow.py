@@ -13,7 +13,9 @@ This suite exercises the full lifecycle:
 
 Required environment:
   - COORDINATOR_URL, BLOCKCHAIN_URL, MARKET_URL
-  - E2E_BUYER_PRIVATE_KEY, E2E_PROVIDER_PRIVATE_KEY (optional, generated if absent)
+  - E2E_BUYER_PRIVATE_KEY (required: the suite skips without it, and the wallet
+    must already hold a balance, so a generated key cannot stand in)
+  - E2E_PROVIDER_PRIVATE_KEY (optional: a throwaway key is generated if absent)
   - E2E_NODE_WALLET_ADDRESS (or NODE_WALLET_ADDRESS / GENESIS_WALLET_ADDRESS)
   - E2E_CLIENT_TOKEN or JWT_SECRET/E2E_JWT_SECRET
   - E2E_MINER_API_KEY or E2E_MINER_TOKEN or JWT_SECRET/E2E_JWT_SECRET
