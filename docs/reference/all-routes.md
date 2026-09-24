@@ -26,7 +26,9 @@
 | Method | Path | Summary |
 |---|---|---|
 | `GET` | `/health` | Health |
+| `GET` | `/ready` | Ready |
 | `GET` | `/services` | List Services |
+| `GET` | `/v2` | Api V2 Index |
 | `DELETE` | `/{path}` | Proxy Request |
 | `GET` | `/{path}` | Proxy Request |
 | `OPTIONS` | `/{path}` | Proxy Request |
@@ -40,6 +42,7 @@
 |---|---|---|
 | `GET` | `/health` | Health check |
 | `GET` | `/metrics` | Prometheus metrics |
+| `GET` | `/ready` | Readiness probe |
 | `GET` | `/rpc/account/{address}` | Get account information |
 | `GET` | `/rpc/accounts` | List accounts |
 | `GET` | `/rpc/accounts/{address}` | Get account information (alias) |
@@ -691,7 +694,10 @@
 | `GET` | `/v1/market/gpu/{gpu_id}/reviews` | Get Gpu Reviews |
 | `POST` | `/v1/market/gpu/{gpu_id}/reviews` | Add Gpu Review |
 | `GET` | `/v1/market/miner-offers` | List all miner offers |
+| `GET` | `/v1/market/native-energy/floor` | Get Native Energy Floor |
 | `POST` | `/v1/market/native-energy/profile` | Register Native Energy Profile |
+| `GET` | `/v1/market/native-energy/profile/{resource_id}` | Get Native Energy Profile |
+| `GET` | `/v1/market/native-energy/rate` | Get Native Energy Rate |
 | `POST` | `/v1/market/native-energy/rate` | Publish Native Energy Rate |
 | `GET` | `/v1/market/offers` | List market offers |
 | `GET` | `/v1/market/orders` | List Orders |
@@ -1098,8 +1104,8 @@
 | `GET` | `/v1/metrics` | Get Prometheus Metrics |
 | `GET` | `/v1/metrics/health` | Get Health Metrics |
 | `GET` | `/v1/metrics/summary` | Get Metrics Summary |
-| `GET` | `/v1/protected/admin` | Protected Admin |
-| `GET` | `/v1/protected/operator` | Protected Operator |
+| `GET` | `/v1/protected/admin` | Admin Only Endpoint |
+| `GET` | `/v1/protected/operator` | Operator Endpoint |
 | `GET` | `/v1/roles` | List All Roles |
 | `GET` | `/v1/roles/{role}` | Get Role Permissions |
 | `GET` | `/v1/sla` | Get Sla Status |
@@ -1129,6 +1135,7 @@
 |---|---|---|
 | `GET` | `/exchange/price.json` | Exchange Price Json |
 | `GET` | `/health` | Health Check |
+| `GET` | `/ready` | Ready Check |
 | `POST` | `/v1/bridge/deposit` | Bridge Deposit |
 | `GET` | `/v1/bridge/deposit/{tx_hash}` | Bridge Get Deposit |
 | `GET` | `/v1/bridge/deposits` | Bridge List Deposits |
