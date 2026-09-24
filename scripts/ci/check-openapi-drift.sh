@@ -19,6 +19,13 @@
 #      differences -- and a list written out here would be one more thing that could fall
 #      quietly out of step with the apps, which is the bug being fixed.
 #
+#   3. It also fails on a published spec the generator does *not* produce. Comparing only the
+#      generated files leaves those invisible: nothing regenerates them, so they never show up
+#      as drift however wrong they get. docs/api/blockchain/openapi.json published three paths
+#      for an API with 328 of them, at a version the node had left behind months earlier, and
+#      no check could see it -- it sat one directory down and was not named `*-openapi.json`,
+#      which is all the old discovery looked for.
+#
 # The extractor's own exit code matters as much as the diff: it used to print "✗ Failed" for
 # an app that would not import and exit 0 anyway, leaving that app's stale spec on disk for
 # the diff to compare against itself. It now exits non-zero, and that is checked below.
@@ -47,10 +54,14 @@ if ! "$PYTHON" scripts/extract_openapi_specs.py --output-dir "$tmp" >"$tmp/.stdo
   exit 1
 fi
 
+# Paths relative to the output directory, and no name filter. Learning the file set from the
+# generator was the intent from the start, but the depth limit and the `*-openapi.json` glob
+# were quietly re-asserting a naming convention on top of it -- so a spec the generator writes
+# one directory down, or under a plainer name, was silently not compared. It is now.
 specs=()
-while IFS= read -r path; do
-  specs+=("$(basename "$path")")
-done < <(find "$tmp" -maxdepth 1 \( -name '*-openapi.json' -o -name 'api-v2-map.json' \) | sort)
+while IFS= read -r rel; do
+  specs+=("$rel")
+done < <(find "$tmp" -type f -name '*.json' -printf '%P\n' | sort)
 
 if [ ${#specs[@]} -eq 0 ]; then
   echo "The extractor succeeded but produced no specs, so nothing was compared." >&2
@@ -64,28 +75,59 @@ for spec in "${specs[@]}"; do
   fi
 done
 
-if [ ${#drifted[@]} -eq 0 ]; then
-  echo "✅ OpenAPI: docs/api/ matches the applications (${#specs[@]} generated files)"
+# The other half of the question, and the one the diff above cannot ask: which published specs
+# is nothing generating? Its exit code is checked for the same reason the extractor's is -- a
+# scan that fails silently reports "no stale specs" for a directory it never read.
+if ! "$PYTHON" scripts/ci/unaccounted_openapi_specs.py --docs-dir docs/api "${specs[@]}" \
+    >"$tmp/.unaccounted" 2>"$tmp/.unaccounted.err"; then
+  echo "Could not scan docs/api/ for specs no application generates, so drift was only half checked:" >&2
+  cat "$tmp/.unaccounted" "$tmp/.unaccounted.err" >&2
+  exit 1
+fi
+
+stale=()
+while IFS= read -r path; do
+  [ -n "$path" ] && stale+=("$path")
+done <"$tmp/.unaccounted"
+
+if [ ${#drifted[@]} -eq 0 ] && [ ${#stale[@]} -eq 0 ]; then
+  echo "✅ OpenAPI: docs/api/ matches the applications (${#specs[@]} generated files, nothing else published)"
   exit 0
 fi
 
-echo ""
-echo "docs/api/ is out of date with the applications:"
-for spec in "${drifted[@]}"; do
-  if [ ! -f "docs/api/$spec" ]; then
-    # A new app was added to the extractor and its spec has never been committed.
-    echo "  $spec  (not committed at all)"
-    continue
-  fi
-  # Counted in the direction `make openapi` would move the committed file.
-  added=$(diff "docs/api/$spec" "$tmp/$spec" | grep -c '^>' || true)
-  removed=$(diff "docs/api/$spec" "$tmp/$spec" | grep -c '^<' || true)
-  echo "  $spec  ($added lines to add, $removed to remove)"
-done
-echo ""
-echo "These files are generated, not written. Regenerate and commit the result:"
-echo "    make openapi"
-echo ""
-echo "If the change was not intended, the app changed a published contract -- check that"
-echo "before committing, because clients are generated from these files."
+if [ ${#drifted[@]} -gt 0 ]; then
+  echo ""
+  echo "docs/api/ is out of date with the applications:"
+  for spec in "${drifted[@]}"; do
+    if [ ! -f "docs/api/$spec" ]; then
+      # A new app was added to the extractor and its spec has never been committed.
+      echo "  $spec  (not committed at all)"
+      continue
+    fi
+    # Counted in the direction `make openapi` would move the committed file.
+    added=$(diff "docs/api/$spec" "$tmp/$spec" | grep -c '^>' || true)
+    removed=$(diff "docs/api/$spec" "$tmp/$spec" | grep -c '^<' || true)
+    echo "  $spec  ($added lines to add, $removed to remove)"
+  done
+  echo ""
+  echo "These files are generated, not written. Regenerate and commit the result:"
+  echo "    make openapi"
+  echo ""
+  echo "If the change was not intended, the app changed a published contract -- check that"
+  echo "before committing, because clients are generated from these files."
+fi
+
+if [ ${#stale[@]} -gt 0 ]; then
+  echo ""
+  echo "docs/api/ publishes OpenAPI documents no application produces:"
+  for path in "${stale[@]}"; do
+    echo "  $path"
+  done
+  echo ""
+  echo "Nothing regenerates these, so they drift from the day they are written and no check can"
+  echo "tell -- which is how a three-path stub sat next to a 328-path API for three months."
+  echo "Delete the file, or, if it documents a real application, add that application to APPS in"
+  echo "scripts/extract_openapi_specs.py so it is generated and compared from now on."
+fi
+
 exit 1
