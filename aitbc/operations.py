@@ -223,64 +223,12 @@ class OperationLedger:
                     """,
                     (self._service, key, operation_type, req_hash, int(allow_adopt), now, now, lease),
                 )
-                if own:
-                    conn.commit()
+                self._commit_own(own, conn)
                 return BeginResult(BeginStatus.EXECUTE, attempt=1)
 
-            state, stored_hash, stored_adopt, attempt, lease_expires, result_json, resp_status = row
-            if stored_hash != req_hash and state in ("completed", "failed"):
-                if own:
-                    conn.commit()
-                return BeginResult(BeginStatus.CONFLICT)
-
-            if state == "completed":
-                if own:
-                    conn.commit()
-                result = json.loads(result_json) if result_json is not None else None
-                return BeginResult(BeginStatus.REPLAY, attempt=attempt, result=result, response_status=resp_status)
-
-            if state == "uncertain":
-                if own:
-                    conn.commit()
-                return BeginResult(BeginStatus.UNCERTAIN)
-
-            if state == "pending":
-                if now < lease_expires:
-                    if own:
-                        conn.commit()
-                    return BeginResult(BeginStatus.IN_PROGRESS)
-                if not stored_adopt:
-                    conn.execute(
-                        "UPDATE operations SET state='uncertain', error=?, updated_at=? "
-                        "WHERE service=? AND idempotency_key=? AND state='pending'",
-                        ("lease expired; outcome unknown — not safe to auto-retry", now, self._service, key),
-                    )
-                    if own:
-                        conn.commit()
-                    return BeginResult(BeginStatus.UNCERTAIN)
-                # Adopt the expired lease: the previous attempt died before
-                # completing, and the caller declared re-execution safe.
-                new_attempt = attempt + 1
-                conn.execute(
-                    "UPDATE operations SET attempt=?, updated_at=?, lease_expires_at=? "
-                    "WHERE service=? AND idempotency_key=? AND state='pending'",
-                    (new_attempt, now, lease, self._service, key),
-                )
-                if own:
-                    conn.commit()
-                logger.info("Adopted expired operation lease: key=%s attempt=%d", key, new_attempt)
-                return BeginResult(BeginStatus.EXECUTE, attempt=new_attempt)
-
-            # state == 'failed' — a retryable failure; re-drive under a new lease.
-            new_attempt = attempt + 1
-            conn.execute(
-                "UPDATE operations SET state='pending', attempt=?, updated_at=?, lease_expires_at=? "
-                "WHERE service=? AND idempotency_key=? AND state='failed'",
-                (new_attempt, now, lease, self._service, key),
-            )
-            if own:
-                conn.commit()
-            return BeginResult(BeginStatus.EXECUTE, attempt=new_attempt)
+            result = self._begin_existing(row, key, req_hash, now, lease, conn)
+            self._commit_own(own, conn)
+            return result
         except Exception:
             if own:
                 conn.rollback()
@@ -288,6 +236,79 @@ class OperationLedger:
         finally:
             if own:
                 conn.close()
+
+    @staticmethod
+    def _commit_own(own: bool, conn: sqlite3.Connection) -> None:
+        if own:
+            conn.commit()
+
+    def _begin_existing(
+        self,
+        row: tuple,
+        key: str,
+        req_hash: str,
+        now: float,
+        lease: float,
+        conn: sqlite3.Connection,
+    ) -> BeginResult:
+        """Decide the outcome for an existing operation row.
+
+        Writes stay inside the caller's transaction — ``begin`` commits after
+        this returns, so every outcome here is just a verdict plus the row
+        mutations it needs.
+        """
+        state, stored_hash, stored_adopt, attempt, lease_expires, result_json, resp_status = row
+        if stored_hash != req_hash and state in ("completed", "failed"):
+            return BeginResult(BeginStatus.CONFLICT)
+
+        if state == "completed":
+            result = json.loads(result_json) if result_json is not None else None
+            return BeginResult(BeginStatus.REPLAY, attempt=attempt, result=result, response_status=resp_status)
+
+        if state == "uncertain":
+            return BeginResult(BeginStatus.UNCERTAIN)
+
+        if state == "pending":
+            return self._begin_pending(key, attempt, stored_adopt, lease_expires, now, lease, conn)
+
+        # state == 'failed' — a retryable failure; re-drive under a new lease.
+        new_attempt = attempt + 1
+        conn.execute(
+            "UPDATE operations SET state='pending', attempt=?, updated_at=?, lease_expires_at=? "
+            "WHERE service=? AND idempotency_key=? AND state='failed'",
+            (new_attempt, now, lease, self._service, key),
+        )
+        return BeginResult(BeginStatus.EXECUTE, attempt=new_attempt)
+
+    def _begin_pending(
+        self,
+        key: str,
+        attempt: int,
+        stored_adopt: int,
+        lease_expires: float,
+        now: float,
+        lease: float,
+        conn: sqlite3.Connection,
+    ) -> BeginResult:
+        if now < lease_expires:
+            return BeginResult(BeginStatus.IN_PROGRESS)
+        if not stored_adopt:
+            conn.execute(
+                "UPDATE operations SET state='uncertain', error=?, updated_at=? "
+                "WHERE service=? AND idempotency_key=? AND state='pending'",
+                ("lease expired; outcome unknown — not safe to auto-retry", now, self._service, key),
+            )
+            return BeginResult(BeginStatus.UNCERTAIN)
+        # Adopt the expired lease: the previous attempt died before
+        # completing, and the caller declared re-execution safe.
+        new_attempt = attempt + 1
+        conn.execute(
+            "UPDATE operations SET attempt=?, updated_at=?, lease_expires_at=? "
+            "WHERE service=? AND idempotency_key=? AND state='pending'",
+            (new_attempt, now, lease, self._service, key),
+        )
+        logger.info("Adopted expired operation lease: key=%s attempt=%d", key, new_attempt)
+        return BeginResult(BeginStatus.EXECUTE, attempt=new_attempt)
 
     def complete(
         self,
