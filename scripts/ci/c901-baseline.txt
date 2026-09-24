@@ -101,12 +101,10 @@
       1 apps/wallet/src/wallet_app/main.py
       3 cli/aitbc_cli/commands/agent.py
       2 cli/aitbc_cli/commands/agent_sdk.py
-      5 cli/aitbc_cli/commands/ai.py
       1 cli/aitbc_cli/commands/analytics.py
       1 cli/aitbc_cli/commands/auth.py
       1 cli/aitbc_cli/commands/coin_requests.py
       2 cli/aitbc_cli/commands/dashboard.py
-      2 cli/aitbc_cli/commands/energy.py
       1 cli/aitbc_cli/commands/exchange_island.py
       1 cli/aitbc_cli/commands/genesis.py
       2 cli/aitbc_cli/commands/ipfs.py
@@ -121,7 +119,6 @@
       1 cli/aitbc_cli/commands/prometheus.py
       2 cli/aitbc_cli/commands/simulate.py
       1 cli/aitbc_cli/commands/sync.py
-      3 cli/aitbc_cli/commands/transactions.py
       1 cli/aitbc_cli/commands/wallet/__init__.py
       1 cli/aitbc_cli/commands/wallet/basic.py
       1 cli/aitbc_cli/commands/wallet/bridge.py

@@ -151,6 +151,88 @@ def _create_escrow_payment(
     return coord_http_client.post("/v1/payments", json=payload)
 
 
+def _await_payment_release(
+    ctx,
+    http_client: AITBCHTTPClient,
+    job_id: str,
+    payment_id: str,
+    status: dict[str, Any],
+    state: str,
+    timed_out,
+    poll_interval: float,
+) -> tuple[dict[str, Any], str]:
+    """Wait briefly for the escrow release to land after job completion.
+
+    For paid jobs, the miner triggers escrow release after submitting the
+    result. Allow a short extra window for payment_status to flip; if the
+    coordinator is holding the payment for customer acceptance, accept it
+    on behalf of the customer so a --wait invocation runs end-to-end.
+    """
+    accept_attempted = False
+    while status.get("payment_status") != "released":
+        if timed_out():
+            abort(
+                ctx,
+                f"Job {job_id} completed but payment {payment_id} was not released within timeout",
+            )
+        if not accept_attempted and status.get("payment_status") in ("escrowed", "pending_acceptance"):
+            try:
+                http_client.post(f"/v1/jobs/{job_id}/accept")
+            except Exception as e:
+                logger.warning("Could not auto-accept job %s: %s", job_id, e)
+            accept_attempted = True
+        time.sleep(min(poll_interval, 2.0))
+        try:
+            status = http_client.get(f"/v1/jobs/{job_id}")
+        except NetworkError as e:
+            abort(ctx, f"Network error while waiting for payment release: {e}", from_exception=e)
+        state = status.get("state", state)
+        if state != "COMPLETED":
+            break
+    return status, state
+
+
+def _completed_job_payload(
+    http_client: AITBCHTTPClient,
+    job_id: str,
+    payment_id: str | None,
+    status: dict[str, Any],
+    state: str,
+) -> dict[str, Any]:
+    """Fetch result and payment details for a completed job into the output dict."""
+    try:
+        result_data = http_client.get(f"/v1/jobs/{job_id}/result")
+    except NetworkError as e:
+        result_data = None
+        logger.warning("Could not fetch result for %s: %s", job_id, e)
+
+    escrow_tx_hash: str | None = None
+    if payment_id and status.get("payment_status") == "released":
+        try:
+            payment = http_client.get(f"/v1/jobs/{job_id}/payment")
+            escrow_tx_hash = payment.get("transaction_hash")
+        except NetworkError as e:
+            logger.warning("Could not fetch payment for %s: %s", job_id, e)
+        except Exception:
+            pass
+
+    completed_at: str | None = None
+    if isinstance((result_data or {}).get("receipt"), dict):
+        completed_at = result_data["receipt"].get("timestamp")  # type: ignore[index]
+
+    return {
+        "job_id": job_id,
+        "state": state,
+        "payment_id": payment_id,
+        "payment_status": status.get("payment_status"),
+        "escrow_tx_hash": escrow_tx_hash,
+        "result": result_data,
+        "receipt": (result_data or {}).get("receipt"),
+        "completed_at": completed_at,
+        "status": status,
+    }
+
+
 def _wait_for_job(
     ctx,
     http_client: AITBCHTTPClient,
@@ -180,66 +262,14 @@ def _wait_for_job(
                 abort(ctx, f"Network error while waiting for job {job_id}: {e}", from_exception=e)
             state = status.get("state", state)
 
-        # For paid jobs, the miner triggers escrow release after submitting the
-        # result. Allow a short extra window for payment_status to flip; if the
-        # coordinator is holding the payment for customer acceptance, accept it
-        # on behalf of the customer so a --wait invocation runs end-to-end.
         if payment_id and state == "COMPLETED":
-            accept_attempted = False
-            while status.get("payment_status") != "released":
-                if _timed_out():
-                    abort(
-                        ctx,
-                        f"Job {job_id} completed but payment {payment_id} was not released within timeout",
-                    )
-                if not accept_attempted and status.get("payment_status") in ("escrowed", "pending_acceptance"):
-                    try:
-                        http_client.post(f"/v1/jobs/{job_id}/accept")
-                    except Exception as e:
-                        logger.warning("Could not auto-accept job %s: %s", job_id, e)
-                    accept_attempted = True
-                time.sleep(min(poll_interval, 2.0))
-                try:
-                    status = http_client.get(f"/v1/jobs/{job_id}")
-                except NetworkError as e:
-                    abort(ctx, f"Network error while waiting for payment release: {e}", from_exception=e)
-                state = status.get("state", state)
-                if state != "COMPLETED":
-                    break
+            status, state = _await_payment_release(
+                ctx, http_client, job_id, payment_id, status, state, _timed_out, poll_interval
+            )
 
         if state == "COMPLETED":
-            try:
-                result_data = http_client.get(f"/v1/jobs/{job_id}/result")
-            except NetworkError as e:
-                result_data = None
-                logger.warning("Could not fetch result for %s: %s", job_id, e)
-
-            escrow_tx_hash: str | None = None
-            if payment_id and status.get("payment_status") == "released":
-                try:
-                    payment = http_client.get(f"/v1/jobs/{job_id}/payment")
-                    escrow_tx_hash = payment.get("transaction_hash")
-                except NetworkError as e:
-                    logger.warning("Could not fetch payment for %s: %s", job_id, e)
-                except Exception:
-                    pass
-
-            completed_at: str | None = None
-            if isinstance((result_data or {}).get("receipt"), dict):
-                completed_at = result_data["receipt"].get("timestamp")  # type: ignore[index]
-
             output(
-                {
-                    "job_id": job_id,
-                    "state": state,
-                    "payment_id": payment_id,
-                    "payment_status": status.get("payment_status"),
-                    "escrow_tx_hash": escrow_tx_hash,
-                    "result": result_data,
-                    "receipt": (result_data or {}).get("receipt"),
-                    "completed_at": completed_at,
-                    "status": status,
-                },
+                _completed_job_payload(http_client, job_id, payment_id, status, state),
                 output_format,
                 title=f"Job completed: {job_id}",
             )
@@ -262,6 +292,208 @@ def _wait_for_job(
         except Exception as e:
             logger.warning("Could not cancel job %s after interrupt: %s", job_id, e)
         abort(ctx, f"Wait for job {job_id} cancelled by user")
+
+
+def _fill_media_payload(
+    payload: dict[str, Any], http_client: AITBCHTTPClient, input_url, model, output_format, prompt
+) -> None:
+    """Fill transcribe/reencode payload fields, uploading local input first."""
+    if input_url:
+        media_url, filename = _media_url(input_url, http_client)
+        if media_url:
+            payload["url"] = media_url
+        if filename:
+            payload["filename"] = filename
+    if model:
+        payload["model"] = model
+    if output_format:
+        payload["output_format"] = output_format
+    if prompt:
+        payload["prompt"] = prompt
+
+
+def _submit_payload(
+    http_client: AITBCHTTPClient,
+    job_type: str,
+    prompt: str | None,
+    model: str | None,
+    input_url: str | None,
+    output_format: str | None,
+) -> dict[str, Any]:
+    """Build the job payload in the shape the coordinator expects per job type."""
+    payload: dict[str, Any] = {"type": job_type}
+    if job_type == "inference":
+        payload["prompt"] = prompt or ""
+        if model:
+            payload["model"] = model
+    elif job_type in ("transcribe", "reencode"):
+        _fill_media_payload(payload, http_client, input_url, model, output_format, prompt)
+    else:
+        if prompt:
+            payload["prompt"] = prompt
+        if model:
+            payload["model"] = model
+    return payload
+
+
+def _apply_compliance(ctx, constraints: dict[str, Any], compliance_framework, classification) -> None:
+    """Validate and apply the data-classification constraint for a framework."""
+    if not compliance_framework:
+        return
+    policy = load_policy_template(compliance_framework)
+    if not classification:
+        abort(ctx, f"--classification is required when --compliance-framework is set ({compliance_framework})")
+    label = normalize_classification(classification)
+    if not policy.allows_classification(label):
+        abort(ctx, f"Classification '{label.value}' is not allowed by framework '{compliance_framework}'")
+    constraints["data_classification"] = label.value
+
+
+def _apply_simple_constraints(
+    constraints: dict[str, Any],
+    *,
+    min_reputation,
+    zk_proof_required,
+    auto_reinvest_pct,
+    bond_required,
+    min_bond_amount,
+    deterministic_decoding,
+    decode_seed,
+    acceptance_window,
+) -> None:
+    """Copy the flag/value options into the job's constraints dict."""
+    if min_reputation is not None:
+        constraints["min_reputation"] = min_reputation
+    if zk_proof_required:
+        constraints["zk_proof_required"] = True
+    if auto_reinvest_pct is not None:
+        constraints["auto_reinvest_pct"] = auto_reinvest_pct
+    if bond_required:
+        constraints["bond_required"] = True
+    if min_bond_amount is not None:
+        constraints["min_bond_amount"] = min_bond_amount
+    if deterministic_decoding:
+        constraints["deterministic_decoding"] = True
+        if decode_seed is not None:
+            constraints["decode_seed"] = decode_seed
+    if acceptance_window is not None:
+        constraints["acceptance_window_seconds"] = acceptance_window
+
+
+def _apply_tee_constraints(
+    ctx,
+    constraints: dict[str, Any],
+    config,
+    *,
+    tee_attestation_required,
+    tee_enclave_id,
+    confidential,
+    enclave_measurement,
+) -> None:
+    """Apply TEE/confidentiality constraints after checking the feature flag."""
+    tee_requested = tee_attestation_required or tee_enclave_id or confidential or enclave_measurement
+    if tee_requested and not config.tee_attestation_enabled:
+        abort(
+            ctx,
+            "TEE attestation is not enabled. Remove --confidential, --tee-attestation-required, "
+            "--tee-enclave-id, and --enclave-measurement, or set TEE_ATTESTATION_ENABLED=true.",
+        )
+    if tee_attestation_required:
+        constraints["tee_attestation_required"] = True
+    if tee_enclave_id:
+        constraints["tee_enclave_id"] = tee_enclave_id
+    if confidential:
+        constraints["confidential"] = True
+        constraints["tee_attestation_required"] = True
+    if enclave_measurement:
+        constraints["required_enclave_measurement"] = enclave_measurement
+        constraints["tee_enclave_id"] = enclave_measurement
+
+
+def _apply_payment_fields(
+    ctx,
+    job_data: dict[str, Any],
+    *,
+    payment,
+    currency,
+    buyer_address,
+    wallet_address,
+    provider_address,
+    offer_id,
+    offer_quantity,
+) -> None:
+    """Attach offer reference and escrow fields for paid/bought jobs."""
+    if offer_id:
+        job_data["offer_id"] = offer_id
+        if offer_quantity is not None:
+            job_data["offer_quantity"] = str(offer_quantity)
+    if not (payment or offer_id):
+        return
+    if not buyer_address and wallet_address:
+        buyer_address = wallet_address
+    if not buyer_address:
+        abort(ctx, "buyer_address is required for paid jobs: set --wallet, --buyer-address, or CUSTOMER_WALLET_ADDRESS")
+    job_data["buyer_address"] = buyer_address
+    if payment:
+        job_data["payment_amount"] = str(Decimal(str(payment)))
+    job_data["payment_currency"] = currency or "AITBC"
+    resolved_provider = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
+    if resolved_provider:
+        job_data["provider_address"] = resolved_provider
+    elif not offer_id:
+        # A paid job without an offer has no server-side provider
+        # resolution — it would be created and queue forever.
+        abort(
+            ctx,
+            "provider_address is required for paid jobs without --offer-id: set --provider-address or SHOP_WALLET_ADDRESS",
+        )
+
+
+def _secure_escrow(
+    ctx,
+    http_client: AITBCHTTPClient,
+    rpc_url: str,
+    result: dict[str, Any],
+    job_id: str,
+    *,
+    currency,
+    buyer_address,
+    provider_address,
+    private_key,
+    chain_id,
+    offer_id,
+    offer_quantity,
+):
+    """If the coordinator priced the job but did not secure an escrow, sign the
+    ESCROW_LOCK tx and create the payment in a second step."""
+    payment_id = result.get("payment_id")
+    if payment_id or not result.get("payment_amount") or not private_key:
+        return payment_id
+    node_wallet_addr = result.get("node_wallet_address")
+    if not node_wallet_addr:
+        abort(ctx, "coordinator did not return node_wallet_address; cannot build ESCROW_LOCK")
+    payment_amount = result.get("payment_amount")
+    if payment_amount is None:
+        abort(ctx, "coordinator did not return payment_amount")
+    payment_token = str(result.get("payment_token") or currency or "AITBC")
+    payment_result = _create_escrow_payment(
+        ctx,
+        http_client,
+        rpc_url,
+        job_id,
+        str(payment_amount),
+        payment_token,
+        buyer_address,
+        str(result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or ""),
+        private_key,
+        str(node_wallet_addr),
+        chain_id,
+        offer_id,
+        offer_quantity,
+    )
+    payment_id = payment_result.get("payment_id")
+    success(f"Escrow secured: {payment_id}")
+    return payment_id
 
 
 @click.group(
@@ -402,154 +634,64 @@ def submit(
 
         # Prepare job data in the JobCreate shape expected by coordinator-api
         job_type = job_type or "inference"
-        payload = {
-            "type": job_type,
-        }
-
-        if job_type == "inference":
-            payload["prompt"] = prompt or ""
-            if model:
-                payload["model"] = model
-        elif job_type in ("transcribe", "reencode"):
-            if input_url:
-                media_url, filename = _media_url(input_url, http_client)
-                if media_url:
-                    payload["url"] = media_url
-                if filename:
-                    payload["filename"] = filename
-            if model:
-                payload["model"] = model
-            if output_format:
-                payload["output_format"] = output_format
-            if prompt:
-                payload["prompt"] = prompt
-        else:
-            if prompt:
-                payload["prompt"] = prompt
-            if model:
-                payload["model"] = model
-
         job_data: dict[str, Any] = {
-            "payload": payload,
+            "payload": _submit_payload(http_client, job_type, prompt, model, input_url, output_format),
             "constraints": {},
             "ttl_seconds": 900,
         }
-
-        # Compliance hook
-        if compliance_framework:
-            framework = compliance_framework
-            policy = load_policy_template(framework)
-            if classification:
-                label = normalize_classification(classification)
-                if not policy.allows_classification(label):
-                    abort(ctx, f"Classification '{label.value}' is not allowed by framework '{framework}'")
-                job_data["constraints"]["data_classification"] = label.value
-            else:
-                abort(ctx, f"--classification is required when --compliance-framework is set ({framework})")
-
-        if min_reputation is not None:
-            job_data["constraints"]["min_reputation"] = min_reputation
-
-        if zk_proof_required:
-            job_data["constraints"]["zk_proof_required"] = True
-
-        if (
-            tee_attestation_required or tee_enclave_id or confidential or enclave_measurement
-        ) and not config.tee_attestation_enabled:
-            abort(
-                ctx,
-                "TEE attestation is not enabled. Remove --confidential, --tee-attestation-required, "
-                "--tee-enclave-id, and --enclave-measurement, or set TEE_ATTESTATION_ENABLED=true.",
-            )
-
-        if tee_attestation_required:
-            job_data["constraints"]["tee_attestation_required"] = True
-        if tee_enclave_id:
-            job_data["constraints"]["tee_enclave_id"] = tee_enclave_id
-        if confidential:
-            job_data["constraints"]["confidential"] = True
-            job_data["constraints"]["tee_attestation_required"] = True
-        if enclave_measurement:
-            job_data["constraints"]["required_enclave_measurement"] = enclave_measurement
-            job_data["constraints"]["tee_enclave_id"] = enclave_measurement
-
-        if auto_reinvest_pct is not None:
-            job_data["constraints"]["auto_reinvest_pct"] = auto_reinvest_pct
-
-        if bond_required:
-            job_data["constraints"]["bond_required"] = True
-        if min_bond_amount is not None:
-            job_data["constraints"]["min_bond_amount"] = min_bond_amount
-
-        if deterministic_decoding:
-            job_data["constraints"]["deterministic_decoding"] = True
-            if decode_seed is not None:
-                job_data["constraints"]["decode_seed"] = decode_seed
-
-        if offer_id:
-            job_data["offer_id"] = offer_id
-            if offer_quantity is not None:
-                job_data["offer_quantity"] = str(offer_quantity)
-        if acceptance_window is not None:
-            job_data["constraints"]["acceptance_window_seconds"] = acceptance_window
-
-        if payment or offer_id:
-            if not buyer_address and wallet_address:
-                buyer_address = wallet_address
-            if not buyer_address:
-                abort(
-                    ctx, "buyer_address is required for paid jobs: set --wallet, --buyer-address, or CUSTOMER_WALLET_ADDRESS"
-                )
-            job_data["buyer_address"] = buyer_address
-            if payment:
-                job_data["payment_amount"] = str(Decimal(str(payment)))
-            job_data["payment_currency"] = currency or "AITBC"
-            resolved_provider = provider_address or os.environ.get("SHOP_WALLET_ADDRESS")
-            if resolved_provider:
-                job_data["provider_address"] = resolved_provider
-            elif not offer_id:
-                # A paid job without an offer has no server-side provider
-                # resolution — it would be created and queue forever.
-                abort(
-                    ctx,
-                    "provider_address is required for paid jobs without --offer-id: "
-                    "set --provider-address or SHOP_WALLET_ADDRESS",
-                )
+        _apply_compliance(ctx, job_data["constraints"], compliance_framework, classification)
+        _apply_simple_constraints(
+            job_data["constraints"],
+            min_reputation=min_reputation,
+            zk_proof_required=zk_proof_required,
+            auto_reinvest_pct=auto_reinvest_pct,
+            bond_required=bond_required,
+            min_bond_amount=min_bond_amount,
+            deterministic_decoding=deterministic_decoding,
+            decode_seed=decode_seed,
+            acceptance_window=acceptance_window,
+        )
+        _apply_tee_constraints(
+            ctx,
+            job_data["constraints"],
+            config,
+            tee_attestation_required=tee_attestation_required,
+            tee_enclave_id=tee_enclave_id,
+            confidential=confidential,
+            enclave_measurement=enclave_measurement,
+        )
+        _apply_payment_fields(
+            ctx,
+            job_data,
+            payment=payment,
+            currency=currency,
+            buyer_address=buyer_address,
+            wallet_address=wallet_address,
+            provider_address=provider_address,
+            offer_id=offer_id,
+            offer_quantity=offer_quantity,
+        )
 
         # Submit to coordinator
         result = http_client.post("/v1/jobs", json=job_data)
 
         job_id = cast(str, result.get("job_id"))
-        payment_id = result.get("payment_id")
         success(f"Job submitted: {job_id}")
 
-        # If the coordinator priced the job but did not secure an escrow, sign the
-        # ESCROW_LOCK tx and create the payment in a second step.
-        if not payment_id and result.get("payment_amount") and private_key:
-            node_wallet_addr = result.get("node_wallet_address")
-            if not node_wallet_addr:
-                abort(ctx, "coordinator did not return node_wallet_address; cannot build ESCROW_LOCK")
-            payment_amount = result.get("payment_amount")
-            if payment_amount is None:
-                abort(ctx, "coordinator did not return payment_amount")
-            payment_token = str(result.get("payment_token") or currency or "AITBC")
-            payment_result = _create_escrow_payment(
-                ctx,
-                http_client,
-                rpc_url,
-                job_id,
-                str(payment_amount),
-                payment_token,
-                buyer_address,
-                str(result.get("provider_address") or provider_address or os.environ.get("SHOP_WALLET_ADDRESS") or ""),
-                private_key,
-                str(node_wallet_addr),
-                chain_id or config.chain_id,
-                offer_id,
-                offer_quantity,
-            )
-            payment_id = payment_result.get("payment_id")
-            success(f"Escrow secured: {payment_id}")
+        payment_id = _secure_escrow(
+            ctx,
+            http_client,
+            rpc_url,
+            result,
+            job_id,
+            currency=currency,
+            buyer_address=buyer_address,
+            provider_address=provider_address,
+            private_key=private_key,
+            chain_id=chain_id or config.chain_id,
+            offer_id=offer_id,
+            offer_quantity=offer_quantity,
+        )
 
         # A paid job whose escrow could not be secured can never be dispatched --
         # the coordinator holds it out of the queue until TTL expiry. Surface
@@ -583,6 +725,40 @@ def submit(
         abort(ctx, f"Network error: {detail or e}", from_exception=e)
     except Exception as e:
         abort(ctx, f"Error submitting job: {e}", from_exception=e)
+
+
+def _resolve_pay_params(
+    ctx,
+    rpc_url: str,
+    job: dict[str, Any],
+    wallet_address: str,
+    buyer_address,
+    provider_address,
+    offer_id,
+    offer_quantity,
+):
+    """Resolve payment fields for an existing job from flags and the job record."""
+    payment_amount = job.get("payment_amount")
+    if payment_amount is None:
+        abort(ctx, "Job has no payment_amount; it may not be a paid job")
+
+    node_wallet_addr = job.get("node_wallet_address") or get_node_wallet(ctx, rpc_url)
+    if not node_wallet_addr:
+        abort(ctx, "Cannot determine node wallet address for ESCROW_LOCK")
+
+    buyer_address = buyer_address or job.get("buyer_address") or wallet_address
+    if not buyer_address:
+        abort(ctx, "buyer_address is required: set --buyer-address, --wallet, or ensure the job has one")
+
+    provider_address = provider_address or job.get("provider_address") or os.environ.get("SHOP_WALLET_ADDRESS")
+    if not provider_address:
+        abort(ctx, "provider_address is required: set --provider-address or ensure the job has one")
+
+    offer_id = offer_id or job.get("offer_id")
+    if offer_quantity is None:
+        offer_quantity = job.get("offer_quantity")
+
+    return payment_amount, node_wallet_addr, buyer_address, provider_address, offer_id, offer_quantity
 
 
 @ai.command(
@@ -654,25 +830,9 @@ def pay(
         if job.get("payment_id") and job.get("payment_status") not in ("pending", "skipped", None):
             abort(ctx, f"Job {job_id} already has payment_status={job.get('payment_status')}; not creating a second payment")
 
-        payment_amount = job.get("payment_amount")
-        if payment_amount is None:
-            abort(ctx, "Job has no payment_amount; it may not be a paid job")
-
-        node_wallet_addr = job.get("node_wallet_address") or get_node_wallet(ctx, rpc_url)
-        if not node_wallet_addr:
-            abort(ctx, "Cannot determine node wallet address for ESCROW_LOCK")
-
-        buyer_address = buyer_address or job.get("buyer_address") or wallet_address
-        if not buyer_address:
-            abort(ctx, "buyer_address is required: set --buyer-address, --wallet, or ensure the job has one")
-
-        provider_address = provider_address or job.get("provider_address") or os.environ.get("SHOP_WALLET_ADDRESS")
-        if not provider_address:
-            abort(ctx, "provider_address is required: set --provider-address or ensure the job has one")
-
-        offer_id = offer_id or job.get("offer_id")
-        if offer_quantity is None:
-            offer_quantity = job.get("offer_quantity")
+        payment_amount, node_wallet_addr, buyer_address, provider_address, offer_id, offer_quantity = _resolve_pay_params(
+            ctx, rpc_url, job, wallet_address, buyer_address, provider_address, offer_id, offer_quantity
+        )
 
         payment_result = _create_escrow_payment(
             ctx,
@@ -847,6 +1007,34 @@ def refund(ctx, job_id, reason, coordinator_url):
         abort(ctx, f"Error refunding job: {e}", from_exception=e)
 
 
+def _sweep_job(http_client: AITBCHTTPClient, job: dict[str, Any], reason: str, dry_run: bool, counts) -> None:
+    """Refund one completed job's still-escrowed payment unless it is skipped."""
+    if job.get("payment_status") not in ("escrowed", "pending_acceptance"):
+        return
+    if job.get("zk_status") == "verified":
+        return
+    payment_id = job.get("payment_id")
+    job_id = job.get("job_id")
+    if not payment_id or not job_id:
+        return
+    counts["candidates"] += 1
+    if dry_run:
+        return
+    try:
+        http_client.post(
+            f"/v1/payments/{payment_id}/refund",
+            json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
+        )
+        counts["refunded"] += 1
+        success(f"Refunded payment {payment_id} for job {job_id}")
+    except NetworkError as e:
+        counts["failed"] += 1
+        warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
+    except Exception as e:
+        counts["failed"] += 1
+        warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
+
+
 @ai.command(
     name="refund-sweep",
     epilog="""Examples:
@@ -881,31 +1069,7 @@ def refund_sweep(ctx, limit, reason, dry_run, coordinator_url, format):
 
         counts = {"candidates": 0, "refunded": 0, "failed": 0}
         for job in jobs:
-            payment_status = job.get("payment_status")
-            if payment_status not in ("escrowed", "pending_acceptance"):
-                continue
-            if job.get("zk_status") == "verified":
-                continue
-            payment_id = job.get("payment_id")
-            job_id = job.get("job_id")
-            if not payment_id or not job_id:
-                continue
-            counts["candidates"] += 1
-            if dry_run:
-                continue
-            try:
-                http_client.post(
-                    f"/v1/payments/{payment_id}/refund",
-                    json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
-                )
-                counts["refunded"] += 1
-                success(f"Refunded payment {payment_id} for job {job_id}")
-            except NetworkError as e:
-                counts["failed"] += 1
-                warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
-            except Exception as e:
-                counts["failed"] += 1
-                warning(f"Failed to refund payment {payment_id} for job {job_id}: {e}")
+            _sweep_job(http_client, job, reason, dry_run, counts)
 
         output(counts, ctx.obj.get("output_format", format), title="ZK refund sweep")
 
@@ -1064,6 +1228,33 @@ def results(ctx, job_id, coordinator_url, format):
         abort(ctx, f"Error getting job results: {e}", from_exception=e)
 
 
+def _refund_after_cancel(ctx, http_client: AITBCHTTPClient, result, job_id: str, reason: str):
+    """Refund the escrowed payment after a cancel, falling back to the chain."""
+    payment_status = result.get("payment_status", "") if isinstance(result, dict) else ""
+    if payment_status not in ("escrowed", "pending", "pending_acceptance"):
+        return result
+    payment_id = result.get("payment_id") if isinstance(result, dict) else None
+    refund_result = None
+    if payment_id:
+        try:
+            refund_result = http_client.post(
+                f"/v1/payments/{payment_id}/refund",
+                json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
+            )
+        except Exception as e:
+            logger.warning("Coordinator refund after cancel failed: %s", e)
+    if not refund_result:
+        # Fallback to on-chain escrow refund.
+        from .market.escrow import refund_escrow
+
+        refund_result = refund_escrow(ctx, job_id, reason)
+    if isinstance(result, dict):
+        result["refund"] = refund_result
+    else:
+        result = {"cancel_result": result, "refund": refund_result}
+    return result
+
+
 @ai.command(
     epilog="""Examples:
 
@@ -1103,27 +1294,8 @@ def cancel(ctx, job_id, wallet, password, password_file, refund, reason, coordin
         http_client = AITBCHTTPClient(base_url=coord_url, timeout=30, headers=_auth_headers(ctx))
         result = http_client.post(f"/v1/jobs/{job_id}/cancel")
 
-        payment_status = result.get("payment_status", "") if isinstance(result, dict) else ""
-        if refund and payment_status in ("escrowed", "pending", "pending_acceptance"):
-            payment_id = result.get("payment_id") if isinstance(result, dict) else None
-            refund_result = None
-            if payment_id:
-                try:
-                    refund_result = http_client.post(
-                        f"/v1/payments/{payment_id}/refund",
-                        json={"job_id": job_id, "payment_id": payment_id, "reason": reason},
-                    )
-                except Exception as e:
-                    logger.warning("Coordinator refund after cancel failed: %s", e)
-            if not refund_result:
-                # Fallback to on-chain escrow refund.
-                from ..market.escrow import refund_escrow
-
-                refund_result = refund_escrow(ctx, job_id, reason)
-            if isinstance(result, dict):
-                result["refund"] = refund_result
-            else:
-                result = {"cancel_result": result, "refund": refund_result}  # type: ignore[unreachable]
+        if refund:
+            result = _refund_after_cancel(ctx, http_client, result, job_id, reason)
 
         success(f"Job {job_id} cancelled")
         output(result, resolve_output_format(ctx, format))
