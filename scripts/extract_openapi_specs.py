@@ -22,11 +22,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "market" / "src")
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "wallet" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "agent-coordinator" / "src"))
 sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "api-gateway" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "governance" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "pool-hub" / "src"))
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "trading" / "src"))
+# blockchain-explorer ships a bare main.py (no package), so its directory must
+# sit at sys.path[0] for `import main` to resolve to it rather than any other
+# app's main module. Insert it last.
+sys.path.insert(0, str(Path(__file__).parent.parent / "apps" / "blockchain-explorer"))
 
 # Defaults for services that require environment variables to import
 os.environ.setdefault("COORDINATOR_API_KEY", "test-key")
 os.environ.setdefault("MARKET_DATABASE_URL", "sqlite+aiosqlite:///./test_market.db")
-os.environ.setdefault("DATABASE_URL", "sqlite:///./test_api.db")
+# Async driver: governance/trading hand DATABASE_URL straight to
+# create_async_engine, where a plain sqlite:/// URL fails at import
+# ("pysqlite is not async"). Market prefers MARKET_DATABASE_URL and the
+# coordinator reads its own URL setting, so the async form is safe to share.
+os.environ.setdefault("DATABASE_URL", "sqlite+aiosqlite:///./test_api.db")
 os.environ.setdefault("WALLET_BIND_PORT", "8108")
 # A keystore directory, so not a fixed path: `/tmp/test_wallet` is guessable and shared, and
 # two people generating specs on one host would have written keys into each other's. The
@@ -106,6 +117,32 @@ APPS = [
         "module": "agent_app.main:app",
         "output": "agent-coordinator-openapi.json",
     },
+    {
+        "name": "governance",
+        "module": "governance_service.main:app",
+        "output": "governance-openapi.json",
+    },
+    {
+        "name": "pool-hub",
+        "module": "poolhub.app.main:app",
+        "output": "pool-hub-openapi.json",
+    },
+    {
+        "name": "trading",
+        "module": "trading_service.main:app",
+        "output": "trading-openapi.json",
+    },
+    {
+        # The explorer ships a bare main.py rather than a package — its
+        # directory is inserted last into sys.path so `import main` resolves
+        # here. Keep this entry last.
+        "name": "explorer",
+        "module": "main:app",
+        "output": "explorer-openapi.json",
+    },
+    # exchange stays undocumented: it is a BaseHTTPRequestHandler service, not
+    # FastAPI, so there is no app.openapi() to extract. Its v2 qualifier keeps
+    # "spec": null in api-v2-map.json until a hand-maintained spec exists.
 ]
 
 
@@ -116,8 +153,14 @@ V2_QUALIFIER_FOR_APP = {
     "coordinator-api": "coordinator",
     "blockchain-node": "chain",
     "market": "market",
-    "wallet": "wallet",
+    # wallet is extracted but has no qualifier: its spec documents the
+    # loopback-only daemon surface (the wallet was pulled from the gateway
+    # in Phase H).
     "agent-coordinator": "agent-coordinator",
+    "governance": "governance",
+    "pool-hub": "pool-hub",
+    "trading": "trading",
+    "explorer": "explorer",
 }
 
 _V2_HTTP_METHODS = {"GET", "POST", "PUT", "DELETE", "PATCH", "HEAD", "OPTIONS"}
