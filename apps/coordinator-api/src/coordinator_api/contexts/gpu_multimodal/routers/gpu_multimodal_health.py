@@ -3,6 +3,7 @@ GPU Multi-Modal Service Health Check Router
 Provides health monitoring for CUDA-optimized multi-modal processing
 """
 
+import asyncio
 import subprocess
 import sys
 from datetime import UTC, datetime
@@ -148,15 +149,21 @@ async def gpu_multimodal_deep_health(request: Request, session: Annotated[Sessio
 async def check_gpu_availability() -> dict[str, Any]:
     """Check GPU availability and metrics"""
     try:
-        result = subprocess.run(
-            [
-                "nvidia-smi",
-                "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu",
-                "--format=csv,noheader,nounits",
-            ],
-            capture_output=True,
-            text=True,
-            timeout=5,
+        proc = await asyncio.create_subprocess_exec(
+            "nvidia-smi",
+            "--query-gpu=name,memory.total,memory.used,memory.free,utilization.gpu",
+            "--format=csv,noheader,nounits",
+            stdout=asyncio.subprocess.PIPE,
+            stderr=asyncio.subprocess.PIPE,
+        )
+        try:
+            out_b, _ = await asyncio.wait_for(proc.communicate(), timeout=5)
+        except TimeoutError:
+            proc.kill()
+            await proc.wait()
+            return {"available": False, "error": "GPU not detected or nvidia-smi failed"}
+        result = subprocess.CompletedProcess(
+            [], proc.returncode if proc.returncode is not None else 1, out_b.decode(errors="replace")
         )
         if result.returncode == 0:
             lines = result.stdout.strip().split("\n")

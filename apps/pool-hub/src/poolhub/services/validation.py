@@ -2,6 +2,7 @@
 Hardware validation service for service configurations
 """
 
+import asyncio
 from typing import Any
 
 import requests
@@ -67,7 +68,7 @@ class HardwareValidator:
     async def _get_service_definition(self, service_id: str) -> dict[str, Any] | None:
         """Fetch service definition from registry"""
         try:
-            response = requests.get(f"{self.registry_url}/services/{service_id}", timeout=30)
+            response = await asyncio.to_thread(requests.get, f"{self.registry_url}/services/{service_id}", timeout=30)
             if response.status_code == 200:
                 return response.json()  # type: ignore
             return None
@@ -260,7 +261,7 @@ class HardwareValidator:
         """Get list of services compatible with miner hardware"""
         try:
             # Get all services from registry
-            response = requests.get(f"{self.registry_url}/services", timeout=30)
+            response = await asyncio.to_thread(requests.get, f"{self.registry_url}/services", timeout=30)
             if response.status_code != 200:
                 return []
 

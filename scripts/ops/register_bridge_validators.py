@@ -43,7 +43,9 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import secrets
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -256,6 +258,9 @@ def _main() -> int:
             "signature": self_signature,
             "epoch": args.epoch,
             "admin_address": admin_address,
+            "issued_at": datetime.now(UTC).isoformat(),
+            "nonce": secrets.token_hex(16),
+            "target_chain_id": args.chain_id,
         }
 
         # Admin signature covers the payload excluding admin_signature itself.

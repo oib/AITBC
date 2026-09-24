@@ -468,14 +468,14 @@ async def export_chain_route(request: Request, chain_id: str | None = None) -> d
     return await export_chain(request, chain_id)  # type: ignore[no-any-return]
 
 
-@router.post("/import-chain", summary="Import chain state")
+@router.post("/import-chain", summary="Import chain state", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def import_chain_route(request: Request, import_data: dict) -> dict[str, Any]:
     """Import chain state from JSON for manual synchronization"""
     return await import_chain(request, import_data)  # type: ignore[no-any-return]
 
 
-@router.post("/force-sync", summary="Force reorg to specified peer")
+@router.post("/force-sync", summary="Force reorg to specified peer", dependencies=[Depends(verify_rpc_api_key)])
 @rate_limit(rate=50, per=60)
 async def force_sync_route(request: Request, peer_data: dict) -> dict[str, Any]:
     """Force blockchain reorganization to sync with specified peer"""

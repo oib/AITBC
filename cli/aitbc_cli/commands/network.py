@@ -157,17 +157,45 @@ def test(ctx, peer, rpc_url):
 @network.command(
     epilog="""Examples:
 
-  aitbc network force-sync
+  aitbc network force-sync --peer-url http://node2.example.net:8006
 
-  aitbc network force-sync --rpc-url http://localhost:8202"""
+  aitbc network force-sync --peer-url http://node2.example.net:8006 --admin-private-key 0xAdmin..."""
 )
 @click.option("--rpc-url", default="http://localhost:8202", help="Blockchain RPC URL")
+@click.option("--peer-url", required=True, help="Peer base URL to import the chain from")
+@click.option("--admin-private-key", required=True, help="Bridge admin private key hex for the destructive-op signature")
+@click.option("--admin-address", default=None, help="Admin address (defaults to address derived from --admin-private-key)")
 @click.pass_context
-def force_sync(ctx, rpc_url):
-    """Force the local node to synchronize with the network."""
+def force_sync(ctx, rpc_url, peer_url, admin_private_key, admin_address):
+    """Force the local node to wipe and re-import its chain from a peer."""
+    from datetime import UTC, datetime
+    import secrets
+
+    from ..config import get_config
+    from .bridge import _derive_address, _sign_dict
+
+    admin_address = admin_address or _derive_address(admin_private_key)
+    payload = {
+        "peer_url": peer_url,
+        "admin_address": admin_address,
+        "issued_at": datetime.now(UTC).isoformat(),
+        "nonce": secrets.token_hex(16),
+    }
     try:
-        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
-        result = http_client.post("/rpc/force-sync", json={})
+        http_client = AITBCHTTPClient(base_url=rpc_url, timeout=60, api_key=get_config().blockchain_rpc_api_key)
+        # Bind the signature to this node so a captured payload cannot be
+        # replayed against a different node or chain.
+        try:
+            info = http_client.get("/rpc/network-info")
+            if isinstance(info, dict):
+                if info.get("node_id") not in (None, "unknown"):
+                    payload["target_node_id"] = info["node_id"]
+                if info.get("chain_id"):
+                    payload["target_chain_id"] = info["chain_id"]
+        except Exception:
+            pass
+        payload["admin_signature"] = _sign_dict(admin_private_key, payload)
+        result = http_client.post("/rpc/force-sync", json=payload)
         output(result, ctx.obj.get("output_format", "table"), title="Force Sync")
     except NetworkError as e:
         abort(ctx, f"Network error: {e}", from_exception=e)

@@ -20,7 +20,7 @@ decoded minutes, and the service has no decoder library of its own to probe a
 container header with.
 
 The real ffmpeg never runs here. `TestClient` is used without its context
-manager so the lifespan never starts, and `subprocess.run` is replaced with a
+manager so the lifespan never starts, and `_run_cmd` is replaced with a
 stub that answers the `-hwaccels` probe and the transcode call -- these tests
 are about what the service refuses, not about transcoding.
 """
@@ -77,9 +77,9 @@ def ffmpeg(tmp_path_factory):
 
 
 def _fake_run(calls: list[list[str]] | None = None):
-    """Stand in for subprocess.run: -hwaccels reports cuda, everything else succeeds."""
+    """Stand in for _run_cmd: -hwaccels reports cuda, everything else succeeds."""
 
-    def _run(cmd, **kwargs):
+    async def _run(cmd, timeout=None, **kwargs):
         if calls is not None:
             calls.append(list(cmd))
         stdout = "cuda\nvaapi\n" if list(cmd[:2]) == ["ffmpeg", "-hwaccels"] else ""
@@ -97,7 +97,7 @@ def client(ffmpeg, tmp_path, monkeypatch):
     end of a request is a leak the test can see.
     """
     monkeypatch.setattr(tempfile, "tempdir", str(tmp_path))
-    monkeypatch.setattr(ffmpeg.subprocess, "run", _fake_run())
+    monkeypatch.setattr(ffmpeg, "_run_cmd", _fake_run())
     # No `with`: the context manager runs the lifespan, which would shell out.
     return TestClient(ffmpeg.app)
 
@@ -202,7 +202,7 @@ def test_an_oversized_body_is_refused_before_it_is_read(client, ffmpeg, tmp_path
     where the refusal happens, not about moving half a gigabyte through a test."""
     monkeypatch.setattr(ffmpeg, "_MAX_BODY_BYTES", 128)
     calls: list[list[str]] = []
-    monkeypatch.setattr(ffmpeg.subprocess, "run", _fake_run(calls))
+    monkeypatch.setattr(ffmpeg, "_run_cmd", _fake_run(calls))
     before = set(tmp_path.iterdir())
     response = _post(client, b"x" * 4096)
     assert response.status_code == 413
