@@ -13,7 +13,7 @@ from aitbc.constants import BLOCKCHAIN_RPC_URL
 
 from aitbc_shared.core.config import ServiceSettings
 
-from pydantic import Field
+from pydantic import AliasChoices, Field
 from pydantic_settings import SettingsConfigDict
 
 
@@ -46,14 +46,16 @@ class Settings(ServiceSettings):
     rate_limit_window_seconds: int = 60
 
     # Service binding (kept for backward compat with MARKET_BIND_HOST/PORT env vars;
-    # ServiceSettings also provides app_host/app_port)
+    # ServiceSettings also provides app_host/app_port). The MARKETPLACE_* spellings
+    # are the pre-rename names, accepted so a host part-way through the migration
+    # keeps its configured bind instead of silently falling back to the default.
     market_bind_host: str = Field(
         default="0.0.0.0",
-        validation_alias="MARKET_BIND_HOST",
+        validation_alias=AliasChoices("MARKET_BIND_HOST", "MARKETPLACE_BIND_HOST"),
     )  # nosec B104 - code default only; the effective bind is pinned per host in the systemd unit. the containers run no firewall of their own, so a bind-all default is reachable by every other container on the bridge; accepted deviation tracked in docs/deployment/NETWORK_POLICY.md, not a safe fallback
     market_bind_port: int = Field(
         default=8102,
-        validation_alias="MARKET_BIND_PORT",
+        validation_alias=AliasChoices("MARKET_BIND_PORT", "MARKETPLACE_BIND_PORT"),
     )
 
 

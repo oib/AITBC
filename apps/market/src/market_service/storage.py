@@ -18,6 +18,7 @@ from sqlalchemy.ext.asyncio import AsyncSession, create_async_engine
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.constants import DATA_DIR
+from aitbc.env_compat import market_getenv
 
 # Importing the models is what puts them on `market_metadata`; create_all builds nothing
 # otherwise. This service's own tables live there rather than on the global SQLModel registry --
@@ -28,12 +29,12 @@ from .domain.base import market_metadata
 
 logger = get_logger(__name__)
 DEFAULT_DB = f"sqlite+aiosqlite:///{DATA_DIR}/data/marketplace_service.db"
-DATABASE_URL = os.getenv("MARKET_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
+DATABASE_URL = market_getenv("MARKET_DATABASE_URL", os.getenv("DATABASE_URL", DEFAULT_DB))
 engine = create_async_engine(DATABASE_URL, echo=False)
 logger.info(
     "Storage module loaded: engine=%s, DATABASE_URL=%s",
     engine,
-    os.getenv("MARKET_DATABASE_URL", "not set"),
+    market_getenv("MARKET_DATABASE_URL", "not set"),
 )
 
 

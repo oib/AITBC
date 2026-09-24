@@ -19,6 +19,7 @@ from aitbc.auth.middleware import AuthMiddleware
 from aitbc.http_client import setup_request_id_context
 from aitbc.middleware import (
     ErrorHandlerMiddleware,
+    LegacyPathRewriteMiddleware,
     PerformanceLoggingMiddleware,
     PrometheusMetricsMiddleware,
     RequestIDMiddleware,
@@ -791,6 +792,10 @@ def create_app() -> FastAPI:
                 if key in _seen_routes:
                     logger.warning(f"Duplicate route registered: {method} {route.path}")
                 _seen_routes.add(key)
+
+    # Added last so it wraps everything: auth, rate limiting and logging all
+    # see the canonical path, never the pre-rename /v1/marketplace spelling.
+    app.add_middleware(LegacyPathRewriteMiddleware)
 
     return app
 
