@@ -121,29 +121,6 @@ async def register_partner(
     )
 
 
-@router.get("/partners/{partner_id}")
-@rate_limit(rate=50, per=60)
-async def get_partner(
-    partner_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
-) -> dict[str, Any]:
-    """Get partner information"""
-
-    # Verify API key
-    partner = verify_partner_api_key(session, partner_id, api_key)
-    if not partner:
-        raise HTTPException(401, "Invalid credentials")
-
-    # Return safe partner info
-    return {
-        "partner_id": partner.id,
-        "name": partner.name,
-        "integration_type": partner.integration_type,
-        "rate_limit": partner.rate_limit,
-        "created_at": partner.created_at,
-        "status": partner.status,
-    }
-
-
 @router.post("/partners/webhooks", response_model=WebhookResponse)
 @rate_limit(rate=20, per=60)
 async def create_webhook(
@@ -263,6 +240,31 @@ async def get_usage_analytics(
     }
 
     return usage
+
+
+# Declared last so /partners/webhooks and /partners/analytics/usage win over the
+# parameterized path — FastAPI matches routes in registration order.
+@router.get("/partners/{partner_id}")
+@rate_limit(rate=50, per=60)
+async def get_partner(
+    partner_id: str, request: Request, session: Annotated[Session, Depends(get_session)], api_key: str
+) -> dict[str, Any]:
+    """Get partner information"""
+
+    # Verify API key
+    partner = verify_partner_api_key(session, partner_id, api_key)
+    if not partner:
+        raise HTTPException(401, "Invalid credentials")
+
+    # Return safe partner info
+    return {
+        "partner_id": partner.id,
+        "name": partner.name,
+        "integration_type": partner.integration_type,
+        "rate_limit": partner.rate_limit,
+        "created_at": partner.created_at,
+        "status": partner.status,
+    }
 
 
 # Helper functions
