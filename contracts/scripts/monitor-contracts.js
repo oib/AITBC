@@ -80,7 +80,7 @@ async function main() {
     // Monitor AgentMarketV2
     if (deployments.AgentMarketV2) {
       console.log("\n--- AgentMarketV2 Monitoring ---");
-      const AgentMarketV2 = await ethers.getContractFactory("AgentMarketV2");
+      const AgentMarketV2 = await ethers.getContractFactory("AgentMarketplaceV2");
       const market = AgentMarketV2.attach(deployments.AgentMarketV2);
 
       // This block used to call getMarketStats() and getActiveListings() and report
