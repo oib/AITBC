@@ -213,7 +213,7 @@ name = "aitbc-errors"
 version = "0.1.0"
 description = "AITBC exception hierarchy. Deliberately dependency-free."
 optional = false
-python-versions = ">=3.13.5,<3.14"
+python-versions = "==3.13.5"
 groups = ["main"]
 files = []
 develop = true
@@ -227,7 +227,7 @@ name = "aitbc-shared"
 version = "0.1.0"
 description = "Shared ORM models and utilities for AITBC applications"
 optional = false
-python-versions = ">=3.13"
+python-versions = "==3.13.5"
 groups = ["main"]
 files = []
 develop = true
@@ -8697,5 +8697,5 @@ sqlcipher = ["sqlcipher3-binary"]
 
 [metadata]
 lock-version = "2.1"
-python-versions = ">=3.13.5,<3.14"
-content-hash = "71fd29cdd26c4b16b81236bd86cf33e41b1f82314ec8ea8b9355fc28e7cf4fa9"
+python-versions = "==3.13.5"
+content-hash = "3c284bd7d601ab1b5d62b7fe834fdc55b2e0199b7285caca6744d96df4768e01"
