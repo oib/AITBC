@@ -400,7 +400,15 @@ def _address_is_forbidden(ip: Any) -> bool:
 
 @rate_limit(rate=50, per=60)
 async def force_sync(request: Request, peer_data: dict[str, Any]) -> dict[str, Any]:
-    """Force blockchain reorganization to sync with specified peer"""
+    """Force blockchain reorganization to sync with specified peer.
+
+    Trust boundary: the admin-chosen peer's export is applied without
+    verification beyond structural checks — including its
+    ``chain_parameters``/``parameter_history`` sections, which set the
+    authority gates. That is inherent to force-sync (the peer could already
+    supply arbitrary balances), but it means authority parameters can now be
+    set by whoever the operator picks as the sync source.
+    """
     try:
         if not verify_admin_signature(peer_data, peer_data.get("admin_address"), peer_data.get("admin_signature")):
             raise HTTPException(status_code=403, detail="Invalid or unauthorized admin signature")
