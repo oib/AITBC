@@ -4,7 +4,7 @@ Covers:
 - reserve guard in _release_eth_for_withdrawal
 - successful ETH release updates the withdrawal record
 - release failure with insufficient reserve
-- _refund_withdrawal submits a BRIDGE_REFUND and updates the record
+- _refund_withdrawal submits a refund transfer and updates the record
 - refund failure marks the record failed
 - _pending_eth_reserve sums pending/insufficient-reserve withdrawals
 """

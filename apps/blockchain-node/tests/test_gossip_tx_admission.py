@@ -11,13 +11,16 @@ funded sender was mineable, bypassing every REST admission guard.
 ``gossip_transaction_drop_reason`` mirrors the REST admission contract: signed
 transactions must verify against ``from``; the only unsigned shape admitted is
 a zero-amount GPU_MARKET listing action (the route's deliberate V23-90
-exemption).
+exemption). Pre-registered credit types (BRIDGE_RELEASE/BRIDGE_REFUND) are
+refused outright at both doors — the bridge issues them inside the node, so no
+client-submitted copy is legitimate.
 """
 
 from __future__ import annotations
 
 from typing import Any
 
+import pytest
 from eth_keys import keys
 
 from aitbc_chain.rpc.utils import gossip_transaction_drop_reason, sign_transaction_data
@@ -110,3 +113,46 @@ def test_unsigned_other_types_dropped():
     for tx_type in ("STAKE_LOCK", "ESCROW_LOCK", "BOND_LOCK", "MESSAGE"):
         tx = _transfer_tx(type=tx_type)
         assert gossip_transaction_drop_reason(tx) == "missing_signature", tx_type
+
+
+def _signed(tx: dict[str, Any]) -> dict[str, Any]:
+    tx["signature"] = sign_transaction_data(tx, "0x" + "33" * 32)
+    return tx
+
+
+def test_signed_bridge_credit_types_dropped():
+    """Credit types are issued inside the node; signed client copies still drop."""
+    for tx_type in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
+        tx = _signed(_transfer_tx(type=tx_type))
+        assert gossip_transaction_drop_reason(tx) == "internal_tx_type", tx_type
+
+
+def test_unsigned_bridge_credit_type_dropped():
+    assert gossip_transaction_drop_reason(_transfer_tx(type="BRIDGE_RELEASE")) == "internal_tx_type"
+
+
+def test_payload_typed_bridge_credit_dropped():
+    """A TRANSFER envelope must not carry a credit type in ``payload.type`` —
+    consensus resolves ``payload["type"]`` when the top-level type is TRANSFER."""
+    tx = _signed(_transfer_tx(payload={"type": "BRIDGE_RELEASE"}))
+    assert gossip_transaction_drop_reason(tx) == "internal_tx_type"
+
+
+def test_signed_bridge_lock_still_admitted():
+    """Control: a signed non-credit bridge type keeps flowing."""
+    assert gossip_transaction_drop_reason(_signed(_transfer_tx(type="BRIDGE_LOCK"))) is None
+
+
+def test_rest_admission_refuses_credit_types():
+    """The REST twin: ``_validate_transaction_admission`` refuses the same
+    types before any account/balance work, on both the top-level and the
+    payload-resolved shape."""
+    from aitbc_chain.rpc.transactions import _validate_transaction_admission
+
+    for tx in (
+        _transfer_tx(type="BRIDGE_RELEASE"),
+        _transfer_tx(type="BRIDGE_REFUND"),
+        _transfer_tx(payload={"type": "BRIDGE_REFUND"}),
+    ):
+        with pytest.raises(ValueError, match="reserved for internal issuance"):
+            _validate_transaction_admission(tx, None)
