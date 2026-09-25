@@ -35,13 +35,16 @@ from aitbc_chain.state.state_transition import (
     _governance_executors,
 )
 
-_EXECUTOR = "0x02b8f2c61db19b04ab68cfb43d0605e63de74c5b"
-_OTHER = "0xab0797ae8cff09b313c71cab2f894b342b6e1d76"
+# Checksummed — resolver outputs go through _to_ait_address.
+_EXECUTOR = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
+_OTHER = "0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76"
 
 
 @pytest.fixture
-def chain_id():
-    return "param-height-chain"
+def chain_id(request):
+    """A fresh chain DB per test — parameter rows are consensus state and
+    must not leak between scenarios."""
+    return f"param-height-{request.node.name[:40]}"
 
 
 @pytest.fixture
