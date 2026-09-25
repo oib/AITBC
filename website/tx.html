@@ -70,23 +70,27 @@
     <script>
         const EXPLORER_API_URL = '/explorer-api';
 
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
         function getParam(name) {
             const url = new URL(window.location.href);
             return url.searchParams.get(name);
         }
 
         function copyBtn(text) {
-            return `<button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
+            return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();navigator.clipboard.writeText(this.dataset.copy)" title="Copy">⧉</button>`;
         }
 
         function plainHash(hash) {
             if (!hash || hash === 'N/A') return 'N/A';
-            return `<span style="font-family:var(--font-mono);">${hash}</span>`;
+            return `<span style="font-family:var(--font-mono);">${escapeHtml(hash)}</span>`;
         }
 
         function addrLink(addr) {
             if (!addr || addr === 'N/A') return 'N/A';
-            return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
+            return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${escapeHtml(addr)}</a>`;
         }
 
         async function loadTransaction() {
@@ -119,16 +123,16 @@
                 document.getElementById('tx-hash-display').textContent = data.hash;
 
                 const details = [
-                    { label: 'Type', value: `<span class="badge badge-primary">${data.type || 'TX'}</span>` },
+                    { label: 'Type', value: `<span class="badge badge-primary">${escapeHtml(data.type || 'TX')}</span>` },
                     { label: 'Hash', value: plainHash(data.hash) + ' ' + copyBtn(data.hash) },
-                    { label: 'Status', value: data.status || 'Unknown' },
-                    { label: 'Block', value: `<a href="/block.html?height=${data.block_height}">#${data.block_height}</a>` },
+                    { label: 'Status', value: escapeHtml(data.status || 'Unknown') },
+                    { label: 'Block', value: `<a href="/block.html?height=${encodeURIComponent(data.block_height)}">#${escapeHtml(data.block_height)}</a>` },
                     { label: 'From', value: addrLink(data.from || data.sender) + ' ' + copyBtn(data.from || data.sender || '') },
                     { label: 'To', value: addrLink(data.to || data.recipient) + ' ' + copyBtn(data.to || data.recipient || '') },
-                    { label: 'Value', value: data.value !== undefined ? data.value : 'N/A' },
-                    { label: 'Fee', value: data.fee !== undefined ? data.fee : 'N/A' },
-                    { label: 'Nonce', value: data.nonce !== undefined ? data.nonce : 'N/A' },
-                    { label: 'Timestamp', value: data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A' },
+                    { label: 'Value', value: escapeHtml(data.value !== undefined ? data.value : 'N/A') },
+                    { label: 'Fee', value: escapeHtml(data.fee !== undefined ? data.fee : 'N/A') },
+                    { label: 'Nonce', value: escapeHtml(data.nonce !== undefined ? data.nonce : 'N/A') },
+                    { label: 'Timestamp', value: escapeHtml(data.created_at ? new Date(data.created_at).toLocaleString() : 'N/A') },
                 ];
 
                 document.getElementById('tx-details').innerHTML = `

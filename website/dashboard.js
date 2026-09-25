@@ -7,6 +7,10 @@
 
 const AITBC = window.AITBC_CONFIG || { chainId: 'ait-hub.aitbc.bubuit.net', explorerApiUrl: '/explorer-api' };
 
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function apiGet(path) {
     try {
         const res = await fetch(path);
@@ -56,9 +60,9 @@ function renderTable(containerId, rows, columns) {
         return;
     }
     let html = '<table class="block-list-table">';
-    html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${c.label}</th>`).join('') + '</tr>';
+    html += '<tr>' + columns.map(c => `<th style="text-align:left;padding:0.5rem;border-bottom:1px solid var(--border);">${escapeHtml(c.label)}</th>`).join('') + '</tr>';
     rows.forEach(row => {
-        html += '<tr>' + columns.map(c => `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${row[c.key] != null ? row[c.key] : 'N/A'}</td>`).join('') + '</tr>';
+        html += '<tr>' + columns.map(c => `<td style="padding:0.5rem;border-bottom:1px solid var(--border);">${row[c.key] != null ? escapeHtml(row[c.key]) : 'N/A'}</td>`).join('') + '</tr>';
     });
     html += '</table>';
     container.innerHTML = html;

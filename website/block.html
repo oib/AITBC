@@ -60,13 +60,17 @@
     <script>
         const EXPLORER_API_URL = '/explorer-api';
 
+        function escapeHtml(s) {
+            return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+        }
+
         function getParam(name) {
             const url = new URL(window.location.href);
             return url.searchParams.get(name);
         }
 
         function copyBtn(text) {
-            return `<button class="copy-btn" onclick="event.stopPropagation();navigator.clipboard.writeText('${text}')" title="Copy">⧉</button>`;
+            return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation();navigator.clipboard.writeText(this.dataset.copy)" title="Copy">⧉</button>`;
         }
 
         async function loadBlock() {
@@ -100,21 +104,21 @@
 
                 function plainHash(hash) {
                     if (!hash || hash === 'N/A') return 'N/A';
-                    return `<span style="font-family:var(--font-mono);">${hash}</span>`;
+                    return `<span style="font-family:var(--font-mono);">${escapeHtml(hash)}</span>`;
                 }
                 function addrLink(addr) {
                     if (!addr || addr === 'N/A') return 'N/A';
-                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${addr}</a>`;
+                    return `<a href="/search.html?query=${encodeURIComponent(addr)}" class="clickable-value" title="Search address">${escapeHtml(addr)}</a>`;
                 }
 
                 document.getElementById('block-details').innerHTML = `
                     <div class="endpoint fade-in block-item" style="padding:0;">
                         <table class="block-list-table">
-                            <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${data.height}</td></tr>
+                            <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(data.height)}</td></tr>
                             <tr><td>Hash</td><td>${plainHash(data.hash)} ${copyBtn(data.hash || '')}</td></tr>
                             <tr><td>Proposer</td><td>${addrLink(data.proposer)} ${copyBtn(data.proposer || '')}</td></tr>
-                            <tr><td>Timestamp</td><td>${data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A'}</td></tr>
-                            <tr><td>Transactions</td><td>${data.txCount ?? data.transactions?.length ?? 0}</td></tr>
+                            <tr><td>Timestamp</td><td>${escapeHtml(data.timestamp ? new Date(data.timestamp).toLocaleString() : 'N/A')}</td></tr>
+                            <tr><td>Transactions</td><td>${escapeHtml(data.txCount ?? data.transactions?.length ?? 0)}</td></tr>
                             <tr><td>State Root</td><td>${plainHash(data.stateRoot)} ${copyBtn(data.stateRoot || '')}</td></tr>
                         </table>
                     </div>
@@ -127,15 +131,15 @@
                     return `
                     <div class="endpoint fade-in block-item" style="cursor:pointer;padding:0;" onclick="location.href='/tx.html?hash=${encodeURIComponent(tx.tx_hash)}'">
                         <table class="block-list-table">
-                            <tr><td>Type</td><td><span class="badge badge-primary">${tx.type || 'TX'}</span></td></tr>
-                            <tr><td>Hash</td><td>${tx.tx_hash} ${copyBtn(tx.tx_hash)}</td></tr>
+                            <tr><td>Type</td><td><span class="badge badge-primary">${escapeHtml(tx.type || 'TX')}</span></td></tr>
+                            <tr><td>Hash</td><td>${escapeHtml(tx.tx_hash)} ${copyBtn(tx.tx_hash)}</td></tr>
                             <tr><td>From</td><td>${addrLink(tx.sender)}</td></tr>
                             <tr><td>To</td><td>${addrLink(tx.recipient)}</td></tr>
-                            <tr><td>Amount</td><td><strong>${amount}</strong> AIT</td></tr>
-                            <tr><td>Fee</td><td>${tx.fee != null ? tx.fee : 'N/A'}</td></tr>
-                            <tr><td>Nonce</td><td>${tx.nonce != null ? tx.nonce : 'N/A'}</td></tr>
-                            <tr><td>Status</td><td>${tx.status || 'N/A'}</td></tr>
-                            <tr><td>Time</td><td>${tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A'}</td></tr>
+                            <tr><td>Amount</td><td><strong>${escapeHtml(amount)}</strong> AIT</td></tr>
+                            <tr><td>Fee</td><td>${escapeHtml(tx.fee != null ? tx.fee : 'N/A')}</td></tr>
+                            <tr><td>Nonce</td><td>${escapeHtml(tx.nonce != null ? tx.nonce : 'N/A')}</td></tr>
+                            <tr><td>Status</td><td>${escapeHtml(tx.status || 'N/A')}</td></tr>
+                            <tr><td>Time</td><td>${escapeHtml(tx.created_at ? new Date(tx.created_at).toLocaleString() : 'N/A')}</td></tr>
                         </table>
                     </div>
                     `;

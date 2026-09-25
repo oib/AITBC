@@ -1,3 +1,7 @@
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 let allOffers = [];
 let currentFilter = 'all';
 let currentStatusFilter = 'all';
@@ -85,14 +89,14 @@ function createOfferCard(offer) {
     // Blockchain verification information
     const isConfirmed = offer.confirmed === true;
     const confirmationBadge = isConfirmed
-        ? `<span class="blockchain-confirmed">✓ Confirmed in Block #${offer.block_height}</span>`
+        ? `<span class="blockchain-confirmed">✓ Confirmed in Block #${escapeHtml(offer.block_height)}</span>`
         : `<span class="blockchain-pending">⏳ Pending (Not on blockchain)</span>`;
 
     const blockInfo = isConfirmed ? `
         <div class="blockchain-info">
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Height:</span>
-                <span class="blockchain-value">${offer.block_height}</span>
+                <span class="blockchain-value">${escapeHtml(offer.block_height)}</span>
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Hash:</span>
@@ -104,7 +108,7 @@ function createOfferCard(offer) {
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Time:</span>
-                <span class="blockchain-value">${offer.block_timestamp ? new Date(offer.block_timestamp).toLocaleString() : 'N/A'}</span>
+                <span class="blockchain-value">${escapeHtml(offer.block_timestamp ? new Date(offer.block_timestamp).toLocaleString() : 'N/A')}</span>
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Proposer:</span>
@@ -117,33 +121,33 @@ function createOfferCard(offer) {
         <div class="offer-card">
             <div class="offer-header">
                 <div class="offer-title">${formatServiceTitle(offer)}</div>
-                <div class="offer-status ${statusClass}">${statusText}</div>
+                <div class="offer-status ${statusClass}">${escapeHtml(statusText)}</div>
             </div>
 
             <div class="blockchain-status">
                 ${confirmationBadge}
             </div>
-            <div class="reputation-badge" data-provider="${providerId}" id="rep-${offer.plugin_id || offer.id || Math.random().toString(36).slice(2)}">
+            <div class="reputation-badge" data-provider="${escapeHtml(providerId)}" id="rep-${escapeHtml(offer.plugin_id || offer.id || Math.random().toString(36).slice(2))}">
                 <span class="rep-score">--</span>
                 <span class="rep-level">Loading...</span>
             </div>
 
             <div class="offer-description">
-                ${offer.description || 'No description available'}
+                ${escapeHtml(offer.description || 'No description available')}
             </div>
 
             <div class="offer-details">
                 <div class="offer-detail">
                     <div class="offer-detail-label">Service Type</div>
-                    <div class="offer-detail-value">${offer.service_type || 'N/A'}</div>
+                    <div class="offer-detail-value">${escapeHtml(offer.service_type || 'N/A')}</div>
                 </div>
                 <div class="offer-detail">
                     <div class="offer-detail-label">Model</div>
-                    <div class="offer-detail-value">${offer.model || 'N/A'}</div>
+                    <div class="offer-detail-value">${escapeHtml(offer.model || 'N/A')}</div>
                 </div>
                 <div class="offer-detail">
                     <div class="offer-detail-label">Price</div>
-                    <div class="offer-detail-value">${offer.price || 0} ${offer.price_unit || 'units'}</div>
+                    <div class="offer-detail-value">${escapeHtml(offer.price || 0)} ${escapeHtml(offer.price_unit || 'units')}</div>
                 </div>
                 <div class="offer-detail">
                     <div class="offer-detail-label">GPU</div>
@@ -162,7 +166,7 @@ function createOfferCard(offer) {
                 </div>
                 <div class="offer-list-item">
                     <span class="offer-list-label">Node ID:</span>
-                    <span class="offer-list-value">${offer.node_id || 'N/A'}</span>
+                    <span class="offer-list-value">${escapeHtml(offer.node_id || 'N/A')}</span>
                 </div>
                 <div class="offer-list-item">
                     <span class="offer-list-label">Plugin ID:</span>
@@ -170,7 +174,7 @@ function createOfferCard(offer) {
                 </div>
                 <div class="offer-list-item">
                     <span class="offer-list-label">Block Height:</span>
-                    <span class="offer-list-value">${offer.block_height || 'N/A'}</span>
+                    <span class="offer-list-value">${escapeHtml(offer.block_height || 'N/A')}</span>
                 </div>
                 <div class="offer-list-item">
                     <span class="offer-list-label">Block Hash:</span>
@@ -193,11 +197,11 @@ function createOfferCard(offer) {
             <div class="offer-meta">
                 <div class="offer-rating">
                     <span class="offer-rating-value">${ratingStars}</span>
-                    <span>(${ratingCount} reviews)</span>
+                    <span>(${escapeHtml(ratingCount)} reviews)</span>
                 </div>
                 <div>
-                    <span>Registered: ${registeredDate}</span>
-                    <span style="margin-left: 1rem;">Updated: ${updatedDate}</span>
+                    <span>Registered: ${escapeHtml(registeredDate)}</span>
+                    <span style="margin-left: 1rem;">Updated: ${escapeHtml(updatedDate)}</span>
                 </div>
             </div>
         </div>
@@ -205,36 +209,36 @@ function createOfferCard(offer) {
 }
 
 function formatServiceTitle(offer) {
-    const serviceType = offer.service_type || 'Unknown Service';
-    const model = offer.model || '';
+    const serviceType = escapeHtml(offer.service_type || 'Unknown Service');
+    const model = escapeHtml(offer.model || '');
     return model ? `${serviceType} - ${model}` : serviceType;
 }
 
 function formatAddress(address) {
-    return address || 'N/A';
+    return escapeHtml(address || 'N/A');
 }
 
 function formatHash(hash) {
-    return hash || 'N/A';
+    return escapeHtml(hash || 'N/A');
 }
 
 function formatEndpoint(endpoint) {
-    return endpoint || 'N/A';
+    return escapeHtml(endpoint || 'N/A');
 }
 
 function formatGPU(gpuName, gpuDevice) {
     if (!gpuName) return 'N/A';
     const device = gpuDevice || 'N/A';
-    return `${gpuName} (${device})`;
+    return `${escapeHtml(gpuName)} (${escapeHtml(device)})`;
 }
 
 function formatTimestamp(timestamp) {
     if (!timestamp) return 'N/A';
     try {
         const date = new Date(timestamp);
-        return date.toLocaleString();
+        return escapeHtml(date.toLocaleString());
     } catch (e) {
-        return timestamp;
+        return escapeHtml(timestamp);
     }
 }
 
