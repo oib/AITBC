@@ -1,16 +1,14 @@
-"""Regression tests: GPU_MARKET must never carry value.
+"""Regression tests: GPU_MARKET offers must be signed and carry no value.
 
-The /rpc/transactions/market endpoint exempts ``offer``/``software_offer``
-payloads from signature verification (the market CLI has no wallet keys).
-The exemption rested on offers being value-zero listings, but nothing enforced
-it: consensus has no GPU_MARKET branch, so a nonzero amount fell through
-to the generic transfer and debited ``from`` — any address the caller named —
-with no signature anywhere in the path.
+``/rpc/transactions/market`` used to exempt ``offer``/``software_offer``
+payloads from signature verification (the market CLI had no wallet keys,
+V23-90). That exemption is closed: every transaction — offer included — must
+carry a secp256k1 signature verifying against ``from``.
 
 Covers the route and consensus layers:
-  * route level — unsigned offers with a nonzero amount are rejected outright,
-    unsigned offers have their fee capped at the standard listing fee, and a
-    present signature must verify against ``from``;
+  * route level — unsigned offers are rejected outright regardless of fee,
+    offers carrying a nonzero amount are rejected, and a present signature
+    must verify against ``from``;
   * consensus level — validate_transaction and compute_state_delta both refuse
     a nonzero-value GPU_MARKET regardless of how it arrived.
 """
@@ -51,45 +49,31 @@ def _offer_tx(amount: int, action: str = "software_offer") -> dict[str, Any]:
 
 
 # ---------------------------------------------------------------------------
-# Route level — the unsigned offer exemption must not carry value
+# Route level — unsigned offers are refused; a nonzero amount stays refused
 # ---------------------------------------------------------------------------
 
 
 @pytest.mark.asyncio
 @pytest.mark.parametrize("action", ["offer", "software_offer"])
 async def test_unsigned_offer_with_amount_rejected(action: str):
-    """An unsigned offer carrying amount>0 must be refused before mempool."""
+    """An unsigned offer carrying amount>0 is refused before mempool."""
     with pytest.raises(HTTPException) as exc_info:
         await tx_mod.submit_market_transaction(MagicMock(), _offer_tx(10**9, action))
     assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_unsigned_zero_amount_offer_still_admitted():
-    """Zero-amount software offers keep working without a signature (V23-90)."""
-    account = MagicMock()
-    account.balance = 10**9
-    account.nonce = 0
-
-    @contextmanager
-    def fake_session_scope(*_a, **_kw):
-        session = MagicMock()
-        session.get = MagicMock(return_value=account)
-        yield session
-
-    mempool = MagicMock()
-    mempool.add = MagicMock(return_value="0xtxhash")
-
-    with (
-        patch.object(tx_mod, "session_scope", fake_session_scope),
-        patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
-    ):
-        result = await tx_mod.submit_market_transaction(MagicMock(), _offer_tx(0))
-    assert result["success"] is True
+@pytest.mark.parametrize("action", ["offer", "software_offer"])
+async def test_unsigned_zero_amount_offer_rejected(action: str):
+    """The V23-90 exemption is closed: unsigned listings get 403."""
+    with pytest.raises(HTTPException) as exc_info:
+        await tx_mod.submit_market_transaction(MagicMock(), _offer_tx(0, action))
+    assert exc_info.value.status_code == 403
+    assert "signature" in exc_info.value.detail.lower()
 
 
 # ---------------------------------------------------------------------------
-# Route level — the unsigned offer exemption must not carry an unbounded fee
+# Route level — the signature, not a fee clamp, is what binds `from`
 # ---------------------------------------------------------------------------
 
 
@@ -106,51 +90,38 @@ def _fake_session_and_mempool(account):
 
 
 @pytest.mark.asyncio
-async def test_unsigned_offer_fee_capped_at_listing_fee():
-    """The exploit shape: unsigned offer naming a funded sender with fee=balance.
-
-    `from` is unbound without a signature, so the fee the caller chose would be
-    a free burn of that account. The route must rewrite it to the standard
-    listing fee before the tx reaches the mempool.
-    """
-    from aitbc.utils import DEFAULT_TX_FEE_UNITS
-
-    account = MagicMock()
-    account.balance = 10**9
-    account.nonce = 0
-    fake_session_scope, mempool = _fake_session_and_mempool(account)
-
+async def test_unsigned_offer_rejected_regardless_of_fee():
+    """A caller-chosen fee no longer gets clamped — the unsigned tx is refused."""
     tx = _offer_tx(0)
-    tx["fee"] = account.balance  # would wipe the named account verbatim
-    with (
-        patch.object(tx_mod, "session_scope", fake_session_scope),
-        patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
-    ):
-        result = await tx_mod.submit_market_transaction(MagicMock(), tx)
-    assert result["success"] is True
-    stored = mempool.add.call_args[0][0]
-    assert stored["fee"] == DEFAULT_TX_FEE_UNITS
+    tx["fee"] = 10**9  # would have wiped the named account before the cap
+    with pytest.raises(HTTPException) as exc_info:
+        await tx_mod.submit_market_transaction(MagicMock(), tx)
+    assert exc_info.value.status_code == 403
 
 
 @pytest.mark.asyncio
-async def test_unsigned_offer_fee_below_cap_preserved():
-    """A smaller caller fee stays; only above-cap fees are clamped."""
+async def test_signed_zero_amount_offer_admitted():
+    """The production shape: a signed zero-amount offer at the standard fee."""
     from aitbc.utils import DEFAULT_TX_FEE_UNITS
+    from aitbc_chain.rpc.utils import sign_transaction_data
 
+    signer = keys.PrivateKey(b"\x33" * 32).public_key.to_checksum_address()
     account = MagicMock()
     account.balance = 10**9
     account.nonce = 0
     fake_session_scope, mempool = _fake_session_and_mempool(account)
 
     tx = _offer_tx(0)
-    tx["fee"] = DEFAULT_TX_FEE_UNITS - 1
+    tx["from"] = signer
+    tx["fee"] = DEFAULT_TX_FEE_UNITS
+    tx["signature"] = sign_transaction_data(tx, "0x" + "33" * 32)
     with (
         patch.object(tx_mod, "session_scope", fake_session_scope),
         patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
     ):
         result = await tx_mod.submit_market_transaction(MagicMock(), tx)
     assert result["success"] is True
-    assert mempool.add.call_args[0][0]["fee"] == DEFAULT_TX_FEE_UNITS - 1
+    assert mempool.add.call_args[0][0]["fee"] == DEFAULT_TX_FEE_UNITS
 
 
 @pytest.mark.asyncio
@@ -166,7 +137,7 @@ async def test_signed_offer_above_cap_admitted():
 
     tx = _offer_tx(0)
     tx["from"] = signer
-    tx["fee"] = 10**9  # over the unsigned cap, but signed by `from`
+    tx["fee"] = 10**9  # over the old unsigned cap, but signed by `from`
     tx["signature"] = sign_transaction_data(tx, "0x" + "33" * 32)
     with (
         patch.object(tx_mod, "session_scope", fake_session_scope),

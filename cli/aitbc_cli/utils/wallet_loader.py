@@ -7,6 +7,7 @@ importing the entire command package at module load time.
 
 from __future__ import annotations
 
+import json
 import os
 from pathlib import Path
 from typing import cast
@@ -14,7 +15,7 @@ from typing import cast
 
 from .address import to_canonical
 from .error_handling import abort
-from .wallet_paths import find_wallet_file, wallet_dir as resolve_wallet_dir
+from .wallet_paths import find_wallet_file, wallet_dir as resolve_wallet_dir, wallet_search_dirs
 
 
 def _resolve_wallet_name_and_path(
@@ -52,6 +53,32 @@ def _resolve_password(wallet_name: str, password: str | None = None) -> str | No
     env_password = os.environ.get(f"AITBC_WALLET_PASSWORD_{wallet_name.upper()}") or os.environ.get("AITBC_WALLET_PASSWORD")
     if env_password:
         return env_password
+    return None
+
+
+def find_wallet_by_address(address: str) -> Path | None:
+    """Return the first file wallet whose recorded address matches ``address``.
+
+    ``SHOP_WALLET_ADDRESS`` names a provider account, not a wallet name — this
+    resolves which local file (if any) can sign for it. Matches the wallet's
+    top-level ``address`` plus ``metadata.address`` / ``metadata.original_address``
+    for service-wallet shapes; the first hit in search-dir order wins.
+    """
+    target = to_canonical(address)
+    for directory in wallet_search_dirs():
+        if not directory.is_dir():
+            continue
+        for path in sorted(directory.glob("*.json")):
+            try:
+                data = json.loads(path.read_text())
+            except (OSError, ValueError):
+                continue
+            if not isinstance(data, dict):
+                continue
+            metadata = data.get("metadata") or {}
+            candidates = (data.get("address"), metadata.get("address"), metadata.get("original_address"))
+            if any(isinstance(c, str) and to_canonical(c) == target for c in candidates):
+                return path
     return None
 
 

@@ -36,12 +36,12 @@ def _compute_plugin_id(service_type: str, model: str) -> str:
 def _record_job_on_chain(config: Any, job_data: dict[str, Any], private_key: str) -> str | None:
     """Submit the ``software_job`` proof-of-work record and return its transaction hash.
 
-    ``/rpc/transactions/market`` exempts only the ``offer`` and ``software_offer``
-    actions from signature checking (V23-90, so listing works without wallet private
-    keys). Every other action, this one included, is refused with 403 "Signature
-    required". All three job commands built this record unsigned, caught the refusal,
-    warned, and released the escrow anyway -- so no ``software_job`` has ever reached
-    the chain, and the only symptom was a warning line.
+    ``/rpc/transactions/market`` requires a secp256k1 signature on every action —
+    the V23-90 unsigned-offer exemption is closed. This record included must be
+    signed or it is refused with 403 "Signature required". The job commands once
+    built this record unsigned, caught the refusal, warned, and released the escrow
+    anyway -- so no ``software_job`` has ever reached the chain, and the only
+    symptom was a warning line.
 
     ``sign_transaction_data`` is the shared signer, and it mirrors the node verifier's
     canonical encoding: same excluded fields, same sorted separator-free JSON. A copy of
