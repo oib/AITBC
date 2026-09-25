@@ -77,7 +77,7 @@ async function handleJoinSubmit(event) {
             `<div class="join-success">` +
             `<p><strong>Peer key issued — shown once, store it now:</strong></p>` +
             `<code class="join-key">${escapeHtml(data.peer_key)}</code>` +
-            `<button type="button" class="copy-btn" onclick="navigator.clipboard.writeText('${escapeHtml(data.peer_key)}')">copy</button>` +
+            `<button type="button" class="copy-btn" data-copy="${escapeHtml(data.peer_key)}" onclick="navigator.clipboard.writeText(this.dataset.copy)">copy</button>` +
             `<p class="endpoint-note-sm">Add to your node's <code>/etc/aitbc/blockchain-secrets.env</code> (or <code>node.env</code>):<br>` +
             `<code>${escapeHtml(data.env_snippet)}</code></p>` +
             `<p class="endpoint-note-sm">Bound to <code>${escapeHtml(data.node_id)}</code>. If you lose it, ask the operator to revoke so you can re-join.</p>` +
