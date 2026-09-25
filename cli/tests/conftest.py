@@ -24,5 +24,11 @@ import pytest as _pytest
 
 @_pytest.fixture(autouse=True)
 def _clean_signing_env(monkeypatch):
-    for var in ("AITBC_DEFAULT_WALLET", "AITBC_MARKET_WALLET", "AITBC_WALLET_PASSWORD", "AGENT_ID"):
+    for var in (
+        "AITBC_DEFAULT_WALLET",
+        "AITBC_MARKET_WALLET",
+        "AITBC_WALLET_PASSWORD",
+        "SHOP_WALLET_ADDRESS",
+        "AGENT_ID",
+    ):
         monkeypatch.delenv(var, raising=False)

@@ -1135,7 +1135,16 @@ def offer(
         chain_id = get_chain_id()
         island_id = get_island_id()
         hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=False)
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
+        if not private_key:
+            # Both public intake doors reject unsigned offer transactions —
+            # a listing without a key can never reach the chain.
+            error(
+                f"Cannot sign offer for provider address {wallet_address}: no wallet key available. "
+                "Place the wallet file under a wallet search dir (AITBC_WALLET_DIR, "
+                "~/.aitbc/wallets, /var/lib/aitbc/wallets) or pass --wallet/--wallet-path."
+            )
+            raise click.Abort()
 
         # Auto-detect deployment type from model name suffix
         is_cloud = model_or_variant.endswith(":cloud")
@@ -1210,11 +1219,9 @@ def offer(
             },
         }
 
-        # Sign when the wallet yields a key: the chain still accepts unsigned
-        # offers (V23-90) but pins their fee, and a signed listing binds the
-        # provider address to the wallet instead of merely claiming it.
-        if private_key:
-            offer_data["signature"] = sign_transaction_data(offer_data, private_key)
+        # Signed listings bind the provider address to the wallet key —
+        # unsigned offer transactions are refused at intake.
+        offer_data["signature"] = sign_transaction_data(offer_data, private_key)
 
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         tx_result = http_client.post("/rpc/transactions/market", json=offer_data)

@@ -13,7 +13,6 @@ from typing import Any
 from fastapi import HTTPException
 
 from aitbc.constants import DATA_DIR
-from aitbc.utils import DEFAULT_TX_FEE_UNITS
 
 from ..config import settings
 from ..logger import get_logger
@@ -26,11 +25,7 @@ _poa_proposers: dict[str, Any] = {}
 # listing. The same transaction type also carries job settlements
 # ("software_job"), cancellations and ratings; those have no offer payload at
 # all -- no service_type, no model, price 0 -- so anything that means "an offer"
-# has to say so here rather than trusting the type alone. Offers may be
-# submitted without a secp256k1 signature (the market CLI does not manage
-# wallet keys, V23-90), an exemption that is only safe while these transactions
-# carry no value — consensus zero-guards GPU_MARKET in both transition
-# paths.
+# has to say so here rather than trusting the type alone.
 OFFER_ACTIONS = ("offer", "software_offer")
 
 # Credit types the bridge lifecycle writes straight into the mempool via
@@ -72,35 +67,20 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
     The ``transactions`` gossip topics are public-publish by design — any
     connected peer may inject a transaction envelope — so mempool ingest must
     enforce the same signature policy as REST submission instead of trusting
-    the transport. Signed transactions are verified against ``from``; the only
-    unsigned shape admitted is a zero-amount ``GPU_MARKET`` listing, which
-    is the one flow the REST route deliberately exempts. Everything else is
-    dropped here rather than left for block validation, because the consensus
-    signature check only fires when a signature is present — an unsigned
-    ``TRANSFER`` naming any funded sender would otherwise be mineable.
+    the transport. Every transaction is verified against ``from`` and nothing
+    unsigned is admitted, because the consensus signature check only fires
+    when a signature is present — an unsigned ``TRANSFER`` naming any funded
+    sender would otherwise be mineable. The old V23-90 unsigned-offer
+    exemption is closed: listing paths resolve a signing wallet for
+    ``SHOP_WALLET_ADDRESS``.
 
     Pre-registered credit types are refused outright: the bridge writes them
     into the mempool internally, so no gossiped copy is legitimate.
     """
     if _resolved_tx_type(tx_data) in PREREGISTERED_CREDIT_TX_TYPES:
         return "internal_tx_type"
-    payload = tx_data.get("payload")
     sender = tx_data.get("from")
     signature = tx_data.get("signature") or tx_data.get("sig")
-    if tx_data.get("type") == "GPU_MARKET" and isinstance(payload, dict) and payload.get("action") in OFFER_ACTIONS:
-        try:
-            offer_amount = int(tx_data.get("amount", 0) or 0)
-            offer_fee = int(tx_data.get("fee", 0) or 0)
-        except (TypeError, ValueError):
-            return "nonzero_unsigned_offer"
-        if offer_amount != 0:
-            return "nonzero_unsigned_offer"
-        # Unsigned listings are capped at the standard listing fee at REST
-        # intake; a gossiped unsigned offer above the cap would burn the
-        # named sender's balance, so it must prove ownership by signature.
-        if offer_fee <= DEFAULT_TX_FEE_UNITS:
-            return None
-        # Fall through to the signature check below.
     if not signature:
         return "missing_signature"
     if not verify_transaction_signature(tx_data, signature, sender or ""):

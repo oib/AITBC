@@ -144,12 +144,13 @@ curl -s -X POST https://hub.example.net/rpc/transactions/market \
 
 **Expected output:** the `software_offer` action is **exempt** from the
 bond check (`rpc/transactions.py` — the bond only gates the hardware
-`offer` action when `MARKET_BOND_MIN_AMOUNT` > 0), so this transaction is
-admitted (unsigned value-zero offers are accepted with `sender` only —
-see the code comment at the exemption). To exercise the bond rejection,
-repeat the call with `"action":"offer"` (hardware bundle) instead —
-that returns `403 Active bond of at least 1 compute-units required to
-list` when the sender has no active bond.
+`offer` action when `MARKET_BOND_MIN_AMOUNT` > 0). Unsigned transactions
+are no longer admitted anywhere — this unsigned call now returns
+`403 Signature required`; a signed offer (e.g. `aitbc market offer`)
+reaches the market as before. To exercise the bond rejection, repeat the
+call with `"action":"offer"` (hardware bundle) instead — that returns
+`403 Active bond of at least 1 compute-units required to list` when the
+sender has no active bond (the bond gate runs before the signature check).
 
 ### Unit tests
 

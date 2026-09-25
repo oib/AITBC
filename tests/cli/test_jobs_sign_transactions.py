@@ -1,11 +1,12 @@
 """The ``software_job`` proof-of-work record must satisfy the endpoint that receives it.
 
-``/rpc/transactions/market`` exempts only the ``offer`` and ``software_offer``
-actions from signature checking (V23-90, so listing works without wallet keys). Every
-other action is rejected with ``403 Signature required``. The three job commands in
-``market/jobs.py`` built a ``software_job`` transaction with no signature field, caught
-the rejection, warned, and released the escrow anyway -- so the on-chain proof of work
-never existed, and nothing failed loudly enough to say so.
+``/rpc/transactions/market`` requires a secp256k1 signature on every action
+(the V23-90 unsigned-offer exemption is closed). Every unsigned submission is
+rejected with ``403 Signature required``. The three job commands in
+``market/jobs.py`` once built a ``software_job`` transaction with no signature
+field, caught the rejection, warned, and released the escrow anyway -- so the
+on-chain proof of work never existed, and nothing failed loudly enough to say
+so.
 
 As with the exchange signer, these assert against the server's real verifier rather than
 a copy of the format: canonical JSON is easy to almost match, and a different key order
@@ -89,20 +90,15 @@ async def test_an_unsigned_job_record_is_refused_as_403_not_400() -> None:
     assert "Signature required" in str(excinfo.value.detail)
 
 
-async def test_an_offer_is_still_exempt_from_signing() -> None:
-    """V23-90's exemption must survive: listing works without wallet private keys.
-
-    A missing sender is the next check after the exemption, so reaching *that* refusal
-    proves the signature gate was skipped rather than passed.
-    """
+async def test_an_unsigned_offer_is_refused_too() -> None:
+    """The V23-90 listing exemption is closed: offers sign like every other action."""
     tx = _job_tx(Account.create().address, action="software_offer")
-    tx.pop("from")
 
     with pytest.raises(HTTPException) as excinfo:
         await submit_market_transaction(None, tx)
 
-    assert excinfo.value.status_code == 400
-    assert "Sender required" in str(excinfo.value.detail)
+    assert excinfo.value.status_code == 403
+    assert "Signature required" in str(excinfo.value.detail)
 
 
 class _Captor:
