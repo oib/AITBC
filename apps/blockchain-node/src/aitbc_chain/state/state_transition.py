@@ -1546,6 +1546,9 @@ class StateTransition:
                 record_chain_parameter_history(
                     session, chain_id, parameter, str(value), proposal_id, block_height
                 )
+            # autoflush is off on these sessions — flush so a later tx in the
+            # same block sees the new parameter value in resolver queries.
+            session.flush()
             logger.info(
                 "Chain parameter %s updated to %s by proposal %s (tx %s)",
                 parameter,
