@@ -75,6 +75,13 @@ server {
     add_header X-Content-Type-Options "nosniff" always;
     add_header Referrer-Policy "no-referrer-when-downgrade" always;
 
+    # Compression -- gzip on is set at http level; without gzip_types only
+    # text/html qualifies, and without gzip_proxied nothing is compressed at
+    # all because every request arrives via the TLS-terminating bridge proxy.
+    gzip_types text/css application/javascript application/json application/ld+json image/svg+xml text/xml application/xml text/plain;
+    gzip_proxied any;
+    gzip_min_length 512;
+
     # ── Agent API (Machine-readable for autonomous agents) ───
 
     location /health {
@@ -677,6 +684,10 @@ server {
     }
 
     location / {
+        # `expires` sets Expires + Cache-Control: max-age -- unlike add_header
+        # it does not suppress the server-level security headers for this
+        # location. 1h bound since asset filenames are not fingerprinted.
+        expires 1h;
         try_files $uri $uri/ =404;
     }
 }
