@@ -21,6 +21,8 @@ from ..logger import get_logger
 from ..models import Account, Transaction
 from .utils import (
     OFFER_ACTIONS,
+    PREREGISTERED_CREDIT_TX_TYPES,
+    _resolved_tx_type,
     get_chain_id,
     normalize_transaction_data,
     verify_transaction_signature,
@@ -72,6 +74,10 @@ _JOB_ID_INDEX_EXPRESSIONS = {
 def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> None:
     """Validate transaction can be admitted to mempool"""
     from ..mempool import compute_tx_hash
+
+    tx_type = _resolved_tx_type(tx_data)
+    if tx_type in PREREGISTERED_CREDIT_TX_TYPES:
+        raise ValueError(f"transaction type '{tx_type}' is reserved for internal issuance")
 
     chain_id = tx_data["chain_id"]
     from .utils import get_supported_chains
