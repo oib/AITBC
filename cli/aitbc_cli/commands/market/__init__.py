@@ -15,9 +15,10 @@ import click
 from ...config import get_config
 from ...utils import error, info, output, success, warning
 from ...utils.address import to_canonical
+from ...utils.error_handling import abort
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger
 from ...utils.island_credentials import load_island_credentials
-from ...utils.wallet_loader import load_wallet_for_payment
+from ...utils.wallet_loader import find_wallet_by_address, load_wallet_for_payment
 from ...utils.wallet_paths import find_wallet_file
 
 # Initialize logger
@@ -181,7 +182,10 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
 
     Priority: group-level --wallet / --wallet-path, then the
     ``SHOP_WALLET_ADDRESS`` / ``AITBC_MARKET_WALLET`` environment, then
-    configuration.  Returns ``(address, private_key_or_none, wallet_name)``.
+    configuration.  ``SHOP_WALLET_ADDRESS`` names a provider account rather
+    than a wallet file, so a local file wallet holding that address is
+    resolved and loaded for signing when one exists — listing paths must be
+    able to sign.  Returns ``(address, private_key_or_none, wallet_name)``.
     """
     wallet_name = ctx.obj.get("market_wallet")
     wallet_path = ctx.obj.get("market_wallet_path")
@@ -190,9 +194,38 @@ def get_market_wallet(ctx, require_private_key: bool = False) -> tuple[str, str 
     # If no wallet was specified on the command line, fall back to the shop
     # environment.  This keeps backwards compatibility for unattended offers
     # while still allowing a human buyer to pass --wallet for paid jobs.
-    if not wallet_name and not wallet_path and not require_private_key:
+    if not wallet_name and not wallet_path:
         shop_address = os.environ.get("SHOP_WALLET_ADDRESS")
         if shop_address:
+            shop_wallet = find_wallet_by_address(shop_address)
+            if require_private_key:
+                # A signing caller must sign *as* the shop address — silently
+                # falling back to another wallet would attribute the
+                # transaction to the wrong sender.
+                if shop_wallet is None:
+                    abort(
+                        ctx,
+                        f"SHOP_WALLET_ADDRESS {shop_address} matches no wallet file "
+                        "(searched AITBC_WALLET_DIR, ~/.aitbc/wallets, "
+                        "/var/lib/aitbc/wallets); pass --wallet or --wallet-path",
+                    )
+                return load_wallet_for_payment(ctx, wallet_path=str(shop_wallet), password=password)
+            if shop_wallet is not None:
+                try:
+                    return load_wallet_for_payment(ctx, wallet_path=str(shop_wallet), password=password)
+                except Exception:
+                    # An explicit --password that failed is a real operator
+                    # error and must surface; anything else (encrypted and no
+                    # password env, daemon-style file) degrades to address-only
+                    # as before so display paths keep working.
+                    if password:
+                        raise
+                    logger.warning(
+                        "SHOP_WALLET_ADDRESS %s matched %s but it could not be loaded for signing",
+                        shop_address,
+                        shop_wallet,
+                        exc_info=True,
+                    )
             return shop_address, None, "shop"
 
     return load_wallet_for_payment(

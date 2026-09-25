@@ -8,12 +8,14 @@ transaction envelope. Before this fix, ``main.process_txs`` and
 only fires when a signature is present — so an unsigned TRANSFER naming any
 funded sender was mineable, bypassing every REST admission guard.
 
-``gossip_transaction_drop_reason`` mirrors the REST admission contract: signed
-transactions must verify against ``from``; the only unsigned shape admitted is
-a zero-amount GPU_MARKET listing action with a fee at or below the standard
-listing fee (the route's deliberate V23-90 exemption). Pre-registered credit types (BRIDGE_RELEASE/BRIDGE_REFUND) are
-refused outright at both doors — the bridge issues them inside the node, so no
-client-submitted copy is legitimate.
+``gossip_transaction_drop_reason`` mirrors the REST admission contract: every
+transaction must carry a signature that verifies against ``from`` — nothing
+unsigned is admitted. The old V23-90 unsigned-offer exemption is closed at
+both doors (REST ``/rpc/transactions/market`` and this gossip ingest): listing
+paths now resolve a signing wallet for ``SHOP_WALLET_ADDRESS``. Pre-registered
+credit types (BRIDGE_RELEASE/BRIDGE_REFUND) are refused outright at both
+doors — the bridge issues them inside the node, so no client-submitted copy
+is legitimate.
 """
 
 from __future__ import annotations
@@ -94,19 +96,18 @@ def test_valid_signed_transfer_with_value_alias_admitted():
     assert gossip_transaction_drop_reason(tx) is None
 
 
-def test_unsigned_zero_amount_offer_admitted():
-    """Legit zero-amount listings still propagate unsigned (V23-90)."""
-    assert gossip_transaction_drop_reason(_offer_tx(0)) is None
-    assert gossip_transaction_drop_reason(_offer_tx(0, action="offer")) is None
+def test_unsigned_offers_dropped():
+    """The V23-90 exemption is closed: listings must sign like every other tx."""
+    assert gossip_transaction_drop_reason(_offer_tx(0)) == "missing_signature"
+    assert gossip_transaction_drop_reason(_offer_tx(0, action="offer")) == "missing_signature"
 
 
 def test_unsigned_nonzero_offer_dropped():
-    assert gossip_transaction_drop_reason(_offer_tx(10**9)) == "nonzero_unsigned_offer"
+    assert gossip_transaction_drop_reason(_offer_tx(10**9)) == "missing_signature"
 
 
 def test_unsigned_offer_fee_above_cap_dropped():
-    """Unsigned offers are capped at the listing fee — a gossiped offer with a
-    higher fee would burn the named (unbound) sender's balance via the fee."""
+    """Unsigned drops at the signature check regardless of the fee field."""
     from aitbc.utils import DEFAULT_TX_FEE_UNITS
 
     tx = _offer_tx(0)
@@ -114,11 +115,19 @@ def test_unsigned_offer_fee_above_cap_dropped():
     assert gossip_transaction_drop_reason(tx) == "missing_signature"
 
 
-def test_unsigned_offer_fee_at_cap_admitted():
+def test_unsigned_offer_at_listing_fee_dropped():
+    """The old fee cap no longer rescues an unsigned listing — signature required."""
     from aitbc.utils import DEFAULT_TX_FEE_UNITS
 
     tx = _offer_tx(0)
     tx["fee"] = DEFAULT_TX_FEE_UNITS
+    assert gossip_transaction_drop_reason(tx) == "missing_signature"
+
+
+def test_signed_offer_admitted():
+    """Control: a correctly signed zero-amount offer still flows."""
+    tx = _offer_tx(0)
+    tx["signature"] = sign_transaction_data(tx, "0x" + "33" * 32)
     assert gossip_transaction_drop_reason(tx) is None
 
 
