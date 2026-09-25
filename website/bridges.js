@@ -1,14 +1,30 @@
-// Bridge deposits page — shows recent ETH→AIT bridge transactions
+// Bridge transfers page — shows cross_chain_transfer history from the chain.
+// Source: GET /rpc/bridge/transfers (public, served by aitbc-blockchain-rpc).
+
+const AIT_UNITS = 36000000;
 
 function escapeHtml(s) {
     return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 }
 
 function statusBadge(status) {
-    const cls = status === 'completed' ? 'status-ok'
-        : status === 'failed' ? 'status-bad'
+    const s = String(status || '').toLowerCase();
+    const cls = (s === 'completed' || s === 'confirmed') ? 'status-ok'
+        : s === 'failed' ? 'status-bad'
         : 'status-pending';
-    return `<span class="status-badge ${cls}">${escapeHtml(status.toUpperCase())}</span>`;
+    return `<span class="status-badge ${cls}">${escapeHtml(s.toUpperCase() || 'UNKNOWN')}</span>`;
+}
+
+function shortAddr(a) {
+    if (!a) return '-';
+    const e = escapeHtml(a);
+    return a.length > 14 ? `${e.slice(0, 8)}...${e.slice(-6)}` : e;
+}
+
+function fmtAit(units) {
+    if (units === null || units === undefined) return '-';
+    const ait = Number(units) / AIT_UNITS;
+    return Number.isFinite(ait) ? ait.toLocaleString(undefined, {maximumFractionDigits: 6}) : '-';
 }
 
 async function loadRecentBridges() {
@@ -16,49 +32,39 @@ async function loadRecentBridges() {
     const empty = document.getElementById('recent-bridges-empty');
     const container = document.getElementById('recent-bridges-container');
     try {
-        const resp = await fetch('/v1/bridge/deposits?status=completed&limit=20');
+        const resp = await fetch('/rpc/bridge/transfers?limit=20');
         if (!resp.ok) {
             if (loading) loading.style.display = 'none';
             if (empty) empty.style.display = 'block';
             return;
         }
         const data = await resp.json();
-        const deposits = data.deposits || [];
+        const transfers = data.transfers || [];
         if (loading) loading.style.display = 'none';
-        if (deposits.length === 0) {
+        if (transfers.length === 0) {
             if (empty) empty.style.display = 'block';
             return;
         }
         if (empty) empty.style.display = 'none';
         if (!container) return;
-        container.innerHTML = deposits.map(d => {
-            const d2 = d.dict ? d.dict() : d;
-            const time = d2.created_at ? new Date(d2.created_at).toLocaleString() : '-';
-            const eth = d2.eth_amount || '-';
-            const ait = d2.ait_amount || '-';
-            const fromShort = d2.eth_from_address
-                ? `${escapeHtml(d2.eth_from_address.slice(0, 6))}...${escapeHtml(d2.eth_from_address.slice(-4))}`
-                : '-';
-            const aitTx = d2.ait_tx_hash
-                ? `<a href="/tx.html?hash=${encodeURIComponent(d2.ait_tx_hash)}" target="_blank" rel="noopener">${escapeHtml(d2.ait_tx_hash.slice(0, 18))}...</a>`
+        container.innerHTML = transfers.map(d => {
+            const time = d.confirm_time || d.lock_time;
+            const when = time ? new Date(time).toLocaleString() : '-';
+            const tx = d.transfer_id
+                ? `<a href="/tx.html?hash=${encodeURIComponent(d.transfer_id)}" target="_blank" rel="noopener">${escapeHtml(d.transfer_id.slice(0, 18))}...</a>`
                 : '—';
-            const note = d2.error_message && d2.status === 'completed'
-                ? d2.error_message
-                : '';
-            const status = statusBadge(d2.status || 'completed');
-            const noteRow = note
-                ? `<tr><td>Note</td><td><span class="muted-text" style="font-size:0.8rem;">${escapeHtml(note)}</span></td></tr>`
-                : '';
+            const amount = fmtAit(d.release_amount !== null && d.release_amount !== undefined ? d.release_amount : d.amount);
             return `
                 <div class="endpoint fade-in" style="padding:0;margin-bottom:0.75rem;">
                     <table class="block-list-table">
-                        <tr><td>Time</td><td>${escapeHtml(time)} UTC</td></tr>
-                        <tr><td>ETH</td><td>${escapeHtml(eth)}</td></tr>
-                        <tr><td>From</td><td>${fromShort}</td></tr>
-                        <tr><td>AIT</td><td>${escapeHtml(ait)}</td></tr>
-                        <tr><td>AIT Tx</td><td>${aitTx}</td></tr>
-                        <tr><td>Status</td><td>${status}</td></tr>
-                        ${noteRow}
+                        <tr><td>Time</td><td>${escapeHtml(when)}</td></tr>
+                        <tr><td>Route</td><td>${escapeHtml(d.source_chain || '-')} &rarr; ${escapeHtml(d.target_chain || '-')}</td></tr>
+                        <tr><td>Sender</td><td>${shortAddr(d.sender)}</td></tr>
+                        <tr><td>Recipient</td><td>${shortAddr(d.recipient)}</td></tr>
+                        <tr><td>Amount</td><td>${escapeHtml(amount)} AIT</td></tr>
+                        <tr><td>Asset</td><td>${escapeHtml(d.asset || 'native')}</td></tr>
+                        <tr><td>Tx</td><td>${tx}</td></tr>
+                        <tr><td>Status</td><td>${statusBadge(d.status)}</td></tr>
                     </table>
                 </div>
             `;
