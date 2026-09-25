@@ -32,6 +32,38 @@ _poa_proposers: dict[str, Any] = {}
 # paths.
 OFFER_ACTIONS = ("offer", "software_offer")
 
+# Credit types the bridge lifecycle writes straight into the mempool via
+# mempool.add() (cross_chain/bridge_transfer.py), bypassing public submission
+# entirely: they credit the recipient with no sender debit and no sender
+# account. Nothing client-submitted may carry them, so both public intake
+# paths — REST admission and gossip ingest — refuse them. Keep in step with
+# the credit branches in state/state_transition.py and
+# state/pure_state_transition.py.
+PREREGISTERED_CREDIT_TX_TYPES = frozenset({"BRIDGE_RELEASE", "BRIDGE_REFUND"})
+
+
+def _resolved_tx_type(tx_data: dict[str, Any]) -> str:
+    """Resolve the type a transaction is applied under.
+
+    Mirrors ``state.state_transition._tx_type`` without the DB record: the
+    top-level ``type`` wins, except a missing or ``TRANSFER`` top-level type
+    yields to ``payload["type"]``. Intake must refuse a type under the same
+    resolution consensus applies it, or a ``TRANSFER`` envelope carrying a
+    credit ``payload.type`` would pass the door and still take the credit
+    branch.
+    """
+    tx_type = tx_data.get("type") or "TRANSFER"
+    if not isinstance(tx_type, str):
+        tx_type = "TRANSFER"
+    tx_type = tx_type.upper()
+    if tx_type == "TRANSFER":
+        payload = tx_data.get("payload")
+        if isinstance(payload, dict):
+            payload_type = payload.get("type")
+            if isinstance(payload_type, str) and payload_type:
+                tx_type = payload_type.upper()
+    return tx_type
+
 
 def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
     """Return why a gossip-delivered transaction must be dropped, or None.
@@ -45,7 +77,12 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
     dropped here rather than left for block validation, because the consensus
     signature check only fires when a signature is present — an unsigned
     ``TRANSFER`` naming any funded sender would otherwise be mineable.
+
+    Pre-registered credit types are refused outright: the bridge writes them
+    into the mempool internally, so no gossiped copy is legitimate.
     """
+    if _resolved_tx_type(tx_data) in PREREGISTERED_CREDIT_TX_TYPES:
+        return "internal_tx_type"
     payload = tx_data.get("payload")
     sender = tx_data.get("from")
     signature = tx_data.get("signature") or tx_data.get("sig")
