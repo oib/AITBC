@@ -23,13 +23,13 @@ document.addEventListener('DOMContentLoaded', function() {
         const blockHash = block.hash || 'N/A';
         const proposer = block.proposer || 'N/A';
         return `
-            <div class="endpoint fade-in block-item" data-height="${block.height}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${block.height}'">
+            <div class="endpoint fade-in block-item" data-height="${escapeHtml(block.height)}" style="cursor:pointer;padding:0;" onclick="location.href='/block.html?height=${encodeURIComponent(block.height)}'">
                 <table class="block-list-table">
-                    <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${block.height}</td></tr>
-                    <tr><td>Hash</td><td>${blockHash} ${copyBtn(blockHash)}</td></tr>
-                    <tr><td>Proposer</td><td>${proposer}</td></tr>
-                    <tr><td>Transactions</td><td>${txCount}</td></tr>
-                    <tr><td>Timestamp</td><td>${timestamp} UTC</td></tr>
+                    <tr><td>Height</td><td><span class="badge badge-primary">BLOCK</span> #${escapeHtml(block.height)}</td></tr>
+                    <tr><td>Hash</td><td>${escapeHtml(blockHash)} ${copyBtn(blockHash)}</td></tr>
+                    <tr><td>Proposer</td><td>${escapeHtml(proposer)}</td></tr>
+                    <tr><td>Transactions</td><td>${escapeHtml(txCount)}</td></tr>
+                    <tr><td>Timestamp</td><td>${escapeHtml(timestamp)} UTC</td></tr>
                 </table>
             </div>
         `;

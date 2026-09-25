@@ -1,3 +1,7 @@
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 async function fetchPrices() {
     try {
         const response = await fetch('/v1/exchange/history');
@@ -233,29 +237,29 @@ function statusBadge(status) {
     const cls = status === 'completed' ? 'status-ok'
         : status === 'failed' ? 'status-bad'
         : 'status-pending';
-    return `<span class="status-badge ${cls}">${status.toUpperCase()}</span>`;
+    return `<span class="status-badge ${cls}">${escapeHtml(String(status).toUpperCase())}</span>`;
 }
 
 function renderDeposit(deposit) {
     const resultEl = document.getElementById('track-result');
     if (!resultEl) return;
     const aitTxLink = deposit.ait_tx_hash
-        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener">${deposit.ait_tx_hash.slice(0, 18)}...</a>`
+        ? `<a href="/tx.html?hash=${encodeURIComponent(deposit.ait_tx_hash)}" class="deposit-address" target="_blank" rel="noopener">${escapeHtml(deposit.ait_tx_hash.slice(0, 18))}...</a>`
         : '<span class="muted-text">pending</span>';
     const errLine = deposit.status === 'failed' && deposit.error_message
-        ? `<p class="error-box" style="margin-top:0.5rem;">${deposit.error_message}</p>`
+        ? `<p class="error-box" style="margin-top:0.5rem;">${escapeHtml(deposit.error_message)}</p>`
         : '';
     const fromShort = deposit.eth_from_address
-        ? `${deposit.eth_from_address.slice(0, 6)}...${deposit.eth_from_address.slice(-4)}`
+        ? `${escapeHtml(deposit.eth_from_address.slice(0, 6))}...${escapeHtml(deposit.eth_from_address.slice(-4))}`
         : '-';
     resultEl.innerHTML = `
         <p><strong>Status:</strong> ${statusBadge(deposit.status)}</p>
-        <p><strong>ETH amount:</strong> ${deposit.eth_amount || '-'} ETH</p>
-        <p><strong>AIT amount:</strong> ${deposit.ait_amount || '-'} AIT</p>
+        <p><strong>ETH amount:</strong> ${escapeHtml(deposit.eth_amount || '-')} ETH</p>
+        <p><strong>AIT amount:</strong> ${escapeHtml(deposit.ait_amount || '-')} AIT</p>
         <p><strong>From:</strong> <span style="font-family:var(--font-mono);">${fromShort}</span></p>
-        <p><strong>AIT recipient:</strong> <span style="font-family:var(--font-mono);">${deposit.ait_recipient || '-'}</span></p>
+        <p><strong>AIT recipient:</strong> <span style="font-family:var(--font-mono);">${escapeHtml(deposit.ait_recipient || '-')}</span></p>
         <p><strong>AIT tx:</strong> ${aitTxLink}</p>
-        <p class="muted-text">Created: ${deposit.created_at || '-'} &middot; Processed: ${deposit.processed_at || '-'}</p>
+        <p class="muted-text">Created: ${escapeHtml(deposit.created_at || '-')} &middot; Processed: ${escapeHtml(deposit.processed_at || '-')}</p>
         ${errLine}
     `;
     resultEl.style.display = 'block';
