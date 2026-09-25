@@ -97,7 +97,7 @@ def _chain_parameter_value(
                 ChainParameterHistory.parameter == parameter,
                 ChainParameterHistory.applied_height <= block_height,
             )
-            .order_by(ChainParameterHistory.applied_height.desc())
+            .order_by(ChainParameterHistory.applied_height.desc())  # type: ignore[attr-defined]
         ).first()
         if hist is not None:
             return hist.value
