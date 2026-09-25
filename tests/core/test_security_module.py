@@ -481,20 +481,44 @@ class TestSecretManager:
 class TestGlobalSecretManager:
     """Test global secret manager singleton"""
 
+    @staticmethod
+    def _reset_singleton():
+        """Reset the real module global — assigning on the package facade is a no-op."""
+        import sys
+
+        sys.modules["aitbc.crypto.secrets"]._global_secret_manager = None
+
     def test_get_secret_manager_singleton(self):
-        # Reset global singleton
-        security._global_secret_manager = None
-        manager1 = security.get_secret_manager()
+        from cryptography.fernet import Fernet
+
+        self._reset_singleton()
+        key = Fernet.generate_key().decode()
+        manager1 = security.get_secret_manager(encryption_key=key)
         manager2 = security.get_secret_manager()
         assert manager1 is manager2
 
     def test_get_secret_manager_with_key(self):
         from cryptography.fernet import Fernet
 
-        security._global_secret_manager = None
+        self._reset_singleton()
         key = Fernet.generate_key()
         manager = security.get_secret_manager(encryption_key=key)
         assert manager is not None
+
+    def test_get_secret_manager_requires_key(self, monkeypatch):
+        import pytest
+
+        self._reset_singleton()
+        monkeypatch.delenv("AITBC_SECRET_MANAGER_KEY", raising=False)
+        with pytest.raises(ValueError, match="encryption key"):
+            security.get_secret_manager()
+
+    def test_get_secret_manager_env_key(self, monkeypatch):
+        from cryptography.fernet import Fernet
+
+        self._reset_singleton()
+        monkeypatch.setenv("AITBC_SECRET_MANAGER_KEY", Fernet.generate_key().decode())
+        assert security.get_secret_manager() is not None
 
 
 # ============================================================================
