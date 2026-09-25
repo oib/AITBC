@@ -140,6 +140,7 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
                         "block_height": t.block_height,
                         "sender": t.sender,
                         "recipient": t.recipient,
+                        "type": t.type,
                         "payload": t.payload,
                         "value": t.value,
                         "fee": t.fee,
@@ -150,6 +151,38 @@ async def export_chain(request: Request, chain_id: str | None = None) -> dict[st
                         "tx_metadata": t.tx_metadata,
                     }
                     for t in transactions
+                ],
+                # Chain parameters are consensus state derived from genesis
+                # and sealed executes — ship the tables verbatim so an import
+                # restores rows the execute replay cannot regenerate
+                # (genesis-seeded parameters, peer state-sync rows).
+                "chain_parameters": [
+                    {
+                        "parameter": p.parameter,
+                        "value": p.value,
+                        "proposal_id": p.proposal_id,
+                        "applied_height": p.applied_height,
+                    }
+                    for p in list(
+                        session.execute(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).scalars().all()
+                    )
+                ],
+                "parameter_history": [
+                    {
+                        "parameter": h.parameter,
+                        "value": h.value,
+                        "proposal_id": h.proposal_id,
+                        "applied_height": h.applied_height,
+                    }
+                    for h in list(
+                        session.execute(
+                            select(ChainParameterHistory)
+                            .where(ChainParameterHistory.chain_id == chain_id)
+                            .order_by(asc(text("applied_height")), asc(text("parameter")))
+                        )
+                        .scalars()
+                        .all()
+                    )
                 ],
             }
             return {"success": True, "export_data": export_data, "export_size_bytes": len(json.dumps(export_data))}
@@ -220,6 +253,12 @@ def _build_import_objects(
                 detail=f"Mismatched transaction chain_id '{tx_chain_id}' for import chain '{chain_id}'",
             )
         try:
+            tx_payload = tx_data.get("payload") or {}
+            # ``type`` is a column every type-filtered consensus query relies on
+            # (GOVERNANCE_EXECUTE replay, BRIDGE_LOCK/ESCROW_LOCK lookups) —
+            # restore it with the same precedence _tx_type uses: explicit field,
+            # then payload.type, then TRANSFER.
+            tx_type = tx_data.get("type") or tx_payload.get("type") or "TRANSFER"
             tx = Transaction(
                 id=tx_data.get("id"),
                 chain_id=tx_chain_id,
@@ -227,7 +266,8 @@ def _build_import_objects(
                 block_height=tx_data.get("block_height"),
                 sender=tx_data["sender"],
                 recipient=tx_data["recipient"],
-                payload=tx_data.get("payload", {}),
+                type=tx_type,
+                payload=tx_payload,
                 value=tx_data.get("value", 0),
                 fee=tx_data.get("fee", 0),
                 nonce=tx_data.get("nonce", 0),
@@ -288,6 +328,31 @@ def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
         from ..database import _rebuild_chain_parameters
 
         _rebuild_chain_parameters(session, chain_id)
+        # Then restore the exporter's parameter tables verbatim. This covers
+        # rows the execute replay cannot regenerate: genesis-seeded parameters
+        # (``_seed_chain_parameters`` runs only at chain creation) and rows
+        # received via peer state sync. History rows the rebuild already wrote
+        # are first-write-protected, so execute-derived history stays canonical;
+        # current rows update to exactly what the source node carried.
+        shipped_params = import_data.get("chain_parameters") or []
+        shipped_history = import_data.get("parameter_history") or []
+        if shipped_params or shipped_history:
+            from ..sync_state import _upsert_chain_parameters
+
+            applied = _upsert_chain_parameters(session, chain_id, shipped_params, shipped_history)
+            _logger.info(
+                "Restored %s chain_parameter rows (%s history rows) from import payload for chain %s",
+                applied,
+                len(shipped_history),
+                chain_id,
+            )
+        else:
+            _logger.warning(
+                "Import payload for chain %s carries no chain_parameters/parameter_history sections "
+                "(old export format): only parameters set by sealed GOVERNANCE_EXECUTE transactions "
+                "were restored — genesis-seeded or peer-synced parameter rows are not recoverable",
+                chain_id,
+            )
         # One commit for delete+import: any failure above rolls the whole
         # thing back and the existing chain stays intact.
         session.commit()
