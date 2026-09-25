@@ -1,2 +1,13 @@
 User-agent: *
-Disallow: /
+Disallow: /cgi-bin/
+Disallow: /v1/
+Disallow: /rpc/
+Disallow: /agent/
+Disallow: /explorer-api/
+Disallow: /c/
+Disallow: /exchange/
+Allow: /openapi.json
+Allow: /agent/openapi.json
+Allow: /explorer-api/openapi.json
+
+Sitemap: https://hub.aitbc.bubuit.net/sitemap.xml
