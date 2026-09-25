@@ -59,7 +59,11 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
 
             # "c" is stored by keystore.py v2+ and the coordinator wallet;
             # files written before the work-factor bump carry no count.
+            # Bound it — a tampered file claiming billions of rounds would
+            # hang the KDF.
             iterations = int(kdfparams.get("c", 100000))
+            if not 10_000 <= iterations <= 10_000_000:
+                raise ValueError(f"implausible PBKDF2 iteration count in keystore: {iterations}")
             dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
             fernet_key = base64.urlsafe_b64encode(dk)
             fernet = Fernet(fernet_key)

@@ -242,6 +242,15 @@ class TestDecryptPrivateKey:
         with pytest.raises(ValueError, match="Failed to decrypt"):
             crypto.decrypt_private_key(legacy_blob, "wrong_password")
 
+    def test_decrypt_private_key_rejects_implausible_iterations(self):
+        """A tampered v2 blob claiming billions of PBKDF2 rounds fails fast instead of hanging the KDF."""
+        import base64
+        import os
+
+        crafted = base64.urlsafe_b64encode(b"AITK2" + (2**32 - 1).to_bytes(4, "big") + os.urandom(16) + b"token").decode()
+        with pytest.raises(ValueError, match="Failed to decrypt"):
+            crypto.decrypt_private_key(crafted, "password")
+
 
 # ============================================================================
 # Secure Random Bytes Tests
