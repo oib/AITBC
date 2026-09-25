@@ -13,7 +13,7 @@ from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
 from ..aux_state import serialize_aux_rows
-from ..base_models import ChainParameter
+from ..base_models import ChainParameter, ChainParameterHistory
 from ..models import Account, Block, Transaction
 from .utils import get_chain_id
 from aitbc.crypto.signature_recovery import canonical_address
@@ -202,6 +202,9 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
         # bond_slash_authority) but sit outside the account state root — ship
         # them alongside the snapshot or followers silently diverge.
         parameters = session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
+        parameter_history = session.exec(
+            select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)
+        ).all()
         # Side-effect tables (stake/bond/governance_*) are written by RPC and
         # tx paths but sit outside the account state root — the snapshot
         # carries them all or follower-local reads silently diverge.
@@ -211,7 +214,24 @@ async def get_state_snapshot(request: Request, chain_id: str | None = None) -> d
             "account_count": len(accounts),
             "state_root": f"0x{state_root.hex()}",
             "chain_parameters": [
-                {"parameter": p.parameter, "value": p.value, "proposal_id": p.proposal_id} for p in parameters
+                {
+                    "parameter": p.parameter,
+                    "value": p.value,
+                    "proposal_id": p.proposal_id,
+                    "applied_height": p.applied_height,
+                }
+                for p in parameters
+            ],
+            # Full version history: height-scoped resolvers need every past
+            # value, not just the current row, to validate replayed blocks.
+            "chain_parameter_history": [
+                {
+                    "parameter": h.parameter,
+                    "value": h.value,
+                    "proposal_id": h.proposal_id,
+                    "applied_height": h.applied_height,
+                }
+                for h in parameter_history
             ],
             "aux_state": aux["tables"],
             "accounts": [
@@ -293,8 +313,24 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
         # state root, so it never appears in a diff — ship the current rows on
         # every delta response or followers silently diverge.
         chain_parameters = [
-            {"parameter": p.parameter, "value": p.value, "proposal_id": p.proposal_id}
+            {
+                "parameter": p.parameter,
+                "value": p.value,
+                "proposal_id": p.proposal_id,
+                "applied_height": p.applied_height,
+            }
             for p in session.exec(select(ChainParameter).where(ChainParameter.chain_id == chain_id)).all()
+        ]
+        chain_parameter_history = [
+            {
+                "parameter": h.parameter,
+                "value": h.value,
+                "proposal_id": h.proposal_id,
+                "applied_height": h.applied_height,
+            }
+            for h in session.exec(
+                select(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id)
+            ).all()
         ]
 
         # Side-effect tables ship only rows touched inside the synced range.
@@ -333,6 +369,7 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
                     "to_state_root": to_state_root,
                     "account_count": 0,
                     "chain_parameters": chain_parameters,
+                    "chain_parameter_history": chain_parameter_history,
                     "aux_state": aux["tables"],
                 }
             return {
@@ -373,5 +410,6 @@ async def get_state_delta(request: Request, from_height: int, to_height: int, ch
             "to_state_root": to_state_root,
             "account_count": len(diff.changes),
             "chain_parameters": chain_parameters,
+            "chain_parameter_history": chain_parameter_history,
             "aux_state": aux["tables"],
         }
