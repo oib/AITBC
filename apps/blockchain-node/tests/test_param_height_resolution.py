@@ -730,3 +730,33 @@ def test_bond_slash_below_first_record_passes_authority_gate(monkeypatch):
             50,
         )
         assert reason2 == "not signed by the configured slash authority"
+
+
+def test_explicit_clear_is_unset_not_legacy_pin(monkeypatch):
+    """A governance write of ``""`` to ``bond_slash_authority`` is a deliberate
+    clear: heights at-or-after it resolve *unset*, never the legacy pin — the
+    pin exists only for heights with no record at all. Every node still
+    agrees; this just stops the pin overriding an explicit chain decision."""
+    chain_id = "ait-hub.aitbc.bubuit.net"
+    init_db(chain_id)
+    monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
+
+    with session_scope(chain_id) as session:
+        session.add(
+            ChainParameterHistory(
+                chain_id=chain_id,
+                parameter="bond_slash_authority",
+                value="",
+                proposal_id="p-clear",
+                applied_height=200,
+            )
+        )
+        session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value="", applied_height=200))
+        session.flush()
+
+        # Below the clear: the pin still describes history.
+        assert _bond_slash_authority(session, chain_id, 50) is not None
+        # At/after the clear: explicitly unset — pin must not resurrect.
+        assert _bond_slash_authority(session, chain_id, 250) is None
+        # Height-less callers see the current (cleared) row too.
+        assert _bond_slash_authority(session, chain_id) is None

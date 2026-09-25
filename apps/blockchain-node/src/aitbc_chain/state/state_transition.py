@@ -161,15 +161,20 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
     """
     onchain_value = _chain_parameter_value(session, chain_id, "bond_slash_authority", block_height)
     env_addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
-    if onchain_value and onchain_value.strip():
-        addr = canonical_address(onchain_value.strip())
-        if env_addr and canonical_address(env_addr) != addr:
-            logger.warning(
-                "BOND_SLASH_AUTHORITY_ADDRESS=%s disagrees with on-chain bond_slash_authority=%s; using the on-chain value",
-                env_addr,
-                addr,
-            )
-        return addr
+    if onchain_value is not None:
+        # A record at-or-below this height is authoritative — including an
+        # empty value, which is a deliberate clear (unset): it must not fall
+        # back to env or the legacy pin.
+        if onchain_value.strip():
+            addr = canonical_address(onchain_value.strip())
+            if env_addr and canonical_address(env_addr) != addr:
+                logger.warning(
+                    "BOND_SLASH_AUTHORITY_ADDRESS=%s disagrees with on-chain bond_slash_authority=%s; using the on-chain value",
+                    env_addr,
+                    addr,
+                )
+            return addr
+        return None
     if block_height is None and env_addr:
         return canonical_address(env_addr)
     if block_height is not None:
@@ -238,15 +243,19 @@ def _escrow_settlement_authority(session: Session, chain_id: str, block_height: 
     """
     onchain_value = _chain_parameter_value(session, chain_id, "escrow_settlement_authority", block_height)
     env_addr = (settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")).strip()
-    if onchain_value and onchain_value.strip():
-        addr = canonical_address(onchain_value.strip())
-        if env_addr and canonical_address(env_addr) != addr:
-            logger.warning(
-                "escrow settlement authority env value %s disagrees with on-chain escrow_settlement_authority=%s; using the on-chain value",
-                env_addr,
-                addr,
-            )
-        return addr
+    if onchain_value is not None:
+        # A record at-or-below this height is authoritative — including an
+        # empty value (a deliberate clear), which means unset.
+        if onchain_value.strip():
+            addr = canonical_address(onchain_value.strip())
+            if env_addr and canonical_address(env_addr) != addr:
+                logger.warning(
+                    "escrow settlement authority env value %s disagrees with on-chain escrow_settlement_authority=%s; using the on-chain value",
+                    env_addr,
+                    addr,
+                )
+            return addr
+        return None
     if block_height is None and env_addr:
         return canonical_address(env_addr)
     return None
@@ -267,15 +276,20 @@ def _bridge_release_authority(session: Session, chain_id: str, block_height: int
     """
     onchain_value = _chain_parameter_value(session, chain_id, "bridge_release_authority", block_height)
     env_addr = (settings.bridge_release_authority or os.getenv("BRIDGE_RELEASE_AUTHORITY", "")).strip()
-    if onchain_value and onchain_value.strip():
-        addr = canonical_address(onchain_value.strip())
-        if env_addr and canonical_address(env_addr) != addr:
-            logger.warning(
-                "bridge release authority env value %s disagrees with on-chain bridge_release_authority=%s; using the on-chain value",
-                env_addr,
-                addr,
-            )
-        return addr
+    if onchain_value is not None:
+        # A record at-or-below this height is authoritative — including an
+        # empty value (a deliberate clear), which resolves the transitional
+        # escrow default rather than a per-node env value.
+        if onchain_value.strip():
+            addr = canonical_address(onchain_value.strip())
+            if env_addr and canonical_address(env_addr) != addr:
+                logger.warning(
+                    "bridge release authority env value %s disagrees with on-chain bridge_release_authority=%s; using the on-chain value",
+                    env_addr,
+                    addr,
+                )
+            return addr
+        return _escrow_settlement_authority(session, chain_id, block_height)
     if block_height is None and env_addr:
         return canonical_address(env_addr)
     return _escrow_settlement_authority(session, chain_id, block_height)
