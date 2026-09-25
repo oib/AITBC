@@ -134,6 +134,7 @@ get_bridge_balance: Callable[..., Any] | None = None
 get_bridge_proof: Callable[..., Any] | None = None
 get_bridge_transfer: Callable[..., Any] | None = None
 get_validator_set: Callable[..., Any] | None = None
+list_bridge_transfers: Callable[..., Any] | None = None
 list_pending_transfers: Callable[..., Any] | None = None
 register_validator: Callable[..., Any] | None = None
 store_block_header: Callable[..., Any] | None = None
@@ -153,6 +154,7 @@ try:
         get_bridge_proof,
         get_bridge_transfer,
         get_validator_set,
+        list_bridge_transfers,
         list_pending_transfers,
         register_validator,
         store_block_header,
@@ -209,6 +211,23 @@ async def get_bridge_proof_route(
     return await get_bridge_proof(  # type: ignore[no-any-return]
         request, transfer_id, source_chain=source_chain, block_height=block_height, block_hash=block_hash
     )
+
+
+@router.get("/transfers", summary="List bridge transfers (all statuses)")
+@rate_limit(rate=50, per=60)
+async def list_bridge_transfers_route(
+    request: Request,
+    chain_id: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List persisted cross-chain transfers — public explorer listing"""
+    if list_bridge_transfers is None:
+        raise HTTPException(status_code=503, detail="Bridge module not available")
+    if chain_id:
+        _validate_chain_id(chain_id)
+    return await list_bridge_transfers(request, chain_id, status=status, limit=limit, offset=offset)  # type: ignore[no-any-return]
 
 
 @router.get("/pending", summary="List pending bridge transfers")
