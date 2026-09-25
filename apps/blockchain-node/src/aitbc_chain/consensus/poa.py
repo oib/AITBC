@@ -1311,12 +1311,15 @@ class PoAProposer:
         from ..base_models import ChainParameter, record_chain_parameter_history
 
         for name, value in (parameters or {}).items():
+            # ``null`` in genesis is a deliberate clear ("") — str(None)
+            # would store the literal "None", same trap as parameter_change.
+            stored_value = "" if value is None else str(value)
             session.add(
-                ChainParameter(chain_id=self._config.chain_id, parameter=str(name), value=str(value), applied_height=0)
+                ChainParameter(chain_id=self._config.chain_id, parameter=str(name), value=stored_value, applied_height=0)
             )
             # Genesis parameters take effect at height 0 — record the history
             # entry so height-scoped lookups resolve them from the first block.
-            record_chain_parameter_history(session, self._config.chain_id, str(name), str(value), None, 0)
+            record_chain_parameter_history(session, self._config.chain_id, str(name), stored_value, None, 0)
         if parameters:
             session.commit()
             self._logger.info("Seeded %d chain parameters from genesis: %s", len(parameters), sorted(parameters))
