@@ -435,11 +435,11 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
             Transaction.type == "GOVERNANCE_EXECUTE",
             Transaction.block_height.isnot(None),  # type: ignore[union-attr]
         )
-        .order_by(Transaction.block_height)
+        .order_by("block_height")
     ).all()
     latest: dict[str, tuple[int, str]] = {}
-    for tx in executes:
-        payload = tx.payload or {}
+    for execute_tx in executes:
+        payload: Any = execute_tx.payload or {}
         if isinstance(payload, str):
             try:
                 payload = json.loads(payload)
@@ -449,13 +449,13 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
         if execution_payload.get("action", "parameter_change") != "parameter_change":
             continue
         parameter = execution_payload.get("parameter")
-        if not parameter or tx.block_height is None:
+        if not parameter or execute_tx.block_height is None:
             continue
         value = str(execution_payload.get("value"))
         record_chain_parameter_history(
-            session, chain_id, parameter, value, payload.get("proposal_id"), tx.block_height
+            session, chain_id, parameter, value, payload.get("proposal_id"), execute_tx.block_height
         )
-        latest[parameter] = (tx.block_height, value)
+        latest[parameter] = (execute_tx.block_height, value)
 
     # autoflush is off on these sessions — flush so the dedupe check in
     # record_chain_parameter_history sees the rows just added above.
@@ -483,14 +483,14 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
             ).first()
             tx_hash = proposal.execution_tx_hash if proposal else None
             if tx_hash:
-                tx = session.exec(
+                exec_tx = session.exec(
                     select(Transaction).where(
                         Transaction.chain_id == chain_id,
                         Transaction.tx_hash == tx_hash,
                     )
                 ).first()
-                if tx and tx.block_height is not None:
-                    height = tx.block_height
+                if exec_tx and exec_tx.block_height is not None:
+                    height = exec_tx.block_height
         if height is None:
             continue
         row.applied_height = height
