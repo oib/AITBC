@@ -31,9 +31,10 @@
             <h2>Network Stats</h2>
             <div class="endpoint fade-in" style="padding:0;">
                 <table class="block-list-table">
-                    <tr><td>Total AIT</td><td id="stat-total-ait">--</td></tr>
-                    <tr><td>Active Offers</td><td id="stat-active-offers">--</td></tr>
-                    <tr><td>Unique Nodes</td><td id="stat-unique-nodes">--</td></tr>
+                    <tr><td>Total AIT (Supply)</td><td id="stat-total-ait">--</td></tr>
+                    <tr><td>Transfer Volume (AIT)</td><td id="stat-transfer-volume">--</td></tr>
+                    <tr><td>Anchored Offers</td><td id="stat-active-offers">--</td></tr>
+                    <tr><td>Unique Addresses</td><td id="stat-unique-nodes">--</td></tr>
                     <tr><td>Providers</td><td id="stat-unique-providers">--</td></tr>
                     <tr><td>Total TXs</td><td id="stat-total-txs">--</td></tr>
                 </table>
@@ -70,6 +71,9 @@
                 <button class="filter-btn" data-filter="ollama">Ollama</button>
                 <button class="filter-btn" data-filter="whisper">Whisper</button>
                 <button class="filter-btn" data-filter="ffmpeg">FFmpeg</button>
+                <button class="filter-btn" data-filter="ipfs">IPFS</button>
+                <button class="filter-btn" data-filter="hermes">Hermes</button>
+                <button class="filter-btn" data-filter="gpu_market">GPU Market</button>
             </div>
             <div class="status-filter">
                 <label for="status-filter">Status:</label>
@@ -102,7 +106,7 @@
             </a>
             <p class="endpoint-note">List all marketplace offers (hardware+software bundles)</p>
 
-            <a href="/v1/market/offer/{plugin_id}" class="endpoint endpoint-link">
+            <a href="/v1/market/offer/whisper-base" class="endpoint endpoint-link" target="_blank">
                 <span class="method">GET</span> <span class="path">/v1/market/offer/{plugin_id}</span>
             </a>
             <p class="endpoint-note">Get specific offer details by plugin ID</p>
