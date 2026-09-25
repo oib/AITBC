@@ -13,6 +13,7 @@ from typing import Any
 from fastapi import HTTPException
 
 from aitbc.constants import DATA_DIR
+from aitbc.utils import DEFAULT_TX_FEE_UNITS
 
 from ..config import settings
 from ..logger import get_logger
@@ -88,11 +89,18 @@ def gossip_transaction_drop_reason(tx_data: dict[str, Any]) -> str | None:
     signature = tx_data.get("signature") or tx_data.get("sig")
     if tx_data.get("type") == "GPU_MARKET" and isinstance(payload, dict) and payload.get("action") in OFFER_ACTIONS:
         try:
-            if int(tx_data.get("amount", 0) or 0) == 0:
-                return None
+            offer_amount = int(tx_data.get("amount", 0) or 0)
+            offer_fee = int(tx_data.get("fee", 0) or 0)
         except (TypeError, ValueError):
-            pass
-        return "nonzero_unsigned_offer"
+            return "nonzero_unsigned_offer"
+        if offer_amount != 0:
+            return "nonzero_unsigned_offer"
+        # Unsigned listings are capped at the standard listing fee at REST
+        # intake; a gossiped unsigned offer above the cap would burn the
+        # named sender's balance, so it must prove ownership by signature.
+        if offer_fee <= DEFAULT_TX_FEE_UNITS:
+            return None
+        # Fall through to the signature check below.
     if not signature:
         return "missing_signature"
     if not verify_transaction_signature(tx_data, signature, sender or ""):

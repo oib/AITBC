@@ -1135,7 +1135,7 @@ def offer(
         chain_id = get_chain_id()
         island_id = get_island_id()
         hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
-        wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
+        wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=False)
 
         # Auto-detect deployment type from model name suffix
         is_cloud = model_or_variant.endswith(":cloud")
@@ -1209,6 +1209,12 @@ def offer(
                 "created_at": datetime.now().isoformat(),
             },
         }
+
+        # Sign when the wallet yields a key: the chain still accepts unsigned
+        # offers (V23-90) but pins their fee, and a signed listing binds the
+        # provider address to the wallet instead of merely claiming it.
+        if private_key:
+            offer_data["signature"] = sign_transaction_data(offer_data, private_key)
 
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
         tx_result = http_client.post("/rpc/transactions/market", json=offer_data)
