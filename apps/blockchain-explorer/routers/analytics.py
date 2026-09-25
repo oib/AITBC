@@ -11,6 +11,7 @@ import httpx
 from fastapi import APIRouter, HTTPException
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.utils.units import units_to_ait
 
 from chain_client import BLOCKCHAIN_RPC_URLS, DEFAULT_CHAIN, USE_DATA_LAYER, get_data_layer
 
@@ -119,7 +120,12 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
         async with aiosqlite.connect(str(chain_db_path)) as conn:
             cursor = await conn.cursor()
 
-            # Total AIT from TRANSFER + GPU_MARKET transactions (sum of values)
+            # Circulating supply: sum of account balances (base units -> AIT)
+            await cursor.execute('SELECT COALESCE(SUM(balance), 0) FROM account')
+            row = await cursor.fetchone()
+            total_ait = float(units_to_ait((row[0] if row else 0) or 0))
+
+            # Cumulative transfer volume, labeled as such (base units -> AIT)
             await cursor.execute("""
                 SELECT COALESCE(SUM(CAST(value AS REAL)), 0)
                 FROM "transaction"
@@ -128,32 +134,44 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
             row = await cursor.fetchone()
             # V23-46: fetchone() is Row | None. An aggregate always returns a row, but
             # only while the table exists -- otherwise this is a TypeError on None.
-            total_ait = (row[0] if row else 0) or 0
+            transfer_volume = float(units_to_ait((row[0] if row else 0) or 0))
 
-            # Active offers (GPU_MARKET transactions)
+            # Anchored offers: distinct offer keys across all anchor tx types.
+            # Software offers carry payload.offer_id; GPU registrations payload.gpu_id.
             await cursor.execute("""
-                SELECT COUNT(DISTINCT tx_hash) FROM "transaction" WHERE type = 'GPU_MARKET'
+                SELECT COUNT(DISTINCT COALESCE(
+                    json_extract(payload, '$.offer_id'),
+                    json_extract(payload, '$.gpu_id')))
+                FROM "transaction"
+                WHERE type IN ('GPU_MARKET', 'GPU_MARKETPLACE', 'GPU_REGISTER')
             """)
             row = await cursor.fetchone()
             active_offers = (row[0] if row else 0) or 0
 
-            # Unique nodes (distinct senders)
+            # Unique sender addresses
             await cursor.execute("""
                 SELECT COUNT(DISTINCT sender) FROM "transaction"
             """)
             row = await cursor.fetchone()
             unique_nodes = (row[0] if row else 0) or 0
 
-            # Unique providers from GPU_MARKET payload
+            # Unique providers across all offer anchor types
             await cursor.execute("""
-                SELECT payload FROM "transaction" WHERE type = 'GPU_MARKET'
+                SELECT payload FROM "transaction"
+                WHERE type IN ('GPU_MARKET', 'GPU_MARKETPLACE', 'GPU_REGISTER')
             """)
             providers = set()
             rows = await cursor.fetchall()
             for row in rows:
                 try:
                     payload = json.loads(row[0]) if row[0] else {}
-                    pid = payload.get("provider_node_id") or payload.get("node_id")
+                    pid = (
+                        payload.get("provider_node_id")
+                        or payload.get("provider_address")
+                        or payload.get("provider")
+                        or payload.get("miner_id")
+                        or payload.get("node_id")
+                    )
                     if pid:
                         providers.add(pid)
                 except Exception:
@@ -167,6 +185,7 @@ async def api_network_stats(chain_id: str | None = DEFAULT_CHAIN) -> dict[str, A
 
         return {
             "total_ait": round(total_ait, 2),
+            "transfer_volume_ait": round(transfer_volume, 2),
             "active_offers": active_offers,
             "unique_nodes": unique_nodes,
             "unique_providers": unique_providers,
@@ -214,7 +233,9 @@ async def api_top_addresses(
                     {
                         "address": addr,
                         "transaction_count": tx_count,
-                        "volume": round(volume, 2),
+                        # transaction.value is in base units; the column header
+                        # says "Volume (AIT)", so convert here.
+                        "volume": round(float(units_to_ait(volume or 0)), 2),
                     }
                 )
 
@@ -292,7 +313,8 @@ async def api_provider_reputation(provider_id: str, chain_id: str | None = DEFAU
             "transactions": confirmed_count,
             "gpu_offers": gpu_offers,
             "days_active": days_active,
-            "total_volume": round(total_volume, 2),
+            # tx values are base units; report the volume in AIT.
+            "total_volume": round(float(units_to_ait(total_volume)), 2),
         }
     except Exception:
         logger.exception("Error getting provider reputation: %s", provider_id)
