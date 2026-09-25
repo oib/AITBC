@@ -328,22 +328,36 @@ class BridgeTransferMixin(BridgeBase):
                 from ..mempool import get_mempool
 
                 mempool = get_mempool()
+                # Semantic fields go inside ``payload`` — the same shape the
+                # pre-registered Transaction row carries. The sealer persists
+                # ``tx_data["payload"]`` and ``/rpc/blocks-range`` serves the
+                # row, so a flat dict would drop bridge_signature (and
+                # lock_tx_hash) from everything range-synced validators see:
+                # at v5+ a bulk-synced node would fail the signature check and
+                # silently skip the credit while gossip-fed nodes apply it.
+                # ``bridge_credit_message`` reads payload-first, so the signed
+                # bytes are identical to the old flat shape.
+                credit_payload = {
+                    "type": "BRIDGE_RELEASE",
+                    "transfer_id": transfer_id,
+                    "source_chain": record.source_chain,
+                    "source_sender": record.sender,
+                    "target_chain": record.target_chain,
+                    "amount": release_amount,
+                    "asset": record.asset,
+                    "proof": proof_hash,
+                }
                 credit_dict = {
                     "from": "bridge_release",
                     "to": record.recipient,
                     "amount": release_amount,
                     "fee": 0,
                     "type": "BRIDGE_RELEASE",
-                    "transfer_id": transfer_id,
-                    "source_chain": record.source_chain,
-                    "source_sender": record.sender,
-                    "target_chain": record.target_chain,
-                    "asset": record.asset,
-                    "proof": proof_hash,
                     "nonce": release_nonce,
                     "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
+                    "payload": credit_payload,
                 }
-                self._sign_bridge_credit(credit_dict, target_tx_hash)
+                self._sign_bridge_credit(credit_dict, target_tx_hash, payload=credit_payload)
                 mempool.add(
                     credit_dict,
                     chain_id=record.target_chain,
@@ -499,21 +513,30 @@ class BridgeTransferMixin(BridgeBase):
                 from ..mempool import get_mempool
 
                 mempool = get_mempool()
+                # Same payload-shaping as the release above: lock_tx_hash must
+                # survive into the persisted row — the v6 refund-binding probe
+                # reads prior.payload["lock_tx_hash"], and validators that see
+                # only the row (blocks-range sync) need bridge_signature in it.
+                credit_payload = {
+                    "type": "BRIDGE_REFUND",
+                    "transfer_id": transfer_id,
+                    "lock_tx_hash": record.source_tx_hash or transfer_id,
+                    "source_chain": record.source_chain,
+                    "target_chain": record.target_chain,
+                    "amount": record.amount,
+                    "asset": record.asset,
+                }
                 credit_dict = {
                     "from": "bridge_refund",
                     "to": record.sender,
                     "amount": record.amount,
                     "fee": 0,
                     "type": "BRIDGE_REFUND",
-                    "transfer_id": transfer_id,
-                    "lock_tx_hash": record.source_tx_hash or transfer_id,
-                    "target_chain": record.target_chain,
-                    "source_chain": record.source_chain,
-                    "asset": record.asset,
                     "nonce": refund_nonce,
                     "timestamp": datetime.now(UTC),
+                    "payload": credit_payload,
                 }
-                self._sign_bridge_credit(credit_dict, refund_tx_hash)
+                self._sign_bridge_credit(credit_dict, refund_tx_hash, payload=credit_payload)
                 mempool.add(
                     credit_dict,
                     chain_id=record.source_chain,
