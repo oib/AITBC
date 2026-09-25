@@ -383,96 +383,35 @@ def ensure_bond_accounts(session: Session, chain_id: str) -> None:
 _AUTHORITY_PARAMETERS = ("governance_executors", "escrow_settlement_authority", "bond_slash_authority")
 
 
-def _authority_param_env_fallback(parameter: str) -> str:
-    """Node-local seed for an authority chain parameter when no donor row exists.
-
-    Mirrors the env fallbacks the state-transition resolvers use, so a chain
-    seeded here behaves like a chain that set the parameters explicitly.
-    """
-    if parameter == "bond_slash_authority":
-        return os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
-    escrow_authority = (settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")).strip()
-    if parameter == "governance_executors":
-        return (os.getenv("GOVERNANCE_EXECUTORS", "").strip() or escrow_authority).strip()
-    return escrow_authority
-
-
-def _ensure_authority_parameters(session: Session, chain_id: str, donor_chain_id: str) -> None:
-    """Seed the authority chain parameters for a chain that has none.
+def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
+    """Report authority chain parameters that are unset on this chain.
 
     Below state-transition v5 an unset ``governance_executors`` takes the
-    lenient branch -- any funded sender may execute governance. A chain born
-    with an empty ``chain_parameter`` table starts in that state, so creation
-    and seeding must happen together: the value is copied from the node's
-    primary chain (``donor_chain_id``) when it has a row, else from the env
-    fallbacks the resolvers themselves honour. Existing rows are never
-    touched; a value that resolves to nothing is logged loudly rather than
-    silently left lenient.
+    lenient branch — any funded sender may execute governance — and the
+    settlement/slash authorities are lenient below their gate heights the
+    same way. These parameters are consensus state: every node must hold
+    identical values or validation diverges silently (the state root only
+    covers accounts), and a value written before replay would apply to
+    blocks mined before it was legitimately set. They can therefore only
+    ever be set through chain history — genesis, or a GOVERNANCE_EXECUTE —
+    never from a node's startup code or its environment. init reports the
+    gap so an operator sees it; it does not write.
     """
-    donor_session: Session | None = None
-    if donor_chain_id and donor_chain_id != chain_id and settings.get_db_path(donor_chain_id).exists():
-        try:
-            donor_session = _get_session_factory(donor_chain_id)()
-        except Exception:
-            logger.warning(
-                "chain %s: could not open donor chain %s for authority parameter seeding; env fallbacks only",
-                chain_id,
-                donor_chain_id,
+    for parameter in _AUTHORITY_PARAMETERS:
+        row = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == parameter,
             )
-    try:
-        for parameter in _AUTHORITY_PARAMETERS:
-            row = session.exec(
-                select(ChainParameter).where(
-                    ChainParameter.chain_id == chain_id,
-                    ChainParameter.parameter == parameter,
-                )
-            ).first()
-            if row and row.value.strip():
-                continue
-            value = ""
-            if donor_session is not None:
-                donor_row = donor_session.exec(
-                    select(ChainParameter).where(
-                        ChainParameter.chain_id == donor_chain_id,
-                        ChainParameter.parameter == parameter,
-                    )
-                ).first()
-                if donor_row and donor_row.value.strip():
-                    value = donor_row.value.strip()
-            if not value:
-                value = _authority_param_env_fallback(parameter)
-            if not value:
-                logger.warning(
-                    "chain %s: no donor row and no env fallback for authority parameter %s; "
-                    "the lenient pre-v5 branch stays reachable until it is set",
-                    chain_id,
-                    parameter,
-                )
-                continue
-            canonical = ",".join(canonical_address(a.strip()) for a in value.split(",") if a.strip())
-            if row:
-                row.value = canonical
-                row.proposal_id = "init_db-bootstrap"
-            else:
-                session.add(
-                    ChainParameter(
-                        chain_id=chain_id,
-                        parameter=parameter,
-                        value=canonical,
-                        proposal_id="init_db-bootstrap",
-                    )
-                )
-            logger.info(
-                "Seeded authority parameter %s=%s for chain %s (donor=%s)",
-                parameter,
-                canonical,
-                chain_id,
-                donor_chain_id if donor_session is not None else "env",
-            )
-        session.commit()
-    finally:
-        if donor_session is not None:
-            donor_session.close()
+        ).first()
+        if row and row.value.strip():
+            continue
+        logger.warning(
+            "chain %s: authority parameter %s is not set; below its gate height the lenient "
+            "branch applies — set it through genesis or governance, not env",
+            chain_id,
+            parameter,
+        )
 
 
 def init_db(chain_id: str = "") -> None:
@@ -513,8 +452,7 @@ def init_db(chain_id: str = "") -> None:
     # Ensure bond escrow and burn accounts exist for this chain.
     with session_scope(resolved_chain_id) as session:
         ensure_bond_accounts(session, resolved_chain_id)
-        donor_chain_id = _default_chain_id or settings.chain_id
-        _ensure_authority_parameters(session, resolved_chain_id, donor_chain_id)
+        _warn_unset_authority_parameters(session, resolved_chain_id)
 
 
 def shutdown_db(chain_id: str = "") -> None:

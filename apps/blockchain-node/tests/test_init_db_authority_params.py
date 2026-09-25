@@ -1,11 +1,14 @@
-"""`init_db` seeds authority chain parameters on chains that have none.
+"""`init_db` reports unset authority chain parameters but never writes them.
 
 Below state-transition v5 an unset ``governance_executors`` takes the lenient
-branch — any funded sender may execute governance. A chain born with an empty
-``chain_parameter`` table starts exactly there, which is why creation and
-seeding happen inside `init_db` itself. These tests pin the seed order
-(donor chain first, env fallbacks second), the never-overwrite guarantee, and
-the executors-from-escrow-authority convention the live chain already uses.
+branch — any funded sender may execute governance — and the settlement/slash
+authorities behave the same below their gate heights. These parameters are
+consensus state: every node must hold identical values (the state root only
+covers accounts, so nothing catches a disagreement), and a value present at
+startup would apply to blocks mined before it was legitimately set — synced
+GOVERNANCE_EXECUTEs validate against the current table, not the value at
+their height. init therefore only warns; genesis and GOVERNANCE_EXECUTE are
+the only paths that may write them.
 """
 
 from __future__ import annotations
@@ -14,23 +17,18 @@ import pytest
 from sqlmodel import select
 
 from aitbc_chain.base_models import ChainParameter
-from aitbc_chain.config import settings
 from aitbc_chain.database import init_db, session_scope
 
-_DONOR = "donor-chain-authority-seed"
-_ESCROW = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
-_BOND = "0xab0797Ae8cfF09B313c71cAb2f894B342b6e1d76"
-_OTHER = "0x1111111111111111111111111111111111111111"
+_PARAMS = ("governance_executors", "escrow_settlement_authority", "bond_slash_authority")
+_AUTHORITY = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
 
 
 @pytest.fixture
-def authority_env(monkeypatch):
-    """Chain-id-independent env, cleared per test then populated explicitly."""
+def isolated_chain_env(monkeypatch):
+    """No env fallback is consulted, but clear them anyway so the assertions
+    about what was *written* cannot be confused by a pre-seeded row."""
     for var in ("GOVERNANCE_EXECUTORS", "BOND_SLASH_AUTHORITY_ADDRESS", "ESCROW_RELEASE_ADDRESS"):
         monkeypatch.delenv(var, raising=False)
-    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
-    monkeypatch.setattr(settings, "chain_id", "")
-    monkeypatch.setattr("aitbc_chain.database._default_chain_id", "")
     return monkeypatch
 
 
@@ -44,58 +42,49 @@ def _param(chain_id: str, parameter: str) -> ChainParameter | None:
         ).first()
 
 
-def test_fresh_chain_seeds_from_donor(authority_env):
-    """A secondary chain copies the donor's rows verbatim, not the env's."""
-    authority_env.setenv("ESCROW_RELEASE_ADDRESS", _ESCROW)
-    authority_env.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _BOND)
-    init_db(_DONOR)
-    assert _param(_DONOR, "escrow_settlement_authority").value == _ESCROW
+def test_fresh_chain_warns_and_writes_nothing(isolated_chain_env, caplog):
+    init_db("bare-chain-authority-check")
 
-    authority_env.setenv("ESCROW_RELEASE_ADDRESS", _OTHER)
-    authority_env.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _OTHER)
-    authority_env.setattr(settings, "chain_id", _DONOR)
-    init_db("child-chain-authority-seed")
-
-    # Donor values win over the (deliberately different) env values.
-    assert _param("child-chain-authority-seed", "escrow_settlement_authority").value == _ESCROW
-    assert _param("child-chain-authority-seed", "bond_slash_authority").value == _BOND
-    assert _param("child-chain-authority-seed", "escrow_settlement_authority").proposal_id == "init_db-bootstrap"
+    for parameter in _PARAMS:
+        assert _param("bare-chain-authority-check", parameter) is None
+    warned = [r.message for r in caplog.records if "authority parameter" in r.message]
+    assert len(warned) == len(_PARAMS)
+    for parameter in _PARAMS:
+        assert any(parameter in m and "bare-chain-authority-check" in m for m in warned)
 
 
-def test_env_fallback_when_no_donor(authority_env):
-    authority_env.setenv("ESCROW_RELEASE_ADDRESS", _ESCROW)
-    authority_env.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _BOND)
-    authority_env.setenv("GOVERNANCE_EXECUTORS", _OTHER)
-    init_db("env-chain-authority-seed")
+def test_env_is_never_a_source(isolated_chain_env):
+    """Env vars may inform a resolver's fallback; init must not persist them."""
+    isolated_chain_env.setenv("ESCROW_RELEASE_ADDRESS", _AUTHORITY)
+    isolated_chain_env.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _AUTHORITY)
+    isolated_chain_env.setenv("GOVERNANCE_EXECUTORS", _AUTHORITY)
+    init_db("env-chain-authority-check")
 
-    assert _param("env-chain-authority-seed", "escrow_settlement_authority").value == _ESCROW
-    assert _param("env-chain-authority-seed", "bond_slash_authority").value == _BOND
-    assert _param("env-chain-authority-seed", "governance_executors").value == _OTHER
-
-
-def test_governance_executors_falls_back_to_escrow_authority(authority_env):
-    """The live fleet runs executors == escrow authority; a bare env inherits it."""
-    authority_env.setenv("ESCROW_RELEASE_ADDRESS", _ESCROW)
-    init_db("exec-chain-authority-seed")
-
-    assert _param("exec-chain-authority-seed", "governance_executors").value == _ESCROW
+    for parameter in _PARAMS:
+        assert _param("env-chain-authority-check", parameter) is None
 
 
-def test_existing_rows_are_never_overwritten(authority_env):
-    authority_env.setenv("ESCROW_RELEASE_ADDRESS", _ESCROW)
-    init_db("keep-chain-authority-seed")
+def test_existing_rows_are_untouched_and_unwarned(isolated_chain_env, caplog):
+    """A chain that already has its authorities produces no warning and no writes."""
+    chain = "set-chain-authority-check"
+    init_db(chain)
+    with session_scope(chain) as session:
+        for parameter in _PARAMS:
+            session.add(
+                ChainParameter(
+                    chain_id=chain,
+                    parameter=parameter,
+                    value=_AUTHORITY,
+                    proposal_id="test-preset",
+                )
+            )
+        session.commit()
+    caplog.clear()
 
-    authority_env.setenv("ESCROW_RELEASE_ADDRESS", _OTHER)
-    init_db("keep-chain-authority-seed")
+    init_db(chain)
 
-    assert _param("keep-chain-authority-seed", "escrow_settlement_authority").value == _ESCROW
-
-
-def test_unresolvable_param_is_left_unset_and_warned(authority_env, caplog):
-    """No donor, no env: nothing is written, and the gap is loud, not silent."""
-    init_db("bare-chain-authority-seed")
-
-    assert _param("bare-chain-authority-seed", "governance_executors") is None
-    assert _param("bare-chain-authority-seed", "escrow_settlement_authority") is None
-    assert _param("bare-chain-authority-seed", "bond_slash_authority") is None
-    assert any("authority parameter" in r.message for r in caplog.records)
+    for parameter in _PARAMS:
+        row = _param(chain, parameter)
+        assert row.value == _AUTHORITY
+        assert row.proposal_id == "test-preset"
+    assert not any("authority parameter" in r.message for r in caplog.records)
