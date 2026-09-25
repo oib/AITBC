@@ -760,3 +760,71 @@ def test_explicit_clear_is_unset_not_legacy_pin(monkeypatch):
         assert _bond_slash_authority(session, chain_id, 250) is None
         # Height-less callers see the current (cleared) row too.
         assert _bond_slash_authority(session, chain_id) is None
+
+
+def test_parameter_change_null_value_is_explicit_clear(monkeypatch):
+    """``value: null`` in a parameter_change records "" (a deliberate clear),
+    not the literal "None" — on the pinned chain, heights at/after the clear
+    resolve unset instead of resurrecting the legacy authority, and "None"
+    never reaches canonical_address as a nonsense address."""
+    chain_id = "ait-hub.aitbc.bubuit.net"
+    init_db(chain_id)
+    monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
+
+    with session_scope(chain_id) as session:
+        _account(session, chain_id, _OTHER)
+        st = StateTransition()
+        ok, err = st.apply_transaction(
+            session,
+            chain_id,
+            _execute_tx(_OTHER, "bond_slash_authority", None, "0xclear1"),
+            "0xclear1",
+            block_version=4,
+            block_height=50,
+        )
+        assert ok, err
+
+        row = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == "bond_slash_authority",
+            )
+        ).first()
+        assert row is not None
+        assert row.value == ""
+
+        # At/after the clear: explicitly unset — not the pin, not "None".
+        assert _bond_slash_authority(session, chain_id, 60) is None
+        # Below it: the pin still describes the pre-record era.
+        assert _bond_slash_authority(session, chain_id, 40) is not None
+
+
+def test_parameter_change_missing_value_key_rejected_at_validation():
+    """A parameter_change whose execution_payload has no ``value`` key is
+    malformed — rejected at payload validation (proposer-side) rather than
+    sealed and stored as the string "None". ``value: null`` stays valid."""
+    from aitbc_chain.consensus.poa import _validate_governance_payload
+
+    errors = _validate_governance_payload(
+        "GOVERNANCE_EXECUTE",
+        {
+            "proposal_id": "p-1",
+            "executor": _EXECUTOR,
+            "execution_payload": {"action": "parameter_change", "parameter": "bond_slash_authority"},
+        },
+    )
+    assert any("value" in e for e in errors)
+
+    ok_errors = _validate_governance_payload(
+        "GOVERNANCE_EXECUTE",
+        {
+            "proposal_id": "p-1",
+            "executor": _EXECUTOR,
+            "execution_payload": {
+                "action": "parameter_change",
+                "parameter": "bond_slash_authority",
+                "value": None,
+            },
+        },
+    )
+    assert not any("'value'" in e for e in ok_errors)

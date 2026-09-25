@@ -458,7 +458,10 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
         parameter = execution_payload.get("parameter")
         if not parameter or execute_tx.block_height is None:
             continue
-        value = str(execution_payload.get("value"))
+        raw_value = execution_payload.get("value")
+        # ``value: null`` is a deliberate clear ("") — str(None) would write
+        # the literal "None", which resolvers treat as a real address string.
+        value = "" if raw_value is None else str(raw_value)
         record_chain_parameter_history(
             session, chain_id, parameter, value, payload.get("proposal_id"), execute_tx.block_height, overwrite=True
         )
