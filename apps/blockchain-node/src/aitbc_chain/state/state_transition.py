@@ -112,35 +112,6 @@ def _chain_parameter_value(session: Session, chain_id: str, parameter: str, bloc
     return None
 
 
-def _parameter_has_record(session: Session, chain_id: str, parameter: str) -> bool:
-    """True when the chain has any on-chain record of ``parameter``.
-
-    Distinguishes "never set on-chain" (env fallback is the only source —
-    bootstrap semantics) from "set at some height" (heights before the first
-    record resolve as provably unset — a per-node env value must not
-    resurrect an authority the chain did not have yet).
-    """
-    hist = session.exec(
-        select(ChainParameterHistory)
-        .where(
-            ChainParameterHistory.chain_id == chain_id,
-            ChainParameterHistory.parameter == parameter,
-        )
-        .limit(1)
-    ).first()
-    if hist is not None:
-        return True
-    row = session.exec(
-        select(ChainParameter)
-        .where(
-            ChainParameter.chain_id == chain_id,
-            ChainParameter.parameter == parameter,
-        )
-        .limit(1)
-    ).first()
-    return row is not None
-
-
 def _governance_executors(session: Session, chain_id: str, block_height: int | None = None) -> frozenset[str] | None:
     """Authorized GOVERNANCE_EXECUTE senders from the on-chain
     ``governance_executors`` chain parameter (comma-separated addresses).
@@ -165,9 +136,12 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
     The on-chain ``bond_slash_authority`` chain parameter wins: it is applied
     identically on every node that imports the parameter-setting transaction,
     so the gate is deterministic across the fleet. ``BOND_SLASH_AUTHORITY_ADDRESS``
-    remains the fallback for chains that never set the parameter; a
-    disagreement between the two is logged, because per-node env drift is
-    exactly how the 1-2 Sep slashes were skipped on node0.
+    remains the bootstrap for ``block_height=None`` callers only (mempool
+    pre-checks, non-consensus introspection): for a known block height, chain
+    history alone decides — an env value would make the answer depend on
+    which records this node has applied so far. A disagreement between env
+    and the on-chain value is logged, because per-node env drift is exactly
+    how the 1-2 Sep slashes were skipped on node0.
     """
     onchain_value = _chain_parameter_value(session, chain_id, "bond_slash_authority", block_height)
     env_addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
@@ -180,7 +154,7 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
                 addr,
             )
         return addr
-    if env_addr and not _parameter_has_record(session, chain_id, "bond_slash_authority"):
+    if block_height is None and env_addr:
         return canonical_address(env_addr)
     return None
 
@@ -236,10 +210,11 @@ def _escrow_settlement_authority(session: Session, chain_id: str, block_height: 
     applied identically on every node, so the gate is deterministic — the
     per-node env value drifting is the same silent-divergence class as the
     1-2 Sep slashes skipped on node0. ``settings.escrow_settlement_authority``
-    / ``ESCROW_RELEASE_ADDRESS`` remain the fallback for chains that never set
-    the parameter; a disagreement between the two is logged. Returns None when
-    nothing is configured — the caller decides whether that fails open (pre-v5
-    replay compat) or closed (v5+).
+    / ``ESCROW_RELEASE_ADDRESS`` remain the bootstrap for
+    ``block_height=None`` callers only: for a known block height, chain
+    history alone decides. A disagreement between the two is logged. Returns
+    None when nothing is configured — the caller decides whether that fails
+    open (pre-v5 replay compat) or closed (v5+).
     """
     onchain_value = _chain_parameter_value(session, chain_id, "escrow_settlement_authority", block_height)
     env_addr = (settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")).strip()
@@ -252,7 +227,7 @@ def _escrow_settlement_authority(session: Session, chain_id: str, block_height: 
                 addr,
             )
         return addr
-    if env_addr and not _parameter_has_record(session, chain_id, "escrow_settlement_authority"):
+    if block_height is None and env_addr:
         return canonical_address(env_addr)
     return None
 
@@ -262,12 +237,13 @@ def _bridge_release_authority(session: Session, chain_id: str, block_height: int
 
     The on-chain ``bridge_release_authority`` chain parameter wins (applied
     identically on every node); ``settings.bridge_release_authority`` /
-    ``BRIDGE_RELEASE_AUTHORITY`` is the env fallback, and the escrow settlement
-    authority is the transitional default — the bridge service signs credits
-    with the same operator settlement key, so chains that configured only
-    escrow still resolve deterministically. Returns None when nothing is
-    configured — the caller decides whether that fails open (pre-v5 replay
-    compat) or closed (v5+).
+    ``BRIDGE_RELEASE_AUTHORITY`` is the bootstrap for ``block_height=None``
+    callers only — for a known block height, chain history alone decides.
+    The escrow settlement authority is the transitional default — the bridge
+    service signs credits with the same operator settlement key, so chains
+    that configured only escrow still resolve deterministically. Returns
+    None when nothing is configured — the caller decides whether that fails
+    open (pre-v5 replay compat) or closed (v5+).
     """
     onchain_value = _chain_parameter_value(session, chain_id, "bridge_release_authority", block_height)
     env_addr = (settings.bridge_release_authority or os.getenv("BRIDGE_RELEASE_AUTHORITY", "")).strip()
@@ -280,12 +256,7 @@ def _bridge_release_authority(session: Session, chain_id: str, block_height: int
                 addr,
             )
         return addr
-    if _parameter_has_record(session, chain_id, "bridge_release_authority"):
-        # The chain set this parameter at some point — heights before that
-        # record are provably unset and fall through to the escrow fallback,
-        # never to a per-node env value.
-        return _escrow_settlement_authority(session, chain_id, block_height)
-    if env_addr:
+    if block_height is None and env_addr:
         return canonical_address(env_addr)
     return _escrow_settlement_authority(session, chain_id, block_height)
 

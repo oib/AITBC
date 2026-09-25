@@ -23,6 +23,7 @@ from sqlmodel import select
 
 from aitbc_chain.base_models import (
     Account,
+    Block,
     ChainParameter,
     ChainParameterHistory,
     GovernanceProposal,
@@ -489,9 +490,38 @@ def test_env_fallback_only_when_never_set(session, chain_id, monkeypatch):
     assert _bond_slash_authority(session, chain_id) == canonical_address(_EXECUTOR)
 
 
-def test_env_fallback_when_never_set(session, chain_id, monkeypatch):
-    """A chain with no on-chain record of the parameter keeps the env
-    fallback — it is the bootstrap source for chains that never set it."""
+def test_env_never_decides_a_known_height(session, chain_id, monkeypatch):
+    """For a known block height, chain history alone decides — env is never
+    consulted. That makes validation a pure function of history at-or-below
+    the height: a node mid-sync (records not yet applied) and a fully-synced
+    node re-checking the same historical block resolve identically."""
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _OTHER)
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", _OTHER)
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
+    monkeypatch.setattr(settings, "bridge_release_authority", "")
+
+    # Node mid-sync at height 50: no records yet — env must not fill the gap.
+    assert _bond_slash_authority(session, chain_id, 50) is None
+    assert _escrow_settlement_authority(session, chain_id, 50) is None
+
+    # Fully-synced node re-checking the same block after a later record
+    # landed: the answer for height 50 must not change.
+    session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value=_EXECUTOR, applied_height=100))
+    session.add(
+        ChainParameterHistory(
+            chain_id=chain_id, parameter="bond_slash_authority", value=_EXECUTOR, proposal_id="p-1", applied_height=100
+        )
+    )
+    session.flush()
+    assert _bond_slash_authority(session, chain_id, 50) is None
+    assert _bond_slash_authority(session, chain_id, 150) is not None
+
+
+def test_env_is_bootstrap_for_height_less_callers(session, chain_id, monkeypatch):
+    """``block_height=None`` callers (mempool pre-checks, non-consensus
+    introspection) keep the env bootstrap for chains that never set the
+    parameter — no-height callers ask for the value in force now, which is
+    what env describes on a never-set chain."""
     from aitbc.crypto.signature_recovery import canonical_address
 
     monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _OTHER)
@@ -499,6 +529,110 @@ def test_env_fallback_when_never_set(session, chain_id, monkeypatch):
     monkeypatch.setattr(settings, "escrow_settlement_authority", "")
     monkeypatch.setattr(settings, "bridge_release_authority", "")
 
-    assert _bond_slash_authority(session, chain_id, 50) == canonical_address(_OTHER)
     assert _bond_slash_authority(session, chain_id) == canonical_address(_OTHER)
-    assert _escrow_settlement_authority(session, chain_id, 50) == canonical_address(_OTHER)
+    assert _escrow_settlement_authority(session, chain_id) == canonical_address(_OTHER)
+
+
+def test_import_chain_restores_shipped_parameter_rows(chain_id, monkeypatch):
+    """import-chain wipes parameter tables, but restores them from the
+    export's ``chain_parameters``/``parameter_history`` sections.
+
+    This is the regression for the genesis/peer-sync loss: parameters seeded
+    by ``_seed_chain_parameters`` at genesis and rows received via peer state
+    sync are not regenerable by replaying sealed executes, so the import must
+    write the exporter's rows back verbatim — otherwise a chain whose genesis
+    defined ``bond_slash_authority`` would silently lose it and the v5+ gates
+    would fail closed (or stay lenient pre-gate where they should not).
+    """
+    import aitbc_chain.database as database
+    from aitbc_chain.rpc.sync import _import_chain_data
+
+    init_db(chain_id)
+    # ``_import_chain_data`` opens the default-chain session — point it at
+    # this test's chain DB.
+    monkeypatch.setattr(database, "_default_chain_id", chain_id)
+    # Old lineage: a stale parameter and a stale block that must not survive.
+    with session_scope(chain_id) as session:
+        session.add(ChainParameter(chain_id=chain_id, parameter="stale_param", value="old-lineage", applied_height=7))
+        session.add(
+            Block(
+                chain_id=chain_id,
+                height=3,
+                hash="0xstale",
+                parent_hash="0x0",
+                proposer="0xp",
+                timestamp=datetime.now(UTC),
+            )
+        )
+        session.commit()
+
+    # Genesis-seeded rows ship verbatim in the export — no executes needed.
+    import_data = {
+        "chain_id": chain_id,
+        "blocks": [{"chain_id": chain_id, "height": 0, "hash": "0xgenesis", "parent_hash": "0x0", "proposer": "0xp"}],
+        "accounts": [],
+        "transactions": [],
+        "chain_parameters": [
+            {"parameter": "bond_slash_authority", "value": _EXECUTOR, "proposal_id": None, "applied_height": 0}
+        ],
+        "parameter_history": [
+            {"parameter": "bond_slash_authority", "value": _EXECUTOR, "proposal_id": None, "applied_height": 0}
+        ],
+    }
+    result = _import_chain_data(import_data)
+    assert result["success"] is True
+
+    with session_scope(chain_id) as session:
+        # The genesis-seeded parameter resolves from height 0 onward.
+        assert _chain_parameter_value(session, chain_id, "bond_slash_authority", 5) == _EXECUTOR
+        assert _bond_slash_authority(session, chain_id, 5) is not None
+        # Old-lineage rows did not bleed into the imported chain.
+        assert _chain_parameter_value(session, chain_id, "stale_param", 100) is None
+        assert session.exec(select(Block).where(Block.chain_id == chain_id, Block.hash == "0xstale")).first() is None
+
+
+def test_import_chain_rebuilds_from_executes_without_param_sections(chain_id, monkeypatch):
+    """Old-format exports (no parameter sections) still restore
+    execute-derived parameters via the replay rebuild — and get the warning
+    that genesis/peer-sync rows are not recoverable from such a payload."""
+    import aitbc_chain.database as database
+    from aitbc_chain.rpc.sync import _import_chain_data
+
+    init_db(chain_id)
+    monkeypatch.setattr(database, "_default_chain_id", chain_id)
+
+    import_data = {
+        "chain_id": chain_id,
+        "blocks": [
+            {"chain_id": chain_id, "height": 0, "hash": "0xg", "parent_hash": "0x0", "proposer": "0xp"},
+            {"chain_id": chain_id, "height": 1, "hash": "0x1", "parent_hash": "0xg", "proposer": "0xp"},
+        ],
+        "accounts": [{"chain_id": chain_id, "address": _OTHER, "balance": 0, "nonce": 0}],
+        "transactions": [
+            {
+                "id": 1,
+                "tx_hash": "0xexec1",
+                "block_height": 1,
+                "sender": _OTHER,
+                "recipient": _OTHER,
+                "payload": {
+                    "type": "GOVERNANCE_EXECUTE",
+                    "proposal_id": "p-1",
+                    "execution_payload": {
+                        "action": "parameter_change",
+                        "parameter": "bond_slash_authority",
+                        "value": _EXECUTOR,
+                    },
+                },
+                "value": 0,
+                "fee": 0,
+                "nonce": 0,
+                "status": "sealed",
+            }
+        ],
+    }
+    result = _import_chain_data(import_data)
+    assert result["success"] is True
+
+    with session_scope(chain_id) as session:
+        assert _chain_parameter_value(session, chain_id, "bond_slash_authority", 50) == _EXECUTOR
