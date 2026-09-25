@@ -469,7 +469,11 @@ class MarketService:
                     offer["block_height"] = tx.get("block_height")
                     ts = tx.get("timestamp")
                     if ts and not offer.get("block_timestamp"):
-                        offer["block_timestamp"] = datetime.fromtimestamp(ts, UTC).isoformat()
+                        # Transaction.timestamp is already a string column;
+                        # numeric only if a serializer emitted epoch seconds.
+                        offer["block_timestamp"] = (
+                            ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
+                        )
             except Exception as e:
                 logger.warning("Failed to resolve on-chain offer anchors: %s", e)
 
