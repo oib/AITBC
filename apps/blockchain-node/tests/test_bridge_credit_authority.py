@@ -20,6 +20,7 @@ from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.state.bridge_credit import (
     bridge_credit_message,
+    bridge_refund_lock_hash,
     sign_bridge_credit,
     verify_bridge_credit_signature,
 )
@@ -747,3 +748,133 @@ def test_v6_refund_amount_must_be_present():
     # Present and matching still passes.
     good = {"to": "ait1sender", "payload": {"lock_tx_hash": "0xlock1", "amount": 36000}}
     assert validate_bridge_refund_lock(lock, good) is None
+
+
+# --------------------------------------------------------------------------
+# Block-scoped credit shape (the /rpc/blocks-range persistence regression)
+# --------------------------------------------------------------------------
+
+
+def test_block_scoped_release_shape_signs_identically_and_persists(authority):
+    """The block-scoped credit dict must carry ``bridge_signature`` inside
+    ``payload`` — the sealer persists ``tx_data["payload"]`` and
+    ``/rpc/blocks-range`` serves the row, so the old flat dict lost the
+    signature (and lock_tx_hash) for every range-synced validator: at v5+ a
+    bulk-synced node would fail the signature check and silently skip the
+    credit while gossip-fed nodes applied it.
+
+    ``bridge_credit_message`` reads payload-first, so the nested shape signs
+    byte-identically to the pre-fix flat dict — no signature rotation needed.
+    """
+    key, addr = authority
+
+    # The pre-fix flat shape — what sealing used to receive.
+    flat = {
+        "from": "bridge_release",
+        "to": "ait1rcpt",
+        "amount": 100,
+        "fee": 0,
+        "type": "BRIDGE_RELEASE",
+        "transfer_id": "t-1",
+        "source_chain": "ait",
+        "source_sender": "ait1src",
+        "target_chain": "test",
+        "asset": "native",
+        "proof": "p",
+        "nonce": 7,
+        "timestamp": "2026-09-25T00:00:00+00:00",
+    }
+    # The fixed shape: semantic fields in payload, envelope fields top-level.
+    payload = {
+        "type": "BRIDGE_RELEASE",
+        "transfer_id": "t-1",
+        "source_chain": "ait",
+        "source_sender": "ait1src",
+        "target_chain": "test",
+        "amount": 100,
+        "asset": "native",
+        "proof": "p",
+    }
+    nested = {
+        "from": "bridge_release",
+        "to": "ait1rcpt",
+        "amount": 100,
+        "fee": 0,
+        "type": "BRIDGE_RELEASE",
+        "nonce": 7,
+        "timestamp": "2026-09-25T00:00:00+00:00",
+        "payload": payload,
+    }
+    # Byte-identical signed message — validators running either shape agree.
+    assert bridge_credit_message(flat, "txh") == bridge_credit_message(nested, "txh")
+
+    # The signature lands inside payload → survives into the persisted row.
+    payload["bridge_signature"] = sign_bridge_credit(nested, "txh", key)
+    # What /rpc/blocks-range serves — the model_dump'd row. The sealer stored
+    # value=amount for flat-dict credits, which keeps credited_value intact.
+    row_view = {
+        "from": "bridge_release",
+        "to": "ait1rcpt",
+        "value": 100,
+        "fee": 0,
+        "nonce": 7,
+        "type": "BRIDGE_RELEASE",
+        "payload": payload,
+    }
+    assert verify_bridge_credit_signature(row_view, "txh", addr)
+
+
+def test_block_scoped_refund_payload_carries_lock_hash(authority):
+    """lock_tx_hash inside payload survives into the persisted row — the v6
+    double-refund probe reads prior.payload["lock_tx_hash"], which was
+    empty under the flat shape."""
+    key, addr = authority
+
+    flat = {
+        "from": "bridge_refund",
+        "to": "ait1snd",
+        "amount": 55,
+        "fee": 0,
+        "type": "BRIDGE_REFUND",
+        "transfer_id": "t-2",
+        "lock_tx_hash": "lock-1",
+        "target_chain": "ait",
+        "source_chain": "test",
+        "asset": "native",
+        "nonce": 3,
+        "timestamp": "2026-09-25T00:00:00+00:00",
+    }
+    payload = {
+        "type": "BRIDGE_REFUND",
+        "transfer_id": "t-2",
+        "lock_tx_hash": "lock-1",
+        "source_chain": "test",
+        "target_chain": "ait",
+        "amount": 55,
+        "asset": "native",
+    }
+    nested = {
+        "from": "bridge_refund",
+        "to": "ait1snd",
+        "amount": 55,
+        "fee": 0,
+        "type": "BRIDGE_REFUND",
+        "nonce": 3,
+        "timestamp": "2026-09-25T00:00:00+00:00",
+        "payload": payload,
+    }
+    assert bridge_credit_message(flat, "txh2") == bridge_credit_message(nested, "txh2")
+
+    payload["bridge_signature"] = sign_bridge_credit(nested, "txh2", key)
+    row_view = {
+        "from": "bridge_refund",
+        "to": "ait1snd",
+        "value": 55,
+        "fee": 0,
+        "nonce": 3,
+        "type": "BRIDGE_REFUND",
+        "payload": payload,
+    }
+    assert verify_bridge_credit_signature(row_view, "txh2", addr)
+    # The persisted row now answers the v6 binding probe.
+    assert bridge_refund_lock_hash(row_view) == "lock-1"
