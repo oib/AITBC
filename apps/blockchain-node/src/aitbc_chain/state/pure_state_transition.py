@@ -26,7 +26,12 @@ from sqlalchemy import func, text
 from ..base_models import Block, IPFSSubscription, _to_ait_address
 from ..config import settings
 from ..models import Account, Receipt
-from .bridge_credit import bridge_release_authority_env, verify_bridge_credit_signature
+from .bridge_credit import (
+    bridge_refund_lock_hash,
+    bridge_release_authority_env,
+    validate_bridge_refund_lock,
+    verify_bridge_credit_signature,
+)
 
 
 def _escrow_address(job_id: str) -> str:
@@ -292,6 +297,7 @@ def compute_state_delta(
     block_version: int = 2,
     escrow_context: dict[str, dict[str, Any]] | None = None,
     bridge_authority: str | None = None,
+    bridge_lock_context: dict[str, dict[str, Any]] | None = None,
 ) -> StateDelta:
     """Compute the state delta for a transaction WITHOUT modifying the DB.
 
@@ -314,6 +320,10 @@ def compute_state_delta(
             when a block contains BRIDGE_RELEASE/BRIDGE_REFUND — ``None`` falls
             back to env-only resolution (the same chain the sequential resolver
             uses after its on-chain parameter lookup).
+        bridge_lock_context: ``{lock_tx_hash: {exists, sender, amount, refunded}}``
+            for v6+ BRIDGE_REFUND lock binding, from
+            ``state_transition.build_bridge_lock_context``. ``None`` fails
+            closed on any v6 refund.
 
     Returns:
         StateDelta with balance/nonce changes, or success=False with error.
@@ -483,6 +493,28 @@ def compute_state_delta(
                     tx_type=tx_type,
                     tx_hash=tx_hash,
                 )
+            # v6: the refund must name its sealed BRIDGE_LOCK via
+            # payload.lock_tx_hash (sender/amount match, not already refunded).
+            # Mirrors validate_transaction — the caller prefetches the record
+            # via build_bridge_lock_context; None fails closed.
+            if block_version >= 6 and tx_type == "BRIDGE_REFUND":
+                lock_hash = bridge_refund_lock_hash(tx_data)
+                reason = validate_bridge_refund_lock(
+                    (bridge_lock_context or {}).get(lock_hash) if lock_hash else None,
+                    tx_data,
+                )
+                if reason:
+                    return StateDelta(
+                        sender=sender,
+                        recipient=recipient,
+                        sender_balance_change=0,
+                        recipient_balance_change=0,
+                        sender_nonce_change=0,
+                        success=False,
+                        error=reason,
+                        tx_type=tx_type,
+                        tx_hash=tx_hash,
+                    )
         return StateDelta(
             sender=sender,
             recipient=recipient,

@@ -33,6 +33,7 @@ from .state.pure_state_transition import (
 )
 from .state.state_transition import (
     _bridge_release_authority,
+    build_bridge_lock_context,
     build_escrow_context,
     get_block_version,
     get_state_transition,
@@ -430,15 +431,31 @@ class BlockImportMixin(SyncBase):
             # lock metadata is prefetched. A release/refund with no resolvable
             # lock returns None and the block stays sequential.
             escrow_context: dict[str, dict[str, Any]] | None = None
-            if settings.parallel_tx_validation and block_version in (2, 3, 4, 5):
+            bridge_lock_context: dict[str, dict[str, Any]] | None = None
+            if settings.parallel_tx_validation and block_version in (2, 3, 4, 5, 6):
                 escrow_context = build_escrow_context(session, self._chain_id, transactions)
+                # v6: refunds need their named BRIDGE_LOCK records prefetched —
+                # a batch with two refunds for one lock returns None and the
+                # block goes sequential so the double-refund rule applies in order.
+                if (
+                    block_version >= 6
+                    and escrow_context is not None
+                    and any(_determine_tx_type(tx) == "BRIDGE_REFUND" for tx in transactions)
+                ):
+                    bridge_lock_context = build_bridge_lock_context(session, self._chain_id, transactions)
             if (
                 settings.parallel_tx_validation
-                # v5 included: its fail-closed authority gates are mirrored in
+                # v5/v6 included: their fail-closed gates are mirrored in
                 # pure_state_transition (escrow authority via escrow_context,
-                # bridge pseudo-sender), so the parallel path stays identical.
-                and block_version in (2, 3, 4, 5)
+                # bridge pseudo-sender + signature + refund lock binding), so
+                # the parallel path stays identical.
+                and block_version in (2, 3, 4, 5, 6)
                 and escrow_context is not None
+                and (
+                    block_version < 6
+                    or bridge_lock_context is not None
+                    or not any(_determine_tx_type(tx) == "BRIDGE_REFUND" for tx in transactions)
+                )
                 and not any(_determine_tx_type(tx) in _SEQUENTIAL_ONLY_TX_TYPES for tx in transactions)
             ):
                 # Build dependency graph from read/write sets.
@@ -538,6 +555,7 @@ class BlockImportMixin(SyncBase):
                                 block_version=block_version,
                                 escrow_context=escrow_context,
                                 bridge_authority=bridge_authority,
+                                bridge_lock_context=bridge_lock_context,
                             )
 
                         for group in groups:

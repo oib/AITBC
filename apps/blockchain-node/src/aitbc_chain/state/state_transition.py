@@ -19,11 +19,23 @@ from sqlmodel import Session, select
 
 from ..config import settings
 from ..logger import get_logger
-from ..base_models import Block, Bond, ChainParameter, IPFSSubscription, _to_ait_address
+from ..base_models import (
+    Block,
+    Bond,
+    ChainParameter,
+    ChainParameterHistory,
+    IPFSSubscription,
+    _to_ait_address,
+    record_chain_parameter_history,
+)
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature, verify_transaction_signature
-from .bridge_credit import verify_bridge_credit_signature
+from .bridge_credit import (
+    bridge_refund_lock_hash,
+    validate_bridge_refund_lock,
+    verify_bridge_credit_signature,
+)
 from .gpu_resources import GPUAllocation, GPURegistration
 from .liquidity_transition import (
     apply_liquidity_claim,
@@ -312,6 +324,69 @@ def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[st
     return context
 
 
+def _refund_lock_record(session: Session, chain_id: str, lock_hash: str, exclude_tx_hash: str = "") -> dict[str, Any]:
+    """Resolve the ``{exists, sender, amount, refunded}`` record for a refund's
+    named lock — the shape ``validate_bridge_refund_lock`` consumes.
+
+    ``refunded`` means another *sealed* ``BRIDGE_REFUND`` (``block_height`` set,
+    hash different from ``exclude_tx_hash``) already names the same lock — so a
+    legitimately sealed refund re-validates cleanly while a second refund for
+    the same lock fails. ``exists`` requires the lock row to be sealed too.
+    """
+    lock = session.exec(
+        select(Transaction).where(
+            Transaction.chain_id == chain_id,
+            Transaction.tx_hash == lock_hash,
+            Transaction.type == "BRIDGE_LOCK",
+        )
+    ).first()
+    refunded = False
+    for prior in session.exec(
+        select(Transaction).where(
+            Transaction.chain_id == chain_id,
+            Transaction.type == "BRIDGE_REFUND",
+            Transaction.block_height.is_not(None),  # type: ignore[union-attr]
+        )
+    ):
+        if exclude_tx_hash and prior.tx_hash == exclude_tx_hash:
+            continue
+        prior_payload = prior.payload if isinstance(prior.payload, dict) else {}
+        if prior_payload.get("lock_tx_hash") == lock_hash:
+            refunded = True
+            break
+    return {
+        "exists": lock is not None and lock.block_height is not None,
+        "sender": lock.sender if lock else None,
+        "amount": lock.value if lock else None,
+        "refunded": refunded,
+    }
+
+
+def build_bridge_lock_context(
+    session: Session, chain_id: str, tx_datas: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]] | None:
+    """Prefetch lock records for BRIDGE_REFUND txs (v6), like ``build_escrow_context``.
+
+    Returns ``{lock_tx_hash: {"exists","sender","amount","refunded"}}`` for the
+    pure path. Returns ``None`` when the batch is unsafe for parallel
+    resolution — two refunds naming the same lock — so the caller falls back to
+    the sequential path, which applies the double-refund rule in order.
+    Batches with no refunds return ``{}`` (cheap no-op).
+    """
+    context: dict[str, dict[str, Any]] = {}
+    seen: set[str] = set()
+    for tx_data in tx_datas:
+        if _tx_type(tx_data) != "BRIDGE_REFUND":
+            continue
+        lock_hash = bridge_refund_lock_hash(tx_data)
+        if lock_hash in seen:
+            return None
+        seen.add(lock_hash)
+        if lock_hash and lock_hash not in context:
+            context[lock_hash] = _refund_lock_record(session, chain_id, lock_hash)
+    return context
+
+
 def _ensure_account(session: Session, chain_id: str, address: str) -> Account:
     ait_addr = _to_ait_address(address)
     account = session.get(Account, (chain_id, ait_addr))
@@ -358,6 +433,9 @@ def get_block_version(block_data_or_block: dict[str, Any] | object, height: int 
                 return int(version)
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
+    v6_threshold = getattr(settings, "state_transition_v6_height", 0)
+    if v6_threshold > 0 and height >= v6_threshold:
+        return 6
     v5_threshold = getattr(settings, "state_transition_v5_height", 0)
     if v5_threshold > 0 and height >= v5_threshold:
         return 5
@@ -380,6 +458,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v6_threshold = getattr(settings, "state_transition_v6_height", 0)
+    if v6_threshold > 0 and height >= v6_threshold:
+        return 6
     v5_threshold = getattr(settings, "state_transition_v5_height", 0)
     if v5_threshold > 0 and height >= v5_threshold:
         return 5
@@ -745,6 +826,24 @@ class StateTransition:
                         False,
                         f"{tx_type} must carry a valid bridge_signature from the bridge release authority",
                     )
+                # v6: a refund must name the sealed BRIDGE_LOCK it repays on
+                # this chain (payload.lock_tx_hash), with matching sender and
+                # amount, and the lock must not already be refunded. Even the
+                # authority key can then only ever anchor a refund for a real
+                # lock. Pre-v6 history had no lock binding and stays lenient.
+                if block_version >= 6 and tx_type == "BRIDGE_REFUND":
+                    lock_hash = bridge_refund_lock_hash(tx_data)
+                    if not lock_hash:
+                        return (
+                            False,
+                            "BRIDGE_REFUND must carry payload.lock_tx_hash naming its BRIDGE_LOCK",
+                        )
+                    reason = validate_bridge_refund_lock(
+                        _refund_lock_record(session, chain_id, lock_hash, exclude_tx_hash=tx_hash),
+                        tx_data,
+                    )
+                    if reason:
+                        return (False, reason)
             return (True, "Pre-registered credit transaction validated")
         if tx_type == "BRIDGE_LOCK":
             # Pre-registered bridge lock: the sender was already debited when the

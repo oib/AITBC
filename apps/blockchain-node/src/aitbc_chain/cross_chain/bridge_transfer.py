@@ -456,6 +456,9 @@ class BridgeTransferMixin(BridgeBase):
                 refund_payload = {
                     "type": "BRIDGE_REFUND",
                     "transfer_id": transfer_id,
+                    # v6: consensus binds the refund to the sealed BRIDGE_LOCK it
+                    # repays — the lock's tx_hash on this (source) chain.
+                    "lock_tx_hash": record.source_tx_hash or transfer_id,
                     "source_chain": record.source_chain,
                     "target_chain": record.target_chain,
                     "amount": record.amount,
@@ -503,6 +506,7 @@ class BridgeTransferMixin(BridgeBase):
                     "fee": 0,
                     "type": "BRIDGE_REFUND",
                     "transfer_id": transfer_id,
+                    "lock_tx_hash": record.source_tx_hash or transfer_id,
                     "target_chain": record.target_chain,
                     "source_chain": record.source_chain,
                     "asset": record.asset,

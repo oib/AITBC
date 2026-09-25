@@ -446,3 +446,50 @@ All five nodes converged at height **3183** and continued producing new blocks. 
 - Continue watching the stale <node1> worker process (`aitbc_chain.main` / `uvicorn` hanging in `deactivating`).
 - Consider reducing the 300-second round timeout after safety testing.
 - Push the `docs/releases/STATUS.md` updates to `main` and, separately, update `docs/releases/v0.25/v0.25.7_change.log` on the shop node.
+
+## 2026-09-25 — v5 fail-closed gates, bridge-credit signature binding, and market-offer signing
+
+### Commits deployed (all on `main`, fleet at `13e7ec452`)
+
+| Commit | Change |
+|---|---|
+| `adf8991f` | Public REST + gossip intake reject reserved `BRIDGE_RELEASE`/`BRIDGE_REFUND`; wallet refunds use signed `TRANSFER` |
+| `45ba8b5` | v5 fail-closed gates: escrow settlement authority, governance executors, bridge pseudo-sender |
+| `0f052356` | Trading WebSocket lease refcount fix (colon-injection cleanup path) |
+| `424bd917` | Fee cap on unsigned market offers; CLI signs opportunistically |
+| `abbe6703` | Signatures required on all market offer transactions (wallet-by-address resolution removed the keyless path) |
+| `13e7ec452` | v5 bridge credits must carry a secp256k1 signature recovering to the bridge release authority; proposer stamp-path enforcement; parallel-path row stamping + nonce preservation; refund `value=0` double-credit fix |
+
+### On-chain authority parameters
+
+All authority anchors are now chain parameters (deterministic on every node; env is fallback only):
+
+- `governance_executors` — `gap56-set-executors`
+- `escrow_settlement_authority` — `gap58-set-escrow-settlement-authority`
+- `bond_slash_authority` — `gap59-set-bond-slash-authority`
+- `bridge_release_authority` — `gap60-set-bridge-release-authority` (executed this session, sealed at block 22469; propagated to followers via normal block import)
+
+The bridge release authority equals the `ESCROW_RELEASE_ADDRESS` the RPC processes already sign with (`BRIDGE_RELEASE_PRIVATE_KEY` → `ESCROW_RELEASE_PRIVATE_KEY` fallback), so no new key material was provisioned.
+
+### v5 activation watch runbook (height 24000)
+
+v5 gates bite at `state_transition_v5_height = 24000` (built into code). When the chain crosses it:
+
+1. **Convergence samples** — run `fleet-config-check.sh` with `NODE0_HOST`/`NODE1_HOST`/`NODE2_HOST` set to the LAN addresses so the chain-head section probes all five nodes; identical `height|hash` required at several v5+ heights.
+2. **Rejection greps** — `journalctl -u aitbc-blockchain-node --since <activation>` for `bridge_signature`, `bridge release authority`, `pseudo-sender`, `escrow settlement authority`, `governance_executors`. A rejected *legitimate* tx = investigate.
+3. **Contingency** — a straggler node on an old build gets `git reset --hard origin/main` + service restart (all nodes were at `13e7ec452` pre-activation, so this is unexpected). If a v5 gate breaks legitimate traffic, the remedy is a coordinated `STATE_TRANSITION_V5_HEIGHT` env bump on **all five** nodes plus restart, or a fix-forward commit — never a per-node threshold change, which is itself a fork.
+
+### Verified facts from this pass
+
+- Bridge is live: `BRIDGE_RELEASE_ENABLED=true`, `BRIDGE_MULTISIG_ENABLED=true` (2-of-2), `BRIDGE_REQUIRE_MERKLE_PROOF=true`; 4 confirmed hub→`ait-shop-island` transfers exist.
+- `ait-shop-island` is a shadow ledger (accounts + `cross_chain_transfer` only — no `block`/`transaction` tables), so `BRIDGE_REFUND` on the hub chain is the only credit type that mints on a real chain.
+- `bridge_validators` and `bridge_block_header` are local bookkeeping, not consensus state.
+- Effective env on hub: `MULTI_VALIDATOR_CONSENSUS_ENABLED=true` (correct), but env files assign both `true` and `false` across `/etc/aitbc/*.env` — flagged by the config checker's EnvironmentFile shadow check; cleanup scheduled post-activation.
+
+### Open items
+
+- Post-activation convergence verification at v5+ heights (runbook above).
+- Live exercise of the signed-credit path: a minimal hub→island lock + refund producing a sealed `BRIDGE_REFUND` carrying `bridge_signature`, verified identical on all nodes; negative test that a forged unsigned row never seals.
+- Env-file dedup across the fleet (`MULTI_VALIDATOR_CONSENSUS_ENABLED`, `BLOCKCHAIN_MODE`, `HUB_BLOCKCHAIN_RPC_URL`, `MEMPOOL_DB_URL`, `PROPOSER_ID`/`PROPOSER_KEY`, `ISLAND_ID` appear with conflicting values in multiple files — effective values are correct; one canonical assignment per variable planned).
+- v6 gate: bind `BRIDGE_REFUND` to a sealed on-chain `BRIDGE_LOCK` via `payload.lock_tx_hash` (sender/amount match + no double-refund), sequential + pure paths.
+- Deferred design: full source-lock verification for `BRIDGE_RELEASE` needs source-chain headers and the source validator set as consensus state plus consensus-side merkle verification — a light-client design, to be revisited if the validator set opens to distinct operators.
