@@ -636,3 +636,97 @@ def test_import_chain_rebuilds_from_executes_without_param_sections(chain_id, mo
 
     with session_scope(chain_id) as session:
         assert _chain_parameter_value(session, chain_id, "bond_slash_authority", 50) == _EXECUTOR
+
+
+_PINNED_SLASH_AUTHORITY = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
+
+
+def test_legacy_bond_slash_authority_pinned_below_first_record(monkeypatch):
+    """BOND_SLASH is ungated: a slash sealed before the chain recorded
+    ``bond_slash_authority`` must resolve the authority it was actually
+    authorised under — the historical env value, pinned per chain so replay
+    is a pure function of chain identity, not node env.
+
+    Fresh database, no env vars: every node resolves identically, so a
+    restored lineage carrying a pre-record slash cannot diverge between a
+    mid-sync node and a synced node re-checking the same block.
+    """
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    chain_id = "ait-hub.aitbc.bubuit.net"
+    init_db(chain_id)
+    monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
+
+    with session_scope(chain_id) as session:
+        # No records at all: pinned historical authority below any record.
+        assert _bond_slash_authority(session, chain_id, 5) == canonical_address(_PINNED_SLASH_AUTHORITY)
+
+        # A later record still wins at and above its own height.
+        session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value=_OTHER, applied_height=100))
+        session.add(
+            ChainParameterHistory(
+                chain_id=chain_id, parameter="bond_slash_authority", value=_OTHER, proposal_id="p-1", applied_height=100
+            )
+        )
+        session.flush()
+        assert _bond_slash_authority(session, chain_id, 50) == canonical_address(_PINNED_SLASH_AUTHORITY)
+        assert _bond_slash_authority(session, chain_id, 150) == canonical_address(_OTHER)
+
+        # Chains without a pin still fail closed — their historical env
+        # authority is unknowable, so None is the only honest answer.
+        assert _bond_slash_authority(session, "some-other-chain", 5) is None
+
+
+def test_bond_slash_below_first_record_passes_authority_gate(monkeypatch):
+    """The ungated BOND_SLASH bond effect must not be skipped for a pre-record
+    slash with 'no slash authority configured'. The sender is judged against
+    the pinned authority — the same answer on every node, so a restored
+    lineage carrying a pre-record slash cannot diverge mid-sync vs synced."""
+    from aitbc_chain.base_models import _to_ait_address
+    from aitbc_chain.state.state_transition import _BOND_BURN_ADDRESS
+
+    chain_id = "ait-hub.aitbc.bubuit.net"
+    init_db(chain_id)
+    monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
+
+    with session_scope(chain_id) as session:
+        st = StateTransition()
+        slash_tx = {
+            "type": "BOND_SLASH",
+            "from": _PINNED_SLASH_AUTHORITY,
+            "to": _BOND_BURN_ADDRESS,
+            "value": 0,
+            "fee": 0,
+            "nonce": 0,
+            "payload": {"bond_id": "bond-1", "provider": _OTHER, "amount": 5},
+        }
+        reason = st._handle_bond_transaction(
+            session,
+            chain_id,
+            slash_tx,
+            "0xslash1",
+            "BOND_SLASH",
+            _to_ait_address(_PINNED_SLASH_AUTHORITY),
+            _to_ait_address(_BOND_BURN_ADDRESS),
+            0,
+            50,
+        )
+        # The authority gate resolved — the skip is the missing bond, not
+        # "no slash authority configured" or a signature mismatch.
+        assert reason == "unknown or inactive bond bond-1"
+
+        # A slash signed by anyone else is skipped for the signature —
+        # deterministic, and the same answer on every node.
+        slash_tx["from"] = _OTHER
+        reason2 = st._handle_bond_transaction(
+            session,
+            chain_id,
+            slash_tx,
+            "0xslash2",
+            "BOND_SLASH",
+            _to_ait_address(_OTHER),
+            _to_ait_address(_BOND_BURN_ADDRESS),
+            0,
+            50,
+        )
+        assert reason2 == "not signed by the configured slash authority"
