@@ -189,6 +189,40 @@ def test_governance_execute_rejects_set_governance_address_json_payload(session)
     assert "set_governance_address" in msg
 
 
+def test_governance_execute_v5_rejected_when_param_unset(session):
+    """v5 fails closed: without the allowlist, apply would let any funded
+    sender write arbitrary chain parameters."""
+    chain_id = "ait-test"
+    _seed_accounts(session, chain_id)
+    st = StateTransition()
+    ok, msg = st.apply_transaction(session, chain_id, _gov_tx(EXECUTOR_KEY, chain_id), "tx_gov_v5_unset", block_version=5)
+    assert not ok
+    assert "governance_executors" in msg
+
+
+def test_governance_execute_v5_executor_still_accepted(session):
+    chain_id = "ait-test"
+    executor_addr = _seed_accounts(session, chain_id)
+    session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=executor_addr))
+    session.commit()
+
+    st = StateTransition()
+    ok, msg = st.apply_transaction(session, chain_id, _gov_tx(EXECUTOR_KEY, chain_id), "tx_gov_v5_ok", block_version=5)
+    assert ok, msg
+
+
+def test_governance_execute_v5_rejects_non_executor(session):
+    chain_id = "ait-test"
+    executor_addr = _seed_accounts(session, chain_id)
+    session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=executor_addr))
+    session.commit()
+
+    st = StateTransition()
+    ok, msg = st.apply_transaction(session, chain_id, _gov_tx(STRANGER_KEY, chain_id), "tx_gov_v5_bad", block_version=5)
+    assert not ok
+    assert "not an authorized executor" in msg
+
+
 def test_governance_execute_missing_execution_payload_stays_lenient(session):
     """Replay compat: sealed GOVERNANCE_EXECUTEs without execution_payload must still apply.
 

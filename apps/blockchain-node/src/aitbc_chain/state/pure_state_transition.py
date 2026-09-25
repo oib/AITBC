@@ -193,8 +193,29 @@ def _escrow_release_refund_delta(
             tx_hash=tx_hash,
         )
     if block_version >= 3:
-        authority = _escrow_settlement_authority()
-        if authority and sender != authority:
+        # The DB-capable context builder resolves the on-chain
+        # escrow_settlement_authority parameter (env fallback) once per batch;
+        # context-free callers fall back to the env-only lookup.
+        if "settlement_authority" in context:
+            authority = context["settlement_authority"]
+        else:
+            authority = _escrow_settlement_authority()
+        if authority is None:
+            # v5 fails closed; below it the lenient rule keeps sealed history
+            # replaying. Mirrors validate_transaction.
+            if block_version >= 5:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error=f"{tx_type} requires a settlement authority: set the escrow_settlement_authority chain parameter",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+        elif sender != authority:
             return StateDelta(
                 sender=sender,
                 recipient=recipient,
@@ -407,6 +428,23 @@ def compute_state_delta(
     # this branch the generic path fails them with "Sender account not found" and
     # followers never apply a sealed release.
     if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+        if block_version >= 5:
+            # v5: only the bridge's own pseudo-sender shape is legitimate —
+            # public intake refuses these types, so any other sender in a block
+            # is a forged credit. Mirrors validate_transaction.
+            expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
+            if sender != expected_sender:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error=f"{tx_type} must carry the internal pseudo-sender {expected_sender}, got {sender}",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
         return StateDelta(
             sender=sender,
             recipient=recipient,
