@@ -337,12 +337,12 @@ This is mirrored on every node. Note per-host quirks:
   Use `-n 50` to see the last 50 lines, and add `--no-pager` for non-interactive output.
 
 - **Chain store path**: the live chain database is
-  `DATA_DIR / "data" / <chain_id> / "chain.db"` — on the current fleet that is
-  `/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db`
-  (`apps/blockchain-node/src/aitbc_chain/config.py:89-93`). `/var/lib/aitbc/chain.db`
-  does **not** exist — note that `sqlite3 <path>` silently *creates* a 0-byte
-  database when handed a missing path, so probing the wrong path mutates the
-  host. Check `AITBC_DATA_DIR`/`--data-dir` first if unsure.
+  `DATA_DIR / "data" / <chain_id> / "chain.db"`
+  (`apps/blockchain-node/src/aitbc_chain/config.py:89-93`) — resolve
+  `DATA_DIR` via `AITBC_DATA_DIR`/`--data-dir` first; the deployment's
+  actual chain_id lives in the node's env, not in this file. Probing the
+  wrong path mutates the host: `sqlite3 <path>` silently *creates* a 0-byte
+  database when handed a missing path.
 
 - **systemd `EnvironmentFile=` does not strip inline `#` comments** — a comment
   on an assignment line becomes part of the value (8 Sep: a
