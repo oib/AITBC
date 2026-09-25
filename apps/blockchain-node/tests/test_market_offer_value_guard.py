@@ -7,8 +7,10 @@ it: consensus has no GPU_MARKET branch, so a nonzero amount fell through
 to the generic transfer and debited ``from`` — any address the caller named —
 with no signature anywhere in the path.
 
-Covers both layers of the fix:
-  * route level — unsigned offers with a nonzero amount are rejected outright;
+Covers the route and consensus layers:
+  * route level — unsigned offers with a nonzero amount are rejected outright,
+    unsigned offers have their fee capped at the standard listing fee, and a
+    present signature must verify against ``from``;
   * consensus level — validate_transaction and compute_state_delta both refuse
     a nonzero-value GPU_MARKET regardless of how it arrived.
 """
@@ -20,6 +22,7 @@ from typing import Any
 from unittest.mock import MagicMock, patch
 
 import pytest
+from eth_keys import keys
 from fastapi import HTTPException
 from sqlalchemy import create_engine, text
 from sqlmodel import Session
@@ -83,6 +86,116 @@ async def test_unsigned_zero_amount_offer_still_admitted():
     ):
         result = await tx_mod.submit_market_transaction(MagicMock(), _offer_tx(0))
     assert result["success"] is True
+
+
+# ---------------------------------------------------------------------------
+# Route level — the unsigned offer exemption must not carry an unbounded fee
+# ---------------------------------------------------------------------------
+
+
+def _fake_session_and_mempool(account):
+    @contextmanager
+    def fake_session_scope(*_a, **_kw):
+        session = MagicMock()
+        session.get = MagicMock(return_value=account)
+        yield session
+
+    mempool = MagicMock()
+    mempool.add = MagicMock(return_value="0xtxhash")
+    return fake_session_scope, mempool
+
+
+@pytest.mark.asyncio
+async def test_unsigned_offer_fee_capped_at_listing_fee():
+    """The exploit shape: unsigned offer naming a funded sender with fee=balance.
+
+    `from` is unbound without a signature, so the fee the caller chose would be
+    a free burn of that account. The route must rewrite it to the standard
+    listing fee before the tx reaches the mempool.
+    """
+    from aitbc.utils import DEFAULT_TX_FEE_UNITS
+
+    account = MagicMock()
+    account.balance = 10**9
+    account.nonce = 0
+    fake_session_scope, mempool = _fake_session_and_mempool(account)
+
+    tx = _offer_tx(0)
+    tx["fee"] = account.balance  # would wipe the named account verbatim
+    with (
+        patch.object(tx_mod, "session_scope", fake_session_scope),
+        patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
+    ):
+        result = await tx_mod.submit_market_transaction(MagicMock(), tx)
+    assert result["success"] is True
+    stored = mempool.add.call_args[0][0]
+    assert stored["fee"] == DEFAULT_TX_FEE_UNITS
+
+
+@pytest.mark.asyncio
+async def test_unsigned_offer_fee_below_cap_preserved():
+    """A smaller caller fee stays; only above-cap fees are clamped."""
+    from aitbc.utils import DEFAULT_TX_FEE_UNITS
+
+    account = MagicMock()
+    account.balance = 10**9
+    account.nonce = 0
+    fake_session_scope, mempool = _fake_session_and_mempool(account)
+
+    tx = _offer_tx(0)
+    tx["fee"] = DEFAULT_TX_FEE_UNITS - 1
+    with (
+        patch.object(tx_mod, "session_scope", fake_session_scope),
+        patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
+    ):
+        result = await tx_mod.submit_market_transaction(MagicMock(), tx)
+    assert result["success"] is True
+    assert mempool.add.call_args[0][0]["fee"] == DEFAULT_TX_FEE_UNITS - 1
+
+
+@pytest.mark.asyncio
+async def test_signed_offer_above_cap_admitted():
+    """A signature binds the fee: a correctly signed offer may pay more."""
+    from aitbc_chain.rpc.utils import sign_transaction_data
+
+    signer = keys.PrivateKey(b"\x33" * 32).public_key.to_checksum_address()
+    account = MagicMock()
+    account.balance = 10**12
+    account.nonce = 0
+    fake_session_scope, mempool = _fake_session_and_mempool(account)
+
+    tx = _offer_tx(0)
+    tx["from"] = signer
+    tx["fee"] = 10**9  # over the unsigned cap, but signed by `from`
+    tx["signature"] = sign_transaction_data(tx, "0x" + "33" * 32)
+    with (
+        patch.object(tx_mod, "session_scope", fake_session_scope),
+        patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
+    ):
+        result = await tx_mod.submit_market_transaction(MagicMock(), tx)
+    assert result["success"] is True
+    assert mempool.add.call_args[0][0]["fee"] == 10**9
+
+
+@pytest.mark.asyncio
+async def test_offer_with_signature_for_other_sender_rejected():
+    """A signature that does not recover to `from` is worse than none."""
+    from aitbc_chain.rpc.utils import sign_transaction_data
+
+    account = MagicMock()
+    account.balance = 10**9
+    account.nonce = 0
+    fake_session_scope, mempool = _fake_session_and_mempool(account)
+
+    tx = _offer_tx(0)
+    tx["signature"] = sign_transaction_data(tx, "0x" + "44" * 32)  # wrong key
+    with (
+        patch.object(tx_mod, "session_scope", fake_session_scope),
+        patch("aitbc_chain.mempool.get_mempool", return_value=mempool),
+        pytest.raises(HTTPException) as exc_info,
+    ):
+        await tx_mod.submit_market_transaction(MagicMock(), tx)
+    assert exc_info.value.status_code == 403
 
 
 # ---------------------------------------------------------------------------
