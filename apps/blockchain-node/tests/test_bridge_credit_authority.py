@@ -75,7 +75,7 @@ def _release_tx(recipient: str = "ait1recipient", amount: int = 100, nonce: int 
     }
 
 
-def _refund_tx(recipient: str = "ait1sender", amount: int = 55, nonce: int = 0) -> dict:
+def _refund_tx(recipient: str = "ait1sender", amount: int = 55, nonce: int = 0, lock_hash: str = "lock-1") -> dict:
     """The sweep-rebuilt shape of a pre-registered BRIDGE_REFUND row."""
     return {
         "from": "bridge_refund",
@@ -88,12 +88,46 @@ def _refund_tx(recipient: str = "ait1sender", amount: int = 55, nonce: int = 0) 
         "payload": {
             "type": "BRIDGE_REFUND",
             "transfer_id": "transfer-2",
+            "lock_tx_hash": lock_hash,
             "source_chain": "test",
             "target_chain": "ait",
             "amount": amount,
             "asset": "native",
         },
     }
+
+
+def _sealed_lock(
+    session: Session,
+    chain_id: str = "test",
+    lock_hash: str = "lock-1",
+    sender: str = "ait1sender",
+    amount: int = 55,
+    block_height: int | None = 100,
+) -> Transaction:
+    """A sealed BRIDGE_LOCK row as issuance anchors it on the source chain."""
+    lock = Transaction(
+        chain_id=chain_id,
+        tx_hash=lock_hash,
+        sender=sender,
+        recipient="bridge_lock",
+        payload={
+            "type": "BRIDGE_LOCK",
+            "transfer_id": lock_hash,
+            "target_chain": "ait",
+            "amount": amount,
+            "asset": "native",
+        },
+        value=amount,
+        fee=0,
+        nonce=0,
+        type="BRIDGE_LOCK",
+        block_height=block_height,
+        status="confirmed",
+    )
+    session.add(lock)
+    session.commit()
+    return lock
 
 
 def _sign_payload(tx: dict, tx_hash: str, key: str) -> dict:
@@ -431,3 +465,266 @@ def test_authority_resolution_precedence(engine, authority, monkeypatch):
         session.add(ChainParameter(chain_id="test", parameter="bridge_release_authority", value=other))
         session.commit()
         assert _bridge_release_authority(session, "test") == other
+
+
+# --------------------------------------------------------------------------
+# v6 refund lock binding: BRIDGE_REFUND must name its sealed BRIDGE_LOCK
+# --------------------------------------------------------------------------
+
+
+def test_v6_refund_bound_to_sealed_lock_accepted(engine, authority, monkeypatch):
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session)
+        tx = _sign_payload(_refund_tx(), "tx-ref-v6-ok", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-ok", block_version=6)
+        assert ok, msg
+
+
+def test_v6_refund_missing_lock_hash_rejected(engine, authority, monkeypatch):
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session)
+        tx = _refund_tx()
+        del tx["payload"]["lock_tx_hash"]
+        _sign_payload(tx, "tx-ref-v6-nolh", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-nolh", block_version=6)
+        assert not ok
+        assert "lock_tx_hash" in msg
+
+
+def test_v6_refund_unknown_lock_rejected(engine, authority, monkeypatch):
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        tx = _sign_payload(_refund_tx(lock_hash="lock-missing"), "tx-ref-v6-unk", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-unk", block_version=6)
+        assert not ok
+        assert "BRIDGE_LOCK" in msg
+
+
+def test_v6_refund_unsealed_lock_rejected(engine, authority, monkeypatch):
+    """A swept-but-unsealed lock row does not satisfy the binding."""
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session, block_height=None)
+        tx = _sign_payload(_refund_tx(), "tx-ref-v6-unsealed", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-unsealed", block_version=6)
+        assert not ok
+        assert "BRIDGE_LOCK" in msg
+
+
+def test_v6_refund_lock_sender_mismatch_rejected(engine, authority, monkeypatch):
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session, sender="ait1other")
+        tx = _sign_payload(_refund_tx(), "tx-ref-v6-snd", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-snd", block_version=6)
+        assert not ok
+        assert "sender" in msg
+
+
+def test_v6_refund_amount_mismatch_rejected(engine, authority, monkeypatch):
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session, amount=999)
+        tx = _sign_payload(_refund_tx(), "tx-ref-v6-amt", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-amt", block_version=6)
+        assert not ok
+        assert "amount" in msg
+
+
+def test_v6_double_refund_rejected(engine, authority, monkeypatch):
+    """A second refund naming the same lock is forged even when well-signed."""
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session)
+        first = _sign_payload(_refund_tx(nonce=0), "tx-ref-v6-first", authority[0])
+        ok, msg = st.apply_transaction(session, "test", first, "tx-ref-v6-first", block_version=6)
+        assert ok, msg
+        session.add(
+            Transaction(
+                chain_id="test",
+                tx_hash="tx-ref-v6-first",
+                sender="bridge_refund",
+                recipient="ait1sender",
+                payload=first["payload"],
+                value=0,
+                fee=0,
+                nonce=0,
+                type="BRIDGE_REFUND",
+                block_height=150,
+                status="confirmed",
+            )
+        )
+        session.commit()
+        second = _sign_payload(_refund_tx(nonce=1), "tx-ref-v6-second", authority[0])
+        ok, msg = st.apply_transaction(session, "test", second, "tx-ref-v6-second", block_version=6)
+        assert not ok
+        assert "already refunded" in msg
+
+
+def test_v6_own_sealed_refund_revalidates(engine, authority, monkeypatch):
+    """The lock record excludes the tx under test — a sealed refund must not
+    self-trigger the double-refund rule when repair paths resolve it again."""
+    from aitbc_chain.state.bridge_credit import validate_bridge_refund_lock
+    from aitbc_chain.state.state_transition import _refund_lock_record
+
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    with Session(engine) as session:
+        _sealed_lock(session)
+        tx = _sign_payload(_refund_tx(), "tx-ref-v6-self", authority[0])
+        session.add(
+            Transaction(
+                chain_id="test",
+                tx_hash="tx-ref-v6-self",
+                sender="bridge_refund",
+                recipient="ait1sender",
+                payload=tx["payload"],
+                value=0,
+                fee=0,
+                nonce=0,
+                type="BRIDGE_REFUND",
+                block_height=150,
+                status="confirmed",
+            )
+        )
+        session.commit()
+        # Without exclusion the sealed row counts as a prior refund.
+        assert _refund_lock_record(session, "test", "lock-1")["refunded"] is True
+        # With the tx's own hash excluded, the same row does not self-trigger.
+        record = _refund_lock_record(session, "test", "lock-1", exclude_tx_hash="tx-ref-v6-self")
+        assert record["refunded"] is False
+        assert validate_bridge_refund_lock(record, tx) is None
+
+
+def test_v5_refund_without_lock_hash_stays_lenient(engine, authority, monkeypatch):
+    """Replay compat: v5 blocks carry refunds with no lock_tx_hash."""
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        tx = _refund_tx()
+        del tx["payload"]["lock_tx_hash"]
+        _sign_payload(tx, "tx-ref-v5-len", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v5-len", block_version=5)
+        assert ok, msg
+
+
+def test_v6_release_needs_no_lock_hash(engine, authority, monkeypatch):
+    """BRIDGE_RELEASE has no same-chain lock — the v6 binding does not apply."""
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        tx = _sign_payload(_release_tx(), "tx-rel-v6", authority[0])
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-rel-v6", block_version=6)
+        assert ok, msg
+
+
+def test_v6_signature_binds_lock_hash(engine, authority, monkeypatch):
+    """lock_tx_hash is inside the signed projection — it cannot be repointed."""
+    _, addr = authority
+    monkeypatch.setattr(settings, "bridge_release_authority", addr)
+    st = StateTransition()
+    with Session(engine) as session:
+        _sealed_lock(session)
+        _sealed_lock(session, lock_hash="lock-2", amount=55)
+        tx = _sign_payload(_refund_tx(lock_hash="lock-2"), "tx-ref-v6-bind", authority[0])
+        tx["payload"]["lock_tx_hash"] = "lock-1"  # tamper after signing
+        ok, msg = st.apply_transaction(session, "test", tx, "tx-ref-v6-bind", block_version=6)
+        assert not ok
+
+
+# --------------------------------------------------------------------------
+# v6 lock binding: pure / parallel path and context builder
+# --------------------------------------------------------------------------
+
+
+def test_pure_v6_refund_with_context_accepted(authority):
+    _, addr = authority
+    tx = _sign_payload(_refund_tx(), "pure-ref-v6-ok", authority[0])
+    ctx = {"lock-1": {"exists": True, "sender": "ait1sender", "amount": 55, "refunded": False}}
+    delta = compute_state_delta(
+        {}, tx, "test", tx_hash="pure-ref-v6-ok", block_version=6, bridge_authority=addr, bridge_lock_context=ctx
+    )
+    assert delta.success, delta.error
+
+
+def test_pure_v6_refund_missing_context_fails_closed(authority):
+    _, addr = authority
+    tx = _sign_payload(_refund_tx(), "pure-ref-v6-noctx", authority[0])
+    delta = compute_state_delta({}, tx, "test", tx_hash="pure-ref-v6-noctx", block_version=6, bridge_authority=addr)
+    assert not delta.success
+    assert "BRIDGE_LOCK" in delta.error
+
+
+def test_pure_v6_refund_unknown_lock_rejected(authority):
+    _, addr = authority
+    tx = _sign_payload(_refund_tx(lock_hash="lock-x"), "pure-ref-v6-unk", authority[0])
+    ctx = {"lock-1": {"exists": True, "sender": "ait1sender", "amount": 55, "refunded": False}}
+    delta = compute_state_delta(
+        {}, tx, "test", tx_hash="pure-ref-v6-unk", block_version=6, bridge_authority=addr, bridge_lock_context=ctx
+    )
+    assert not delta.success
+
+
+def test_pure_v6_double_refund_rejected(authority):
+    _, addr = authority
+    tx = _sign_payload(_refund_tx(), "pure-ref-v6-dbl", authority[0])
+    ctx = {"lock-1": {"exists": True, "sender": "ait1sender", "amount": 55, "refunded": True}}
+    delta = compute_state_delta(
+        {}, tx, "test", tx_hash="pure-ref-v6-dbl", block_version=6, bridge_authority=addr, bridge_lock_context=ctx
+    )
+    assert not delta.success
+    assert "already refunded" in delta.error
+
+
+def test_pure_v5_refund_needs_no_context(authority):
+    _, addr = authority
+    tx = _refund_tx()
+    del tx["payload"]["lock_tx_hash"]
+    _sign_payload(tx, "pure-ref-v5", authority[0])
+    delta = compute_state_delta({}, tx, "test", tx_hash="pure-ref-v5", block_version=5, bridge_authority=addr)
+    assert delta.success, delta.error
+
+
+def test_build_bridge_lock_context_resolves_records(engine):
+    from aitbc_chain.state.state_transition import build_bridge_lock_context
+
+    with Session(engine) as session:
+        _sealed_lock(session)
+        ctx = build_bridge_lock_context(session, "test", [_refund_tx()])
+        assert ctx == {"lock-1": {"exists": True, "sender": "ait1sender", "amount": 55, "refunded": False}}
+
+
+def test_build_bridge_lock_context_same_lock_twice_returns_none(engine):
+    """Two refunds for one lock cannot be ordered in parallel — the caller
+    must take the sequential path, which applies the rule in order."""
+    from aitbc_chain.state.state_transition import build_bridge_lock_context
+
+    with Session(engine) as session:
+        _sealed_lock(session)
+        ctx = build_bridge_lock_context(session, "test", [_refund_tx(nonce=0), _refund_tx(nonce=1)])
+        assert ctx is None
+
+
+def test_build_bridge_lock_context_no_refunds_empty(engine):
+    from aitbc_chain.state.state_transition import build_bridge_lock_context
+
+    with Session(engine) as session:
+        assert build_bridge_lock_context(session, "test", [_release_tx()]) == {}
