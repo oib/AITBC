@@ -440,6 +440,39 @@ class MarketService:
                     merged_offers.append(offer)
                     seen_plugin_ids.add(plugin_id)
 
+            # Resolve on-chain anchoring for every merged offer. GPU bundle
+            # offers anchor as GPU_REGISTER (payload.gpu_id) and software
+            # bundle offers as GPU_MARKET/GPU_MARKETPLACE (payload.offer_id);
+            # the state-table endpoints (e.g. /rpc/gpus) do not expose the
+            # sealing block, so confirmation is derived from the sealed tx.
+            try:
+                anchor_txs: dict[str, dict[str, Any]] = {}
+                for tx_type in ("GPU_MARKET", "GPU_MARKETPLACE", "GPU_REGISTER"):
+                    for tx in await self._rpc_client.query_transactions(
+                        transaction_type=tx_type, chain_id=chain_id, limit=1000
+                    ):
+                        payload = tx.get("payload") or {}
+                        key = payload.get("offer_id") or payload.get("gpu_id")
+                        # Results are newest-first; keep the first tx per key
+                        # so a re-registered offer anchors to its latest seal.
+                        if key and key not in anchor_txs:
+                            anchor_txs[key] = tx
+                for offer in merged_offers:
+                    if offer.get("confirmed"):
+                        continue
+                    key = offer.get("offer_id") or offer.get("plugin_id")
+                    tx = anchor_txs.get(key) if key else None
+                    if tx is None:
+                        continue
+                    offer["confirmed"] = True
+                    offer["tx_hash"] = offer.get("tx_hash") or tx.get("tx_hash")
+                    offer["block_height"] = tx.get("block_height")
+                    ts = tx.get("timestamp")
+                    if ts and not offer.get("block_timestamp"):
+                        offer["block_timestamp"] = datetime.fromtimestamp(ts, UTC).isoformat()
+            except Exception as e:
+                logger.warning("Failed to resolve on-chain offer anchors: %s", e)
+
             logger.info(
                 "Returning %s total offers (%s from blockchain, %s from local)",
                 len(merged_offers),

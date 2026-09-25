@@ -474,6 +474,7 @@ async def query_transactions(
                 {
                     "transaction_id": tx.id,
                     "tx_hash": tx.tx_hash,
+                    "block_height": tx.block_height,
                     "sender": tx.sender,
                     "recipient": tx.recipient,
                     "payload": tx.payload,

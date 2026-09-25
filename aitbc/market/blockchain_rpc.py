@@ -92,6 +92,33 @@ class BlockchainRPCClient:
             offers = [o for o in offers if region.lower() in str(o.get("region", "")).lower()]
         return offers
 
+    async def query_transactions(
+        self,
+        transaction_type: str | None = None,
+        order_id: str | None = None,
+        limit: int = 500,
+        chain_id: str | None = None,
+    ) -> list[dict[str, Any]]:
+        """Query sealed transactions.
+
+        Calls GET /rpc/transactions. ``order_id`` is matched server-side
+        against the transaction payload's order_id/offer_id/bid_id fields.
+        Each returned dict includes ``tx_hash``, ``block_height``,
+        ``timestamp``, and the full ``payload``.
+        """
+        params: dict[str, Any] = {"limit": limit}
+        if transaction_type:
+            params["transaction_type"] = transaction_type
+        if order_id:
+            params["order_id"] = order_id
+        if chain_id:
+            params["chain_id"] = chain_id
+        async with self._client() as client:
+            resp = await client.get(f"{self._rpc_url}/rpc/transactions", params=params)
+            resp.raise_for_status()
+            data = resp.json()
+        return cast(list[dict[str, Any]], data if isinstance(data, list) else [])
+
     async def get_offer(self, gpu_id: str, chain_id: str | None = None) -> dict[str, Any] | None:
         """Get a single GPU offer by ID.
 
