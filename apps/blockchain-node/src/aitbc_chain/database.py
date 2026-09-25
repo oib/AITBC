@@ -417,16 +417,23 @@ def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
         )
 
 
-def _backfill_param_heights(session: Session, chain_id: str) -> None:
-    """Rebuild ``chain_parameter_history`` and ``applied_height`` from sealed history.
+def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
+    """Replay sealed GOVERNANCE_EXECUTEs into parameter history + current rows.
 
-    Every parameter change is a sealed GOVERNANCE_EXECUTE whose payload carries
-    ``execution_payload.parameter_change`` — the full version list is already
-    in chain history, so rebuilding it locally is consensus-safe (unlike the
-    parameter values, which must only ever come from replay/upserts). Rows
-    without a resolvable change (e.g. operator-seeded dormant chains) keep
-    NULL ``applied_height``, which resolvers treat as "set at an unknown
-    height" — the pre-tracking status quo.
+    Shared by init-time backfill and the import-chain wipe/rebuild. Executes
+    order by ``(block_height, id)`` — insertion order equals apply order on
+    every node (each block's transactions are written in block order whether
+    applied live or bulk-imported), so two same-height executes on one
+    parameter resolve to the same last-write-wins value everywhere. ``id``
+    also makes the rebuild identical to what live apply recorded.
+
+    Current rows are only filled when missing — an existing row may
+    legitimately lead history (a fresh upsert or a newer unexecuted change)
+    and is never clobbered at startup. No commit: the caller owns the
+    transaction boundary (init commits at the end; import commits once for
+    wipe+import+rebuild).
+
+    Returns True when anything was written or replayed.
     """
     executes = session.exec(
         select(Transaction)
@@ -435,9 +442,9 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
             Transaction.type == "GOVERNANCE_EXECUTE",
             Transaction.block_height.isnot(None),  # type: ignore[union-attr]
         )
-        .order_by("block_height")
+        .order_by("block_height", "id")
     ).all()
-    latest: dict[str, tuple[int, str]] = {}
+    latest: dict[str, tuple[int, str, str | None]] = {}
     for execute_tx in executes:
         payload: Any = execute_tx.payload or {}
         if isinstance(payload, str):
@@ -453,14 +460,36 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
             continue
         value = str(execution_payload.get("value"))
         record_chain_parameter_history(
-            session, chain_id, parameter, value, payload.get("proposal_id"), execute_tx.block_height
+            session, chain_id, parameter, value, payload.get("proposal_id"), execute_tx.block_height, overwrite=True
         )
-        latest[parameter] = (execute_tx.block_height, value)
+        latest[parameter] = (execute_tx.block_height, value, payload.get("proposal_id"))
 
     # autoflush is off on these sessions — flush so the dedupe check in
     # record_chain_parameter_history sees the rows just added above.
     session.flush()
-    changed = False
+    changed = bool(executes)
+
+    # Fill current rows that are missing entirely (e.g. after import-chain
+    # wiped the table): the latest recorded change is the value in force.
+    existing_params = set(session.exec(select(ChainParameter.parameter).where(ChainParameter.chain_id == chain_id)).all())
+    for parameter, (height, value, proposal_id) in latest.items():
+        if parameter in existing_params:
+            continue
+        session.add(
+            ChainParameter(
+                chain_id=chain_id,
+                parameter=parameter,
+                value=value,
+                proposal_id=proposal_id,
+                applied_height=height,
+            )
+        )
+        changed = True
+        logger.info(
+            "Restored chain parameter %s=%s on %s from sealed execute at height %s", parameter, value, chain_id, height
+        )
+    session.flush()
+
     rows = session.exec(
         select(ChainParameter).where(
             ChainParameter.chain_id == chain_id,
@@ -503,7 +532,21 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
             row.parameter,
             chain_id,
         )
-    if changed or executes:
+    return changed
+
+
+def _backfill_param_heights(session: Session, chain_id: str) -> None:
+    """Rebuild ``chain_parameter_history`` and ``applied_height`` from sealed history.
+
+    Every parameter change is a sealed GOVERNANCE_EXECUTE whose payload carries
+    ``execution_payload.parameter_change`` — the full version list is already
+    in chain history, so rebuilding it locally is consensus-safe (unlike the
+    parameter values, which must only ever come from replay/upserts). Rows
+    without a resolvable change (e.g. operator-seeded dormant chains) keep
+    NULL ``applied_height``, which resolvers treat as "set at an unknown
+    height" — the pre-tracking status quo.
+    """
+    if _rebuild_chain_parameters(session, chain_id):
         session.commit()
 
 

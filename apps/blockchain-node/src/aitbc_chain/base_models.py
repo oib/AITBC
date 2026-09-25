@@ -633,9 +633,7 @@ class ChainParameterHistory(ChainBase, table=True):
     """
 
     __tablename__ = "chain_parameter_history"
-    __table_args__ = (
-        UniqueConstraint("chain_id", "parameter", "applied_height", name="uix_chain_parameter_history"),
-    )
+    __table_args__ = (UniqueConstraint("chain_id", "parameter", "applied_height", name="uix_chain_parameter_history"),)
 
     id: int | None = Field(default=None, primary_key=True)
     chain_id: str = Field(index=True)
@@ -647,13 +645,25 @@ class ChainParameterHistory(ChainBase, table=True):
 
 
 def record_chain_parameter_history(
-    session, chain_id: str, parameter: str, value: str, proposal_id: str | None, applied_height: int
+    session,
+    chain_id: str,
+    parameter: str,
+    value: str,
+    proposal_id: str | None,
+    applied_height: int,
+    overwrite: bool = False,
 ) -> None:
     """Append a ``chain_parameter_history`` row unless this (param, height) is recorded.
 
     Called from every ``chain_parameter`` write path (apply-time
     parameter_change, genesis seeding, height backfill, sync upserts) so the
     value-in-force-at-height answer stays complete however the row arrived.
+
+    ``overwrite`` makes the write last-write-wins: two GOVERNANCE_EXECUTEs in
+    the same block changing one parameter must leave the second value — the
+    one ``chain_parameter`` ends with — recorded for every later height.
+    Callers replaying or applying sealed history (apply path, init rebuild)
+    pass it; seeding/upsert paths keep first-write-wins.
     """
     # Sessions run autoflush=False — flush pending rows first or a second
     # call for the same (param, height) misses the unflushed row and
@@ -676,6 +686,10 @@ def record_chain_parameter_history(
                 applied_height=applied_height,
             )
         )
+    elif overwrite and (exists.value != value or exists.proposal_id != proposal_id):
+        exists.value = value
+        exists.proposal_id = proposal_id
+        session.add(exists)
 
 
 class ConsensusState(ChainBase, table=True):

@@ -106,8 +106,11 @@ def validate_bridge_refund_lock(lock: dict[str, Any] | None, tx_data: dict[str, 
             return "BRIDGE_REFUND recipient does not match the BRIDGE_LOCK sender"
     except Exception:
         return "BRIDGE_REFUND recipient does not match the BRIDGE_LOCK sender"
+    lock_amt = lock.get("amount")
+    if lock_amt is None or amount is None:
+        return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
     try:
-        if int(lock.get("amount") or 0) != int(amount or 0):
+        if int(lock_amt) != int(amount):
             return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
     except (TypeError, ValueError):
         return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"

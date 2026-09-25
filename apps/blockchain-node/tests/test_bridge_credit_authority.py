@@ -728,3 +728,22 @@ def test_build_bridge_lock_context_no_refunds_empty(engine):
 
     with Session(engine) as session:
         assert build_bridge_lock_context(session, "test", [_release_tx()]) == {}
+
+
+def test_v6_refund_amount_must_be_present():
+    """A missing/null amount on either side rejects — the earlier ``or 0``
+    coercion let ``amount: null`` match a lock with no amount."""
+    from aitbc_chain.state.bridge_credit import validate_bridge_refund_lock
+
+    lock = {"exists": True, "sender": "ait1sender", "amount": 36000, "refunded": False}
+    tx = {"to": "ait1sender", "payload": {"lock_tx_hash": "0xlock1", "amount": None}}
+    assert validate_bridge_refund_lock(lock, tx) is not None
+
+    # Lock with no amount + refund with no amount previously matched (0 == 0).
+    empty_lock = {"exists": True, "sender": "ait1sender", "amount": None, "refunded": False}
+    tx_none = {"to": "ait1sender", "payload": {"lock_tx_hash": "0xlock1", "amount": None}}
+    assert validate_bridge_refund_lock(empty_lock, tx_none) is not None
+
+    # Present and matching still passes.
+    good = {"to": "ait1sender", "payload": {"lock_tx_hash": "0xlock1", "amount": 36000}}
+    assert validate_bridge_refund_lock(lock, good) is None

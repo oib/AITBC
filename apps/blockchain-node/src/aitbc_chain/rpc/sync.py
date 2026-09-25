@@ -19,7 +19,7 @@ from aitbc.rate_limiting import rate_limit
 from ..config import settings
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account, Block, Transaction
+from ..models import Account, Block, ChainParameter, ChainParameterHistory, Transaction
 from .utils import get_chain_id, verify_admin_signature
 
 _logger = get_logger(__name__)
@@ -265,6 +265,9 @@ def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
             _logger.info("Replacing existing chain with %s blocks", existing_count)
         _logger.info("Clearing existing transactions for chain %s", chain_id)
         session.execute(delete(Transaction).where(Transaction.chain_id == chain_id))  # type: ignore[arg-type]
+        _logger.info("Clearing chain parameter state for chain %s", chain_id)
+        session.execute(delete(ChainParameterHistory).where(ChainParameterHistory.chain_id == chain_id))  # type: ignore[arg-type]
+        session.execute(delete(ChainParameter).where(ChainParameter.chain_id == chain_id))  # type: ignore[arg-type]
         if new_accounts:
             _logger.info("Clearing existing accounts for chain %s", chain_id)
             session.execute(delete(Account).where(Account.chain_id == chain_id))  # type: ignore[arg-type]
@@ -277,6 +280,14 @@ def _import_chain_data(import_data: dict[str, Any]) -> dict[str, Any]:
             session.add(account)
         for tx in new_transactions:
             session.add(tx)
+        # Rebuild parameter history + current rows from the imported chain's
+        # sealed executes — the old chain's parameter state must not bleed
+        # into the new lineage, and leaving the tables empty would fail the
+        # authority gates closed on every subsequent block.
+        session.flush()
+        from ..database import _rebuild_chain_parameters
+
+        _rebuild_chain_parameters(session, chain_id)
         # One commit for delete+import: any failure above rolls the whole
         # thing back and the existing chain stays intact.
         session.commit()

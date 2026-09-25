@@ -72,9 +72,7 @@ else:
 _ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
 
 
-def _chain_parameter_value(
-    session: Session, chain_id: str, parameter: str, block_height: int | None = None
-) -> str | None:
+def _chain_parameter_value(session: Session, chain_id: str, parameter: str, block_height: int | None = None) -> str | None:
     """Return the ``chain_parameter`` value in force at ``block_height``.
 
     ``chain_parameter_history`` records the height each value took effect;
@@ -114,9 +112,36 @@ def _chain_parameter_value(
     return None
 
 
-def _governance_executors(
-    session: Session, chain_id: str, block_height: int | None = None
-) -> frozenset[str] | None:
+def _parameter_has_record(session: Session, chain_id: str, parameter: str) -> bool:
+    """True when the chain has any on-chain record of ``parameter``.
+
+    Distinguishes "never set on-chain" (env fallback is the only source —
+    bootstrap semantics) from "set at some height" (heights before the first
+    record resolve as provably unset — a per-node env value must not
+    resurrect an authority the chain did not have yet).
+    """
+    hist = session.exec(
+        select(ChainParameterHistory)
+        .where(
+            ChainParameterHistory.chain_id == chain_id,
+            ChainParameterHistory.parameter == parameter,
+        )
+        .limit(1)
+    ).first()
+    if hist is not None:
+        return True
+    row = session.exec(
+        select(ChainParameter)
+        .where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.parameter == parameter,
+        )
+        .limit(1)
+    ).first()
+    return row is not None
+
+
+def _governance_executors(session: Session, chain_id: str, block_height: int | None = None) -> frozenset[str] | None:
     """Authorized GOVERNANCE_EXECUTE senders from the on-chain
     ``governance_executors`` chain parameter (comma-separated addresses).
 
@@ -155,7 +180,7 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
                 addr,
             )
         return addr
-    if env_addr:
+    if env_addr and not _parameter_has_record(session, chain_id, "bond_slash_authority"):
         return canonical_address(env_addr)
     return None
 
@@ -204,9 +229,7 @@ def _is_valid_0x_address(address: str) -> bool:
     return normalized.startswith("0x") and len(normalized) == 42
 
 
-def _escrow_settlement_authority(
-    session: Session, chain_id: str, block_height: int | None = None
-) -> str | None:
+def _escrow_settlement_authority(session: Session, chain_id: str, block_height: int | None = None) -> str | None:
     """Return the canonical settlement authority for v3+ escrow releases/refunds.
 
     The on-chain ``escrow_settlement_authority`` chain parameter wins: it is
@@ -229,7 +252,7 @@ def _escrow_settlement_authority(
                 addr,
             )
         return addr
-    if env_addr:
+    if env_addr and not _parameter_has_record(session, chain_id, "escrow_settlement_authority"):
         return canonical_address(env_addr)
     return None
 
@@ -257,6 +280,11 @@ def _bridge_release_authority(session: Session, chain_id: str, block_height: int
                 addr,
             )
         return addr
+    if _parameter_has_record(session, chain_id, "bridge_release_authority"):
+        # The chain set this parameter at some point — heights before that
+        # record are provably unset and fall through to the escrow fallback,
+        # never to a per-node env value.
+        return _escrow_settlement_authority(session, chain_id, block_height)
     if env_addr:
         return canonical_address(env_addr)
     return _escrow_settlement_authority(session, chain_id, block_height)
@@ -392,7 +420,9 @@ def _refund_lock_record(session: Session, chain_id: str, lock_hash: str, exclude
     }
 
 
-def build_bridge_lock_context(session: Session, chain_id: str, tx_datas: list[dict[str, Any]]) -> dict[str, dict[str, Any]] | None:
+def build_bridge_lock_context(
+    session: Session, chain_id: str, tx_datas: list[dict[str, Any]]
+) -> dict[str, dict[str, Any]] | None:
     """Prefetch lock records for BRIDGE_REFUND txs (v6), like ``build_escrow_context``.
 
     Returns ``{lock_tx_hash: {"exists","sender","amount","refunded"}}`` for the
@@ -1544,7 +1574,7 @@ class StateTransition:
                 )
             if block_height is not None:
                 record_chain_parameter_history(
-                    session, chain_id, parameter, str(value), proposal_id, block_height
+                    session, chain_id, parameter, str(value), proposal_id, block_height, overwrite=True
                 )
             # autoflush is off on these sessions — flush so a later tx in the
             # same block sees the new parameter value in resolver queries.

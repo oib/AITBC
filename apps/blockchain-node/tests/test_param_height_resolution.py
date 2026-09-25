@@ -29,9 +29,12 @@ from aitbc_chain.base_models import (
     Transaction,
 )
 from aitbc_chain.database import init_db, session_scope
+from aitbc_chain.config import settings
 from aitbc_chain.state.state_transition import (
     StateTransition,
+    _bond_slash_authority,
     _chain_parameter_value,
+    _escrow_settlement_authority,
     _governance_executors,
 )
 
@@ -59,9 +62,7 @@ def _account(session, chain_id: str, address: str) -> None:
     session.flush()
 
 
-def _execute_tx(
-    sender: str, parameter: str, value: str, tx_hash: str, proposal_id: str = "p-1", nonce: int = 0
-) -> dict:
+def _execute_tx(sender: str, parameter: str, value: str, tx_hash: str, proposal_id: str = "p-1", nonce: int = 0) -> dict:
     return {
         "type": "GOVERNANCE_EXECUTE",
         "from": sender,
@@ -220,9 +221,7 @@ def test_null_height_row_applies_at_all_heights(session, chain_id):
     operator-seeded outside the apply path — keep the pre-tracking status
     quo: the value applies at every height. This is the documented safe
     semantic for rows whose true set-height is unknowable."""
-    session.add(
-        ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR, applied_height=None)
-    )
+    session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR, applied_height=None))
     session.flush()
     assert _governance_executors(session, chain_id, 0) == {_EXECUTOR}
     assert _governance_executors(session, chain_id, 999999) == {_EXECUTOR}
@@ -232,17 +231,13 @@ def test_null_height_row_applies_at_all_heights(session, chain_id):
 def test_genesis_parameters_apply_from_height_zero(session, chain_id):
     """Genesis-seeded parameters take effect at height 0 and are recorded in
     history, so height-0 blocks resolve them like any later change."""
-    session.add(
-        ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR, applied_height=0)
-    )
+    session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR, applied_height=0))
     session.flush()
     assert _governance_executors(session, chain_id, 0) == {_EXECUTOR}
 
 
 def test_no_height_context_returns_current(session, chain_id):
-    session.add(
-        ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR, applied_height=100)
-    )
+    session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR, applied_height=100))
     session.flush()
     # block_height=None callers (mempool pre-checks) see the current value.
     assert _governance_executors(session, chain_id) == {_EXECUTOR}
@@ -394,3 +389,116 @@ def test_backfill_leaves_unresolvable_rows_null(chain_id):
             )
         ).first()
         assert row.applied_height is None
+
+
+def test_same_block_double_change_last_write_wins(session, chain_id):
+    """Two executes in one block changing one parameter: history records the
+    LAST value — the one ``chain_parameter`` ends with — so blocks at and
+    above that height resolve it identically under live apply and rebuild."""
+    _account(session, chain_id, _OTHER)
+    st = StateTransition()
+    for tx_hash, value, nonce in (("0xexec500a", _OTHER, 0), ("0xexec500b", _EXECUTOR, 1)):
+        ok, err = st.apply_transaction(
+            session,
+            chain_id,
+            _execute_tx(_OTHER, "bond_slash_authority", value, tx_hash, proposal_id=f"p-{tx_hash}", nonce=nonce),
+            tx_hash,
+            block_version=4,
+            block_height=500,
+        )
+        assert ok, err
+    assert _chain_parameter_value(session, chain_id, "bond_slash_authority", 500) == _EXECUTOR
+    assert _chain_parameter_value(session, chain_id, "bond_slash_authority", 600) == _EXECUTOR
+    history = _history(session, chain_id, "bond_slash_authority")
+    assert [(h.value, h.applied_height) for h in history] == [(_EXECUTOR, 500)]
+
+
+def test_rebuild_orders_same_height_executes_by_insertion(chain_id):
+    """Same-height execute pairs replay in insertion (apply) order: the row
+    id orders within a block identically on every node — live apply and
+    bulk import both write the block's transactions in block order — so
+    last-write-wins rebuild matches what live apply recorded."""
+    init_db(chain_id)
+    with session_scope(chain_id) as session:
+        for tx_hash, value in (("0xexec700a", _OTHER), ("0xexec700b", _EXECUTOR)):
+            session.add(
+                Transaction(
+                    chain_id=chain_id,
+                    tx_hash=tx_hash,
+                    block_height=700,
+                    sender=_OTHER,
+                    recipient=_OTHER,
+                    type="GOVERNANCE_EXECUTE",
+                    payload={
+                        "proposal_id": f"p-{tx_hash}",
+                        "execution_payload": {
+                            "action": "parameter_change",
+                            "parameter": "bond_slash_authority",
+                            "value": value,
+                        },
+                    },
+                    value=0,
+                    fee=0,
+                    nonce=0,
+                    status="confirmed",
+                )
+            )
+        session.commit()
+
+    init_db(chain_id)
+    with session_scope(chain_id) as session:
+        history = _history(session, chain_id, "bond_slash_authority")
+        assert [(h.value, h.applied_height) for h in history] == [(_EXECUTOR, 700)]
+        row = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == "bond_slash_authority",
+            )
+        ).first()
+        assert row.value == _EXECUTOR
+
+
+def test_env_fallback_only_when_never_set(session, chain_id, monkeypatch):
+    """Once the chain records an authority parameter at any height, heights
+    before the first record resolve as provably unset — a per-node env value
+    must not resurrect an authority the chain did not have yet."""
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _OTHER)
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", _OTHER)
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
+    monkeypatch.setattr(settings, "bridge_release_authority", "")
+
+    session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value=_EXECUTOR, applied_height=100))
+    session.add(
+        ChainParameterHistory(
+            chain_id=chain_id,
+            parameter="bond_slash_authority",
+            value=_EXECUTOR,
+            proposal_id="p-1",
+            applied_height=100,
+        )
+    )
+    session.flush()
+
+    # Before the recorded height: provably unset — env must not leak in.
+    assert _bond_slash_authority(session, chain_id, 50) is None
+    # At/after it: the on-chain value wins.
+    assert _bond_slash_authority(session, chain_id, 150) == canonical_address(_EXECUTOR)
+    # No-height callers still resolve the current row.
+    assert _bond_slash_authority(session, chain_id) == canonical_address(_EXECUTOR)
+
+
+def test_env_fallback_when_never_set(session, chain_id, monkeypatch):
+    """A chain with no on-chain record of the parameter keeps the env
+    fallback — it is the bootstrap source for chains that never set it."""
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    monkeypatch.setenv("BOND_SLASH_AUTHORITY_ADDRESS", _OTHER)
+    monkeypatch.setenv("ESCROW_RELEASE_ADDRESS", _OTHER)
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
+    monkeypatch.setattr(settings, "bridge_release_authority", "")
+
+    assert _bond_slash_authority(session, chain_id, 50) == canonical_address(_OTHER)
+    assert _bond_slash_authority(session, chain_id) == canonical_address(_OTHER)
+    assert _escrow_settlement_authority(session, chain_id, 50) == canonical_address(_OTHER)
