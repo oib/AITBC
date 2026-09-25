@@ -433,7 +433,9 @@ class BlockImportMixin(SyncBase):
             escrow_context: dict[str, dict[str, Any]] | None = None
             bridge_lock_context: dict[str, dict[str, Any]] | None = None
             if settings.parallel_tx_validation and block_version in (2, 3, 4, 5, 6):
-                escrow_context = build_escrow_context(session, self._chain_id, transactions)
+                escrow_context = build_escrow_context(
+                    session, self._chain_id, transactions, block_height=block_data["height"]
+                )
                 # v6: refunds need their named BRIDGE_LOCK records prefetched —
                 # a batch with two refunds for one lock returns None and the
                 # block goes sequential so the double-refund rule applies in order.
@@ -479,7 +481,9 @@ class BlockImportMixin(SyncBase):
                     if block_version >= 5 and any(
                         _determine_tx_type(tx) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in transactions
                     ):
-                        bridge_authority = _bridge_release_authority(session, self._chain_id)
+                        bridge_authority = _bridge_release_authority(
+                            session, self._chain_id, block_data["height"]
+                        )
                     # Batch-fetch all sender/recipient/v3-escrow accounts into
                     # account_map. Pre-create any missing accounts with zero
                     # balance so that `compute_state_delta` does not fail on
@@ -651,7 +655,12 @@ class BlockImportMixin(SyncBase):
                         tx_data["value"] = tx_data["amount"]
                     state_transition = get_state_transition()
                     success, error_msg = state_transition.apply_transaction(
-                        session, self._chain_id, tx_data, tx_hash, block_version=block_version
+                        session,
+                        self._chain_id,
+                        tx_data,
+                        tx_hash,
+                        block_version=block_version,
+                        block_height=block_data["height"],
                     )
                     if not success:
                         logger.warning("[SYNC] Failed to apply transaction %s: %s", tx_hash, error_msg)

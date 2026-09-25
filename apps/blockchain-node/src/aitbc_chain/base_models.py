@@ -5,7 +5,7 @@ from typing import Any, Optional
 from pydantic import field_validator
 from sqlalchemy import BigInteger, Column, ForeignKeyConstraint, Index, Numeric, String, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
-from sqlmodel import Field, Relationship
+from sqlmodel import Field, Relationship, select
 
 from .metadata import ChainBase
 
@@ -611,7 +611,67 @@ class ChainParameter(ChainBase, table=True):
     parameter: str = Field(index=True)
     value: str
     proposal_id: str | None = Field(default=None, index=True)
+    # Height of the block whose GOVERNANCE_EXECUTE last set this parameter.
+    # NULL on rows written before height tracking (or outside the apply path —
+    # e.g. operator-seeded dormant chains): resolvers treat NULL as
+    # "set at an unknown height" and apply the value at every height, the
+    # pre-tracking status quo.
+    applied_height: int | None = Field(default=None)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class ChainParameterHistory(ChainBase, table=True):
+    """Every chain-parameter change with the block height it took effect at.
+
+    Lets resolvers answer "the value in force at height H" instead of the
+    current value: a node replaying history must see the parameter as it was
+    when each block was sealed, or a parameter set mid-history wrongly
+    governs — or wrongly rejects — earlier blocks (the GOVERNANCE_EXECUTE
+    sender gate applies at every version once the parameter is set). Written
+    wherever `chain_parameter` is written: apply-time parameter_change,
+    genesis seeding, and sync upserts that carry a height.
+    """
+
+    __tablename__ = "chain_parameter_history"
+    __table_args__ = (
+        UniqueConstraint("chain_id", "parameter", "applied_height", name="uix_chain_parameter_history"),
+    )
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    parameter: str = Field(index=True)
+    value: str
+    proposal_id: str | None = Field(default=None, index=True)
+    applied_height: int
+    created_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+def record_chain_parameter_history(
+    session, chain_id: str, parameter: str, value: str, proposal_id: str | None, applied_height: int
+) -> None:
+    """Append a ``chain_parameter_history`` row unless this (param, height) is recorded.
+
+    Called from every ``chain_parameter`` write path (apply-time
+    parameter_change, genesis seeding, height backfill, sync upserts) so the
+    value-in-force-at-height answer stays complete however the row arrived.
+    """
+    exists = session.exec(
+        select(ChainParameterHistory).where(
+            ChainParameterHistory.chain_id == chain_id,
+            ChainParameterHistory.parameter == parameter,
+            ChainParameterHistory.applied_height == applied_height,
+        )
+    ).first()
+    if exists is None:
+        session.add(
+            ChainParameterHistory(
+                chain_id=chain_id,
+                parameter=parameter,
+                value=value,
+                proposal_id=proposal_id,
+                applied_height=applied_height,
+            )
+        )
 
 
 class ConsensusState(ChainBase, table=True):

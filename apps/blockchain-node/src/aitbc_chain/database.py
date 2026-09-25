@@ -35,10 +35,12 @@ from .base_models import (  # noqa: F401
     AgentIdentity,
     GovernanceProposal,
     GovernanceVote,
+    ChainParameterHistory,
     LiquidityPool,
     LiquidityStake,
     LiquidityDistribution,
     ChainParameter,
+    record_chain_parameter_history,
     _to_ait_address,
     canonical_address,
 )
@@ -414,6 +416,58 @@ def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
         )
 
 
+def _backfill_param_heights(session: Session, chain_id: str) -> None:
+    """Fill ``applied_height`` on chain_parameter rows set before height tracking.
+
+    The height a parameter took effect is derivable from chain history: the
+    executing GOVERNANCE_EXECUTE is a sealed transaction, reachable from the
+    proposal's ``execution_tx_hash``. Every node replaying the same history
+    derives the same heights, so this is safe to write locally — unlike the
+    parameter values themselves, which must only ever come from consensus.
+    Rows without a resolvable proposal (e.g. operator-seeded dormant chains)
+    keep NULL, which resolvers treat as "set at an unknown height" — the
+    pre-tracking status quo.
+    """
+    rows = session.exec(
+        select(ChainParameter).where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.applied_height.is_(None),  # type: ignore[union-attr]
+        )
+    ).all()
+    for row in rows:
+        height: int | None = None
+        if row.proposal_id:
+            proposal = session.exec(
+                select(GovernanceProposal).where(
+                    GovernanceProposal.chain_id == chain_id,
+                    GovernanceProposal.proposal_id == row.proposal_id,
+                )
+            ).first()
+            tx_hash = proposal.execution_tx_hash if proposal else None
+            if tx_hash:
+                tx = session.exec(
+                    select(Transaction).where(
+                        Transaction.chain_id == chain_id,
+                        Transaction.tx_hash == tx_hash,
+                    )
+                ).first()
+                if tx and tx.block_height is not None:
+                    height = tx.block_height
+        if height is None:
+            continue
+        row.applied_height = height
+        session.add(row)
+        record_chain_parameter_history(session, chain_id, row.parameter, row.value, row.proposal_id, height)
+        logger.info(
+            "Backfilled applied_height=%s for chain parameter %s on %s",
+            height,
+            row.parameter,
+            chain_id,
+        )
+    if rows:
+        session.commit()
+
+
 def init_db(chain_id: str = "") -> None:
     """Initialize database with file-based encryption
 
@@ -452,6 +506,7 @@ def init_db(chain_id: str = "") -> None:
     # Ensure bond escrow and burn accounts exist for this chain.
     with session_scope(resolved_chain_id) as session:
         ensure_bond_accounts(session, resolved_chain_id)
+        _backfill_param_heights(session, resolved_chain_id)
         _warn_unset_authority_parameters(session, resolved_chain_id)
 
 
