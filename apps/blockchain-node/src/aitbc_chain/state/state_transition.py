@@ -19,7 +19,15 @@ from sqlmodel import Session, select
 
 from ..config import settings
 from ..logger import get_logger
-from ..base_models import Block, Bond, ChainParameter, IPFSSubscription, _to_ait_address
+from ..base_models import (
+    Block,
+    Bond,
+    ChainParameter,
+    ChainParameterHistory,
+    IPFSSubscription,
+    _to_ait_address,
+    record_chain_parameter_history,
+)
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature, verify_transaction_signature
@@ -64,7 +72,51 @@ else:
 _ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
 
 
-def _governance_executors(session: Session, chain_id: str) -> frozenset[str] | None:
+def _chain_parameter_value(
+    session: Session, chain_id: str, parameter: str, block_height: int | None = None
+) -> str | None:
+    """Return the ``chain_parameter`` value in force at ``block_height``.
+
+    ``chain_parameter_history`` records the height each value took effect;
+    the latest entry at or below the height being validated wins. The
+    current-value row is the fallback: it applies when its ``applied_height``
+    is at or below ``block_height``, and at every height when
+    ``applied_height`` is NULL (rows written before height tracking, or
+    operator-seeded outside the apply path — "set at an unknown height"
+    keeps the pre-tracking status quo). A parameter whose only recorded
+    effect is after ``block_height`` resolves as unset for that block:
+    replaying history can never fail because a value was set later in the
+    chain. ``block_height=None`` returns the current value, for callers with
+    no block context.
+    """
+    if block_height is not None:
+        hist = session.exec(
+            select(ChainParameterHistory)
+            .where(
+                ChainParameterHistory.chain_id == chain_id,
+                ChainParameterHistory.parameter == parameter,
+                ChainParameterHistory.applied_height <= block_height,
+            )
+            .order_by(ChainParameterHistory.applied_height.desc())
+        ).first()
+        if hist is not None:
+            return hist.value
+    row = session.exec(
+        select(ChainParameter).where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.parameter == parameter,
+        )
+    ).first()
+    if row is None:
+        return None
+    if block_height is None or row.applied_height is None or row.applied_height <= block_height:
+        return row.value
+    return None
+
+
+def _governance_executors(
+    session: Session, chain_id: str, block_height: int | None = None
+) -> frozenset[str] | None:
     """Authorized GOVERNANCE_EXECUTE senders from the on-chain
     ``governance_executors`` chain parameter (comma-separated addresses).
 
@@ -72,20 +124,17 @@ def _governance_executors(session: Session, chain_id: str) -> frozenset[str] | N
     gate is deterministic — a per-node env list would recreate the
     slash-authority class of silent divergence. Unset or empty means no
     restriction (pre-gate behavior); once set, only listed senders pass
-    validation on every node at the same height.
+    validation on every node at the same height. ``block_height`` selects
+    the value in force at that height — the sender gate applies to blocks
+    of every version once set, so replay must see the height-scoped value.
     """
-    row = session.exec(
-        select(ChainParameter).where(
-            ChainParameter.chain_id == chain_id,
-            ChainParameter.parameter == "governance_executors",
-        )
-    ).first()
-    if not row or not row.value.strip():
+    value = _chain_parameter_value(session, chain_id, "governance_executors", block_height)
+    if not value or not value.strip():
         return None
-    return frozenset(_to_ait_address(a.strip()) for a in row.value.split(",") if a.strip())
+    return frozenset(_to_ait_address(a.strip()) for a in value.split(",") if a.strip())
 
 
-def _bond_slash_authority(session: Session, chain_id: str) -> str | None:
+def _bond_slash_authority(session: Session, chain_id: str, block_height: int | None = None) -> str | None:
     """Return the canonical bond-slash authority address.
 
     The on-chain ``bond_slash_authority`` chain parameter wins: it is applied
@@ -95,15 +144,10 @@ def _bond_slash_authority(session: Session, chain_id: str) -> str | None:
     disagreement between the two is logged, because per-node env drift is
     exactly how the 1-2 Sep slashes were skipped on node0.
     """
-    onchain = session.exec(
-        select(ChainParameter).where(
-            ChainParameter.chain_id == chain_id,
-            ChainParameter.parameter == "bond_slash_authority",
-        )
-    ).first()
+    onchain_value = _chain_parameter_value(session, chain_id, "bond_slash_authority", block_height)
     env_addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
-    if onchain and onchain.value.strip():
-        addr = canonical_address(onchain.value.strip())
+    if onchain_value and onchain_value.strip():
+        addr = canonical_address(onchain_value.strip())
         if env_addr and canonical_address(env_addr) != addr:
             logger.warning(
                 "BOND_SLASH_AUTHORITY_ADDRESS=%s disagrees with on-chain bond_slash_authority=%s; using the on-chain value",
@@ -160,7 +204,9 @@ def _is_valid_0x_address(address: str) -> bool:
     return normalized.startswith("0x") and len(normalized) == 42
 
 
-def _escrow_settlement_authority(session: Session, chain_id: str) -> str | None:
+def _escrow_settlement_authority(
+    session: Session, chain_id: str, block_height: int | None = None
+) -> str | None:
     """Return the canonical settlement authority for v3+ escrow releases/refunds.
 
     The on-chain ``escrow_settlement_authority`` chain parameter wins: it is
@@ -172,15 +218,10 @@ def _escrow_settlement_authority(session: Session, chain_id: str) -> str | None:
     nothing is configured — the caller decides whether that fails open (pre-v5
     replay compat) or closed (v5+).
     """
-    onchain = session.exec(
-        select(ChainParameter).where(
-            ChainParameter.chain_id == chain_id,
-            ChainParameter.parameter == "escrow_settlement_authority",
-        )
-    ).first()
+    onchain_value = _chain_parameter_value(session, chain_id, "escrow_settlement_authority", block_height)
     env_addr = (settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")).strip()
-    if onchain and onchain.value.strip():
-        addr = canonical_address(onchain.value.strip())
+    if onchain_value and onchain_value.strip():
+        addr = canonical_address(onchain_value.strip())
         if env_addr and canonical_address(env_addr) != addr:
             logger.warning(
                 "escrow settlement authority env value %s disagrees with on-chain escrow_settlement_authority=%s; using the on-chain value",
@@ -193,7 +234,7 @@ def _escrow_settlement_authority(session: Session, chain_id: str) -> str | None:
     return None
 
 
-def _bridge_release_authority(session: Session, chain_id: str) -> str | None:
+def _bridge_release_authority(session: Session, chain_id: str, block_height: int | None = None) -> str | None:
     """Return the canonical authority for v5+ bridge credit signatures.
 
     The on-chain ``bridge_release_authority`` chain parameter wins (applied
@@ -205,15 +246,10 @@ def _bridge_release_authority(session: Session, chain_id: str) -> str | None:
     configured — the caller decides whether that fails open (pre-v5 replay
     compat) or closed (v5+).
     """
-    onchain = session.exec(
-        select(ChainParameter).where(
-            ChainParameter.chain_id == chain_id,
-            ChainParameter.parameter == "bridge_release_authority",
-        )
-    ).first()
+    onchain_value = _chain_parameter_value(session, chain_id, "bridge_release_authority", block_height)
     env_addr = (settings.bridge_release_authority or os.getenv("BRIDGE_RELEASE_AUTHORITY", "")).strip()
-    if onchain and onchain.value.strip():
-        addr = canonical_address(onchain.value.strip())
+    if onchain_value and onchain_value.strip():
+        addr = canonical_address(onchain_value.strip())
         if env_addr and canonical_address(env_addr) != addr:
             logger.warning(
                 "bridge release authority env value %s disagrees with on-chain bridge_release_authority=%s; using the on-chain value",
@@ -223,7 +259,7 @@ def _bridge_release_authority(session: Session, chain_id: str) -> str | None:
         return addr
     if env_addr:
         return canonical_address(env_addr)
-    return _escrow_settlement_authority(session, chain_id)
+    return _escrow_settlement_authority(session, chain_id, block_height)
 
 
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:
@@ -259,7 +295,9 @@ def _escrow_beneficiary(lock_tx: Transaction, tx_type: str) -> str | None:
     return None
 
 
-def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[str, Any]]) -> dict[str, dict[str, Any]] | None:
+def build_escrow_context(
+    session: Session, chain_id: str, tx_datas: list[dict[str, Any]], block_height: int | None = None
+) -> dict[str, dict[str, Any]] | None:
     """Prefetch per-job lock metadata for ESCROW_RELEASE/ESCROW_REFUND txs (S-4).
 
     The pure/parallel ``compute_state_delta`` cannot touch the DB, so callers
@@ -302,7 +340,7 @@ def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[st
         if lock_tx is None:
             return None
         if not authority_resolved:
-            authority = _escrow_settlement_authority(session, chain_id)
+            authority = _escrow_settlement_authority(session, chain_id, block_height)
             authority_resolved = True
         context[job_id] = {
             "tx_type": tx_type,
@@ -720,7 +758,13 @@ class StateTransition:
         return _payload_auth_binds_transfer(tx_type, message, tx_data)
 
     def validate_transaction(
-        self, session: Session, chain_id: str, tx_data: dict[str, Any], tx_hash: str, block_version: int = 2
+        self,
+        session: Session,
+        chain_id: str,
+        tx_data: dict[str, Any],
+        tx_hash: str,
+        block_version: int = 2,
+        block_height: int | None = None,
     ) -> tuple[bool, str]:
         """
         Validate a transaction before applying state changes.
@@ -730,6 +774,11 @@ class StateTransition:
             chain_id: Chain identifier
             tx_data: Transaction data
             tx_hash: Transaction hash
+            block_height: Height of the block carrying this transaction.
+                Authority chain parameters resolve to the value in force at
+                this height, so replayed blocks validate against the
+                parameters as they were when the block was sealed. None
+                resolves the current value (e.g. mempool pre-checks).
 
         Returns:
             Tuple of (is_valid, error_message)
@@ -805,7 +854,7 @@ class StateTransition:
                 # secp256k1 signature over the credit's semantic fields
                 # (state/bridge_credit.py). Pre-v5 history had no signatures
                 # and stays lenient for replay.
-                authority = _bridge_release_authority(session, chain_id)
+                authority = _bridge_release_authority(session, chain_id, block_height)
                 if not authority:
                     return (
                         False,
@@ -880,7 +929,7 @@ class StateTransition:
         if tx_nonce != expected_nonce:
             return (False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}")
         if tx_type == "GOVERNANCE_EXECUTE":
-            executors = _governance_executors(session, chain_id)
+            executors = _governance_executors(session, chain_id, block_height)
             if executors is None:
                 # v5 fails closed: apply writes the parameter_change without
                 # verifying the proposal passed, so an unset allowlist lets any
@@ -943,7 +992,7 @@ class StateTransition:
             if expected_beneficiary and _to_ait_address(recipient_addr) != expected_beneficiary:
                 return (False, f"{tx_type} for {job_id} must pay {expected_beneficiary}, got {recipient_addr}")
             if block_version >= 3:
-                authority = _escrow_settlement_authority(session, chain_id)
+                authority = _escrow_settlement_authority(session, chain_id, block_height)
                 if authority is None:
                     # v5 fails closed: with no authority configured any funded
                     # signer may trigger the release/refund — paying the locked
@@ -1046,6 +1095,7 @@ class StateTransition:
         tx_data: dict[str, Any],
         tx_hash: str,
         block_version: int = 2,
+        block_height: int | None = None,
     ) -> tuple[bool, str]:
         """
         Apply a validated transaction to update state.
@@ -1059,12 +1109,19 @@ class StateTransition:
                 that contains this transaction. v1 keeps pre-2026-09-01 rules
                 (no auto-created recipient/provider accounts); v2 applies the
                 current account-creation rules.
+            block_height: Height of the block carrying this transaction.
+                Authority chain parameters resolve to the value in force at
+                this height, and a parameter_change applied here takes effect
+                from this height onward — replayed history can never fail
+                because a parameter was set later in the chain.
 
         Returns:
             Tuple of (success, error_message)
         """
         logger.info("apply_transaction called for tx %s, tx_data keys: %s", tx_hash, list(tx_data.keys()))
-        is_valid, error_msg = self.validate_transaction(session, chain_id, tx_data, tx_hash, block_version=block_version)
+        is_valid, error_msg = self.validate_transaction(
+            session, chain_id, tx_data, tx_hash, block_version=block_version, block_height=block_height
+        )
         if not is_valid:
             return (False, error_msg)
         sender_addr = _to_ait_address(tx_data.get("from") or "")
@@ -1266,7 +1323,7 @@ class StateTransition:
                     logger.info("S-4: %s moved %s from escrow %s to %s", tx_type, value, escrow_addr, recipient_addr)
         if tx_type in ("BOND_LOCK", "BOND_RELEASE", "BOND_SLASH"):
             skip_reason = self._handle_bond_transaction(
-                session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value
+                session, chain_id, tx_data, tx_hash, tx_type, sender_addr, recipient_addr, value, block_height
             )
             if skip_reason:
                 # Fee and nonce still applied — name it, or the "Applied
@@ -1279,7 +1336,7 @@ class StateTransition:
                     skip_reason,
                 )
         if tx_type == "GOVERNANCE_EXECUTE":
-            self._handle_governance_execute(session, chain_id, tx_data, tx_hash)
+            self._handle_governance_execute(session, chain_id, tx_data, tx_hash, block_height)
         if tx_type == "RECEIPT_CLAIM":
             receipt_id = tx_data.get("payload", {}).get("receipt_id")
             receipt = session.exec(
@@ -1407,6 +1464,7 @@ class StateTransition:
         chain_id: str,
         tx_data: dict[str, Any],
         tx_hash: str,
+        block_height: int | None = None,
     ) -> None:
         """Apply a GOVERNANCE_EXECUTE transaction payload to chain parameters.
 
@@ -1417,8 +1475,15 @@ class StateTransition:
         For a parameter_change action, the execution payload should contain:
         - parameter: the parameter name
         - value: the new string value
+
+        ``block_height`` records the height the change took effect: the
+        current row gets ``applied_height`` and a ``chain_parameter_history``
+        entry, so resolvers answer with the value in force at the block
+        being validated rather than the latest value. Without it a parameter
+        set mid-history wrongly governs earlier blocks during replay — the
+        GOVERNANCE_EXECUTE sender gate applies at every version once set.
         """
-        from ..base_models import ChainParameter, GovernanceProposal
+        from ..base_models import GovernanceProposal
 
         payload = tx_data.get("payload", {}) or {}
         if isinstance(payload, str):
@@ -1464,6 +1529,8 @@ class StateTransition:
             if existing:
                 existing.value = str(value)
                 existing.proposal_id = proposal_id
+                if block_height is not None:
+                    existing.applied_height = block_height
                 existing.updated_at = datetime.now(UTC)
             else:
                 session.add(
@@ -1472,7 +1539,12 @@ class StateTransition:
                         parameter=parameter,
                         value=str(value),
                         proposal_id=proposal_id,
+                        applied_height=block_height,
                     )
+                )
+            if block_height is not None:
+                record_chain_parameter_history(
+                    session, chain_id, parameter, str(value), proposal_id, block_height
                 )
             logger.info(
                 "Chain parameter %s updated to %s by proposal %s (tx %s)",
@@ -1497,6 +1569,7 @@ class StateTransition:
         sender_addr: str,
         recipient_addr: str,
         value: int,
+        block_height: int | None = None,
     ) -> str | None:
         """Record bond state alongside the on-chain value transfer.
 
@@ -1587,7 +1660,7 @@ class StateTransition:
             bond.updated_at = now
             logger.info("Bond released: %s amount=%s", bond_id, release_amount)
         elif tx_type == "BOND_SLASH":
-            slash_authority = _bond_slash_authority(session, chain_id)
+            slash_authority = _bond_slash_authority(session, chain_id, block_height)
             if not slash_authority:
                 return "no slash authority configured (chain parameter or BOND_SLASH_AUTHORITY_ADDRESS)"
             if sender_addr != _to_ait_address(slash_authority):
