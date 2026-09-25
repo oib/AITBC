@@ -99,6 +99,7 @@ async def offer_subscription_websocket(websocket: WebSocket):
     """
     await websocket.accept()
     subscriber_id: str | None = None
+    node_id = ""
     sub_svc = get_subscription_service()
     notif_svc = get_notification_service()
 
@@ -225,7 +226,9 @@ async def offer_subscription_websocket(websocket: WebSocket):
         logger.error("Offer WebSocket error for %s: %s", subscriber_id, e)
     finally:
         if subscriber_id:
-            node_id = subscriber_id.split(":", 1)[0]
+            # Use the bound node_id, not a re-parse of subscriber_id: a
+            # node_id containing ':' would decrement/revoke a different
+            # node's refcount (subscriber_id embeds chain_id and a token).
             try:
                 await notif_svc.unregister_subscriber(subscriber_id)
             except Exception as e:

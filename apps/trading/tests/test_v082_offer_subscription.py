@@ -628,3 +628,39 @@ class TestWebSocketLeaseLifecycle:
             ws.send_json({"type": "pong"})
             assert subs._ws_connections_by_node.get(node_id) == 1
             ws.__exit__(None, None, None)
+
+    def test_colon_in_node_id_cannot_steal_sibling_lease(self, client) -> None:
+        """A node_id containing ':' must not confuse the refcount cleanup.
+
+        subscriber_id embeds chain_id and a token after the node_id, so the
+        disconnect path must use the bound node_id — re-parsing it out of
+        subscriber_id would decrement and revoke a different node's lease.
+        """
+        from unittest.mock import AsyncMock, patch
+
+        from trading_service.routers import subscriptions as subs
+        from trading_service.state import get_subscription_service
+
+        svc = get_subscription_service()
+        victim = "ws-node-colon-victim"
+        forged = f"{victim}:forged"
+        subs._ws_connections_by_node.pop(victim, None)
+        subs._ws_connections_by_node.pop(forged, None)
+
+        with patch.object(svc, "revoke_lease", new=AsyncMock(wraps=svc.revoke_lease)) as revoke:
+            ws_victim = self._subscribe(client, victim)
+            ws_forged = self._subscribe(client, forged)
+            assert subs._ws_connections_by_node[victim] == 1
+            assert subs._ws_connections_by_node[forged] == 1
+
+            ws_forged.__exit__(None, None, None)
+            assert _wait_for(lambda: forged not in subs._ws_connections_by_node)
+            # The forged socket's close must not touch the victim's lease.
+            assert subs._ws_connections_by_node.get(victim) == 1
+            assert revoke.await_count == 1
+            assert revoke.await_args.args[0] == forged
+
+            ws_victim.__exit__(None, None, None)
+            assert _wait_for(lambda: victim not in subs._ws_connections_by_node)
+            assert revoke.await_count == 2
+            assert revoke.await_args.args[0] == victim
