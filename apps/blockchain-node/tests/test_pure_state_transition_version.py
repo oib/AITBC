@@ -401,14 +401,25 @@ def test_v4_escrow_release_stays_lenient_without_authority(monkeypatch):
 
 
 def test_v5_bridge_credits_require_pseudo_sender():
-    """v5: a bridge credit from anything but the pseudo-sender is forged."""
+    """v5: a bridge credit from anything but the pseudo-sender is forged.
+
+    The signature gate itself is covered in test_bridge_credit_authority.py —
+    here the legit credits carry a valid authority signature so the
+    pseudo-sender check is exercised in isolation.
+    """
+    from aitbc.crypto.crypto import derive_ethereum_address, generate_ethereum_private_key
+    from aitbc_chain.state.bridge_credit import sign_bridge_credit
+
+    key = generate_ethereum_private_key()
+    authority = derive_ethereum_address(key)
     recipient = "ait1recipient"
     for tx_type, expected_sender in (("BRIDGE_RELEASE", "bridge_release"), ("BRIDGE_REFUND", "bridge_refund")):
         legit = {"from": expected_sender, "to": recipient, "amount": 10, "value": 10, "fee": 0, "nonce": 0, "type": tx_type}
-        delta = compute_state_delta({}, legit, "test", tx_hash="tx-ok", block_version=5)
+        legit["bridge_signature"] = sign_bridge_credit(legit, "tx-ok", key)
+        delta = compute_state_delta({}, legit, "test", tx_hash="tx-ok", block_version=5, bridge_authority=authority)
         assert delta.success, delta.error
         forged = {**legit, "from": "ait1attacker"}
-        delta = compute_state_delta({}, forged, "test", tx_hash="tx-bad", block_version=5)
+        delta = compute_state_delta({}, forged, "test", tx_hash="tx-bad", block_version=5, bridge_authority=authority)
         assert not delta.success
         assert "pseudo-sender" in delta.error
 

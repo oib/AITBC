@@ -11,8 +11,10 @@
 # built-in roster: a hardcoded one named the operator's hosts in a public
 # repository and was wrong for every other site.
 #
-# Mirrors systemd EnvironmentFile ordering: later files win, so the effective
-# value is the last match across blockchain.env then node.env.
+# Mirrors systemd EnvironmentFile ordering: later files win. The file list is
+# read from the aitbc-blockchain-node unit itself rather than hardcoded, so a
+# variable kept in a secrets EnvironmentFile (node0 carries
+# ESCROW_RELEASE_ADDRESS in blockchain-secrets.env) is not flagged as unset.
 
 set -euo pipefail
 
@@ -74,10 +76,26 @@ if [ "$ssh_reach" -eq 0 ]; then
     echo "(env reads are dev-tier; the convergence section below works anywhere)"
 fi
 
+# Resolve each host's EnvironmentFile list once: the node unit's own unit files
+# are the authoritative answer to "what env does the process intend to get".
+# Fallback keeps the old two-file read for hosts where systemctl cannot answer.
+ENVFILE_CMD='systemctl show -p EnvironmentFiles --value aitbc-blockchain-node 2>/dev/null \
+    | tr " " "\n" | sed "s/ (ignore_errors=.*)//; s/^-//" | grep "^/"'
+ENVFILE_FALLBACK="/etc/aitbc/blockchain.env /etc/aitbc/node.env"
+declare -A ENVFILES=()
+if [ "$ssh_reach" -eq 1 ]; then
+    for host in $HOSTS; do
+        ENVFILES[$host]=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$host]}" "$ENVFILE_CMD" 2>/dev/null)
+        if [ -z "${ENVFILES[$host]}" ]; then
+            ENVFILES[$host]="$ENVFILE_FALLBACK"
+        fi
+    done
+fi
+
 VARS="BOND_SLASH_AUTHORITY_ADDRESS CHAIN_ID SUPPORTED_CHAINS \
 STATE_TRANSITION_V2_HEIGHT STATE_TRANSITION_V3_HEIGHT \
 STATE_TRANSITION_V4_HEIGHT STATE_TRANSITION_V5_HEIGHT \
-ESCROW_RELEASE_ADDRESS ESCROW_SETTLEMENT_AUTHORITY \
+ESCROW_RELEASE_ADDRESS ESCROW_SETTLEMENT_AUTHORITY BRIDGE_RELEASE_AUTHORITY \
 SYNC_STATE_ROOT_VALIDATION_ENABLED BOND_ESCROW_ADDRESS BOND_BURN_ADDRESS"
 
 drift=0
@@ -92,7 +110,7 @@ for var in $VARS; do
     seen=""
     for h in $HOSTS; do
         val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
-            "grep -h '^${var}=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null | tail -1 | cut -d= -f2-" \
+            "echo \"${ENVFILES[$h]}\" | tr ' ' '\n' | while IFS= read -r f; do if [ -r \"\$f\" ]; then grep -h '^${var}=' \"\$f\" 2>/dev/null; else sudo -n grep -h '^${var}=' \"\$f\" 2>/dev/null; fi; done | tail -1 | cut -d= -f2-" \
             2>/dev/null || echo "UNREACHABLE")
         if [ -z "$val" ]; then
             val="<unset>"
@@ -114,7 +132,7 @@ echo "=== signature-validation kill-switch check ==="
 skip_flagged=0
 for h in $HOSTS; do
     val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
-        "grep -h '^SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null | tail -1 | cut -d= -f2-" \
+        "echo \"${ENVFILES[$h]}\" | tr ' ' '\n' | while IFS= read -r f; do if [ -r \"\$f\" ]; then grep -h '^SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=' \"\$f\" 2>/dev/null; else sudo -n grep -h '^SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=' \"\$f\" 2>/dev/null; fi; done | tail -1 | cut -d= -f2-" \
         2>/dev/null || echo "UNREACHABLE")
     if [ -n "$val" ] && [ "$val" != "UNREACHABLE" ]; then
         skip_flagged=1
@@ -131,7 +149,7 @@ echo "=== *_ADDRESS value-shape check ==="
 # on 8 Sep). Assert every *_ADDRESS variable is exactly 0x + 40 hex.
 for h in $HOSTS; do
     bad=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
-        "grep -hE '^[A-Z_0-9]*ADDRESS=' /etc/aitbc/blockchain.env /etc/aitbc/node.env 2>/dev/null \
+        "echo \"${ENVFILES[$h]}\" | tr ' ' '\n' | while IFS= read -r f; do if [ -r \"\$f\" ]; then grep -hE '^[A-Z_0-9]*ADDRESS=' \"\$f\" 2>/dev/null; else sudo -n grep -hE '^[A-Z_0-9]*ADDRESS=' \"\$f\" 2>/dev/null; fi; done \
          | while IFS= read -r line; do \
              name=\${line%%=*}; val=\${line#*=}; val=\$(echo \"\$val\" | tr -d '[:space:]'); \
              echo \"\$val\" | grep -qE '^0x[0-9a-fA-F]{40}\$' || echo \"\$name\"; \
@@ -148,7 +166,12 @@ echo "=== EnvironmentFile shadow check ==="
 # The 8 Sep outage and the mesh-peer defect found on 9 Sep were the same bug:
 # a variable set in two EnvironmentFile entries of one unit, where the later
 # file silently wins. Neither was visible in the file the operator was reading.
-# Flag any variable assigned in more than one EnvironmentFile of a unit.
+#
+# The fleet's env files turn out to share a copied baseline blob, so most
+# shadowed variables carry the *same* value in every file — latent precedence
+# debt, not a live divergence. What must fail the run is a variable whose
+# values DISAGREE across files. Values are hashed (sha256, 8 chars) rather
+# than echoed: these files hold keys.
 shadowed=0
 for h in $HOSTS; do
     out=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
@@ -156,23 +179,39 @@ for h in $HOSTS; do
             files=$(systemctl show -p EnvironmentFiles --value "$unit" 2>/dev/null \
                     | tr " " "\n" | sed "s/ (ignore_errors=.*)//; s/^-//" | grep "^/" || true)
             [ -z "$files" ] && continue
-            for f in $files; do
-                [ -r "$f" ] || continue
-                sudo grep -hoE "^[A-Za-z_][A-Za-z0-9_]*=" "$f" | tr -d "=" | sed "s|$| $f|"
+            echo "$files" | while IFS= read -r f; do
+                if [ -r "$f" ]; then
+                    grep -hE "^[A-Za-z_][A-Za-z0-9_]*=" "$f" 2>/dev/null
+                else
+                    sudo -n grep -hE "^[A-Za-z_][A-Za-z0-9_]*=" "$f" 2>/dev/null
+                fi | while IFS="=" read -r name val; do
+                    [ -n "$name" ] || continue
+                    h=$(printf "%s" "$val" | sha256sum | cut -c1-8)
+                    printf "%s %s %s\n" "$name" "$h" "$f"
+                done
             done | sort | awk -v U="$unit" "
-                {name=\$1; file=\$2; if (name==prev) {n++; list=list \" \" file}
-                 else {if (n>1) print U \" \" prev \" \" list; prev=name; n=1; list=file}}
-                END {if (n>1) print U \" \" prev \" \" list}"
+                {name=\$1; hash=\$2; file=\$3
+                 if (name==prev) { if (!(hash in seen)) {seen[hash]=1; nh++}; n++; flist=flist \" \" file }
+                 else { if (n>1) print U, prev, (nh>1 ? \"CONFLICT\" : \"redundant\"), flist
+                        split(\"\", seen); seen[hash]=1; nh=1; n=1; flist=file; prev=name }}
+                END { if (n>1) print U, prev, (nh>1 ? \"CONFLICT\" : \"redundant\"), flist }"
         done' 2>/dev/null || echo "UNREACHABLE")
     if [ -n "$out" ] && [ "$out" != "UNREACHABLE" ]; then
-        shadowed=1
-        echo "$out" | while read -r unit name files; do
-            printf "  %-14s %s: %s set in >1 file: %s\n" "$h" "$unit" "$name" "$files"
-        done
+        if echo "$out" | grep -q " CONFLICT"; then
+            shadowed=1
+        fi
+        echo "$out" | while read -r unit name kind files; do
+            case "$kind" in
+                CONFLICT)  printf "  %-14s %s: %s CONFLICTING values across:%s\n" "$h" "$unit" "$name" "$files" ;;
+                redundant) printf "  %-14s %s: %s (same value) in:%s\n" "$h" "$unit" "$name" "$files" ;;
+            esac
+        done | awk -v host="$h" '{ if ($0 ~ /CONFLICTING/) conflicts[++c]=$0; else redundant++ }
+                    END { for (i=1;i<=c;i++) print conflicts[i]
+                          if (redundant) printf "  %-14s %d same-value duplicate assignment(s) (informational)\n", host, redundant }'
     fi
 done
 if [ "$shadowed" -eq 0 ]; then
-    echo "  no variable is set by more than one EnvironmentFile on any host"
+    echo "  no variable is set with differing values across EnvironmentFiles"
 fi
 
 echo "=== effective env (from the running process, not the files) ==="
