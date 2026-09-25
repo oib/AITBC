@@ -12,7 +12,7 @@ from eth_utils import keccak
 from sqlalchemy import Column, ColumnDefault, Engine, event, inspect, literal, text
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import NullPool
-from sqlmodel import Session, create_engine
+from sqlmodel import Session, create_engine, select
 
 from aitbc.aitbc_logging import get_logger
 
@@ -38,6 +38,7 @@ from .base_models import (  # noqa: F401
     LiquidityPool,
     LiquidityStake,
     LiquidityDistribution,
+    ChainParameter,
     _to_ait_address,
     canonical_address,
 )
@@ -379,6 +380,101 @@ def ensure_bond_accounts(session: Session, chain_id: str) -> None:
     session.commit()
 
 
+_AUTHORITY_PARAMETERS = ("governance_executors", "escrow_settlement_authority", "bond_slash_authority")
+
+
+def _authority_param_env_fallback(parameter: str) -> str:
+    """Node-local seed for an authority chain parameter when no donor row exists.
+
+    Mirrors the env fallbacks the state-transition resolvers use, so a chain
+    seeded here behaves like a chain that set the parameters explicitly.
+    """
+    if parameter == "bond_slash_authority":
+        return os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
+    escrow_authority = (settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")).strip()
+    if parameter == "governance_executors":
+        return (os.getenv("GOVERNANCE_EXECUTORS", "").strip() or escrow_authority).strip()
+    return escrow_authority
+
+
+def _ensure_authority_parameters(session: Session, chain_id: str, donor_chain_id: str) -> None:
+    """Seed the authority chain parameters for a chain that has none.
+
+    Below state-transition v5 an unset ``governance_executors`` takes the
+    lenient branch -- any funded sender may execute governance. A chain born
+    with an empty ``chain_parameter`` table starts in that state, so creation
+    and seeding must happen together: the value is copied from the node's
+    primary chain (``donor_chain_id``) when it has a row, else from the env
+    fallbacks the resolvers themselves honour. Existing rows are never
+    touched; a value that resolves to nothing is logged loudly rather than
+    silently left lenient.
+    """
+    donor_session: Session | None = None
+    if donor_chain_id and donor_chain_id != chain_id and settings.get_db_path(donor_chain_id).exists():
+        try:
+            donor_session = _get_session_factory(donor_chain_id)()
+        except Exception:
+            logger.warning(
+                "chain %s: could not open donor chain %s for authority parameter seeding; env fallbacks only",
+                chain_id,
+                donor_chain_id,
+            )
+    try:
+        for parameter in _AUTHORITY_PARAMETERS:
+            row = session.exec(
+                select(ChainParameter).where(
+                    ChainParameter.chain_id == chain_id,
+                    ChainParameter.parameter == parameter,
+                )
+            ).first()
+            if row and row.value.strip():
+                continue
+            value = ""
+            if donor_session is not None:
+                donor_row = donor_session.exec(
+                    select(ChainParameter).where(
+                        ChainParameter.chain_id == donor_chain_id,
+                        ChainParameter.parameter == parameter,
+                    )
+                ).first()
+                if donor_row and donor_row.value.strip():
+                    value = donor_row.value.strip()
+            if not value:
+                value = _authority_param_env_fallback(parameter)
+            if not value:
+                logger.warning(
+                    "chain %s: no donor row and no env fallback for authority parameter %s; "
+                    "the lenient pre-v5 branch stays reachable until it is set",
+                    chain_id,
+                    parameter,
+                )
+                continue
+            canonical = ",".join(canonical_address(a.strip()) for a in value.split(",") if a.strip())
+            if row:
+                row.value = canonical
+                row.proposal_id = "init_db-bootstrap"
+            else:
+                session.add(
+                    ChainParameter(
+                        chain_id=chain_id,
+                        parameter=parameter,
+                        value=canonical,
+                        proposal_id="init_db-bootstrap",
+                    )
+                )
+            logger.info(
+                "Seeded authority parameter %s=%s for chain %s (donor=%s)",
+                parameter,
+                canonical,
+                chain_id,
+                donor_chain_id if donor_session is not None else "env",
+            )
+        session.commit()
+    finally:
+        if donor_session is not None:
+            donor_session.close()
+
+
 def init_db(chain_id: str = "") -> None:
     """Initialize database with file-based encryption
 
@@ -386,6 +482,12 @@ def init_db(chain_id: str = "") -> None:
         chain_id: Chain ID to initialize. If empty, uses default chain.
     """
     resolved_chain_id = chain_id or _default_chain_id or settings.chain_id or "ait-mainnet"
+    if resolved_chain_id == "ait-mainnet" and not (chain_id or _default_chain_id or settings.chain_id):
+        logger.warning(
+            "init_db resolved to the 'ait-mainnet' fixture fallback: no chain_id argument, "
+            "no default chain, and CHAIN_ID unset. This is only correct on a dev node — "
+            "set chain_id explicitly to avoid opening the wrong chain."
+        )
     db_path = settings.get_db_path(resolved_chain_id)
 
     # Create database directory with chain_id subdirectory
@@ -411,6 +513,8 @@ def init_db(chain_id: str = "") -> None:
     # Ensure bond escrow and burn accounts exist for this chain.
     with session_scope(resolved_chain_id) as session:
         ensure_bond_accounts(session, resolved_chain_id)
+        donor_chain_id = _default_chain_id or settings.chain_id
+        _ensure_authority_parameters(session, resolved_chain_id, donor_chain_id)
 
 
 def shutdown_db(chain_id: str = "") -> None:
