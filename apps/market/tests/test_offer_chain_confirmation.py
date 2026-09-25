@@ -18,7 +18,9 @@ from market_service.storage import get_session_context
 GPU_REGISTER_TX = {
     "tx_hash": "0xgpureg",
     "block_height": 1647,
-    "timestamp": 1758000000.0,
+    # Transaction.timestamp is a string column — the endpoint emits it
+    # verbatim, so confirmation must not assume epoch seconds.
+    "timestamp": "2026-09-16T08:00:00+00:00",
     "payload": {"gpu_id": "gpu-live-05", "miner_id": "node0-miner"},
     "type": "GPU_REGISTER",
     "status": "confirmed",
@@ -63,7 +65,7 @@ async def test_gpu_offer_confirmed_via_gpu_register(service: MarketService) -> N
     assert offer["confirmed"] is True
     assert offer["block_height"] == 1647
     assert offer["tx_hash"] == "0xgpureg"
-    assert offer["block_timestamp"] is not None
+    assert offer["block_timestamp"] == "2026-09-16T08:00:00+00:00"
 
 
 @pytest.mark.asyncio
