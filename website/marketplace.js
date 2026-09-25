@@ -83,7 +83,8 @@ function createOfferCard(offer) {
     const ratingCount = offer.rating_count || 0;
     const providerId = offer.provider_address || offer.node_id || '';
 
-    const registeredDate = offer.registered_at ? new Date(offer.registered_at).toLocaleDateString() : 'N/A';
+    const registeredRaw = offer.registered_at || offer.block_timestamp;
+    const registeredDate = registeredRaw ? new Date(registeredRaw).toLocaleDateString() : 'N/A';
     const updatedDate = offer.updated_at ? new Date(offer.updated_at).toLocaleDateString() : 'N/A';
 
     // Blockchain verification information
@@ -96,15 +97,17 @@ function createOfferCard(offer) {
         <div class="blockchain-info">
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Height:</span>
-                <span class="blockchain-value">${escapeHtml(offer.block_height)}</span>
+                <span class="blockchain-value">${offer.block_height != null
+                    ? `<a href="/block.html?height=${encodeURIComponent(offer.block_height)}" target="_blank" rel="noopener">#${escapeHtml(offer.block_height)}</a>`
+                    : 'N/A'}</span>
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Hash:</span>
-                <span class="blockchain-value">${formatHash(offer.block_hash)}</span>
+                <span class="blockchain-value">${formatBlockHash(offer.block_hash)}</span>
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Transaction Hash:</span>
-                <span class="blockchain-value">${formatHash(offer.tx_hash)}</span>
+                <span class="blockchain-value">${formatTxHash(offer.tx_hash)}</span>
             </div>
             <div class="blockchain-detail">
                 <span class="blockchain-label">Block Time:</span>
@@ -147,7 +150,7 @@ function createOfferCard(offer) {
                 </div>
                 <div class="offer-detail">
                     <div class="offer-detail-label">Price</div>
-                    <div class="offer-detail-value">${escapeHtml(offer.price || 0)} ${escapeHtml(offer.price_unit || 'units')}</div>
+                    <div class="offer-detail-value">${formatPrice(offer.price)} ${escapeHtml(offer.price_unit || 'units')}</div>
                 </div>
                 <div class="offer-detail">
                     <div class="offer-detail-label">GPU</div>
@@ -170,27 +173,7 @@ function createOfferCard(offer) {
                 </div>
                 <div class="offer-list-item">
                     <span class="offer-list-label">Plugin ID:</span>
-                    <span class="offer-list-value">${formatHash(offer.plugin_id)}</span>
-                </div>
-                <div class="offer-list-item">
-                    <span class="offer-list-label">Block Height:</span>
-                    <span class="offer-list-value">${escapeHtml(offer.block_height || 'N/A')}</span>
-                </div>
-                <div class="offer-list-item">
-                    <span class="offer-list-label">Block Hash:</span>
-                    <span class="offer-list-value">${formatHash(offer.block_hash)}</span>
-                </div>
-                <div class="offer-list-item">
-                    <span class="offer-list-label">TX Hash:</span>
-                    <span class="offer-list-value">${formatHash(offer.tx_hash)}</span>
-                </div>
-                <div class="offer-list-item">
-                    <span class="offer-list-label">Proposer:</span>
-                    <span class="offer-list-value">${formatAddress(offer.block_proposer)}</span>
-                </div>
-                <div class="offer-list-item">
-                    <span class="offer-list-label">Block Time:</span>
-                    <span class="offer-list-value">${formatTimestamp(offer.block_timestamp)}</span>
+                    <span class="offer-list-value">${escapeHtml(offer.plugin_id || 'N/A')}</span>
                 </div>
             </div>
 
@@ -220,6 +203,23 @@ function formatAddress(address) {
 
 function formatHash(hash) {
     return escapeHtml(hash || 'N/A');
+}
+
+function formatTxHash(hash) {
+    if (!hash) return 'N/A';
+    return `<a href="/tx.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener">${escapeHtml(hash.slice(0, 18))}...</a>`;
+}
+
+function formatBlockHash(hash) {
+    if (!hash) return 'N/A';
+    return `<a href="/block.html?hash=${encodeURIComponent(hash)}" target="_blank" rel="noopener">${escapeHtml(hash.slice(0, 18))}...</a>`;
+}
+
+function formatPrice(price) {
+    const n = parseFloat(price);
+    if (isNaN(n)) return escapeHtml(price || '0');
+    // Strip trailing zeros from decimal-stored prices ("0.10000000" -> "0.1")
+    return escapeHtml(String(n));
 }
 
 function formatEndpoint(endpoint) {
@@ -360,6 +360,7 @@ async function fetchNetworkStats() {
         const response = await fetch(`/explorer-api/api/analytics/network-stats?chain_id=${window.AITBC_CONFIG.chainId}`);
         const data = await response.json();
         document.getElementById('stat-total-ait').textContent = data.total_ait.toLocaleString();
+        document.getElementById('stat-transfer-volume').textContent = data.transfer_volume_ait.toLocaleString();
         document.getElementById('stat-active-offers').textContent = data.active_offers.toLocaleString();
         document.getElementById('stat-unique-nodes').textContent = data.unique_nodes.toLocaleString();
         document.getElementById('stat-unique-providers').textContent = data.unique_providers.toLocaleString();

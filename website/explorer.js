@@ -240,7 +240,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                 <td>${i + 1}</td>
                                 <td>${escapeHtml(a.address)}</td>
                                 <td>${escapeHtml(a.transaction_count)}</td>
-                                <td>${typeof a.volume === 'number' ? a.volume.toLocaleString() : escapeHtml(a.volume)}</td>
+                                <td>${typeof a.volume === 'number' ? a.volume.toLocaleString(undefined, {maximumFractionDigits: 2}) : escapeHtml(a.volume)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
