@@ -188,6 +188,13 @@ class TestEncryptPrivateKey:
         key2 = crypto.encrypt_private_key("my_secret_key", "password123")
         assert key1 != key2  # Random salt should produce different outputs
 
+    def test_encrypt_private_key_v2_carries_iteration_count(self):
+        import base64
+
+        blob = base64.urlsafe_b64decode(crypto.encrypt_private_key("my_secret_key", "password123").encode())
+        assert blob[:5] == b"AITK2"
+        assert int.from_bytes(blob[5:9], "big") == 600_000
+
 
 # ============================================================================
 # Private Key Decryption Tests
@@ -216,6 +223,24 @@ class TestDecryptPrivateKey:
     def test_decrypt_private_key_invalid_data(self):
         with pytest.raises(ValueError, match="Failed to decrypt"):
             crypto.decrypt_private_key("invalid_encrypted_data", "password")
+
+    def test_decrypt_private_key_legacy_v1_blob(self):
+        """v1 blobs (salt + token, fixed 100k iterations) still decrypt after the work-factor bump."""
+        import base64
+        import os
+
+        from cryptography.fernet import Fernet
+        from cryptography.hazmat.primitives import hashes
+        from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+
+        salt = os.urandom(16)
+        kdf = PBKDF2HMAC(algorithm=hashes.SHA256(), length=32, salt=salt, iterations=100000)
+        fernet = Fernet(base64.urlsafe_b64encode(kdf.derive(b"password123")))
+        legacy_blob = base64.urlsafe_b64encode(salt + fernet.encrypt(b"my_secret_key")).decode()
+
+        assert crypto.decrypt_private_key(legacy_blob, "password123") == "my_secret_key"
+        with pytest.raises(ValueError, match="Failed to decrypt"):
+            crypto.decrypt_private_key(legacy_blob, "wrong_password")
 
 
 # ============================================================================

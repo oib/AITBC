@@ -171,6 +171,18 @@ def recover_signer(message_data: dict[str, Any], signature: str) -> str | None:
         return None
 
 
+#: PBKDF2 work factor for newly encrypted private keys (OWASP minimum).
+_PBKDF2_ITERATIONS = 600_000
+
+#: Work factor of legacy v1 key blobs (``salt(16B) + fernet_token``).
+_PBKDF2_LEGACY_ITERATIONS = 100_000
+
+#: v2 key-blob marker. Decoded v2 blobs lay out as
+#: ``b"AITK2" + iterations(4B big-endian) + salt(16B) + fernet_token`` — storing
+#: the iteration count keeps old keystores decryptable across work-factor bumps.
+_KEYSTORE_V2_MARKER = b"AITK2"
+
+
 def encrypt_private_key(private_key: str, password: str) -> str:
     """Encrypt private key using Fernet symmetric encryption"""
     try:
@@ -181,7 +193,7 @@ def encrypt_private_key(private_key: str, password: str) -> str:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            iterations=100000,
+            iterations=_PBKDF2_ITERATIONS,
         )
         key = base64.urlsafe_b64encode(kdf.derive(password_bytes))
 
@@ -189,8 +201,8 @@ def encrypt_private_key(private_key: str, password: str) -> str:
         fernet = Fernet(key)
         encrypted_key = fernet.encrypt(private_key.encode("utf-8"))
 
-        # Combine salt and encrypted key
-        combined = salt + encrypted_key
+        # v2 blob: marker + iteration count + salt + encrypted key
+        combined = _KEYSTORE_V2_MARKER + _PBKDF2_ITERATIONS.to_bytes(4, "big") + salt + encrypted_key
         return base64.urlsafe_b64encode(combined).decode("utf-8")
     except Exception as e:
         raise ValueError(f"Failed to encrypt private key: {e}") from e
@@ -199,12 +211,18 @@ def encrypt_private_key(private_key: str, password: str) -> str:
 def decrypt_private_key(encrypted_key: str, password: str) -> str:
     """Decrypt private key using Fernet symmetric encryption"""
     try:
-        # Decode combined salt + encrypted data
+        # Decode combined blob
         combined = base64.urlsafe_b64decode(encrypted_key.encode("utf-8"))
 
-        # Extract salt (first 16 bytes) and encrypted data (remaining bytes)
-        salt = combined[:16]
-        encrypted_data = combined[16:]
+        if combined.startswith(_KEYSTORE_V2_MARKER):
+            iterations = int.from_bytes(combined[5:9], "big")
+            salt = combined[9:25]
+            encrypted_data = combined[25:]
+        else:
+            # Legacy v1 blob: salt(16B) + encrypted data, fixed 100k iterations
+            iterations = _PBKDF2_LEGACY_ITERATIONS
+            salt = combined[:16]
+            encrypted_data = combined[16:]
 
         # Derive same encryption key from password using stored salt
         # Must use identical parameters as encryption for successful decryption
@@ -213,7 +231,7 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
             algorithm=hashes.SHA256(),
             length=32,
             salt=salt,
-            iterations=100000,
+            iterations=iterations,
         )
         key = base64.urlsafe_b64encode(kdf.derive(password_bytes))
 

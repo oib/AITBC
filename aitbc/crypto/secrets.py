@@ -284,16 +284,23 @@ def get_secret_manager(encryption_key: str | None = None, default_ttl_hours: int
     """Get or create the global SecretManager instance.
 
     Args:
-        encryption_key: Optional encryption key for first-time initialization
+        encryption_key: Encryption key for first-time initialization. Falls
+            back to the ``AITBC_SECRET_MANAGER_KEY`` environment variable.
         default_ttl_hours: Default secret TTL in hours
 
     Returns:
         Global SecretManager instance
+
+    Raises:
+        ValueError: If no key is available. A manager backed by a random
+            ephemeral key would silently render every stored secret
+            unreadable after a restart.
     """
     global _global_secret_manager
     if _global_secret_manager is None:
-        _global_secret_manager = SecretManager(
-            encryption_key=encryption_key or os.getenv("AITBC_SECRET_MANAGER_KEY"), default_ttl_hours=default_ttl_hours
-        )
+        key = encryption_key or os.getenv("AITBC_SECRET_MANAGER_KEY")
+        if not key:
+            raise ValueError("SecretManager requires an encryption key: pass encryption_key or set AITBC_SECRET_MANAGER_KEY")
+        _global_secret_manager = SecretManager(encryption_key=key, default_ttl_hours=default_ttl_hours)
         _global_secret_manager.start_rotation_scheduler()
     return _global_secret_manager

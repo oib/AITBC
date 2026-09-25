@@ -19,12 +19,16 @@ from pathlib import Path
 from cryptography.fernet import Fernet
 
 
-def derive_key(password: str, salt: bytes = b"") -> bytes:
+# PBKDF2 work factor for newly written keystores (OWASP minimum). Stored in
+# kdfparams as "c" so decoders pick the right count for older files.
+KDF_ITERATIONS = 600000
+
+
+def derive_key(password: str, salt: bytes = b"", iterations: int = KDF_ITERATIONS) -> bytes:
     """Derive a 32-byte key from the password using PBKDF2-HMAC-SHA256."""
     if not salt:
         salt = secrets.token_bytes(16)
-    # Use PBKDF2 for secure key derivation (100,000 iterations for security)
-    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
+    dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
     return base64.urlsafe_b64encode(dk), salt
 
 
@@ -38,7 +42,7 @@ def encrypt_private_key(private_key_hex: str, password: str) -> dict:
         "cipherparams": {"salt": base64.b64encode(salt).decode()},
         "ciphertext": base64.b64encode(token).decode(),
         "kdf": "sha256",
-        "kdfparams": {"dklen": 32, "salt": base64.b64encode(salt).decode()},
+        "kdfparams": {"dklen": 32, "salt": base64.b64encode(salt).decode(), "c": KDF_ITERATIONS},
     }
 
 
