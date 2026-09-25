@@ -1555,6 +1555,10 @@ class StateTransition:
             if not parameter:
                 logger.warning("GOVERNANCE_EXECUTE tx %s parameter_change missing parameter name", tx_hash)
                 return
+            # ``value: null`` records a deliberate clear ("") — storing
+            # str(None) would write the literal "None", which resolvers feed
+            # to canonical_address as a nonsense address.
+            stored_value = "" if value is None else str(value)
             existing = session.exec(
                 select(ChainParameter).where(
                     ChainParameter.chain_id == chain_id,
@@ -1562,7 +1566,7 @@ class StateTransition:
                 )
             ).first()
             if existing:
-                existing.value = str(value)
+                existing.value = stored_value
                 existing.proposal_id = proposal_id
                 if block_height is not None:
                     existing.applied_height = block_height
@@ -1572,14 +1576,14 @@ class StateTransition:
                     ChainParameter(
                         chain_id=chain_id,
                         parameter=parameter,
-                        value=str(value),
+                        value=stored_value,
                         proposal_id=proposal_id,
                         applied_height=block_height,
                     )
                 )
             if block_height is not None:
                 record_chain_parameter_history(
-                    session, chain_id, parameter, str(value), proposal_id, block_height, overwrite=True
+                    session, chain_id, parameter, stored_value, proposal_id, block_height, overwrite=True
                 )
             # autoflush is off on these sessions — flush so a later tx in the
             # same block sees the new parameter value in resolver queries.

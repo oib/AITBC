@@ -140,31 +140,46 @@ def _validate_governance_payload(tx_type: str, payload: dict[str, Any]) -> list[
     shared SDK), falling back to inline validation for resilience.
     """
     # Try to use the shared SDK validation (Agent A's A3) when available
+    errors: list[str] | None = None
     try:
         from aitbc.governance.onchain import validate_governance_payload as sdk_validate
         from aitbc.governance.types import GovernanceTxType
 
         gov_type = GovernanceTxType(tx_type)
-        return sdk_validate(gov_type, payload)
+        errors = list(sdk_validate(gov_type, payload))
     except Exception:
         pass  # SDK not available — use inline validation
 
-    required = _GOV_REQUIRED_FIELDS.get(tx_type)
-    if required is None:
-        return [f"Unknown governance tx type: {tx_type}"]
+    if errors is None:
+        required = _GOV_REQUIRED_FIELDS.get(tx_type)
+        if required is None:
+            return [f"Unknown governance tx type: {tx_type}"]
 
-    errors: list[str] = []
-    for field_name in required:
-        if field_name not in payload:
-            errors.append(f"missing required field: {field_name}")
-        elif not payload[field_name]:
-            errors.append(f"empty required field: {field_name}")
+        errors = []
+        for field_name in required:
+            if field_name not in payload:
+                errors.append(f"missing required field: {field_name}")
+            elif not payload[field_name]:
+                errors.append(f"empty required field: {field_name}")
 
-    # Validate vote_type values for GOVERNANCE_VOTE
-    if tx_type == "GOVERNANCE_VOTE" and "vote_type" in payload:
-        vote_type = str(payload["vote_type"]).lower()
-        if vote_type not in ("for", "against", "abstain"):
-            errors.append(f"invalid vote_type: {vote_type} (must be 'for', 'against', or 'abstain')")
+        # Validate vote_type values for GOVERNANCE_VOTE
+        if tx_type == "GOVERNANCE_VOTE" and "vote_type" in payload:
+            vote_type = str(payload["vote_type"]).lower()
+            if vote_type not in ("for", "against", "abstain"):
+                errors.append(f"invalid vote_type: {vote_type} (must be 'for', 'against', or 'abstain')")
+
+    # A parameter_change must carry its value key explicitly — ``value: null``
+    # records a deliberate clear (""), but a missing ``value`` key would be
+    # stored as the literal string "None" and reach resolvers as a nonsense
+    # address. Runs for both the SDK and inline paths.
+    if tx_type == "GOVERNANCE_EXECUTE":
+        execution_payload = payload.get("execution_payload")
+        if (
+            isinstance(execution_payload, dict)
+            and execution_payload.get("action", "parameter_change") == "parameter_change"
+            and "value" not in execution_payload
+        ):
+            errors.append("parameter_change missing 'value' key")
 
     return errors
 
@@ -1297,9 +1312,7 @@ class PoAProposer:
 
         for name, value in (parameters or {}).items():
             session.add(
-                ChainParameter(
-                    chain_id=self._config.chain_id, parameter=str(name), value=str(value), applied_height=0
-                )
+                ChainParameter(chain_id=self._config.chain_id, parameter=str(name), value=str(value), applied_height=0)
             )
             # Genesis parameters take effect at height 0 — record the history
             # entry so height-scoped lookups resolve them from the first block.
