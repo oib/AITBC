@@ -1,6 +1,10 @@
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function formatHash(hash) {
     if (!hash) return 'N/A';
-    return hash;
+    return escapeHtml(hash);
 }
 
 function copyToClipboard(text, btnEl) {
@@ -24,7 +28,7 @@ function copyToClipboard(text, btnEl) {
 }
 
 function copyBtn(text) {
-    return `<button class="copy-btn" onclick="event.stopPropagation(); copyToClipboard('${text}', this)" title="Copy to clipboard">📋</button>`;
+    return `<button class="copy-btn" data-copy="${escapeHtml(text)}" onclick="event.stopPropagation(); copyToClipboard(this.dataset.copy, this)" title="Copy to clipboard">📋</button>`;
 }
 
 function renderBlockTransactions(block) {
@@ -43,25 +47,25 @@ function renderBlockTransactions(block) {
                         let displayValue = value;
                         if (typeof value === 'object') displayValue = JSON.stringify(value);
                         if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
-                        return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                        return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                     }).join('');
                 if (rows) txDetails = `<div class="tx-market-details">${rows}</div>`;
             }
         } catch (e) {
             if (tx.payload) {
-                txDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
+                txDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${escapeHtml(tx.payload)}</span></div></div>`;
             }
         }
         const txHash = tx.tx_hash || 'N/A';
         return `
             <div class="transaction-item">
                 <div class="tx-header">
-                    <span class="tx-type">${tx.type || 'Unknown'}</span>
+                    <span class="tx-type">${escapeHtml(tx.type || 'Unknown')}</span>
                     <span class="tx-hash">${formatHash(txHash)} ${copyBtn(txHash)}</span>
                 </div>
-                <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">${tx.status || 'Unknown'}</div>
-                <div class="result-detail">From: ${tx.sender || 'N/A'} ${copyBtn(tx.sender || '')}</div>
-                <div class="result-detail">To: ${tx.recipient || 'N/A'} ${copyBtn(tx.recipient || '')}</div>
+                <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">${escapeHtml(tx.status || 'Unknown')}</div>
+                <div class="result-detail">From: ${escapeHtml(tx.sender || 'N/A')} ${copyBtn(tx.sender || '')}</div>
+                <div class="result-detail">To: ${escapeHtml(tx.recipient || 'N/A')} ${copyBtn(tx.recipient || '')}</div>
                 ${txDetails}
             </div>
         `;
@@ -167,7 +171,7 @@ document.addEventListener('DOMContentLoaded', function() {
                     label: `#${b.height}`,
                     hash: b.hash,
                     time: b.timestamp,
-                    url: `/block.html?height=${b.height}`,
+                    url: `/block.html?height=${encodeURIComponent(b.height)}`,
                 });
                 // Extract transactions from block
                 (b.transactions || []).forEach(t => {
@@ -206,10 +210,10 @@ document.addEventListener('DOMContentLoaded', function() {
         container.innerHTML = liveFeedItems.map(item => {
             const timeStr = item.time ? new Date(item.time).toLocaleTimeString() : '';
             return `
-                <div class="live-feed-item" onclick="location.href='${item.url}'">
-                    <span class="live-feed-type">${item.type}</span>
-                    <span class="live-feed-hash">${item.label}</span>
-                    <span class="live-feed-time">${timeStr}</span>
+                <div class="live-feed-item" onclick="location.href='${escapeHtml(item.url)}'">
+                    <span class="live-feed-type">${escapeHtml(item.type)}</span>
+                    <span class="live-feed-hash">${escapeHtml(item.label)}</span>
+                    <span class="live-feed-time">${escapeHtml(timeStr)}</span>
                 </div>
             `;
         }).join('');
@@ -234,9 +238,9 @@ document.addEventListener('DOMContentLoaded', function() {
                         ${addresses.map((a, i) => `
                             <tr onclick="location.href='/search.html?query=${encodeURIComponent(a.address)}'" style="cursor:pointer;">
                                 <td>${i + 1}</td>
-                                <td>${a.address}</td>
-                                <td>${a.transaction_count}</td>
-                                <td>${a.volume.toLocaleString()}</td>
+                                <td>${escapeHtml(a.address)}</td>
+                                <td>${escapeHtml(a.transaction_count)}</td>
+                                <td>${typeof a.volume === 'number' ? a.volume.toLocaleString() : escapeHtml(a.volume)}</td>
                             </tr>
                         `).join('')}
                     </tbody>
@@ -465,13 +469,13 @@ document.addEventListener('DOMContentLoaded', function() {
             if (type === 'block') {
                 details = `
                     <div class="result-hash">
-                        Hash: ${item.hash || 'N/A'} ${copyBtn(item.hash || '')}
+                        Hash: ${escapeHtml(item.hash || 'N/A')} ${copyBtn(item.hash || '')}
                     </div>
                     <div class="result-detail">
-                        Proposer: ${item.proposer || 'N/A'}
+                        Proposer: ${escapeHtml(item.proposer || 'N/A')}
                     </div>
                     <div class="result-detail">
-                        Transactions: ${item.txCount || 0}
+                        Transactions: ${escapeHtml(item.txCount || 0)}
                     </div>
                 `;
             } else {
@@ -484,14 +488,14 @@ document.addEventListener('DOMContentLoaded', function() {
                                 let displayValue = value;
                                 if (typeof value === 'object') displayValue = JSON.stringify(value);
                                 if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
-                                return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                                return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                             }).join('');
                             if (rows) payloadDetails = `<div class="tx-market-details">${rows}</div>`;
                         }
                     }
                 } catch (e) {
                     if (item.payload) {
-                        payloadDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
+                        payloadDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${escapeHtml(item.payload)}</span></div></div>`;
                     }
                 }
 
@@ -500,19 +504,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const toAddr = item.to || item.recipient || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${txHashVal} ${copyBtn(txHashVal)}
+                        Hash: ${escapeHtml(txHashVal)} ${copyBtn(txHashVal)}
                     </div>
                     <div class="result-detail">
-                        Type: ${item.type || 'Unknown'}
+                        Type: ${escapeHtml(item.type || 'Unknown')}
                     </div>
                     <div class="result-detail">
-                        Block: ${item.block_height || 'N/A'}
+                        Block: ${escapeHtml(item.block_height || 'N/A')}
                     </div>
                     <div class="result-detail">
-                        From: ${fromAddr} ${copyBtn(fromAddr)}
+                        From: ${escapeHtml(fromAddr)} ${copyBtn(fromAddr)}
                     </div>
                     <div class="result-detail">
-                        To: ${toAddr} ${copyBtn(toAddr)}
+                        To: ${escapeHtml(toAddr)} ${copyBtn(toAddr)}
                     </div>
                     ${payloadDetails}
                 `;
@@ -520,22 +524,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const dir = type === 'transaction' ? getTxDirection(item, searchedAddress) : '';
             const clickTarget = type === 'block'
-                ? `/block.html?height=${item.height}`
+                ? `/block.html?height=${encodeURIComponent(item.height)}`
                 : `/tx.html?hash=${encodeURIComponent(item.tx_hash || item.hash || '')}`;
             const isBlock = type === 'block';
             return `
-            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${clickTarget}'">
+            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${escapeHtml(clickTarget)}'">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${isBlock ? 'BLOCK' : (item.type || 'TX')}</span>
+                        <span class="badge badge-primary">${isBlock ? 'BLOCK' : escapeHtml(item.type || 'TX')}</span>
                         ${directionBadge(dir)}
                     </div>
                     <div class="result-timestamp">
-                        ${timestamp}
+                        ${escapeHtml(timestamp)}
                     </div>
                 </div>
                 ${details}
-                ${item.note ? `<div class="result-note">${item.note}</div>` : ''}
+                ${item.note ? `<div class="result-note">${escapeHtml(item.note)}</div>` : ''}
             </div>
         `;
         }).join('');
@@ -632,8 +636,8 @@ document.addEventListener('DOMContentLoaded', function() {
                                                 }
                                                 return `
                                                     <div class="tx-detail-item">
-                                                        <span class="tx-detail-label">${key}:</span>
-                                                        <span class="tx-detail-value">${displayValue}</span>
+                                                        <span class="tx-detail-label">${escapeHtml(key)}:</span>
+                                                        <span class="tx-detail-value">${escapeHtml(displayValue)}</span>
                                                     </div>
                                                 `;
                                             }).join('');
@@ -643,7 +647,7 @@ document.addEventListener('DOMContentLoaded', function() {
                                     }
                                 } catch (e) {
                                     if (tx.payload) {
-                                        txDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${tx.payload}</span></div></div>`;
+                                        txDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${escapeHtml(tx.payload)}</span></div></div>`;
                                     }
                                 }
 
@@ -651,11 +655,11 @@ document.addEventListener('DOMContentLoaded', function() {
                                 return `
                                     <div class="transaction-item">
                                         <div class="tx-header">
-                                            <span class="tx-type">${tx.type || 'Unknown'}</span>
+                                            <span class="tx-type">${escapeHtml(tx.type || 'Unknown')}</span>
                                             <span class="tx-hash">${formatHash(innerTxHash)} ${copyBtn(innerTxHash)}</span>
                                         </div>
                                         <div class="tx-status ${tx.status === 'confirmed' ? 'confirmed' : 'pending'}">
-                                            ${tx.status || 'Unknown'}
+                                            ${escapeHtml(tx.status || 'Unknown')}
                                         </div>
                                         ${txDetails}
                                     </div>
@@ -666,7 +670,7 @@ document.addEventListener('DOMContentLoaded', function() {
                 } else {
                     transactionsHtml = `
                         <div class="block-transactions">
-                            <div class="transactions-header">Transactions: ${item.txCount || 0}</div>
+                            <div class="transactions-header">Transactions: ${escapeHtml(item.txCount || 0)}</div>
                             <div class="no-transactions">No transactions in this block</div>
                         </div>
                     `;
@@ -678,10 +682,10 @@ document.addEventListener('DOMContentLoaded', function() {
                         Hash: ${blockHashVal} ${copyBtn(blockHashVal)}
                     </div>
                     <div class="result-detail">
-                        Validator: ${item.proposer || item.validator || 'unknown'}
+                        Validator: ${escapeHtml(item.proposer || item.validator || 'unknown')}
                     </div>
                     <div class="result-detail">
-                        Height: ${item.height || 'N/A'}
+                        Height: ${escapeHtml(item.height || 'N/A')}
                     </div>
                     ${transactionsHtml}
                 `;
@@ -697,13 +701,13 @@ document.addEventListener('DOMContentLoaded', function() {
                                 let displayValue = value;
                                 if (typeof value === 'object') displayValue = JSON.stringify(value);
                                 if (String(displayValue).length > 60) displayValue = String(displayValue).substring(0, 57) + '...';
-                                return `<div class="tx-detail-item"><span class="tx-detail-label">${key}:</span><span class="tx-detail-value">${displayValue}</span></div>`;
+                                return `<div class="tx-detail-item"><span class="tx-detail-label">${escapeHtml(key)}:</span><span class="tx-detail-value">${escapeHtml(displayValue)}</span></div>`;
                             }).join('');
                         if (rows) payloadDetails = `<div class="tx-market-details">${rows}</div>`;
                     }
                 } catch (e) {
                     if (item.payload) {
-                        payloadDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${item.payload}</span></div></div>`;
+                        payloadDetails = `<div class="tx-market-details"><div class="tx-detail-item"><span class="tx-detail-label">Payload:</span><span class="tx-detail-value">${escapeHtml(item.payload)}</span></div></div>`;
                     }
                 }
 
@@ -712,19 +716,19 @@ document.addEventListener('DOMContentLoaded', function() {
                 const toAddr = item.to || item.recipient || 'N/A';
                 details = `
                     <div class="result-hash">
-                        Hash: ${txHashVal} ${copyBtn(txHashVal)}
+                        Hash: ${escapeHtml(txHashVal)} ${copyBtn(txHashVal)}
                     </div>
                     <div class="result-detail">
-                        Type: ${item.type || 'Unknown'}
+                        Type: ${escapeHtml(item.type || 'Unknown')}
                     </div>
                     <div class="result-detail">
-                        Block: ${item.block_height || 'N/A'}
+                        Block: ${escapeHtml(item.block_height || 'N/A')}
                     </div>
                     <div class="result-detail">
-                        From: ${fromAddr} ${copyBtn(fromAddr)}
+                        From: ${escapeHtml(fromAddr)} ${copyBtn(fromAddr)}
                     </div>
                     <div class="result-detail">
-                        To: ${toAddr} ${copyBtn(toAddr)}
+                        To: ${escapeHtml(toAddr)} ${copyBtn(toAddr)}
                     </div>
                     ${payloadDetails}
                 `;
@@ -732,22 +736,22 @@ document.addEventListener('DOMContentLoaded', function() {
 
             const dir = type === 'transaction' ? getTxDirection(item, searchedAddress) : '';
             const clickTarget = type === 'block'
-                ? `/block.html?height=${item.height}`
+                ? `/block.html?height=${encodeURIComponent(item.height)}`
                 : `/tx.html?hash=${encodeURIComponent(item.tx_hash || item.hash || '')}`;
             const isBlock = type === 'block';
             return `
-            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${clickTarget}'">
+            <div class="endpoint fade-in block-item" style="cursor:pointer;" onclick="location.href='${escapeHtml(clickTarget)}'">
                 <div class="block-header">
                     <div class="flex-center">
-                        <span class="badge badge-primary">${isBlock ? 'BLOCK' : (item.type || 'TX')}</span>
+                        <span class="badge badge-primary">${isBlock ? 'BLOCK' : escapeHtml(item.type || 'TX')}</span>
                         ${directionBadge(dir)}
                     </div>
                     <div class="result-timestamp">
-                        ${timestamp}
+                        ${escapeHtml(timestamp)}
                     </div>
                 </div>
                 ${details}
-                ${item.note ? `<div class="result-note">${item.note}</div>` : ''}
+                ${item.note ? `<div class="result-note">${escapeHtml(item.note)}</div>` : ''}
             </div>
         `;
         }).join('');
@@ -761,7 +765,7 @@ document.addEventListener('DOMContentLoaded', function() {
 
         section.style.display = 'block';
         count.textContent = '';
-        container.innerHTML = `<p class="error-text">${message}</p>`;
+        container.innerHTML = `<p class="error-text">${escapeHtml(message)}</p>`;
     }
 
     // Auto-refresh every 30 seconds

@@ -1,10 +1,14 @@
 // Bridge deposits page — shows recent ETH→AIT bridge transactions
 
+function escapeHtml(s) {
+    return String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
 function statusBadge(status) {
     const cls = status === 'completed' ? 'status-ok'
         : status === 'failed' ? 'status-bad'
         : 'status-pending';
-    return `<span class="status-badge ${cls}">${status.toUpperCase()}</span>`;
+    return `<span class="status-badge ${cls}">${escapeHtml(status.toUpperCase())}</span>`;
 }
 
 async function loadRecentBridges() {
@@ -33,25 +37,25 @@ async function loadRecentBridges() {
             const eth = d2.eth_amount || '-';
             const ait = d2.ait_amount || '-';
             const fromShort = d2.eth_from_address
-                ? `${d2.eth_from_address.slice(0, 6)}...${d2.eth_from_address.slice(-4)}`
+                ? `${escapeHtml(d2.eth_from_address.slice(0, 6))}...${escapeHtml(d2.eth_from_address.slice(-4))}`
                 : '-';
             const aitTx = d2.ait_tx_hash
-                ? `<a href="/tx.html?hash=${encodeURIComponent(d2.ait_tx_hash)}" target="_blank" rel="noopener">${d2.ait_tx_hash.slice(0, 18)}...</a>`
+                ? `<a href="/tx.html?hash=${encodeURIComponent(d2.ait_tx_hash)}" target="_blank" rel="noopener">${escapeHtml(d2.ait_tx_hash.slice(0, 18))}...</a>`
                 : '—';
             const note = d2.error_message && d2.status === 'completed'
                 ? d2.error_message
                 : '';
             const status = statusBadge(d2.status || 'completed');
             const noteRow = note
-                ? `<tr><td>Note</td><td><span class="muted-text" style="font-size:0.8rem;">${note}</span></td></tr>`
+                ? `<tr><td>Note</td><td><span class="muted-text" style="font-size:0.8rem;">${escapeHtml(note)}</span></td></tr>`
                 : '';
             return `
                 <div class="endpoint fade-in" style="padding:0;margin-bottom:0.75rem;">
                     <table class="block-list-table">
-                        <tr><td>Time</td><td>${time} UTC</td></tr>
-                        <tr><td>ETH</td><td>${eth}</td></tr>
+                        <tr><td>Time</td><td>${escapeHtml(time)} UTC</td></tr>
+                        <tr><td>ETH</td><td>${escapeHtml(eth)}</td></tr>
                         <tr><td>From</td><td>${fromShort}</td></tr>
-                        <tr><td>AIT</td><td>${ait}</td></tr>
+                        <tr><td>AIT</td><td>${escapeHtml(ait)}</td></tr>
                         <tr><td>AIT Tx</td><td>${aitTx}</td></tr>
                         <tr><td>Status</td><td>${status}</td></tr>
                         ${noteRow}
