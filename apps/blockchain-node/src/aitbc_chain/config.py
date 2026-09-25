@@ -658,6 +658,13 @@ class ChainSettings(BaseSettings):
     # v4 — the activation is itself consensus — so keep it ahead of the chain
     # head until every fleet node runs a build that knows the rules.
     state_transition_v5_height: int = 24000
+    # v6: a BRIDGE_REFUND must name the sealed BRIDGE_LOCK it repays on the same
+    # chain (payload.lock_tx_hash, sender/amount match, not already refunded).
+    # Below it refunds stay lenient for replay. Unlike v5 this is env-gated
+    # (STATE_TRANSITION_V6_HEIGHT) rather than baked — set it uniformly on
+    # every node once the fleet runs a build that enforces it; fleet-config-check
+    # watches for drift. 0 disables the gate.
+    state_transition_v6_height: int = 0
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that

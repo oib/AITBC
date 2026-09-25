@@ -48,10 +48,16 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
-from ..state.bridge_credit import verify_bridge_credit_signature
+from ..state.bridge_credit import (
+    bridge_refund_lock_hash,
+    validate_bridge_refund_lock,
+    verify_bridge_credit_signature,
+)
 from ..state.state_transition import (
     _bridge_release_authority,
     _ensure_account,
+    _refund_lock_record,
+    build_bridge_lock_context,
     build_escrow_context,
     get_block_version,
     get_block_version_for_height,
@@ -866,22 +872,43 @@ class PoAProposer:
         # through the full sequential state transition.
         has_sequential_only = any(_determine_tx_type(tx.content) in _SEQUENTIAL_ONLY_TX_TYPES for tx in pending_txs)
         escrow_context: dict[str, dict[str, Any]] | None = None
+        bridge_lock_context: dict[str, dict[str, Any]] | None = None
         use_parallel = (
             not has_sequential_only
             and getattr(settings, "parallel_tx_validation", False)
             and len(pending_txs) > 1
-            # v5 included: its fail-closed authority gates are mirrored in
+            # v5/v6 included: their fail-closed gates are mirrored in
             # pure_state_transition (escrow authority via escrow_context,
-            # bridge pseudo-sender), so the parallel path stays identical.
-            and block_version in (2, 3, 4, 5)
+            # bridge pseudo-sender + signature + refund lock binding via
+            # bridge_lock_context), so the parallel path stays identical.
+            and block_version in (2, 3, 4, 5, 6)
         )
         if use_parallel:
             escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
             if escrow_context is None:
                 use_parallel = False
+        if (
+            use_parallel
+            and block_version >= 6
+            and any(_determine_tx_type(tx.content) == "BRIDGE_REFUND" for tx in pending_txs)
+        ):
+            # Two refunds naming the same lock cannot be resolved in parallel —
+            # build_bridge_lock_context returns None and the block goes
+            # sequential, which applies the double-refund rule in order.
+            bridge_lock_context = build_bridge_lock_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
+            if bridge_lock_context is None:
+                use_parallel = False
         if use_parallel:
             processed_txs, changed_addresses, ok = self._process_txs_parallel(
-                session, pending_txs, account_map, existing_tx_map, next_height, timestamp, block_version, escrow_context
+                session,
+                pending_txs,
+                account_map,
+                existing_tx_map,
+                next_height,
+                timestamp,
+                block_version,
+                escrow_context,
+                bridge_lock_context,
             )
             if not ok:
                 return processed_txs, changed_addresses, False
@@ -1671,15 +1698,33 @@ class PoAProposer:
                     if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"} and block_version >= 5:
                         expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
                         bridge_authority = _bridge_release_authority(session, self._config.chain_id)
+                        skip_reason = ""
                         if (
                             _to_ait_address(tx.content.get("from", "")) != expected_sender
                             or not bridge_authority
                             or not verify_bridge_credit_signature(tx.content, tx.tx_hash, bridge_authority)
                         ):
+                            skip_reason = "failed v5 bridge-credit authorization"
+                        elif tx_type == "BRIDGE_REFUND" and block_version >= 6:
+                            # v6 refund lock binding — followers run the same
+                            # check, so stamping an unbound refund would seal a
+                            # credit they reject.
+                            lock_hash = bridge_refund_lock_hash(tx.content)
+                            if not lock_hash:
+                                skip_reason = "missing payload.lock_tx_hash"
+                            else:
+                                reason = validate_bridge_refund_lock(
+                                    _refund_lock_record(session, self._config.chain_id, lock_hash, exclude_tx_hash=tx.tx_hash),
+                                    tx.content,
+                                )
+                                if reason:
+                                    skip_reason = reason
+                        if skip_reason:
                             self._logger.warning(
-                                "[PROPOSE] Skipping pre-registered %s tx %s: failed v5 bridge-credit authorization",
+                                "[PROPOSE] Skipping pre-registered %s tx %s: %s",
                                 tx_type,
                                 tx.tx_hash,
+                                skip_reason,
                             )
                             continue
                     existing_tx_record.block_height = next_height
@@ -1863,6 +1908,7 @@ class PoAProposer:
         timestamp: datetime,
         block_version: int,
         escrow_context: dict[str, dict[str, Any]] | None = None,
+        bridge_lock_context: dict[str, dict[str, Any]] | None = None,
     ) -> tuple[list[Any], set[str], bool]:
         """Process transactions in parallel using dependency analysis.
 
@@ -1953,6 +1999,7 @@ class PoAProposer:
                         block_version=block_version,
                         escrow_context=escrow_context,
                         bridge_authority=bridge_authority,
+                        bridge_lock_context=bridge_lock_context,
                     )
 
                 results = executor.execute_groups([group_items], compute_fn)
