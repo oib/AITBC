@@ -31,7 +31,12 @@ from .state.pure_state_transition import (
     compute_state_delta,
     extract_read_write_sets,
 )
-from .state.state_transition import build_escrow_context, get_block_version, get_state_transition
+from .state.state_transition import (
+    _bridge_release_authority,
+    build_escrow_context,
+    get_block_version,
+    get_state_transition,
+)
 from .consensus.multi_validator_poa import MultiValidatorPoA
 from aitbc.crypto.signature_recovery import canonical_address
 from .mempool import compute_tx_hash
@@ -449,6 +454,15 @@ class BlockImportMixin(SyncBase):
                 groups = graph.get_conflict_groups()
                 # Fall back to sequential if too many transactions conflict.
                 if groups and graph.conflict_rate() <= settings.conflict_threshold:
+                    # v5: bridge credits need the bridge release authority for
+                    # the signature gate — resolve the on-chain parameter once
+                    # so the pure path applies the same rule as the sequential
+                    # one. Only queried when a v5+ block actually has a credit.
+                    bridge_authority: str | None = None
+                    if block_version >= 5 and any(
+                        _determine_tx_type(tx) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in transactions
+                    ):
+                        bridge_authority = _bridge_release_authority(session, self._chain_id)
                     # Batch-fetch all sender/recipient/v3-escrow accounts into
                     # account_map. Pre-create any missing accounts with zero
                     # balance so that `compute_state_delta` does not fail on
@@ -523,6 +537,7 @@ class BlockImportMixin(SyncBase):
                                 existing_tx_hashes,
                                 block_version=block_version,
                                 escrow_context=escrow_context,
+                                bridge_authority=bridge_authority,
                             )
 
                         for group in groups:
@@ -533,7 +548,11 @@ class BlockImportMixin(SyncBase):
                                 sender = _to_ait_address(tx_data.get("from", ""))
                                 sender_account = account_map.get(sender)
                                 if sender_account:
-                                    tx_data["nonce"] = sender_account.nonce
+                                    # Bridge credits sign their nonce at
+                                    # issuance (v5) — the pseudo-sender
+                                    # account's nonce must not replace it.
+                                    if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
+                                        tx_data["nonce"] = sender_account.nonce
                                     tx_data["value"] = tx_data.get("amount", 0)
                             group_txs = [tx_hash_to_data[txh] for txh in group]
                             group_results = executor.execute_groups([group_txs], _compute_delta)[0]

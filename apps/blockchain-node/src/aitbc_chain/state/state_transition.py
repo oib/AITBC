@@ -23,6 +23,7 @@ from ..base_models import Block, Bond, ChainParameter, IPFSSubscription, _to_ait
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature, verify_transaction_signature
+from .bridge_credit import verify_bridge_credit_signature
 from .gpu_resources import GPUAllocation, GPURegistration
 from .liquidity_transition import (
     apply_liquidity_claim,
@@ -186,6 +187,39 @@ def _escrow_settlement_authority(session: Session, chain_id: str) -> str | None:
     if env_addr:
         return canonical_address(env_addr)
     return None
+
+
+def _bridge_release_authority(session: Session, chain_id: str) -> str | None:
+    """Return the canonical authority for v5+ bridge credit signatures.
+
+    The on-chain ``bridge_release_authority`` chain parameter wins (applied
+    identically on every node); ``settings.bridge_release_authority`` /
+    ``BRIDGE_RELEASE_AUTHORITY`` is the env fallback, and the escrow settlement
+    authority is the transitional default — the bridge service signs credits
+    with the same operator settlement key, so chains that configured only
+    escrow still resolve deterministically. Returns None when nothing is
+    configured — the caller decides whether that fails open (pre-v5 replay
+    compat) or closed (v5+).
+    """
+    onchain = session.exec(
+        select(ChainParameter).where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.parameter == "bridge_release_authority",
+        )
+    ).first()
+    env_addr = (settings.bridge_release_authority or os.getenv("BRIDGE_RELEASE_AUTHORITY", "")).strip()
+    if onchain and onchain.value.strip():
+        addr = canonical_address(onchain.value.strip())
+        if env_addr and canonical_address(env_addr) != addr:
+            logger.warning(
+                "bridge release authority env value %s disagrees with on-chain bridge_release_authority=%s; using the on-chain value",
+                env_addr,
+                addr,
+            )
+        return addr
+    if env_addr:
+        return canonical_address(env_addr)
+    return _escrow_settlement_authority(session, chain_id)
 
 
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:
@@ -693,6 +727,23 @@ class StateTransition:
                     return (
                         False,
                         f"{tx_type} must carry the internal pseudo-sender {expected_sender}, got {sender_addr}",
+                    )
+                # The pseudo-sender is a name, not a key: without a signature a
+                # Byzantine proposer can still self-issue a credit under it.
+                # v5 therefore additionally requires the bridge authority's
+                # secp256k1 signature over the credit's semantic fields
+                # (state/bridge_credit.py). Pre-v5 history had no signatures
+                # and stays lenient for replay.
+                authority = _bridge_release_authority(session, chain_id)
+                if not authority:
+                    return (
+                        False,
+                        f"{tx_type} requires a bridge release authority: set the bridge_release_authority chain parameter",
+                    )
+                if not verify_bridge_credit_signature(tx_data, tx_hash, authority):
+                    return (
+                        False,
+                        f"{tx_type} must carry a valid bridge_signature from the bridge release authority",
                     )
             return (True, "Pre-registered credit transaction validated")
         if tx_type == "BRIDGE_LOCK":

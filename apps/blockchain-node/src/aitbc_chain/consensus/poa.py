@@ -48,7 +48,9 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
+from ..state.bridge_credit import verify_bridge_credit_signature
 from ..state.state_transition import (
+    _bridge_release_authority,
     _ensure_account,
     build_escrow_context,
     get_block_version,
@@ -1211,11 +1213,7 @@ class PoAProposer:
         # (enriched) content, so hashless txs landed under different tx_hash
         # values per node — breaking every cross-node reference (v4
         # lock_tx_hashes being the first consumer).
-        tx_list = (
-            [{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs]
-            if processed_txs
-            else []
-        )
+        tx_list = [{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs] if processed_txs else []
         gossip_topic = f"blocks.{self._config.chain_id}"
         if self._stop_event.is_set():
             return False
@@ -1664,6 +1662,26 @@ class PoAProposer:
                     and existing_tx_record.block_height is None
                     and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}
                 ):
+                    # v5: a pre-registered credit row bypasses apply_transaction
+                    # here (it was already applied off-chain), so the bridge
+                    # authority signature check must run before stamping —
+                    # otherwise this node seals a credit that followers, who DO
+                    # validate the block content, reject. Skipping leaves the
+                    # row un-sealed for retry/next block rather than forking.
+                    if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"} and block_version >= 5:
+                        expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
+                        bridge_authority = _bridge_release_authority(session, self._config.chain_id)
+                        if (
+                            _to_ait_address(tx.content.get("from", "")) != expected_sender
+                            or not bridge_authority
+                            or not verify_bridge_credit_signature(tx.content, tx.tx_hash, bridge_authority)
+                        ):
+                            self._logger.warning(
+                                "[PROPOSE] Skipping pre-registered %s tx %s: failed v5 bridge-credit authorization",
+                                tx_type,
+                                tx.tx_hash,
+                            )
+                            continue
                     existing_tx_record.block_height = next_height
                     existing_tx_record.timestamp = timestamp.isoformat()
                     session.add(existing_tx_record)
@@ -1879,13 +1897,27 @@ class PoAProposer:
             conflict_rate,
         )
 
+        # v5: bridge credits carry a signature from the bridge release
+        # authority — resolve the on-chain parameter once so the pure path
+        # applies the same gate as the sequential one. Only queried when a
+        # v5+ block actually contains a credit.
+        bridge_authority: str | None = None
+        if block_version >= 5 and any(
+            _determine_tx_type(tx.content) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in pending_txs
+        ):
+            bridge_authority = _bridge_release_authority(session, chain_id)
+
         # Prepare tx_data for each tx (with nonce set from account_map)
         tx_data_map: dict[str, dict[str, Any]] = {}
         for tx in pending_txs:
             tx_data = tx.content.copy()
             sender = _to_ait_address(tx_data.get("from", ""))
             sender_account = account_map.get(sender)
-            tx_data["nonce"] = sender_account.nonce if sender_account else 0
+            # Bridge credits sign their semantic fields at issuance (v5) —
+            # overwriting the nonce with the pseudo-sender account's would
+            # invalidate the authority signature.
+            if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
+                tx_data["nonce"] = sender_account.nonce if sender_account else 0
             tx_data["value"] = tx_data.get("amount", 0)
             tx_data_map[tx.tx_hash] = tx_data
 
@@ -1904,7 +1936,7 @@ class PoAProposer:
                     tx_data = tx_data_map[tx_hash]
                     sender = _to_ait_address(tx_data.get("from", ""))
                     sender_account = account_map.get(sender)
-                    if sender_account:
+                    if sender_account and _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
                         tx_data["nonce"] = sender_account.nonce
 
                 # Build the list of (tx_hash, tx_data) for this group
@@ -1920,6 +1952,7 @@ class PoAProposer:
                         processed_tx_hashes,
                         block_version=block_version,
                         escrow_context=escrow_context,
+                        bridge_authority=bridge_authority,
                     )
 
                 results = executor.execute_groups([group_items], compute_fn)
@@ -1962,31 +1995,54 @@ class PoAProposer:
             if successful_deltas:
                 apply_deltas_to_db(session, successful_deltas, chain_id, block_version)
 
+            # Pre-registered rows (bridge credits, MESSAGE) already exist with
+            # block_height NULL — stamp the stored row instead of inserting a
+            # duplicate (chain_id/tx_hash is unique). Mirrors the sequential
+            # path's stamp branch. Only queried when such a tx is present.
+            prereg_rows: dict[str, Transaction] = {}
+            if any(d.tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"} for _, d, _ in all_deltas):
+                prereg_rows = {
+                    r.tx_hash: r
+                    for r in session.exec(
+                        select(Transaction).where(
+                            Transaction.chain_id == chain_id,
+                            Transaction.tx_hash.in_([tx.tx_hash for _, _, tx in all_deltas]),  # type: ignore[attr-defined]
+                            Transaction.block_height.is_(None),  # type: ignore[union-attr]
+                            Transaction.status == "confirmed",
+                        )
+                    ).all()
+                }
             # Create Transaction records and track changed addresses
             for _idx, delta, tx in all_deltas:
                 sender = delta.sender
                 recipient = delta.recipient
                 tx_type = delta.tx_type
                 tx_data = tx.content
-                value = tx_data.get("amount", 0)
-                fee = tx_data.get("fee", 0)
-                original_payload = tx_data.get("payload", {})
-                transaction = Transaction(
-                    chain_id=chain_id,
-                    tx_hash=tx.tx_hash,
-                    # Raw, not the canonicalised locals: these are signed (V23-65).
-                    sender=tx_data.get("from", sender),
-                    recipient=tx_data.get("to", recipient),
-                    payload=original_payload,
-                    value=value,
-                    fee=fee,
-                    nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
-                    timestamp=timestamp.isoformat(),
-                    block_height=next_height,
-                    status="confirmed",
-                    type=tx_type,
-                )
-                session.add(transaction)
+                existing_record = prereg_rows.get(tx.tx_hash)
+                if existing_record is not None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}:
+                    existing_record.block_height = next_height
+                    existing_record.timestamp = timestamp.isoformat()
+                    session.add(existing_record)
+                else:
+                    value = tx_data.get("amount", 0)
+                    fee = tx_data.get("fee", 0)
+                    original_payload = tx_data.get("payload", {})
+                    transaction = Transaction(
+                        chain_id=chain_id,
+                        tx_hash=tx.tx_hash,
+                        # Raw, not the canonicalised locals: these are signed (V23-65).
+                        sender=tx_data.get("from", sender),
+                        recipient=tx_data.get("to", recipient),
+                        payload=original_payload,
+                        value=value,
+                        fee=fee,
+                        nonce=tx_data_map[tx.tx_hash].get("nonce", 0),
+                        timestamp=timestamp.isoformat(),
+                        block_height=next_height,
+                        status="confirmed",
+                        type=tx_type,
+                    )
+                    session.add(transaction)
                 changed_addresses.add(sender)
                 if recipient:
                     changed_addresses.add(recipient)
