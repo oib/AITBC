@@ -3,14 +3,15 @@ parallel path.
 
 The pure/parallel compute_state_delta cannot touch the DB; callers that run
 v3 blocks in parallel must supply {job_id: {lock_version,
-expected_beneficiary, escrow_addr}} for every ESCROW_RELEASE/ESCROW_REFUND in
-the batch. A missing lock returns None so the caller keeps the sequential
-path, whose own missing-lock rules apply.
+expected_beneficiary, escrow_addr, settlement_authority}} for every
+ESCROW_RELEASE/ESCROW_REFUND in the batch. A missing lock returns None so the
+caller keeps the sequential path, whose own missing-lock rules apply.
 """
 
 import json
 
-from aitbc_chain.base_models import Block, Transaction
+from aitbc_chain.base_models import Block, ChainParameter, Transaction
+from aitbc_chain.config import settings
 from aitbc_chain.state.pure_state_transition import _escrow_address
 from aitbc_chain.state.state_transition import build_escrow_context
 
@@ -92,3 +93,51 @@ def test_conflicting_release_and_refund_returns_none(session):
         {"type": "ESCROW_REFUND", "payload": {"job_id": "job-c"}},
     ]
     assert build_escrow_context(session, CHAIN, batch) is None
+
+
+def test_context_carries_env_settlement_authority(session, monkeypatch):
+    """The resolved authority rides the context so the pure path needs no DB."""
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "ait1authority")
+    monkeypatch.delenv("ESCROW_RELEASE_ADDRESS", raising=False)
+    _seed_v3_lock(session, "job-auth")
+    release = {
+        "from": "ait1buyer",
+        "to": "ait1provider",
+        "type": "ESCROW_RELEASE",
+        "payload": {"job_id": "job-auth"},
+    }
+    ctx = build_escrow_context(session, CHAIN, [release])
+    assert ctx is not None
+    assert ctx["job-auth"]["settlement_authority"] == "ait1authority"
+
+
+def test_context_prefers_onchain_settlement_authority(session, monkeypatch):
+    """The chain parameter wins over the env value — identical on every node."""
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "ait1env")
+    session.add(ChainParameter(chain_id=CHAIN, parameter="escrow_settlement_authority", value="ait1onchain"))
+    session.commit()
+    _seed_v3_lock(session, "job-oc")
+    release = {
+        "from": "ait1buyer",
+        "to": "ait1provider",
+        "type": "ESCROW_RELEASE",
+        "payload": {"job_id": "job-oc"},
+    }
+    ctx = build_escrow_context(session, CHAIN, [release])
+    assert ctx is not None
+    assert ctx["job-oc"]["settlement_authority"] == "ait1onchain"
+
+
+def test_context_authority_none_when_unconfigured(session, monkeypatch):
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
+    monkeypatch.delenv("ESCROW_RELEASE_ADDRESS", raising=False)
+    _seed_v3_lock(session, "job-none")
+    release = {
+        "from": "ait1buyer",
+        "to": "ait1provider",
+        "type": "ESCROW_RELEASE",
+        "payload": {"job_id": "job-none"},
+    }
+    ctx = build_escrow_context(session, CHAIN, [release])
+    assert ctx is not None
+    assert ctx["job-none"]["settlement_authority"] is None

@@ -155,12 +155,37 @@ def _is_valid_0x_address(address: str) -> bool:
     return normalized.startswith("0x") and len(normalized) == 42
 
 
-def _escrow_settlement_authority() -> str | None:
-    """Return the canonical settlement authority for v3 escrow releases/refunds."""
-    addr = settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")
-    if not addr:
-        return None
-    return canonical_address(addr)
+def _escrow_settlement_authority(session: Session, chain_id: str) -> str | None:
+    """Return the canonical settlement authority for v3+ escrow releases/refunds.
+
+    The on-chain ``escrow_settlement_authority`` chain parameter wins: it is
+    applied identically on every node, so the gate is deterministic — the
+    per-node env value drifting is the same silent-divergence class as the
+    1-2 Sep slashes skipped on node0. ``settings.escrow_settlement_authority``
+    / ``ESCROW_RELEASE_ADDRESS`` remain the fallback for chains that never set
+    the parameter; a disagreement between the two is logged. Returns None when
+    nothing is configured — the caller decides whether that fails open (pre-v5
+    replay compat) or closed (v5+).
+    """
+    onchain = session.exec(
+        select(ChainParameter).where(
+            ChainParameter.chain_id == chain_id,
+            ChainParameter.parameter == "escrow_settlement_authority",
+        )
+    ).first()
+    env_addr = (settings.escrow_settlement_authority or os.getenv("ESCROW_RELEASE_ADDRESS", "")).strip()
+    if onchain and onchain.value.strip():
+        addr = canonical_address(onchain.value.strip())
+        if env_addr and canonical_address(env_addr) != addr:
+            logger.warning(
+                "escrow settlement authority env value %s disagrees with on-chain escrow_settlement_authority=%s; using the on-chain value",
+                env_addr,
+                addr,
+            )
+        return addr
+    if env_addr:
+        return canonical_address(env_addr)
+    return None
 
 
 def _get_escrow_lock(session: Session, chain_id: str, job_id: str) -> Transaction | None:
@@ -202,7 +227,10 @@ def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[st
     The pure/parallel ``compute_state_delta`` cannot touch the DB, so callers
     that want parallel validation of v3 blocks must supply this map:
     ``{job_id: {"lock_version": int|None, "expected_beneficiary": str|None,
-    "escrow_addr": str}}``.
+    "escrow_addr": str, "settlement_authority": str|None}}``.
+    ``settlement_authority`` is chain-level (on-chain parameter, env fallback)
+    rather than per-job, but every entry carries the resolved value so the pure
+    path never needs a session.
 
     Returns ``None`` when any release/refund references a job_id with no
     on-chain lock — the sequential path applies its own missing-lock rules, so
@@ -210,6 +238,10 @@ def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[st
     Batches with no release/refund txs return ``{}`` (cheap no-op).
     """
     context: dict[str, dict[str, Any]] = {}
+    # The authority is chain-level, not per-job — resolve it lazily on the
+    # first release/refund so batches without one never pay for the query.
+    authority: str | None = None
+    authority_resolved = False
     for tx_data in tx_datas:
         tx_type = _tx_type(tx_data)
         if tx_type not in ("ESCROW_RELEASE", "ESCROW_REFUND"):
@@ -231,11 +263,17 @@ def build_escrow_context(session: Session, chain_id: str, tx_datas: list[dict[st
         lock_tx = _get_escrow_lock(session, chain_id, job_id) if job_id else None
         if lock_tx is None:
             return None
+        if not authority_resolved:
+            authority = _escrow_settlement_authority(session, chain_id)
+            authority_resolved = True
         context[job_id] = {
             "tx_type": tx_type,
             "lock_version": _get_escrow_lock_block_version(session, chain_id, job_id),
             "expected_beneficiary": _escrow_beneficiary(lock_tx, tx_type),
             "escrow_addr": _escrow_address(job_id),
+            # The pure path has no DB access — every entry carries the
+            # resolved chain-level value.
+            "settlement_authority": authority,
         }
     return context
 
@@ -259,7 +297,10 @@ def _tx_type(tx_data: dict[str, Any], tx_record: Transaction | None = None) -> s
         payload = tx_data.get("payload", {})
         if isinstance(payload, dict):
             tx_type = payload.get("type", "TRANSFER")
-    return (tx_type or "TRANSFER").upper()
+    # str() coercion: a non-string type (e.g. payload.type=123) must not raise —
+    # the pure path resolves the same shape via str().upper(), and an
+    # AttributeError here is a proposer-stalling crash, not a rejection.
+    return str(tx_type or "TRANSFER").upper()
 
 
 def get_block_version(block_data_or_block: dict[str, Any] | object, height: int = 0) -> int:
@@ -283,6 +324,9 @@ def get_block_version(block_data_or_block: dict[str, Any] | object, height: int 
                 return int(version)
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
+    v5_threshold = getattr(settings, "state_transition_v5_height", 0)
+    if v5_threshold > 0 and height >= v5_threshold:
+        return 5
     v4_threshold = getattr(settings, "state_transition_v4_height", 0)
     if v4_threshold > 0 and height >= v4_threshold:
         return 4
@@ -302,6 +346,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v5_threshold = getattr(settings, "state_transition_v5_height", 0)
+    if v5_threshold > 0 and height >= v5_threshold:
+        return 5
     v4_threshold = getattr(settings, "state_transition_v4_height", 0)
     if v4_threshold > 0 and height >= v4_threshold:
         return 4
@@ -635,6 +682,18 @@ class StateTransition:
             # nonce. The state update is applied off-chain by the RPC call that
             # created the transaction; the block just anchors the record.  Replay is
             # prevented by the persistent tx hash check above.
+            if block_version >= 5:
+                # Only the bridge's own pseudo-sender shape is legitimate: public
+                # intake refuses these types, so a block carrying any other sender
+                # is a forged credit. (A Byzantine proposer can still mint — the
+                # pseudo-sender carries no key; the gate fails closed on wrong
+                # shapes so leaked or hand-injected copies cannot apply.)
+                expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
+                if sender_addr != expected_sender:
+                    return (
+                        False,
+                        f"{tx_type} must carry the internal pseudo-sender {expected_sender}, got {sender_addr}",
+                    )
             return (True, "Pre-registered credit transaction validated")
         if tx_type == "BRIDGE_LOCK":
             # Pre-registered bridge lock: the sender was already debited when the
@@ -682,7 +741,19 @@ class StateTransition:
             return (False, f"Invalid nonce for {sender_addr}: expected {expected_nonce}, got {tx_nonce}")
         if tx_type == "GOVERNANCE_EXECUTE":
             executors = _governance_executors(session, chain_id)
-            if executors is not None and sender_addr not in executors:
+            if executors is None:
+                # v5 fails closed: apply writes the parameter_change without
+                # verifying the proposal passed, so an unset allowlist lets any
+                # funded sender rewrite chain parameters — including this list,
+                # bond_slash_authority and escrow_settlement_authority. Below v5
+                # the lenient rule stays: sealed history contains executes mined
+                # before the parameter existed.
+                if block_version >= 5:
+                    return (
+                        False,
+                        "GOVERNANCE_EXECUTE rejected: governance_executors chain parameter is not set",
+                    )
+            elif sender_addr not in executors:
                 return (
                     False,
                     f"GOVERNANCE_EXECUTE sender {sender_addr} is not an authorized executor",
@@ -732,8 +803,19 @@ class StateTransition:
             if expected_beneficiary and _to_ait_address(recipient_addr) != expected_beneficiary:
                 return (False, f"{tx_type} for {job_id} must pay {expected_beneficiary}, got {recipient_addr}")
             if block_version >= 3:
-                authority = _escrow_settlement_authority()
-                if authority and _to_ait_address(sender_addr) != authority:
+                authority = _escrow_settlement_authority(session, chain_id)
+                if authority is None:
+                    # v5 fails closed: with no authority configured any funded
+                    # signer may trigger the release/refund — paying the locked
+                    # beneficiary early (e.g. a provider paying itself before
+                    # doing the work). Below v5 the lenient rule stays so
+                    # sealed history mined without an authority still replays.
+                    if block_version >= 5:
+                        return (
+                            False,
+                            f"{tx_type} requires a settlement authority: set the escrow_settlement_authority chain parameter",
+                        )
+                elif _to_ait_address(sender_addr) != authority:
                     return (False, f"{tx_type} must be signed by settlement authority {authority}, got {sender_addr}")
             if lock_version >= 3:
                 # Funds are in the per-escrow address.

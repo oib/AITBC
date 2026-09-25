@@ -19,7 +19,7 @@ from sqlmodel import Session
 
 from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
-from aitbc_chain.base_models import Block, Transaction
+from aitbc_chain.base_models import Block, ChainParameter, Transaction
 from aitbc_chain.state.state_transition import (
     StateTransition,
     _escrow_address,
@@ -297,6 +297,81 @@ def test_v3_release_enforces_settlement_authority(engine):
             assert "settlement authority" in result[1]
         finally:
             settings.escrow_settlement_authority = previous_authority
+
+
+def test_v5_release_rejected_without_authority(engine, monkeypatch):
+    """v5 fails closed: no chain parameter and no env authority → rejected."""
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "")
+    monkeypatch.delenv("ESCROW_RELEASE_ADDRESS", raising=False)
+    st = StateTransition()
+    job_id = "job-s4-v5-noauth"
+
+    with Session(engine) as session:
+        lock_tx = _make_escrow_lock(job_id, "buyer1", "node_wallet", 500)
+        st.apply_transaction(session, "test", lock_tx, "tx-s4-v5na-lock", block_version=3)
+        _record_lock(session, "test", lock_tx, "tx-s4-v5na-lock", 3)
+        session.commit()
+
+        release_tx = _make_escrow_release(job_id, "node_wallet", "provider1", 500)
+        result = st.apply_transaction(session, "test", release_tx, "tx-s4-v5na-rel", block_version=5)
+        assert result[0] is False
+        assert "settlement authority" in result[1]
+
+
+def test_v5_release_accepted_with_env_authority(engine, monkeypatch):
+    """v5: the env fallback still authorises when no chain parameter exists."""
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "node_wallet")
+    st = StateTransition()
+    job_id = "job-s4-v5-envauth"
+
+    with Session(engine) as session:
+        lock_tx = _make_escrow_lock(job_id, "buyer1", "node_wallet", 500)
+        st.apply_transaction(session, "test", lock_tx, "tx-s4-v5ea-lock", block_version=3)
+        _record_lock(session, "test", lock_tx, "tx-s4-v5ea-lock", 3)
+        session.commit()
+
+        release_tx = _make_escrow_release(job_id, "node_wallet", "provider1", 500)
+        result = st.apply_transaction(session, "test", release_tx, "tx-s4-v5ea-rel", block_version=5)
+        assert result[0] is True, result[1]
+
+
+def test_v5_release_rejects_wrong_authority(engine, monkeypatch):
+    """v5: a configured authority still rejects other senders."""
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "someone_else")
+    st = StateTransition()
+    job_id = "job-s4-v5-wrongauth"
+
+    with Session(engine) as session:
+        lock_tx = _make_escrow_lock(job_id, "buyer1", "node_wallet", 500)
+        st.apply_transaction(session, "test", lock_tx, "tx-s4-v5wa-lock", block_version=3)
+        _record_lock(session, "test", lock_tx, "tx-s4-v5wa-lock", 3)
+        session.commit()
+
+        release_tx = _make_escrow_release(job_id, "node_wallet", "provider1", 500)
+        result = st.apply_transaction(session, "test", release_tx, "tx-s4-v5wa-rel", block_version=5)
+        assert result[0] is False
+        assert "settlement authority" in result[1]
+
+
+def test_onchain_authority_overrides_env(engine, monkeypatch):
+    """The escrow_settlement_authority chain parameter beats the env value —
+    per-node env drift cannot fork the gate."""
+    monkeypatch.setattr(settings, "escrow_settlement_authority", "someone_else")
+    st = StateTransition()
+    job_id = "job-s4-onchain-auth"
+
+    with Session(engine) as session:
+        session.add(ChainParameter(chain_id="test", parameter="escrow_settlement_authority", value="node_wallet"))
+        lock_tx = _make_escrow_lock(job_id, "buyer1", "node_wallet", 500)
+        st.apply_transaction(session, "test", lock_tx, "tx-s4-oca-lock", block_version=3)
+        _record_lock(session, "test", lock_tx, "tx-s4-oca-lock", 3)
+        session.commit()
+
+        # Env names someone_else; the on-chain parameter names node_wallet,
+        # so a node_wallet-signed release must pass even at v3.
+        release_tx = _make_escrow_release(job_id, "node_wallet", "provider1", 500)
+        result = st.apply_transaction(session, "test", release_tx, "tx-s4-oca-rel", block_version=3)
+        assert result[0] is True, result[1]
 
 
 def test_v2_lock_can_be_released_after_v3_activation(engine):
