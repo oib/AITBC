@@ -65,11 +65,53 @@ def bridge_credit_message(tx_data: dict[str, Any], tx_hash: str = "") -> dict[st
         "proof": _field("proof"),
         "recipient": tx_data.get("to") or payload.get("recipient"),
         "amount": _field("amount"),
+        "lock_tx_hash": _field("lock_tx_hash"),
         "credited_value": tx_data.get("value", tx_data.get("amount")),
         "fee": tx_data.get("fee", 0),
         "nonce": tx_data.get("nonce"),
         "bound_tx_hash": tx_hash or tx_data.get("tx_hash") or "",
     }
+
+
+def bridge_refund_lock_hash(tx_data: dict[str, Any]) -> str:
+    """The sealed ``BRIDGE_LOCK`` hash a ``BRIDGE_REFUND`` claims to repay.
+
+    Issuers store it inside ``payload`` (row shape); flat mempool dicts may
+    carry it at top level. Empty string when absent — the v6 gate fails closed
+    on that.
+    """
+    return str(_payload_dict(tx_data).get("lock_tx_hash") or tx_data.get("lock_tx_hash") or "").strip()
+
+
+def validate_bridge_refund_lock(lock: dict[str, Any] | None, tx_data: dict[str, Any]) -> str | None:
+    """Check a ``BRIDGE_REFUND`` against the lock it names (v6).
+
+    ``lock`` is a resolved record ``{exists, sender, amount, refunded}`` — the
+    sequential path builds it from the ``Transaction`` row, the pure path
+    receives it via ``bridge_lock_context`` so neither needs DB access in the
+    predicate itself. Returns ``None`` when the binding holds, else a reason
+    string for the rejection.
+    """
+    if lock is None or not lock.get("exists"):
+        return "BRIDGE_REFUND payload.lock_tx_hash does not name a sealed BRIDGE_LOCK on this chain"
+    if lock.get("refunded"):
+        return "BRIDGE_REFUND names a BRIDGE_LOCK that was already refunded"
+    payload = _payload_dict(tx_data)
+    recipient = tx_data.get("to") or payload.get("recipient") or ""
+    amount = payload.get("amount", tx_data.get("amount", tx_data.get("value")))
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    try:
+        if canonical_address(str(lock.get("sender") or "")) != canonical_address(str(recipient)):
+            return "BRIDGE_REFUND recipient does not match the BRIDGE_LOCK sender"
+    except Exception:
+        return "BRIDGE_REFUND recipient does not match the BRIDGE_LOCK sender"
+    try:
+        if int(lock.get("amount")) != int(amount):
+            return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
+    except (TypeError, ValueError):
+        return "BRIDGE_REFUND amount does not match the BRIDGE_LOCK value"
+    return None
 
 
 def bridge_credit_signature(tx_data: dict[str, Any]) -> str:
