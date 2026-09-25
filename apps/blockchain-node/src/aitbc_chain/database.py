@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 import os
 from collections.abc import Generator
 from contextlib import contextmanager
@@ -417,17 +418,49 @@ def _warn_unset_authority_parameters(session: Session, chain_id: str) -> None:
 
 
 def _backfill_param_heights(session: Session, chain_id: str) -> None:
-    """Fill ``applied_height`` on chain_parameter rows set before height tracking.
+    """Rebuild ``chain_parameter_history`` and ``applied_height`` from sealed history.
 
-    The height a parameter took effect is derivable from chain history: the
-    executing GOVERNANCE_EXECUTE is a sealed transaction, reachable from the
-    proposal's ``execution_tx_hash``. Every node replaying the same history
-    derives the same heights, so this is safe to write locally — unlike the
-    parameter values themselves, which must only ever come from consensus.
-    Rows without a resolvable proposal (e.g. operator-seeded dormant chains)
-    keep NULL, which resolvers treat as "set at an unknown height" — the
-    pre-tracking status quo.
+    Every parameter change is a sealed GOVERNANCE_EXECUTE whose payload carries
+    ``execution_payload.parameter_change`` — the full version list is already
+    in chain history, so rebuilding it locally is consensus-safe (unlike the
+    parameter values, which must only ever come from replay/upserts). Rows
+    without a resolvable change (e.g. operator-seeded dormant chains) keep
+    NULL ``applied_height``, which resolvers treat as "set at an unknown
+    height" — the pre-tracking status quo.
     """
+    executes = session.exec(
+        select(Transaction)
+        .where(
+            Transaction.chain_id == chain_id,
+            Transaction.type == "GOVERNANCE_EXECUTE",
+            Transaction.block_height.isnot(None),  # type: ignore[union-attr]
+        )
+        .order_by(Transaction.block_height)
+    ).all()
+    latest: dict[str, tuple[int, str]] = {}
+    for tx in executes:
+        payload = tx.payload or {}
+        if isinstance(payload, str):
+            try:
+                payload = json.loads(payload)
+            except Exception:
+                continue
+        execution_payload = payload.get("execution_payload", {}) or {}
+        if execution_payload.get("action", "parameter_change") != "parameter_change":
+            continue
+        parameter = execution_payload.get("parameter")
+        if not parameter or tx.block_height is None:
+            continue
+        value = str(execution_payload.get("value"))
+        record_chain_parameter_history(
+            session, chain_id, parameter, value, payload.get("proposal_id"), tx.block_height
+        )
+        latest[parameter] = (tx.block_height, value)
+
+    # autoflush is off on these sessions — flush so the dedupe check in
+    # record_chain_parameter_history sees the rows just added above.
+    session.flush()
+    changed = False
     rows = session.exec(
         select(ChainParameter).where(
             ChainParameter.chain_id == chain_id,
@@ -436,7 +469,12 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
     ).all()
     for row in rows:
         height: int | None = None
-        if row.proposal_id:
+        if row.parameter in latest:
+            height = latest[row.parameter][0]
+        elif row.proposal_id:
+            # No recorded parameter_change — fall back to the proposal's
+            # execution tx height (e.g. a row whose execute predates the
+            # execution_payload shape).
             proposal = session.exec(
                 select(GovernanceProposal).where(
                     GovernanceProposal.chain_id == chain_id,
@@ -458,13 +496,14 @@ def _backfill_param_heights(session: Session, chain_id: str) -> None:
         row.applied_height = height
         session.add(row)
         record_chain_parameter_history(session, chain_id, row.parameter, row.value, row.proposal_id, height)
+        changed = True
         logger.info(
             "Backfilled applied_height=%s for chain parameter %s on %s",
             height,
             row.parameter,
             chain_id,
         )
-    if rows:
+    if changed or executes:
         session.commit()
 
 
