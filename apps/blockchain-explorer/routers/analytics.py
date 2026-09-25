@@ -1,5 +1,6 @@
 """Analytics routes — activity timeline, network stats, top addresses, provider reputation, overview."""
 
+import hashlib
 import json
 from datetime import UTC, datetime
 from pathlib import Path
@@ -24,6 +25,12 @@ def _chain_db_path() -> Path | None:
     if not chain_db_path.exists():
         chain_db_path = Path("/var/lib/aitbc/data/chain.db")
     return chain_db_path if chain_db_path.exists() else None
+
+
+def _activity_type_color(tx_type: str) -> str:
+    """Stable distinct color for transaction types missing from the curated map."""
+    hue = int(hashlib.sha256(tx_type.encode()).hexdigest()[:8], 16) % 360
+    return f"hsl({hue}, 65%, 55%)"
 
 
 @router.get("/api/analytics/activity")
@@ -65,10 +72,24 @@ async def api_activity_timeline(
 
         labels = sorted(data.keys())
         type_colors = {
-            "TRANSFER": "#10b981",
-            "GPU_MARKET": "#3b82f6",
+            "BRIDGE_LOCK": "#22d3ee",
+            "BRIDGE_RELEASE": "#06b6d4",
+            "BRIDGE_REFUND": "#0891b2",
+            "ESCROW_LOCK": "#c4b5fd",
+            "ESCROW_REFUND": "#7c3aed",
             "ESCROW_RELEASE": "#8b5cf6",
+            "EXCHANGE": "#84cc16",
+            "GOVERNANCE_EXECUTE": "#d97706",
+            "GOVERNANCE_PROPOSE": "#fbbf24",
+            "GOVERNANCE_VOTE": "#f59e0b",
+            "GPU_ALLOCATE": "#6366f1",
+            "GPU_MARKET": "#3b82f6",
+            "GPU_MARKETPLACE": "#60a5fa",
             "GPU_REGISTER": "#ef4444",
+            "IPFS_SUBSCRIPTION": "#14b8a6",
+            "STAKE_LOCK": "#fb7185",
+            "STAKE_RELEASE": "#f43f5e",
+            "TRANSFER": "#10b981",
         }
 
         datasets = []
@@ -77,7 +98,7 @@ async def api_activity_timeline(
                 {
                     "label": tx_type,
                     "data": [data.get(day, {}).get(tx_type, 0) for day in labels],
-                    "backgroundColor": type_colors.get(tx_type, "#6b7280"),
+                    "backgroundColor": type_colors.get(tx_type) or _activity_type_color(tx_type),
                 }
             )
 
