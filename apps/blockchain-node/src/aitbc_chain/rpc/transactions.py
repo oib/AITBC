@@ -269,15 +269,10 @@ async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -
         is_offer = tx_data.get("type") == "GPU_MARKET" and payload.get("action") in OFFER_ACTIONS
         is_hardware_offer = is_offer and payload.get("action") == "offer"
         if is_offer:
-            # GPU/software offers are value-zero listings; they are still traceable to sender
-            # by the public key / address, but requiring a secp256k1 signature here would break
-            # the market CLI which does not manage wallet private keys (V23-90).
             if not sender:
                 raise HTTPException(status_code=400, detail="Sender required")
-            # Enforce the value-zero premise the exemption rests on: consensus has no
-            # GPU_MARKET branch, so an unsigned offer carrying an amount falls
-            # through to the generic transfer and debits `sender` — an address the
-            # caller does not control — with no signature anywhere in the path.
+            # Offers are value-zero listings: consensus has no GPU_MARKET branch,
+            # so a nonzero amount would execute as a plain transfer.
             try:
                 offer_amount = int(tx_data.get("amount", 0) or 0)
             except (TypeError, ValueError):
@@ -295,32 +290,16 @@ async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -
                                 status_code=403,
                                 detail=f"Active bond of at least {min_bond} compute-units required to list",
                             )
-            tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
-            if signature:
-                # A signed offer is verified like any other transaction; the
-                # signature binds every field including the chosen fee.
-                tx_for_verify["signature"] = signature
-                if not verify_transaction_signature(tx_for_verify, signature, sender):
-                    raise HTTPException(status_code=403, detail="Invalid transaction signature")
-            else:
-                # Unsigned listings stay keyless (V23-90), but the exemption
-                # leaves `from` unbound: a caller-chosen fee is a free burn of
-                # the named account's balance and nonce. Cap it at the
-                # standard listing fee — anything more needs a signature.
-                try:
-                    offered_fee = int(tx_for_verify.get("fee", 0) or 0)
-                except (TypeError, ValueError):
-                    offered_fee = DEFAULT_TX_FEE_UNITS
-                tx_for_verify["fee"] = min(offered_fee, DEFAULT_TX_FEE_UNITS)
-        else:
-            if not signature:
-                raise HTTPException(status_code=403, detail="Signature required")
-            if not sender:
-                raise HTTPException(status_code=400, detail="Sender required")
-            tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
-            tx_for_verify["signature"] = signature
-            if not verify_transaction_signature(tx_for_verify, signature, sender):
-                raise HTTPException(status_code=403, detail="Invalid transaction signature")
+        # The V23-90 unsigned-offer exemption is closed: every transaction here
+        # — offer or not — carries a secp256k1 signature verified against `from`.
+        if not signature:
+            raise HTTPException(status_code=403, detail="Signature required")
+        if not sender:
+            raise HTTPException(status_code=400, detail="Sender required")
+        tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
+        tx_for_verify["signature"] = signature
+        if not verify_transaction_signature(tx_for_verify, signature, sender):
+            raise HTTPException(status_code=403, detail="Invalid transaction signature")
 
         # Normalize transaction data
         tx_data_dict = normalize_transaction_data(tx_for_verify, chain_id)
