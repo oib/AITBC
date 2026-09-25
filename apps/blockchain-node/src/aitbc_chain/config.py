@@ -664,6 +664,17 @@ class ChainSettings(BaseSettings):
     # never set it. Below v5 an unset authority disables the check (legacy);
     # from state_transition_v5_height the transition fails closed instead.
     escrow_settlement_authority: str = ""
+    # v5: BRIDGE_RELEASE/BRIDGE_REFUND must carry a secp256k1 signature over
+    # the credit's semantic fields that recovers to this authority. The
+    # on-chain bridge_release_authority chain parameter takes precedence; this
+    # setting (or BRIDGE_RELEASE_AUTHORITY env) is the fallback, then the
+    # escrow settlement authority — the bridge service signs credits with the
+    # same operator settlement key unless told otherwise.
+    bridge_release_authority: str = ""
+    # Optional dedicated key (BRIDGE_RELEASE_PRIVATE_KEY env) used by the
+    # bridge service to sign issued credits. Falls back to
+    # ESCROW_RELEASE_PRIVATE_KEY, which the RPC process already holds.
+    bridge_release_private_key: str = ""
     # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
     multi_validator_attestation_timeout_seconds: float = 1.0
     # v0.18.0: reject unsigned PBFT messages by default; test harnesses must

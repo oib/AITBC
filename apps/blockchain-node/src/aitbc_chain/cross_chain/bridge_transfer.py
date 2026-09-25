@@ -14,6 +14,7 @@ from sqlmodel import select
 from ..config import settings
 from ..logger import get_logger
 from ..models import Account, Block, BridgeBlockHeader, CrossChainTransfer, Transaction
+from ..state.bridge_credit import BRIDGE_SIGNATURE_FIELD, bridge_credit_private_key, sign_bridge_credit
 from .bridge_base import BridgeBase
 from .bridge_types import BridgeStatus, BridgeTransfer
 
@@ -26,6 +27,28 @@ class BridgeTransferMixin(BridgeBase):
     # Protocol base declares the attributes the concrete CrossChainBridge sets.
 
     BRIDGE_FEE_BASIS_POINTS = 10
+
+    def _sign_bridge_credit(self, credit: dict[str, Any], tx_hash: str, payload: dict[str, Any] | None = None) -> None:
+        """Attach the bridge authority signature to an issued credit (in place).
+
+        Pre-registered ``Transaction`` rows keep it inside ``payload`` (the row
+        has no signature column); flat mempool dicts carry it at top level.
+        Consensus verifies it against the ``bridge_release_authority`` chain
+        parameter from v5 — a credit issued with no signing key configured
+        still records, but will be rejected once v5 is active.
+        """
+        key = bridge_credit_private_key()
+        if not key:
+            logger.warning(
+                "bridge credit issued without a signing key (BRIDGE_RELEASE_PRIVATE_KEY/ESCROW_RELEASE_PRIVATE_KEY); "
+                "it will fail v5+ validation"
+            )
+            return
+        signature = sign_bridge_credit(credit, tx_hash, key)
+        if payload is not None:
+            payload[BRIDGE_SIGNATURE_FIELD] = signature
+        else:
+            credit[BRIDGE_SIGNATURE_FIELD] = signature
 
     def initiate_transfer(
         self,
@@ -260,20 +283,38 @@ class BridgeTransferMixin(BridgeBase):
                 release_nonce = 0
             target_tx_hash = hashlib.sha256(f"{transfer_id}:{record.target_chain}:{int(time.time())}".encode()).hexdigest()
             if not block_scoped:
+                release_payload = {
+                    "type": "BRIDGE_RELEASE",
+                    "transfer_id": transfer_id,
+                    "source_chain": record.source_chain,
+                    "source_sender": record.sender,
+                    "target_chain": record.target_chain,
+                    "amount": release_amount,
+                    "asset": record.asset,
+                    "proof": proof_hash,
+                }
+                # v5+ consensus requires the bridge authority signature over
+                # the credit's semantic fields — sign the row-shaped view the
+                # proposer sweep will rebuild (value=0: the credit already
+                # happened above; the row anchors the record).
+                self._sign_bridge_credit(
+                    {
+                        "type": "BRIDGE_RELEASE",
+                        "to": record.recipient,
+                        "value": 0,
+                        "fee": 0,
+                        "nonce": release_nonce,
+                        "payload": release_payload,
+                    },
+                    target_tx_hash,
+                    payload=release_payload,
+                )
                 release_tx = Transaction(
                     chain_id=record.target_chain,
                     tx_hash=target_tx_hash,
                     sender="bridge_release",
                     recipient=record.recipient,
-                    payload={
-                        "type": "BRIDGE_RELEASE",
-                        "transfer_id": transfer_id,
-                        "source_chain": record.source_chain,
-                        "source_sender": record.sender,
-                        "amount": release_amount,
-                        "asset": record.asset,
-                        "proof": proof_hash,
-                    },
+                    payload=release_payload,
                     value=0,
                     fee=0,
                     nonce=release_nonce,
@@ -287,21 +328,24 @@ class BridgeTransferMixin(BridgeBase):
                 from ..mempool import get_mempool
 
                 mempool = get_mempool()
+                credit_dict = {
+                    "from": "bridge_release",
+                    "to": record.recipient,
+                    "amount": release_amount,
+                    "fee": 0,
+                    "type": "BRIDGE_RELEASE",
+                    "transfer_id": transfer_id,
+                    "source_chain": record.source_chain,
+                    "source_sender": record.sender,
+                    "target_chain": record.target_chain,
+                    "asset": record.asset,
+                    "proof": proof_hash,
+                    "nonce": release_nonce,
+                    "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
+                }
+                self._sign_bridge_credit(credit_dict, target_tx_hash)
                 mempool.add(
-                    {
-                        "from": "bridge_release",
-                        "to": record.recipient,
-                        "amount": release_amount,
-                        "fee": 0,
-                        "type": "BRIDGE_RELEASE",
-                        "transfer_id": transfer_id,
-                        "source_chain": record.source_chain,
-                        "source_sender": record.sender,
-                        "asset": record.asset,
-                        "proof": proof_hash,
-                        "nonce": release_nonce,
-                        "timestamp": (record.confirm_time or datetime.now(UTC)).isoformat(),
-                    },
+                    credit_dict,
                     chain_id=record.target_chain,
                     tx_hash=target_tx_hash,
                 )
@@ -409,19 +453,37 @@ class BridgeTransferMixin(BridgeBase):
                 f"{transfer_id}:refund:{record.source_chain}:{int(time.time())}".encode()
             ).hexdigest()
             if not block_scoped:
+                refund_payload = {
+                    "type": "BRIDGE_REFUND",
+                    "transfer_id": transfer_id,
+                    "source_chain": record.source_chain,
+                    "target_chain": record.target_chain,
+                    "amount": record.amount,
+                    "asset": record.asset,
+                }
+                # v5+ consensus requires the bridge authority signature; and
+                # like the release row, value=0 — the sender was already
+                # credited above, the sealed row only anchors the record
+                # (a nonzero value would double-credit at apply).
+                self._sign_bridge_credit(
+                    {
+                        "type": "BRIDGE_REFUND",
+                        "to": record.sender,
+                        "value": 0,
+                        "fee": 0,
+                        "nonce": refund_nonce,
+                        "payload": refund_payload,
+                    },
+                    refund_tx_hash,
+                    payload=refund_payload,
+                )
                 refund_tx = Transaction(
                     chain_id=record.source_chain,
                     tx_hash=refund_tx_hash,
                     sender="bridge_refund",
                     recipient=record.sender,
-                    payload={
-                        "type": "BRIDGE_REFUND",
-                        "transfer_id": transfer_id,
-                        "target_chain": record.target_chain,
-                        "amount": record.amount,
-                        "asset": record.asset,
-                    },
-                    value=record.amount,
+                    payload=refund_payload,
+                    value=0,
                     fee=0,
                     nonce=refund_nonce,
                     timestamp=datetime.now(UTC),
@@ -434,19 +496,22 @@ class BridgeTransferMixin(BridgeBase):
                 from ..mempool import get_mempool
 
                 mempool = get_mempool()
+                credit_dict = {
+                    "from": "bridge_refund",
+                    "to": record.sender,
+                    "amount": record.amount,
+                    "fee": 0,
+                    "type": "BRIDGE_REFUND",
+                    "transfer_id": transfer_id,
+                    "target_chain": record.target_chain,
+                    "source_chain": record.source_chain,
+                    "asset": record.asset,
+                    "nonce": refund_nonce,
+                    "timestamp": datetime.now(UTC),
+                }
+                self._sign_bridge_credit(credit_dict, refund_tx_hash)
                 mempool.add(
-                    {
-                        "from": "bridge_refund",
-                        "to": record.sender,
-                        "amount": record.amount,
-                        "fee": 0,
-                        "type": "BRIDGE_REFUND",
-                        "transfer_id": transfer_id,
-                        "target_chain": record.target_chain,
-                        "asset": record.asset,
-                        "nonce": refund_nonce,
-                        "timestamp": datetime.now(UTC),
-                    },
+                    credit_dict,
                     chain_id=record.source_chain,
                     tx_hash=refund_tx_hash,
                 )
