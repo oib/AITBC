@@ -216,6 +216,10 @@ def decrypt_private_key(encrypted_key: str, password: str) -> str:
 
         if combined.startswith(_KEYSTORE_V2_MARKER):
             iterations = int.from_bytes(combined[5:9], "big")
+            # The count is attacker-controlled data inside the blob — a
+            # tampered file claiming billions of rounds would hang the KDF.
+            if not 10_000 <= iterations <= 10_000_000:
+                raise ValueError(f"implausible PBKDF2 iteration count: {iterations}")
             salt = combined[9:25]
             encrypted_data = combined[25:]
         else:
