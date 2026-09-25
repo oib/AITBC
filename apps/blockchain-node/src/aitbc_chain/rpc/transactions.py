@@ -296,6 +296,22 @@ async def submit_market_transaction(request: Request, tx_data: dict[str, Any]) -
                                 detail=f"Active bond of at least {min_bond} compute-units required to list",
                             )
             tx_for_verify = {k: v for k, v in tx_data.items() if k not in ("signature", "sig")}
+            if signature:
+                # A signed offer is verified like any other transaction; the
+                # signature binds every field including the chosen fee.
+                tx_for_verify["signature"] = signature
+                if not verify_transaction_signature(tx_for_verify, signature, sender):
+                    raise HTTPException(status_code=403, detail="Invalid transaction signature")
+            else:
+                # Unsigned listings stay keyless (V23-90), but the exemption
+                # leaves `from` unbound: a caller-chosen fee is a free burn of
+                # the named account's balance and nonce. Cap it at the
+                # standard listing fee — anything more needs a signature.
+                try:
+                    offered_fee = int(tx_for_verify.get("fee", 0) or 0)
+                except (TypeError, ValueError):
+                    offered_fee = DEFAULT_TX_FEE_UNITS
+                tx_for_verify["fee"] = min(offered_fee, DEFAULT_TX_FEE_UNITS)
         else:
             if not signature:
                 raise HTTPException(status_code=403, detail="Signature required")
