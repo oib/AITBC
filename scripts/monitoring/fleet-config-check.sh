@@ -27,6 +27,13 @@ set -euo pipefail
 # below, so leaving them unset costs nothing wherever the names resolve.
 HUB1_HOST="${AITBC_HUB1_HOST:-}"
 
+# Deliberate per-unit overrides, as "unit:VAR" pairs. The shadow check below
+# flags any variable whose value differs across a unit's EnvironmentFiles —
+# but an *-override.env file exists precisely to differ, so those pairs are
+# informational rather than failures. Keep this list short and commented.
+# (hub's aitbc-blockchain-rpc-override.env stops the RPC service producing.)
+SHADOW_CONFLICT_ALLOW="${SHADOW_CONFLICT_ALLOW:-aitbc-blockchain-rpc:ENABLE_BLOCK_PRODUCTION aitbc-blockchain-rpc:BLOCK_PRODUCTION_CHAINS}"
+
 # The domain the fleet publishes under. It was hardcoded here, which named the
 # operator in a public repo and made the check point at their hosts from anyone
 # else's machine.
@@ -197,12 +204,19 @@ for h in $HOSTS; do
                 END { if (n>1) print U, prev, (nh>1 ? \"CONFLICT\" : \"redundant\"), flist }"
         done' 2>/dev/null || echo "UNREACHABLE")
     if [ -n "$out" ] && [ "$out" != "UNREACHABLE" ]; then
-        if echo "$out" | grep -q " CONFLICT"; then
-            shadowed=1
-        fi
+        real_conflicts=$(echo "$out" | while read -r unit name kind files; do
+            [ "$kind" = "CONFLICT" ] || continue
+            case " $SHADOW_CONFLICT_ALLOW " in *" $unit:$name "*) continue ;; esac
+            echo x
+        done)
+        [ -n "$real_conflicts" ] && shadowed=1
         echo "$out" | while read -r unit name kind files; do
             case "$kind" in
-                CONFLICT)  printf "  %-14s %s: %s CONFLICTING values across:%s\n" "$h" "$unit" "$name" "$files" ;;
+                CONFLICT)
+                    case " $SHADOW_CONFLICT_ALLOW " in
+                        *" $unit:$name "*) printf "  %-14s %s: %s (deliberate override, allowlisted) in:%s\n" "$h" "$unit" "$name" "$files" ;;
+                        *) printf "  %-14s %s: %s CONFLICTING values across:%s\n" "$h" "$unit" "$name" "$files" ;;
+                    esac ;;
                 redundant) printf "  %-14s %s: %s (same value) in:%s\n" "$h" "$unit" "$name" "$files" ;;
             esac
         done | awk -v host="$h" '{ if ($0 ~ /CONFLICTING/) conflicts[++c]=$0; else redundant++ }
