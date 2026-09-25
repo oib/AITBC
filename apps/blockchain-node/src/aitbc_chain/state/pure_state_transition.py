@@ -26,6 +26,7 @@ from sqlalchemy import func, text
 from ..base_models import Block, IPFSSubscription, _to_ait_address
 from ..config import settings
 from ..models import Account, Receipt
+from .bridge_credit import bridge_release_authority_env, verify_bridge_credit_signature
 
 
 def _escrow_address(job_id: str) -> str:
@@ -290,6 +291,7 @@ def compute_state_delta(
     existing_tx_hashes: set[str] | None = None,
     block_version: int = 2,
     escrow_context: dict[str, dict[str, Any]] | None = None,
+    bridge_authority: str | None = None,
 ) -> StateDelta:
     """Compute the state delta for a transaction WITHOUT modifying the DB.
 
@@ -306,6 +308,12 @@ def compute_state_delta(
         escrow_context: Per-job lock metadata needed for ESCROW_RELEASE/ESCROW_REFUND
             (lock_version, expected_beneficiary, escrow_addr). Callers must supply
             this when enabling parallel processing for blocks containing those tx types.
+        bridge_authority: Resolved bridge release authority for v5+ credit
+            signature checks. Callers with DB access must pass
+            ``state_transition._bridge_release_authority(session, chain_id)``
+            when a block contains BRIDGE_RELEASE/BRIDGE_REFUND — ``None`` falls
+            back to env-only resolution (the same chain the sequential resolver
+            uses after its on-chain parameter lookup).
 
     Returns:
         StateDelta with balance/nonce changes, or success=False with error.
@@ -445,6 +453,36 @@ def compute_state_delta(
                     tx_type=tx_type,
                     tx_hash=tx_hash,
                 )
+            # The pseudo-sender is a name, not a key: the credit must also be
+            # signed by the bridge release authority. Mirrors
+            # validate_transaction — the caller resolves the on-chain
+            # parameter; None falls back to the same env chain the sequential
+            # resolver uses after its parameter lookup.
+            authority = bridge_authority if bridge_authority is not None else bridge_release_authority_env()
+            if not authority:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error=f"{tx_type} requires a bridge release authority: set the bridge_release_authority chain parameter",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+            if not verify_bridge_credit_signature(tx_data, tx_hash, authority):
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error=f"{tx_type} must carry a valid bridge_signature from the bridge release authority",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
         return StateDelta(
             sender=sender,
             recipient=recipient,
@@ -503,7 +541,7 @@ def compute_state_delta(
 
     # Value-zero types: MESSAGE and GPU_MARKET must not move funds.
     # GPU_MARKET has no dedicated apply branch, so a nonzero value would
-    # execute as a plain transfer — including via the unsigned offer path.
+    # execute as a plain transfer.
     if tx_type in {"MESSAGE", "GPU_MARKET"} and value != 0:
         return StateDelta(
             sender=sender,
