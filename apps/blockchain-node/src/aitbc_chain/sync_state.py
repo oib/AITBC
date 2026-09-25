@@ -11,7 +11,7 @@ from sqlmodel import select
 from aitbc.sync import apply_state_diff, decode_state_diff
 
 from .aux_state import upsert_aux_rows
-from .base_models import Account, Block, ChainParameter, _to_ait_address
+from .base_models import Account, Block, ChainParameter, _to_ait_address, record_chain_parameter_history
 from .config import settings
 from .logger import get_logger
 from .state import state_root_utils
@@ -21,7 +21,12 @@ from .sync_divergence import report_divergence
 logger = get_logger(__name__)
 
 
-def _upsert_chain_parameters(session: Any, chain_id: str, parameters: list[dict[str, Any]]) -> int:
+def _upsert_chain_parameters(
+    session: Any,
+    chain_id: str,
+    parameters: list[dict[str, Any]],
+    parameter_history: list[dict[str, Any]] | None = None,
+) -> int:
     """Upsert ``chain_parameter`` rows shipped by the peer's sync response.
 
     Chain parameters are consensus state (``governance_executors``,
@@ -29,12 +34,17 @@ def _upsert_chain_parameters(session: Any, chain_id: str, parameters: list[dict[
     neither the snapshot nor the diff carries them implicitly. Without this
     the executor gate is enforced only on the node that served the execute
     call — a silent divergence.
+
+    ``applied_height`` rides along on each row so height-scoped lookups keep
+    working on the follower; ``parameter_history`` ships the full version
+    list so a superseded value stays resolvable for replayed blocks.
     """
     applied = 0
     for p in parameters:
         name = p.get("parameter")
         if not name:
             continue
+        height = p.get("applied_height")
         existing = session.exec(
             select(ChainParameter).where(
                 ChainParameter.chain_id == chain_id,
@@ -44,6 +54,8 @@ def _upsert_chain_parameters(session: Any, chain_id: str, parameters: list[dict[
         if existing:
             existing.value = str(p.get("value", ""))
             existing.proposal_id = p.get("proposal_id")
+            if height is not None:
+                existing.applied_height = int(height)
         else:
             session.add(
                 ChainParameter(
@@ -51,9 +63,18 @@ def _upsert_chain_parameters(session: Any, chain_id: str, parameters: list[dict[
                     parameter=name,
                     value=str(p.get("value", "")),
                     proposal_id=p.get("proposal_id"),
+                    applied_height=int(height) if height is not None else None,
                 )
             )
         applied += 1
+    for h in parameter_history or []:
+        name = h.get("parameter")
+        height = h.get("applied_height")
+        if not name or height is None:
+            continue
+        record_chain_parameter_history(
+            session, chain_id, str(name), str(h.get("value", "")), h.get("proposal_id"), int(height)
+        )
     return applied
 
 
@@ -124,6 +145,7 @@ class StateSyncMixin(SyncBase):
         remote_accounts = data.get("accounts", [])
         remote_root = data.get("state_root", "")
         remote_parameters = data.get("chain_parameters", [])
+        remote_parameter_history = data.get("chain_parameter_history", [])
         remote_aux = data.get("aux_state", {}) or {}
         self._logger.info(
             "State snapshot: %s accounts, state_root=%s",
@@ -157,7 +179,7 @@ class StateSyncMixin(SyncBase):
                     existing.balance = balance
                     existing.nonce = nonce
                     updated += 1
-            _upsert_chain_parameters(session, self._chain_id, remote_parameters)
+            _upsert_chain_parameters(session, self._chain_id, remote_parameters, remote_parameter_history)
             aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
             if any(aux_counts.values()):
                 self._logger.info("Aux state upserted from snapshot: %s", aux_counts)
@@ -224,6 +246,7 @@ class StateSyncMixin(SyncBase):
         # Consensus-relevant chain parameters ride alongside the diff — the
         # account-only state root never covers them.
         remote_parameters = data.get("chain_parameters", [])
+        remote_parameter_history = data.get("chain_parameter_history", [])
         remote_aux = data.get("aux_state", {}) or {}
 
         # The response contains an encoded StateDiff
@@ -290,7 +313,7 @@ class StateSyncMixin(SyncBase):
                     if db_acc:
                         session.delete(db_acc)
                 # Existing accounts were mutated in place (SQLModel tracks changes)
-            _upsert_chain_parameters(session, self._chain_id, remote_parameters)
+            _upsert_chain_parameters(session, self._chain_id, remote_parameters, remote_parameter_history)
             aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
             if any(aux_counts.values()):
                 self._logger.info("Aux state upserted from delta: %s", aux_counts)

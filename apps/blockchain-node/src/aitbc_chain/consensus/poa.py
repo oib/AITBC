@@ -632,7 +632,7 @@ class PoAProposer:
             }
             block_version = get_block_version(parent, parent.height)
             success, msg = state_transition.apply_transaction(
-                session, chain_id, tx_data, tx_rec.tx_hash, block_version=block_version
+                session, chain_id, tx_data, tx_rec.tx_hash, block_version=block_version, block_height=parent.height
             )
             if not success:
                 self._logger.error(
@@ -884,7 +884,9 @@ class PoAProposer:
             and block_version in (2, 3, 4, 5, 6)
         )
         if use_parallel:
-            escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])
+            escrow_context = build_escrow_context(
+                session, self._config.chain_id, [tx.content for tx in pending_txs], block_height=next_height
+            )
             if escrow_context is None:
                 use_parallel = False
         if (
@@ -1291,10 +1293,17 @@ class PoAProposer:
         consensus-facing values like ``bond_slash_authority`` should use
         instead of per-node env (see the 1-2 Sep slash divergence).
         """
-        from ..base_models import ChainParameter
+        from ..base_models import ChainParameter, record_chain_parameter_history
 
         for name, value in (parameters or {}).items():
-            session.add(ChainParameter(chain_id=self._config.chain_id, parameter=str(name), value=str(value)))
+            session.add(
+                ChainParameter(
+                    chain_id=self._config.chain_id, parameter=str(name), value=str(value), applied_height=0
+                )
+            )
+            # Genesis parameters take effect at height 0 — record the history
+            # entry so height-scoped lookups resolve them from the first block.
+            record_chain_parameter_history(session, self._config.chain_id, str(name), str(value), None, 0)
         if parameters:
             session.commit()
             self._logger.info("Seeded %d chain parameters from genesis: %s", len(parameters), sorted(parameters))
@@ -1697,7 +1706,7 @@ class PoAProposer:
                     # row un-sealed for retry/next block rather than forking.
                     if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"} and block_version >= 5:
                         expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
-                        bridge_authority = _bridge_release_authority(session, self._config.chain_id)
+                        bridge_authority = _bridge_release_authority(session, self._config.chain_id, next_height)
                         skip_reason = ""
                         if (
                             _to_ait_address(tx.content.get("from", "")) != expected_sender
@@ -1756,6 +1765,7 @@ class PoAProposer:
                         tx_data_for_transition,
                         tx.tx_hash,
                         block_version=block_version,
+                        block_height=next_height,
                     )
                     if not success:
                         self._logger.warning("[PROPOSE] Failed to apply credit tx %s: %s", tx.tx_hash, error_msg)
@@ -1844,6 +1854,7 @@ class PoAProposer:
                     tx_data_for_transition,
                     tx.tx_hash,
                     block_version=block_version,
+                    block_height=next_height,
                 )
                 if not success:
                     self._logger.warning("[PROPOSE] Failed to apply transaction %s: %s", tx.tx_hash, error_msg)
@@ -1951,7 +1962,7 @@ class PoAProposer:
         if block_version >= 5 and any(
             _determine_tx_type(tx.content) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in pending_txs
         ):
-            bridge_authority = _bridge_release_authority(session, chain_id)
+            bridge_authority = _bridge_release_authority(session, chain_id, next_height)
 
         # Prepare tx_data for each tx (with nonce set from account_map)
         tx_data_map: dict[str, dict[str, Any]] = {}
