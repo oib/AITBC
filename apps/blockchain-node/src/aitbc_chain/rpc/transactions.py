@@ -18,7 +18,7 @@ from aitbc.utils import DEFAULT_TX_FEE_UNITS
 from ..base_models import Bond, _to_ait_address
 from ..database import session_scope
 from ..logger import get_logger
-from ..models import Account, Transaction
+from ..models import Account, Block, Transaction
 from .utils import (
     OFFER_ACTIONS,
     PREREGISTERED_CREDIT_TX_TYPES,
@@ -441,6 +441,19 @@ async def query_transactions(
         # Apply filters based on payload fields
         transactions = session.exec(query).all()
 
+        # Batch-fetch sealing blocks so callers get hash/proposer without N+1
+        # lookups (marketplace offer confirmation reads these per anchor tx).
+        heights = {tx.block_height for tx in transactions if tx.block_height is not None}
+        block_map: dict[int, Block] = {}
+        if heights:
+            for b in session.exec(
+                select(Block).where(
+                    Block.chain_id == resolved_chain_id,
+                    col(Block.height).in_(heights),
+                )
+            ).all():
+                block_map[b.height] = b
+
         _logger.debug(f"Found {len(transactions)} transactions for chain {resolved_chain_id}")
 
         results = []
@@ -470,11 +483,14 @@ async def query_transactions(
             ):
                 continue
 
+            sealing_block = block_map.get(tx.block_height) if tx.block_height is not None else None
             results.append(
                 {
                     "transaction_id": tx.id,
                     "tx_hash": tx.tx_hash,
                     "block_height": tx.block_height,
+                    "block_hash": sealing_block.hash if sealing_block else None,
+                    "block_proposer": sealing_block.proposer if sealing_block else None,
                     "sender": tx.sender,
                     "recipient": tx.recipient,
                     "payload": tx.payload,
