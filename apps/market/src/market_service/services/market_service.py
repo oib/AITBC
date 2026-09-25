@@ -9,6 +9,7 @@ import time
 from datetime import UTC, datetime
 from decimal import Decimal
 from typing import Any
+from urllib.parse import urlparse
 from uuid import uuid4
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -50,6 +51,101 @@ def _secret_matches(stored: str, provided: str) -> bool:
     """
     candidate = hash_access_secret(provided) if is_hashed_secret(stored) else provided
     return hmac.compare_digest(stored, candidate)
+
+
+_LOOPBACK_HOSTS = {"localhost", "localhost.localdomain", "ip6-localhost"}
+
+
+def _sanitize_endpoint(url: str | None) -> str | None:
+    """Strip loopback/unspecified host addresses from serialized offer dicts.
+
+    Local endpoints (``http://localhost:8110``, ``http://127.0.0.1:8110``)
+    are internal routing data and leak topology through the public API.
+    LAN addresses are operator-facing and stay visible.
+    """
+    if not url:
+        return url
+    host = urlparse(url).hostname or ""
+    if host in _LOOPBACK_HOSTS or host in {"::1", "0.0.0.0"} or host.startswith("127."):
+        return None
+    return url
+
+
+def _gpu_offer_to_service_dict(offer: dict[str, Any], chain_id: str | None, hub_rpc_url: str) -> dict[str, Any]:
+    """Map a /rpc/gpus GPU registration onto the software-offer shape."""
+    return {
+        "plugin_id": offer.get("gpu_id", offer.get("id", "unknown")),
+        "service_type": "gpu_market",
+        "model": offer.get("model", "unknown"),
+        "price": Decimal(str(offer.get("price_per_hour"))),
+        "price_unit": "per_hour",
+        "offer_id": offer.get("gpu_id", "unknown"),
+        "endpoint": None,
+        "public_endpoint": None,
+        "health_url": None,
+        "provider_address": offer.get("provider", offer.get("miner_id", "")),
+        "node_id": offer.get("miner_id", "unknown"),
+        "gpu_name": offer.get("model", "N/A"),
+        "gpu_device": "0",
+        "gpu_uuid": offer.get("uuid") or offer.get("hardware_uuid", "N/A"),
+        "gpu_offer_id": offer.get("gpu_id", "N/A"),
+        "gpu_model": offer.get("model", "N/A"),
+        "gpu_memory_gb": offer.get("memory_gb"),
+        "compute_capability": offer.get("compute_capability", ""),
+        "description": offer.get("description", ""),
+        "status": offer.get("status", "active"),
+        "registered_at": offer.get("registered_at") or offer.get("created_at"),
+        "updated_at": offer.get("updated_at"),
+        "avg_rating": 0,
+        "rating_count": 0,
+        "chain_id": offer.get("chain_id", chain_id),
+        "disk_quota_mb": offer.get("disk_quota_mb"),
+        # Blockchain verification information
+        "block_height": offer.get("block_height"),
+        "block_hash": offer.get("block_hash"),
+        "block_timestamp": offer.get("block_timestamp"),
+        "block_proposer": offer.get("block_proposer"),
+        "tx_hash": offer.get("tx_hash", ""),
+        "confirmed": offer.get("block_height") is not None,
+    }
+
+
+def _local_offer_dict(s: "SoftwareService") -> dict[str, Any]:
+    """Serialize a local SoftwareService row into the public offer shape."""
+    return {
+        "plugin_id": s.plugin_id,
+        "service_type": s.service_type,
+        "model": s.model,
+        "price": s.price,
+        "price_unit": s.price_unit,
+        "offer_id": s.offer_id,
+        "endpoint": _sanitize_endpoint(s.endpoint),
+        "public_endpoint": s.public_endpoint,
+        "health_url": _sanitize_endpoint(s.health_url),
+        "provider_address": s.provider_address,
+        "node_id": s.node_id,
+        "gpu_name": s.gpu_name,
+        "gpu_device": s.gpu_device,
+        "gpu_uuid": s.gpu_uuid,
+        "gpu_offer_id": s.gpu_offer_id,
+        "gpu_model": s.gpu_model,
+        "gpu_memory_gb": s.gpu_memory_gb,
+        "compute_capability": s.compute_capability,
+        "description": s.description,
+        "status": s.status,
+        "registered_at": s.registered_at.isoformat() if s.registered_at else None,
+        "updated_at": s.updated_at.isoformat() if s.updated_at else None,
+        "avg_rating": s.avg_rating,
+        "rating_count": s.rating_count,
+        "disk_quota_mb": s.disk_quota_mb,
+        # Blockchain verification information
+        "block_height": s.block_height,
+        "block_hash": s.block_hash,
+        "block_timestamp": s.block_timestamp.isoformat() if s.block_timestamp else None,
+        "block_proposer": s.block_proposer,
+        "tx_hash": s.tx_hash,
+        "confirmed": bool(s.block_height),  # Consider confirmed if it has block info
+    }
 
 
 class MarketService:
@@ -330,43 +426,7 @@ class MarketService:
                         )
                         continue
                     try:
-                        blockchain_offers.append(
-                            {
-                                "plugin_id": offer.get("gpu_id", offer.get("id", "unknown")),
-                                "service_type": "gpu_market",
-                                "model": offer.get("model", "unknown"),
-                                "price": Decimal(str(price_per_hour)),
-                                "price_unit": "per_hour",
-                                "offer_id": offer.get("gpu_id", "unknown"),
-                                "endpoint": settings.hub_rpc_url,
-                                "public_endpoint": settings.hub_rpc_url,
-                                "health_url": f"{settings.hub_rpc_url}/health",
-                                "provider_address": offer.get("provider", offer.get("miner_id", "")),
-                                "node_id": offer.get("miner_id", "unknown"),
-                                "gpu_name": offer.get("model", "N/A"),
-                                "gpu_device": "0",
-                                "gpu_uuid": offer.get("uuid") or offer.get("hardware_uuid", "N/A"),
-                                "gpu_offer_id": offer.get("gpu_id", "N/A"),
-                                "gpu_model": offer.get("model", "N/A"),
-                                "gpu_memory_gb": offer.get("memory_gb"),
-                                "compute_capability": offer.get("compute_capability", ""),
-                                "description": offer.get("description", ""),
-                                "status": offer.get("status", "active"),
-                                "registered_at": offer.get("created_at"),
-                                "updated_at": offer.get("updated_at"),
-                                "avg_rating": 0,
-                                "rating_count": 0,
-                                "chain_id": offer.get("chain_id", chain_id),
-                                "disk_quota_mb": offer.get("disk_quota_mb"),
-                                # Blockchain verification information
-                                "block_height": offer.get("block_height"),
-                                "block_hash": offer.get("block_hash"),
-                                "block_timestamp": offer.get("block_timestamp"),
-                                "block_proposer": offer.get("block_proposer"),
-                                "tx_hash": offer.get("tx_hash", ""),
-                                "confirmed": offer.get("block_height") is not None,
-                            }
-                        )
+                        blockchain_offers.append(_gpu_offer_to_service_dict(offer, chain_id, settings.hub_rpc_url))
                     except Exception as e:
                         logger.warning("Failed to parse blockchain offer: %s", e)
                         continue
@@ -384,43 +444,7 @@ class MarketService:
             result = await self.session.execute(query)
             local_services = result.scalars().all()
 
-            local_offers = [
-                {
-                    "plugin_id": s.plugin_id,
-                    "service_type": s.service_type,
-                    "model": s.model,
-                    "price": s.price,
-                    "price_unit": s.price_unit,
-                    "offer_id": s.offer_id,
-                    "endpoint": s.endpoint,
-                    "public_endpoint": s.public_endpoint,
-                    "health_url": s.health_url,
-                    "provider_address": s.provider_address,
-                    "node_id": s.node_id,
-                    "gpu_name": s.gpu_name,
-                    "gpu_device": s.gpu_device,
-                    "gpu_uuid": s.gpu_uuid,
-                    "gpu_offer_id": s.gpu_offer_id,
-                    "gpu_model": s.gpu_model,
-                    "gpu_memory_gb": s.gpu_memory_gb,
-                    "compute_capability": s.compute_capability,
-                    "description": s.description,
-                    "status": s.status,
-                    "registered_at": s.registered_at.isoformat() if s.registered_at else None,
-                    "updated_at": s.updated_at.isoformat() if s.updated_at else None,
-                    "avg_rating": s.avg_rating,
-                    "rating_count": s.rating_count,
-                    "disk_quota_mb": s.disk_quota_mb,
-                    # Blockchain verification information
-                    "block_height": s.block_height,
-                    "block_hash": s.block_hash,
-                    "block_timestamp": s.block_timestamp.isoformat() if s.block_timestamp else None,
-                    "block_proposer": s.block_proposer,
-                    "tx_hash": s.tx_hash,
-                    "confirmed": bool(s.block_height),  # Consider confirmed if it has block info
-                }
-                for s in local_services
-            ]
+            local_offers = [_local_offer_dict(s) for s in local_services]
 
             # Merge blockchain and local offers, preferring blockchain
             seen_plugin_ids = set()
@@ -440,42 +464,7 @@ class MarketService:
                     merged_offers.append(offer)
                     seen_plugin_ids.add(plugin_id)
 
-            # Resolve on-chain anchoring for every merged offer. GPU bundle
-            # offers anchor as GPU_REGISTER (payload.gpu_id) and software
-            # bundle offers as GPU_MARKET/GPU_MARKETPLACE (payload.offer_id);
-            # the state-table endpoints (e.g. /rpc/gpus) do not expose the
-            # sealing block, so confirmation is derived from the sealed tx.
-            try:
-                anchor_txs: dict[str, dict[str, Any]] = {}
-                for tx_type in ("GPU_MARKET", "GPU_MARKETPLACE", "GPU_REGISTER"):
-                    for tx in await self._rpc_client.query_transactions(
-                        transaction_type=tx_type, chain_id=chain_id, limit=1000
-                    ):
-                        payload = tx.get("payload") or {}
-                        key = payload.get("offer_id") or payload.get("gpu_id")
-                        # Results are newest-first; keep the first tx per key
-                        # so a re-registered offer anchors to its latest seal.
-                        if key and key not in anchor_txs:
-                            anchor_txs[key] = tx
-                for offer in merged_offers:
-                    if offer.get("confirmed"):
-                        continue
-                    key = offer.get("offer_id") or offer.get("plugin_id")
-                    tx = anchor_txs.get(key) if key else None
-                    if tx is None:
-                        continue
-                    offer["confirmed"] = True
-                    offer["tx_hash"] = offer.get("tx_hash") or tx.get("tx_hash")
-                    offer["block_height"] = tx.get("block_height")
-                    ts = tx.get("timestamp")
-                    if ts and not offer.get("block_timestamp"):
-                        # Transaction.timestamp is already a string column;
-                        # numeric only if a serializer emitted epoch seconds.
-                        offer["block_timestamp"] = (
-                            ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
-                        )
-            except Exception as e:
-                logger.warning("Failed to resolve on-chain offer anchors: %s", e)
+            await self._resolve_offer_anchors(merged_offers, chain_id)
 
             logger.info(
                 "Returning %s total offers (%s from blockchain, %s from local)",
@@ -489,8 +478,53 @@ class MarketService:
             logger.error("Error in list_software_services: %s: %s", type(e).__name__, str(e))
             raise
 
+    async def _resolve_offer_anchors(self, offers: list[dict[str, Any]], chain_id: str | None) -> None:
+        """Mark offers as confirmed by joining them to sealed anchor txs.
+
+        GPU bundle offers anchor as GPU_REGISTER (payload.gpu_id) and software
+        bundle offers as GPU_MARKET/GPU_MARKETPLACE (payload.offer_id); the
+        state-table endpoints (e.g. /rpc/gpus) do not expose the sealing
+        block, so confirmation is derived from the sealed transaction itself.
+        Mutates ``offers`` in place; RPC failure degrades to unconfirmed.
+        """
+        try:
+            anchor_txs: dict[str, dict[str, Any]] = {}
+            for tx_type in ("GPU_MARKET", "GPU_MARKETPLACE", "GPU_REGISTER"):
+                for tx in await self._rpc_client.query_transactions(
+                    transaction_type=tx_type, chain_id=chain_id, limit=1000
+                ):
+                    payload = tx.get("payload") or {}
+                    key = payload.get("offer_id") or payload.get("gpu_id")
+                    # Results are newest-first; keep the first tx per key so a
+                    # re-registered offer anchors to its latest seal.
+                    if key and key not in anchor_txs:
+                        anchor_txs[key] = tx
+            for offer in offers:
+                if offer.get("confirmed"):
+                    continue
+                key = offer.get("offer_id") or offer.get("plugin_id")
+                tx = anchor_txs.get(key) if key else None
+                if tx is None:
+                    continue
+                offer["confirmed"] = True
+                offer["tx_hash"] = offer.get("tx_hash") or tx.get("tx_hash")
+                offer["block_height"] = tx.get("block_height")
+                offer["block_hash"] = offer.get("block_hash") or tx.get("block_hash")
+                offer["block_proposer"] = offer.get("block_proposer") or tx.get("block_proposer")
+                ts = tx.get("timestamp")
+                if ts and not offer.get("block_timestamp"):
+                    # Transaction.timestamp is already a string column;
+                    # numeric only if a serializer emitted epoch seconds.
+                    offer["block_timestamp"] = (
+                        ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
+                    )
+                if not offer.get("registered_at"):
+                    offer["registered_at"] = tx.get("created_at") or offer.get("block_timestamp")
+        except Exception as e:
+            logger.warning("Failed to resolve on-chain offer anchors: %s", e)
+
     async def get_software_service(self, plugin_id: str) -> dict[str, Any] | None:
-        """Get a specific software service"""
+        """Get a specific software service (local row or on-chain GPU offer)"""
         from sqlalchemy import select
 
         from ..domain.market import SoftwareService
@@ -499,35 +533,20 @@ class MarketService:
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
             result = await self.session.execute(query)
             service = result.scalar_one_or_none()
-            if not service:
+            data = _local_offer_dict(service) if service else None
+            if data is None:
+                # GPU bundle offers live only on-chain (GPURegistration state
+                # table); fall back so /v1/market/offer/{gpu_id} resolves too.
+                try:
+                    gpu = await self._rpc_client.get_offer(plugin_id)
+                except Exception:
+                    gpu = None
+                if gpu:
+                    data = _gpu_offer_to_service_dict(gpu, None, settings.hub_rpc_url)
+            if data is None:
                 return None
-            return {
-                "plugin_id": service.plugin_id,
-                "service_type": service.service_type,
-                "model": service.model,
-                "price": service.price,
-                "price_unit": service.price_unit,
-                "offer_id": service.offer_id,
-                "endpoint": service.endpoint,
-                "public_endpoint": service.public_endpoint,
-                "health_url": service.health_url,
-                "provider_address": service.provider_address,
-                "node_id": service.node_id,
-                "gpu_name": service.gpu_name,
-                "gpu_device": service.gpu_device,
-                "gpu_uuid": service.gpu_uuid,
-                "gpu_offer_id": service.gpu_offer_id,
-                "gpu_model": service.gpu_model,
-                "gpu_memory_gb": service.gpu_memory_gb,
-                "compute_capability": service.compute_capability,
-                "description": service.description,
-                "status": service.status,
-                "registered_at": service.registered_at.isoformat() if service.registered_at else None,
-                "updated_at": service.updated_at.isoformat() if service.updated_at else None,
-                "avg_rating": service.avg_rating,
-                "rating_count": service.rating_count,
-                "disk_quota_mb": service.disk_quota_mb,
-            }
+            await self._resolve_offer_anchors([data], None)
+            return data
         except Exception as e:
             logger.error("Error in get_software_service: %s: %s", type(e).__name__, str(e))
             raise
