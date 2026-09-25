@@ -3,7 +3,8 @@ AIT→ETH Bridge Withdrawal Monitor
 
 Polls the AITBC chain for confirmed ``BRIDGE_WITHDRAW`` transactions and releases
 ETH from the configured bridge wallet to the Ethereum address in the withdrawal
-payload. Failed releases are automatically refunded with a ``BRIDGE_REFUND``.
+payload. Failed releases are automatically refunded by an on-chain transfer
+from the funding wallet.
 """
 
 from __future__ import annotations
@@ -193,7 +194,7 @@ async def _send_eth(to_address: str, amount_eth: Decimal) -> str:
 
 
 async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
-    """Submit a BRIDGE_REFUND transaction to credit AIT back to the user."""
+    """Submit the refund transaction returning AIT to the user."""
     if not GENESIS_WALLET_ADDRESS or not GENESIS_WALLET_PRIVATE_KEY:
         raise RuntimeError("GENESIS_WALLET_ADDRESS/PRIVATE_KEY not configured")
 
@@ -210,7 +211,10 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
     fee = ait_to_units(Decimal("0.01"))
 
     tx_payload = {
-        "type": "BRIDGE_REFUND",
+        # An ordinary spend out of the funding wallet: TRANSFER debits it and
+        # credits the user. The BRIDGE_* credit types are issued inside the
+        # node and are refused at public transaction intake.
+        "type": "TRANSFER",
         "chain_id": os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"),
         "from": canonical_address(GENESIS_WALLET_ADDRESS),
         "to": canonical_address(recipient),
@@ -240,7 +244,7 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
 
 
 async def _refund_withdrawal(ait_tx_hash: str, user: str, gross_ait: Decimal, reason: str) -> None:
-    """Issue a BRIDGE_REFUND and update the withdrawal record."""
+    """Issue the AIT refund and update the withdrawal record."""
     try:
         refund_tx_hash = await _submit_bridge_refund(user, gross_ait)
         update_withdrawal_status(ait_tx_hash, "refunded", refund_tx_hash=refund_tx_hash, error=reason)
