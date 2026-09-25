@@ -87,6 +87,7 @@ async def list_deposits(status: str | None = None, limit: int = 50, offset: int 
     - limit: Maximum number of results (default: 50)
     - offset: Pagination offset (default: 0)
     """
+    limit = max(0, min(limit, 500))
     if status == "pending":
         deposits = get_pending_deposits()
     else:
@@ -384,6 +385,7 @@ async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
 @bridge_router.get("/deposits")
 async def bridge_list_deposits(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List bridge deposits."""
+    limit = max(0, min(limit, 500))
     if status == "pending":
         deposits = get_pending_deposits()
     else:
@@ -650,6 +652,7 @@ async def bridge_get_withdraw(ait_tx_hash: str) -> dict[str, Any]:
 @bridge_router.get("/withdrawals")
 async def bridge_list_withdrawals(status: str | None = None, limit: int = 50, offset: int = 0) -> dict[str, Any]:
     """List AIT->ETH withdrawals."""
+    limit = max(0, min(limit, 500))
     withdrawals = get_all_withdrawals(limit=limit, offset=offset)
     if status:
         withdrawals = [w for w in withdrawals if w.get("status") == status]

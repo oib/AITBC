@@ -57,7 +57,10 @@ def decrypt_private_key(keystore_path: Path, password: str) -> str:
             else:
                 salt = bytes.fromhex(kdfparams.get("salt", ""))
 
-            dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, 100000, dklen=32)
+            # "c" is stored by keystore.py v2+ and the coordinator wallet;
+            # files written before the work-factor bump carry no count.
+            iterations = int(kdfparams.get("c", 100000))
+            dk = hashlib.pbkdf2_hmac("sha256", password.encode(), salt, iterations, dklen=32)
             fernet_key = base64.urlsafe_b64encode(dk)
             fernet = Fernet(fernet_key)
             ciphertext = base64.b64decode(crypto["ciphertext"])
