@@ -868,7 +868,10 @@ class PoAProposer:
             not has_sequential_only
             and getattr(settings, "parallel_tx_validation", False)
             and len(pending_txs) > 1
-            and block_version in (2, 3, 4)
+            # v5 included: its fail-closed authority gates are mirrored in
+            # pure_state_transition (escrow authority via escrow_context,
+            # bridge pseudo-sender), so the parallel path stays identical.
+            and block_version in (2, 3, 4, 5)
         )
         if use_parallel:
             escrow_context = build_escrow_context(session, self._config.chain_id, [tx.content for tx in pending_txs])

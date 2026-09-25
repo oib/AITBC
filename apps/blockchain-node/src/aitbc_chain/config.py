@@ -650,9 +650,19 @@ class ChainSettings(BaseSettings):
     # activation is itself consensus: an env-drifted fleet would fork. The
     # proposer stamps it into block_metadata and followers replay that stamp.
     state_transition_v4_height: int = 11000
-    # S-4: address(es) allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3.
-    # If empty, no authority check is performed (legacy behaviour). When set, the
-    # state transition rejects releases/refunds signed by any other address.
+    # Fail-closed authority gates (v5). At or above this height,
+    # ESCROW_RELEASE/ESCROW_REFUND require a configured settlement authority,
+    # GOVERNANCE_EXECUTE requires the governance_executors chain parameter, and
+    # BRIDGE_RELEASE/BRIDGE_REFUND must carry the bridge pseudo-sender. Below it
+    # the same checks stay lenient so sealed history replays. Hardcoded like
+    # v4 — the activation is itself consensus — so keep it ahead of the chain
+    # head until every fleet node runs a build that knows the rules.
+    state_transition_v5_height: int = 24000
+    # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
+    # The on-chain escrow_settlement_authority chain parameter takes precedence;
+    # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that
+    # never set it. Below v5 an unset authority disables the check (legacy);
+    # from state_transition_v5_height the transition fails closed instead.
     escrow_settlement_authority: str = ""
     # Seconds to wait for remote attestation responses over gossip when this node is the proposer.
     multi_validator_attestation_timeout_seconds: float = 1.0
