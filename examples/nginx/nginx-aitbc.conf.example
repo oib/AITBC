@@ -614,6 +614,21 @@ server {
 
     # ── Exchange API (Bridge, Price, History) ─────────────────────
 
+    # /v1/bridge/deposits and /v1/bridge/withdrawals enumerate every bridge
+    # record (ETH from_address paired with AIT recipient). Per-hash lookups
+    # stay public; the enumerable indexes are operator-only — same policy as
+    # /v1/wallets above.
+    location ~ ^/v1/bridge/(deposits|withdrawals)/?$ {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        proxy_pass http://127.0.0.1:8106;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
     location /v1/bridge/ {
         proxy_pass http://127.0.0.1:8106/v1/bridge/;
         proxy_set_header Host $host;

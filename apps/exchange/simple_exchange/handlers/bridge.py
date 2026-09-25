@@ -252,7 +252,7 @@ class BridgeMixin:
 
             params = parse_qs(parsed.query)
             status_filter = params.get("status", [None])[0]
-            limit = int(params.get("limit", [50])[0])
+            limit = max(0, min(int(params.get("limit", [50])[0]), 500))
             offset = int(params.get("offset", [0])[0])
 
             status = None
