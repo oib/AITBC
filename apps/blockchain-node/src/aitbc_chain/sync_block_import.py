@@ -425,11 +425,14 @@ class BlockImportMixin(SyncBase):
             # lock metadata is prefetched. A release/refund with no resolvable
             # lock returns None and the block stays sequential.
             escrow_context: dict[str, dict[str, Any]] | None = None
-            if settings.parallel_tx_validation and block_version in (2, 3, 4):
+            if settings.parallel_tx_validation and block_version in (2, 3, 4, 5):
                 escrow_context = build_escrow_context(session, self._chain_id, transactions)
             if (
                 settings.parallel_tx_validation
-                and block_version in (2, 3, 4)
+                # v5 included: its fail-closed authority gates are mirrored in
+                # pure_state_transition (escrow authority via escrow_context,
+                # bridge pseudo-sender), so the parallel path stays identical.
+                and block_version in (2, 3, 4, 5)
                 and escrow_context is not None
                 and not any(_determine_tx_type(tx) in _SEQUENTIAL_ONLY_TX_TYPES for tx in transactions)
             ):
