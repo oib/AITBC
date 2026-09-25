@@ -310,6 +310,67 @@ def test_init_db_backfills_height_from_chain_history(chain_id):
         assert _governance_executors(session, chain_id, 8153) == {_EXECUTOR}
 
 
+def test_init_db_rebuilds_history_from_sealed_executes(chain_id):
+    """The full version list is already in chain history: sealed
+    GOVERNANCE_EXECUTE txs carry ``execution_payload.parameter_change``, so
+    init_db rebuilds every past value — including mid-history values the
+    current row no longer holds. This is what makes a parameter set at 9819
+    resolvable as unset at 9818 and set at 9819 on every node."""
+    init_db(chain_id)
+    with session_scope(chain_id) as session:
+        for tx_hash, height, parameter in (
+            ("0xe9819", 9819, "governance_executors"),
+            ("0xe22193", 22193, "escrow_settlement_authority"),
+        ):
+            session.add(
+                Transaction(
+                    chain_id=chain_id,
+                    tx_hash=tx_hash,
+                    block_height=height,
+                    sender=_OTHER,
+                    recipient=_OTHER,
+                    type="GOVERNANCE_EXECUTE",
+                    payload={
+                        "proposal_id": f"prop_{height}",
+                        "execution_payload": {
+                            "action": "parameter_change",
+                            "parameter": parameter,
+                            "value": _EXECUTOR,
+                        },
+                    },
+                    value=0,
+                    fee=0,
+                    nonce=0,
+                    status="confirmed",
+                )
+            )
+        # Pre-tracking current rows: proposal_id unset, applied_height unknown.
+        session.add(ChainParameter(chain_id=chain_id, parameter="governance_executors", value=_EXECUTOR))
+        session.add(ChainParameter(chain_id=chain_id, parameter="escrow_settlement_authority", value=_EXECUTOR))
+        session.commit()
+
+    init_db(chain_id)
+    with session_scope(chain_id) as session:
+        gov = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == "governance_executors",
+            )
+        ).first()
+        esc = session.exec(
+            select(ChainParameter).where(
+                ChainParameter.chain_id == chain_id,
+                ChainParameter.parameter == "escrow_settlement_authority",
+            )
+        ).first()
+        assert gov.applied_height == 9819
+        assert esc.applied_height == 22193
+        assert _governance_executors(session, chain_id, 9818) is None
+        assert _governance_executors(session, chain_id, 9819) == {_EXECUTOR}
+        history = _history(session, chain_id, "governance_executors")
+        assert [(h.value, h.applied_height) for h in history] == [(_EXECUTOR, 9819)]
+
+
 def test_backfill_leaves_unresolvable_rows_null(chain_id):
     """Rows with no resolvable proposal keep NULL applied_height — the
     status-quo semantic — rather than inventing a height."""

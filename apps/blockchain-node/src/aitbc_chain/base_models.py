@@ -655,6 +655,10 @@ def record_chain_parameter_history(
     parameter_change, genesis seeding, height backfill, sync upserts) so the
     value-in-force-at-height answer stays complete however the row arrived.
     """
+    # Sessions run autoflush=False — flush pending rows first or a second
+    # call for the same (param, height) misses the unflushed row and
+    # double-inserts, violating the unique constraint.
+    session.flush()
     exists = session.exec(
         select(ChainParameterHistory).where(
             ChainParameterHistory.chain_id == chain_id,
