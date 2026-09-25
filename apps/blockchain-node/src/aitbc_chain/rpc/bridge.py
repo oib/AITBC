@@ -304,6 +304,74 @@ async def list_pending_transfers(request: Request, chain_id: str | None = None) 
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
+_BRIDGE_TRANSFER_STATUSES = frozenset({"pending", "locked", "confirmed", "completed", "failed", "refunded"})
+
+
+@rate_limit(rate=50, per=60)
+async def list_bridge_transfers(
+    request: Request,
+    chain_id: str | None = None,
+    status: str | None = None,
+    limit: int = 50,
+    offset: int = 0,
+) -> dict[str, Any]:
+    """List bridge transfers recorded on this chain — all lifecycle states.
+
+    Unlike ``/bridge/pending`` (in-memory, pending only), this reads the
+    persisted ``cross_chain_transfer`` table so public explorers can show
+    transfer history. Everything returned here is already visible through
+    the public transaction explorer, so no gating is needed.
+    """
+    try:
+        from sqlmodel import func, select
+
+        from ..base_models import CrossChainTransfer
+        from ..database import session_scope
+
+        if status and status not in _BRIDGE_TRANSFER_STATUSES:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid status '{status}' (allowed: {sorted(_BRIDGE_TRANSFER_STATUSES)})",
+            )
+        chain_id = get_chain_id(chain_id)
+        limit = max(1, min(limit, 200))
+        offset = max(0, offset)
+        with session_scope(chain_id) as session:
+            stmt = select(CrossChainTransfer)
+            count_stmt = select(func.count()).select_from(CrossChainTransfer)
+            if status:
+                stmt = stmt.where(CrossChainTransfer.status == status)
+                count_stmt = count_stmt.where(CrossChainTransfer.status == status)
+            total = session.exec(count_stmt).one()
+            rows = session.exec(stmt.order_by(CrossChainTransfer.lock_time.desc()).limit(limit).offset(offset)).all()
+        transfers = [
+            {
+                "transfer_id": t.transfer_id,
+                "source_chain": t.source_chain,
+                "target_chain": t.target_chain,
+                "sender": t.sender,
+                "recipient": t.recipient,
+                "amount": t.amount,
+                "release_amount": t.release_amount,
+                "asset": t.asset,
+                "status": t.status,
+                "source_tx_hash": t.source_tx_hash,
+                "target_tx_hash": t.target_tx_hash,
+                "lock_time": t.lock_time.isoformat() if t.lock_time else None,
+                "confirm_time": t.confirm_time.isoformat() if t.confirm_time else None,
+            }
+            for t in rows
+        ]
+        return {"transfers": transfers, "count": len(transfers), "total": total, "limit": limit, "offset": offset}
+    except HTTPException:
+        raise
+    except Exception as e:
+        _logger.error("List bridge transfers failed: %s", e)
+        _logger.exception("Unhandled exception")
+
+        raise HTTPException(status_code=500, detail="Internal server error") from e
+
+
 @rate_limit(rate=20, per=60)
 async def bridge_unlock(request: Request, unlock_data: dict[str, Any]) -> dict[str, Any]:
     """Refund/cancel a pending bridge transfer — return locked funds to sender.
