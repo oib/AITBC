@@ -19,15 +19,7 @@ from sqlmodel import Session, select
 
 from ..config import settings
 from ..logger import get_logger
-from ..base_models import (
-    Block,
-    Bond,
-    ChainParameter,
-    ChainParameterHistory,
-    IPFSSubscription,
-    _to_ait_address,
-    record_chain_parameter_history,
-)
+from ..base_models import Block, Bond, ChainParameter, IPFSSubscription, _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
 from ..models import Account, Receipt, Transaction
 from ..rpc.utils import verify_request_signature, verify_transaction_signature
@@ -362,9 +354,7 @@ def _refund_lock_record(session: Session, chain_id: str, lock_hash: str, exclude
     }
 
 
-def build_bridge_lock_context(
-    session: Session, chain_id: str, tx_datas: list[dict[str, Any]]
-) -> dict[str, dict[str, Any]] | None:
+def build_bridge_lock_context(session: Session, chain_id: str, tx_datas: list[dict[str, Any]]) -> dict[str, dict[str, Any]] | None:
     """Prefetch lock records for BRIDGE_REFUND txs (v6), like ``build_escrow_context``.
 
     Returns ``{lock_tx_hash: {"exists","sender","amount","refunded"}}`` for the
