@@ -477,7 +477,7 @@ def _chain_has_transaction(rpc_url: str, tx_hash: str, chain_id: str | None = No
 
     `chain_id` is left off unless asked for. The node knows which chain it is serving and
     the caller does not: guessing here — from `CHAIN_ID`, which defaults to `ait-hub` while
-    the hub actually serves `ait-hub.aitbc.bubuit.net` — sends a chain nobody has, and every
+    the hub actually serves `ait-localnet` — sends a chain nobody has, and every
     hash comes back 404. That failure reads as "no payout was ever made", which is exactly
     the state that invites reopening requests that were paid. Pass `--chain-id` to query a
     node serving several islands.

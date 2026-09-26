@@ -38,12 +38,12 @@ def safe_load_credentials():
             return {
                 "credentials": {"p2p_port": 8200},
                 "island_id": os.getenv("ISLAND_ID", "ait-hub"),
-                "chain_id": os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"),
+                "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
             }
         error(f"Island credentials required for market operations: {e}")
         error("Note: Hub nodes do not need to join islands - market works with blockchain config")
         error("For follower nodes, run: aitbc node island join <island_id> <island_name> <chain_id>")
-        error("Example: aitbc edge island join ait-hub.aitbc.bubuit.net-island 'AIT Hub' ait-hub.aitbc.bubuit.net")
+        error("Example: aitbc edge island join ait-localnet-island 'AIT Hub' ait-localnet")
         return None
 
 
@@ -60,7 +60,7 @@ def get_chain_id() -> str:
         pass
     # Fall back to hub discovery URL config
     config = get_config()
-    hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    hub = config.hub_discovery_url or "hub.aitbc.invalid"
     return f"ait-{hub}"
 
 
@@ -88,7 +88,7 @@ def _account_balance(address: str, chain_id: str) -> int:
     """Query the hub for the canonical account balance of an address."""
     try:
         config = get_config()
-        hub = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        hub = config.hub_discovery_url or "hub.aitbc.invalid"
         client = AITBCHTTPClient(base_url=f"https://{hub}", timeout=5)
         data = client.get(f"/rpc/accounts/{address}", params={"chain_id": chain_id})
         return int(data.get("balance", 0))
@@ -155,7 +155,7 @@ def get_account_nonce(address: str, chain_id: str) -> int:
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
     # Prefer the local blockchain RPC; the hub discovery URL may not expose /rpc.
-    for base_url in (rpc_url, f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"):
+    for base_url in (rpc_url, f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"):
         try:
             http_client = AITBCHTTPClient(base_url=base_url, timeout=10)
             response = http_client.get(f"/rpc/accounts/{address}?chain_id={chain_id}")

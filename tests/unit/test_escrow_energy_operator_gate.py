@@ -84,7 +84,7 @@ def unsigned_quote() -> EnergyQuote:
         job_id="job-test-001",
         quote_id="quote-test-001",
         domain="aitbc.energy.quote.v1",
-        chain_id="ait-hub.aitbc.bubuit.net",
+        chain_id="ait-testchain.local",
         settlement_asset="AITBC",
         settlement_unit_scale=NATIVE_SCALE,
         settlement_route=SettlementRoute.NATIVE,

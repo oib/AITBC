@@ -44,8 +44,8 @@ class ChainRegistry:
             )
 
         # AITBC Hub (actual chain on this hub)
-        self.chains["ait-hub.aitbc.bubuit.net"] = ChainConfig(
-            chain_id="ait-hub.aitbc.bubuit.net",
+        self.chains["ait-localnet"] = ChainConfig(
+            chain_id="ait-localnet",
             name="AITBC Hub Network",
             rpc_url="http://localhost:8202",
             explorer_url=None,

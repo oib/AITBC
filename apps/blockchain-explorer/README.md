@@ -59,7 +59,7 @@ Provides JSON API endpoints for blockchain data:
 ## Configuration
 
 Environment variables:
-- `CHAIN_ID` - Chain ID (default: `ait-hub.aitbc.bubuit.net`)
+- `CHAIN_ID` - Chain ID (default: `ait-localnet`)
 - `BLOCKCHAIN_RPC_URL` - Blockchain RPC URL (default: `http://localhost:8202`)
 
 ## Usage

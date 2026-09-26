@@ -186,7 +186,7 @@ async def get_info_route(request: Request, chain_id: str | None = None) -> dict[
     }
 
     return {
-        "chain_id": getattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net"),
+        "chain_id": getattr(settings, "chain_id", "ait-localnet"),
         "height": head.get("height", 0),
         "total_transactions": total_transactions,
         "total_accounts": total_accounts,
@@ -248,7 +248,7 @@ async def get_network_info_route(request: Request) -> dict[str, Any]:
 
     # 4. Identity and chain metadata from settings.
     p2p_node_id = settings.p2p_node_id or settings.proposer_id or "unknown"
-    chain_id = settings.chain_id or "ait-hub.aitbc.bubuit.net"
+    chain_id = settings.chain_id or "ait-localnet"
     supported = [c.strip() for c in settings.supported_chains.split(",") if c.strip()]
     if not supported and chain_id:
         supported = [chain_id]

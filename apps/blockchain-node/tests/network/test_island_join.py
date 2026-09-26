@@ -39,10 +39,10 @@ class TestJoinIslandRpc:
         """Return a mock island manager with a default island."""
         manager = MagicMock()
         island = MagicMock()
-        island.island_id = "ait-hub.aitbc.bubuit.net-island"
+        island.island_id = "ait-testchain.local-island"
         island.island_name = "default"
-        island.chain_id = "ait-hub.aitbc.bubuit.net"
-        island.island_chain_id = "ait-hub.aitbc.bubuit.net"
+        island.chain_id = "ait-testchain.local"
+        island.island_chain_id = "ait-testchain.local"
         island.is_hub = True
         manager.get_island_info.return_value = island
         manager.join_island.return_value = True
@@ -58,18 +58,18 @@ class TestJoinIslandRpc:
             return_value=mock_island_manager,
         ):
             request = JoinIslandRequest(
-                island_id="ait-hub.aitbc.bubuit.net-island",
+                island_id="ait-testchain.local-island",
                 island_name="default",
-                chain_id="ait-hub.aitbc.bubuit.net",
+                chain_id="ait-testchain.local",
                 is_hub=True,
             )
             response = await join_island(request)
 
         assert isinstance(response, JoinIslandResponse)
         assert response.success is True
-        assert response.island_id == "ait-hub.aitbc.bubuit.net-island"
+        assert response.island_id == "ait-testchain.local-island"
         assert response.island_name == "default"
-        assert response.island_chain_id == "ait-hub.aitbc.bubuit.net"
+        assert response.island_chain_id == "ait-testchain.local"
         assert response.status == "joined"
         assert "rpc_endpoint" in response.credentials
         assert response.members
@@ -83,9 +83,9 @@ class TestJoinIslandRpc:
             return_value=mock_island_manager,
         ):
             request = JoinIslandRequest(
-                island_id="ait-hub.aitbc.bubuit.net-island",
+                island_id="ait-testchain.local-island",
                 island_name="default",
-                chain_id="ait-hub.aitbc.bubuit.net",
+                chain_id="ait-testchain.local",
             )
             response = await join_island(request)
 

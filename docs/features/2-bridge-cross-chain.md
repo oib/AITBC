@@ -21,9 +21,9 @@ The security-audit fixes for Bugs #3 and #4 (proposer-set membership and Merkle-
 
 ### Live activation and validation — 2026-08-24
 
-The multi-signature, Merkle-proof, and block-header verification layers were activated on the live hub and shop nodes. Configuration: `bridge_release_enabled=true`, `bridge_multisig_enabled=true`, `bridge_require_merkle_proof=true`, `bridge_multisig_threshold=2`, and a 2-validator bridge validator set registered for `ait-hub.aitbc.bubuit.net`.
+The multi-signature, Merkle-proof, and block-header verification layers were activated on the live hub and shop nodes. Configuration: `bridge_release_enabled=true`, `bridge_multisig_enabled=true`, `bridge_require_merkle_proof=true`, `bridge_multisig_threshold=2`, and a 2-validator bridge validator set registered for `ait-localnet`.
 
-Live transfers of 1 compute-second were locked on `ait-hub.aitbc.bubuit.net`, anchored in real blocks with `bridge_state_root`, and confirmed on `ait-shop-island.aitbc.bubuit.net` using signed Merkle proofs. Negative cases (missing Merkle proof, insufficient signatures, invalid confirmer signature, invalid block-header admin signature) were rejected. After validation, `bridge_release_enabled` was returned to `false` to keep the live release path fenced off.
+Live transfers of 1 compute-second were locked on `ait-localnet`, anchored in real blocks with `bridge_state_root`, and confirmed on `ait-shop-island.aitbc.bubuit.net` using signed Merkle proofs. Negative cases (missing Merkle proof, insufficient signatures, invalid confirmer signature, invalid block-header admin signature) were rejected. After validation, `bridge_release_enabled` was returned to `false` to keep the live release path fenced off.
 
 Two implementation defects were found and fixed during the live run:
 

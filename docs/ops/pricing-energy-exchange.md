@@ -55,7 +55,7 @@ endpoint means "not provisioned here", not failure.
 To skip the local probe entirely, set `NATIVE_COORDINATOR_URL` (config key
 `native_coordinator_url`, e.g. in `/etc/aitbc/node.env`) to the hub mount —
 it is tried first, before the configured coordinator and hub discovery.
-Set on node2: `NATIVE_COORDINATOR_URL=https://hub.aitbc.bubuit.net/c/v1`.
+Set on node2: `NATIVE_COORDINATOR_URL=https://hub.aitbc.invalid/c/v1`.
 
 **Miner credential**: the coordinator's `MinerDep` accepts a `role: "miner"`
 JWT or an `X-Api-Key` present in `MINER_API_KEYS`/`miner_api_keys`. Wallet

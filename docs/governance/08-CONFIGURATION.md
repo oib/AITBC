@@ -30,7 +30,7 @@ The Governance Service can be configured via environment variables, configuratio
 | Variable | Description | Default | Required |
 |----------|-------------|---------|----------|
 | GOVERNANCE_BLOCKCHAIN_RPC_URL | Blockchain RPC endpoint | http://localhost:8202 | No |
-| GOVERNANCE_DEFAULT_CHAIN_ID | Chain identifier | ait-hub.aitbc.bubuit.net | No |
+| GOVERNANCE_DEFAULT_CHAIN_ID | Chain identifier | ait-localnet | No |
 
 ## Configuration Files
 

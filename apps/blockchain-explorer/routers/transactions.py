@@ -1,6 +1,7 @@
 """Transaction routes — transaction by hash, transaction search, transaction details."""
 
 import json
+import os
 from pathlib import Path
 from typing import Any
 
@@ -29,7 +30,7 @@ async def api_transaction_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAI
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -85,7 +86,7 @@ async def api_search_transactions(
 ) -> dict[str, Any]:
     """Search transactions by address or node ID in blockchain database"""
     try:
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 

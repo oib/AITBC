@@ -35,8 +35,8 @@ commonly touched settings are summarized below.
 
 ```bash
 # blockchain.env — shared
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net   # comma-separated; defaults to CHAIN_ID
+CHAIN_ID=ait-localnet
+SUPPORTED_CHAINS=ait-localnet   # comma-separated; defaults to CHAIN_ID
 ISLAND_ID=<uuid>                          # island identifier
 ```
 
