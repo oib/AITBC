@@ -457,6 +457,29 @@ def _tx_type(tx_data: dict[str, Any], tx_record: Transaction | None = None) -> s
     return str(tx_type or "TRANSFER").upper()
 
 
+def get_recorded_block_version(block_data_or_block: dict[str, Any] | object) -> int | None:
+    """Return the version stamped in ``block_metadata``, or ``None``.
+
+    ``None`` covers both an absent ``state_transition_version`` key and
+    malformed/unparseable metadata.
+    """
+    metadata: Any = None
+    if isinstance(block_data_or_block, dict):
+        metadata = block_data_or_block.get("block_metadata")
+    else:
+        metadata = getattr(block_data_or_block, "block_metadata", None)
+    if not metadata:
+        return None
+    try:
+        parsed = metadata if isinstance(metadata, dict) else json.loads(metadata)
+        version = parsed.get("state_transition_version")
+        if version is not None:
+            return int(version)
+    except (TypeError, ValueError, AttributeError, json.JSONDecodeError):
+        pass
+    return None
+
+
 def get_block_version(block_data_or_block: dict[str, Any] | object, height: int = 0) -> int:
     """Return the state-transition rule version that should be used for a block.
 
@@ -465,19 +488,12 @@ def get_block_version(block_data_or_block: dict[str, Any] | object, height: int 
     configured activation heights, so historical blocks replay under the rules
     that produced them.
     """
-    metadata: str | None = None
-    if isinstance(block_data_or_block, dict):
-        metadata = block_data_or_block.get("block_metadata")
-    else:
-        metadata = getattr(block_data_or_block, "block_metadata", None)
-    if metadata:
-        try:
-            parsed = json.loads(metadata)
-            version = parsed.get("state_transition_version")
-            if version is not None:
-                return int(version)
-        except (TypeError, ValueError, json.JSONDecodeError):
-            pass
+    recorded = get_recorded_block_version(block_data_or_block)
+    if recorded is not None:
+        return recorded
+    v8_threshold = getattr(settings, "state_transition_v8_height", 0)
+    if v8_threshold > 0 and height >= v8_threshold:
+        return 8
     v7_threshold = getattr(settings, "state_transition_v7_height", 0)
     if v7_threshold > 0 and height >= v7_threshold:
         return 7
@@ -506,6 +522,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v8_threshold = getattr(settings, "state_transition_v8_height", 0)
+    if v8_threshold > 0 and height >= v8_threshold:
+        return 8
     v7_threshold = getattr(settings, "state_transition_v7_height", 0)
     if v7_threshold > 0 and height >= v7_threshold:
         return 7
@@ -525,6 +544,30 @@ def get_block_version_for_height(height: int) -> int:
     if v2_threshold > 0 and height < v2_threshold:
         return 1
     return 2
+
+
+def validate_recorded_version(block_data: dict[str, Any], height: int) -> tuple[bool, str]:
+    """v8 gate: at/above activation, the recorded version must equal the
+    height-derived one, and unstamped blocks are rejected.
+
+    Below activation the stamp stays proposer-controlled and trusted — the
+    pre-v8 semantics — so historical blocks replay unchanged. A chain where
+    past stamps ever deviated from height-derived versions must NOT set the
+    height below those blocks; the AITBC audit found zero such stamps.
+    """
+    v8_threshold = getattr(settings, "state_transition_v8_height", 0)
+    if v8_threshold <= 0 or height < v8_threshold:
+        return True, ""
+    recorded = get_recorded_block_version(block_data)
+    expected = get_block_version_for_height(height)
+    if recorded is None:
+        return False, f"block at height {height} records no state_transition_version"
+    if recorded != expected:
+        return (
+            False,
+            f"block at height {height} records state_transition_version={recorded}, height requires {expected}",
+        )
+    return True, ""
 
 
 # Address fields the staking RPCs put the authorized party under: consensus
