@@ -182,6 +182,11 @@ sqlite3 /var/lib/aitbc/data/marketplace_service.db \
      tx_hash=NULL, block_proposer=NULL, block_timestamp=NULL;"
 ```
 
+If a node's market service runs on Postgres instead of SQLite, the same two
+statements apply but must run through `psql` against that database —
+running the `sqlite3` command would create an empty file and report success
+without clearing anything.
+
 The next listing re-resolves every offer against the new chain and rewrites
 only anchors that verify under the provider-binding rules — genuine
 confirmations come back, stale ones stay unconfirmed.
