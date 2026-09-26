@@ -47,13 +47,17 @@
             <h2>Buy AIT with ETH</h2>
             <p class="muted-text">Send ETH on Sepolia testnet — receive AIT automatically within ~30 seconds.</p>
 
+            <div id="bridge-offline-note" class="error-box" style="display:none;">
+                Bridge is currently offline — ETH deposits are disabled. Check back later.
+            </div>
+
             <!-- Wallet connection (shown only if window.ethereum is detected) -->
             <div id="wallet-connect-row" style="display:none;" class="wallet-row">
                 <button id="connect-wallet-btn" class="btn-secondary">Connect MetaMask</button>
                 <span id="connected-account" class="connected-account"></span>
             </div>
 
-            <div class="bridge-form">
+            <div class="bridge-form" id="deposit-form">
                 <div class="form-row">
                     <label for="eth-amount">ETH amount to send</label>
                     <input type="number" id="eth-amount" step="0.0001" min="0.001" placeholder="0.001" class="endpoint">
