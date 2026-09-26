@@ -413,21 +413,27 @@ def test_pure_v5_no_authority_fails_closed():
     assert "bridge release authority" in delta.error
 
 
-def test_pure_v5_env_fallback_authority(authority, monkeypatch):
+def test_pure_v5_env_does_not_substitute_for_missing_parameter(authority, monkeypatch):
+    """Env set but no sealed chain parameter → fail closed. Env resolution is
+    a mempool pre-check path only (block_height=None); a parallel apply that
+    consulted it would accept credits the sequential path rejects."""
     _, addr = authority
     monkeypatch.setenv("BRIDGE_RELEASE_AUTHORITY", addr)
     tx = _sign_payload(_release_tx(), "pure-rel-4", authority[0])
     delta = compute_state_delta({}, tx, "test", tx_hash="pure-rel-4", block_version=5)
-    assert delta.success, delta.error
+    assert not delta.success
+    assert "bridge release authority" in delta.error
 
 
-def test_pure_v5_escrow_env_fallback_authority(authority, monkeypatch):
-    """No bridge env → the escrow settlement env resolves the same key."""
+def test_pure_v5_escrow_env_does_not_substitute_for_missing_parameter(authority, monkeypatch):
+    """Same for the escrow settlement env — the parallel path must not
+    resolve it where the sequential path cannot."""
     _, addr = authority
     monkeypatch.setattr(settings, "escrow_settlement_authority", addr)
     tx = _sign_payload(_release_tx(), "pure-rel-5", authority[0])
     delta = compute_state_delta({}, tx, "test", tx_hash="pure-rel-5", block_version=5)
-    assert delta.success, delta.error
+    assert not delta.success
+    assert "bridge release authority" in delta.error
 
 
 def test_pure_v5_wrong_sender_still_rejected(authority):
