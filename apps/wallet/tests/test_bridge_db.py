@@ -26,6 +26,7 @@ from wallet_app.bridge.bridge_db import (
     get_withdrawal_by_ait_tx_hash,
     update_withdrawal_status,
     get_deposit_by_id,
+    get_deposits_by_recipient,
     update_deposit_status,
 )
 
@@ -235,3 +236,106 @@ class TestBridgeDepositDb:
 
         record = get_deposit_by_id(deposit_id)
         assert record["status"] == "completed"
+
+    def test_get_deposits_by_recipient_filters(self, bridge_db):
+        insert_deposit(
+            tx_hash="0xaaa" * 21,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0x1111111111111111111111111111111111111111",
+        )
+        insert_deposit(
+            tx_hash="0xbbb" * 21,
+            from_address="0x8888888888888888888888888888888888888888",
+            amount_eth=Decimal("0.02"),
+            amount_ait=Decimal("200"),
+            recipient="0x2222222222222222222222222222222222222222",
+        )
+
+        rows = get_deposits_by_recipient("0x1111111111111111111111111111111111111111")
+        assert len(rows) == 1
+        assert rows[0]["tx_hash"] == "0xaaa" * 21
+
+    def test_get_deposits_by_recipient_case_insensitive(self, bridge_db):
+        insert_deposit(
+            tx_hash="0xccc" * 21,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0xaAbBcCdDeEfF0011223344556677889900112233",
+        )
+
+        rows = get_deposits_by_recipient("0xaabbccddeeff0011223344556677889900112233")
+        assert len(rows) == 1
+        assert rows[0]["tx_hash"] == "0xccc" * 21
+
+    def test_get_deposits_by_recipient_newest_first_and_limit(self, bridge_db):
+        for i in range(3):
+            insert_deposit(
+                tx_hash=f"0x{i:064x}",
+                from_address="0x9999999999999999999999999999999999999999",
+                amount_eth=Decimal("0.01"),
+                amount_ait=Decimal("100"),
+                recipient="0x1111111111111111111111111111111111111111",
+            )
+
+        rows = get_deposits_by_recipient("0x1111111111111111111111111111111111111111", limit=2)
+        assert len(rows) == 2
+        assert rows[0]["tx_hash"] == f"0x{2:064x}"
+
+    def test_get_deposits_by_recipient_empty(self, bridge_db):
+        rows = get_deposits_by_recipient("0x1111111111111111111111111111111111111111")
+        assert rows == []
+
+
+class TestDepositByRecipientRoute:
+    """HTTP coverage for GET /v1/bridge/deposit/by-recipient/{address}."""
+
+    @pytest.fixture
+    def client(self, bridge_db):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from wallet_app.bridge.bridge_routes import bridge_router
+
+        app = FastAPI()
+        app.include_router(bridge_router)
+        return TestClient(app)
+
+    def test_returns_deposits_for_recipient(self, client, bridge_db):
+        insert_deposit(
+            tx_hash="0xddd" * 21,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0xAaBbCcDdEeFf0011223344556677889900112233",
+        )
+
+        resp = client.get("/v1/bridge/deposit/by-recipient/0xAaBbCcDdEeFf0011223344556677889900112233")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["count"] == 1
+        assert body["deposits"][0]["eth_tx_hash"] == "0xddd" * 21
+
+    def test_lowercase_address_still_matches(self, client, bridge_db):
+        insert_deposit(
+            tx_hash="0xeee" * 21,
+            from_address="0x9999999999999999999999999999999999999999",
+            amount_eth=Decimal("0.01"),
+            amount_ait=Decimal("100"),
+            recipient="0xAaBbCcDdEeFf0011223344556677889900112233",
+        )
+
+        resp = client.get("/v1/bridge/deposit/by-recipient/0xaabbccddeeff0011223344556677889900112233")
+        assert resp.status_code == 200
+        assert resp.json()["count"] == 1
+
+    def test_unknown_recipient_returns_empty_list(self, client, bridge_db):
+        resp = client.get("/v1/bridge/deposit/by-recipient/0x1111111111111111111111111111111111111111")
+        assert resp.status_code == 200
+        assert resp.json() == {"deposits": [], "count": 0}
+
+    def test_malformed_address_rejected(self, client, bridge_db):
+        resp = client.get("/v1/bridge/deposit/by-recipient/not-an-address")
+        assert resp.status_code == 422

@@ -370,6 +370,50 @@ def get_all_deposits(limit: int = 50, offset: int = 0) -> list[dict[str, Any]]:
     ]
 
 
+def get_deposits_by_recipient(recipient: str, limit: int = 10) -> list[dict[str, Any]]:
+    """Get deposits for a single AIT recipient, newest first.
+
+    Non-enumerable counterpart to get_all_deposits: the caller must already
+    know the recipient address, so this can stay public where the full index
+    is operator-only. Matching is case-insensitive because recipients arrive
+    both checksummed and lowercase depending on how the depositor encoded
+    the transaction data field.
+    """
+    conn = _connect_db()
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        SELECT id, tx_hash, from_address, amount_eth, amount_ait, status, created_at, verified_at, completed_at, recipient, ait_tx_hash
+        FROM eth_deposits
+        WHERE LOWER(recipient) = LOWER(?)
+        ORDER BY created_at DESC
+        LIMIT ?
+    """,
+        (recipient, limit),
+    )
+
+    rows = cursor.fetchall()
+    conn.close()
+
+    return [
+        {
+            "id": row[0],
+            "tx_hash": row[1],
+            "from_address": row[2],
+            "amount_eth": row[3],
+            "amount_ait": row[4],
+            "status": row[5],
+            "created_at": row[6],
+            "verified_at": row[7],
+            "completed_at": row[8],
+            "recipient": row[9],
+            "ait_tx_hash": row[10],
+        }
+        for row in rows
+    ]
+
+
 def insert_price_history(eth_usd: Decimal, eth_eur: Decimal, exchange_rate_usd: Decimal, exchange_rate_eur: Decimal) -> None:
     """Insert a new price history record."""
     conn = _connect_db()
