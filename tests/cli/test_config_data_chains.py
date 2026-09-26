@@ -45,6 +45,7 @@ class TestChainConfig:
 class TestChainRegistry:
     """Test ChainRegistry class"""
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_registry_initialization(self):
         """Test registry initialization with default chains"""
         from config_data.chains import ChainRegistry
@@ -54,6 +55,7 @@ class TestChainRegistry:
         assert len(registry.chains) > 0
         assert "ait-testchain.local" in registry.chains
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_chain_exists(self):
         """Test getting existing chain"""
         from config_data.chains import ChainRegistry
@@ -74,6 +76,7 @@ class TestChainRegistry:
 
         assert chain is None
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_all_chains(self):
         """Test getting all chains"""
         from config_data.chains import ChainRegistry
@@ -84,6 +87,7 @@ class TestChainRegistry:
         assert isinstance(chains, dict)
         assert len(chains) > 0
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_chain_ids(self):
         """Test getting chain IDs"""
         from config_data.chains import ChainRegistry
@@ -94,6 +98,7 @@ class TestChainRegistry:
         assert isinstance(chain_ids, list)
         assert "ait-testchain.local" in chain_ids
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_testnet_chains(self):
         """Test getting testnet chains"""
         from config_data.chains import ChainRegistry
@@ -104,6 +109,7 @@ class TestChainRegistry:
         # Default chain (ait-hub) is not a testnet, so this should be empty
         assert len(testnet_chains) == 0
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_mainnet_chains(self):
         """Test getting mainnet chains"""
         from config_data.chains import ChainRegistry
@@ -127,6 +133,7 @@ class TestChainRegistry:
         assert "ait-custom" in registry.chains
         assert registry.chains["ait-custom"].name == "Custom Chain"
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_unregister_chain_exists(self):
         """Test unregistering existing chain"""
         from config_data.chains import ChainRegistry
@@ -178,6 +185,7 @@ class TestGetChainRegistry:
 
         assert registry1 is registry2
 
+    @patch.dict("os.environ", {"CHAIN_ID": "ait-testchain.local"})
     def test_get_chain_registry_initializes(self):
         """Test that chain registry initializes on first call"""
         from config_data.chains import get_chain_registry
