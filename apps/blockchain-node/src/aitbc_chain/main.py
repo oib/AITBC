@@ -327,6 +327,7 @@ class BlockchainNode:
 
         async def process_txs() -> None:
             from .metrics import gossip_tx_rejected_total
+            from .rpc.transactions import _validate_transaction_admission
             from .rpc.utils import gossip_transaction_drop_reason, normalize_transaction_data
 
             from .mempool import get_mempool as get_mempool_instance
@@ -377,8 +378,34 @@ class BlockchainNode:
                             )
                             continue
                         chain_id = tx_data.get("chain_id", settings.chain_id)
-                        tx_data = normalize_transaction_data(tx_data, chain_id)
-                        mempool.add(tx_data, chain_id=chain_id)
+                        try:
+                            tx_data = normalize_transaction_data(tx_data, chain_id)
+                        except ValueError as exc:
+                            gossip_tx_rejected_total.labels(reason="malformed").inc()
+                            logger.debug(
+                                "Dropped malformed gossip transaction on %s: %s",
+                                getattr(tx_sub, "topic", "unknown"),
+                                exc,
+                            )
+                            continue
+                        # Public intake enforces the same account-level rules as
+                        # REST submission: supported chain, known sender,
+                        # balance covering every signed pending tx, and a nonce
+                        # within the lookahead window. Without this, a throwaway
+                        # key could fill the pool with signed junk carrying an
+                        # arbitrary fee and evict genuine transactions.
+                        try:
+                            _validate_transaction_admission(tx_data, mempool)
+                            mempool.add(tx_data, chain_id=chain_id)
+                        except ValueError as exc:
+                            gossip_tx_rejected_total.labels(reason="admission").inc()
+                            logger.debug(
+                                "Dropped gossip transaction on %s: %s (sender=%s)",
+                                getattr(tx_sub, "topic", "unknown"),
+                                exc,
+                                tx_data.get("from"),
+                            )
+                            continue
                 except Exception as exc:
                     logger.error("Error processing transaction from gossip: %s", exc)
 

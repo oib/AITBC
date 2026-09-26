@@ -562,7 +562,8 @@ class P2PNetworkService:
                                 # This transport is unauthenticated: apply the
                                 # same signature policy as REST/gossip mempool
                                 # ingest before admitting or forwarding.
-                                from .rpc.utils import gossip_transaction_drop_reason
+                                from .rpc.transactions import _validate_transaction_admission
+                                from .rpc.utils import gossip_transaction_drop_reason, normalize_transaction_data
 
                                 drop_reason = gossip_transaction_drop_reason(tx_data)
                                 if drop_reason is not None:
@@ -573,25 +574,38 @@ class P2PNetworkService:
                                         tx_data.get("from") if isinstance(tx_data, dict) else None,
                                     )
                                     continue
-                                tx_hash = compute_tx_hash(tx_data)
                                 chain_id = tx_data.get("chain_id", settings.chain_id)
+                                tx_data = normalize_transaction_data(tx_data, chain_id)
+                                tx_hash = compute_tx_hash(tx_data)
                                 if not hasattr(self, "seen_txs"):
                                     self.seen_txs = set()
+                                # The dedup cache only saves a mempool lookup —
+                                # mempool.add dedups on tx_hash anyway — so a
+                                # bounded clear is enough to keep it finite.
+                                if len(self.seen_txs) >= 200_000:
+                                    self.seen_txs.clear()
                                 seen_key = (chain_id, tx_hash)
                                 if seen_key not in self.seen_txs:
-                                    logger.info("Received new P2P transaction: %s", tx_hash)
-                                    self.seen_txs.add(seen_key)
+                                    # The same account-level admission rules as
+                                    # REST/gossip: supported chain, funded
+                                    # sender, nonce inside the lookahead window.
                                     from .mempool import get_mempool as get_mempool_instance
 
                                     mempool = get_mempool_instance()
+                                    _validate_transaction_admission(tx_data, mempool)
+                                    logger.info("Received new P2P transaction: %s", tx_hash)
                                     mempool.add(tx_data, chain_id=chain_id)
+                                    # Mark seen only after a successful add: a
+                                    # transient rejection (e.g. mempool full)
+                                    # stays retryable on the next relay.
+                                    self.seen_txs.add(seen_key)
                                     forward_msg = {"type": "new_transaction", "tx": tx_data}
                                     writers = list(self.active_connections.values())
                                     for w in writers:
                                         if w != writer:
                                             await self._send_message(w, forward_msg)
                             except ValueError as e:
-                                logger.debug("P2P tx rejected by mempool: %s", e)
+                                logger.debug("P2P tx rejected: %s", e)
                             except Exception as e:
                                 logger.error("P2P tx handling error: %s", e)
                     else:
