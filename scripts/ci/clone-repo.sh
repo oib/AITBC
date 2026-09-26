@@ -8,7 +8,7 @@ set -euo pipefail
 WORKSPACE_NAME="${1:-default}"
 WORKSPACE_BASE="/var/lib/aitbc-workspaces"
 WORKSPACE_DIR="$WORKSPACE_BASE/$WORKSPACE_NAME"
-REPO_URL="http://gitea.bubuit.net:3000/oib/aitbc.git"
+REPO_URL="${AITBC_REPO_URL:-https://github.com/oib/AITBC.git}"
 
 echo "=== Setting up workspace: $WORKSPACE_NAME ==="
 

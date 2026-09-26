@@ -17,7 +17,7 @@ router = APIRouter()
 @router.get("/api/chains")
 def list_chains() -> dict[str, Any]:
     """List all supported chains"""
-    chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    chain_id = os.getenv("CHAIN_ID", "ait-localnet")
     return {
         "chains": [
             {"id": chain_id, "name": "AIT Hub Network", "status": "active"},

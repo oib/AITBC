@@ -33,7 +33,7 @@ def _payload(sender: str) -> dict:
         "gas_limit": 21000,
         "gas_price": "1",
         "type": "TRANSFER",
-        "chain_id": "ait-hub.aitbc.bubuit.net",
+        "chain_id": "ait-testchain.local",
     }
 
 

@@ -213,7 +213,7 @@ aitbc explorer chain-head
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "height": 128452,
   "hash": "0xabc123...",
   "timestamp": "2026-06-25T12:00:00Z"

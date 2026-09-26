@@ -428,7 +428,7 @@ def shop(ctx: click.Context, miner_id: str | None, limit: int) -> None:
         offer_rows: list[dict[str, Any]] = []
         try:
             market_client = AITBCHTTPClient(
-                base_url=f"http://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}",
+                base_url=f"http://{config.hub_discovery_url or 'hub.aitbc.invalid'}",
                 timeout=10,
                 headers=_auth_headers(ctx),
             )

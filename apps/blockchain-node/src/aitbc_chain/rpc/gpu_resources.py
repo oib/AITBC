@@ -43,7 +43,7 @@ class GPUAllocationRequest(BaseModel):
 async def list_gpus(chain_id: str | None = None, status: str | None = None) -> dict[str, Any]:
     """List all GPUs registered on blockchain."""
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_gpu_list_total")
@@ -90,7 +90,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
 async def get_gpu_allocations(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU allocations from blockchain."""
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_gpu_allocations_get_total")
@@ -146,7 +146,7 @@ async def register_gpu(request: GPURegistrationRequest, chain_id: str | None = N
     """Register GPU with immutable specs on blockchain."""
     # Use env var or provided chain_id
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_gpu_register_total")
@@ -213,7 +213,7 @@ async def get_gpu(gpu_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query GPU registration from blockchain."""
     # Use env var or provided chain_id
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_gpu_get_total")
@@ -270,7 +270,7 @@ async def allocate_gpu(request: GPUAllocationRequest, chain_id: str | None = Non
     """Record GPU allocation on blockchain."""
     # Use env var or provided chain_id
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_gpu_allocate_total")
@@ -337,7 +337,7 @@ class EdgeNodeRegistrationRequest(BaseModel):
 async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str | None = None) -> dict[str, Any]:
     """Register an edge node on the blockchain (v0.6.6)."""
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_edge_register_total")
@@ -401,7 +401,7 @@ async def register_edge_node(request: EdgeNodeRegistrationRequest, chain_id: str
 async def get_edge_node(node_id: str, chain_id: str | None = None) -> dict[str, Any]:
     """Query edge node registration from blockchain (v0.6.6)."""
     if chain_id is None:
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     try:
         metrics_registry.increment("rpc_edge_get_total")

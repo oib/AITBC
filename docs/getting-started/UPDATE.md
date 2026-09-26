@@ -63,7 +63,7 @@ That's it for the common case. The script:
 | `--no-restart` | Sync venv + systemd only; do not restart services |
 | `--skip-backup` | Skip the pre-update backup (for quick dev iterations) |
 | `--no-migrate` | Skip Alembic DB migrations |
-| `--gitea [URL]` | Pull from the canonical Gitea repo (default: `https://gitea.bubuit.net/oib/AITBC.git`) |
+| `--gitea [URL]` | Pull from the canonical Gitea repo (default: `https://gitea.invalid/oib/AITBC.git`) |
 | `--remote URL` | Override git remote (default: `origin`) |
 | `-h`, `--help` | Print help and exit |
 
@@ -107,7 +107,7 @@ Skip with `--skip-backup` if you have a recent backup already.
 ### Step 1: git pull
 
 Fetches and merges from `origin` (GitHub by default, or Gitea when the node was
-set up with `--gitea`). The canonical Gitea URL is `https://gitea.bubuit.net/oib/AITBC.git`
+set up with `--gitea`). The canonical Gitea URL is `https://gitea.invalid/oib/AITBC.git`
 and is also available as the `gitea` remote. GitHub (`https://github.com/oib/AITBC.git`)
 is available as the `github` remote and is the public mirror.
 
@@ -126,7 +126,7 @@ sudo /opt/aitbc/scripts/deployment/update.sh --gitea
 # or a custom Gitea instance:
 sudo /opt/aitbc/scripts/deployment/update.sh --gitea http://gitea.example.com/oib/aitbc.git
 # or via env var:
-sudo AITBC_GIT_REMOTE=https://gitea.bubuit.net/oib/AITBC.git /opt/aitbc/scripts/deployment/update.sh
+sudo AITBC_GIT_REMOTE=https://gitea.invalid/oib/AITBC.git /opt/aitbc/scripts/deployment/update.sh
 ```
 
 ### Step 2: Sync Python venv
@@ -337,7 +337,7 @@ You have local commits that diverged from the remote `main`. Resolve manually:
 
 ```bash
 cd /opt/aitbc
-git fetch https://gitea.bubuit.net/oib/AITBC.git main
+git fetch https://gitea.invalid/oib/AITBC.git main
 git rebase FETCH_HEAD
 # or, if you want to keep your commits on top:
 git merge FETCH_HEAD

@@ -108,7 +108,7 @@ Use the hub **base URL** (`https://...`) without a trailing `/rpc` path — the 
 `setup.sh` now:
 
 - Defaults to the public GitHub mirror `https://github.com/oib/AITBC.git` so new installations work without access to the private Gitea.
-- Clones from the canonical Gitea repo with `--gitea` (default: `https://gitea.bubuit.net/oib/AITBC.git`) for operator nodes.
+- Clones from the canonical Gitea repo with `--gitea` (default: `https://gitea.invalid/oib/AITBC.git`) for operator nodes.
 - Adds both `github` and `gitea` named remotes so either can be used later.
 - Downloads any remote installer (NodeSource, etc.) to a temp file, prints its
   line count and SHA-256, and requires operator confirmation before running it.

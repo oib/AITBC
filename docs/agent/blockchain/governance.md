@@ -60,7 +60,7 @@ aitbc governance get --proposal-id prop_test_001
 curl -X POST http://hub.example.net:8202/rpc/governance/proposal \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
-  -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
+  -d '{"proposal_id": "prop_test", "proposer_address": "<wallet_address>", "title": "Test", "description": "Test", "chain_id": "ait-localnet"}'
 ```
 
 ## Database Verification

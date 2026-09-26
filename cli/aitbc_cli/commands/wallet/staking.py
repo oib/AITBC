@@ -52,7 +52,7 @@ def _get_chain_id(rpc_url: str) -> str:
     except Exception:
         import os
 
-        return os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        return os.getenv("CHAIN_ID", "ait-localnet")
 
 
 def _get_account_nonce(http_client: AITBCHTTPClient, address: str, chain_id: str) -> int:
