@@ -1,3 +1,12 @@
+# AITBC public vhost — reference configuration.
+#
+# Regenerated 2026-09-26 from the deployed hub vhost so it stays an honest
+# reference: every location below exists in production. Host-specific values
+# (server_name, real-IP sources, allowlists, token includes) are sanitized —
+# replace them for your own deployment.
+#
+# GPU nodes additionally expose /v1/gpu/ (see the commented block below);
+# the hub has no GPU service, so it is commented out here.
 
 upstream api_gateway {
     server 127.0.0.1:8201;
@@ -23,7 +32,7 @@ upstream agent_coordinator {
     server 127.0.0.1:8107;
 }
 
-upstream market_service {
+upstream marketplace_service {
     server 127.0.0.1:8102;
 }
 
@@ -31,30 +40,14 @@ upstream exchange_service {
     server 127.0.0.1:8106;
 }
 
-upstream gpu_service {
-    server 127.0.0.1:8101;
+upstream pool_hub {
+    server 127.0.0.1:8210;
 }
 
-upstream whisper {
-    server 127.0.0.1:8110;
-}
-
-upstream ffmpeg {
-    server 127.0.0.1:8230;
-}
-
-upstream hermes_agent {
-    server 127.0.0.1:8270;
-}
-
-upstream ollama {
-    server 127.0.0.1:11434;
-}
-
-# Connection-upgrade map (http context — conf.d/websocket-upgrade.conf on the
-# live hub): emits "upgrade" when the client sent an Upgrade header, "close"
-# otherwise. Lets one location serve plain HTTP and WebSocket without
-# per-route header duplication.
+# Connection-upgrade map (http context — ships as conf.d/websocket-upgrade.conf
+# on the deployed hub): emits "upgrade" when the client sent an Upgrade header,
+# "close" otherwise. Lets one location serve plain HTTP and WebSocket without
+# per-route header duplication. Required by the /agent/api/v1/ WS locations.
 map $http_upgrade $connection_upgrade {
     default upgrade;
     ""      close;
@@ -64,18 +57,22 @@ server {
     listen 80;
     listen [::]:80;
 
-    # Get real client IP from proxy headers. Trust only the incus bridge
-    # gateway of whichever host terminates TLS in front of this container.
-    # The values below are RFC 5737 documentation addresses and match nothing:
-    # replace them with your own bridge gateways. Leaving them unmatched only
-    # costs client-IP accuracy in logs, whereas trusting a range you do not
-    # control lets a client spoof its address via X-Forwarded-For -- so an
-    # address you do not control must never be listed here.
+    # Get real client IP from proxy headers. Trust only the bridge gateway of
+    # whichever host terminates TLS in front of this container. The values
+    # below are RFC 5737 documentation addresses and match nothing: replace
+    # them with your own bridge gateways. Leaving them unmatched only costs
+    # client-IP accuracy in logs, whereas trusting a range you do not control
+    # lets a client spoof its address via X-Forwarded-For — so an address you
+    # do not control must never be listed here.
     set_real_ip_from 192.0.2.1;
     set_real_ip_from 198.51.100.1;
     real_ip_header X-Real-IP;
     real_ip_recursive on;
     server_name _;
+    # Defines $aitbc_rw_token for the = /prom-write block below. The deployed
+    # hub keeps the bearer token in this separate include; create it (or drop
+    # the /prom-write block) before enabling.
+    # include /etc/nginx/aitbc-remote-write-token.conf;
     root /opt/aitbc/website;
     index index.html;
 
@@ -114,7 +111,19 @@ server {
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
-    # Dashboard / customer / shop API routes (P1.2)
+    location /v1/reputation/ {
+        proxy_pass http://coordinator_api/v1/reputation/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+
+    # -- Dashboard / Customer / Shop API routes (P1.2)
     location /v1/jobs {
         proxy_pass http://coordinator_api;
         proxy_set_header Host $host;
@@ -122,8 +131,20 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
         add_header Access-Control-Allow-Origin * always;
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
+    location /v1/payments {
+        proxy_pass http://coordinator_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
 
     location /v1/miners/ {
         proxy_pass http://coordinator_api;
@@ -132,7 +153,8 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
         add_header Access-Control-Allow-Origin * always;
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
     location /v1/monitoring/ {
@@ -142,11 +164,60 @@ server {
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
         add_header Access-Control-Allow-Origin * always;
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    location /v1/gpu/ {
-        proxy_pass http://gpu_service;
+    # 2026-09-25: /v1/bridge/deposits and /v1/bridge/withdrawals enumerate every
+    # bridge record (ETH from_address paired with AIT recipient, uncapped limit).
+    # Per-hash lookups stay public; the enumerable indexes are operator-only,
+    # same policy as /v1/wallets below.
+    location ~ ^/v1/bridge/(deposits|withdrawals)/?$ {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    # Same routes reachable via the /exchange/ -> wallet_service/ prefix strip.
+    location ~ ^/exchange/v1/(exchange/deposits|bridge/deposits|bridge/withdrawals)/?$ {
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        rewrite ^/exchange/(.*)$ /$1 break;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    }
+
+    location /v1/wallets {
+        # 2026-09-14: GET /v1/wallets and GET /v1/wallets/{id}/balance were the
+        # only ungated routes on this vhost; every write already requires X-API-Key.
+        # Internal consumers reach the daemon directly on 127.0.0.1:8108 and never
+        # traverse nginx, so restricting this prefix breaks no local caller.
+        allow 127.0.0.1;
+        allow ::1;
+        deny all;
+        proxy_pass http://wallet_service;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # Agent-coordinator's public /v1 families — the old /v1/ catch-all sent
+    # every unknown /v1/* here; unknown families now get an explicit 404.
+    location ~ ^/v1/(agents|ai|alerts|auth|consensus|metrics|protected|roles|sla|system|tasks|users|advanced-features)(/|$) {
+        proxy_pass http://agent_coordinator;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -156,44 +227,16 @@ server {
     }
 
     location /v1/ {
-        proxy_pass http://agent_coordinator/v1/;
-        proxy_set_header Host $host;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
+        return 404;
     }
 
-    # Wallet endpoints are served by the wallet daemon, not agent-coordinator.
-    location /v1/wallets {
-        # The wallet daemon gates every write route behind X-API-Key, but the
-        # list and balance reads are ungated by design for local tooling. Keep
-        # this prefix off the public vhost: in-process consumers talk to the
-        # daemon directly on its loopback port and never traverse nginx.
-        allow 127.0.0.1;
-        allow ::1;
-        deny all;
-        proxy_pass http://wallet_service/v1/wallets;
-        proxy_set_header Host $host;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Cache-Control "no-cache, no-store, must-revalidate" always;
-    }
-
-    # ── Public bootstrap for self-serve joining ─────────────────────────────
-    #
-    # Two files are public: genesis.json (public chain data) and bootstrap.env
-    # — a SANITIZED follower env rendered by scripts/ops/render-bootstrap-env.sh.
-    # NEVER alias the node's real /etc/aitbc/blockchain.env: on a hub it
-    # carries live consensus key material (PROPOSER_KEY, VALIDATOR_KEYS). The
-    # sanitized copy holds only allowlisted settings plus FOLLOWER_API_KEY,
-    # which is deliberately public (V23-68): it reaches coin-requests
-    # /register and /execute only.
-    #
-    # Peer keys for /rpc/subscribe are issued per-node by POST /rpc/join —
-    # they are not in these files. /rpc/network-info advertises both URLs and
-    # reports "provisioning": "self_serve".
-    #
-    # Exact-match `location =` beats the deny regex below — that is what makes
-    # bootstrap.env reachable while every other *.env path under /agent stays
-    # dead.
+    # Self-serve bootstrap (V23-58 still applies to real env files):
+    # bootstrap.env is a sanitized allowlist-rendered copy made by
+    # scripts/ops/render-bootstrap-env.sh — the node's real
+    # /etc/aitbc/blockchain.env carries PROPOSER_KEY/VALIDATOR_KEYS and must
+    # never be aliased. genesis.json is public chain data; aliasing the live
+    # file keeps it always current. Exact-match `=` blocks take precedence
+    # over the deny regex below.
     location = /agent/bootstrap.env {
         alias /etc/aitbc/bootstrap.env;
         add_header Content-Type "text/plain; charset=utf-8";
@@ -201,27 +244,16 @@ server {
     }
 
     location = /agent/genesis.json {
-        alias /var/lib/aitbc/data/ait-localnet/genesis.json;
+        alias /etc/aitbc/genesis.json;
         add_header Content-Type "application/json; charset=utf-8";
         add_header Access-Control-Allow-Origin * always;
     }
 
-    # Every other env or secrets file under /agent stays dead (V23-58).
-    # blockchain-secrets.env previously was public, unauthenticated and with
-    # CORS wide open. The values it holds are live credentials, not
-    # configuration: COORDINATOR_API_KEY authenticates as role `miner` via the
-    # X-Api-Key dependency in aitbc/auth/dependencies.py, and either value alone
-    # authorises the agent-coordinator coin-request and websocket endpoints,
-    # which accept COORDINATOR_API_KEY *or* SECRET_KEY. On the hub, the real
-    # blockchain.env additionally carries PROPOSER_KEY and VALIDATOR_KEYS.
-    # Publishing any of these grants those roles/keys to anyone who runs curl.
-    #
-    # The regex below is deliberate belt-and-braces. nginx checks regex
-    # locations before plain prefix locations, so a future
-    # `location /agent/ { alias /etc/aitbc/; }` -- the obvious way someone
-    # re-introduces this -- still cannot expose an env or secrets file. To
-    # publish a specific file anyway, use an exact-match `location =` block
-    # (exact matches take precedence over regexes).
+    # Everything else env/secret-like under /agent stays dead: the real
+    # blockchain.env and blockchain-secrets.env carry live key material on
+    # this hub, so no env or secrets file may ever be reachable under the
+    # /agent mount. Regex beats plain prefix locations; a future
+    # `location /agent/ { alias ...; }` still cannot expose one.
     location ~ ^/agent/.*(\.env|secret) {
         return 404;
     }
@@ -312,56 +344,7 @@ server {
         proxy_redirect ~^https?://[^/]+/api/v1/agent/(.*)$ /agent/$1;
     }
 
-    # Public coin-request endpoints for open-island funding.
-    location /api/v1/agent/coin-requests/ {
-        proxy_pass http://agent_coordinator/api/v1/agent/coin-requests/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_set_header X-Api-Key $http_x_api_key;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
-    }
-
-    # Paid agent-to-agent delegation messaging (send/inbox/read) at the root
-    # mount — used by clients that strip agent_coordinator_url to the origin.
-    location /api/v1/agent/messages/ {
-        proxy_pass http://agent_coordinator/api/v1/agent/messages/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_set_header X-Api-Key $http_x_api_key;
-        add_header Access-Control-Allow-Origin * always;
-        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
-        add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
-        client_max_body_size 5M;
-    }
-
-    # Catch-all for the rest of the app's /api/v1/agent/ namespace (auth, keys,
-    # workflows, ws/status). hub_agent_url() resolves agent_coordinator_url to
-    # https://<hub>/api/v1/agent, and clients holding that base append short
-    # paths like /auth/nonce — without this block they fall through to the API
-    # gateway and 404. Longer prefixes above keep winning for messages and
-    # coin-requests; every route here is equally reachable via /agent/api/v1/agent/.
-    location /api/v1/agent/ {
-        proxy_pass http://agent_coordinator/api/v1/agent/;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_set_header X-Api-Key $http_x_api_key;
-        client_max_body_size 5M;
-    }
-
     # ── API Gateway Reverse Proxy ─────────────────────────────
-    #
-    # This mount also publishes the gateway's service-qualified surface:
-    # /api/v2/<service>/<upstream path> forwards to the named upstream
-    # verbatim (see docs/api/api-v2-map.json). No separate location is
-    # needed — nginx strips /api/ and the gateway sees v2/...
 
     location /api/ {
         proxy_pass http://api_gateway/;
@@ -378,7 +361,7 @@ server {
 
     # ── Blockchain RPC Reverse Proxy ────────────────────────
 
-    # WebSocket routes for real-time block push and validator gossip.
+    # WebSocket routes for real-time block push and authenticated validator gossip.
     # /rpc/subscribe/ws is for public follower block delivery.
     # /rpc/gossip/ws is for authenticated validator consensus gossip.
     location ~ ^/rpc/(subscribe/ws|gossip/ws)$ {
@@ -390,15 +373,40 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_set_header X-Forwarded-Host $host;
         proxy_read_timeout 3600s;
         proxy_send_timeout 3600s;
-        # Cap WebSocket message and idle lifetimes.
-        proxy_connect_timeout 10s;
-        client_max_body_size 5M;
     }
 
-    # HTTP RPC routes (subscribe, heartbeat, blocks, head, etc.)
+
+    # ── Escrow RPC allowlist (CHOKE-POINT: public mutation endpoint exposure) ─
+    # Read-only escrow state (GET) is left to the application auth layer.
+    # All mutating escrow calls (create, release, refund) are source-IP allowlisted
+    # so follower/coordinator nodes keep working while the public internet is blocked.
+    location /rpc/escrow/ {
+        limit_except GET {
+            allow 127.0.0.1;        # coordinator / localhost
+            allow ::1;              # IPv6 localhost
+            allow 192.0.2.10;       # hub node (example — replace)
+            allow 192.0.2.11;       # second hub (example — replace)
+            allow 198.51.100.20;    # follower egress (example — replace)
+            allow 203.0.113.0/24;   # internal network (example — replace)
+            deny all;               # block public internet
+        }
+
+        proxy_pass http://blockchain_rpc/rpc/escrow/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_connect_timeout 10s;
+        proxy_send_timeout 30s;
+        proxy_read_timeout 30s;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+# HTTP RPC routes (subscribe, heartbeat, blocks, head, etc.)
     location /rpc/ {
         proxy_pass http://blockchain_rpc/rpc/;
         proxy_set_header Host $host;
@@ -421,6 +429,8 @@ server {
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Forwarded-Prefix /c;
+        client_max_body_size 100M;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
@@ -456,7 +466,19 @@ server {
 
     # ── Marketplace Service Ports (GPU Services) ─────────────────────
 
-    # Ollama service (AI inference)
+    # GPU nodes only: the local GPU inventory service listens on :8101.
+    # The hub has no GPU service, so this stays commented out there.
+    # location /v1/gpu/ {
+    #     proxy_pass http://127.0.0.1:8101;
+    #     proxy_set_header Host $host;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    #     proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+    #     proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+    #     add_header Access-Control-Allow-Origin * always;
+    #     add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+    #     add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    # }
+
     location /ollama/ {
         proxy_pass http://127.0.0.1:11434/;
         proxy_set_header Host $host;
@@ -468,60 +490,62 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    # Whisper transcription service
+    # Whisper service (speech recognition)
     location /whisper/ {
-        client_max_body_size 500M;
-        rewrite ^/whisper/(.*) /$1 break;
-        proxy_pass http://whisper;
+        proxy_pass http://127.0.0.1:8080/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_read_timeout 600s;
-        proxy_send_timeout 600s;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    # FFmpeg video processing service
+    # FFmpeg service (video transcoding)
     location /ffmpeg/ {
-        client_max_body_size 500M;
-        rewrite ^/ffmpeg/(.*) /$1 break;
-        proxy_pass http://ffmpeg;
+        proxy_pass http://127.0.0.1:9000/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    # Hermes Agent one-shot service
-    location /hermes/ {
-        client_max_body_size 50M;
-        rewrite ^/hermes/(.*) /$1 break;
-        proxy_pass http://hermes_agent;
+    # PeerTube Pruner service
+    location /peertube-pruner/ {
+        proxy_pass http://127.0.0.1:9500/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
         proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-        proxy_read_timeout 3600s;
-        proxy_send_timeout 3600s;
         add_header Access-Control-Allow-Origin * always;
         add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
+    # ── Marketplace API ───────────────────────────────────────
 
-    # ── Market API ────────────────────────────────────────────
+    # Coordinator-owned marketplace families (GPU marketplace, providers,
+    # bonds, pricing) — everything else under /v1/market/ belongs to
+    # the marketplace service below. The regex location wins over the
+    # plain prefix block for these sub-paths.
+    location ~ ^/v1/market/(gpu|providers|bonds|miner-offers|native-energy|orders|pricing|sync-offers)(/|$) {
+        proxy_pass http://coordinator_api;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS, DELETE" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
 
-    # Coordinator owns the public /v1/market/offers + /plugins names.
-    # Exact-match beats the /v1/market/ prefix below, so offers/plugins
-    # subroutes still reach the market service on :8102.
+    # Coordinator owns the public /v1/market/offers + /plugins names
+    # (operator decision 2026-09-23). Exact-match beats the /v1/market/
+    # prefix below, so offers/plugins subroutes still reach :8102.
     location = /v1/market/offers {
         proxy_pass http://coordinator_api/v1/market/offers;
         proxy_set_header Host $host;
@@ -544,11 +568,8 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    # /v1/marketplace/* needs NO nginx alias: the app's LegacyPathRewriteMiddleware
-    # rewrites it to /v1/market/* and emits X-AITBC-Deprecated-Path. Rewriting here
-    # would hide the legacy spelling from the app and suppress that signal.
     location /v1/market/ {
-        proxy_pass http://market_service/v1/market/;
+        proxy_pass http://marketplace_service/v1/market/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -560,23 +581,8 @@ server {
 
     # ── Exchange API (Bridge, Price, History) ─────────────────────
 
-    # /v1/bridge/deposits and /v1/bridge/withdrawals enumerate every bridge
-    # record (ETH from_address paired with AIT recipient). Per-hash lookups
-    # stay public; the enumerable indexes are operator-only — same policy as
-    # /v1/wallets above.
-    location ~ ^/v1/bridge/(deposits|withdrawals)/?$ {
-        allow 127.0.0.1;
-        allow ::1;
-        deny all;
-        proxy_pass http://127.0.0.1:8106;
-        proxy_set_header Host $host;
-        proxy_set_header X-Real-IP $remote_addr;
-        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
-        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
-    }
-
     location /v1/bridge/ {
-        proxy_pass http://127.0.0.1:8106/v1/bridge/;
+        proxy_pass http://wallet_service/v1/bridge/;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -597,8 +603,20 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
+
+
+    location /exchange/ {
+        proxy_pass http://wallet_service/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
     location /exchange/price.json {
-        proxy_pass http://127.0.0.1:8106/exchange/price.json;
+        proxy_pass http://exchange_service/exchange/price.json;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -608,14 +626,92 @@ server {
         add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
     }
 
-    # ── Web dashboards ────────────────────────────────────────
 
+
+
+    # Pool Hub Reverse Proxy
+    location /pool-hub/ {
+        proxy_pass http://pool_hub/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept" always;
+    }
+
+    # Public coin-request endpoints for open-island funding
+    location /api/v1/agent/coin-requests/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/coin-requests/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
+    }
+
+    # Paid agent-to-agent delegation messaging (send/inbox/read).
+    # Same trust level as the public /v1/ coordinator routes; the WS stream
+    # stays under /agent/api/v1/agent/messages/stream.
+    location /api/v1/agent/messages/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/messages/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        add_header Access-Control-Allow-Origin * always;
+        add_header Access-Control-Allow-Methods "GET, POST, OPTIONS" always;
+        add_header Access-Control-Allow-Headers "Content-Type, Accept, x-api-key" always;
+        client_max_body_size 5M;
+    }
+
+    # Catch-all for the rest of the app's /api/v1/agent/ namespace (auth, keys,
+    # workflows, ws/status). hub_agent_url() resolves agent_coordinator_url to
+    # https://<hub>/api/v1/agent, and clients holding that base append short
+    # paths like /auth/nonce — without this block they fell through to the API
+    # gateway and 404'd. Longer prefixes above keep winning for messages and
+    # coin-requests; every route here is equally reachable via /agent/api/v1/agent/.
+    location /api/v1/agent/ {
+        proxy_pass http://agent_coordinator/api/v1/agent/;
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $http_x_forwarded_proto;
+        proxy_set_header X-Api-Key $http_x_api_key;
+        client_max_body_size 5M;
+    }
+
+    # Prometheus remote-write receiver (hub is the central store).
+    # IP allowlist + bearer token. The whole block is commented out because it
+    # references $aitbc_rw_token, which only exists once the
+    # aitbc-remote-write-token.conf include near server_name is enabled —
+    # uncomment both together.
+    # location = /prom-write {
+    #     allow 198.51.100.20;     # follower egress (example — replace)
+    #     allow 192.0.2.10;        # hub node (example — replace)
+    #     allow 127.0.0.1;
+    #     deny all;
+    #     if ($http_authorization != "Bearer $aitbc_rw_token") { return 401; }
+    #     proxy_pass http://127.0.0.1:9090/api/v1/write;
+    #     proxy_set_header X-Real-IP $remote_addr;
+    # }
+
+    # ── Web dashboards ────────────────────────────────────────
+    # Pretty aliases for the two operator dashboards; the underlying files are
+    # also served directly as /customer-dashboard.html and /shop-dashboard.html.
+    location = /dashboard { return 301 /dashboard/; }
     location /dashboard/ {
         alias /opt/aitbc/website/customer-dashboard.html;
         default_type text/html;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
+    location = /shop { return 301 /shop/; }
     location /shop/ {
         alias /opt/aitbc/website/shop-dashboard.html;
         default_type text/html;
@@ -623,10 +719,14 @@ server {
     }
 
     location / {
-        # `expires` sets Expires + Cache-Control: max-age -- unlike add_header
+        # expires sets Expires + Cache-Control: max-age -- unlike add_header
         # it does not suppress the server-level security headers for this
         # location. 1h bound since asset filenames are not fingerprinted.
         expires 1h;
         try_files $uri $uri/ =404;
     }
+
+    # Optional host tooling (log analytics) — enable only if present.
+    # include /etc/nginx/awstats-locations.conf;
+
 }
