@@ -131,7 +131,7 @@ Fixes during live validation
 - `NATIVE_COORDINATOR_URL` (config key native_coordinator_url) pins the
   authoritative native-energy coordinator and is tried before the local
   coordinator + hub discovery fallback -- set on node2 to
-  https://hub.aitbc.bubuit.net/c/v1 so shop-side energy calls skip the
+  https://hub.aitbc.invalid/c/v1 so shop-side energy calls skip the
   local coordinator 404 probe entirely.
 
 - node2 exchange.env: AIT_USD_PRICE=1.0 flat USD override replaced with
