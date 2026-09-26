@@ -478,6 +478,9 @@ def get_block_version(block_data_or_block: dict[str, Any] | object, height: int 
                 return int(version)
         except (TypeError, ValueError, json.JSONDecodeError):
             pass
+    v7_threshold = getattr(settings, "state_transition_v7_height", 0)
+    if v7_threshold > 0 and height >= v7_threshold:
+        return 7
     v6_threshold = getattr(settings, "state_transition_v6_height", 0)
     if v6_threshold > 0 and height >= v6_threshold:
         return 6
@@ -503,6 +506,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v7_threshold = getattr(settings, "state_transition_v7_height", 0)
+    if v7_threshold > 0 and height >= v7_threshold:
+        return 7
     v6_threshold = getattr(settings, "state_transition_v6_height", 0)
     if v6_threshold > 0 and height >= v6_threshold:
         return 6
@@ -1090,6 +1096,27 @@ class StateTransition:
                 return (False, "GPU_REGISTER payload must include a valid price_per_hour")
             if value != 0:
                 return (False, "GPU_REGISTER must have value=0")
+            if block_version >= 7:
+                # Ownership gate: only the recorded registrant may update an
+                # existing gpu_id. registered_by is the first registrant's tx
+                # sender and cannot be rewritten from the payload, so a
+                # foreign signed GPU_REGISTER can't reprice, re-spec, or
+                # reactivate someone else's GPU. Fails closed if the row
+                # carries no registrant.
+                gpu_id = str(payload.get("gpu_id"))
+                existing = session.exec(
+                    select(GPURegistration).where(
+                        GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == gpu_id
+                    )
+                ).first()
+                if existing is not None:
+                    if not existing.registered_by:
+                        return (False, f"GPU {gpu_id} has no registrant on record; updates are not permitted")
+                    if canonical_address(existing.registered_by) != canonical_address(sender_addr):
+                        return (
+                            False,
+                            f"GPU_REGISTER for {gpu_id} must come from its registrant {existing.registered_by}, got {sender_addr}",
+                        )
         if tx_type == "GPU_ALLOCATE":
             payload = tx_data.get("payload") or {}
             if not payload.get("gpu_id"):
