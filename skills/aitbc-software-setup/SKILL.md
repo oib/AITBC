@@ -67,13 +67,13 @@ NODE_ROLE=genesis
 
 Edit `/etc/aitbc/blockchain.env`:
 ```bash
-CHAIN_ID=ait-hub.aitbc.bubuit.net
+CHAIN_ID=ait-localnet
 ```
 
 Edit `/etc/aitbc/node.env`:
 ```bash
 NODE_ID=your-unique-node-name
-ISLAND_ID=ait-hub.aitbc.bubuit.net-island
+ISLAND_ID=ait-localnet-island
 ```
 
 ### 3. For Follower Nodes: Remove Proposer ID
