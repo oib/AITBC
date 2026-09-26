@@ -137,7 +137,28 @@ aitbc --output json dashboard shop
 
 This is the recommended format for automated checks, e.g. verifying that `offers_published > 0` after a shop restart.
 
-### Step 4: Dashboard validation after a service restart
+### Step 4: Web dashboards (browser)
+
+The same two views exist on the public site at `/dashboard/` (customer) and
+`/shop/` (shop) — also reachable as `/customer-dashboard.html` and
+`/shop-dashboard.html`. Unlike the CLI, a browser has no `aitbc auth login`
+session, so the pages run in two modes:
+
+- **Anonymous** — public network data only: market-wide jobs
+  (`/v1/market/jobs`), registered GPUs (`/v1/market/gpu/list`), offers,
+  explorer analytics, and public RPC account balances.
+- **Operator credential** — pasting a credential into the on-page field
+  unlocks the per-account views through the existing auth middleware:
+  an auth token (from `aitbc auth login`, sent as `Authorization: Bearer`)
+  for `/v1/jobs`, or a miner API key (sent as `X-Api-Key`) for
+  `/v1/miners/*` and `/v1/monitoring/*`. The credential lives in
+  `sessionStorage` only.
+
+The coordinator's per-customer and per-miner routes stay auth-gated for
+anonymous callers by design — the public panels read from the open market
+and explorer surfaces instead.
+
+### Step 5: Dashboard validation after a service restart
 
 After restarting the shop role, run:
 
@@ -160,6 +181,7 @@ journalctl -u aitbc-coordinator-api -u aitbc-market -u aitbc-gpu -u aitbc-wallet
 - `aitbc dashboard shop` shows the authenticated shop's offers, GPUs, assigned jobs, and earnings.
 - `--output json` returns a parseable object for both views.
 - Restarting the shop services and re-running `aitbc dashboard shop` repopulates the dashboard without simulated data.
+- `/dashboard/` and `/shop/` render real market/network data for an anonymous browser; pasting a valid token or miner key switches the per-account panels to the operator's own data.
 
 ---
 
@@ -173,4 +195,4 @@ journalctl -u aitbc-coordinator-api -u aitbc-market -u aitbc-gpu -u aitbc-wallet
 
 - The customer view requires a client JWT with `role: client`; the shop view requires `role: miner`. Obtain these with `aitbc auth login --wallet <wallet>`.
 - The dashboards do **not** use mock or simulated data. Empty sections indicate the backing service is unreachable or the wallet has no data, not a CLI fallback.
-- P1.2 (customer/shop dashboards talking to live APIs) is satisfied by `aitbc dashboard customer` and `aitbc dashboard shop`. A separate web UI is outside the CLI repo.
+- P1.2 (customer/shop dashboards talking to live APIs) is satisfied by `aitbc dashboard customer` and `aitbc dashboard shop` plus the matching web views at `/dashboard/` and `/shop/`.
