@@ -57,6 +57,11 @@ def init_db() -> None:
             amount_ait NUMERIC NOT NULL,
             status TEXT NOT NULL DEFAULT 'pending',
             ait_tx_hash TEXT,
+            eth_usd_price TEXT,
+            ait_usd_price TEXT,
+            error_message TEXT,
+            retry_count INTEGER NOT NULL DEFAULT 0,
+            next_retry_at TEXT,
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             verified_at TIMESTAMP,
             completed_at TIMESTAMP
@@ -101,6 +106,13 @@ def init_db() -> None:
     _migrate_real_to_numeric(conn)
     _add_column_if_not_exists(conn, "eth_deposits", "recipient", "TEXT")
     _add_column_if_not_exists(conn, "eth_deposits", "ait_tx_hash", "TEXT")
+    # Lifecycle columns the standalone aitbc-bridge-monitor writes — the
+    # monitor and the wallet share eth_deposits as the single deposit table.
+    _add_column_if_not_exists(conn, "eth_deposits", "eth_usd_price", "TEXT")
+    _add_column_if_not_exists(conn, "eth_deposits", "ait_usd_price", "TEXT")
+    _add_column_if_not_exists(conn, "eth_deposits", "error_message", "TEXT")
+    _add_column_if_not_exists(conn, "eth_deposits", "retry_count", "INTEGER NOT NULL DEFAULT 0")
+    _add_column_if_not_exists(conn, "eth_deposits", "next_retry_at", "TEXT")
 
     conn.commit()
     conn.close()
