@@ -169,6 +169,23 @@ sqlite3 /var/lib/aitbc/data/ait-localnet/chain.db "PRAGMA integrity_check;"
 4. **Restore from backup** — `aitbc blockchain restore --backup-file <backup> --verify`
    or `POST /rpc/import-chain` with an admin-signed export.
 
+**After any chain replacement** (options 2–4): clear stored offer-anchor
+confirmations in the market database. `offer_anchor` rows and the `block_*`
+columns on `softwareservice` reference the old chain's blocks by height and
+hash and would otherwise keep confirming offers against blocks that no
+longer exist. On each node running `aitbc-market`:
+
+```bash
+sqlite3 /var/lib/aitbc/data/marketplace_service.db \
+  "DELETE FROM offer_anchor; \
+   UPDATE softwareservice SET block_height=NULL, block_hash=NULL, \
+     tx_hash=NULL, block_proposer=NULL, block_timestamp=NULL;"
+```
+
+The next listing re-resolves every offer against the new chain and rewrites
+only anchors that verify under the provider-binding rules — genuine
+confirmations come back, stale ones stay unconfirmed.
+
 ### Configuration Mistakes
 
 There is no `config validate` command — misconfiguration surfaces as a
