@@ -404,12 +404,15 @@ class DatabaseMempool:
             try:
                 session.exec(text(f"ALTER TABLE mempool ADD COLUMN {column} {ddl}"))  # type: ignore[call-overload]
             except Exception:
-                # Rolling back also releases the advisory lock; the re-check
-                # below runs on a fresh transaction. A writer that does not
-                # take the lock could still have added the column — anything
-                # else must surface: a missing column breaks every slot query.
+                # Rolling back also releases the advisory lock and undoes
+                # every ALTER in the transaction — a sender added moments
+                # earlier is gone too if nonce failed. Verify both columns,
+                # not just the one that errored: a writer that does not take
+                # the lock (e.g. an older build) could still have added the
+                # failing one meanwhile. Anything else must surface — a
+                # missing column breaks every slot query from then on.
                 session.rollback()
-                if column not in self._table_columns(session):
+                if not {"sender", "nonce"} <= self._table_columns(session):
                     raise
 
     def add(
