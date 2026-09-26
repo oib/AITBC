@@ -153,6 +153,8 @@ The release change log is at:
 
 Update it on `<shop-node>`, commit, and push to gitea `main`. Do not create new release docs in the local IDE checkout.
 
+Append entries with `scripts/release/append-changelog.sh <file>`, piping the entry in on stdin. It refuses when the entry's `### ` header already exists and avoids heredoc-over-ssh quoting damage.
+
 ## Useful remotes by node
 
 On the LAN nodes (`<shop-node>` and peers) `origin` uses the http endpoint on port 3000:
