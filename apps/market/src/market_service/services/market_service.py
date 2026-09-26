@@ -613,7 +613,7 @@ class MarketService:
             # row is written — otherwise any caller could squat a provider's
             # plugin_id and inherit its anchors.
             data["plugin_id"] = plugin_id
-            auth_error = verify_offer_registration(data, settings.default_chain_id)
+            auth_error, signer = verify_offer_registration(data, settings.default_chain_id)
             if auth_error:
                 raise PermissionError(auth_error)
             # Ephemeral proof fields are not service columns.
@@ -623,6 +623,15 @@ class MarketService:
             result = await self.session.execute(query)
             existing = result.scalar_one_or_none()
             if existing:
+                # Ownership gate (the GPU_REGISTER check one layer up): a
+                # valid signature proves who is asking, not who owns the row.
+                # Updating an existing offer requires the row's provider —
+                # anyone else's valid signature gets 403, not a takeover.
+                if not existing.provider_address:
+                    raise PermissionError(f"offer {plugin_id} has no provider on record; updates are not permitted")
+                if canonical_address(existing.provider_address) != canonical_address(signer or ""):
+                    raise PermissionError(f"offer {plugin_id} belongs to provider {existing.provider_address}")
+                data.pop("provider_address", None)  # ownership never changes via update
                 for key, value in data.items():
                     if hasattr(existing, key) and value is not None:
                         setattr(existing, key, value)
