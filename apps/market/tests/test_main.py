@@ -46,9 +46,7 @@ def _signed_registration(issued_at=None, chain_id=None, private_key=_TEST_PRIVAT
     chain_id = chain_id or settings.default_chain_id
     body = {**fields, "provider_address": provider, "chain_id": chain_id, "issued_at": issued_at}
     body["signature"] = sign_transaction_data(
-        registration_message(
-            "register", fields["plugin_id"], provider, chain_id, issued_at, offer_body_hash(body)
-        ),
+        registration_message("register", fields["plugin_id"], provider, chain_id, issued_at, offer_body_hash(body)),
         private_key,
     )
     return body
@@ -714,7 +712,11 @@ def test_register_offer_cannot_take_over_another_providers_offer(client):
     created = client.post(
         "/v1/market/offer",
         json=_signed_registration(
-            plugin_id="owner-offer", service_type="inference", model="m", endpoint="https://a.example/offer", private_key=owner_key
+            plugin_id="owner-offer",
+            service_type="inference",
+            model="m",
+            endpoint="https://a.example/offer",
+            private_key=owner_key,
         ),
     )
     assert created.status_code == 200
