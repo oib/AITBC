@@ -45,7 +45,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -95,7 +95,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -155,7 +155,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -205,7 +205,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -274,7 +274,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -397,7 +397,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -467,7 +467,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -546,7 +546,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -625,7 +625,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -694,7 +694,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -763,7 +763,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -842,7 +842,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           },
@@ -911,7 +911,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1095,7 +1095,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }
@@ -1249,7 +1249,7 @@
                   "type": "null"
                 }
               ],
-              "default": "ait-hub.aitbc.bubuit.net",
+              "default": "ait-localnet",
               "title": "Chain Id"
             }
           }

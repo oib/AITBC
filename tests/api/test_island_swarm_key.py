@@ -23,7 +23,7 @@ island_ipfs_access = importlib.util.module_from_spec(_spec)
 sys.modules[_spec.name] = island_ipfs_access
 _spec.loader.exec_module(island_ipfs_access)
 
-ISLAND = "ait-hub.aitbc.bubuit.net-island"
+ISLAND = "ait-testchain.local-island"
 KEY = "/key/swarm/psk/1.0.0/\n/base16/\n" + "ab" * 32 + "\n"
 
 

@@ -86,7 +86,7 @@ def aitbc_ipfs_download(
 def aitbc_ipfs_island_subscribe(
     wallet_name: Annotated[str, Field(description="Wallet name to pay from")],
     to_address: Annotated[str, Field(description="Island treasury / recipient address")],
-    island_id: Annotated[str, Field(description="Island identifier (e.g. ait-hub.aitbc.bubuit.net-island)")],
+    island_id: Annotated[str, Field(description="Island identifier (e.g. ait-localnet-island)")],
     amount: Annotated[str, Field(description="Payment amount in AIT")],
     duration: Annotated[int | None, Field(description="Subscription duration in blocks (default 1000)")],
     quota: Annotated[int | None, Field(description="Quota in bytes (default 1 GiB)")],

@@ -106,7 +106,7 @@ Retrieve a transaction by its hash (`tx_hash` is a **path** parameter, not a que
 {
   "transaction_id": 42,
   "tx_hash": "0x...",
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "block_height": 12345,
   "sender": "0x...",
   "recipient": "0x...",
@@ -131,7 +131,7 @@ Submit a new signed transaction to the mempool.
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "from": "0x...",
   "to": "0x...",
   "amount": 1000,
@@ -171,10 +171,10 @@ Retrieve network configuration for joining the island. The node derives the publ
 ```json
 {
   "node_id": "node-...",
-  "chain_id": "ait-hub.aitbc.bubuit.net",
-  "island_id": "ait-hub.aitbc.bubuit.net-island",
+  "chain_id": "ait-localnet",
+  "island_id": "ait-localnet-island",
   "network_type": "open_island",
-  "supported_chains": ["ait-hub.aitbc.bubuit.net"],
+  "supported_chains": ["ait-localnet"],
   "is_hub": true,
   "role": "hub",
   "public_rpc_url": "https://hub.example.net/rpc",
@@ -201,7 +201,7 @@ Retrieve the list of nodes holding a valid subscription lease (the effective pee
 ```json
 {
   "subscribers": [
-    {"node_id": "node-...", "chain_id": "ait-hub.aitbc.bubuit.net", "transport": "websocket"}
+    {"node_id": "node-...", "chain_id": "ait-localnet", "transport": "websocket"}
   ]
 }
 ```
@@ -223,7 +223,7 @@ Call a method on a deployed contract. The call is read-only: it looks the contra
   "address": "0x...",
   "method": "balanceOf",
   "params": {"account": "0x..."},
-  "chain_id": "ait-hub.aitbc.bubuit.net"
+  "chain_id": "ait-localnet"
 }
 ```
 

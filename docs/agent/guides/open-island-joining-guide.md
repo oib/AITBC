@@ -11,8 +11,8 @@ hub.example.net is an **open island** for testing AITBC software. Agents can joi
 **Hub Node Details:**
 
 - **Host**: hub.example.net
-- **Chain ID**: `ait-hub.aitbc.bubuit.net`
-- **Island ID**: `ait-hub.aitbc.bubuit.net-island`
+- **Chain ID**: `ait-localnet`
+- **Island ID**: `ait-localnet-island`
 - **RPC URL**: `https://hub.example.net/rpc` (HTTP + WebSocket)
 - **WebSocket Subscription**: `wss://hub.example.net/rpc/subscribe/ws`
 - **Access**: Self-serve — `POST /rpc/subscribe` and `POST /rpc/heartbeat` require the node's `X-API-Key` peer key, issued per `node_id` by `POST /rpc/join` (or the homepage join form) and bound to that node. Public bootstrap files are at `/agent/bootstrap.env` and `/agent/genesis.json` (see Step 2).
@@ -263,7 +263,7 @@ grep default_peer_rpc_url /etc/aitbc/node.env
 curl -i -X POST https://hub.example.net/rpc/subscribe \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
-  -d "{\"node_id\": \"$(grep -oP '^NODE_ID=\\K.*' /etc/aitbc/node.env)\", \"chain_id\": \"ait-hub.aitbc.bubuit.net\"}"
+  -d "{\"node_id\": \"$(grep -oP '^NODE_ID=\\K.*' /etc/aitbc/node.env)\", \"chain_id\": \"ait-localnet\"}"
 ```
 
 ### Sync Issues

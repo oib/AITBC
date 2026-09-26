@@ -58,10 +58,10 @@ RPC API — pass `--node-url http://<host>:8202` to target a remote node.
 ```bash
 # Chain status (all chains, or one with --chain-id)
 aitbc blockchain status
-aitbc blockchain status --chain-id ait-hub.aitbc.bubuit.net --detailed
+aitbc blockchain status --chain-id ait-localnet --detailed
 
 # Detailed chain info and metrics
-aitbc blockchain info --chain-id ait-hub.aitbc.bubuit.net --detailed --metrics
+aitbc blockchain info --chain-id ait-localnet --detailed --metrics
 
 # Current height and a specific block
 aitbc blockchain height
@@ -89,9 +89,9 @@ aitbc blockchain instances            # list chain instances
 ### Consensus Inspection
 
 ```bash
-aitbc blockchain consensus status --chain-id ait-hub.aitbc.bubuit.net
-aitbc blockchain consensus validators --chain-id ait-hub.aitbc.bubuit.net
-aitbc blockchain consensus slashing-history --chain-id ait-hub.aitbc.bubuit.net
+aitbc blockchain consensus status --chain-id ait-localnet
+aitbc blockchain consensus validators --chain-id ait-localnet
+aitbc blockchain consensus slashing-history --chain-id ait-localnet
 ```
 
 ### Chain Lifecycle (operator)
@@ -107,8 +107,8 @@ aitbc blockchain migrate --chain-id <id> --from-node <a> --to-node <b> --verify
 ### Monitoring Snapshot
 
 ```bash
-aitbc blockchain monitor --chain-id ait-hub.aitbc.bubuit.net
-aitbc blockchain monitor --chain-id ait-hub.aitbc.bubuit.net --realtime --interval 10
+aitbc blockchain monitor --chain-id ait-localnet
+aitbc blockchain monitor --chain-id ait-localnet --realtime --interval 10
 ```
 
 ## How Sync Actually Works
@@ -138,7 +138,7 @@ height`, and `journalctl -u aitbc-blockchain-node -f` — there is no
 
 ```bash
 # Back up a chain to a directory (compressed, verified)
-aitbc blockchain backup --chain-id ait-hub.aitbc.bubuit.net --path /backup --compress --verify
+aitbc blockchain backup --chain-id ait-localnet --path /backup --compress --verify
 
 # Restore a chain from a backup file
 aitbc blockchain restore --backup-file /backup/<file>.tar.gz --verify

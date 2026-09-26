@@ -153,7 +153,7 @@ class ChainAnalytics:
             logger.warning("Failed to collect metrics from blockchain RPC: %s", e)
             return []
 
-        chain_id = info.get("chain_id", os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"))
+        chain_id = info.get("chain_id", os.getenv("CHAIN_ID", "ait-localnet"))
         block_height = info.get("height", 0)
 
         # Synthesise a short historical window so summary/predict/optimize/alerts all have data.
@@ -298,9 +298,9 @@ class ChainAnalytics:
             return {
                 "total_chains": 1,
                 "active_chains": 1,
-                "chains_by_type": {os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"): 1},
+                "chains_by_type": {os.getenv("CHAIN_ID", "ait-localnet"): 1},
                 "performance_comparison": {
-                    os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"): {"tps": 2.5, "block_time": 8.5, "health_score": 85.0},
+                    os.getenv("CHAIN_ID", "ait-localnet"): {"tps": 2.5, "block_time": 8.5, "health_score": 85.0},
                 },
                 "resource_usage": {
                     "total_memory_mb": 2048.0,

@@ -382,7 +382,7 @@ def sync_from_hub(ctx, chain_id: str, rpc_url: str | None, data_dir: str | None,
 
   aitbc genesis reset --new-wallet --yes
 
-  aitbc genesis reset --chain-id ait-hub.aitbc.bubuit.net --new-wallet"""
+  aitbc genesis reset --chain-id ait-localnet --new-wallet"""
 )
 @click.option("--chain-id", default=None, help="Chain ID (defaults to CHAIN_ID env or config)")
 @click.option("--new-wallet", is_flag=True, help="Generate a new genesis wallet and update env files")

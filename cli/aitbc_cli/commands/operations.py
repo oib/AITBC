@@ -412,7 +412,7 @@ def vote(ctx, proposal_id: str, vote: str, wallet: str, voting_power: int, reaso
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Get wallet address from correct wallet directory
         wallet_path = find_wallet_file(wallet)
@@ -494,7 +494,7 @@ def proposal(
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Get wallet address from correct wallet directory
         wallet_path = find_wallet_file(wallet)
@@ -574,7 +574,7 @@ def get_proposal(ctx, proposal_id: str, format: str):
         except Exception:
             import os
 
-            _ = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            _ = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Query proposal from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
