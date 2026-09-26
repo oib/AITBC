@@ -21,7 +21,7 @@ from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, normalize_base_url
 from aitbc.crypto.crypto import sign_transaction_data
-from aitbc.market.offer_registration import registration_message
+from aitbc.market.offer_registration import offer_body_hash, registration_message
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -1245,46 +1245,47 @@ def offer(
             plugin_client = AITBCHTTPClient(base_url=market_url, timeout=10)
             plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
             issued_at = int(time.time())
-            plugin_client.post(
-                "/v1/market/offer",
-                json={
-                    "plugin_id": plugin_id,
-                    # Provider-signed registration proof: the market service
-                    # rejects unsigned offers, so a listing can't squat a
-                    # plugin_id/provider_address it doesn't own.
-                    "chain_id": chain_id,
-                    "issued_at": issued_at,
-                    "signature": sign_transaction_data(
-                        registration_message("register", plugin_id, wallet_address, chain_id, issued_at),
-                        private_key,
-                    ),
-                    "service_type": service_type,
-                    "model": model_or_variant,
-                    # not-money: wire format. This is the payload of a GPU_MARKET
-                    # transaction; the node hashes it for the tx id and reads "price" back
-                    # as a JSON number. Decimal is not JSON-serializable and a string would
-                    # change the hash, so this stays float until the protocol changes.
-                    "price": float(price),
-                    "price_unit": unit,
-                    "offer_id": offer_id,
-                    "endpoint": local_endpoint,
-                    "public_endpoint": public_endpoint,
-                    "health_url": _health_urls.get(service_type, ""),
-                    "provider_address": wallet_address,
-                    "node_id": provider_node_id,
-                    "deployment_type": deployment_type,
-                    "gpu_name": gpu["gpu_name"],
-                    "gpu_model": gpu["gpu_model"],
-                    "gpu_device": gpu["gpu_device"],
-                    "gpu_uuid": gpu["gpu_uuid"],
-                    "gpu_offer_id": gpu_offer_id,
-                    "gpu_memory_gb": gpu["gpu_memory_gb"],
-                    "disk_quota_mb": disk_quota_mb,
-                    "compute_capability": gpu["compute_capability"],
-                    "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
-                    "status": "active",
-                },
+            registration = {
+                "plugin_id": plugin_id,
+                "service_type": service_type,
+                "model": model_or_variant,
+                # not-money: wire format. This is the payload of a GPU_MARKET
+                # transaction; the node hashes it for the tx id and reads "price" back
+                # as a JSON number. Decimal is not JSON-serializable and a string would
+                # change the hash, so this stays float until the protocol changes.
+                "price": float(price),
+                "price_unit": unit,
+                "offer_id": offer_id,
+                "endpoint": local_endpoint,
+                "public_endpoint": public_endpoint,
+                "health_url": _health_urls.get(service_type, ""),
+                "provider_address": wallet_address,
+                "node_id": provider_node_id,
+                "deployment_type": deployment_type,
+                "gpu_name": gpu["gpu_name"],
+                "gpu_model": gpu["gpu_model"],
+                "gpu_device": gpu["gpu_device"],
+                "gpu_uuid": gpu["gpu_uuid"],
+                "gpu_offer_id": gpu_offer_id,
+                "gpu_memory_gb": gpu["gpu_memory_gb"],
+                "disk_quota_mb": disk_quota_mb,
+                "compute_capability": gpu["compute_capability"],
+                "description": description or f"{service_type} — {model_or_variant} at {price} AIT/{unit}",
+                "status": "active",
+                "chain_id": chain_id,
+                "issued_at": issued_at,
+            }
+            # Provider-signed registration proof over the whole body (offer_hash):
+            # the market service rejects unsigned offers, so a listing can't
+            # squat a plugin_id/provider_address it doesn't own, and a captured
+            # signature can't be resubmitted under a different offer body.
+            registration["signature"] = sign_transaction_data(
+                registration_message(
+                    "register", plugin_id, wallet_address, chain_id, issued_at, offer_body_hash(registration)
+                ),
+                private_key,
             )
+            plugin_client.post("/v1/market/offer", json=registration)
             info(f"Software service registered in market (plugin-id: {service_type}-{model_or_variant.replace(':', '-')})")
         except Exception:
             logger.debug("Offer lookup request failed", exc_info=True)
