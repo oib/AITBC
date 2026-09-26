@@ -1,6 +1,6 @@
 [Unit]
 Description=Probe incus perimeter proxy devices every 5 minutes
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 
 [Timer]
 OnCalendar=*:0/5

@@ -45,7 +45,7 @@ def mock_http_client(monkeypatch):
     """Replace AITBCHTTPClient with a fake that records calls."""
     calls = {"get": [], "post": []}
     responses = {
-        "/health": {"supported_chains": ["ait-hub.aitbc.bubuit.net"]},
+        "/health": {"supported_chains": ["ait-testchain.local"]},
         "/rpc/account/": {"nonce": 7},
         "/rpc/transaction": {"transaction_hash": "0xabc123"},
         "/rpc/estimate-fee": {"fee_ait": "0.001"},
@@ -101,7 +101,7 @@ def test_send_transaction_signs_with_secp256k1(mock_http_client, funded_wallet):
     # Fields used by the verifier are present.
     assert tx_payload["from"] == wallet["address"]
     assert tx_payload["to"] == "0x0000000000000000000000000000000000000000"
-    assert tx_payload["chain_id"] == "ait-hub.aitbc.bubuit.net"
+    assert tx_payload["chain_id"] == "ait-testchain.local"
     assert tx_payload["type"] == "TRANSFER"
     assert "signature" in tx_payload
 

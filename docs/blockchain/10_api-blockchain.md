@@ -73,7 +73,7 @@ GET /rpc/transaction/{tx_hash}?chain_id=<chain>
 {
   "transaction_id": 1234,
   "tx_hash": "0xabc123...",
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "block_height": 100,
   "sender": "0x1234...",
   "recipient": "0x5678...",
@@ -140,7 +140,7 @@ GET /rpc/block/{height}     # singular alias
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "height": 100,
   "hash": "0xabc123...",
   "parent_hash": "0xdef456...",
@@ -188,7 +188,7 @@ GET /rpc/info
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "height": 1000,
   "total_transactions": 15234,
   "total_accounts": 87,
@@ -214,9 +214,9 @@ Public, machine-readable description of the node for nodes that want to join:
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "island_id": "...",
-  "supported_chains": ["ait-hub.aitbc.bubuit.net"],
+  "supported_chains": ["ait-localnet"],
   "is_hub": true,
   "role": "hub",
   "public_rpc_url": "https://hub.example.net/rpc",
@@ -282,7 +282,7 @@ endpoints exist on the **hub**; followers call them outbound.
 ```json
 {
   "subscribers": [
-    {"node_id": "node-...", "transport": "websocket", "chain_id": "ait-hub.aitbc.bubuit.net", "expiry": 1730000000.0, "client_ip": "10.0.0.5"}
+    {"node_id": "node-...", "transport": "websocket", "chain_id": "ait-localnet", "expiry": 1730000000.0, "client_ip": "10.0.0.5"}
   ],
   "count": 1
 }
@@ -313,7 +313,7 @@ Exports the full chain state (blocks, accounts, transactions) as JSON:
 {
   "success": true,
   "export_data": {
-    "chain_id": "ait-hub.aitbc.bubuit.net",
+    "chain_id": "ait-localnet",
     "export_timestamp": "...",
     "block_count": 1000,
     "account_count": 87,

@@ -193,7 +193,7 @@ echo "========================"
 
 run_test "Blockchain node service" "systemctl is-active aitbc-blockchain-node"
 run_test "RPC service" "systemctl is-active aitbc-blockchain-rpc"
-run_test "Database accessibility" "test -d /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net"
+run_test "Database accessibility" "test -d "/var/lib/aitbc/data/${CHAIN_ID:-ait-localnet}""
 run_test "Log directory" "test -d /var/log/aitbc"
 
 # 7. GPU HARDWARE TESTS (if available)

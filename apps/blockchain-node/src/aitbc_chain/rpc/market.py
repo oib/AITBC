@@ -101,9 +101,10 @@ async def market_listings() -> dict[str, Any]:
 
         # Read GPU_MARKET transactions from blockchain
         import sqlite3
+        import os
         from pathlib import Path
 
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 

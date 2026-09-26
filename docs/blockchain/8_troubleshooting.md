@@ -109,7 +109,7 @@ curl -s https://hub.example.net/rpc/status
 curl -s -X POST https://hub.example.net/rpc/subscribe \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
   -H "Content-Type: application/json" \
-  -d '{"node_id":"test","transport":"websocket","chain_id":"ait-hub.aitbc.bubuit.net"}'
+  -d '{"node_id":"test","transport":"websocket","chain_id":"ait-localnet"}'
 ```
 
 - **403 on subscribe** — key not in `BLOCKCHAIN_RPC_API_KEY_PEERS` on the hub.
@@ -138,7 +138,7 @@ directory and no `reset --hard` command.
 
 ```bash
 # Integrity check
-sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db "PRAGMA integrity_check;"
+sqlite3 /var/lib/aitbc/data/ait-localnet/chain.db "PRAGMA integrity_check;"
 ```
 
 **Recovery options, least destructive first:**

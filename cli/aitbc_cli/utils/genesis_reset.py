@@ -23,7 +23,7 @@ from eth_keys import keys
 
 from . import error, success
 
-DEFAULT_CHAIN_ID = "ait-hub.aitbc.bubuit.net"
+DEFAULT_CHAIN_ID = "ait-localnet"
 DEFAULT_DATA_DIR = Path("/var/lib/aitbc/data")
 DEFAULT_WALLET_DIR = Path("/var/lib/aitbc/wallets")
 DEFAULT_ETC_DIR = Path("/etc/aitbc")
