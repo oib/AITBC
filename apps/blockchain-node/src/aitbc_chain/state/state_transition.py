@@ -130,19 +130,6 @@ def _governance_executors(session: Session, chain_id: str, block_height: int | N
     return frozenset(_to_ait_address(a.strip()) for a in value.split(",") if a.strip())
 
 
-# BOND_SLASH validation is ungated (unlike escrow/bridge gates): slashes
-# sealed before the chain recorded ``bond_slash_authority`` were authorised by
-# each node's env value — the same operator address on every fleet node. Pin
-# the historical authority per chain so replay below the first on-chain
-# record is a pure function of chain identity, not node env. The live chain
-# sealed zero BOND_SLASH transactions below its first record (22218), so the
-# pin is inert there; it exists so a restored or re-imported lineage carrying
-# pre-record slashes still replays identically on every node.
-_LEGACY_BOND_SLASH_AUTHORITY: dict[str, str] = {
-    "ait-hub.aitbc.bubuit.net": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B",
-}
-
-
 def _bond_slash_authority(session: Session, chain_id: str, block_height: int | None = None) -> str | None:
     """Return the canonical bond-slash authority address.
 
@@ -153,18 +140,17 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
     pre-checks, non-consensus introspection): for a known block height, chain
     history alone decides — an env value would make the answer depend on
     which records this node has applied so far. Heights below the first
-    on-chain record fall back to ``_LEGACY_BOND_SLASH_AUTHORITY``: the env
-    value historical slashes were actually authorised under, pinned so every
-    node replays them identically. A disagreement between env and the
-    on-chain value is logged, because per-node env drift is exactly how the
-    1-2 Sep slashes were skipped on node0.
+    on-chain record resolve ``None`` — fail closed: a chain that never sealed
+    the parameter has no determinable authority. A disagreement between env
+    and the on-chain value is logged, because per-node env drift is exactly
+    how the 1-2 Sep slashes were skipped on node0.
     """
     onchain_value = _chain_parameter_value(session, chain_id, "bond_slash_authority", block_height)
     env_addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
     if onchain_value is not None:
         # A record at-or-below this height is authoritative — including an
         # empty value, which is a deliberate clear (unset): it must not fall
-        # back to env or the legacy pin.
+        # back to env.
         if onchain_value.strip():
             addr = canonical_address(onchain_value.strip())
             if env_addr and canonical_address(env_addr) != addr:
@@ -177,10 +163,6 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
         return None
     if block_height is None and env_addr:
         return canonical_address(env_addr)
-    if block_height is not None:
-        legacy = _LEGACY_BOND_SLASH_AUTHORITY.get(chain_id)
-        if legacy:
-            return canonical_address(legacy)
     return None
 
 

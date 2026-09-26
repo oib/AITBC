@@ -638,14 +638,10 @@ def test_import_chain_rebuilds_from_executes_without_param_sections(chain_id, mo
         assert _chain_parameter_value(session, chain_id, "bond_slash_authority", 50) == _EXECUTOR
 
 
-_PINNED_SLASH_AUTHORITY = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
-
-
-def test_legacy_bond_slash_authority_pinned_below_first_record(monkeypatch):
-    """BOND_SLASH is ungated: a slash sealed before the chain recorded
-    ``bond_slash_authority`` must resolve the authority it was actually
-    authorised under — the historical env value, pinned per chain so replay
-    is a pure function of chain identity, not node env.
+def test_bond_slash_authority_fails_closed_below_first_record(monkeypatch):
+    """No pin: heights below the first ``bond_slash_authority`` record resolve
+    ``None`` on every chain — a chain that never sealed the parameter has no
+    determinable authority, and a restored lineage cannot inherit one.
 
     Fresh database, no env vars: every node resolves identically, so a
     restored lineage carrying a pre-record slash cannot diverge between a
@@ -658,8 +654,9 @@ def test_legacy_bond_slash_authority_pinned_below_first_record(monkeypatch):
     monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
 
     with session_scope(chain_id) as session:
-        # No records at all: pinned historical authority below any record.
-        assert _bond_slash_authority(session, chain_id, 5) == canonical_address(_PINNED_SLASH_AUTHORITY)
+        # No records at all: fail closed below any record, on every chain.
+        assert _bond_slash_authority(session, chain_id, 5) is None
+        assert _bond_slash_authority(session, "some-other-chain", 5) is None
 
         # A later record still wins at and above its own height.
         session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value=_OTHER, applied_height=100))
@@ -669,19 +666,15 @@ def test_legacy_bond_slash_authority_pinned_below_first_record(monkeypatch):
             )
         )
         session.flush()
-        assert _bond_slash_authority(session, chain_id, 50) == canonical_address(_PINNED_SLASH_AUTHORITY)
+        assert _bond_slash_authority(session, chain_id, 50) is None
         assert _bond_slash_authority(session, chain_id, 150) == canonical_address(_OTHER)
 
-        # Chains without a pin still fail closed — their historical env
-        # authority is unknowable, so None is the only honest answer.
-        assert _bond_slash_authority(session, "some-other-chain", 5) is None
 
-
-def test_bond_slash_below_first_record_passes_authority_gate(monkeypatch):
-    """The ungated BOND_SLASH bond effect must not be skipped for a pre-record
-    slash with 'no slash authority configured'. The sender is judged against
-    the pinned authority — the same answer on every node, so a restored
-    lineage carrying a pre-record slash cannot diverge mid-sync vs synced."""
+def test_bond_slash_below_first_record_fails_authority_gate(monkeypatch):
+    """With no ``bond_slash_authority`` record at or below the slash height the
+    authority resolves ``None`` — the gate fails closed for every sender,
+    identically on every node, so a pre-record slash in a restored lineage
+    cannot diverge mid-sync vs synced."""
     from aitbc_chain.base_models import _to_ait_address
     from aitbc_chain.state.state_transition import _BOND_BURN_ADDRESS
 
@@ -693,7 +686,7 @@ def test_bond_slash_below_first_record_passes_authority_gate(monkeypatch):
         st = StateTransition()
         slash_tx = {
             "type": "BOND_SLASH",
-            "from": _PINNED_SLASH_AUTHORITY,
+            "from": _EXECUTOR,
             "to": _BOND_BURN_ADDRESS,
             "value": 0,
             "fee": 0,
@@ -706,17 +699,13 @@ def test_bond_slash_below_first_record_passes_authority_gate(monkeypatch):
             slash_tx,
             "0xslash1",
             "BOND_SLASH",
-            _to_ait_address(_PINNED_SLASH_AUTHORITY),
+            _to_ait_address(_EXECUTOR),
             _to_ait_address(_BOND_BURN_ADDRESS),
             0,
             50,
         )
-        # The authority gate resolved — the skip is the missing bond, not
-        # "no slash authority configured" or a signature mismatch.
-        assert reason == "unknown or inactive bond bond-1"
+        assert reason == "no slash authority configured (chain parameter or BOND_SLASH_AUTHORITY_ADDRESS)"
 
-        # A slash signed by anyone else is skipped for the signature —
-        # deterministic, and the same answer on every node.
         slash_tx["from"] = _OTHER
         reason2 = st._handle_bond_transaction(
             session,
@@ -729,14 +718,15 @@ def test_bond_slash_below_first_record_passes_authority_gate(monkeypatch):
             0,
             50,
         )
-        assert reason2 == "not signed by the configured slash authority"
+        assert reason2 == "no slash authority configured (chain parameter or BOND_SLASH_AUTHORITY_ADDRESS)"
 
 
-def test_explicit_clear_is_unset_not_legacy_pin(monkeypatch):
+def test_explicit_clear_is_unset(monkeypatch):
     """A governance write of ``""`` to ``bond_slash_authority`` is a deliberate
-    clear: heights at-or-after it resolve *unset*, never the legacy pin — the
-    pin exists only for heights with no record at all. Every node still
-    agrees; this just stops the pin overriding an explicit chain decision."""
+    clear: heights at-or-after it resolve *unset* — and with no historical
+    fallback, below the first record is unset too. Every node still
+    agrees; an explicit clear is indistinguishable from never-set below its
+    own height only in the fail-closed direction."""
     chain_id = "ait-hub.aitbc.bubuit.net"
     init_db(chain_id)
     monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
@@ -754,9 +744,9 @@ def test_explicit_clear_is_unset_not_legacy_pin(monkeypatch):
         session.add(ChainParameter(chain_id=chain_id, parameter="bond_slash_authority", value="", applied_height=200))
         session.flush()
 
-        # Below the clear: the pin still describes history.
-        assert _bond_slash_authority(session, chain_id, 50) is not None
-        # At/after the clear: explicitly unset — pin must not resurrect.
+        # Below the clear: no earlier record exists — fail closed.
+        assert _bond_slash_authority(session, chain_id, 50) is None
+        # At/after the clear: explicitly unset.
         assert _bond_slash_authority(session, chain_id, 250) is None
         # Height-less callers see the current (cleared) row too.
         assert _bond_slash_authority(session, chain_id) is None
@@ -793,10 +783,10 @@ def test_parameter_change_null_value_is_explicit_clear(monkeypatch):
         assert row is not None
         assert row.value == ""
 
-        # At/after the clear: explicitly unset — not the pin, not "None".
+        # At/after the clear: explicitly unset — not "None" as a literal.
         assert _bond_slash_authority(session, chain_id, 60) is None
-        # Below it: the pin still describes the pre-record era.
-        assert _bond_slash_authority(session, chain_id, 40) is not None
+        # Below it: no earlier record — fail closed.
+        assert _bond_slash_authority(session, chain_id, 40) is None
 
 
 def test_parameter_change_missing_value_key_rejected_at_validation():
