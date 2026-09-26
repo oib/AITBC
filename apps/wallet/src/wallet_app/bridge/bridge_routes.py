@@ -11,7 +11,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from aitbc.network import SharedHttpClient
-from aitbc.rate_limiting import rate_limit
+from aitbc.rate_limiting import client_ip_for_rate_limit, rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -319,7 +319,7 @@ async def bridge_request_poll(request: Request) -> dict[str, Any]:
     request blocking. Rate-limited per client IP; unlike POST /poll (the
     in-wallet scanner, admin-only) this triggers the crediting monitor.
     """
-    ip = request.client.host if request.client else "unknown"
+    ip = client_ip_for_rate_limit(request)
     now = time.monotonic()
     elapsed = now - _kick_last_by_ip.get(ip, 0.0)
     if elapsed < _KICK_COOLDOWN_SECONDS:

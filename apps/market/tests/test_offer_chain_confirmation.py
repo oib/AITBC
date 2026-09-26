@@ -15,6 +15,9 @@ from market_service.domain.market import SoftwareService
 from market_service.services.market_service import MarketService
 from market_service.storage import get_session_context
 
+PROVIDER = "0x1111111111111111111111111111111111111111"
+OTHER_SENDER = "0x2222222222222222222222222222222222222222"
+
 GPU_REGISTER_TX = {
     "tx_hash": "0xgpureg",
     "block_height": 1647,
@@ -37,6 +40,7 @@ SOFTWARE_OFFER_TX = {
     "created_at": "2026-09-24T15:45:00+00:00",
     "timestamp": "2026-09-24T15:45:00+00:00",
     "payload": {"offer_id": "sw_offer_test", "service_type": "ipfs"},
+    "sender": PROVIDER,
     "type": "GPU_MARKET",
     "status": "confirmed",
 }
@@ -67,7 +71,7 @@ async def service() -> MarketService:
 @pytest.mark.asyncio
 async def test_gpu_offer_confirmed_via_gpu_register(service: MarketService) -> None:
     service._rpc_client = StubRPC(  # type: ignore[assignment]
-        offers=[{"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active"}],
+        offers=[{"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active", "miner_id": "node0-miner"}],
         txs={"GPU_REGISTER": [GPU_REGISTER_TX]},
     )
     offers = await service.list_software_services()
@@ -86,6 +90,7 @@ async def test_local_offer_confirmed_via_software_tx(service: MarketService) -> 
                 plugin_id="test-ipfs",
                 service_type="ipfs",
                 offer_id="sw_offer_test",
+                provider_address=PROVIDER,
                 status="active",
             )
         )
@@ -159,7 +164,7 @@ async def test_anchor_fills_block_metadata_and_registered(service: MarketService
     """Confirmed offers render block hash/proposer and get registered_at
     from the sealing tx when the offer itself lacks one (GPU rows have none)."""
     service._rpc_client = StubRPC(  # type: ignore[assignment]
-        offers=[{"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active"}],
+        offers=[{"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active", "miner_id": "node0-miner"}],
         txs={"GPU_REGISTER": [GPU_REGISTER_TX]},
     )
     offers = await service.list_software_services()
@@ -178,6 +183,7 @@ async def test_get_offer_detail_confirmed(service: MarketService) -> None:
                 plugin_id="test-detail",
                 service_type="ipfs",
                 offer_id="sw_offer_test",
+                provider_address=PROVIDER,
                 status="active",
             )
         )
@@ -197,7 +203,7 @@ async def test_get_offer_detail_gpu_fallback(service: MarketService) -> None:
     """GPU offers exist only on-chain; the detail endpoint must fall back
     to /rpc/gpu/info/{gpu_id} instead of 404ing."""
     service._rpc_client = StubRPC(  # type: ignore[assignment]
-        gpu_info={"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active"},
+        gpu_info={"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active", "miner_id": "node0-miner"},
         txs={"GPU_REGISTER": [GPU_REGISTER_TX]},
     )
     detail = await service.get_software_service("gpu-live-05")
@@ -230,3 +236,59 @@ async def test_internal_endpoints_sanitized(service: MarketService) -> None:
     assert detail["endpoint"] is None
     assert detail["health_url"] is None
     assert detail["public_endpoint"] == "https://node2.example/whisper"
+
+
+@pytest.mark.asyncio
+async def test_software_offer_cannot_borrow_gpu_register_seal(service: MarketService) -> None:
+    """A local offer squatting an existing gpu_id must not inherit the
+    GPU_REGISTER seal: anchor lookups are namespaced per tx type, so a
+    software offer only ever resolves market txs."""
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                plugin_id="gpu-live-05",
+                service_type="whisper",
+                offer_id="gpu-live-05",
+                provider_address=OTHER_SENDER,
+                status="active",
+            )
+        )
+        await session.commit()
+
+    service._rpc_client = StubRPC(txs={"GPU_REGISTER": [GPU_REGISTER_TX]})  # type: ignore[assignment]
+    detail = await service.get_software_service("gpu-live-05")
+    assert detail is not None
+    assert detail["confirmed"] is False
+    assert detail["block_height"] is None
+
+
+@pytest.mark.asyncio
+async def test_foreign_newer_tx_does_not_take_over_anchor(service: MarketService) -> None:
+    """A newer GPU_MARKET tx carrying a victim's offer_id but sealed by a
+    different sender is skipped — the offer still anchors to its own older
+    seal rather than displaying the foreign tx's block metadata."""
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                plugin_id="test-takeover",
+                service_type="ipfs",
+                offer_id="sw_offer_test",
+                provider_address=PROVIDER,
+                status="active",
+            )
+        )
+        await session.commit()
+
+    foreign_newer = {
+        **SOFTWARE_OFFER_TX,
+        "tx_hash": "0xforeign",
+        "sender": OTHER_SENDER,
+        "block_height": 99999,
+        "block_proposer": "0xATTACKER",
+    }
+    service._rpc_client = StubRPC(txs={"GPU_MARKET": [foreign_newer, SOFTWARE_OFFER_TX]})  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    offer = next(o for o in offers if o["plugin_id"] == "test-takeover")
+    assert offer["confirmed"] is True
+    assert offer["tx_hash"] == "0xswoffer"
+    assert offer["block_height"] == 21345

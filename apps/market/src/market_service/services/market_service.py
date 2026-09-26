@@ -478,6 +478,26 @@ class MarketService:
             logger.error("Error in list_software_services: %s: %s", type(e).__name__, str(e))
             raise
 
+    @staticmethod
+    def _anchor_belongs_to_provider(anchor_tx: dict[str, Any], offer: dict[str, Any], is_gpu: bool) -> bool:
+        """Bind an anchor tx to the offer's provider.
+
+        GPU offers carry the node id in ``provider_address`` (/rpc/gpus exposes
+        only ``miner_id``), matching ``payload.miner_id`` on the register tx.
+        Software offers carry the provider's wallet address, matching the
+        anchor tx's authenticated ``sender``. Anything that can't be bound to
+        the claimed provider is not this offer's anchor — an attacker copying
+        an offer_id can't borrow someone else's seal.
+        """
+        provider = offer.get("provider_address") or ""
+        if not provider:
+            return False
+        payload = anchor_tx.get("payload") or {}
+        if is_gpu:
+            return payload.get("miner_id") == provider
+        sender = anchor_tx.get("sender") or ""
+        return bool(sender) and canonical_address(sender) == canonical_address(provider)
+
     async def _resolve_offer_anchors(self, offers: list[dict[str, Any]], chain_id: str | None) -> None:
         """Mark offers as confirmed by joining them to sealed anchor txs.
 
@@ -485,25 +505,43 @@ class MarketService:
         bundle offers as GPU_MARKET/GPU_MARKETPLACE (payload.offer_id); the
         state-table endpoints (e.g. /rpc/gpus) do not expose the sealing
         block, so confirmation is derived from the sealed transaction itself.
-        Mutates ``offers`` in place; RPC failure degrades to unconfirmed.
+        Anchors are namespaced per tx type — a GPU_REGISTER seal can never
+        confirm a software offer — and bound to the offer's provider, so a tx
+        from another sender can't take over or fake an anchor. Mutates
+        ``offers`` in place; RPC failure degrades to unconfirmed.
         """
         try:
-            anchor_txs: dict[str, dict[str, Any]] = {}
-            for tx_type in ("GPU_MARKET", "GPU_MARKETPLACE", "GPU_REGISTER"):
+            # key -> anchor candidates, newest-first. Keeping every candidate
+            # per key lets a skipped foreign tx fall through to the offer's
+            # own older anchor instead of shadowing it.
+            gpu_anchors: dict[str, list[dict[str, Any]]] = {}
+            offer_anchors: dict[str, list[dict[str, Any]]] = {}
+            for tx_type, anchors, field in (
+                ("GPU_MARKET", offer_anchors, "offer_id"),
+                ("GPU_MARKETPLACE", offer_anchors, "offer_id"),
+                ("GPU_REGISTER", gpu_anchors, "gpu_id"),
+            ):
                 for tx in await self._rpc_client.query_transactions(
                     transaction_type=tx_type, chain_id=chain_id, limit=1000
                 ):
-                    payload = tx.get("payload") or {}
-                    key = payload.get("offer_id") or payload.get("gpu_id")
-                    # Results are newest-first; keep the first tx per key so a
-                    # re-registered offer anchors to its latest seal.
-                    if key and key not in anchor_txs:
-                        anchor_txs[key] = tx
+                    try:
+                        key = (tx.get("payload") or {}).get(field)
+                    except AttributeError:
+                        continue  # malformed tx poisons only itself
+                    if key:
+                        anchors.setdefault(key, []).append(tx)
             for offer in offers:
                 if offer.get("confirmed"):
                     continue
+                is_gpu = offer.get("service_type") == "gpu_market"
                 key = offer.get("offer_id") or offer.get("plugin_id")
-                anchor_tx = anchor_txs.get(key) if key else None
+                if not key:
+                    continue
+                candidates = (gpu_anchors if is_gpu else offer_anchors).get(key) or []
+                anchor_tx = next(
+                    (tx for tx in candidates if self._anchor_belongs_to_provider(tx, offer, is_gpu)),
+                    None,
+                )
                 if anchor_tx is None:
                     continue
                 offer["confirmed"] = True
@@ -519,7 +557,7 @@ class MarketService:
                         ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
                     )
                 if not offer.get("registered_at"):
-                    offer["registered_at"] = tx.get("created_at") or offer.get("block_timestamp")
+                    offer["registered_at"] = anchor_tx.get("created_at") or offer.get("block_timestamp")
         except Exception as e:
             logger.warning("Failed to resolve on-chain offer anchors: %s", e)
 
