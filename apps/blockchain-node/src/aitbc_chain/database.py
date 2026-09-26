@@ -500,9 +500,9 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
         )
     ).all()
     for row in rows:
-        height: int | None = None
+        applied_h: int | None = None
         if row.parameter in latest:
-            height = latest[row.parameter][0]
+            applied_h = latest[row.parameter][0]
         elif row.proposal_id:
             # No recorded parameter_change — fall back to the proposal's
             # execution tx height (e.g. a row whose execute predates the
@@ -522,16 +522,16 @@ def _rebuild_chain_parameters(session: Session, chain_id: str) -> bool:
                     )
                 ).first()
                 if exec_tx and exec_tx.block_height is not None:
-                    height = exec_tx.block_height
-        if height is None:
+                    applied_h = exec_tx.block_height
+        if applied_h is None:
             continue
-        row.applied_height = height
+        row.applied_height = applied_h
         session.add(row)
-        record_chain_parameter_history(session, chain_id, row.parameter, row.value, row.proposal_id, height)
+        record_chain_parameter_history(session, chain_id, row.parameter, row.value, row.proposal_id, applied_h)
         changed = True
         logger.info(
             "Backfilled applied_height=%s for chain parameter %s on %s",
-            height,
+            applied_h,
             row.parameter,
             chain_id,
         )
