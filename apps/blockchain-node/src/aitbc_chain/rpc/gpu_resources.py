@@ -67,6 +67,7 @@ async def list_gpus(chain_id: str | None = None, status: str | None = None) -> d
                     {
                         "gpu_id": g.gpu_id,
                         "miner_id": g.miner_id,
+                        "registered_by": g.registered_by,
                         "model": g.model,
                         "memory_gb": g.memory_gb,
                         "region": g.region,

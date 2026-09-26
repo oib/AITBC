@@ -252,3 +252,102 @@ def test_gpu_allocate_requires_sequential_delta():
     assert not delta.success
     assert delta.requires_sequential
     assert "GPU_ALLOCATE" in delta.error
+
+
+def _register_tx(private_key: str, chain_id: str, gpu_id: str, nonce: int = 0, price: str = "0.1") -> dict:
+    sender = derive_ethereum_address(private_key)
+    return _make_tx(
+        private_key,
+        {
+            "from": sender,
+            "to": sender,
+            "amount": 0,
+            "value": 0,
+            "fee": DEFAULT_TX_FEE_UNITS,
+            "nonce": nonce,
+            "type": "GPU_REGISTER",
+            "chain_id": chain_id,
+            "payload": {
+                "gpu_id": gpu_id,
+                "miner_id": "miner-1",
+                "model": "RTX 4090",
+                "memory_gb": 24,
+                "price_per_hour": price,
+            },
+        },
+    )
+
+
+def test_gpu_register_update_rejected_for_foreign_sender_v7(session, st):
+    """v7: a GPU_REGISTER for an existing gpu_id from a different sender is
+    rejected — the attacker cannot reprice, re-spec, or reactivate another
+    provider's GPU."""
+    chain_id = "ait-test"
+    owner_key = "0x" + "11" * 32
+    attacker_key = "0x" + "22" * 32
+    owner = derive_ethereum_address(owner_key)
+    attacker = derive_ethereum_address(attacker_key)
+
+    session.add(Account(chain_id=chain_id, address=owner, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=attacker, balance=1_000_000, nonce=0))
+    session.commit()
+
+    ok, msg = st.apply_transaction(session, chain_id, _register_tx(owner_key, chain_id, "gpu-1"), "tx_owner", block_version=7)
+    assert ok, msg
+
+    ok, msg = st.apply_transaction(
+        session, chain_id, _register_tx(attacker_key, chain_id, "gpu-1", price="999"), "tx_evil", block_version=7
+    )
+    assert not ok
+    assert "registrant" in msg
+
+    gpu = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == "gpu-1")
+    ).first()
+    assert gpu is not None
+    assert str(gpu.price_per_hour) == "0.10000000"
+    assert gpu.registered_by == owner
+
+
+def test_gpu_register_update_allowed_for_owner_v7(session, st):
+    """v7: the recorded registrant may still re-register its own gpu_id."""
+    chain_id = "ait-test"
+    owner_key = "0x" + "11" * 32
+    owner = derive_ethereum_address(owner_key)
+
+    session.add(Account(chain_id=chain_id, address=owner, balance=1_000_000, nonce=0))
+    session.commit()
+
+    ok, msg = st.apply_transaction(session, chain_id, _register_tx(owner_key, chain_id, "gpu-1"), "tx_1", block_version=7)
+    assert ok, msg
+    ok, msg = st.apply_transaction(
+        session, chain_id, _register_tx(owner_key, chain_id, "gpu-1", nonce=1, price="0.5"), "tx_2", block_version=7
+    )
+    assert ok, msg
+
+    gpu = session.exec(
+        select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == "gpu-1")
+    ).first()
+    assert gpu is not None
+    assert str(gpu.price_per_hour) == "0.50000000"
+
+
+def test_gpu_register_foreign_update_below_v7_replays_legacy(session, st):
+    """Below v7 the lenient behavior must replay: an update from a different
+    sender still applies, so historical blocks validate identically."""
+    chain_id = "ait-test"
+    owner_key = "0x" + "11" * 32
+    attacker_key = "0x" + "22" * 32
+    owner = derive_ethereum_address(owner_key)
+    attacker = derive_ethereum_address(attacker_key)
+
+    session.add(Account(chain_id=chain_id, address=owner, balance=1_000_000, nonce=0))
+    session.add(Account(chain_id=chain_id, address=attacker, balance=1_000_000, nonce=0))
+    session.commit()
+
+    ok, msg = st.apply_transaction(session, chain_id, _register_tx(owner_key, chain_id, "gpu-1"), "tx_owner", block_version=6)
+    assert ok, msg
+    ok, msg = st.apply_transaction(
+        session, chain_id, _register_tx(attacker_key, chain_id, "gpu-1", price="999"), "tx_evil", block_version=6
+    )
+    assert ok, msg  # legacy lenient behavior preserved for replay
