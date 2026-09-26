@@ -704,17 +704,17 @@ server {
     # ── Web dashboards ────────────────────────────────────────
     # Pretty aliases for the two operator dashboards; the underlying files are
     # also served directly as /customer-dashboard.html and /shop-dashboard.html.
+    # try_files (not alias): a trailing-slash URI runs the index module, which
+    # would append index.html to an aliased file path and 500.
     location = /dashboard { return 301 /dashboard/; }
-    location /dashboard/ {
-        alias /opt/aitbc/website/customer-dashboard.html;
-        default_type text/html;
+    location = /dashboard/ {
+        try_files /customer-dashboard.html =404;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
     location = /shop { return 301 /shop/; }
-    location /shop/ {
-        alias /opt/aitbc/website/shop-dashboard.html;
-        default_type text/html;
+    location = /shop/ {
+        try_files /shop-dashboard.html =404;
         add_header Cache-Control "no-cache, no-store, must-revalidate" always;
     }
 
