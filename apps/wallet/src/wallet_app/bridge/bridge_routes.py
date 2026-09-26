@@ -11,6 +11,7 @@ from pathlib import Path
 from typing import Annotated, Any
 
 from aitbc.network import SharedHttpClient
+from aitbc.rate_limiting import rate_limit
 
 logger = logging.getLogger(__name__)
 
@@ -247,11 +248,11 @@ def _public_rpc_url() -> str:
         return ""
     try:
         parts = urlsplit(raw)
+        port = f":{parts.port}" if parts.port else ""
     except ValueError:
         return ""
     if not parts.hostname:
         return ""
-    port = f":{parts.port}" if parts.port else ""
     return f"{parts.scheme}://{parts.hostname}{port}"
 
 
@@ -477,7 +478,8 @@ async def bridge_get_deposit(tx_hash: str) -> dict[str, Any]:
 
 
 @bridge_router.get("/deposit/by-recipient/{address}")
-async def bridge_deposits_by_recipient(address: str, limit: int = 10) -> dict[str, Any]:
+@rate_limit(rate=50, per=60)
+async def bridge_deposits_by_recipient(request: Request, address: str, limit: int = 10) -> dict[str, Any]:
     """Get recent bridge deposits for a single AIT recipient address.
 
     Non-enumerable: the caller must already know the recipient, matching the
@@ -490,7 +492,12 @@ async def bridge_deposits_by_recipient(address: str, limit: int = 10) -> dict[st
         raise HTTPException(status_code=422, detail="Invalid AIT address: expected 0x + 40 hex chars")
     limit = max(1, min(limit, 50))
     deposits = get_deposits_by_recipient(address, limit=limit)
-    return {"deposits": _normalize_deposits(deposits), "count": len(deposits)}
+    # The caller is the recipient — their own ETH sender isn't theirs to see;
+    # the enumerable deposit index stays loopback-only for the same reason.
+    return {
+        "deposits": [{k: v for k, v in d.items() if k != "eth_from_address"} for d in _normalize_deposits(deposits)],
+        "count": len(deposits),
+    }
 
 
 def _normalize_deposit(deposit: dict[str, Any]) -> dict[str, Any]:
