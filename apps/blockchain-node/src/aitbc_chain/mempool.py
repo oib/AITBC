@@ -345,42 +345,32 @@ class DatabaseMempool:
                 # node, rpc and p2p services all call init_mempool against the
                 # same database at service start; two concurrent ALTERs on the
                 # same relation deadlock (seen live on node2: node vs rpc on
-                # ADD COLUMN). A session-level advisory lock serializes schema
-                # setup across processes; it survives commit and is released
-                # on session close regardless.
-                locked = False
+                # ADD COLUMN). A transaction-level advisory lock serializes
+                # schema setup across processes and is released automatically
+                # at commit or rollback — a session-level lock would strand on
+                # a pooled connection and hang the next service to start.
                 if session.get_bind().dialect.name == "postgresql":
-                    session.exec(text("SELECT pg_advisory_lock(hashtext('aitbc_mempool_init'))"))  # type: ignore[call-overload]
-                    locked = True
-                try:
-                    # Create table manually using raw SQL to avoid chain table conflicts
-                    session.exec(
-                        text("""
-                        CREATE TABLE IF NOT EXISTS mempool (
-                            chain_id TEXT NOT NULL,
-                            tx_hash TEXT NOT NULL,
-                            content TEXT NOT NULL,
-                            fee INTEGER DEFAULT 0,
-                            size_bytes INTEGER DEFAULT 0,
-                            received_at REAL NOT NULL,
-                            sender TEXT,
-                            nonce INTEGER,
-                            PRIMARY KEY (chain_id, tx_hash)
-                        )
-                    """)
-                    )  # type: ignore[call-overload]
-                    session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
-                    self._ensure_slot_columns(session)
-                    session.exec(
-                        text("CREATE INDEX IF NOT EXISTS idx_mempool_sender_nonce ON mempool(chain_id, sender, nonce)")
-                    )  # type: ignore[call-overload]
-                    session.commit()
-                finally:
-                    if locked:
-                        try:
-                            session.exec(text("SELECT pg_advisory_unlock(hashtext('aitbc_mempool_init'))"))  # type: ignore[call-overload]
-                        except Exception:
-                            pass  # released on session close regardless
+                    session.exec(text("SELECT pg_advisory_xact_lock(hashtext('aitbc_mempool_init'))"))  # type: ignore[call-overload]
+                # Create table manually using raw SQL to avoid chain table conflicts
+                session.exec(
+                    text("""
+                    CREATE TABLE IF NOT EXISTS mempool (
+                        chain_id TEXT NOT NULL,
+                        tx_hash TEXT NOT NULL,
+                        content TEXT NOT NULL,
+                        fee INTEGER DEFAULT 0,
+                        size_bytes INTEGER DEFAULT 0,
+                        received_at REAL NOT NULL,
+                        sender TEXT,
+                        nonce INTEGER,
+                        PRIMARY KEY (chain_id, tx_hash)
+                    )
+                """)
+                )  # type: ignore[call-overload]
+                session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
+                self._ensure_slot_columns(session)
+                session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_sender_nonce ON mempool(chain_id, sender, nonce)"))  # type: ignore[call-overload]
+                session.commit()
 
     @staticmethod
     def _table_columns(session: Session) -> set[str]:
@@ -406,17 +396,18 @@ class DatabaseMempool:
         existing = self._table_columns(session)
         if not existing:
             return
+        # Both ALTERs join the caller's transaction — committing here would
+        # release the advisory lock while the migration is only half done.
         for column, ddl in (("sender", "TEXT"), ("nonce", "INTEGER")):
             if column in existing:
                 continue
             try:
                 session.exec(text(f"ALTER TABLE mempool ADD COLUMN {column} {ddl}"))  # type: ignore[call-overload]
-                session.commit()
             except Exception:
-                # node, rpc and p2p services all call init_mempool — a sibling
-                # may have added the column between our check and our ALTER.
-                # Anything else must surface: a missing column breaks every
-                # slot query from then on.
+                # Rolling back also releases the advisory lock; the re-check
+                # below runs on a fresh transaction. A writer that does not
+                # take the lock could still have added the column — anything
+                # else must surface: a missing column breaks every slot query.
                 session.rollback()
                 if column not in self._table_columns(session):
                     raise
