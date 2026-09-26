@@ -483,3 +483,51 @@ class TestBlockScopedRelease:
         entries = mempool_mod.get_mempool().list_transactions("chain-b")
         assert entries, "release tx must be queued on the target chain mempool"
         json.dumps(entries[0].content)  # would raise TypeError on a raw datetime
+
+
+class TestBlockScopedRefund:
+    """The refund twin of the release serialization test: the block-scoped
+    BRIDGE_REFUND credit_dict must be JSON-serializable — a raw ``datetime``
+    timestamp crashed ``mempool.add`` (``_estimate_size``) before
+    ``record.status`` ever reached "refunded", so refunds could never queue.
+    """
+
+    def test_block_scoped_refund_serializes_timestamp(
+        self, engine, bridge: CrossChainBridge, monkeypatch
+    ) -> None:
+        from aitbc_chain import mempool as mempool_mod
+        from aitbc_chain.config import settings
+
+        monkeypatch.setattr(settings, "block_scoped_preregistered_transactions", True)
+        monkeypatch.setattr(mempool_mod, "_MEMPOOL", None)
+        mempool_mod.init_mempool(backend="memory")
+
+        sender = "0x" + "22" * 20
+        transfer_id = "0x" + "44" * 32
+        with Session(engine) as session:
+            session.add(
+                CrossChainTransfer(
+                    transfer_id=transfer_id,
+                    source_chain="chain-a",
+                    target_chain="chain-b",
+                    sender=sender,
+                    recipient="0x" + "33" * 20,
+                    amount=1_000,
+                    asset="native",
+                    status="pending",
+                    source_tx_hash=transfer_id,
+                    lock_time=datetime.now(UTC),
+                )
+            )
+            session.commit()
+
+        bridge.refund_transfer(transfer_id, sender)
+
+        with Session(engine) as session:
+            record = session.get(CrossChainTransfer, transfer_id)
+            assert record is not None
+            assert record.status == "refunded"
+
+        entries = mempool_mod.get_mempool().list_transactions("chain-a")
+        assert entries, "refund tx must be queued on the source chain mempool"
+        json.dumps(entries[0].content)  # would raise TypeError on a raw datetime
