@@ -22,7 +22,7 @@ curl -s https://hub.example.net/rpc/health
 ```bash
 # Clear database and restart
 systemctl stop aitbc-blockchain-node.service
-rm -f /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db*
+rm -f /var/lib/aitbc/data/ait-localnet/chain.db*
 systemctl start aitbc-blockchain-node.service
 ```
 
@@ -56,11 +56,11 @@ cat /etc/aitbc/node.env
 systemctl stop aitbc-blockchain-node.service
 
 # Check for stale WAL files
-ls -la /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
+ls -la /var/lib/aitbc/data/ait-localnet/
 
 # Remove stale lock files
-rm -f /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db-shm
-rm -f /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db-wal
+rm -f /var/lib/aitbc/data/ait-localnet/chain.db-shm
+rm -f /var/lib/aitbc/data/ait-localnet/chain.db-wal
 
 # Restart service
 systemctl start aitbc-blockchain-node.service

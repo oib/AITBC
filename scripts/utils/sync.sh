@@ -3,7 +3,7 @@
 #
 # Topology -- the flow is one-directional, and only one host mirrors:
 #
-#     gitea.bubuit.net/oib/AITBC  (origin, canonical)
+#     gitea.invalid/oib/AITBC  (origin, canonical)
 #              |                     ^
 #         pull |                     | push (mirror only)
 #              v                     |

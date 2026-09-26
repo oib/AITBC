@@ -112,7 +112,7 @@ aitbc bridge confirm \
 ### Step 5: Reject a same-chain lock
 
 ```bash
-aitbc bridge lock   --target-chain ait-hub.aitbc.bubuit.net   --sender 0xabc   --recipient 0xdef   --amount 10   --signature 0x123
+aitbc bridge lock   --target-chain ait-localnet   --sender 0xabc   --recipient 0xdef   --amount 10   --signature 0x123
 ```
 
 **Expected output:** HTTP 400 with `Source and target chain must be different`.

@@ -22,7 +22,7 @@ def get_token() -> str:
 
 
 GITEA_TOKEN = get_token()
-API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.bubuit.net:3000/api/v1")
+API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.invalid:3000/api/v1")
 REPO = "oib/aitbc"
 
 

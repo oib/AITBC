@@ -1,6 +1,6 @@
 [Unit]
 Description=AITBC incus perimeter proxy probe
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 After=incus.service
 
 [Service]

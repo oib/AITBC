@@ -148,7 +148,7 @@ def test_the_node_is_left_to_say_which_chain_it_serves(db, chain) -> None:
     """No client-side guess at `chain_id`, because a wrong guess 404s every hash.
 
     That reads as "not one of these payouts happened", which is the state that invites
-    reopening requests that were paid. The hub serves `ait-hub.aitbc.bubuit.net` while
+    reopening requests that were paid. The hub serves `ait-testchain.local` while
     `CHAIN_ID` defaults to `ait-hub`, so the guess is wrong exactly where it is load-bearing.
     """
     _run("reconcile", "--rpc-url", RPC)

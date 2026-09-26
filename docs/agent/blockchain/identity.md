@@ -43,7 +43,7 @@ aitbc agent verify-identity --agent-id my-test-agent --verifier-address <verifie
 curl -X POST http://hub.example.net:8202/rpc/identity/register \
   -H "Content-Type: application/json" \
   -H "X-API-Key: $BLOCKCHAIN_RPC_API_KEY" \
-  -d '{"agent_id": "test_agent", "agent_address": "<wallet_address>", "display_name": "Test", "chain_id": "ait-hub.aitbc.bubuit.net"}'
+  -d '{"agent_id": "test_agent", "agent_address": "<wallet_address>", "display_name": "Test", "chain_id": "ait-localnet"}'
 ```
 
 ## Database Verification

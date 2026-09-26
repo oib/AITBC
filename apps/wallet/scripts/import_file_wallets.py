@@ -77,7 +77,7 @@ def import_wallets():
             wallet_id = data.get("wallet_id") or wallet_file.stem
             address = data.get("address", "")
             private_key_hex = data.get("private_key", "").lstrip("0x")
-            chain_id = data.get("chain_id", "ait-hub.aitbc.bubuit.net")
+            chain_id = data.get("chain_id", "ait-localnet")
 
             if wallet_id in existing:
                 print(f"  SKIP  {wallet_id} (already in daemon)")

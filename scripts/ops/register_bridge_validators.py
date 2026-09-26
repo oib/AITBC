@@ -15,7 +15,7 @@ Typical usage::
     python3 /opt/aitbc/scripts/ops/register_bridge_validators.py \
         --env-file /etc/aitbc/node.env \
         --env-file /etc/aitbc/bridge-validator-keys.env \
-        --chain-id ait-hub.aitbc.bubuit.net \
+        --chain-id ait-localnet \
         --rpc-url http://127.0.0.1:8202/rpc \
         --rpc-url http://aitbc1:8202/rpc \
         --rpc-url http://aitbc3:8202/rpc

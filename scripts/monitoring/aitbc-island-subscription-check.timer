@@ -1,6 +1,6 @@
 [Unit]
 Description=Check island IPFS subscription expiry daily
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 
 [Timer]
 OnCalendar=daily

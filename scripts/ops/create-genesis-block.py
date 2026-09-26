@@ -9,8 +9,8 @@ genesis.json file (preserving the old one as a timestamped .pre-reset copy).
 Usage:
     PYTHONPATH=/opt/aitbc/apps/blockchain-node/src:/opt/aitbc \
         /opt/aitbc/venv/bin/python scripts/ops/create-genesis-block.py \
-        --chain-id ait-hub.aitbc.bubuit.net \
-        --out /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/genesis.json
+        --chain-id ait-localnet \
+        --out /var/lib/aitbc/data/ait-localnet/genesis.json
 """
 
 from __future__ import annotations
@@ -49,7 +49,7 @@ def main() -> None:
     parser = argparse.ArgumentParser(description="Create a new AITBC genesis.json")
     parser.add_argument(
         "--chain-id",
-        default="ait-hub.aitbc.bubuit.net",
+        default="ait-localnet",
         help="Chain identifier for the new genesis",
     )
     parser.add_argument(

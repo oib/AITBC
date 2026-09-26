@@ -465,7 +465,7 @@ def balance(ctx, name: str | None):
     canonical = to_eip55(address)
     config = get_config()
     rpc_url = config.blockchain_rpc_url or "http://localhost:8202"
-    chain_id = ctx.obj.get("chain_id", config.chain_id) or "ait-hub.aitbc.bubuit.net"
+    chain_id = ctx.obj.get("chain_id", config.chain_id) or "ait-localnet"
 
     http_client = AITBCHTTPClient(base_url=rpc_url, timeout=10)
     try:
@@ -755,7 +755,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         if "localhost" in rpc_url or "127.0.0.1" in rpc_url:
             hub_rpc = (
                 getattr(config, "hub_blockchain_rpc_url", None)
-                or f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+                or f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
             )
             if hub_rpc:
                 hub_rpc = hub_rpc.rstrip("/")
@@ -773,7 +773,7 @@ def send(ctx, to_address: str, amount: Decimal, fee: Decimal, password: str | No
         import os
 
         logger.debug("chain_id lookup via %s failed, falling back to env: %s", rpc_url, e)
-        chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
     # Get actual nonce from blockchain
     actual_nonce = 0
