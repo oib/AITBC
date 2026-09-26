@@ -96,14 +96,37 @@ def _validate_transaction_admission(tx_data: dict[str, Any], mempool: Any) -> No
             raise ValueError(f"sender account not found on chain '{chain_id}'")
 
         total_cost = tx_data["amount"] + tx_data["fee"]
-        if sender_account.balance < total_cost:
+        # Charge the sender's other signed pending transactions against the
+        # same balance so an account cannot queue more than it can ever pay.
+        # The occupied (sender, nonce) slot is excluded — it can only be
+        # displaced by this transaction, never paid alongside it.
+        pending_cost = 0
+        if mempool is not None:
+            pending = mempool.pending_cost(chain_id, tx_data["from"], exclude_nonce=tx_data["nonce"])
+            if isinstance(pending, int) and not isinstance(pending, bool):
+                pending_cost = pending
+        if sender_account.balance < total_cost + pending_cost:
             raise ValueError(
-                f"insufficient balance for sender '{tx_data['from']}' on chain '{chain_id}': has {sender_account.balance}, needs {total_cost}"
+                f"insufficient balance for sender '{tx_data['from']}' on chain '{chain_id}': "
+                f"has {sender_account.balance}, needs {total_cost} plus {pending_cost} already pending"
             )
 
-        if tx_data["nonce"] != sender_account.nonce:
+        # Pending transactions may queue ahead of the account nonce within a
+        # bounded window: execution still requires sequential nonces at apply
+        # time, but admission no longer forces one-at-a-time submission.
+        from ..config import settings
+
+        nonce = tx_data["nonce"]
+        if nonce < sender_account.nonce:
             raise ValueError(
-                f"invalid nonce for sender '{tx_data['from']}' on chain '{chain_id}': expected {sender_account.nonce}, got {tx_data['nonce']}"
+                f"stale nonce for sender '{tx_data['from']}' on chain '{chain_id}': "
+                f"account is at {sender_account.nonce}, got {nonce}"
+            )
+        lookahead = settings.mempool_nonce_lookahead
+        if nonce > sender_account.nonce + lookahead:
+            raise ValueError(
+                f"nonce too far ahead for sender '{tx_data['from']}' on chain '{chain_id}': "
+                f"account nonce {sender_account.nonce} + lookahead {lookahead}, got {nonce}"
             )
 
 
