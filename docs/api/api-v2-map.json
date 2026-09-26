@@ -1104,6 +1104,13 @@
           ]
         },
         {
+          "public": "/api/v2/chain/rpc/bridge/transfers",
+          "upstream": "/rpc/bridge/transfers",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
           "public": "/api/v2/chain/rpc/bridge/unlock",
           "upstream": "/rpc/bridge/unlock",
           "methods": [
@@ -2263,6 +2270,13 @@
         {
           "public": "/api/v2/chain/v1/bridge/transfer/{transfer_id}/proof",
           "upstream": "/v1/bridge/transfer/{transfer_id}/proof",
+          "methods": [
+            "GET"
+          ]
+        },
+        {
+          "public": "/api/v2/chain/v1/bridge/transfers",
+          "upstream": "/v1/bridge/transfers",
           "methods": [
             "GET"
           ]
