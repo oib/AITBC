@@ -3,6 +3,7 @@
 import asyncio
 import os
 import sys
+import time
 from decimal import Decimal
 
 sys.path.insert(0, os.path.join(os.path.dirname(__file__), "../../../.."))
@@ -46,8 +47,24 @@ class BridgeMonitor:
         self.min_eth_deposit = Decimal(os.getenv("MIN_ETH_DEPOSIT", "0.001"))
         self.min_ait_deposit = Decimal(os.getenv("BRIDGE_MIN_DEPOSIT_AIT", "1"))
         self.blockchain_rpc_url = os.getenv("BLOCKCHAIN_RPC_URL", "http://127.0.0.1:8202")
+        # Demand-triggered bursts: the wallet's public /v1/bridge/poll-request
+        # route (and the deposit-instruction call) touches this file; a fresh
+        # mtime switches the loop to BURST_INTERVAL for BURST_WINDOW seconds
+        # (~3 polls in 60s) while the slow poll_interval remains the safety net
+        # for depositors who never trigger a kick.
+        self.kick_file = os.getenv("BRIDGE_KICK_FILE", "/var/lib/aitbc/bridge_poll_kick")
+        self.burst_window = float(os.getenv("BRIDGE_BURST_WINDOW", "60"))
+        self.burst_interval = float(os.getenv("BRIDGE_BURST_INTERVAL", "20"))
+        self._last_kick_seen = self._kick_mtime() or 0.0
+        self._burst_until = 0.0
         init_db()
         logger.info("BridgeMonitor initialized - watching %s", self.bridge_eth_address)
+
+    def _kick_mtime(self) -> float | None:
+        try:
+            return os.path.getmtime(self.kick_file)
+        except OSError:
+            return None
 
     def parse_ait_recipient(self, tx_data: str | bytes) -> str | None:
         """Parse AIT recipient address from transaction data field."""
@@ -334,15 +351,31 @@ class BridgeMonitor:
             logger.error("Error polling Ethereum: %s", e)
 
     async def run(self) -> None:
-        """Main polling loop."""
+        """Main polling loop.
+
+        Sleeps in 1s ticks so a kick is noticed within ~1-2s. A fresh kick
+        mtime starts a burst (polls every burst_interval for burst_window);
+        between bursts the loop keeps the slow poll_interval as safety net.
+        """
         logger.info("Starting bridge monitor polling loop")
+        next_poll = 0.0
         while True:
-            try:
-                self.poll_ethereum()
-                self.process_retry_queue()
-            except Exception as e:
-                logger.error("Error in polling loop: %s", e)
-            await asyncio.sleep(self.poll_interval)
+            now = time.monotonic()
+            kick = self._kick_mtime()
+            if kick is not None and kick > self._last_kick_seen:
+                self._last_kick_seen = kick
+                self._burst_until = now + self.burst_window
+                next_poll = 0.0
+                logger.info("Poll kick received - burst polling for %ss", self.burst_window)
+            if now >= next_poll:
+                try:
+                    self.poll_ethereum()
+                    self.process_retry_queue()
+                except Exception as e:
+                    logger.error("Error in polling loop: %s", e)
+                interval = self.burst_interval if now < self._burst_until else self.poll_interval
+                next_poll = time.monotonic() + interval
+            await asyncio.sleep(1.0)
 
 
 def main() -> None:

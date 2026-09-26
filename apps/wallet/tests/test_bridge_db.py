@@ -372,3 +372,54 @@ class TestBridgeStatusRoute:
         monkeypatch.delenv("ETH_RPC_URL", raising=False)
         resp = client.get("/v1/bridge/status")
         assert resp.json()["rpc_url"] == ""
+
+
+class TestPollRequestRoute:
+    """POST /v1/bridge/poll-request — public kick for the crediting monitor."""
+
+    @pytest.fixture
+    def client(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from wallet_app.bridge.bridge_routes import bridge_router
+
+        app = FastAPI()
+        app.include_router(bridge_router)
+        return TestClient(app)
+
+    def test_kick_creates_file(self, client, tmp_path, monkeypatch):
+        import wallet_app.bridge.bridge_routes as br
+
+        kick = tmp_path / "bridge_poll_kick"
+        monkeypatch.setattr(br, "_BRIDGE_KICK_FILE", kick)
+        monkeypatch.setattr(br, "_kick_last_by_ip", {})
+
+        resp = client.post("/v1/bridge/poll-request")
+        assert resp.status_code == 200
+        body = resp.json()
+        assert body["kicked"] is True
+        assert body["polls"] == 3
+        assert kick.exists()
+
+    def test_rate_limit_per_ip(self, client, tmp_path, monkeypatch):
+        import wallet_app.bridge.bridge_routes as br
+
+        kick = tmp_path / "bridge_poll_kick"
+        monkeypatch.setattr(br, "_BRIDGE_KICK_FILE", kick)
+        monkeypatch.setattr(br, "_kick_last_by_ip", {})
+
+        first = client.post("/v1/bridge/poll-request")
+        second = client.post("/v1/bridge/poll-request")
+        assert first.json()["kicked"] is True
+        assert second.json()["kicked"] is False
+        assert second.json()["retry_after_seconds"] > 0
+
+    def test_unwritable_kick_file_still_200(self, client, tmp_path, monkeypatch):
+        import wallet_app.bridge.bridge_routes as br
+
+        monkeypatch.setattr(br, "_BRIDGE_KICK_FILE", tmp_path / "missing" / "dir" / "kick")
+        monkeypatch.setattr(br, "_kick_last_by_ip", {})
+
+        resp = client.post("/v1/bridge/poll-request")
+        assert resp.status_code == 200  # kick is best-effort, never fatal
