@@ -649,7 +649,7 @@ def test_bond_slash_authority_fails_closed_below_first_record(monkeypatch):
     """
     from aitbc.crypto.signature_recovery import canonical_address
 
-    chain_id = "ait-hub.aitbc.bubuit.net"
+    chain_id = "ait-testchain.local"
     init_db(chain_id)
     monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
 
@@ -678,7 +678,7 @@ def test_bond_slash_below_first_record_fails_authority_gate(monkeypatch):
     from aitbc_chain.base_models import _to_ait_address
     from aitbc_chain.state.state_transition import _BOND_BURN_ADDRESS
 
-    chain_id = "ait-hub.aitbc.bubuit.net"
+    chain_id = "ait-testchain.local"
     init_db(chain_id)
     monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
 
@@ -727,7 +727,7 @@ def test_explicit_clear_is_unset(monkeypatch):
     fallback, below the first record is unset too. Every node still
     agrees; an explicit clear is indistinguishable from never-set below its
     own height only in the fail-closed direction."""
-    chain_id = "ait-hub.aitbc.bubuit.net"
+    chain_id = "ait-testchain.local"
     init_db(chain_id)
     monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
 
@@ -757,7 +757,7 @@ def test_parameter_change_null_value_is_explicit_clear(monkeypatch):
     not the literal "None" — on the pinned chain, heights at/after the clear
     resolve unset instead of resurrecting the legacy authority, and "None"
     never reaches canonical_address as a nonsense address."""
-    chain_id = "ait-hub.aitbc.bubuit.net"
+    chain_id = "ait-testchain.local"
     init_db(chain_id)
     monkeypatch.delenv("BOND_SLASH_AUTHORITY_ADDRESS", raising=False)
 

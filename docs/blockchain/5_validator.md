@@ -80,13 +80,13 @@ Validators take turns producing blocks under `MultiValidatorPoA`:
 
 ```bash
 # Consensus mode, epoch, view, active/total validators
-aitbc blockchain consensus status --chain-id ait-hub.aitbc.bubuit.net
+aitbc blockchain consensus status --chain-id ait-localnet
 
 # Validator set: address, stake weight, reputation, role, last proposed
-aitbc blockchain consensus validators --chain-id ait-hub.aitbc.bubuit.net
+aitbc blockchain consensus validators --chain-id ait-localnet
 
 # Detected slashing events (condition, rate, amount, height)
-aitbc blockchain consensus slashing-history --chain-id ait-hub.aitbc.bubuit.net
+aitbc blockchain consensus slashing-history --chain-id ait-localnet
 ```
 
 Add `--node-url http://<host>:8202` to query a remote node, or hit the backing

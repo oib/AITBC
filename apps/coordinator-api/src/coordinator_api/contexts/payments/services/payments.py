@@ -502,7 +502,7 @@ class PaymentService:
             raise
 
     def _get_chain_id(self) -> str:
-        return os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        return os.getenv("CHAIN_ID", "ait-localnet")
 
     def _get_node_wallet_address(self) -> str:
         return os.getenv("NODE_WALLET_ADDRESS") or os.getenv("GENESIS_WALLET_ADDRESS") or ""

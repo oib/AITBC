@@ -88,7 +88,7 @@ The following areas are on the roadmap and are partially implemented or aspirati
 AITBC balances are tracked per chain — a balance on one island does not
 carry to another. The currency symbol is `AIT`/`AITBC` everywhere; chain
 **IDs** are `ait-devnet`, `ait-testnet`, `ait-mainnet`, and
-`ait-hub.aitbc.bubuit.net` — there are no chain-specific token tickers
+`ait-localnet` — there are no chain-specific token tickers
 like `AITBC-AIT-DEVNET`.
 
 ## Next steps

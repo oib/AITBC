@@ -48,7 +48,7 @@ Proposers are selected from active validators with PROPOSER or VALIDATOR roles.
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "height": 100,
   "hash": "0xabc123...",
   "parent_hash": "0xdef456...",

@@ -102,7 +102,7 @@ def test_blockchain_fresh_db_migration(fresh_db):
         BLOCKCHAIN_DIR,
         "alembic.ini",
         fresh_db,
-        extra_env={"CHAIN_ID": "ait-hub.aitbc.bubuit.net"},
+        extra_env={"CHAIN_ID": "ait-testchain.local"},
     )
     assert fresh_db.exists(), "Database file should exist after migration"
     import sqlite3
@@ -138,12 +138,12 @@ def test_blockchain_fresh_db_migration_idempotent(fresh_db):
         BLOCKCHAIN_DIR,
         "alembic.ini",
         fresh_db,
-        extra_env={"CHAIN_ID": "ait-hub.aitbc.bubuit.net"},
+        extra_env={"CHAIN_ID": "ait-testchain.local"},
     )
     # Second run should succeed (no-op).
     _run_alembic_upgrade(
         BLOCKCHAIN_DIR,
         "alembic.ini",
         fresh_db,
-        extra_env={"CHAIN_ID": "ait-hub.aitbc.bubuit.net"},
+        extra_env={"CHAIN_ID": "ait-testchain.local"},
     )

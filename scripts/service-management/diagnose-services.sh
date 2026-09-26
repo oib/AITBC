@@ -65,7 +65,7 @@ if [ -f /etc/aitbc/.env.scenario ]; then
     source /etc/aitbc/.env.scenario
     set -u
 fi
-HUB_URL="${HUB_URL:-https://hub.aitbc.bubuit.net}"
+HUB_URL="${HUB_URL:-https://hub.aitbc.invalid}"
 echo "Hub API Health ($HUB_URL/api/health):"
 curl -fsS --max-time 8 "$HUB_URL/api/health" 2>/dev/null && echo "  ✅ OK" || echo "  ❌ Failed"
 

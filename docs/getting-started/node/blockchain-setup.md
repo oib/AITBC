@@ -18,8 +18,8 @@ mkdir -p /etc/aitbc
 $EDITOR /etc/aitbc/blockchain.env /etc/aitbc/node.env
 
 # 3. Genesis (§3) — copy the hub's genesis.json byte for byte
-mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
-# scp hub:/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/genesis.json ...
+mkdir -p /var/lib/aitbc/data/ait-localnet/
+# scp hub:/var/lib/aitbc/data/ait-localnet/genesis.json ...
 
 # 4. Services (§4) — install the unit files and start them
 systemctl daemon-reload
@@ -75,8 +75,8 @@ pip install -r requirements.txt
 Create `/etc/aitbc/blockchain.env`:
 
 ```bash
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net
+CHAIN_ID=ait-localnet
+SUPPORTED_CHAINS=ait-localnet
 RPC_BIND_HOST=0.0.0.0
 RPC_BIND_PORT=8202
 P2P_BIND_HOST=0.0.0.0
@@ -132,7 +132,7 @@ Two things to check when setting it:
 
 ```bash
 # Create data directory
-mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
+mkdir -p /var/lib/aitbc/data/ait-localnet/
 
 # Copy genesis.json from hub (must match hub's genesis)
 # Genesis hash: cb501afac77f861ad145aa7fc1106bb8f9caa90ed5c2498f0d4e73107c327504
@@ -142,7 +142,7 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
 
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "block": {
     "height": 0,
     "hash": "cb501afac77f861ad145aa7fc1106bb8f9caa90ed5c2498f0d4e73107c327504",
@@ -150,7 +150,7 @@ mkdir -p /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/
     "proposer": "0xDb5247d03cA2e40f3995A583b2C097Ab703efD4d",
     "timestamp": "2026-05-30T16:50:31.562096+00:00",
     "tx_count": 0,
-    "chain_id": "ait-hub.aitbc.bubuit.net",
+    "chain_id": "ait-localnet",
     "state_root": "0x00",
     "metadata": {
       "chain_type": "mainnet",

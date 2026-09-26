@@ -452,12 +452,12 @@ check_network() {
     fi
 
     # Some hosts block ICMP. Fall back to an actual HTTPS probe to the local Gitea.
-    if command -v curl &> /dev/null && curl -fsI --max-time 5 "https://gitea.bubuit.net" &> /dev/null; then
-        success "Network connectivity OK (HTTPS to gitea.bubuit.net)"
+    if command -v curl &> /dev/null && curl -fsI --max-time 5 "${AITBC_HEALTH_URL:-https://github.com}" &> /dev/null; then
+        success "Network connectivity OK (HTTPS to ${AITBC_HEALTH_URL:-github.com})"
         return 0
     fi
 
-    error "Network connectivity failed (ping to $target_host and HTTPS to gitea.bubuit.net)"
+    error "Network connectivity failed (ping to $target_host and HTTPS to ${AITBC_HEALTH_URL:-github.com})"
     return 1
 }
 

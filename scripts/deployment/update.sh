@@ -61,7 +61,7 @@ RUN_MIGRATIONS_SCRIPT="$AITBC_ROOT/scripts/deployment/run-migrations.sh"
 
 # Public mirror and canonical Gitea source.
 GITHUB_REMOTE="https://github.com/oib/AITBC.git"
-GITEA_REMOTE="https://gitea.bubuit.net/oib/AITBC.git"
+GITEA_REMOTE="${AITBC_GITEA_REMOTE:-https://gitea.invalid/oib/AITBC.git}"
 
 # Git remote to pull from. setup.sh sets `origin` to whichever source was used
 # (GitHub by default, or Gitea with --gitea). Override with --gitea, --remote
@@ -703,7 +703,7 @@ ensure_gossip_defaults() {
             if [ -n "$hub_url" ] && [ "$hub_url" != "http://127.0.0.1:8202" ]; then
                 hub_url="$(printf '%s' "$hub_url" | sed 's|^https://|wss://|; s|^http://|ws://|')/rpc/gossip/ws"
             else
-                hub_url="wss://hub.aitbc.bubuit.net/rpc/gossip/ws"
+                hub_url="wss://hub.aitbc.invalid/rpc/gossip/ws"
             fi
             echo "GOSSIP_WEBSOCKET_URL=$hub_url" >> "$BLOCKCHAIN_ENV_FILE"
             log "Added gossip_websocket_url to $BLOCKCHAIN_ENV_FILE"

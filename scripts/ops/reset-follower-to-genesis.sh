@@ -18,7 +18,7 @@
 
 set -euo pipefail
 
-CHAIN_ID="${CHAIN_ID:-ait-hub.aitbc.bubuit.net}"
+CHAIN_ID="${CHAIN_ID:-ait-localnet}"
 # No default download URL: the hub does not publish a public chain.db. Set
 # CHAIN_DB_URL to an operator-provided (authenticated) snapshot endpoint, or
 # pass a local CHAIN_DB_FILE instead.

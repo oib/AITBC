@@ -9,7 +9,7 @@ set -e
 # Default setup uses the public GitHub mirror; use --gitea (or --gitea <url>)
 # for the canonical operator source.
 GITHUB_REMOTE="https://github.com/oib/AITBC.git"
-GITEA_REMOTE="https://gitea.bubuit.net/oib/AITBC.git"
+GITEA_REMOTE="${AITBC_GITEA_REMOTE:-https://gitea.invalid/oib/AITBC.git}"
 
 # Parse command line arguments
 OPEN_ISLAND_HUB=""
@@ -441,7 +441,7 @@ clone_repo() {
     if ! git remote | grep -q '^gitea$'; then
         # Add a `gitea` named remote only if origin is not already the canonical Gitea URL.
         case "$origin_url" in
-            *gitea.bubuit.net/oib/aitbc*|*gitea.bubuit.net/oib/AITBC*)
+            *"${GITEA_REMOTE}"*|*gitea.invalid/oib/aitbc*|*gitea.invalid/oib/AITBC*)
                 ;;
             *)
                 git remote add gitea "$GITEA_REMOTE" 2>/dev/null || warning "Failed to add Gitea remote (non-fatal)"

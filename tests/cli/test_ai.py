@@ -17,7 +17,7 @@ def mock_config(monkeypatch):
     config = SimpleNamespace(
         coordinator_api_url="http://127.0.0.1:8203",
         blockchain_rpc_url="http://127.0.0.1:8202",
-        chain_id="ait-hub.aitbc.bubuit.net",
+        chain_id="ait-testchain.local",
     )
 
     def _get_config():

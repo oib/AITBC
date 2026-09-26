@@ -111,7 +111,7 @@ class BondSlashingService:
             os.getenv("BOND_SLASH_PRIVATE_KEY", ""), self.slash_authority
         )
         self.bond_burn_address = _env_evm_address("BOND_BURN_ADDRESS")
-        self.chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        self.chain_id = os.getenv("CHAIN_ID", "ait-localnet")
         self.tx_fee = int(os.getenv("BOND_SLASH_TX_FEE", "36"))
 
     @staticmethod

@@ -36,7 +36,7 @@ release misbehaves you want it to fail where it can't halt block production.
 
 ```bash
 # 1. Backup the chain database
-aitbc blockchain backup --chain-id ait-hub.aitbc.bubuit.net \
+aitbc blockchain backup --chain-id ait-localnet \
   --path /backup --compress --verify
 
 # 2. Pull the new code

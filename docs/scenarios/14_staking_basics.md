@@ -87,7 +87,7 @@ amount: 100.0
 duration_days: 90
 locked_until: 2026-09-23T12:00:00Z
 transaction_hash: 0x9f2c...
-chain_id: ait-hub.aitbc.bubuit.net
+chain_id: ait-localnet
 ```
 
 
@@ -111,7 +111,7 @@ aitbc wallet --wallet-name staker staking-info
 ```
 wallet: staker
 address: 0x1a2b3c4d...
-chain_id: ait-hub.aitbc.bubuit.net
+chain_id: ait-localnet
 total_staked: 100
 active_stake_count: 1
 active_stakes:
@@ -139,7 +139,7 @@ stake_id: 7
 amount: 100
 transaction_hash: 0x4d81...
 status: withdrawn
-chain_id: ait-hub.aitbc.bubuit.net
+chain_id: ait-localnet
 locked_until: 2026-09-23T12:00:00Z
 ```
 

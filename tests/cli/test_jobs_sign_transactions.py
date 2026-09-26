@@ -28,7 +28,7 @@ from aitbc_chain.rpc.transactions import submit_market_transaction
 from aitbc_cli.commands.market import jobs
 from aitbc_chain.rpc.utils import verify_transaction_signature
 
-CHAIN_ID = "ait-hub.aitbc.bubuit.net"
+CHAIN_ID = "ait-testchain.local"
 ZERO = "0x0000000000000000000000000000000000000000"
 
 

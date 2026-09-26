@@ -101,7 +101,7 @@ DEFAULT_RPC_URL = os.getenv("AITBC_VERIFICATION_RPC_URL", "http://127.0.0.1:8202
 
 #: Chain ID used by the local node. This value lives in conftest (not a test module) so the
 #: production-host text gate does not match it when tests import it.
-DEFAULT_CHAIN_ID = "ait-hub.aitbc.bubuit.net"
+DEFAULT_CHAIN_ID = "ait-testchain.local"
 
 #: Deterministic secp256k1 test key for signing verification blocks.
 DEFAULT_PROPOSER_PRIVATE_KEY = "0x" + "1" * 64

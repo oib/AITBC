@@ -57,5 +57,5 @@ We thank all contributors and supporters who help make AITBC possible. Special t
 
 For questions about supporting AITBC, please contact:
 
-- **Andreas Fleckl**: andreas.fleckl@bubuit.net
+- **Andreas Fleckl**: operator@aitbc.invalid
 - Project maintainers through official communication channels documented in the project README

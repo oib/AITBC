@@ -13,7 +13,7 @@ YELLOW='\033[1;33m'
 NC='\033[0m' # No Color
 
 # Configuration
-REPO_URL="https://gitea.bubuit.net:3000/oib/aitbc.git"
+REPO_URL="${AITBC_REPO_URL:-https://github.com/oib/AITBC.git}"
 INSTALL_DIR="/opt/aitbc"
 ENV_FILE="/etc/aitbc/blockchain.env"
 NODE_ENV_FILE="/etc/aitbc/node.env"
