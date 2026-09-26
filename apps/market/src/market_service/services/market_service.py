@@ -18,6 +18,7 @@ from sqlmodel import select
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.market import BlockchainRPCClient, OfferFSM, OfferStatus
+from aitbc.market.offer_registration import verify_offer_registration
 from aitbc.utils.units import ait_to_units
 
 from ..config import settings
@@ -607,6 +608,17 @@ class MarketService:
                 service_type = data.get("service_type", "unknown")
                 model = data.get("model", "")
                 plugin_id = f"{service_type}-{model}".strip("-").replace(":", "-").replace("/", "-")
+            # POST /v1/market/offer is public: the claimed provider_address
+            # must prove itself with a fresh, chain-scoped signature before a
+            # row is written — otherwise any caller could squat a provider's
+            # plugin_id and inherit its anchors.
+            data["plugin_id"] = plugin_id
+            auth_error = verify_offer_registration(data, settings.default_chain_id)
+            if auth_error:
+                raise PermissionError(auth_error)
+            # Ephemeral proof fields are not service columns.
+            for ephemeral in ("signature", "issued_at", "chain_id"):
+                data.pop(ephemeral, None)
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
             result = await self.session.execute(query)
             existing = result.scalar_one_or_none()
@@ -632,6 +644,8 @@ class MarketService:
                 "model": existing.model,
                 "status": existing.status,
             }
+        except PermissionError:
+            raise
         except Exception as e:
             logger.error("Error in register_software_service: %s: %s", type(e).__name__, str(e))
             raise
