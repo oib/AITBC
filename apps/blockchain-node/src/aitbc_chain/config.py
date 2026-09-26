@@ -675,9 +675,21 @@ class ChainSettings(BaseSettings):
     # v7: a GPU_REGISTER for an existing gpu_id must come from the registrant
     # recorded on that row (registered_by = the first registrant's tx sender).
     # Below it any funded account could overwrite another provider's GPU
-    # registration; replay keeps that lenient behavior. Env-gated
-    # (STATE_TRANSITION_V7_HEIGHT), same rollout rule as v6. 0 disables.
-    state_transition_v7_height: int = 0
+    # registration; replay keeps that lenient behavior. Activated fleet-wide
+    # at block 24650 on 2026-09-26 and verified across a full proposer
+    # rotation, so the height is now consensus and is hardcoded like v4/v5 —
+    # a lost env file must not re-open the overwrite rule.
+    state_transition_v7_height: int = 24650
+    # v8: stamped-version integrity. At or above this height a block's
+    # block_metadata.state_transition_version must equal the version the
+    # height derives (get_block_version_for_height); followers reject blocks
+    # that record a different version or record none. Below it the stamp
+    # stays proposer-controlled and trusted, which is also what makes the
+    # historical chain replay cleanly: the fleet audit showed every recorded
+    # stamp matches its height-derived version. Env-gated
+    # (STATE_TRANSITION_V8_HEIGHT), same rollout rule as v6/v7;
+    # fleet-config-check watches for drift. 0 disables.
+    state_transition_v8_height: int = 0
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that
