@@ -64,6 +64,9 @@ class StubRPC:
 
 @pytest.fixture
 async def service() -> MarketService:
+    # The negative-probe memo is class-level: clear between tests so one
+    # test's "no anchor" result can't suppress another's live resolution.
+    MarketService._anchor_negatives.clear()
     async with get_session_context() as session:
         yield MarketService(session)
 
@@ -363,3 +366,118 @@ async def test_gpu_offer_confirms_via_registered_by_sender(service: MarketServic
     offer = next(o for o in offers if o["plugin_id"] == "gpu-live-05")
     assert offer["confirmed"] is True
     assert offer["block_height"] == 1647
+
+
+class CountingRPC(StubRPC):
+    """StubRPC that records query_transactions calls."""
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.tx_queries: list = []
+
+    async def query_transactions(self, transaction_type=None, **kwargs):
+        self.tx_queries.append(transaction_type)
+        return await super().query_transactions(transaction_type=transaction_type, **kwargs)
+
+
+@pytest.mark.asyncio
+async def test_confirmed_local_offer_persists_block_fields(service: MarketService) -> None:
+    """Once a verified anchor resolves, the SoftwareService row stores the
+    confirmation: a second listing reads block_* from the row and does not
+    probe the chain again."""
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                plugin_id="test-persist",
+                service_type="ipfs",
+                offer_id="sw_offer_test",
+                provider_address=PROVIDER,
+                status="active",
+            )
+        )
+        await session.commit()
+
+    rpc = CountingRPC(txs={"GPU_MARKET": [SOFTWARE_OFFER_TX]})
+    service._rpc_client = rpc  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    assert next(o for o in offers if o["plugin_id"] == "test-persist")["confirmed"] is True
+    assert rpc.tx_queries  # first listing probed the chain
+
+    rpc2 = CountingRPC(txs={})  # chain data "gone" — stored truth wins
+    service._rpc_client = rpc2  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    offer = next(o for o in offers if o["plugin_id"] == "test-persist")
+    assert offer["confirmed"] is True
+    assert offer["block_height"] == 21345
+    assert rpc2.tx_queries == []
+
+
+@pytest.mark.asyncio
+async def test_stored_anchor_confirms_gpu_offer_without_chain_probe(service: MarketService) -> None:
+    """On-chain GPU offers have no local row: their verified anchor lands in
+    OfferAnchor and later listings confirm from the stored row — no probes."""
+    from sqlalchemy import select
+
+    from market_service.domain.market import OfferAnchor
+
+    gpu_offer = {
+        "gpu_id": "gpu-stored-01",
+        "price_per_hour": "0.001",
+        "model": "RTX 4090",
+        "status": "active",
+        "miner_id": "stored-miner",
+    }
+    register_tx = {
+        **GPU_REGISTER_TX,
+        "block_height": 2000,
+        "payload": {"gpu_id": "gpu-stored-01", "miner_id": "stored-miner"},
+    }
+    rpc = CountingRPC(offers=[gpu_offer], txs={"GPU_REGISTER": [register_tx]})
+    service._rpc_client = rpc  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    assert next(o for o in offers if o["plugin_id"] == "gpu-stored-01")["confirmed"] is True
+    assert rpc.tx_queries
+
+    async with get_session_context() as session:
+        row = (
+            await session.execute(select(OfferAnchor).where(OfferAnchor.key == "gpu:gpu-stored-01"))
+        ).scalar_one_or_none()
+    assert row is not None
+    assert row.block_height == 2000
+    assert row.bound_provider == "stored-miner"
+
+    rpc2 = CountingRPC(offers=[gpu_offer], txs={})
+    service._rpc_client = rpc2  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    offer = next(o for o in offers if o["plugin_id"] == "gpu-stored-01")
+    assert offer["confirmed"] is True
+    assert offer["block_height"] == 2000
+    assert rpc2.tx_queries == []
+
+
+@pytest.mark.asyncio
+async def test_unanchored_offer_is_not_reprobed_within_ttl(service: MarketService) -> None:
+    """An offer that resolves to nothing stays unconfirmed but must not cost
+    three chain RPCs on every listing — the negative result is memoized."""
+    async with get_session_context() as session:
+        session.add(
+            SoftwareService(
+                plugin_id="test-negcache",
+                service_type="ipfs",
+                offer_id="sw_offer_never",
+                provider_address=PROVIDER,
+                status="active",
+            )
+        )
+        await session.commit()
+
+    rpc = CountingRPC(txs={"GPU_MARKET": [SOFTWARE_OFFER_TX]})
+    service._rpc_client = rpc  # type: ignore[assignment]
+    offers = await service.list_software_services()
+    assert next(o for o in offers if o["plugin_id"] == "test-negcache")["confirmed"] is False
+    first_count = len(rpc.tx_queries)
+    assert first_count == 3
+
+    offers = await service.list_software_services()
+    assert next(o for o in offers if o["plugin_id"] == "test-negcache")["confirmed"] is False
+    assert len(rpc.tx_queries) == first_count  # memoized — no new probes

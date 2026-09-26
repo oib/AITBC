@@ -785,6 +785,10 @@ async def register_offer(service_data: dict[str, Any], svc: Annotated[MarketServ
         # Rejected provider signature — 403, not a server error.
         logger.info("POST /v1/market/offer rejected: %s", e)
         raise HTTPException(status_code=403, detail=str(e)) from e
+    except ValueError as e:
+        # Malformed registration (e.g. missing plugin_id) — the caller's.
+        logger.info("POST /v1/market/offer rejected: %s", e)
+        raise HTTPException(status_code=400, detail=str(e)) from e
     except Exception as e:
         logger.error("Error in POST /v1/market/offer: %s: %s", type(e).__name__, str(e))
         raise
