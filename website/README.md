@@ -15,13 +15,20 @@ Deployed in the AITBC Incus container:
 
 ```
 website/
-├── index.html              # Homepage — platform overview
-├── explorer.html           # Blockchain explorer UI (NEW)
-├── exchange.html           # ETH-AIT Bridge and token pricing
+├── index.html              # Homepage — platform overview + self-serve join form
+├── explorer.html           # Blockchain explorer UI
+├── blocks.html / block.html / tx.html / search.html  # Explorer detail pages
+├── marketplace.html        # Market offers browser
+├── exchange.html           # ETH-AIT bridge and token pricing
+├── bridges.html            # Bridge transfer listing
+├── customer-dashboard.html # Customer dashboard (public view + auth token)
+├── shop-dashboard.html     # Shop dashboard (public view + miner key)
+├── config.js               # Shared chain_id + explorer API base
+├── dashboard.js            # Shared dashboard logic (credential + fetch layer)
 ├── favicon.svg             # Site favicon (symlink to AITBC.svg)
 ├── AITBC.svg               # Logo
 ├── style.css               # Main stylesheet
-├── exchange-price.json     # Price data for exchange page
+├── vendor/                 # Vendored third-party assets
 └── DEPLOYMENT.md           # Deployment documentation (legacy)
 ```
 
@@ -55,7 +62,35 @@ see `docs/ops/peer-keys.md`.
 | `/rpc/head` | Current block height |
 | `/rpc/info` | Chain information |
 | `/rpc/islands` | Island memberships |
+| `/rpc/account/{addr}` | Account balance/nonce |
+| `/rpc/bridge/transfers` | Bridge transfer listing |
 | `/rpc/subscribe/ws` | WebSocket for real-time updates |
+
+### Page Data Endpoints (what the site's JS actually calls)
+
+All anonymous-safe — no credential needed:
+
+| Endpoint | Backend | Used by |
+|----------|---------|---------|
+| `/explorer-api/api/**` | blockchain-explorer :8100 | explorer, blocks, tx, search, marketplace stats + reputation |
+| `/v1/market/offer`, `/v1/market/status`, `/v1/market/jobs`, `/v1/market/analytics` | market :8102 | marketplace + both dashboards |
+| `/v1/market/gpu/list` | coordinator :8203 (public in security matrix) | shop dashboard GPU table |
+| `/v1/exchange/history`, `/exchange/price.json` | exchange :8106 | exchange page |
+| `/v1/bridge/status`, `POST /v1/bridge/deposit`, `/v1/bridge/deposit/{tx_hash}` | wallet :8108 | exchange deposit flow + tracking |
+| `/v1/bridge/deposit/by-recipient/{addr}` | wallet :8108 | exchange track-by-address (non-enumerable; the `/v1/bridge/deposits` index is loopback-only) |
+| `/c/health` | coordinator :8203 | marketplace health check |
+
+Credential-gated (used only when the operator pastes a credential into the
+dashboard field — auto-detected: `eyJ…` → `Authorization: Bearer`,
+otherwise `X-Api-Key` miner key):
+
+| Endpoint | Required role | Used by |
+|----------|---------------|---------|
+| `/v1/jobs` | client/admin JWT | customer dashboard "your account" view |
+| `/v1/monitoring/metrics` | any credential | shop dashboard network metrics |
+| `POST /v1/miners/{id}/jobs`, `POST /v1/miners/{id}/earnings` | miner key | shop dashboard miner panels |
+
+Aliases: `/dashboard/` → `customer-dashboard.html`, `/shop/` → `shop-dashboard.html`.
 
 ## Architecture
 
@@ -87,6 +122,17 @@ curl -s https://hub.example.net/rpc/network-info | jq .
 
 # Test health check
 curl -s https://hub.example.net/health
+
+# Test the endpoints the site's pages call
+curl -s https://hub.example.net/v1/market/jobs?limit=5 | jq .
+curl -s https://hub.example.net/v1/market/gpu/list | jq .
+curl -s https://hub.example.net/v1/bridge/deposit/by-recipient/0xYourAitAddress | jq .
+curl -s https://hub.example.net/dashboard/ -o /dev/null -w '%{http_code}\n'
+curl -s https://hub.example.net/shop/ -o /dev/null -w '%{http_code}\n'
+
+# Gated routes still answer 401/403 to anonymous callers
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.example.net/v1/jobs
+curl -s -o /dev/null -w '%{http_code}\n' https://hub.example.net/v1/bridge/deposits
 
 # Real env and secrets files must still return 404 — serving them would leak
 # cluster credentials or consensus keys (V23-58)
