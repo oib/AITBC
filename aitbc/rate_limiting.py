@@ -83,6 +83,13 @@ def _client_ip_for_rate_limit(request: Request) -> str:
     return request.client.host if request.client else "unknown"
 
 
+def client_ip_for_rate_limit(request: Request) -> str:
+    """Public wrapper for manual rate-limit sites (e.g. cooldown dicts) so
+    they key on the same proxied client IP as the ``rate_limit`` decorator
+    instead of the immediate peer."""
+    return _client_ip_for_rate_limit(request)
+
+
 def _get_rate_limit_key(request: Request | None, key_func: Callable[[Request], str] | None, handler: str = "?") -> str:
     """Extract the rate limit key from the request.
 
