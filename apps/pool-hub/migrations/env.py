@@ -12,7 +12,8 @@ from alembic import context
 sys.path.insert(0, str(Path(__file__).parent.parent / "src"))
 
 from poolhub.models import Base  # noqa: E402
-from sqlalchemy.ext.asyncio import create_async_engine
+from sqlalchemy.engine.url import make_url  # noqa: E402
+from sqlalchemy.ext.asyncio import create_async_engine  # noqa: E402
 
 config = context.config
 
@@ -23,18 +24,21 @@ target_metadata = Base.metadata
 
 
 def _get_postgres_dsn() -> str:
-    """Get the async Postgres DSN from env var, falling back to the default.
+    """Get the async Postgres DSN from env var.
 
-    DATABASE_URL / SQLITE_URL / POOLHUB_POSTGRES_DSN, in that order. The dummy
-    ``user:pass@localhost`` in alembic.ini is never a target. Settings is not
-    imported: it requires coordinator_shared_secret, which migrations do not.
+    DATABASE_URL / SQLITE_URL / POOLHUB_POSTGRES_DSN, in that order. Settings is
+    not imported: it requires coordinator_shared_secret, which migrations do
+    not. A bare invocation must NOT guess: the old hard-coded
+    ``poolhub:poolhub@…/aitbc`` default could connect, migrate, and stamp the
+    wrong database with no error on any host where those credentials exist.
     """
-    return (
-        os.getenv("DATABASE_URL")
-        or os.getenv("SQLITE_URL")
-        or os.getenv("POOLHUB_POSTGRES_DSN")
-        or "postgresql+asyncpg://poolhub:poolhub@127.0.0.1:5432/aitbc"
-    )
+    dsn = os.getenv("DATABASE_URL") or os.getenv("SQLITE_URL") or os.getenv("POOLHUB_POSTGRES_DSN")
+    if not dsn:
+        raise RuntimeError(
+            "no database DSN configured: set DATABASE_URL or "
+            "POOLHUB_POSTGRES_DSN (source /etc/aitbc/aitbc-pool-hub.env)"
+        )
+    return dsn
 
 
 def _configure_context(connection=None, *, url: str | None = None) -> None:
@@ -60,7 +64,10 @@ def run_migrations_offline() -> None:
 
 
 async def run_migrations_online() -> None:
-    print(f"alembic: target database -> {_get_postgres_dsn()}", file=sys.stderr)
+    # Render with the password hidden — the plain DSN would leak credentials
+    # into stderr, the journal, and any session transcript that runs alembic.
+    safe_dsn = make_url(_get_postgres_dsn()).render_as_string(hide_password=True)
+    print(f"alembic: target database -> {safe_dsn}", file=sys.stderr)
     connectable = create_async_engine(_get_postgres_dsn(), pool_pre_ping=True)
     async with connectable.connect() as connection:
         await connection.run_sync(do_run_migrations)
