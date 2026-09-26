@@ -1,6 +1,13 @@
 """
 P2P Network Service using Direct TCP connections
 Handles decentralized peer-to-peer mesh communication between blockchain nodes
+
+Not currently deployed: no systemd unit runs ``python -m aitbc_chain.p2p_network``.
+The ``aitbc-blockchain-p2p`` unit starts ``aitbc_chain.gossip.relay`` (a pure
+WebSocket broker) instead, so live transaction and block relay goes through the
+gossip WebSocket path and this module's ``new_transaction`` intake only runs in
+tests. Keep its admission checks in sync with the live gossip path regardless —
+if the TCP mesh is ever re-enabled, its intake must not be weaker than REST.
 """
 
 import asyncio
