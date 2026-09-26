@@ -521,9 +521,7 @@ class MarketService:
                 ("GPU_MARKETPLACE", offer_anchors, "offer_id"),
                 ("GPU_REGISTER", gpu_anchors, "gpu_id"),
             ):
-                for tx in await self._rpc_client.query_transactions(
-                    transaction_type=tx_type, chain_id=chain_id, limit=1000
-                ):
+                for tx in await self._rpc_client.query_transactions(transaction_type=tx_type, chain_id=chain_id, limit=1000):
                     try:
                         key = (tx.get("payload") or {}).get(field)
                     except AttributeError:
@@ -553,9 +551,7 @@ class MarketService:
                 if ts and not offer.get("block_timestamp"):
                     # Transaction.timestamp is already a string column;
                     # numeric only if a serializer emitted epoch seconds.
-                    offer["block_timestamp"] = (
-                        ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
-                    )
+                    offer["block_timestamp"] = ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
                 if not offer.get("registered_at"):
                     offer["registered_at"] = anchor_tx.get("created_at") or offer.get("block_timestamp")
         except Exception as e:
