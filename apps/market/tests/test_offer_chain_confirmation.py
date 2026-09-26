@@ -439,9 +439,7 @@ async def test_stored_anchor_confirms_gpu_offer_without_chain_probe(service: Mar
     assert rpc.tx_queries
 
     async with get_session_context() as session:
-        row = (
-            await session.execute(select(OfferAnchor).where(OfferAnchor.key == "gpu:gpu-stored-01"))
-        ).scalar_one_or_none()
+        row = (await session.execute(select(OfferAnchor).where(OfferAnchor.key == "gpu:gpu-stored-01"))).scalar_one_or_none()
     assert row is not None
     assert row.block_height == 2000
     assert row.bound_provider == "stored-miner"

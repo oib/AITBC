@@ -949,6 +949,30 @@
         }
       }
     },
+    "/v1/bridge/poll-request": {
+      "post": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Request Poll",
+        "description": "Public kick: ask the bridge monitor to poll ETH now.\n\nLets the website's \"Check Status\" button drive the deposit poller on\ndemand \u2014 the monitor runs a ~3-poll burst over 60s rather than this\nrequest blocking. Rate-limited per client IP; unlike POST /poll (the\nin-wallet scanner, admin-only) this triggers the crediting monitor.",
+        "operationId": "bridge_request_poll_v1_bridge_poll_request_post",
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "additionalProperties": true,
+                  "type": "object",
+                  "title": "Response Bridge Request Poll V1 Bridge Poll Request Post"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
     "/v1/bridge/poll": {
       "post": {
         "tags": [
@@ -1249,6 +1273,61 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/v1/bridge/deposit/by-recipient/{address}": {
+      "get": {
+        "tags": [
+          "bridge"
+        ],
+        "summary": "Bridge Deposits By Recipient",
+        "description": "Get recent bridge deposits for a single AIT recipient address.\n\nNon-enumerable: the caller must already know the recipient, matching the\nprivacy profile of the public per-tx-hash lookup. The enumerable\n/v1/bridge/deposits index stays loopback-only in nginx.",
+        "operationId": "bridge_deposits_by_recipient_v1_bridge_deposit_by_recipient__address__get",
+        "parameters": [
+          {
+            "name": "address",
+            "in": "path",
+            "required": true,
+            "schema": {
+              "type": "string",
+              "title": "Address"
+            }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "schema": {
+              "type": "integer",
+              "default": 10,
+              "title": "Limit"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Successful Response",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "additionalProperties": true,
+                  "title": "Response Bridge Deposits By Recipient V1 Bridge Deposit By Recipient  Address  Get"
+                }
+              }
+            }
+          },
+          "422": {
+            "description": "Validation Error",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/HTTPValidationError"
                 }
               }
             }
