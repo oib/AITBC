@@ -114,6 +114,13 @@ def init_db() -> None:
     _add_column_if_not_exists(conn, "eth_deposits", "retry_count", "INTEGER NOT NULL DEFAULT 0")
     _add_column_if_not_exists(conn, "eth_deposits", "next_retry_at", "TEXT")
 
+    # Expression index keeps the public by-recipient lookup off a full table
+    # scan; the query stays LOWER() = LOWER() so either service's stored
+    # casing matches.
+    conn.execute(
+        "CREATE INDEX IF NOT EXISTS idx_eth_deposits_recipient_lower ON eth_deposits(LOWER(recipient))"
+    )
+
     conn.commit()
     conn.close()
 
