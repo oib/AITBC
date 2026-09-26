@@ -231,6 +231,28 @@ async def get_price_history() -> dict[str, Any]:
     }
 
 
+def _public_rpc_url() -> str:
+    """Return the configured ETH RPC URL reduced to its origin.
+
+    Status endpoints are public. Provider URLs may embed API keys in the
+    path (Infura /v3/<key>), query string, or userinfo — echo only
+    scheme://host[:port], never the full URL.
+    """
+    from urllib.parse import urlsplit
+
+    raw = os.getenv("ETH_RPC_URL", "")
+    if not raw:
+        return ""
+    try:
+        parts = urlsplit(raw)
+    except ValueError:
+        return ""
+    if not parts.hostname:
+        return ""
+    port = f":{parts.port}" if parts.port else ""
+    return f"{parts.scheme}://{parts.hostname}{port}"
+
+
 @router.get("/status")
 async def get_bridge_status() -> dict[str, Any]:
     """
@@ -241,7 +263,7 @@ async def get_bridge_status() -> dict[str, Any]:
     return {
         "enabled": os.getenv("BRIDGE_ENABLED", "false").lower() == "true",
         "wallet_address": os.getenv("ETH_WALLET_ADDRESS", ""),
-        "rpc_url": os.getenv("ETH_RPC_URL", ""),
+        "rpc_url": _public_rpc_url(),
         "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30")),
         "auto_poll": is_bridge_polling_enabled(),
     }
@@ -258,7 +280,7 @@ async def get_bridge_v1_status() -> dict[str, Any]:
         "deposit_address": os.getenv("ETH_WALLET_ADDRESS", ""),
         "enabled": os.getenv("BRIDGE_ENABLED", "false").lower() == "true",
         "network": os.getenv("ETH_NETWORK", "sepolia"),
-        "rpc_url": os.getenv("ETH_RPC_URL", ""),
+        "rpc_url": _public_rpc_url(),
         "poll_interval": int(os.getenv("BRIDGE_POLL_INTERVAL", "30")),
         "auto_poll": is_bridge_polling_enabled(),
         "fee_rate": float(os.getenv("BRIDGE_FEE_RATE", "0.005")),
