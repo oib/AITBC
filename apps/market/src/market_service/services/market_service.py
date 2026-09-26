@@ -664,19 +664,20 @@ class MarketService:
                 return
 
             rows = (
-                await self.session.execute(select(OfferAnchor).where(OfferAnchor.key.in_(list(wanted))))
-            ).scalars().all()
+                (
+                    await self.session.execute(
+                        select(OfferAnchor).where(OfferAnchor.key.in_(list(wanted)))  # type: ignore[attr-defined]
+                    )
+                )
+                .scalars()
+                .all()
+            )
             stored = {row.key: row for row in rows}
             live: dict[str, tuple[dict[str, Any], bool, str, str]] = {}
             for dbkey, (offer, is_gpu, raw) in wanted.items():
                 binding = self._anchor_binding_key(offer, is_gpu)
                 row = stored.get(dbkey)
-                if (
-                    row is not None
-                    and row.block_height is not None
-                    and row.bound_provider
-                    and row.bound_provider == binding
-                ):
+                if row is not None and row.block_height is not None and row.bound_provider and row.bound_provider == binding:
                     offer["confirmed"] = True
                     offer["tx_hash"] = offer.get("tx_hash") or row.tx_hash or None
                     offer["block_height"] = row.block_height
@@ -730,9 +731,7 @@ class MarketService:
                     offer["block_timestamp"] = ts_str
                 if not offer.get("registered_at"):
                     offer["registered_at"] = anchor_tx.get("created_at") or offer.get("block_timestamp")
-                changed |= self._persist_anchor(
-                    dbkey, offer, is_gpu, anchor_tx, ts_dt, stored.get(dbkey), local_rows
-                )
+                changed |= self._persist_anchor(dbkey, offer, is_gpu, anchor_tx, ts_dt, stored.get(dbkey), local_rows)
             if changed:
                 await self.session.commit()
         except Exception as e:
@@ -798,7 +797,7 @@ class MarketService:
             # timestamps only from the server — a signed registration can no
             # longer write its own confirmation or reputation.
             data = {key: value for key, value in data.items() if key in _REGISTRATION_FIELDS}
-            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
+            query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)
             result = await self.session.execute(query)
             existing = result.scalar_one_or_none()
             if existing:
