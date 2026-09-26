@@ -12,7 +12,7 @@ from datetime import UTC, datetime, timedelta
 REPO_DIR = "/opt/aitbc"
 STATE_FILE = "/opt/aitbc/.claim-state.json"
 GITEA_TOKEN = os.getenv("GITEA_TOKEN")
-API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.bubuit.net:3000/api/v1")
+API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.invalid:3000/api/v1")
 MY_AGENT = os.getenv("AGENT_NAME", "aitbc1")
 ISSUE_LABELS = ["security", "bug", "feature", "refactor", "task"]  # priority order
 BONUS_LABELS = ["good-first-task-for-agent"]

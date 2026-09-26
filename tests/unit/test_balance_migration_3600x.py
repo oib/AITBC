@@ -136,7 +136,7 @@ class TestInvocationSafety:
         """Running bare must not fall back to a chain id or data path at all."""
         source = MIGRATION.read_text()
 
-        assert 'default="ait-hub.aitbc.bubuit.net"' not in source
+        assert 'default="ait-testchain.local"' not in source
         assert 'default="/var/lib/aitbc/data"' not in source
         assert source.count("required=True") >= 2
 

@@ -15,10 +15,10 @@ class TestGetDefaultChainId:
         """Test getting default chain ID from environment variable"""
         from aitbc_cli.utils.chain_id import get_default_chain_id
 
-        monkeypatch.setenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        monkeypatch.setenv("CHAIN_ID", "ait-testchain.local")
         result = get_default_chain_id()
 
-        assert result == "ait-hub.aitbc.bubuit.net"
+        assert result == "ait-testchain.local"
 
     def test_get_default_chain_id_no_env(self, monkeypatch):
         """Test getting default chain ID when no environment variable set"""
@@ -41,7 +41,7 @@ class TestValidateChainId:
         # Test valid chain ID formats
         assert validate_chain_id("ait-mainnet") is True
         assert validate_chain_id("ait-devnet") is True
-        assert validate_chain_id("ait-hub.aitbc.bubuit.net") is True
+        assert validate_chain_id("ait-testchain.local") is True
         assert validate_chain_id("ait-healthchain") is True
         assert validate_chain_id("custom-chain") is True
 
@@ -63,7 +63,7 @@ class TestGetChainIdFromHealth:
         from aitbc_cli.utils.chain_id import get_chain_id_from_health
 
         mock_http_client = Mock()
-        mock_http_client.get.return_value = {"supported_chains": ["ait-devnet", "ait-hub.aitbc.bubuit.net"]}
+        mock_http_client.get.return_value = {"supported_chains": ["ait-devnet", "ait-testchain.local"]}
         mock_client.return_value = mock_http_client
 
         result = get_chain_id_from_health("http://localhost:8202")
@@ -141,11 +141,11 @@ class TestGetChainId:
         """Test get_chain_id without override (uses auto-detection)"""
         from aitbc_cli.utils.chain_id import get_chain_id
 
-        mock_get_from_health.return_value = "ait-hub.aitbc.bubuit.net"
+        mock_get_from_health.return_value = "ait-testchain.local"
 
         result = get_chain_id("http://localhost:8202")
 
-        assert result == "ait-hub.aitbc.bubuit.net"
+        assert result == "ait-testchain.local"
         mock_get_from_health.assert_called_once()
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")

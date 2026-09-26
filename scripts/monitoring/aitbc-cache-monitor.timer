@@ -1,6 +1,6 @@
 [Unit]
 Description=Run the AITBC cache monitor every 15 minutes
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 
 [Timer]
 OnCalendar=*:0/15

@@ -20,10 +20,10 @@ class TestGetDefaultChainId:
 
     def test_get_default_chain_id_from_env(self, monkeypatch):
         """Test getting default chain ID from environment variable"""
-        monkeypatch.setenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+        monkeypatch.setenv("CHAIN_ID", "ait-testchain.local")
         result = get_default_chain_id()
 
-        assert result == "ait-hub.aitbc.bubuit.net"
+        assert result == "ait-testchain.local"
 
     def test_get_default_chain_id_no_env(self, monkeypatch):
         """Test getting default chain ID when no environment variable set"""
@@ -40,7 +40,7 @@ class TestValidateChainId:
     def test_validate_known_chain(self):
         """Test validation of known chain IDs"""
         # Test some common chain ID formats
-        known_chains = ["ait-mainnet", "ait-devnet", "ait-hub.aitbc.bubuit.net"]
+        known_chains = ["ait-mainnet", "ait-devnet", "ait-testchain.local"]
         for chain in known_chains:
             assert validate_chain_id(chain) is True
 
@@ -69,7 +69,7 @@ class TestGetChainIdFromHealth:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.get.return_value = {"supported_chains": ["ait-mainnet", "ait-hub.aitbc.bubuit.net"]}
+        mock_client.get.return_value = {"supported_chains": ["ait-mainnet", "ait-testchain.local"]}
 
         result = get_chain_id_from_health("http://localhost:8202")
 
@@ -127,11 +127,11 @@ class TestGetChainIdFromHealth:
         mock_client = Mock()
         mock_client_class.return_value = mock_client
 
-        mock_client.get.return_value = {"supported_chains": ["ait-hub.aitbc.bubuit.net"]}
+        mock_client.get.return_value = {"supported_chains": ["ait-testchain.local"]}
 
         result = get_chain_id_from_health("http://localhost:8202", timeout=10)
 
-        assert result == "ait-hub.aitbc.bubuit.net"
+        assert result == "ait-testchain.local"
         mock_client_class.assert_called_once_with(base_url="http://localhost:8202", timeout=10, max_retries=0)
 
 
@@ -141,9 +141,9 @@ class TestGetChainId:
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_override_known(self, mock_get_from_health):
         """Test getting chain ID with known override"""
-        result = get_chain_id("http://localhost:8202", override="ait-hub.aitbc.bubuit.net")
+        result = get_chain_id("http://localhost:8202", override="ait-testchain.local")
 
-        assert result == "ait-hub.aitbc.bubuit.net"
+        assert result == "ait-testchain.local"
         mock_get_from_health.assert_not_called()
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
@@ -167,11 +167,11 @@ class TestGetChainId:
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")
     def test_get_chain_id_with_custom_timeout(self, mock_get_from_health):
         """Test getting chain ID with custom timeout"""
-        mock_get_from_health.return_value = "ait-hub.aitbc.bubuit.net"
+        mock_get_from_health.return_value = "ait-testchain.local"
 
         result = get_chain_id("http://localhost:8202", timeout=15)
 
-        assert result == "ait-hub.aitbc.bubuit.net"
+        assert result == "ait-testchain.local"
         mock_get_from_health.assert_called_once_with("http://localhost:8202", 15)
 
     @patch("aitbc_cli.utils.chain_id.get_chain_id_from_health")

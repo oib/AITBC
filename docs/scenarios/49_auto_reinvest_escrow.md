@@ -79,7 +79,7 @@ On the blockchain node, the `stake` table now contains an active stake for the
 provider:
 
 ```bash
-sqlite3 /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
+sqlite3 /var/lib/aitbc/data/ait-localnet/chain.db \
   "SELECT id, address, amount, locked_until, status FROM stake WHERE id=8;"
 ```
 

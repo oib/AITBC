@@ -384,7 +384,7 @@ async def _mint_deposit(deposit_id: str, recipient: str, amount_ait: Decimal) ->
 
         tx_payload = {
             "type": "TRANSFER",
-            "chain_id": os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"),
+            "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
             "from": genesis_address,
             "to": recipient,
             "amount": amount_seconds,

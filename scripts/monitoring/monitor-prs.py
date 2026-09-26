@@ -16,7 +16,7 @@ from datetime import UTC, datetime
 
 GITEA_TOKEN = os.getenv("GITEA_TOKEN")
 REPO = "oib/aitbc"
-API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.bubuit.net:3000/api/v1")
+API_BASE = os.getenv("GITEA_API_BASE", "http://gitea.invalid:3000/api/v1")
 MY_AGENT = os.getenv("AGENT_NAME", "aitbc1")
 SIBLING_AGENT = "aitbc" if MY_AGENT == "aitbc1" else "aitbc1"
 CLAIM_STATE_FILE = "/opt/aitbc/.claim-state.json"
@@ -131,7 +131,7 @@ def validate_pr_branch(pr):
     repo = head.get("repo", {}).get("full_name", REPO)
     tmpdir = tempfile.mkdtemp(prefix="aitbc-pr-")
     try:
-        clone_url = f"git@gitea.bubuit.net:{repo}.git"
+        clone_url = f"git@gitea.invalid:{repo}.git"
         result = subprocess.run(
             ["git", "clone", "-b", ref, "--depth", "1", clone_url, tmpdir], capture_output=True, text=True, timeout=60
         )

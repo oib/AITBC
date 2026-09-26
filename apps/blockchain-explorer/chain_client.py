@@ -36,7 +36,7 @@ __all__ = [
 ]
 
 # Configuration - Multi-chain support
-chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 BLOCKCHAIN_RPC_URLS = {
     chain_id: BLOCKCHAIN_RPC_URL,
     # ait-mainnet previously pointed at a hardcoded host on port 8082. The RPC
@@ -83,7 +83,7 @@ async def get_transaction(tx_hash: str, chain_id: str = DEFAULT_CHAIN) -> dict[s
         logger.warning("Invalid chain_id format")
         return {}
     try:
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -141,7 +141,7 @@ async def get_block(height: int, chain_id: str = DEFAULT_CHAIN) -> dict[str, Any
         return {}
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -228,7 +228,7 @@ async def get_latest_blocks(limit: int = 10, chain_id: str = DEFAULT_CHAIN, offs
     """Get latest blocks from blockchain DB via RPC"""
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 

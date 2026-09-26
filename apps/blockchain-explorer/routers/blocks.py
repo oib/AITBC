@@ -1,5 +1,6 @@
 """Block routes — latest blocks, non-empty blocks, block by hash, block by address, block by height."""
 
+import os
 from pathlib import Path
 from typing import Any
 
@@ -44,7 +45,7 @@ async def api_non_empty_blocks(
 ) -> dict[str, Any]:
     """API endpoint for non-empty blocks (blocks with transactions)"""
     try:
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -135,7 +136,7 @@ async def api_block_by_hash(hash: str, chain_id: str | None = DEFAULT_CHAIN) -> 
     clean_hash = hash[2:] if hash.startswith("0x") else hash
     try:
         # First try blockchain database for direct lookup
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -246,7 +247,7 @@ async def api_blocks_by_address(
 ) -> dict[str, Any]:
     """Get all blocks that contain transactions referencing a given address"""
     try:
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 
@@ -301,7 +302,7 @@ async def api_block(height: int, chain_id: str | None = DEFAULT_CHAIN) -> dict[s
 
     # Add transactions for this block
     try:
-        chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+        chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
         if not chain_db_path.exists():
             chain_db_path = Path("/var/lib/aitbc/data/chain.db")
 

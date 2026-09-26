@@ -104,11 +104,11 @@ The node can be configured via environment variables or configuration file.
 
 ```bash
 # Chain identity
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-SUPPORTED_CHAINS=ait-hub.aitbc.bubuit.net   # defaults to CHAIN_ID
+CHAIN_ID=ait-localnet
+SUPPORTED_CHAINS=ait-localnet   # defaults to CHAIN_ID
 
 # Database — per-chain SQLite at $AITBC_DATA_DIR/data/<chain_id>/chain.db
-# (e.g. /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db). No single
+# (e.g. /var/lib/aitbc/data/ait-localnet/chain.db). No single
 # "blockchain.db" file exists.
 AITBC_DATA_DIR=/var/lib/aitbc
 
