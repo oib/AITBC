@@ -117,9 +117,7 @@ def init_db() -> None:
     # Expression index keeps the public by-recipient lookup off a full table
     # scan; the query stays LOWER() = LOWER() so either service's stored
     # casing matches.
-    conn.execute(
-        "CREATE INDEX IF NOT EXISTS idx_eth_deposits_recipient_lower ON eth_deposits(LOWER(recipient))"
-    )
+    conn.execute("CREATE INDEX IF NOT EXISTS idx_eth_deposits_recipient_lower ON eth_deposits(LOWER(recipient))")
 
     conn.commit()
     conn.close()
