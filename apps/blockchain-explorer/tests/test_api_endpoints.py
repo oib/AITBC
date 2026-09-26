@@ -107,7 +107,7 @@ def test_validate_chain_id_valid():
     """Test chain ID validation with valid IDs"""
     from validation import validate_chain_id
 
-    assert validate_chain_id("ait-hub.aitbc.bubuit.net") is True
+    assert validate_chain_id("ait-testchain.local") is True
     assert validate_chain_id("ait-mainnet") is True
     assert validate_chain_id("test-chain-123") is True
 

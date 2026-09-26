@@ -648,7 +648,7 @@ try:
             except Exception:
                 import os
 
-                chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+                chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
             # Load agent config to get capabilities
             config_dir = get_agent_config_dir()
@@ -720,7 +720,7 @@ try:
             except Exception:
                 import os
 
-                chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+                chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
             # Query identity from blockchain RPC
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -759,7 +759,7 @@ try:
             except Exception:
                 import os
 
-                chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+                chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
             # Submit verification to blockchain RPC
             http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)

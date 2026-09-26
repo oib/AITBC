@@ -208,7 +208,7 @@ def list_offers(
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
 
         # Resolve the local identity when --mine is used.
         my_address: str | None = None
@@ -485,7 +485,7 @@ def cancel(ctx, order_ids: tuple[str, ...]):
         cancel_data["signature"] = sign_transaction_data(cancel_data, private_key)
 
         try:
-            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+            hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
             http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
             result = http_client.post("/rpc/transactions/market", json=cancel_data)
             success(f"Offer(s) {', '.join(order_ids)} cancelled successfully!")
@@ -616,7 +616,7 @@ def match(ctx, output_format: str):
             if not result:
                 # Try hub
                 hub_url = config.blockchain_rpc_url.replace(
-                    "localhost", config.hub_discovery_url or "hub.aitbc.bubuit.net"
+                    "localhost", config.hub_discovery_url or "hub.aitbc.invalid"
                 ).replace("http://", "https://")
                 http_client = AITBCHTTPClient(base_url=hub_url, timeout=10)
                 result = http_client.get("/rpc/transactions/market/match")
@@ -919,7 +919,7 @@ def _offer_endpoints(config, service_type: str, ipfs_port: int, ipfs_public_mult
     """Public nginx-routed endpoint buyers use + the local loopback endpoint."""
     local_ports = {"ollama": 11434, "whisper": 8110, "ffmpeg": 8230, "ipfs": 0, "hermes": 8270}
     local_port = ipfs_port if service_type == "ipfs" and ipfs_port else local_ports.get(service_type, 8110)
-    hub_hostname = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    hub_hostname = config.hub_discovery_url or "hub.aitbc.invalid"
     base_domain = hub_hostname.removeprefix("hub.")
     node_hostname = socket.getfqdn()
     # If FQDN doesn't end with the base domain, construct it from short hostname + base domain
@@ -1029,7 +1029,7 @@ def providers(ctx, output_format: str):
     try:
         fmt = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
         http_client = AITBCHTTPClient(base_url=hub_url, timeout=15)
 
         offers: list[dict[str, Any]] = []
@@ -1134,7 +1134,7 @@ def offer(
         config = get_config()
         chain_id = get_chain_id()
         island_id = get_island_id()
-        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.bubuit.net'}"
+        hub_url = f"https://{config.hub_discovery_url or 'hub.aitbc.invalid'}"
         wallet_address, private_key, _ = get_market_wallet(ctx, require_private_key=True)
         if not private_key:
             # Both public intake doors reject unsigned offer transactions —
@@ -1307,7 +1307,7 @@ def offer_list(
         wallet_address, _, _ = get_market_wallet(ctx, require_private_key=False)
 
         config = get_config()
-        hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
         if hub_host.startswith(("http://", "https://")):
             hub_url = hub_host.rstrip("/")
         elif "localhost" in hub_host or "127.0.0.1" in hub_host:
@@ -1357,7 +1357,7 @@ def offer_disable(
     try:
         output_format = resolve_output_format(ctx, output_format)
         config = get_config()
-        hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+        hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
         if hub_host.startswith(("http://", "https://")):
             hub_url = hub_host.rstrip("/")
         elif "localhost" in hub_host or "127.0.0.1" in hub_host:

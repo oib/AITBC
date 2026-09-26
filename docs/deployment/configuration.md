@@ -17,10 +17,10 @@ Real names in use (verified against the unit files and Settings classes):
 
 ```bash
 # /etc/aitbc/blockchain.env  (shared by blockchain units)
-CHAIN_ID=ait-hub.aitbc.bubuit.net
-SYNC_CHAIN_ID=ait-hub.aitbc.bubuit.net
+CHAIN_ID=ait-localnet
+SYNC_CHAIN_ID=ait-localnet
 BLOCKCHAIN_MODE=follower          # or hub / proposer role vars
-PROPOSER_ID=ait-hub.aitbc.bubuit.net
+PROPOSER_ID=ait-localnet
 VALIDATOR_SET=hub,node1,node2
 
 # /etc/aitbc/aitbc-coordinator-api.env

@@ -39,12 +39,12 @@ def mock_http_client(monkeypatch):
             calls["get"].append((self.base_url, path, kwargs))
             if path == "/health" or path.endswith("/health"):
                 return {
-                    "supported_chains": ["ait-hub.aitbc.bubuit.net"],
+                    "supported_chains": ["ait-testchain.local"],
                     "proposer_id": "0x1111111111111111111111111111111111111111",
                 }
             if "/rpc/account/" in path:
                 return {"balance": 1000000000, "nonce": 0}
-            return {"supported_chains": ["ait-hub.aitbc.bubuit.net"]}
+            return {"supported_chains": ["ait-testchain.local"]}
 
         def post(self, path, **kwargs):
             calls["post"].append((self.base_url, path, kwargs))

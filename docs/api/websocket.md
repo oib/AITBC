@@ -30,7 +30,7 @@ This is the channel follower nodes use to receive pushed blocks. The WebSocket a
 curl -X POST https://hub.example.net/rpc/subscribe \
   -H "Content-Type: application/json" \
   -H "X-API-Key: <PEER_KEY>" \
-  -d '{"node_id": "<your-node-id>", "chain_id": "ait-hub.aitbc.bubuit.net", "transport": "websocket"}'
+  -d '{"node_id": "<your-node-id>", "chain_id": "ait-localnet", "transport": "websocket"}'
 ```
 
 `X-API-Key` must be the node's own RPC key or one of the peer keys listed in the hub's `BLOCKCHAIN_RPC_API_KEY_PEERS` environment variable. Without a valid key the subscribe call returns `403`.
@@ -67,7 +67,7 @@ async def follow_blocks(node_id: str, chain_id: str):
             else:
                 print("New block:", data.get("height", data))
 
-asyncio.run(follow_blocks("my-node-1", "ait-hub.aitbc.bubuit.net"))
+asyncio.run(follow_blocks("my-node-1", "ait-localnet"))
 ```
 
 Protocol details (from `apps/blockchain-node/src/aitbc_chain/rpc/websocket.py`):
@@ -83,7 +83,7 @@ A bidirectional channel bridged into the node's internal gossip broker. Used by 
 
 ### Topics
 
-- **Restricted** (publish requires validator authentication): `blocks`, `pbft`, `consensus`, and any dotted sub-topic such as `blocks.ait-hub.aitbc.bubuit.net`.
+- **Restricted** (publish requires validator authentication): `blocks`, `pbft`, `consensus`, and any dotted sub-topic such as `blocks.ait-localnet`.
 - **Public** (anyone may publish, still rate-limited): `transactions`, `status`, `mempool`, and any dotted sub-topic.
 - Any other topic: subscribing is possible, but publishing is rejected unless the connection is validator-authenticated.
 

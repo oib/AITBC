@@ -91,7 +91,7 @@ All blockchain integrations use the hub RPC (`https://hub.example.net/rpc`) for 
 
 Key environment variables:
 
-- `CHAIN_ID`: Blockchain chain identifier (default: `ait-hub.aitbc.bubuit.net`)
+- `CHAIN_ID`: Blockchain chain identifier (default: `ait-localnet`)
 - `HUB_DISCOVERY_URL`: Hub discovery URL for cross-node operations
 - `BLOCKCHAIN_RPC_URL`: RPC endpoint for blockchain operations
 

@@ -198,7 +198,7 @@ The `default_peer_rpc_url` must be a base URL with no `/rpc` suffix.
 
 | Variable | Required | Default | Description |
 |----------|----------|---------|-------------|
-| `CHAIN_ID` | Yes | - | Primary chain ID (e.g. `ait-hub.aitbc.bubuit.net`) |
+| `CHAIN_ID` | Yes | - | Primary chain ID (e.g. `ait-localnet`) |
 | `supported_chains` | No | `chain_id` | Comma-separated list of supported chains |
 | `island_id` | No | `DEFAULT_ISLAND_ID` | Island identifier for this node |
 | `block_time_seconds` | No | `10` | Target block time in seconds |

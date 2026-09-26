@@ -154,7 +154,7 @@ def node_wallet_address() -> str:
 @pytest.fixture(scope="session")
 def chain_id() -> str:
     """Chain ID used for ESCROW_LOCK transactions."""
-    return os.getenv("E2E_CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    return os.getenv("E2E_CHAIN_ID", "ait-testchain.local")
 
 
 @pytest.fixture(scope="function")

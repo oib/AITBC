@@ -8,7 +8,7 @@ and writes a `genesis.json` that followers can bootstrap from.
 
 Typical usage from the repo root:
 
-    CHAIN_ID=ait-hub.aitbc.bubuit.net DB_PATH=/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
+    CHAIN_ID=ait-localnet DB_PATH=/var/lib/aitbc/data/ait-localnet/chain.db \
     PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src \
     python3 scripts/utils/reset_chain_0x.py
 """
@@ -177,7 +177,7 @@ def _seed_chain_db(chain_id: str, genesis_address: str, allocations: list[dict[s
 
 
 def main() -> int:
-    chain_id = os.environ.get("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+    chain_id = os.environ.get("CHAIN_ID", "ait-localnet")
     db_path = Path(os.environ.get("DB_PATH", f"/var/lib/aitbc/data/{chain_id}/chain.db"))
     data_dir = db_path.parent
     genesis_json = data_dir / "genesis.json"

@@ -215,7 +215,7 @@ async def _submit_bridge_refund(recipient: str, amount_ait: Decimal) -> str:
         # credits the user. The BRIDGE_* credit types are issued inside the
         # node and are refused at public transaction intake.
         "type": "TRANSFER",
-        "chain_id": os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net"),
+        "chain_id": os.getenv("CHAIN_ID", "ait-localnet"),
         "from": canonical_address(GENESIS_WALLET_ADDRESS),
         "to": canonical_address(recipient),
         "amount": value,

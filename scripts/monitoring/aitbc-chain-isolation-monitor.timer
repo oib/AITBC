@@ -1,6 +1,6 @@
 [Unit]
 Description=Run AITBC chain isolation verification hourly
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 
 [Timer]
 OnCalendar=hourly
