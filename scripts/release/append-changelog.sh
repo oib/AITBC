@@ -24,7 +24,7 @@ entry="$(cat)"
 header=$(printf '%s\n' "$entry" | grep -m1 '^### ' || true)
 [ -n "$header" ] || { echo "append-changelog: entry has no '### <title>' header line" >&2; exit 1; }
 
-if grep -qF -- "$header" "$file"; then
+if grep -qxF -- "$header" "$file"; then
     echo "append-changelog: refusing — this header already exists in $file:" >&2
     echo "  $header" >&2
     exit 1
