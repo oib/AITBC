@@ -314,3 +314,52 @@ async def test_foreign_newer_tx_does_not_take_over_anchor(service: MarketService
     assert offer["confirmed"] is True
     assert offer["tx_hash"] == "0xswoffer"
     assert offer["block_height"] == 21345
+
+
+@pytest.mark.asyncio
+async def test_gpu_offer_rejects_anchor_from_foreign_registrant(service: MarketService) -> None:
+    """A GPU_REGISTER sealed by a different wallet must not anchor the offer:
+    when /rpc/gpus supplies registered_by, the anchor binds the tx sender to
+    the first registrant — miner_id alone (a signer-chosen label) is not
+    enough. Covers the pre-v7 window where anyone could overwrite a gpu_id."""
+    service._rpc_client = StubRPC(  # type: ignore[assignment]
+        offers=[
+            {
+                "gpu_id": "gpu-live-05",
+                "price_per_hour": "0.001",
+                "model": "RTX 4090",
+                "status": "active",
+                "miner_id": "node0-miner",
+                "registered_by": PROVIDER,
+            }
+        ],
+        txs={"GPU_REGISTER": [{**GPU_REGISTER_TX, "sender": OTHER_SENDER}]},
+    )
+    offers = await service.list_software_services()
+    offer = next(o for o in offers if o["plugin_id"] == "gpu-live-05")
+    assert offer["confirmed"] is False
+    assert offer["block_height"] is None
+
+
+@pytest.mark.asyncio
+async def test_gpu_offer_confirms_via_registered_by_sender(service: MarketService) -> None:
+    """The strong path: sender == registered_by anchors even if payload
+    miner_id were absent — the wallet binding, not the node label."""
+    tx = {**GPU_REGISTER_TX, "sender": PROVIDER, "payload": {"gpu_id": "gpu-live-05", "miner_id": "anything"}}
+    service._rpc_client = StubRPC(  # type: ignore[assignment]
+        offers=[
+            {
+                "gpu_id": "gpu-live-05",
+                "price_per_hour": "0.001",
+                "model": "RTX 4090",
+                "status": "active",
+                "miner_id": "node0-miner",
+                "registered_by": PROVIDER,
+            }
+        ],
+        txs={"GPU_REGISTER": [tx]},
+    )
+    offers = await service.list_software_services()
+    offer = next(o for o in offers if o["plugin_id"] == "gpu-live-05")
+    assert offer["confirmed"] is True
+    assert offer["block_height"] == 1647
