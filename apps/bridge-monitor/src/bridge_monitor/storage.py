@@ -52,7 +52,7 @@ def init_db() -> None:
     """Initialize bridge deposits database."""
     os.makedirs(DATA_DIR, exist_ok=True)
 
-    with closing(sqlite3.connect(DB_PATH)) as conn:
+    with closing(sqlite3.connect(DB_PATH, timeout=10)) as conn:
         cursor = conn.cursor()
 
         # Full column set — identical to wallet_app.bridge.bridge_db.init_db.
@@ -80,6 +80,12 @@ def init_db() -> None:
             )
         """)
 
+        # PRAGMA-first migration: "database is locked" is also an
+        # OperationalError, so swallowing ALTER errors wholesale can leave a
+        # column missing — after which every deposit read fails until restart.
+        # Check columns up front, and on failure re-check before forgiving.
+        cursor.execute("PRAGMA table_info(eth_deposits)")
+        columns = {row[1] for row in cursor.fetchall()}
         for column, col_type in [
             ("eth_usd_price", "TEXT"),
             ("ait_usd_price", "TEXT"),
@@ -87,10 +93,14 @@ def init_db() -> None:
             ("retry_count", "INTEGER NOT NULL DEFAULT 0"),
             ("next_retry_at", "TEXT"),
         ]:
+            if column in columns:
+                continue
             try:
                 cursor.execute(f"ALTER TABLE eth_deposits ADD COLUMN {column} {col_type}")
             except sqlite3.OperationalError:
-                pass  # column already present
+                cursor.execute("PRAGMA table_info(eth_deposits)")
+                if column not in {row[1] for row in cursor.fetchall()}:
+                    raise
 
         cursor.execute("""
             CREATE TABLE IF NOT EXISTS bridge_cursor (
@@ -116,7 +126,7 @@ def init_db() -> None:
 
 def _db_connection() -> sqlite3.Connection:
     """Get a fresh database connection with row factory enabled."""
-    conn = sqlite3.connect(DB_PATH)
+    conn = sqlite3.connect(DB_PATH, timeout=10)
     conn.row_factory = sqlite3.Row
     return conn
 
