@@ -343,7 +343,7 @@ async def list_bridge_transfers(
                 stmt = stmt.where(CrossChainTransfer.status == status)
                 count_stmt = count_stmt.where(CrossChainTransfer.status == status)
             total = session.exec(count_stmt).one()
-            rows = session.exec(stmt.order_by(CrossChainTransfer.lock_time.desc()).limit(limit).offset(offset)).all()
+            rows = session.exec(stmt.order_by(CrossChainTransfer.lock_time.desc()).limit(limit).offset(offset)).all()  # type: ignore[union-attr]
         transfers = [
             {
                 "transfer_id": t.transfer_id,

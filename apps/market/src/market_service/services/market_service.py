@@ -503,15 +503,15 @@ class MarketService:
                 if offer.get("confirmed"):
                     continue
                 key = offer.get("offer_id") or offer.get("plugin_id")
-                tx = anchor_txs.get(key) if key else None
-                if tx is None:
+                anchor_tx = anchor_txs.get(key) if key else None
+                if anchor_tx is None:
                     continue
                 offer["confirmed"] = True
-                offer["tx_hash"] = offer.get("tx_hash") or tx.get("tx_hash")
-                offer["block_height"] = tx.get("block_height")
-                offer["block_hash"] = offer.get("block_hash") or tx.get("block_hash")
-                offer["block_proposer"] = offer.get("block_proposer") or tx.get("block_proposer")
-                ts = tx.get("timestamp")
+                offer["tx_hash"] = offer.get("tx_hash") or anchor_tx.get("tx_hash")
+                offer["block_height"] = anchor_tx.get("block_height")
+                offer["block_hash"] = offer.get("block_hash") or anchor_tx.get("block_hash")
+                offer["block_proposer"] = offer.get("block_proposer") or anchor_tx.get("block_proposer")
+                ts = anchor_tx.get("timestamp")
                 if ts and not offer.get("block_timestamp"):
                     # Transaction.timestamp is already a string column;
                     # numeric only if a serializer emitted epoch seconds.
