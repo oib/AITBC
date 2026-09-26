@@ -342,26 +342,45 @@ class DatabaseMempool:
     def _init_table(self) -> None:
         with self._lock:
             with Session(self._engine) as session:
-                # Create table manually using raw SQL to avoid chain table conflicts
-                session.exec(
-                    text("""
-                    CREATE TABLE IF NOT EXISTS mempool (
-                        chain_id TEXT NOT NULL,
-                        tx_hash TEXT NOT NULL,
-                        content TEXT NOT NULL,
-                        fee INTEGER DEFAULT 0,
-                        size_bytes INTEGER DEFAULT 0,
-                        received_at REAL NOT NULL,
-                        sender TEXT,
-                        nonce INTEGER,
-                        PRIMARY KEY (chain_id, tx_hash)
-                    )
-                """)
-                )  # type: ignore[call-overload]
-                session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
-                self._ensure_slot_columns(session)
-                session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_sender_nonce ON mempool(chain_id, sender, nonce)"))  # type: ignore[call-overload]
-                session.commit()
+                # node, rpc and p2p services all call init_mempool against the
+                # same database at service start; two concurrent ALTERs on the
+                # same relation deadlock (seen live on node2: node vs rpc on
+                # ADD COLUMN). A session-level advisory lock serializes schema
+                # setup across processes; it survives commit and is released
+                # on session close regardless.
+                locked = False
+                if session.get_bind().dialect.name == "postgresql":
+                    session.exec(text("SELECT pg_advisory_lock(hashtext('aitbc_mempool_init'))"))  # type: ignore[call-overload]
+                    locked = True
+                try:
+                    # Create table manually using raw SQL to avoid chain table conflicts
+                    session.exec(
+                        text("""
+                        CREATE TABLE IF NOT EXISTS mempool (
+                            chain_id TEXT NOT NULL,
+                            tx_hash TEXT NOT NULL,
+                            content TEXT NOT NULL,
+                            fee INTEGER DEFAULT 0,
+                            size_bytes INTEGER DEFAULT 0,
+                            received_at REAL NOT NULL,
+                            sender TEXT,
+                            nonce INTEGER,
+                            PRIMARY KEY (chain_id, tx_hash)
+                        )
+                    """)
+                    )  # type: ignore[call-overload]
+                    session.exec(text("CREATE INDEX IF NOT EXISTS idx_mempool_fee ON mempool(fee DESC)"))  # type: ignore[call-overload]
+                    self._ensure_slot_columns(session)
+                    session.exec(
+                        text("CREATE INDEX IF NOT EXISTS idx_mempool_sender_nonce ON mempool(chain_id, sender, nonce)")
+                    )  # type: ignore[call-overload]
+                    session.commit()
+                finally:
+                    if locked:
+                        try:
+                            session.exec(text("SELECT pg_advisory_unlock(hashtext('aitbc_mempool_init'))"))  # type: ignore[call-overload]
+                        except Exception:
+                            pass  # released on session close regardless
 
     @staticmethod
     def _table_columns(session: Session) -> set[str]:
