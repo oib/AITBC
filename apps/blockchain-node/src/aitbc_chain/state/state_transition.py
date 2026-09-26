@@ -143,7 +143,7 @@ def _bond_slash_authority(session: Session, chain_id: str, block_height: int | N
     on-chain record resolve ``None`` — fail closed: a chain that never sealed
     the parameter has no determinable authority. A disagreement between env
     and the on-chain value is logged, because per-node env drift is exactly
-    how the 1-2 Sep slashes were skipped on node0.
+    how the 1-2 Sep slashes were skipped on one fleet node.
     """
     onchain_value = _chain_parameter_value(session, chain_id, "bond_slash_authority", block_height)
     env_addr = os.getenv("BOND_SLASH_AUTHORITY_ADDRESS", "").strip()
@@ -216,7 +216,7 @@ def _escrow_settlement_authority(session: Session, chain_id: str, block_height: 
     The on-chain ``escrow_settlement_authority`` chain parameter wins: it is
     applied identically on every node, so the gate is deterministic — the
     per-node env value drifting is the same silent-divergence class as the
-    1-2 Sep slashes skipped on node0. ``settings.escrow_settlement_authority``
+    1-2 Sep slashes skipped on one fleet node. ``settings.escrow_settlement_authority``
     / ``ESCROW_RELEASE_ADDRESS`` remain the bootstrap for
     ``block_height=None`` callers only: for a known block height, chain
     history alone decides. A disagreement between the two is logged. Returns
