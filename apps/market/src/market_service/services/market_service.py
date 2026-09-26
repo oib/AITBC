@@ -618,7 +618,9 @@ class MarketService:
         anchor.block_height = anchor_tx.get("block_height")
         anchor.block_hash = anchor_tx.get("block_hash")
         anchor.block_proposer = anchor_tx.get("block_proposer")
-        anchor.block_timestamp = block_ts
+        ts = anchor_tx.get("timestamp")
+        anchor.block_timestamp = ts if isinstance(ts, str) else (datetime.fromtimestamp(ts, UTC).isoformat() if ts else None)
+        anchor.registered_at = anchor_tx.get("created_at") or anchor.block_timestamp
         anchor.bound_provider = self._anchor_binding_key(offer, is_gpu)
         anchor.resolved_at = datetime.now(UTC).replace(tzinfo=None)
         return True
@@ -681,7 +683,9 @@ class MarketService:
                     offer["block_hash"] = offer.get("block_hash") or row.block_hash
                     offer["block_proposer"] = offer.get("block_proposer") or row.block_proposer
                     if row.block_timestamp and not offer.get("block_timestamp"):
-                        offer["block_timestamp"] = row.block_timestamp.isoformat()
+                        offer["block_timestamp"] = row.block_timestamp
+                    if row.registered_at and not offer.get("registered_at"):
+                        offer["registered_at"] = row.registered_at
                 else:
                     live[dbkey] = (offer, is_gpu, raw, binding)
             now = time.monotonic()
