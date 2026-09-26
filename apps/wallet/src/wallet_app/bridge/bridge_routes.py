@@ -5,7 +5,9 @@ REST API endpoints for bridge operations.
 
 import logging
 import os
+import time
 from decimal import Decimal
+from pathlib import Path
 from typing import Annotated, Any
 
 from aitbc.network import SharedHttpClient
@@ -28,7 +30,7 @@ from aitbc.utils import ait_to_units, units_to_ait
 from aitbc.utils.validation import validate_address_strict
 
 # Forward-compatible import used in "/v1/bridge/status"
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Request
 
 import httpx
 
@@ -288,6 +290,44 @@ async def get_bridge_v1_status() -> dict[str, Any]:
     }
 
 
+_BRIDGE_KICK_FILE = Path(os.getenv("BRIDGE_KICK_FILE", "/var/lib/aitbc/bridge_poll_kick"))
+_KICK_COOLDOWN_SECONDS = 30.0
+_kick_last_by_ip: dict[str, float] = {}
+
+
+def _kick_bridge_poll() -> None:
+    """Signal the standalone bridge monitor to run a poll burst.
+
+    The monitor watches this file's mtime and, on a fresh touch, polls ETH
+    ~3 times over the next 60 seconds. Best-effort: a missing/unwritable
+    file must never break the API surface that calls it.
+    """
+    try:
+        _BRIDGE_KICK_FILE.touch(exist_ok=True)
+        os.utime(_BRIDGE_KICK_FILE, None)
+    except OSError as exc:
+        logger.warning("Could not touch bridge kick file %s: %s", _BRIDGE_KICK_FILE, exc)
+
+
+@bridge_router.post("/poll-request")
+async def bridge_request_poll(request: Request) -> dict[str, Any]:
+    """Public kick: ask the bridge monitor to poll ETH now.
+
+    Lets the website's "Check Status" button drive the deposit poller on
+    demand — the monitor runs a ~3-poll burst over 60s rather than this
+    request blocking. Rate-limited per client IP; unlike POST /poll (the
+    in-wallet scanner, admin-only) this triggers the crediting monitor.
+    """
+    ip = request.client.host if request.client else "unknown"
+    now = time.monotonic()
+    elapsed = now - _kick_last_by_ip.get(ip, 0.0)
+    if elapsed < _KICK_COOLDOWN_SECONDS:
+        return {"kicked": False, "retry_after_seconds": int(_KICK_COOLDOWN_SECONDS - elapsed)}
+    _kick_last_by_ip[ip] = now
+    _kick_bridge_poll()
+    return {"kicked": True, "burst_window_seconds": 60, "polls": 3}
+
+
 @bridge_router.post("/poll")
 async def trigger_bridge_poll(
     _admin: Annotated[None, Depends(require_admin_api_key)],
@@ -381,6 +421,11 @@ async def bridge_deposit(body: dict[str, Any]) -> dict[str, Any]:
     net_eth = eth_amount - fee_eth
 
     transaction_data_hex = "0x" + ait_address.encode("utf-8").hex()
+
+    # Strongest demand signal there is: someone just asked where to send ETH.
+    # Kick the monitor's burst window so the deposit settles without waiting
+    # for the slow safety-net cadence.
+    _kick_bridge_poll()
 
     return {
         "status": "ready",

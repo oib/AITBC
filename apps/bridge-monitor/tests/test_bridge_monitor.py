@@ -154,3 +154,67 @@ class TestCursorSafety:
             assert get_cursor("last_processed_block") == 100
             # _mark_for_retry called for each block in range (90-100 = 11 blocks)
             assert mock_retry.call_count > 0
+
+
+class TestKickBurst:
+    """Demand-triggered polling: a fresh kick file switches the loop into a
+    ~3-polls-in-60s burst; the slow poll_interval stays the safety net."""
+
+    def _drive_loop(self, monitor, kick_delay=None, run_for=1.6):
+        """Run monitor.run() briefly, optionally touching the kick file."""
+        import asyncio
+        import time
+        from pathlib import Path
+
+        polls = []
+        monitor.poll_ethereum = lambda: polls.append(time.monotonic())
+        monitor.process_retry_queue = lambda: None
+
+        async def drive():
+            task = asyncio.create_task(monitor.run())
+            if kick_delay is not None:
+                await asyncio.sleep(kick_delay)
+                Path(monitor.kick_file).touch()
+            await asyncio.sleep(run_for)
+            task.cancel()
+            try:
+                await task
+            except asyncio.CancelledError:
+                pass
+
+        asyncio.run(drive())
+        return polls
+
+    def test_fresh_kick_triggers_burst(self, monitor, tmp_path):
+        monitor.kick_file = str(tmp_path / "bridge_poll_kick")
+        monitor._last_kick_seen = 0.0
+        monitor.burst_window = 2.0
+        monitor.burst_interval = 0.5
+        monitor.poll_interval = 60  # safety net alone would give only the boot poll
+
+        polls = self._drive_loop(monitor, kick_delay=0.4, run_for=2.6)
+        assert len(polls) >= 3
+
+    def test_stale_kick_at_boot_does_not_burst(self, monitor, tmp_path):
+        import os as _os
+
+        kick = tmp_path / "bridge_poll_kick"
+        kick.touch()
+        monitor.kick_file = str(kick)
+        monitor._last_kick_seen = _os.path.getmtime(kick)  # what __init__ would record
+        monitor.burst_window = 2.0
+        monitor.burst_interval = 0.5
+        monitor.poll_interval = 60
+
+        polls = self._drive_loop(monitor, kick_delay=None, run_for=1.4)
+        assert len(polls) == 1  # boot poll only
+
+    def test_kick_mtime_missing_file(self, monitor, tmp_path):
+        monitor.kick_file = str(tmp_path / "nonexistent")
+        assert monitor._kick_mtime() is None
+
+    def test_kick_mtime_present(self, monitor, tmp_path):
+        kick = tmp_path / "bridge_poll_kick"
+        kick.touch()
+        monitor.kick_file = str(kick)
+        assert monitor._kick_mtime() > 0
