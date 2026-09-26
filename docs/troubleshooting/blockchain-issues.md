@@ -56,8 +56,8 @@ ufw status
 systemctl stop aitbc-blockchain-node
 
 # Backup data (adjust CHAIN_ID to yours)
-mv /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
-   /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db.backup
+mv /var/lib/aitbc/data/ait-localnet/chain.db \
+   /var/lib/aitbc/data/ait-localnet/chain.db.backup
 
 # Start service
 systemctl start aitbc-blockchain-node
@@ -97,8 +97,8 @@ curl -X POST http://localhost:8202/rpc/force-sync \
 ```bash
 systemctl stop aitbc-blockchain-node aitbc-blockchain-rpc
 # DB is chain-scoped: $AITBC_DATA_DIR/data/<chain_id>/chain.db
-mv /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db \
-   /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db.forked
+mv /var/lib/aitbc/data/ait-localnet/chain.db \
+   /var/lib/aitbc/data/ait-localnet/chain.db.forked
 systemctl start aitbc-blockchain-node aitbc-blockchain-rpc
 # the node re-syncs from the proposer via subscription/pull sync
 ```

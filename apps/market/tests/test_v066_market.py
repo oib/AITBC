@@ -112,7 +112,7 @@ class TestMarketConfig:
         from market_service.config import settings
 
         assert settings.blockchain_rpc_url == "http://127.0.0.1:8202"
-        assert settings.default_chain_id == "ait-hub.aitbc.bubuit.net"
+        assert settings.default_chain_id == "ait-testchain.local"
         assert "8107" in settings.agent_coordinator_url
 
     def test_no_stale_8006_port(self):

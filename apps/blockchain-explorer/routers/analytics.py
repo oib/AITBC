@@ -3,6 +3,7 @@
 import hashlib
 import json
 from datetime import UTC, datetime
+import os
 from pathlib import Path
 from typing import Any
 
@@ -22,7 +23,7 @@ router = APIRouter()
 
 def _chain_db_path() -> Path | None:
     """Return the configured on-disk chain database, or None if it does not exist."""
-    chain_db_path = Path("/var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db")
+    chain_db_path = Path(f"/var/lib/aitbc/data/{os.environ.get('CHAIN_ID', 'ait-localnet')}/chain.db")
     if not chain_db_path.exists():
         chain_db_path = Path("/var/lib/aitbc/data/chain.db")
     return chain_db_path if chain_db_path.exists() else None

@@ -270,7 +270,7 @@ class Settings(BaseAITBCConfig):
     energy_quote_lifetime_seconds: int = Field(default=300, description="Default energy quote lifetime")
     energy_max_rate_age_seconds: int = Field(default=300, description="Maximum age of an energy rate observation")
     energy_quote_domain: str = Field(default="aitbc.energy.quote.v1", description="Energy quote EIP-712/signing domain")
-    native_chain_id: str = Field(default="ait-hub.aitbc.bubuit.net", description="Native chain ID for quote binding")
+    native_chain_id: str = Field(default="ait-localnet", description="Native chain ID for quote binding")
 
     # Operator key used to sign EnergyQuote payloads returned by the market.
     # Stored as SecretStr so it cannot leak through repr/logs. When unset, the

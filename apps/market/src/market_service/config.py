@@ -29,14 +29,14 @@ class Settings(ServiceSettings):
     # Blockchain integration
     blockchain_rpc_url: str = os.getenv("BLOCKCHAIN_RPC_URL", BLOCKCHAIN_RPC_URL)
     blockchain_rpc_api_key: str = os.getenv("BLOCKCHAIN_RPC_API_KEY", "")
-    default_chain_id: str = "ait-hub.aitbc.bubuit.net"
+    default_chain_id: str = "ait-localnet"
 
     # Agent coordinator integration (v0.6.6 matching → task queue)
     agent_coordinator_url: str = "http://localhost:8107"
 
     # Compute hub RPC endpoint published in market offers.
     # Default uses https per V23-13; override via HUB_RPC_URL env var.
-    hub_rpc_url: str = "https://hub.aitbc.bubuit.net/rpc"
+    hub_rpc_url: str = "https://hub.aitbc.invalid/rpc"
 
     # Rate limiting (V23-32a). Applied per client IP by RateLimitMiddleware in main.py.
     # 120/minute is roughly two requests a second sustained, which no legitimate UI or agent

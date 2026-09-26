@@ -79,7 +79,7 @@ def register_onchain(
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         from ..utils.gpu_onchain import submit_gpu_register, wait_for_tx
 
@@ -145,7 +145,7 @@ def query_gpu(ctx, gpu_id: str, format: str):
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Query GPU from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -201,7 +201,7 @@ def allocate_gpu(
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         try:
             hex_client_id = validate_address_strict(client_id)
@@ -269,7 +269,7 @@ def get_allocations(ctx, gpu_id: str, format: str):
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Query GPU allocations from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)
@@ -311,7 +311,7 @@ def list_gpus(ctx, status: str | None, format: str):
         except Exception:
             import os
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
 
         # Query GPU list from blockchain RPC
         http_client = AITBCHTTPClient(base_url=rpc_url, timeout=30)

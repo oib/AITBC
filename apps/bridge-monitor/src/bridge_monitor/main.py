@@ -116,7 +116,7 @@ class BridgeMonitor:
                 return None
             nonce = int(sender_response.json().get("nonce", 0))
 
-            chain_id = os.getenv("CHAIN_ID", "ait-hub.aitbc.bubuit.net")
+            chain_id = os.getenv("CHAIN_ID", "ait-localnet")
             # Convert decimal AIT to on-chain compute-units (same as aitbc wallet send)
             tx_amount = ait_to_units(amount)
             transaction = {

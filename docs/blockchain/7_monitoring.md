@@ -17,8 +17,8 @@ aitbc blockchain height
 aitbc blockchain sync-status
 
 # Live chain monitor (snapshot or realtime view)
-aitbc blockchain monitor --chain-id ait-hub.aitbc.bubuit.net
-aitbc blockchain monitor --chain-id ait-hub.aitbc.bubuit.net --realtime --interval 10
+aitbc blockchain monitor --chain-id ait-localnet
+aitbc blockchain monitor --chain-id ait-localnet --realtime --interval 10
 
 # Node service status
 systemctl status aitbc-blockchain-node aitbc-blockchain-rpc

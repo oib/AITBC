@@ -38,7 +38,7 @@ from .utils import _unsigned_tx_fields
 
 _raw_rpc_url = os.getenv("HUB_RPC_URL", BLOCKCHAIN_RPC_URL).rstrip("/")
 _HUB_RPC_URL = _raw_rpc_url if _raw_rpc_url.endswith("/rpc") else f"{_raw_rpc_url}/rpc"
-_CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-hub.aitbc.bubuit.net"))
+_CHAIN_ID = os.getenv("CHAIN_ID", os.getenv("SUPPORTED_CHAINS", "ait-localnet"))
 _NODE_WALLET = os.getenv("NODE_WALLET_ADDRESS", os.getenv("GENESIS_WALLET_ADDRESS", ""))
 _logger = get_logger(__name__)
 

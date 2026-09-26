@@ -7,7 +7,7 @@ from importlib import import_module
 
 __version__ = "0.10.18"
 __author__ = "AITBC Team"
-__email__ = "andreas.fleckl@bubuit.net"
+__email__ = "operator@aitbc.invalid"
 
 # Provide compatibility aliases for source-tree imports used by modular commands.
 # Note: core and models are sibling directories, not subpackages of aitbc_cli
