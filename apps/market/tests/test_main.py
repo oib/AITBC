@@ -30,6 +30,32 @@ def client():
     return TestClient(app)
 
 
+_TEST_PRIVATE_KEY = "0x" + "33" * 32
+
+
+def _signed_registration(issued_at=None, chain_id=None, private_key=_TEST_PRIVATE_KEY, **fields):
+    """Build a POST /v1/market/offer body carrying a valid provider signature."""
+    import time
+
+    from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
+    from aitbc.market.offer_registration import registration_message
+    from market_service.config import settings
+
+    provider = derive_ethereum_address(private_key)
+    issued_at = int(time.time()) if issued_at is None else issued_at
+    chain_id = chain_id or settings.default_chain_id
+    return {
+        **fields,
+        "provider_address": provider,
+        "chain_id": chain_id,
+        "issued_at": issued_at,
+        "signature": sign_transaction_data(
+            registration_message("register", fields["plugin_id"], provider, chain_id, issued_at),
+            private_key,
+        ),
+    }
+
+
 # --- Health / readiness ---
 
 
@@ -470,7 +496,7 @@ def registered_service(client):
     plugin_id = "v23-81-registered-service"
     created = client.post(
         "/v1/market/offer",
-        json={"plugin_id": plugin_id, "service_type": "inference", "model": "test-model"},
+        json=_signed_registration(plugin_id=plugin_id, service_type="inference", model="test-model"),
     )
     assert created.status_code == 200
 
@@ -628,3 +654,53 @@ def test_get_transactions_no_filters(client):
     response = client.get("/v1/transactions")
     assert response.status_code == 200
     assert isinstance(response.json(), list)
+
+
+# --- Signed offer registration (provider-proof) ---
+
+
+def test_register_offer_rejects_missing_signature(client):
+    """The public POST must not accept an unsigned registration."""
+    response = client.post(
+        "/v1/market/offer",
+        json={"plugin_id": "unsigned-offer", "service_type": "inference", "model": "m"},
+    )
+    assert response.status_code == 403
+
+
+def test_register_offer_rejects_foreign_provider_claim(client):
+    """Squat: signing with your own key while claiming a victim's
+    provider_address is rejected — the recovered signer must equal the
+    claimed provider."""
+    body = _signed_registration(plugin_id="squat-target", service_type="inference", model="m")
+    body["provider_address"] = "0x9999999999999999999999999999999999999999"
+    response = client.post("/v1/market/offer", json=body)
+    assert response.status_code == 403
+
+
+def test_register_offer_rejects_wrong_chain(client):
+    """A signature valid on another chain can't replay here."""
+    body = _signed_registration(plugin_id="wrong-chain-offer", service_type="inference", model="m", chain_id="other-chain")
+    response = client.post("/v1/market/offer", json=body)
+    assert response.status_code == 403
+
+
+def test_register_offer_rejects_stale_issued_at(client):
+    """An old captured signature can't be replayed to re-register later."""
+    import time
+
+    body = _signed_registration(
+        plugin_id="stale-offer", service_type="inference", model="m", issued_at=int(time.time()) - 3600
+    )
+    response = client.post("/v1/market/offer", json=body)
+    assert response.status_code == 403
+
+
+def test_register_offer_accepts_valid_signature(client):
+    """Happy path: a correctly signed registration still succeeds."""
+    response = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(plugin_id="signed-offer", service_type="inference", model="m"),
+    )
+    assert response.status_code == 200
+    assert response.json()["plugin_id"] == "signed-offer"
