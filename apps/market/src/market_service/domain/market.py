@@ -72,6 +72,32 @@ class SoftwareService(MarketBase, table=True):
     block_timestamp: datetime | None = Field(default=None)
 
 
+class OfferAnchor(MarketBase, table=True):
+    """Stored on-chain anchor confirmation for a market offer.
+
+    Written only by the server, from a verified anchor transaction — the
+    namespaced key and provider binding are the same rules
+    ``_resolve_offer_anchors`` applies live, so a stored row means the offer
+    once resolved to a sealed tx authored by its provider. Rows persist the
+    confirmation for offers that have no local ``SoftwareService`` row
+    (on-chain GPU offers) and let listings skip the per-request transaction
+    RPCs once confirmation has been found. If the offer's binding identity
+    changes (e.g. a GPU row gains ``registered_by`` after an RPC upgrade)
+    the row is re-resolved live and rewritten.
+    """
+
+    __tablename__ = "offer_anchor"
+
+    key: str = Field(primary_key=True)  # namespaced: "gpu:<gpu_id>" or "offer:<offer_id>"
+    tx_hash: str = Field(default="")
+    block_height: int | None = Field(default=None)
+    block_hash: str | None = Field(default=None)
+    block_proposer: str | None = Field(default=None)
+    block_timestamp: datetime | None = Field(default=None)
+    bound_provider: str = Field(default="", index=True)  # the offer-side identity the anchor was verified against
+    resolved_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
+
+
 class Bid(MarketBase, table=True):
     """Bid/offer booking record."""
 
