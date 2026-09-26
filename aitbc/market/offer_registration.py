@@ -23,9 +23,7 @@ from aitbc.crypto.signature_recovery import canonical_address
 REGISTRATION_MAX_AGE_SECONDS = 300
 
 
-def registration_message(
-    action: str, plugin_id: str, provider_address: str, chain_id: str, issued_at: int
-) -> dict[str, Any]:
+def registration_message(action: str, plugin_id: str, provider_address: str, chain_id: str, issued_at: int) -> dict[str, Any]:
     """Canonical fields a provider signs for offer registration.
 
     ``action`` scopes the proof so a captured signature cannot be reused for
