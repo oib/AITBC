@@ -22,7 +22,7 @@ from aitbc.market.offer_registration import verify_offer_registration
 from aitbc.utils.units import ait_to_units
 
 from ..config import settings
-from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, ServiceRating, SoftwareService
+from ..domain.market import Bid, MarketJob, MarketJobPayment, MarketOffer, OfferAnchor, ServiceRating, SoftwareService
 from ..domain.offer_status import spellings_of, to_offer_status
 
 logger = get_logger(__name__)
@@ -55,6 +55,39 @@ def _secret_matches(stored: str, provided: str) -> bool:
 
 
 _LOOPBACK_HOSTS = {"localhost", "localhost.localdomain", "ip6-localhost"}
+
+# Fields a provider may set on their own offer through POST /v1/market/offer.
+# An allow-list, not a block-list: server-owned columns (block_*, tx_hash,
+# avg_rating, rating_count, registered_at, updated_at) are filled only from
+# verified chain anchors or server logic, and columns added later are safe
+# by default.
+_REGISTRATION_FIELDS = {
+    "service_type",
+    "model",
+    "price",
+    "price_unit",
+    "offer_id",
+    "endpoint",
+    "public_endpoint",
+    "health_url",
+    "provider_address",
+    "node_id",
+    "gpu_name",
+    "gpu_device",
+    "gpu_uuid",
+    "gpu_offer_id",
+    "gpu_model",
+    "gpu_memory_gb",
+    "compute_capability",
+    "description",
+    "status",
+    "disk_quota_mb",
+}
+
+# An unconfirmed offer that just resolved to nothing stays unconfirmed for
+# this long before another chain probe — bounds anchor RPCs per offer
+# without ever hiding a late-arriving seal.
+_ANCHOR_NEGATIVE_TTL_SECONDS = 120.0
 
 
 def _sanitize_endpoint(url: str | None) -> str | None:
@@ -151,6 +184,13 @@ def _local_offer_dict(s: "SoftwareService") -> dict[str, Any]:
 
 
 class MarketService:
+    # Shared across per-request service instances: (namespaced anchor key,
+    # binding identity) -> monotonic deadline before which that pair is not
+    # probed on chain again. The binding is part of the key so a negative
+    # cached for one provider identity can't suppress re-resolution when the
+    # offer's binding changes (e.g. registered_by appears after an upgrade).
+    _anchor_negatives: dict[tuple[str, str], float] = {}
+
     def __init__(self, session: AsyncSession):
         self.session = session
         self._rpc_client = BlockchainRPCClient(
@@ -466,7 +506,8 @@ class MarketService:
                     merged_offers.append(offer)
                     seen_plugin_ids.add(plugin_id)
 
-            await self._resolve_offer_anchors(merged_offers, chain_id)
+            local_rows = {s.plugin_id: s for s in local_services}
+            await self._resolve_offer_anchors(merged_offers, chain_id, local_rows)
 
             logger.info(
                 "Returning %s total offers (%s from blockchain, %s from local)",
@@ -507,7 +548,87 @@ class MarketService:
         sender = anchor_tx.get("sender") or ""
         return bool(sender) and canonical_address(sender) == canonical_address(provider)
 
-    async def _resolve_offer_anchors(self, offers: list[dict[str, Any]], chain_id: str | None) -> None:
+    @staticmethod
+    def _anchor_binding_key(offer: dict[str, Any], is_gpu: bool) -> str:
+        """The offer-side identity an anchor must bind to — what
+        ``_anchor_belongs_to_provider`` requires the tx's authenticated
+        sender (or, pre-``registered_by``, the miner label) to equal. Stored
+        on ``OfferAnchor`` rows: a changed binding forces live re-resolution
+        instead of replaying a stale confirmation."""
+        provider = str(offer.get("provider_address") or "")
+        if is_gpu:
+            registered_by = offer.get("registered_by") or ""
+            return canonical_address(registered_by) if registered_by else provider
+        return canonical_address(provider)
+
+    @staticmethod
+    def _anchor_timestamp(anchor_tx: dict[str, Any]) -> tuple[str | None, datetime | None]:
+        """Return (iso string for the offer dict, naive datetime for columns).
+
+        Transaction.timestamp is already a string column; numeric only if a
+        serializer emitted epoch seconds."""
+        ts = anchor_tx.get("timestamp")
+        if ts is None:
+            return None, None
+        if isinstance(ts, str):
+            try:
+                return ts, datetime.fromisoformat(ts).replace(tzinfo=None)
+            except ValueError:
+                return ts, None
+        dt = datetime.fromtimestamp(ts, UTC)
+        return dt.isoformat(), dt.replace(tzinfo=None)
+
+    def _persist_anchor(
+        self,
+        dbkey: str,
+        offer: dict[str, Any],
+        is_gpu: bool,
+        anchor_tx: dict[str, Any],
+        block_ts: datetime | None,
+        existing_row: OfferAnchor | None,
+        local_rows: dict[str, SoftwareService] | None,
+    ) -> bool:
+        """Store a verified anchor so later listings skip chain probes.
+
+        Offers backed by a local ``SoftwareService`` take confirmation on the
+        row's ``block_*`` columns — which is what ``_local_offer_dict`` reads
+        and what the registration allow-list keeps providers from forging.
+        On-chain-only offers (GPU bundles) get an ``OfferAnchor`` row keyed
+        under the same namespace, bound to the provider identity verified
+        now. Returns True when something was written.
+        """
+        row = local_rows.get(str(offer.get("plugin_id") or "")) if local_rows else None
+        if row is not None:
+            changed = False
+            for attr, value in (
+                ("tx_hash", anchor_tx.get("tx_hash")),
+                ("block_height", anchor_tx.get("block_height")),
+                ("block_hash", anchor_tx.get("block_hash")),
+                ("block_proposer", anchor_tx.get("block_proposer")),
+                ("block_timestamp", block_ts),
+            ):
+                if value is not None and getattr(row, attr) != value:
+                    setattr(row, attr, value)
+                    changed = True
+            return changed
+        anchor = existing_row if existing_row is not None else OfferAnchor(key=dbkey)
+        if existing_row is None:
+            self.session.add(anchor)
+        anchor.tx_hash = anchor_tx.get("tx_hash") or ""
+        anchor.block_height = anchor_tx.get("block_height")
+        anchor.block_hash = anchor_tx.get("block_hash")
+        anchor.block_proposer = anchor_tx.get("block_proposer")
+        anchor.block_timestamp = block_ts
+        anchor.bound_provider = self._anchor_binding_key(offer, is_gpu)
+        anchor.resolved_at = datetime.now(UTC).replace(tzinfo=None)
+        return True
+
+    async def _resolve_offer_anchors(
+        self,
+        offers: list[dict[str, Any]],
+        chain_id: str | None,
+        local_rows: dict[str, SoftwareService] | None = None,
+    ) -> None:
         """Mark offers as confirmed by joining them to sealed anchor txs.
 
         GPU bundle offers anchor as GPU_REGISTER (payload.gpu_id) and software
@@ -516,10 +637,58 @@ class MarketService:
         block, so confirmation is derived from the sealed transaction itself.
         Anchors are namespaced per tx type — a GPU_REGISTER seal can never
         confirm a software offer — and bound to the offer's provider, so a tx
-        from another sender can't take over or fake an anchor. Mutates
-        ``offers`` in place; RPC failure degrades to unconfirmed.
+        from another sender can't take over or fake an anchor.
+
+        Verified confirmations are stored (SoftwareService.block_* for local
+        rows, OfferAnchor otherwise), so a fully-confirmed listing costs no
+        chain RPCs; unconfirmed offers are re-probed at most once per
+        ``_ANCHOR_NEGATIVE_TTL_SECONDS``. Mutates ``offers`` in place; RPC
+        failure degrades to unconfirmed.
         """
+        pending = [o for o in offers if not o.get("confirmed")]
+        if not pending:
+            return
         try:
+            # Namespaced keys: the tx-type split applied live applies to
+            # stored rows too, so a stored GPU_REGISTER seal can never
+            # confirm a software offer.
+            wanted: dict[str, tuple[dict[str, Any], bool, str]] = {}
+            for offer in pending:
+                is_gpu = offer.get("service_type") == "gpu_market"
+                raw = offer.get("offer_id") or offer.get("plugin_id")
+                if raw:
+                    wanted[f"{'gpu' if is_gpu else 'offer'}:{raw}"] = (offer, is_gpu, str(raw))
+            if not wanted:
+                return
+
+            rows = (
+                await self.session.execute(select(OfferAnchor).where(OfferAnchor.key.in_(list(wanted))))
+            ).scalars().all()
+            stored = {row.key: row for row in rows}
+            live: dict[str, tuple[dict[str, Any], bool, str, str]] = {}
+            for dbkey, (offer, is_gpu, raw) in wanted.items():
+                binding = self._anchor_binding_key(offer, is_gpu)
+                row = stored.get(dbkey)
+                if (
+                    row is not None
+                    and row.block_height is not None
+                    and row.bound_provider
+                    and row.bound_provider == binding
+                ):
+                    offer["confirmed"] = True
+                    offer["tx_hash"] = offer.get("tx_hash") or row.tx_hash or None
+                    offer["block_height"] = row.block_height
+                    offer["block_hash"] = offer.get("block_hash") or row.block_hash
+                    offer["block_proposer"] = offer.get("block_proposer") or row.block_proposer
+                    if row.block_timestamp and not offer.get("block_timestamp"):
+                        offer["block_timestamp"] = row.block_timestamp.isoformat()
+                else:
+                    live[dbkey] = (offer, is_gpu, raw, binding)
+            now = time.monotonic()
+            live = {k: v for k, v in live.items() if self._anchor_negatives.get((k, v[3]), 0.0) <= now}
+            if not live:
+                return
+
             # key -> anchor candidates, newest-first. Keeping every candidate
             # per key lets a skipped foreign tx fall through to the offer's
             # own older anchor instead of shadowing it.
@@ -537,32 +706,31 @@ class MarketService:
                         continue  # malformed tx poisons only itself
                     if key:
                         anchors.setdefault(key, []).append(tx)
-            for offer in offers:
-                if offer.get("confirmed"):
-                    continue
-                is_gpu = offer.get("service_type") == "gpu_market"
-                key = offer.get("offer_id") or offer.get("plugin_id")
-                if not key:
-                    continue
-                candidates = (gpu_anchors if is_gpu else offer_anchors).get(key) or []
+            changed = False
+            for dbkey, (offer, is_gpu, raw, binding) in live.items():
+                candidates = (gpu_anchors if is_gpu else offer_anchors).get(raw) or []
                 anchor_tx = next(
                     (tx for tx in candidates if self._anchor_belongs_to_provider(tx, offer, is_gpu)),
                     None,
                 )
                 if anchor_tx is None:
+                    self._anchor_negatives[(dbkey, binding)] = now + _ANCHOR_NEGATIVE_TTL_SECONDS
                     continue
+                ts_str, ts_dt = self._anchor_timestamp(anchor_tx)
                 offer["confirmed"] = True
                 offer["tx_hash"] = offer.get("tx_hash") or anchor_tx.get("tx_hash")
                 offer["block_height"] = anchor_tx.get("block_height")
                 offer["block_hash"] = offer.get("block_hash") or anchor_tx.get("block_hash")
                 offer["block_proposer"] = offer.get("block_proposer") or anchor_tx.get("block_proposer")
-                ts = anchor_tx.get("timestamp")
-                if ts and not offer.get("block_timestamp"):
-                    # Transaction.timestamp is already a string column;
-                    # numeric only if a serializer emitted epoch seconds.
-                    offer["block_timestamp"] = ts if isinstance(ts, str) else datetime.fromtimestamp(ts, UTC).isoformat()
+                if ts_str and not offer.get("block_timestamp"):
+                    offer["block_timestamp"] = ts_str
                 if not offer.get("registered_at"):
                     offer["registered_at"] = anchor_tx.get("created_at") or offer.get("block_timestamp")
+                changed |= self._persist_anchor(
+                    dbkey, offer, is_gpu, anchor_tx, ts_dt, stored.get(dbkey), local_rows
+                )
+            if changed:
+                await self.session.commit()
         except Exception as e:
             logger.warning("Failed to resolve on-chain offer anchors: %s", e)
 
@@ -588,7 +756,8 @@ class MarketService:
                     data = _gpu_offer_to_service_dict(gpu, None, settings.hub_rpc_url)
             if data is None:
                 return None
-            await self._resolve_offer_anchors([data], None)
+            local_rows = {service.plugin_id: service} if service else None
+            await self._resolve_offer_anchors([data], None, local_rows)
             return data
         except Exception as e:
             logger.error("Error in get_software_service: %s: %s", type(e).__name__, str(e))
@@ -605,9 +774,10 @@ class MarketService:
         try:
             plugin_id = data.get("plugin_id")
             if not plugin_id:
-                service_type = data.get("service_type", "unknown")
-                model = data.get("model", "")
-                plugin_id = f"{service_type}-{model}".strip("-").replace(":", "-").replace("/", "-")
+                # The signed message covers plugin_id, so a body without one
+                # can never verify — reject plainly instead of deriving a key
+                # the client did not sign.
+                raise ValueError("plugin_id is required")
             # POST /v1/market/offer is public: the claimed provider_address
             # must prove itself with a fresh, chain-scoped signature before a
             # row is written — otherwise any caller could squat a provider's
@@ -619,6 +789,11 @@ class MarketService:
             # Ephemeral proof fields are not service columns.
             for ephemeral in ("signature", "issued_at", "chain_id"):
                 data.pop(ephemeral, None)
+            # Allow-list, not block-list: only provider-owned fields reach the
+            # row. block_*/tx_hash come only from verified anchors, ratings and
+            # timestamps only from the server — a signed registration can no
+            # longer write its own confirmation or reputation.
+            data = {key: value for key, value in data.items() if key in _REGISTRATION_FIELDS}
             query = select(SoftwareService).where(SoftwareService.plugin_id == plugin_id)  # type: ignore[arg-type]
             result = await self.session.execute(query)
             existing = result.scalar_one_or_none()
