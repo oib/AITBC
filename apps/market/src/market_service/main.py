@@ -781,6 +781,10 @@ async def register_offer(service_data: dict[str, Any], svc: Annotated[MarketServ
         result = await svc.register_software_service(service_data)
         logger.info("POST /v1/market/offer registered offer: %s", result["plugin_id"])
         return result
+    except PermissionError as e:
+        # Rejected provider signature — 403, not a server error.
+        logger.info("POST /v1/market/offer rejected: %s", e)
+        raise HTTPException(status_code=403, detail=str(e)) from e
     except Exception as e:
         logger.error("Error in POST /v1/market/offer: %s: %s", type(e).__name__, str(e))
         raise

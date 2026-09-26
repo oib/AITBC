@@ -7,6 +7,7 @@ import json
 import re
 import subprocess
 import socket
+import time
 from datetime import datetime
 from decimal import Decimal
 from typing import Any, cast
@@ -20,6 +21,7 @@ from ...config import get_config
 from ...utils import DECIMAL, OUTPUT_FORMAT_OPTION, error, info, output, resolve_output_format, success, warning
 from ...utils.http_client import AITBCHTTPClient, NetworkError, get_logger, normalize_base_url
 from aitbc.crypto.crypto import sign_transaction_data
+from aitbc.market.offer_registration import registration_message
 
 # Initialize logger
 logger = get_logger(__name__)
@@ -1242,10 +1244,20 @@ def offer(
             market_url = hub_url.replace("http://", "https://") if not hub_url.startswith("https://") else hub_url
             plugin_client = AITBCHTTPClient(base_url=market_url, timeout=10)
             plugin_id = f"{service_type}-{model_or_variant.replace(':', '-')}"
+            issued_at = int(time.time())
             plugin_client.post(
                 "/v1/market/offer",
                 json={
                     "plugin_id": plugin_id,
+                    # Provider-signed registration proof: the market service
+                    # rejects unsigned offers, so a listing can't squat a
+                    # plugin_id/provider_address it doesn't own.
+                    "chain_id": chain_id,
+                    "issued_at": issued_at,
+                    "signature": sign_transaction_data(
+                        registration_message("register", plugin_id, wallet_address, chain_id, issued_at),
+                        private_key,
+                    ),
                     "service_type": service_type,
                     "model": model_or_variant,
                     # not-money: wire format. This is the payload of a GPU_MARKET
