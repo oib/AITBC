@@ -37,6 +37,7 @@ from .state.state_transition import (
     build_escrow_context,
     get_block_version,
     get_state_transition,
+    validate_recorded_version,
 )
 from .consensus.multi_validator_poa import MultiValidatorPoA
 from aitbc.crypto.signature_recovery import canonical_address
@@ -219,6 +220,21 @@ class BlockImportMixin(SyncBase):
                     extra={"height": height, "reason": reason},
                 )
                 return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
+        # v8: the proposer stamps the rule version into block_metadata, and
+        # before this gate every importer trusted it unconditionally — a stale
+        # or malicious proposer could stamp an older version and have its block
+        # validated under weaker rules. At/above the activation height the
+        # recorded version must equal the height-derived one.
+        version_ok, reason = validate_recorded_version(block_data, height)
+        if not version_ok:
+            metrics_registry.increment("sync_blocks_rejected_total")
+            logger.warning(
+                "Block rejected: stamped-version check failed at height %s: %s",
+                height,
+                reason,
+                extra={"height": height, "reason": reason},
+            )
+            return self._make_import_result(accepted=False, height=height, block_hash=block_hash, reason=reason)
         # The in-memory replay cache must be scoped to one block. A rejected
         # block is rolled back, but if the cache is not cleared the next import
         # attempt reports "replay attack" for transactions that were never
