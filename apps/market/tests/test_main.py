@@ -38,22 +38,20 @@ def _signed_registration(issued_at=None, chain_id=None, private_key=_TEST_PRIVAT
     import time
 
     from aitbc.crypto.crypto import derive_ethereum_address, sign_transaction_data
-    from aitbc.market.offer_registration import registration_message
+    from aitbc.market.offer_registration import offer_body_hash, registration_message
     from market_service.config import settings
 
     provider = derive_ethereum_address(private_key)
     issued_at = int(time.time()) if issued_at is None else issued_at
     chain_id = chain_id or settings.default_chain_id
-    return {
-        **fields,
-        "provider_address": provider,
-        "chain_id": chain_id,
-        "issued_at": issued_at,
-        "signature": sign_transaction_data(
-            registration_message("register", fields["plugin_id"], provider, chain_id, issued_at),
-            private_key,
+    body = {**fields, "provider_address": provider, "chain_id": chain_id, "issued_at": issued_at}
+    body["signature"] = sign_transaction_data(
+        registration_message(
+            "register", fields["plugin_id"], provider, chain_id, issued_at, offer_body_hash(body)
         ),
-    }
+        private_key,
+    )
+    return body
 
 
 # --- Health / readiness ---
@@ -704,3 +702,47 @@ def test_register_offer_accepts_valid_signature(client):
     )
     assert response.status_code == 200
     assert response.json()["plugin_id"] == "signed-offer"
+
+
+def test_register_offer_cannot_take_over_another_providers_offer(client):
+    """A valid signature proves who asks, not who owns the row: provider B
+    signing a correct registration for A's plugin_id must get 403 with A's
+    offer unchanged — the same ownership class as the GPU_REGISTER v7 gate."""
+    owner_key = "0x" + "44" * 32
+    other_key = "0x" + "55" * 32
+
+    created = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(
+            plugin_id="owner-offer", service_type="inference", model="m", endpoint="https://a.example/offer", private_key=owner_key
+        ),
+    )
+    assert created.status_code == 200
+
+    takeover = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(
+            plugin_id="owner-offer",
+            service_type="inference",
+            model="m",
+            endpoint="https://attacker.example/offer",
+            price=0.0001,
+            private_key=other_key,
+        ),
+    )
+    assert takeover.status_code == 403
+
+    detail = client.get("/v1/market/offer/owner-offer")
+    assert detail.status_code == 200
+    assert detail.json()["endpoint"] == "https://a.example/offer"
+
+
+def test_register_offer_rejects_reused_signature_on_changed_body(client):
+    """offer_hash binds the signature to the exact body: replaying a captured
+    signature with different offer contents fails even inside the window."""
+    body = _signed_registration(plugin_id="replay-target", service_type="inference", model="m")
+    client.post("/v1/market/offer", json=body)
+
+    tampered = {**body, "endpoint": "https://attacker.example/hijack"}
+    response = client.post("/v1/market/offer", json=tampered)
+    assert response.status_code == 403
