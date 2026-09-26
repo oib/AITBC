@@ -476,7 +476,7 @@ New environment variable for contact information:
 **CONTACT_EMAIL**
 
 - Location: `/etc/aitbc/node.env`
-- Default: `andreas.fleckl@bubuit.net`
+- Default: `operator@aitbc.invalid`
 - Used by: `/rpc/network-info` and `/agent/openapi.json`
 
 ### Endpoint Changes
