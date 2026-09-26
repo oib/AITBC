@@ -1105,9 +1105,7 @@ class StateTransition:
                 # carries no registrant.
                 gpu_id = str(payload.get("gpu_id"))
                 existing = session.exec(
-                    select(GPURegistration).where(
-                        GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == gpu_id
-                    )
+                    select(GPURegistration).where(GPURegistration.chain_id == chain_id, GPURegistration.gpu_id == gpu_id)
                 ).first()
                 if existing is not None:
                     if not existing.registered_by:
