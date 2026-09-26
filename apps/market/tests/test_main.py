@@ -748,3 +748,45 @@ def test_register_offer_rejects_reused_signature_on_changed_body(client):
     tampered = {**body, "endpoint": "https://attacker.example/hijack"}
     response = client.post("/v1/market/offer", json=tampered)
     assert response.status_code == 403
+
+
+def test_register_offer_drops_server_owned_fields(client):
+    """block_*, tx_hash and ratings are server-owned: a signed registration
+    carrying them is accepted for its provider fields but stores none of the
+    forged confirmation — the allow-list, not the signature, decides what
+    reaches the row."""
+    created = client.post(
+        "/v1/market/offer",
+        json=_signed_registration(
+            plugin_id="self-confirm-attempt",
+            service_type="ipfs",
+            model="m",
+            block_height=12345,
+            tx_hash="0xfakeanchor",
+            block_proposer="0xme",
+            avg_rating=5.0,
+            rating_count=99,
+            registered_at="2020-01-01T00:00:00",
+        ),
+    )
+    assert created.status_code == 200
+
+    detail = client.get("/v1/market/offer/self-confirm-attempt")
+    assert detail.status_code == 200
+    body = detail.json()
+    assert body["confirmed"] is False
+    assert body["block_height"] is None
+    assert body["tx_hash"] in (None, "")
+    assert body["avg_rating"] == 0
+    assert body["rating_count"] == 0
+    assert not str(body["registered_at"]).startswith("2020")
+
+
+def test_register_offer_requires_plugin_id(client):
+    """The signed message covers plugin_id — a body without one can never
+    verify, so it is rejected 400 instead of deriving a key the caller did
+    not sign."""
+    body = _signed_registration(plugin_id="missing-pid", service_type="ipfs", model="m")
+    body.pop("plugin_id")
+    response = client.post("/v1/market/offer", json=body)
+    assert response.status_code == 400
