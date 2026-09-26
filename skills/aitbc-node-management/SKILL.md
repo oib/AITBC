@@ -156,7 +156,7 @@ The `sync-from-hub` command fetches the genesis block from the hub's `/rpc/block
 **genesis.json format:**
 ```json
 {
-  "chain_id": "ait-hub.aitbc.bubuit.net",
+  "chain_id": "ait-localnet",
   "block": {
     "height": 0,
     "hash": "0x...",
@@ -172,8 +172,8 @@ The `sync-from-hub` command fetches the genesis block from the hub's `/rpc/block
 
 **If genesis.json is missing**, the node fails to start with a clear error:
 ```
-RuntimeError: Genesis file required but not found for chain ait-hub.aitbc.bubuit.net.
-Please create genesis.json at /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/genesis.json
+RuntimeError: Genesis file required but not found for chain ait-localnet.
+Please create genesis.json at /var/lib/aitbc/data/ait-localnet/genesis.json
 ```
 
 ## Debugging Node Issues

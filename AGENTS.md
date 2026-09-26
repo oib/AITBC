@@ -10,7 +10,7 @@ recorded in this repository. On the operator IDE host see
 
 | site | host / path | role | what to do here |
 |---|---|---|---|
-| **gitea** | `https://gitea.bubuit.net/oib/AITBC.git` (standard https — works from every host) / `http://gitea.bubuit.net:3000/oib/aitbc.git` (http — only reachable from the LAN nodes; off-LAN hosts must use https) | **primary source of truth** | fetch, push, fast-forward `main` |
+| **gitea** | `https://gitea.invalid/oib/AITBC.git` (standard https — works from every host) / `http://gitea.invalid:3000/oib/aitbc.git` (http — only reachable from the LAN nodes; off-LAN hosts must use https) | **primary source of truth** | fetch, push, fast-forward `main` |
 | **github** | `https://github.com/oib/AITBC.git` | public mirror, may lag behind gitea | **push only from IDE `/opt/aitbc` with the dedicated GitHub token**; live nodes do not store GitHub credentials and must not push to this remote |
 | **shop node** | SSH target, `/opt/aitbc` | shop / follower | full working repo; run shop and follower services; commit and push to gitea |
 | **customer node** | SSH target, `/opt/aitbc` | customer / follower (gpu) | `market_role=customer`, `enable_block_production=false`; scenario-play customer tests and paid market jobs run here |
@@ -158,18 +158,18 @@ Update it on `<shop-node>`, commit, and push to gitea `main`. Do not create new 
 On the LAN nodes (`<shop-node>` and peers) `origin` uses the http endpoint on port 3000:
 
 ```text
-origin  http://gitea.bubuit.net:3000/oib/aitbc.git (fetch)
-origin  http://gitea.bubuit.net:3000/oib/aitbc.git (push)
+origin  http://gitea.invalid:3000/oib/aitbc.git (fetch)
+origin  http://gitea.invalid:3000/oib/aitbc.git (push)
 github  https://github.com/oib/AITBC.git (fetch)
-gitea   https://gitea.bubuit.net/oib/AITBC.git (fetch)
-gitea   https://gitea.bubuit.net/oib/AITBC.git (push)
+gitea   https://gitea.invalid/oib/AITBC.git (fetch)
+gitea   https://gitea.invalid/oib/AITBC.git (push)
 ```
 
 Off-LAN nodes (`<hub-node>`, the replica) cannot reach port 3000; their `origin` is the standard https endpoint:
 
 ```text
-origin  https://gitea.bubuit.net/oib/AITBC.git (fetch)
-origin  https://gitea.bubuit.net/oib/AITBC.git (push)
+origin  https://gitea.invalid/oib/AITBC.git (fetch)
+origin  https://gitea.invalid/oib/AITBC.git (push)
 github  https://github.com/oib/AITBC.git (fetch)
 ```
 
@@ -178,8 +178,8 @@ github  https://github.com/oib/AITBC.git (fetch)
 On the IDE `/opt/aitbc` the remote names have been aligned with the remote nodes:
 
 ```text
-origin  https://gitea.bubuit.net/oib/AITBC.git (fetch)
-origin  https://gitea.bubuit.net/oib/AITBC.git (push)
+origin  https://gitea.invalid/oib/AITBC.git (fetch)
+origin  https://gitea.invalid/oib/AITBC.git (push)
 github  https://github.com/oib/AITBC.git (fetch)
 github  https://github.com/oib/AITBC.git (push)
 ```
@@ -452,7 +452,7 @@ itself is being debugged or a specific one-off command has no MCP wrapper.
 tea login add
 
 # Non-interactive (only if the user explicitly provides a token)
-tea login add --name my-gitea --url https://gitea.bubuit.net --token "$GITEA_TOKEN"
+tea login add --name my-gitea --url https://gitea.invalid --token "$GITEA_TOKEN"
 ```
 
 ### Common workflows

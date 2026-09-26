@@ -33,7 +33,7 @@ rm -f /etc/aitbc/credentials/proposer_id
 ```bash
 aitbc genesis sync-from-hub --force \
   --rpc-url http://hub.example.net:8202 \
-  --chain-id ait-hub.aitbc.bubuit.net
+  --chain-id ait-localnet
 ```
 
 5. **Start services (paths updated 2026-05-29):**
@@ -95,7 +95,7 @@ find /opt/aitbc -name "__pycache__" -type d -exec rm -rf {} + 2>/dev/null
 ### Chain divergence
 ```bash
 systemctl stop aitbc-blockchain-node
-rm -rf /var/lib/aitbc/data/ait-hub.aitbc.bubuit.net/chain.db*
+rm -rf /var/lib/aitbc/data/ait-localnet/chain.db*
 systemctl start aitbc-blockchain-node
 # Then re-sync
 ```
