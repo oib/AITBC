@@ -74,6 +74,13 @@ async function fetchBridgeStatus() {
                 depositEl.textContent = data.deposit_address;
             }
         }
+        // A running-but-unconfigured bridge reports enabled:false — tell the
+        // user instead of letting them drive a deposit flow that cannot settle.
+        const offline = data.enabled === false;
+        const noteEl = document.getElementById('bridge-offline-note');
+        if (noteEl) noteEl.style.display = offline ? 'block' : 'none';
+        const formEl = document.getElementById('deposit-form');
+        if (formEl) formEl.style.display = offline ? 'none' : '';
     } catch (error) {
         console.error('Error fetching bridge status:', error);
         const el = document.getElementById('bridge-status-text');
@@ -307,11 +314,12 @@ async function lookupDeposit(input) {
                 return;
             }
         } else if (input.startsWith('0x') && input.length === 42) {
-            // Lookup by AIT address (0x + 40 hex) — filter deposits list
-            const resp = await fetch('/v1/bridge/deposits?limit=50');
+            // Lookup by AIT address (0x + 40 hex) — non-enumerable per-recipient
+            // endpoint; the enumerable /v1/bridge/deposits index is loopback-only.
+            const resp = await fetch(`/v1/bridge/deposit/by-recipient/${encodeURIComponent(input)}`);
             if (resp.ok) {
                 const data = await resp.json();
-                deposit = (data.deposits || []).find(d => d.ait_recipient === input) || null;
+                deposit = (data.deposits || [])[0] || null;
             }
             if (!deposit) {
                 errEl.style.display = 'block';
