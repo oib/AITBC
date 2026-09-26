@@ -164,6 +164,13 @@ class ChainSettings(BaseSettings):
     # sqlite backend means it survives restarts. Generous by design -- this is a
     # garbage collector for stranded entries, not a fee-pressure mechanism.
     mempool_entry_ttl: int = 3600  # seconds; 0 disables the sweeper
+    # Per-transaction body cap at intake. Anything larger can never fit a block
+    # (max_block_size_bytes) and would only squat in the pool until expiry.
+    mempool_max_tx_size_bytes: int = 131072  # 128 KiB
+    # How many nonces ahead of the account nonce a pending transaction may sit.
+    # Admission rejects beyond this so one sender cannot queue an unbounded
+    # pipeline of not-yet-executable transactions.
+    mempool_nonce_lookahead: int = 16
 
     # Circuit breaker
     circuit_breaker_threshold: int = 5  # failures before opening
