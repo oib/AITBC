@@ -24,6 +24,18 @@
         </header>
 
         <div class="card">
+            <h2>Operator Credential</h2>
+            <p class="endpoint-note">Optional. Enter your miner ID and miner API key (or auth token) to load assigned jobs, earnings, and network metrics; without them this page shows public network data.</p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+                <input type="text" id="shop-miner-input" class="endpoint" placeholder="miner ID (e.g. aitbc-miner-1)" autocomplete="off">
+                <input type="password" id="shop-cred-input" class="endpoint" placeholder="miner API key or auth token" style="flex:1;min-width:16rem" autocomplete="off">
+                <button class="endpoint" onclick="applyCredential('shop-cred-input')">Apply</button>
+                <button class="endpoint" onclick="clearCredential('shop-cred-input')">Clear</button>
+            </div>
+            <p class="endpoint-note" id="cred-status"></p>
+        </div>
+
+        <div class="card">
             <h2>Summary</h2>
             <div class="health-grid">
                 <div class="health-item">
@@ -48,7 +60,7 @@
                 </div>
                 <div class="health-item">
                     <div class="health-status ok"></div>
-                    <div class="health-name">Miners Online</div>
+                    <div class="health-name">Providers / Online</div>
                     <div class="health-latency" id="shop-miners-online">--</div>
                 </div>
                 <div class="health-item">
@@ -77,7 +89,7 @@
         </div>
 
         <div class="card">
-            <h2>Assigned Jobs</h2>
+            <h2>Assigned Jobs <span class="endpoint-note" id="shop-jobs-scope"></span></h2>
             <div id="shop-jobs-table">
                 <p class="loading">Loading jobs...</p>
             </div>
@@ -109,15 +121,19 @@
             <a href="/v1/monitoring/metrics" class="endpoint endpoint-link" target="_blank">
                 <span class="method">GET</span> <span class="path">/v1/monitoring/metrics</span>
             </a>
-            <p class="endpoint-note">Network job and miner metrics</p>
+            <p class="endpoint-note">Network job and miner metrics — requires a credential (paste above, or <code>X-Api-Key</code>)</p>
             <a href="/v1/market/offer" class="endpoint endpoint-link" target="_blank">
                 <span class="method">GET</span> <span class="path">/v1/market/offer</span>
             </a>
-            <p class="endpoint-note">Marketplace offers</p>
-            <a href="/v1/gpu/discover" class="endpoint endpoint-link" target="_blank">
-                <span class="method">GET</span> <span class="path">/v1/gpu/discover</span>
+            <p class="endpoint-note">Marketplace offers — public</p>
+            <a href="/v1/market/gpu/list" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/market/gpu/list</span>
             </a>
-            <p class="endpoint-note">Local GPU inventory</p>
+            <p class="endpoint-note">Registered GPUs — public</p>
+            <a href="/v1/market/jobs" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/market/jobs</span>
+            </a>
+            <p class="endpoint-note">Market-wide jobs — public</p>
         </div>
     </div>
 
