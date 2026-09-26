@@ -533,7 +533,7 @@ class BridgeTransferMixin(BridgeBase):
                     "fee": 0,
                     "type": "BRIDGE_REFUND",
                     "nonce": refund_nonce,
-                    "timestamp": datetime.now(UTC),
+                    "timestamp": datetime.now(UTC).isoformat(),
                     "payload": credit_payload,
                 }
                 self._sign_bridge_credit(credit_dict, refund_tx_hash, payload=credit_payload)
