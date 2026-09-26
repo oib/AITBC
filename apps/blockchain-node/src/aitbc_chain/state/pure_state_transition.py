@@ -28,7 +28,6 @@ from ..config import settings
 from ..models import Account, Receipt
 from .bridge_credit import (
     bridge_refund_lock_hash,
-    bridge_release_authority_env,
     validate_bridge_refund_lock,
     verify_bridge_credit_signature,
 )
@@ -466,10 +465,10 @@ def compute_state_delta(
             # The pseudo-sender is a name, not a key: the credit must also be
             # signed by the bridge release authority. Mirrors
             # validate_transaction — the caller resolves the on-chain
-            # parameter; None falls back to the same env chain the sequential
-            # resolver uses after its parameter lookup.
-            authority = bridge_authority if bridge_authority is not None else bridge_release_authority_env()
-            if not authority:
+            # parameter for a known block height and None must fail closed;
+            # env fallbacks apply only to mempool pre-checks (block_height
+            # is None), never to block validation.
+            if not bridge_authority:
                 return StateDelta(
                     sender=sender,
                     recipient=recipient,
@@ -481,7 +480,7 @@ def compute_state_delta(
                     tx_type=tx_type,
                     tx_hash=tx_hash,
                 )
-            if not verify_bridge_credit_signature(tx_data, tx_hash, authority):
+            if not verify_bridge_credit_signature(tx_data, tx_hash, bridge_authority):
                 return StateDelta(
                     sender=sender,
                     recipient=recipient,
