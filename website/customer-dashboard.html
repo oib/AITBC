@@ -24,6 +24,17 @@
         </header>
 
         <div class="card">
+            <h2>Operator Credential</h2>
+            <p class="endpoint-note">Optional. Paste the auth token printed by <code>aitbc auth login</code> to see jobs for your account; without it this page shows market-wide public data.</p>
+            <div style="display:flex;gap:0.5rem;flex-wrap:wrap;align-items:center">
+                <input type="password" id="cust-cred-input" class="endpoint" placeholder="auth token (JWT)" style="flex:1;min-width:16rem" autocomplete="off">
+                <button class="endpoint" onclick="applyCredential('cust-cred-input')">Apply</button>
+                <button class="endpoint" onclick="clearCredential('cust-cred-input')">Clear</button>
+            </div>
+            <p class="endpoint-note" id="cred-status"></p>
+        </div>
+
+        <div class="card">
             <h2>Summary</h2>
             <div class="health-grid">
                 <div class="health-item">
@@ -50,7 +61,7 @@
         </div>
 
         <div class="card">
-            <h2>Recent Jobs</h2>
+            <h2>Recent Jobs <span class="endpoint-note" id="cust-jobs-scope">market-wide</span></h2>
             <div id="cust-jobs-table">
                 <p class="loading">Loading jobs...</p>
             </div>
@@ -65,10 +76,14 @@
 
         <div class="card">
             <h2>API Endpoints</h2>
+            <a href="/v1/market/jobs" class="endpoint endpoint-link" target="_blank">
+                <span class="method">GET</span> <span class="path">/v1/market/jobs</span>
+            </a>
+            <p class="endpoint-note">Market-wide jobs — public</p>
             <a href="/v1/jobs" class="endpoint endpoint-link" target="_blank">
                 <span class="method">GET</span> <span class="path">/v1/jobs</span>
             </a>
-            <p class="endpoint-note">List recent jobs for this customer</p>
+            <p class="endpoint-note">Per-customer jobs — requires an auth token (paste above, or <code>Authorization: Bearer</code>)</p>
             <a href="/explorer-api/api/analytics/top-addresses" class="endpoint endpoint-link" target="_blank">
                 <span class="method">GET</span> <span class="path">/explorer-api/api/analytics/top-addresses</span>
             </a>
