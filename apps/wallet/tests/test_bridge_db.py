@@ -339,3 +339,36 @@ class TestDepositByRecipientRoute:
     def test_malformed_address_rejected(self, client, bridge_db):
         resp = client.get("/v1/bridge/deposit/by-recipient/not-an-address")
         assert resp.status_code == 422
+
+
+class TestBridgeStatusRoute:
+    """GET /v1/bridge/status must not leak credentials embedded in ETH_RPC_URL."""
+
+    @pytest.fixture
+    def client(self):
+        from fastapi import FastAPI
+        from fastapi.testclient import TestClient
+
+        from wallet_app.bridge.bridge_routes import bridge_router
+
+        app = FastAPI()
+        app.include_router(bridge_router)
+        return TestClient(app)
+
+    def test_rpc_url_masked_to_origin(self, client, monkeypatch):
+        monkeypatch.setenv("ETH_RPC_URL", "https://sepolia.infura.io/v3/SECRETKEY123")
+        resp = client.get("/v1/bridge/status")
+        assert resp.status_code == 200
+        rpc_url = resp.json()["rpc_url"]
+        assert "SECRETKEY123" not in rpc_url
+        assert rpc_url == "https://sepolia.infura.io"
+
+    def test_rpc_url_with_port_and_query(self, client, monkeypatch):
+        monkeypatch.setenv("ETH_RPC_URL", "https://rpc.example.net:8545/p?apikey=SECRETKEY123")
+        resp = client.get("/v1/bridge/status")
+        assert resp.json()["rpc_url"] == "https://rpc.example.net:8545"
+
+    def test_rpc_url_empty_when_unset(self, client, monkeypatch):
+        monkeypatch.delenv("ETH_RPC_URL", raising=False)
+        resp = client.get("/v1/bridge/status")
+        assert resp.json()["rpc_url"] == ""
