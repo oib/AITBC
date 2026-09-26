@@ -39,6 +39,7 @@ from .bridge_db import (
     get_all_withdrawals,
     get_deposit_by_id,
     get_deposit_by_tx_hash,
+    get_deposits_by_recipient,
     get_pending_deposits,
     get_withdrawal_by_ait_tx_hash,
     update_deposit_status,
@@ -406,6 +407,23 @@ async def bridge_get_deposit(tx_hash: str) -> dict[str, Any]:
     if not deposit:
         raise HTTPException(status_code=404, detail="Deposit not found")
     return _normalize_deposit(deposit)
+
+
+@bridge_router.get("/deposit/by-recipient/{address}")
+async def bridge_deposits_by_recipient(address: str, limit: int = 10) -> dict[str, Any]:
+    """Get recent bridge deposits for a single AIT recipient address.
+
+    Non-enumerable: the caller must already know the recipient, matching the
+    privacy profile of the public per-tx-hash lookup. The enumerable
+    /v1/bridge/deposits index stays loopback-only in nginx.
+    """
+    # Format check only — a lookup field must accept the address however the
+    # user copied it (lowercase or checksummed); matching is case-insensitive.
+    if not (address.startswith("0x") and len(address) == 42 and all(c in "0123456789abcdefABCDEF" for c in address[2:])):
+        raise HTTPException(status_code=422, detail="Invalid AIT address: expected 0x + 40 hex chars")
+    limit = max(1, min(limit, 50))
+    deposits = get_deposits_by_recipient(address, limit=limit)
+    return {"deposits": _normalize_deposits(deposits), "count": len(deposits)}
 
 
 def _normalize_deposit(deposit: dict[str, Any]) -> dict[str, Any]:
