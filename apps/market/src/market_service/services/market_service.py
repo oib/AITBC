@@ -84,6 +84,7 @@ def _gpu_offer_to_service_dict(offer: dict[str, Any], chain_id: str | None, hub_
         "public_endpoint": None,
         "health_url": None,
         "provider_address": offer.get("provider", offer.get("miner_id", "")),
+        "registered_by": offer.get("registered_by"),
         "node_id": offer.get("miner_id", "unknown"),
         "gpu_name": offer.get("model", "N/A"),
         "gpu_device": "0",
@@ -482,18 +483,25 @@ class MarketService:
     def _anchor_belongs_to_provider(anchor_tx: dict[str, Any], offer: dict[str, Any], is_gpu: bool) -> bool:
         """Bind an anchor tx to the offer's provider.
 
-        GPU offers carry the node id in ``provider_address`` (/rpc/gpus exposes
-        only ``miner_id``), matching ``payload.miner_id`` on the register tx.
-        Software offers carry the provider's wallet address, matching the
-        anchor tx's authenticated ``sender``. Anything that can't be bound to
-        the claimed provider is not this offer's anchor — an attacker copying
-        an offer_id can't borrow someone else's seal.
+        GPU offers bind on the registrant wallet when ``registered_by`` is
+        available — the register tx's authenticated ``sender`` must be that
+        wallet, which node labels (``miner_id``) can't prove. Older rows
+        without the field fall back to ``payload.miner_id`` matching the
+        offer's provider id. Software offers carry the provider's wallet
+        address, matching the anchor tx's authenticated ``sender``. Anything
+        that can't be bound to the claimed provider is not this offer's
+        anchor — an attacker copying an offer_id can't borrow someone else's
+        seal.
         """
         provider = offer.get("provider_address") or ""
         if not provider:
             return False
         payload = anchor_tx.get("payload") or {}
         if is_gpu:
+            sender = anchor_tx.get("sender") or ""
+            registered_by = offer.get("registered_by") or ""
+            if registered_by:
+                return bool(sender) and canonical_address(sender) == canonical_address(registered_by)
             return payload.get("miner_id") == provider
         sender = anchor_tx.get("sender") or ""
         return bool(sender) and canonical_address(sender) == canonical_address(provider)
