@@ -287,6 +287,11 @@ async function trackDeposit() {
         return;
     }
 
+    // Kick the bridge monitor: on-demand burst (~3 polls over 60s) instead of
+    // waiting for the slow background cadence. Fire-and-forget — tracking
+    // works off the deposit records regardless of whether the kick lands.
+    fetch('/v1/bridge/poll-request', { method: 'POST' }).catch(() => {});
+
     await lookupDeposit(input);
 
     // Poll if status is non-terminal
