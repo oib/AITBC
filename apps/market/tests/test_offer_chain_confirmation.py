@@ -71,7 +71,15 @@ async def service() -> MarketService:
 @pytest.mark.asyncio
 async def test_gpu_offer_confirmed_via_gpu_register(service: MarketService) -> None:
     service._rpc_client = StubRPC(  # type: ignore[assignment]
-        offers=[{"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active", "miner_id": "node0-miner"}],
+        offers=[
+            {
+                "gpu_id": "gpu-live-05",
+                "price_per_hour": "0.001",
+                "model": "RTX 4090",
+                "status": "active",
+                "miner_id": "node0-miner",
+            }
+        ],
         txs={"GPU_REGISTER": [GPU_REGISTER_TX]},
     )
     offers = await service.list_software_services()
@@ -164,7 +172,15 @@ async def test_anchor_fills_block_metadata_and_registered(service: MarketService
     """Confirmed offers render block hash/proposer and get registered_at
     from the sealing tx when the offer itself lacks one (GPU rows have none)."""
     service._rpc_client = StubRPC(  # type: ignore[assignment]
-        offers=[{"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active", "miner_id": "node0-miner"}],
+        offers=[
+            {
+                "gpu_id": "gpu-live-05",
+                "price_per_hour": "0.001",
+                "model": "RTX 4090",
+                "status": "active",
+                "miner_id": "node0-miner",
+            }
+        ],
         txs={"GPU_REGISTER": [GPU_REGISTER_TX]},
     )
     offers = await service.list_software_services()
@@ -203,7 +219,13 @@ async def test_get_offer_detail_gpu_fallback(service: MarketService) -> None:
     """GPU offers exist only on-chain; the detail endpoint must fall back
     to /rpc/gpu/info/{gpu_id} instead of 404ing."""
     service._rpc_client = StubRPC(  # type: ignore[assignment]
-        gpu_info={"gpu_id": "gpu-live-05", "price_per_hour": "0.001", "model": "RTX 4090", "status": "active", "miner_id": "node0-miner"},
+        gpu_info={
+            "gpu_id": "gpu-live-05",
+            "price_per_hour": "0.001",
+            "model": "RTX 4090",
+            "status": "active",
+            "miner_id": "node0-miner",
+        },
         txs={"GPU_REGISTER": [GPU_REGISTER_TX]},
     )
     detail = await service.get_software_service("gpu-live-05")
