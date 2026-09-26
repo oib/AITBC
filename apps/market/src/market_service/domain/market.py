@@ -93,7 +93,11 @@ class OfferAnchor(MarketBase, table=True):
     block_height: int | None = Field(default=None)
     block_hash: str | None = Field(default=None)
     block_proposer: str | None = Field(default=None)
-    block_timestamp: datetime | None = Field(default=None)
+    # Verbatim tx strings (not datetimes): the offer dict emits them raw, so
+    # storing the original form keeps stored-confirmation output identical
+    # to live resolution instead of re-serializing through naive datetimes.
+    block_timestamp: str | None = Field(default=None)
+    registered_at: str | None = Field(default=None)  # anchor tx created_at — the GPU offer's registration time
     bound_provider: str = Field(default="", index=True)  # the offer-side identity the anchor was verified against
     resolved_at: datetime = Field(default_factory=lambda: datetime.now(UTC).replace(tzinfo=None), nullable=False)
 
