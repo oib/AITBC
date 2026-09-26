@@ -99,7 +99,7 @@ class ChainSettings(BaseSettings):
         Without this, when SUPPORTED_CHAINS is unset the island ID is
         constructed as ``"-island"`` (empty string + suffix). Defaulting
         to ``chain_id`` produces a valid island ID like
-        ``"ait-hub.aitbc.bubuit.net-island"``.
+        ``"ait-localnet-island"``.
         """
         if not self.supported_chains.strip():
             self.supported_chains = self.chain_id
@@ -119,7 +119,7 @@ class ChainSettings(BaseSettings):
     p2p_bind_port: int = 8200
     p2p_node_id: str = ""
 
-    contact_email: str = os.getenv("CONTACT_EMAIL", "andreas.fleckl@bubuit.net")
+    contact_email: str = os.getenv("CONTACT_EMAIL", "operator@aitbc.invalid")
 
     proposer_id: str = ""
     proposer_key: str | None = None
@@ -370,7 +370,7 @@ class ChainSettings(BaseSettings):
     island_name: str = "default"  # Human-readable island name
     is_hub: bool = False  # This node acts as a hub
     island_chain_id: str = ""  # Separate chain_id per island (empty = use default chain_id)
-    hub_discovery_url: str = "hub.aitbc.bubuit.net"  # Hub discovery DNS
+    hub_discovery_url: str = "hub.aitbc.invalid"  # Hub discovery DNS
     bridge_islands: str = ""  # Comma-separated list of islands to bridge (optional)
 
     # Multi-island sync sources (v0.6.3). Per-chain hub URL mapping.

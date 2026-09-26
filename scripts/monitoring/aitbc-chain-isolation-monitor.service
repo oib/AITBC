@@ -1,6 +1,6 @@
 [Unit]
 Description=AITBC chain isolation verification
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 After=network.target
 
 [Service]

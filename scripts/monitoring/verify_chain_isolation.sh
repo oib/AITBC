@@ -124,7 +124,7 @@ main() {
     # The previous version mapped two hardcoded hostnames to
     # ait-mainnet/ait-testnet and fell back to ait-mainnet for anything else.
     # No host in the fleet is named either of those any more, and the live chain
-    # is ait-hub.aitbc.bubuit.net -- so every node took the fallback and was
+    # is ait-localnet -- so every node took the fallback and was
     # checked against a chain it does not serve, reporting a violation every run.
     local hostname=$(hostname)
     local expected_chain=""

@@ -80,7 +80,7 @@ def _hub_market_client(timeout: int = 15) -> AITBCHTTPClient:
     config = get_config()
     if config.market_service_url and not config.market_service_url.startswith("http://127.0.0.1"):
         return AITBCHTTPClient(base_url=config.market_service_url, timeout=timeout)
-    hub_host = config.hub_discovery_url or "hub.aitbc.bubuit.net"
+    hub_host = config.hub_discovery_url or "hub.aitbc.invalid"
     if hub_host.startswith(("http://", "https://")):
         hub_url = hub_host.rstrip("/")
     elif "localhost" in hub_host or "127.0.0.1" in hub_host:
@@ -571,7 +571,7 @@ def island(ctx):
 @island.command()
 @click.option("--wallet", "wallet_name", required=True, help="Wallet name to pay from")
 @click.option("--to", "to_address", required=True, help="Island treasury / recipient address")
-@click.option("--island-id", required=True, help="Island identifier (e.g. ait-hub.aitbc.bubuit.net-island)")
+@click.option("--island-id", required=True, help="Island identifier (e.g. ait-localnet-island)")
 @click.option("--duration", type=int, default=1000, help="Subscription duration in blocks (default 1000)")
 @click.option("--quota", type=int, default=1073741824, help="Quota in bytes (default 1 GiB)")
 @click.option("--amount", type=DECIMAL, required=True, help="Payment amount in AIT")

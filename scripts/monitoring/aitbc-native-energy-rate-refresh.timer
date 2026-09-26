@@ -1,6 +1,6 @@
 [Unit]
 Description=Re-attest the native AIT/EUR energy rate twice daily
-Documentation=https://gitea.bubuit.net/oib/AITBC
+Documentation=https://github.com/oib/AITBC
 
 [Timer]
 # Rate staleness window is ENERGY_MAX_RATE_AGE_SECONDS (86400s); refreshing

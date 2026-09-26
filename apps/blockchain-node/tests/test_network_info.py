@@ -9,8 +9,8 @@ import pytest
 @pytest.fixture
 def _network_info_settings(monkeypatch: pytest.MonkeyPatch) -> None:
     """Fix public endpoint values for a deterministic network-info test."""
-    monkeypatch.setattr(settings, "chain_id", "ait-hub.aitbc.bubuit.net")
-    monkeypatch.setattr(settings, "island_id", "ait-hub.aitbc.bubuit.net-island")
+    monkeypatch.setattr(settings, "chain_id", "ait-testchain.local")
+    monkeypatch.setattr(settings, "island_id", "ait-testchain.local-island")
     monkeypatch.setattr(settings, "p2p_node_id", "hub.example.net")
     monkeypatch.setattr(settings, "is_hub", True)
     monkeypatch.setenv("AITBC_PROTOCOL", "https")
@@ -31,8 +31,8 @@ def test_network_info_schema(_network_info_settings) -> None:
     data = _fetch_network_info()
     assert data["node_id"] == "hub.example.net"
     assert data["p2p_node_id"] == "hub.example.net"
-    assert data["chain_id"] == "ait-hub.aitbc.bubuit.net"
-    assert data["island_id"] == "ait-hub.aitbc.bubuit.net-island"
+    assert data["chain_id"] == "ait-testchain.local"
+    assert data["island_id"] == "ait-testchain.local-island"
     assert data["is_hub"] is True
     assert data["role"] == "hub"
     assert data["public_rpc_url"] == "https://hub.example.net/rpc"

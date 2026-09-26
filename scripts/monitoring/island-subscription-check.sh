@@ -13,8 +13,8 @@ set -euo pipefail
 
 TAG="aitbc-island-sub-check"
 WALLET=${ISLAND_WALLET:-default}
-ISLAND_ID=${ISLAND_ID:-ait-hub.aitbc.bubuit.net-island}
-COORD=${COORDINATOR_URL:-https://hub.aitbc.bubuit.net/c}
+ISLAND_ID=${ISLAND_ID:-ait-localnet-island}
+COORD=${COORDINATOR_URL:-https://hub.aitbc.invalid/c}
 AITBC_WALLET_DIR=${AITBC_WALLET_DIR:-/var/lib/aitbc/wallets}
 export AITBC_WALLET_DIR
 
