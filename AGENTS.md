@@ -594,7 +594,9 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   both halves for the same reason. Forks only arise from *asymmetric*
   failure: attestation traffic flows but block gossip/pull does not, so the
   isolated proposer gathers signatures on a block the majority never sees
-  and the majority then produces a competing block at the same height. That
+  and the majority then produces a competing block at the same height — the
+  attester lock below makes those signers wait for (and fetch) the block
+  they signed instead of building a rival. That
   is what `scripts/multi-node/partition-fork-test.sh` engineers on purpose
   (attest channels open, `blocks.*` + pulls closed). When a fork does form,
   deterministic fork choice (branch weight first — distinct proposers, then
@@ -642,6 +644,22 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   for forks containing real transactions: delete diverged rows from `block`,
   then `python -m aitbc_chain.sync_cli --source https://<peer>` with
   `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
+- **Attester lock — a signature is a commitment.** A validator that signs a
+  peer's block X at height h records `(h, X)` in-memory
+  (`RemoteAttestationService._attested`, per chain instance). While the lock
+  is live — one proposer round (`consensus_proposer_round_seconds`=60) — the
+  node (a) refuses to attest a rival hash at h, and (b) will not propose at
+  h: `PoAProposer._honor_attestation_lock` instead queries every mesh peer's
+  `/rpc/block/{h}` for the locked hash and kicks `pull_from_peer` toward the
+  first peer serving it, so the head advances onto the attested block
+  through the normal (fully validating) import path. If no peer serves X the
+  proposal stays suppressed until the lock expires, capping the stall at one
+  round window. Locks are **in-memory only** — a restart forgets them, which
+  is safe: a restart outlasts the lock window anyway and the freshness gate
+  still covers stale-head proposals. `ATTESTATION_LOCK_ENABLED=false`
+  restores legacy behaviour. This closes the equivocation that turned the
+  2026-09-27 asymmetric partitions into forks (hub1 attested node2's block,
+  never received it, then proposed a rival one round later).
 - **Sync sources:** every node's `DEFAULT_PEER_RPC_URL` (or
   `CHAIN_SYNC_SOURCES` override) must point at a *peer*, never itself.
   Followers use `https://hub.aitbc.bubuit.net`; hub uses
