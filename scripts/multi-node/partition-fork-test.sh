@@ -125,19 +125,22 @@ if [ -z "$H" ]; then log "TRIGGER TIMEOUT — aborting"; exit 1; fi
 log "TRIGGER head=$H (H%$NVALS=$((H % NVALS))); this node owns r1 of $((H + 1)) when SLOT=0"
 
 # --- attestation-plane warm gate ------------------------------------------
-# Attest traffic rides inbound ws conns peers hold to /rpc/gossip/ws. If the
-# plane is empty when the cut arms, the ~16s consensus gate can expire before
-# reconnects land (cut7: 0 inbound conns at start -> 0/2 attestations, no
-# lone block). Wait until peers hold at least 2 inbound ws conns on :80/:8202.
-N=0
+# The proposer's attest_request reaches peers through ws conns they hold to
+# this node's /rpc/gossip/ws — which the local rpc bridges into local redis
+# subscriptions, so each live peer listener shows up in PUBSUB NUMSUB. Those
+# conns churn (edge idle timeouts), so raw inbound conn count proved
+# insufficient (cut7/cut8: 9 inbound conns but no attest_request subscribers
+# at gate time -> 0/2 attestations). NUMSUB includes this node's own
+# attestation listener, so >=3 means at least two remote validator peers
+# will hear the request inside the ~16s consensus gate.
+SUBS=0
 for _ in $(seq 1 120); do
-    N=$(ss -tn state established "( sport = :80 or sport = :$RPC_PORT )" \
-        | awk 'NR>1 {print $5}' | grep -cvE '^(127\.|\[::1\]|::ffff:127\.)' || true)
-    if [ "${N:-0}" -ge 2 ]; then break; fi
+    SUBS=$($RCLI PUBSUB NUMSUB "consensus.attest_request.$CHAIN" 2>/dev/null | awk 'NR==2{print $1}' || true)
+    if [ "${SUBS:-0}" -ge 3 ]; then break; fi
     sleep 2
 done
-log "attest-plane inbound conns: ${N:-0} (need >=2)"
-if [ "${N:-0}" -lt 2 ]; then log "WS PLANE TOO THIN — aborting"; exit 1; fi
+log "attest_request subscribers: ${SUBS:-0} (need >=3: own listener + 2 peers)"
+if [ "${SUBS:-0}" -lt 3 ]; then log "ATTEST PLANE TOO THIN — aborting"; exit 1; fi
 
 # --- layer 3: nginx — /rpc/gossip/ proxied, rest of /rpc/ -> 444 ----------
 cp "$NGX" "$BAK"
