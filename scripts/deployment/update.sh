@@ -643,6 +643,26 @@ ensure_validator_secrets_scope() {
 }
 
 # ----------------------------------------------------------------------------
+# Step 4f: Re-render website branding after a pull
+# ----------------------------------------------------------------------------
+# The static site is served straight from the checkout; pulls can revert
+# rendered domain/chain-id tokens. render-website.sh rewrites them from
+# /etc/aitbc/website.env. Opt-in: no website.env -> nothing to do.
+render_website_files() {
+    [ -f /etc/aitbc/website.env ] || return 0
+    local script="$AITBC_ROOT/scripts/ops/render-website.sh"
+    if [ ! -f "$script" ]; then
+        warning "website.env present but render-website.sh missing — skipping"
+        return 0
+    fi
+    if bash "$script"; then
+        success "Website branding rendered"
+    else
+        warning "render-website.sh failed — site may show stale branding"
+    fi
+}
+
+# ----------------------------------------------------------------------------
 # Step 4c: Ensure consensus-safety env defaults
 # ----------------------------------------------------------------------------
 ensure_consensus_env_defaults() {
@@ -951,6 +971,7 @@ main() {
     ensure_consensus_env_defaults
     ensure_gossip_defaults
     ensure_validator_secrets_scope
+    render_website_files
 
     if [ "$DO_MIGRATE" = "true" ]; then
         run_migrations || exit 1
