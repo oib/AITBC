@@ -395,3 +395,13 @@ The published `FOLLOWER_API_KEY` legitimately reaches `POST /api/v1/agent/coin-r
 ### 7da4bde0f feat(agent-coordinator): Prometheus metrics for faucet budget alerting
 
 `decide()` maintains `coin_request_auto_granted_window{window=hourly,daily}` gauges and increments `coin_request_auto_budget_trips_total{window}` each time a request parks on an exhausted budget, so a scrape alert flags an ongoing drain without journal access.
+
+
+### ops(faucet): post-review verification of f4c54617e — spoofing, dual-hub budget, probe cleanup
+
+Follow-up to the faucet review, all operational (no code change):
+
+- `X-Real-IP` spoofing: both TLS edges (`ns2` fronting hub, `ns3` fronting hub1) set `X-Real-IP $remote_addr` and hub/hub1 nginx only trust their own incus bridge in `set_real_ip_from`. Verified from outside: 34 valid-body `POST /register` calls with 34 distinct forged `X-Real-IP` values → 429 from request 31. The per-IP limit is not bypassable via the header.
+- Dual-hub budget: hub1 runs its own agent-coordinator with a separate `coin_requests` DB and holds the genesis key, so its faucet doubled the fleet-wide daily cap to 120 AIT. hub1's `/etc/aitbc/aitbc-agent-coordinator.env` now sets `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0`; verified a live registration there returns `pending` / "hourly budget is exhausted". Fleet-wide automatic budget is the intended 24/60 AIT again.
+- Probe rows: the hub end-to-end test row `budget-probe-0` (1 unit, `automatic/APPROVED`, never executed — `transaction_hash IS NULL`, nothing paid) and the hub1 park-probe row were deleted. Both DBs are back to their pre-review grant totals (hub: 7 automatic approved, 14400000300 units).
+- AGENTS.md gains an agent-coordinator faucet section recording the trust chain, the hub1 override, and the probe-row rule.
