@@ -288,3 +288,40 @@ See the operator implementation plan and live reset checklist. After code upgrad
 - Verified: `get_block_version_for_height` returns `7` at 24799 and `8` at
   24800 with the env var absent; 11 v8 tests green; fleet restarted and
   converged on `cfc41a3b`.
+
+### coordinator-api write-authorisation hardening (81028f594)
+
+Closes the payment/settlement/reputation findings from the coordinator review.
+
+- **Route matrix is method-aware.** `get_auth_level(path, method)` keeps NONE
+  for reads, but a write resolving to NONE is raised to the pattern's entry in
+  `ROUTE_WRITE_FLOORS` (`/v1/reputation*` -> ANY). Path-only matching had
+  exposed every mutation on the reputation router to anonymous callers.
+- **Reputation router locked down.** `POST /v1/reputation/job-completion`
+  deleted — it took agent_id/success/earnings from the body and fed
+  trust_score, which dispatch ranks miners by. Profile/feedback/specialization/
+  region writes now require the authenticated agent or an admin; feedback
+  reviewer identity is the caller (the body field was removed) and a
+  non-admin caller needs a completed job with that agent; cross-chain
+  sync/events are admin-only.
+- **Client refund window ends at delivery.** `refund_payment` gains
+  `is_admin`: clients can refund only `escrowed` payments on jobs with no
+  delivered result; `pending_acceptance`, `disputed` and `settlement_failed`
+  are arbiter-only. Admin dispute routes, both escrow sweepers and the
+  TEE-failure path pass `is_admin=True`.
+- **Miner assignment enforced.** `submit_result` and both fail routes require
+  `assigned_miner_id == caller` and a RUNNING job; `fail_job` no longer
+  overwrites the assignment from caller input; `complete_job` checks URL
+  miner_id == caller, verifies assignment, and takes earnings from the
+  persisted payment row rather than the caller-controlled receipt price.
+- **Guardrail test** (`test_write_auth_hardening.py`): enumerates served write
+  routes and fails if any resolves to AuthLevel.NONE outside a four-entry
+  allow-list (register, login, auth/nonce, market/gpu/quote).
+
+Verified: 23 new tests + 15 related suites green; OpenAPI spec regenerated;
+deployed to hub/hub1/node2 — anonymous reputation writes now answer 401,
+public reads unchanged.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
