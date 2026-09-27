@@ -1,5 +1,7 @@
 """Unit tests for aitbc.caching.block_header_cache (A2)."""
 
+import time
+
 from aitbc.caching.block_header_cache import BlockHeaderCache
 
 
@@ -131,6 +133,51 @@ class TestBlockHeaderCacheInvalidate:
         cache.clear()
         assert cache.size == 0
         assert cache.get(1, "ait-hub") is None
+
+
+class TestBlockHeaderCacheTTL:
+    """Expiry bounds stale headers after chain reorganizations: the RPC
+    process's cache cannot be invalidated by the node process, so entries
+    must age out on their own."""
+
+    def test_get_returns_none_after_ttl(self) -> None:
+        cache = BlockHeaderCache(max_size=100, ttl_seconds=0.05)
+        cache.set(_header(10, "0xAAA"), "ait-hub")
+        assert cache.get(10, "ait-hub") is not None
+        time.sleep(0.08)
+        assert cache.get(10, "ait-hub") is None
+
+    def test_get_by_hash_returns_none_after_ttl(self) -> None:
+        cache = BlockHeaderCache(max_size=100, ttl_seconds=0.05)
+        cache.set(_header(10, "0xAAA"), "ait-hub")
+        assert cache.get_by_hash("0xAAA", "ait-hub") is not None
+        time.sleep(0.08)
+        assert cache.get_by_hash("0xAAA", "ait-hub") is None
+
+    def test_expired_entry_removed_from_both_indexes(self) -> None:
+        cache = BlockHeaderCache(max_size=100, ttl_seconds=0.05)
+        cache.set(_header(10, "0xAAA"), "ait-hub")
+        time.sleep(0.08)
+        assert cache.get(10, "ait-hub") is None
+        assert cache.get_by_hash("0xAAA", "ait-hub") is None
+        assert cache.size == 0
+
+    def test_reorg_replacement_is_served_not_orphan(self) -> None:
+        # Simulates the observed bug: orphan header cached, reorg replaces the
+        # height — post-expiry the orphan must not be served.
+        cache = BlockHeaderCache(max_size=100, ttl_seconds=0.05)
+        cache.set(_header(10, "0xORPHAN"), "ait-hub")
+        assert cache.get(10, "ait-hub")["hash"] == "0xORPHAN"
+        time.sleep(0.08)
+        assert cache.get(10, "ait-hub") is None
+        cache.set(_header(10, "0xCANON"), "ait-hub")
+        assert cache.get(10, "ait-hub")["hash"] == "0xCANON"
+
+    def test_ttl_zero_disables_expiry(self) -> None:
+        cache = BlockHeaderCache(max_size=100, ttl_seconds=0)
+        cache.set(_header(10, "0xAAA"), "ait-hub")
+        time.sleep(0.05)
+        assert cache.get(10, "ait-hub") is not None
 
 
 class TestBlockHeaderCacheEdgeCases:
