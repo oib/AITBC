@@ -708,3 +708,37 @@ the verified live edge shape rather than the pre-deletion copies:
 
 All three examples pass `nginx -t` on node2 (placeholders substituted,
 `443 ssl` → plain port for the cert-less test).
+
+## 2026-09-27 — edge leftovers: hub2 cert, Connection map, hub1 /agent converge (ops + config)
+
+**Commit:** (this commit) — `examples/nginx/*-proxy.conf.example`,
+`examples/nginx/README.md`
+
+Fleet-side cleanup of the five items flagged in the edge analysis:
+
+- **hub2 cert deleted** — `certbot delete hub2.aitbc.bubuit.net` on ns2 (DNS
+  dead, zero vhost references); dead `server_name` removed from hub's inner
+  vhost.
+- **`map $http_upgrade $connection_upgrade` everywhere** — new
+  `conf.d/websocket-upgrade-map.conf` on ns2/ns3 (IDE host already had the
+  map in nginx.conf; hub1's container got `conf.d/websocket-upgrade.conf`
+  matching hub's); all 19 `Connection "upgrade"` literals across the edge
+  vhosts converted to `$connection_upgrade` so plain requests no longer
+  carry a spurious upgrade header. hub1's inner vhost converted the same
+  way.
+- **hub1 `/agent/` converged to hub's scheme** — `render-bootstrap-env.sh`
+  run on hub1 (placeholders ISLAND_ID/GOSSIP_WEBSOCKET_URL fixed — hub1's
+  live env doesn't carry them); vhost now serves `bootstrap.env` +
+  `genesis.json` + `*.env|secret` deny regex + `/agent/api/v1/` prefix +
+  compat/deprecated blocks, verbatim from hub. Legacy `blockchain.env`
+  route and the stale 11MB Sep-3 `chain.db` snapshot route removed; both
+  backing files deleted.
+- **Repo examples synced** — the three `*-proxy.conf.example` files now
+  use `$connection_upgrade` with a commented conf.d map snippet;
+  README.md gained the map rule.
+
+Verified: `nginx -t`+reload on all touched hosts; `/rpc/subscribe/ws` → 101
+on all five public names (a coincidental node2 rpc service restart mid-test
+briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
+200, `genesis.json` 200, `blockchain.env`/`chain.db`/`secrets.env` → 404,
+`messages/stream` → 401 (auth parity with hub).
