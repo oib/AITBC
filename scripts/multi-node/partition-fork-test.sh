@@ -198,7 +198,9 @@ for ip in $PEER_IPS; do
 done
 for ip in ${PEER_IP6S:-}; do ip -6 route add blackhole "$ip" 2>/dev/null || true; done
 
-log "CUT STARTED for ${CUT_SECONDS}s (v4:$(echo $PEER_IPS | wc -w) blackholed, v6:$(echo ${PEER_IP6S:-none} | wc -w), blocks.* denied, /rpc pulls 444)"
+RELEASE_FILE="/tmp/aitbc-partition-release"
+rm -f "$RELEASE_FILE"
+log "CUT STARTED for ${CUT_SECONDS}s (v4:$(echo $PEER_IPS | wc -w) blackholed, v6:$(echo ${PEER_IP6S:-none} | wc -w), blocks.* denied, /rpc pulls 444) — early release: touch $RELEASE_FILE"
 
 # --- mid-cut snapshot: prove the cut is still in place --------------------
 # `ip route get` on a blackholed address prints "RTNETLINK answers: Invalid
@@ -210,7 +212,22 @@ sleep 15
     curl -s -o /dev/null -w "self /rpc/head: %{http_code}" --max-time 3 "http://127.0.0.1:$RPC_PORT/rpc/head" || true
 } | sed "s/^/SNAPSHOT /" | while read -r line; do log "$line"; done
 
-sleep $((CUT_SECONDS - 15))
+# --- wait: fixed duration OR early release sentinel ------------------------
+# The majority's competing block lands at a drifting offset (+85s in one run,
+# +131s in another), so a fixed duration cannot reliably place the restore in
+# the 1-vs-1 window needed to observe the full-tie deferral. An external
+# watcher (e.g. the IDE host polling a peer's /rpc/head) can end the cut the
+# moment the contested block exists by touching /tmp/aitbc-partition-release.
+elapsed=15
+while [ "$elapsed" -lt "$CUT_SECONDS" ]; do
+    if [ -f "$RELEASE_FILE" ]; then
+        log "EARLY RELEASE: sentinel touched at +${elapsed}s"
+        break
+    fi
+    sleep 2
+    elapsed=$((elapsed + 2))
+done
+
 log "CUT ENDING"
 restore
 trap - EXIT
