@@ -32,7 +32,10 @@ HUB1_HOST="${AITBC_HUB1_HOST:-}"
 # but an *-override.env file exists precisely to differ, so those pairs are
 # informational rather than failures. Keep this list short and commented.
 # (hub's aitbc-blockchain-rpc-override.env stops the RPC service producing.)
-SHADOW_CONFLICT_ALLOW="${SHADOW_CONFLICT_ALLOW:-aitbc-blockchain-rpc:ENABLE_BLOCK_PRODUCTION aitbc-blockchain-rpc:BLOCK_PRODUCTION_CHAINS}"
+# (GOSSIP_BACKEND differs by design since 2026-09-27: the node unit runs the
+# validator mesh while the rpc unit is the local Redis bus bridge — the mesh
+# doc says "only the node process should dial peers".)
+SHADOW_CONFLICT_ALLOW="${SHADOW_CONFLICT_ALLOW:-aitbc-blockchain-rpc:ENABLE_BLOCK_PRODUCTION aitbc-blockchain-rpc:BLOCK_PRODUCTION_CHAINS aitbc-blockchain-rpc:GOSSIP_BACKEND}"
 
 # The domain the fleet publishes under. It was hardcoded here, which named the
 # operator in a public repo and made the check point at their hosts from anyone
@@ -136,6 +139,7 @@ shape_bad=0
 shadowed=0
 eff_drift=0
 faucet_bad=0
+mesh_bad=0
 if [ "$ssh_reach" -eq 0 ]; then
     echo "=== env sections skipped (no ssh reach) ==="
 else
@@ -237,6 +241,69 @@ if [ "$live" -ne 1 ]; then
     echo "  FAIL: $live agent-coordinator hosts have a live faucet budget; expected exactly 1"
 else
     echo "  ok: exactly one live faucet"
+fi
+
+echo "=== gossip mesh check (every host on mesh, peer list complete and self-free) ==="
+# 2026-09-27: the fleet had regressed to hub-and-spoke for 18 days without the
+# earlier drift sections catching it — the env files said `websocket`/`redis`
+# while `GOSSIP_MESH_PEER_URLS` lists sat ignored. What must be asserted is the
+# RUNNING backend (files lied), plus the shadow bait that made the regression
+# silent: no GOSSIP_BACKEND in aitbc-blockchain-node.env (its only job there is
+# to clobber blockchain.env), GOSSIP_BACKEND=redis in aitbc-blockchain-rpc.env
+# (the rpc process stays the local bus bridge), and no GOSSIP_WEBSOCKET_URL
+# anywhere. Peers must list every other host and never the host itself.
+mesh_bad=0
+for h in $HOSTS; do
+    run_backend=$(running_env "$h" aitbc-blockchain-node GOSSIP_BACKEND " -i")
+    case "$run_backend" in
+        UNREACHABLE) mesh_bad=1; printf "  %-14s UNREACHABLE (running env)\n" "$h"; continue ;;
+        NOTRUNNING)  mesh_bad=1; printf "  %-14s aitbc-blockchain-node NOTRUNNING\n" "$h"; continue ;;
+    esac
+    run_peers=$(running_env "$h" aitbc-blockchain-node GOSSIP_MESH_PEER_URLS " -i")
+    # The host's own identities — self-references in the peer list are a loop.
+    selfinfo=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        'hostname -s; hostname; hostname -I' 2>/dev/null || echo "UNREACHABLE")
+    if [ "$run_backend" != "mesh" ]; then
+        mesh_bad=1
+        printf "  %-14s running backend is '%s', expected 'mesh'\n" "$h" "${run_backend:-<unset>}"
+        continue
+    fi
+    peers_trim=$(echo "$run_peers" | tr -d '[:space:]')
+    n_peers=$(awk -F, 'NF {print NF}' <<<"$peers_trim")
+    self_hit=0
+    for ident in $selfinfo; do
+        ident=$(echo "$ident" | tr -d '[:space:]')
+        [ -z "$ident" ] && continue
+        case ",$peers_trim," in *"://$ident."*|*"://$ident:"*|*"://$ident/"*) self_hit=1 ;; esac
+    done
+    problems=""
+    [ "${n_peers:-0}" -lt 2 ] && problems="$problems only ${n_peers:-0} peers"
+    [ "$self_hit" -eq 1 ] && problems="$problems peer list contains SELF"
+    # File side: effective value across the node unit's files must be mesh
+    # (case-insensitive — a lowercase `gossip_backend=` sets the same pydantic
+    # field and invisible-to-uppercase-grep was part of the original miss).
+    file_eff=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "echo \"${ENVFILES[$h]}\" | tr ' ' '\n' | while IFS= read -r f; do if [ -r \"\$f\" ]; then grep -hiE '^gossip_backend=' \"\$f\" 2>/dev/null; else sudo -n grep -hiE '^gossip_backend=' \"\$f\" 2>/dev/null; fi; done | tail -1 | cut -d= -f2-; \
+         grep -l -iE '^gossip_backend=' /etc/aitbc/aitbc-blockchain-node.env 2>/dev/null | xargs -r -n1 basename | while read f; do echo SHADOWNODE:\$f; done; \
+         grep -hiE '^gossip_backend=' /etc/aitbc/aitbc-blockchain-rpc.env 2>/dev/null | tail -1 | sed 's/^/RPC:/;s/gossip_backend=/rpc=/I'; \
+         for f in \$(echo \"${ENVFILES[$h]}\" | tr ' ' '\n'); do if [ -r \"\$f\" ]; then grep -Hi '^GOSSIP_WEBSOCKET_URL=' \"\$f\" 2>/dev/null; else sudo -n grep -Hi '^GOSSIP_WEBSOCKET_URL=' \"\$f\" 2>/dev/null; fi; done | sed 's/.*\///; s/:.*//' | xargs -r -n1 | while read f; do echo SPOKEURL:\$f; done" \
+        2>/dev/null || echo "UNREACHABLE")
+    [ "$file_eff" = "UNREACHABLE" ] && { mesh_bad=1; printf "  %-14s UNREACHABLE (env files)\n" "$h"; continue; }
+    file_backend=$(echo "$file_eff" | grep -v "^\(SHADOWNODE\|RPC\|SPOKEURL\):" | head -1 | tr -d '[:space:]')
+    [ "$file_backend" != "mesh" ] && problems="$problems node-unit files resolve to '$file_backend' not 'mesh'"
+    echo "$file_eff" | grep -q "^SHADOWNODE:" && problems="$problems GOSSIP_BACKEND in aitbc-blockchain-node.env"
+    rpc_backend=$(echo "$file_eff" | grep "^RPC:" | head -1 | cut -d: -f2 | cut -d= -f2 | tr -d '[:space:]')
+    [ -n "$rpc_backend" ] && [ "$rpc_backend" != "redis" ] && problems="$problems rpc unit backend '$rpc_backend' not 'redis'"
+    echo "$file_eff" | grep -q "^SPOKEURL:" && problems="$problems GOSSIP_WEBSOCKET_URL still set"
+    if [ -n "$problems" ]; then
+        mesh_bad=1
+        printf "  %-14s mesh — FAIL:%s\n" "$h" "$problems"
+    else
+        printf "  %-14s mesh, %s peers, self-free, files clean\n" "$h" "$n_peers"
+    fi
+done
+if [ "$mesh_bad" -eq 0 ]; then
+    echo "  ok: every host on mesh with a complete, self-free peer list"
 fi
 
 echo "=== *_ADDRESS value-shape check ==="
@@ -454,7 +521,8 @@ done <<< "$S2_OUT"
 
 echo
 if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
-   && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ] && [ "$faucet_bad" -eq 0 ]; then
+   && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ] && [ "$faucet_bad" -eq 0 ] \
+   && [ "$mesh_bad" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
