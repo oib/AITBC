@@ -587,9 +587,10 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   validator is up (PBFT is off, no quorum needed) — but each height where a
   dead validator holds a round costs extra windows (~1 extra per down slot).
   The corollary cuts the other way: a network partition leaves BOTH sides
-  producing — the deterministic fork choice (`(round, hash)`, `8b82864c9`)
-  settles the split when the partition heals, provided the losing segment is
-  empty; otherwise it escalates to operator resync.
+  producing — the deterministic fork choice (branch weight first — distinct
+  proposers, then length, then `(round, hash)`; `8b82864c9`+) settles the
+  split when the partition heals, provided the losing segment is empty;
+  otherwise it escalates to operator resync.
 - **Each validator holds exactly its own key.** `validator-secrets.env` (last
   EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
   `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the
@@ -609,11 +610,20 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   must strictly outvote us to hold; ties proceed);
   all unreachable → propose anyway (`proposal_freshness_unverified_total`,
   never cached; every verdict expires after `PROPOSAL_FRESHNESS_CACHE_TTL_SECONDS=5s`);
-  (c) **deterministic fork choice** (`8b82864c9`): same-height conflicts are
-  decided by `(proposer round, block hash)` from headers alone — the losing
-  branch is reorged automatically when every removed block is provably empty
-  (`tx_count==0`, unchanged state root); a non-empty losing segment still
-  escalates to an operator resync since there is no state-undo path.
+  (c) **deterministic fork choice** (`8b82864c9`, hardened `ba17138438`):
+  the push path decides only tip
+  races (rival shares our head's parent, head has no descendants) by
+  `(round, hash)`; the pull resolver compares branch weight — distinct
+  proposers in the segment, then length, then `(round, hash)` — so a lone
+  isolated node's branch loses to the majority even when its fork-point
+  round is lower. The rival side is fully validated (signature, timestamp
+  sanity, proposer schedule for its claimed round) BEFORE any of our rows
+  are touched, and delete+append share one transaction — a rival that
+  fails validation can never shorten our chain. Reorg applies only when
+  every removed block is provably empty (`tx_count==0`, unchanged state
+  root); a non-empty losing segment still escalates to an operator resync
+  since there is no state-undo path.
+
   Verified live: hub restarted 3+ heights behind with production ON pulled
   from hub1 and did not fork; a network cut of node2 (blackhole routes to all
   four peers, ~2 windows, timed so node2 owned no round during it) produced
