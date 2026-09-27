@@ -4099,8 +4099,28 @@
               }
             }
           },
+          "403": {
+            "description": "job is assigned to a different miner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "job not found",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "job is {job.state}, not running",
             "content": {
               "application/json": {
                 "schema": {
@@ -4577,6 +4597,16 @@
               }
             }
           },
+          "403": {
+            "description": "miner_id does not match authenticated miner",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
           "404": {
             "description": "job not found",
             "content": {
@@ -4663,6 +4693,16 @@
           },
           "400": {
             "description": "Bad Request",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "miner_id does not match authenticated miner / job is assigned to a different miner",
             "content": {
               "application/json": {
                 "schema": {
@@ -27729,6 +27769,22 @@
               "type": "string",
               "title": "Agent Id"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -27773,7 +27829,7 @@
           "reputation"
         ],
         "summary": "Add Community Feedback",
-        "description": "Add community feedback for an agent",
+        "description": "Add community feedback for an agent.\n\nThe reviewer is always the authenticated caller \u2014 never the request body \u2014\nand a non-admin caller must have a completed job with this agent, so a\nrating is anchored to delivered work rather than free-floating.",
         "operationId": "add_community_feedback_v1_reputation_feedback__agent_id__post",
         "parameters": [
           {
@@ -27783,6 +27839,22 @@
             "schema": {
               "type": "string",
               "title": "Agent Id"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -27813,6 +27885,16 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/HTTPValidationError"
+                }
+              }
+            }
+          },
+          "403": {
+            "description": "feedback requires a client account / feedback requires a completed job between you and this agent / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
                 }
               }
             }
@@ -27874,60 +27956,6 @@
                     "$ref": "#/components/schemas/FeedbackResponse"
                   },
                   "title": "Response Get Agent Feedback V1 Reputation Feedback  Agent Id  Get"
-                }
-              }
-            }
-          },
-          "422": {
-            "description": "Validation Error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/HTTPValidationError"
-                }
-              }
-            }
-          },
-          "500": {
-            "description": "Internal server error",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorResponse"
-                }
-              }
-            }
-          }
-        }
-      }
-    },
-    "/v1/reputation/job-completion": {
-      "post": {
-        "tags": [
-          "reputation"
-        ],
-        "summary": "Record Job Completion",
-        "description": "Record job completion and update reputation",
-        "operationId": "record_job_completion_v1_reputation_job_completion_post",
-        "requestBody": {
-          "content": {
-            "application/json": {
-              "schema": {
-                "$ref": "#/components/schemas/JobCompletionRequest"
-              }
-            }
-          },
-          "required": true
-        },
-        "responses": {
-          "200": {
-            "description": "Successful Response",
-            "content": {
-              "application/json": {
-                "schema": {
-                  "additionalProperties": true,
-                  "type": "object",
-                  "title": "Response Record Job Completion V1 Reputation Job Completion Post"
                 }
               }
             }
@@ -28209,6 +28237,22 @@
               "type": "string",
               "title": "Agent Id"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "requestBody": {
@@ -28296,6 +28340,22 @@
             "schema": {
               "type": "string",
               "title": "Region"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -28435,6 +28495,22 @@
             "schema": {
               "title": "Background Tasks"
             }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
+            }
           }
         ],
         "responses": {
@@ -28570,6 +28646,22 @@
             "required": true,
             "schema": {
               "title": "Background Tasks"
+            }
+          },
+          {
+            "name": "Authorization",
+            "in": "header",
+            "required": false,
+            "schema": {
+              "anyOf": [
+                {
+                  "type": "string"
+                },
+                {
+                  "type": "null"
+                }
+              ],
+              "title": "Authorization"
             }
           }
         ],
@@ -36451,10 +36543,6 @@
       },
       "FeedbackRequest": {
         "properties": {
-          "reviewer_id": {
-            "type": "string",
-            "title": "Reviewer Id"
-          },
           "ratings": {
             "additionalProperties": {
               "type": "number"
@@ -36479,11 +36567,10 @@
         },
         "type": "object",
         "required": [
-          "reviewer_id",
           "ratings"
         ],
         "title": "FeedbackRequest",
-        "description": "Request model for community feedback"
+        "description": "Request model for community feedback.\n\nThere is deliberately no reviewer_id field \u2014 the reviewer is the\nauthenticated caller, so a body-supplied identity is never consulted."
       },
       "FeedbackResponse": {
         "properties": {
@@ -37735,52 +37822,6 @@
         ],
         "title": "IslandSwarmKeyRequest",
         "description": "Request model for retrieving an island's private IPFS swarm key."
-      },
-      "JobCompletionRequest": {
-        "properties": {
-          "agent_id": {
-            "type": "string",
-            "title": "Agent Id"
-          },
-          "job_id": {
-            "type": "string",
-            "title": "Job Id"
-          },
-          "success": {
-            "type": "boolean",
-            "title": "Success"
-          },
-          "response_time": {
-            "type": "number",
-            "exclusiveMinimum": 0.0,
-            "title": "Response Time",
-            "description": "Response time in milliseconds"
-          },
-          "earnings": {
-            "anyOf": [
-              {
-                "type": "number",
-                "minimum": 0.0
-              },
-              {
-                "type": "string",
-                "pattern": "^(?!^[-+.]*$)[+-]?0*\\d*\\.?\\d*$"
-              }
-            ],
-            "title": "Earnings",
-            "description": "Earnings in AITBC"
-          }
-        },
-        "type": "object",
-        "required": [
-          "agent_id",
-          "job_id",
-          "success",
-          "response_time",
-          "earnings"
-        ],
-        "title": "JobCompletionRequest",
-        "description": "Request model for job completion recording"
       },
       "JobFailSubmit": {
         "properties": {

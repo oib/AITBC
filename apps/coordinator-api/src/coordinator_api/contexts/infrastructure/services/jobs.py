@@ -7,6 +7,8 @@ from typing import Any
 
 from sqlmodel import Session, select
 
+from fastapi import HTTPException, status
+
 from aitbc.aitbc_logging import get_logger
 from aitbc_shared import JobPayment
 
@@ -18,6 +20,7 @@ from ..domain import Job, JobReceipt, Miner
 from ...reputation.domain.reputation import AgentReputation
 from ....contexts.market.domain.provider_bond import _default_bond_min_amount, is_provider_eligible
 from ....utils.client_resolver import resolve_client
+from ....custom_types import JobState
 
 logger = get_logger(__name__)
 
@@ -230,9 +233,14 @@ class JobService:
     def fail_job(self, job_id: str, miner_id: str, error_message: str) -> Job:
         """Mark a job as failed"""
         job = self.get_job(job_id)
+        # Only the assigned miner may report failure on a running job — the
+        # assignment comes from dispatch and must not be rewritten here.
+        if job.assigned_miner_id != miner_id:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
+        if job.state != JobState.running:
+            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"job is {job.state}, not running")
         job.state = "FAILED"
         job.error = error_message
-        job.assigned_miner_id = miner_id
         self.session.add(job)
         self.session.commit()
         self.session.refresh(job)
