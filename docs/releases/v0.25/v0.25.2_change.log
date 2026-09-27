@@ -366,3 +366,17 @@ AGENTS.md operational notes updated.
 Generated with [Devin](https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+
+### coordinator-api migration gate bounds (4fe54ff5b)
+
+Two limits on the ExecStartPre migration gate: StartLimitIntervalSec=600 +
+StartLimitBurst=3 so a failing migration leaves the unit `failed` after
+three attempts in ten minutes instead of retry-looping forever (each
+attempt ~15s never tripped the default 5/10s burst), and
+TimeoutStartSec=600 so a large-table migration isn't killed at the 90s
+default mid-write — an actual hazard on SQLite. Verified on node2 via
+systemctl show; all three API nodes daemon-reloaded.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
