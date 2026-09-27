@@ -602,8 +602,9 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   deterministic fork choice (branch weight first — distinct proposers, then
   segment length, full-tie deferral for one round window, then
   `(round, hash)`; `8b82864c9`, `26add79f4`, `9d61f2b1d`+) settles the split
-  on heal, provided the losing segment is empty; otherwise it escalates to
-  operator resync.
+  on heal; a non-empty losing segment is undone via the per-block delta
+  journal (`state/block_deltas.py` — see below) rather than needing manual
+  repair.
 - **Each validator holds exactly its own key.** `validator-secrets.env` (last
   EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
   `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the
@@ -632,18 +633,37 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   round is lower. The rival side is fully validated (signature, timestamp
   sanity, proposer schedule for its claimed round) BEFORE any of our rows
   are touched, and delete+append share one transaction — a rival that
-  fails validation can never shorten our chain. Reorg applies only when
-  every removed block is provably empty (`tx_count==0`, unchanged state
-  root); a non-empty losing segment still escalates to an operator resync
-  since there is no state-undo path.
+  fails validation can never shorten our chain. Provably-empty losing
+  blocks (`tx_count==0`, unchanged state root) are deleted outright;
+  non-empty journaled blocks are reverted through the delta journal.
+  Only a non-empty segment with no journal (pre-journal history) or a
+  revert whose recomputed state root misses the ancestor's still
+  escalates to an operator resync.
 
   Verified live: hub restarted 3+ heights behind with production ON pulled
   from hub1 and did not fork; a network cut of node2 (blackhole routes to all
   four peers, ~2 windows, timed so node2 owned no round during it) produced
   zero proposals and clean catch-up on restore. Manual repair remains only
-  for forks containing real transactions: delete diverged rows from `block`,
-  then `python -m aitbc_chain.sync_cli --source https://<peer>` with
-  `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
+  for forks whose losing blocks predate the delta journal (no undo data) or
+  whose revert fails the ancestor state-root check: delete diverged rows
+  from `block`, then `python -m aitbc_chain.sync_cli --source https://<peer>`
+  with `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
+- **Non-empty-segment undo (`state/block_deltas.py`).** Every block apply —
+  follower import and local production — runs under a `BlockDeltaJournal`
+  attached to the apply session. It records before-images for ORM
+  inserts/updates/deletes and for the raw `UPDATE account` balance/nonce
+  writes that bypass dirty tracking, and persists them inside the same
+  commit as the block (`block_state_delta` table). Fork resolution replays
+  a losing segment's deltas in reverse, verifies the recomputed state root
+  against the common ancestor's recorded root — the cryptographic proof the
+  undo restored exactly pre-fork state — then requeues the orphaned
+  transaction payloads into the mempool (best-effort; the stored
+  `Transaction` row does not carry the original signature, so a rebuilt
+  payload that fails re-admission is dropped — the winning branch usually
+  carries it anyway). Delta rows older than 10k blocks are pruned on each
+  persist, well past `max_reorg_depth`. A journal gap or root mismatch
+  increments `sync_fork_reorg_unsafe_total` and escalates — never a wrong
+  revert.
 - **Attester lock — a signature is a commitment.** A validator that signs a
   peer's block X at height h records `(h, X)` in-memory
   (`RemoteAttestationService._attested`, per chain instance). While the lock
@@ -686,8 +706,8 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   splits deterministically, so this runbook is defence in depth rather than
   the only line — keep it: an *asymmetric* partition (attestations flow,
   block gossip/pull does not) still produces a same-height fork that only
-  fork choice can heal, and non-empty divergent segments are not
-  auto-reverted.
+  fork choice can heal, and the delta journal auto-reverts the losing
+  segment (empty or not) once a winner is decided.
 
 ## Trading authentication
 

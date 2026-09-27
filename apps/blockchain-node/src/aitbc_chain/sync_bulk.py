@@ -14,6 +14,7 @@ from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
+from .state.block_deltas import requeue_orphaned_transactions, revert_losing_segment
 from .sync_base import SyncBase
 from .sync_divergence import clear_divergence, report_divergence
 
@@ -307,11 +308,13 @@ class BulkSyncMixin(SyncBase):
         is validated for signature, timestamp sanity, and the proposer
         schedule for the round its timestamp claims — a peer segment that
         fails validation is rejected, never adopted. When the peer's branch
-        wins and every block we would lose is provably empty (no transactions,
-        unchanged state root), the losing segment is deleted and the caller
-        restarts the pull at the fork point; the re-import re-runs full state
-        validation. A non-empty losing segment cannot be reverted safely and
-        escalates to an operator divergence report.
+        wins, the losing segment is undone: provably-empty blocks are simply
+        deleted, non-empty ones are reverted through the per-block delta
+        journal (``state.block_deltas``) and their transactions requeued to
+        the mempool. The revert verifies the recomputed state root against
+        the common ancestor's recorded root; a journal gap or mismatch
+        escalates to an operator divergence report instead of committing a
+        wrong revert.
 
         Returns True only when our losing segment was removed.
         """
@@ -421,15 +424,10 @@ class BulkSyncMixin(SyncBase):
             their_key = self._fork_choice_key(peer_ts_map[fork_h], parent_ts, str(peer_child.get("hash", "")))
             metrics_registry.increment("sync_fork_choice_compared_total")
 
-            peer_wins = (
-                len(peer_proposers) > len(our_proposers)
-                or (len(peer_proposers) == len(our_proposers) and peer_len > our_len)
+            peer_wins = len(peer_proposers) > len(our_proposers) or (
+                len(peer_proposers) == len(our_proposers) and peer_len > our_len
             )
-            if (
-                not peer_wins
-                and len(peer_proposers) == len(our_proposers)
-                and peer_len == our_len
-            ):
+            if not peer_wins and len(peer_proposers) == len(our_proposers) and peer_len == our_len:
                 # Full tie: a lone node's round-1 child would win this key
                 # comparison against the majority's later-round block, so wait
                 # one round window instead — a branch that grows during it
@@ -440,9 +438,7 @@ class BulkSyncMixin(SyncBase):
                 if deadline is None or now < deadline:
                     if deadline is None:
                         window = getattr(settings, "consensus_proposer_round_seconds", 60)
-                        self._deferred_forks: dict[int, float] = {
-                            a: d for a, d in self._deferred_forks.items() if d > now
-                        }
+                        self._deferred_forks: dict[int, float] = {a: d for a, d in self._deferred_forks.items() if d > now}
                         self._deferred_forks[ancestor_height] = now + window
                         metrics_registry.increment("sync_fork_choice_deferred_total")
                         self._logger.warning(
@@ -475,27 +471,52 @@ class BulkSyncMixin(SyncBase):
                 )
                 return False
 
-            if len(our_segment) > self._max_reorg_depth or not self._blocks_provably_empty(
-                session, list(our_segment)
-            ):
+            if len(our_segment) > self._max_reorg_depth:
                 metrics_registry.increment("sync_fork_reorg_unsafe_total")
                 self._logger.error(
                     "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
-                    "blocks) is not provably empty — operator resync required",
+                    "blocks) exceeds max reorg depth — operator resync required",
                     fork_h,
                     len(peer_proposers),
                     len(our_proposers),
                     len(our_segment),
                 )
                 return False
-            for old_block in our_segment:
-                for tx in session.exec(
-                    select(ChainTransaction)
-                    .where(ChainTransaction.chain_id == self._chain_id)
-                    .where(ChainTransaction.block_height == old_block.height)
-                ).all():
-                    session.delete(tx)
-                session.delete(old_block)
+            orphaned: list[dict[str, Any]] = []
+            if not self._blocks_provably_empty(session, list(our_segment)):
+                # Non-empty losing segment: undo its state changes via the
+                # per-block delta journal instead of refusing the reorg. None
+                # means undo was impossible — do not commit, escalate.
+                reverted = revert_losing_segment(
+                    session,
+                    self._chain_id,
+                    list(our_segment),
+                    ancestor,
+                    self._blocks_provably_empty,
+                )
+                if reverted is None:
+                    metrics_registry.increment("sync_fork_reorg_unsafe_total")
+                    self._logger.error(
+                        "Peer branch wins at height %s (proposers %s vs %s) but our losing segment "
+                        "(%s blocks) could not be reverted — missing journal or state-root "
+                        "mismatch; operator resync required",
+                        fork_h,
+                        len(peer_proposers),
+                        len(our_proposers),
+                        len(our_segment),
+                    )
+                    return False
+                orphaned = reverted
+                metrics_registry.increment("sync_fork_reorg_undone_total")
+            else:
+                for old_block in our_segment:
+                    for tx in session.exec(
+                        select(ChainTransaction)
+                        .where(ChainTransaction.chain_id == self._chain_id)
+                        .where(ChainTransaction.block_height == old_block.height)
+                    ).all():
+                        session.delete(tx)
+                    session.delete(old_block)
             session.commit()
         metrics_registry.increment("sync_fork_choice_remote_wins_total")
         metrics_registry.increment("sync_reorgs_total")
@@ -511,6 +532,9 @@ class BulkSyncMixin(SyncBase):
             our_len,
             len(our_segment),
         )
+        if orphaned:
+            requeued = requeue_orphaned_transactions(self._chain_id, orphaned)
+            self._logger.warning("Requeued %s of %s orphaned transactions into the mempool", requeued, len(orphaned))
         return True
 
     async def _sequential_bulk_import(
