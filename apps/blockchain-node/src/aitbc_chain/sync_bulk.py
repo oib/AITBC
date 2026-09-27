@@ -440,7 +440,7 @@ class BulkSyncMixin(SyncBase):
                 if deadline is None or now < deadline:
                     if deadline is None:
                         window = getattr(settings, "consensus_proposer_round_seconds", 60)
-                        self._deferred_forks = {
+                        self._deferred_forks: dict[int, float] = {
                             a: d for a, d in self._deferred_forks.items() if d > now
                         }
                         self._deferred_forks[ancestor_height] = now + window
