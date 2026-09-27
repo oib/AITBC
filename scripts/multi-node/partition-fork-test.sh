@@ -42,13 +42,17 @@
 # This script uses a FIXED unit name and stops any leftover timer at start
 # and on clean restore.
 #
-# Usage:   sudo ./partition-fork-test.sh [--seconds N] [--slot N] [--nvals N]
+# Usage:   sudo ./partition-fork-test.sh [--seconds N] [--slot N] [--nvals N] [--deny-tx]
 # Default: 240s window, slot 0, 4 validators (node2 r1 at H+1).
+# --deny-tx also closes the transactions channels — a non-empty lone block is
+# correctly NOT reverted (state cannot be proven empty), so if the goal is to
+# watch a clean defer-then-reorg, keep the mempool starved.
 #
 set -euo pipefail
 
 CHAIN="${AITBC_CHAIN_ID:-ait-hub.aitbc.bubuit.net}"
 CUT_SECONDS=240
+DENY_TX=0
 SLOT=0
 NVALS=4
 FAILSAFE_UNIT="aitbc-partition-failsafe"
@@ -61,6 +65,7 @@ while [ $# -gt 0 ]; do
         --seconds) CUT_SECONDS="$2"; shift 2 ;;
         --slot)    SLOT="$2"; shift 2 ;;
         --nvals)   NVALS="$2"; shift 2 ;;
+        --deny-tx) DENY_TX=1; shift ;;
         *) echo "unknown arg: $1" >&2; exit 2 ;;
     esac
 done
@@ -157,10 +162,16 @@ if ! nginx -t >/dev/null 2>&1; then
 fi
 nginx -s reload
 
-# --- layer 2: redis ACL — blocks.* denied, attest/tx channels open -------
-$RCLI ACL SETUSER default resetchannels \
-    "&consensus.attest_request.$CHAIN" "&consensus.attest_response.$CHAIN" \
-    "&transactions" "&transactions.$CHAIN" >/dev/null
+# --- layer 2: redis ACL — blocks.* denied, attest channels open ----------
+# --deny-tx additionally closes transactions* so no peer-gossiped tx can land
+# in this node's mempool during the window and render the lone block
+# non-empty (non-empty losing segments escalate instead of reorging — the
+# 25885 cut hit exactly that with a GPU_MARKET tx).
+ALLOWED_CHANNELS="&consensus.attest_request.$CHAIN &consensus.attest_response.$CHAIN"
+if [ "$DENY_TX" -eq 0 ]; then
+    ALLOWED_CHANNELS="$ALLOWED_CHANNELS &transactions &transactions.$CHAIN"
+fi
+$RCLI ACL SETUSER default resetchannels $ALLOWED_CHANNELS >/dev/null
 
 # --- layer 1: routes + established-conn sweep -----------------------------
 for ip in $PEER_IPS; do
