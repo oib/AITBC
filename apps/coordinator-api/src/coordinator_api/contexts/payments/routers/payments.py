@@ -5,6 +5,8 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request, status
 from sqlmodel import Session
 
+from aitbc_shared import JobPayment
+
 from ....auth import AdminOrClientDep  # NEW: JWT auth
 
 # from ....deps import require_client_key  # OLD: API key auth (deprecated)
@@ -156,13 +158,19 @@ async def refund_payment(
 
     service = PaymentService(session)
     try:
-        # Verify the payment belongs to the client's job
-        payment = service.get_payment(client_id, payment_id)
+        is_admin = user.get("role") == "admin"
+        if is_admin:
+            payment = session.get(JobPayment, payment_id)
+        else:
+            # Verify the payment belongs to the client's job
+            payment = service.get_payment(client_id, payment_id)
         if not payment:
             await record_rejection(key, attempt, status.HTTP_404_NOT_FOUND, {"detail": "Payment not found"})
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Payment not found")
 
-        success = await service.refund_payment(client_id, refund_data.job_id, payment_id, refund_data.reason)
+        success = await service.refund_payment(
+            client_id, refund_data.job_id, payment_id, refund_data.reason, is_admin=is_admin
+        )
 
         if not success:
             await record_rejection(key, attempt, status.HTTP_400_BAD_REQUEST, {"detail": "Failed to refund payment"})

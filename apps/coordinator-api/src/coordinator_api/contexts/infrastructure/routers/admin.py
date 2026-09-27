@@ -325,7 +325,7 @@ async def resolve_dispute(
         )
     payment_service = PaymentService(session)
     if req.outcome == "refund":
-        settled = await payment_service.refund_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
+        settled = await payment_service.refund_payment(job.client_id, job.id, job.payment_id, reason=req.reason, is_admin=True)
         resolved_status = "refunded"
     else:
         settled = await payment_service.release_payment(job.client_id, job.id, job.payment_id, reason=req.reason)
@@ -414,7 +414,7 @@ async def auto_adjudicate_disputes(
         if evidence["match"] is False:
             # Mismatch: auto-refund + slash
             reason = f"Auto-adjudicated: spot-check mismatch (original={evidence['original_output_hash']}, spot={evidence['spot_output_hash']})"
-            settled = await payment_service.refund_payment(job.client_id, job.id, payment.id, reason=reason)
+            settled = await payment_service.refund_payment(job.client_id, job.id, payment.id, reason=reason, is_admin=True)
             if not settled:
                 skipped.append({"payment_id": payment.id, "job_id": job.id, "reason": "refund did not settle on-chain"})
                 continue

@@ -5552,13 +5552,6 @@
           ]
         },
         {
-          "public": "/api/v2/coordinator/v1/reputation/job-completion",
-          "upstream": "/v1/reputation/job-completion",
-          "methods": [
-            "POST"
-          ]
-        },
-        {
           "public": "/api/v2/coordinator/v1/reputation/leaderboard",
           "upstream": "/v1/reputation/leaderboard",
           "methods": [
