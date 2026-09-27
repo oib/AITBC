@@ -488,3 +488,41 @@ would break runs from a fleet node.
 Takeaway: mesh removes hub as a gossip single point of failure, as designed;
 block production remains hub-dependent — a separate availability axis if ever
 worth addressing.
+
+
+### 8aeacd2fd fix(consensus): four-validator production restored — CORRECTS the earlier hub-down entry
+
+The earlier "hub-down" entry's conclusion was wrong: the PoA layer **does**
+rotate proposers (`MultiValidatorPoA`, validated live 2026-09-03). The stall
+was a config regression: since the Sep 9–13 env consolidation the followers
+ran `ENABLE_BLOCK_PRODUCTION=false` with `VALIDATOR_KEYS={}`, while hub held
+all four validator keys and signed every block in every validator's name —
+metadata rotated, production didn't. For ~18 days one host's key compromise
+would have controlled the chain, and nothing caught it because receivers never
+check who signed (PBFT off, `validate_block` has no production callers).
+
+Restored with single-holder sequencing: each validator now holds exactly its
+own key (hub `0x02B8`, hub1 `0x9Ea1`, node1 `0x241D`, node2 `0x4364`), hub's
+extra maps removed (rpc holds none), `PROPOSER_ID` corrected per host,
+`ENABLE_BLOCK_PRODUCTION=true` re-armed on hub1/node1/node2, and
+`CONSENSUS_PROPOSER_ROUND_SECONDS` unset so the window derives to 120 s (it
+had been set to 60 = the heartbeat, which would have made every block land in
+a foreign round once keys were split).
+
+Re-tested with **both** hub units down: hub1 produced 25558 within 7 s —
+failover works again. Anyone auditing "four independent validators" for the
+Sep 13 – Sep 27 window should know they weren't.
+
+**New defect found by the test:** a node that restarts on a stale head forks
+instead of catching up — hub proposed competing blocks 25558–60 (its sync
+source is itself, so the sync gate never trips; imports reject gaps;
+`_resolve_fork` detects but never reorgs), and node0 pulled the fork through
+hub's rpc before it was stopped. Repaired manually (fork rows deleted — all
+empty heartbeats — then `sync_cli` bulk pull from node1). AGENTS.md documents
+the workaround; a code fix is a separate task.
+
+`fleet-config-check.sh` now asserts the running backend is `mesh` everywhere
+with complete self-free peer lists, and a new validator section enforces:
+exactly one own-derived key per validator present in `VALIDATOR_SET`, no
+address held by two hosts, production on for validators and off for node0, and
+no explicit round window. The Sep 9–13 regression would now fail the check.
