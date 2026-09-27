@@ -249,3 +249,23 @@ See the operator implementation plan and live reset checklist. After code upgrad
   hub 24803) — and node0 imported all 284 post-activation blocks through the
   `blocks-range` path with zero stamps != 8. Fleet hash + state_root
   identical at 24806; zero import/state-root rejections in either journal.
+
+### v8 follow-up: recorded stamp becomes advisory (2026-09-27)
+
+- `get_block_version` now always returns the height-derived version at/above
+  `STATE_TRANSITION_V8_HEIGHT`; the recorded stamp is logged + counted on
+  mismatch (`block_version_stamp_mismatch_total`) — never obeyed, never
+  rejected. Below 24800 the stamp still governs, preserving pre-v8 replay.
+- The import-time gate from `dfda8ae` and `validate_recorded_version` are
+  removed: `block_metadata` is covered by neither the block hash nor the
+  proposer signature, so trusting it let any relay pick the validation
+  rules — the advisory model removes the dependency on the unauthenticated
+  field entirely rather than only rejecting on disagreement.
+- No activation height needed: honest blocks behave identically under both
+  models (their stamps already match the height-derived version). During the
+  rollout window, old nodes would still reject a stamp-tampered block that
+  new nodes tolerate — a liveness asymmetry on tampered input only; the
+  fleet restarted together (`aitbc-blockchain-node` + `aitbc-blockchain-rpc`
+  on all five at `f7912b87`).
+- Verified: fleet converged at 25105 with stamped `8` continuing; zero
+  stamp-mismatch warnings in either journal on all five nodes.
