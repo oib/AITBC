@@ -750,6 +750,14 @@ class ChainSettings(BaseSettings):
     # (propose anyway, metric recorded) rather than halting the chain.
     proposal_freshness_check_enabled: bool = True
     proposal_freshness_peer_timeout_seconds: float = 2.0
+    # A cached freshness verdict is only valid this long — far below the round
+    # window, so a "fresh" verdict can never survive into a later round after a
+    # network blip. UNVERIFIED results are never cached at all.
+    proposal_freshness_cache_ttl_seconds: float = 5.0
+    # An ahead peer whose bulk pull finishes without moving our head is dropped
+    # from the ahead check for this long (~10 round windows): its taller fork
+    # would otherwise silence us forever. Hash votes are unaffected.
+    proposal_freshness_peer_quarantine_seconds: float = 600.0
     consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
     consensus_slashing_enabled: bool = True  # C2 — enable slashing
     consensus_slashing_amount: Decimal = Decimal("100.0")  # stake to slash per offense

@@ -11,17 +11,26 @@ Before a proposal is assembled, this gate fetches ``/rpc/head`` from every
 peer in ``GOSSIP_MESH_PEER_URLS`` (the ``wss://…/rpc/gossip/ws`` URLs map to
 their ``https://`` origin) in parallel:
 
-- any peer ahead  → STALE: skip this proposal and kick a bulk pull from that
+- any peer ahead → STALE: skip this proposal and kick a bulk pull from that
   peer directly, bypassing the configured sync source;
-- same height but a different hash → HASH_MISMATCH: skip; resolving the fork
-  is the deterministic fork-choice task, and proposing on top deepens it;
+- same height: the local hash votes alongside the peers'. A rival hash only
+  blocks the proposal when it has STRICTLY more support than ours (a
+  hash-diverged node then holds while the majority keeps producing); a tie
+  proceeds and bumps ``proposal_freshness_hash_tie_total`` — holding on a tie
+  would let one bad peer halt the whole chain;
 - all peers unreachable → UNVERIFIED: propose anyway and bump
   ``proposal_freshness_unverified_total`` — blocking would trade liveness for
   safety on every network blip, and a partition is visible via the metric;
 - otherwise → FRESH.
 
-The result is cached per local head (height, hash): heads are monotonic, so a
-single-slot cache suffices and rapid proposer ticks do not refetch.
+Two failure modes of the naive version are handled by the caller (PoA side):
+an ahead peer whose pull never moves the local head — a taller fork the
+importer rejects, or a peer overstating its height — is quarantined and
+excluded from the ahead check for a while; when every ahead peer is
+quarantined the verdict is QUARANTINED and the proposal proceeds with a
+``proposal_freshness_peer_quarantined_total`` bump. And verdicts are cached
+per local head only for a few seconds — UNVERIFIED is never cached — so a
+network blip cannot carry a stale "fresh" verdict into a later round.
 """
 
 from __future__ import annotations
@@ -43,7 +52,9 @@ logger = get_logger(__name__)
 class FreshnessVerdict(Enum):
     FRESH = "fresh"
     STALE = "stale"
-    HASH_MISMATCH = "hash_mismatch"
+    HASH_MISMATCH = "hash_mismatch"  # a rival hash has strictly more support — hold
+    HASH_TIE = "hash_tie"  # rival hash support ties ours — proceed, fork choice settles it
+    QUARANTINED = "quarantined"  # every ahead peer was quarantined — proceed
     UNVERIFIED = "unverified"
 
 
@@ -53,6 +64,8 @@ class FreshnessResult:
     peer_url: str | None = None
     peer_height: int | None = None
     peer_hash: str | None = None
+    our_votes: int = 0
+    rival_votes: int = 0
 
 
 def peer_base_url(gossip_url: str) -> str | None:
@@ -98,6 +111,7 @@ class ProposalFreshnessChecker:
         return list(self._peer_urls)
 
     async def _fetch_head(self, base_url: str) -> dict[str, Any] | None:
+        """Fetch a peer's head; a malformed reply counts as unreachable."""
         try:
             resp = await SharedHttpClient.get(
                 f"{base_url}/rpc/head",
@@ -106,14 +120,30 @@ class ProposalFreshnessChecker:
             )
             resp.raise_for_status()
             head = resp.json()
-            if not isinstance(head, dict) or "height" not in head:
-                return None
-            return head
         except Exception:
             return None
+        if not isinstance(head, dict):
+            return None
+        height, block_hash = head.get("height"), head.get("hash")
+        if not isinstance(height, int) or isinstance(height, bool):
+            return None
+        if not isinstance(block_hash, str):
+            return None
+        return head
 
-    async def check(self, local_height: int, local_hash: str) -> FreshnessResult:
-        """Compare the local head against every configured peer, in parallel."""
+    async def check(
+        self,
+        local_height: int,
+        local_hash: str,
+        *,
+        quarantined: set[str] | None = None,
+    ) -> FreshnessResult:
+        """Compare the local head against every configured peer, in parallel.
+
+        ``quarantined`` peers still answer and still vote on hashes — they are
+        only excluded from the ahead check, where their taller fork would
+        otherwise silence us forever.
+        """
         bases = []
         for u in self._peer_urls:
             if u.startswith(("http://", "https://")):
@@ -122,6 +152,7 @@ class ProposalFreshnessChecker:
                 base = peer_base_url(u)
                 if base:
                     bases.append(base)
+        bases = list(dict.fromkeys(bases))
         if not bases:
             return FreshnessResult(FreshnessVerdict.FRESH)
 
@@ -129,28 +160,77 @@ class ProposalFreshnessChecker:
             *(self._fetch(b) for b in bases),
             return_exceptions=True,
         )
-        reachable = {base: head for base, head in zip(bases, heads, strict=True) if isinstance(head, dict)}
+        reachable = {
+            base: head
+            for base, head in zip(bases, heads, strict=True)
+            if isinstance(head, dict)
+            and isinstance(head.get("height"), int)
+            and not isinstance(head.get("height"), bool)
+            and isinstance(head.get("hash"), str)
+        }
         if not reachable:
             return FreshnessResult(FreshnessVerdict.UNVERIFIED)
 
-        ahead = {base: head for base, head in reachable.items() if int(head.get("height") or -1) > local_height}
+        skip = quarantined or set()
+        ahead_all = {base: head for base, head in reachable.items() if head["height"] > local_height}
+        ahead = {base: head for base, head in ahead_all.items() if base not in skip}
         if ahead:
-            base, head = max(ahead.items(), key=lambda kv: int(kv[1].get("height") or -1))
+            base, head = max(ahead.items(), key=lambda kv: kv[1]["height"])
             return FreshnessResult(
                 FreshnessVerdict.STALE,
                 peer_url=base,
-                peer_height=int(head.get("height") or -1),
+                peer_height=head["height"],
                 peer_hash=head.get("hash"),
             )
 
+        # Nobody ahead (that we still trust): vote on the hash at our height.
+        our_votes = 1  # we vote for our own head
+        rivals: dict[str, int] = {}
+        rival_peer: str | None = None
         for base, head in reachable.items():
-            peer_height = int(head.get("height") or -1)
-            peer_hash = head.get("hash") or ""
-            if peer_height == local_height and peer_hash and peer_hash != local_hash:
+            if head["height"] != local_height:
+                continue
+            if head["hash"] == local_hash:
+                our_votes += 1
+            else:
+                rivals[head["hash"]] = rivals.get(head["hash"], 0) + 1
+                rival_peer = base
+        if rivals:
+            rival_hash, rival_votes = max(rivals.items(), key=lambda kv: kv[1])
+            if rival_votes > our_votes:
                 return FreshnessResult(
                     FreshnessVerdict.HASH_MISMATCH,
-                    peer_url=base,
-                    peer_height=peer_height,
-                    peer_hash=peer_hash,
+                    peer_url=rival_peer,
+                    peer_height=local_height,
+                    peer_hash=rival_hash,
+                    our_votes=our_votes,
+                    rival_votes=rival_votes,
                 )
+            if rival_votes == our_votes:
+                return FreshnessResult(
+                    FreshnessVerdict.HASH_TIE,
+                    peer_url=rival_peer,
+                    peer_height=local_height,
+                    peer_hash=rival_hash,
+                    our_votes=our_votes,
+                    rival_votes=rival_votes,
+                )
+            # Rival in the minority: proceed, but keep the observation in the
+            # result so the caller can log that a diverged peer exists.
+            return FreshnessResult(
+                FreshnessVerdict.FRESH,
+                peer_url=rival_peer,
+                peer_height=local_height,
+                peer_hash=rival_hash,
+                our_votes=our_votes,
+                rival_votes=rival_votes,
+            )
+
+        if ahead_all:
+            tallest = max(ahead_all.items(), key=lambda kv: kv[1]["height"])
+            return FreshnessResult(
+                FreshnessVerdict.QUARANTINED,
+                peer_url=tallest[0],
+                peer_height=tallest[1]["height"],
+            )
         return FreshnessResult(FreshnessVerdict.FRESH)
