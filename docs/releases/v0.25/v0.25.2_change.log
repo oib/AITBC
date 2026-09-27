@@ -423,3 +423,10 @@ The hub site hardcoded its public domain and chain id in `sitemap.xml`, `robots.
 - Also fixed: `follower-api-key-announcement.html` pointed at `hub.example.net` instead of the real hub domain.
 
 Deployed on hub: `website.env` carries the canonical values, render is a no-op keeping the checkout clean, and the footer now shows the configured contact.
+
+
+### 0adca3b16 fix(fleet-check): host identity, full-reach gate, no abort on one ssh failure; faucet `=inf` guard
+
+- `fleet-config-check.sh` accepted the first ssh candidate that answered as the host. From a fleet node `hub.<domain>` resolves to the `ns2` edge box, which answers ssh — hub's env would have been read from the jump host. Candidates now must match `hostname -s`; a wrong identity prints a NOTE and is ignored (verified from node2: `hub.aitbc.bubuit.net answers as 'ns2', not 'hub' — ignored`).
+- Env sections were gated on "any host answers"; now they run only when every host verified, otherwise `NOTE: no verified ssh reach to: <hosts> — env sections SKIPPED` and the convergence section still runs to a clean exit. The `ENVFILES` ssh assignment no longer aborts the run under `set -e`. From node2 the script now completes (env skipped, convergence `No drift`), matching the AGENTS.md "skipped by design" note.
+- `coin_request_policy._env_ait` also catches `OverflowError`: `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=inf` was a 500 on every `/register`; it now falls back to the default with a warning. Deployed to hub/hub1.
