@@ -582,3 +582,36 @@ order is the **address-sorted** active set `[hub, node1, node2, hub1]`, not
 next validator — the intended price of the heartbeat-aligned round from the
 C-2 exercise — so the chain stays live with any single validator up, but a
 partition leaves both sides producing, which is why fork choice is next.
+
+### b1c649ce9 feat(consensus): freshness gate hardening — vote, quarantine, cache TTL
+
+Review of `454dcfa7a` found three ways the first version could either halt
+the fleet or re-open the fork it closed; all fixed:
+
+- **Hash votes, not vetoes.** One divergent peer previously produced
+  HASH_MISMATCH for everyone → nobody proposed → chain halt. Now the local
+  hash votes alongside peers': a rival hash only holds a proposal when it
+  has STRICTLY more support (forked minority holds, majority proceeds); a
+  tie proceeds and bumps `proposal_freshness_hash_tie_total` — holding on a
+  tie would be the same halt.
+- **Stale pulls retry; useless peers quarantine.** A cached STALE verdict
+  previously lasted forever if the pull did not move the head (taller fork
+  the importer rejects, peer overstating). Verdicts now expire after
+  `PROPOSAL_FRESHNESS_CACHE_TTL_SECONDS` (5 s, ≪ the 60 s round window), the
+  pull is re-kicked on every fresh check (SyncManager dedupes), and the gate
+  records `peer → local height` at kick time: when `pull_in_flight` clears
+  and the head did not move, the peer is quarantined for
+  `PROPOSAL_FRESHNESS_PEER_QUARANTINE_SECONDS` (600 s ≈ 10 windows) and
+  excluded from the ahead check only — it still votes on hashes. Every ahead
+  peer quarantined → proceed + `proposal_freshness_peer_quarantined_total`
+  (markings counted by `proposal_freshness_peer_quarantine_marked_total`).
+- **UNVERIFIED is never cached.** A network blip previously cached "OK" per
+  local head, so a stale validator could propose right when connectivity
+  returned. UNVERIFIED is re-checked every tick; FRESH/STALE/HASH_MISMATCH
+  expire with the TTL so a verdict cannot survive into a later round.
+- **Malformed peer heads count as unreachable.** `/rpc/head` replies with
+  non-int `height` or non-str `hash` now return None inside `_fetch_head`
+  instead of raising into the proposer loop. Injected results are
+  re-validated in `check()` too.
+
+28 freshness tests + 136 consensus tests pass; ruff/mypy clean.
