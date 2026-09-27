@@ -218,12 +218,18 @@ class PoAProposer:
         self._validator_keys: dict[str, str] = {}
         self._remote_attestation: RemoteAttestationService | None = None
         # Pre-proposal freshness gate (2026-09-27 stale-head fork fix). The
-        # verdict is cached per local head — heights are monotonic, so a
-        # single slot suffices. _freshness_fetch exists so tests can inject a
-        # stub instead of hitting HTTP.
+        # verdict is cached per local head for a few seconds — never carried
+        # into a later round. _freshness_fetch/_monotonic exist so tests can
+        # inject a stub instead of hitting HTTP or real time.
         self._freshness_fetch: Any = None
+        self._monotonic: Callable[[], float] = time.monotonic
         self._freshness_cache_key: tuple[int, str] | None = None
         self._freshness_cache_ok: bool = True
+        self._freshness_cache_expires: float = 0.0
+        # peer base -> local height when we kicked a pull from it
+        self._freshness_pulls: dict[str, int] = {}
+        # peer base -> monotonic deadline it is quarantined from the ahead check
+        self._freshness_quarantined: dict[str, float] = {}
         if self._multi_validator is not None:
             self._load_validator_set()
             self._load_validator_keys()
@@ -798,8 +804,9 @@ class PoAProposer:
         fleet. This gate asks the gossip peers directly:
 
         - peer ahead      → bulk-pull from that peer and skip this proposal;
-        - same height, different hash → skip and log (fork resolution is the
-          deterministic fork-choice task);
+        - same height, rival hash strictly outvoting ours → skip and log (a
+          forked minority holds while the majority proceeds; a tie proceeds
+          and is counted — deterministic fork choice settles it);
         - all unreachable → propose anyway and bump
           ``proposal_freshness_unverified_total`` — blocking would trade
           liveness for safety on every blip;
@@ -808,7 +815,10 @@ class PoAProposer:
         Never queries the network when production is disabled — the proposer
         loop does not run then, and the production-off rejoin runbook depends
         on the node not touching peers during catch-up. Verdicts are cached
-        per local head so rapid ticks do not refetch.
+        per local head for ``proposal_freshness_cache_ttl_seconds`` only, and
+        UNVERIFIED is never cached: the stale case is exactly the one where
+        the local head doesn't move while peers advance, so an unbounded
+        cache would re-open the fork this gate exists to close.
         """
         if not getattr(settings, "enable_block_production", True):
             return True
@@ -818,8 +828,12 @@ class PoAProposer:
         if not peer_urls:
             return True
         key = (head.height if head is not None else -1, head.hash if head is not None and head.hash else "")
-        if key == self._freshness_cache_key:
+        now = self._monotonic()
+        if self._freshness_cache_key == key and now < self._freshness_cache_expires:
             return self._freshness_cache_ok
+
+        self._reconcile_freshness_pulls(key[0], now)
+        quarantined = {p for p, until in self._freshness_quarantined.items() if until > now}
 
         from .proposal_freshness import FreshnessVerdict, ProposalFreshnessChecker
 
@@ -829,7 +843,7 @@ class PoAProposer:
             fetch=self._freshness_fetch,
             timeout=getattr(settings, "proposal_freshness_peer_timeout_seconds", 2.0),
         )
-        result = await checker.check(key[0], key[1])
+        result = await checker.check(key[0], key[1], quarantined=quarantined)
 
         ok = True
         if result.verdict is FreshnessVerdict.STALE:
@@ -843,26 +857,91 @@ class PoAProposer:
             )
             if self._sync_manager is not None and result.peer_url:
                 try:
-                    self._sync_manager.pull_from_peer(self._config.chain_id, result.peer_url)
+                    # Recorded only when the pull actually starts — a deduped
+                    # call means someone else's pull is in flight and this
+                    # peer must not take the blame for it.
+                    if self._sync_manager.pull_from_peer(self._config.chain_id, result.peer_url):
+                        self._freshness_pulls[result.peer_url] = key[0]
                 except Exception as exc:
                     self._logger.warning("[PROPOSE] freshness pull from %s failed to start: %s", result.peer_url, exc)
         elif result.verdict is FreshnessVerdict.HASH_MISMATCH:
             ok = False
             metrics_registry.increment("proposal_freshness_hash_mismatch_total")
             self._logger.warning(
-                "[PROPOSE] Peer %s has a different block at height %s (theirs %s, ours %s) — not proposing on a forked head",
+                "[PROPOSE] Peer hash %s outvotes ours at height %s (%s vs %s votes, e.g. %s) — not proposing on the minority side",
+                result.peer_hash,
+                result.peer_height,
+                result.rival_votes,
+                result.our_votes,
+                result.peer_url,
+            )
+        elif result.verdict is FreshnessVerdict.HASH_TIE:
+            metrics_registry.increment("proposal_freshness_hash_tie_total")
+            self._logger.warning(
+                "[PROPOSE] Hash vote tied at height %s (%s vs %s, rival %s) — proceeding; fork choice will settle it",
+                result.peer_height,
+                result.rival_votes,
+                result.our_votes,
+                result.peer_hash,
+            )
+        elif result.verdict is FreshnessVerdict.QUARANTINED:
+            metrics_registry.increment("proposal_freshness_peer_quarantined_total")
+            self._logger.warning(
+                "[PROPOSE] Every ahead peer is quarantined (tallest %s at %s) — proposing on local head",
                 result.peer_url,
                 result.peer_height,
-                result.peer_hash,
-                key[1],
             )
         elif result.verdict is FreshnessVerdict.UNVERIFIED:
             metrics_registry.increment("proposal_freshness_unverified_total")
             self._logger.info("[PROPOSE] No mesh peer answered /rpc/head — proposing unverified")
+        elif result.rival_votes:
+            self._logger.info(
+                "[PROPOSE] Peer %s reports a different hash at our height but is outvoted (%s vs %s) — proceeding",
+                result.peer_url,
+                result.rival_votes,
+                result.our_votes,
+            )
 
-        self._freshness_cache_key = key
-        self._freshness_cache_ok = ok
+        if result.verdict is not FreshnessVerdict.UNVERIFIED:
+            ttl = getattr(settings, "proposal_freshness_cache_ttl_seconds", 5.0)
+            self._freshness_cache_key = key
+            self._freshness_cache_ok = ok
+            self._freshness_cache_expires = now + ttl
         return ok
+
+    def _reconcile_freshness_pulls(self, local_height: int, now: float) -> None:
+        """Quarantine ahead peers whose pull finished without moving our head.
+
+        A peer can be ahead yet useless — on a taller fork the importer
+        rejects, or overstating its height. Recording (peer -> local height
+        when its pull was kicked) lets the next check tell "pull still
+        running" from "pull ran and we are still stuck"; the latter earns a
+        quarantine window so other peers get a turn, and eventually a fully
+        quarantined ahead set stops blocking proposals entirely.
+        """
+        if not self._freshness_pulls:
+            return
+        in_flight = False
+        if self._sync_manager is not None:
+            try:
+                in_flight = bool(self._sync_manager.pull_in_flight(self._config.chain_id))
+            except Exception:
+                in_flight = True  # cannot tell — do not blame anyone yet
+        if in_flight:
+            return
+        quarantine_s = getattr(settings, "proposal_freshness_peer_quarantine_seconds", 600.0)
+        for peer, pulled_at_height in list(self._freshness_pulls.items()):
+            del self._freshness_pulls[peer]
+            if local_height > pulled_at_height:
+                continue  # head moved past the height the pull was kicked at — it helped
+            self._freshness_quarantined[peer] = now + quarantine_s
+            metrics_registry.increment("proposal_freshness_peer_quarantine_marked_total")
+            self._logger.warning(
+                "[PROPOSE] Pull from %s finished but head still at %s — quarantining peer for %ss",
+                peer,
+                local_height,
+                quarantine_s,
+            )
 
     def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
         """Fetch the chain head and validate proposal freshness.
