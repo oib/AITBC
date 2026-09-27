@@ -175,6 +175,15 @@ class BulkSyncMixin(SyncBase):
             # so compare the hash we hold at the peer's head height (V23-90).
             divergence = self.detect_divergence(source_url, remote_height, remote_head.get("hash", ""))
             if divergence is not None:
+                # Equal-height conflict: run the resolver so a full
+                # proposer/length tie defers explicitly (and a peer branch
+                # heavier by proposer count reorgs now) instead of only
+                # reporting. remote < local keeps the old report-only path —
+                # a behind peer never justifies touching our chain.
+                if remote_height == local_height and not _reorg_attempted:
+                    if await self._resolve_fork_with_peer(source_url, local_height, remote_height):
+                        self._last_bulk_sync_time = 0
+                        return await self.bulk_import_from(source_url, _reorg_attempted=True)
                 report_divergence(self._chain_id, divergence)
                 return 0
             clear_divergence(self._chain_id)

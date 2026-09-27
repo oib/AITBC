@@ -596,7 +596,7 @@ class SyncManager:
             return poll
 
         try:
-            _, remote_height = await state.chain_sync.peer_head_divergence(source_url)
+            head_divergence, remote_height = await state.chain_sync.peer_head_divergence(source_url)
             state.last_remote_height = remote_height
         except Exception as e:
             logger.warning("Failed to get remote head for %s: %s", chain_id, e)
@@ -606,7 +606,17 @@ class SyncManager:
         state.last_local_height = state.chain_sync.get_local_height()
         gap = max(0, state.last_remote_height - state.last_local_height)
 
-        if gap > getattr(settings, "auto_sync_threshold", 10) or state.mode == SyncMode.CATCH_UP:
+        # Equal heights with different head hashes: a symmetric fork (e.g. the
+        # isolated proposer rejoining). The bulk path's fork resolver records
+        # the divergence and defers a full tie one round before reorging, so
+        # run it rather than sitting SYNCED on a divergent head.
+        diverged_at_head = head_divergence is not None and remote_height == state.last_local_height
+
+        if (
+            gap > getattr(settings, "auto_sync_threshold", 10)
+            or state.mode == SyncMode.CATCH_UP
+            or diverged_at_head
+        ):
             state.mode = SyncMode.CATCH_UP
             state.bulk_task = create_task_with_logging(
                 self._bulk_pull(chain_id, source_url),
