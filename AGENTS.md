@@ -521,6 +521,15 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   venv/bin/python -m ruff check apps/market/src/market_service/services/market_service.py apps/market/src/market_service/main.py apps/market/src/market_service/domain/market.py cli/aitbc_cli/commands/market/host.py apps/market/tests/test_market_job.py
   ```
 
+## Agent-coordinator faucet (coin requests)
+
+- `/api/v1/agent/coin-requests/{register,execute}` are reachable with the *published* `FOLLOWER_API_KEY`, so the key is not a security boundary. Protection is policy: per-identity first grant, the 3 AIT ceiling, rolling aggregate budgets (`COIN_REQUEST_AUTO_BUDGET_PER_HOUR`/`_PER_DAY`, defaults 24/60 AIT), and per-IP route limits (30/min register, 20/min execute) keyed on `X-Real-IP`.
+- The per-IP key is only trustworthy because both TLS edges (`ns2` for hub, `ns3` for hub1) set `X-Real-IP $remote_addr` and each hub's nginx only trusts its own incus bridge in `set_real_ip_from`. Do not widen those ranges or pass the header through at the edge.
+- **hub and hub1 each run an agent-coordinator with their own `coin_requests` DB and both hold the genesis key**, so two live faucets would double the fleet budget. hub1's `/etc/aitbc/aitbc-agent-coordinator.env` therefore sets `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0` — every registration there parks at manual review; `/execute` still pays operator-approved rows. Keep that if hub1 is ever re-promoted alongside hub.
+- Alert on `coin_request_auto_budget_trips_total` at `/v1/metrics` (agent-coordinator, `127.0.0.1:8107` behind nginx). Sustained trips are a drain attempt or a fleet rollout — inspect the sender/wallet mix before approving pending rows.
+- Do not leave live probe rows in `hermes_coin_requests.db`: unexecuted probes have `transaction_hash IS NULL` and can be deleted by id; anything executed stays and gets `approved_by='probe'`.
+- Focused checks (dev node, needs the service `PYTHONPATH`): `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/agent-coordinator/src:/opt/aitbc/apps/coordinator-api/src venv/bin/python -m pytest -q apps/agent-coordinator/tests/`.
+
 ## Trading authentication
 
 - Trading's protected routers require `X-Trading-Api-Key` matching `TRADING_API_KEY`; `X-API-Key` and `BLOCKCHAIN_RPC_API_KEY` are a separate blockchain RPC credential, not substitutes.
