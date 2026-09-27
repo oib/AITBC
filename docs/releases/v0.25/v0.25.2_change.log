@@ -380,3 +380,13 @@ systemctl show; all three API nodes daemon-reloaded.
 Generated with [Devin](https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+
+
+### f4c54617e security(agent-coordinator): bound the public faucet with a global budget and per-IP limits
+
+The published `FOLLOWER_API_KEY` legitimately reaches `POST /api/v1/agent/coin-requests/register` and `/execute`, and automatic approval only required a novel `(sender, wallet_address)` pair — both caller-supplied strings that cost nothing to mint. A loop minting fresh pairs collected the 3 AIT ceiling every request; the only bound was the genesis balance.
+
+- `coin_request_policy` now enforces rolling aggregate budgets over `approval_mode='automatic'` rows: `COIN_REQUEST_AUTO_BUDGET_PER_HOUR` (default 24 AIT) and `COIN_REQUEST_AUTO_BUDGET_PER_DAY` (default 60 AIT). Over-cap requests park at `PENDING` for manual review and log a warning for operators; `0` parks everything. The check is an advisory bound — overshoot is bounded by concurrent callers, which the new per-IP limit keeps small.
+- `/register` and `/execute` carry per-IP route buckets (30/min, 20/min) via the shared `rate_limit` decorator, keyed on the real client IP (`X-Real-IP`), on top of the service-wide 100/min middleware.
+- exchange: `_require_api_key` now uses `hmac.compare_digest` instead of `!=`.
+- Tests: budget window/manual-mode/prior-grant interplay, 429s on both routes, and a conftest bucket reset so the process-global limiters cannot leak between files.
