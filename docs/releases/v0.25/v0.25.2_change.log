@@ -325,3 +325,28 @@ public reads unchanged.
 Generated with [Devin](https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+
+### coordinator-api refund/feedback gap closure (164c70120)
+
+Follow-up to 81028f594 closing the two residual holes in the same paths.
+
+- **Refunds cancel the job.** `_mark_refunded` now moves a QUEUED/RUNNING
+  job to CANCELED in the same commit as the payment/escrow updates.
+  Previously a client could refund mid-flight and the assigned miner's
+  later submit_result still passed the assignment/running checks —
+  storing a result nobody paid for while the client kept the output.
+  The canceled job answers that submission 409.
+- **Feedback is anchored to one completed job, once.** FeedbackRequest
+  gains job_id (required for non-admin callers); the route verifies the
+  job is completed between the caller and the agent, and migration
+  c3a91f7e5b02 adds a unique index on (reviewer_id, job_id) so one job
+  underwrites exactly one review — repeat attempts get 409. Previously a
+  single completed job allowed unlimited ratings, inflating or sinking
+  trust_score (which dispatch ranks miners by) at will.
+
+Deployed with `alembic upgrade head` on hub/hub1/node2 before service
+restart; all three healthy, journals clean.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
