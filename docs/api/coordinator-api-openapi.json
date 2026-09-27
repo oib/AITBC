@@ -27829,7 +27829,7 @@
           "reputation"
         ],
         "summary": "Add Community Feedback",
-        "description": "Add community feedback for an agent.\n\nThe reviewer is always the authenticated caller \u2014 never the request body \u2014\nand a non-admin caller must have a completed job with this agent, so a\nrating is anchored to delivered work rather than free-floating.",
+        "description": "Add community feedback for an agent.\n\nThe reviewer is always the authenticated caller \u2014 never the request body \u2014\nand a non-admin caller must name a completed job they paid this agent for,\nso a rating is anchored to delivered work rather than free-floating \u2014 and\nthe unique (reviewer, job_id) constraint makes one job good for exactly one\nreview.",
         "operationId": "add_community_feedback_v1_reputation_feedback__agent_id__post",
         "parameters": [
           {
@@ -27891,6 +27891,16 @@
           },
           "403": {
             "description": "feedback requires a client account / feedback requires a completed job between you and this agent / Role required",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorResponse"
+                }
+              }
+            }
+          },
+          "409": {
+            "description": "you have already reviewed this job",
             "content": {
               "application/json": {
                 "schema": {
@@ -36543,6 +36553,18 @@
       },
       "FeedbackRequest": {
         "properties": {
+          "job_id": {
+            "anyOf": [
+              {
+                "type": "string"
+              },
+              {
+                "type": "null"
+              }
+            ],
+            "title": "Job Id",
+            "description": "Completed job this review is anchored to (required for non-admin callers)"
+          },
           "ratings": {
             "additionalProperties": {
               "type": "number"

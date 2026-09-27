@@ -9,6 +9,7 @@ from enum import StrEnum
 from typing import TYPE_CHECKING, Any
 from uuid import uuid4
 
+from sqlalchemy import UniqueConstraint
 from sqlmodel import JSON, Column, Field, SQLModel
 
 # The agent_id is intentionally a free-form identifier (miner id, agent workflow id,
@@ -240,7 +241,14 @@ class CommunityFeedback(SQLModel, table=True):
     """Community feedback and ratings for agents"""
 
     __tablename__ = "community_feedback"
-    __table_args__ = {"extend_existing": True}
+    __table_args__ = (
+        # One review per (reviewer, job): feedback must be anchored to a
+        # completed job, and this constraint stops a single job underwriting
+        # unlimited ratings. Rows with a NULL job_id (legacy, admin) never
+        # collide — NULLs are distinct in unique indexes.
+        UniqueConstraint("reviewer_id", "job_id", name="uq_community_feedback_reviewer_job"),
+        {"extend_existing": True},
+    )
 
     id: str = Field(default_factory=lambda: f"feedback_{uuid4().hex[:8]}", primary_key=True)
     agent_id: str = Field(index=True)
@@ -248,6 +256,8 @@ class CommunityFeedback(SQLModel, table=True):
     # Feedback details
     reviewer_id: str = Field(index=True)
     reviewer_type: str = Field(default="client")  # client, provider, peer
+    # The completed job this review is anchored to (reviewer + job unique above).
+    job_id: str | None = Field(default=None, index=True)
 
     # Ratings
     overall_rating: float = Field(ge=1.0, le=5.0)
