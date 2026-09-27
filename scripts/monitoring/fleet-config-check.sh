@@ -98,6 +98,22 @@ fi
 ENVFILE_CMD='systemctl show -p EnvironmentFiles --value aitbc-blockchain-node 2>/dev/null \
     | tr " " "\n" | sed "s/ (ignore_errors=.*)//; s/^-//" | grep "^/"'
 ENVFILE_FALLBACK="/etc/aitbc/blockchain.env /etc/aitbc/node.env"
+
+# Read VAR from the RUNNING process environment of UNIT on a host. Env files
+# say what the next start will get; /proc/<MainPID>/environ is what is running
+# (and paying out) now — comparing the two catches "edited but not restarted".
+# Prints the value (empty when unset in the running env), NOTRUNNING, or
+# UNREACHABLE. Pass " -i" as $4 when the service reads the var
+# case-insensitively (blockchain-node's pydantic settings); agent-coordinator
+# uses os.getenv and needs exact case.
+running_env() {
+    ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$1]:-$1}" \
+        "pid=\$(systemctl show -p MainPID --value $2 2>/dev/null)
+         if [ -z \"\$pid\" ] || [ \"\$pid\" = 0 ]; then echo NOTRUNNING; exit 0; fi
+         if [ -r /proc/\$pid/environ ]; then tr '\0' '\n' < /proc/\$pid/environ; else sudo -n tr '\0' '\n' < /proc/\$pid/environ 2>/dev/null; fi | grep$4 \"^$3=\" | tail -1 | cut -d= -f2-" \
+        2>/dev/null || echo "UNREACHABLE"
+}
+
 declare -A ENVFILES=()
 if [ "$ssh_reach" -eq 1 ]; then
     for host in $HOSTS; do
@@ -152,13 +168,19 @@ for h in $HOSTS; do
     val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
         "echo \"${ENVFILES[$h]}\" | tr ' ' '\n' | while IFS= read -r f; do if [ -r \"\$f\" ]; then grep -h '^SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=' \"\$f\" 2>/dev/null; else sudo -n grep -h '^SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL=' \"\$f\" 2>/dev/null; fi; done | tail -1 | cut -d= -f2-" \
         2>/dev/null || echo "UNREACHABLE")
-    if [ -n "$val" ] && [ "$val" != "UNREACHABLE" ]; then
+    # pydantic reads this setting case-insensitively, hence grep -i.
+    run=$(running_env "$h" aitbc-blockchain-node SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL " -i")
+    fset=""; rset=""
+    [ -n "$val" ] && [ "$val" != "UNREACHABLE" ] && fset=1
+    [ -n "$run" ] && [ "$run" != "UNREACHABLE" ] && [ "$run" != "NOTRUNNING" ] && rset=1
+    if [ -n "$fset" ] || [ -n "$rset" ]; then
         skip_flagged=1
-        printf "  %-14s SET: %s <- signature validation disabled until then\n" "$h" "$val"
+        printf "  %-14s SET: file=%s running=%s <- signature validation disabled until then\n" \
+            "$h" "${val:-<unset>}" "${run:-<unset>}"
     fi
 done
 if [ "$skip_flagged" -eq 0 ]; then
-    echo "  SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL unset on all hosts"
+    echo "  SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL unset on all hosts (files and running processes)"
 fi
 
 echo "=== faucet budget check (exactly one live agent-coordinator faucet) ==="
@@ -188,8 +210,24 @@ for h in $HOSTS; do
         continue
     fi
     val=$(echo "$val" | tr -d '[:space:]')
-    printf "  %-14s COIN_REQUEST_AUTO_BUDGET_PER_HOUR=%s\n" "$h" "${val:-<unset>}"
-    case "$val" in
+    # The running process decides what actually pays out; the file decides
+    # what a restart will get. A mismatch is a pending flip — flag it.
+    run=$(running_env "$h" aitbc-agent-coordinator COIN_REQUEST_AUTO_BUDGET_PER_HOUR "")
+    if [ "$run" = "UNREACHABLE" ]; then
+        faucet_bad=1
+        printf "  %-14s UNREACHABLE (running env)\n" "$h"
+        continue
+    fi
+    printf "  %-14s file=%s running=%s\n" "$h" "${val:-<unset>}" "${run:-<unset>}"
+    if [ "$run" = "NOTRUNNING" ]; then
+        echo "  WARN: $h agent-coordinator unit exists but is not running"
+        continue
+    fi
+    if [ "${val:-<unset>}" != "${run:-<unset>}" ]; then
+        faucet_bad=1
+        echo "  WARN: $h agent-coordinator env edited but not restarted (file=${val:-<unset>} running=${run:-<unset>})"
+    fi
+    case "$run" in
         0|0.0) ;;
         *) live=$((live + 1)) ;;
     esac
