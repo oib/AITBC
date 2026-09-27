@@ -3,9 +3,18 @@ Description=AITBC Coordinator API
 After=network.target aitbc-blockchain-node.service
 Wants=aitbc-blockchain-node.service
 # Requires Redis for state management (training, agent, swarm routers) - add redis.service dependency when Redis is deployed
+# A failing ExecStartPre migration must give up, not retry forever: each start
+# takes ~15s (migration + RestartSec), so the default burst of 5/10s never trips
+# and the unit would loop indefinitely. 3 attempts in 10 minutes, then `failed`.
+StartLimitIntervalSec=600
+StartLimitBurst=3
 
 [Service]
 Type=simple
+# ExecStartPre runs alembic; a migration rewriting a large table can exceed the
+# 90s default. Postgres rolls the killed attempt back cleanly, SQLite may not —
+# give migrations real headroom.
+TimeoutStartSec=600
 User=aitbc
 Group=aitbc
 WorkingDirectory=/opt/aitbc/apps/coordinator-api/src
