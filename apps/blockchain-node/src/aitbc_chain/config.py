@@ -681,14 +681,17 @@ class ChainSettings(BaseSettings):
     # a lost env file must not re-open the overwrite rule.
     state_transition_v7_height: int = 24650
     # v8: stamped-version integrity. At or above this height a block's
-    # block_metadata.state_transition_version must equal the version the
-    # height derives (get_block_version_for_height); followers reject blocks
-    # that record a different version or record none. Below it the stamp
-    # stays proposer-controlled and trusted, which is also what makes the
-    # historical chain replay cleanly: the fleet audit showed every recorded
-    # stamp matches its height-derived version. Env-gated
-    # (STATE_TRANSITION_V8_HEIGHT), same rollout rule as v6/v7;
-    # fleet-config-check watches for drift. 0 disables.
+    # recorded block_metadata.state_transition_version becomes advisory —
+    # validation always uses the height-derived version, and a mismatched or
+    # missing stamp is logged + counted (block_version_stamp_mismatch_total)
+    # rather than obeyed or rejected. block_metadata is covered by neither
+    # the block hash nor the proposer signature, so trusting the stamp would
+    # let any relay pick the rules a block is validated under. Below this
+    # height the stamp stays proposer-controlled and trusted (pre-v8
+    # semantics); the fleet audit showed every recorded stamp matches its
+    # height-derived version, so no historical block is affected. Env-gated
+    # (STATE_TRANSITION_V8_HEIGHT); fleet-config-check watches for drift.
+    # 0 disables.
     state_transition_v8_height: int = 0
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
