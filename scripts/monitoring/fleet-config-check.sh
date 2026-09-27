@@ -110,6 +110,7 @@ drift=0
 shape_bad=0
 shadowed=0
 eff_drift=0
+faucet_bad=0
 if [ "$ssh_reach" -eq 0 ]; then
     echo "=== env sections skipped (no ssh reach) ==="
 else
@@ -149,6 +150,46 @@ for h in $HOSTS; do
 done
 if [ "$skip_flagged" -eq 0 ]; then
     echo "  SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL unset on all hosts"
+fi
+
+echo "=== faucet budget check (exactly one live agent-coordinator faucet) ==="
+# hub and hub1 both run aitbc-agent-coordinator with their own coin_requests
+# DB and both hold the genesis key; two live faucets double the fleet-wide
+# automatic budget. hub1 carries COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0 only in
+# its env file, so a reprovision silently restores the doubling. Across hosts
+# that have the unit, exactly one may have a non-zero — or unset, the default
+# is non-zero — COIN_REQUEST_AUTO_BUDGET_PER_HOUR.
+live=0
+for h in $HOSTS; do
+    val=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        'files=$(systemctl show -p EnvironmentFiles --value aitbc-agent-coordinator 2>/dev/null \
+            | tr " " "\n" | sed "s/ (ignore_errors=.*)//; s/^-//" | grep "^/" || true)
+         if [ -z "$files" ]; then echo NOUNIT; exit 0; fi
+         echo "$files" | while IFS= read -r f; do
+             if [ -r "$f" ]; then grep -h "^COIN_REQUEST_AUTO_BUDGET_PER_HOUR=" "$f" 2>/dev/null; else sudo -n grep -h "^COIN_REQUEST_AUTO_BUDGET_PER_HOUR=" "$f" 2>/dev/null; fi
+         done | tail -1 | cut -d= -f2-' \
+        2>/dev/null || echo "UNREACHABLE")
+    if [ "$val" = "UNREACHABLE" ]; then
+        faucet_bad=1
+        printf "  %-14s UNREACHABLE\n" "$h"
+        continue
+    fi
+    if [ "$val" = "NOUNIT" ]; then
+        printf "  %-14s no agent-coordinator unit\n" "$h"
+        continue
+    fi
+    val=$(echo "$val" | tr -d '[:space:]')
+    printf "  %-14s COIN_REQUEST_AUTO_BUDGET_PER_HOUR=%s\n" "$h" "${val:-<unset>}"
+    case "$val" in
+        0|0.0) ;;
+        *) live=$((live + 1)) ;;
+    esac
+done
+if [ "$live" -ne 1 ]; then
+    faucet_bad=1
+    echo "  FAIL: $live agent-coordinator hosts have a live faucet budget; expected exactly 1"
+else
+    echo "  ok: exactly one live faucet"
 fi
 
 echo "=== *_ADDRESS value-shape check ==="
@@ -366,7 +407,7 @@ done <<< "$S2_OUT"
 
 echo
 if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
-   && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ]; then
+   && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ] && [ "$faucet_bad" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
