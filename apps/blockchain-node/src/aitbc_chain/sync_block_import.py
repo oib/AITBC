@@ -843,15 +843,64 @@ class BlockImportMixin(SyncBase):
         if isinstance(ts, str):
             from datetime import datetime
 
-            try:
-                ts = datetime.fromisoformat(ts)
-            except (ValueError, TypeError):
-                ts = None
-        if ts is None:
-            # No timestamp → cannot derive a round. Rank it as infinitely late
-            # so a well-formed block always beats a malformed one.
-            return (1 << 30, str(block_hash).lower())
+            ts = datetime.fromisoformat(ts)
         return (proposer_round(parent_timestamp, ts, round_seconds), str(block_hash).lower())
+
+    def _validate_rival_header(
+        self, session: Session, block_data: dict[str, Any], parent_ts: Any
+    ) -> tuple[str | None, Any]:
+        """Header checks a rival fork block must pass before it may displace ours.
+
+        Returns ``(error_reason, parsed_timestamp)`` — reason is None when the
+        header is usable. Everything that can be checked without mutating
+        state runs here: timestamp sanity (parsable, at or after the parent's,
+        not beyond one proposer window of clock skew into the future) and the
+        proposer schedule for the round that timestamp claims. The signature
+        was already verified in ``import_block``; the state root is validated
+        by ``_append_block`` inside the same transaction as the delete, so a
+        failure there still leaves our rows intact.
+        """
+        from datetime import UTC, datetime
+
+        raw_ts = block_data.get("timestamp")
+        try:
+            ts = datetime.fromisoformat(str(raw_ts)) if raw_ts else None
+        except (ValueError, TypeError):
+            ts = None
+        if ts is None:
+            return f"rival block has no valid timestamp: {raw_ts!r}", None
+        if ts.tzinfo is None:
+            ts = ts.replace(tzinfo=UTC)
+        if parent_ts is not None:
+            pts = parent_ts if parent_ts.tzinfo is not None else parent_ts.replace(tzinfo=UTC)
+            if ts < pts:
+                return "rival block timestamp precedes its parent", ts
+        skew = getattr(settings, "consensus_proposer_round_seconds", 60) or 60
+        if (ts - datetime.now(UTC)).total_seconds() > skew:
+            return "rival block timestamp is in the future", ts
+
+        if self._validate_signatures:
+            sig_ok, sig_reason = self._validator.validate_block_signature(block_data)
+            if not sig_ok:
+                return f"rival block signature invalid: {sig_reason}", ts
+
+        rival = Block(
+            chain_id=self._chain_id,
+            height=block_data.get("height", -1),
+            hash=block_data["hash"],
+            parent_hash=block_data.get("parent_hash", ""),
+            proposer=block_data.get("proposer", "unknown"),
+            timestamp=ts,
+            tx_count=block_data.get("tx_count", 0),
+            state_root=block_data.get("state_root"),
+            bridge_state_root=block_data.get("bridge_state_root"),
+            signature=block_data.get("signature", ""),
+        )
+        try:
+            self._validate_proposer_schedule(session, block_data, rival)
+        except ValueError as exc:
+            return str(exc), ts
+        return None, ts
 
     def _blocks_provably_empty(self, session: Session, blocks: list[Block]) -> bool:
         """True when every block in the segment demonstrably moved no state.
@@ -882,16 +931,19 @@ class BlockImportMixin(SyncBase):
     ) -> ImportResult:
         """Resolve a same-height hash conflict with a deterministic fork-choice rule.
 
-        Winner at the contested height: lower proposer round first, then lower
-        block hash — both derivable from headers alone. The rule only fires when
-        the two blocks share a parent (a same-slot schedule race); competing
-        blocks on different parents need the peer's fork segment, which the
-        pull-path resolver in ``_resolve_fork_with_peer`` fetches.
+        The push path can only decide a *tip race*: the rival shares our head's
+        parent and our head has no descendants. Then the winner is the lower
+        ``(round, hash)``. Anything deeper — different parents, or our block
+        already extended — is a branch-weight question that needs the rival's
+        full segment; it stays diverged for the pull resolver
+        (``_resolve_fork_with_peer``).
 
-        When the rival wins, our blocks at ``>= fork_height`` are removed and
-        the rival is appended — but only when every removed block is provably
-        empty. Removing a block that applied transactions cannot be undone, so
-        a non-empty losing segment still escalates as an operator divergence.
+        The rival is fully validated (timestamp sanity + proposer schedule;
+        the signature was already checked in ``import_block``) BEFORE our head
+        is staged for deletion, and the delete+append share one transaction:
+        if ``_append_block`` rejects on the state root, its rollback restores
+        our row. A rival therefore cannot shorten our chain by merely
+        *claiming* the better key.
         """
         fork_height = block_data.get("height", -1)
         our_height = our_head.height
@@ -923,11 +975,12 @@ class BlockImportMixin(SyncBase):
 
         ours = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height == fork_height)).first()
         parent_hash = block_data.get("parent_hash", "")
-        if ours is None or parent_hash != ours.parent_hash:
-            # Different parents at the contested height: the fork point is
-            # deeper and the rival's parent timestamp is not local, so its
-            # round cannot be derived here. The pull resolver walks back to the
-            # common ancestor and decides there instead.
+        if ours is None or parent_hash != ours.parent_hash or fork_height != our_height:
+            # Not a decidable tip race: either the parents differ (the rival's
+            # round is not derivable without its parent timestamp) or our block
+            # already has descendants, in which case a single rival header
+            # cannot outweigh our whole segment. The pull resolver fetches the
+            # rival's segment and decides on branch weight.
             metrics_registry.increment("sync_divergence_rejected_total")
             return self._make_import_result(
                 accepted=False,
@@ -936,15 +989,28 @@ class BlockImportMixin(SyncBase):
                 reason=(
                     f"Divergent chain: we hold a different block at height {fork_height} "
                     f"(ours {ours.hash[:16] if ours else '?'}..., peer {fork_hash[:16]}...); "
-                    "parent mismatch — pull-path fork resolution required"
+                    "branch-weight resolution required via pull"
                 ),
                 diverged=True,
             )
 
         parent = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)).first()
         parent_ts = parent.timestamp if parent else None
+
+        # Validate the rival BEFORE it is allowed to matter: a block that
+        # fails timestamp sanity or the proposer schedule is rejected outright
+        # and can never cost us our head.
+        invalid, rival_ts = self._validate_rival_header(session, block_data, parent_ts)
+        if invalid:
+            metrics_registry.increment("sync_fork_invalid_rival_total")
+            metrics_registry.increment("sync_blocks_rejected_total")
+            logger.warning("Rival fork block at height %s rejected: %s", fork_height, invalid)
+            return self._make_import_result(
+                accepted=False, height=fork_height, block_hash=fork_hash, reason=f"Invalid rival fork block: {invalid}"
+            )
+
         our_key = self._fork_choice_key(ours.timestamp, parent_ts, ours.hash)
-        their_key = self._fork_choice_key(block_data.get("timestamp"), parent_ts, fork_hash)
+        their_key = self._fork_choice_key(rival_ts, parent_ts, fork_hash)
         metrics_registry.increment("sync_fork_choice_compared_total")
 
         if their_key >= our_key:
@@ -969,27 +1035,14 @@ class BlockImportMixin(SyncBase):
                 diverged=True,
             )
 
-        # Rival wins. A reorg removes committed rows, which is only safe when
-        # every removed block moved no state — otherwise escalate.
-        blocks_to_remove = session.exec(
-            select(Block)
-            .where(Block.chain_id == self._chain_id)
-            .where(Block.height >= fork_height)
-            .order_by(text("height DESC"))
-        ).all()
-        if len(blocks_to_remove) > self._max_reorg_depth:
-            metrics_registry.increment("sync_reorg_rejected_total")
-            return self._make_import_result(
-                accepted=False,
-                height=fork_height,
-                block_hash=fork_hash,
-                reason=f"Reorg depth {len(blocks_to_remove)} exceeds max {self._max_reorg_depth}",
-            )
-        if not self._blocks_provably_empty(session, list(blocks_to_remove)):
+        # Rival wins the tip race. Replacing our head removes a committed row,
+        # which is only safe when it provably moved no state — otherwise
+        # escalate to an operator resync.
+        if not self._blocks_provably_empty(session, [ours]):
             metrics_registry.increment("sync_fork_reorg_unsafe_total")
             metrics_registry.increment("sync_divergence_rejected_total")
             logger.error(
-                "Rival block wins fork at height %s but our losing segment contains non-empty blocks — "
+                "Rival block wins fork at height %s but our block there is not provably empty — "
                 "state cannot be safely reverted; operator resync required",
                 fork_height,
             )
@@ -998,35 +1051,53 @@ class BlockImportMixin(SyncBase):
                 height=fork_height,
                 block_hash=fork_hash,
                 reason=(
-                    f"Rival fork wins at height {fork_height} but local segment has non-empty blocks; manual resync required"
+                    f"Rival fork wins at height {fork_height} but local block has transactions; manual resync required"
                 ),
                 diverged=True,
             )
 
-        removed_count = 0
-        for old_block in blocks_to_remove:
-            for tx in session.exec(
-                select(ChainTransaction)
-                .where(ChainTransaction.chain_id == self._chain_id)
-                .where(ChainTransaction.block_height == old_block.height)
-            ).all():
-                session.delete(tx)
-            session.delete(old_block)
-            removed_count += 1
-        session.commit()
+        # Delete and append in ONE transaction: the deletes are flushed so the
+        # unique (chain_id, height) constraint admits the rival, but nothing is
+        # committed until _append_block's own commit — its failure paths roll
+        # back, restoring our head.
+        for tx in session.exec(
+            select(ChainTransaction)
+            .where(ChainTransaction.chain_id == self._chain_id)
+            .where(ChainTransaction.block_height == ours.height)
+        ).all():
+            session.delete(tx)
+        session.delete(ours)
+        session.flush()
+        try:
+            result = self._append_block(session, block_data, transactions)
+        except Exception as exc:
+            session.rollback()
+            logger.exception("Rival fork block failed to append at height %s", fork_height)
+            metrics_registry.increment("sync_fork_invalid_rival_total")
+            return self._make_import_result(
+                accepted=False,
+                height=fork_height,
+                block_hash=fork_hash,
+                reason=f"Rival fork block failed validation: {exc}",
+                diverged=True,
+            )
+        if not result.accepted:
+            # _append_block already rolled the transaction back; our head is intact.
+            result.diverged = True
+            metrics_registry.increment("sync_fork_invalid_rival_total")
+            return result
         metrics_registry.increment("sync_reorgs_total")
         metrics_registry.increment("sync_fork_choice_remote_wins_total")
-        metrics_registry.observe("sync_reorg_depth", float(removed_count))
+        metrics_registry.observe("sync_reorg_depth", 1.0)
         logger.warning(
-            "Chain reorg performed: rival block wins at height %s (round %s vs our %s)",
+            "Tip reorg at height %s: rival wins (round %s vs our %s)",
             fork_height,
             their_key[0],
             our_key[0],
-            extra={"removed_blocks": removed_count, "new_height": fork_height},
+            extra={"removed_blocks": 1, "new_height": fork_height},
         )
-        result = self._append_block(session, block_data, transactions)
         result.reorged = True
-        result.reorg_depth = removed_count
+        result.reorg_depth = 1
         return result
 
     def get_sync_status(self) -> dict[str, Any]:
