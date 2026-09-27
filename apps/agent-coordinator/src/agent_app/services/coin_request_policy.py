@@ -21,6 +21,7 @@ from __future__ import annotations
 
 import os
 from datetime import UTC, datetime, timedelta
+from decimal import InvalidOperation
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -36,7 +37,7 @@ logger = get_logger(__name__)
 
 # 3 AIT in compute-units — matches INITIAL_COIN_AMOUNT in websocket.agent_stream, which is the
 # grant the hub makes automatically.
-DEFAULT_AUTO_APPROVE_MAX = ait_to_units(3)
+DEFAULT_AUTO_APPROVE_MAX = ait_to_units(3)  # COIN_REQUEST_AUTO_APPROVE_MAX is set in AIT
 
 # Rolling-window budgets for automatic grants. The per-identity rule stops
 # repeats, but `sender` is a caller-supplied string and `wallet_address` is
@@ -56,38 +57,42 @@ DEFAULT_AUTO_BUDGET_PER_HOUR = ait_to_units(24)  # ~8 maximum-size grants
 DEFAULT_AUTO_BUDGET_PER_DAY = ait_to_units(60)  # ~20 maximum-size grants
 
 
-def _env_int(name: str, default: int) -> int:
+def _env_ait(name: str, default_units: int) -> int:
+    """Read an env var holding an AIT amount and return compute-units."""
     raw = os.getenv(name)
     if raw is None:
-        return default
+        return default_units
     try:
-        return max(int(raw), 0)
-    except ValueError:
-        logger.warning("%s=%r is not an integer; using %s", name, raw, default)
-        return default
+        units = ait_to_units(raw.strip())
+    except (InvalidOperation, ValueError):
+        logger.warning("%s=%r is not a decimal AIT amount; using %s units", name, raw, default_units)
+        return default_units
+    return max(units, 0)
 
 
 def auto_approve_ceiling() -> int:
     """The largest amount the hub will approve without a human.
 
-    Set `COIN_REQUEST_AUTO_APPROVE_MAX` to 0 to turn automatic approval off entirely, which makes
-    every registered request wait for an operator.
+    `COIN_REQUEST_AUTO_APPROVE_MAX` is an AIT amount (decimals allowed, e.g. `3` or `2.5`).
+    Set it to 0 to turn automatic approval off entirely, which makes every registered request
+    wait for an operator.
     """
-    return _env_int("COIN_REQUEST_AUTO_APPROVE_MAX", DEFAULT_AUTO_APPROVE_MAX)
+    return _env_ait("COIN_REQUEST_AUTO_APPROVE_MAX", DEFAULT_AUTO_APPROVE_MAX)
 
 
 def auto_budget_per_hour() -> int:
     """The most the faucet may auto-grant in any rolling hour.
 
-    `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0` parks every request at manual review
-    (same effect as disabling the ceiling). The per-day knob is
-    `COIN_REQUEST_AUTO_BUDGET_PER_DAY`.
+    `COIN_REQUEST_AUTO_BUDGET_PER_HOUR` is an AIT amount (decimals allowed, e.g. `24` or
+    `0.5`); `0` parks every request at manual review (same effect as disabling the
+    ceiling). The per-day knob is `COIN_REQUEST_AUTO_BUDGET_PER_DAY`.
     """
-    return _env_int("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", DEFAULT_AUTO_BUDGET_PER_HOUR)
+    return _env_ait("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", DEFAULT_AUTO_BUDGET_PER_HOUR)
 
 
 def auto_budget_per_day() -> int:
-    return _env_int("COIN_REQUEST_AUTO_BUDGET_PER_DAY", DEFAULT_AUTO_BUDGET_PER_DAY)
+    """The most the faucet may auto-grant in any rolling day (AIT amount, `0` disables)."""
+    return _env_ait("COIN_REQUEST_AUTO_BUDGET_PER_DAY", DEFAULT_AUTO_BUDGET_PER_DAY)
 
 
 def _auto_granted_since(session: Session, since: datetime) -> int:
