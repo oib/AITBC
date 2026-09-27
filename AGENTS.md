@@ -353,6 +353,15 @@ This is mirrored on every node. Note per-host quirks:
   `scripts/monitoring/fleet-config-check.sh`, which now shape-checks every
   `*_ADDRESS` value (`^0x[0-9a-fA-F]{40}$`).
 
+- **Fleet nodes are deliberately isolated from each other** — no inter-node
+  ssh, and hub/hub1 sit on private incus subnets behind their TLS edges (`ns2`,
+  `ns3`). Each node sees the others only as a real island would: over the
+  public HTTPS hostnames. The only host with ssh reach to every node is the
+  operator's IDE host (jump aliases `hub`, `hub1`, `node0..2`). So the env
+  sections of `fleet-config-check.sh` — including the faucet-budget rule —
+  run from the IDE host; from a fleet node they are skipped by design, not
+  broken. Do not add ssh keys or routes between nodes to "fix" this.
+
 - **coordinator-api schema migrations run at service start**: the unit's
   `ExecStartPre` runs `alembic upgrade head` against the service's own
   `DATABASE_URL` (environment via `EnvironmentFile=/etc/aitbc/aitbc-coordinator-api.env`,
