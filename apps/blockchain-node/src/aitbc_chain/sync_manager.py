@@ -226,6 +226,11 @@ class SyncManager:
         )
         return True
 
+    def pull_in_flight(self, chain_id: str) -> bool:
+        """True while a bulk pull — ours or the periodic one — is running."""
+        state = self._chain_states.get(chain_id)
+        return bool(state and state.bulk_task and not state.bulk_task.done())
+
     def _register_static_peers(self, chain_id: str) -> None:
         extra = getattr(settings, "sync_parallel_peers", "")
         if not extra:
