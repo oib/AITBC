@@ -10,6 +10,7 @@ from sqlalchemy import text
 from sqlmodel import select
 
 from .base_models import Block
+from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
@@ -137,7 +138,7 @@ class BulkSyncMixin(SyncBase):
             )
             return []
 
-    async def bulk_import_from(self, source_url: str) -> int:
+    async def bulk_import_from(self, source_url: str, _reorg_attempted: bool = False) -> int:
         """Import blocks from a remote source via RPC."""
         self._logger.info("Starting bulk import from source: %s", source_url)
         if source_url and (not source_url.startswith("http://")) and (not source_url.startswith("https://")):
@@ -238,6 +239,14 @@ class BulkSyncMixin(SyncBase):
         if not result.accepted:
             metrics_registry.increment("sync_bulk_source_rejected_total")
             if result.diverged:
+                # Deterministic fork choice: walk back to the common ancestor,
+                # compare both sides' children by (round, hash), and — when the
+                # peer's branch wins and our losing segment is provably empty —
+                # remove it so this pull can continue from the fork point.
+                # Previously this only reported and stalled forever (V23-90).
+                if not _reorg_attempted and await self._resolve_fork_with_peer(source_url, local_height):
+                    self._last_bulk_sync_time = 0  # a reorg is not rate-limited catch-up
+                    return await self.bulk_import_from(source_url, _reorg_attempted=True)
                 div = self.detect_divergence(source_url, local_height, first_block.get("parent_hash", ""))
                 if div:
                     report_divergence(self._chain_id, div)
@@ -264,6 +273,120 @@ class BulkSyncMixin(SyncBase):
         metrics_registry.set_gauge("sync_chain_height", float(remote_height))
         self._last_bulk_sync_time = int(current_time)
         return imported
+
+    async def _resolve_fork_with_peer(self, source_url: str, local_height: int) -> bool:
+        """Resolve a divergent pull deterministically against one peer.
+
+        Walks back from our head, comparing the peer's block hash at each
+        height, to the common ancestor. The two children of the fork point are
+        then compared by ``(proposer round, block hash)`` — both derivable from
+        the headers, so every node picks the same branch. When the peer's
+        branch wins and every block we would lose is provably empty (no
+        transactions, unchanged state root), the losing segment is deleted and
+        the caller restarts the pull at the fork point. A non-empty losing
+        segment cannot be reverted safely and escalates to an operator
+        divergence report.
+
+        Returns True only when our losing segment was removed.
+        """
+        ancestor_height: int | None = None
+        peer_fork_block: dict[str, Any] | None = None
+        with self._session_factory() as session:
+            ours_by_height = {
+                b.height: b
+                for b in session.exec(
+                    select(Block)
+                    .where(Block.chain_id == self._chain_id)
+                    .where(Block.height <= local_height)
+                    .where(Block.height > local_height - self._max_reorg_depth)
+                ).all()
+            }
+        h = local_height
+        while h >= 0:
+            ours = ours_by_height.get(h)
+            if ours is None:
+                break  # older than the reorg window — too deep to auto-resolve
+            fetched = await self.fetch_blocks_range(h, h, source_url)
+            peer_block = fetched[0] if fetched else None
+            if peer_block is None:
+                return False  # cannot decide without peer data
+            if peer_block.get("hash") == ours.hash:
+                ancestor_height = h
+                break
+            peer_fork_block = peer_block  # ends as peer's block at ancestor+1
+            h -= 1
+        if ancestor_height is None or peer_fork_block is None:
+            self._logger.error(
+                "Fork resolution failed: no common ancestor with %s within %s blocks of height %s",
+                source_url,
+                self._max_reorg_depth,
+                local_height,
+            )
+            return False
+
+        with self._session_factory() as session:
+            ancestor = session.exec(
+                select(Block).where(Block.chain_id == self._chain_id).where(Block.height == ancestor_height)
+            ).first()
+            our_child = session.exec(
+                select(Block).where(Block.chain_id == self._chain_id).where(Block.height == ancestor_height + 1)
+            ).first()
+            parent_ts = ancestor.timestamp if ancestor else None
+            if our_child is None:
+                return False  # nothing of ours beyond the ancestor — not our fork
+            our_key = self._fork_choice_key(our_child.timestamp, parent_ts, our_child.hash)
+            their_key = self._fork_choice_key(peer_fork_block.get("timestamp"), parent_ts, peer_fork_block.get("hash", ""))
+            metrics_registry.increment("sync_fork_choice_compared_total")
+            if their_key >= our_key:
+                metrics_registry.increment("sync_fork_choice_local_wins_total")
+                self._logger.warning(
+                    "Fork resolved against %s: our branch wins at height %s (round %s hash %s... beats "
+                    "round %s hash %s...) — the peer is on the losing branch",
+                    source_url,
+                    ancestor_height + 1,
+                    our_key[0],
+                    our_child.hash[:16],
+                    their_key[0],
+                    str(peer_fork_block.get("hash", ""))[:16],
+                )
+                return False
+            losing = session.exec(
+                select(Block)
+                .where(Block.chain_id == self._chain_id)
+                .where(Block.height > ancestor_height)
+                .order_by(text("height DESC"))
+            ).all()
+            if len(losing) > self._max_reorg_depth or not self._blocks_provably_empty(session, list(losing)):
+                metrics_registry.increment("sync_fork_reorg_unsafe_total")
+                self._logger.error(
+                    "Peer branch wins at height %s but our losing segment (%s blocks) is not provably "
+                    "empty — operator resync required",
+                    ancestor_height + 1,
+                    len(losing),
+                )
+                return False
+            for old_block in losing:
+                for tx in session.exec(
+                    select(ChainTransaction)
+                    .where(ChainTransaction.chain_id == self._chain_id)
+                    .where(ChainTransaction.block_height == old_block.height)
+                ).all():
+                    session.delete(tx)
+                session.delete(old_block)
+            session.commit()
+        metrics_registry.increment("sync_fork_choice_remote_wins_total")
+        metrics_registry.increment("sync_reorgs_total")
+        metrics_registry.observe("sync_reorg_depth", float(len(losing)))
+        self._logger.warning(
+            "Fork resolved against %s: peer branch wins at height %s (round %s vs our %s) — removed %s "
+            "blocks, restarting pull at the fork point",
+            source_url,
+            ancestor_height + 1,
+            their_key[0],
+            our_key[0],
+            len(losing),
+        )
+        return True
 
     async def _sequential_bulk_import(
         self, start_height: int, end_height: int, source_url: str, batch_size: int, poll_interval: float

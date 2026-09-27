@@ -615,3 +615,38 @@ the fleet or re-open the fork it closed; all fixed:
   re-validated in `check()` too.
 
 28 freshness tests + 136 consensus tests pass; ruff/mypy clean.
+
+### 8b82864c9 feat(sync): deterministic fork choice — stale forks now heal themselves
+
+`_resolve_fork` finally resolves: a same-height block conflict is decided by
+`(proposer round, block hash)` — both derivable from headers alone, so every
+node picks the same winner, including the validator that produced the losing
+block. Two decision points:
+
+- **push path** (`import_block` → `_resolve_fork`): when the rival block
+  shares our block's parent, compare rounds via the shared parent timestamp.
+  Rival wins → reorg: delete our blocks `>=` the contested height and append
+  the rival — **but only when every removed block is provably empty**
+  (`tx_count == 0` and `state_root ==` its parent's). There is no state-undo
+  path; a non-empty losing segment still escalates as an operator divergence
+  rather than corrupting state. Different parent → undecidable inline, stays
+  diverged for the pull resolver.
+- **pull path** (`bulk_import_from` diverged → `_resolve_fork_with_peer`):
+  walks back from our head fetching the peer's block per height until hashes
+  match (bounded by `max_reorg_depth`), compares the two children of the
+  common ancestor by the same key, and when the peer's branch wins + the
+  losing segment is empty, deletes it and restarts the pull at the fork
+  point. When ours wins the peer is on the losing branch and gets the
+  divergence report instead.
+
+This is the exact repair that needed manual SQL on 2026-09-27: canonical
+blocks now evict fork blocks deterministically on pull or push, so a healed
+validator's followers re-converge without operator surgery. The freshness
+gate's proceed-on-tie rule is what this makes safe: tied votes produce
+competing schedule-valid blocks, and fork choice settles them.
+
+Metrics: `sync_fork_choice_compared_total`, `..._local_wins_total`,
+`..._remote_wins_total`, `sync_fork_reorg_unsafe_total`, `sync_reorgs_total`,
+`sync_reorg_depth`.
+
+10 fork-choice tests + 241 sync/consensus tests pass; ruff/mypy clean.
