@@ -574,13 +574,37 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   hub held all four and signed every block, which is the centralisation the
   Sep-3 rotation work removed.
 - **Known defect (2026-09-27): a validator that restarts with a stale head
-  forks instead of catching up.** Hub's sync source is itself, so its sync
-  gate never trips; it proposed competing blocks which node0 then pulled. The
-  importer rejects same-height conflicts (`_resolve_fork` only detects, never
-  reorgs) and gap imports are dropped, so recovery was manual: delete the
-  empty fork rows from `block`, then `python -m aitbc_chain.sync_cli --source
-  https://<peer>` with `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
+  forks instead of catching up.** The sync gate never tripped because hub's
+  `DEFAULT_PEER_RPC_URL` was empty (self-source); it proposed competing blocks
+  which node0 then pulled. The importer rejects same-height conflicts
+  (`_resolve_fork` only detects, never reorgs) and gap imports are dropped,
+  so recovery was manual: delete the empty fork rows from `block`, then
+  `python -m aitbc_chain.sync_cli --source https://<peer>` with
+  `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
   If a node's head hash diverges while heights match, suspect this.
+- **Sync sources:** every node's `DEFAULT_PEER_RPC_URL` (or
+  `CHAIN_SYNC_SOURCES` override) must point at a *peer*, never itself.
+  Followers use `https://hub.aitbc.bubuit.net`; hub uses
+  `CHAIN_SYNC_SOURCES=ait-hub.aitbc.bubuit.net:https://hub1.aitbc.bubuit.net`
+  (set 2026-09-27 — an empty source is what made hub's sync gate blind).
+- **Validator rejoin runbook — required for EVERY validator restart or
+  deploy, including routine rolling updates.** A validator that rejoins even
+  one height behind can still own the next round slot and propose on a stale
+  parent, creating a same-height fork. Procedure:
+  1. Create a runtime drop-in before restarting:
+     `mkdir -p /run/systemd/system/aitbc-blockchain-node.service.d` and write
+     `no-prod.conf` containing `[Service]` + `Environment="ENABLE_BLOCK_PRODUCTION=false"`,
+     then `systemctl daemon-reload`.
+  2. `systemctl restart aitbc-blockchain-node`.
+  3. Wait until the node's head height AND hash exactly match a peer's
+     (`curl -s http://127.0.0.1:8202/rpc/status` vs e.g.
+     `https://node1.aitbc.bubuit.net/rpc/status`). Height alone is not enough —
+     same height with a different hash means a fork is already present.
+  4. Remove the drop-in (`rm no-prod.conf`, `rmdir` the .d dir),
+     `systemctl daemon-reload`, restart again. The second restart lands on a
+     current head, so proposing is safe.
+  Never "just restart" a producing validator until the code-level
+  pre-proposal freshness check and deterministic fork choice land.
 
 ## Trading authentication
 

@@ -324,17 +324,14 @@ echo "=== validator key integrity (one own key per validator, disjoint across ho
 VALIDATORS="hub hub1 node1 node2"
 val_bad=0
 declare -A SEEN_ADDRS
-for h in $VALIDATORS node0; do
-    res=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
-        'pid=$(systemctl show -p MainPID --value aitbc-blockchain-node 2>/dev/null); \
-         [ -z "$pid" ] || [ "$pid" = 0 ] && { echo NOTRUNNING; exit; }; \
-         sudo tr "\0" "\n" < /proc/$pid/environ > /tmp/.fcenv.$$; \
-         cd /opt/aitbc && ENVFILE=/tmp/.fcenv.$$ venv/bin/python - <<PYEOF 2>/dev/null || echo DERIVEFAIL
-import os, json
+# Non-secret checker script staged on each host; the process environ is piped
+# straight through stdin — never written to a file (environ contains keys).
+VCHECK=$(cat <<'PYEOF'
+import sys, json
 env = {}
-for line in open(os.environ["ENVFILE"]):
-    if "=" in line:
-        k, v = line.rstrip("\n").split("=", 1)
+for item in sys.stdin.buffer.read().decode("utf-8", "replace").split("\0"):
+    if "=" in item:
+        k, v = item.split("=", 1)
         env[k] = v
 keys = json.loads(env.get("VALIDATOR_KEYS") or "{}")
 propid = env.get("PROPOSER_ID", "")
@@ -356,12 +353,20 @@ print("keys_in_set=" + str(all(a in vs for a in keys)))
 print("prod=" + prod)
 print("window=" + wins)
 PYEOF
-         rm -f /tmp/.fcenv.$$' 2>/dev/null || echo "UNREACHABLE")
+)
+VCHECK_B64=$(printf '%s' "$VCHECK" | base64 -w0)
+for h in $VALIDATORS node0; do
+    res=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "pid=\$(systemctl show -p MainPID --value aitbc-blockchain-node 2>/dev/null); \
+         if [ -z \"\$pid\" ] || [ \"\$pid\" = 0 ]; then echo NOTRUNNING; exit; fi; \
+         cd /opt/aitbc && sudo cat /proc/\$pid/environ | venv/bin/python -c \"\$(echo '$VCHECK_B64' | base64 -d)\" 2>/dev/null; rc=\$?; [ \$rc -ne 0 ] && echo DERIVEFAIL; \
+         grep -icE '^validator_keys=' /etc/aitbc/blockchain.env 2>/dev/null | sed 's/^/bcenv_keys=/'" 2>/dev/null || echo "UNREACHABLE")
     case "$res" in
         UNREACHABLE*|NOTRUNNING*|DERIVEFAIL*|"")
             val_bad=1; printf "  %-6s %s\n" "$h" "${res:-NO OUTPUT}"; continue ;;
     esac
     eval "$res"
+    n_keys=$(echo "$map_addrs" | tr "," "\n" | grep -c . || true)
     problems=""
     case $h in
         node0)
@@ -370,7 +375,7 @@ PYEOF
             ;;
         *)
             [ "$prod" = "true" ] || problems="$problems production=$prod (want true)"
-            [ "$(echo "$map_addrs" | tr "," "\n" | grep -c .)" = 1 ] || problems="$problems holds ${#map_addrs} keys (want exactly 1)"
+            [ "$n_keys" = 1 ] || problems="$problems holds $n_keys keys (want exactly 1)"
             [ "$all_derive" = "True" ] || problems="$problems key does not derive to its map address"
             [ "$map_addrs" = "$propid" ] || problems="$problems map addr $map_addrs != PROPOSER_ID $propid"
             [ "$propid_in_set" = "True" ] || problems="$problems PROPOSER_ID not in VALIDATOR_SET"
@@ -378,6 +383,9 @@ PYEOF
             ;;
     esac
     [ -n "$window" ] && problems="$problems CONSENSUS_PROPOSER_ROUND_SECONDS=$window (want unset/derived)"
+    # pydantic also reads blockchain.env directly — a VALIDATOR_KEYS line there
+    # would apply without appearing in the process environ.
+    [ "${bcenv_keys:-0}" != "0" ] && problems="$problems VALIDATOR_KEYS present in blockchain.env"
     for a in ${map_addrs//,/ }; do
         if [ -n "${SEEN_ADDRS[$a]:-}" ]; then
             problems="$problems key $a ALSO HELD by ${SEEN_ADDRS[$a]}"
@@ -388,6 +396,8 @@ PYEOF
     if [ -n "$problems" ]; then
         val_bad=1
         printf "  %-6s FAIL:%s\n" "$h" "$problems"
+    elif [ "$h" = node0 ]; then
+        printf "  %-6s ok: holds no validator keys, prod=%s\n" "$h" "$prod"
     else
         printf "  %-6s ok: own key only, in set, prod=%s\n" "$h" "$prod"
     fi
