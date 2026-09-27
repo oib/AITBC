@@ -157,7 +157,9 @@ class StuckEscrowSweeper:
                     counts["refunded"] += 1
                     continue
                 try:
-                    refunded = await PaymentService(session).refund_payment(job.client_id, job.id, job.payment_id, reason)
+                    refunded = await PaymentService(session).refund_payment(
+                        job.client_id, job.id, job.payment_id, reason, is_admin=True
+                    )
                 except Exception as e:
                     counts["failed"] += 1
                     logger.error("Stuck escrow sweep raised for job %s: %s", job.id, e)

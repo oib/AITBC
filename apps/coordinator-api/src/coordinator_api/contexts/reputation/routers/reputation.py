@@ -14,9 +14,13 @@ from sqlalchemy.orm import Session
 from sqlmodel import select
 
 from aitbc.aitbc_logging import get_logger
+from aitbc.auth import AdminDep, AdminOrClientDep, AuthDep
 from aitbc.rate_limiting import rate_limit
 
+from ....custom_types import JobState
 from ....storage import get_session
+from ....utils.client_resolver import resolve_client
+from ...infrastructure.domain.job import Job
 from ..domain.reputation import (
     AgentReputation,
     CommunityFeedback,
@@ -32,6 +36,12 @@ router = APIRouter(prefix="/reputation", tags=["reputation"])
 
 def get_reputation_service(session: Annotated[Session, Depends(get_session)]) -> ReputationService:
     return ReputationService(session)  # type: ignore[arg-type]
+
+
+def _require_self_or_admin(user: dict[str, Any], agent_id: str) -> None:
+    """Writes to a reputation profile belong to that agent (or an admin)."""
+    if user.get("role") != "admin" and user.get("sub") != agent_id:
+        raise HTTPException(status_code=403, detail="can only modify your own reputation profile")
 
 
 class ReputationProfileResponse(BaseModel):
@@ -59,9 +69,12 @@ class ReputationProfileResponse(BaseModel):
 
 
 class FeedbackRequest(BaseModel):
-    """Request model for community feedback"""
+    """Request model for community feedback.
 
-    reviewer_id: str
+    There is deliberately no reviewer_id field — the reviewer is the
+    authenticated caller, so a body-supplied identity is never consulted.
+    """
+
     ratings: dict[str, float] = Field(..., description="Overall, performance, communication, reliability, value ratings")
     feedback_text: str = Field(default="", max_length=1000)
     tags: list[str] = Field(default_factory=list)
@@ -82,16 +95,6 @@ class FeedbackResponse(BaseModel):
     feedback_tags: list[str]
     created_at: str
     moderation_status: str
-
-
-class JobCompletionRequest(BaseModel):
-    """Request model for job completion recording"""
-
-    agent_id: str
-    job_id: str
-    success: bool
-    response_time: float = Field(..., gt=0, description="Response time in milliseconds")
-    earnings: Decimal = Field(..., ge=0, description="Earnings in AITBC")
 
 
 class TrustScoreResponse(BaseModel):
@@ -157,9 +160,10 @@ async def get_reputation_profile(
 @router.post("/profile/{agent_id}")
 @rate_limit(rate=20, per=60)
 async def create_reputation_profile(
-    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)]
+    request: Request, agent_id: str, session: Annotated[Session, Depends(get_session)], user: AuthDep
 ) -> dict[str, Any]:
     """Create a new reputation profile for an agent"""
+    _require_self_or_admin(user, agent_id)
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         reputation = await reputation_service.create_reputation_profile(agent_id)
@@ -181,14 +185,44 @@ async def create_reputation_profile(
 @router.post("/feedback/{agent_id}", response_model=FeedbackResponse)
 @rate_limit(rate=20, per=60)
 async def add_community_feedback(
-    request: Request, agent_id: str, feedback_request: FeedbackRequest, session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    feedback_request: FeedbackRequest,
+    session: Annotated[Session, Depends(get_session)],
+    user: AdminOrClientDep,
 ) -> FeedbackResponse:
-    """Add community feedback for an agent"""
+    """Add community feedback for an agent.
+
+    The reviewer is always the authenticated caller — never the request body —
+    and a non-admin caller must have a completed job with this agent, so a
+    rating is anchored to delivered work rather than free-floating.
+    """
+    if user.get("role") != "admin":
+        try:
+            caller_client_id, _ = resolve_client(session, user["sub"])  # type: ignore[arg-type]
+        except ValueError:
+            raise HTTPException(status_code=403, detail="feedback requires a client account") from None
+        completed_link = (
+            session.execute(
+                select(Job).where(
+                    Job.client_id == caller_client_id,
+                    Job.assigned_miner_id == agent_id,
+                    Job.state == JobState.completed,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if completed_link is None:
+            raise HTTPException(
+                status_code=403,
+                detail="feedback requires a completed job between you and this agent",
+            )
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         feedback = await reputation_service.add_community_feedback(
             agent_id=agent_id,
-            reviewer_id=feedback_request.reviewer_id,
+            reviewer_id=user["sub"],
             ratings=feedback_request.ratings,
             feedback_text=feedback_request.feedback_text,
             tags=feedback_request.tags,
@@ -215,36 +249,10 @@ async def add_community_feedback(
         raise HTTPException(status_code=500, detail="Internal server error") from e
 
 
-@router.post("/job-completion")
-@rate_limit(rate=20, per=60)
-async def record_job_completion(
-    request: Request, job_request: JobCompletionRequest, session: Annotated[Session, Depends(get_session)]
-) -> dict[str, Any]:
-    """Record job completion and update reputation"""
-    reputation_service = ReputationService(session)  # type: ignore[arg-type]
-    try:
-        reputation = await reputation_service.record_job_completion(
-            agent_id=job_request.agent_id,
-            job_id=job_request.job_id,
-            success=job_request.success,
-            response_time=job_request.response_time,
-            earnings=job_request.earnings,
-        )
-        return {
-            "message": "Job completion recorded successfully",
-            "agent_id": reputation.agent_id,
-            "new_trust_score": reputation.trust_score,
-            "reputation_level": reputation.reputation_level.value,
-            "jobs_completed": reputation.jobs_completed,
-            "success_rate": reputation.success_rate,
-            "total_earnings": reputation.total_earnings,
-        }
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error("Error recording job completion: %s", str(e))
-        logger.exception("Unhandled exception")
-        raise HTTPException(status_code=500, detail="Internal server error") from e
+# No HTTP job-completion route: reputation changes come from the coordinator's
+# own settlement/miner code (miner.py calls the service with server-verified
+# values). The removed public route let any caller set agent_id, success and
+# earnings — all three feed trust_score, which dispatch ranks miners by.
 
 
 @router.get("/trust-score/{agent_id}", response_model=TrustScoreResponse)
@@ -458,9 +466,14 @@ async def get_reputation_events(
 @router.put("/profile/{agent_id}/specialization")
 @rate_limit(rate=20, per=60)
 async def update_specialization(
-    request: Request, agent_id: str, specialization_tags: list[str], session: Annotated[Session, Depends(get_session)]
+    request: Request,
+    agent_id: str,
+    specialization_tags: list[str],
+    session: Annotated[Session, Depends(get_session)],
+    user: AuthDep,
 ) -> dict[str, Any]:
     """Update agent specialization tags"""
+    _require_self_or_admin(user, agent_id)
     try:
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
@@ -486,9 +499,10 @@ async def update_specialization(
 @router.put("/profile/{agent_id}/region")
 @rate_limit(rate=20, per=60)
 async def update_region(
-    request: Request, agent_id: str, region: str, session: Annotated[Session, Depends(get_session)]
+    request: Request, agent_id: str, region: str, session: Annotated[Session, Depends(get_session)], user: AuthDep
 ) -> dict[str, Any]:
     """Update agent geographic region"""
+    _require_self_or_admin(user, agent_id)
     try:
         reputation = session.execute(select(AgentReputation).where(AgentReputation.agent_id == agent_id)).scalars().first()
         if not reputation:
@@ -561,6 +575,7 @@ async def sync_cross_chain_reputation(
     background_tasks: Any,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
+    user: AdminDep,
 ) -> dict[str, Any]:
     """Synchronize reputation across chains for an agent"""
     try:
@@ -644,6 +659,7 @@ async def submit_cross_chain_event(
     background_tasks: Any,
     session: Annotated[Session, Depends(get_session)],
     reputation_service: Annotated[ReputationService, Depends(get_reputation_service)],
+    user: AdminDep,
 ) -> dict[str, Any]:
     """Submit a cross-chain reputation event"""
     try:

@@ -92,7 +92,7 @@ def _make_job_and_payment(
 def _fake_refund_with_hash(session: Session, tx_hash: str = "0xdeadbeef") -> AsyncMock:
     """Return an async callable that simulates a real, on-chain refund."""
 
-    async def _refund(client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+    async def _refund(client_id: str, job_id: str, payment_id: str, reason: str, *, is_admin: bool = False) -> bool:
         payment = session.get(JobPayment, payment_id)
         if payment:
             payment.status = "refunded"
@@ -239,7 +239,9 @@ class TestStuckEscrowSweeper:
         """A refund with no on-chain hash is downgraded to failed."""
         _make_job_and_payment(sweep_session, "job-unbacked-1", "pay-unbacked-1", state="CANCELED")
 
-        async def _fake_unbacked_refund(client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+        async def _fake_unbacked_refund(
+            client_id: str, job_id: str, payment_id: str, reason: str, *, is_admin: bool = False
+        ) -> bool:
             payment = sweep_session.get(JobPayment, payment_id)
             if payment:
                 payment.status = "refunded"

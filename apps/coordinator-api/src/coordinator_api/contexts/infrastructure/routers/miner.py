@@ -439,6 +439,13 @@ async def submit_result(
         job = job_service.get_job(job_id)
     except KeyError:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
+    # Only the assigned miner may deliver a result, and only while the job is
+    # running — otherwise any miner could overwrite another provider's work
+    # (or a finished job) and have the receipt issued in their own name.
+    if job.assigned_miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
+    if job.state != JobState.running:
+        raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=f"job is {job.state}, not running")
     payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
     payment_amount = payment.amount if payment else None
     is_shadow = _is_shadow_mode(job)
@@ -520,7 +527,7 @@ async def submit_result(
                 # v0.14.3: TEE failure now triggers an automatic refund so the
                 # customer is not left with an escrowed stuck job.
                 refunded = await payment_service.refund_payment(
-                    job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}"
+                    job.client_id, job.id, job.payment_id, reason=f"TEE attestation failed: {tee_status}", is_admin=True
                 )
                 if refunded:
                     logger.info(
@@ -812,9 +819,11 @@ async def fail_job(
     user: MinerDep,
 ) -> dict[str, str]:
     """Report job failure"""
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         job_service = JobService(session)
-        job_service.fail_job(job_id, fail_req.error_message)
+        job_service.fail_job(job_id, user["sub"], fail_req.error_message)
 
         # Record the failure in the reputation service.
         try:
@@ -864,8 +873,13 @@ async def complete_job(
     This endpoint allows miners to submit the results of AI job execution,
     including the output and a verification receipt.
     """
+    if miner_id != user["sub"]:
+        raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="miner_id does not match authenticated miner")
     try:
         job_service = JobService(session)
+        job = job_service.get_job(job_id)
+        if job.assigned_miner_id != user["sub"]:
+            raise HTTPException(status_code=status.HTTP_403_FORBIDDEN, detail="job is assigned to a different miner")
         result = {"output": complete_req.output, "receipt": complete_req.receipt or {}}
         job = job_service.execute_job(job_id, result)
 
@@ -877,7 +891,10 @@ async def complete_job(
             response_time = float(output["execution_time"]) * 1000.0
         elif receipt.get("started_at") and receipt.get("completed_at"):
             response_time = (float(receipt["completed_at"]) - float(receipt["started_at"])) * 1000.0
-        earnings = Decimal(str(receipt.get("price", "0")))
+        # Earnings come from the persisted payment row — the request body's
+        # receipt["price"] is caller-controlled and must not feed reputation.
+        payment = session.get(JobPayment, job.payment_id) if job.payment_id else None
+        earnings = Decimal(str(payment.amount)) if payment is not None and payment.amount is not None else Decimal("0")
         try:
             reputation_service = ReputationService(session)
             await reputation_service.record_job_completion(
@@ -907,6 +924,8 @@ async def complete_job(
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="job not found") from None
     except ValueError as e:
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error("Error completing job %s: %s", job_id, e)
         logger.exception("Unhandled exception")

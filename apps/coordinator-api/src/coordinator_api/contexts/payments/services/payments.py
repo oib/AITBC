@@ -1371,12 +1371,19 @@ class PaymentService:
             logger.error("Failed to submit refund transaction: %s", e)
             raise
 
-    async def refund_payment(self, client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+    async def refund_payment(
+        self, client_id: str, job_id: str, payment_id: str, reason: str, *, is_admin: bool = False
+    ) -> bool:
         """Refund payment to client"""
         payment = self.session.get(JobPayment, payment_id)
         if payment is None or payment.job_id != job_id:
             return False
-        job = self._require_owned_job(payment.job_id, client_id)
+        if is_admin:
+            job = self.session.get(Job, payment.job_id)
+            if job is None:
+                return False
+        else:
+            job = self._require_owned_job(payment.job_id, client_id)
         # B-residue: already-refunded rows may carry a pre-5b0455921 local hash.
         # Fix the denormalised cache, but continue so the chain can return the
         # authoritative on-chain hash.
@@ -1393,6 +1400,18 @@ class PaymentService:
         # or otherwise non-escrowed rows.
         elif payment.escrowed_at is None or payment.status not in REFUNDABLE_STATES:
             return False
+        # A client's refund window ends at delivery: while the payment is held
+        # and no result exists the client may still pull out, but once output
+        # is delivered (pending_acceptance), contested (disputed) or a release
+        # has been attempted (settlement_failed), refunding is an arbiter call.
+        # Without this gate a client could collect the result and refund the
+        # escrow afterwards — keeping the work and the money.
+        delivered = bool(job.result) or job.state == JobState.completed
+        if not is_admin and payment.status != "refunded" and (payment.status != "escrowed" or delivered):
+            raise HTTPException(
+                status_code=status.HTTP_403_FORBIDDEN,
+                detail="the result has been delivered or is under dispute; refunds at this stage need an operator",
+            )
         try:
             client = AsyncAITBCHTTPClient(timeout=30.0, api_key=self.blockchain_rpc_api_key)
             reconciled = await self._reconcile_refund_state(client, payment, job, payment_id, job_id)

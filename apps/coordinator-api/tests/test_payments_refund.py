@@ -36,7 +36,7 @@ def _make_job_and_payment(session: Session, job_id: str, payment_id: str) -> Non
     job = Job(
         id=job_id,
         client_id=client_id,
-        state="COMPLETED",
+        state="QUEUED",
         payload={},
         payment_id=payment_id,
         payment_status="escrowed",
