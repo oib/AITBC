@@ -24,11 +24,12 @@ import os
 from datetime import UTC, datetime, timedelta
 from typing import Any
 
-from fastapi import APIRouter, Header, HTTPException
+from fastapi import APIRouter, Header, HTTPException, Request
 from pydantic import BaseModel
 
 from aitbc.aitbc_logging import get_logger
 from aitbc.crypto import TransactionService
+from aitbc.rate_limiting import rate_limit
 from aitbc.db import get_db_session
 from aitbc.models import CoinRequest, CoinRequestStatus
 
@@ -94,7 +95,13 @@ class RegisterRequest(BaseModel):
 
 
 @router.post("/register")
-async def register_coin_request(req: RegisterRequest, x_api_key: str | None = Header(default=None)) -> dict[str, Any]:
+# Per-IP on top of the global middleware: a faucet drain only needs a few
+# requests a minute to be worth it, so this route gets a much tighter bucket
+# than the service-wide 100/min.
+@rate_limit(rate=30, per=60)
+async def register_coin_request(
+    request: Request, req: RegisterRequest, x_api_key: str | None = Header(default=None)
+) -> dict[str, Any]:
     """Record a follower's coin request here so it can later be executed.
 
     The hub decides the status; the caller only supplies the facts. Registering is
@@ -198,8 +205,9 @@ def _warn_on_mismatch(req: RemoteExecuteRequest, stored_amount: int, stored_addr
 
 
 @router.post("/execute")
+@rate_limit(rate=20, per=60)
 async def remote_execute_coin_request(
-    req: RemoteExecuteRequest, x_api_key: str | None = Header(default=None)
+    request: Request, req: RemoteExecuteRequest, x_api_key: str | None = Header(default=None)
 ) -> dict[str, Any]:
     """
     Execute an approved coin request forwarded from a follower node.
