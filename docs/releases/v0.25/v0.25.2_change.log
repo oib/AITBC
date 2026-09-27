@@ -465,3 +465,26 @@ Each host now tries the LAN endpoint first (when `NODE*_HOST` is set) then
 `https://<host>.<domain>/rpc/status`. LAN first because a node cannot reach
 its own vhost through the public edge (at1 has no hairpin), so `public-only`
 would break runs from a fleet node.
+
+
+### hub-down gossip test on restored mesh (2026-09-27, ~5 min at 13:55+02:00)
+
+`aitbc-blockchain-node` stopped on hub with the rpc websocket surface left up.
+
+- **Gossip layer: healthy.** hub1/node0/node1/node2 logged zero gossip, mesh,
+  peer, or websocket errors for the entire window; the remaining four mesh
+  links carried on silently. This is what mesh was built for (`3a18de6ea9`).
+- **Block production: halted at 25529.** Hub is the sole proposer
+  (`0x02B8…E74c5B`); there is no leader failover in the PoA layer, so no new
+  blocks are produced while it is down. Followers kept polling
+  `/rpc/head` + `/rpc/state/delta` (served by hub's still-running rpc unit,
+  200s) and re-verified state roots — "0 accounts changed, state root matches".
+- **Recovery: clean.** On restart hub re-initialized `mesh` with 4 peers,
+  produced 25530, and all five hosts converged on identical height + hash.
+  No orphans, no rejected imports, no state-root divergence. The only warning
+  was the proposer's own "6 round(s) without a block" counter noting the
+  stall.
+
+Takeaway: mesh removes hub as a gossip single point of failure, as designed;
+block production remains hub-dependent — a separate availability axis if ever
+worth addressing.
