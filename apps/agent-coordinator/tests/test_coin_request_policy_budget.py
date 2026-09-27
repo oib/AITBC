@@ -138,3 +138,9 @@ class TestAutoGrantBudget:
         assert coin_request_policy.auto_approve_ceiling() == ait_to_units("2.5")
         monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", "garbage")
         assert coin_request_policy.auto_approve_ceiling() == coin_request_policy.DEFAULT_AUTO_APPROVE_MAX
+
+    def test_non_finite_env_falls_back(self, monkeypatch):
+        """`inf`/`nan` parse as Decimal but must not become budgets — fall back."""
+        for raw in ("inf", "nan", "-inf"):
+            monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", raw)
+            assert coin_request_policy.auto_budget_per_hour() == coin_request_policy.DEFAULT_AUTO_BUDGET_PER_HOUR
