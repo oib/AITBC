@@ -35,6 +35,11 @@ configured in `aitbc-frontend.env` (`FRONTEND_NGINX_MODE`).
 4. **The edge is a dumb pipe** — route auth, exposure decisions and static
    files live in the container's nginx. Do not duplicate per-path routing at
    the edge except for timeout/streaming overrides.
+5. **`Connection $connection_upgrade`, not `"upgrade"`** — the examples use
+   the mapped variable so plain requests do not get a spurious
+   `Connection: upgrade` header. Add the map once per edge host in
+   `/etc/nginx/conf.d/websocket-upgrade.conf` (snippet is in each example's
+   header comment).
 
 ## Sanitization
 
