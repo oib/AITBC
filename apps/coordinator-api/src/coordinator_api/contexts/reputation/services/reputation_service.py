@@ -305,11 +305,13 @@ class ReputationService:
         ratings: dict[str, float],
         feedback_text: str = "",
         tags: list[str] | None = None,
+        job_id: str | None = None,
     ) -> CommunityFeedback:
         """Add community feedback for an agent"""
         feedback = CommunityFeedback(
             agent_id=agent_id,
             reviewer_id=reviewer_id,
+            job_id=job_id,
             overall_rating=ratings.get("overall", 3.0),
             performance_rating=ratings.get("performance", 3.0),
             communication_rating=ratings.get("communication", 3.0),

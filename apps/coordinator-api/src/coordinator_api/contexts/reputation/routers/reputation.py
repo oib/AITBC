@@ -10,6 +10,7 @@ from typing import Annotated, Any
 from fastapi import APIRouter, Depends, HTTPException, Request
 from pydantic import BaseModel, Field
 from sqlalchemy import and_, desc, func
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 from sqlmodel import select
 
@@ -75,6 +76,10 @@ class FeedbackRequest(BaseModel):
     authenticated caller, so a body-supplied identity is never consulted.
     """
 
+    job_id: str | None = Field(
+        default=None,
+        description="Completed job this review is anchored to (required for non-admin callers)",
+    )
     ratings: dict[str, float] = Field(..., description="Overall, performance, communication, reliability, value ratings")
     feedback_text: str = Field(default="", max_length=1000)
     tags: list[str] = Field(default_factory=list)
@@ -194,10 +199,14 @@ async def add_community_feedback(
     """Add community feedback for an agent.
 
     The reviewer is always the authenticated caller — never the request body —
-    and a non-admin caller must have a completed job with this agent, so a
-    rating is anchored to delivered work rather than free-floating.
+    and a non-admin caller must name a completed job they paid this agent for,
+    so a rating is anchored to delivered work rather than free-floating — and
+    the unique (reviewer, job_id) constraint makes one job good for exactly one
+    review.
     """
     if user.get("role") != "admin":
+        if not feedback_request.job_id:
+            raise HTTPException(status_code=422, detail="feedback requires a job_id anchoring it to completed work")
         try:
             caller_client_id, _ = resolve_client(session, user["sub"])  # type: ignore[arg-type]
         except ValueError:
@@ -205,6 +214,7 @@ async def add_community_feedback(
         completed_link = (
             session.execute(
                 select(Job).where(
+                    Job.id == feedback_request.job_id,
                     Job.client_id == caller_client_id,
                     Job.assigned_miner_id == agent_id,
                     Job.state == JobState.completed,
@@ -218,11 +228,25 @@ async def add_community_feedback(
                 status_code=403,
                 detail="feedback requires a completed job between you and this agent",
             )
+    if feedback_request.job_id is not None:
+        existing = (
+            session.execute(
+                select(CommunityFeedback).where(
+                    CommunityFeedback.reviewer_id == user["sub"],
+                    CommunityFeedback.job_id == feedback_request.job_id,
+                )
+            )
+            .scalars()
+            .first()
+        )
+        if existing is not None:
+            raise HTTPException(status_code=409, detail="you have already reviewed this job")
     reputation_service = ReputationService(session)  # type: ignore[arg-type]
     try:
         feedback = await reputation_service.add_community_feedback(
             agent_id=agent_id,
             reviewer_id=user["sub"],
+            job_id=feedback_request.job_id,
             ratings=feedback_request.ratings,
             feedback_text=feedback_request.feedback_text,
             tags=feedback_request.tags,
@@ -243,6 +267,10 @@ async def add_community_feedback(
         )
     except HTTPException:
         raise
+    except IntegrityError:
+        # Backstop for the pre-check above: a concurrent duplicate submission
+        # hits the (reviewer_id, job_id) unique index.
+        raise HTTPException(status_code=409, detail="you have already reviewed this job") from None
     except Exception as e:
         logger.error("Error adding feedback for agent %s: %s", agent_id, str(e))
         logger.exception("Unhandled exception")

@@ -1268,6 +1268,13 @@ class PaymentService:
         payment.updated_at = datetime.now(UTC)
         payment.refund_transaction_hash = refund_tx_hash
         job.payment_status = payment.status
+        # A refunded escrow will never pay out, so a job that is still live
+        # must die with it — otherwise the assigned miner's later submission
+        # passes the assignment/running checks, stores a result nobody paid
+        # for, and the client keeps the output for free.
+        if job.state in {JobState.queued, JobState.running}:
+            job.state = JobState.canceled
+            job.error = job.error or "job canceled: escrow refunded"
         self.session.add(job)
         escrow = self.session.execute(select(PaymentEscrow).where(PaymentEscrow.payment_id == payment_id)).scalars().first()
         if escrow:
