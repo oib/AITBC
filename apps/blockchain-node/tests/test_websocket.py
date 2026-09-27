@@ -153,3 +153,86 @@ def test_gossip_websocket_missing_topic_rejects() -> None:
         with pytest.raises(WebSocketDisconnect):
             with client.websocket_connect("/rpc/gossip/ws"):
                 pass
+
+
+def test_gossip_websocket_publish_failure_keeps_connection(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A broker publish failure drops the message but must not close the conn.
+
+    Regression for the 2026-09-27 partition test: an ACL-denied blocks.*
+    publish tore down the whole socket and churned the attestation
+    transport. The fix catches the publish error only — the socket stays
+    open and ``gossip_broker_publish_failed_total`` counts the drop.
+    """
+    from unittest.mock import AsyncMock
+
+    from aitbc_chain.metrics import metrics_registry
+
+    metrics_registry.reset()
+    monkeypatch.setattr(gossip_broker, "publish", AsyncMock(side_effect=RuntimeError("NOPERM")))
+
+    topic = "transactions"
+    with TestClient(create_app()) as client:
+        with client.websocket_connect(f"/rpc/gossip/ws?topic={topic}") as websocket:
+            # This publish hits the patched (failing) broker and is dropped.
+            websocket.send_json({"tx_hash": "0x" + "a" * 64, "type": "TRANSFER"})
+
+            # The receive path must still work — the socket is alive when a
+            # backend message arrives and is delivered.
+            payload = {"tx_hash": "0x" + "c" * 64, "type": "TRANSFER"}
+            _publish(topic, payload)
+            assert websocket.receive_json() == payload
+
+    assert "gossip_broker_publish_failed_total 1.0" in metrics_registry.render_prometheus()
+
+
+def test_gossip_websocket_unauthorized_publish_still_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """Auth failures still close: the publish-failure catch must not widen.
+
+    A non-validator publish to a restricted topic without completing the
+    challenge/response gets the error frame and a 1008 close.
+    """
+    monkeypatch.setattr(settings, "gossip_auth_enabled", True)
+    monkeypatch.setattr(
+        settings,
+        "validator_set",
+        '[{"address": "0x1111111111111111111111111111111111111111"}]',
+    )
+
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/gossip/ws?topic=blocks.test") as websocket:
+            challenge = websocket.receive_json()
+            assert challenge["type"] == "auth_challenge"
+            websocket.send_json({"type": "block", "hash": "0x" + "d" * 64})
+            error = websocket.receive_json()
+            assert "authentication required" in error["error"].lower()
+            with pytest.raises(WebSocketDisconnect) as excinfo:
+                websocket.receive_json()
+            assert excinfo.value.code == 1008
+
+
+def test_gossip_websocket_bad_auth_response_still_closes(monkeypatch: pytest.MonkeyPatch) -> None:
+    """A failed challenge/response closes the conn, unaffected by the publish catch."""
+    monkeypatch.setattr(settings, "gossip_auth_enabled", True)
+    monkeypatch.setattr(
+        settings,
+        "validator_set",
+        '[{"address": "0x1111111111111111111111111111111111111111"}]',
+    )
+
+    with TestClient(create_app()) as client:
+        with client.websocket_connect("/rpc/gossip/ws?topic=blocks.test") as websocket:
+            websocket.receive_json()  # auth_challenge
+            websocket.send_json(
+                {
+                    "type": "auth_response",
+                    "address": "0x2222222222222222222222222222222222222222",  # not in the set
+                    "signature": "ab" * 65,
+                    "challenge": "bogus",
+                    "timestamp": 0.0,
+                }
+            )
+            error = websocket.receive_json()
+            assert "not a validator" in error["error"].lower()
+            with pytest.raises(WebSocketDisconnect) as excinfo:
+                websocket.receive_json()
+            assert excinfo.value.code == 1008
