@@ -762,3 +762,50 @@ briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
   the only heights a reorg can still rewrite — so a just-orphaned header
   is never served during the TTL window either. `/rpc/blocks-range`
   (peer sync) was confirmed to read the DB directly and was unaffected.
+
+- **Consensus hardening batch (2026-09-28).** The follow-up to the fork
+  work above:
+  - **Attester lock (`bca5ae618b`).** A validator that signs a peer's
+    block X at height h records `(h, X)` in-memory and, for one proposer
+    round, refuses to attest a rival hash at h and suppresses its own
+    proposal there — it fetches X from the mesh and imports it instead.
+    Removes the equivocation that let an attester who never received the
+    block it signed build a competing one (`ATTESTATION_LOCK_ENABLED=false`
+    restores legacy behaviour; locks are in-memory and reset on restart).
+  - **Delta-journal undo (`ce49bf601c`).** Non-empty losing fork segments
+    no longer require a manual snapshot reset: every block apply journals
+    per-row before-images (`block_state_delta` — ORM writes plus the raw
+    `UPDATE account` balance/nonce writes) inside the block's own
+    commit, fork resolution replays them in reverse, and the restore is
+    proven by recomputing the state root against the common ancestor's
+    recorded root before commit. Orphaned transaction payloads are
+    requeued into the mempool (best-effort: the stored row does not carry
+    the original signature, so a payload that fails re-admission is
+    dropped — the winning branch normally carries it anyway). Missing
+    journal or root mismatch still escalates via
+    `sync_fork_reorg_unsafe_total` — fail-closed, never a wrong revert.
+    New metric `sync_fork_reorg_undone_total`.
+  - **Chain-ID signature binding (`8b61bed96a`).** Tests pin that block
+    and attestation signatures cover `chain_id` — a signature from the
+    retired `ait-hub1.aitbc.bubuit.net` chain cannot replay on
+    `ait-hub.aitbc.bubuit.net` or vice versa. The stale `ait-hub1` data
+    directory on hub1 (zero blocks, untouched since Sep 25) was renamed
+    aside; no env anywhere still references that chain.
+  - **Websocket publish scope (`0fe3e606b8`).** Tests pin the `05369d6262`
+    fix: a `gossip_broker.publish` failure drops and counts the message
+    (`gossip_broker_publish_failed_total`) without closing the connection,
+    while authentication and oversized-message failures still close it.
+  - **Alerting (`a6307d06d0`).** `ForkReorgUnsafe` and
+    `FaucetBudgetTripped` rules added to `scripts/monitoring/aitbc_rules.yml`
+    (13 rules). Note: the coordinator scrape job in node2's
+    prometheus.yml is still commented out, so the faucet rule stays inert
+    until that endpoint is scraped.
+  - **Docs (`6413d8fd4c`).** AGENTS.md liveness text corrected to the real
+    model: proposer + 2 remote attestations (3-of-4); one validator down
+    tolerated, two down or a symmetric 2–2 split halts production; forks
+    need an asymmetric failure.
+  - **Cut-7 transaction verified canonical.** The `GPU_MARKET`
+    `software_offer` from node2's orphaned 25885' (`0x8c29df4f…`)
+    is present in the canonical `0xaeacc3a8` block at 25885 on hub1 and
+    node2 — the majority mempool held it pre-partition. No resubmission
+    needed.
