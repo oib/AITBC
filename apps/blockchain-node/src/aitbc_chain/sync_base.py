@@ -42,6 +42,7 @@ class SyncBase(Protocol):
     _validator: ProposerSignatureValidator
     _max_reorg_depth: int
     _rejection_counts: dict[str, int]
+    _deferred_forks: dict[int, float]
 
     # Peer lifecycle
     def register_sync_peer(self, peer_id: str, rpc_url: str, block_range: tuple[int, int], has_state: bool = True) -> None: ...
