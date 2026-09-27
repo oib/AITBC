@@ -127,7 +127,7 @@ def test_automatic_approval_can_be_turned_off_entirely(bare_client, monkeypatch)
 
 
 def test_the_ceiling_is_configurable(bare_client, monkeypatch) -> None:
-    monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", str(PAYOUT - 1))
+    monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", "0.01")
 
     assert _register(bare_client).json()["status"] == "pending"
 
