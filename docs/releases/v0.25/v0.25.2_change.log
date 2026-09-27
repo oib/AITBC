@@ -405,3 +405,10 @@ Follow-up to the faucet review, all operational (no code change):
 - Dual-hub budget: hub1 runs its own agent-coordinator with a separate `coin_requests` DB and holds the genesis key, so its faucet doubled the fleet-wide daily cap to 120 AIT. hub1's `/etc/aitbc/aitbc-agent-coordinator.env` now sets `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0`; verified a live registration there returns `pending` / "hourly budget is exhausted". Fleet-wide automatic budget is the intended 24/60 AIT again.
 - Probe rows: the hub end-to-end test row `budget-probe-0` (1 unit, `automatic/APPROVED`, never executed — `transaction_hash IS NULL`, nothing paid) and the hub1 park-probe row were deleted. Both DBs are back to their pre-review grant totals (hub: 7 automatic approved, 14400000300 units).
 - AGENTS.md gains an agent-coordinator faucet section recording the trust chain, the hub1 override, and the probe-row rule.
+
+
+### 9776248bf fix(agent-coordinator): faucet env knobs are AIT amounts; fleet-check asserts one live faucet
+
+- `COIN_REQUEST_AUTO_BUDGET_PER_HOUR`, `_PER_DAY` and `COIN_REQUEST_AUTO_APPROVE_MAX` were parsed as raw base units while their defaults and AGENTS.md were in AIT — `=24` meant 24 units and parked everything silently. They now parse as decimal AIT via `ait_to_units` (`0` still disables; malformed values fall back to the default with a warning). No live override other than hub1's `=0` existed, so nothing deployed changes meaning.
+- `scripts/monitoring/fleet-config-check.sh` gains a faucet section: reads each host's `aitbc-agent-coordinator` EnvironmentFiles and fails unless exactly one host has a non-zero-or-unset hourly budget. Verified from the dev host: hub `<unset>`, hub1 `=0`, node0/1/2 no unit → `ok: exactly one live faucet`. A hub1 reprovision that drops the override now fails the drift check instead of silently doubling the fleet budget.
+- Deployed to hub/hub1; live probes (deleted afterwards, unexecuted) confirm hub approves within budget and hub1 parks.
