@@ -3,7 +3,7 @@ from datetime import UTC, datetime
 from typing import Any, Optional
 
 from pydantic import field_validator
-from sqlalchemy import BigInteger, Column, ForeignKeyConstraint, Index, Numeric, String, TypeDecorator, UniqueConstraint
+from sqlalchemy import BigInteger, Column, ForeignKeyConstraint, Index, Numeric, String, Text, TypeDecorator, UniqueConstraint
 from sqlalchemy.types import JSON
 from sqlmodel import Field, Relationship, select
 
@@ -257,6 +257,30 @@ class Account(ChainBase, table=True):
     balance: int = Field(default=0, sa_type=BigInteger)  # in compute-units (1 AIT = 36_000_000)
     nonce: int = Field(default=0, sa_type=BigInteger)
     updated_at: datetime = Field(default_factory=lambda: datetime.now(UTC))
+
+
+class BlockStateDelta(ChainBase, table=True):
+    """One before-image row of the per-block undo journal.
+
+    Written inside the same transaction that commits the block, so a block
+    that committed always carries its undo information. ``op`` is one of
+    ``ins`` (row did not exist pre-block — undo deletes it), ``upd`` (undo
+    restores ``before_json`` columns; a NULL ``before_json`` means the row
+    must not exist after undo — it was pending-insert when a raw
+    ``UPDATE account`` ran), and ``del`` (undo re-inserts ``before_json``).
+    ``state.block_deltas`` owns the semantics.
+    """
+
+    __tablename__ = "block_state_delta"
+    __table_args__ = (Index("idx_block_state_delta_chain_height", "chain_id", "height"),)
+
+    id: int | None = Field(default=None, primary_key=True)
+    chain_id: str = Field(index=True)
+    height: int = Field(index=True)
+    table_name: str
+    op: str
+    pk_json: str = Field(sa_column=Column(Text, nullable=False))
+    before_json: str | None = Field(default=None, sa_column=Column(Text, nullable=True))
 
 
 class Escrow(ChainBase, table=True):

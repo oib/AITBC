@@ -48,6 +48,7 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
+from ..state.block_deltas import BlockDeltaJournal
 from ..state.bridge_credit import (
     bridge_refund_lock_hash,
     validate_bridge_refund_lock,
@@ -710,6 +711,10 @@ class PoAProposer:
                 return False
             head, next_height, parent_hash, interval_seconds = resolved
             timestamp = datetime.now(UTC)
+            if session is not None:
+                # Journal every mutation this proposal makes so a later fork
+                # resolution can undo it — the same journal the import path keeps.
+                BlockDeltaJournal.attach(session, chain, next_height)
             # v0.7.6: Determine the intended proposer before draining the
             # mempool or touching account state. This prevents a node from
             # consuming transactions, creating Transaction records, or
@@ -1459,6 +1464,9 @@ class PoAProposer:
     ) -> None:
         """Commit the signed block and update caches, metrics and proposer state."""
         session.add(block)
+        journal = BlockDeltaJournal.get(session)
+        if journal is not None:
+            journal.persist(session)
         session.commit()
         # Invalidate the in-process block header cache for the new block
         # so stale entries are not served by rpc/blocks.py.
