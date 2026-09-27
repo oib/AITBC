@@ -584,3 +584,34 @@ Dependabot PR #181 proposed `eth-keyfile 0.9.1` standalone, which violates
 cascade: eth-keyfile 0.10.0, eth-rlp 3.0.0, hexbytes 2.0.0, py-ecc 8.0.0.
 Verified live on node0: `pip check` clean, keystore encrypt/decrypt
 roundtrip OK, services healthy.
+
+### ba17138438 fix(sync): validate rival before delete; weight-first fork choice
+
+Two correctness fixes to `8b82864c9` found in review:
+
+- **Validate before delete (push path).** `_resolve_fork` deleted our
+  blocks and committed before `_append_block` validated the rival — a
+  malformed or malicious block claiming a winning `(round, hash)` could
+  knock the head off any validator whose losing segment was empty (most
+  heads, since heartbeat blocks are empty), repeatable as a grief loop.
+  The rival now passes signature, timestamp sanity (≥ parent ts, within
+  one proposer window of future skew), and the proposer schedule for the
+  round its timestamp claims BEFORE any delete is staged, and the
+  delete+append share one transaction — `_append_block`'s failure paths
+  roll back our row. `_resolve_fork_with_peer` got the same ordering:
+  every fetched peer-segment block is validated (signature, timestamp,
+  schedule) before our losing segment is removed.
+- **Branch weight decides, not the fork-point key.** `(round, hash)`
+  alone let an isolated node win: a lone validator owns the first
+  contested round ~1/4 of the time, so its fork-point block outranked the
+  majority's deeper-but-later-round segment. The pull resolver now
+  compares, in order, distinct proposers in each segment (a lone node's
+  branch shows 1; the majority's up to N−1), then segment length, then
+  `(round, hash)` — every quantity derivable from headers, still fully
+  deterministic, but the round only settles ties between equally
+  supported branches. The push path reorgs only a pure tip race (rival
+  shares our head's parent AND our head has no descendants); deeper
+  conflicts defer to the pull resolver.
+
+New metric `sync_fork_invalid_rival_total`. 17 fork-choice tests +
+224-test sync/consensus suite pass; ruff/mypy clean.
