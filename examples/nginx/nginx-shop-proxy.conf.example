@@ -1,0 +1,125 @@
+# AITBC Host Reverse Proxy — SHOP node (TLS edge)
+#
+# Install on the EDGE HOST (public IP + TLS termination), NOT inside the
+# AITBC container. Forwards plain HTTP to the container's nginx (:80).
+#
+# Pairs with: the container nginx site for shop/GPU nodes.
+#
+# Use this for: MARKET_ROLE=shop nodes (GPU provider: whisper, ffmpeg,
+# ollama, hermes). For followers use nginx-customer-proxy; for the hub use
+# nginx-hub-proxy.
+#
+# Placeholders to replace:
+#   CONTAINER_IP  — the container's address on the edge's Incus bridge
+#   YOUR_DOMAIN   — the public hostname this edge serves
+# Enable TLS:   certbot --nginx -d YOUR_DOMAIN
+#
+# Architecture:
+#   Internet → this host :443 (TLS, this file) → CONTAINER_IP:80
+#            → container nginx (routing, auth, real-ip restore) → services
+
+upstream aitbc_container {
+    server CONTAINER_IP:80;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl;
+    server_name YOUR_DOMAIN;
+    # ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # Audio/model uploads can be large; the container enforces the same
+    # limit on its own upload locations — keep the two in sync.
+    client_max_body_size 500M;
+
+    # ── Long-lived blockchain streams ──────────────────────────────
+    # /rpc/subscribe/ws — followers & dashboards subscribe to new blocks
+    location /rpc/subscribe/ws {
+        proxy_pass http://aitbc_container/rpc/subscribe/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # /rpc/gossip/ws — inter-island gossip mesh (node-to-node via public name)
+    location /rpc/gossip/ws {
+        proxy_pass http://aitbc_container/rpc/gossip/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # ── LLM inference: streaming responses, long jobs ────────────────
+    location /ollama/ {
+        proxy_pass http://aitbc_container/ollama/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        proxy_buffering off;    # token streaming
+        proxy_cache off;
+        proxy_request_buffering off;
+    }
+
+    # ── Job API: long-running transcode/inference requests ────────────
+    location /api/ {
+        proxy_pass http://aitbc_container/api/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+    }
+
+    # ── Everything else: plain pass-through ──────────────────────────
+    # The container's nginx owns routing; the edge is a dumb pipe.
+    location / {
+        proxy_pass http://aitbc_container;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 600s;
+        proxy_read_timeout 600s;
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+    }
+}
+
+# HTTP → HTTPS redirect (certbot manages this block if you use --nginx)
+server {
+    listen 80;
+    server_name YOUR_DOMAIN;
+    return 301 https://$host$request_uri;
+}
