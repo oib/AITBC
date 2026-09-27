@@ -415,6 +415,47 @@ from a published example.
 
 ---
 
+## website.env Reference
+
+**Location:** `/etc/aitbc/website.env` (optional — see `examples/website.env.example`)
+**Purpose:** White-label branding for the public website served by the hub — domain, chain id, and contact email shown on the site and in `/rpc/network-info`.
+
+The site is served by nginx straight from the `website/` checkout. When this
+file exists, `scripts/ops/render-website.sh` (invoked by `update.sh` after
+every pull) rewrites the committed domain/chain-id tokens in the static files.
+Without the file nothing is rendered and the committed values are served.
+
+### Variables
+
+| Variable | Required | Default | Description |
+|----------|----------|---------|-------------|
+| `WEBSITE_DOMAIN` | No | `AITBC_HOSTNAME`, then `HUB_DISCOVERY_URL` (node.env) | Public domain the site is served on — rewritten into `sitemap.xml`, `robots.txt`, `llms.txt`, `structured-data.jsonld`, `index.html`, `follower-api-key-announcement.html` |
+| `WEBSITE_CHAIN_ID` | No | `CHAIN_ID` (node.env) | Chain id used by `config.js`, `dashboard.js`, `follower-api-key-announcement.html` |
+| `CONTACT_EMAIL` | No | `operator@aitbc.invalid` | Contact shown in the site footer and in `/rpc/network-info` |
+
+### Services That Load This File
+
+- `aitbc-blockchain-rpc.service` — `CONTACT_EMAIL` for the network-info payload
+- `scripts/ops/render-website.sh` — all variables (runs under `update.sh`, not a service)
+
+### Example
+
+```bash
+WEBSITE_DOMAIN=hub.example.net
+WEBSITE_CHAIN_ID=ait-hub.example.net
+CONTACT_EMAIL=operator@example.net
+```
+
+### Notes
+
+- On the canonical deployment the values equal the committed tokens, so the
+  render is a no-op and the working tree stays clean.
+- Last-rendered values are tracked in `/etc/aitbc/.website-rendered.env`; to
+  revert, remove both env files and `git checkout -- website/`.
+- Only meaningful on hosts that serve the site (the hub). Followers can skip it.
+
+---
+
 ## coordinator.env / Stale Miner Reaper Reference
 
 **Location:** `/etc/aitbc/aitbc-coordinator-api.env` (unit `EnvironmentFile`) or `apps/coordinator-api/.env.example`
@@ -458,7 +499,10 @@ Systemd services load environment files in the order specified in the `[Service]
 EnvironmentFile=-/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/node.env
 EnvironmentFile=-/etc/aitbc/%N.env
+EnvironmentFile=-/etc/aitbc/%N-override.env
+EnvironmentFile=-/etc/aitbc/website.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
+EnvironmentFile=-/etc/aitbc/validator-secrets.env
 ```
 
 **Loading order:**
@@ -466,7 +510,10 @@ EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 1. `blockchain.env` - Public base blockchain configuration
 2. `node.env` - Node-specific settings
 3. `%N.env` - Service-specific settings
-4. `blockchain-secrets.env` - Cluster-wide secrets (highest priority, overrides public files)
+4. `%N-override.env` - Service-specific local overrides
+5. `website.env` - Website branding (optional)
+6. `blockchain-secrets.env` - Cluster-wide secrets (overrides public files)
+7. `validator-secrets.env` - Consensus-signing keys, blockchain services only (highest priority)
 
 ---
 
