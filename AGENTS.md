@@ -560,12 +560,20 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
 
 ## Validator production & key layout
 
-- Four validators rotate block production: hub `0x02B8…`, hub1 `0x9Ea1…`,
-  node1 `0x241D…`, node2 `0x4364…` (order in `VALIDATOR_SET`); node0 is a
-  non-producing follower. Selection is `(height+round) % len(VALIDATOR_SET)`
-  (`MultiValidatorPoA`); the round window derives to 120 s — do NOT set
-  `CONSENSUS_PROPOSER_ROUND_SECONDS` below the block interval or every healthy
-  block lands in a foreign round.
+- Four validators rotate block production. The rotation order is the
+  *address-sorted* active set — `[hub 0x02B8, node1 0x241D, node2 0x4364,
+  hub1 0x9Ea1]` — not `VALIDATOR_SET` order (`MultiValidatorPoA.select_proposer`
+  sorts by address). Selection is `(height+round) % len(set)`; node0 is a
+  non-producing follower. The round window derives to
+  `max(30, max_empty_block_interval)` = 60 s when
+  `CONSENSUS_PROPOSER_ROUND_SECONDS` is unset (deliberate: a round longer
+  than the 60 s heartbeat stalls the chain two heartbeat cycles per silent
+  proposer — see `_scale_the_proposer_round_to_the_heartbeat`).
+- **Round-0 owners never produce heartbeat blocks.** The hybrid gate fires at
+  ≥60 s idle, exactly when round 0 ends, so every empty block is produced at
+  round ≥1 by the *next* validator in the sorted set. Effective heartbeat
+  rotation is therefore shifted by one slot — consistent fleet-wide, so not a
+  fork risk, but slot-0 identity in metadata never matches the signer.
 - **Each validator holds exactly its own key.** `validator-secrets.env` (last
   EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
   `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the

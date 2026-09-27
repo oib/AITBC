@@ -511,28 +511,39 @@ extra maps removed (rpc holds none), `PROPOSER_ID` corrected per host,
 had been set to 60 = the heartbeat, which would have made every block land in
 a foreign round once keys were split).
 
-Re-tested with **both** hub units down: hub1 produced 25558 ~7 s after hub
-stopped. That shows **production restored on all four validators — failover
-re-test still pending.** The outage lasted only 68 s, under one 120 s round
-window, so no hub-owned height ever waited long enough to advance rounds; the
-block that landed came from whichever validator already owned that slot. A
-valid failover test requires ≥5 min of hub downtime (≥2 round windows) and a
-height whose round-0 owner is hub being produced by another validator at
-round ≥1. Anyone auditing "four independent validators" for the
-Sep 13 – Sep 27 window should know they weren't.
+Re-tested with **both** hub units down for ~9 min (14:18–14:27 UTC):
+**failover verified.** Rotation order is the address-sorted active set
+`[hub, node1, node2, hub1]` and the round window derives to
+`max(30, heartbeat)` = 60 s (unset). With hub fully down, three hub-owned
+slots were produced by live validators: height 25652 — hub's round-0 slot —
+by node1 at round 1; 25656 — also hub's round-0 — by node1 at round 1; and
+25651 + 25655 — hub's round-1 slots after hub1 missed round 0 — by node1 at
+round 2. The chain never stalled; blocks landed every ~60–126 s. Note the
+schedule quirk this exposed: the heartbeat gate fires at ≥60 s idle, exactly
+when round 0 ends, so round-0 owners never produce *empty* blocks — every
+heartbeat lands at round ≥1 by the next validator. Consistent everywhere, so
+not a fork vector, but slot-0 identity never matches the signer for empty
+blocks.
 
-**New defect found by the test:** a node that restarts on a stale head forks
-instead of catching up — hub proposed competing blocks 25558–60 (its sync
-source was itself: `DEFAULT_PEER_RPC_URL` empty, so the sync gate never
-trips; imports reject gaps; `_resolve_fork` detects but never reorgs), and
-node0 pulled the fork through hub's rpc before it was stopped. Repaired
+Hub rejoin verified the fix below: production disabled via runtime drop-in,
+bulk pull from hub1 caught up 10 heights automatically, head matched at
+25657, drop-in removed, second restart resumed production — no fork. Anyone
+auditing "four independent validators" for the Sep 13 – Sep 27 window should
+know they weren't.
+
+**New defect found by the earlier test:** a node that restarts on a stale
+head forks instead of catching up — hub proposed competing blocks 25558–60
+(its sync source was itself: `DEFAULT_PEER_RPC_URL` empty, so the sync gate
+never trips; imports reject gaps; `_resolve_fork` detects but never reorgs),
+and node0 pulled the fork through hub's rpc before it was stopped. Repaired
 manually (fork rows deleted — all empty heartbeats — then `sync_cli` bulk
-pull from node1). Mitigations now in place: hub syncs from hub1 via
-`CHAIN_SYNC_SOURCES`, AGENTS.md has a mandatory production-disabled rejoin
-runbook for every validator restart/deploy, and post-repair state audit shows
-identical `state_root`, account count (58), and account-table hash across all
-five hosts at height 25633. Code fixes (pre-proposal freshness check,
-deterministic fork choice, receiver-side `validate_block`) remain open.
+pull from node1). Mitigations now in place and proven: hub syncs from hub1
+via `CHAIN_SYNC_SOURCES`, AGENTS.md has a mandatory production-disabled
+rejoin runbook for every validator restart/deploy (exercised live here), and
+post-repair state audit shows identical `state_root`, account count (58),
+and full account-table hash across all five hosts. Code fixes (pre-proposal
+freshness check, deterministic fork choice, receiver-side `validate_block`)
+remain open.
 
 `fleet-config-check.sh` now asserts the running backend is `mesh` everywhere
 with complete self-free peer lists, and a new validator section enforces:
