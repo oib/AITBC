@@ -38,7 +38,7 @@ from .state.state_transition import (
     get_block_version,
     get_state_transition,
 )
-from .consensus.multi_validator_poa import MultiValidatorPoA
+from .consensus.multi_validator_poa import MultiValidatorPoA, proposer_round
 from aitbc.crypto.signature_recovery import canonical_address
 from .mempool import compute_tx_hash
 from .sync_base import SyncBase
@@ -433,9 +433,7 @@ class BlockImportMixin(SyncBase):
             escrow_context: dict[str, dict[str, Any]] | None = None
             bridge_lock_context: dict[str, dict[str, Any]] | None = None
             if settings.parallel_tx_validation and block_version in (2, 3, 4, 5, 6):
-                escrow_context = build_escrow_context(
-                    session, self._chain_id, transactions, block_height=block_data["height"]
-                )
+                escrow_context = build_escrow_context(session, self._chain_id, transactions, block_height=block_data["height"])
                 # v6: refunds need their named BRIDGE_LOCK records prefetched —
                 # a batch with two refunds for one lock returns None and the
                 # block goes sequential so the double-refund rule applies in order.
@@ -481,9 +479,7 @@ class BlockImportMixin(SyncBase):
                     if block_version >= 5 and any(
                         _determine_tx_type(tx) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in transactions
                     ):
-                        bridge_authority = _bridge_release_authority(
-                            session, self._chain_id, block_data["height"]
-                        )
+                        bridge_authority = _bridge_release_authority(session, self._chain_id, block_data["height"])
                     # Batch-fetch all sender/recipient/v3-escrow accounts into
                     # account_map. Pre-create any missing accounts with zero
                     # balance so that `compute_state_delta` does not fail on
@@ -832,34 +828,87 @@ class BlockImportMixin(SyncBase):
             return None
         return f"head records state root {recorded}, our accounts hash to {actual}"
 
+    def _fork_choice_key(self, block_timestamp: Any, parent_timestamp: Any, block_hash: str) -> tuple[int, str]:
+        """Deterministic fork-choice key: (proposer round, block hash).
+
+        The lower key wins. The round is derived from the same header fields
+        the proposer used (``block_ts - parent_ts`` against the proposer round
+        window), so every node that sees the same two headers picks the same
+        winner — including the node that produced the losing block. The hash
+        is a deterministic tie-break for two blocks produced in the same
+        round (e.g. a partition where both sides were schedule-valid).
+        """
+        round_seconds = getattr(settings, "consensus_proposer_round_seconds", 60) or 60
+        ts = block_timestamp
+        if isinstance(ts, str):
+            from datetime import datetime
+
+            try:
+                ts = datetime.fromisoformat(ts)
+            except (ValueError, TypeError):
+                ts = None
+        if ts is None:
+            # No timestamp → cannot derive a round. Rank it as infinitely late
+            # so a well-formed block always beats a malformed one.
+            return (1 << 30, str(block_hash).lower())
+        return (proposer_round(parent_timestamp, ts, round_seconds), str(block_hash).lower())
+
+    def _blocks_provably_empty(self, session: Session, blocks: list[Block]) -> bool:
+        """True when every block in the segment demonstrably moved no state.
+
+        Removing a block is only safe if its transactions changed nothing —
+        there is no undo path for account or side-table writes, so a reorg of a
+        non-empty segment would leave residue (the 2026-09-27 manual repair was
+        only safe because every forked block was an empty heartbeat). A block
+        is provably empty when it carries no transactions and its recorded
+        state root equals its parent's.
+        """
+        by_hash = {b.hash: b for b in blocks}
+        for block in sorted(blocks, key=lambda b: b.height):
+            if (block.tx_count or 0) > 0:
+                return False
+            parent = by_hash.get(block.parent_hash)
+            if parent is None:
+                parent = session.exec(
+                    select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == block.parent_hash)
+                ).first()
+            if parent is not None and block.state_root and parent.state_root:
+                if str(block.state_root).lower() != str(parent.state_root).lower():
+                    return False
+        return True
+
     def _resolve_fork(
         self, session: Session, block_data: dict[str, Any], transactions: list[dict[str, Any]] | None, our_head: Block
     ) -> ImportResult:
-        """Resolve a fork using longest-chain rule.
+        """Resolve a same-height hash conflict with a deterministic fork-choice rule.
 
-        For PoA, we use a simple rule: if the incoming block's height is at or below
-        our head and the parent chain is longer, we reorg. Otherwise, we keep our chain.
-        Since we only receive one block at a time, we can only detect the fork — actual
-        reorg requires the full competing chain. For now, we log the fork and reject
-        unless the block has a strictly higher height.
+        Winner at the contested height: lower proposer round first, then lower
+        block hash — both derivable from headers alone. The rule only fires when
+        the two blocks share a parent (a same-slot schedule race); competing
+        blocks on different parents need the peer's fork segment, which the
+        pull-path resolver in ``_resolve_fork_with_peer`` fetches.
+
+        When the rival wins, our blocks at ``>= fork_height`` are removed and
+        the rival is appended — but only when every removed block is provably
+        empty. Removing a block that applied transactions cannot be undone, so
+        a non-empty losing segment still escalates as an operator divergence.
         """
         fork_height = block_data.get("height", -1)
         our_height = our_head.height
         fork_chain_id = block_data.get("chain_id", "")
         fork_hash = block_data.get("hash", "")
-        our_hash = our_head.hash if our_head else ""
         metrics_registry.increment("sync_forks_detected_total")
         logger.warning(
             "Fork detected at height %s (our height: %s, fork hash: %s..., our hash: %s...)",
             fork_height,
             our_height,
             fork_hash[:16],
-            our_hash[:16],
+            our_head.hash[:16],
             extra={
                 "fork_height": fork_height,
                 "our_height": our_height,
                 "fork_hash": fork_hash,
-                "our_hash": our_hash,
+                "our_hash": our_head.hash,
                 "fork_chain_id": fork_chain_id,
                 "our_chain_id": self._chain_id,
             },
@@ -868,56 +917,113 @@ class BlockImportMixin(SyncBase):
             return self._make_import_result(
                 accepted=False,
                 height=fork_height,
-                block_hash=block_data.get("hash", ""),
+                block_hash=fork_hash,
                 reason=f"Incompatible chain: block from chain '{fork_chain_id}' does not match our chain '{self._chain_id}' (heights: {fork_height} vs {our_height})",
             )
-        if fork_height <= our_height:
-            # This is the only path out of _resolve_fork that production reaches: import_block
-            # calls it solely when `height <= our_height`, so the reorg code below is unreachable
-            # (V23-90). The rejection is permanent until an operator resolves it, which is what
-            # `diverged` tells the caller — the old reason said "our chain is longer", which reads
-            # like a healthy outcome and hid a 46-hour outage.
+
+        ours = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.height == fork_height)).first()
+        parent_hash = block_data.get("parent_hash", "")
+        if ours is None or parent_hash != ours.parent_hash:
+            # Different parents at the contested height: the fork point is
+            # deeper and the rival's parent timestamp is not local, so its
+            # round cannot be derived here. The pull resolver walks back to the
+            # common ancestor and decides there instead.
             metrics_registry.increment("sync_divergence_rejected_total")
             return self._make_import_result(
                 accepted=False,
                 height=fork_height,
-                block_hash=block_data.get("hash", ""),
+                block_hash=fork_hash,
                 reason=(
                     f"Divergent chain: we hold a different block at height {fork_height} "
-                    f"(ours {our_hash[:16]}..., peer {fork_hash[:16]}...); our head is {our_height}"
+                    f"(ours {ours.hash[:16] if ours else '?'}..., peer {fork_hash[:16]}...); "
+                    "parent mismatch — pull-path fork resolution required"
                 ),
                 diverged=True,
             )
-        reorg_depth = our_height - fork_height + 1
-        if reorg_depth > self._max_reorg_depth:
-            metrics_registry.increment("sync_reorg_rejected_total")
+
+        parent = session.exec(select(Block).where(Block.chain_id == self._chain_id).where(Block.hash == parent_hash)).first()
+        parent_ts = parent.timestamp if parent else None
+        our_key = self._fork_choice_key(ours.timestamp, parent_ts, ours.hash)
+        their_key = self._fork_choice_key(block_data.get("timestamp"), parent_ts, fork_hash)
+        metrics_registry.increment("sync_fork_choice_compared_total")
+
+        if their_key >= our_key:
+            metrics_registry.increment("sync_fork_choice_local_wins_total")
+            metrics_registry.increment("sync_divergence_rejected_total")
+            logger.warning(
+                "Fork resolved at height %s: local block wins (round %s hash %s... beats round %s hash %s...)",
+                fork_height,
+                our_key[0],
+                ours.hash[:16],
+                their_key[0],
+                fork_hash[:16],
+            )
             return self._make_import_result(
                 accepted=False,
                 height=fork_height,
-                block_hash=block_data.get("hash", ""),
-                reason=f"Reorg depth {reorg_depth} exceeds max {self._max_reorg_depth}",
+                block_hash=fork_hash,
+                reason=(
+                    f"Fork resolved at height {fork_height}: our block wins deterministically "
+                    f"(round {our_key[0]} vs {their_key[0]}) — peer must resync"
+                ),
+                diverged=True,
             )
+
+        # Rival wins. A reorg removes committed rows, which is only safe when
+        # every removed block moved no state — otherwise escalate.
         blocks_to_remove = session.exec(
             select(Block)
             .where(Block.chain_id == self._chain_id)
             .where(Block.height >= fork_height)
             .order_by(text("height DESC"))
         ).all()
+        if len(blocks_to_remove) > self._max_reorg_depth:
+            metrics_registry.increment("sync_reorg_rejected_total")
+            return self._make_import_result(
+                accepted=False,
+                height=fork_height,
+                block_hash=fork_hash,
+                reason=f"Reorg depth {len(blocks_to_remove)} exceeds max {self._max_reorg_depth}",
+            )
+        if not self._blocks_provably_empty(session, list(blocks_to_remove)):
+            metrics_registry.increment("sync_fork_reorg_unsafe_total")
+            metrics_registry.increment("sync_divergence_rejected_total")
+            logger.error(
+                "Rival block wins fork at height %s but our losing segment contains non-empty blocks — "
+                "state cannot be safely reverted; operator resync required",
+                fork_height,
+            )
+            return self._make_import_result(
+                accepted=False,
+                height=fork_height,
+                block_hash=fork_hash,
+                reason=(
+                    f"Rival fork wins at height {fork_height} but local segment has non-empty blocks; manual resync required"
+                ),
+                diverged=True,
+            )
+
         removed_count = 0
         for old_block in blocks_to_remove:
-            old_txs = session.exec(
+            for tx in session.exec(
                 select(ChainTransaction)
                 .where(ChainTransaction.chain_id == self._chain_id)
                 .where(ChainTransaction.block_height == old_block.height)
-            ).all()
-            for tx in old_txs:
+            ).all():
                 session.delete(tx)
             session.delete(old_block)
             removed_count += 1
         session.commit()
         metrics_registry.increment("sync_reorgs_total")
+        metrics_registry.increment("sync_fork_choice_remote_wins_total")
         metrics_registry.observe("sync_reorg_depth", float(removed_count))
-        logger.warning("Chain reorg performed", extra={"removed_blocks": removed_count, "new_height": fork_height})
+        logger.warning(
+            "Chain reorg performed: rival block wins at height %s (round %s vs our %s)",
+            fork_height,
+            their_key[0],
+            our_key[0],
+            extra={"removed_blocks": removed_count, "new_height": fork_height},
+        )
         result = self._append_block(session, block_data, transactions)
         result.reorged = True
         result.reorg_depth = removed_count
