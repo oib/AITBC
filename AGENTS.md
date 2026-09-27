@@ -558,6 +558,30 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
 - Env-file backups from the restore live at `/etc/aitbc/*.bak-20260927-*-mesh`
   on each host.
 
+## Validator production & key layout
+
+- Four validators rotate block production: hub `0x02B8…`, hub1 `0x9Ea1…`,
+  node1 `0x241D…`, node2 `0x4364…` (order in `VALIDATOR_SET`); node0 is a
+  non-producing follower. Selection is `(height+round) % len(VALIDATOR_SET)`
+  (`MultiValidatorPoA`); the round window derives to 120 s — do NOT set
+  `CONSENSUS_PROPOSER_ROUND_SECONDS` below the block interval or every healthy
+  block lands in a foreign round.
+- **Each validator holds exactly its own key.** `validator-secrets.env` (last
+  EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
+  `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the
+  per-host `ENABLE_BLOCK_PRODUCTION=true` override. Keys must never appear in
+  the unit env files or on a second host — between ~Sep 9–13 and 2026-09-27
+  hub held all four and signed every block, which is the centralisation the
+  Sep-3 rotation work removed.
+- **Known defect (2026-09-27): a validator that restarts with a stale head
+  forks instead of catching up.** Hub's sync source is itself, so its sync
+  gate never trips; it proposed competing blocks which node0 then pulled. The
+  importer rejects same-height conflicts (`_resolve_fork` only detects, never
+  reorgs) and gap imports are dropped, so recovery was manual: delete the
+  empty fork rows from `block`, then `python -m aitbc_chain.sync_cli --source
+  https://<peer>` with `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
+  If a node's head hash diverges while heights match, suspect this.
+
 ## Trading authentication
 
 - Trading's protected routers require `X-Trading-Api-Key` matching `TRADING_API_KEY`; `X-API-Key` and `BLOCKCHAIN_RPC_API_KEY` are a separate blockchain RPC credential, not substitutes.

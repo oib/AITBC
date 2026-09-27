@@ -35,7 +35,12 @@ HUB1_HOST="${AITBC_HUB1_HOST:-}"
 # (GOSSIP_BACKEND differs by design since 2026-09-27: the node unit runs the
 # validator mesh while the rpc unit is the local Redis bus bridge — the mesh
 # doc says "only the node process should dial peers".)
-SHADOW_CONFLICT_ALLOW="${SHADOW_CONFLICT_ALLOW:-aitbc-blockchain-rpc:ENABLE_BLOCK_PRODUCTION aitbc-blockchain-rpc:BLOCK_PRODUCTION_CHAINS aitbc-blockchain-rpc:GOSSIP_BACKEND}"
+# (Since 2026-09-27 the per-validator production flags live in node.env —
+# which intentionally overrides the shared blockchain.env `false` — and each
+# validator's signing key lives only in validator-secrets.env, the last file
+# in the EnvironmentFiles list, so any VALIDATOR_KEYS/PROPOSER_KEY in earlier
+# unit files is a dead shadow by design.)
+SHADOW_CONFLICT_ALLOW="${SHADOW_CONFLICT_ALLOW:-aitbc-blockchain-rpc:ENABLE_BLOCK_PRODUCTION aitbc-blockchain-rpc:BLOCK_PRODUCTION_CHAINS aitbc-blockchain-rpc:GOSSIP_BACKEND aitbc-blockchain-node:ENABLE_BLOCK_PRODUCTION aitbc-blockchain-node:BLOCK_PRODUCTION_CHAINS aitbc-blockchain-node:VALIDATOR_KEYS aitbc-blockchain-node:PROPOSER_KEY aitbc-blockchain-rpc:VALIDATOR_KEYS aitbc-blockchain-rpc:PROPOSER_KEY}"
 
 # The domain the fleet publishes under. It was hardcoded here, which named the
 # operator in a public repo and made the check point at their hosts from anyone
@@ -140,6 +145,7 @@ shadowed=0
 eff_drift=0
 faucet_bad=0
 mesh_bad=0
+val_bad=0
 if [ "$ssh_reach" -eq 0 ]; then
     echo "=== env sections skipped (no ssh reach) ==="
 else
@@ -306,6 +312,90 @@ if [ "$mesh_bad" -eq 0 ]; then
     echo "  ok: every host on mesh with a complete, self-free peer list"
 fi
 
+echo "=== validator key integrity (one own key per validator, disjoint across hosts) ==="
+# 2026-09-27: the fleet had silently centralised block production — hub held
+# all four validator keys in VALIDATOR_KEYS and signed every block in every
+# validator's name while the followers' maps were {} and their production was
+# disabled (regression introduced during the Sep 9-13 env consolidation, live
+# since). Assert per validator: exactly one map entry, whose key derives to
+# that host's own PROPOSER_ID, present in VALIDATOR_SET; production enabled on
+# validators and off on node0; no validator address held by two hosts. The
+# key never leaves its host — derivation runs there, only booleans return.
+VALIDATORS="hub hub1 node1 node2"
+val_bad=0
+declare -A SEEN_ADDRS
+for h in $VALIDATORS node0; do
+    res=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        'pid=$(systemctl show -p MainPID --value aitbc-blockchain-node 2>/dev/null); \
+         [ -z "$pid" ] || [ "$pid" = 0 ] && { echo NOTRUNNING; exit; }; \
+         sudo tr "\0" "\n" < /proc/$pid/environ > /tmp/.fcenv.$$; \
+         cd /opt/aitbc && ENVFILE=/tmp/.fcenv.$$ venv/bin/python - <<PYEOF 2>/dev/null || echo DERIVEFAIL
+import os, json
+env = {}
+for line in open(os.environ["ENVFILE"]):
+    if "=" in line:
+        k, v = line.rstrip("\n").split("=", 1)
+        env[k] = v
+keys = json.loads(env.get("VALIDATOR_KEYS") or "{}")
+propid = env.get("PROPOSER_ID", "")
+vs = {v["address"] for v in json.loads(env.get("VALIDATOR_SET") or "[]")}
+prod = env.get("ENABLE_BLOCK_PRODUCTION", "")
+wins = env.get("CONSENSUS_PROPOSER_ROUND_SECONDS", "")
+from eth_keys import keys as ek
+derived = {}
+for a, k in keys.items():
+    try:
+        derived[a] = (ek.PrivateKey(bytes.fromhex(k.removeprefix("0x"))).public_key.to_checksum_address() == a)
+    except Exception:
+        derived[a] = False
+print("map_addrs=" + ",".join(sorted(keys)))
+print("all_derive=" + str(all(derived.values())))
+print("propid=" + propid)
+print("propid_in_set=" + str(propid in vs))
+print("keys_in_set=" + str(all(a in vs for a in keys)))
+print("prod=" + prod)
+print("window=" + wins)
+PYEOF
+         rm -f /tmp/.fcenv.$$' 2>/dev/null || echo "UNREACHABLE")
+    case "$res" in
+        UNREACHABLE*|NOTRUNNING*|DERIVEFAIL*|"")
+            val_bad=1; printf "  %-6s %s\n" "$h" "${res:-NO OUTPUT}"; continue ;;
+    esac
+    eval "$res"
+    problems=""
+    case $h in
+        node0)
+            [ "$prod" = "false" ] || problems="$problems production=$prod (want false)"
+            [ -z "$map_addrs" ] || problems="$problems holds validator keys"
+            ;;
+        *)
+            [ "$prod" = "true" ] || problems="$problems production=$prod (want true)"
+            [ "$(echo "$map_addrs" | tr "," "\n" | grep -c .)" = 1 ] || problems="$problems holds ${#map_addrs} keys (want exactly 1)"
+            [ "$all_derive" = "True" ] || problems="$problems key does not derive to its map address"
+            [ "$map_addrs" = "$propid" ] || problems="$problems map addr $map_addrs != PROPOSER_ID $propid"
+            [ "$propid_in_set" = "True" ] || problems="$problems PROPOSER_ID not in VALIDATOR_SET"
+            [ "$keys_in_set" = "True" ] || problems="$problems key addr not in VALIDATOR_SET"
+            ;;
+    esac
+    [ -n "$window" ] && problems="$problems CONSENSUS_PROPOSER_ROUND_SECONDS=$window (want unset/derived)"
+    for a in ${map_addrs//,/ }; do
+        if [ -n "${SEEN_ADDRS[$a]:-}" ]; then
+            problems="$problems key $a ALSO HELD by ${SEEN_ADDRS[$a]}"
+        else
+            SEEN_ADDRS[$a]=$h
+        fi
+    done
+    if [ -n "$problems" ]; then
+        val_bad=1
+        printf "  %-6s FAIL:%s\n" "$h" "$problems"
+    else
+        printf "  %-6s ok: own key only, in set, prod=%s\n" "$h" "$prod"
+    fi
+done
+if [ "$val_bad" -eq 0 ]; then
+    echo "  ok: each validator holds exactly its own key; no address duplicated"
+fi
+
 echo "=== *_ADDRESS value-shape check ==="
 # systemd EnvironmentFile does not strip inline `#` comments: a comment on an
 # assignment line becomes part of the value (measured 110 bytes instead of 42
@@ -389,7 +479,9 @@ echo "=== effective env (from the running process, not the files) ==="
 # Reading the files reproduces our own precedence assumptions and so cannot
 # catch a mistake in them; this section reads ground truth instead.
 eff_drift=0
-EFF_VARS="$VARS GOSSIP_BACKEND GOSSIP_MESH_PEER_URLS"
+EFF_VARS="$VARS GOSSIP_BACKEND GOSSIP_MESH_PEER_URLS \
+MULTI_VALIDATOR_CONSENSUS_ENABLED ENABLE_BLOCK_PRODUCTION BLOCK_PRODUCTION_CHAINS \
+CONSENSUS_PROPOSER_ROUND_SECONDS PROPOSER_ID VALIDATOR_SET"
 for var in $EFF_VARS; do
     seen=""
     first=1
@@ -408,9 +500,12 @@ for var in $EFF_VARS; do
         if [ -z "$seen" ]; then
             seen="$val"
         elif [ "$seen" != "$val" ]; then
-            # peer lists are legitimately per-host: each node omits itself.
+            # These are legitimately per-host: peer lists omit the host itself,
+            # PROPOSER_ID is the validator's own identity, and production flags
+            # differ validators-vs-node0 by design. The validator-integrity
+            # section asserts their actual correctness instead.
             case "$var" in
-                GOSSIP_MESH_PEER_URLS) ;;
+                GOSSIP_MESH_PEER_URLS|PROPOSER_ID|ENABLE_BLOCK_PRODUCTION|BLOCK_PRODUCTION_CHAINS) ;;
                 *) eff_drift=1 ;;
             esac
         fi
@@ -523,7 +618,7 @@ done <<< "$S2_OUT"
 echo
 if [ "$drift" -eq 0 ] && [ "$shape_bad" -eq 0 ] && [ "$conv_bad" -eq 0 ] \
    && [ "$shadowed" -eq 0 ] && [ "$eff_drift" -eq 0 ] && [ "$faucet_bad" -eq 0 ] \
-   && [ "$mesh_bad" -eq 0 ]; then
+   && [ "$mesh_bad" -eq 0 ] && [ "$val_bad" -eq 0 ]; then
     echo "No drift across: $HOSTS"
     exit 0
 else
