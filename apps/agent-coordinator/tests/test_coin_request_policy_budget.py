@@ -105,6 +105,18 @@ class TestAutoGrantBudget:
         status, _ = coin_request_policy.decide(session, "sender-f", GRANT, _wallet(3))
         assert status is CoinRequestStatus.APPROVED
 
+    def test_budget_trip_increments_the_alert_metric(self, session, monkeypatch):
+        """Alerting watches `coin_request_auto_budget_trips_total` — prove it moves."""
+        from agent_app.monitoring.prometheus_metrics import metrics_registry
+
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT * 2))
+        _grant(session, "r1", _wallet(1))
+        _grant(session, "r2", _wallet(2))
+        trips = metrics_registry.counter("coin_request_auto_budget_trips_total", "", ["window"])
+        before = trips.get_value(window="hourly")
+        coin_request_policy.decide(session, "sender-x", GRANT, _wallet(3))
+        assert trips.get_value(window="hourly") == before + 1
+
     def test_prior_grant_check_still_wins_on_reason(self, session, monkeypatch):
         """A repeat identity gets the specific reason, not the generic budget one."""
         monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT))
