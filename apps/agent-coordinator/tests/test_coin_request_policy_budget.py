@@ -16,6 +16,7 @@ import pytest
 from agent_app.services import coin_request_policy
 from aitbc.db import agent_db
 from aitbc.models import CoinRequest, CoinRequestStatus
+from aitbc.utils.units import ait_to_units
 
 WALLET = "0xe0383C465aF763F2489B61Ec169bB06E485DAB95"
 OTHER_WALLET = "0x335de516468598827245e10094A9c014F4894a02"
@@ -65,7 +66,7 @@ class TestAutoGrantBudget:
 
     def test_hourly_budget_trips_to_pending(self, session, monkeypatch):
         """The window sum + the new amount over the cap -> manual review."""
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT * 2))
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "6")
         _grant(session, "r1", _wallet(1))
         _grant(session, "r2", _wallet(2))
         status, reason = coin_request_policy.decide(session, "sender-b", GRANT, _wallet(3))
@@ -74,15 +75,15 @@ class TestAutoGrantBudget:
 
     def test_old_grants_do_not_count(self, session, monkeypatch):
         """Grants older than the window free the budget again."""
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT))
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "3")
         old = datetime.now(UTC).replace(tzinfo=None) - timedelta(hours=2)
         _grant(session, "old-1", _wallet(1), when=old)
         status, _ = coin_request_policy.decide(session, "sender-c", GRANT, _wallet(2))
         assert status is CoinRequestStatus.APPROVED
 
     def test_daily_budget_trips_when_hourly_has_room(self, session, monkeypatch):
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT * 100))
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_DAY", str(GRANT * 2))
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "300")
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_DAY", "6")
         _grant(session, "r1", _wallet(1))
         _grant(session, "r2", _wallet(2))
         status, reason = coin_request_policy.decide(session, "sender-d", GRANT, _wallet(3))
@@ -96,7 +97,7 @@ class TestAutoGrantBudget:
 
     def test_manual_approvals_do_not_spend_auto_budget(self, session, monkeypatch):
         """Operator-approved grants are outside the automatic budget."""
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT * 2))
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "6")
         _grant(session, "manual-1", _wallet(1))
         row = session.query(CoinRequest).filter(CoinRequest.id == "manual-1").one()
         row.approval_mode = "manual"
@@ -109,7 +110,7 @@ class TestAutoGrantBudget:
         """Alerting watches `coin_request_auto_budget_trips_total` — prove it moves."""
         from agent_app.monitoring.prometheus_metrics import metrics_registry
 
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT * 2))
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "6")
         _grant(session, "r1", _wallet(1))
         _grant(session, "r2", _wallet(2))
         trips = metrics_registry.counter("coin_request_auto_budget_trips_total", "", ["window"])
@@ -119,8 +120,21 @@ class TestAutoGrantBudget:
 
     def test_prior_grant_check_still_wins_on_reason(self, session, monkeypatch):
         """A repeat identity gets the specific reason, not the generic budget one."""
-        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", str(GRANT))
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "3")
         _grant(session, "r1", WALLET)
         status, reason = coin_request_policy.decide(session, "sender-g", GRANT, WALLET)
         assert status is CoinRequestStatus.PENDING
         assert "already been granted" in reason
+
+    def test_budget_env_is_ait_not_units(self, monkeypatch):
+        """The env knobs are AIT amounts: `6` means 6 AIT, not 6 compute-units."""
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "6")
+        assert coin_request_policy.auto_budget_per_hour() == ait_to_units(6)
+        monkeypatch.setenv("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", "0.5")
+        assert coin_request_policy.auto_budget_per_hour() == ait_to_units("0.5")
+
+    def test_ceiling_env_is_ait(self, monkeypatch):
+        monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", "2.5")
+        assert coin_request_policy.auto_approve_ceiling() == ait_to_units("2.5")
+        monkeypatch.setenv("COIN_REQUEST_AUTO_APPROVE_MAX", "garbage")
+        assert coin_request_policy.auto_approve_ceiling() == coin_request_policy.DEFAULT_AUTO_APPROVE_MAX
