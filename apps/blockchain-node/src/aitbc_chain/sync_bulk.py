@@ -244,7 +244,7 @@ class BulkSyncMixin(SyncBase):
                 # peer's branch wins and our losing segment is provably empty —
                 # remove it so this pull can continue from the fork point.
                 # Previously this only reported and stalled forever (V23-90).
-                if not _reorg_attempted and await self._resolve_fork_with_peer(source_url, local_height):
+                if not _reorg_attempted and await self._resolve_fork_with_peer(source_url, local_height, remote_height):
                     self._last_bulk_sync_time = 0  # a reorg is not rate-limited catch-up
                     return await self.bulk_import_from(source_url, _reorg_attempted=True)
                 div = self.detect_divergence(source_url, local_height, first_block.get("parent_hash", ""))
@@ -274,23 +274,36 @@ class BulkSyncMixin(SyncBase):
         self._last_bulk_sync_time = int(current_time)
         return imported
 
-    async def _resolve_fork_with_peer(self, source_url: str, local_height: int) -> bool:
+    async def _resolve_fork_with_peer(self, source_url: str, local_height: int, remote_height: int) -> bool:
         """Resolve a divergent pull deterministically against one peer.
 
         Walks back from our head, comparing the peer's block hash at each
-        height, to the common ancestor. The two children of the fork point are
-        then compared by ``(proposer round, block hash)`` — both derivable from
-        the headers, so every node picks the same branch. When the peer's
-        branch wins and every block we would lose is provably empty (no
-        transactions, unchanged state root), the losing segment is deleted and
-        the caller restarts the pull at the fork point. A non-empty losing
-        segment cannot be reverted safely and escalates to an operator
-        divergence report.
+        height, to the common ancestor. The competing segments are then
+        compared by *branch weight*, in order:
+
+        1. number of distinct proposers in the segment (a lone node's branch
+           shows one; the majority's shows up to all-but-one of the set);
+        2. segment length;
+        3. ``(round, hash)`` of the two children at the fork point.
+
+        Every quantity is derivable from headers, so every node picks the same
+        branch — including a node that spent a partition building alone, whose
+          round-1 child must NOT outrank a majority segment built at round ≥2.
+
+        Before our rows are touched, every fetched block of the peer's segment
+        is validated for signature, timestamp sanity, and the proposer
+        schedule for the round its timestamp claims — a peer segment that
+        fails validation is rejected, never adopted. When the peer's branch
+        wins and every block we would lose is provably empty (no transactions,
+        unchanged state root), the losing segment is deleted and the caller
+        restarts the pull at the fork point; the re-import re-runs full state
+        validation. A non-empty losing segment cannot be reverted safely and
+        escalates to an operator divergence report.
 
         Returns True only when our losing segment was removed.
         """
         ancestor_height: int | None = None
-        peer_fork_block: dict[str, Any] | None = None
+        peer_seg: dict[int, dict[str, Any]] = {}
         with self._session_factory() as session:
             ours_by_height = {
                 b.height: b
@@ -313,9 +326,9 @@ class BulkSyncMixin(SyncBase):
             if peer_block.get("hash") == ours.hash:
                 ancestor_height = h
                 break
-            peer_fork_block = peer_block  # ends as peer's block at ancestor+1
+            peer_seg[h] = peer_block
             h -= 1
-        if ancestor_height is None or peer_fork_block is None:
+        if ancestor_height is None or not peer_seg:
             self._logger.error(
                 "Fork resolution failed: no common ancestor with %s within %s blocks of height %s",
                 source_url,
@@ -324,48 +337,116 @@ class BulkSyncMixin(SyncBase):
             )
             return False
 
+        # Fetch the rest of the peer's segment beyond our head so the distinct
+        # proposer count sees more than the overlap. Capped at max_reorg_depth
+        # blocks past the ancestor — the true length is known exactly from the
+        # peer's head, so the cap only bounds the proposer count (a lower
+        # bound, which is the conservative direction).
+        fetch_to = min(remote_height, ancestor_height + self._max_reorg_depth)
+        for fh in range(local_height + 1, fetch_to + 1):
+            fetched = await self.fetch_blocks_range(fh, fh, source_url)
+            if not fetched:
+                break  # compare on the contiguous prefix we could fetch
+            peer_seg[fh] = fetched[0]
+
         with self._session_factory() as session:
             ancestor = session.exec(
                 select(Block).where(Block.chain_id == self._chain_id).where(Block.height == ancestor_height)
             ).first()
-            our_child = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).where(Block.height == ancestor_height + 1)
-            ).first()
             parent_ts = ancestor.timestamp if ancestor else None
-            if our_child is None:
-                return False  # nothing of ours beyond the ancestor — not our fork
-            our_key = self._fork_choice_key(our_child.timestamp, parent_ts, our_child.hash)
-            their_key = self._fork_choice_key(peer_fork_block.get("timestamp"), parent_ts, peer_fork_block.get("hash", ""))
-            metrics_registry.increment("sync_fork_choice_compared_total")
-            if their_key >= our_key:
-                metrics_registry.increment("sync_fork_choice_local_wins_total")
-                self._logger.warning(
-                    "Fork resolved against %s: our branch wins at height %s (round %s hash %s... beats "
-                    "round %s hash %s...) — the peer is on the losing branch",
-                    source_url,
-                    ancestor_height + 1,
-                    our_key[0],
-                    our_child.hash[:16],
-                    their_key[0],
-                    str(peer_fork_block.get("hash", ""))[:16],
-                )
-                return False
-            losing = session.exec(
+            our_segment = session.exec(
                 select(Block)
                 .where(Block.chain_id == self._chain_id)
                 .where(Block.height > ancestor_height)
-                .order_by(text("height DESC"))
+                .where(Block.height <= local_height)
             ).all()
-            if len(losing) > self._max_reorg_depth or not self._blocks_provably_empty(session, list(losing)):
-                metrics_registry.increment("sync_fork_reorg_unsafe_total")
-                self._logger.error(
-                    "Peer branch wins at height %s but our losing segment (%s blocks) is not provably "
-                    "empty — operator resync required",
-                    ancestor_height + 1,
-                    len(losing),
+            if not our_segment:
+                return False  # nothing of ours beyond the ancestor — not our fork
+
+            # Validate every fetched peer-segment block BEFORE deleting our
+            # rows. Parent timestamps chain through the peer's own segment —
+            # exactly what a reimport would face.
+            peer_ts_map: dict[int, Any] = {}
+            seg_parent_ts = parent_ts
+            for fh in sorted(peer_seg):
+                bd = peer_seg[fh]
+                if bd.get("height") != fh:
+                    self._logger.warning(
+                        "Peer %s returned mismatched height in fork segment (%s vs %s) — refusing to reorg",
+                        source_url,
+                        bd.get("height"),
+                        fh,
+                    )
+                    return False
+                if self._validate_signatures:
+                    sig_ok, sig_reason = self._validator.validate_block_signature(bd)
+                    if not sig_ok:
+                        self._logger.warning(
+                            "Peer fork block at height %s failed signature validation (%s) — refusing to reorg",
+                            fh,
+                            sig_reason,
+                        )
+                        metrics_registry.increment("sync_fork_invalid_rival_total")
+                        return False
+                invalid, seg_parent_ts = self._validate_rival_header(session, bd, seg_parent_ts)
+                if invalid:
+                    self._logger.warning(
+                        "Peer fork block at height %s failed validation (%s) — refusing to reorg", fh, invalid
+                    )
+                    metrics_registry.increment("sync_fork_invalid_rival_total")
+                    return False
+                peer_ts_map[fh] = seg_parent_ts
+
+            our_proposers = {str(b.proposer) for b in our_segment}
+            peer_proposers = {str(peer_seg[fh].get("proposer")) for fh in peer_seg}
+            our_len = local_height - ancestor_height
+            peer_len = remote_height - ancestor_height
+            fork_h = ancestor_height + 1
+            our_child = next(b for b in our_segment if b.height == fork_h)
+            peer_child = peer_seg[fork_h]
+            our_key = self._fork_choice_key(our_child.timestamp, parent_ts, our_child.hash)
+            their_key = self._fork_choice_key(peer_ts_map[fork_h], parent_ts, str(peer_child.get("hash", "")))
+            metrics_registry.increment("sync_fork_choice_compared_total")
+
+            peer_wins = (
+                len(peer_proposers) > len(our_proposers)
+                or (len(peer_proposers) == len(our_proposers) and peer_len > our_len)
+                or (
+                    len(peer_proposers) == len(our_proposers)
+                    and peer_len == our_len
+                    and their_key < our_key
+                )
+            )
+            if not peer_wins:
+                metrics_registry.increment("sync_fork_choice_local_wins_total")
+                self._logger.warning(
+                    "Fork resolved against %s: our branch wins at height %s (proposers %s vs %s, "
+                    "length %s vs %s, key %s vs %s) — the peer is on the losing branch",
+                    source_url,
+                    fork_h,
+                    len(our_proposers),
+                    len(peer_proposers),
+                    our_len,
+                    peer_len,
+                    our_key,
+                    their_key,
                 )
                 return False
-            for old_block in losing:
+
+            if len(our_segment) > self._max_reorg_depth or not self._blocks_provably_empty(
+                session, list(our_segment)
+            ):
+                metrics_registry.increment("sync_fork_reorg_unsafe_total")
+                self._logger.error(
+                    "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
+                    "blocks) is not provably empty — operator resync required",
+                    fork_h,
+                    len(peer_proposers),
+                    len(our_proposers),
+                    len(our_segment),
+                )
+                return False
+            for old_block in our_segment:
                 for tx in session.exec(
                     select(ChainTransaction)
                     .where(ChainTransaction.chain_id == self._chain_id)
@@ -376,15 +457,17 @@ class BulkSyncMixin(SyncBase):
             session.commit()
         metrics_registry.increment("sync_fork_choice_remote_wins_total")
         metrics_registry.increment("sync_reorgs_total")
-        metrics_registry.observe("sync_reorg_depth", float(len(losing)))
+        metrics_registry.observe("sync_reorg_depth", float(len(our_segment)))
         self._logger.warning(
-            "Fork resolved against %s: peer branch wins at height %s (round %s vs our %s) — removed %s "
-            "blocks, restarting pull at the fork point",
+            "Fork resolved against %s: peer branch wins at height %s (proposers %s vs our %s, "
+            "length %s vs %s) — removed %s blocks, restarting pull at the fork point",
             source_url,
-            ancestor_height + 1,
-            their_key[0],
-            our_key[0],
-            len(losing),
+            fork_h,
+            len(peer_proposers),
+            len(our_proposers),
+            peer_len,
+            our_len,
+            len(our_segment),
         )
         return True
 

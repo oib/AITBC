@@ -1,16 +1,20 @@
 """Deterministic fork choice in _resolve_fork and the pull-path resolver.
 
-Rule (headers only): lower proposer round wins; ties break on lower block
-hash. The push path (`import_block` -> `_resolve_fork`) can only decide when
-the rival block shares our block's parent; the pull path
-(`_resolve_fork_with_peer`) walks back to the common ancestor and compares
-the two children of the fork point. A reorg is only applied when every block
-we would lose is provably empty — there is no undo for account state.
+Rule (headers only): the push path (`import_block` -> `_resolve_fork`) decides
+only a *tip race* — rival shares our head's parent and our head has no
+descendants — where the lower ``(round, hash)`` wins. Anything deeper defers
+to the pull path (`_resolve_fork_with_peer`), which compares branch weight in
+order: distinct proposers in the segment, then segment length, then
+``(round, hash)`` at the fork point. A reorg is only applied when every block
+we would lose is provably empty — there is no undo for account state — and
+only after the rival side has passed signature, timestamp, and proposer
+schedule validation.
 """
 
 from __future__ import annotations
 
 import hashlib
+import json
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -26,6 +30,8 @@ from aitbc_chain.metadata import chain_metadata
 
 CHAIN = "test-chain"
 T0 = datetime(2026, 1, 1, tzinfo=UTC)
+VAL_A = "0x" + "aa" * 20
+VAL_B = "0x" + "bb" * 20
 
 
 @pytest.fixture(autouse=True)
@@ -126,7 +132,7 @@ def _heights(session_factory) -> list[tuple[int, str]]:
 
 
 class TestPushPathForkChoice:
-    """import_block -> _resolve_fork with the rival block in hand."""
+    """import_block -> _resolve_fork: tip races only, rival validated first."""
 
     def test_rival_lower_round_reorgs_us(self, session_factory):
         # our head 4 at round 1 (70s after parent); rival 4 at round 0 (5s).
@@ -178,7 +184,119 @@ class TestPushPathForkChoice:
         assert result.accepted is False and result.diverged is True
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
 
-    def test_nonempty_losing_segment_escalates(self, session_factory):
+    def test_rival_defers_when_we_have_descendants(self, session_factory):
+        # Conflict below the tip: a single rival header cannot outweigh our
+        # whole segment — the pull resolver decides on branch weight.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        ours5 = _mk_block(5, ours4["hash"], T0 + timedelta(seconds=190))
+        _store(session_factory, ours4)
+        _store(session_factory, ours5)
+        # rival at height 4 — same parent, better round — but our head is 5
+        rival = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="rival")
+
+        result = _sync(session_factory).import_block(rival, transactions=[])
+
+        assert result.accepted is False and result.diverged is True
+        assert _heights(session_factory)[-1] == (5, ours5["hash"])
+        # no inline reorg happened
+        assert metrics_registry._counters.get("sync_reorgs_total") is None
+
+    def test_rival_invalid_signature_rejected_before_reorg(self, session_factory, monkeypatch):
+        # A rival that *looks* like it wins (lower round) but fails signature
+        # validation must not cost us our head — the delete must not happen.
+        # import_block checks the signature first; this stub passes that gate
+        # and fails only when _resolve_fork re-validates, proving the fork
+        # path checks before it deletes.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        _store(session_factory, ours4)
+        rival = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="rival")
+
+        sync = _sync(session_factory)
+        sync._validate_signatures = True
+        calls: list[int] = []
+
+        def flaky_sig(block_data):
+            calls.append(1)
+            return (len(calls) == 1), "forged on re-check"
+
+        monkeypatch.setattr(sync._validator, "validate_block_signature", flaky_sig)
+        result = sync.import_block(rival, transactions=[])
+
+        assert result.accepted is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+        assert len(calls) == 2  # the fork path re-validated, then refused
+        assert metrics_registry._counters.get("sync_fork_invalid_rival_total") == 1.0
+
+    def test_rival_wrong_round_owner_rejected(self, session_factory, monkeypatch):
+        # Schedule check before delete: rival claims a round that belongs to a
+        # different validator — rejected even though its key would win.
+        monkeypatch.setattr(sync_settings, "multi_validator_consensus_enabled", True)
+        monkeypatch.setattr(sync_settings, "bridge_block_signature_required", False)
+        monkeypatch.setattr(
+            sync_settings, "validator_set", json.dumps([{"address": VAL_A}, {"address": VAL_B}])
+        )
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160), proposer=VAL_A)
+        _store(session_factory, ours4)
+        # height 4 round 0 belongs to sorted[0] = VAL_A; rival claims VAL_B
+        rival = _mk_block(
+            4, blocks[-1]["hash"], T0 + timedelta(seconds=95), proposer=VAL_B, hash_salt="rival"
+        )
+
+        result = _sync(session_factory).import_block(rival, transactions=[])
+
+        assert result.accepted is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+        assert metrics_registry._counters.get("sync_fork_invalid_rival_total") == 1.0
+
+    def test_rival_future_timestamp_rejected(self, session_factory):
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        _store(session_factory, ours4)
+        rival = _mk_block(
+            4, blocks[-1]["hash"], datetime.now(UTC) + timedelta(seconds=3600), hash_salt="rival"
+        )
+
+        result = _sync(session_factory).import_block(rival, transactions=[])
+
+        assert result.accepted is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+
+    def test_rival_predating_parent_rejected(self, session_factory):
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        _store(session_factory, ours4)
+        rival = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=30), hash_salt="rival")
+        # parent block 3 sits at T0+90 — rival claims T0+30 < parent
+
+        result = _sync(session_factory).import_block(rival, transactions=[])
+
+        assert result.accepted is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+
+    def test_rival_bad_state_root_rolls_back_delete(self, session_factory):
+        # The delete+append share one transaction: a rival that passes header
+        # checks but fails _append_block's state-root comparison must leave
+        # our head in place — the append's rollback undoes the staged delete.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        _store(session_factory, ours4)
+        rival = _mk_block(
+            4,
+            blocks[-1]["hash"],
+            T0 + timedelta(seconds=95),
+            state_root="0x" + "ab" * 32,
+            hash_salt="rival",
+        )
+
+        result = _sync(session_factory).import_block(rival, transactions=[])
+
+        assert result.accepted is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+
+    def test_nonempty_tip_escalates(self, session_factory):
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160), tx_count=3)
         _store(session_factory, ours4)
@@ -190,31 +308,18 @@ class TestPushPathForkChoice:
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_reorg_unsafe_total") == 1.0
 
-    def test_reorg_depth_limit(self, session_factory):
-        blocks = _seed(session_factory, 4, step=200)  # ours3 lands at T0+600, round 3
-        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=860))
-        _store(session_factory, ours4)
-        sync = _sync(session_factory)
-        sync._max_reorg_depth = 1
-        # rival at height 3 wins on round (10 s after the shared parent 2)
-        rival3 = _mk_block(3, blocks[2]["hash"], T0 + timedelta(seconds=410), hash_salt="r3")
-        result = sync.import_block(rival3, transactions=[])
-        # removing heights 3..4 = 2 blocks > max_reorg_depth 1
-        assert result.accepted is False
-        assert metrics_registry._counters.get("sync_reorg_rejected_total") == 1.0
-
 
 class TestPullPathForkChoice:
-    """_resolve_fork_with_peer: walk-back to ancestor + fork-point compare."""
+    """_resolve_fork_with_peer: walk-back + branch-weight comparison."""
 
     async def test_peer_branch_wins_and_segment_removed(self, session_factory, monkeypatch):
-        # ours: ...3 -> 4(r1) -> 5(r0-on-4). peer: ...3 -> 4'(r0) -> 5' -> 6'
+        # ours: ...3 -> 4(r1) -> 5 — one proposer. peer: ...3 -> 4' -> 5' -> 6'
+        # — same single proposer but a longer segment: peer wins on length.
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
         ours5 = _mk_block(5, ours4["hash"], T0 + timedelta(seconds=190))
         _store(session_factory, ours4)
         _store(session_factory, ours5)
-        # peer shares the ancestor chain 0..3 and diverges at 4
         peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
         peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="p4")
         peer[5] = _mk_block(5, peer[4]["hash"], T0 + timedelta(seconds=125), hash_salt="p5")
@@ -227,11 +332,36 @@ class TestPullPathForkChoice:
             return [peer[start]] if start in peer else []
 
         monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
-        assert await sync._resolve_fork_with_peer("https://peer", local_height=5) is True
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=5, remote_height=6) is True
         assert _heights(session_factory) == [(b["height"], b["hash"]) for b in blocks]
         assert metrics_registry._counters.get("sync_fork_choice_remote_wins_total") == 1.0
 
-    async def test_our_branch_wins_peer_stays(self, session_factory, monkeypatch):
+    async def test_lone_proposer_loses_to_majority_segment(self, session_factory, monkeypatch):
+        # The partition case: we were isolated and produced 4@round0 and 5
+        # alone. The majority produced 4'@round2 then 5', 6' with three
+        # different proposers. Our lower fork-point round must NOT win.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), proposer="lone")
+        ours5 = _mk_block(5, ours4["hash"], T0 + timedelta(seconds=125), proposer="lone")
+        _store(session_factory, ours4)
+        _store(session_factory, ours5)
+        peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
+        # peer's 4' at round 2 (150s after parent) — worse key, more support
+        peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=240), proposer="p1", hash_salt="p4")
+        peer[5] = _mk_block(5, peer[4]["hash"], T0 + timedelta(seconds=270), proposer="p2", hash_salt="p5")
+        peer[6] = _mk_block(6, peer[5]["hash"], T0 + timedelta(seconds=300), proposer="p3", hash_salt="p6")
+
+        sync = _sync(session_factory)
+
+        async def fake_fetch(start, end, source_url):
+            return [peer[start]] if start in peer else []
+
+        monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=5, remote_height=6) is True
+        assert _heights(session_factory) == [(b["height"], b["hash"]) for b in blocks]
+        assert metrics_registry._counters.get("sync_fork_choice_remote_wins_total") == 1.0
+
+    async def test_equal_proposers_equal_length_key_decides(self, session_factory, monkeypatch):
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95))  # round 0
         _store(session_factory, ours4)
@@ -244,7 +374,7 @@ class TestPullPathForkChoice:
             return [peer[start]] if start in peer else []
 
         monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
-        assert await sync._resolve_fork_with_peer("https://peer", local_height=4) is False
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_choice_local_wins_total") == 1.0
 
@@ -260,7 +390,7 @@ class TestPullPathForkChoice:
 
         monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
         monkeypatch.setattr(sync, "_max_reorg_depth", 2)
-        assert await sync._resolve_fork_with_peer("https://peer", local_height=4) is False
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=10) is False
 
     async def test_nonempty_segment_escalates_on_pull(self, session_factory, monkeypatch):
         blocks = _seed(session_factory, 4)
@@ -275,6 +405,31 @@ class TestPullPathForkChoice:
             return [peer[start]] if start in peer else []
 
         monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
-        assert await sync._resolve_fork_with_peer("https://peer", local_height=4) is False
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_reorg_unsafe_total") == 1.0
+
+    async def test_peer_segment_bad_signature_no_reorg(self, session_factory, monkeypatch):
+        # The peer's winning-looking segment must validate BEFORE our rows are
+        # deleted — a bad signature anywhere in it refuses the reorg.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160))
+        _store(session_factory, ours4)
+        peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
+        peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="p4")
+
+        sync = _sync(session_factory)
+        sync._validate_signatures = True
+
+        def bad_sig(block_data):
+            return False, "forged"
+
+        monkeypatch.setattr(sync._validator, "validate_block_signature", bad_sig)
+
+        async def fake_fetch(start, end, source_url):
+            return [peer[start]] if start in peer else []
+
+        monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+        assert metrics_registry._counters.get("sync_fork_invalid_rival_total") == 1.0
