@@ -353,6 +353,15 @@ This is mirrored on every node. Note per-host quirks:
   `scripts/monitoring/fleet-config-check.sh`, which now shape-checks every
   `*_ADDRESS` value (`^0x[0-9a-fA-F]{40}$`).
 
+- **coordinator-api schema migrations run at service start**: the unit's
+  `ExecStartPre` runs `alembic upgrade head` against the service's own
+  `DATABASE_URL` (environment via `EnvironmentFile=/etc/aitbc/aitbc-coordinator-api.env`,
+  `PYTHONPATH` set inside the command to repo root + service src + every
+  `packages/py/*/src`). A failed migration fails the start — deliberate,
+  after two restart-before-migrate incidents left the API 500ing on a
+  missing column. If the service won't start after a pull, check
+  `journalctl -u aitbc-coordinator-api` for alembic output first.
+
 ## Smart contract test suites (two of them, different hosts)
 
 `contracts/` carries **two** independent suites. Both must pass; neither covers

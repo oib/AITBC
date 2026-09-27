@@ -350,3 +350,19 @@ restart; all three healthy, journals clean.
 Generated with [Devin](https://devin.ai)
 
 Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
+
+### coordinator-api migrates at service start (c9b3d0c8a)
+
+`ExecStartPre` on `aitbc-coordinator-api` now runs `alembic upgrade head`
+before uvicorn on every start — `systemctl restart`, `update.sh`, reboot.
+A failed migration fails the start instead of serving against an old
+schema. This replaces "remember to migrate before restart", which had
+already failed twice (the partners migration and c3a91f7e5b02 both
+restarted onto a missing column). PYTHONPATH mirrors run-migrations.sh;
+DATABASE_URL comes from the unit's existing EnvironmentFile. Verified on
+node2: ExecStartPre runs in the journal, ~10s added to start, API healthy.
+AGENTS.md operational notes updated.
+
+Generated with [Devin](https://devin.ai)
+
+Co-Authored-By: Devin <158243242+devin-ai-integration[bot]@users.noreply.github.com>
