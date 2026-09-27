@@ -18,6 +18,10 @@
 #   Internet → this host :443 (TLS, this file) → CONTAINER_IP:80
 #            → container nginx (routing, auth, real-ip restore) → services
 
+# Required http-context map — put in /etc/nginx/conf.d/websocket-upgrade.conf
+# on the edge host (NOT inside a server block):
+#   map $http_upgrade $connection_upgrade { default upgrade; "" close; }
+
 upstream aitbc_container {
     server CONTAINER_IP:80;
     keepalive 32;
@@ -43,7 +47,7 @@ server {
         proxy_pass http://aitbc_container/rpc/subscribe/ws;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -57,7 +61,7 @@ server {
         proxy_pass http://aitbc_container/rpc/gossip/ws;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -72,7 +76,7 @@ server {
         proxy_pass http://aitbc_container/agent/;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -90,7 +94,7 @@ server {
         proxy_pass http://aitbc_container;
         proxy_http_version 1.1;
         proxy_set_header Upgrade $http_upgrade;
-        proxy_set_header Connection "upgrade";
+        proxy_set_header Connection $connection_upgrade;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
