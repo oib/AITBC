@@ -92,7 +92,7 @@ def _make_job_and_payment(
 def _fake_refund_success(session: Session, tx_hash: str = "0xdeadbeef"):
     """Return an async callable that simulates a real, on-chain refund."""
 
-    async def _refund(client_id: str, job_id: str, payment_id: str, reason: str) -> bool:
+    async def _refund(client_id: str, job_id: str, payment_id: str, reason: str, *, is_admin: bool = False) -> bool:
         payment = session.get(JobPayment, payment_id)
         payment.status = "refunded"
         payment.refund_transaction_hash = tx_hash

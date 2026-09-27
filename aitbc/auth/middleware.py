@@ -61,7 +61,7 @@ class AuthMiddleware(BaseHTTPMiddleware):
         path = request.url.path
 
         # Skip auth for public routes
-        auth_level = get_auth_level(path)
+        auth_level = get_auth_level(path, request.method)
         if auth_level == AuthLevel.NONE:
             return cast(Response, await call_next(request))
 

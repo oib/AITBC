@@ -160,29 +160,54 @@ ROUTE_SECURITY_MATRIX: dict[str, AuthLevel] = {
 }
 
 
-def get_auth_level(path: str, matrix: dict[str, AuthLevel] | None = None) -> AuthLevel:
-    """Get required auth level for a given path.
+# Write floors for public-read entries. An AuthLevel.NONE wildcard is meant to
+# open *reads* — but the lookup is path-only, so it used to open every write
+# route under the wildcard too. That is how ``/v1/reputation*`` let anyone on
+# the internet rewrite miner reputation, which dispatch reads. A write method
+# (non-GET/HEAD/OPTIONS) that resolves to NONE is raised to the floor listed
+# here; intentional public writes like /v1/register and /v1/login keep their
+# own exact entries and are not affected.
+ROUTE_WRITE_FLOORS: dict[str, AuthLevel] = {
+    "/v1/reputation*": AuthLevel.ANY,
+}
+
+_READ_METHODS = frozenset({"GET", "HEAD", "OPTIONS"})
+
+
+def _lookup_level(path: str, matrix: dict[str, AuthLevel]) -> AuthLevel | None:
+    """Exact-then-wildcard lookup shared by the route matrix and write floors."""
+    if path in matrix:
+        return matrix[path]
+    for pattern, level in matrix.items():
+        if "*" in pattern and fnmatch.fnmatch(path, pattern):
+            return level
+    return None
+
+
+def get_auth_level(path: str, method: str = "GET", matrix: dict[str, AuthLevel] | None = None) -> AuthLevel:
+    """Get required auth level for a given path (and method).
 
     Args:
         path: Request path.
+        method: HTTP method. Reads get the matrix level as before; a write
+            that resolves to NONE is raised to that pattern's write floor.
         matrix: Optional custom security matrix. Defaults to ROUTE_SECURITY_MATRIX.
 
     Returns:
         Required auth level.
     """
     route_matrix = matrix or ROUTE_SECURITY_MATRIX
-
-    # Check exact match first
-    if path in route_matrix:
-        return route_matrix[path]
-
-    # Check wildcard patterns in order
-    for pattern, level in route_matrix.items():
-        if "*" in pattern and fnmatch.fnmatch(path, pattern):
-            return level
+    level = _lookup_level(path, route_matrix)
 
     # Unregistered routes default to deny (CORE-03)
-    return AuthLevel.DENY
+    if level is None:
+        return AuthLevel.DENY
+
+    if method.upper() not in _READ_METHODS and level == AuthLevel.NONE:
+        floor = _lookup_level(path, ROUTE_WRITE_FLOORS)
+        if floor is not None:
+            return floor
+    return level
 
 
 def check_role_match(required_level: AuthLevel, user_role: str | None) -> bool:
