@@ -1,0 +1,109 @@
+# AITBC Host Reverse Proxy — HUB node (TLS edge)
+#
+# Install on the EDGE HOST (the machine that owns the public IP and terminates
+# TLS), NOT inside the AITBC container. The edge terminates TLS and forwards
+# plain HTTP to the container's nginx (:80), which does all routing.
+#
+# Pairs with: nginx-aitbc.conf.example (inside the container)
+#
+# Use this for: BLOCKCHAIN_MODE=hub nodes (proposer + customer services).
+# For follower/shop nodes use nginx-customer-proxy / nginx-shop-proxy.
+#
+# Placeholders to replace:
+#   CONTAINER_IP  — the container's address on the edge's Incus bridge
+#   YOUR_DOMAIN   — the public hostname this edge serves
+# Enable TLS:   certbot --nginx -d YOUR_DOMAIN
+#
+# Architecture:
+#   Internet → this host :443 (TLS, this file) → CONTAINER_IP:80
+#            → container nginx (routing, auth, real-ip restore) → services
+
+upstream aitbc_container {
+    server CONTAINER_IP:80;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl;
+    server_name YOUR_DOMAIN;
+    # ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    client_max_body_size 100M;
+
+    # ── Long-lived blockchain streams ──────────────────────────────
+    # These MUST have extended timeouts: an idle stream would otherwise be
+    # torn down by the default proxy_read_timeout (~60s). Verified live:
+    # a fully idle WS through this edge survived >80s only with these set.
+    #
+    # /rpc/subscribe/ws — followers & dashboards subscribe to new blocks
+    location /rpc/subscribe/ws {
+        proxy_pass http://aitbc_container/rpc/subscribe/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # /rpc/gossip/ws — inter-island gossip mesh (node-to-node via public name)
+    location /rpc/gossip/ws {
+        proxy_pass http://aitbc_container/rpc/gossip/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # /agent/ — agent messaging + SSE presence/message streams
+    # (wss://YOUR_DOMAIN/agent/api/v1/agent/{messages,presence}/stream)
+    location /agent/ {
+        proxy_pass http://aitbc_container/agent/;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # ── Everything else: plain pass-through ──────────────────────────
+    # The container's nginx owns all routing (40+ locations), auth and
+    # real-ip restoration. The edge is a dumb pipe — keep it that way.
+    # Upgrade headers are set here too so any future WS/SSE path outside
+    # the blocks above still upgrades (at the default 60s timeout).
+    location / {
+        proxy_pass http://aitbc_container;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+    }
+}
+
+# HTTP → HTTPS redirect (certbot manages this block if you use --nginx)
+server {
+    listen 80;
+    server_name YOUR_DOMAIN;
+    return 301 https://$host$request_uri;
+}

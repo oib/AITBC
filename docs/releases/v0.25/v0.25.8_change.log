@@ -668,3 +668,43 @@ handshake → 101 fleet-wide, `/rpc/gossip/ws` → 403 (app-level peer auth);
 fully idle WS through hub's edge survived 80s (pre-fix teardown at 60s);
 gossip conn snapshot stable (32/22/26/30/30). Full topology written to
 TOPOLOGY.md (operator notes).
+
+## 2026-09-27 — Edge reverse-proxy examples restored (config)
+
+**Commits:** (this commit) — `examples/nginx/` role proxy examples,
+`README.md`, `scripts/deployment/setup.sh`,
+`scripts/deployment/deploy/deploy-nginx-reverse-proxy.sh`,
+`docs/deployment/script-environment.md`
+
+`setup.sh`/`update.sh` referenced role-specific host-proxy examples and an
+`examples/nginx/README.md` that had been absent since the boilerplate-strip
+commit — the hints printed dead filenames. Restored all three, updated to
+the verified live edge shape rather than the pre-deletion copies:
+
+- **Catch-all pass-through model** — the old examples duplicated per-path
+  routing at the edge (hub) or deny-all'd everything but explorer/health
+  (customer). Live reality: the container's nginx owns all routing; the
+  edge is a dumb TLS-terminating pipe. `/rpc/` must stay reachable anyway
+  because the gossip mesh rides `/rpc/gossip/ws` over public names.
+- **WS timeouts encoded** — `/rpc/{subscribe,gossip}/ws` (+`/agent/` on the
+  hub example) carry `proxy_http_version 1.1`, Upgrade/Connection headers
+  and 3600s read/send timeouts, matching the fleet normalization applied
+  earlier today. Shop example adds `/ollama/` + `/api/` at 600s with
+  `proxy_buffering off` and `client_max_body_size 500M`.
+- **Sanitized** — `YOUR_DOMAIN`/`CONTAINER_IP` placeholders only; identifier
+  scan over all four files is clean.
+- `examples/nginx/README.md` — documents the two-layer model, the
+  file-per-role table, the real-IP trust chain, and the WS-timeout rule.
+- `setup.sh` hint — container side now points at the one real container
+  example (`nginx-aitbc.conf.example`) instead of three nonexistent
+  role-split files; corrected the stale "TLS terminates upstream" note
+  (the edge proxy IS the terminator; added the certbot step).
+- `deploy-nginx-reverse-proxy.sh` — scp'd a deleted concrete config with a
+  hardcoded domain; now takes `AITBC_CONTAINER_IP` + optional
+  `AITBC_PROXY_EXAMPLE`, scps the example and sed-substitutes
+  `YOUR_DOMAIN`/`CONTAINER_IP` on the remote.
+- `script-environment.md` — documented `AITBC_CONTAINER_IP` and
+  `AITBC_PROXY_EXAMPLE`.
+
+All three examples pass `nginx -t` on node2 (placeholders substituted,
+`443 ssl` → plain port for the cert-less test).

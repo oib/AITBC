@@ -9,6 +9,13 @@ set -e
 source "$(dirname "$0")/deploy-env.sh"
 require_deploy_var AITBC_SSH_TARGET "Set it to the ssh alias or user@host of the deployment server."
 require_deploy_var AITBC_PUBLIC_HOST "Set it to the public FQDN this deployment is reached on."
+require_deploy_var AITBC_CONTAINER_IP "Set it to the container/service address this host proxies to (replaces CONTAINER_IP in the example)."
+
+# Role-specific edge example to deploy. Defaults to the minimal customer
+# pass-through; hub nodes want nginx-hub-proxy.conf.example and GPU/shop
+# nodes nginx-shop-proxy.conf.example.
+AITBC_PROXY_EXAMPLE="${AITBC_PROXY_EXAMPLE:-nginx-customer-proxy.conf.example}"
+AITBC_PROXY_SRC="examples/nginx/${AITBC_PROXY_EXAMPLE}"
 
 
 echo "🚀 Deploying Nginx Reverse Proxy for AITBC"
@@ -37,8 +44,13 @@ print_status "Checking nginx installation on host..."
 ssh "$AITBC_SSH_TARGET" "which nginx > /dev/null || (apt-get update && apt-get install -y nginx)"
 
 # Copy nginx configuration
-print_status "Copying nginx configuration..."
-scp infra/nginx/nginx-aitbc-reverse-proxy.conf ${AITBC_SSH_TARGET}:/tmp/aitbc-reverse-proxy.conf
+print_status "Copying nginx configuration (${AITBC_PROXY_EXAMPLE})..."
+if [ ! -f "$AITBC_PROXY_SRC" ]; then
+    print_error "Example not found: $AITBC_PROXY_SRC"
+    print_error "Run from the repo root, or set AITBC_PROXY_EXAMPLE to a file in examples/nginx/."
+    exit 1
+fi
+scp "$AITBC_PROXY_SRC" "${AITBC_SSH_TARGET}:/tmp/aitbc-reverse-proxy.conf"
 
 # Backup existing nginx configuration
 print_status "Backing up existing nginx configuration..."
@@ -46,10 +58,13 @@ ssh "$AITBC_SSH_TARGET" "mkdir -p /etc/nginx/backup && cp -r /etc/nginx/sites-av
 
 # Install the new configuration
 print_status "Installing nginx reverse proxy configuration..."
-ssh "$AITBC_SSH_TARGET" << 'EOF'
+ssh "$AITBC_SSH_TARGET" "AITBC_PUBLIC_HOST='${AITBC_PUBLIC_HOST}' AITBC_CONTAINER_IP='${AITBC_CONTAINER_IP}' bash -s" << 'EOF'
 # Remove existing configurations
 rm -f /etc/nginx/sites-enabled/default
 rm -f /etc/nginx/sites-available/aitbc*
+
+# Substitute the example placeholders with this deployment's values
+sed -i "s/YOUR_DOMAIN/${AITBC_PUBLIC_HOST}/g; s/CONTAINER_IP/${AITBC_CONTAINER_IP}/g" /tmp/aitbc-reverse-proxy.conf
 
 # Copy new configuration
 cp /tmp/aitbc-reverse-proxy.conf /etc/nginx/sites-available/aitbc-reverse-proxy.conf
