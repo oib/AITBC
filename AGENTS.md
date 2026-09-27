@@ -346,6 +346,13 @@ This is mirrored on every node. Note per-host quirks:
   wrong path mutates the host: `sqlite3 <path>` silently *creates* a 0-byte
   database when handed a missing path.
 
+- **`python` does not exist on the nodes** — `zsh: command not found:
+  python` is a dead end. Use `/opt/aitbc/venv/bin/python` (absolute path,
+  no `source venv/bin/activate` needed; that is where the project deps
+  live) or `python3` for the system interpreter (3.13.5). Same for pip:
+  `/opt/aitbc/venv/bin/pip`. Poetry is its own venv:
+  `/opt/aitbc/venv-poetry/bin/poetry`.
+
 - **systemd `EnvironmentFile=` does not strip inline `#` comments** — a comment
   on an assignment line becomes part of the value (8 Sep: a
   `BOND_SLASH_AUTHORITY_ADDRESS=<addr>  # note` line gave 6 units a 110-byte
