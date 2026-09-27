@@ -539,6 +539,25 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
 - Do not leave live probe rows in `hermes_coin_requests.db`: unexecuted probes have `transaction_hash IS NULL` and can be deleted by id; anything executed stays and gets `approved_by='probe'`.
 - Focused checks (dev node, needs the service `PYTHONPATH`): `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/agent-coordinator/src:/opt/aitbc/apps/coordinator-api/src venv/bin/python -m pytest -q apps/agent-coordinator/tests/`.
 
+## Validator gossip topology
+
+- The intended backend is **`mesh` on every host** (node process only): each
+  host's `blockchain.env` carries `GOSSIP_BACKEND=mesh` and
+  `GOSSIP_MESH_PEER_URLS` = the other four hosts (public `wss://<host>/rpc/gossip/ws`;
+  node0/1/2 additionally reach each other over the LAN `ws://10.1.223.x:8202`).
+  The **rpc unit deliberately keeps `GOSSIP_BACKEND=redis`** — it is the
+  local-bus bridge; only the node process dials peers (see `mesh.py` and
+  commit `3a18de6ea9`).
+- The fleet silently regressed to hub-and-spoke for 18 days (Sep 9–27 2026)
+  because `GOSSIP_BACKEND=redis` lines in `aitbc-blockchain-node.env`/`-rpc.env`
+  and a `GOSSIP_BACKEND=websocket` in `blockchain.env` shadowed the mesh config.
+  **Gossip keys live only in `blockchain.env` now; do not add `GOSSIP_BACKEND`,
+  `GOSSIP_WEBSOCKET_URL`, or `GOSSIP_MESH_PEER_URLS` to unit-specific env
+  files** — `fleet-config-check.sh`'s mesh section fails if they reappear or if
+  the running backend (read from `/proc/<pid>/environ`) is not `mesh`.
+- Env-file backups from the restore live at `/etc/aitbc/*.bak-20260927-*-mesh`
+  on each host.
+
 ## Trading authentication
 
 - Trading's protected routers require `X-Trading-Api-Key` matching `TRADING_API_KEY`; `X-API-Key` and `BLOCKCHAIN_RPC_API_KEY` are a separate blockchain RPC credential, not substitutes.
