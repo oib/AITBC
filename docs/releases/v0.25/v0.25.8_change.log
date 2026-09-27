@@ -618,16 +618,6 @@ New metric `sync_fork_invalid_rival_total`. 17 fork-choice tests +
 
 - **RPC block-header cache expiry (commit 591bb295b0).** The live fork
   test exposed a follow-up defect: after the pull resolver reorged height
-  25841 to the majority block, `/rpc/block/25841` kept serving the
-  orphaned header. `aitbc-blockchain-rpc` is a separate process from the
-  node that performs imports/reorgs, so in-process `invalidate()` calls
-  never reached its cache, and the cache assumed height→hash was
-  immutable (true before reorgs existed). `BlockHeaderCache` entries now
-  expire `ttl_seconds` after insertion (default 120s, ~2 block
-  intervals; `<=0` keeps the old unbounded behaviour). Verified live: all
-  five nodes now return the canonical
-- **RPC block-header cache expiry (commit 591bb295b0).** The live fork
-  test exposed a follow-up defect: after the pull resolver reorged height
   25841 to the majority block, /rpc/block/25841 kept serving the
   orphaned header. aitbc-blockchain-rpc is a separate process from the
   node that performs imports/reorgs, so in-process invalidate() calls
@@ -742,3 +732,33 @@ on all five public names (a coincidental node2 rpc service restart mid-test
 briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
 200, `genesis.json` 200, `blockchain.env`/`chain.db`/`secrets.env` → 404,
 `messages/stream` → 401 (auth parity with hub).
+
+- **Full-tie fork deferral (commits 26add79f4, 9d61f2b1d3).** The first
+  live fork proof at height 25841 was decided on *segment length*
+  (proposers 1 vs 1, length 2 vs 1) — hub1 legitimately authored both
+  majority blocks, so the distinct-proposer signal never actually
+  differentiated. Had the partition ended one block earlier the segments
+  would have tied 1-vs-1 on both counts and `(round, hash)` would have
+  wrongly preferred the isolated node's round-1 block. Two changes close
+  that: (a) a full proposer+length tie now *defers* the reorg for one
+  proposer-round window instead of key-breaking immediately — the
+  isolated side's freshness gate keeps it from proposing while the
+  majority keeps building, so the next comparison decides by length —
+  and only a tie that survives the window (a genuinely symmetric split)
+  falls to `(round, hash)`; (b) equal-height head divergence now engages
+  the pull resolver at all (it was previously detected and discarded by
+  the sync manager, so the resolver only ever ran once the peer was
+  strictly ahead — when its segment was already longer). Demonstrated
+  live at height 25937 during a scripted partition of node2
+  (`scripts/multi-node/partition-fork-test.sh`): the first post-restore
+  check logged `Fork tie at height 25937 (proposers 1 vs 1, length 1 vs
+  1) — deferring reorg for one 60s round window`, held node2's local
+  block, and 62s later — after the majority produced 25938 — resolved
+  `peer branch wins … length 2 vs 1` and reorged atomically. All five
+  nodes converged at 25939 on the majority chain.
+- **RPC near-head cache bypass (commit 26add79f4).** Complementing the
+  header-cache TTL: `/rpc/block/{height}` now skips `BlockHeaderCache`
+  entirely for heights within `max_reorg_depth` of the current head —
+  the only heights a reorg can still rewrite — so a just-orphaned header
+  is never served during the TTL window either. `/rpc/blocks-range`
+  (peer sync) was confirmed to read the DB directly and was unaffected.
