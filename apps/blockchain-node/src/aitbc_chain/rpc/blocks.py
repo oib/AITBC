@@ -9,12 +9,13 @@ import time
 from typing import Any
 
 from fastapi import HTTPException, Request, status
-from sqlalchemy import asc, text
+from sqlalchemy import asc, func, text
 from sqlmodel import select
 
 from aitbc.rate_limiting import rate_limit
 
 from ..block_cache import get_block_header_cache
+from ..config import settings
 from ..database import init_db, session_scope
 from ..logger import get_logger
 from ..metrics import metrics_registry
@@ -73,6 +74,12 @@ async def get_head(request: Request, chain_id: str | None = None) -> dict[str, A
     }
 
 
+def _head_height(chain_id: str) -> int | None:
+    """Current head height, or None on an empty chain."""
+    with session_scope(chain_id) as session:
+        return session.exec(select(func.max(Block.height)).where(Block.chain_id == chain_id)).one()
+
+
 @rate_limit(rate=200, per=60)
 async def get_block(request: Request, height: int, chain_id: str | None = None) -> dict[str, Any]:
     """Get block by height"""
@@ -80,8 +87,15 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
     metrics_registry.increment("rpc_get_block_total")
     start = time.perf_counter()
     # Check in-process block header cache (hot path) before hitting the DB.
+    # Heights within the reorg window can still be replaced by fork resolution
+    # in the node process — whose cache invalidations cannot reach this
+    # process — so those are always read from the DB. Older heights are final.
     header_cache = get_block_header_cache()
-    cached_header = header_cache.get(height, chain_id)
+    head_height = _head_height(chain_id)
+    reorg_window = getattr(settings, "max_reorg_depth", 10)
+    cached_header = None
+    if head_height is None or height < head_height - reorg_window:
+        cached_header = header_cache.get(height, chain_id)
     if cached_header is not None:
         metrics_registry.increment("rpc_get_block_cache_hit_total")
         # Cache hit — still need to fetch transactions from DB (headers only are cached).
