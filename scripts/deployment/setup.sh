@@ -1848,21 +1848,15 @@ main() {
     # Hint the sysadmin to the right config pair based on node role.
     local _role _container_conf _host_conf
     _role=$(get_node_role)
+    _container_conf="nginx-aitbc.conf.example"
     case "$_role" in
         hub)
-            _container_conf="nginx-hub.conf.example"
             _host_conf="nginx-hub-proxy.conf.example"
             ;;
         shop)
-            _container_conf="nginx-shop.conf.example"
             _host_conf="nginx-shop-proxy.conf.example"
             ;;
-        customer)
-            _container_conf="nginx-customer.conf.example"
-            _host_conf="nginx-customer-proxy.conf.example"
-            ;;
         *)
-            _container_conf="nginx-customer.conf.example"
             _host_conf="nginx-customer-proxy.conf.example"
             ;;
     esac
@@ -1878,7 +1872,8 @@ main() {
     echo "    cp /opt/aitbc/examples/nginx/$_host_conf /etc/nginx/sites-available/aitbc-proxy"
     echo "    ln -sf /etc/nginx/sites-available/aitbc-proxy /etc/nginx/sites-enabled/aitbc-proxy"
     echo "    # Edit: replace YOUR_DOMAIN and CONTAINER_IP"
-    echo "    # TLS terminates upstream of this proxy; do not install a certificate here."
+    echo "    # This edge proxy terminates TLS — install certs with:"
+    echo "    #   certbot --nginx -d YOUR_DOMAIN"
     echo ""
     echo "  See: /opt/aitbc/examples/nginx/README.md for full instructions"
 
