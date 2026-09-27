@@ -172,10 +172,12 @@ for ip in ${PEER_IP6S:-}; do ip -6 route add blackhole "$ip" 2>/dev/null || true
 log "CUT STARTED for ${CUT_SECONDS}s (v4:$(echo $PEER_IPS | wc -w) blackholed, v6:$(echo ${PEER_IP6S:-none} | wc -w), blocks.* denied, /rpc pulls 444)"
 
 # --- mid-cut snapshot: prove the cut is still in place --------------------
+# `ip route get` on a blackholed address prints "RTNETLINK answers: Invalid
+# argument" — EINVAL is the proof the route is live, so tolerate nonzero.
 sleep 15
 {
-    for ip in $PEER_IPS; do ip route get "$ip" 2>&1 | head -1; done
-    ss -tn state established | awk 'NR>1 {print $4, $5}' | sort | uniq -c | sort -rn | head -15
+    for ip in $PEER_IPS; do ip route get "$ip" 2>&1 | head -1 || true; done
+    ss -tn state established | awk 'NR>1 {print $4, $5}' | sort | uniq -c | sort -rn | head -15 || true
     curl -s -o /dev/null -w "self /rpc/head: %{http_code}" --max-time 3 "http://127.0.0.1:$RPC_PORT/rpc/head" || true
 } | sed "s/^/SNAPSHOT /" | while read -r line; do log "$line"; done
 
