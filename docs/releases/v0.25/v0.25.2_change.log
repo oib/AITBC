@@ -455,3 +455,13 @@ Restored on all five hosts, one at a time, hub first: `blockchain.env` now has `
 Verified after each restart: `Initializing gossip backend: mesh` with four peers, established peer connections on hub and node1, fleet converged at equal height/hash, zero gossip warnings.
 
 `fleet-config-check.sh` gains a mesh section asserting the **running** backend (the lesson of this regression — env files lied), a complete self-free peer list, clean shadow lines, rpc-unit `redis`, and case-insensitive greps; `SHADOW_CONFLICT_ALLOW` whitelists the intended `aitbc-blockchain-rpc:GOSSIP_BACKEND` split. A reprovision or drift back to spoke now fails the check.
+
+
+### convergence probes gain public-endpoint fallback (same commit)
+
+`fleet-config-check.sh` sampled heads via `http://<name>:8202` only — on the
+dev host node0/1/2 resolved nowhere and every run ended `DRIFT DETECTED`.
+Each host now tries the LAN endpoint first (when `NODE*_HOST` is set) then
+`https://<host>.<domain>/rpc/status`. LAN first because a node cannot reach
+its own vhost through the public edge (at1 has no hairpin), so `public-only`
+would break runs from a fleet node.
