@@ -615,3 +615,26 @@ Two correctness fixes to `8b82864c9` found in review:
 
 New metric `sync_fork_invalid_rival_total`. 17 fork-choice tests +
 224-test sync/consensus suite pass; ruff/mypy clean.
+
+- **RPC block-header cache expiry (commit 591bb295b0).** The live fork
+  test exposed a follow-up defect: after the pull resolver reorged height
+  25841 to the majority block, `/rpc/block/25841` kept serving the
+  orphaned header. `aitbc-blockchain-rpc` is a separate process from the
+  node that performs imports/reorgs, so in-process `invalidate()` calls
+  never reached its cache, and the cache assumed height→hash was
+  immutable (true before reorgs existed). `BlockHeaderCache` entries now
+  expire `ttl_seconds` after insertion (default 120s, ~2 block
+  intervals; `<=0` keeps the old unbounded behaviour). Verified live: all
+  five nodes now return the canonical
+- **RPC block-header cache expiry (commit 591bb295b0).** The live fork
+  test exposed a follow-up defect: after the pull resolver reorged height
+  25841 to the majority block, /rpc/block/25841 kept serving the
+  orphaned header. aitbc-blockchain-rpc is a separate process from the
+  node that performs imports/reorgs, so in-process invalidate() calls
+  never reached its cache, and the cache assumed height→hash was
+  immutable (true before reorgs existed). BlockHeaderCache entries now
+  expire ttl_seconds after insertion (default 120s, ~2 block
+  intervals; <=0 keeps the old unbounded behaviour). Verified live: all
+  five nodes' /rpc/block/25841 now return the canonical 0x5074c6f6…
+  majority block. 20 cache tests pass including new TTL/reorg-replacement
+  coverage.
