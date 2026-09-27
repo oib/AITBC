@@ -440,6 +440,9 @@ class TestPullPathForkChoice:
         assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=10) is False
 
     async def test_nonempty_segment_escalates_on_pull(self, session_factory, monkeypatch):
+        # 1v1/1v1 tie defers once; on the post-window re-check the peer's
+        # round-0 child wins the key — but our losing block carries txs and
+        # cannot be safely reverted, so it escalates instead of reorging.
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160), tx_count=2)
         _store(session_factory, ours4)
@@ -452,6 +455,8 @@ class TestPullPathForkChoice:
             return [peer[start]] if start in peer else []
 
         monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
+        sync._deferred_forks[3] = time.monotonic() - 1  # expire the defer window
         assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_reorg_unsafe_total") == 1.0
