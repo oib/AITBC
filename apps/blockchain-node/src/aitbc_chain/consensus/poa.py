@@ -719,6 +719,8 @@ class PoAProposer:
             if selected is None:
                 return False
             proposer, round_number = selected
+            if await self._honor_attestation_lock(next_height):
+                return False
             self._propose_phase = "collect_txs"
             _t2 = time.time()
             pending_txs, account_map, existing_tx_map = self._collect_proposal_txs(session, mempool)
@@ -942,6 +944,76 @@ class PoAProposer:
                 local_height,
                 quarantine_s,
             )
+
+    async def _honor_attestation_lock(self, next_height: int) -> bool:
+        """True while a live attestation lock suppresses this proposal.
+
+        If this node's validator keys signed block X at ``next_height`` as an
+        attester, producing a different block at the same height is
+        equivocation — the mechanism that turned the live asymmetric
+        partitions into same-height forks. While the lock is live we look
+        for a mesh peer that actually serves X and kick a pull toward it, so
+        the head advances onto the attested block instead of competing with
+        it. If no peer can serve X, the proposal is still suppressed until
+        the lock expires (one proposer round), which bounds the liveness hit
+        when the attested block never materialises.
+        """
+        if self._remote_attestation is None or self._sync_manager is None:
+            return False
+        if not getattr(settings, "attestation_lock_enabled", True):
+            return False
+        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        lock = self._remote_attestation.attestation_lock(next_height, window)
+        if lock is None:
+            return False
+        locked_hash, locked_proposer = lock
+
+        from .proposal_freshness import peer_base_url
+
+        bases: list[str] = []
+        for u in settings.mesh_peer_url_list():
+            if u.startswith(("http://", "https://")):
+                bases.append(u)
+            else:
+                base = peer_base_url(u)
+                if base:
+                    bases.append(base)
+        timeout = getattr(settings, "proposal_freshness_peer_timeout_seconds", 2.0)
+        for base in dict.fromkeys(bases):
+            try:
+                resp = await SharedHttpClient.get(
+                    f"{base}/rpc/block/{next_height}",
+                    params={"chain_id": self._config.chain_id},
+                    timeout=timeout,
+                )
+                if resp.status_code != 200:
+                    continue
+                block = resp.json()
+            except Exception:
+                continue
+            if not isinstance(block, dict) or block.get("hash") != locked_hash:
+                continue
+            self._logger.warning(
+                "[PROPOSE] Attestation lock: we attested %s at height %s (proposer %s) — pulling from %s instead of proposing",
+                locked_hash[:18],
+                next_height,
+                locked_proposer[:12],
+                base,
+            )
+            metrics_registry.increment("poa_attestation_lock_fetch_total")
+            try:
+                self._sync_manager.pull_from_peer(self._config.chain_id, base)
+            except Exception as exc:
+                self._logger.warning("[PROPOSE] attestation-lock pull from %s failed: %s", base, exc)
+            return True
+        metrics_registry.increment("poa_attestation_lock_held_total")
+        self._logger.warning(
+            "[PROPOSE] Attestation lock held at height %s — we attested %s (proposer %s) but no peer serves it; holding until the lock expires",
+            next_height,
+            locked_hash[:18],
+            locked_proposer[:12],
+        )
+        return True
 
     def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
         """Fetch the chain head and validate proposal freshness.

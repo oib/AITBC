@@ -739,6 +739,12 @@ class ChainSettings(BaseSettings):
     # Left unset, this is derived from ``max_empty_block_interval`` -- see
     # ``_scale_the_proposer_round_to_the_heartbeat``. An explicit value wins.
     consensus_proposer_round_seconds: int = 60
+    # v0.25.x attester lock: a validator that signs (attests) a peer's block
+    # at height h will not propose — or re-attest — a different block at h
+    # for one proposer round. Instead it tries to fetch the attested block
+    # from a mesh peer and pull it. The lock expires after one round window
+    # so an attested block that never materialises cannot stall production.
+    attestation_lock_enabled: bool = True
     # Drop a pre-prepare whose sender is not the scheduled proposer for the
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
