@@ -64,23 +64,32 @@ declare -A HOST_CANDIDATES=(
 )
 
 declare -A RESOLVED=()
-ssh_reach=0
+unresolved=""
 for host in $HOSTS; do
     RESOLVED[$host]=""
     for cand in ${HOST_CANDIDATES[$host]:-$host}; do
-        if ssh -o ConnectTimeout=4 -o BatchMode=yes "$cand" true 2>/dev/null; then
+        # A candidate must not only answer ssh — it must BE the host. From a
+        # fleet node, hub.<domain> resolves to the edge jump box, which accepts
+        # the connection and would happily serve its own env files as "hub's".
+        got=$(ssh -o ConnectTimeout=4 -o BatchMode=yes "$cand" 'hostname -s' 2>/dev/null || true)
+        if [ "$got" = "$host" ]; then
             RESOLVED[$host]=$cand
-            ssh_reach=1
             break
+        elif [ -n "$got" ]; then
+            echo "  NOTE: $cand answers as '$got', not '$host' — ignored"
         fi
     done
     if [ -z "${RESOLVED[$host]}" ]; then
         RESOLVED[$host]=$host
+        unresolved="$unresolved $host"
     fi
 done
-if [ "$ssh_reach" -eq 0 ]; then
-    echo "NOTE: no ssh reach to any fleet host from here — env sections SKIPPED"
+if [ -n "$unresolved" ]; then
+    ssh_reach=0
+    echo "NOTE: no verified ssh reach to:$unresolved — env sections SKIPPED"
     echo "(env reads are dev-tier; the convergence section below works anywhere)"
+else
+    ssh_reach=1
 fi
 
 # Resolve each host's EnvironmentFile list once: the node unit's own unit files
@@ -92,7 +101,7 @@ ENVFILE_FALLBACK="/etc/aitbc/blockchain.env /etc/aitbc/node.env"
 declare -A ENVFILES=()
 if [ "$ssh_reach" -eq 1 ]; then
     for host in $HOSTS; do
-        ENVFILES[$host]=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$host]}" "$ENVFILE_CMD" 2>/dev/null)
+        ENVFILES[$host]=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$host]}" "$ENVFILE_CMD" 2>/dev/null || true)
         if [ -z "${ENVFILES[$host]}" ]; then
             ENVFILES[$host]="$ENVFILE_FALLBACK"
         fi

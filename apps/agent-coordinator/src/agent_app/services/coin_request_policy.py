@@ -64,7 +64,7 @@ def _env_ait(name: str, default_units: int) -> int:
         return default_units
     try:
         units = ait_to_units(raw.strip())
-    except (InvalidOperation, ValueError):
+    except (InvalidOperation, ValueError, OverflowError):
         logger.warning("%s=%r is not a decimal AIT amount; using %s units", name, raw, default_units)
         return default_units
     return max(units, 0)
