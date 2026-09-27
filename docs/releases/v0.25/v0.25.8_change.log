@@ -638,3 +638,33 @@ New metric `sync_fork_invalid_rival_total`. 17 fork-choice tests +
   five nodes' /rpc/block/25841 now return the canonical 0x5074c6f6…
   majority block. 20 cache tests pass including new TTL/reorg-replacement
   coverage.
+
+### edge reverse-proxy normalization + verification (2026-09-27)
+
+Fleet nginx edge audit found four live defects; all fixed and verified:
+
+- **node0 had no `real_ip` config** — external clients appeared as the edge
+  IP `10.1.223.1`, breaking per-IP rate limits and client logging. Added
+  `set_real_ip_from` + `real_ip_header X-Forwarded-For` (non-recursive: the
+  last XFF element is edge-appended and trustworthy; recursion would honour
+  client-injected entries). Verified: request from hub logs `152.53.242.245`.
+- **WS idle teardown asymmetry** — hub1's edge granted 3600s on
+  `/rpc/{subscribe,gossip}/ws` + `/agent/`; hub's edge (ns2) and the IDE
+  edges (node0/1/2) fell back to the 60s default, silently tearing idle
+  gossip/subscribe/agent-SSE streams. Matching 3600s blocks deployed to
+  ns2 and all three IDE confs.
+- **hub1 edge catch-all could not WS-upgrade** — missing
+  `proxy_http_version 1.1` + Upgrade headers degraded non-whitelisted WS
+  paths to HTTP/1.0. Fixed.
+- **Cleanups:** stale `set_real_ip_from 10.1.223.1` + orphaned
+  `real_ip_recursive` removed from hub's nginx.conf (leftover from hub's
+  pre-netcup placement); node1's `aitbc_backend` upstream dropped its
+  duplicate member (LAN IP == same process as loopback); `/etc/nginx`
+  backup litter on hub/hub1/node2 archived to
+  `/root/nginx-conf-archive-20260927/` per host.
+
+Verified live: `/health` 200 on all five public names; `/rpc/subscribe/ws`
+handshake → 101 fleet-wide, `/rpc/gossip/ws` → 403 (app-level peer auth);
+fully idle WS through hub's edge survived 80s (pre-fix teardown at 60s);
+gossip conn snapshot stable (32/22/26/30/30). Full topology written to
+TOPOLOGY.md (operator notes).
