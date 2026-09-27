@@ -1,13 +1,18 @@
-"""v8 stamped-version gate.
+"""v8 stamped-version semantics.
 
 Below ``state_transition_v8_height`` a block's recorded
 ``state_transition_version`` is proposer-controlled and trusted (pre-v8
-semantics). At or above it, import rejects a block whose recorded version
-differs from ``get_block_version_for_height(height)`` — or that records none.
+semantics). At or above it the stamp is advisory: ``get_block_version``
+always uses the height-derived version, and a mismatched or missing stamp is
+logged and counted (``block_version_stamp_mismatch_total``) — never obeyed
+and never rejected. ``block_metadata`` is covered by neither the block hash
+nor the proposer signature, so the stamp cannot be allowed to pick the rules
+a block is validated under.
 """
 
 import hashlib
 import json
+import logging
 from contextlib import contextmanager
 from datetime import UTC, datetime
 from unittest.mock import Mock
@@ -15,14 +20,14 @@ from unittest.mock import Mock
 import pytest
 from aitbc_chain.models import Block
 from aitbc_chain.config import settings
+from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.rpc import blocks as rpc_blocks
 from aitbc_chain.state.state_transition import (
+    get_block_version,
     get_block_version_for_height,
     get_recorded_block_version,
-    validate_recorded_version,
 )
 from eth_account import Account as EthAccount
-from fastapi import HTTPException
 from sqlmodel import Session, create_engine, select
 
 from aitbc_chain.metadata import chain_metadata
@@ -59,7 +64,7 @@ def mock_request():
 
 @pytest.fixture
 def v8_active(monkeypatch):
-    """v8 gate active from height 1 (and v7 far above the test heights)."""
+    """v8 advisory semantics active from height 1 (v7 far above test heights)."""
     monkeypatch.setattr(settings, "state_transition_v8_height", 1)
     monkeypatch.setattr(settings, "state_transition_v7_height", 0)
     return settings
@@ -121,32 +126,51 @@ def test_for_height_returns_8_above_v8(v8_active):
     assert get_block_version_for_height(99999) == 8
 
 
-def test_validate_lenient_when_disabled():
-    assert validate_recorded_version({"block_metadata": '{"state_transition_version": 1}'}, 50000) == (True, "")
-    assert validate_recorded_version({}, 50000) == (True, "")
+def test_below_v8_stamp_wins(v8_active):
+    """Pre-v8 semantics are untouched: the recorded version governs."""
+    assert get_block_version({"block_metadata": '{"state_transition_version": 5}'}, height=0) == 5
+    assert get_block_version({"block_metadata": '{"state_transition_version": 1}'}, height=0) == 1
 
 
-def test_validate_lenient_below_activation(v8_active):
-    # v8 activates at height 1; height 0 keeps the pre-v8 semantics.
-    assert validate_recorded_version({}, 0) == (True, "")
-    assert validate_recorded_version({"block_metadata": '{"state_transition_version": 3}'}, 0) == (True, "")
+def test_at_v8_height_derived_version_wins(v8_active):
+    """At/above v8 the recorded stamp is ignored entirely — matching or not."""
+    assert get_block_version(_stamped(8), height=1) == 8
+    assert get_block_version(_stamped(7), height=1) == 8  # stale stamp: ignored
+    assert get_block_version(_stamped(1), height=50) == 8  # downgraded stamp: ignored
+    assert get_block_version({}, height=1) == 8  # unstamped: tolerated
+    assert get_block_version({"block_metadata": "{bad json"}, height=1) == 8
 
 
-def test_validate_rejects_mismatch_and_unstamped(v8_active):
-    ok, reason = validate_recorded_version(_stamped(7), 1)
-    assert not ok and "7" in reason and "8" in reason
-    ok, reason = validate_recorded_version({}, 5)
-    assert not ok and "no state_transition_version" in reason
-    ok, reason = validate_recorded_version(_stamped(9), 5)
-    assert not ok
-    assert validate_recorded_version(_stamped(8), 5) == (True, "")
+def test_mismatch_logs_and_counts(v8_active, caplog):
+    metrics_registry.reset()
+    with caplog.at_level(logging.WARNING, logger="aitbc_chain.state.state_transition"):
+        assert get_block_version(_stamped(7), height=10) == 8
+    assert metrics_registry._counters.get("block_version_stamp_mismatch_total") == 1
+    assert any("state_transition_version=7" in r.message and "height requires 8" in r.message for r in caplog.records)
+
+
+def test_matching_stamp_no_warning(v8_active, caplog):
+    metrics_registry.reset()
+    with caplog.at_level(logging.WARNING, logger="aitbc_chain.state.state_transition"):
+        assert get_block_version(_stamped(8), height=10) == 8
+    assert metrics_registry._counters.get("block_version_stamp_mismatch_total") is None
+    assert not caplog.records
+
+
+def test_below_v8_mismatch_silent(v8_active, caplog):
+    """Below activation a wrong stamp governs silently — that is the pre-v8
+    behavior this fleet replayed to 24800 without a single mismatch."""
+    metrics_registry.reset()
+    with caplog.at_level(logging.WARNING, logger="aitbc_chain.state.state_transition"):
+        assert get_block_version(_stamped(3), height=0) == 3
+    assert metrics_registry._counters.get("block_version_stamp_mismatch_total") is None
 
 
 # --- through the import path ---------------------------------------------------
 
 
 @pytest.mark.asyncio
-async def test_import_stamps_v8_accepted(isolated_engine, mock_request, v8_active):
+async def test_import_correct_stamp_accepted(isolated_engine, mock_request, v8_active):
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()
 
@@ -163,35 +187,35 @@ async def test_import_stamps_v8_accepted(isolated_engine, mock_request, v8_activ
 
 
 @pytest.mark.asyncio
-async def test_import_older_stamp_rejected(isolated_engine, mock_request, v8_active):
-    """A proposer stamping v7 at a v8 height must be refused."""
+async def test_import_stale_stamp_tolerated(isolated_engine, mock_request, v8_active):
+    """A block stamped v7 at a v8 height imports and validates under v8 —
+    the stamp can no longer downgrade the rules, so it is no longer fatal."""
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()
 
-    with pytest.raises(HTTPException) as exc_info:
-        await rpc_blocks.import_block(
-            mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(7))
-        )
-    assert exc_info.value.status_code == 400
+    result = await rpc_blocks.import_block(
+        mock_request, _signed_block(proposer, 1, genesis_hash, **_stamped(7))
+    )
 
-    with Session(isolated_engine) as session:
-        assert session.exec(select(Block).where(Block.height == 1)).first() is None
+    assert result["success"] is True
+    assert result["accepted"] is True
 
 
 @pytest.mark.asyncio
-async def test_import_unstamped_rejected(isolated_engine, mock_request, v8_active):
+async def test_import_unstamped_tolerated(isolated_engine, mock_request, v8_active):
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()
 
-    with pytest.raises(HTTPException) as exc_info:
-        await rpc_blocks.import_block(mock_request, _signed_block(proposer, 1, genesis_hash))
-    assert exc_info.value.status_code == 400
+    result = await rpc_blocks.import_block(mock_request, _signed_block(proposer, 1, genesis_hash))
+
+    assert result["success"] is True
+    assert result["accepted"] is True
 
 
 @pytest.mark.asyncio
-async def test_import_stale_stamp_lenient_below_activation(isolated_engine, mock_request, monkeypatch):
-    """Pre-activation the stamp stays proposer-controlled: a block stamped 5
-    below the v8 height imports exactly as before."""
+async def test_import_stamp_governs_below_activation(isolated_engine, mock_request, monkeypatch):
+    """Pre-activation the stamp stays authoritative: a block stamped 5 is
+    validated under v5 exactly as before."""
     monkeypatch.setattr(settings, "state_transition_v8_height", 100)
     genesis_hash = _insert_genesis(isolated_engine)
     proposer = EthAccount.create()

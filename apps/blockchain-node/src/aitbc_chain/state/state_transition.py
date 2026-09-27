@@ -19,6 +19,7 @@ from sqlmodel import Session, select
 
 from ..config import settings
 from ..logger import get_logger
+from ..metrics import metrics_registry
 from ..base_models import (
     Block,
     Bond,
@@ -483,17 +484,34 @@ def get_recorded_block_version(block_data_or_block: dict[str, Any] | object) -> 
 def get_block_version(block_data_or_block: dict[str, Any] | object, height: int = 0) -> int:
     """Return the state-transition rule version that should be used for a block.
 
-    A block that explicitly stores ``state_transition_version`` in its
-    ``block_metadata`` uses that value. Unversioned blocks fall back to the
-    configured activation heights, so historical blocks replay under the rules
-    that produced them.
+    Below the v8 activation height a recorded ``state_transition_version`` in
+    ``block_metadata`` wins, and unversioned blocks fall back to the configured
+    activation heights so historical blocks replay under the rules that
+    produced them.
+
+    At or above v8 the stamp is advisory only: the height-derived version
+    always applies. ``block_metadata`` is covered by neither the block hash
+    nor the proposer's signature, so trusting the stamp would let any relay
+    pick the rules a block is validated under; ignoring it removes the
+    dependency on the unauthenticated field entirely. A recorded version that
+    disagrees with the height — or is absent — is logged and counted, never
+    obeyed.
     """
     recorded = get_recorded_block_version(block_data_or_block)
-    if recorded is not None:
-        return recorded
     v8_threshold = getattr(settings, "state_transition_v8_height", 0)
     if v8_threshold > 0 and height >= v8_threshold:
-        return 8
+        expected = get_block_version_for_height(height)
+        if recorded != expected:
+            metrics_registry.increment("block_version_stamp_mismatch_total")
+            logger.warning(
+                "Block at height %s records state_transition_version=%s; height requires %s — using the height-derived version",
+                height,
+                recorded,
+                expected,
+            )
+        return expected
+    if recorded is not None:
+        return recorded
     v7_threshold = getattr(settings, "state_transition_v7_height", 0)
     if v7_threshold > 0 and height >= v7_threshold:
         return 7
@@ -546,28 +564,7 @@ def get_block_version_for_height(height: int) -> int:
     return 2
 
 
-def validate_recorded_version(block_data: dict[str, Any], height: int) -> tuple[bool, str]:
-    """v8 gate: at/above activation, the recorded version must equal the
-    height-derived one, and unstamped blocks are rejected.
 
-    Below activation the stamp stays proposer-controlled and trusted — the
-    pre-v8 semantics — so historical blocks replay unchanged. A chain where
-    past stamps ever deviated from height-derived versions must NOT set the
-    height below those blocks; the AITBC audit found zero such stamps.
-    """
-    v8_threshold = getattr(settings, "state_transition_v8_height", 0)
-    if v8_threshold <= 0 or height < v8_threshold:
-        return True, ""
-    recorded = get_recorded_block_version(block_data)
-    expected = get_block_version_for_height(height)
-    if recorded is None:
-        return False, f"block at height {height} records no state_transition_version"
-    if recorded != expected:
-        return (
-            False,
-            f"block at height {height} records state_transition_version={recorded}, height requires {expected}",
-        )
-    return True, ""
 
 
 # Address fields the staking RPCs put the authorized party under: consensus
