@@ -210,3 +210,42 @@ See the operator implementation plan and live reset checklist. After code upgrad
 - **v6 switched on implicitly at the same height**: block versions accumulate — a block stamped `7` satisfies every `block_version >= 6` check, so the BRIDGE_REFUND lock-binding rule went live even though `STATE_TRANSITION_V6_HEIGHT` stays unset. Harmless here (no BRIDGE_REFUND exists or is emitted); future refund issuers must carry `payload.lock_tx_hash`.
 - **Known follow-up (v8):** the recorded `state_transition_version` is proposer-controlled — `get_block_version` trusts the block metadata stamp unconditionally and nothing compares it to the height-derived version. A misconfigured or compromised validator could stamp a lower version and skip later rules for its own blocks. Fix planned: from a v8 height, followers reject blocks whose recorded version differs from `get_block_version_for_height(height)`; before choosing that height, history must be audited for stamps that diverge from the configured ladder.
 - Activation verification (post-rotation): all four proposers stamped `state_transition_version: 7` — hub1 (`0x9Ea1`) at 24650/24654, hub (`0x02B8`) at 24651/24655, node1 (`0x241D`) at 24652, node2 (`0x4364`) at 24653; blocks 24648-49 were `5`. Identical block hash and `state_root` on all five nodes at every height 24650-24655 — one full proposer rotation post-activation. Zero import or state-root rejections in `aitbc-blockchain-node`/`aitbc-blockchain-rpc` journals; the only matches were transient gossip/head-fetch 502s during the rpc restarts themselves.
+
+### v8 activation: stamped-version integrity live at block 24800 (2026-09-26)
+
+- `STATE_TRANSITION_V8_HEIGHT=24800` identical on all five nodes, zero drift
+  under `fleet-config-check` (now watching V8); `aitbc-blockchain-node` +
+  `aitbc-blockchain-rpc` restarted fleet-wide at `dfda8ae88`.
+- From 24800, block import rejects a block whose recorded
+  `block_metadata.state_transition_version` differs from
+  `get_block_version_for_height(height)` — or that records none
+  (`validate_recorded_version`, called from `ChainSync.import_block`; every
+  live block-delivery route — rpc importBlock, subscription client, bulk and
+  range sync, sync manager — funnels through it, and all of them preserve
+  `block_metadata`). Below 24800 the stamp stays proposer-controlled, which
+  is exactly the pre-v8 semantics. The admin-signed `import-chain`/
+  `force-sync` path bypasses the gate by design — it replaces the chain
+  wholesale.
+- Closes the v7-review gap: a stale/malicious proposer could previously stamp
+  an older version and have its blocks validated under weaker rules
+  (`get_block_version` trusted the stamp unconditionally).
+- Known limit, for the next person: the recorded version is NOT covered by
+  the block hash or the proposer's signature (hash covers chain/height/
+  parent/timestamp/tx-hashes/proposer/state-roots only), so a relay could
+  flip it — v8 turns that into a reject-the-honest-block stall rather than a
+  correctness loss. Follow-up: from v8 on, have `get_block_version` use the
+  height-derived version and treat a mismatched stamp as a metric/logged
+  warning instead of a gate, which removes the dependency on the
+  unauthenticated field entirely.
+- Prerequisite audit clean: all 24,676 blocks on two independent chain copies
+  (node2 + hub) recorded stamps matching the height-derived version
+  (v2:1-5469, v3:5470-10999, v4:11000-23999, v5:24000-24649, v7:24650+;
+  genesis alone unversioned) — no historical block becomes a fork point.
+- v7's activation height (24650) is now hardcoded in `config.py` like v4/v5:
+  a lost env file can no longer silently re-open the GPU_REGISTER
+  ownership-overwrite rule.
+- Verified post-activation: every block 24800-24805 records `8` on all five
+  nodes — one full proposer rotation (node1 24800, node2 24801, hub1 24802,
+  hub 24803) — and node0 imported all 284 post-activation blocks through the
+  `blocks-range` path with zero stamps != 8. Fleet hash + state_root
+  identical at 24806; zero import/state-root rejections in either journal.
