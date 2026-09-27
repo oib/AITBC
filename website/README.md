@@ -11,6 +11,25 @@ Deployed in the AITBC Incus container:
 | **Domain** | hub.example.net |
 | **Nginx Config** | `/etc/nginx/sites-enabled/aitbc` |
 
+## Branding / white-label
+
+The site is served straight from this directory, so branding lives in the
+committed files but can be overridden per deployment via
+`/etc/aitbc/website.env` (see `examples/website.env.example`):
+
+| Variable | Affects |
+|---|---|
+| `WEBSITE_DOMAIN` | absolute URLs in `sitemap.xml`, `robots.txt`, `llms.txt`, `structured-data.jsonld`, `index.html` (JSON-LD), `follower-api-key-announcement.html` |
+| `WEBSITE_CHAIN_ID` | `chainId` in `config.js`, `dashboard.js`, `follower-api-key-announcement.html` |
+| `CONTACT_EMAIL` | site footer + `/rpc/network-info` (read by `aitbc-blockchain-rpc.service` via `EnvironmentFile`) |
+
+When `/etc/aitbc/website.env` exists, `scripts/ops/render-website.sh`
+rewrites the tokens in place — `update.sh` runs it after every pull so the
+rendered values survive updates. Fallbacks when a variable is unset:
+`AITBC_HOSTNAME` / `HUB_DISCOVERY_URL` and `CHAIN_ID` from `node.env`.
+To revert: remove `website.env` and `/etc/aitbc/.website-rendered.env`, then
+`git checkout -- website/`.
+
 ## File Structure
 
 ```

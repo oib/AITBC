@@ -19,6 +19,8 @@ EnvironmentFile=-/etc/aitbc/blockchain.env
 EnvironmentFile=-/etc/aitbc/node.env
 EnvironmentFile=-/etc/aitbc/%N.env
 EnvironmentFile=-/etc/aitbc/%N-override.env
+# Optional website branding (CONTACT_EMAIL etc.) — see examples/website.env.example
+EnvironmentFile=-/etc/aitbc/website.env
 EnvironmentFile=-/etc/aitbc/blockchain-secrets.env
 # Consensus-signing secrets (VALIDATOR_KEYS, PROPOSER_KEY) — scoped to blockchain services only
 EnvironmentFile=-/etc/aitbc/validator-secrets.env
