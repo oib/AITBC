@@ -123,6 +123,7 @@ def _make_escrowed(
     job_state: str = "QUEUED",
     payment_status: str = "escrowed",
     client_id: str = "client-1",
+    miner_id: str | None = None,
     with_result: bool = False,
 ) -> None:
     job = Job(
@@ -130,6 +131,7 @@ def _make_escrowed(
         client_id=client_id,
         state=job_state,
         payload={},
+        assigned_miner_id=miner_id,
         payment_id=payment_id,
         payment_status=payment_status,
         expires_at=datetime.now(UTC) + timedelta(hours=1),
@@ -212,6 +214,16 @@ class TestRefundAuthorization:
         with pytest.raises(HTTPException):
             asyncio.run(PaymentService(db_session).refund_payment("client-unknown", "job-r3", "pay-r3", "x"))
         funded_chain.post.assert_not_called()
+
+    def test_client_refund_cancels_running_job(self, db_session, funded_chain):
+        """Refunding a job mid-flight must cancel it — otherwise the assigned
+        miner still submits (passing assignment + running checks), stores a
+        result nobody paid for, and the client keeps the output for free."""
+        _make_escrowed(db_session, "job-r5", "pay-r5", job_state="RUNNING")
+        result = asyncio.run(PaymentService(db_session).refund_payment("client-1", "job-r5", "pay-r5", "changed mind"))
+        assert result is True
+        job = db_session.get(Job, "job-r5")
+        assert job.state == "CANCELED"
 
     def test_refunded_row_reconcile_not_blocked(self, db_session):
         """An already-refunded row reconciles (fixes cache / returns chain hash)
@@ -352,3 +364,99 @@ class TestMinerRouteAssignment:
         job = db_session.get(Job, "job-fl2")
         assert job.state == "RUNNING"
         assert job.assigned_miner_id == "miner-a"
+
+    def test_result_after_refund_is_rejected(self, miner_client, db_session, funded_chain):
+        """Client refunds mid-flight -> job canceled -> assigned miner's later
+        submission gets 409 and the result is never stored."""
+        client, caller = miner_client
+        _make_escrowed(db_session, "job-rr1", "pay-rr1", job_state="RUNNING", miner_id="miner-a")
+
+        result = asyncio.run(PaymentService(db_session).refund_payment("client-1", "job-rr1", "pay-rr1", "cancel"))
+        assert result is True
+
+        caller["sub"] = "miner-a"  # the rightful assignee — still too late
+        resp = client.post("/v1/miners/job-rr1/result", json={"result": {"output": "late work"}})
+        assert resp.status_code == 409
+        assert db_session.get(Job, "job-rr1").result is None
+
+
+# --------------------------------------------------------------------------
+# Route level: feedback is anchored to one completed job, once
+# --------------------------------------------------------------------------
+
+
+def _make_completed_job(session: Session, job_id: str, miner_id: str, client_id: str = "client-1") -> Job:
+    job = Job(
+        id=job_id,
+        client_id=client_id,
+        state="COMPLETED",
+        payload={},
+        assigned_miner_id=miner_id,
+        result={"output": "delivered"},
+        expires_at=datetime.now(UTC) + timedelta(hours=1),
+    )
+    session.add(job)
+    session.commit()
+    return job
+
+
+@pytest.fixture
+def feedback_client(db_session):
+    """TestClient with an overridden client identity and the in-memory DB."""
+    from fastapi.testclient import TestClient
+
+    from aitbc.auth.dependencies import require_admin_or_client
+    from coordinator_api.storage import get_session
+
+    caller = {"sub": "client-1", "role": "client"}
+
+    def override_session():
+        yield db_session
+
+    app.dependency_overrides[get_session] = override_session
+    app.dependency_overrides[require_admin_or_client] = lambda: caller
+    yield TestClient(app), caller
+    app.dependency_overrides.pop(get_session, None)
+    app.dependency_overrides.pop(require_admin_or_client, None)
+
+
+_RATINGS = {"overall": 4.0, "performance": 4.0, "communication": 4.0, "reliability": 4.0, "value": 4.0}
+
+
+@pytest.mark.unit
+class TestFeedbackJobAnchor:
+    def test_feedback_without_job_id_rejected(self, feedback_client, db_session):
+        client, _ = feedback_client
+        _make_completed_job(db_session, "job-fb1", "miner-a")
+        resp = client.post("/v1/reputation/feedback/miner-a", json={"ratings": _RATINGS})
+        assert resp.status_code == 422
+
+    def test_feedback_rejects_unknown_or_unowned_job(self, feedback_client, db_session):
+        client, _ = feedback_client
+        _make_completed_job(db_session, "job-fb2", "miner-a", client_id="client1")
+        resp = client.post("/v1/reputation/feedback/miner-a", json={"job_id": "job-fb2", "ratings": _RATINGS})
+        assert resp.status_code == 403
+        resp = client.post("/v1/reputation/feedback/miner-a", json={"job_id": "job-nonexistent", "ratings": _RATINGS})
+        assert resp.status_code == 403
+
+    def test_feedback_rejects_unfinished_job(self, feedback_client, db_session):
+        client, _ = feedback_client
+        _make_running_job(db_session, "job-fb3", "miner-a")
+        resp = client.post("/v1/reputation/feedback/miner-a", json={"job_id": "job-fb3", "ratings": _RATINGS})
+        assert resp.status_code == 403
+
+    def test_feedback_once_per_job(self, feedback_client, db_session):
+        client, _ = feedback_client
+        _make_completed_job(db_session, "job-fb4", "miner-a")
+        body = {"job_id": "job-fb4", "ratings": _RATINGS}
+        assert client.post("/v1/reputation/feedback/miner-a", json=body).status_code == 200
+        resp = client.post("/v1/reputation/feedback/miner-a", json=body)
+        assert resp.status_code == 409
+
+    def test_distinct_jobs_get_distinct_reviews(self, feedback_client, db_session):
+        client, _ = feedback_client
+        _make_completed_job(db_session, "job-fb5", "miner-a")
+        _make_completed_job(db_session, "job-fb6", "miner-a")
+        for job_id in ("job-fb5", "job-fb6"):
+            resp = client.post("/v1/reputation/feedback/miner-a", json={"job_id": job_id, "ratings": _RATINGS})
+            assert resp.status_code == 200, resp.text
