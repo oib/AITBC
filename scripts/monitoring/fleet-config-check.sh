@@ -432,13 +432,14 @@ echo "=== chain-head convergence (height + hash, two samples) ==="
 # surface peers already use — so this section runs from ANY host, fleet node
 # or IDE alike, with no ssh. (The env sections above stay ssh-based: reading
 # a host's env is dev-tier and fleet nodes have no inter-node ssh by design.)
-# The fleet nodes have no DNS of their own, so without AITBC_NODE*_HOST set
-# these fall back to the bare names and will read UNREACHABLE. That is the
-# honest outcome -- better than a hardcoded address that is wrong elsewhere.
+# Each host gets a list of endpoints tried in order: the LAN RPC when
+# AITBC_NODE*_HOST names a reachable address, and always the public
+# https://<host>.<domain> edge endpoint (which a node cannot use to reach
+# *itself* — at1 hairpin doesn't loop — hence the LAN first).
 declare -A RPC_ENDPOINTS=(
-    [node0]="http://${NODE0_HOST:-node0}:8202/rpc/status"
-    [node1]="http://${NODE1_HOST:-node1}:8202/rpc/status"
-    [node2]="http://${NODE2_HOST:-node2}:8202/rpc/status"
+    [node0]="${NODE0_HOST:+http://${NODE0_HOST}:8202/rpc/status} https://node0.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [node1]="${NODE1_HOST:+http://${NODE1_HOST}:8202/rpc/status} https://node1.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [node2]="${NODE2_HOST:+http://${NODE2_HOST}:8202/rpc/status} https://node2.${AITBC_FLEET_DOMAIN}/rpc/status"
     [hub]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
     [hub1]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
     [${AITBC_HUB_ALIAS:-_unset_hub_alias}]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
@@ -448,15 +449,15 @@ conv_bad=0
 sample_heads() {
     for h in $HOSTS; do
         out=""
-        url="${RPC_ENDPOINTS[$h]:-}"
-        if [ -n "$url" ]; then
+        for url in ${RPC_ENDPOINTS[$h]:-}; do
+            [ -n "$out" ] && break
             out=$(curl -s -m 6 -k "$url" 2>/dev/null | python3 -c 'import json,sys
 try:
     d = json.load(sys.stdin)
     print(str(d["height"]) + "|" + d["last_block_hash"][:16])
 except Exception:
     pass' 2>/dev/null)
-        fi
+        done
         if [ -z "$out" ]; then
             echo "$h UNREACHABLE"
         else
