@@ -1,0 +1,103 @@
+# AITBC Host Reverse Proxy — CUSTOMER / follower node (TLS edge)
+#
+# Install on the EDGE HOST (public IP + TLS termination), NOT inside the
+# AITBC container. Forwards plain HTTP to the container's nginx (:80).
+#
+# Pairs with: the container nginx site for customer/follower nodes.
+#
+# Use this for: MARKET_ROLE=customer followers. For the hub use
+# nginx-hub-proxy; for GPU providers use nginx-shop-proxy.
+#
+# Placeholders to replace:
+#   CONTAINER_IP  — the container's address on the edge's Incus bridge
+#   YOUR_DOMAIN   — the public hostname this edge serves
+# Enable TLS:   certbot --nginx -d YOUR_DOMAIN
+#
+# Architecture:
+#   Internet → this host :443 (TLS, this file) → CONTAINER_IP:80
+#            → container nginx (routing, auth, real-ip restore) → services
+#
+# Note: followers still need /rpc/ reachable — the gossip mesh uses
+# /rpc/gossip/ws over the public name, and /rpc/subscribe/ws serves
+# subscribers. The container's nginx decides what is actually public.
+
+upstream aitbc_container {
+    server CONTAINER_IP:80;
+    keepalive 32;
+}
+
+server {
+    listen 443 ssl;
+    server_name YOUR_DOMAIN;
+    # ssl_certificate /etc/letsencrypt/live/YOUR_DOMAIN/fullchain.pem;
+    # ssl_certificate_key /etc/letsencrypt/live/YOUR_DOMAIN/privkey.pem;
+    # include /etc/letsencrypt/options-ssl-nginx.conf;
+    # ssl_dhparam /etc/letsencrypt/ssl-dhparams.pem;
+
+    # ── Long-lived blockchain streams ──────────────────────────────
+    # Extended timeouts are REQUIRED: the default proxy_read_timeout (~60s)
+    # tears down idle WS connections. Verified live: idle WS survives >80s
+    # only with these set.
+    #
+    # /rpc/subscribe/ws — followers & dashboards subscribe to new blocks
+    location /rpc/subscribe/ws {
+        proxy_pass http://aitbc_container/rpc/subscribe/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # /rpc/gossip/ws — inter-island gossip mesh (node-to-node via public name)
+    location /rpc/gossip/ws {
+        proxy_pass http://aitbc_container/rpc/gossip/ws;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_read_timeout 3600s;
+        proxy_send_timeout 3600s;
+    }
+
+    # ── Health check (cheap, skip the access log) ─────────────────────
+    location /health {
+        proxy_pass http://aitbc_container/health;
+        access_log off;
+    }
+
+    # ── Everything else: plain pass-through ──────────────────────────
+    # The container's nginx owns routing; the edge is a dumb pipe.
+    # Upgrade headers stay on so any future WS/SSE path still upgrades
+    # (at the default 60s timeout).
+    location / {
+        proxy_pass http://aitbc_container;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection "upgrade";
+        proxy_set_header Host $host;
+        proxy_set_header X-Real-IP $remote_addr;
+        proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+        proxy_set_header X-Forwarded-Proto $scheme;
+        proxy_connect_timeout 60s;
+        proxy_send_timeout 60s;
+        proxy_read_timeout 60s;
+        proxy_buffering on;
+        proxy_buffer_size 4k;
+        proxy_buffers 8 4k;
+    }
+}
+
+# HTTP → HTTPS redirect (certbot manages this block if you use --nginx)
+server {
+    listen 80;
+    server_name YOUR_DOMAIN;
+    return 301 https://$host$request_uri;
+}
