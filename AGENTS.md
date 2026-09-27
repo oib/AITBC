@@ -583,14 +583,25 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   proposer is skipped within one heartbeat cycle instead of two. It is
   deterministic — each proposer derives the round from the timestamp it is
   about to stamp — so there is no double-proposal risk at the boundary.
-- **Liveness with validators down:** the chain never stops while any
-  validator is up (PBFT is off, no quorum needed) — but each height where a
-  dead validator holds a round costs extra windows (~1 extra per down slot).
-  The corollary cuts the other way: a network partition leaves BOTH sides
-  producing — the deterministic fork choice (branch weight first — distinct
-  proposers, then length, then `(round, hash)`; `8b82864c9`+) settles the
-  split when the partition heals, provided the losing segment is empty;
-  otherwise it escalates to operator resync.
+- **Liveness needs 3-of-4, not just one validator.** Every multi-validator
+  block requires the proposer plus `multi_validator_min_attestations` (=2)
+  remote attestations — the proposer cannot attest its own block — so
+  production needs 3 of the 4 validators reachable to each other. One
+  validator down: the chain continues (~1 extra round window per height the
+  dead validator would have owned). Two down, or any node cleanly cut off:
+  production stalls (`got 0 attestation(s), need 2`) and **no fork forms** —
+  an isolated proposer produces nothing to diverge with. A 2–2 split stalls
+  both halves for the same reason. Forks only arise from *asymmetric*
+  failure: attestation traffic flows but block gossip/pull does not, so the
+  isolated proposer gathers signatures on a block the majority never sees
+  and the majority then produces a competing block at the same height. That
+  is what `scripts/multi-node/partition-fork-test.sh` engineers on purpose
+  (attest channels open, `blocks.*` + pulls closed). When a fork does form,
+  deterministic fork choice (branch weight first — distinct proposers, then
+  segment length, full-tie deferral for one round window, then
+  `(round, hash)`; `8b82864c9`, `26add79f4`, `9d61f2b1d`+) settles the split
+  on heal, provided the losing segment is empty; otherwise it escalates to
+  operator resync.
 - **Each validator holds exactly its own key.** `validator-secrets.env` (last
   EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
   `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the
@@ -653,11 +664,12 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
      `systemctl daemon-reload`, restart again. The second restart lands on a
      current head, so proposing is safe.
   The freshness gate (`454dcfa7a`, hardened `6e1d02e67`) blocks stale-head
-  proposals on its own and fork choice (`8b82864c9`) resolves same-height
+  proposals on its own and fork choice (`8b82864c9`+) resolves same-height
   splits deterministically, so this runbook is defence in depth rather than
-  the only line — keep it: a *partition* still lets both sides produce while
-  isolated (UNVERIFIED proceeds for liveness), and non-empty divergent
-  segments are not auto-reverted.
+  the only line — keep it: an *asymmetric* partition (attestations flow,
+  block gossip/pull does not) still produces a same-height fork that only
+  fork choice can heal, and non-empty divergent segments are not
+  auto-reverted.
 
 ## Trading authentication
 
