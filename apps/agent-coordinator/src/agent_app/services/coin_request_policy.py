@@ -9,11 +9,18 @@ The rule is what makes registration safe to expose. Without it, a caller could r
 request for any amount and immediately execute it, which is the defect the execute fix closed
 wearing a second coat of paint. With it, the shared API key buys a request *subject to policy*
 rather than a payment, and anything outside the policy needs a hub operator.
+
+V23 review addendum: the per-identity rule alone is not enough — `sender` and
+`wallet_address` are caller-supplied and cost nothing to mint, so "one grant per
+pair" is "one grant per fresh pair". The rolling hourly/daily budgets below cap
+the aggregate the faucet can pay in a window no matter how many identities
+appear; past them, requests park at manual review and a warning is logged.
 """
 
 from __future__ import annotations
 
 import os
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import func, or_
 from sqlalchemy.orm import Session
@@ -29,6 +36,34 @@ logger = get_logger(__name__)
 # grant the hub makes automatically.
 DEFAULT_AUTO_APPROVE_MAX = ait_to_units(3)
 
+# Rolling-window budgets for automatic grants. The per-identity rule stops
+# repeats, but `sender` is a caller-supplied string and `wallet_address` is
+# free to mint — nothing proves either, so "one grant per agent and wallet" is
+# one grant per fresh pair. Without an aggregate cap a loop of novel pairs
+# drains the faucet at request speed: 3 AIT each, hundreds a minute. The
+# budget bounds the worst case whatever the identities are: past it, requests
+# wait for an operator. Defaults cover a fleet-onboarding burst (four nodes
+# registered within seconds on 2026-09-09) many times over.
+#
+# The check reads the window sum before the caller's row is written, so it is
+# an advisory bound rather than an invariant: N racing registrations can each
+# see the pre-insert sum. Overshoot is bounded by concurrent callers — the
+# per-IP rate limit on /register keeps that small — versus the unbounded drain
+# this closes.
+DEFAULT_AUTO_BUDGET_PER_HOUR = ait_to_units(24)  # ~8 maximum-size grants
+DEFAULT_AUTO_BUDGET_PER_DAY = ait_to_units(60)  # ~20 maximum-size grants
+
+
+def _env_int(name: str, default: int) -> int:
+    raw = os.getenv(name)
+    if raw is None:
+        return default
+    try:
+        return max(int(raw), 0)
+    except ValueError:
+        logger.warning("%s=%r is not an integer; using %s", name, raw, default)
+        return default
+
 
 def auto_approve_ceiling() -> int:
     """The largest amount the hub will approve without a human.
@@ -36,15 +71,35 @@ def auto_approve_ceiling() -> int:
     Set `COIN_REQUEST_AUTO_APPROVE_MAX` to 0 to turn automatic approval off entirely, which makes
     every registered request wait for an operator.
     """
-    raw = os.getenv("COIN_REQUEST_AUTO_APPROVE_MAX")
-    if raw is None:
-        return DEFAULT_AUTO_APPROVE_MAX
-    try:
-        ceiling = int(raw)
-    except ValueError:
-        logger.warning("COIN_REQUEST_AUTO_APPROVE_MAX=%r is not an integer; using %s", raw, DEFAULT_AUTO_APPROVE_MAX)
-        return DEFAULT_AUTO_APPROVE_MAX
-    return max(ceiling, 0)
+    return _env_int("COIN_REQUEST_AUTO_APPROVE_MAX", DEFAULT_AUTO_APPROVE_MAX)
+
+
+def auto_budget_per_hour() -> int:
+    """The most the faucet may auto-grant in any rolling hour.
+
+    `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0` parks every request at manual review
+    (same effect as disabling the ceiling). The per-day knob is
+    `COIN_REQUEST_AUTO_BUDGET_PER_DAY`.
+    """
+    return _env_int("COIN_REQUEST_AUTO_BUDGET_PER_HOUR", DEFAULT_AUTO_BUDGET_PER_HOUR)
+
+
+def auto_budget_per_day() -> int:
+    return _env_int("COIN_REQUEST_AUTO_BUDGET_PER_DAY", DEFAULT_AUTO_BUDGET_PER_DAY)
+
+
+def _auto_granted_since(session: Session, since: datetime) -> int:
+    """Total amount auto-approved since `since` (created_at is stored naive-UTC)."""
+    total = (
+        session.query(func.coalesce(func.sum(CoinRequest.amount), 0))
+        .filter(
+            CoinRequest.status == CoinRequestStatus.APPROVED,
+            CoinRequest.approval_mode == "automatic",
+            CoinRequest.created_at >= since,
+        )
+        .scalar()
+    )
+    return int(total or 0)
 
 
 def address_spellings(address: str) -> list[str]:
@@ -108,5 +163,31 @@ def decide(session: Session, sender: str, amount: int, wallet_address: str) -> t
         return CoinRequestStatus.PENDING, f"amount {amount} is above the automatic ceiling of {ceiling}"
     if has_prior_grant(session, sender, wallet_address):
         return CoinRequestStatus.PENDING, f"{sender} or {wallet_address} has already been granted coins"
+
+    now = datetime.now(UTC).replace(tzinfo=None)
+    hour_budget = auto_budget_per_hour()
+    hour_spent = _auto_granted_since(session, now - timedelta(hours=1))
+    if hour_spent + amount > hour_budget:
+        logger.warning(
+            "Automatic coin-request hourly budget exceeded: %s already granted + %s requested > %s. "
+            "Request parks at manual review. Sustained trips mean either a fleet-wide rollout or a "
+            "drain attempt — check the sender/wallet mix before approving.",
+            hour_spent,
+            amount,
+            hour_budget,
+        )
+        return CoinRequestStatus.PENDING, "the automatic hourly budget is exhausted"
+
+    day_budget = auto_budget_per_day()
+    day_spent = _auto_granted_since(session, now - timedelta(hours=24))
+    if day_spent + amount > day_budget:
+        logger.warning(
+            "Automatic coin-request daily budget exceeded: %s already granted + %s requested > %s. "
+            "Request parks at manual review.",
+            day_spent,
+            amount,
+            day_budget,
+        )
+        return CoinRequestStatus.PENDING, "the automatic daily budget is exhausted"
 
     return CoinRequestStatus.APPROVED, "first grant for this agent and wallet, within the automatic ceiling"
