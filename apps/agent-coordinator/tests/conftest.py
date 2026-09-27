@@ -25,6 +25,7 @@ from fastapi.testclient import TestClient  # noqa: E402
 
 from aitbc.db import agent_db  # noqa: E402
 from aitbc.models import CoinRequest, CoinRequestStatus  # noqa: E402
+from aitbc import rate_limiting  # noqa: E402
 from agent_app.routers import coin_requests  # noqa: E402
 
 from aitbc.utils.units import ait_to_units
@@ -114,6 +115,12 @@ def coin_request_env(monkeypatch, tmp_path):
     monkeypatch.setattr(agent_db, "_engine", None)
     monkeypatch.setattr(agent_db, "_SessionLocal", None)
     agent_db.init_db()
+
+    # Rate-limit buckets are module-global for the whole pytest process — a test
+    # file that approaches a route's cap would otherwise leave 429s for the next
+    # one that shares the TestClient source IP.
+    for limiter in rate_limiting._rate_limiters.values():
+        limiter._requests.clear()
 
     yield
 

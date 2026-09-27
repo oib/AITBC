@@ -1,5 +1,6 @@
 """Shared base handler with common JSON/CORS helpers."""
 
+import hmac
 import json
 import os
 from http.server import BaseHTTPRequestHandler
@@ -93,7 +94,8 @@ class BaseHandler(BaseHTTPRequestHandler):
             self.send_error(401, "API key not configured")
             return False
         provided = self.headers.get("X-Api-Key", "")
-        if provided != expected:
+        # Constant-time compare — `!=` returns at the first differing byte.
+        if not provided or not hmac.compare_digest(provided, expected):
             self.send_error(401, "Invalid or missing X-Api-Key")
             return False
         return True
