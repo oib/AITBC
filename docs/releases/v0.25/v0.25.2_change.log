@@ -444,3 +444,14 @@ Ground truth from each node's `Initializing gossip backend:` journal line: **the
 Journal backend-transition history (hub and node2 agree): mesh until **2026-09-09 18:11**, then `redis` (same-day restart wave after the F3/F4 remediation — `GOSSIP_BACKEND=redis` in `aitbc-blockchain-node.env`/`-rpc.env` became effective once `node.env` stopped shadowing gossip keys); then `websocket` from **2026-09-26 14:30–14:36** on the followers (hub promotion work wrote the bootstrap `GOSSIP_BACKEND=websocket` + `GOSSIP_WEBSOCKET_URL` pair into their `blockchain.env`). The 2026-09-02 hub-down tests were on mesh; the fleet has not been on mesh since 2026-09-09.
 
 The pre-existing `GOSSIP_BACKEND` drift and shadow CONFLICTs the check reports are this regression. Plan: restore `mesh` + full peer lists one validator at a time with the operator watching, remove the `GOSSIP_BACKEND` lines from unit-specific env files so nothing shadows again, then encode "mesh on every validator, peer list non-empty and excludes self" in the check, then re-run the hub-down test.
+
+
+### 5c233ac16 fix(gossip): fleet restored to validator mesh after 18-day hub-and-spoke regression
+
+The 2026-09-27 audit found the fleet running hub-and-spoke, not the mesh the repo documents (introduced `3a18de6ea9`, hub-down-tested 2026-09-02). `journalctl` backend history: mesh until 2026-09-09 18:11 (flipped to `redis` by `GOSSIP_BACKEND=redis` lines in the unit env files, exposed when `node.env` stopped shadowing them), then `websocket` from 2026-09-26 (hub promotion wrote the bootstrap spoke pair into followers' `blockchain.env`).
+
+Restored on all five hosts, one at a time, hub first: `blockchain.env` now has `GOSSIP_BACKEND=mesh` + four public `wss://` peer URLs (node0/1/2 keep LAN `ws://` links to each other); the `GOSSIP_BACKEND` lines were removed from `aitbc-blockchain-node.env`/`-rpc.env` (rpc keeps `redis` by design — it is the local-bus bridge); `GOSSIP_WEBSOCKET_URL` and node0's lowercase `gossip_broadcast_url` duplicate are gone. Backups at `/etc/aitbc/*.bak-20260927-*-mesh`.
+
+Verified after each restart: `Initializing gossip backend: mesh` with four peers, established peer connections on hub and node1, fleet converged at equal height/hash, zero gossip warnings.
+
+`fleet-config-check.sh` gains a mesh section asserting the **running** backend (the lesson of this regression — env files lied), a complete self-free peer list, clean shadow lines, rpc-unit `redis`, and case-insensitive greps; `SHADOW_CONFLICT_ALLOW` whitelists the intended `aitbc-blockchain-rpc:GOSSIP_BACKEND` split. A reprovision or drift back to spoke now fails the check.
