@@ -743,6 +743,13 @@ class ChainSettings(BaseSettings):
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
     consensus_enforce_proposer_schedule: bool = True
+    # Pre-proposal freshness gate: before building a block, compare the local
+    # head with every GOSSIP_MESH_PEER_URLS peer's /rpc/head. A peer ahead (or
+    # disagreeing at our height) blocks the proposal; per-peer query timeout
+    # bounds the added latency and unreachable peers degrade to UNVERIFIED
+    # (propose anyway, metric recorded) rather than halting the chain.
+    proposal_freshness_check_enabled: bool = True
+    proposal_freshness_peer_timeout_seconds: float = 2.0
     consensus_validator_set_epoch_blocks: int = 7200  # C3 — epoch length for rotation
     consensus_slashing_enabled: bool = True  # C2 — enable slashing
     consensus_slashing_amount: Decimal = Decimal("100.0")  # stake to slash per offense
