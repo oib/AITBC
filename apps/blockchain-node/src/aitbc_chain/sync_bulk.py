@@ -284,7 +284,11 @@ class BulkSyncMixin(SyncBase):
         1. number of distinct proposers in the segment (a lone node's branch
            shows one; the majority's shows up to all-but-one of the set);
         2. segment length;
-        3. ``(round, hash)`` of the two children at the fork point.
+        3. on a full tie, defer the decision for one round window — the
+           reconnected side's freshness gate stops it proposing while the
+           majority keeps producing, so the next comparison is decided by
+           length; ``(round, hash)`` settles the tie only if the branches are
+           still equal after the window (e.g. a symmetric partition).
 
         Every quantity is derivable from headers, so every node picks the same
         branch — including a node that spent a partition building alone, whose
@@ -411,12 +415,41 @@ class BulkSyncMixin(SyncBase):
             peer_wins = (
                 len(peer_proposers) > len(our_proposers)
                 or (len(peer_proposers) == len(our_proposers) and peer_len > our_len)
-                or (
-                    len(peer_proposers) == len(our_proposers)
-                    and peer_len == our_len
-                    and their_key < our_key
-                )
             )
+            if (
+                not peer_wins
+                and len(peer_proposers) == len(our_proposers)
+                and peer_len == our_len
+            ):
+                # Full tie: a lone node's round-1 child would win this key
+                # comparison against the majority's later-round block, so wait
+                # one round window instead — a branch that grows during it
+                # wins by length above. Only a tie that survives the window
+                # (a genuinely symmetric split) falls to (round, hash).
+                deadline = self._deferred_forks.get(ancestor_height)
+                now = time.monotonic()
+                if deadline is None or now < deadline:
+                    if deadline is None:
+                        window = getattr(settings, "consensus_proposer_round_seconds", 60)
+                        self._deferred_forks = {
+                            a: d for a, d in self._deferred_forks.items() if d > now
+                        }
+                        self._deferred_forks[ancestor_height] = now + window
+                        metrics_registry.increment("sync_fork_choice_deferred_total")
+                        self._logger.warning(
+                            "Fork tie at height %s vs %s (proposers %s vs %s, length %s vs %s) — "
+                            "deferring reorg for one %ss round window; a growing branch wins by length",
+                            fork_h,
+                            source_url,
+                            len(our_proposers),
+                            len(peer_proposers),
+                            our_len,
+                            peer_len,
+                            window,
+                        )
+                    return False
+                peer_wins = their_key < our_key
+            self._deferred_forks.pop(ancestor_height, None)
             if not peer_wins:
                 metrics_registry.increment("sync_fork_choice_local_wins_total")
                 self._logger.warning(

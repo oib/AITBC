@@ -4,8 +4,11 @@ Rule (headers only): the push path (`import_block` -> `_resolve_fork`) decides
 only a *tip race* — rival shares our head's parent and our head has no
 descendants — where the lower ``(round, hash)`` wins. Anything deeper defers
 to the pull path (`_resolve_fork_with_peer`), which compares branch weight in
-order: distinct proposers in the segment, then segment length, then
-``(round, hash)`` at the fork point. A reorg is only applied when every block
+order: distinct proposers in the segment, then segment length. A full tie
+defers for one round window — the freshness gate stops the reconnected side
+proposing while the majority keeps producing, so the next comparison decides
+by length; ``(round, hash)`` settles the tie only if the branches are still
+equal after the window. A reorg is only applied when every block
 we would lose is provably empty — there is no undo for account state — and
 only after the rival side has passed signature, timestamp, and proposer
 schedule validation.
@@ -15,6 +18,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from contextlib import contextmanager
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -361,7 +365,11 @@ class TestPullPathForkChoice:
         assert _heights(session_factory) == [(b["height"], b["hash"]) for b in blocks]
         assert metrics_registry._counters.get("sync_fork_choice_remote_wins_total") == 1.0
 
-    async def test_equal_proposers_equal_length_key_decides(self, session_factory, monkeypatch):
+    async def test_full_tie_defers_then_key_decides_after_window(self, session_factory, monkeypatch):
+        # 1-vs-1 proposers, 1-vs-1 length: settling by (round, hash) now would
+        # let a lone node's round-1 child beat the majority's round-2 child, so
+        # the resolver defers for one round window. Only a tie that survives
+        # the window falls back to the fork-point key.
         blocks = _seed(session_factory, 4)
         ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95))  # round 0
         _store(session_factory, ours4)
@@ -374,9 +382,48 @@ class TestPullPathForkChoice:
             return [peer[start]] if start in peer else []
 
         monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+
+        # First comparison defers; a re-check inside the window stays deferred.
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
+        assert _heights(session_factory)[-1] == (4, ours4["hash"])
+        assert metrics_registry._counters.get("sync_fork_choice_deferred_total") == 1.0
+        assert metrics_registry._counters.get("sync_fork_choice_local_wins_total") is None
+        assert metrics_registry._counters.get("sync_reorgs_total") is None
+
+        # Window expired and branches still tied — the key settles it. Our
+        # round-0 child outranks their round-1 child: local wins, no reorg.
+        sync._deferred_forks[3] = time.monotonic() - 1
         assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
         assert _heights(session_factory)[-1] == (4, ours4["hash"])
         assert metrics_registry._counters.get("sync_fork_choice_local_wins_total") == 1.0
+        assert 3 not in sync._deferred_forks
+
+    async def test_full_tie_defers_then_peer_growth_wins_by_length(self, session_factory, monkeypatch):
+        # The intended tie outcome: the peer's branch produces another block
+        # during the defer window, so the re-check decides by length and the
+        # (round, hash) key never runs — our losing segment is removed.
+        blocks = _seed(session_factory, 4)
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95))
+        _store(session_factory, ours4)
+        peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
+        peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160), hash_salt="p4")
+
+        sync = _sync(session_factory)
+
+        async def fake_fetch(start, end, source_url):
+            return [peer[start]] if start in peer else []
+
+        monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=4) is False
+        assert metrics_registry._counters.get("sync_fork_choice_deferred_total") == 1.0
+
+        peer[5] = _mk_block(5, peer[4]["hash"], T0 + timedelta(seconds=190), hash_salt="p5")
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=5) is True
+        assert _heights(session_factory) == [(b["height"], b["hash"]) for b in blocks]
+        assert metrics_registry._counters.get("sync_fork_choice_remote_wins_total") == 1.0
+        assert metrics_registry._counters.get("sync_reorgs_total") == 1.0
+        assert 3 not in sync._deferred_forks
 
     async def test_no_common_ancestor_within_window(self, session_factory, monkeypatch):
         blocks = _seed(session_factory, 4)

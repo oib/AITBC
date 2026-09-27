@@ -62,6 +62,7 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
         self._last_bulk_sync_time = 0
         self._min_bulk_sync_interval = getattr(settings, "min_bulk_sync_interval", 60)
         self._rejection_counts: dict[str, int] = {}
+        self._deferred_forks: dict[int, float] = {}
         self._peer_tracker = PeerCapabilityTracker()
 
     def register_sync_peer(self, peer_id: str, rpc_url: str, block_range: tuple[int, int], has_state: bool = True) -> None:
