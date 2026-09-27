@@ -390,3 +390,8 @@ The published `FOLLOWER_API_KEY` legitimately reaches `POST /api/v1/agent/coin-r
 - `/register` and `/execute` carry per-IP route buckets (30/min, 20/min) via the shared `rate_limit` decorator, keyed on the real client IP (`X-Real-IP`), on top of the service-wide 100/min middleware.
 - exchange: `_require_api_key` now uses `hmac.compare_digest` instead of `!=`.
 - Tests: budget window/manual-mode/prior-grant interplay, 429s on both routes, and a conftest bucket reset so the process-global limiters cannot leak between files.
+
+
+### 7da4bde0f feat(agent-coordinator): Prometheus metrics for faucet budget alerting
+
+`decide()` maintains `coin_request_auto_granted_window{window=hourly,daily}` gauges and increments `coin_request_auto_budget_trips_total{window}` each time a request parks on an exhausted budget, so a scrape alert flags an ongoing drain without journal access.
