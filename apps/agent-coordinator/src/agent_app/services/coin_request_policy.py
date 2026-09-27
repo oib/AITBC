@@ -30,6 +30,8 @@ from aitbc.crypto.signature_recovery import canonical_address
 from aitbc.models import CoinRequest, CoinRequestStatus
 from aitbc.utils.units import ait_to_units
 
+from ..monitoring.prometheus_metrics import metrics_registry
+
 logger = get_logger(__name__)
 
 # 3 AIT in compute-units — matches INITIAL_COIN_AMOUNT in websocket.agent_stream, which is the
@@ -167,7 +169,19 @@ def decide(session: Session, sender: str, amount: int, wallet_address: str) -> t
     now = datetime.now(UTC).replace(tzinfo=None)
     hour_budget = auto_budget_per_hour()
     hour_spent = _auto_granted_since(session, now - timedelta(hours=1))
+    day_budget = auto_budget_per_day()
+    day_spent = _auto_granted_since(session, now - timedelta(hours=24))
+    # Expose the running totals — alerting watches these rather than journals.
+    metrics_registry.gauge("coin_request_auto_granted_window", "Automatic coin grants in the rolling window", ["window"]).set(
+        float(hour_spent), window="hourly"
+    )
+    metrics_registry.gauge("coin_request_auto_granted_window", "Automatic coin grants in the rolling window", ["window"]).set(
+        float(day_spent), window="daily"
+    )
     if hour_spent + amount > hour_budget:
+        metrics_registry.counter(
+            "coin_request_auto_budget_trips_total", "Requests parked by an exhausted automatic budget", ["window"]
+        ).inc(window="hourly")
         logger.warning(
             "Automatic coin-request hourly budget exceeded: %s already granted + %s requested > %s. "
             "Request parks at manual review. Sustained trips mean either a fleet-wide rollout or a "
@@ -178,9 +192,10 @@ def decide(session: Session, sender: str, amount: int, wallet_address: str) -> t
         )
         return CoinRequestStatus.PENDING, "the automatic hourly budget is exhausted"
 
-    day_budget = auto_budget_per_day()
-    day_spent = _auto_granted_since(session, now - timedelta(hours=24))
     if day_spent + amount > day_budget:
+        metrics_registry.counter(
+            "coin_request_auto_budget_trips_total", "Requests parked by an exhausted automatic budget", ["window"]
+        ).inc(window="daily")
         logger.warning(
             "Automatic coin-request daily budget exceeded: %s already granted + %s requested > %s. "
             "Request parks at manual review.",
