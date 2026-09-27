@@ -412,3 +412,14 @@ Follow-up to the faucet review, all operational (no code change):
 - `COIN_REQUEST_AUTO_BUDGET_PER_HOUR`, `_PER_DAY` and `COIN_REQUEST_AUTO_APPROVE_MAX` were parsed as raw base units while their defaults and AGENTS.md were in AIT — `=24` meant 24 units and parked everything silently. They now parse as decimal AIT via `ait_to_units` (`0` still disables; malformed values fall back to the default with a warning). No live override other than hub1's `=0` existed, so nothing deployed changes meaning.
 - `scripts/monitoring/fleet-config-check.sh` gains a faucet section: reads each host's `aitbc-agent-coordinator` EnvironmentFiles and fails unless exactly one host has a non-zero-or-unset hourly budget. Verified from the dev host: hub `<unset>`, hub1 `=0`, node0/1/2 no unit → `ok: exactly one live faucet`. A hub1 reprovision that drops the override now fails the drift check instead of silently doubling the fleet budget.
 - Deployed to hub/hub1; live probes (deleted afterwards, unexecuted) confirm hub approves within budget and hub1 parks.
+
+### d6926203b feat(website): env-driven domain + chain-id branding via /etc/aitbc/website.env
+
+The hub site hardcoded its public domain and chain id in `sitemap.xml`, `robots.txt`, `llms.txt`, `structured-data.jsonld`, the `index.html` JSON-LD block, `follower-api-key-announcement.html`, and the `config.js`/`dashboard.js` `chainId`. Since nginx serves the site straight from the checkout, there was no place for per-deployment values.
+
+- `scripts/ops/render-website.sh` rewrites the tokens in place from `/etc/aitbc/website.env` (`WEBSITE_DOMAIN`, `WEBSITE_CHAIN_ID`; falls back to `AITBC_HOSTNAME`/`HUB_DISCOVERY_URL` and `CHAIN_ID` in node.env). Chain-id occurrences are shielded before the domain pass because a chain id like `ait-hub.<domain>` contains the domain as a substring; last-rendered values are tracked in `/etc/aitbc/.website-rendered.env` so re-renders work across update.sh stash/pop. `hub.example.net` is a permanent extra source token so doc-style stand-ins self-heal.
+- `update.sh` runs the render after every pull — opt-in, gated on `/etc/aitbc/website.env` existing, so followers never touch the files.
+- `aitbc-blockchain-rpc` sources `/etc/aitbc/website.env` too, so `CONTACT_EMAIL` (site footer + `/rpc/network-info`) lives in the same file as the other branding.
+- Also fixed: `follower-api-key-announcement.html` pointed at `hub.example.net` instead of the real hub domain.
+
+Deployed on hub: `website.env` carries the canonical values, render is a no-op keeping the checkout clean, and the footer now shows the configured contact.
