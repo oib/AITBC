@@ -474,9 +474,11 @@ would break runs from a fleet node.
 - **Gossip layer: healthy.** hub1/node0/node1/node2 logged zero gossip, mesh,
   peer, or websocket errors for the entire window; the remaining four mesh
   links carried on silently. This is what mesh was built for (`3a18de6ea9`).
-- **Block production: halted at 25529.** Hub is the sole proposer
-  (`0x02B8…E74c5B`); there is no leader failover in the PoA layer, so no new
-  blocks are produced while it is down. Followers kept polling
+- **Block production: halted at 25529.** Only hub produced blocks
+  (`0x02B8…E74c5B`). *This conclusion was wrong — corrected in the
+  `8aeacd2fd` entry below: proposer rotation exists in `MultiValidatorPoA`,
+  but followers had been stripped of production config and hub held all four
+  keys.* Followers kept polling
   `/rpc/head` + `/rpc/state/delta` (served by hub's still-running rpc unit,
   200s) and re-verified state roots — "0 accounts changed, state root matches".
 - **Recovery: clean.** On restart hub re-initialized `mesh` with 4 peers,
@@ -485,9 +487,9 @@ would break runs from a fleet node.
   was the proposer's own "6 round(s) without a block" counter noting the
   stall.
 
-Takeaway: mesh removes hub as a gossip single point of failure, as designed;
-block production remains hub-dependent — a separate availability axis if ever
-worth addressing.
+Takeaway: mesh removes hub as a gossip single point of failure, as designed.
+The production halt shown here was later traced to stripped follower config,
+not missing rotation — see the `8aeacd2fd` correction below.
 
 
 ### 8aeacd2fd fix(consensus): four-validator production restored — CORRECTS the earlier hub-down entry
@@ -509,17 +511,28 @@ extra maps removed (rpc holds none), `PROPOSER_ID` corrected per host,
 had been set to 60 = the heartbeat, which would have made every block land in
 a foreign round once keys were split).
 
-Re-tested with **both** hub units down: hub1 produced 25558 within 7 s —
-failover works again. Anyone auditing "four independent validators" for the
+Re-tested with **both** hub units down: hub1 produced 25558 ~7 s after hub
+stopped. That shows **production restored on all four validators — failover
+re-test still pending.** The outage lasted only 68 s, under one 120 s round
+window, so no hub-owned height ever waited long enough to advance rounds; the
+block that landed came from whichever validator already owned that slot. A
+valid failover test requires ≥5 min of hub downtime (≥2 round windows) and a
+height whose round-0 owner is hub being produced by another validator at
+round ≥1. Anyone auditing "four independent validators" for the
 Sep 13 – Sep 27 window should know they weren't.
 
 **New defect found by the test:** a node that restarts on a stale head forks
 instead of catching up — hub proposed competing blocks 25558–60 (its sync
-source is itself, so the sync gate never trips; imports reject gaps;
-`_resolve_fork` detects but never reorgs), and node0 pulled the fork through
-hub's rpc before it was stopped. Repaired manually (fork rows deleted — all
-empty heartbeats — then `sync_cli` bulk pull from node1). AGENTS.md documents
-the workaround; a code fix is a separate task.
+source was itself: `DEFAULT_PEER_RPC_URL` empty, so the sync gate never
+trips; imports reject gaps; `_resolve_fork` detects but never reorgs), and
+node0 pulled the fork through hub's rpc before it was stopped. Repaired
+manually (fork rows deleted — all empty heartbeats — then `sync_cli` bulk
+pull from node1). Mitigations now in place: hub syncs from hub1 via
+`CHAIN_SYNC_SOURCES`, AGENTS.md has a mandatory production-disabled rejoin
+runbook for every validator restart/deploy, and post-repair state audit shows
+identical `state_root`, account count (58), and account-table hash across all
+five hosts at height 25633. Code fixes (pre-proposal freshness check,
+deterministic fork choice, receiver-side `validate_block`) remain open.
 
 `fleet-config-check.sh` now asserts the running backend is `mesh` everywhere
 with complete self-free peer lists, and a new validator section enforces:
