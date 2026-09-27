@@ -27,6 +27,7 @@ from ..metrics import (
     gossip_open_connections,
     gossip_oversized_message_total,
     gossip_rate_limited_total,
+    metrics_registry,
 )
 
 router = APIRouter(prefix="", tags=["ws"])
@@ -223,8 +224,18 @@ async def gossip_websocket(websocket: WebSocket) -> None:
                     await websocket.close(code=1008)
                     break
 
-                await gossip_broker.publish(topic, data)
-                gossip_messages_published_total.labels(topic=topic).inc()
+                try:
+                    await gossip_broker.publish(topic, data)
+                    gossip_messages_published_total.labels(topic=topic).inc()
+                except Exception as e:
+                    # A broker-side failure (e.g. an ACL-denied topic) loses
+                    # this message — but must not close the connection: the
+                    # same socket carries other topics and the receive path,
+                    # and tearing it down on one bad publish churns the whole
+                    # attestation transport.
+                    logger.warning("Broker publish failed for topic %s — message dropped: %s", topic, e)
+                    metrics_registry.increment("gossip_broker_publish_failed_total")
+                    continue
 
         try:
             await asyncio.gather(_forward_broker_to_client(), _forward_client_to_broker())
