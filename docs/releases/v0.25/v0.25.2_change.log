@@ -550,3 +550,35 @@ with complete self-free peer lists, and a new validator section enforces:
 exactly one own-derived key per validator present in `VALIDATOR_SET`, no
 address held by two hosts, production on for validators and off for node0, and
 no explicit round window. The Sep 9–13 regression would now fail the check.
+
+### 454dcfa7a feat(consensus): pre-proposal freshness gate — stale-head rejoin fixed
+
+The fork above is now closed in code. Before assembling a block, every node
+fetches `/rpc/head` from all `GOSSIP_MESH_PEER_URLS` peers in parallel
+(`wss://…/rpc/gossip/ws` → `https://` origin, 2 s per-peer timeout):
+
+- peer ahead → skip the proposal and bulk-pull **from that peer** via the new
+  `SyncManager.pull_from_peer` — catch-up no longer depends on the single
+  `CHAIN_SYNC_SOURCES` star;
+- same height, different hash → skip and count
+  `proposal_freshness_hash_mismatch_total` (deterministic fork choice is the
+  next task; proposing on top would only deepen the fork);
+- all peers unreachable → propose anyway and count
+  `proposal_freshness_unverified_total` — a partition must not halt the chain;
+- verdicts cached per local head; the gate never touches the network when
+  `ENABLE_BLOCK_PRODUCTION=false`, which the rejoin runbook relies on.
+
+**Live verification:** hub node+rpc stopped for ~4 min (4+ round windows,
+network advanced to 25684), then started with production ON — no drop-in.
+It bulk-pulled from hub1, reached the fleet head, produced nothing while
+stale, and no fork formed. Fleet converged at 25687. The runbook stays as
+defence in depth; the gate alone cannot resolve a same-height hash split —
+that is the fork-choice task.
+
+Two facts the earlier analysis got wrong, corrected in AGENTS.md: the round
+window derives to `max(30, heartbeat)` = 60 s (not 120), and the rotation
+order is the **address-sorted** active set `[hub, node1, node2, hub1]`, not
+`VALIDATOR_SET` order. Empty blocks are always produced at round ≥1 by the
+next validator — the intended price of the heartbeat-aligned round from the
+C-2 exercise — so the chain stays live with any single validator up, but a
+partition leaves both sides producing, which is why fork choice is next.

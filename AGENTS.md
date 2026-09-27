@@ -569,11 +569,19 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   `CONSENSUS_PROPOSER_ROUND_SECONDS` is unset (deliberate: a round longer
   than the 60 s heartbeat stalls the chain two heartbeat cycles per silent
   proposer — see `_scale_the_proposer_round_to_the_heartbeat`).
-- **Round-0 owners never produce heartbeat blocks.** The hybrid gate fires at
-  ≥60 s idle, exactly when round 0 ends, so every empty block is produced at
-  round ≥1 by the *next* validator in the sorted set. Effective heartbeat
-  rotation is therefore shifted by one slot — consistent fleet-wide, so not a
-  fork risk, but slot-0 identity in metadata never matches the signer.
+- **Round-0 owners never produce heartbeat blocks — intended.** The hybrid
+  gate fires at ≥60 s idle, exactly when round 0 ends, so every empty block
+  is produced at round ≥1 by the *next* validator in the sorted set. That is
+  the deliberate price of the C-2 fix (heartbeat-aligned round): a silent
+  proposer is skipped within one heartbeat cycle instead of two. It is
+  deterministic — each proposer derives the round from the timestamp it is
+  about to stamp — so there is no double-proposal risk at the boundary.
+- **Liveness with validators down:** the chain never stops while any
+  validator is up (PBFT is off, no quorum needed) — but each height where a
+  dead validator holds a round costs extra windows (~1 extra per down slot).
+  The corollary cuts the other way: a network partition leaves BOTH sides
+  producing, which is why the deterministic fork-choice task matters as much
+  as the freshness gate.
 - **Each validator holds exactly its own key.** `validator-secrets.env` (last
   EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
   `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the
@@ -581,15 +589,20 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   the unit env files or on a second host — between ~Sep 9–13 and 2026-09-27
   hub held all four and signed every block, which is the centralisation the
   Sep-3 rotation work removed.
-- **Known defect (2026-09-27): a validator that restarts with a stale head
-  forks instead of catching up.** The sync gate never tripped because hub's
-  `DEFAULT_PEER_RPC_URL` was empty (self-source); it proposed competing blocks
-  which node0 then pulled. The importer rejects same-height conflicts
-  (`_resolve_fork` only detects, never reorgs) and gap imports are dropped,
-  so recovery was manual: delete the empty fork rows from `block`, then
+- **Stale-head rejoin defect (2026-09-27) — mitigated, not fully fixed.** A
+  validator restarting behind the tip used to propose on its stale head and
+  fork (hub's `DEFAULT_PEER_RPC_URL` was empty — self-source). Two layers now
+  prevent it: hub's `CHAIN_SYNC_SOURCES` maps the chain to hub1, and the
+  **pre-proposal freshness gate** (`consensus/proposal_freshness.py`, live
+  since `454dcfa7a`) asks every `GOSSIP_MESH_PEER_URLS` peer for `/rpc/head`
+  before building a block — peer ahead → bulk-pull from that peer and skip;
+  same height different hash → skip (`_resolve_fork` still only detects);
+  all unreachable → propose anyway (`proposal_freshness_unverified_total`).
+  Verified live: hub restarted 3+ heights behind with production ON pulled
+  from hub1 and did not fork. The manual repair procedure for an existing
+  fork is unchanged: delete diverged rows from `block`, then
   `python -m aitbc_chain.sync_cli --source https://<peer>` with
   `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
-  If a node's head hash diverges while heights match, suspect this.
 - **Sync sources:** every node's `DEFAULT_PEER_RPC_URL` (or
   `CHAIN_SYNC_SOURCES` override) must point at a *peer*, never itself.
   Followers use `https://hub.aitbc.bubuit.net`; hub uses
@@ -611,8 +624,10 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   4. Remove the drop-in (`rm no-prod.conf`, `rmdir` the .d dir),
      `systemctl daemon-reload`, restart again. The second restart lands on a
      current head, so proposing is safe.
-  Never "just restart" a producing validator until the code-level
-  pre-proposal freshness check and deterministic fork choice land.
+  The freshness gate (`454dcfa7a`) now blocks stale-head proposals on its own,
+  so this runbook is defence in depth rather than the only line — keep it:
+  the gate cannot resolve a same-height hash split until deterministic fork
+  choice lands.
 
 ## Trading authentication
 
