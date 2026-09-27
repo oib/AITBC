@@ -22,6 +22,7 @@ from .metrics import (
     sync_failures_total,
 )
 from .state import state_root_utils
+from .state.block_deltas import BlockDeltaJournal, requeue_orphaned_transactions, revert_losing_segment
 from .state.pure_state_transition import (
     StateDelta,
     _determine_tx_type,
@@ -338,6 +339,7 @@ class BlockImportMixin(SyncBase):
         from datetime import UTC, datetime
 
         block_hash = block_data["hash"]
+        journal = BlockDeltaJournal.attach(session, self._chain_id, int(block_data["height"]))
 
         # Normalize transaction data from blocks-range (Transaction model dumps use
         # sender/recipient/value/tx_hash) to the signed transaction shape the state
@@ -761,6 +763,7 @@ class BlockImportMixin(SyncBase):
                     block_hash=block_hash,
                     reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
                 )
+        journal.persist(session)
         session.commit()
         if transactions:
             self._evict_included_from_mempool(transactions)
@@ -846,9 +849,7 @@ class BlockImportMixin(SyncBase):
             ts = datetime.fromisoformat(ts)
         return (proposer_round(parent_timestamp, ts, round_seconds), str(block_hash).lower())
 
-    def _validate_rival_header(
-        self, session: Session, block_data: dict[str, Any], parent_ts: Any
-    ) -> tuple[str | None, Any]:
+    def _validate_rival_header(self, session: Session, block_data: dict[str, Any], parent_ts: Any) -> tuple[str | None, Any]:
         """Header checks a rival fork block must pass before it may displace ours.
 
         Returns ``(error_reason, parsed_timestamp)`` — reason is None when the
@@ -905,12 +906,11 @@ class BlockImportMixin(SyncBase):
     def _blocks_provably_empty(self, session: Session, blocks: list[Block]) -> bool:
         """True when every block in the segment demonstrably moved no state.
 
-        Removing a block is only safe if its transactions changed nothing —
-        there is no undo path for account or side-table writes, so a reorg of a
-        non-empty segment would leave residue (the 2026-09-27 manual repair was
-        only safe because every forked block was an empty heartbeat). A block
-        is provably empty when it carries no transactions and its recorded
-        state root equals its parent's.
+        Removing a block without touching the delta journal is only safe if
+        its transactions changed nothing — a block is provably empty when it
+        carries no transactions and its recorded state root equals its
+        parent's. Non-empty journaled segments take the undo path in
+        ``state.block_deltas.revert_losing_segment`` instead.
         """
         by_hash = {b.hash: b for b in blocks}
         for block in sorted(blocks, key=lambda b: b.height):
@@ -1035,38 +1035,45 @@ class BlockImportMixin(SyncBase):
                 diverged=True,
             )
 
-        # Rival wins the tip race. Replacing our head removes a committed row,
-        # which is only safe when it provably moved no state — otherwise
-        # escalate to an operator resync.
+        # Rival wins the tip race. Replacing our head removes a committed row:
+        # provably-empty blocks are deleted outright, non-empty ones are
+        # reverted through the per-block delta journal (verified against the
+        # parent's recorded state root) — otherwise escalate to an operator
+        # resync.
+        orphaned: list[dict[str, Any]] = []
         if not self._blocks_provably_empty(session, [ours]):
-            metrics_registry.increment("sync_fork_reorg_unsafe_total")
-            metrics_registry.increment("sync_divergence_rejected_total")
-            logger.error(
-                "Rival block wins fork at height %s but our block there is not provably empty — "
-                "state cannot be safely reverted; operator resync required",
-                fork_height,
-            )
-            return self._make_import_result(
-                accepted=False,
-                height=fork_height,
-                block_hash=fork_hash,
-                reason=(
-                    f"Rival fork wins at height {fork_height} but local block has transactions; manual resync required"
-                ),
-                diverged=True,
-            )
-
-        # Delete and append in ONE transaction: the deletes are flushed so the
-        # unique (chain_id, height) constraint admits the rival, but nothing is
-        # committed until _append_block's own commit — its failure paths roll
-        # back, restoring our head.
-        for tx in session.exec(
-            select(ChainTransaction)
-            .where(ChainTransaction.chain_id == self._chain_id)
-            .where(ChainTransaction.block_height == ours.height)
-        ).all():
-            session.delete(tx)
-        session.delete(ours)
+            reverted = revert_losing_segment(session, self._chain_id, [ours], parent, self._blocks_provably_empty)
+            if reverted is None:
+                metrics_registry.increment("sync_fork_reorg_unsafe_total")
+                metrics_registry.increment("sync_divergence_rejected_total")
+                logger.error(
+                    "Rival block wins fork at height %s but our block there could not be reverted — "
+                    "missing journal or state-root mismatch; operator resync required",
+                    fork_height,
+                )
+                return self._make_import_result(
+                    accepted=False,
+                    height=fork_height,
+                    block_hash=fork_hash,
+                    reason=(
+                        f"Rival fork wins at height {fork_height} but local block could not be undone; manual resync required"
+                    ),
+                    diverged=True,
+                )
+            orphaned = reverted
+            metrics_registry.increment("sync_fork_reorg_undone_total")
+        else:
+            for tx in session.exec(
+                select(ChainTransaction)
+                .where(ChainTransaction.chain_id == self._chain_id)
+                .where(ChainTransaction.block_height == ours.height)
+            ).all():
+                session.delete(tx)
+            session.delete(ours)
+        # The undos/deletes above are flushed so the unique (chain_id, height)
+        # constraint admits the rival, but nothing is committed until
+        # _append_block's own commit — its failure paths roll back, restoring
+        # our head.
         session.flush()
         try:
             result = self._append_block(session, block_data, transactions)
@@ -1098,6 +1105,9 @@ class BlockImportMixin(SyncBase):
         )
         result.reorged = True
         result.reorg_depth = 1
+        if orphaned:
+            requeued = requeue_orphaned_transactions(self._chain_id, orphaned)
+            logger.warning("Requeued %s of %s orphaned transactions into the mempool", requeued, len(orphaned))
         return result
 
     def get_sync_status(self) -> dict[str, Any]:
