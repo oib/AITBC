@@ -50,6 +50,8 @@ set of variables exists to fix.
 | variable | default | meaning |
 |---|---|---|
 | `AITBC_CONTAINER` | `aitbc` | Incus container name that `deploy-to-aitbc-container.sh` deploys into. |
+| `AITBC_CONTAINER_IP` | required | address the edge-host nginx proxies to. `deploy-nginx-reverse-proxy.sh` substitutes it for `CONTAINER_IP` in the example vhost. |
+| `AITBC_PROXY_EXAMPLE` | `nginx-customer-proxy.conf.example` | which `examples/nginx/*-proxy.conf.example` `deploy-nginx-reverse-proxy.sh` installs on the edge host. Hub nodes want `nginx-hub-proxy.conf.example`, GPU/shop nodes `nginx-shop-proxy.conf.example`. |
 | `AITBC_DNAT_TARGET` | unset | address the Incus host DNATs published ports to. When unset, `deploy-blockchain-and-explorer.sh` publishes nothing from the host and says so — it does not guess. |
 | `AITBC_NODE1_CONTAINER_SSH` | required | ssh target for the blockchain container on node1. Was a private `~/.ssh/config` alias, so the scripts using it only ran on one workstation. |
 | `AITBC_GIT_REMOTE` | `origin` (update.sh), else required | Gitea remote name or clone URL for `setup.sh` / `update.sh`. Also settable with `--gitea` or `--remote`. |
