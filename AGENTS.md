@@ -580,8 +580,9 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   validator is up (PBFT is off, no quorum needed) — but each height where a
   dead validator holds a round costs extra windows (~1 extra per down slot).
   The corollary cuts the other way: a network partition leaves BOTH sides
-  producing, which is why the deterministic fork-choice task matters as much
-  as the freshness gate.
+  producing — the deterministic fork choice (`(round, hash)`, `8b82864c9`)
+  settles the split when the partition heals, provided the losing segment is
+  empty; otherwise it escalates to operator resync.
 - **Each validator holds exactly its own key.** `validator-secrets.env` (last
   EnvironmentFile, wins) carries `VALIDATOR_KEYS={"<own addr>":"<key>"}`,
   `PROPOSER_ID=<own addr>`, `PROPOSER_KEY=<own key>`; `node.env` carries the
@@ -589,19 +590,29 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   the unit env files or on a second host — between ~Sep 9–13 and 2026-09-27
   hub held all four and signed every block, which is the centralisation the
   Sep-3 rotation work removed.
-- **Stale-head rejoin defect (2026-09-27) — mitigated, not fully fixed.** A
-  validator restarting behind the tip used to propose on its stale head and
-  fork (hub's `DEFAULT_PEER_RPC_URL` was empty — self-source). Two layers now
-  prevent it: hub's `CHAIN_SYNC_SOURCES` maps the chain to hub1, and the
+- **Stale-head rejoin (2026-09-27) — fixed in layers.** A validator
+  restarting behind the tip used to propose on its stale head and fork
+  (hub's `DEFAULT_PEER_RPC_URL` was empty — self-source). Three layers now:
+  (a) hub's `CHAIN_SYNC_SOURCES` maps the chain to hub1; (b) the
   **pre-proposal freshness gate** (`consensus/proposal_freshness.py`, live
-  since `454dcfa7a`) asks every `GOSSIP_MESH_PEER_URLS` peer for `/rpc/head`
-  before building a block — peer ahead → bulk-pull from that peer and skip;
-  same height different hash → skip (`_resolve_fork` still only detects);
-  all unreachable → propose anyway (`proposal_freshness_unverified_total`).
+  since `454dcfa7a`, hardened `6e1d02e67`) asks every `GOSSIP_MESH_PEER_URLS`
+  peer for `/rpc/head` before building a block — peer ahead → bulk-pull from
+  that peer and skip (re-kicked each check, peer quarantined ~10 windows when
+  its pull doesn't move the head); same height → hash *vote* (a rival hash
+  must strictly outvote us to hold; ties proceed);
+  all unreachable → propose anyway (`proposal_freshness_unverified_total`,
+  never cached; every verdict expires after `PROPOSAL_FRESHNESS_CACHE_TTL_SECONDS=5s`);
+  (c) **deterministic fork choice** (`8b82864c9`): same-height conflicts are
+  decided by `(proposer round, block hash)` from headers alone — the losing
+  branch is reorged automatically when every removed block is provably empty
+  (`tx_count==0`, unchanged state root); a non-empty losing segment still
+  escalates to an operator resync since there is no state-undo path.
   Verified live: hub restarted 3+ heights behind with production ON pulled
-  from hub1 and did not fork. The manual repair procedure for an existing
-  fork is unchanged: delete diverged rows from `block`, then
-  `python -m aitbc_chain.sync_cli --source https://<peer>` with
+  from hub1 and did not fork; a network cut of node2 (blackhole routes to all
+  four peers, ~2 windows, timed so node2 owned no round during it) produced
+  zero proposals and clean catch-up on restore. Manual repair remains only
+  for forks containing real transactions: delete diverged rows from `block`,
+  then `python -m aitbc_chain.sync_cli --source https://<peer>` with
   `PYTHONPATH=/opt/aitbc:/opt/aitbc/apps/blockchain-node/src`.
 - **Sync sources:** every node's `DEFAULT_PEER_RPC_URL` (or
   `CHAIN_SYNC_SOURCES` override) must point at a *peer*, never itself.
@@ -624,10 +635,12 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   4. Remove the drop-in (`rm no-prod.conf`, `rmdir` the .d dir),
      `systemctl daemon-reload`, restart again. The second restart lands on a
      current head, so proposing is safe.
-  The freshness gate (`454dcfa7a`) now blocks stale-head proposals on its own,
-  so this runbook is defence in depth rather than the only line — keep it:
-  the gate cannot resolve a same-height hash split until deterministic fork
-  choice lands.
+  The freshness gate (`454dcfa7a`, hardened `6e1d02e67`) blocks stale-head
+  proposals on its own and fork choice (`8b82864c9`) resolves same-height
+  splits deterministically, so this runbook is defence in depth rather than
+  the only line — keep it: a *partition* still lets both sides produce while
+  isolated (UNVERIFIED proceeds for liveness), and non-empty divergent
+  segments are not auto-reverted.
 
 ## Trading authentication
 
