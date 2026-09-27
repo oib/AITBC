@@ -269,3 +269,22 @@ See the operator implementation plan and live reset checklist. After code upgrad
   on all five at `f7912b87`).
 - Verified: fleet converged at 25105 with stamped `8` continuing; zero
   stamp-mismatch warnings in either journal on all five nodes.
+
+### v8 activation height hardcoded; consensus rule heights no longer env-dependent (2026-09-27)
+
+- `state_transition_v8_height` is now a hardcoded `24800` in `config.py`
+  (`cfc41a3b`), like v4/v5/v7. With the advisory semantics, the env var was
+  the last thing deciding whether a node trusted the recorded stamp at all:
+  a lost or template-missing env file would have silently returned that node
+  to stamp-controlled validation.
+- `STATE_TRANSITION_V7_HEIGHT` and `STATE_TRANSITION_V8_HEIGHT` were removed
+  from `/etc/aitbc/blockchain.env` on all five nodes after the hardcoded
+  build was running — an env line matching the hardcode only added a
+  silent-override vector. `fleet-config-check` confirms `<unset>` on every
+  node (uniform); running processes still carry the values in
+  `/proc/<pid>/environ` and the identical code defaults take over at next
+  restart.
+- v2 (`0`) and v3 (`5470`) remain env-set, identical on all five nodes.
+- Verified: `get_block_version_for_height` returns `7` at 24799 and `8` at
+  24800 with the env var absent; 11 v8 tests green; fleet restarted and
+  converged on `cfc41a3b`.
