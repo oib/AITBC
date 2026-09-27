@@ -82,3 +82,26 @@ groups:
           severity: warning
         annotations:
           summary: "Mempool is filling on {{ $labels.chain_id }}"
+
+      # Fork-choice safety valve: a peer branch won but the local losing
+      # segment is not provably empty, so the node escalates instead of
+      # auto-reverting. This means a divergent segment with real state
+      # exists — an operator must reconcile (AGENTS.md fork runbook).
+      - alert: ForkReorgUnsafe
+        expr: increase(sync_fork_reorg_unsafe_total[10m]) > 0
+        labels:
+          severity: critical
+        annotations:
+          summary: "Unsafe fork reorg refused on {{ $labels.instance }} — operator action required"
+          description: "A peer branch won fork choice on {{ $labels.instance }} but the local losing segment is not provably empty; the node escalates instead of auto-reverting. Manual reconciliation needed."
+
+      # Faucet drain tripwire — the coin_request_auto_budget_trips_total
+      # counter exists so this scrape alert can flag an ongoing drain without
+      # journal access (v0.25.8, 7da4bde0f).
+      - alert: FaucetBudgetTripped
+        expr: increase(coin_request_auto_budget_trips_total[15m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Faucet auto-budget tripped on {{ $labels.instance }} ({{ $labels.window }})"
+          description: "Automatic coin requests are parking on the exhausted {{ $labels.window }} budget on {{ $labels.instance }} — possible drain attempt."
