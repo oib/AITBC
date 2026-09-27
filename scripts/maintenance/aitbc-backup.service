@@ -7,6 +7,8 @@ Wants=redis.service
 Type=oneshot
 User=root
 Group=root
+# Optional backup knobs (BACKUP_GPG_RECIPIENT, BACKUP_OFFSITE_SCRIPT, ...)
+EnvironmentFile=-/etc/aitbc/%N.env
 ExecStart=/opt/aitbc/scripts/maintenance/aitbc-backup.sh
 StandardOutput=journal
 StandardError=journal
