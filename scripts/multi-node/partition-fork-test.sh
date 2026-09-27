@@ -124,6 +124,21 @@ done
 if [ -z "$H" ]; then log "TRIGGER TIMEOUT — aborting"; exit 1; fi
 log "TRIGGER head=$H (H%$NVALS=$((H % NVALS))); this node owns r1 of $((H + 1)) when SLOT=0"
 
+# --- attestation-plane warm gate ------------------------------------------
+# Attest traffic rides inbound ws conns peers hold to /rpc/gossip/ws. If the
+# plane is empty when the cut arms, the ~16s consensus gate can expire before
+# reconnects land (cut7: 0 inbound conns at start -> 0/2 attestations, no
+# lone block). Wait until peers hold at least 2 inbound ws conns on :80/:8202.
+N=0
+for _ in $(seq 1 120); do
+    N=$(ss -tn state established "( sport = :80 or sport = :$RPC_PORT )" \
+        | awk 'NR>1 {print $5}' | grep -cvE '^(127\.|\[::1\]|::ffff:127\.)' || true)
+    if [ "${N:-0}" -ge 2 ]; then break; fi
+    sleep 2
+done
+log "attest-plane inbound conns: ${N:-0} (need >=2)"
+if [ "${N:-0}" -lt 2 ]; then log "WS PLANE TOO THIN — aborting"; exit 1; fi
+
 # --- layer 3: nginx — /rpc/gossip/ proxied, rest of /rpc/ -> 444 ----------
 cp "$NGX" "$BAK"
 if ! python3 - "$NGX" <<'PY'
