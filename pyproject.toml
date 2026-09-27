@@ -58,7 +58,7 @@ ecdsa = "0.19.2"
 base58 = "2.1.1"
 bech32 = "1.2.0"
 web3 = "7.16.0"
-eth-account = "0.13.7"
+eth-account = "0.14.0"
 # Data Processing
 pandas = "3.0.3"
 numpy = "2.4.6"
