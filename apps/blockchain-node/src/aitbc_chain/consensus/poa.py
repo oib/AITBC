@@ -217,6 +217,13 @@ class PoAProposer:
         self._sync_manager: Any | None = sync_manager
         self._validator_keys: dict[str, str] = {}
         self._remote_attestation: RemoteAttestationService | None = None
+        # Pre-proposal freshness gate (2026-09-27 stale-head fork fix). The
+        # verdict is cached per local head — heights are monotonic, so a
+        # single slot suffices. _freshness_fetch exists so tests can inject a
+        # stub instead of hitting HTTP.
+        self._freshness_fetch: Any = None
+        self._freshness_cache_key: tuple[int, str] | None = None
+        self._freshness_cache_ok: bool = True
         if self._multi_validator is not None:
             self._load_validator_set()
             self._load_validator_keys()
@@ -779,7 +786,83 @@ class PoAProposer:
             return None
         if self._should_skip_for_empty_mempool(head, mempool):
             return None
+        if not await self._passes_freshness_gate(head):
+            return None
         return mempool
+
+    async def _passes_freshness_gate(self, head: Block | None) -> bool:
+        """Refuse to propose on a head that mesh peers can prove is stale or forked.
+
+        The sync-source gate cannot see "peers ahead of us" when our own source
+        is ourselves or dead — the failure that let a restarted hub fork the
+        fleet. This gate asks the gossip peers directly:
+
+        - peer ahead      → bulk-pull from that peer and skip this proposal;
+        - same height, different hash → skip and log (fork resolution is the
+          deterministic fork-choice task);
+        - all unreachable → propose anyway and bump
+          ``proposal_freshness_unverified_total`` — blocking would trade
+          liveness for safety on every blip;
+        - otherwise       → proceed.
+
+        Never queries the network when production is disabled — the proposer
+        loop does not run then, and the production-off rejoin runbook depends
+        on the node not touching peers during catch-up. Verdicts are cached
+        per local head so rapid ticks do not refetch.
+        """
+        if not getattr(settings, "enable_block_production", True):
+            return True
+        if not getattr(settings, "proposal_freshness_check_enabled", True):
+            return True
+        peer_urls = settings.mesh_peer_url_list()
+        if not peer_urls:
+            return True
+        key = (head.height if head is not None else -1, head.hash if head is not None and head.hash else "")
+        if key == self._freshness_cache_key:
+            return self._freshness_cache_ok
+
+        from .proposal_freshness import FreshnessVerdict, ProposalFreshnessChecker
+
+        checker = ProposalFreshnessChecker(
+            chain_id=self._config.chain_id,
+            peer_urls=peer_urls,
+            fetch=self._freshness_fetch,
+            timeout=getattr(settings, "proposal_freshness_peer_timeout_seconds", 2.0),
+        )
+        result = await checker.check(key[0], key[1])
+
+        ok = True
+        if result.verdict is FreshnessVerdict.STALE:
+            ok = False
+            metrics_registry.increment("proposal_freshness_stale_total")
+            self._logger.warning(
+                "[PROPOSE] Peer %s is ahead at height %s (local %s) — pulling before proposing",
+                result.peer_url,
+                result.peer_height,
+                key[0],
+            )
+            if self._sync_manager is not None and result.peer_url:
+                try:
+                    self._sync_manager.pull_from_peer(self._config.chain_id, result.peer_url)
+                except Exception as exc:
+                    self._logger.warning("[PROPOSE] freshness pull from %s failed to start: %s", result.peer_url, exc)
+        elif result.verdict is FreshnessVerdict.HASH_MISMATCH:
+            ok = False
+            metrics_registry.increment("proposal_freshness_hash_mismatch_total")
+            self._logger.warning(
+                "[PROPOSE] Peer %s has a different block at height %s (theirs %s, ours %s) — not proposing on a forked head",
+                result.peer_url,
+                result.peer_height,
+                result.peer_hash,
+                key[1],
+            )
+        elif result.verdict is FreshnessVerdict.UNVERIFIED:
+            metrics_registry.increment("proposal_freshness_unverified_total")
+            self._logger.info("[PROPOSE] No mesh peer answered /rpc/head — proposing unverified")
+
+        self._freshness_cache_key = key
+        self._freshness_cache_ok = ok
+        return ok
 
     def _resolve_proposal_head(self, session: Session) -> tuple[Block | None, int, str, float | None] | None:
         """Fetch the chain head and validate proposal freshness.

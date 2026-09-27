@@ -206,6 +206,26 @@ class SyncManager:
         if state:
             state.mode = SyncMode.CATCH_UP
 
+    def pull_from_peer(self, chain_id: str, source_url: str) -> bool:
+        """Kick off a bulk pull from an explicit peer URL.
+
+        Used by the proposal freshness gate, which learns of an ahead peer
+        that may not be the configured sync source — the star topology around
+        CHAIN_SYNC_SOURCES leaves a follower with nothing to pull from when
+        the default source is down. Returns True when a pull was started; a
+        pull already in flight (any source) suppresses a duplicate.
+        """
+        state = self._chain_states.get(chain_id)
+        if not state or not state.chain_sync:
+            return False
+        if state.bulk_task and not state.bulk_task.done():
+            return False
+        state.bulk_task = create_task_with_logging(
+            self._bulk_pull(chain_id, source_url),
+            name=f"sync_manager_peer_pull_{chain_id}",
+        )
+        return True
+
     def _register_static_peers(self, chain_id: str) -> None:
         extra = getattr(settings, "sync_parallel_peers", "")
         if not extra:
