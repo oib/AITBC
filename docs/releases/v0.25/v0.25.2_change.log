@@ -430,3 +430,17 @@ Deployed on hub: `website.env` carries the canonical values, render is a no-op k
 - `fleet-config-check.sh` accepted the first ssh candidate that answered as the host. From a fleet node `hub.<domain>` resolves to the `ns2` edge box, which answers ssh — hub's env would have been read from the jump host. Candidates now must match `hostname -s`; a wrong identity prints a NOTE and is ignored (verified from node2: `hub.aitbc.bubuit.net answers as 'ns2', not 'hub' — ignored`).
 - Env sections were gated on "any host answers"; now they run only when every host verified, otherwise `NOTE: no verified ssh reach to: <hosts> — env sections SKIPPED` and the convergence section still runs to a clean exit. The `ENVFILES` ssh assignment no longer aborts the run under `set -e`. From node2 the script now completes (env skipped, convergence `No drift`), matching the AGENTS.md "skipped by design" note.
 - `coin_request_policy._env_ait` also catches `OverflowError`: `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=inf` was a 500 on every `/register`; it now falls back to the default with a warning. Deployed to hub/hub1.
+
+
+### d2081dec1 feat(fleet-check): running-process env vs env files for faucet budget and kill-switch
+
+- `fleet-config-check.sh` gains `running_env()`, which reads a variable from `/proc/<MainPID>/environ` of a unit on a host. The faucet section prints `file=… running=…`, counts live faucets by the **running** value, and fails on a mismatch (`edited but not restarted`). The kill-switch check flags `SYNC_VALIDATE_SIGNATURES_SKIP_UNTIL` if set in either files or the running process (case-insensitive, matching pydantic).
+- IDE-host run: hub `file=<unset> running=<unset>`, hub1 `file=0 running=0`, `ok: exactly one live faucet`; kill-switch unset everywhere.
+
+### Gossip topology finding (2026-09-27, no change yet — live fix pending operator go)
+
+Ground truth from each node's `Initializing gossip backend:` journal line: **the fleet is hub-and-spoke, not mesh.** hub runs `redis` (local bus only); hub1/node0/node1/node2 run `websocket` to `wss://hub…/rpc/gossip/ws`. The four-peer `GOSSIP_MESH_PEER_URLS` lists still sit in `blockchain.env` on node0/1/2 but `create_backend` only uses them when `GOSSIP_BACKEND=mesh`. hub is again the single point of failure for validator gossip.
+
+Journal backend-transition history (hub and node2 agree): mesh until **2026-09-09 18:11**, then `redis` (same-day restart wave after the F3/F4 remediation — `GOSSIP_BACKEND=redis` in `aitbc-blockchain-node.env`/`-rpc.env` became effective once `node.env` stopped shadowing gossip keys); then `websocket` from **2026-09-26 14:30–14:36** on the followers (hub promotion work wrote the bootstrap `GOSSIP_BACKEND=websocket` + `GOSSIP_WEBSOCKET_URL` pair into their `blockchain.env`). The 2026-09-02 hub-down tests were on mesh; the fleet has not been on mesh since 2026-09-09.
+
+The pre-existing `GOSSIP_BACKEND` drift and shadow CONFLICTs the check reports are this regression. Plan: restore `mesh` + full peer lists one validator at a time with the operator watching, remove the `GOSSIP_BACKEND` lines from unit-specific env files so nothing shadows again, then encode "mesh on every validator, peer list non-empty and excludes self" in the check, then re-run the hub-down test.
