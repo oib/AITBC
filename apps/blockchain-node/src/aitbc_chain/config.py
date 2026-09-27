@@ -689,10 +689,12 @@ class ChainSettings(BaseSettings):
     # let any relay pick the rules a block is validated under. Below this
     # height the stamp stays proposer-controlled and trusted (pre-v8
     # semantics); the fleet audit showed every recorded stamp matches its
-    # height-derived version, so no historical block is affected. Env-gated
-    # (STATE_TRANSITION_V8_HEIGHT); fleet-config-check watches for drift.
-    # 0 disables.
-    state_transition_v8_height: int = 0
+    # height-derived version, so no historical block is affected. Activated
+    # fleet-wide at block 24800 on 2026-09-26 and proven over a full
+    # rotation plus node0's range-sync import, so the height is now
+    # consensus and hardcoded like v4/v5/v7 — a lost env file must not
+    # silently return a node to trusting the recorded stamp.
+    state_transition_v8_height: int = 24800
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that
