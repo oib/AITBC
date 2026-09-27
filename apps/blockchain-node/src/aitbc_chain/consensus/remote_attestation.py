@@ -41,6 +41,13 @@ class RemoteAttestationService:
         self._response_topic = f"consensus.attest_response.{chain_id}"
         self._listener_task: asyncio.Task[None] | None = None
         self._stop_event = asyncio.Event()
+        # Attester locks: height -> (block_hash, proposer, signed_at).
+        # A validator that signs block X at height h must not propose — or
+        # re-attest — a different block at h for one proposer round. Without
+        # this a validator can attest a block it never receives and then
+        # build a rival at the same height — the asymmetric-partition fork
+        # mechanism seen live 2026-09-27.
+        self._attested: dict[int, tuple[str, str, float]] = {}
 
     async def start(self) -> None:
         if self._listener_task is not None:
@@ -91,6 +98,29 @@ class RemoteAttestationService:
         if not proposer:
             return
 
+        try:
+            height_int = int(header.get("height", 0))
+        except (TypeError, ValueError):
+            return
+        header_hash = str(header.get("hash", ""))
+        if not header_hash:
+            return
+
+        # Attestation lock: having signed one header at this height, refuse a
+        # rival hash for one round window. Double-signing two blocks at h is
+        # the equivocation that lets an asymmetric partition become a fork.
+        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        if getattr(settings, "attestation_lock_enabled", True):
+            existing = self.attestation_lock(height_int, window)
+            if existing is not None and existing[0] != header_hash:
+                logger.info(
+                    "Attestation lock: refusing to sign rival %s at height %s — already attested %s",
+                    header_hash[:18],
+                    height_int,
+                    existing[0][:18],
+                )
+                return
+
         # Only sign for blocks produced by a known validator in our set.
         validator_set = self._load_validator_set()
         if validator_set and canonical_address(proposer) not in {canonical_address(v) for v in validator_set}:
@@ -118,6 +148,7 @@ class RemoteAttestationService:
             except Exception as e:
                 logger.warning("Failed to sign attestation: %s", e)
                 continue
+            self._record_attestation_lock(height_int, header_hash, proposer)
 
             response = {
                 "chain_id": self._chain_id,
@@ -133,6 +164,27 @@ class RemoteAttestationService:
                 continue
             logger.debug("Published attestation response for height %s from %s", message["height"], address)
             return
+
+    def _record_attestation_lock(self, height: int, block_hash: str, proposer: str) -> None:
+        """Record that this node's validator key(s) signed block `block_hash`
+        at `height`. Locks expire by wall clock in `attestation_lock`."""
+        now = time.monotonic()
+        window = float(getattr(settings, "consensus_proposer_round_seconds", 60))
+        self._attested = {h: e for h, e in self._attested.items() if now - e[2] < 2 * window}
+        self._attested[height] = (block_hash, proposer, now)
+
+    def attestation_lock(self, height: int, window_seconds: float) -> tuple[str, str] | None:
+        """Return ``(block_hash, proposer)`` this validator attested at
+        ``height`` if the lock is still live, else None. Expired entries are
+        dropped lazily."""
+        entry = self._attested.get(height)
+        if entry is None:
+            return None
+        block_hash, proposer, signed_at = entry
+        if time.monotonic() - signed_at >= window_seconds:
+            del self._attested[height]
+            return None
+        return block_hash, proposer
 
     def _load_validator_set(self) -> set[str]:
         validator_set_str = getattr(settings, "validator_set", "")
