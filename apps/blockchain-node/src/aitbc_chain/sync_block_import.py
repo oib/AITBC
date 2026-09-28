@@ -339,7 +339,9 @@ class BlockImportMixin(SyncBase):
         from datetime import UTC, datetime
 
         block_hash = block_data["hash"]
-        journal = BlockDeltaJournal.attach(session, self._chain_id, int(block_data["height"]))
+        # Validation-only call sites (tests) may pass session=None — no journal
+        # then; nothing reaches the DB anyway.
+        journal = BlockDeltaJournal.attach(session, self._chain_id, int(block_data["height"])) if session is not None else None
 
         # Normalize transaction data from blocks-range (Transaction model dumps use
         # sender/recipient/value/tx_hash) to the signed transaction shape the state
@@ -606,6 +608,7 @@ class BlockImportMixin(SyncBase):
                             sender=tx_data.get("from", delta.sender),
                             recipient=tx_data.get("to", delta.recipient),
                             payload=tx_data.get("payload", {}),
+                            envelope=dict(tx_data),
                             type=delta.tx_type,
                             value=tx_data.get("value", tx_data.get("amount", 0)),
                             fee=tx_data.get("fee", 0),
@@ -675,6 +678,7 @@ class BlockImportMixin(SyncBase):
                         sender=tx_data.get("from", sender_addr),
                         recipient=tx_data.get("to", recipient_addr),
                         payload=tx_data.get("payload", {}),
+                        envelope=dict(tx_data),
                         type=tx_type,
                         value=tx_data.get("value", tx_data.get("amount", 0)),
                         fee=tx_data.get("fee", 0),
@@ -763,7 +767,8 @@ class BlockImportMixin(SyncBase):
                     block_hash=block_hash,
                     reason=f"State root mismatch: expected {expected_root.hex()}, computed {computed_root.hex()}",  # type: ignore[union-attr]
                 )
-        journal.persist(session)
+        if journal is not None:
+            journal.persist(session)
         session.commit()
         if transactions:
             self._evict_included_from_mempool(transactions)
@@ -1039,10 +1044,15 @@ class BlockImportMixin(SyncBase):
         # provably-empty blocks are deleted outright, non-empty ones are
         # reverted through the per-block delta journal (verified against the
         # parent's recorded state root) — otherwise escalate to an operator
-        # resync.
+        # resync. The undo stays gated until the journal is proven complete
+        # (the ancestor root check covers accounts only).
         orphaned: list[dict[str, Any]] = []
         if not self._blocks_provably_empty(session, [ours]):
-            reverted = revert_losing_segment(session, self._chain_id, [ours], parent, self._blocks_provably_empty)
+            reverted = (
+                revert_losing_segment(session, self._chain_id, [ours], parent, self._blocks_provably_empty)
+                if settings.sync_fork_undo_enabled
+                else None
+            )
             if reverted is None:
                 metrics_registry.increment("sync_fork_reorg_unsafe_total")
                 metrics_registry.increment("sync_divergence_rejected_total")
@@ -1106,7 +1116,7 @@ class BlockImportMixin(SyncBase):
         result.reorged = True
         result.reorg_depth = 1
         if orphaned:
-            requeued = requeue_orphaned_transactions(self._chain_id, orphaned)
+            requeued = requeue_orphaned_transactions(self._chain_id, orphaned, self._session_factory)
             logger.warning("Requeued %s of %s orphaned transactions into the mempool", requeued, len(orphaned))
         return result
 
