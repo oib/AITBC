@@ -47,17 +47,33 @@ _JOURNAL_KEY = "aitbc_block_delta_journal"
 # resolution never reaches past ``max_reorg_depth``, which is far smaller.
 _DELTA_KEEP_BLOCKS = 10_000
 
+# The prune DELETE only runs every Nth persist — it scans the same index each
+# time and the window is huge, so per-block pruning is wasted work.
+_DELTA_PRUNE_EVERY = 64
+_last_pruned_height: dict[str, int] = {}
+
 # The journal table must never journal itself.
 _SKIP_TABLES = frozenset({BlockStateDelta.__tablename__})
 
 # Raw-SQL account writes in state_transition.py / pure_state_transition.py /
 # liquidity_transition.py all address the row by its (chain_id, address) PK:
 #   UPDATE account SET ... WHERE chain_id = :chain_id AND address = :<name>
-_ACCOUNT_DML_RE = re.compile(r"\b(update|insert\s+into|delete\s+from)\s+account\b", re.IGNORECASE)
 _ACCOUNT_PK_RE = re.compile(
     r"chain_id\s*=\s*:([A-Za-z_]\w*)\s+and\s+address\s*=\s*:([A-Za-z_]\w*)",
     re.IGNORECASE,
 )
+# Any DML verb + target table — used to fail closed: a write to a chain table
+# outside a flush that the journal cannot capture marks the journal
+# "incomplete" rather than silently missing it.
+_DML_TABLE_RE = re.compile(
+    r"\b(update|insert(?:\s+or\s+\w+)?\s+into|replace\s+into|delete\s+from)\s+[\"'`]?([a-zA-Z_]\w*(?:\.[a-zA-Z_]\w*)?)",
+    re.IGNORECASE,
+)
+
+# Sentinel row op persisted when the journal could not capture everything it
+# saw — revert refuses such blocks outright.
+_OP_INCOMPLETE = "incomplete"
+_INCOMPLETE_TABLE = "__journal__"
 
 
 def _encode_value(value: Any) -> Any:
@@ -138,6 +154,17 @@ class BlockDeltaJournal:
         # is the pre-block state, later mutations must not overwrite it.
         self._seen: set[tuple[str, tuple[tuple[str, Any], ...], str]] = set()
         self._suppress = False
+        # Fail-closed bookkeeping: any capture problem stamps an
+        # ``incomplete`` sentinel row at persist time, and the resolver
+        # refuses to revert that block. The state-root check only proves the
+        # account table, so silent side-table gaps are worse than escalation.
+        self._incomplete = False
+        self._persisted = False
+        # True between before_flush and after_flush — DML reaching
+        # before_execute while a flush runs is ORM-managed (already captured
+        # via the flush events); DML outside a flush is a raw/Core write that
+        # must be captured explicitly or the journal is incomplete.
+        self._in_flush = False
 
     # ------------------------------------------------------------------ API
 
@@ -146,7 +173,13 @@ class BlockDeltaJournal:
         journal = cls(chain_id, height)
         session.info[_JOURNAL_KEY] = journal
         event.listen(session, "before_flush", journal._on_flush)
+        event.listen(session, "after_flush", journal._on_after_flush)
         event.listen(session, "after_flush_postexec", journal._on_flush_postexec)
+        # A transaction boundary mid-apply (commit or rollback) detaches the
+        # listeners that live on the checked-out connection — capture cannot
+        # be trusted past it, so the journal is marked incomplete.
+        event.listen(session, "after_commit", journal._on_txn_end)
+        event.listen(session, "after_rollback", journal._on_txn_end)
         # Raw account writes reach the connection without touching ORM state.
         # ``before_execute`` sees SQLAlchemy-level multiparams, independent of
         # the driver's paramstyle.
@@ -170,10 +203,25 @@ class BlockDeltaJournal:
         session.flush()
         for row in self._rows:
             session.add(row)
-        session.execute(
-            text("DELETE FROM block_state_delta WHERE chain_id = :c AND height < :h"),
-            {"c": self.chain_id, "h": self.height - _DELTA_KEEP_BLOCKS},
-        )
+        if self._incomplete:
+            session.add(
+                BlockStateDelta(
+                    chain_id=self.chain_id,
+                    height=self.height,
+                    table_name=_INCOMPLETE_TABLE,
+                    op=_OP_INCOMPLETE,
+                    pk_json="{}",
+                    before_json=None,
+                )
+            )
+        last = _last_pruned_height.get(self.chain_id, -1)
+        if self.height - last >= _DELTA_PRUNE_EVERY:
+            session.execute(
+                text("DELETE FROM block_state_delta WHERE chain_id = :c AND height < :h"),
+                {"c": self.chain_id, "h": self.height - _DELTA_KEEP_BLOCKS},
+            )
+            _last_pruned_height[self.chain_id] = self.height
+        self._persisted = True
 
     # ------------------------------------------------------------ capture
 
@@ -196,7 +244,17 @@ class BlockDeltaJournal:
             )
         )
 
+    def _on_after_flush(self, session: Session, flush_context: Any) -> None:
+        self._in_flush = False
+
+    def _on_txn_end(self, session: Session) -> None:
+        # A commit or rollback before persist means subsequent work runs on a
+        # different transaction/connection the listeners do not cover.
+        if not self._persisted:
+            self._incomplete = True
+
     def _on_flush(self, session: Session, flush_context: Any, instances: Any) -> None:
+        self._in_flush = True
         for obj in session.new:
             self._pending_ins.append(obj)
 
@@ -212,6 +270,12 @@ class BlockDeltaJournal:
                 continue
             pk = _pk_of(obj)
             if not pk or any(v is None for v in pk.values()):
+                self._incomplete = True
+                logger.warning(
+                    "Delta journal: dirty %s row with unresolvable pk at height %s — marked incomplete",
+                    table,
+                    self.height,
+                )
                 continue
             state = inspect(obj)
             before: dict[str, Any] = {}
@@ -232,6 +296,12 @@ class BlockDeltaJournal:
                 continue
             pk = _pk_of(obj)
             if not pk or any(v is None for v in pk.values()):
+                self._incomplete = True
+                logger.warning(
+                    "Delta journal: deleted %s row with unresolvable pk at height %s — marked incomplete",
+                    table,
+                    self.height,
+                )
                 continue
             before = {attr.columns[0].name: getattr(obj, attr.key, None) for attr in mapper.column_attrs}
             self._record(table, "del", pk, before)
@@ -253,7 +323,13 @@ class BlockDeltaJournal:
             if not pk:
                 continue
             if any(v is None for v in pk.values()):
-                logger.warning("Delta journal: insert on %s with unresolved pk %r — undo may miss it", table, pk)
+                self._incomplete = True
+                logger.warning(
+                    "Delta journal: insert on %s with unresolved pk %r at height %s — marked incomplete",
+                    table,
+                    pk,
+                    self.height,
+                )
                 continue
             self._record(table, "ins", pk, None)
 
@@ -265,13 +341,29 @@ class BlockDeltaJournal:
         params: Any,
         execution_options: Any,
     ) -> None:
-        if self._suppress:
+        if self._suppress or self._in_flush:
             return
         statement = clauseelement if isinstance(clauseelement, str) else str(clauseelement)
-        m = _ACCOUNT_DML_RE.search(statement)
+        m = _DML_TABLE_RE.search(statement)
         if m is None:
             return
+        table_name = m.group(2).lower().rsplit(".", 1)[-1]  # strip schema qualifier (main.account)
+        if table_name in _SKIP_TABLES or table_name not in chain_metadata.tables:
+            return
         verb = m.group(1).lower()
+        if table_name != "account":
+            # A raw/Core write on a chain table the journal does not model —
+            # e.g. session.execute(update(X)…), query().update(), bulk_* —
+            # which bypasses the flush events. Fail closed.
+            self._incomplete = True
+            logger.warning(
+                "Delta journal: unhandled %s on chain table %r at height %s — marked incomplete",
+                verb,
+                table_name,
+                self.height,
+            )
+            return
+
         bound: dict[str, Any] = {}
         for p in multiparams or []:
             if isinstance(p, dict):
@@ -279,19 +371,34 @@ class BlockDeltaJournal:
         if isinstance(params, dict):
             bound.update(params)
         if not bound:
+            self._incomplete = True
             return
 
         if verb.startswith("insert"):
+            if verb != "insert into":
+                # INSERT OR IGNORE/REPLACE and REPLACE INTO have conditional or
+                # upsert semantics — the before-image depends on whether the row
+                # already existed, which the journal cannot know cheaply.
+                self._incomplete = True
+                return
             cid = bound.get("chain_id")
             addr = bound.get("address")
         else:
             where = _ACCOUNT_PK_RE.search(statement)
             if where is None:
-                return  # unresolvable address — missed capture surfaces as a
-                # state-root mismatch at revert time, which escalates
+                # Unresolvable account write (e.g. qualified/positional bulk
+                # form) — the journal cannot prove the before-image.
+                self._incomplete = True
+                logger.warning(
+                    "Delta journal: account %s with unresolvable WHERE at height %s — marked incomplete",
+                    verb,
+                    self.height,
+                )
+                return
             cid = bound.get(where.group(1))
             addr = bound.get(where.group(2))
         if not cid or not addr:
+            self._incomplete = True
             return
         pk = {"chain_id": cid, "address": addr}
         if verb.startswith("insert"):
@@ -320,12 +427,22 @@ class BlockDeltaJournal:
             self._record("account", "upd", pk, dict(row))
 
 
+def journal_status(session: Session, chain_id: str, height: int) -> str:
+    """``complete`` (revertible), ``incomplete`` (sentinel — never revert) or
+    ``absent`` (no journal — only the provably-empty path may apply)."""
+    ops = session.exec(
+        select(BlockStateDelta.op).where(BlockStateDelta.chain_id == chain_id).where(BlockStateDelta.height == height)
+    ).all()
+    if not ops:
+        return "absent"
+    if _OP_INCOMPLETE in ops:
+        return "incomplete"
+    return "complete"
+
+
 def has_journal(session: Session, chain_id: str, height: int) -> bool:
     """True when block `height` has at least one journaled delta row."""
-    row = session.exec(
-        select(BlockStateDelta.id).where(BlockStateDelta.chain_id == chain_id).where(BlockStateDelta.height == height).limit(1)
-    ).first()
-    return row is not None
+    return journal_status(session, chain_id, height) != "absent"
 
 
 def _revert_block(session: Session, chain_id: str, height: int) -> None:
@@ -356,12 +473,18 @@ def _revert_block(session: Session, chain_id: str, height: int) -> None:
 
 
 def _tx_payloads_at(session: Session, chain_id: str, height: int) -> list[dict[str, Any]]:
-    """Signed-transaction reconstructions for mempool requeue."""
+    """Transactions to requeue — the stored signed envelope when present,
+    else a best-effort reconstruction (older rows predate ``envelope``)."""
     rows = session.exec(
         select(ChainTransaction).where(ChainTransaction.chain_id == chain_id).where(ChainTransaction.block_height == height)
     ).all()
     out: list[dict[str, Any]] = []
     for tx in rows:
+        if isinstance(tx.envelope, dict) and tx.envelope:
+            payload = dict(tx.envelope)
+            payload.setdefault("tx_hash", tx.tx_hash)
+            out.append(payload)
+            continue
         payload = dict(tx.payload) if isinstance(tx.payload, dict) else {}
         payload.setdefault("tx_hash", tx.tx_hash)
         payload.setdefault("from", tx.sender)
@@ -393,7 +516,10 @@ def revert_losing_segment(
     impossible (a non-empty block without a journal, or a state root that
     refuses to match the ancestor's). On None the caller must NOT commit.
     """
-    journaled = {b.height: has_journal(session, chain_id, b.height) for b in blocks}
+    # ``incomplete`` counts as not journaled: the provably-empty path is still
+    # allowed (nothing to undo), anything else escalates — never a partial
+    # revert from a journal that flagged itself unreliable.
+    journaled = {b.height: journal_status(session, chain_id, b.height) == "complete" for b in blocks}
     for blk in blocks:
         if not journaled.get(blk.height) and not provably_empty(session, [blk]):
             return None
@@ -432,18 +558,60 @@ def revert_losing_segment(
     return payloads
 
 
-def requeue_orphaned_transactions(chain_id: str, payloads: list[dict[str, Any]]) -> int:
-    """Push orphaned block transactions back into the mempool. Best-effort:
-    a tx that fails admission (dup slot, low fee) is skipped — it was already
-    confirmed once, and the winning branch may carry it anyway."""
+def _tx_on_chain(session_factory: Any, chain_id: str, tx_hash: str) -> bool:
+    """True when the hash already exists in the transaction table — i.e. the
+    winning branch (or a prior import) carries it, so it is not lost."""
+    if session_factory is None or not tx_hash:
+        return False
+    try:
+        with session_factory() as session:
+            row = session.exec(
+                select(ChainTransaction.id)
+                .where(ChainTransaction.chain_id == chain_id)
+                .where(ChainTransaction.tx_hash == tx_hash)
+                .limit(1)
+            ).first()
+            return row is not None
+    except Exception:
+        return False
+
+
+def requeue_orphaned_transactions(
+    chain_id: str,
+    payloads: list[dict[str, Any]],
+    session_factory: Any = None,
+) -> int:
+    """Push orphaned block transactions back into the mempool.
+
+    The stored ``Transaction`` row does not carry the original signature, so
+    the requeue is a best-effort reconstruction — ``mempool.add`` may refuse.
+    A payload that fails admission and is not already on the winning branch
+    is a confirmed transaction disappearing from the user's view: logged at
+    WARNING and counted by ``sync_fork_orphaned_tx_lost_total`` (alert path).
+    """
     from ..mempool import get_mempool
+    from ..metrics import metrics_registry
 
     mempool = get_mempool()
     requeued = 0
+    lost = 0
     for tx in payloads:
+        tx_hash = str(tx.get("tx_hash") or "")
         try:
-            mempool.add(tx, chain_id=chain_id, tx_hash=tx.get("tx_hash"))
+            mempool.add(tx, chain_id=chain_id, tx_hash=tx_hash or None)
             requeued += 1
+            continue
         except Exception as exc:
-            logger.info("Requeue of orphaned tx %s skipped: %s", str(tx.get("tx_hash"))[:18], exc)
+            if _tx_on_chain(session_factory, chain_id, tx_hash):
+                logger.info("Orphaned tx %s already confirmed on the winning branch — no requeue needed", tx_hash[:18])
+                continue
+            lost += 1
+            logger.warning(
+                "Orphaned tx %s (from %s) could not be requeued and is not on the winning branch — user transaction lost: %s",
+                tx_hash[:18],
+                tx.get("from"),
+                exc,
+            )
+    if lost:
+        metrics_registry.increment("sync_fork_orphaned_tx_lost_total", float(lost))
     return requeued

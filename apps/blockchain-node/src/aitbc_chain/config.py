@@ -745,6 +745,15 @@ class ChainSettings(BaseSettings):
     # from a mesh peer and pull it. The lock expires after one round window
     # so an attested block that never materialises cannot stall production.
     attestation_lock_enabled: bool = True
+    # Delta-journal undo for non-empty losing fork segments
+    # (``state/block_deltas.py``). While False the resolvers escalate a
+    # non-empty segment to the operator exactly as before the journal
+    # existed — the journal still records, but nothing is reverted. Default
+    # on: the journal is fail-closed (any capture gap stamps an ``incomplete``
+    # sentinel and revert refuses the block) and per-family differential
+    # tests prove apply+revert restores every chain table. The ancestor
+    # state-root check remains as a second net for the ``account`` table.
+    sync_fork_undo_enabled: bool = True
     # Drop a pre-prepare whose sender is not the scheduled proposer for the
     # block's height and round. Setting this False restores the pre-v0.25.6
     # behaviour, where any validator's proposal was prepared.
