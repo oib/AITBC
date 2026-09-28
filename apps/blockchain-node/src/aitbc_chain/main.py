@@ -11,7 +11,7 @@ from aitbc.async_tasks import TaskRegistry
 from aitbc.network import IslandRegistry
 from aitbc.sync import SyncSourceResolver
 
-from .config import settings
+from .config import is_block_producer, settings
 from .consensus import PoAProposer, ProposerConfig
 from .consensus.multi_validator_poa import get_consensus
 from .database import init_db, session_scope
@@ -609,13 +609,7 @@ class BlockchainNode:
                 logger.info("Multi-chain manager initialized and secondary chains started")
             except Exception as e:
                 logger.error("Failed to initialize multi-chain manager: %s", e)
-        is_validator_node = (
-            settings.multi_validator_consensus_enabled
-            and settings.validator_set
-            and settings.proposer_id
-            and settings.proposer_key
-        )
-        if settings.blockchain_mode == "hub" or is_validator_node:
+        if is_block_producer(settings):
             logger.info(
                 "Running as block producer (blockchain_mode=%s, multi_validator=%s)",
                 settings.blockchain_mode,

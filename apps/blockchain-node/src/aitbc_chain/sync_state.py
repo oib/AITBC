@@ -12,8 +12,9 @@ from aitbc.sync import apply_state_diff, decode_state_diff
 
 from .aux_state import upsert_aux_rows
 from .base_models import Account, Block, ChainParameter, _to_ait_address, record_chain_parameter_history
-from .config import settings
+from .config import is_block_producer, settings
 from .logger import get_logger
+from .metrics import metrics_registry
 from .state import state_root_utils
 from .sync_base import SyncBase
 from .sync_divergence import report_divergence
@@ -83,6 +84,30 @@ class StateSyncMixin(SyncBase):
 
     # Protocol base declares the attributes the concrete ChainSync sets.
 
+    def _local_head(self, session: Any) -> tuple[int, str]:
+        """Return (height, recorded state_root) of our highest local block."""
+        head = session.exec(
+            select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height))  # type: ignore[arg-type]
+        ).first()
+        if head is None:
+            return 0, ""
+        return int(head.height or 0), str(head.state_root or "")
+
+    def _refuse_sync(self, reason: str, message: str, **extra: Any) -> dict[str, Any]:
+        """Count and report a refused state sync (incident-27207 guards)."""
+        metrics_registry.increment("state_sync_refused_total")
+        metrics_registry.increment(f"state_sync_refused_{reason}_total")
+        self._logger.warning("%s", message)
+        return {"synced": 0, "refused": True, "reason": reason, **extra}
+
+    def _producer_refusal(self) -> dict[str, Any] | None:
+        if not is_block_producer():
+            return None
+        return self._refuse_sync(
+            "block_producer",
+            "state sync refused: this node produces blocks; its state comes from applying them",
+        )
+
     async def sync_state_from(self, source_url: str) -> dict[str, Any]:
         """Pull account state snapshot from a peer and reconcile local accounts.
 
@@ -90,6 +115,8 @@ class StateSyncMixin(SyncBase):
         the peer's state root.  Does NOT delete accounts that exist locally
         but not on the peer (those may be from local transactions).
         """
+        if (refusal := self._producer_refusal()) is not None:
+            return refusal
         self._logger.info("Starting state sync from %s", source_url)
         # Balances describe a chain. Copying them from a peer whose blocks we are rejecting leaves
         # the account table agreeing with the peer while the block history does not, so the head
@@ -101,10 +128,7 @@ class StateSyncMixin(SyncBase):
         max_gap = getattr(settings, "state_sync_max_gap", 10)
         divergence, peer_height = await self.peer_head_divergence(source_url)
         with self._session_factory() as session:
-            local_block = session.exec(
-                select(Block).where(Block.chain_id == self._chain_id).order_by(desc(Block.height))  # type: ignore[arg-type]
-            ).first()
-            local_height = local_block.height if local_block else 0
+            local_height, local_root = self._local_head(session)
         if peer_height - local_height > max_gap:
             self._logger.info(
                 "State sync skipped: local head %s is %s blocks behind remote head %s (threshold %s)",
@@ -153,6 +177,18 @@ class StateSyncMixin(SyncBase):
             remote_root,
         )
 
+        # The snapshot must describe OUR chain head. A source claiming a root
+        # different from the recorded head root is diverged from us — applying
+        # it would overwrite good state (incident 27207, the 22:03 poison path).
+        if local_root and remote_root != local_root:
+            return self._refuse_sync(
+                "source_root_disagrees",
+                f"state sync refused: {source_url} snapshot claims root {remote_root} "
+                f"but our head {local_height} records {local_root}",
+                local_head=local_height,
+                remote_root=remote_root,
+            )
+
         created = 0
         updated = 0
         with self._session_factory() as session:
@@ -183,13 +219,23 @@ class StateSyncMixin(SyncBase):
             aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
             if any(aux_counts.values()):
                 self._logger.info("Aux state upserted from snapshot: %s", aux_counts)
-            session.commit()
-
-        # Verify state root matches now — full recompute (all accounts synced)
-        with self._session_factory() as session:
+            # Verify against the LOCAL head's recorded root before committing —
+            # a snapshot that applied cleanly but produces a different root must
+            # never reach the account table.
+            session.flush()
             computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id)
             if computed_hex is None:
                 computed_hex = "0x" + "\x00" * 32
+            if local_root and computed_hex != local_root:
+                session.rollback()
+                return self._refuse_sync(
+                    "root_mismatch_local_head",
+                    f"state sync rolled back: resulting root {computed_hex} != local head {local_height} "
+                    f"recorded root {local_root} (source claimed {remote_root})",
+                    local_head=local_height,
+                    remote_root=remote_root,
+                )
+            session.commit()
 
         match = computed_hex == remote_root
         # A mismatch that survives a full account sync is not information: either the peer's root
@@ -223,6 +269,8 @@ class StateSyncMixin(SyncBase):
         - peer doesn't support delta endpoint
         - state root verification fails
         """
+        if (refusal := self._producer_refusal()) is not None:
+            return refusal
         if not getattr(settings, "sync_delta_enabled", False):
             return await self.sync_state_from(source_url)
 
@@ -230,6 +278,28 @@ class StateSyncMixin(SyncBase):
         if to_height - from_height > max_blocks:
             self._logger.info("Delta sync gap too large (%d > %d), using full sync", to_height - from_height, max_blocks)
             return await self.sync_state_from(source_url)
+
+        # A delta may only describe our own head height. Older deltas replay
+        # already-superseded state over the head (incident 27207, the 21:59
+        # poison path); newer deltas describe blocks we have not imported —
+        # block import must catch up first, so there is no snapshot fallback.
+        with self._session_factory() as session:
+            local_height, local_root = self._local_head(session)
+        if to_height < local_height:
+            return self._refuse_sync(
+                "stale_target",
+                f"delta sync refused: target {to_height} is behind our head {local_height}",
+                local_head=local_height,
+                to_height=to_height,
+            )
+        if to_height > local_height:
+            return self._refuse_sync(
+                "ahead_of_local_head",
+                f"delta sync refused: target {to_height} is ahead of our head {local_height}; "
+                "block import must catch up first",
+                local_head=local_height,
+                to_height=to_height,
+            )
 
         self._logger.info("Starting delta sync from %s, heights %d -> %d", source_url, from_height, to_height)
         try:
@@ -262,6 +332,18 @@ class StateSyncMixin(SyncBase):
         except Exception as e:
             self._logger.error("Failed to decode state diff: %s", e)
             return await self.sync_state_from(source_url)
+
+        # The diff's claimed root must equal our head's recorded root — a
+        # source describing a different state at our head height is diverged.
+        if diff.to_state_root != local_root:
+            return self._refuse_sync(
+                "source_root_disagrees",
+                f"delta sync refused: {source_url} claims root {diff.to_state_root} for height {to_height} "
+                f"but our head records {local_root}",
+                local_head=local_height,
+                to_height=to_height,
+                remote_root=diff.to_state_root,
+            )
 
         # Check if delta is too large
         threshold = getattr(settings, "sync_delta_threshold", 0.5)
@@ -317,20 +399,24 @@ class StateSyncMixin(SyncBase):
             aux_counts = upsert_aux_rows(session, self._chain_id, remote_aux)
             if any(aux_counts.values()):
                 self._logger.info("Aux state upserted from delta: %s", aux_counts)
-            session.commit()
-
-        # Verify state root
-        with self._session_factory() as session:
+            # Verify against the LOCAL head's recorded root in the same
+            # transaction, before commit — the diff's claimed root was already
+            # checked above; this catches a diff whose contents do not
+            # reproduce our head state.
+            session.flush()
             computed_hex = state_root_utils.compute_state_root_full(session, self._chain_id)
             if computed_hex is None:
                 computed_hex = "0x" + "\x00" * 32
-
-        expected_root = diff.to_state_root
-        match = computed_hex == expected_root
-        if not match:
-            self._logger.warning("Delta sync state root mismatch: %s != %s, rolling back", computed_hex, expected_root)
-            # Rollback is implicit — we committed, but state root mismatch means we should do full sync
-            return await self.sync_state_from(source_url)
+            if computed_hex != local_root:
+                session.rollback()
+                return self._refuse_sync(
+                    "root_mismatch_local_head",
+                    f"delta sync rolled back: resulting root {computed_hex} != local head {local_height} "
+                    f"recorded root {local_root} (source claimed {diff.to_state_root})",
+                    local_head=local_height,
+                    to_height=to_height,
+                )
+            session.commit()
 
         self._logger.info("Delta sync complete: %d accounts changed, state root matches", len(changed))
         return {
@@ -339,7 +425,7 @@ class StateSyncMixin(SyncBase):
             "updated": sum(1 for c in diff.changes if not c.is_new and not c.is_deleted),
             "deleted": sum(1 for c in diff.changes if c.is_deleted),
             "local_state_root": computed_hex,
-            "remote_state_root": expected_root,
-            "match": match,
+            "remote_state_root": diff.to_state_root,
+            "match": True,
             "mode": "delta",
         }
