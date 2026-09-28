@@ -1,0 +1,56 @@
+# promtool unit tests for scripts/monitoring/aitbc_rules.yml
+#
+#   promtool test rules scripts/monitoring/aitbc_rules_test.yml
+#
+# Negative check for the v9 shadow-mode tripwires: a synthetic counter step
+# must fire the alert, and a flat counter must not — proves the alert path
+# without forging anything on the live chain.
+rule_files:
+  - aitbc_rules.yml
+
+evaluation_interval: 30s
+
+tests:
+  - interval: 30s
+    input_series:
+      # Flat for 90s, then one would-reject at t=2m, then flat again.
+      - series: 'v9_would_reject_total{instance="node1:9009", job="blockchain-node"}'
+        values: '0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+      - series: 'v9_would_reject_attest_nonce_order_total{instance="node1:9009", job="blockchain-node"}'
+        values: '0 0 0 0 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1 1'
+      # A second node whose counters never move must not alert.
+      - series: 'v9_would_reject_total{instance="node2:9009", job="blockchain-node"}'
+        values: '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+      - series: 'v9_would_reject_attest_nonce_order_total{instance="node2:9009", job="blockchain-node"}'
+        values: '0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0'
+
+    alert_rule_test:
+      # Before the step: nothing fires.
+      - eval_time: 1m
+        alertname: V9ShadowRejection
+        exp_alerts: []
+      - eval_time: 1m
+        alertname: V9AttestationRefusal
+        exp_alerts: []
+
+      # Inside the 10m increase() window after the step: node1 fires, node2 does not.
+      - eval_time: 5m
+        alertname: V9ShadowRejection
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1:9009
+              job: blockchain-node
+            exp_annotations:
+              description: "A transaction on node1:9009 failed a v9 rule in shadow mode — inspect the v9_would_reject_* detail counters and the node journal before pinning the v9 height."
+              summary: "v9 transaction-authorization check would have rejected on node1:9009"
+      - eval_time: 5m
+        alertname: V9AttestationRefusal
+        exp_alerts:
+          - exp_labels:
+              severity: warning
+              instance: node1:9009
+              job: blockchain-node
+            exp_annotations:
+              description: "A validator on node1:9009 would have refused to attest a block under v9 rules — inspect the v9_would_reject_attest_* counters and the node journal before pinning the v9 height."
+              summary: "v9 attestation would have been refused on node1:9009"
