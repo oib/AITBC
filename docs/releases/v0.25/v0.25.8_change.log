@@ -1078,3 +1078,69 @@ cannot bootstrap from genesis today — all current nodes were joined via DB
 snapshots. The exact height-0 allocation set producing recorded root
 `0x448a...` was overwritten during the Sep-9 reset run; reconstructing it is
 the remaining prerequisite for full-history hub replay.
+
+## 2026-09-28 — CONFIRMED: followers never verify transaction signatures (unsigned-tx hole)
+
+The served transaction shape strips signature verification end to end:
+`/rpc/blocks-range`, `/rpc/sync` export, and gossip block pushes serialize
+`Transaction.model_dump()` — the signature lives only inside the nested
+`envelope` column, so `_append_block` never sees a top-level `signature`
+and both apply paths skip verification at every version. The nonce check
+is bypassed too: `use_account_nonce_override` rewrites the recorded nonce
+for unsigned txs before any comparison. Attesters sign only header fields
+(`remote_attestation` signs state_root/bridge_state_root without executing
+a single tx), so quorum means "a validator sent a header", not "these txs
+are authorized".
+
+A single compromised validator key can propose a block moving funds out of
+any account; followers apply it. Pinned by `test_unsigned_tx_import.py`
+(accepted today; flips to reject-tests at v9). Even a genuinely signed
+envelope is ignored — a served row with an envelope attesting amount=10
+still applies its served `value` of 999.
+
+Live-chain audit (hub): envelope storage began at height 26722; all 240
+earlier txs carry no retrievable signature — pre-v9 history can never be
+signature-verified, only consistent with expected activity.
+
+Interim mitigation applied fleet-wide (v9 fix still required):
+- node2s validator key was in ~20 service env files
+## 2026-09-28 — CONFIRMED: followers never verify transaction signatures (unsigned-tx hole)
+
+The served transaction shape strips signature verification end to end:
+`/rpc/blocks-range`, `/rpc/sync` export, and gossip block pushes serialize
+`Transaction.model_dump()` — the signature lives only inside the nested
+`envelope` column, so `_append_block` never sees a top-level `signature`
+and both apply paths skip verification at every version. The nonce check
+is bypassed too: `use_account_nonce_override` rewrites the recorded nonce
+for unsigned txs before any comparison. Attesters sign only header fields
+(`remote_attestation` signs state_root/bridge_state_root without executing
+a single tx), so quorum means "a validator sent a header", not "these txs
+are authorized".
+
+A single compromised validator key can propose a block moving funds out of
+any account; followers apply it. Pinned by `test_unsigned_tx_import.py`
+(accepted today; flips to reject-tests at v9). Even a genuinely signed
+envelope is ignored — a served row with an envelope attesting amount=10
+still applies its served `value` of 999.
+
+Live-chain audit (hub): envelope storage began at height 26722; all 240
+earlier txs carry no retrievable signature — pre-v9 history can never be
+signature-verified, only consistent with expected activity.
+
+Interim mitigation applied fleet-wide (v9 fix still required):
+- node2's validator key was in ~20 service env files; now confined to
+  `aitbc-blockchain-node` only.
+- hub's proposer key (`0x02B8…`, also `ESCROW_RELEASE_PRIVATE_KEY`/
+  `SETTLEMENT_PRIVATE_KEY`/`GENESIS_*`) was loaded by ~50 processes
+  fleet-wide via `node.env`/`blockchain-secrets.env`; now confined to
+  node + rpc (escrow release) + coordinator-api (settlement) per node,
+  plus governance on hub (domain signer — needs its own key at rotation).
+- `validator-secrets.env` removed from `aitbc-blockchain-rpc` (all nodes)
+  and `aitbc-blockchain-p2p` (hub/hub1) via systemd drop-ins.
+- Backups of every touched env file under `/root/env-backup-*-20260928/`
+  on each node.
+
+v9 work (ordered): serve envelopes as the tx body on every sync path;
+require valid signatures at apply for all user-originated types with an
+explicit unsigned-internal allowlist; attesters verify txs before signing.
+Pre-v9 blocks stay unverifiable — their trust anchors on checkpoints.
