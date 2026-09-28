@@ -1409,3 +1409,39 @@ Ops notes (host config, not committed):
 - The first off-chain proposal prop_c4975d84 / prop_66e728a7 never reached
   the chain (submission disabled, then chain_id mismatch) — inert rows in
   the governance service DB only.
+
+### v9 shadow firing root cause and fix: BRIDGE_LOCK on the parallel path (2026-09-28)
+
+The canary BRIDGE_LOCK (0x6360b047…, height 27251) fired
+v9_would_reject_bridge_lock_unsigned_total=1 on all four followers — the
+first real v9 bug the shadow window caught: both callers of
+compute_state_delta resolved bridge_authority only when the block
+contained BRIDGE_RELEASE/BRIDGE_REFUND (sync_block_import.py and
+consensus/poa.py), so a block whose only bridge tx is a BRIDGE_LOCK
+reached the pure path with bridge_authority=None and
+verify_bridge_lock_signature(…, "") returned False — a shadow count at
+v8; at v9 activation every follower would have REJECTED a block the
+proposer's sequential path (which resolves the authority itself)
+accepted — a guaranteed fork. The shadow counter did its job.
+
+Fix:
+- state/bridge_credit.py: new BRIDGE_AUTHORITY_TX_TYPES =
+  BRIDGE_CREDIT_TX_TYPES | {"BRIDGE_LOCK"} — the single set callers use
+  to decide whether to resolve the bridge release authority for a block,
+  so the two predicates cannot drift again.
+- sync_block_import.py and consensus/poa.py parallel-apply callers now
+  resolve the authority for any of those types at block_version >= 5.
+- poa.py proposal admission: pre-registered BRIDGE_LOCK rows previously
+  bypassed apply without any signature check — stamping an unsigned or
+  invalid lock would have sealed a block followers reject. Now: at v9 the
+  row is skipped with a warning (failed v9 bridge-lock authorization);
+  below v9 an unsigned/invalid lock counts
+  v9_would_reject_bridge_lock_unsigned once and is still stamped.
+- tests/test_v9_signature_rules.py: four parallel-path cases — v9 signed
+  lock applies with no v9 counter; v9 unsigned lock is not applied; v8
+  signed lock applies with NO shadow counter (the exact regression); v8
+  unsigned lock applies and counts once.
+
+The v9 shadow window restarts again on deploy: the
+v9_would_reject_bridge_lock_unsigned counter must read absent after the
+rolling restart (counters reset on service restart).

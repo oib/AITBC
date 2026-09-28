@@ -20,6 +20,12 @@ from typing import Any
 from ..config import settings
 
 BRIDGE_CREDIT_TX_TYPES = frozenset({"BRIDGE_RELEASE", "BRIDGE_REFUND"})
+# Every tx type whose signature gate resolves the bridge release authority —
+# credits (v5) and locks (v9 shadow, enforced at v9). Callers deciding whether
+# to resolve the authority for a block MUST use this set; widening only the
+# credit set let a BRIDGE_LOCK-only block reach the pure path with
+# bridge_authority=None (shadow firing at v8, follower rejection at v9).
+BRIDGE_AUTHORITY_TX_TYPES = BRIDGE_CREDIT_TX_TYPES | {"BRIDGE_LOCK"}
 BRIDGE_SIGNATURE_FIELD = "bridge_signature"
 
 
