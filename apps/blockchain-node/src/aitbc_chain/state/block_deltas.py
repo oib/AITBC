@@ -24,9 +24,10 @@ committing.
 
 from __future__ import annotations
 
+import hashlib
 import json
 import re
-from datetime import date, datetime
+from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
@@ -74,6 +75,41 @@ _DML_TABLE_RE = re.compile(
 # saw — revert refuses such blocks outright.
 _OP_INCOMPLETE = "incomplete"
 _INCOMPLETE_TABLE = "__journal__"
+
+# Meta row carrying the pre-apply digest of every side table the block
+# touched. The account table is verified at revert by the state root; this
+# extends the same proof to escrow/bridge/bond/etc. — a capture gap inside an
+# observed table, or a replay that restored wrong values, produces a digest
+# mismatch and fails closed.
+_OP_META = "meta"
+_DIGEST_TABLE = "__digest__"
+
+# Structural/ephemeral tables excluded from the digest: account is covered by
+# the ancestor state root; transaction/block are handled by ins-undo and grow
+# unboundedly; mempool is node-local. Everything else is digested at first
+# touch, capped at _DIGEST_ROW_LIMIT rows.
+_DIGEST_EXCLUDE = frozenset({"account", "transaction", "block", "mempool", "block_state_delta"})
+_DIGEST_ROW_LIMIT = 100_000
+
+
+def _table_digest(session: Session, table_name: str, chain_id: str) -> str | None:
+    """Canonical SHA-256 over a table's current rows, chain-scoped when the
+    table carries a chain_id column. Returns None when the table exceeds the
+    row cap — the caller records that as skipped coverage, not a match."""
+    table = chain_metadata.tables.get(table_name)
+    if table is None:
+        return None
+    stmt = table.select()
+    if "chain_id" in table.c:
+        stmt = stmt.where(table.c.chain_id == chain_id)
+    rows = session.connection().execute(stmt).mappings().all()
+    if len(rows) > _DIGEST_ROW_LIMIT:
+        return None
+    digest = hashlib.sha256()
+    for encoded in sorted(_encode_row(dict(row)) for row in rows):
+        digest.update(encoded.encode())
+        digest.update(b"\x00")
+    return digest.hexdigest()
 
 
 def _encode_value(value: Any) -> Any:
@@ -153,6 +189,10 @@ class BlockDeltaJournal:
         # First-touch wins per (table, pk, op-kind): the earliest before-image
         # is the pre-block state, later mutations must not overwrite it.
         self._seen: set[tuple[str, tuple[tuple[str, Any], ...], str]] = set()
+        # First-touch wins per attribute: a row mutated across two flushes
+        # yields two 'upd' events whose before-images must merge (earliest
+        # value per attribute), or the second flush's changes undo to nothing.
+        self._upd_rows: dict[tuple[str, tuple[tuple[str, Any], ...], str], BlockStateDelta] = {}
         self._suppress = False
         # Fail-closed bookkeeping: any capture problem stamps an
         # ``incomplete`` sentinel row at persist time, and the resolver
@@ -165,6 +205,11 @@ class BlockDeltaJournal:
         # via the flush events); DML outside a flush is a raw/Core write that
         # must be captured explicitly or the journal is incomplete.
         self._in_flush = False
+        # Pre-state digest of each side table this block touches, taken at the
+        # before_flush that first touches it (still pre-write there). Verified
+        # at revert — the non-account counterpart of the state-root check.
+        self._pre_digest: dict[str, str] = {}
+        self._digest_skipped: list[str] = []
 
     # ------------------------------------------------------------------ API
 
@@ -221,6 +266,19 @@ class BlockDeltaJournal:
                 {"c": self.chain_id, "h": self.height - _DELTA_KEEP_BLOCKS},
             )
             _last_pruned_height[self.chain_id] = self.height
+        if self._rows or self._incomplete:
+            # The digest anchors the segment-level revert check. Truly empty
+            # blocks write no rows at all, keeping journal_status "absent".
+            session.add(
+                BlockStateDelta(
+                    chain_id=self.chain_id,
+                    height=self.height,
+                    table_name=_DIGEST_TABLE,
+                    op=_OP_META,
+                    pk_json="{}",
+                    before_json=_encode_row({"pre_digest": self._pre_digest, "digest_skipped": self._digest_skipped}),
+                )
+            )
         self._persisted = True
 
     # ------------------------------------------------------------ capture
@@ -230,6 +288,29 @@ class BlockDeltaJournal:
 
     def _record(self, table: str, op: str, pk: dict[str, Any], before: dict[str, Any] | None) -> None:
         key = self._key(table, pk, op)
+        if op == "upd":
+            existing = self._upd_rows.get(key)
+            if existing is not None:
+                # Merge missing attributes — the first-captured value is the
+                # pre-block state; a before=None delta (row born in-block)
+                # keeps its delete-undo semantics untouched.
+                if before is not None and existing.before_json is not None:
+                    merged = _decode_row(existing.before_json) or {}
+                    for name, value in before.items():
+                        merged.setdefault(name, value)
+                    existing.before_json = _encode_row(merged)
+                return
+            row = BlockStateDelta(
+                chain_id=self.chain_id,
+                height=self.height,
+                table_name=table,
+                op=op,
+                pk_json=_encode_row(pk),
+                before_json=_encode_row(before) if before is not None else None,
+            )
+            self._upd_rows[key] = row
+            self._rows.append(row)
+            return
         if key in self._seen:
             return
         self._seen.add(key)
@@ -253,8 +334,32 @@ class BlockDeltaJournal:
         if not self._persisted:
             self._incomplete = True
 
+    def _digest_touched_tables(self, session: Session) -> None:
+        """Digest every newly-touched side table while it still holds pre-flush
+        state. ``session.dirty`` is over-inclusive (objects can be dirty without
+        emitting SQL), which is harmless: a digested-but-unwritten table still
+        compares equal at revert."""
+        touched = {
+            obj.__table__.name
+            for obj in (*session.new, *session.dirty, *session.deleted)
+            if getattr(obj, "__table__", None) is not None
+        }
+        for name in touched - self._pre_digest.keys() - set(self._digest_skipped) - _DIGEST_EXCLUDE:
+            digest = _table_digest(session, name, self.chain_id)
+            if digest is None:
+                self._digest_skipped.append(name)
+                logger.warning(
+                    "Delta journal: side-table %r exceeds the %s-row digest cap at height %s — reverting it is journal-only",
+                    name,
+                    _DIGEST_ROW_LIMIT,
+                    self.height,
+                )
+            else:
+                self._pre_digest[name] = digest
+
     def _on_flush(self, session: Session, flush_context: Any, instances: Any) -> None:
         self._in_flush = True
+        self._digest_touched_tables(session)
         for obj in session.new:
             self._pending_ins.append(obj)
 
@@ -524,6 +629,23 @@ def revert_losing_segment(
         if not journaled.get(blk.height) and not provably_empty(session, [blk]):
             return None
 
+    # Collect each block's side-table pre-state digests before _revert_block
+    # deletes its delta rows. Blocks journaled before the digest feature carry
+    # no meta row — they simply contribute no entries.
+    pre_digests: dict[int, dict[str, str]] = {}
+    for blk in blocks:
+        meta = session.exec(
+            select(BlockStateDelta)
+            .where(BlockStateDelta.chain_id == chain_id)
+            .where(BlockStateDelta.height == blk.height)
+            .where(BlockStateDelta.table_name == _DIGEST_TABLE)
+        ).first()
+        if meta is not None:
+            meta_row = _decode_row(meta.before_json) or {}
+            pre_digests[blk.height] = {
+                str(k): str(v) for k, v in (meta_row.get("pre_digest") or {}).items() if isinstance(v, str)
+            }
+
     payloads: list[dict[str, Any]] = []
     for blk in sorted(blocks, key=lambda b: -b.height):
         # Collect payloads before the 'ins' undos remove the tx rows.
@@ -541,6 +663,25 @@ def revert_losing_segment(
             session.delete(blk)
     session.flush()
 
+    # Side-table digest: for every table any reverted block digested, the
+    # post-revert contents must equal the earliest reverted block's recorded
+    # pre-state. Earlier-in-segment pre-state is the segment's pre-state for
+    # tables untouched by still-earlier reverted blocks.
+    expected_digest: dict[str, str] = {}
+    for height in sorted(pre_digests):
+        for table_name, digest in pre_digests[height].items():
+            expected_digest.setdefault(table_name, digest)
+    for table_name, want in sorted(expected_digest.items()):
+        got = _table_digest(session, table_name, chain_id)
+        if got != want:
+            logger.error(
+                "Fork undo side-table digest mismatch on %r: recorded=%s reverted=%s — refusing revert",
+                table_name,
+                want[:16],
+                (got or "skipped")[:16],
+            )
+            return None
+
     # Undo correctness is verified against the ancestor's recorded state
     # root — a journal gap can only ever produce a mismatch here, which is
     # rejected before commit, never a silently wrong revert.
@@ -556,6 +697,72 @@ def revert_losing_segment(
             )
             return None
     return payloads
+
+
+def _mark_domain_row_orphaned(session_factory: Any, chain_id: str, tx: dict[str, Any]) -> int:
+    """Orphan-mark the RPC-side domain row a lost lock transaction funded.
+
+    ``stake``, ``agent_stake`` and ``bounty_contract`` rows are written by the
+    RPC handlers at queue time — outside block apply, so the delta journal
+    can never capture them. When the confirming lock tx disappears in a reorg
+    (failed requeue AND absent from the winning branch), the row would stay
+    ``active`` forever with no on-chain backing. Marking it ``orphaned`` keeps
+    it out of every status-filtered query (``confirmed_lock_txs``/payout paths
+    already resolve against confirmed tx rows, never the domain row alone).
+    """
+    if session_factory is None:
+        return 0
+    raw_payload = tx.get("payload")
+    payload: dict[str, Any] = raw_payload if isinstance(raw_payload, dict) else {}
+    tx_type = tx.get("type")
+    # (lock tx type, payload key, model, model field naming the key)
+    from ..base_models import AgentStakeRecord, BountyContract, Stake
+    from ..protocol_escrow import confirmed_lock_txs
+
+    targets: list[tuple[type[Any], str, str]] = []
+    if tx_type == "STAKE_LOCK":
+        if payload.get("stake_id"):
+            targets.append((Stake, "id", "stake_id"))
+        if payload.get("agent_stake_id"):
+            targets.append((AgentStakeRecord, "stake_id", "agent_stake_id"))
+    elif tx_type == "BOUNTY_LOCK" and payload.get("bounty_id"):
+        targets.append((BountyContract, "bounty_id", "bounty_id"))
+    if not targets:
+        return 0
+    marked = 0
+    try:
+        with session_factory() as session:
+            for model, field, payload_key in targets:
+                value = str(payload[payload_key])
+                # Multiple locks can fund one record (agent-stake top-ups) —
+                # only orphan it when no confirmed lock references it anymore.
+                if confirmed_lock_txs(session, chain_id, str(tx_type), payload_key, value):
+                    continue
+                row = session.exec(
+                    select(model).where(
+                        col(model.chain_id) == chain_id,
+                        col(getattr(model, field)) == (int(value) if field == "id" else value),
+                    )
+                ).first()
+                if row is None or row.status == "orphaned":
+                    continue
+                row.status = "orphaned"
+                row.updated_at = datetime.now(UTC)
+                session.add(row)
+                marked += 1
+                logger.warning(
+                    "Orphaned %s row %s=%s: confirming %s tx %s lost in fork",
+                    model.__tablename__,
+                    field,
+                    value,
+                    tx_type,
+                    str(tx.get("tx_hash") or "")[:18],
+                )
+            session.commit()
+    except Exception:
+        logger.exception("Failed to orphan-mark domain rows for lost tx %s", tx.get("tx_hash"))
+        return marked
+    return marked
 
 
 def _tx_on_chain(session_factory: Any, chain_id: str, tx_hash: str) -> bool:
@@ -612,6 +819,9 @@ def requeue_orphaned_transactions(
                 tx.get("from"),
                 exc,
             )
+            marked = _mark_domain_row_orphaned(session_factory, chain_id, tx)
+            if marked:
+                metrics_registry.increment("sync_fork_domain_rows_orphaned_total", float(marked))
     if lost:
         metrics_registry.increment("sync_fork_orphaned_tx_lost_total", float(lost))
     return requeued

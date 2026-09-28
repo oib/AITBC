@@ -19,7 +19,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any
 
 import pytest
-from aitbc_chain.base_models import Account, Block, BlockStateDelta
+from aitbc_chain.base_models import Account, AgentStakeRecord, Block, BlockStateDelta, BountyContract, ChainParameter, Stake
 from aitbc_chain.base_models import Transaction as ChainTransaction
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.metrics import metrics_registry
@@ -27,6 +27,7 @@ from aitbc_chain.state.block_deltas import (
     BlockDeltaJournal,
     has_journal,
     journal_status,
+    requeue_orphaned_transactions,
     revert_losing_segment,
 )
 from aitbc_chain.state.state_root_utils import compute_state_root_full
@@ -235,36 +236,35 @@ class TestJournalCapture:
             session.commit()
         with session_factory() as session:
             rows = session.exec(select(BlockStateDelta)).all()
-            assert len(rows) == 1
-            assert rows[0].op == "incomplete" and rows[0].table_name == "__journal__"
+            sentinels = [r for r in rows if r.op == "incomplete"]
+            assert len(sentinels) == 1 and sentinels[0].table_name == "__journal__"
             assert journal_status(session, CHAIN, 3) == "incomplete"
 
 
-class TestRevert:
-    def _journaled_block(
-        self, session_factory, height: int, parent: dict[str, Any], apply_fn, *, tx_count: int = 0
-    ) -> dict[str, Any]:
-        """Apply a block the way _append_block does: journal + mutations + persist + commit."""
-        blk = _mk_block(height, parent["hash"], T0 + timedelta(seconds=30 * (height + 1)), tx_count=tx_count)
-        with session_factory() as session:
-            j = BlockDeltaJournal.attach(session, CHAIN, height)
-            session.add(
-                Block(
-                    chain_id=CHAIN,
-                    height=blk["height"],
-                    hash=blk["hash"],
-                    parent_hash=blk["parent_hash"],
-                    proposer=blk["proposer"],
-                    timestamp=datetime.fromisoformat(blk["timestamp"]),
-                    tx_count=blk["tx_count"],
-                    state_root=blk["state_root"],
-                )
+def _journaled_block(session_factory, height: int, parent: dict[str, Any], apply_fn, *, tx_count: int = 0) -> dict[str, Any]:
+    """Apply a block the way _append_block does: journal + mutations + persist + commit."""
+    blk = _mk_block(height, parent["hash"], T0 + timedelta(seconds=30 * (height + 1)), tx_count=tx_count)
+    with session_factory() as session:
+        j = BlockDeltaJournal.attach(session, CHAIN, height)
+        session.add(
+            Block(
+                chain_id=CHAIN,
+                height=blk["height"],
+                hash=blk["hash"],
+                parent_hash=blk["parent_hash"],
+                proposer=blk["proposer"],
+                timestamp=datetime.fromisoformat(blk["timestamp"]),
+                tx_count=blk["tx_count"],
+                state_root=blk["state_root"],
             )
-            apply_fn(session)
-            j.persist(session)
-            session.commit()
-        return blk
+        )
+        apply_fn(session)
+        j.persist(session)
+        session.commit()
+    return blk
 
+
+class TestRevert:
     def test_revert_restores_accounts_and_drops_rows(self, session_factory):
         ancestor = _seed(session_factory, 1)[0]
         with session_factory() as session:
@@ -302,7 +302,7 @@ class TestRevert:
                 )
             )
 
-        self._journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
+        _journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
 
         with session_factory() as session:
             assert _accounts(session)[ADDR_B][0] == 400
@@ -355,7 +355,7 @@ class TestRevert:
                 )
             )
 
-        self._journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
+        _journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
         with session_factory() as session:
             ours = session.exec(select(Block).where(Block.height == 1)).one()
             anc = session.exec(select(Block).where(Block.height == 0)).one()
@@ -391,7 +391,7 @@ class TestRevert:
                 {"b": 42, "chain_id": CHAIN, "address": ADDR_A},
             )
 
-        self._journaled_block(session_factory, 1, ancestor, apply)
+        _journaled_block(session_factory, 1, ancestor, apply)
         # Corrupt the journal: the recorded before-image no longer matches the
         # true pre-block state, so the revert must fail the root check.
         with session_factory() as session:
@@ -539,3 +539,226 @@ class TestResolverUndoIntegration:
             assert session.exec(select(Block).where(Block.height == 4)).first() is not None
             assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 4)).all() != []
             assert _accounts(session) == {ADDR_A: (900, 0)}  # untouched
+
+
+class TestSideTableDigest:
+    """The ``__digest__`` meta row extends the revert proof beyond ``account``:
+    each side table a block touches is hashed pre-apply and re-verified
+    post-revert. A missed capture inside an observed table, or a replayed
+    before-image that restores wrong values, fails closed."""
+
+    def _param_block(self, session_factory, ancestor, apply_fn) -> dict[str, Any]:
+        return _journaled_block(session_factory, 1, ancestor, apply_fn, tx_count=1)
+
+    def test_meta_row_records_touched_tables(self, session_factory):
+        ancestor = _seed(session_factory, 1)[0]
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+
+        self._param_block(session_factory, ancestor, apply)
+        with session_factory() as session:
+            meta = session.exec(select(BlockStateDelta).where(BlockStateDelta.table_name == "__digest__")).one()
+            recorded = json.loads(meta.before_json)
+            assert recorded["pre_digest"]["chain_parameter"]
+            # Structural tables are never digested.
+            assert "block" not in recorded["pre_digest"]
+            assert "transaction" not in recorded["pre_digest"]
+            assert "account" not in recorded["pre_digest"]
+
+    def test_missed_side_table_capture_fails_closed(self, session_factory):
+        """Simulate a capture gap the sentinel did not flag: the ins row for a
+        side table is deleted from the journal, so undo leaves the row behind —
+        the digest mismatch refuses the revert."""
+        ancestor = _seed(session_factory, 1)[0]
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+
+        self._param_block(session_factory, ancestor, apply)
+        with session_factory() as session:
+            ins = session.exec(
+                select(BlockStateDelta).where(BlockStateDelta.table_name == "chain_parameter", BlockStateDelta.op == "ins")
+            ).one()
+            session.delete(ins)
+            session.commit()
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            assert revert_losing_segment(session, CHAIN, [ours], anc, _provably_empty_for(session_factory)) is None
+            session.rollback()
+        with session_factory() as session:
+            assert session.exec(select(ChainParameter)).all() != []  # nothing partially reverted
+
+    def test_tampered_side_table_before_image_fails(self, session_factory):
+        """A wrong before-image on a side table passes the account-root check
+        but not the table digest — the revert refuses."""
+        ancestor = _seed(session_factory, 1)[0]
+        with session_factory() as session:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+            session.commit()
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            row = session.exec(
+                select(ChainParameter).where(ChainParameter.chain_id == CHAIN, ChainParameter.parameter == "p")
+            ).one()
+            row.value = "v1"
+
+        self._param_block(session_factory, ancestor, apply)
+        with session_factory() as session:
+            upd = session.exec(
+                select(BlockStateDelta).where(BlockStateDelta.table_name == "chain_parameter", BlockStateDelta.op == "upd")
+            ).one()
+            before = json.loads(upd.before_json)
+            before["value"] = "v-corrupted"
+            upd.before_json = json.dumps(before)
+            session.commit()
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            assert revert_losing_segment(session, CHAIN, [ours], anc, _provably_empty_for(session_factory)) is None
+            session.rollback()
+        with session_factory() as session:
+            row = session.exec(select(ChainParameter).where(ChainParameter.parameter == "p")).one()
+            assert row.value == "v1"  # block's post-state preserved — no partial revert
+
+    def test_missing_meta_row_tolerated(self, session_factory):
+        """Pre-feature journals carry no __digest__ row: the account-root check
+        still gates them and a clean revert is allowed."""
+        ancestor = _seed(session_factory, 1)[0]
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+
+        self._param_block(session_factory, ancestor, apply)
+        with session_factory() as session:
+            meta = session.exec(select(BlockStateDelta).where(BlockStateDelta.table_name == "__digest__")).one()
+            session.delete(meta)
+            session.commit()
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            assert revert_losing_segment(session, CHAIN, [ours], anc, _provably_empty_for(session_factory)) == []
+            session.commit()
+        with session_factory() as session:
+            assert session.exec(select(ChainParameter)).all() == []
+
+
+class TestDomainRowOrphaning:
+    """stake / agent_stake / bounty_contract rows are written by RPC handlers at
+    queue time — outside the block journal. When their confirming lock tx is
+    lost in a reorg the rows must be marked orphaned, not left 'active'."""
+
+    class _RejectingMempool:
+        def add(self, *args, **kwargs):
+            raise ValueError("admission rejected")
+
+    def _requeue(self, session_factory, monkeypatch, payloads):
+        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: self._RejectingMempool())
+        return requeue_orphaned_transactions(CHAIN, payloads, session_factory)
+
+    def test_lost_stake_lock_orphans_stake_row(self, session_factory, monkeypatch):
+        with session_factory() as session:
+            stake = Stake(
+                chain_id=CHAIN,
+                address=ADDR_A,
+                amount=4000,
+                locked_until=datetime.now(UTC) + timedelta(days=30),
+                status="active",
+            )
+            session.add(stake)
+            session.commit()
+            session.refresh(stake)
+            stake_id = stake.id
+
+        tx = {
+            "tx_hash": "0x" + "55" * 32,
+            "type": "STAKE_LOCK",
+            "from": ADDR_A,
+            "payload": {"stake_id": str(stake_id), "lock_days": 30},
+        }
+        requeued = self._requeue(session_factory, monkeypatch, [tx])
+
+        assert requeued == 0
+        assert metrics_registry._counters.get("sync_fork_orphaned_tx_lost_total") == 1.0
+        assert metrics_registry._counters.get("sync_fork_domain_rows_orphaned_total") == 1.0
+        with session_factory() as session:
+            assert session.get(Stake, stake_id).status == "orphaned"
+
+    def test_agent_stake_with_surviving_lock_stays_active(self, session_factory, monkeypatch):
+        """Another confirmed STAKE_LOCK referencing the same record keeps it
+        active — only a record with zero surviving locks is orphaned."""
+        with session_factory() as session:
+            session.add(
+                AgentStakeRecord(
+                    chain_id=CHAIN,
+                    stake_id="ag-1",
+                    staker_address=ADDR_A,
+                    agent_wallet=ADDR_B,
+                    amount=4000,
+                    lock_period=30,
+                    locked_until=datetime.now(UTC) + timedelta(days=30),
+                    status="active",
+                )
+            )
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash="0x" + "66" * 32,
+                    block_height=3,
+                    sender=ADDR_A,
+                    recipient=ADDR_B,
+                    payload={"agent_stake_id": "ag-1"},
+                    type="STAKE_LOCK",
+                    value=4000,
+                    fee=0,
+                    nonce=0,
+                    status="confirmed",
+                )
+            )
+            session.commit()
+
+        tx = {
+            "tx_hash": "0x" + "77" * 32,
+            "type": "STAKE_LOCK",
+            "from": ADDR_A,
+            "payload": {"agent_stake_id": "ag-1"},
+        }
+        self._requeue(session_factory, monkeypatch, [tx])
+
+        assert metrics_registry._counters.get("sync_fork_orphaned_tx_lost_total") == 1.0
+        assert metrics_registry._counters.get("sync_fork_domain_rows_orphaned_total") is None
+        with session_factory() as session:
+            row = session.exec(select(AgentStakeRecord).where(AgentStakeRecord.stake_id == "ag-1")).one()
+            assert row.status == "active"
+
+    def test_lost_bounty_lock_orphans_contract(self, session_factory, monkeypatch):
+        with session_factory() as session:
+            session.add(
+                BountyContract(
+                    chain_id=CHAIN,
+                    bounty_id="b-9",
+                    creator_address=ADDR_A,
+                    reward_amount=6000,
+                    remaining_amount=6000,
+                    status="active",
+                )
+            )
+            session.commit()
+
+        tx = {
+            "tx_hash": "0x" + "88" * 32,
+            "type": "BOUNTY_LOCK",
+            "from": ADDR_A,
+            "payload": {"bounty_id": "b-9"},
+        }
+        self._requeue(session_factory, monkeypatch, [tx])
+
+        assert metrics_registry._counters.get("sync_fork_domain_rows_orphaned_total") == 1.0
+        with session_factory() as session:
+            row = session.exec(select(BountyContract).where(BountyContract.bounty_id == "b-9")).one()
+            assert row.status == "orphaned"
