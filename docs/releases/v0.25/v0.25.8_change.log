@@ -1061,3 +1061,20 @@ from this changelog and `fleet-config-check.sh` comments (the script
 itself is already parameterised via `AITBC_FLEET_HOSTS`/`AITBC_FLEET_DOMAIN`).
 `test_coin_request_rate_limit.py` fixture IPs moved to the RFC 5737
 `192.0.2.x` documentation range.
+
+## 2026-09-28 — consensus replay hardening (signature gate + historical fixture)
+
+- `compute_state_delta` signature verification is now gated to `block_version >= 7`. The v2-v6 parallel era rewrote same-sender nonces before delta computation, so a signature carried in from that era would have been checked against the rewritten nonce — failing a block that applied fine historically. `a3ef90501`
+- New `test_historical_replay.py` fixture replays one block per era (v5 same-sender pair through the parallel path, v5 bridge credit, v7 GPU_REGISTER, v8 stamp) via the real import path with frozen state roots. Run against the ungated code it reproduced the exact predicted failure (Invalid signature on the rewritten tx2, state-root mismatch, block rejected).
+- New `scripts/ops/replay-chain.py`: replays a chain-db snapshot through `ChainSync.bulk_import_from` over a stub HTTP source (`/rpc/head`, `/rpc/blocks-range`), reporting the first divergent height. Multi-validator attestation/schedule gates are disabled for historical replay (validator set rotated since); proposer-signature and state-root checks stay on. Full hub-snapshot replay currently blocks on reconstructing the exact height-0 account set behind root `0x448a...` — a data-provenance gap, not a code failure.
+- Fork undo now drops `account_balance:{chain}:{addr}` / `account_details:{chain}:{addr}` Redis keys for every account the journal touched, committed post-revert in the resolver path — RPC can no longer serve losing-branch balances for the cache TTL. `c18bcc5f5`
+
+### Finding — genesis bootstrap is stale fleet-wide
+
+Every live `genesis.json` describes an older genesis (`0x40ea48f9...`), not the
+running chain (`0xd95e600b...`), and `/rpc/genesis_allocations` returns
+"metadata not found" because block 0 embeds no allocations. A fresh node
+cannot bootstrap from genesis today — all current nodes were joined via DB
+snapshots. The exact height-0 allocation set producing recorded root
+`0x448a...` was overwritten during the Sep-9 reset run; reconstructing it is
+the remaining prerequisite for full-history hub replay.
