@@ -809,3 +809,31 @@ briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
     is present in the canonical `0xaeacc3a8` block at 25885 on hub1 and
     node2 — the majority mempool held it pre-partition. No resubmission
     needed.
+  - **Delta-journal hardening (`7746c02fc3`).** Non-empty fork-segment
+    undo is now fail-closed: an unresolved insert pk, unrecognised DML on a
+    chain table (Core update/delete, query().update, bulk_*, raw SQL beyond
+    the account-PK form, INSERT OR IGNORE/REPLACE upserts), or a mid-apply
+    transaction boundary stamps an `incomplete` sentinel and
+    `revert_losing_segment` refuses the block — the resolver escalates
+    instead of partially reverting. `Transaction` gained an `envelope`
+    column (auto-migrated) carrying the full signed transaction, so orphaned
+    transactions requeue through real mempool admission; the sync export/
+    import path preserves it. Orphans that fail requeue and are absent from
+    the winning branch log a WARNING and count
+    `sync_fork_orphaned_tx_lost_total` — the new `ForkOrphanedTxLost` alert
+    (critical, same path as ForkReorgUnsafe). Delta pruning now runs every
+    64th persist. Differential tests
+    (`tests/test_block_deltas_differential.py`, 13 cases) snapshot every
+    chain table around apply+revert for TRANSFER, GPU_MARKET variants,
+    GPU_REGISTER, ESCROW lock/release/refund, BRIDGE lock/release/refund,
+    BOND lock/release/slash and GOVERNANCE_EXECUTE — byte-identical restore
+    in all families. `sync_fork_undo_enabled` (env SYNC_FORK_UNDO_ENABLED)
+    gates non-empty undo, default on. AGENTS.md documents that the
+    delta-sync fast path is not journaled and fails closed on later undo.
+  - **Coordinator metrics exposition fix (`ffd7eedaef`).** The
+    agent-coordinator `/v1/metrics` endpoint emitted unquoted label values
+    (`method=GET`), which is invalid Prometheus text — every scrape errored,
+    which is why the FaucetBudgetTripped rule was inert. Label values are
+    now quoted/escaped. Hub's Prometheus scrapes
+    `localhost:8107/v1/metrics` and evaluates the full ruleset (all five
+    nodes' rules files synced — 14 rules including ForkOrphanedTxLost).
