@@ -38,6 +38,7 @@ from .bridge_credit import (
     verify_bridge_credit_signature,
 )
 from .gpu_resources import GPUAllocation, GPURegistration
+from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from .liquidity_transition import (
     apply_liquidity_claim,
     apply_liquidity_deposit,
@@ -540,6 +541,9 @@ def get_block_version_for_height(height: int) -> int:
     metadata. It is used by the proposer to determine which version to stamp into
     the block it is about to build.
     """
+    v9_threshold = getattr(settings, "state_transition_v9_height", None)
+    if v9_threshold and height >= v9_threshold:
+        return 9
     v8_threshold = getattr(settings, "state_transition_v8_height", 0)
     if v8_threshold > 0 and height >= v8_threshold:
         return 8
@@ -1000,6 +1004,20 @@ class StateTransition:
         if signature and sender_addr:
             if not verify_transaction_signature(tx_data, signature, sender_addr):
                 return (False, f"Invalid signature for transaction {tx_hash}")
+        v9_reason = v9_signature_verdict(tx_data, tx_type)
+        if v9_reason is not None:
+            count_v9_would_reject(v9_reason, tx_type)
+            if block_version >= 9:
+                return (
+                    False,
+                    f"v9 signature rule: {v9_reason} for {tx_type} transaction {tx_hash}",
+                )
+            logger.warning(
+                "v9 shadow: unsigned %s tx %s would be rejected (%s)",
+                tx_type,
+                tx_hash,
+                v9_reason,
+            )
         if tx_type in ("STAKE_LOCK", "STAKE_RELEASE", "BOUNTY_LOCK", "BOUNTY_PAYOUT", "BOUNTY_REFUND"):
             auth = (tx_data.get("payload") or {}).get("auth")
             if auth is not None and not self._verify_payload_auth(tx_type, auth, tx_data):
