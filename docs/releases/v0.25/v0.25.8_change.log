@@ -1036,3 +1036,16 @@ public cloners (and dead weight on node checkouts, where no Devin sessions
 run). Untracked the whole tree; `.gitignore` now covers `.devin/`
 superseding the narrower `*.local.json` rule. Local copies stay in the IDE
 checkout; the tea skill moved to `~/.config/devin/skills/` for global use.
+
+## 2026-09-28 — AGENTS.md is now cloner-facing
+
+The repo `AGENTS.md` was rewritten from a 761-line operator workspace guide
+into a ~125-line contributor/agent guide: repo layout, node deployment
+entry points (`setup.sh`, `--open-island`), env-file and venv conventions,
+development workflow (pre-commit, mypy/ruff/pytest, changelog tooling,
+shell-script conventions), both contract test suites, and the MCP server.
+All fleet-internal sections — gitea topology, sshfs, validator key layout
+and rejoin runbook, faucet budgets, shell/SSH environment wiring, tea CLI —
+moved to the operator's private workspace guide (`AGENTS/` detail files in
+the IDE checkout). Fixes the always-on-rule injection truncating the file
+mid-load.
