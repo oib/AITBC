@@ -1351,3 +1351,61 @@ periodic state sync.
   is therefore added to the key split: a new key switched in through the
   height-scoped bridge_release_authority parameter, alongside
   escrow_settlement_authority.
+
+### v9 canary batch 2 (post-incident, 2026-09-28 ~23:10–23:35 UTC) — escrow, bridge lock, governance
+
+First batch after the incident-27207 fix deployed fleet-wide (f5f473f12);
+the v9 shadow window restarts with this batch. All canaries from wallet
+canary9 = 0xF4924759508E420eeD947BD33326731B11c4B7Df on node2 through the
+normal client/RPC flows, one at a time, sealed before the next.
+
+| height | type | tx_hash prefix | path |
+|---|---|---|---|
+| 27246 | ESCROW_LOCK | 0xbcdb7cc366d1 | `aitbc market escrow create` → POST /rpc/escrow/create (buyer-signed lock; escrow `to` = hub proposer 0x02B8) |
+| 27247 | ESCROW_RELEASE | 0x120dc91a0e31 | `aitbc market escrow release` → POST /rpc/escrow/<job>/release (RPC-side release signature via ESCROW_RELEASE_PRIVATE_KEY) |
+| 27251 | BRIDGE_LOCK | 0x6360b047078d | `aitbc crosschain bridge --target-chain ait-shop-island.aitbc.bubuit.net` (same target as the 4 historical locks) → POST /rpc/cross-chain/bridge |
+| 27262 | GOVERNANCE_PROPOSE | 0x77f399ebe54e | `aitbc governance propose` → governance service relays client-signed tx |
+| 27263 | GOVERNANCE_VOTE | 0x2e4f96d1b7d9 | `aitbc governance vote` → same relay |
+
+Wedge watch after every seal: MAX(height)/hash/state_root identical on all
+five; zero diverged / BLOCK REJECTED / state sync refused / rolled back
+journal lines. Served-body verification on node0 AND node1 covering
+27203→27263: signed_ok=12, signed_fail=0, unsigned=1 (the BRIDGE_LOCK —
+user-unsigned is allowlisted; its bridge_signature checks separately).
+
+BRIDGE_LOCK detail: sealed row's stored envelope carries bridge_signature
+0x3c40dbca…01; verify_bridge_lock_signature(envelope, tx_hash,
+0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B) → True on node1. The
+confirm/proof step: GET /rpc/bridge/transfer/<id>/proof returned a proof;
+POST /rpc/bridge/confirm was rejected 400 — first "Insufficient finality:
+0/6" until the lock had 6 confirmations (~27257), then "Threshold not met:
+1/6 valid signers (need 2)" — the bridge block header at 27251 is signed
+only by the proposer, so the multi-sig threshold cannot be met on this
+topology. Transfer stays status=locked; nothing moved to any target chain
+(no real ETH involved).
+
+FINDING — v9 shadow false positive on the new BRIDGE_LOCK: all four
+followers logged "v9 shadow: BRIDGE_LOCK tx 0x6360b047… lacks a valid
+bridge_signature" at apply (pure_state_transition) and incremented
+v9_would_reject_bridge_lock_unsigned_total=1 / v9_would_reject_total=1.
+hub (the proposer) did not count it. The sealed envelope's
+bridge_signature verifies True against the bridge authority, so the
+apply-time body the shadow check evaluates evidently differs from the
+stored/served envelope (signature missing or re-serialised before the
+check). Under enforcement this block would have been refused. Needs
+investigation before v9 pinning; the shadow counter is doing its job.
+
+Ops notes (host config, not committed):
+- hub /etc/aitbc/blockchain.env BRIDGE_SUPPORTED_CHAINS gained
+  ait-shop-island.aitbc.bubuit.net (the historical target chain); rpc
+  restarted only.
+- node2 /etc/aitbc/aitbc-governance.env gained
+  GOVERNANCE_ENABLE_ONCHAIN_SUBMISSION=true and
+  GOVERNANCE_DEFAULT_CHAIN_ID=ait-hub.aitbc.bubuit.net to match hub — the
+  client-signed relay was a no-op with defaults; service restarted.
+- cli fix in this commit: market escrow create passed no chain_id, so the
+  signed ESCROW_LOCK always carried "ait-localnet" and the chain refused
+  it; now uses get_chain_id() like the jobs flow.
+- The first off-chain proposal prop_c4975d84 / prop_66e728a7 never reached
+  the chain (submission disabled, then chain_id mismatch) — inert rows in
+  the governance service DB only.
