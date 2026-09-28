@@ -26,6 +26,7 @@ from aitbc_chain.metrics import metrics_registry
 from aitbc_chain.state.block_deltas import (
     BlockDeltaJournal,
     has_journal,
+    journal_status,
     revert_losing_segment,
 )
 from aitbc_chain.state.state_root_utils import compute_state_root_full
@@ -223,16 +224,20 @@ class TestJournalCapture:
         upd = next(r for r in rows if r.op == "upd")
         assert upd.before_json is None  # undo = delete
 
-    def test_unjournaled_account_write_is_not_mistaken_for_capture(self, session_factory):
-        """A raw write outside the account-PK pattern is skipped (and any miss
-        would surface as a state-root mismatch at revert — fail closed)."""
+    def test_unhandled_raw_write_marks_journal_incomplete(self, session_factory):
+        """A raw write to a chain table outside the captured account-PK form
+        stamps the incomplete sentinel — the journal refuses to vouch for the
+        block rather than silently missing the write."""
         with session_factory() as session:
             j = BlockDeltaJournal.attach(session, CHAIN, 3)
             session.execute(text("UPDATE block SET tx_count = 0 WHERE height = -1"))
             j.persist(session)
             session.commit()
         with session_factory() as session:
-            assert session.exec(select(BlockStateDelta)).all() == []
+            rows = session.exec(select(BlockStateDelta)).all()
+            assert len(rows) == 1
+            assert rows[0].op == "incomplete" and rows[0].table_name == "__journal__"
+            assert journal_status(session, CHAIN, 3) == "incomplete"
 
 
 class TestRevert:
@@ -328,6 +333,39 @@ class TestRevert:
         with session_factory() as session:
             assert session.exec(select(Block).where(Block.height == 1)).first() is not None
 
+    def test_incomplete_journal_blocks_revert(self, session_factory):
+        """An incomplete sentinel makes revert_losing_segment return None for a
+        non-empty block — the resolver escalates instead of partially undoing."""
+        ancestor = _seed(session_factory, 1)[0]
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            _add_account(session, ADDR_A, 100)
+            session.execute(text("UPDATE block SET tx_count = 0 WHERE height = -1"))
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash="0x" + "33" * 32,
+                    sender=ADDR_A,
+                    recipient=ADDR_B,
+                    block_height=1,
+                    value=1,
+                    fee=1,
+                    status="confirmed",
+                )
+            )
+
+        self._journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            assert revert_losing_segment(session, CHAIN, [ours], anc, _provably_empty_for(session_factory)) is None
+            session.rollback()
+        # The block and its rows survive — escalation path, no partial revert.
+        with session_factory() as session:
+            assert session.exec(select(Block).where(Block.height == 1)).first() is not None
+            assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 1)).all() != []
+
     def test_revert_unjournaled_provably_empty_block_ok(self, session_factory):
         ancestor = _seed(session_factory, 1)[0]
         losing = _mk_block(1, ancestor["hash"], T0 + timedelta(seconds=60))
@@ -372,6 +410,10 @@ class TestRevert:
 
 class TestResolverUndoIntegration:
     """_resolve_fork_with_peer with a journaled non-empty losing segment."""
+
+    @pytest.fixture(autouse=True)
+    def _undo_enabled(self, monkeypatch):
+        monkeypatch.setattr(sync_settings, "sync_fork_undo_enabled", True)
 
     async def test_nonempty_journaled_segment_reverts_and_wins(self, session_factory, monkeypatch):
         blocks = _seed(session_factory, 4)
@@ -436,3 +478,64 @@ class TestResolverUndoIntegration:
             assert session.exec(select(Block).where(Block.height == 4)).first() is None
             assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 4)).all() == []
             assert _accounts(session) == {}  # the journaled account insert undone
+
+    async def test_nonempty_segment_escalates_when_undo_disabled(self, session_factory, monkeypatch):
+        """Flag off: a non-empty losing segment must NOT be reverted — the
+        resolver refuses and counts sync_fork_reorg_unsafe_total."""
+        monkeypatch.setattr(sync_settings, "sync_fork_undo_enabled", False)
+        blocks = _seed(session_factory, 4)
+        with session_factory() as session:
+            empty_root = compute_state_root_full(session, CHAIN)
+            for b in session.exec(select(Block)).all():
+                b.state_root = empty_root
+            session.commit()
+
+        ours4 = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=160), tx_count=1)
+        with session_factory() as session:
+            j = BlockDeltaJournal.attach(session, CHAIN, 4)
+            session.add(
+                Block(
+                    chain_id=CHAIN,
+                    height=4,
+                    hash=ours4["hash"],
+                    parent_hash=ours4["parent_hash"],
+                    proposer=ours4["proposer"],
+                    timestamp=datetime.fromisoformat(ours4["timestamp"]),
+                    tx_count=1,
+                    state_root=ours4["state_root"],
+                )
+            )
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash="0x" + "44" * 32,
+                    sender=ADDR_A,
+                    recipient=ADDR_B,
+                    block_height=4,
+                    value=5,
+                    fee=1,
+                    status="confirmed",
+                )
+            )
+            _add_account(session, ADDR_A, 900)
+            j.persist(session)
+            session.commit()
+
+        peer: dict[int, dict[str, Any]] = {b["height"]: b for b in blocks}
+        peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="p4")
+        peer[5] = _mk_block(5, peer[4]["hash"], T0 + timedelta(seconds=125), hash_salt="p5")
+
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        async def fake_fetch(start, end, source_url):
+            return [peer[start]] if start in peer else []
+
+        monkeypatch.setattr(sync, "fetch_blocks_range", fake_fetch)
+        assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=5) is False
+        assert metrics_registry._counters.get("sync_fork_reorg_unsafe_total") == 1.0
+        assert metrics_registry._counters.get("sync_fork_reorg_undone_total") is None
+
+        with session_factory() as session:
+            assert session.exec(select(Block).where(Block.height == 4)).first() is not None
+            assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 4)).all() != []
+            assert _accounts(session) == {ADDR_A: (900, 0)}  # untouched
