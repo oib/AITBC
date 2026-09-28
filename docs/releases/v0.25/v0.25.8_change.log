@@ -317,7 +317,7 @@ The published `FOLLOWER_API_KEY` legitimately reaches `POST /api/v1/agent/coin-r
 
 Follow-up to the faucet review, all operational (no code change):
 
-- `X-Real-IP` spoofing: both TLS edges (`ns2` fronting hub, `ns3` fronting hub1) set `X-Real-IP $remote_addr` and hub/hub1 nginx only trust their own incus bridge in `set_real_ip_from`. Verified from outside: 34 valid-body `POST /register` calls with 34 distinct forged `X-Real-IP` values → 429 from request 31. The per-IP limit is not bypassable via the header.
+- `X-Real-IP` spoofing: both TLS edges (one fronting hub, one fronting hub1) set `X-Real-IP $remote_addr` and hub/hub1 nginx only trust their own edge subnet in `set_real_ip_from`. Verified from outside: 34 valid-body `POST /register` calls with 34 distinct forged `X-Real-IP` values → 429 from request 31. The per-IP limit is not bypassable via the header.
 - Dual-hub budget: hub1 runs its own agent-coordinator with a separate `coin_requests` DB and holds the genesis key, so its faucet doubled the fleet-wide daily cap to 120 AIT. hub1's `/etc/aitbc/aitbc-agent-coordinator.env` now sets `COIN_REQUEST_AUTO_BUDGET_PER_HOUR=0`; verified a live registration there returns `pending` / "hourly budget is exhausted". Fleet-wide automatic budget is the intended 24/60 AIT again.
 - Probe rows: the hub end-to-end test row `budget-probe-0` (1 unit, `automatic/APPROVED`, never executed — `transaction_hash IS NULL`, nothing paid) and the hub1 park-probe row were deleted. Both DBs are back to their pre-review grant totals (hub: 7 automatic approved, 14400000300 units).
 - AGENTS.md gains an agent-coordinator faucet section recording the trust chain, the hub1 override, and the probe-row rule.
@@ -379,7 +379,7 @@ Verified after each restart: `Initializing gossip backend: mesh` with four peers
 dev host node0/1/2 resolved nowhere and every run ended `DRIFT DETECTED`.
 Each host now tries the LAN endpoint first (when `NODE*_HOST` is set) then
 `https://<host>.<domain>/rpc/status`. LAN first because a node cannot reach
-its own vhost through the public edge (at1 has no hairpin), so `public-only`
+its own vhost through the public edge (the container host has no hairpin NAT), so `public-only`
 would break runs from a fleet node.
 
 
@@ -634,7 +634,7 @@ New metric `sync_fork_invalid_rival_total`. 17 fork-choice tests +
 Fleet nginx edge audit found four live defects; all fixed and verified:
 
 - **node0 had no `real_ip` config** — external clients appeared as the edge
-  IP `10.1.223.1`, breaking per-IP rate limits and client logging. Added
+  IP, breaking per-IP rate limits and client logging. Added
   `set_real_ip_from` + `real_ip_header X-Forwarded-For` (non-recursive: the
   last XFF element is edge-appended and trustworthy; recursion would honour
   client-injected entries). Verified: request from hub logs `152.53.242.245`.
@@ -646,9 +646,9 @@ Fleet nginx edge audit found four live defects; all fixed and verified:
 - **hub1 edge catch-all could not WS-upgrade** — missing
   `proxy_http_version 1.1` + Upgrade headers degraded non-whitelisted WS
   paths to HTTP/1.0. Fixed.
-- **Cleanups:** stale `set_real_ip_from 10.1.223.1` + orphaned
+- **Cleanups:** a stale `set_real_ip_from <lan-gateway>` + orphaned
   `real_ip_recursive` removed from hub's nginx.conf (leftover from hub's
-  pre-netcup placement); node1's `aitbc_backend` upstream dropped its
+  earlier hosting placement); node1's `aitbc_backend` upstream dropped its
   duplicate member (LAN IP == same process as loopback); `/etc/nginx`
   backup litter on hub/hub1/node2 archived to
   `/root/nginx-conf-archive-20260927/` per host.
@@ -706,11 +706,11 @@ All three examples pass `nginx -t` on node2 (placeholders substituted,
 
 Fleet-side cleanup of the five items flagged in the edge analysis:
 
-- **hub2 cert deleted** — `certbot delete hub2.aitbc.bubuit.net` on ns2 (DNS
+- **hub2 cert deleted** — `certbot delete` for the retired `hub2` hostname on the TLS edge (DNS
   dead, zero vhost references); dead `server_name` removed from hub's inner
   vhost.
 - **`map $http_upgrade $connection_upgrade` everywhere** — new
-  `conf.d/websocket-upgrade-map.conf` on ns2/ns3 (IDE host already had the
+  `conf.d/websocket-upgrade-map.conf` on both public TLS edges (the IDE host already had the
   map in nginx.conf; hub1's container got `conf.d/websocket-upgrade.conf`
   matching hub's); all 19 `Connection "upgrade"` literals across the edge
   vhosts converted to `$connection_upgrade` so plain requests no longer
@@ -1049,3 +1049,15 @@ and rejoin runbook, faucet budgets, shell/SSH environment wiring, tea CLI —
 moved to the operator's private workspace guide (`AGENTS/` detail files in
 the IDE checkout). Fixes the always-on-rule injection truncating the file
 mid-load.
+
+## 2026-09-28 — fleet-detail scrub, guard test green again
+
+`tests/security/test_no_fleet_details_are_published.py` had accumulated
+violations and is green again. `scripts/multi-node/partition-fork-test.sh`
+hardcoded the operator fleet's hostnames/IPs and was removed from the repo
+(operator tooling, kept in the private workbench). Scrubbed the stray
+`at1`/`ns2`/`ns3`/`netcup` tokens, the retired-hub FQDN, and LAN addresses
+from this changelog and `fleet-config-check.sh` comments (the script
+itself is already parameterised via `AITBC_FLEET_HOSTS`/`AITBC_FLEET_DOMAIN`).
+`test_coin_request_rate_limit.py` fixture IPs moved to the RFC 5737
+`192.0.2.x` documentation range.
