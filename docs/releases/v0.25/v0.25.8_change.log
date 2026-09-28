@@ -936,3 +936,29 @@ mutators, useless to cloners:
 
 `deployments.json`/`aitbc-cascade`/`bridge-sepolia`, the Grafana dashboard
 export, all CI baselines, and dev key generators stay.
+  - **Nonce/signature enforcement on all apply paths (9b8d5b53e).**
+    Correction to the earlier entry: the proposer-side nonce rewrite was
+    not a live proposer-vs-follower divergence — the follower applies the
+    same rewrite, and the sequential path's signature check pins the
+    signed nonce anyway. The real findings were: the tx_nonce ==
+    account.nonce check was a tautology on every path (the rewrite ran
+    before validation), and the pure/parallel paths skipped signature
+    verification for regular txs entirely, so there the rewrite was the
+    only thing a wrong-nonce signed tx would hit. compute_state_delta now
+    verifies a present signature (unsigned internal txs still skip);
+    use_account_nonce_override limits the rewrite to v<7 replay
+    (parallel-proposal era could seal same-sender pairs sharing one
+    stored nonce) and unsigned txs, so at v7+ a signed tx's envelope
+    nonce is authoritative and the nonce check is real; wrong-nonce txs
+    now fail "Invalid nonce" instead of the misleading "Invalid
+    signature" (same skip outcome). Parallel gates widened from
+    block_version in (2..6) to 2<=v<=8 — the flag has been set
+    fleet-wide but dormant since v7; v7/v8 add no apply rules for the
+    types the pure path handles (v7's GPU_REGISTER gate is
+    sequential-only), and the upper bound is explicit so a future version
+    defaults to sequential until audited. Live-verified on hub: three
+    same-sender txs signed nonce 70/71/72 confirmed in order at
+    26757/26758/26759 — a tx whose nonce was not yet next was skipped
+    from that block's drain (correct "Invalid nonce" log), stayed in
+    peer mempools, and landed the next round; fleet converged
+    hash-identical.
