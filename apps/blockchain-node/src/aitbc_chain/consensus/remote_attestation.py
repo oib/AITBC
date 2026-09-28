@@ -317,10 +317,29 @@ class RemoteAttestationService:
                         if not sender:
                             return "missing_sender"
                         return "missing_signature"
+                    # Bridge-issued internals are exempt from the *sender*
+                    # signature only because the bridge authority's signature
+                    # replaces it — attest to neither exemption without it.
+                    if tx_type in {"BRIDGE_LOCK", "BRIDGE_RELEASE", "BRIDGE_REFUND"}:
+                        from ..state.bridge_credit import (
+                            bridge_credit_signature,
+                            verify_bridge_credit_signature,
+                            verify_bridge_lock_signature,
+                        )
+                        from ..state.state_transition import _bridge_release_authority
+
+                        authority = _bridge_release_authority(session, self._chain_id, height)
+                        if not authority:
+                            return "bridge_authority_unset"
+                        if not bridge_credit_signature(tx):
+                            return "bridge_signature_missing"
+                        verify = verify_bridge_lock_signature if tx_type == "BRIDGE_LOCK" else verify_bridge_credit_signature
+                        if not verify(tx, declared_hash, authority):
+                            return "bridge_signature_invalid"
                     # Nonce ordering: signed txs must arrive in account-nonce
                     # order. Unsigned internal txs carry a placeholder nonce
                     # rewritten at seal time, but they still increment the
-                    # sender nonce at apply (BRIDGE_LOCK, MESSAGE) — the
+                    # sender nonce at apply (BRIDGE_LOCK) — the
                     # counter must advance past them or a same-sender signed
                     # tx later in the block would read as out of order.
                     if sender:

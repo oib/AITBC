@@ -356,6 +356,17 @@ class BlockImportMixin(SyncBase):
             normalized = []
             for raw_tx in transactions:
                 norm = dict(raw_tx)
+                # Hoist a nested envelope: a peer serving a row stored before
+                # the fix can send a column dump with an empty top-level
+                # signature and the real signed envelope under "envelope".
+                # Without this the import stores and re-serves an unsigned tx
+                # — and a signature that exists anywhere must never end up "".
+                nested = norm.get("envelope")
+                if not norm.get("signature") and isinstance(nested, dict) and nested.get("signature"):
+                    kept_hash = norm.get("tx_hash")
+                    norm = dict(nested)
+                    if kept_hash:
+                        norm["tx_hash"] = kept_hash
                 if "from" not in norm and "sender" in norm:
                     norm["from"] = norm["sender"]
                 if "to" not in norm and "recipient" in norm:

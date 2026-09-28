@@ -16,7 +16,7 @@ from typing import Any
 
 import pytest
 from aitbc.crypto.crypto import derive_ethereum_address
-from aitbc_chain.base_models import Account, Block
+from aitbc_chain.base_models import Account, Block, ChainParameter
 from aitbc_chain.config import settings
 from aitbc_chain.metadata import chain_metadata
 from aitbc_chain.metrics import metrics_registry
@@ -30,8 +30,10 @@ T0 = datetime(2026, 1, 1, tzinfo=UTC)
 
 KEY_VICTIM = "0x" + "aa" * 32
 KEY_ATTACKER = "0x" + "bb" * 32
+KEY_BRIDGE_AUTH = "0x" + "dd" * 32
 ADDR_VICTIM = derive_ethereum_address(KEY_VICTIM)
 ADDR_ATTACKER = derive_ethereum_address(KEY_ATTACKER)
+ADDR_BRIDGE_AUTH = derive_ethereum_address(KEY_BRIDGE_AUTH)
 
 
 @pytest.fixture()
@@ -76,6 +78,28 @@ def _seed_genesis(session_factory, victim_balance: int = 10**9) -> None:
         genesis = session.exec(select(Block).where(Block.chain_id == CHAIN, Block.height == 0)).one()
         genesis.state_root = compute_state_root_full(session, CHAIN)
         session.commit()
+
+
+def _seed_bridge_authority(session_factory) -> None:
+    """On-chain bridge_release_authority (applied_height NULL → in force at
+    every height), so v9 lock/credit signature checks resolve it."""
+    with session_factory() as session:
+        session.add(ChainParameter(chain_id=CHAIN, parameter="bridge_release_authority", value=ADDR_BRIDGE_AUTH))
+
+
+def _signed_bridge_lock(tx_hash: str = "0x" + "ee" * 32) -> dict[str, Any]:
+    """A BRIDGE_LOCK as the v9 bridge service issues it: no sender signature,
+    the bridge authority's bridge_signature at top level."""
+    from aitbc_chain.state.bridge_credit import sign_bridge_lock
+
+    lock = _unsigned_served_tx(
+        to="bridge_lock",
+        type="BRIDGE_LOCK",
+        tx_hash=tx_hash,
+        payload={"transfer_id": "t1", "target_chain": "other", "target_recipient": ADDR_ATTACKER},
+    )
+    lock["bridge_signature"] = sign_bridge_lock(lock, tx_hash, KEY_BRIDGE_AUTH)
+    return lock
 
 
 def _content_hash(tx: dict[str, Any]) -> str:
@@ -198,9 +222,43 @@ class TestV9ApplyGate:
             victim = session.get(Account, (CHAIN, ADDR_VICTIM))
             assert victim is not None and victim.balance == 10**9
 
-    def test_v9_unsigned_bridge_lock_allowed(self, session_factory):
-        """BRIDGE_LOCK is allowlisted: created unsigned by the bridge service
-        after debiting the sender at request time."""
+    def test_v9_bridge_lock_with_authority_signature_applied(self, session_factory):
+        """From v9 a BRIDGE_LOCK must carry the bridge authority's
+        bridge_signature — the sender-signature exemption stands because the
+        authority signature replaces it."""
+        _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        result = _import(sync, _block(1, [_signed_bridge_lock()]))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None
+            assert victim.balance == 10**9 - 999 - 1  # lock debit applied
+
+    def test_v9_unsigned_bridge_lock_rejected(self, session_factory):
+        """An unsigned BRIDGE_LOCK is a forged debit — refused at v9."""
+        _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        lock = _unsigned_served_tx(
+            to="bridge_lock",
+            type="BRIDGE_LOCK",
+            tx_hash="0x" + "ee" * 32,
+            payload={"transfer_id": "t1", "target_chain": "other", "target_recipient": ADDR_ATTACKER},
+        )
+        _import(sync, _block(1, [lock]))
+
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9  # untouched
+
+    def test_pre_v9_unsigned_bridge_lock_shadow_counts(self, session_factory):
+        """Below the v9 height an unsigned lock still applies (historical
+        replay is full of them) but the shadow counter fires."""
         _seed_genesis(session_factory)
         sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
 
@@ -210,14 +268,48 @@ class TestV9ApplyGate:
             tx_hash="0x" + "ee" * 32,
             payload={"transfer_id": "t1", "target_chain": "other", "target_recipient": ADDR_ATTACKER},
         )
-        result = _import(sync, _block(1, [lock]))
+        result = _import(sync, _block(1, [lock], version=8))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        assert metrics_registry._counters.get("v9_would_reject_bridge_lock_unsigned_total") == 1.0
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9 - 999 - 1
+
+    def test_v9_nested_envelope_import_keeps_signature(self, session_factory):
+        """A peer serving the pre-fix nested shape (empty top-level signature,
+        real signed envelope under ``envelope``) must import with the
+        signature intact — otherwise the follower stores an unsigned tx and
+        re-serves the hole."""
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        signed = _signed_tx()
+        wrapper = {
+            "signature": "",
+            "sender": ADDR_VICTIM,
+            "recipient": ADDR_ATTACKER,
+            "tx_hash": signed["tx_hash"],
+            "envelope": {k: v for k, v in signed.items() if k != "tx_hash"},
+        }
+        result = _import(sync, _block(1, [wrapper]))
 
         assert result.accepted, f"block unexpectedly rejected: {result.reason}"
         assert metrics_registry._counters.get("v9_would_reject_total") is None
         with session_factory() as session:
             victim = session.get(Account, (CHAIN, ADDR_VICTIM))
-            assert victim is not None
-            assert victim.balance == 10**9 - 999 - 1  # lock debit applied
+            assert victim is not None and victim.balance == 10**9 - 999 - 1
+            from aitbc_chain.models import Transaction
+
+            stored = session.exec(select(Transaction).where(Transaction.chain_id == CHAIN)).all()
+            assert stored and stored[0].envelope and stored[0].envelope.get("signature") == signed["signature"]
+            # ... and it re-serves hoisted, not nested.
+            from aitbc_chain.rpc.blocks import _served_tx_body
+            from aitbc_chain.rpc.utils import verify_transaction_signature
+
+            body = _served_tx_body(stored[0])
+            assert body["signature"] == signed["signature"]
+            assert verify_transaction_signature(body, body["signature"], ADDR_VICTIM)
 
     def test_shadow_mode_counts_but_applies(self, session_factory):
         """Pre-activation (block stamped v8): the same unsigned tx still
@@ -288,6 +380,37 @@ class TestServedTxBody:
 
         assert verify_transaction_signature(body, body["signature"], ADDR_VICTIM)
 
+    def test_nested_envelope_is_hoisted_on_serve(self):
+        """A row stored in the pre-fix shape — column dump with an empty
+        top-level signature and the real signed envelope nested under
+        ``envelope`` — must serve the signed body, not the unsigned wrapper."""
+        from aitbc_chain.rpc.blocks import _served_tx_body
+
+        env = {
+            "from": ADDR_VICTIM,
+            "to": ADDR_ATTACKER,
+            "amount": 999,
+            "fee": 1,
+            "nonce": 0,
+            "payload": {},
+            "type": "TRANSFER",
+            "chain_id": CHAIN,
+        }
+        env["signature"] = sign_transaction_data(env, KEY_VICTIM)
+
+        class _Row:
+            envelope = {"signature": "", "sender": ADDR_VICTIM, "envelope": dict(env)}
+            tx_hash = "0x" + "cc" * 32
+            value = 999
+
+        body = _served_tx_body(_Row())  # type: ignore[arg-type]
+
+        assert body["signature"] == env["signature"]
+        assert body["tx_hash"] == "0x" + "cc" * 32
+        from aitbc_chain.rpc.utils import verify_transaction_signature
+
+        assert verify_transaction_signature(body, body["signature"], ADDR_VICTIM)
+
     def test_row_without_envelope_falls_back_to_columns(self):
         from aitbc_chain.rpc.blocks import _served_tx_body
 
@@ -314,10 +437,14 @@ class TestV9Policy:
 
     def test_allowlist_contents(self):
         # The unsigned set is exactly the internal producers discovered in
-        # inventory: bridge rows and MESSAGE. User-originated types are not in
-        # it — a shadow run that reports v9_would_reject for one of these
-        # means the allowlist needs revisiting BEFORE the height is pinned.
-        assert V9_UNSIGNED_ALLOWED_TX_TYPES == {"BRIDGE_LOCK", "BRIDGE_RELEASE", "BRIDGE_REFUND", "MESSAGE"}
+        # inventory: the bridge rows only — each carries its own authority
+        # check (bridge_signature). MESSAGE was removed: it increments the
+        # sender nonce at apply, so an unsigned forged MESSAGE is a nonce-DoS.
+        # User-originated types are not in it — a shadow run that reports
+        # v9_would_reject for one of these means the allowlist needs
+        # revisiting BEFORE the height is pinned.
+        assert V9_UNSIGNED_ALLOWED_TX_TYPES == {"BRIDGE_LOCK", "BRIDGE_RELEASE", "BRIDGE_REFUND"}
+        assert v9_signature_verdict({"type": "MESSAGE"}, "MESSAGE") == "missing_signature"
 
 
 class _StubBroker:
@@ -459,13 +586,26 @@ class TestAttesterTxChecks:
         assert broker.published
         assert metrics_registry._counters.get("v9_would_reject_total") is None
 
-    def test_v9_active_allows_unsigned_bridge_lock(self, session_factory, attester, monkeypatch):
+    def test_v9_active_allows_signed_bridge_lock(self, session_factory, attester, monkeypatch):
+        """A BRIDGE_LOCK carrying the bridge authority signature attests."""
         svc, broker = attester
         monkeypatch.setattr(settings, "state_transition_v9_height", 1)
         _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
+        asyncio.run(svc._handle_request(self._request([_signed_bridge_lock()])))
+        assert broker.published
+
+    def test_v9_active_refuses_unsigned_bridge_lock(self, session_factory, attester, monkeypatch):
+        """A lock with no bridge_signature is refused — the sender-signature
+        exemption exists only because the authority signature replaces it."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
         lock = _unsigned_served_tx(to="bridge_lock", type="BRIDGE_LOCK", tx_hash="0x" + "ee" * 32)
         asyncio.run(svc._handle_request(self._request([lock])))
-        assert broker.published
+        assert not broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_bridge_signature_missing_total") == 1.0
 
     def test_nonce_advances_past_unsigned_internal(self, session_factory, attester, monkeypatch):
         """BRIDGE_LOCK bumps the sender nonce at apply — a same-sender signed
@@ -473,8 +613,8 @@ class TestAttesterTxChecks:
         svc, broker = attester
         monkeypatch.setattr(settings, "state_transition_v9_height", 1)
         _seed_genesis(session_factory)
-        lock = _unsigned_served_tx(to="bridge_lock", type="BRIDGE_LOCK", tx_hash="0x" + "ee" * 32)
-        asyncio.run(svc._handle_request(self._request([lock, _signed_tx(nonce=1)])))
+        _seed_bridge_authority(session_factory)
+        asyncio.run(svc._handle_request(self._request([_signed_bridge_lock(), _signed_tx(nonce=1)])))
         assert broker.published
 
     def test_same_sender_pair_must_be_ordered(self, session_factory, attester, monkeypatch):

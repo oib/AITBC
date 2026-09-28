@@ -36,6 +36,7 @@ from .bridge_credit import (
     bridge_refund_lock_hash,
     validate_bridge_refund_lock,
     verify_bridge_credit_signature,
+    verify_bridge_lock_signature,
 )
 from .gpu_resources import GPUAllocation, GPURegistration
 from .v9_policy import count_v9_would_reject, v9_signature_verdict
@@ -975,6 +976,31 @@ class StateTransition:
             # Pre-registered bridge lock: the sender was already debited when the
             # lock was created. The block only anchors the record. Do not validate
             # the tx nonce or require a bridge_lock recipient account.
+            # v9: the lock must carry the bridge authority's signature over its
+            # semantic fields — an unsigned lock lets any proposer forge a debit
+            # whose target_recipient is credited on the target chain. Pre-v9
+            # blocks contain unsigned locks, so below the height the same check
+            # only counts (shadow) and replay stays green.
+            if block_version >= 9:
+                authority = _bridge_release_authority(session, chain_id, block_height)
+                if not authority:
+                    return (
+                        False,
+                        "BRIDGE_LOCK requires a bridge release authority: set the bridge_release_authority chain parameter",
+                    )
+                if not verify_bridge_lock_signature(tx_data, tx_hash, authority):
+                    return (
+                        False,
+                        "BRIDGE_LOCK must carry a valid bridge_signature from the bridge authority",
+                    )
+            elif not verify_bridge_lock_signature(
+                tx_data, tx_hash, _bridge_release_authority(session, chain_id, block_height) or ""
+            ):
+                count_v9_would_reject("bridge_lock_unsigned")
+                logger.warning(
+                    "v9 shadow: BRIDGE_LOCK tx %s lacks a valid bridge_signature",
+                    tx_hash,
+                )
             sender_account = session.get(Account, (chain_id, sender_addr))
             if not sender_account:
                 return (False, f"Sender account not found: {sender_addr}")
