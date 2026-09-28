@@ -43,6 +43,7 @@ from .state.state_transition import (
     build_escrow_context,
     get_block_version,
     get_state_transition,
+    use_account_nonce_override,
 )
 from .consensus.multi_validator_poa import MultiValidatorPoA, proposer_round
 from aitbc.crypto.signature_recovery import canonical_address
@@ -441,7 +442,7 @@ class BlockImportMixin(SyncBase):
             # lock returns None and the block stays sequential.
             escrow_context: dict[str, dict[str, Any]] | None = None
             bridge_lock_context: dict[str, dict[str, Any]] | None = None
-            if settings.parallel_tx_validation and block_version in (2, 3, 4, 5, 6):
+            if settings.parallel_tx_validation and 2 <= block_version <= 8:
                 escrow_context = build_escrow_context(session, self._chain_id, transactions, block_height=block_data["height"])
                 # v6: refunds need their named BRIDGE_LOCK records prefetched —
                 # a batch with two refunds for one lock returns None and the
@@ -457,8 +458,10 @@ class BlockImportMixin(SyncBase):
                 # v5/v6 included: their fail-closed gates are mirrored in
                 # pure_state_transition (escrow authority via escrow_context,
                 # bridge pseudo-sender + signature + refund lock binding), so
-                # the parallel path stays identical.
-                and block_version in (2, 3, 4, 5, 6)
+                # the parallel path stays identical. v7/v8 add no apply rules
+                # for the types this path handles; upper bound stays explicit
+                # so a future version defaults to sequential until audited.
+                and 2 <= block_version <= 8
                 and escrow_context is not None
                 and (
                     block_version < 6
@@ -578,7 +581,10 @@ class BlockImportMixin(SyncBase):
                                     # Bridge credits sign their nonce at
                                     # issuance (v5) — the pseudo-sender
                                     # account's nonce must not replace it.
-                                    if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
+                                    if _determine_tx_type(tx_data) not in (
+                                        "BRIDGE_RELEASE",
+                                        "BRIDGE_REFUND",
+                                    ) and use_account_nonce_override(tx_data, block_version):
                                         tx_data["nonce"] = sender_account.nonce
                                     tx_data["value"] = tx_data.get("amount", 0)
                             group_txs = [tx_hash_to_data[txh] for txh in group]
@@ -655,7 +661,11 @@ class BlockImportMixin(SyncBase):
                     # (e.g. parallel-validated GPU_MARKET offers); the follower
                     # must apply them with the current account nonce, not the stored
                     # one, or the second transaction fails and the state root diverges.
-                    if raw_from not in {"bridge_release", "bridge_refund"} and sender_acct is not None:
+                    if (
+                        raw_from not in {"bridge_release", "bridge_refund"}
+                        and sender_acct is not None
+                        and use_account_nonce_override(tx_data, block_version)
+                    ):
                         tx_data["nonce"] = sender_acct.nonce
                     if "value" not in tx_data and "amount" in tx_data:
                         tx_data["value"] = tx_data["amount"]
