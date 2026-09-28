@@ -540,11 +540,11 @@ echo "=== chain-head convergence (height + hash, two samples) ==="
 # Each host gets a list of endpoints tried in order: the LAN RPC when
 # AITBC_NODE*_HOST names a reachable address, and always the public
 # https://<host>.<domain> edge endpoint (which a node cannot use to reach
-# *itself* — at1 hairpin doesn't loop — hence the LAN first).
+# *itself* — the edge has no hairpin NAT — hence the LAN first).
 declare -A RPC_ENDPOINTS=(
-    [node0]="${NODE0_HOST:+http://${NODE0_HOST}:8202/rpc/status} https://node0.${AITBC_FLEET_DOMAIN}/rpc/status"
-    [node1]="${NODE1_HOST:+http://${NODE1_HOST}:8202/rpc/status} https://node1.${AITBC_FLEET_DOMAIN}/rpc/status"
-    [node2]="${NODE2_HOST:+http://${NODE2_HOST}:8202/rpc/status} https://node2.${AITBC_FLEET_DOMAIN}/rpc/status"
+    [node0]="${NODE0_HOST:+http://${NODE0_HOST}:8202/rpc/status} https://node0.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — 8202 is the LAN blockchain RPC, not the edge service
+    [node1]="${NODE1_HOST:+http://${NODE1_HOST}:8202/rpc/status} https://node1.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — 8202 is the LAN blockchain RPC, not the edge service
+    [node2]="${NODE2_HOST:+http://${NODE2_HOST}:8202/rpc/status} https://node2.${AITBC_FLEET_DOMAIN}/rpc/status"  # check-ports: ignore — 8202 is the LAN blockchain RPC, not the edge service
     [hub]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"
     [hub1]="https://hub1.${AITBC_FLEET_DOMAIN}/rpc/status"
     [${AITBC_HUB_ALIAS:-_unset_hub_alias}]="https://hub.${AITBC_FLEET_DOMAIN}/rpc/status"

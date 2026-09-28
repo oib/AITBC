@@ -16,8 +16,8 @@ from aitbc.rate_limiting import reset_rate_limit
 from .conftest import API_KEY, PAYOUT
 
 WALLET = "0x81B8A8D5143fE722304E49b2C09d51BbF4588265"
-IP = "10.9.8.7"
-OTHER_IP = "10.9.8.8"
+IP = "192.0.2.7"
+OTHER_IP = "192.0.2.8"
 
 
 @pytest.fixture
