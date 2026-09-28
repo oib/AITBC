@@ -641,6 +641,7 @@ def revert_losing_segment(
     blocks: list[Block],
     ancestor: Block | None,
     provably_empty: Any,
+    reverted_accounts: set[str] | None = None,
 ) -> list[dict[str, Any]] | None:
     """Undo a losing segment inside the caller's open transaction.
 
@@ -651,6 +652,10 @@ def revert_losing_segment(
     caller to requeue into the mempool after commit — or None when undo is
     impossible (a non-empty block without a journal, or a state root that
     refuses to match the ancestor's). On None the caller must NOT commit.
+
+    When ``reverted_accounts`` is a set, every account address the journal
+    touched is added to it before the delta rows are consumed — the caller
+    uses it to invalidate balance/detail caches once the revert commits.
     """
     # ``incomplete`` counts as not journaled: the provably-empty path is still
     # allowed (nothing to undo), anything else escalates — never a partial
@@ -676,6 +681,22 @@ def revert_losing_segment(
             pre_digests[blk.height] = {
                 str(k): str(v) for k, v in (meta_row.get("pre_digest") or {}).items() if isinstance(v, str)
             }
+
+    # Account addresses whose rows the revert restores/creates/deletes —
+    # captured before _revert_block consumes the delta rows so the caller can
+    # drop their balance/detail cache keys once the revert commits.
+    if reverted_accounts is not None:
+        reverted_heights = [b.height for b in blocks]
+        for pk_json in session.exec(
+            select(BlockStateDelta.pk_json)
+            .where(BlockStateDelta.chain_id == chain_id)
+            .where(col(BlockStateDelta.height).in_(reverted_heights))
+            .where(BlockStateDelta.table_name == "account")
+        ).all():
+            pk = _decode_row(pk_json) or {}
+            addr = pk.get("address")
+            if addr:
+                reverted_accounts.add(str(addr))
 
     payloads: list[dict[str, Any]] = []
     for blk in sorted(blocks, key=lambda b: -b.height):
@@ -976,3 +997,46 @@ def _revive_confirmed_domain_rows(session_factory: Any, chain_id: str) -> int:
         logger.exception("Domain-row orphan revival failed")
         return 0
     return revived
+
+
+def _account_cache() -> Any:
+    """Lazily build the same Redis client the apply path uses; None when the
+    caching package or a reachable server is unavailable — cache invalidation
+    must never make a fork revert fail."""
+    global _ACCOUNT_CACHE
+    if _ACCOUNT_CACHE is not None:
+        return _ACCOUNT_CACHE or None  # False = earlier init failure
+    try:
+        import os
+
+        from aitbc.caching import RedisCache
+
+        _ACCOUNT_CACHE = RedisCache(redis_url=os.getenv("REDIS_URL", "redis://localhost:6379/0"), default_ttl=30)
+    except Exception:
+        _ACCOUNT_CACHE = False
+    return _ACCOUNT_CACHE or None
+
+
+_ACCOUNT_CACHE: Any = None
+
+
+def invalidate_account_caches(chain_id: str, addresses: set[str]) -> int:
+    """Drop ``account_balance``/``account_details`` keys for reverted accounts.
+
+    Called after a fork undo commits: without it, RPC reads could serve the
+    losing branch's balances for up to the cache TTL. Returns the number of
+    keys deleted; 0 and silent when Redis is unavailable (the TTL bound then
+    applies, same as for missed apply-time invalidations).
+    """
+    cache = _account_cache()
+    if cache is None or not cache.is_available():
+        return 0
+    deleted = 0
+    for addr in addresses:
+        for prefix in ("account_balance", "account_details"):
+            try:
+                if cache.delete(f"{prefix}:{chain_id}:{addr.lower()}"):
+                    deleted += 1
+            except Exception:
+                logger.warning("Failed to invalidate %s cache for %s", prefix, addr)
+    return deleted

@@ -321,6 +321,40 @@ class TestRevert:
             assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 1)).all() == []
             assert not has_journal(session, CHAIN, 1)
 
+    def test_revert_reports_touched_accounts(self, session_factory):
+        """reverted_accounts out-param collects every account the journal
+        restores/deletes — the resolver invalidates their Redis balance/detail
+        keys so a post-fork read can't serve losing-branch values."""
+        ancestor = _seed(session_factory, 1)[0]
+        with session_factory() as session:
+            _add_account(session, ADDR_A, 1000, nonce=1)
+            session.commit()
+            root = compute_state_root_full(session, CHAIN)
+            blk = session.exec(select(Block).where(Block.height == ancestor["height"])).one()
+            blk.state_root = root
+            session.commit()
+            ancestor["state_root"] = root
+
+        def apply(session: Session) -> None:
+            session.execute(
+                text("UPDATE account SET balance = balance + :amt WHERE chain_id = :chain_id AND address = :address"),
+                {"amt": -400, "chain_id": CHAIN, "address": ADDR_A},
+            )
+            _add_account(session, ADDR_B, 400)
+
+        _journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
+
+        touched: set[str] = set()
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            payloads = revert_losing_segment(
+                session, CHAIN, [ours], anc, _provably_empty_for(session_factory), reverted_accounts=touched
+            )
+            assert payloads is not None
+            session.commit()
+        assert touched == {ADDR_A, ADDR_B}  # updated + journal-inserted rows
+
     def test_revert_missing_journal_nonempty_returns_none(self, session_factory):
         ancestor = _seed(session_factory, 1)[0]
         losing = _mk_block(1, ancestor["hash"], T0 + timedelta(seconds=60), tx_count=2)
@@ -463,6 +497,15 @@ class TestResolverUndoIntegration:
         peer[4] = _mk_block(4, blocks[-1]["hash"], T0 + timedelta(seconds=95), hash_salt="p4")
         peer[5] = _mk_block(5, peer[4]["hash"], T0 + timedelta(seconds=125), hash_salt="p5")
 
+        invalidated: list[tuple[str, set[str]]] = []
+        import aitbc_chain.sync_bulk as sync_bulk
+
+        monkeypatch.setattr(
+            sync_bulk,
+            "invalidate_account_caches",
+            lambda chain_id, addrs: invalidated.append((chain_id, set(addrs))),
+        )
+
         sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
 
         async def fake_fetch(start, end, source_url):
@@ -474,6 +517,8 @@ class TestResolverUndoIntegration:
         assert await sync._resolve_fork_with_peer("https://peer", local_height=4, remote_height=5) is True
         assert metrics_registry._counters.get("sync_fork_reorg_undone_total") == 1.0
         assert metrics_registry._counters.get("sync_fork_reorg_unsafe_total") is None
+        # The journaled account insert was undone — its cache keys must be dropped.
+        assert invalidated == [(CHAIN, {ADDR_A})]
 
         with session_factory() as session:
             assert session.exec(select(Block).where(Block.height == 4)).first() is None
@@ -1003,3 +1048,37 @@ class TestCaptureHardening:
             # operator to see.
             assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 1)).all() != []
             assert session.exec(select(Block).where(Block.height == 1)).first() is not None
+
+
+class TestAccountCacheInvalidation:
+    """invalidate_account_caches drops both Redis key forms per address."""
+
+    def test_deletes_balance_and_details_keys(self, monkeypatch):
+        from aitbc_chain.state import block_deltas
+
+        class FakeRedis:
+            def __init__(self) -> None:
+                self.deleted: list[str] = []
+
+            def is_available(self) -> bool:
+                return True
+
+            def delete(self, key: str) -> bool:
+                self.deleted.append(key)
+                return True
+
+        fake = FakeRedis()
+        monkeypatch.setattr(block_deltas, "_ACCOUNT_CACHE", fake)
+        assert block_deltas.invalidate_account_caches("cid1", {"0xAbC", "0xDEF"}) == 4
+        assert sorted(fake.deleted) == [
+            "account_balance:cid1:0xabc",
+            "account_balance:cid1:0xdef",
+            "account_details:cid1:0xabc",
+            "account_details:cid1:0xdef",
+        ]
+
+    def test_no_redis_returns_zero(self, monkeypatch):
+        from aitbc_chain.state import block_deltas
+
+        monkeypatch.setattr(block_deltas, "_ACCOUNT_CACHE", False)
+        assert block_deltas.invalidate_account_caches("cid1", {"0xAA"}) == 0
