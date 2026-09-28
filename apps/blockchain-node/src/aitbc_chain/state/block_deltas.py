@@ -88,7 +88,11 @@ _DIGEST_TABLE = "__digest__"
 # Structural/ephemeral tables excluded from the digest: account is covered by
 # the ancestor state root; transaction/block are handled by ins-undo and grow
 # unboundedly; mempool is node-local. Everything else is digested at first
-# touch, capped at _DIGEST_ROW_LIMIT rows.
+# touch, capped at _DIGEST_ROW_LIMIT rows. ``bridge_block_header`` is NOT in
+# the exclude set: it is written only by the bridge finalizer in its own
+# session, so it can never appear in a block journal — should a future apply
+# path ever write it, an over-cap table is deliberately fail-closed (recorded
+# in digest_skipped → revert escalates) rather than silently unproven.
 _DIGEST_EXCLUDE = frozenset({"account", "transaction", "block", "mempool", "block_state_delta"})
 _DIGEST_ROW_LIMIT = 100_000
 

@@ -982,3 +982,46 @@ generate_mcp_cli_tools.py}` (precommit + local-setup docs),
 `dev/` is referenced only as an omit pattern in pyproject and a guarded
 glob in `ci/live-scenario-dry-run.sh` — removal is safe.
 `e2e-test-scenarios.md` updated to drop the `dev/testing/` pointer.
+
+## 2026-09-28 — fork-recovery drills: delta-journal undo verified against real data (fix in this batch)
+
+The non-empty-undo path (SYNC_FORK_UNDO_ENABLED, default on) had never
+executed against real production data — only unit and differential tests.
+Two drills closed that gap:
+
+**Drill A (copy of node2 chain.db):** reverted a 146-block real segment
+(26724..26869, all journal_status=complete) — ancestor state root and the
+gpu_registration side-table digest both verified, all block/tx/journal
+rows removed. All 5 orphaned txs re-admitted through full admission into
+the mempool (signed envelopes, nonces/balances valid post-revert).
+Fabricated lost-tx lifecycle verified end-to-end: unsigned orphan ->
+admission reject -> sync_fork_orphaned_tx_lost_total +1 ->
+sync_fork_domain_rows_orphaned_total +1 -> stake row orphaned -> insert
+confirmed lock -> _revive_confirmed_domain_rows restored it to active.
+
+**Drill B (live node0):** sent canary TRANSFER 0xcf2282 (confirmed
+26881), stopped the node, reverted [26881..26882] on the live chain.db
+via revert_losing_segment (ancestor root verified), requeued the orphan
+through real admission, restarted. node0 bulk-pulled the identical
+winning branch (0xefca65aacc0feebd), canary re-confirmed at 26881,
+fleet reconverged hash-identical at 26886 with zero fork/divergence
+errors. Post-import reconcile classified the orphan on-chain -> not
+lost.
+
+Findings along the way:
+
+- MEMPOOL_BACKEND drift: node0 alone runs 'memory' (fleet default
+  'database'). Harmless today — node0 never proposes, so nothing drains
+  either backend — but requeue/evict on node0 operate on an in-memory
+  pool while its postgres aitbc_mempool table is written only by the
+  rpc service. Flagged for the operator; left as found.
+- CLI canary note: 'aitbc transactions send --type GPU_REGISTER' fails
+  apply with 'must have value=0' since the CLI requires --amount>0;
+  the earlier gpu canary used the raw signed-RPC path.
+- bridge_block_header digest-cap concern resolved: written only by the
+  bridge finalizer (own session), can never enter a block journal, so
+  the 100k digest cap is unreachable for it. Code comment added at
+  _DIGEST_EXCLUDE; behavior kept fail-closed if ever journaled.
+- Pre-existing stale mempool row 0xde13acc on node0's postgres mempool
+  (legacy format, no tx_hash in content) — predates the drill, left as
+  found.
