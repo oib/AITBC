@@ -25,12 +25,16 @@ from sqlalchemy import func, text
 
 from ..base_models import Block, IPFSSubscription, _to_ait_address
 from ..config import settings
+from ..logger import get_logger
+from .v9_policy import count_v9_would_reject, v9_signature_verdict
 from ..models import Account, Receipt
 from .bridge_credit import (
     bridge_refund_lock_hash,
     validate_bridge_refund_lock,
     verify_bridge_credit_signature,
 )
+
+logger = get_logger(__name__)
 
 
 def _escrow_address(job_id: str) -> str:
@@ -550,6 +554,31 @@ def compute_state_delta(
                 tx_type=tx_type,
                 tx_hash=tx_hash,
             )
+
+    # v9: non-internal txs must carry a signature at all — same rule and
+    # same allowlist as the sequential path. While the v9 height is unset
+    # this only logs/counts the would-reject (shadow mode).
+    v9_reason = v9_signature_verdict(tx_data, tx_type)
+    if v9_reason is not None:
+        count_v9_would_reject(v9_reason, tx_type)
+        if block_version >= 9:
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error=f"v9 signature rule: {v9_reason} for {tx_type} transaction {tx_hash}",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+        logger.warning(
+            "v9 shadow: unsigned %s tx %s would be rejected (%s)",
+            tx_type,
+            tx_hash,
+            v9_reason,
+        )
 
     sender_account = account_map.get(sender)
     if not sender_account:

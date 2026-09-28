@@ -695,6 +695,19 @@ class ChainSettings(BaseSettings):
     # consensus and hardcoded like v4/v5/v7 — a lost env file must not
     # silently return a node to trusting the recorded stamp.
     state_transition_v8_height: int = 24800
+    # v9: transaction authorization. At or above this height every
+    # user-originated transaction must carry a valid sender signature at
+    # apply time (V9_UNSIGNED_ALLOWED_TX_TYPES in state/v9_policy.py are
+    # the only unsigned exceptions, each with its own authority check),
+    # served block transactions carry the stored signed envelope, and
+    # attesters verify tx signatures + nonce order against their own
+    # parent state before signing. None means v9 is NOT activated: the
+    # same rules still evaluate in shadow mode — every would-reject logs
+    # and counts v9_would_reject_*_total instead of rejecting, so the
+    # allowlist can be proven complete against live traffic. Pin a real
+    # height here (hardcoded like v4-v8 — the activation is itself
+    # consensus) only after the shadow counters stay clean.
+    state_transition_v9_height: int | None = None
     # S-4: address allowed to sign ESCROW_RELEASE and ESCROW_REFUND on v3+.
     # The on-chain escrow_settlement_authority chain parameter takes precedence;
     # this setting (or ESCROW_RELEASE_ADDRESS) is the fallback for chains that
