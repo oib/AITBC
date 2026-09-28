@@ -1025,3 +1025,13 @@ Findings along the way:
 - Pre-existing stale mempool row 0xde13acc on node0's postgres mempool
   (legacy format, no tx_hash in content) — predates the drill, left as
   found.
+
+## 2026-09-28 — .devin/ untracked (repo hygiene)
+
+`.devin/` carried operator-side Devin agent config: `mcp_config.json`
+hardcoding `/opt/aitbc` + `/usr/local/bin/aitbc` paths, an MCP permission
+policy, and a private-Gitea `tea` skill — all meaningless or misleading for
+public cloners (and dead weight on node checkouts, where no Devin sessions
+run). Untracked the whole tree; `.gitignore` now covers `.devin/`
+superseding the narrower `*.local.json` rule. Local copies stay in the IDE
+checkout; the tea skill moved to `~/.config/devin/skills/` for global use.
