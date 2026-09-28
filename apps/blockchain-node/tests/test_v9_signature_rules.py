@@ -343,6 +343,92 @@ class TestV9ParallelGate:
             victim = session.get(Account, (CHAIN, ADDR_VICTIM))
             assert victim is not None and victim.balance == 10**9
 
+    def test_v9_signed_bridge_lock_parallel_applied(self, session_factory, monkeypatch):
+        """A v9 block whose only bridge tx is a correctly signed BRIDGE_LOCK
+        must apply on the parallel path too — the caller resolves the bridge
+        authority for locks as well as credits (incident: a LOCK-only block
+        reached the pure path with bridge_authority=None and the shadow
+        counter fired; at v9 that would have been a follower rejection the
+        proposer's sequential path accepted)."""
+        monkeypatch.setattr(settings, "parallel_tx_validation", True)
+        monkeypatch.setattr(settings, "conflict_threshold", 1.0)
+
+        _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        result = _import(sync, _block(1, [_signed_bridge_lock()]))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        assert metrics_registry._counters.get("v9_would_reject_total") is None
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9 - 999 - 1
+
+    def test_v9_unsigned_bridge_lock_parallel_rejected(self, session_factory, monkeypatch):
+        """Same block minus the bridge_signature: the parallel path agrees
+        with the sequential one and does not debit."""
+        monkeypatch.setattr(settings, "parallel_tx_validation", True)
+        monkeypatch.setattr(settings, "conflict_threshold", 1.0)
+
+        _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        lock = _unsigned_served_tx(
+            to="bridge_lock",
+            type="BRIDGE_LOCK",
+            tx_hash="0x" + "ee" * 32,
+            payload={"transfer_id": "t1", "target_chain": "other", "target_recipient": ADDR_ATTACKER},
+        )
+        _import(sync, _block(1, [lock]))
+
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9
+
+    def test_pre_v9_signed_bridge_lock_parallel_no_counter(self, session_factory, monkeypatch):
+        """v8 shadow: a correctly signed lock applies on the parallel path
+        and does NOT fire the shadow counter — the authority is resolved
+        rather than compared against ""."""
+        monkeypatch.setattr(settings, "parallel_tx_validation", True)
+        monkeypatch.setattr(settings, "conflict_threshold", 1.0)
+
+        _seed_genesis(session_factory)
+        _seed_bridge_authority(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        result = _import(sync, _block(1, [_signed_bridge_lock()], version=8))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        assert metrics_registry._counters.get("v9_would_reject_bridge_lock_unsigned_total") is None
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9 - 999 - 1
+
+    def test_pre_v9_unsigned_bridge_lock_parallel_shadow_counts(self, session_factory, monkeypatch):
+        """v8 shadow: an unsigned lock still applies on the parallel path but
+        counts exactly like the sequential path."""
+        monkeypatch.setattr(settings, "parallel_tx_validation", True)
+        monkeypatch.setattr(settings, "conflict_threshold", 1.0)
+
+        _seed_genesis(session_factory)
+        sync = ChainSync(session_factory, chain_id=CHAIN, validate_signatures=False)
+
+        lock = _unsigned_served_tx(
+            to="bridge_lock",
+            type="BRIDGE_LOCK",
+            tx_hash="0x" + "ee" * 32,
+            payload={"transfer_id": "t1", "target_chain": "other", "target_recipient": ADDR_ATTACKER},
+        )
+        result = _import(sync, _block(1, [lock], version=8))
+
+        assert result.accepted, f"block unexpectedly rejected: {result.reason}"
+        assert metrics_registry._counters.get("v9_would_reject_bridge_lock_unsigned_total") == 1.0
+        with session_factory() as session:
+            victim = session.get(Account, (CHAIN, ADDR_VICTIM))
+            assert victim is not None and victim.balance == 10**9 - 999 - 1
+
 
 class TestServedTxBody:
     def test_envelope_is_served_verbatim(self):
