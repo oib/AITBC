@@ -837,3 +837,20 @@ briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
     now quoted/escaped. Hub's Prometheus scrapes
     `localhost:8107/v1/metrics` and evaluates the full ruleset (all five
     nodes' rules files synced — 14 rules including ForkOrphanedTxLost).
+  - **Side-table revert digest + domain-row orphaning (df513eea4f).** Each
+    journaled block now stores a __digest__ meta row: a SHA-256 of every
+    non-account chain table it touched, taken pre-apply. Revert re-hashes
+    each digested table and fails closed on mismatch — the revert proof now
+    covers escrow/bridge/bond/etc., not just balances via the state root.
+    The digest caught a real capture gap on first run: a row mutated across
+    two flushes kept only the first upd's before-image; repeat upds now
+    merge before-images per attribute (earliest wins). RPC queue-time rows
+    (stake, agent_stake, bounty_contract) are unreachable by the journal;
+    when their confirming STAKE_LOCK/BOUNTY_LOCK is lost in a reorg the row
+    is marked status='orphaned' and counted via
+    sync_fork_domain_rows_orphaned_total, unless another confirmed lock
+    still references it. Differential coverage extended to all apply-able
+    families (26 cases). Pre-existing stale test
+    test_get_block_version_from_metadata updated for v8 advisory-stamp
+    semantics (ad551fcefa). Dead commented scrape samples removed from the
+    prometheus.yml template and node2's live file (f612920426).
