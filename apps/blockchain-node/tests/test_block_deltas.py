@@ -27,6 +27,7 @@ from aitbc_chain.state.block_deltas import (
     BlockDeltaJournal,
     has_journal,
     journal_status,
+    reconcile_orphaned_transactions,
     requeue_orphaned_transactions,
     revert_losing_segment,
 )
@@ -658,8 +659,12 @@ class TestDomainRowOrphaning:
             raise ValueError("admission rejected")
 
     def _requeue(self, session_factory, monkeypatch, payloads):
+        """Admission-fail every payload, then run the post-import reconcile —
+        the two phases the resolvers call around the winning-branch import."""
         monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: self._RejectingMempool())
-        return requeue_orphaned_transactions(CHAIN, payloads, session_factory)
+        failed = requeue_orphaned_transactions(CHAIN, payloads)
+        reconcile_orphaned_transactions(CHAIN, failed, session_factory)
+        return len(payloads) - len(failed)
 
     def test_lost_stake_lock_orphans_stake_row(self, session_factory, monkeypatch):
         with session_factory() as session:
@@ -762,3 +767,239 @@ class TestDomainRowOrphaning:
         with session_factory() as session:
             row = session.exec(select(BountyContract).where(BountyContract.bounty_id == "b-9")).one()
             assert row.status == "orphaned"
+
+    def test_reconcile_not_lost_when_on_winning_branch(self, session_factory, monkeypatch):
+        """A requeue-rejected tx that IS on the winning branch is not lost —
+        no metric, no orphan marking. This is the post-import check doing its
+        job: the same tx on the other fork counts as confirmed."""
+        with session_factory() as session:
+            session.add(
+                Stake(
+                    chain_id=CHAIN,
+                    address=ADDR_A,
+                    amount=4000,
+                    locked_until=datetime.now(UTC) + timedelta(days=30),
+                    status="active",
+                )
+            )
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash="0x" + "99" * 32,
+                    block_height=7,
+                    sender=ADDR_A,
+                    recipient=ADDR_B,
+                    payload={"stake_id": "1"},
+                    type="STAKE_LOCK",
+                    value=4000,
+                    fee=0,
+                    nonce=0,
+                    status="confirmed",
+                )
+            )
+            session.commit()
+
+        tx = {"tx_hash": "0x" + "99" * 32, "type": "STAKE_LOCK", "from": ADDR_A, "payload": {"stake_id": "1"}}
+        requeued = self._requeue(session_factory, monkeypatch, [tx])
+
+        assert requeued == 0
+        assert metrics_registry._counters.get("sync_fork_orphaned_tx_lost_total") is None
+        assert metrics_registry._counters.get("sync_fork_domain_rows_orphaned_total") is None
+        with session_factory() as session:
+            assert session.get(Stake, 1).status == "active"
+
+    def test_revive_orphaned_row_when_lock_confirmed(self, session_factory):
+        """The reconcile pass also heals false orphans: a row marked orphaned
+        whose lock tx is confirmed again returns to active."""
+        with session_factory() as session:
+            stake = Stake(
+                chain_id=CHAIN,
+                address=ADDR_A,
+                amount=4000,
+                locked_until=datetime.now(UTC) + timedelta(days=30),
+                status="orphaned",
+            )
+            session.add(stake)
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash="0x" + "aa" * 32,
+                    block_height=5,
+                    sender=ADDR_A,
+                    recipient=ADDR_B,
+                    payload={"stake_id": "1"},
+                    type="STAKE_LOCK",
+                    value=4000,
+                    fee=0,
+                    nonce=0,
+                    status="confirmed",
+                )
+            )
+            session.commit()
+
+        reconcile_orphaned_transactions(CHAIN, [], session_factory)
+
+        with session_factory() as session:
+            assert session.get(Stake, 1).status == "active"
+
+
+class TestRequeueAdmission:
+    """Requeue runs real admission: a payload without a verifiable signature
+    (e.g. a pre-envelope legacy reconstruction) must never reach the mempool,
+    and bridge credit types keep the consensus-internal direct path."""
+
+    class _ProbeMempool:
+        def __init__(self):
+            self.added: list[dict[str, Any]] = []
+
+        def pending_cost(self, chain_id: str, sender: str, exclude_nonce: Any = None) -> int:
+            return 0
+
+        def add(self, tx, chain_id=None, tx_hash=None, commit=True):
+            self.added.append(tx)
+            return tx_hash or "0x0"
+
+    def test_unsigned_payload_never_reaches_mempool(self, session_factory, monkeypatch):
+        probe = self._ProbeMempool()
+        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: probe)
+        tx = {
+            "tx_hash": "0x" + "99" * 32,
+            "type": "TRANSFER",
+            "from": ADDR_A,
+            "to": ADDR_B,
+            "amount": 1,
+            "fee": 1,
+            "nonce": 0,
+            "chain_id": CHAIN,
+        }
+        failed = requeue_orphaned_transactions(CHAIN, [tx])
+        assert len(failed) == 1
+        assert probe.added == []  # admission refused before storage
+
+    def test_bridge_credit_bypasses_sender_admission(self, session_factory, monkeypatch):
+        """BRIDGE_RELEASE/REFUND have no sender account or signature by
+        design — they enter via consensus issuance, so requeue keeps the
+        direct mempool path for them."""
+        probe = self._ProbeMempool()
+        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: probe)
+        tx = {
+            "tx_hash": "0x" + "77" * 32,
+            "type": "BRIDGE_RELEASE",
+            "from": "bridge_release",
+            "to": ADDR_B,
+            "amount": 500,
+            "fee": 0,
+            "nonce": 0,
+            "chain_id": CHAIN,
+            "payload": {"transfer_id": "x-1", "asset": "AIT"},
+        }
+        failed = requeue_orphaned_transactions(CHAIN, [tx])
+        assert failed == [] and len(probe.added) == 1
+
+
+class TestCaptureHardening:
+    """Before-image correctness and the structural fail-closed checks."""
+
+    def test_delete_after_update_restores_committed_values(self, session_factory):
+        """A row modified then deleted inside one block must re-insert with
+        its COMMITTED contents — the modified value is not the before-image."""
+        with session_factory() as session:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+            session.commit()
+
+            j = BlockDeltaJournal.attach(session, CHAIN, 1)
+            p = session.exec(select(ChainParameter).where(ChainParameter.parameter == "p")).one()
+            p.value = "v2"  # modify first...
+            session.delete(p)  # ...then delete — one flush, one del event
+            j.persist(session)
+            session.commit()
+
+        with session_factory() as session:
+            rows = session.exec(
+                select(BlockStateDelta).where(BlockStateDelta.table_name == "chain_parameter", BlockStateDelta.op == "del")
+            ).all()
+            assert len(rows) == 1
+            assert (json.loads(rows[0].before_json) or {})["value"] == "v0"
+
+    def test_delete_after_update_reverts_to_committed_row(self, session_factory):
+        """End-to-end: modify+delete in one journaled block, then undo — the
+        row returns with pre-block contents."""
+        ancestor = _seed(session_factory, 1)[0]
+        with session_factory() as session:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+            session.commit()
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            p = session.exec(select(ChainParameter).where(ChainParameter.parameter == "p")).one()
+            p.value = "v2"
+            session.delete(p)
+
+        _journaled_block(session_factory, 1, ancestor, apply)
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            assert revert_losing_segment(session, CHAIN, [ours], anc, _provably_empty_for(session_factory)) == []
+            session.commit()
+        with session_factory() as session:
+            row = session.exec(select(ChainParameter).where(ChainParameter.parameter == "p")).one()
+            assert row.value == "v0"
+
+    def test_digest_row_cap_marks_journal_incomplete(self, session_factory, monkeypatch):
+        """A side table over the digest row cap poisons the block's undo —
+        fail closed per operator decision, not journal-only revert."""
+        from aitbc_chain.state import block_deltas
+
+        monkeypatch.setattr(block_deltas, "_DIGEST_ROW_LIMIT", 0)
+        with session_factory() as session:
+            session.add(ChainParameter(chain_id=CHAIN, parameter="existing", value="v"))
+            session.commit()
+
+            j = BlockDeltaJournal.attach(session, CHAIN, 1)
+            session.add(ChainParameter(chain_id=CHAIN, parameter="p", value="v0"))
+            j.persist(session)
+            session.commit()
+
+        with session_factory() as session:
+            assert journal_status(session, CHAIN, 1) == "incomplete"
+
+    def test_leftover_transaction_row_fails_revert(self, session_factory):
+        """The structural check: a transaction row surviving undo (its ins
+        delta missing — the Sep-02 orphan-row class) refuses the revert."""
+        ancestor = _seed(session_factory, 1)[0]
+        _stamp_real_root(session_factory, height=0)
+
+        def apply(session: Session) -> None:
+            _add_account(session, ADDR_A, 100)
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash="0x" + "44" * 32,
+                    sender=ADDR_A,
+                    recipient=ADDR_B,
+                    block_height=1,
+                    value=1,
+                    fee=1,
+                    status="confirmed",
+                )
+            )
+
+        _journaled_block(session_factory, 1, ancestor, apply, tx_count=1)
+        # Simulate a capture gap the sentinel did not flag: drop the tx's ins delta.
+        with session_factory() as session:
+            ins = session.exec(
+                select(BlockStateDelta).where(BlockStateDelta.table_name == "transaction", BlockStateDelta.op == "ins")
+            ).one()
+            session.delete(ins)
+            session.commit()
+
+        with session_factory() as session:
+            ours = session.exec(select(Block).where(Block.height == 1)).one()
+            anc = session.exec(select(Block).where(Block.height == 0)).one()
+            assert revert_losing_segment(session, CHAIN, [ours], anc, _provably_empty_for(session_factory)) is None
+            session.rollback()
+        with session_factory() as session:
+            # Nothing partially reverted — the orphan row still exists for the
+            # operator to see.
+            assert session.exec(select(ChainTransaction).where(ChainTransaction.block_height == 1)).all() != []
+            assert session.exec(select(Block).where(Block.height == 1)).first() is not None

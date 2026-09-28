@@ -63,6 +63,10 @@ class ChainSync(BulkSyncMixin, StateSyncMixin, BlockImportMixin, DivergenceMixin
         self._min_bulk_sync_interval = getattr(settings, "min_bulk_sync_interval", 60)
         self._rejection_counts: dict[str, int] = {}
         self._deferred_forks: dict[int, float] = {}
+        # Orphaned-tx payloads requeue rejected during a pull-path reorg —
+        # classified by reconcile_orphaned_transactions once the winning
+        # branch is imported (the "lost" check needs it in the DB first).
+        self._orphan_reconcile_pending: list[dict[str, Any]] = []
         self._peer_tracker = PeerCapabilityTracker()
 
     def register_sync_peer(self, peer_id: str, rpc_url: str, block_range: tuple[int, int], has_state: bool = True) -> None:

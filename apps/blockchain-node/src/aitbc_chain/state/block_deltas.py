@@ -31,7 +31,8 @@ from datetime import UTC, date, datetime
 from decimal import Decimal
 from typing import Any
 
-from sqlalchemy import and_, event, inspect, text
+from sqlalchemy import and_, event, func, inspect, text
+from sqlalchemy.orm.attributes import NEVER_SET
 from sqlmodel import Session, col, select
 
 from ..base_models import Block, BlockStateDelta
@@ -348,8 +349,12 @@ class BlockDeltaJournal:
             digest = _table_digest(session, name, self.chain_id)
             if digest is None:
                 self._digest_skipped.append(name)
+                # A table too big to prove is a table we cannot undo with
+                # proof — the block escalates rather than reverting journal-
+                # only (operator decision: fail closed on digest skips).
+                self._incomplete = True
                 logger.warning(
-                    "Delta journal: side-table %r exceeds the %s-row digest cap at height %s — reverting it is journal-only",
+                    "Delta journal: side-table %r exceeds the %s-row digest cap at height %s — marked incomplete",
                     name,
                     _DIGEST_ROW_LIMIT,
                     self.height,
@@ -408,7 +413,29 @@ class BlockDeltaJournal:
                     self.height,
                 )
                 continue
-            before = {attr.columns[0].name: getattr(obj, attr.key, None) for attr in mapper.column_attrs}
+            # Before-image = the committed (pre-block) values, not the current
+            # attributes: a row modified and deleted in one block must
+            # re-insert with its pre-modification state. ``history.deleted``
+            # holds it for changed columns, ``loaded_value`` for the rest —
+            # neither triggers a mid-flush SELECT. An unloaded column means
+            # the before-image cannot be proven: fail closed.
+            state = inspect(obj)
+            before = {}
+            for attr in mapper.column_attrs:
+                hist = state.attrs[attr.key].history
+                if hist.deleted:
+                    before[attr.columns[0].name] = hist.deleted[0]
+                    continue
+                value = state.attrs[attr.key].loaded_value
+                if value is NEVER_SET:
+                    self._incomplete = True
+                    logger.warning(
+                        "Delta journal: deleted %s row has unloaded column %r at height %s — marked incomplete",
+                        table,
+                        attr.key,
+                        self.height,
+                    )
+                before[attr.columns[0].name] = None if value is NEVER_SET else value
             self._record(table, "del", pk, before)
 
     def _on_flush_postexec(self, session: Session, flush_context: Any) -> None:
@@ -663,6 +690,32 @@ def revert_losing_segment(
             session.delete(blk)
     session.flush()
 
+    # Structural check: nothing may remain at the reverted heights — the
+    # digest excludes transaction/block (the Sep-02 incident was exactly
+    # orphan rows in those tables), so prove they are empty directly.
+    reverted_heights = [b.height for b in blocks]
+    leftover = (
+        session.exec(
+            select(func.count())
+            .select_from(ChainTransaction)
+            .where(ChainTransaction.chain_id == chain_id)
+            .where(col(ChainTransaction.block_height).in_(reverted_heights))
+        ).one()
+        + session.exec(
+            select(func.count())
+            .select_from(Block)
+            .where(Block.chain_id == chain_id)
+            .where(col(Block.height).in_(reverted_heights))
+        ).one()
+    )
+    if leftover:
+        logger.error(
+            "Fork undo left %s block/transaction rows at heights %s — refusing revert",
+            leftover,
+            reverted_heights,
+        )
+        return None
+
     # Side-table digest: for every table any reverted block digested, the
     # post-revert contents must equal the earliest reverted block's recorded
     # pre-state. Earlier-in-segment pre-state is the segment's pre-state for
@@ -783,45 +836,139 @@ def _tx_on_chain(session_factory: Any, chain_id: str, tx_hash: str) -> bool:
         return False
 
 
+def _admit_orphan(tx: dict[str, Any], mempool: Any, chain_id: str) -> str:
+    """Re-admit one orphaned transaction under real admission rules.
+
+    Bridge credit types (release/refund) have no sender-side admission by
+    design — they enter the mempool only from consensus-verified issuance, so
+    an orphaned one proved itself by having been in a block. Everything else
+    goes through the same gate as public intake: signature verification first
+    (a payload without a verifiable signature — e.g. a pre-``envelope``
+    reconstruction — can never legitimately re-enter the mempool), then
+    ``_validate_transaction_admission`` (sender, balance, nonce window,
+    supported chain).
+    """
+    from ..rpc.transactions import _validate_transaction_admission
+    from ..rpc.utils import PREREGISTERED_CREDIT_TX_TYPES, _resolved_tx_type, verify_transaction_signature
+
+    if _resolved_tx_type(tx) not in PREREGISTERED_CREDIT_TX_TYPES:
+        signature = str(tx.get("signature") or tx.get("sig") or "")
+        sender = str(tx.get("from") or tx.get("sender") or "")
+        if not verify_transaction_signature(tx, signature, sender):
+            raise ValueError("orphaned payload fails signature verification")
+        _validate_transaction_admission(tx, mempool)
+    return str(mempool.add(tx, chain_id=chain_id, tx_hash=str(tx.get("tx_hash") or "") or None))
+
+
 def requeue_orphaned_transactions(
     chain_id: str,
     payloads: list[dict[str, Any]],
-    session_factory: Any = None,
-) -> int:
-    """Push orphaned block transactions back into the mempool.
-
-    The stored ``Transaction`` row does not carry the original signature, so
-    the requeue is a best-effort reconstruction — ``mempool.add`` may refuse.
-    A payload that fails admission and is not already on the winning branch
-    is a confirmed transaction disappearing from the user's view: logged at
-    WARNING and counted by ``sync_fork_orphaned_tx_lost_total`` (alert path).
-    """
+) -> list[dict[str, Any]]:
+    """Push orphaned block transactions back into the mempool under full
+    admission. Returns the payloads admission REJECTED — the caller must run
+    ``reconcile_orphaned_transactions`` on them only after the winning branch
+    is imported, since whether a rejected tx is truly lost depends on whether
+    that branch carries it."""
     from ..mempool import get_mempool
-    from ..metrics import metrics_registry
 
     mempool = get_mempool()
-    requeued = 0
-    lost = 0
+    failed: list[dict[str, Any]] = []
     for tx in payloads:
-        tx_hash = str(tx.get("tx_hash") or "")
         try:
-            mempool.add(tx, chain_id=chain_id, tx_hash=tx_hash or None)
-            requeued += 1
-            continue
+            _admit_orphan(tx, mempool, chain_id)
         except Exception as exc:
-            if _tx_on_chain(session_factory, chain_id, tx_hash):
-                logger.info("Orphaned tx %s already confirmed on the winning branch — no requeue needed", tx_hash[:18])
-                continue
-            lost += 1
-            logger.warning(
-                "Orphaned tx %s (from %s) could not be requeued and is not on the winning branch — user transaction lost: %s",
-                tx_hash[:18],
-                tx.get("from"),
+            tx["_requeue_error"] = str(exc)
+            failed.append(tx)
+            logger.info(
+                "Orphaned tx %s failed re-admission (%s) — final classification after winning branch import",
+                str(tx.get("tx_hash") or "")[:18],
                 exc,
             )
-            marked = _mark_domain_row_orphaned(session_factory, chain_id, tx)
-            if marked:
-                metrics_registry.increment("sync_fork_domain_rows_orphaned_total", float(marked))
+    return failed
+
+
+def reconcile_orphaned_transactions(
+    chain_id: str,
+    failed: list[dict[str, Any]],
+    session_factory: Any,
+) -> None:
+    """Post-import pass over the payloads requeue could not re-admit.
+
+    Runs after the winning branch is in the DB: a failed tx that appears
+    there was never lost; one that does not is a confirmed user transaction
+    disappearing — WARNING + ``sync_fork_orphaned_tx_lost_total`` (alert
+    path) + orphan-marking of any domain row the lock funded. Also revives
+    domain rows previously marked ``orphaned`` whose lock has since
+    confirmed, so a stale mark cannot strand a valid stake.
+    """
+    from ..metrics import metrics_registry
+
+    lost = 0
+    for tx in failed:
+        tx_hash = str(tx.get("tx_hash") or "")
+        if _tx_on_chain(session_factory, chain_id, tx_hash):
+            logger.info("Orphaned tx %s confirmed on the winning branch — not lost", tx_hash[:18])
+            continue
+        lost += 1
+        logger.warning(
+            "Orphaned tx %s (from %s) failed re-admission and is not on the winning branch — user transaction lost: %s",
+            tx_hash[:18],
+            tx.get("from"),
+            tx.get("_requeue_error", "unknown"),
+        )
+        marked = _mark_domain_row_orphaned(session_factory, chain_id, tx)
+        if marked:
+            metrics_registry.increment("sync_fork_domain_rows_orphaned_total", float(marked))
     if lost:
         metrics_registry.increment("sync_fork_orphaned_tx_lost_total", float(lost))
-    return requeued
+    revived = _revive_confirmed_domain_rows(session_factory, chain_id)
+    if revived:
+        logger.warning("Revived %s domain rows marked orphaned whose lock tx is confirmed again", revived)
+
+
+# (model, row key field, lock-tx payload key, lock tx type) for the queue-time
+# domain rows RPC handlers create ahead of confirmation.
+_DOMAIN_LOCK_MAP = (
+    ("Stake", "id", "stake_id", "STAKE_LOCK"),
+    ("AgentStakeRecord", "stake_id", "agent_stake_id", "STAKE_LOCK"),
+    ("BountyContract", "bounty_id", "bounty_id", "BOUNTY_LOCK"),
+)
+
+
+def _revive_confirmed_domain_rows(session_factory: Any, chain_id: str) -> int:
+    """Undo a stale ``orphaned`` mark: a domain row is reactivated when a
+    confirmed lock tx referencing it exists (e.g. a false-orphan marked
+    before the winning branch arrived, then carried by it)."""
+    if session_factory is None:
+        return 0
+    from .. import base_models
+    from ..protocol_escrow import confirmed_lock_txs
+
+    revived = 0
+    try:
+        with session_factory() as session:
+            for model_name, field, payload_key, lock_type in _DOMAIN_LOCK_MAP:
+                model = getattr(base_models, model_name)
+                rows = session.exec(
+                    select(model).where(col(model.chain_id) == chain_id, col(model.status) == "orphaned")
+                ).all()
+                for row in rows:
+                    value = str(getattr(row, field))
+                    if confirmed_lock_txs(session, chain_id, lock_type, payload_key, value):
+                        row.status = "active"
+                        row.updated_at = datetime.now(UTC)
+                        session.add(row)
+                        revived += 1
+                        logger.warning(
+                            "Revived orphaned %s row %s=%s — a confirming %s tx is on chain",
+                            model.__tablename__,
+                            field,
+                            value,
+                            lock_type,
+                        )
+            if revived:
+                session.commit()
+    except Exception:
+        logger.exception("Domain-row orphan revival failed")
+        return 0
+    return revived

@@ -1043,3 +1043,152 @@ class TestBountyFamily:
             "payload": {"bounty_id": "b-1"},
         }
         _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [refund])
+
+
+class TestCompositeBlock:
+    """Interaction effects inside ONE block — where capture merge/dedupe
+    bugs hide (a single family per block can never produce them)."""
+
+    def test_two_transfers_same_sender(self, session_factory, db_engine):
+        """The same account row is raw-updated twice by one block — the
+        before-image must keep the pre-block balance, not the mid one."""
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        tx0 = _make_tx(
+            BUYER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 3000,
+                "value": 3000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "TRANSFER",
+                "chain_id": CHAIN,
+            },
+        )
+        tx1 = _make_tx(
+            BUYER_KEY,
+            {
+                "to": MARKET_A,
+                "amount": 2000,
+                "value": 2000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 1,
+                "type": "TRANSFER",
+                "chain_id": CHAIN,
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx0, tx1])
+
+    def test_create_and_spend_new_account_same_block(self, session_factory, db_engine):
+        """An account born inside the block then debited: undo is ins-undo +
+        upd(before=None) — the row must not survive at all."""
+        _fund(session_factory, BUYER, balance=2_000_000)
+        anc = _seeded_ancestor(session_factory)
+        fund = _make_tx(
+            BUYER_KEY,
+            {
+                "to": NODE_WALLET,
+                "amount": 800_000,
+                "value": 800_000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "TRANSFER",
+                "chain_id": CHAIN,
+            },
+        )
+        spend = _make_tx(
+            "0x" + "66" * 32,  # NODE_WALLET's key — the just-created account spends
+            {
+                "to": PROVIDER,
+                "amount": 1000,
+                "value": 1000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "TRANSFER",
+                "chain_id": CHAIN,
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [fund, spend])
+
+    def test_escrow_lock_and_release_same_block(self, session_factory, db_engine):
+        """Escrow insert + update (release marks the lock) plus the four raw
+        account writes — all inside one block."""
+        _fund(session_factory, BUYER, NODE_WALLET, AUTH)
+        _set_param(session_factory, "escrow_settlement_authority", AUTH)
+        anc = _seeded_ancestor(session_factory)
+        lock = _make_tx(
+            BUYER_KEY,
+            {
+                "to": NODE_WALLET,
+                "amount": 7000,
+                "value": 7000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "ESCROW_LOCK",
+                "chain_id": CHAIN,
+                "payload": {"job_id": "job-combo-1", "provider": PROVIDER},
+            },
+        )
+        release = _make_tx(
+            AUTH_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 7000,
+                "value": 7000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "ESCROW_RELEASE",
+                "chain_id": CHAIN,
+                "payload": {"job_id": "job-combo-1"},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [lock, release])
+
+
+class TestRequeueAdmissionPath:
+    """The envelope's signed payload must pass the same admission gate a
+    fresh submission faces — this is what makes the orphan-loss metric
+    meaningful (a failure here is the only 'lost' path)."""
+
+    def test_signed_envelope_survives_full_admission(self, session_factory, monkeypatch):
+        from aitbc_chain.config import settings as chain_settings
+        from aitbc_chain.rpc import transactions as rpc_tx
+        from aitbc_chain.state.block_deltas import requeue_orphaned_transactions
+
+        class ProbeMempool:
+            def __init__(self):
+                self.added: list[dict] = []
+
+            def pending_cost(self, chain_id, sender, exclude_nonce=None):
+                return 0
+
+            def add(self, tx, chain_id=None, tx_hash=None, commit=True):
+                self.added.append(tx)
+                return tx_hash or "0x0"
+
+        # The admission gate reads accounts through its own session_scope —
+        # point it at the test DB and accept the test chain.
+        monkeypatch.setattr(rpc_tx, "session_scope", session_factory)
+        monkeypatch.setattr(chain_settings, "supported_chains", CHAIN)
+        probe = ProbeMempool()
+        monkeypatch.setattr("aitbc_chain.mempool.get_mempool", lambda: probe)
+        _fund(session_factory, BUYER)
+
+        envelope = _make_tx(
+            BUYER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 250,
+                "value": 250,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "TRANSFER",
+                "chain_id": CHAIN,
+            },
+        )
+        envelope["tx_hash"] = _hash("orphan", 1)
+
+        failed = requeue_orphaned_transactions(CHAIN, [envelope])
+        assert failed == [] and len(probe.added) == 1
+        assert probe.added[0]["signature"] == envelope["signature"]
