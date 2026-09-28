@@ -28,6 +28,7 @@ from .state.block_deltas import (
     requeue_orphaned_transactions,
     revert_losing_segment,
 )
+from .state.bridge_credit import BRIDGE_AUTHORITY_TX_TYPES
 from .state.pure_state_transition import (
     StateDelta,
     _determine_tx_type,
@@ -494,14 +495,13 @@ class BlockImportMixin(SyncBase):
                 groups = graph.get_conflict_groups()
                 # Fall back to sequential if too many transactions conflict.
                 if groups and graph.conflict_rate() <= settings.conflict_threshold:
-                    # v5: bridge credits need the bridge release authority for
-                    # the signature gate — resolve the on-chain parameter once
-                    # so the pure path applies the same rule as the sequential
-                    # one. Only queried when a v5+ block actually has a credit.
+                    # Bridge-signed txs (credits v5, locks v9) need the bridge
+                    # release authority for the signature gate — resolve the
+                    # on-chain parameter once so the pure path applies the same
+                    # rule as the sequential one. Only queried when a v5+ block
+                    # actually contains a bridge-signed tx.
                     bridge_authority: str | None = None
-                    if block_version >= 5 and any(
-                        _determine_tx_type(tx) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in transactions
-                    ):
+                    if block_version >= 5 and any(_determine_tx_type(tx) in BRIDGE_AUTHORITY_TX_TYPES for tx in transactions):
                         bridge_authority = _bridge_release_authority(session, self._chain_id, block_data["height"])
                     # Batch-fetch all sender/recipient/v3-escrow accounts into
                     # account_map. Pre-create any missing accounts with zero

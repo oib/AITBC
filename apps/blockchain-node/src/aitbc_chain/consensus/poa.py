@@ -48,11 +48,14 @@ from ..state.pure_state_transition import (
     extract_read_write_sets,
 )
 from ..state.state_root_utils import compute_state_root_full as _compute_state_root
+from ..state.v9_policy import count_v9_would_reject
 from ..state.block_deltas import BlockDeltaJournal
 from ..state.bridge_credit import (
+    BRIDGE_AUTHORITY_TX_TYPES,
     bridge_refund_lock_hash,
     validate_bridge_refund_lock,
     verify_bridge_credit_signature,
+    verify_bridge_lock_signature,
 )
 from ..state.state_transition import (
     _bridge_release_authority,
@@ -1993,6 +1996,24 @@ class PoAProposer:
                     # otherwise this node seals a credit that followers, who DO
                     # validate the block content, reject. Skipping leaves the
                     # row un-sealed for retry/next block rather than forking.
+                    if tx_type == "BRIDGE_LOCK":
+                        # Followers verify the lock's bridge_signature from
+                        # the block content (pure path counts below v9,
+                        # enforces at v9). Stamping an unsigned/invalid lock
+                        # here would seal a block they reject.
+                        bridge_authority = _bridge_release_authority(session, self._config.chain_id, next_height)
+                        if block_version >= 9:
+                            if not bridge_authority or not verify_bridge_lock_signature(
+                                tx.content, tx.tx_hash, bridge_authority
+                            ):
+                                self._logger.warning(
+                                    "[PROPOSE] Skipping pre-registered BRIDGE_LOCK tx %s: failed v9 bridge-lock authorization",
+                                    tx.tx_hash,
+                                )
+                                continue
+                        elif not verify_bridge_lock_signature(tx.content, tx.tx_hash, bridge_authority or ""):
+                            count_v9_would_reject("bridge_lock_unsigned")
+                            self._logger.warning("v9 shadow: BRIDGE_LOCK tx %s lacks a valid bridge_signature", tx.tx_hash)
                     if tx_type in {"BRIDGE_RELEASE", "BRIDGE_REFUND"} and block_version >= 5:
                         expected_sender = "bridge_release" if tx_type == "BRIDGE_RELEASE" else "bridge_refund"
                         bridge_authority = _bridge_release_authority(session, self._config.chain_id, next_height)
@@ -2248,14 +2269,12 @@ class PoAProposer:
             conflict_rate,
         )
 
-        # v5: bridge credits carry a signature from the bridge release
-        # authority — resolve the on-chain parameter once so the pure path
-        # applies the same gate as the sequential one. Only queried when a
-        # v5+ block actually contains a credit.
+        # Bridge-signed txs (credits v5, locks v9) carry a signature from the
+        # bridge release authority — resolve the on-chain parameter once so
+        # the pure path applies the same gate as the sequential one. Only
+        # queried when a v5+ block actually contains a bridge-signed tx.
         bridge_authority: str | None = None
-        if block_version >= 5 and any(
-            _determine_tx_type(tx.content) in ("BRIDGE_RELEASE", "BRIDGE_REFUND") for tx in pending_txs
-        ):
+        if block_version >= 5 and any(_determine_tx_type(tx.content) in BRIDGE_AUTHORITY_TX_TYPES for tx in pending_txs):
             bridge_authority = _bridge_release_authority(session, chain_id, next_height)
 
         # Prepare tx_data for each tx (with nonce set from account_map)
