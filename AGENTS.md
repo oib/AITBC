@@ -659,22 +659,36 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   SQL outside the account-PK form), or a mid-apply transaction boundary
   (listeners no longer cover the next connection) stamps an `incomplete`
   sentinel row, and `revert_losing_segment` refuses that block outright —
-  the resolver escalates instead of partially undoing. Revert replays a
-  complete segment's deltas in reverse, then verifies the recomputed
-  account state root against the common ancestor's recorded root — a second
-  net, since the root covers only `account`; side-table completeness is
-  proven by `tests/test_block_deltas_differential.py`, which snapshots
-  every chain table around apply+revert for TRANSFER, GPU_MARKET variants,
-  GPU_REGISTER, ESCROW lock/release/refund, BRIDGE lock/release/refund,
-  BOND lock/release/slash and GOVERNANCE_EXECUTE. Orphaned transactions
-  requeue through real mempool admission — the confirmed `Transaction` row
-  stores the full signed `envelope` (auto-migrated column), not a
-  reconstruction. An orphan that fails requeue AND is absent from the
-  winning branch logs a WARNING with hash+sender and increments
-  `sync_fork_orphaned_tx_lost_total` (`ForkOrphanedTxLost` alert — a user's
-  confirmed transaction is gone; reconcile by hand). Delta rows older than
-  10k blocks are pruned on each persist, well past `max_reorg_depth`. A
-  journal gap or root mismatch increments `sync_fork_reorg_unsafe_total`
+  the resolver escalates instead of partially undoing. A row mutated across
+  several flushes merges its before-images per attribute (first-captured
+  wins), so a later flush's changes are never silently dropped. Each
+  journaled block also stores a `__digest__` meta row: the SHA-256
+  pre-state of every side table it touched (excluding `account`, covered by
+  the state root, and `transaction`/`block`/`mempool`, structural or
+  ephemeral). Revert replays a segment's deltas in reverse, then verifies
+  (a) every digested table re-hashes to the earliest reverted block's
+  recorded pre-state and (b) the recomputed account state root matches the
+  common ancestor's recorded root — two nets over disjoint coverage; a
+  digest or root mismatch returns None and escalates. Capture completeness
+  is additionally proven by `tests/test_block_deltas_differential.py`,
+  which snapshots every chain table around apply+revert for all apply-able
+  families: TRANSFER, MESSAGE, GPU_MARKET/REGISTER/ALLOCATE, ESCROW
+  lock/release/refund, BRIDGE lock/release/refund/withdraw, BOND
+  lock/release/slash, GOVERNANCE_EXECUTE, IPFS_SUBSCRIPTION insert+extend,
+  RECEIPT_CLAIM, LIQUIDITY deposit/claim/withdraw, STAKE lock/release and
+  BOUNTY lock/payout/refund. Orphaned transactions requeue through real
+  mempool admission — the confirmed `Transaction` row stores the full
+  signed `envelope` (auto-migrated column), not a reconstruction. An orphan
+  that fails requeue AND is absent from the winning branch logs a WARNING
+  with hash+sender and increments `sync_fork_orphaned_tx_lost_total`
+  (`ForkOrphanedTxLost` alert — a user's confirmed transaction is gone;
+  reconcile by hand); when it was a `STAKE_LOCK`/`BOUNTY_LOCK`, the
+  RPC-written domain row (`stake`, `agent_stake`, `bounty_contract` —
+  written at queue time, unreachable by the journal) is marked
+  `status='orphaned'` and counted via `sync_fork_domain_rows_orphaned_total`,
+  unless another confirmed lock still references it. Delta rows older than
+  10k blocks are pruned on every 64th persist, well past `max_reorg_depth`.
+  A journal gap or root mismatch increments `sync_fork_reorg_unsafe_total`
   and escalates — never a wrong revert. `SYNC_FORK_UNDO_ENABLED=false`
   restores escalate-only behaviour. **The delta-sync fast path is NOT
   journaled** — a follower catching up via the `/rpc/sync` state dump writes
