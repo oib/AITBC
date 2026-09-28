@@ -1010,11 +1010,12 @@ lost.
 
 Findings along the way:
 
-- MEMPOOL_BACKEND drift: node0 alone runs 'memory' (fleet default
-  'database'). Harmless today — node0 never proposes, so nothing drains
-  either backend — but requeue/evict on node0 operate on an in-memory
-  pool while its postgres aitbc_mempool table is written only by the
-  rpc service. Flagged for the operator; left as found.
+- MEMPOOL_BACKEND drift fixed: node0's blockchain.env had 'memory'
+  (fleet: 'database', explicit on hub/hub1/node2, default on node1).
+  Normalized to database — node + rpc restarted, running env verified,
+  node reconverged. node0 never proposes so the pool is intake-only
+  either way, but now matches the fleet and persists across restarts.
+  Backup: /etc/aitbc/blockchain.env.bak-20260928-mempool-backend.
 - CLI canary note: 'aitbc transactions send --type GPU_REGISTER' fails
   apply with 'must have value=0' since the CLI requires --amount>0;
   the earlier gpu canary used the raw signed-RPC path.
