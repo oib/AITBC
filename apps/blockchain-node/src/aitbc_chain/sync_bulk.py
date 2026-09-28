@@ -14,7 +14,12 @@ from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
-from .state.block_deltas import reconcile_orphaned_transactions, requeue_orphaned_transactions, revert_losing_segment
+from .state.block_deltas import (
+    invalidate_account_caches,
+    reconcile_orphaned_transactions,
+    requeue_orphaned_transactions,
+    revert_losing_segment,
+)
 from .sync_base import SyncBase
 from .sync_divergence import clear_divergence, report_divergence
 
@@ -506,6 +511,7 @@ class BulkSyncMixin(SyncBase):
                     len(our_segment),
                 )
                 return False
+            reverted_accounts: set[str] = set()
             if not segment_empty:
                 # Non-empty losing segment: undo its state changes via the
                 # per-block delta journal instead of refusing the reorg. None
@@ -516,6 +522,7 @@ class BulkSyncMixin(SyncBase):
                     list(our_segment),
                     ancestor,
                     self._blocks_provably_empty,
+                    reverted_accounts=reverted_accounts,
                 )
                 if reverted is None:
                     metrics_registry.increment("sync_fork_reorg_unsafe_total")
@@ -541,6 +548,12 @@ class BulkSyncMixin(SyncBase):
                         session.delete(tx)
                     session.delete(old_block)
             session.commit()
+            # The DB now holds pre-fork balances but Redis may still serve the
+            # reverted values for the cache TTL — drop both key forms for every
+            # account the journal touched. Provably-empty segments restore no
+            # account rows, so reverted_accounts is empty there anyway.
+            if reverted_accounts:
+                invalidate_account_caches(self._chain_id, reverted_accounts)
         metrics_registry.increment("sync_fork_choice_remote_wins_total")
         metrics_registry.increment("sync_reorgs_total")
         metrics_registry.observe("sync_reorg_depth", float(len(our_segment)))
