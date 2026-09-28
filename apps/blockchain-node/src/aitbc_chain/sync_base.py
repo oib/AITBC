@@ -43,6 +43,7 @@ class SyncBase(Protocol):
     _max_reorg_depth: int
     _rejection_counts: dict[str, int]
     _deferred_forks: dict[int, float]
+    _orphan_reconcile_pending: list[dict[str, Any]]
 
     # Peer lifecycle
     def register_sync_peer(self, peer_id: str, rpc_url: str, block_range: tuple[int, int], has_state: bool = True) -> None: ...

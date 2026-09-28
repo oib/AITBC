@@ -22,7 +22,12 @@ from .metrics import (
     sync_failures_total,
 )
 from .state import state_root_utils
-from .state.block_deltas import BlockDeltaJournal, requeue_orphaned_transactions, revert_losing_segment
+from .state.block_deltas import (
+    BlockDeltaJournal,
+    reconcile_orphaned_transactions,
+    requeue_orphaned_transactions,
+    revert_losing_segment,
+)
 from .state.pure_state_transition import (
     StateDelta,
     _determine_tx_type,
@@ -1043,9 +1048,9 @@ class BlockImportMixin(SyncBase):
         # Rival wins the tip race. Replacing our head removes a committed row:
         # provably-empty blocks are deleted outright, non-empty ones are
         # reverted through the per-block delta journal (verified against the
-        # parent's recorded state root) — otherwise escalate to an operator
-        # resync. The undo stays gated until the journal is proven complete
-        # (the ancestor root check covers accounts only).
+        # parent's recorded state root + the per-table digests + the
+        # structural row check) — otherwise escalate to an operator resync.
+        # SYNC_FORK_UNDO_ENABLED=false is the operator kill-switch.
         orphaned: list[dict[str, Any]] = []
         if not self._blocks_provably_empty(session, [ours]):
             reverted = (
@@ -1116,8 +1121,13 @@ class BlockImportMixin(SyncBase):
         result.reorged = True
         result.reorg_depth = 1
         if orphaned:
-            requeued = requeue_orphaned_transactions(self._chain_id, orphaned, self._session_factory)
-            logger.warning("Requeued %s of %s orphaned transactions into the mempool", requeued, len(orphaned))
+            failed = requeue_orphaned_transactions(self._chain_id, orphaned)
+            logger.warning(
+                "Requeued %s of %s orphaned transactions into the mempool", len(orphaned) - len(failed), len(orphaned)
+            )
+            # The rival block is already committed, so winning-branch checks
+            # are definitive — classify rejected orphans immediately.
+            reconcile_orphaned_transactions(self._chain_id, failed, self._session_factory)
         return result
 
     def get_sync_status(self) -> dict[str, Any]:
