@@ -89,6 +89,7 @@ def _escrow_create(
     On follower/customer nodes the local RPC has no proposer, so callers should
     pass the hub's proposer (``HUB_PROPOSER_ID`` or ``--proposer``).
     """
+    from . import get_chain_id
     from ...utils.escrow import create_signed_escrow_lock
 
     if not private_key:
@@ -130,6 +131,7 @@ def _escrow_create(
             provider,
             amount,
             private_key,
+            chain_id=get_chain_id(),
             node_wallet=node_wallet,
         )
     except Exception as e:
