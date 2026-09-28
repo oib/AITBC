@@ -28,6 +28,9 @@ from aitbc_chain.base_models import (
     Account,
     Block,
     ChainParameter,
+    LiquidityPool,
+    LiquidityStake,
+    Receipt,
 )
 from aitbc_chain.base_models import Transaction as ChainTransaction
 from aitbc_chain.config import settings
@@ -667,3 +670,376 @@ class TestGovernanceFamily:
             },
         )
         _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+
+class TestMessageFamily:
+    def test_message(self, session_factory, db_engine):
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "MESSAGE",
+                "chain_id": CHAIN,
+                "payload": {"text": "hello chain"},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+
+class TestGpuAllocateFamily:
+    """GPU_ALLOCATE inserts a gpu_allocation row against an existing
+    registration — the registration is committed by a prior journaled block."""
+
+    def test_gpu_allocate(self, session_factory, db_engine):
+        _fund(session_factory, PROVIDER, BUYER)
+        genesis = _store_block(session_factory, 0, "0x00")
+        _stamp_root(session_factory, 0)
+        register = _make_tx(
+            PROVIDER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "GPU_REGISTER",
+                "chain_id": CHAIN,
+                "payload": {
+                    "gpu_id": "gpu-alloc-1",
+                    "miner_id": "miner-alloc-1",
+                    "model": "RTX 4090",
+                    "memory_gb": 24,
+                    "price_per_hour": "0.1",
+                },
+            },
+        )
+        _apply_block(session_factory, 1, genesis["hash"], [register])
+        allocate = _make_tx(
+            BUYER_KEY,
+            {
+                "to": BUYER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "GPU_ALLOCATE",
+                "chain_id": CHAIN,
+                "payload": {
+                    "gpu_id": "gpu-alloc-1",
+                    "allocation_id": "alloc-1",
+                    "client_id": "client-1",
+                    "duration_hours": 2.0,
+                    "total_cost": "0.2",
+                },
+            },
+        )
+        _roundtrip(session_factory, db_engine, 2, _hash("block", 1, genesis["hash"]), 1, [allocate])
+
+
+class TestIpfsSubscriptionFamily:
+    """Insert and extend (update) of ipfs_subscription rows."""
+
+    def _sub_tx(self, nonce: int) -> dict:
+        return _make_tx(
+            BUYER_KEY,
+            {
+                "to": BUYER,
+                "amount": 100,
+                "value": 100,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": nonce,
+                "type": "IPFS_SUBSCRIPTION",
+                "chain_id": CHAIN,
+                "payload": {"island_id": "island-1", "duration_blocks": 100, "quota_bytes": 2048},
+            },
+        )
+
+    def test_ipfs_subscription_insert(self, session_factory, db_engine):
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [self._sub_tx(0)])
+
+    def test_ipfs_subscription_extend(self, session_factory, db_engine):
+        _fund(session_factory, BUYER)
+        genesis = _store_block(session_factory, 0, "0x00")
+        _stamp_root(session_factory, 0)
+        _apply_block(session_factory, 1, genesis["hash"], [self._sub_tx(0)])
+        _roundtrip(session_factory, db_engine, 2, _hash("block", 1, genesis["hash"]), 1, [self._sub_tx(1)])
+
+
+class TestBridgeWithdrawFamily:
+    def test_bridge_withdraw(self, session_factory, db_engine):
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": "bridge_burn",
+                "amount": 3000,
+                "value": 3000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "BRIDGE_WITHDRAW",
+                "chain_id": CHAIN,
+                "payload": {"eth_address": derive_ethereum_address("0x" + "77" * 32)},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+
+class TestReceiptClaimFamily:
+    def test_receipt_claim(self, session_factory, db_engine):
+        _fund(session_factory, PROVIDER)
+        receipt_id = _hash("receipt", "job-1")
+        with session_factory() as session:
+            session.add(
+                Receipt(
+                    chain_id=CHAIN,
+                    job_id="job-1",
+                    receipt_id=receipt_id,
+                    payload={"units": 12},
+                    miner_signature={"sig": "miner"},
+                    coordinator_attestations=[{"att": "coord"}],
+                    minted_amount=1234,
+                    status="pending",
+                )
+            )
+            session.commit()
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            PROVIDER_KEY,
+            {
+                "to": PROVIDER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "RECEIPT_CLAIM",
+                "chain_id": CHAIN,
+                "payload": {"receipt_id": receipt_id},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+
+class TestLiquidityFamily:
+    """Liquidity rows live in liquidity_pool/liquidity_stake plus pool
+    accounts — raw account writes and ORM rows both under the journal."""
+
+    def test_liquidity_deposit(self, session_factory, db_engine):
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": BUYER,
+                "amount": 10_000,
+                "value": 10_000,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "LIQUIDITY_DEPOSIT",
+                "chain_id": CHAIN,
+                "payload": {"pool_id": "main", "lock_days": 0},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+    def _setup_pool(self, session_factory, *, locked_until: datetime | None = None) -> None:
+        from decimal import Decimal
+
+        from aitbc_chain.state.liquidity import pool_main_address, pool_treasury_address
+
+        _fund(session_factory, BUYER, pool_main_address(), pool_treasury_address())
+        with session_factory() as session:
+            session.add(
+                LiquidityPool(
+                    pool_id="main",
+                    chain_id=CHAIN,
+                    total_staked=10_000,
+                    reward_per_share=Decimal("0.5"),
+                )
+            )
+            session.add(
+                LiquidityStake(
+                    stake_id="lstake-1",
+                    chain_id=CHAIN,
+                    pool_id="main",
+                    address=BUYER,
+                    amount=10_000,
+                    lock_days=0,
+                    locked_until=locked_until,
+                    reward_per_share_at_stake=Decimal("0"),
+                    rewards_claimed=0,
+                    status="active",
+                )
+            )
+            session.commit()
+
+    def test_liquidity_claim(self, session_factory, db_engine):
+        self._setup_pool(session_factory)
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": BUYER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "LIQUIDITY_CLAIM",
+                "chain_id": CHAIN,
+                "payload": {"pool_id": "main", "stake_id": "lstake-1"},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+    def test_liquidity_withdraw(self, session_factory, db_engine):
+        self._setup_pool(session_factory, locked_until=datetime(2020, 1, 1, tzinfo=UTC))
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": BUYER,
+                "amount": 0,
+                "value": 0,
+                "fee": DEFAULT_TX_FEE_UNITS,
+                "nonce": 0,
+                "type": "LIQUIDITY_WITHDRAW",
+                "chain_id": CHAIN,
+                "payload": {"pool_id": "main", "stake_id": "lstake-1"},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+
+class TestStakeFamily:
+    """Protocol transfers: keyless escrow senders carry no top-level
+    signature; the journal sees the generic account writes + tx row."""
+
+    def test_stake_lock(self, session_factory, db_engine):
+        from aitbc_chain.protocol_escrow import stake_escrow_address
+
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": stake_escrow_address(),
+                "amount": 4000,
+                "value": 4000,
+                "fee": 0,
+                "nonce": 0,
+                "type": "STAKE_LOCK",
+                "chain_id": CHAIN,
+                "payload": {"stake_id": "1", "lock_days": 30},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+    def test_stake_release(self, session_factory, db_engine):
+        from aitbc_chain.protocol_escrow import stake_escrow_address
+
+        escrow = stake_escrow_address()
+        _fund(session_factory, escrow, balance=1_000_000)
+        # Matured confirmed lock: block_height 1 + lock_days 1 * 1440 = 1441;
+        # the apply block sits at 2000 so next_height (2000) >= 1441.
+        lock_hash = _hash("stake-lock", "s1")
+        with session_factory() as session:
+            _mk_block_row(session, 1, "0x00", 1)
+            session.add(
+                ChainTransaction(
+                    chain_id=CHAIN,
+                    tx_hash=lock_hash,
+                    block_height=1,
+                    sender=BUYER,
+                    recipient=escrow,
+                    payload={"stake_id": "9", "lock_days": 1},
+                    type="STAKE_LOCK",
+                    value=4000,
+                    fee=0,
+                    nonce=0,
+                    status="confirmed",
+                )
+            )
+            session.commit()
+        anc = _seeded_ancestor(session_factory, height=1999)
+        release = {
+            "from": escrow,
+            "to": BUYER,
+            "amount": 4000,
+            "value": 4000,
+            "fee": 0,
+            "nonce": 0,
+            "type": "STAKE_RELEASE",
+            "chain_id": CHAIN,
+            "payload": {"stake_id": "9", "lock_tx_hashes": [lock_hash]},
+        }
+        _roundtrip(session_factory, db_engine, 2000, anc["hash"], 1999, [release])
+
+
+class TestBountyFamily:
+    def test_bounty_lock(self, session_factory, db_engine):
+        from aitbc_chain.protocol_escrow import bounty_escrow_address
+
+        _fund(session_factory, BUYER)
+        anc = _seeded_ancestor(session_factory)
+        tx = _make_tx(
+            BUYER_KEY,
+            {
+                "to": bounty_escrow_address(),
+                "amount": 6000,
+                "value": 6000,
+                "fee": 0,
+                "nonce": 0,
+                "type": "BOUNTY_LOCK",
+                "chain_id": CHAIN,
+                "payload": {"bounty_id": "b-1"},
+            },
+        )
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [tx])
+
+    def _setup_bounty_escrow(self, session_factory) -> dict[str, Any]:
+        from aitbc_chain.protocol_escrow import bounty_escrow_address
+
+        _fund(session_factory, bounty_escrow_address(), balance=1_000_000)
+        return _seeded_ancestor(session_factory)
+
+    def test_bounty_payout(self, session_factory, db_engine):
+        from aitbc_chain.protocol_escrow import bounty_escrow_address
+
+        anc = self._setup_bounty_escrow(session_factory)
+        payout = {
+            "from": bounty_escrow_address(),
+            "to": PROVIDER,
+            "amount": 6000,
+            "value": 6000,
+            "fee": 0,
+            "nonce": 0,
+            "type": "BOUNTY_PAYOUT",
+            "chain_id": CHAIN,
+            "payload": {"bounty_id": "b-1", "submission_id": "sub-1"},
+        }
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [payout])
+
+    def test_bounty_refund(self, session_factory, db_engine):
+        from aitbc_chain.protocol_escrow import bounty_escrow_address
+
+        anc = self._setup_bounty_escrow(session_factory)
+        refund = {
+            "from": bounty_escrow_address(),
+            "to": BUYER,
+            "amount": 6000,
+            "value": 6000,
+            "fee": 0,
+            "nonce": 0,
+            "type": "BOUNTY_REFUND",
+            "chain_id": CHAIN,
+            "payload": {"bounty_id": "b-1"},
+        }
+        _roundtrip(session_factory, db_engine, 1, anc["hash"], 0, [refund])
