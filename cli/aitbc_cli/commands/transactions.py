@@ -29,6 +29,11 @@ logger = get_logger(__name__)
 
 DEFAULT_RPC_URL = "http://127.0.0.1:8202"
 
+# Transaction types whose apply path rejects any nonzero value — mirrors
+# aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES (the node package
+# is not a CLI dependency, so the set is duplicated here).
+_ZERO_VALUE_TX_TYPES = frozenset({"MESSAGE", "GOVERNANCE_EXECUTE", "GPU_REGISTER", "GPU_ALLOCATE", "GPU_MARKET"})
+
 
 def _resolve_transaction_rpc_url(rpc_url: str | None) -> str:
     """Return the RPC URL to submit a transaction from.
@@ -149,8 +154,16 @@ def _send_transaction_impl(
         error(f"Invalid recipient address: {e}")
         return None
 
-    # Validate amount/fee
-    if amount <= 0:
+    # Validate amount/fee. Zero-value types (mirrors
+    # aitbc_chain.state.state_transition._ZERO_VALUE_TX_TYPES — no shared
+    # constants package exists) are REJECTED by apply when value != 0, so
+    # they need --amount 0; for every other type a zero amount is a no-op
+    # that only burns the fee, kept an error.
+    if tx_type.upper() in _ZERO_VALUE_TX_TYPES:
+        if amount != 0:
+            error(f"{tx_type.upper()} transactions must have amount=0")
+            return None
+    elif amount <= 0:
         logger.error("Invalid amount: %s must be positive", amount)
         error("Amount must be positive")
         return None
