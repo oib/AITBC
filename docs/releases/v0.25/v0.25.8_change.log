@@ -1237,3 +1237,117 @@ anchored by checkpoints, not by re-validation.
 - Prometheus rules: V9ShadowRejection (increase(v9_would_reject_total[10m]))
   and V9AttestationRefusal (v9_would_reject_attest_*_total) added to the
   aitbc group and deployed fleet-wide.
+
+### Incident 2026-09-28: fleet wedge at 27207 during v9 canary run
+
+Timeline (UTC): 21:59:14 hub applies canary GPU_MARKETPLACE 0xf263f881e54f
+in block 27207 (recorded root 0xb67f4cbe…). 21:59:16–17 hub's own sync
+manager runs "delta sync from https://hub1.aitbc.bubuit.net 27205→27206"
+and logs "1 accounts changed, state root matches" — matching block 27206's
+root, which is exactly the problem: the delta overwrote the canary
+account's committed 27207 state with its 27206 state. 22:00:24 hub and
+hub1 (which pulled the same delta from hub) log "Local state diverged from
+our own head 27207 … BLOCK REJECTED". node0/node1/node2 had imported 27207
+correctly and produced empty 27208/27209 (root 0xb67f); ~22:03 they pulled
+hub's /rpc/state/snapshot (59 accounts, root 0xc7f9b455… = 27206 state,
+updated=1) and accepted it because it matched the source's claimed root,
+not their own head's recorded state_root. All five nodes ended up diverged
+from their recorded heads; production stopped at 27209 (~22:02) for ~1 h.
+
+Cause — two defects, neither v9-related:
+- hub /etc/aitbc/node.env CHAIN_SYNC_SOURCES=…:https://hub1… plus
+  AUTO_SYNC_ENABLED made the PROPOSER run follower state sync from the
+  demoted follower every ~5 min (34 runs in the prior 3 h); the two-second
+  race with its own block apply lost the block's state delta.
+- Snapshot/delta application was validated against the source's claimed
+  root, never the local head's recorded root, and the delta path committed
+  before checking then "fell back" on mismatch — the poison path.
+The v9 counters only reported the consequence (not_at_parent on hub/hub1).
+
+Repair (operator-approved, executed verbatim): all aitbc-blockchain-node
+and -rpc services stopped fleet-wide; chain.db backed up
+(chain.db.bak-20260928-27207wedge) on all five; single-row
+UPDATE account SET balance=179855999, nonce=4 for
+0xF4924759508E420eeD947BD33326731B11c4B7Df (derived from the 27207 tx:
+value 1 + fee 36000 on the 27206 before-image 179891999/3 from the
+block_state_delta journal; self-send so net −36000, fee burned) — 1 row on
+each host; blocks 27208/27209 + bridge_block_header rows copied from node1
+into hub/hub1 (hub's bbh ids autoincremented 18969/18970);
+compute_state_root_full = 0xb67f4cbe2a1da8b0bae07632aabdd6b59138cc9661716fa27a0a1998127c8c6b
+on all five before restart; Redis account caches held no entries for the
+address; hub CHAIN_SYNC_SOURCES commented out; STATE_SYNC_MAX_GAP=-1 set on
+all five (periodic delta/snapshot state sync disabled until this fix is
+deployed); hub started first, then followers; converged at 27212 and
+producing; the dropped GPU_ALLOCATE canary was re-submitted and sealed at
+27213 (0x0ad9a26fb54a…, canary nonce 5).
+
+Code fix in this commit (apps/blockchain-node):
+- config.is_block_producer() is now the single definition of "this node
+  produces blocks" (hub mode or configured PBFT validator); main.py uses
+  it for the producer gate instead of an inline copy.
+- StateSyncMixin refuses any state sync on a producer before any network
+  call (reason block_producer); sync_manager._chain_loop also skips the
+  STATE_SYNC branch on producers (bulk block import unchanged).
+- delta_sync_from reads the local head first: to_height < head →
+  stale_target; to_height > head → ahead_of_local_head (block import must
+  catch up; no snapshot fallback); only to_height == head proceeds. The
+  diff's claimed to_state_root must equal the head's recorded root
+  (source_root_disagrees). Changes apply, flush, and are root-checked
+  against the local recorded root in the SAME session before commit —
+  mismatch → rollback, root_mismatch_local_head, nothing persisted.
+- sync_state_from keeps the gap/divergence skips, refuses a snapshot whose
+  claimed root differs from the local head root before writing anything
+  (source_root_disagrees), and applies/validates/commits the same way.
+- Every refusal increments state_sync_refused_total and
+  state_sync_refused_<reason>_total.
+- tests/test_state_sync_guards.py: 8 cases covering producer refusal (no
+  network), stale/ahead targets, source-root disagreement, and
+  rollback-before-commit for both paths.
+
+Pre-existing finding recorded during the side-table digest
+(node2:/tmp/wedge-repair/aux_divergence.txt): non-account chain tables
+already diverge across hosts — escrow 45/27/44/27/45
+(hub/hub1/node0/node1/node2), governance_vote 5/5/5/5/10,
+cross_chain_transfer 4/0/0/0/4, cross_chain_swap 1/0/0/0/1,
+bridge_validators 6/0/2/2/6; gpu_allocation, governance_proposal, and
+stake semantic digests differ; bridge_block_header has duplicate-height
+rows on node0 (+2) and node2 (+3). The account-only state root cannot see
+any of this; it feeds the fork-journal/orphan-detection work.
+
+The v9 shadow window restarts when this fix is deployed fleet-wide; the
+v9 counters were not at fault, but the fleet was down during the window.
+STATE_SYNC_MAX_GAP=-1 stays in place until the operator re-enables
+periodic state sync.
+
+### Monitoring test, faucet docs, and bridge findings (2026-09-28)
+
+- promtool unit test for the v9 shadow alerts:
+  scripts/monitoring/aitbc_rules_test.yml exercises V9ShadowRejection and
+  V9AttestationRefusal (firing and non-firing series). Run with:
+
+      promtool test rules scripts/monitoring/aitbc_rules_test.yml
+
+  Result on node2: SUCCESS.
+
+- Faucet docs marked paused: website/follower-api-key-announcement.html
+  and the ops guide now state that /api/v1/agent/coin-requests/*/execute
+  returns 503 (has since 2026-09-09) and stays paused until it runs on a
+  dedicated, budget-limited wallet as part of the key-split work.
+  Registrations still work but will not be paid out until then. The page
+  is redeployed by the normal hub pull + render-website.sh path.
+
+- Legacy unsigned BRIDGE_LOCK check before v9 pinning: 0 pre-registered
+  BRIDGE_LOCK rows with block_height IS NULL, 0 BRIDGE_LOCK entries in the
+  Postgres mempool (aitbc_mempool.mempool is empty), 0 pending/locked
+  cross_chain_transfer records on hub. The 4 sealed historical
+  BRIDGE_LOCKs are all pre-v9 (unsigned, valid under their block version).
+  Nothing to drain.
+
+- Bridge authority key: on-chain bridge_release_authority =
+  0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B (applied_height 22469,
+  proposal gap60) = hub proposer address; bridge_transfer runs in
+  aitbc-blockchain-rpc, which signs via ESCROW_RELEASE_PRIVATE_KEY (same
+  key) because BRIDGE_RELEASE_PRIVATE_KEY is unset. The bridge authority
+  is therefore added to the key split: a new key switched in through the
+  height-scoped bridge_release_authority parameter, alongside
+  escrow_settlement_authority.
