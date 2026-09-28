@@ -107,6 +107,30 @@ groups:
           summary: "Orphaned transaction lost after fork reorg on {{ $labels.instance }}"
           description: "A transaction that existed only on the losing fork segment on {{ $labels.instance }} failed mempool requeue and is absent from the winning branch — the user's confirmed transaction disappeared. Reconcile and resubmit."
 
+      # A reorg that DID auto-revert still rewrote confirmed state — worth
+      # knowing even though it is the success path. Pairs with
+      # ForkReorgUnsafe: every non-empty fork resolution fires exactly one of
+      # the two.
+      - alert: ForkReorgUndone
+        expr: increase(sync_fork_reorg_undone_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Fork reorg auto-reverted blocks on {{ $labels.instance }}"
+          description: "The delta journal undid a losing non-empty segment on {{ $labels.instance }}. Correct behavior, but confirmed transactions were displaced — check ForkOrphanedTxLost for any that failed requeue."
+
+      # A queue-time domain row (stake / agent_stake / bounty_contract) was
+      # marked orphaned because its confirming lock tx vanished in a reorg.
+      # The user-facing row is disabled until an operator or the reconciler's
+      # revive pass restores it.
+      - alert: ForkDomainRowOrphaned
+        expr: increase(sync_fork_domain_rows_orphaned_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "Domain row orphaned by fork on {{ $labels.instance }}"
+          description: "A stake/agent_stake/bounty_contract row lost its confirming lock transaction in a reorg on {{ $labels.instance }} and was marked orphaned. It revives automatically if the lock confirms on the winning branch."
+
       # Faucet drain tripwire — the coin_request_auto_budget_trips_total
       # counter exists so this scrape alert can flag an ongoing drain without
       # journal access (v0.25.8, 7da4bde0f).
