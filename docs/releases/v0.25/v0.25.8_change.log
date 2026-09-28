@@ -893,3 +893,28 @@ briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
     consensus divergence risk (a follower validates the signed nonce,
     the proposer executes the current one) — not changed, needs a
     decision.
+
+## 2026-09-28 — repo hygiene: retire stale dev-only scripts (chore)
+
+Removed 87 scripts that were dead weight for public cloners setting up a
+hub/shop/customer node — none referenced by CI, docs, or other scripts, and
+no live cron/systemd unit invokes them:
+
+- Stale-fleet hardcoded paths (aitbc1/aitbc3/hub2 literals): the legacy
+  `production-deploy*`/`deploy-real-production` family, `multi-node/` test
+  drivers, `sync-blockchain-from-aitbc1.sh`, sudoers/permission one-offs.
+- Dev task scripts: `implement-*`, `complete-*`, `fix_b008.py`,
+  `fix_wrapper_paths.py`, planning-cleanup leftovers, repo-hygiene helpers
+  (`cleanup-root-directory`, `update-file-references`, `git_helper`,
+  `solve-prs-with-poetry`, `sync-all-nodes`, `stale_inventory`).
+- Dead deploy forks: `deploy-{blockchain,blockchain-explorer,direct,
+  modern-explorer,remote-build}`, `cleanup/test-deployment`, `quick-deploy`,
+  `deploy_multi_region`, `optimize-blockchain-startup`.
+- Unused `services/` wrappers/demos and one-off ops migrations
+  (`migrate-secrets-*`, `sync-systemd`), plus superseded `workflow-agent`
+  variants and stale `workflow/` steps carrying dead hostnames.
+
+Entry points operators need are untouched: `setup.sh`, `update.sh`,
+canonical `deploy*.sh`/`deploy-env.sh`, `ci/` checks, the `workflow/`
+numbered suite, `zk/`, doc generators, and the root agent scripts driven by
+node1's crontab.
