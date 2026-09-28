@@ -14,7 +14,7 @@ from typing import Any
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.sync import PeerCapability, PeerCapabilityTracker, SyncSourceResolver
 
-from .config import settings
+from .config import is_block_producer, settings
 from .database import init_db, session_scope
 from .gossip import TopicSubscription, create_backend, gossip_broker
 from .logger import get_logger
@@ -612,11 +612,7 @@ class SyncManager:
         # run it rather than sitting SYNCED on a divergent head.
         diverged_at_head = head_divergence is not None and remote_height == state.last_local_height
 
-        if (
-            gap > getattr(settings, "auto_sync_threshold", 10)
-            or state.mode == SyncMode.CATCH_UP
-            or diverged_at_head
-        ):
+        if gap > getattr(settings, "auto_sync_threshold", 10) or state.mode == SyncMode.CATCH_UP or diverged_at_head:
             state.mode = SyncMode.CATCH_UP
             state.bulk_task = create_task_with_logging(
                 self._bulk_pull(chain_id, source_url),
@@ -626,7 +622,12 @@ class SyncManager:
 
         state.mode = SyncMode.SYNCED if gap == 0 else SyncMode.PUSH
 
-        if (
+        # Block producers never run follower state sync — their account state
+        # is the product of applying blocks (incident 27207). The mixin guard
+        # is the backstop.
+        if is_block_producer():
+            logger.debug("State sync skipped: node produces blocks", extra={"chain_id": chain_id})
+        elif (
             gap <= getattr(settings, "state_sync_max_gap", 10)
             and state.mode == SyncMode.SYNCED
             and time.time() - state.last_state_sync_at > getattr(settings, "sync_manager_state_sync_interval", 300)
