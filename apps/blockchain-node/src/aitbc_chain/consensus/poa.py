@@ -2035,6 +2035,7 @@ class PoAProposer:
                         sender=tx_data.get("from", ""),
                         recipient=tx_data.get("to", ""),
                         payload=original_payload,
+                        envelope=dict(tx.content),
                         value=value,
                         fee=fee,
                         nonce=0,
@@ -2129,6 +2130,8 @@ class PoAProposer:
                     existing_tx_record.status = "confirmed"
                     existing_tx_record.timestamp = timestamp.isoformat()
                     existing_tx_record.nonce = tx_data_for_transition["nonce"]
+                    if existing_tx_record.envelope is None:
+                        existing_tx_record.envelope = dict(tx.content)
                     pending_transaction_records.append(existing_tx_record)
                 else:
                     transaction = Transaction(
@@ -2138,6 +2141,7 @@ class PoAProposer:
                         sender=tx_data.get("from", ""),
                         recipient=tx_data.get("to", ""),
                         payload=original_payload,
+                        envelope=dict(tx.content),
                         value=value,
                         fee=fee,
                         nonce=tx_data_for_transition["nonce"],
@@ -2338,6 +2342,8 @@ class PoAProposer:
                 if existing_record is not None and tx_type in {"MESSAGE", "BRIDGE_RELEASE", "BRIDGE_REFUND", "BRIDGE_LOCK"}:
                     existing_record.block_height = next_height
                     existing_record.timestamp = timestamp.isoformat()
+                    if existing_record.envelope is None:
+                        existing_record.envelope = dict(tx_data)
                     session.add(existing_record)
                 else:
                     value = tx_data.get("amount", 0)
@@ -2350,6 +2356,7 @@ class PoAProposer:
                         sender=tx_data.get("from", sender),
                         recipient=tx_data.get("to", recipient),
                         payload=original_payload,
+                        envelope=dict(tx_data),
                         value=value,
                         fee=fee,
                         nonce=tx_data_map[tx.tx_hash].get("nonce", 0),

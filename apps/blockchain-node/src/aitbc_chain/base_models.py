@@ -178,6 +178,14 @@ class Transaction(ChainBase, table=True):
         default_factory=dict,
         sa_column=Column(JSON, nullable=False),
     )
+    # Full signed transaction envelope as received (signature included) —
+    # what fork-resolution requeue needs to push the tx back through real
+    # mempool admission. Older rows may carry None; the requeue falls back
+    # to a reconstructed payload for those.
+    envelope: dict[str, Any] | None = Field(
+        default=None,
+        sa_column=Column(JSON, nullable=True),
+    )
     created_at: datetime = Field(default_factory=lambda: datetime.now(UTC), index=True)
 
     # New fields added to schema

@@ -483,7 +483,22 @@ class BulkSyncMixin(SyncBase):
                 )
                 return False
             orphaned: list[dict[str, Any]] = []
-            if not self._blocks_provably_empty(session, list(our_segment)):
+            segment_empty = self._blocks_provably_empty(session, list(our_segment))
+            # The delta-journal undo stays gated until the journal is proven
+            # complete — the ancestor state-root check only covers accounts,
+            # so a missed side-table capture would revert silently wrong.
+            if not segment_empty and not settings.sync_fork_undo_enabled:
+                metrics_registry.increment("sync_fork_reorg_unsafe_total")
+                self._logger.error(
+                    "Peer branch wins at height %s (proposers %s vs %s) but our losing segment (%s "
+                    "blocks) is not provably empty — operator resync required",
+                    fork_h,
+                    len(peer_proposers),
+                    len(our_proposers),
+                    len(our_segment),
+                )
+                return False
+            if not segment_empty:
                 # Non-empty losing segment: undo its state changes via the
                 # per-block delta journal instead of refusing the reorg. None
                 # means undo was impossible — do not commit, escalate.
@@ -533,7 +548,7 @@ class BulkSyncMixin(SyncBase):
             len(our_segment),
         )
         if orphaned:
-            requeued = requeue_orphaned_transactions(self._chain_id, orphaned)
+            requeued = requeue_orphaned_transactions(self._chain_id, orphaned, self._session_factory)
             self._logger.warning("Requeued %s of %s orphaned transactions into the mempool", requeued, len(orphaned))
         return True
 

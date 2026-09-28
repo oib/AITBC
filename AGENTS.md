@@ -653,17 +653,34 @@ These files are intentionally not tracked in the canonical shop-node / hub-node 
   attached to the apply session. It records before-images for ORM
   inserts/updates/deletes and for the raw `UPDATE account` balance/nonce
   writes that bypass dirty tracking, and persists them inside the same
-  commit as the block (`block_state_delta` table). Fork resolution replays
-  a losing segment's deltas in reverse, verifies the recomputed state root
-  against the common ancestor's recorded root — the cryptographic proof the
-  undo restored exactly pre-fork state — then requeues the orphaned
-  transaction payloads into the mempool (best-effort; the stored
-  `Transaction` row does not carry the original signature, so a rebuilt
-  payload that fails re-admission is dropped — the winning branch usually
-  carries it anyway). Delta rows older than 10k blocks are pruned on each
-  persist, well past `max_reorg_depth`. A journal gap or root mismatch
-  increments `sync_fork_reorg_unsafe_total` and escalates — never a wrong
-  revert.
+  commit as the block (`block_state_delta` table). The journal is
+  **fail-closed**: an unresolved insert pk, an unrecognised DML against a
+  chain table (`query().update`, Core `update()/delete()`, `bulk_*`, raw
+  SQL outside the account-PK form), or a mid-apply transaction boundary
+  (listeners no longer cover the next connection) stamps an `incomplete`
+  sentinel row, and `revert_losing_segment` refuses that block outright —
+  the resolver escalates instead of partially undoing. Revert replays a
+  complete segment's deltas in reverse, then verifies the recomputed
+  account state root against the common ancestor's recorded root — a second
+  net, since the root covers only `account`; side-table completeness is
+  proven by `tests/test_block_deltas_differential.py`, which snapshots
+  every chain table around apply+revert for TRANSFER, GPU_MARKET variants,
+  GPU_REGISTER, ESCROW lock/release/refund, BRIDGE lock/release/refund,
+  BOND lock/release/slash and GOVERNANCE_EXECUTE. Orphaned transactions
+  requeue through real mempool admission — the confirmed `Transaction` row
+  stores the full signed `envelope` (auto-migrated column), not a
+  reconstruction. An orphan that fails requeue AND is absent from the
+  winning branch logs a WARNING with hash+sender and increments
+  `sync_fork_orphaned_tx_lost_total` (`ForkOrphanedTxLost` alert — a user's
+  confirmed transaction is gone; reconcile by hand). Delta rows older than
+  10k blocks are pruned on each persist, well past `max_reorg_depth`. A
+  journal gap or root mismatch increments `sync_fork_reorg_unsafe_total`
+  and escalates — never a wrong revert. `SYNC_FORK_UNDO_ENABLED=false`
+  restores escalate-only behaviour. **The delta-sync fast path is NOT
+  journaled** — a follower catching up via the `/rpc/sync` state dump writes
+  state as a blob, so those blocks carry no delta rows; any later reorg
+  needing to undo them fails closed and escalates (same as pre-journal
+  history).
 - **Attester lock — a signature is a commitment.** A validator that signs a
   peer's block X at height h records `(h, X)` in-memory
   (`RemoteAttestationService._attested`, per chain instance). While the lock
