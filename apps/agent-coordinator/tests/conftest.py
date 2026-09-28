@@ -8,9 +8,28 @@ and a database that is not the deployed one.
 from __future__ import annotations
 
 import os
+import sys
 from datetime import UTC, datetime, timedelta
+from pathlib import Path
 
 import pytest
+
+# This suite must collect standalone (`pytest tests` from the app dir) as well
+# as under the repo-root run. Root pyproject.toml puts every app's src dir on
+# pythonpath, but a path argument under apps/agent-coordinator selects *this*
+# pyproject as the configfile, so the root list never applies. Insert the two
+# src dirs the suite imports — same pattern as tests/conftest.py:
+#   agent_app        <- ../src
+#   coordinator_api  <- ../../coordinator-api/src
+# test_follower_api_key_scope.test_the_environment_is_read_even_where_coordinator_api_imports
+# asserts coordinator_api is importable: without this the suite fails the
+# find_spec precondition rather than exercising the call-time env read.
+_APP_SRC = str(Path(__file__).resolve().parent.parent / "src")
+if _APP_SRC not in sys.path:
+    sys.path.insert(0, _APP_SRC)
+_COORD_API_SRC = str(Path(__file__).resolve().parent.parent.parent / "coordinator-api" / "src")
+if _COORD_API_SRC not in sys.path:
+    sys.path.insert(0, _COORD_API_SRC)
 
 os.environ.setdefault("SECRET_KEY", "test-secret-key")
 # `agent_app.routers` below builds a JWTHandler at import; its secret resolution
