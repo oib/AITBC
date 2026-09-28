@@ -245,3 +245,17 @@ class MetricsRegistry:
 
 
 metrics_registry = MetricsRegistry()
+
+# Alert-path counters must exist from process start: Prometheus treats the
+# first sample of a new series as the baseline, so a counter that only
+# appears when it fires (increase() over it) never alerts on that event.
+for _alert_counter in (
+    "sync_fork_reorg_unsafe_total",
+    "sync_fork_reorg_undone_total",
+    "sync_fork_orphaned_tx_lost_total",
+    "sync_fork_domain_rows_orphaned_total",
+    "sync_reorgs_total",
+    "sync_divergence_rejected_total",
+    "block_version_stamp_mismatch_total",
+):
+    metrics_registry.increment(_alert_counter, 0.0)

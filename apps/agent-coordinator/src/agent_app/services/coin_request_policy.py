@@ -56,6 +56,16 @@ DEFAULT_AUTO_APPROVE_MAX = ait_to_units(3)  # COIN_REQUEST_AUTO_APPROVE_MAX is s
 DEFAULT_AUTO_BUDGET_PER_HOUR = ait_to_units(24)  # ~8 maximum-size grants
 DEFAULT_AUTO_BUDGET_PER_DAY = ait_to_units(60)  # ~20 maximum-size grants
 
+# Baseline both budget-trip series at zero: Prometheus treats the first
+# sample of a new series as the baseline, so a counter that only appears at
+# the moment it fires never registers an increase() — the alert would be
+# silent on exactly the event it exists for.
+_budget_trips_baseline = metrics_registry.counter(
+    "coin_request_auto_budget_trips_total", "Requests parked by an exhausted automatic budget", ["window"]
+)
+_budget_trips_baseline.inc(0, window="hourly")
+_budget_trips_baseline.inc(0, window="daily")
+
 
 def _env_ait(name: str, default_units: int) -> int:
     """Read an env var holding an AIT amount and return compute-units."""
