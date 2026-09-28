@@ -63,6 +63,12 @@ Deployment conventions worth knowing:
   run in CI (`.github/workflows/ci.yml`).
 - Python checks: `ruff`, `mypy` (baseline `scripts/ci/mypy-baseline.txt`),
   `pytest` suites under `tests/` and `apps/*/tests/`.
+- Consensus rule for apply-time validation: a change to `state/`,
+  `consensus/`, or `sync_*` transaction-application code either keeps
+  behaviour identical for existing block versions — proved by replaying
+  historical blocks (`apps/blockchain-node/tests/test_historical_replay.py`
+  and `scripts/ops/replay-chain.py`) — or waits behind a new version
+  height. Never tighten a check unconditionally for already-recorded eras.
 - Release notes go in `docs/releases/v<major>.<minor>/v<version>_change.log`
   via `scripts/release/append-changelog.sh <file>` (entry on stdin; refuses
   duplicate `### ` headers and avoids heredoc-over-ssh quoting damage).
