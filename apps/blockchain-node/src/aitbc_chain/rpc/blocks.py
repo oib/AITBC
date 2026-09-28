@@ -113,6 +113,8 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
                 t["nonce"] = tx.nonce
                 t["type"] = tx.type
                 t["tx_hash"] = tx.tx_hash
+                if isinstance(tx.envelope, dict) and tx.envelope.get("signature"):
+                    t["signature"] = tx.envelope["signature"]
                 tx_list.append(t)
         metrics_registry.increment("rpc_get_block_success_total")
         metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
@@ -139,6 +141,8 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
             t["nonce"] = tx.nonce
             t["type"] = tx.type
             t["tx_hash"] = tx.tx_hash
+            if isinstance(tx.envelope, dict) and tx.envelope.get("signature"):
+                t["signature"] = tx.envelope["signature"]
             tx_list.append(t)
     metrics_registry.observe("rpc_get_block_duration_seconds", time.perf_counter() - start)
     block_response = {
@@ -176,6 +180,31 @@ async def get_block(request: Request, height: int, chain_id: str | None = None) 
         chain_id,
     )
     return block_response
+
+
+def _served_tx_body(tx: Transaction) -> dict[str, Any]:
+    """The wire shape a served transaction takes on sync transports.
+
+    When the stored row carries the signed ``envelope`` (the proposer's
+    original submission), that envelope IS the transaction body: signature
+    verification digests the exact submitted field set, so injecting row
+    columns (status, block_height, id, ...) would corrupt the digest. Only
+    ``tx_hash`` and the ``value`` alias are added — both are excluded from
+    the signed digest (``value`` only while ``amount`` is present).
+
+    Rows without an envelope (sealed before envelope persistence) fall
+    back to the legacy column dump.
+    """
+    if isinstance(tx.envelope, dict) and tx.envelope:
+        body = dict(tx.envelope)
+        body["tx_hash"] = tx.tx_hash
+        if "amount" in body:
+            body["value"] = body["amount"]
+        return body
+    t = tx.model_dump()
+    t["from"] = t.get("sender", "")
+    t["to"] = t.get("recipient", "")
+    return t
 
 
 @rate_limit(rate=200, per=60)
@@ -230,12 +259,10 @@ async def get_blocks_range(
                 "signature": b.signature,
             }
             if include_tx:
-                tx_list = []
-                for tx in txs_by_height.get(b.height, []):
-                    t = tx.model_dump()
-                    t["from"] = t.get("sender", "")
-                    t["to"] = t.get("recipient", "")
-                    tx_list.append(t)
+                # Serve the stored signed envelope as the transaction body —
+                # without it importers see an unsigned tx and skip signature
+                # verification entirely (the v9 hole this fixes).
+                tx_list = [_served_tx_body(tx) for tx in txs_by_height.get(b.height, [])]
                 block_data["transactions"] = tx_list
             result_blocks.append(block_data)
         return {"success": True, "blocks": result_blocks, "count": len(blocks)}

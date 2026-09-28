@@ -1144,3 +1144,57 @@ v9 work (ordered): serve envelopes as the tx body on every sync path;
 require valid signatures at apply for all user-originated types with an
 explicit unsigned-internal allowlist; attesters verify txs before signing.
 Pre-v9 blocks stay unverifiable — their trust anchors on checkpoints.
+
+## v9 transaction authorization — Phase 1 (shadow mode), unsigned-import fix
+
+Background: the unsigned-transaction import hole confirmed earlier was worse
+than replay-only — served transactions carried no top-level signature, so
+followers and attesters applied block transactions without ever verifying
+them, at every version. A single compromised validator key could propose a
+block draining any account: attesters sign header fields only, and the
+mempool-side admission checks are a proposer's own choice.
+
+Phase 1 ships the v9 machinery inactive (state_transition_v9_height unset):
+
+- Shared policy in aitbc_chain/state/v9_policy.py: V9_UNSIGNED_ALLOWED_TX_TYPES
+  = {BRIDGE_LOCK, BRIDGE_RELEASE, BRIDGE_REFUND, MESSAGE} — the only types
+  legitimately unsigned today (bridge rows are authority-signed or debited
+  at request time; MESSAGE is a zero-value internal write). One list feeds
+  both apply paths and remote attestation so the rule cannot drift.
+- Apply gates (sequential + parallel): a non-allowlisted tx without a
+  signature logs and counts v9_would_reject_total plus
+  v9_would_reject_missing_signature_<type>_total, then applies as before —
+  shadow mode. At v9 activation the same check rejects. A tx that does carry
+  a signature is verified as today (v7+ check unchanged).
+- /rpc/blocks-range now serves the stored signed envelope as the transaction
+  body (signature digests cover the exact submitted field set, so only the
+  digest-excluded tx_hash and value alias are added); rows predating
+  envelope persistence keep the legacy column dump. /rpc/block/{height}
+  hoists envelope.signature into its served shape. Gossip block pushes
+  already carried the signed mempool envelope; /rpc/sync state exports ship
+  the envelope column verbatim. A follower re-serving a block it imported
+  now preserves the signature hop-to-hop.
+- Remote attestation: requests carry the block's signed transaction
+  envelopes; the service gained a session_factory and checks, before
+  signing, that it sits at the block's parent (else refuses at v9), that
+  every non-allowlisted tx carries a valid signature, and that nonce order
+  is sequential per sender (unsigned internals still advance the counter —
+  BRIDGE_LOCK/MESSAGE bump the sender nonce at apply). Oversized requests
+  (> gossip_max_message_size) are refused. While v9 is inactive a failed
+  check counts v9_would_reject_attest_<reason>_total and the attestation
+  still goes out; at v9 it refuses.
+- Proposer plumbing: _run_consensus_gates/_collect_and_gate_attestations/
+  _collect_attestations thread the signed envelopes into the request;
+  _reapply_parent_block rebuilds tx_data from the stored envelope when one
+  exists, so a v9 parent re-applies with its signature intact.
+- fleet-config-check now compares STATE_TRANSITION_V9_HEIGHT.
+
+Phase 2 (after shadow counters stay clean on live traffic): pin
+state_transition_v9_height in config.py like v4-v8, deploy via the rejoin
+runbook, confirm every validator reports the same effective height before
+the chain reaches it, then watch v9_would_reject_total as a real rejection
+count and [PROPOSE] success for the first several hundred blocks.
+
+Blocks before v9 cannot be re-verified for transaction authorization —
+their signatures were never stored or served. Trust in pre-v9 history is
+anchored by checkpoints, not by re-validation.

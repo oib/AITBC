@@ -14,6 +14,9 @@ import json
 import time
 from typing import Any
 
+from sqlalchemy import text
+from sqlmodel import select
+
 from aitbc.aitbc_logging import get_logger
 from aitbc.async_tasks import create_task_with_logging
 from aitbc.crypto.consensus_signing import sign_consensus_message, verify_block_signature
@@ -21,7 +24,9 @@ from aitbc.crypto.signature_recovery import canonical_address
 
 from ..config import settings
 from ..gossip import gossip_broker
+from ..metrics import metrics_registry
 from ..models import Block
+from ..state.v9_policy import V9_UNSIGNED_ALLOWED_TX_TYPES, count_v9_would_reject
 
 logger = get_logger(__name__)
 
@@ -34,9 +39,20 @@ def _same_address(a: str, b: str) -> bool:
 class RemoteAttestationService:
     """Collect and serve remote block-header attestations over gossip."""
 
-    def __init__(self, chain_id: str, validator_keys: dict[str, str]) -> None:
+    def __init__(
+        self,
+        chain_id: str,
+        validator_keys: dict[str, str],
+        session_factory: Any | None = None,
+    ) -> None:
         self._chain_id = chain_id
         self._validator_keys = validator_keys
+        # Needed for the v9 attestation checks: signature and nonce-order
+        # verification run against this validator's own account state at the
+        # block's parent. Without a session factory the checks cannot run —
+        # requests stay attestable while v9 is inactive (shadow mode only)
+        # and are refused once it is.
+        self._session_factory = session_factory
         self._request_topic = f"consensus.attest_request.{chain_id}"
         self._response_topic = f"consensus.attest_response.{chain_id}"
         self._listener_task: asyncio.Task[None] | None = None
@@ -126,6 +142,40 @@ class RemoteAttestationService:
         if validator_set and canonical_address(proposer) not in {canonical_address(v) for v in validator_set}:
             return
 
+        # v9: before signing, verify every transaction in the request —
+        # sender signature (except the shared internal allowlist) and nonce
+        # order against this validator's own state at the block's parent.
+        # Full re-execution is deferred; an attestation then means "these
+        # transactions are authorized", not just "the header came from a
+        # validator". While the v9 height is unset a failed check only logs
+        # and counts — the attestation still goes out (shadow mode).
+        txs = request.get("transactions")
+        from ..state.state_transition import get_block_version_for_height
+
+        refusal: str | None
+        if not isinstance(txs, list):
+            refusal = "transactions_absent"
+        elif len(json.dumps(request).encode()) > int(getattr(settings, "gossip_max_message_size", 1_048_576)):
+            refusal = "request_too_large"
+        else:
+            refusal = self._v9_check_transactions(header, txs)
+        if refusal is not None:
+            count_v9_would_reject(f"attest_{refusal}")
+            if get_block_version_for_height(height_int) >= 9:
+                logger.warning(
+                    "v9: refusing attestation for block %s at height %s — %s",
+                    header_hash[:18],
+                    height_int,
+                    refusal,
+                )
+                return
+            logger.warning(
+                "v9 shadow: would refuse attestation for block %s at height %s — %s",
+                header_hash[:18],
+                height_int,
+                refusal,
+            )
+
         for address, private_key in self._validator_keys.items():
             # Do not sign our own block.
             if _same_address(address, proposer):
@@ -165,6 +215,131 @@ class RemoteAttestationService:
             logger.debug("Published attestation response for height %s from %s", message["height"], address)
             return
 
+    def _v9_check_transactions(
+        self,
+        header: dict[str, Any],
+        txs: list[Any],
+    ) -> str | None:
+        """Verify attestation-request transactions against local parent state.
+
+        Returns a refusal reason, or None when the request is attestable.
+        Checks are deliberately shallow — signature presence/validity and
+        same-block nonce order; full re-execution is deferred until a
+        scratch-overlay exists.
+
+        Two binds before any tx check:
+
+        - the declared ``tx_hashes``/``tx_count``/``timestamp`` must
+          recompute to the signed block hash, proving the request's tx list
+          is the set the block commits to (not a clean subset covering a
+          forged one);
+        - this validator must sit at the block's parent — a tip behind,
+          ahead, or on a rival hash makes the nonce check meaningless, so it
+          refuses rather than attest from stale state.
+        """
+        header_hash = str(header.get("hash", ""))
+        try:
+            height = int(header.get("height", 0))
+        except (TypeError, ValueError):
+            return "bad_header"
+        parent_hash = str(header.get("parent_hash", ""))
+        proposer = str(header.get("proposer", ""))
+        tx_hashes = header.get("tx_hashes")
+        tx_count = header.get("tx_count")
+        timestamp = header.get("timestamp")
+        if not isinstance(tx_hashes, list) or tx_count is None or not timestamp:
+            return "unbound_tx_set"
+        try:
+            if int(tx_count) != len(txs):
+                return "tx_count_mismatch"
+        except (TypeError, ValueError):
+            return "tx_count_mismatch"
+
+        from .block_hash import compute_block_hash
+
+        recomputed = compute_block_hash(
+            str(header.get("chain_id") or self._chain_id),
+            height,
+            parent_hash,
+            str(timestamp),
+            [str(h) for h in tx_hashes],
+            proposer,
+            str(header.get("state_root") or ""),
+            str(header.get("bridge_state_root") or ""),
+        )
+        if recomputed != header_hash:
+            return "tx_set_mismatch"
+        declared_hashes = {str(h) for h in tx_hashes}
+
+        if self._session_factory is None:
+            return "no_state_access"
+        try:
+            session_ctx = self._session_factory()
+            with session_ctx as session:
+                tip = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC"))).first()
+                if tip is None or tip.hash != parent_hash:
+                    return "not_at_parent"
+
+                from ..base_models import _to_ait_address
+                from ..models import Account
+                from ..rpc.utils import verify_transaction_signature
+
+                expected_nonce: dict[str, int] = {}
+                for tx in txs:
+                    if not isinstance(tx, dict):
+                        return "malformed_tx"
+                    payload = tx.get("payload") or {}
+                    tx_type = str(
+                        tx.get("type") or (payload.get("type") if isinstance(payload, dict) else "") or "TRANSFER"
+                    ).upper()
+                    sender = _to_ait_address(str(tx.get("from") or tx.get("sender") or ""))
+                    signature = tx.get("signature") or tx.get("sig")
+                    # Every delivered envelope must be one of the tx hashes
+                    # the block hash commits to. User txs recompute from the
+                    # body; allowlisted internals carry arbitrary ids (e.g.
+                    # bridge transfer_id) so membership is the check there.
+                    declared_hash = str(tx.get("tx_hash") or "")
+                    if tx_type in V9_UNSIGNED_ALLOWED_TX_TYPES:
+                        if declared_hash not in declared_hashes:
+                            return "tx_not_in_block"
+                    else:
+                        from ..mempool import compute_tx_hash
+
+                        recomputed_tx = compute_tx_hash({k: v for k, v in tx.items() if k != "tx_hash"})
+                        if recomputed_tx != declared_hash or recomputed_tx not in declared_hashes:
+                            return "tx_not_in_block"
+                    if signature:
+                        # A present signature must verify for every type —
+                        # apply enforces that even for allowlisted internals.
+                        if not sender or not verify_transaction_signature(tx, signature, sender):
+                            return "invalid_signature"
+                    elif tx_type not in V9_UNSIGNED_ALLOWED_TX_TYPES:
+                        if not sender:
+                            return "missing_sender"
+                        return "missing_signature"
+                    # Nonce ordering: signed txs must arrive in account-nonce
+                    # order. Unsigned internal txs carry a placeholder nonce
+                    # rewritten at seal time, but they still increment the
+                    # sender nonce at apply (BRIDGE_LOCK, MESSAGE) — the
+                    # counter must advance past them or a same-sender signed
+                    # tx later in the block would read as out of order.
+                    if sender:
+                        if sender not in expected_nonce:
+                            account = session.get(Account, (self._chain_id, sender))
+                            expected_nonce[sender] = account.nonce if account and account.nonce is not None else 0
+                        if signature:
+                            try:
+                                tx_nonce = int(tx.get("nonce") or 0)
+                            except (TypeError, ValueError):
+                                return "bad_nonce"
+                            if tx_nonce != expected_nonce[sender]:
+                                return "nonce_order"
+                        expected_nonce[sender] += 1
+        except Exception as e:
+            logger.warning("v9 attestation tx check failed to run for height %s: %s", height, e)
+            return "check_error"
+        return None
+
     def _record_attestation_lock(self, height: int, block_hash: str, proposer: str) -> None:
         """Record that this node's validator key(s) signed block `block_hash`
         at `height`. Locks expire by wall clock in `attestation_lock`."""
@@ -201,8 +376,15 @@ class RemoteAttestationService:
         block: Block,
         min_count: int,
         timeout: float | None = None,
+        transactions: list[dict[str, Any]] | None = None,
     ) -> list[dict[str, str]]:
-        """Publish a header and collect at least min_count remote attestations."""
+        """Publish a header and collect at least min_count remote attestations.
+
+        ``transactions`` carries the block's signed transaction envelopes —
+        at v9 attesters verify them (signature + nonce order against their
+        own parent state) before signing, so the request must always
+        include them, empty list included.
+        """
         if not self._validator_keys:
             return []
 
@@ -219,7 +401,29 @@ class RemoteAttestationService:
             "state_root": block.state_root or "",
             "bridge_state_root": block.bridge_state_root or "",
         }
-        request = {"header": header, "timestamp": time.time()}
+        request: dict[str, Any] = {"header": header, "timestamp": time.time()}
+        if transactions is not None:
+            # Bind the tx set to the signed header: the attester recomputes
+            # the block hash from these fields plus the declared tx-hash set,
+            # so a request carrying a truncated/substituted tx list fails the
+            # digest check instead of attesting a different block.
+            header["timestamp"] = block.timestamp.isoformat() if block.timestamp else ""
+            header["tx_count"] = len(transactions)
+            header["tx_hashes"] = sorted(str(tx.get("tx_hash") or "") for tx in transactions if isinstance(tx, dict))
+            request["transactions"] = transactions
+            request_size = len(json.dumps(request).encode())
+            max_size = int(getattr(settings, "gossip_max_message_size", 1_048_576))
+            if request_size > max_size:
+                # The broker drops oversized payloads, so remote attestations
+                # will never arrive — fail loud here rather than stall a full
+                # timeout cycle wondering why.
+                metrics_registry.increment("v9_attestation_request_oversized_total")
+                logger.warning(
+                    "Attestation request for height %s is %s bytes, over gossip_max_message_size %s — remote attestations unlikely",
+                    block.height,
+                    request_size,
+                    max_size,
+                )
 
         # Subscribe first to avoid missing a fast response.
         try:

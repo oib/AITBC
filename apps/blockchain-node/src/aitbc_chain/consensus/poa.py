@@ -2,7 +2,6 @@ from __future__ import annotations
 import asyncio
 import time
 import traceback
-import hashlib
 import json
 import re
 from collections.abc import Callable
@@ -15,6 +14,7 @@ if TYPE_CHECKING:
     from ..mempool import DatabaseMempool, InMemoryMempool
     from .multi_validator_poa import MultiValidatorPoA
 
+from .block_hash import compute_block_hash
 from .pbft import PBFTConsensus
 from .remote_attestation import RemoteAttestationService
 
@@ -267,7 +267,9 @@ class PoAProposer:
             )
 
         if self._multi_validator is not None and self._validator_keys:
-            self._remote_attestation = RemoteAttestationService(self._config.chain_id, self._validator_keys)
+            self._remote_attestation = RemoteAttestationService(
+                self._config.chain_id, self._validator_keys, session_factory=self._session_factory
+            )
             self._logger.info(
                 "Remote attestation service initialized for chain %s with %s local key(s)",
                 self._config.chain_id,
@@ -395,7 +397,9 @@ class PoAProposer:
             seen.add(canonical_address(sender))
         return len(seen)
 
-    async def _collect_attestations(self, block: Block) -> list[dict[str, str]]:
+    async def _collect_attestations(
+        self, block: Block, transactions: list[dict[str, Any]] | None = None
+    ) -> list[dict[str, str]]:
         """Collect canonical header signatures from local and remote validators.
 
         Local attestations are produced immediately. Remote attestations are
@@ -438,7 +442,9 @@ class PoAProposer:
                 base_timeout = getattr(settings, "multi_validator_attestation_timeout_seconds", 1.0)
                 timeout = max(float(base_timeout), 0.5 * min_remote + float(base_timeout))
                 try:
-                    remote = await self._remote_attestation.collect_attestations(block, min_remote, timeout=timeout)
+                    remote = await self._remote_attestation.collect_attestations(
+                        block, min_remote, timeout=timeout, transactions=transactions
+                    )
                     for att in remote:
                         addr = canonical_address(att["validator"])
                         if addr not in seen:
@@ -649,17 +655,27 @@ class PoAProposer:
                 _ensure_account(session, chain_id, sender)
             if recipient:
                 _ensure_account(session, chain_id, recipient)
-            tx_data = {
-                "from": sender,
-                "to": recipient,
-                "amount": tx_rec.value,
-                "value": tx_rec.value,
-                "fee": tx_rec.fee,
-                "nonce": tx_rec.nonce,
-                "type": (tx_rec.type or "TRANSFER").upper(),
-                "payload": tx_rec.payload or {},
-                "signature": "",
-            }
+            env = tx_rec.envelope if isinstance(tx_rec.envelope, dict) else None
+            if env:
+                # Re-apply the signed original: rebuilding from row columns
+                # drops the signature, which the v9 apply gate rejects.
+                tx_data = dict(env)
+                tx_data["tx_hash"] = tx_rec.tx_hash
+                if "amount" in tx_data:
+                    tx_data["value"] = tx_data["amount"]
+                tx_data.setdefault("signature", "")
+            else:
+                tx_data = {
+                    "from": sender,
+                    "to": recipient,
+                    "amount": tx_rec.value,
+                    "value": tx_rec.value,
+                    "fee": tx_rec.fee,
+                    "nonce": tx_rec.nonce,
+                    "type": (tx_rec.type or "TRANSFER").upper(),
+                    "payload": tx_rec.payload or {},
+                    "signature": "",
+                }
             block_version = get_block_version(parent, parent.height)
             success, msg = state_transition.apply_transaction(
                 session, chain_id, tx_data, tx_rec.tx_hash, block_version=block_version, block_height=parent.height
@@ -749,7 +765,14 @@ class PoAProposer:
             self._propose_phase = "consensus_gates"
             self._logger.info("[PROPOSE:%s] phase=consensus_gates start height=%s round=%s", chain, next_height, round_number)
             if not await self._run_consensus_gates(
-                session, block, block_hash, proposer, round_number, next_height, metadata_dict
+                session,
+                block,
+                block_hash,
+                proposer,
+                round_number,
+                next_height,
+                metadata_dict,
+                transactions=[{**(tx.content or {}), "tx_hash": tx.tx_hash} for tx in processed_txs],
             ):
                 self._logger.warning("[PROPOSE:%s] phase=consensus_gates failed %.3fs", chain, time.time() - _t4)
                 return False
@@ -1251,6 +1274,7 @@ class PoAProposer:
         round_number: int,
         next_height: int,
         metadata_dict: dict[str, Any],
+        transactions: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Run the post-assembly consensus gates: the PBFT round and the
         attestation collection.
@@ -1288,7 +1312,7 @@ class PoAProposer:
             session.rollback()
             return False
 
-        if not await self._collect_and_gate_attestations(block, block_hash, metadata_dict):
+        if not await self._collect_and_gate_attestations(block, block_hash, metadata_dict, transactions):
             session.rollback()
             return False
         return True
@@ -1841,6 +1865,7 @@ class PoAProposer:
         block: Block,
         block_hash: str,
         metadata_dict: dict[str, Any],
+        transactions: list[dict[str, Any]] | None = None,
     ) -> bool:
         """Collect gossip attestations and apply the multi-validator gate.
 
@@ -1865,7 +1890,7 @@ class PoAProposer:
                 metadata_dict["pbft_certificate"] = pbft_certificate
 
         if self._multi_validator:
-            attestations = await self._collect_attestations(block)
+            attestations = await self._collect_attestations(block, transactions=transactions)
             configured_min = getattr(settings, "multi_validator_min_attestations", 0)
             active_validators = self._multi_validator.get_consensus_participants()
             effective_min = max(0, min(configured_min, max(0, len(active_validators) - 1)))
@@ -2453,15 +2478,19 @@ class PoAProposer:
         if transactions:
             tx_hashes = [tx.tx_hash for tx in transactions]
         # v0.7.2: block hash binds the state roots and proposer so that bridge
-        # proofs can be anchored to a signed block header.
-        payload = (
-            f"{self._config.chain_id}|{height}|{parent_hash}|{timestamp.isoformat()}"
-            f"|{'|'.join(sorted(tx_hashes))}"
-            f"|{proposer}"
-            f"|{state_root or ''}"
-            f"|{bridge_state_root or ''}"
-        ).encode()
-        return "0x" + hashlib.sha256(payload).hexdigest()
+        # proofs can be anchored to a signed block header. The formula lives
+        # in consensus.block_hash so remote attesters recompute the identical
+        # digest when binding an attestation request's tx list to the header.
+        return compute_block_hash(
+            self._config.chain_id,
+            height,
+            parent_hash,
+            timestamp,
+            tx_hashes,
+            proposer,
+            state_root,
+            bridge_state_root,
+        )
 
     def _sign_block_hash(self, block: Block) -> str:
         """Sign a block header with the proposer's private key (v0.7.2).
