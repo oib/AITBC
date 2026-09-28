@@ -529,9 +529,13 @@ def compute_state_delta(
     # when a signature field is present (unsigned internal txs skip), but a
     # present signature must verify. Until the parallel path checked this, a
     # signed tx applied regardless of its signature whenever the caller had
-    # rewritten the nonce.
+    # rewritten the nonce. Gated to v7+: the v2–v6 parallel era rewrote the
+    # nonce before this call, so a signature carried in from that era would be
+    # checked against the rewritten nonce and fail a block that applied fine
+    # historically. Imported txs arrive without a signature anyway, so the
+    # gate only preserves identical behaviour for any path that does carry one.
     signature = tx_data.get("signature")
-    if signature and sender:
+    if signature and sender and block_version >= 7:
         from ..rpc.utils import verify_transaction_signature
 
         if not verify_transaction_signature(tx_data, signature, sender):
