@@ -32,7 +32,7 @@ This document defines the end-to-end test scenarios for the AITBC platform, cove
 
 - `tests/e2e/test_market_escrow.py` - End-to-end market offer, booking, and escrow lock/release (v0.7.x)
 
-**Scenario Scripts Location:** `/opt/aitbc/scripts/workflow/` and `/opt/aitbc/dev/testing/tests/`
+**Scenario Scripts Location:** `/opt/aitbc/scripts/workflow/` (the `dev/testing/` tree was retired from the repo 2026-09-28)
 
 **Updated Scenario Scripts:**
 

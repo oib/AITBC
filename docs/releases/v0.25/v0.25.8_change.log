@@ -962,3 +962,23 @@ export, all CI baselines, and dev key generators stay.
     from that block's drain (correct "Invalid nonce" log), stayed in
     peer mempools, and landed the next round; fleet converged
     hash-identical.
+
+## 2026-09-28 — dev research tree retired to workbench (chore)
+
+Removed the `dev/` sandbox (35 files): `gpu_acceleration` prototype
+(CUDA kernels, provider abstraction), `gpu_zk_research` Rust crate,
+mc-test scenarios, validator-key generator — incubation code outside the
+product surface. Also retired `scripts/dev/{start-local.sh,
+patch_cli_help.py,convert_positional_args.py}`,
+`scripts/performance/{check_performance_regression,profile_db_queries}.py`
+and `economics/harvest_yield.py` — unreferenced dev tooling.
+
+Kept because wired or documented: `scripts/dev/{setup.sh,
+generate_mcp_cli_tools.py}` (precommit + local-setup docs),
+`scripts/development/` (README-documented dev workflow),
+`performance/run_load_tests.sh` (tests/load/conftest), `notifications/`,
+`audit/reconcile_agent_wallets.py`.
+
+`dev/` is referenced only as an omit pattern in pyproject and a guarded
+glob in `ci/live-scenario-dry-run.sh` — removal is safe.
+`e2e-test-scenarios.md` updated to drop the `dev/testing/` pointer.
