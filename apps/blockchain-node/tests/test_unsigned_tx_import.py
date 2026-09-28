@@ -164,11 +164,12 @@ class TestUnsignedServedTransactions:
             assert victim.nonce == 1  # applied despite recorded nonce 777
             assert attacker.balance == 999
 
-    def test_nested_signed_envelope_is_never_checked(self, session_factory, monkeypatch):
-        """Even when the served row DOES carry a signed envelope, import never
-        hoists or verifies it: here the envelope is genuinely signed by the
-        victim's key — over amount=10 — while the served row moves 999. The
-        follower applies 999. The signature on the wire is decorative."""
+    def test_nested_signed_envelope_is_hoisted_and_verified(self, session_factory, monkeypatch):
+        """Fixed behaviour: when the served row carries a signed envelope
+        nested under ``envelope`` with no top-level signature, import hoists
+        it — the signed body IS the transaction. Here the envelope is signed
+        by the victim's key over amount=10 while the wrapper row claims 999;
+        the follower must apply the signed 10, never the wrapper's 999."""
         from aitbc_chain.config import settings
 
         monkeypatch.setattr(settings, "parallel_tx_validation", True)
@@ -197,6 +198,8 @@ class TestUnsignedServedTransactions:
         assert result.accepted, f"block unexpectedly rejected: {result.reason}"
         with session_factory() as session:
             victim = session.get(Account, (CHAIN, ADDR_VICTIM))
-            assert victim is not None
-            # Served value applied (999), not the signed envelope value (10).
-            assert victim.balance == 10**9 - 999 - 1
+            attacker = session.get(Account, (CHAIN, ADDR_ATTACKER))
+            assert victim is not None and attacker is not None
+            # The hoisted signed envelope applied (10), not the wrapper's 999.
+            assert victim.balance == 10**9 - 10 - 1
+            assert attacker.balance == 10

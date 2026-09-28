@@ -73,6 +73,62 @@ def bridge_credit_message(tx_data: dict[str, Any], tx_hash: str = "") -> dict[st
     }
 
 
+def bridge_lock_message(tx_data: dict[str, Any], tx_hash: str = "") -> dict[str, Any]:
+    """Canonical signed message for a ``BRIDGE_LOCK`` transaction (v9).
+
+    Same fixed-field projection as ``bridge_credit_message``: the issuer's
+    flat mempool dict and the pre-registered ``Transaction`` row (semantic
+    fields inside ``payload``) must reconstruct identical bytes. Field names
+    deliberately avoid ``signature``/``sig``/``tx_hash``/``value`` — the
+    signing helper strips those keys.
+    """
+    payload = _payload_dict(tx_data)
+
+    def _field(name: str) -> Any:
+        value = payload.get(name)
+        if value is None:
+            value = tx_data.get(name)
+        return value
+
+    return {
+        "type": "BRIDGE_LOCK",
+        "transfer_id": _field("transfer_id"),
+        "source_chain": tx_data.get("chain_id") or _field("source_chain"),
+        "sender": tx_data.get("from") or tx_data.get("sender"),
+        "target_chain": _field("target_chain"),
+        "target_recipient": _field("target_recipient"),
+        "asset": _field("asset"),
+        "amount": _field("amount"),
+        "fee": tx_data.get("fee", 0),
+        "nonce": tx_data.get("nonce"),
+        "bound_tx_hash": tx_hash or tx_data.get("tx_hash") or "",
+    }
+
+
+def sign_bridge_lock(tx_data: dict[str, Any], tx_hash: str, private_key: str) -> str:
+    """Sign the semantic fields of a bridge lock with the authority key."""
+    from aitbc.crypto.crypto import sign_transaction_data
+
+    return sign_transaction_data(bridge_lock_message(tx_data, tx_hash), private_key)
+
+
+def verify_bridge_lock_signature(tx_data: dict[str, Any], tx_hash: str, authority: str) -> bool:
+    """Verify a lock's bridge signature recovers to ``authority``."""
+    from aitbc.crypto.crypto import recover_signer
+    from aitbc.crypto.signature_recovery import canonical_address
+
+    signature = bridge_credit_signature(tx_data)
+    if not signature or not authority:
+        return False
+    recovered = recover_signer(bridge_lock_message(tx_data, tx_hash), signature)
+    if not recovered:
+        return False
+    try:
+        return canonical_address(recovered) == canonical_address(authority)
+    except Exception:
+        return False
+
+
 def bridge_refund_lock_hash(tx_data: dict[str, Any]) -> str:
     """The sealed ``BRIDGE_LOCK`` hash a ``BRIDGE_REFUND`` claims to repay.
 

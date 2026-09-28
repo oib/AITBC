@@ -141,3 +141,22 @@ groups:
         annotations:
           summary: "Faucet auto-budget tripped on {{ $labels.instance }} ({{ $labels.window }})"
           description: "Automatic coin requests are parking on the exhausted {{ $labels.window }} budget on {{ $labels.instance }} — possible drain attempt."
+
+      # v9 shadow-mode tripwires — while the v9 height is unset every
+      # would-reject only counts; these fire on the counters so a real tx that
+      # would break post-activation is seen before the height is pinned.
+      - alert: V9ShadowRejection
+        expr: increase(v9_would_reject_total[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "v9 transaction-authorization check would have rejected on {{ $labels.instance }}"
+          description: "A transaction on {{ $labels.instance }} failed a v9 rule in shadow mode — inspect the v9_would_reject_* detail counters and the node journal before pinning the v9 height."
+
+      - alert: V9AttestationRefusal
+        expr: increase({__name__=~"v9_would_reject_attest_.*_total"}[10m]) > 0
+        labels:
+          severity: warning
+        annotations:
+          summary: "v9 attestation would have been refused on {{ $labels.instance }}"
+          description: "A validator on {{ $labels.instance }} would have refused to attest a block under v9 rules — inspect the v9_would_reject_attest_* counters and the node journal before pinning the v9 height."

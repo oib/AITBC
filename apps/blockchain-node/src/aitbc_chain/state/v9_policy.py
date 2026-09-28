@@ -6,18 +6,15 @@ carry a valid sender signature at apply time. Only the internal types in
 own authorization rule enforced elsewhere in the apply path:
 
 - ``BRIDGE_LOCK`` — created by the bridge service after it debited the
-  sender at request time (off-chain bridge-endpoint auth, not a chain
-  signature). Apply additionally requires the ``bridge_lock`` recipient
-  and a funded sender. Residual: a malicious proposer can still forge one
-  to move funds into the bridge — accepted debt until the bridge flow
-  takes a user signature; the shadow counter shows how much live traffic
-  depends on the exemption.
+  sender at request time. From v9 it carries the bridge authority's
+  ``bridge_signature`` over its semantic fields (state/bridge_credit.py),
+  the same rule as the credits — a forged lock was theft of the
+  ``target_recipient`` credit on the target chain, so it cannot stay
+  unsigned.
 - ``BRIDGE_RELEASE`` / ``BRIDGE_REFUND`` — pseudo-senders authorized by
   the ``bridge_signature`` authority signature in the tx (checked at v5+,
   plus the v6 refund-lock binding). They are exempt only from the *sender*
   signature rule.
-- ``MESSAGE`` — zero-value agent-messaging writes; unsigned preregistration
-  is a supported producer path (poa ``_process_proposal_txs`` skip list).
 
 This list is shared by the sequential and parallel apply paths and by
 remote attestation — the consensus rule must be one list, not three
@@ -41,7 +38,6 @@ V9_UNSIGNED_ALLOWED_TX_TYPES = frozenset(
         "BRIDGE_LOCK",
         "BRIDGE_RELEASE",
         "BRIDGE_REFUND",
-        "MESSAGE",
     }
 )
 
