@@ -197,6 +197,13 @@ def _served_tx_body(tx: Transaction) -> dict[str, Any]:
     """
     if isinstance(tx.envelope, dict) and tx.envelope:
         body = dict(tx.envelope)
+        # Pre-hoist rows (written before envelope persistence normalised the
+        # shape) can store a column dump whose top-level signature is empty
+        # while the real signed envelope sits nested under ``envelope`` —
+        # serve that nested body, never the unsigned wrapper.
+        nested = body.get("envelope")
+        if not body.get("signature") and isinstance(nested, dict) and nested.get("signature"):
+            body = dict(nested)
         body["tx_hash"] = tx.tx_hash
         if "amount" in body:
             body["value"] = body["amount"]

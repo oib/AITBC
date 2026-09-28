@@ -14,7 +14,12 @@ from sqlmodel import select
 from ..config import settings
 from ..logger import get_logger
 from ..models import Account, Block, BridgeBlockHeader, CrossChainTransfer, Transaction
-from ..state.bridge_credit import BRIDGE_SIGNATURE_FIELD, bridge_credit_private_key, sign_bridge_credit
+from ..state.bridge_credit import (
+    BRIDGE_SIGNATURE_FIELD,
+    bridge_credit_private_key,
+    sign_bridge_credit,
+    sign_bridge_lock,
+)
 from .bridge_base import BridgeBase
 from .bridge_types import BridgeStatus, BridgeTransfer
 
@@ -116,21 +121,36 @@ class BridgeTransferMixin(BridgeBase):
             from ..mempool import get_mempool
 
             timestamp = datetime.now(UTC)
+            # v9: the lock carries the bridge authority's signature over its
+            # semantic fields (state/bridge_credit.py) — a forged lock was a
+            # theft of the target-chain credit. `chain_id` travels inside the
+            # body because the signed message binds source_chain from it; the
+            # pre-registered row's chain_id column produces the same field.
+            lock_body = {
+                "from": sender,
+                "to": "bridge_lock",
+                "amount": amount,
+                "fee": fee,
+                "type": "BRIDGE_LOCK",
+                "transfer_id": transfer_id,
+                "target_chain": target_chain,
+                "target_recipient": recipient,
+                "asset": asset,
+                "nonce": lock_nonce,
+                "chain_id": source_chain,
+                "timestamp": timestamp.isoformat(),
+            }
+            lock_key = bridge_credit_private_key()
+            if lock_key:
+                lock_body[BRIDGE_SIGNATURE_FIELD] = sign_bridge_lock(lock_body, transfer_id, lock_key)
+            else:
+                logger.warning(
+                    "BRIDGE_LOCK issued without a signing key (BRIDGE_RELEASE_PRIVATE_KEY/ESCROW_RELEASE_PRIVATE_KEY); "
+                    "it will fail v9+ validation"
+                )
             mempool = get_mempool()
             mempool.add(
-                {
-                    "from": sender,
-                    "to": "bridge_lock",
-                    "amount": amount,
-                    "fee": fee,
-                    "type": "BRIDGE_LOCK",
-                    "transfer_id": transfer_id,
-                    "target_chain": target_chain,
-                    "target_recipient": recipient,
-                    "asset": asset,
-                    "nonce": lock_nonce,
-                    "timestamp": timestamp.isoformat(),
-                },
+                lock_body,
                 chain_id=source_chain,
                 tx_hash=transfer_id,
             )
@@ -149,6 +169,11 @@ class BridgeTransferMixin(BridgeBase):
                         "amount": amount,
                         "fee": fee,
                         "asset": asset,
+                        **(
+                            {BRIDGE_SIGNATURE_FIELD: lock_body[BRIDGE_SIGNATURE_FIELD]}
+                            if BRIDGE_SIGNATURE_FIELD in lock_body
+                            else {}
+                        ),
                     },
                     value=amount,
                     fee=fee,

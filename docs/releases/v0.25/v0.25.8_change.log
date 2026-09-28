@@ -1198,3 +1198,42 @@ count and [PROPOSE] success for the first several hundred blocks.
 Blocks before v9 cannot be re-verified for transaction authorization —
 their signatures were never stored or served. Trust in pre-v9 history is
 anchored by checkpoints, not by re-validation.
+
+
+### v9 follow-ups: signed BRIDGE_LOCK, MESSAGE off the allowlist, envelope hoist (2026-09-28)
+
+- Envelope-serving replay proof: all 8 enveloped transactions since height
+  26722 verify with verify_transaction_signature over the exact body
+  /rpc/blocks-range now serves after import normalisation (from/to/value
+  added) — 8/8 on hub and node1. node0 had one row (height 26881,
+  0xcf2282eaaa89) stored in the pre-fix nested shape (empty top-level
+  signature, signed envelope under "envelope"); repaired in place after a
+  DB-file backup (chain.db.bak-20260928-envhoist) and the hoist hardening
+  added: _served_tx_body and _append_block normalisation both lift a nested
+  signed envelope when the top level carries none, so the shape can neither
+  be served nor imported unsigned again.
+- V9_UNSIGNED_ALLOWED_TX_TYPES is now exactly
+  {BRIDGE_LOCK, BRIDGE_RELEASE, BRIDGE_REFUND}: MESSAGE is gone — no
+  internal producer creates it and it increments the sender nonce at apply,
+  so an unsigned forged MESSAGE was a nonce-DoS against any account.
+- BRIDGE_LOCK now carries the bridge authority's bridge_signature over its
+  semantic fields (bridge_lock_message/sign_bridge_lock/
+  verify_bridge_lock_signature in state/bridge_credit.py, mirroring the v5
+  credit rule); initiate_transfer signs with bridge_credit_private_key() on
+  both the mempool dict and the pre-registered row payload. Verified on both
+  apply paths (validate_transaction and the parallel delta) and by remote
+  attesters from v9 (refusals bridge_authority_unset /
+  bridge_signature_missing / bridge_signature_invalid). Below the v9 height
+  an unsigned lock still applies — historical replay is full of them — and
+  counts v9_would_reject_bridge_lock_unsigned_total.
+- Faucet finding: hub's aitbc-agent-coordinator has had NO
+  GENESIS_PRIVATE_KEY in any env file (confirmed against the 26-Sep
+  pre-strip backup), so /api/v1/agent/coin-requests/*/execute has returned
+  503 since before the key confinement; last successful execute was
+  2026-09-09. hub1's agent-coordinator DID hold the proposer key via
+  node.env/blockchain-secrets.env until the 28-Sep strip. Decision: leave
+  the faucet fail-closed until it gets its own funded wallet (key-split
+  work) — the proposer key is not being re-added.
+- Prometheus rules: V9ShadowRejection (increase(v9_would_reject_total[10m]))
+  and V9AttestationRefusal (v9_would_reject_attest_*_total) added to the
+  aitbc group and deployed fleet-wide.

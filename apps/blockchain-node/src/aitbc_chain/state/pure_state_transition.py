@@ -32,6 +32,7 @@ from .bridge_credit import (
     bridge_refund_lock_hash,
     validate_bridge_refund_lock,
     verify_bridge_credit_signature,
+    verify_bridge_lock_signature,
 )
 
 logger = get_logger(__name__)
@@ -754,6 +755,38 @@ def compute_state_delta(
     sender_balance_change = -total_cost
     recipient_balance_change = 0
     if tx_type == "BRIDGE_LOCK":
+        # v9: the lock must carry the bridge authority's signature over its
+        # semantic fields — mirrors validate_transaction's BRIDGE_LOCK gate.
+        # bridge_authority is resolved by the caller (None fails closed at
+        # v9); below the height an unsigned lock only counts (shadow).
+        if block_version >= 9:
+            if not bridge_authority:
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error="BRIDGE_LOCK requires a bridge release authority: set the bridge_release_authority chain parameter",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+            if not verify_bridge_lock_signature(tx_data, tx_hash, bridge_authority):
+                return StateDelta(
+                    sender=sender,
+                    recipient=recipient,
+                    sender_balance_change=0,
+                    recipient_balance_change=0,
+                    sender_nonce_change=0,
+                    success=False,
+                    error="BRIDGE_LOCK must carry a valid bridge_signature from the bridge authority",
+                    tx_type=tx_type,
+                    tx_hash=tx_hash,
+                )
+        elif not verify_bridge_lock_signature(tx_data, tx_hash, bridge_authority or ""):
+            count_v9_would_reject("bridge_lock_unsigned")
+            logger.warning("v9 shadow: BRIDGE_LOCK tx %s lacks a valid bridge_signature", tx_hash)
         # Burn on the source chain: the locked value is anchored in the
         # CrossChainTransfer record and must NOT be credited to the
         # "bridge_lock" pseudo-recipient — which must not even exist as an
