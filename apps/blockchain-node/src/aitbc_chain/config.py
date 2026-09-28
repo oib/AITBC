@@ -894,3 +894,15 @@ class ChainSettings(BaseSettings):
 
 
 settings = ChainSettings()
+
+
+def is_block_producer(cfg: ChainSettings = settings) -> bool:
+    """Whether this node produces blocks — hub mode or a configured PBFT validator.
+
+    Producers derive state by applying blocks; follower state sync must never
+    overwrite their account table (incident 27207, 2026-09-28). Same predicate
+    as main.py's "Running as block producer" gate.
+    """
+    return cfg.blockchain_mode == "hub" or bool(
+        cfg.multi_validator_consensus_enabled and cfg.validator_set and cfg.proposer_id and cfg.proposer_key
+    )
