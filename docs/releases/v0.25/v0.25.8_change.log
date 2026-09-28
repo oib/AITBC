@@ -854,3 +854,42 @@ briefly showed 502 — unrelated, recovered); hub1 `/agent/bootstrap.env`
     test_get_block_version_from_metadata updated for v8 advisory-stamp
     semantics (ad551fcefa). Dead commented scrape samples removed from the
     prometheus.yml template and node2's live file (f612920426).
+  - **Requeue hardening + post-import reconcile + revert checks
+    (325fc731a8, 6b0a538bc4).** Alert-path counters are pre-registered at
+    zero at process start (blockchain node: all sync_fork_* / reorg /
+    divergence counters; coordinator: both coin_request_auto_budget_trips
+    windows) so the first event produces a real increase() delta in
+    Prometheus. Orphaned-transaction requeue now runs through full public
+    admission — signature verification plus _validate_transaction_admission
+    (chain id, sender existence, balance + pending-cost, nonce window) —
+    instead of raw mempool.add; a tx that fails and is absent on the
+    winning branch is counted lost (legacy/unsigned reconstructions are
+    never admitted). PREREGISTERED_CREDIT_TX_TYPES stay exempt from
+    signature checks but keep chain/balance checks. Domain-row orphan
+    marking is deferred until after the winning branch is imported: the
+    pull resolver collects failed requeue candidates, imports the winner,
+    then reconcile_orphaned_domain_rows() runs _tx_on_chain /
+    confirmed_lock_txs against the post-import state — a lock on the
+    winning branch no longer false-orphans a stake/agent_stake/bounty row.
+    Reconciliation is idempotent and un-orphans a row when a surviving
+    lock reappears. Digest-cap skips (100k rows) now mark the journal
+    incomplete instead of warn-and-continue. Delete before-images use
+    attribute history (history.deleted / loaded committed values), fixing
+    the update-then-delete-in-one-flush case. revert_losing_segment adds a
+    structural post-check: zero losing-segment transaction/block rows may
+    remain, else it fails closed. New alerts: ForkReorgUndone (a reorg
+    undid journaled state) and ForkDomainRowsOrphaned. New tests cover
+    composite blocks (multi-tx same sender, create-and-spend,
+    escrow lock+release in one block), update-then-delete, digest-cap
+    fail-closed, digest tamper, signed-envelope admission, unsigned ->
+    lost, and orphan/un-orphan reconciliation. Live canary on hub:
+    TRANSFER 0x62b895… confirmed at 26722 and GPU_REGISTER 0xb01270… at
+    26724 — envelopes persisted on both rows (527/679 bytes),
+    gpu_registration side-table row created, __digest__ meta row carried
+    a real pre-state hash for gpu_registration; fleet converged
+    hash-identical. Note: poa.py proposer path rewrites
+    tx_data_for_transition['nonce'] = sender_account.nonce before apply —
+    the signed nonce is ignored at execution; flagged as a latent
+    consensus divergence risk (a follower validates the signed nonce,
+    the proposer executes the current one) — not changed, needs a
+    decision.
