@@ -14,7 +14,7 @@ from .base_models import Transaction as ChainTransaction
 from .config import settings
 from .logger import get_logger
 from .metrics import metrics_registry
-from .state.block_deltas import requeue_orphaned_transactions, revert_losing_segment
+from .state.block_deltas import reconcile_orphaned_transactions, requeue_orphaned_transactions, revert_losing_segment
 from .sync_base import SyncBase
 from .sync_divergence import clear_divergence, report_divergence
 
@@ -26,6 +26,7 @@ class BulkSyncMixin(SyncBase):
 
     # Protocol base declares the attributes the concrete ChainSync sets.
     _last_bulk_sync_time: int
+    _orphan_reconcile_pending: list[dict[str, Any]]
 
     async def close(self) -> None:
         """Close HTTP client."""
@@ -184,7 +185,10 @@ class BulkSyncMixin(SyncBase):
                 if remote_height == local_height and not _reorg_attempted:
                     if await self._resolve_fork_with_peer(source_url, local_height, remote_height):
                         self._last_bulk_sync_time = 0
-                        return await self.bulk_import_from(source_url, _reorg_attempted=True)
+                        try:
+                            return await self.bulk_import_from(source_url, _reorg_attempted=True)
+                        finally:
+                            self._reconcile_pending_orphans()
                 report_divergence(self._chain_id, divergence)
                 return 0
             clear_divergence(self._chain_id)
@@ -256,7 +260,10 @@ class BulkSyncMixin(SyncBase):
                 # Previously this only reported and stalled forever (V23-90).
                 if not _reorg_attempted and await self._resolve_fork_with_peer(source_url, local_height, remote_height):
                     self._last_bulk_sync_time = 0  # a reorg is not rate-limited catch-up
-                    return await self.bulk_import_from(source_url, _reorg_attempted=True)
+                    try:
+                        return await self.bulk_import_from(source_url, _reorg_attempted=True)
+                    finally:
+                        self._reconcile_pending_orphans()
                 div = self.detect_divergence(source_url, local_height, first_block.get("parent_hash", ""))
                 if div:
                     report_divergence(self._chain_id, div)
@@ -484,9 +491,10 @@ class BulkSyncMixin(SyncBase):
                 return False
             orphaned: list[dict[str, Any]] = []
             segment_empty = self._blocks_provably_empty(session, list(our_segment))
-            # The delta-journal undo stays gated until the journal is proven
-            # complete — the ancestor state-root check only covers accounts,
-            # so a missed side-table capture would revert silently wrong.
+            # Operator kill-switch: undo is on by default (the journal is
+            # proven by the ancestor root + side-table digests + the
+            # differential suite); SYNC_FORK_UNDO_ENABLED=false restores
+            # escalate-only behaviour.
             if not segment_empty and not settings.sync_fork_undo_enabled:
                 metrics_registry.increment("sync_fork_reorg_unsafe_total")
                 self._logger.error(
@@ -548,9 +556,24 @@ class BulkSyncMixin(SyncBase):
             len(our_segment),
         )
         if orphaned:
-            requeued = requeue_orphaned_transactions(self._chain_id, orphaned, self._session_factory)
-            self._logger.warning("Requeued %s of %s orphaned transactions into the mempool", requeued, len(orphaned))
+            failed = requeue_orphaned_transactions(self._chain_id, orphaned)
+            self._logger.warning(
+                "Requeued %s of %s orphaned transactions into the mempool",
+                len(orphaned) - len(failed),
+                len(orphaned),
+            )
+            # The winning branch is fetched by the caller's resumed pull —
+            # "lost" and domain-row marking are only decidable after that
+            # import lands, so the rejected payloads wait in the pending list.
+            self._orphan_reconcile_pending.extend(failed)
         return True
+
+    def _reconcile_pending_orphans(self) -> None:
+        """Classify requeue-rejected orphans now that the winning branch is
+        imported — the deferred counterpart of the push path's inline call."""
+        pending, self._orphan_reconcile_pending = self._orphan_reconcile_pending, []
+        if pending:
+            reconcile_orphaned_transactions(self._chain_id, pending, self._session_factory)
 
     async def _sequential_bulk_import(
         self, start_height: int, end_height: int, source_url: str, batch_size: int, poll_interval: float
