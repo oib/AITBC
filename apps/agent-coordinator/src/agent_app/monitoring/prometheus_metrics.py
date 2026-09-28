@@ -15,6 +15,22 @@ from aitbc.aitbc_logging import get_logger
 logger = get_logger(__name__)
 
 
+def _label_key(labels: list[str], label_values: dict[str, str]) -> str:
+    """Label-set key in exposition-safe form: ``name="escaped"`` pairs.
+
+    The same string is the internal dict key and the label set emitted by
+    ``/v1/metrics`` — quoting and escaping here are what make that output
+    valid Prometheus text (unquoted values fail to parse, so the whole
+    scrape errors out).
+    """
+    parts = []
+    for label in labels:
+        value = label_values.get(label, "")
+        value = str(value).replace("\\", "\\\\").replace('"', '\\"').replace("\n", "\\n")
+        parts.append(f'{label}="{value}"')
+    return ",".join(parts)
+
+
 @dataclass
 class MetricValue:
     """Represents a metric value with timestamp"""
@@ -67,13 +83,7 @@ class Counter:
         """Create key from label values"""
         if not self.labels:
             return "_default"
-
-        key_parts = []
-        for label in self.labels:
-            value = label_values.get(label, "")
-            key_parts.append(f"{label}={value}")
-
-        return ",".join(key_parts)
+        return _label_key(self.labels, label_values)
 
 
 class Gauge:
@@ -124,13 +134,7 @@ class Gauge:
         """Create key from label values"""
         if not self.labels:
             return "_default"
-
-        key_parts = []
-        for label in self.labels:
-            value = label_values.get(label, "")
-            key_parts.append(f"{label}={value}")
-
-        return ",".join(key_parts)
+        return _label_key(self.labels, label_values)
 
 
 class Histogram:
@@ -190,13 +194,7 @@ class Histogram:
         """Create key from label values"""
         if not self.labels:
             return "_default"
-
-        key_parts = []
-        for label in self.labels:
-            value = label_values.get(label, "")
-            key_parts.append(f"{label}={value}")
-
-        return ",".join(key_parts)
+        return _label_key(self.labels, label_values)
 
 
 class MetricsRegistry:
