@@ -63,6 +63,7 @@ from ..state.state_transition import (
     get_block_version,
     get_block_version_for_height,
     get_state_transition,
+    use_account_nonce_override,
 )
 
 logger = get_logger(__name__)
@@ -1135,7 +1136,12 @@ class PoAProposer:
             # pure_state_transition (escrow authority via escrow_context,
             # bridge pseudo-sender + signature + refund lock binding via
             # bridge_lock_context), so the parallel path stays identical.
-            and block_version in (2, 3, 4, 5, 6)
+            # v7/v8 have no apply-rule additions for the types this path
+            # handles (v7's GPU_REGISTER gate is sequential-only), and the pure
+            # path now enforces signature + signed nonce too. Upper bound is
+            # explicit: a future version defaults to sequential until the pure
+            # path is audited for its rules.
+            and 2 <= block_version <= 8
         )
         if use_parallel:
             escrow_context = build_escrow_context(
@@ -2105,7 +2111,8 @@ class PoAProposer:
                     self._logger.info("[PROPOSE] Recipient account for %s will be created by the state transition", recipient)
                 state_transition = get_state_transition()
                 tx_data_for_transition = tx.content.copy()
-                tx_data_for_transition["nonce"] = sender_account.nonce
+                if use_account_nonce_override(tx_data_for_transition, block_version):
+                    tx_data_for_transition["nonce"] = sender_account.nonce
                 tx_data_for_transition["value"] = tx_data_for_transition.get("amount", 0)
                 success, error_msg = state_transition.apply_transaction(
                     session,
@@ -2235,7 +2242,9 @@ class PoAProposer:
             # Bridge credits sign their semantic fields at issuance (v5) —
             # overwriting the nonce with the pseudo-sender account's would
             # invalidate the authority signature.
-            if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
+            if _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND") and use_account_nonce_override(
+                tx_data, block_version
+            ):
                 tx_data["nonce"] = sender_account.nonce if sender_account else 0
             tx_data["value"] = tx_data.get("amount", 0)
             tx_data_map[tx.tx_hash] = tx_data
@@ -2255,7 +2264,11 @@ class PoAProposer:
                     tx_data = tx_data_map[tx_hash]
                     sender = _to_ait_address(tx_data.get("from", ""))
                     sender_account = account_map.get(sender)
-                    if sender_account and _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND"):
+                    if (
+                        sender_account
+                        and _determine_tx_type(tx_data) not in ("BRIDGE_RELEASE", "BRIDGE_REFUND")
+                        and use_account_nonce_override(tx_data, block_version)
+                    ):
                         tx_data["nonce"] = sender_account.nonce
 
                 # Build the list of (tx_hash, tx_data) for this group
