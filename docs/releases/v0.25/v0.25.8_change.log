@@ -918,3 +918,21 @@ Entry points operators need are untouched: `setup.sh`, `update.sh`,
 canonical `deploy*.sh`/`deploy-env.sh`, `ci/` checks, the `workflow/`
 numbered suite, `zk/`, doc generators, and the root agent scripts driven by
 node1's crontab.
+
+## 2026-09-28 — repo hygiene follow-up: fix/scratch artifacts (chore)
+
+Second cleanup pass — retired files that are pure artifacts or one-shot
+mutators, useless to cloners:
+
+- `fix_b008_{comprehensive,libcst}.py`, `quality/fix_bare_except.py`,
+  `migrate_encrypt_wallets.py` — completed code-mutation/migration one-offs,
+  referenced only by historical release docs.
+- `contracts/deployments-{aitbc1-cascade,localhost-1777452614032}.json` —
+  hardhat devnet deployment dumps with zero readers (dead `aitbc1` name /
+  timestamped localhost run).
+- `dev/testing/tests/simple_test_results.json` — March test-output dump.
+- `scripts/plan/` — the completed mesh-transition implementation plan.
+- `scripts/training/` — agent-training dev experiments.
+
+`deployments.json`/`aitbc-cascade`/`bridge-sepolia`, the Grafana dashboard
+export, all CI baselines, and dev key generators stay.
