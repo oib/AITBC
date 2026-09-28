@@ -564,7 +564,27 @@ def get_block_version_for_height(height: int) -> int:
     return 2
 
 
+def use_account_nonce_override(tx_data: dict[str, Any], block_version: int) -> bool:
+    """Whether apply-time code must substitute the account's live nonce for the
+    tx's recorded nonce before validation.
 
+    Two cases require the substitution:
+
+    - ``block_version < 7``: the parallel-proposal era could seal same-sender
+      tx pairs sharing one stored nonce — the second only applied because the
+      producer rewrote the nonce to the live account value. Re-importing those
+      blocks needs the same rewrite or historical replay diverges.
+    - Unsigned internal transactions (preregistered MESSAGE/bridge rows,
+      operator-relayed records) carry no signed nonce to enforce; the check
+      must not run on a meaningless stored value.
+
+    For signed transactions at v7+ the envelope nonce is authoritative: the
+    signature covers it, and the nonce check enforces it for real instead of
+    being a tautology behind the rewrite.
+    """
+    if block_version < 7:
+        return True
+    return not (tx_data.get("signature") or tx_data.get("sig"))
 
 
 # Address fields the staking RPCs put the authorized party under: consensus

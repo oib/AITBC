@@ -525,6 +525,28 @@ def compute_state_delta(
             tx_hash=tx_hash,
         )
 
+    # Signature verification — same contract as apply_transaction: verify only
+    # when a signature field is present (unsigned internal txs skip), but a
+    # present signature must verify. Until the parallel path checked this, a
+    # signed tx applied regardless of its signature whenever the caller had
+    # rewritten the nonce.
+    signature = tx_data.get("signature")
+    if signature and sender:
+        from ..rpc.utils import verify_transaction_signature
+
+        if not verify_transaction_signature(tx_data, signature, sender):
+            return StateDelta(
+                sender=sender,
+                recipient=recipient,
+                sender_balance_change=0,
+                recipient_balance_change=0,
+                sender_nonce_change=0,
+                success=False,
+                error=f"Invalid signature for transaction {tx_hash}",
+                tx_type=tx_type,
+                tx_hash=tx_hash,
+            )
+
     sender_account = account_map.get(sender)
     if not sender_account:
         return StateDelta(
@@ -539,7 +561,8 @@ def compute_state_delta(
             tx_hash=tx_hash,
         )
 
-    # Nonce validation
+    # Nonce validation — real when the caller kept the signed envelope nonce
+    # (v7+ signed txs); tautological for unsigned/legacy overrides.
     expected_nonce = sender_account.nonce if sender_account.nonce is not None else 0
     tx_nonce = tx_data.get("nonce", 0)
     if tx_nonce != expected_nonce:
