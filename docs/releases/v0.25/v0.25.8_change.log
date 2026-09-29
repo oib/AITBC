@@ -1937,3 +1937,39 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
   interim until the Prometheus/Alertmanager route (the same item the
   v9 alerts wait on) carries permanent-FAILED, retries-exhausted and
   low-float events to the operator.
+
+### Bridge payout lifecycle: COMPLETED only after seal + recurring audit
+
+- Monitor payouts now pass through a `SUBMITTED` state: the signed envelope
+  and its derived hash are persisted on the deposit row *before* the first
+  broadcast (ledger-first). `COMPLETED` requires the payout sealed
+  `PAYOUT_SEAL_DEPTH` (2) blocks deep. An unsealed payout past
+  `PAYOUT_REBROADCAST_BLOCKS` (6) is rebroadcast as the identical envelope —
+  never re-signed (bounded by `PAYOUT_MAX_REBROADCAST`, 5). Apply-rejected
+  payouts stay `SUBMITTED` and `ALERT`. This removes the phantom-completion
+  class that stranded five deposits in the audit. `envelope_hash` tracks the
+  derived hash separately from `ait_tx_hash` (server-canonical if the RPC
+  normalizes differently). Wallet `bridge_db` migrated identically.
+- `python -m bridge_monitor.admin`: `status`, `manual-payout` (the only
+  permitted manual send path — same ledger-first flow), `abandon-and-resign`
+  (frees a stuck `SUBMITTED` row only when the payout account's on-chain
+  nonce has passed the envelope nonce AND the envelope hash is not sealed),
+  `write-off` (terminal, requires a written reason). Rule in AGENTS.md:
+  never send ad-hoc from the payout account.
+- `WRITTEN_OFF` terminal state for deliberately unsettled deposits (reason
+  mandatory). Deposit `0x7e1aab4b…` (0.05 Sepolia ETH, Aug-27, no recipient)
+  written off: it went to the bridge-contract deployer `0x818018F3…` whose
+  key was already declared lost — unrecoverable testnet funds. The row's
+  phantom `completed` state is corrected to `written_off` with the reason.
+- `fleet-config-check` gains a recurring bridge payout audit
+  (`scripts/monitoring/bridge-payout-audit.py`): every COMPLETED row's
+  `ait_tx_hash` must exist sealed on chain; every ETH deposit hash maps to
+  at most one distinct payout; written-off rows are listed, not failed.
+  Live run green: 9 ledger rows, 7 sealed payouts verified.
+- `BRIDGE_LOW_FLOAT_ETH` (0.01) alerts when the bridge wallet cannot cover
+  refund/withdrawal gas — currently firing: `0x0936…` holds 0.00066 ETH and
+  needs an operator faucet top-up (captcha-gated).
+- Sepolia bridge contract `0x24403CCf…` verified owned by the lost
+  `0x818018F3…` deployer key — every `onlyOwner` path is permanently frozen.
+  Key-split plan updated: a new CrossChainBridge deploy with an offline
+  owner key is required (validator set empty, locks unused — cheap now).
