@@ -2023,3 +2023,13 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
 - hub's `aitbc-bridge-monitor.env` documents the knob (empty pending
   the operator wallet); the 0.05-ETH top-up row was written off with
   reason per policy.
+
+### fix(bridge): serialize payouts, auto-abandon stale envelopes, record dust
+
+- Serialize in-flight payouts: at most one SUBMITTED envelope at a time (same-poll envelopes collided on the payout-account nonce since it is read from committed chain state; the stale envelope then burned the whole rebroadcast budget awaiting manual re-sign). Deferred deposits keep their computed AIT amount and do not spend the retry budget.
+- The submitted-payout sweep now runs the abandon-and-resign proof automatically: payout-account chain nonce past the envelope nonce + envelope hash unsealed -> the row is re-queued for a fresh ledger-first payout instead of rebroadcasting a dead envelope until the counter runs out.
+- Nonce-slot rejections alert immediately at initial submit, retry, and rebroadcast, rather than waiting for max_rebroadcasts.
+- poll_ethereum no longer advances the block cursor when both process_deposit and the retry fallback fail for a deposit; the next poll rescans the block.
+- Sub-minimum ETH deposits are recorded as FAILED ledger rows (dust inflow; deliberate resolution) so the payout audit can account for every inflow.
+- AIT recipients are validated at parse time with the shared valid_ait_recipient predicate (storage.py; admin.py delegates to it); malformed recipients fail permanently at once instead of burning the 5-attempt retry budget.
+- The retry queue guards per-row build failures so one deposit exception cannot kill the remaining rows.
