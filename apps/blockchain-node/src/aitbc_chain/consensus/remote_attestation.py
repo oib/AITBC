@@ -277,7 +277,20 @@ class RemoteAttestationService:
             session_ctx = self._session_factory()
             with session_ctx as session:
                 tip = session.exec(select(Block).where(Block.chain_id == self._chain_id).order_by(text("height DESC"))).first()
-                if tip is None or tip.hash != parent_hash:
+                if tip is None:
+                    return "not_at_parent"
+                if tip.hash != parent_hash:
+                    # Late request for the block this validator already
+                    # imported: the request's hash IS the local head at that
+                    # height. The parent-binding/nonce checks below cannot
+                    # run (the tip moved past the parent) and need not —
+                    # import already validated this exact block, so signing
+                    # it is idempotent rather than a would-reject.
+                    # A RIVAL at the same height still refuses: tip.height
+                    # matches but tip.hash != header hash falls through to
+                    # not_at_parent, which is the fork protection working.
+                    if tip.height == height and tip.hash == header_hash:
+                        return None
                     return "not_at_parent"
 
                 from ..base_models import _to_ait_address

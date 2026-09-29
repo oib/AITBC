@@ -775,3 +775,59 @@ class TestAttesterTxChecks:
         asyncio.run(svc._handle_request(self._request([_signed_tx()])))
         assert not broker.published
         assert metrics_registry._counters.get("v9_would_reject_attest_no_state_access_total") == 1.0
+
+    def _make_head(self, session_factory, height: int, block_hash: str, parent_hash: str) -> None:
+        """Record a Block row as the local head — what a completed import leaves."""
+        with session_factory() as session:
+            session.add(
+                Block(
+                    chain_id=CHAIN,
+                    height=height,
+                    hash=block_hash,
+                    parent_hash=parent_hash,
+                    proposer=ADDR_ATTACKER,
+                    timestamp=T0,
+                    tx_count=1,
+                )
+            )
+            session.commit()
+
+    def test_v9_resigns_already_imported_head(self, session_factory, attester, monkeypatch):
+        """The request arrived AFTER the block imported: the local head IS the
+        requested block (same height, same hash), so its parent no longer
+        equals the tip. Import already ran every check — the attester signs
+        again without counting a would-reject (live incident: not_at_parent
+        fired on the attester's own head)."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)
+        request = self._request([_signed_tx()])
+        header = request["header"]
+        self._make_head(session_factory, 1, header["hash"], header["parent_hash"])
+        asyncio.run(svc._handle_request(request))
+        assert broker.published, "re-attesting the already-imported head must sign"
+        assert metrics_registry._counters.get("v9_would_reject_total") is None
+        assert metrics_registry._counters.get("v9_would_reject_attest_not_at_parent_total") is None
+
+    def test_v9_rival_at_head_height_still_refused(self, session_factory, attester, monkeypatch):
+        """Same height, different hash: the requested block is NOT the local
+        head, so the imported-head shortcut must not fire — the refusal and
+        the shadow counter are the fork protection working."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)
+        # Local head at height 1 is a different block than the request's.
+        self._make_head(session_factory, 1, "0x" + "11" * 32, "0x" + "00" * 32)
+        asyncio.run(svc._handle_request(self._request([_signed_tx()])))
+        assert not broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_not_at_parent_total") == 1.0
+
+    def test_v9_block_ahead_of_head_still_checked(self, session_factory, attester, monkeypatch):
+        """A not-yet-imported block (the head is still its parent) runs the
+        full tx checks — an unsigned tx in it refuses exactly as before."""
+        svc, broker = attester
+        monkeypatch.setattr(settings, "state_transition_v9_height", 1)
+        _seed_genesis(session_factory)  # head = genesis = the request's parent
+        asyncio.run(svc._handle_request(self._request([self._unsigned_bound_tx()])))
+        assert not broker.published
+        assert metrics_registry._counters.get("v9_would_reject_attest_missing_signature_total") == 1.0
