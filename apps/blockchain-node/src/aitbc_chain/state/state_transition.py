@@ -121,11 +121,17 @@ def _governance_executors(session: Session, chain_id: str, block_height: int | N
 
     The parameter is chain state, applied identically on every node, so the
     gate is deterministic — a per-node env list would recreate the
-    slash-authority class of silent divergence. Unset or empty means no
-    restriction (pre-gate behavior); once set, only listed senders pass
-    validation on every node at the same height. ``block_height`` selects
-    the value in force at that height — the sender gate applies to blocks
-    of every version once set, so replay must see the height-scoped value.
+    slash-authority class of silent divergence.
+
+    Returns ``None`` when the parameter is unset or empty. The caller is
+    FAIL-CLOSED on that result from block_version 5 upward — an unset list
+    rejects GOVERNANCE_EXECUTE outright (the validate_transaction gate at
+    ~line 1064); only pre-v5 sealed history is lenient, since executes
+    mined before the parameter existed carry no authorization requirement.
+    Once set, only listed senders pass validation on every node at the
+    same height. ``block_height`` selects the value in force at that
+    height — the sender gate applies to blocks of every version once set,
+    so replay must see the height-scoped value.
     """
     value = _chain_parameter_value(session, chain_id, "governance_executors", block_height)
     if not value or not value.strip():
