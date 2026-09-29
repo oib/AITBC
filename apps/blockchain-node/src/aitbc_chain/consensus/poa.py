@@ -39,6 +39,7 @@ from ..models import Transaction
 from ..base_models import _to_ait_address
 from aitbc.crypto.signature_recovery import canonical_address
 from ..state.pure_state_transition import (
+    SEQUENTIAL_ONLY_TX_TYPES,
     StateDelta,
     _determine_tx_type,
     _escrow_address,
@@ -75,22 +76,12 @@ logger = get_logger(__name__)
 # modeled by the pure/parallel delta map. They must be applied through the
 # full StateTransition.apply_transaction sequential path to keep state roots
 # and side-effect tables consistent across proposer and follower nodes.
-_SEQUENTIAL_ONLY_TX_TYPES = frozenset(
-    {
-        "LIQUIDITY_DEPOSIT",
-        "LIQUIDITY_WITHDRAW",
-        "LIQUIDITY_CLAIM",
-        "GPU_REGISTER",
-        "GPU_ALLOCATE",
-        # Writes chain_parameter at apply — pure deltas compute account
-        # changes only (GAP-57); keep both copies of this set identical.
-        "GOVERNANCE_EXECUTE",
-        # v4 lock-window rules live in validate_transaction — only the
-        # sequential apply path runs them; releases are rare so forcing the
-        # block sequential costs nothing (GAP-42).
-        "STAKE_RELEASE",
-    }
-)
+# Transaction types whose side effects the pure/parallel delta map cannot
+# model — the canonical list lives in
+# pure_state_transition.SEQUENTIAL_ONLY_TX_TYPES (the pure path returns
+# requires_sequential=True for exactly these types). A block containing any
+# of them stays on the sequential path.
+_SEQUENTIAL_ONLY_TX_TYPES = SEQUENTIAL_ONLY_TX_TYPES
 
 _METRIC_KEY_SANITIZE = re.compile("[^a-zA-Z0-9_]")
 

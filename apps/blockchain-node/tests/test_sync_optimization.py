@@ -192,13 +192,93 @@ class TestDeltaSync:
             votes = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).all()
             assert len(votes) == 1 and votes[0].voting_power == 2000
 
+    def test_aux_state_case_insensitive_key_lookup(self, session_factory):
+        """v0.25.8: a lowercase legacy row must match the checksummed incoming
+        natural key — exact equality missed it and inserted a second vote
+        (the node2 governance-vote duplicates). The lookup must find the
+        existing row and rewrite its address to canonical form."""
+        from datetime import UTC, datetime
+
+        from aitbc_chain.aux_state import upsert_aux_rows
+        from aitbc_chain.base_models import GovernanceVote, Stake
+        from sqlmodel import select
+
+        checksummed = "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B"
+        lowercase = checksummed.lower()
+        now = datetime.now(UTC)
+
+        with session_factory() as s:
+            # Legacy rows as the old code path wrote them — lowercase address.
+            s.add(
+                GovernanceVote(
+                    chain_id="test",
+                    proposal_id="prop-1",
+                    voter_address=lowercase,
+                    vote_type="for",
+                    voting_power=100,
+                    created_at=now,
+                )
+            )
+            s.add(
+                Stake(
+                    id=7,
+                    chain_id="test",
+                    address=lowercase,
+                    amount=5,
+                    locked_until=now,
+                    status="active",
+                )
+            )
+            s.commit()
+
+        payload = {
+            "governance_votes": [
+                {
+                    "proposal_id": "prop-1",
+                    "voter_address": checksummed,
+                    "vote_type": "for",
+                    "voting_power": 2000,
+                    "created_at": now.isoformat(),
+                }
+            ],
+            "stakes": [
+                {
+                    "id": 1,
+                    "address": checksummed,
+                    "amount": 6,
+                    "locked_until": now.isoformat(),
+                    "status": "withdrawn",
+                    "created_at": now.isoformat(),
+                    "updated_at": now.isoformat(),
+                }
+            ],
+        }
+        with session_factory() as s:
+            counts = upsert_aux_rows(s, "test", payload)
+            assert counts["governance_votes"] == 1
+            s.commit()
+
+        with session_factory() as s:
+            votes = s.exec(select(GovernanceVote).where(GovernanceVote.chain_id == "test")).all()
+            # One row, canonical spelling, updated value — no twin insert.
+            assert len(votes) == 1
+            assert votes[0].voter_address == checksummed
+            assert votes[0].voting_power == 2000
+            # stake keys on ``id`` (not an address field): the shipped row is a
+            # different stake than the local one, so a second row is correct —
+            # address casing must not turn it into a duplicate of id=1.
+            stakes = s.exec(select(Stake).where(Stake.chain_id == "test")).all()
+            assert len(stakes) == 2
+
     def test_aux_state_missing_key_skipped(self, session_factory):
         from aitbc_chain.aux_state import upsert_aux_rows
         from aitbc_chain.base_models import Stake
         from sqlmodel import select
 
         with session_factory() as s:
-            counts = upsert_aux_rows(s, "test", {"stakes": [{"address": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B", "amount": 5}]})
+            counts = upsert_aux_rows(
+                s, "test", {"stakes": [{"address": "0x02B8F2C61DB19B04aB68cfb43d0605E63dE74c5B", "amount": 5}]}
+            )
             assert counts["stakes"] == 0
             s.commit()
         with session_factory() as s:
