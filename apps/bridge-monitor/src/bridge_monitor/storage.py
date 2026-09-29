@@ -22,6 +22,7 @@ class BridgeDepositStatus(StrEnum):
     PENDING = "pending"
     PROCESSING = "processing"
     PENDING_RETRY = "pending_retry"
+    SUBMITTED = "submitted"
     COMPLETED = "completed"
     FAILED = "failed"
 
@@ -37,6 +38,9 @@ _DEPOSIT_SELECT = """
            eth_usd_price,
            ait_usd_price,
            ait_tx_hash,
+           signed_tx,
+           submitted_height,
+           rebroadcast_count,
            status,
            created_at,
            completed_at   AS processed_at,
@@ -92,6 +96,11 @@ def init_db() -> None:
             ("error_message", "TEXT"),
             ("retry_count", "INTEGER NOT NULL DEFAULT 0"),
             ("next_retry_at", "TEXT"),
+            # SUBMITTED-era lifecycle columns: the signed payout envelope is
+            # stored before it is broadcast so a crash can never orphan it.
+            ("signed_tx", "TEXT"),
+            ("submitted_height", "INTEGER"),
+            ("rebroadcast_count", "INTEGER NOT NULL DEFAULT 0"),
         ]:
             if column in columns:
                 continue
@@ -176,6 +185,9 @@ def update_deposit(
     error_message: str | None = None,
     retry_count: int | None = None,
     next_retry_at: str | None = None,
+    signed_tx: str | None = None,
+    submitted_height: int | None = None,
+    rebroadcast_count: int | None = None,
 ) -> bool:
     """Update bridge deposit record."""
     with closing(_db_connection()) as conn:
@@ -196,6 +208,15 @@ def update_deposit(
         if ait_tx_hash is not None:
             updates.append("ait_tx_hash = ?")
             params.append(ait_tx_hash)
+        if signed_tx is not None:
+            updates.append("signed_tx = ?")
+            params.append(signed_tx)
+        if submitted_height is not None:
+            updates.append("submitted_height = ?")
+            params.append(submitted_height)
+        if rebroadcast_count is not None:
+            updates.append("rebroadcast_count = ?")
+            params.append(rebroadcast_count)
         if status is not None:
             updates.append("status = ?")
             params.append(status.value)
@@ -279,6 +300,22 @@ def get_deposits_for_retry(now_iso: str | None = None) -> list[dict[str, Any]]:
         cursor.execute(
             f"{_DEPOSIT_SELECT} WHERE status = ? AND (next_retry_at IS NULL OR next_retry_at <= ?) ORDER BY created_at ASC",
             (BridgeDepositStatus.PENDING_RETRY.value, now_iso),
+        )
+        rows = cursor.fetchall()
+        return [dict(row) for row in rows]
+
+
+def get_submitted_deposits() -> list[dict[str, Any]]:
+    """Get deposits whose payout was broadcast but not yet confirmed sealed.
+
+    These rows own a signed payout envelope; the confirmation sweep checks
+    them each poll — they are never re-signed.
+    """
+    with closing(_db_connection()) as conn:
+        cursor = conn.cursor()
+        cursor.execute(
+            f"{_DEPOSIT_SELECT} WHERE status = ? ORDER BY created_at ASC",
+            (BridgeDepositStatus.SUBMITTED.value,),
         )
         rows = cursor.fetchall()
         return [dict(row) for row in rows]
