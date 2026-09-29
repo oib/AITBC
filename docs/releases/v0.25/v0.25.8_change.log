@@ -1732,3 +1732,43 @@ Tests added under ``TestAttesterTxChecks`` in
 signs with no ``v9_would_reject`` counter; (b) a rival hash at the head's
 height still refuses and counts; (c) a not-yet-imported block ahead of
 the head still runs the tx checks.
+### governance_proposal reclassified to service-local (2026-09-29)
+
+Operator review finding: ``governance_proposal`` is not consensus state.
+GOVERNANCE_EXECUTE at apply is gated on the executor signature alone — it
+marks the stored proposal ``executed`` and applies the tx-carried
+``execution_payload`` (an override, not bound to the proposed payload);
+the proposal's tally/status are never read at apply. Proposals, votes,
+and tallies are RPC-side bookkeeping written on whichever node served the
+call (``rpc/staking.py::cast_governance_vote`` takes ``voter_address``
+unsigned and updates the tally — an operator-administrative model, not
+on-chain governance).
+
+Changes:
+
+- ``governance_proposal`` moved from CONSENSUS_STATE_TABLES to
+  SERVICE_STATE_TABLES and dropped from ``aux_state.AUX_TABLES`` /
+  AUX_SHIPPED_TABLES — it is no longer shipped between nodes, and the
+  digest monitor classifies it ``service`` (informational). Without this
+  every RPC-side vote/proposal would read as permanent aux divergence
+  while state sync stays disabled.
+- Corrected the earlier audit comment that claimed tallies gate
+  execution.
+- Executor gate itself verified safe today, correcting the audit worry:
+  ``governance_executors`` is SET on all five hosts (0x02B8F2C6…, applied
+  at block 9819 via gap56-set-executors) and apply already fails closed
+  when the parameter is unset for block_version >= 5
+  (state_transition.py:1064) — the "unset means unrestricted" docstring
+  was stale, the enforcement was not.
+- Governance canaries (27262 GOVERNANCE_PROPOSE, 27263 GOVERNANCE_VOTE)
+  were sealed transactions — but apply writes no proposal/vote rows for
+  them; they exercised signature+nonce admission only, not tally or
+  execution. Recorded so the canary record is accurate.
+- Version-height work queued: bind ``execution_payload`` to the stored
+  proposal (apply what was proposed, not what the tx carries), and — if
+  on-chain governance is intended — signed GOVERNANCE_VOTE txs with
+  stake-snapshot tallies and execution gated on the tally. Also noted:
+  ``governance_vote`` keeps class ``aux`` (must-match) deliberately —
+  its ledger divergence is the sync-contract signal that caught the
+  v0.25.8 case-duplicates; revisit alongside proposal if alert noise
+  appears from RPC-side votes while sync is off.
