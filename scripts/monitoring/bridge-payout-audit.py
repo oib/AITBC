@@ -40,8 +40,9 @@ for db in sorted(glob.glob('/var/lib/aitbc/**/bridge_deposits*.db', recursive=Tr
         cols = {r[1] for r in con.execute('PRAGMA table_info(eth_deposits)')}
         err = 'error_message' if 'error_message' in cols else 'NULL'
         rcp = 'recipient' if 'recipient' in cols else 'NULL'
-        for h, ait, st, em, rc in con.execute('SELECT tx_hash, ait_tx_hash, status, %s, %s FROM eth_deposits' % (err, rcp)):
-            rows.append({'db': db, 'tx_hash': h, 'ait_tx_hash': ait, 'status': st, 'error_message': em, 'recipient': rc})
+        amt = 'amount_eth' if 'amount_eth' in cols else 'NULL'
+        for h, ait, st, em, rc, am, fr in con.execute('SELECT tx_hash, ait_tx_hash, status, %s, %s, %s, from_address FROM eth_deposits' % (err, rcp, amt)):
+            rows.append({'db': db, 'tx_hash': h, 'ait_tx_hash': ait, 'status': st, 'error_message': em, 'recipient': rc, 'amount_eth': am, 'from_address': fr})
         con.close()
     except Exception as exc:
         rows.append({'db': db, 'error': str(exc)})
@@ -179,6 +180,16 @@ def main() -> int:
         if not row.get("error_message"):
             print("  FAIL: written-off row without a recorded reason", flush=True)
             bad = 1
+
+    # funding rows: operator float top-ups — recorded, not owed a payout.
+    # Listed so every ETH inflow is visible in the audit.
+    for row in ledgers:
+        if row.get("status") == "funding":
+            print(
+                f"  funding: {row['host']} {row['db']}: {row['tx_hash'][:18]}… "
+                f"{row.get('amount_eth')} ETH from {(row.get('from_address') or '?')[:18]}…",
+                flush=True,
+            )
 
     # collect every payout hash that must exist sealed on chain
     need = {row["ait_tx_hash"] for row in ledgers if row.get("status") == "completed" and row.get("ait_tx_hash")}

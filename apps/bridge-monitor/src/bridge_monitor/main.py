@@ -81,6 +81,11 @@ class BridgeMonitor:
         self.burst_interval = float(os.getenv("BRIDGE_BURST_INTERVAL", "20"))
         self._last_kick_seen = self._kick_mtime() or 0.0
         self._burst_until = 0.0
+        # Operator funding sources: ETH from these senders is float funding,
+        # not a customer deposit — recorded as FUNDING in the ledger (audit
+        # still sees every inflow) but owed no payout. Whitelist exactly one
+        # offline-held operator wallet, never a shared public faucet address.
+        self.funding_sources = {a.strip().lower() for a in os.getenv("BRIDGE_FUNDING_SOURCES", "").split(",") if a.strip()}
         # Consecutive _poll_ethereum transport failures. A dead ETH endpoint
         # is silent by nature — the scan "finds nothing" forever — so a
         # streak past the threshold emits ALERT lines the fleet check counts.
@@ -252,6 +257,7 @@ class BridgeMonitor:
                 BridgeDepositStatus.COMPLETED.value,
                 BridgeDepositStatus.FAILED.value,
                 BridgeDepositStatus.WRITTEN_OFF.value,
+                BridgeDepositStatus.FUNDING.value,
             ):
                 logger.info("Deposit %s already terminal (%s), skipping", tx_hash, status)
                 return
@@ -694,10 +700,16 @@ class BridgeMonitor:
                     if to_address and to_address.lower() == self.bridge_eth_address:
                         value = tx.get("value", 0)
                         eth_amount = Decimal(value) / Decimal(10**18)
+                        tx_hash = tx.hash.hex()
+                        if from_address.lower() in self.funding_sources:
+                            if create_deposit(tx_hash, from_address, str(eth_amount), "", status=BridgeDepositStatus.FUNDING):
+                                logger.info(
+                                    "Operator funding recorded: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount
+                                )
+                            continue
                         if eth_amount < self.min_eth_deposit:
                             logger.debug("Skipping small deposit: %s ETH", eth_amount)
                             continue
-                        tx_hash = tx.hash.hex()
                         tx_data = tx.get("input", "0x")
                         logger.info("Found deposit: %s from %s, amount: %s ETH", tx_hash, from_address, eth_amount)
                         try:
