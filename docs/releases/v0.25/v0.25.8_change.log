@@ -1989,3 +1989,21 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
   keeps its nonce proof. `bridge-payout-audit.py` lists
   recipient-bearing write-offs separately as `WRITTEN-OFF DEBT` so an
   unpaid debt can't quietly masquerade as an unrecoverable row.
+
+### Deposit-scanner liveness + probe retry (v0.25.8)
+
+- `bridge-monitor` now emits `ALERT` after 3 consecutive
+  `_poll_ethereum` failures — a dead Sepolia endpoint previously
+  "found nothing" forever with no signal (cursor-based stall was
+  invisible).
+- `fleet-config-check.sh` gains a liveness section: where
+  `aitbc-bridge-monitor` is active, its `bridge_cursor`
+  `last_processed_block` must stay within `BRIDGE_CURSOR_MAX_LAG`
+  (default 100, ~20 min) of the Sepolia head; FAILs fold into the
+  bridge gate. Endpoint inventory: monitor + coordinator-api ride
+  `ethereum-sepolia-rpc.publicnode.com`; exchange (hub/hub1) and
+  hub1 coordinator keep the keyed Infura URL — verified live
+  (head `0xb43108`), kept as the paid-key tier.
+- Every ssh probe in the checker now retries once via `sshr()` —
+  a single transient blip no longer paints a host UNREACHABLE and
+  turns a clean run red.
