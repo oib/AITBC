@@ -659,10 +659,58 @@ for h in $HOSTS; do
         continue
     fi
     printf "  %-14s %s\n" "$h" "$(echo "${carriers:-<none>}" | paste -sd, -)"
-    echo "$carriers" | grep -v "^$" | grep -qv "^aitbc-wallet" && {
+    # aitbc-blockchain-node carries the stripped key only in memory until its
+    # planned v9-pin restart — report it as pending, not a violation. Any
+    # other carrier beyond aitbc-wallet is a real FAIL.
+    extra=$(echo "$carriers" | grep -v "^$" | grep -v "^aitbc-wallet.service" || true)
+    if echo "$extra" | grep -q "^aitbc-blockchain-node.service$"; then
+        echo "  PENDING: $h aitbc-blockchain-node holds the key in memory until the v9-pin restart"
+        extra=$(echo "$extra" | grep -v "^aitbc-blockchain-node.service$" || true)
+    fi
+    if [ -n "$extra" ]; then
         bridge_bad=1
-        echo "  FAIL: $h has ETH key carriers beyond the withdrawal payer"
-    }
+        echo "  FAIL: $h has ETH key carriers beyond the withdrawal payer: $extra"
+    fi
+done
+
+echo "=== deposit ALERT lines since last run (interim until Alertmanager wiring) ==="
+# The monitor emits CRITICAL "ALERT:" lines for permanent FAILED, retries
+# exhausted, and low float — funds received but not paid. A journald line
+# alerts nobody; until the Prometheus/Alertmanager route for these (the
+# same item the v9 alerts wait on) exists, count them here per host since
+# this checker's previous run. State lives on the controller host.
+STATE_DIR="${AITBC_FLEET_CHECK_STATE_DIR:-${XDG_STATE_HOME:-$HOME/.local/state}/aitbc-fleet-check}"
+mkdir -p "$STATE_DIR" 2>/dev/null || STATE_DIR=/tmp/aitbc-fleet-check
+for h in $HOSTS; do
+    state="$STATE_DIR/alert-since.$h"
+    since=""
+    [ -r "$state" ] && since=$(cat "$state")
+    # remote prints "n|epoch" then up to 3 matching lines on following lines
+    res=$(ssh -o ConnectTimeout=8 -o BatchMode=yes "${RESOLVED[$h]:-$h}" \
+        "now=\$(date +%s); \
+         if [ -n '$since' ]; then sf=\"--since=@$since\"; \
+         else sf=\"--since=\$(systemctl show -p ActiveEnterTimestamp --value aitbc-bridge-monitor 2>/dev/null | head -1)\"; fi; \
+         out=\$(journalctl -u aitbc-bridge-monitor \$sf --no-pager -q 2>/dev/null | grep 'ALERT:' || true); \
+         if [ -z \"\$out\" ]; then n=0; else n=\$(echo \"\$out\" | wc -l); fi; \
+         printf '%s|%s\n' \"\$n\" \"\$now\"; \
+         echo \"\$out\" | tail -3" \
+        2>/dev/null || echo "UNREACHABLE")
+    if [ "$res" = "UNREACHABLE" ] || [ -z "$res" ]; then
+        bridge_bad=1
+        printf "  %-14s UNREACHABLE\n" "$h"
+        continue
+    fi
+    first=$(echo "$res" | head -1)
+    n=${first%%|*}
+    resnow=${first##*|}
+    printf "%s\n" "$resnow" > "$state" 2>/dev/null || true
+    if [ "${n:-0}" -gt 0 ] 2>/dev/null; then
+        bridge_bad=1
+        printf "  %-14s FAIL: %s deposit ALERT line(s) since last run\n" "$h" "$n"
+        echo "$res" | tail -n +2 | grep 'ALERT:' | sed 's/^/      /'
+    else
+        printf "  %-14s ok (0 since last run)\n" "$h"
+    fi
 done
 
 echo "=== chain state digests (consensus tables must match, aux must converge) ==="
