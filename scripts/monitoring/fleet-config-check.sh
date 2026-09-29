@@ -760,8 +760,11 @@ echo "=== v9 shadow window (pin gate) ==="
 # series proves the policy evaluated live traffic, and v9_would_reject_total
 # at 0 proves nothing would have broken. Counters are per-process, so each
 # value IS increase() since that node's last restart — the fleet window is
-# bounded by the LATEST validator restart; any restart restarts the window.
+# bounded by the LATEST *validator* restart; any validator restart restarts
+# the window. Non-validator followers (e.g. a customer node) still report
+# counters but never move the window start.
 V9_WINDOW_MIN_HOURS="${V9_WINDOW_MIN_HOURS:-24}"
+V9_VALIDATOR_HOSTS="${V9_VALIDATOR_HOSTS:-$HOSTS}"
 v9_bad=0
 now_epoch=$(date +%s)
 latest_restart_s=0
@@ -781,18 +784,22 @@ for h in $HOSTS; do
         printf "  %-14s node %s — skipped\n" "$h" "${svc_state:-unknown}"
         continue
     fi
-    if [[ "$restart_s" =~ ^[0-9]+$ ]] && [ "$restart_s" -gt "$latest_restart_s" ]; then
+    validator=0
+    case " $V9_VALIDATOR_HOSTS " in
+        *" $h "*) validator=1 ;;
+    esac
+    if [ "$validator" -eq 1 ] && [[ "$restart_s" =~ ^[0-9]+$ ]] && [ "$restart_s" -gt "$latest_restart_s" ]; then
         latest_restart_s=$restart_s
     fi
     checked=$(echo "$metrics" | awk '/^v9_shadow_checked_total / {print $2}' | cut -d. -f1)
     reject=$(echo "$metrics" | awk '/^v9_would_reject_total / {print $2}' | cut -d. -f1)
     uptime_h=$(( (now_epoch - restart_s) / 3600 ))
     if [ -z "$checked" ]; then
-        printf "  %-14s uptime %sh — v9_shadow_checked absent (pre-positive-control deploy); would_reject %s\n" \
-            "$h" "$uptime_h" "${reject:-0}"
+        printf "  %-14s uptime %sh — v9_shadow_checked absent (pre-positive-control deploy); would_reject %s%s\n" \
+            "$h" "$uptime_h" "${reject:-0}" "$([ "$validator" -eq 0 ] && echo " (non-validator)")"
     else
-        printf "  %-14s uptime %sh — checked %s, would_reject %s\n" \
-            "$h" "$uptime_h" "$checked" "${reject:-0}"
+        printf "  %-14s uptime %sh — checked %s, would_reject %s%s\n" \
+            "$h" "$uptime_h" "$checked" "${reject:-0}" "$([ "$validator" -eq 0 ] && echo " (non-validator)")"
     fi
     [ -n "$reject" ] && [ "$reject" != "0" ] && { v9_bad=1; printf "  %-14s FAIL: v9_would_reject_total=%s — shadow window NOT clean\n" "$h" "$reject"; }
     # traffic-mix: per-type checked series show which types the window covered
