@@ -25,6 +25,10 @@ from aitbc.constants import DATA_DIR
 logger = get_logger(__name__)
 
 # ── Chainlink feed addresses (Ethereum mainnet) ───────────────────────────────
+CHAINLINK_FEEDS_SEPOLIA: dict[str, str] = {
+    "ETH/USD": "0x694AA1769357215DE4FAC081bf1f309aDC325306",
+}
+
 CHAINLINK_FEEDS_MAINNET: dict[str, str] = {
     "ETH/USD": "0x5f4eC3Df9cbd43714FE2740f5E3616155c5b8419",
     "BTC/USD": "0xF4030086522a5bEEa4988F8cA5B36dbC97BeE88c",
@@ -95,7 +99,12 @@ class ChainlinkOracle:
     """Reads prices from Chainlink on-chain aggregators."""
 
     def __init__(self, feeds: dict[str, str] | None = None):
-        self.feeds = feeds or CHAINLINK_FEEDS_MAINNET
+        if feeds is not None:
+            self.feeds = feeds
+        elif os.getenv("ETH_NETWORK", "").lower() == "sepolia":
+            self.feeds = CHAINLINK_FEEDS_SEPOLIA
+        else:
+            self.feeds = CHAINLINK_FEEDS_MAINNET
 
     def get_price(self, base: str, quote: str = "USD") -> PriceResult | None:
         pair = f"{base}/{quote}"
