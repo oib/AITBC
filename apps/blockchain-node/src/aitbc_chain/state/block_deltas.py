@@ -150,9 +150,11 @@ _DIGEST_ROW_LIMIT = 100_000
 #   - ``stake``: written by the staking RPC only; apply never reads it
 #     (STAKE_RELEASE validation replays the STAKE_LOCK transaction row, not
 #     the stake table). Aux-shipped → must converge, but not apply-state.
-#   - ``governance_vote``: written by the voting RPC only; apply never reads
-#     it (execution reads governance_proposal tallies). Aux-shipped query
-#     ledger → must converge; divergence is the case-duplicate sync bug.
+#   - ``governance_vote``: written by the voting RPC only (operator-key'd,
+#     voter address unsigned); apply never reads it — execution is gated on
+#     the executor signature, not on proposal tallies. Service-local query
+#     ledger; a per-host duplicate on (proposal_id, lower(voter_address))
+#     remains a hard failure (SERVICE_DUP_HARD_FAIL_TABLES).
 #   - ``escrow``: submit-time bookkeeping written by the escrow RPC.
 #     ESCROW_RELEASE/REFUND validation reads the derived escrow ACCOUNT row
 #     (``session.get(Account, (chain_id, escrow_addr))``) — the escrow table
@@ -204,11 +206,15 @@ SERVICE_STATE_TABLES = frozenset(
     {
         # Aux-shipped (must still converge — sync contract, not apply state):
         "stake",
-        "governance_vote",
         # Service/RPC bookkeeping that may legitimately differ per node:
         # governance_proposal: apply stamps execution markers but never reads
         # the table; proposals/tallies are RPC-side bookkeeping per node.
         "governance_proposal",
+        # governance_vote: operator-RPC bookkeeping; the row set differs
+        # legitimately per node (each vote lands on the node that served the
+        # RPC). Per-host case-insensitive duplicates still hard-fail the
+        # digest check (SERVICE_DUP_HARD_FAIL_TABLES).
+        "governance_vote",
         "escrow",
         "bridge_validators",
         "bridge_block_header",
@@ -232,17 +238,25 @@ SERVICE_STATE_TABLES = frozenset(
 )
 
 # The DB tables aux_state.AUX_TABLES copies verbatim between nodes (payload
-# keys ``stakes``/``bonds``/``governance_votes`` map onto these;
-# ``governance_proposals`` is also shipped by the sync payload but is
-# deliberately NOT promoted to must-match — proposal rows are service-side
-# bookkeeping (apply only stamps execution markers), so per-node divergence
-# is legitimate. Kept as a literal so the digest tooling can read the
-# classification without pulling the sync stack; a test asserts the two
-# agree. All members must converge fleet-wide: the consensus members are
-# digested anyway, and the service members (``stake``, ``governance_vote``)
-# are promoted to must-match by this set — a diff there means aux sync is
-# writing duplicates or missing rows.
-AUX_SHIPPED_TABLES = frozenset({"stake", "bond", "governance_vote"})
+# keys ``stakes``/``bonds`` map onto these; ``governance_proposals`` and
+# ``governance_votes`` were previously shipped but are deliberately NOT
+# promoted to must-match — proposal and vote rows are service-side
+# bookkeeping (apply stamps execution markers; apply never reads either
+# table), so per-node divergence is legitimate. Kept as a literal so the
+# digest tooling can read the classification without pulling the sync
+# stack; a test asserts the two agree. All members must converge
+# fleet-wide: the consensus members are digested anyway, and the service
+# member (``stake``) is promoted to must-match by this set — a diff there
+# means aux sync is writing duplicates or missing rows. If aux sync is
+# re-enabled for votes, ``governance_vote`` may return to this set.
+AUX_SHIPPED_TABLES = frozenset({"stake", "bond"})
+
+# Service-local tables whose per-host natural-key duplicates still fail the
+# fleet digest check hard (class=service would otherwise only WARN). The
+# v0.25.8 case-twin incident produced duplicate (proposal_id,
+# lower(voter_address)) rows on node2; the NOCASE unique index prevents new
+# ones and this set keeps a residual/rewrite regression loud.
+SERVICE_DUP_HARD_FAIL_TABLES = frozenset({"governance_vote"})
 
 # Service-local tables whose contents feed a consensus-bound computation —
 # watched by the digest monitor with WARN severity rather than FAIL.
