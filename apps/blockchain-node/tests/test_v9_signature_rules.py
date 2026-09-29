@@ -556,6 +556,45 @@ class TestV9Policy:
         assert c["v9_would_reject_missing_signature_other_total"] == 1.0
         assert not any("zzz" in name for name in c)
 
+    def test_known_metric_types_cover_apply_path(self):
+        """The clamp is only as good as the allowlist: a type the apply path
+        recognizes but that is missing from V9_METRIC_KNOWN_TX_TYPES silently
+        lands in _other and vanishes from the traffic-mix review. Derive the
+        recognized universe mechanically — the named type sets plus every
+        tx_type comparison literal in both apply files — and require the
+        metric set to cover it. (The reverse is not asserted: the verdict
+        also sees client-submitted types the apply path never dispatches on,
+        e.g. GOVERNANCE_VOTE.)"""
+        import re
+        from pathlib import Path
+
+        from aitbc_chain.rpc.ai_services import AI_JOB_TX_TYPE
+        from aitbc_chain.state import pure_state_transition as pst
+        from aitbc_chain.state import state_transition as st
+        from aitbc_chain.state.bridge_credit import BRIDGE_AUTHORITY_TX_TYPES
+        from aitbc_chain.state.pure_state_transition import SEQUENTIAL_ONLY_TX_TYPES
+        from aitbc_chain.state.v9_policy import V9_METRIC_KNOWN_TX_TYPES
+
+        recognized = (
+            set(SEQUENTIAL_ONLY_TX_TYPES)
+            | set(st._ZERO_VALUE_TX_TYPES)
+            | set(BRIDGE_AUTHORITY_TX_TYPES)
+            | set(V9_UNSIGNED_ALLOWED_TX_TYPES)
+            | {AI_JOB_TX_TYPE, "TRANSFER"}
+        )
+        for mod in (st, pst):
+            text = Path(mod.__file__).read_text()
+            recognized |= set(re.findall(r'tx_type\s*==\s*"([A-Z_]+)"', text))
+            for group in re.findall(r"tx_type\s+in\s*[\{\(]([^\}\)]*)", text):
+                recognized |= set(re.findall(r'"([A-Z_]+)"', group))
+        missing = recognized - V9_METRIC_KNOWN_TX_TYPES
+        assert not missing, (
+            f"tx types the apply path recognizes are missing from "
+            f"V9_METRIC_KNOWN_TX_TYPES and would silently land in _other: "
+            f"{sorted(missing)} — add them to the metric allowlist in "
+            f"state/v9_policy.py"
+        )
+
 
 class _StubBroker:
     def __init__(self) -> None:
