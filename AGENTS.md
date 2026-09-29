@@ -134,6 +134,23 @@ cd /opt/aitbc && venv/bin/python -m bridge_monitor.admin <command>
 #   write-off <tx_hash> --reason …  terminal write-off (reason required)
 ```
 
+Serialization: at most one payout envelope is in flight at a time, so a
+SUBMITTED row that can neither seal nor abandon blocks every deposit
+queued behind it (head-of-line blocking). The monitor alerts when the
+oldest SUBMITTED row outlives its recovery horizon
+(`BRIDGE_STUCK_PAYOUT_BLOCKS`, default `rebroadcast_blocks ×
+max_rebroadcasts`) and when the PENDING_RETRY queue reaches
+`BRIDGE_QUEUE_ALERT_DEPTH` (default 5). Release a blocked row
+deliberately:
+
+- **Envelope unsealed + account nonce passed** → `abandon-and-resign`
+  re-queues the deposit for a fresh payout (also runs automatically in
+  the sweep).
+- **Payout sealed with a failed status**, or a genuinely lost row →
+  `write-off` (with `--unpaid-with-recipient` when the row still carries
+  a valid recipient), then `manual-payout` if the recipient is still
+  owed — never re-sign the spent envelope.
+
 ## Wallet key mismatches
 
 If a wallet's stored key does not match the address it is supposed to
