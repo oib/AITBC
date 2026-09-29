@@ -35,6 +35,16 @@ class BridgeDepositStatus(StrEnum):
     FUNDING = "funding"
 
 
+def valid_ait_recipient(addr: object) -> bool:
+    """True when the value is a syntactically valid AIT recipient address."""
+    return (
+        isinstance(addr, str)
+        and addr.startswith("0x")
+        and len(addr) == 42
+        and all(c in "0123456789abcdefABCDEF" for c in addr[2:])
+    )
+
+
 # SELECT projection shared by every read: wallet column -> monitor key.
 _DEPOSIT_SELECT = """
     SELECT id,
