@@ -2007,3 +2007,19 @@ End-to-end testing of the ETH->AIT deposit leg found and closed real defects:
 - Every ssh probe in the checker now retries once via `sshr()` —
   a single transient blip no longer paints a host UNREACHABLE and
   turns a clean run red.
+
+### Operator float funding — FUNDING ledger state (v0.25.8)
+
+- `BRIDGE_FUNDING_SOURCES` (comma-separated senders): ETH to the
+  bridge wallet from a whitelisted sender is recorded as `FUNDING` —
+  a ledger row, no payout, no ALERT. Intended for exactly one
+  offline-held operator funding wallet; never a shared public faucet
+  (a whitelisted faucet would silently never pay anyone who points
+  it at the bridge). Unlisted senders keep today's path: no
+  recipient -> FAILED + ALERT + deliberate write-off.
+- `bridge-payout-audit.py` lists `funding` rows (amount + sender) so
+  every ETH inflow is visible; `FUNDING` is terminal for dedup.
+- `fleet-config-check.sh` reports the knob in the payout-config readout.
+- hub's `aitbc-bridge-monitor.env` documents the knob (empty pending
+  the operator wallet); the 0.05-ETH top-up row was written off with
+  reason per policy.
