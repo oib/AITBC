@@ -20,7 +20,7 @@ from typing import Any
 from sqlalchemy import func
 from sqlmodel import select
 
-from .base_models import Bond, GovernanceVote, Stake, _to_ait_address
+from .base_models import Bond, Stake, _to_ait_address
 from .logger import get_logger
 
 logger = get_logger(__name__)
@@ -74,14 +74,11 @@ AUX_TABLES: dict[str, _AuxSpec] = {
         address_fields=("provider",),
         datetime_fields=("locked_until", "created_at", "updated_at"),
     ),
-    "governance_votes": _AuxSpec(
-        GovernanceVote,
-        key_fields=("proposal_id", "voter_address"),
-        fields=("proposal_id", "voter_address", "vote_type", "voting_power", "reason", "created_at"),
-        ts_field="created_at",
-        address_fields=("voter_address",),
-        datetime_fields=("created_at",),
-    ),
+    # governance_votes removed: the vote ledger is service-local (operator
+    # RPC bookkeeping; apply never reads it), so aux sync must not ship it.
+    # Its (proposal_id, lower(voter_address)) duplicate invariant is still
+    # enforced per host by the digest monitor via
+    # block_deltas.SERVICE_DUP_HARD_FAIL_TABLES.
 }
 
 

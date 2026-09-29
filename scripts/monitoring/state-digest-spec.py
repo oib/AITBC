@@ -34,6 +34,7 @@ def build_spec() -> dict:
         DIGEST_COLUMN_ALLOWLIST,
         DIGEST_JSON_DROP_FALSY,
         DIGEST_JSON_DROP_KEYS,
+        SERVICE_DUP_HARD_FAIL_TABLES,
         SERVICE_STATE_TABLES,
         VOLATILE_DIGEST_COLUMNS,
     )
@@ -60,6 +61,10 @@ def build_spec() -> dict:
     # bridge_validators is service-local but carries the same
     # checksum/lowercase twin risk on its (address, epoch) natural key.
     dupkeys["bridge_validators"] = {"key": ["address", "epoch"], "addr": ["address"]}
+    # governance_vote is service-local too (operator-RPC bookkeeping, never
+    # read at apply) but its (proposal_id, lower(voter_address)) duplicate
+    # invariant stays a hard failure — see SERVICE_DUP_HARD_FAIL_TABLES.
+    dupkeys["governance_vote"] = {"key": ["proposal_id", "voter_address"], "addr": ["voter_address"]}
     return {
         "tables": tables,
         "volatile": sorted(VOLATILE_DIGEST_COLUMNS),
@@ -67,6 +72,7 @@ def build_spec() -> dict:
         "json_drop": {k: sorted(v) for k, v in DIGEST_JSON_DROP_KEYS.items()},
         "json_drop_falsy": {k: sorted(v) for k, v in DIGEST_JSON_DROP_FALSY.items()},
         "dupkeys": dupkeys,
+        "dup_hard": sorted(SERVICE_DUP_HARD_FAIL_TABLES),
     }
 
 

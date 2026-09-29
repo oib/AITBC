@@ -1823,3 +1823,21 @@ Split order, ranked by the damage each key can do:
 Plus the non-parameter items: faucet gets its own funded wallet (~1 week
 budget); treasury/genesis funds move to an offline address; the proposer
 key stays confined to aitbc-blockchain-node only.
+
+### governance_vote reclassified service-local; payout wallet funded
+
+- governance_vote leaves AUX_SHIPPED_TABLES/aux_state.AUX_TABLES: the vote
+  ledger is operator-RPC bookkeeping on the serving node only and apply
+  never reads it (execution is gated on the executor signature), so
+  cross-host must-match was the wrong contract. Digest class -> service.
+- The v0.25.8 duplicate invariant is RETAINED as a hard failure: new
+  spec field dup_hard lists governance_vote; fleet-config-check treats
+  (proposal_id, lower(voter_address)) case-duplicates on any host as FAIL
+  regardless of service class. NOCASE unique index stands on all five.
+- state-digest-spec emits the governance_vote dupkey explicitly (same
+  natural key as before, now like bridge_validators); the
+  case-insensitive aux-upset lookup test survives via monkeypatched spec.
+- Funded the dedicated ETH-deposit payout wallet 0x5A1a52b8... with
+  10,000,000 units from the proposer (tx 0x8dfdedc4..., sealed at 27974,
+  verified on all five hosts): aitbc-bridge-monitor can now submit
+  correctly-signed deposit payouts after the GENESIS_WALLET_ADDRESS fix.
