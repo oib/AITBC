@@ -6,6 +6,8 @@
     "network": "sepolia",
     "chainId": "11155111",
     "timestamp": "2026-06-08T11:06:25.177Z",
-    "txHash": "0x502508675dcbcc8d11c1aa840f51306e7f0c9e1aedea990a11fe902f3f16a1d8"
+    "txHash": "0x502508675dcbcc8d11c1aa840f51306e7f0c9e1aedea990a11fe902f3f16a1d8",
+    "deprecated": true,
+    "deprecated_reason": "owner() is the deployer key 0x818018F3, declared unrecoverable 2026-08-31 — every onlyOwner path (validators, tokens, chains, pause, emergencyWithdraw, transferOwnership) is permanently unreachable. Unpaused and able to receive funds forever: do not point deposits at this address. A replacement deploy with an offline-held multisig owner is part of the key-split; fleet-config-check FAILs on this value."
   }
 ]

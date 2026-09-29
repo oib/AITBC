@@ -50,11 +50,40 @@ def _load_env_file(path: str) -> None:
         print(f"warning: cannot read env file {path}: {e}", file=sys.stderr)
 
 
+def _valid_recipient(addr: object) -> bool:
+    """True when the row carries a syntactically valid AIT recipient."""
+    return (
+        isinstance(addr, str)
+        and addr.startswith("0x")
+        and len(addr) == 42
+        and all(c in "0123456789abcdefABCDEF" for c in addr[2:])
+    )
+
+
+def write_off_denial_reason(d: dict, allow_recipient: bool) -> str | None:
+    """None when the row may be written off, else why not."""
+    if _valid_recipient(d.get("ait_recipient")) and not allow_recipient:
+        return (
+            f"has a valid recipient {d.get('ait_recipient')} — that is money owed, "
+            "not a lost deposit (use --unpaid-with-recipient to override deliberately)"
+        )
+    if d.get("status") == "completed" and d.get("ait_tx_hash"):
+        # A completed row WITH a payout hash may have actually paid — a
+        # completed row with NO hash is a phantom: recorded, nothing sent.
+        return "is COMPLETED with a payout hash — cannot write off a paid deposit"
+    return None
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(prog="bridge_monitor.admin")
     parser.add_argument("command", choices=["status", "write-off", "abandon-and-resign", "manual-payout"])
     parser.add_argument("args", nargs="*", help="command arguments")
     parser.add_argument("--reason", default=None, help="required for write-off")
+    parser.add_argument(
+        "--unpaid-with-recipient",
+        action="store_true",
+        help="permit writing off a deposit that has a valid recipient — owed money, not a lost deposit",
+    )
     parser.add_argument(
         "--env-file",
         default=os.getenv("BRIDGE_MONITOR_ENV", "/etc/aitbc/aitbc-bridge-monitor.env"),
@@ -82,7 +111,7 @@ def main() -> int:
             print(f"{k}: {v}")
         return 0
 
-    def cmd_write_off(tx_hash: str, reason: str | None) -> int:
+    def cmd_write_off(tx_hash: str, reason: str | None, allow_recipient: bool = False) -> int:
         if not reason or not reason.strip():
             print("write-off requires --reason (a written justification is mandatory)")
             return 2
@@ -90,11 +119,9 @@ def main() -> int:
         if not d:
             print(f"no deposit row {tx_hash}")
             return 1
-        if d.get("status") == BridgeDepositStatus.COMPLETED.value and d.get("ait_tx_hash"):
-            # A completed row WITH a payout hash may have actually paid —
-            # writing it off falsifies the record. A completed row with NO
-            # ait_tx_hash is a phantom: recorded success, nothing sent.
-            print(f"deposit {tx_hash} is COMPLETED with a payout hash — cannot write off a paid deposit")
+        denial = write_off_denial_reason(d, allow_recipient)
+        if denial:
+            print(f"deposit {tx_hash} {denial}")
             return 1
         update_deposit(tx_hash, status=BridgeDepositStatus.WRITTEN_OFF, error_message=reason.strip())
         print(f"deposit {tx_hash} written off: {reason.strip()}")
@@ -131,7 +158,9 @@ def main() -> int:
     if ns.command == "status":
         return cmd_status(ns.args[0]) if ns.args else parser.error("status needs <tx_hash>")
     if ns.command == "write-off":
-        return cmd_write_off(ns.args[0], ns.reason) if ns.args else parser.error("write-off needs <tx_hash>")
+        if not ns.args:
+            parser.error("write-off needs <tx_hash>")
+        return cmd_write_off(ns.args[0], ns.reason, ns.unpaid_with_recipient)
     if ns.command == "abandon-and-resign":
         return cmd_abandon(ns.args[0]) if ns.args else parser.error("abandon-and-resign needs <tx_hash>")
     if ns.command == "manual-payout":
