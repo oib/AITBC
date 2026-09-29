@@ -82,11 +82,14 @@ class TestMinAitDeposit:
         with (
             patch.object(monitor, "parse_ait_recipient", return_value="0x" + "d" * 40),
             patch.object(monitor, "calculate_ait_amount", return_value=Decimal("100")),
-            patch.object(monitor, "submit_ait_transfer", return_value="0xait_tx") as mock_submit,
+            patch.object(monitor, "_build_signed_transfer", return_value={"type": "TRANSFER"}) as mock_build,
+            patch.object(monitor, "_post_signed_tx", return_value="0xait_tx") as mock_post,
+            patch.object(monitor, "_head_height", return_value=100),
         ):
             monitor.process_deposit("0xdef", "0xfrom", Decimal("0.1"), "0xdata")
 
-        mock_submit.assert_called_once()
+        mock_build.assert_called_once()
+        mock_post.assert_called_once()
 
 
 class TestCrashRecovery:
@@ -120,6 +123,104 @@ class TestCrashRecovery:
             monitor.process_deposit("0xdone", "0xfrom", Decimal("1.0"), "0xdata")
 
         mock_submit.assert_not_called()
+
+
+class TestSubmittedLifecycle:
+    """COMPLETED requires a sealed payout; rebroadcast never re-signs."""
+
+    def _submitted_row(self, monitor, tx_hash="0xsub", envelope=None):
+        import json as _json
+
+        from bridge_monitor.storage import create_deposit, update_deposit
+
+        envelope = envelope or {
+            "type": "TRANSFER",
+            "chain_id": "ait-test",
+            "from": "0x" + "b" * 40,
+            "to": "0x" + "d" * 40,
+            "amount": 123,
+            "nonce": 7,
+            "fee": 360000,
+            "payload": {"amount": 123},
+            "signature": "0xdeadbeef",
+        }
+        payout_hash = monitor._envelope_tx_hash(envelope)
+        create_deposit(tx_hash, "0xfrom", "1.0", "0x" + "d" * 40)
+        update_deposit(
+            tx_hash,
+            ait_amount="100",
+            signed_tx=_json.dumps(envelope),
+            submitted_height=90,
+            rebroadcast_count=0,
+            ait_tx_hash=payout_hash,
+            status=BridgeDepositStatus.SUBMITTED,
+        )
+        return envelope, payout_hash
+
+    def test_dropped_submit_rebroadcasts_identical_hash(self, monitor, tmp_path):
+        """Payout accepted then dropped → same envelope, same hash, no re-sign."""
+
+        from bridge_monitor.storage import get_deposit
+
+        envelope, payout_hash = self._submitted_row(monitor)
+
+        posted = []
+        with (
+            patch.object(monitor, "_head_height", return_value=100),  # 10 blocks past submit
+            patch.object(monitor, "_build_signed_transfer") as mock_build,
+            patch.object(monitor, "_post_signed_tx", side_effect=lambda tx: posted.append(tx) or "0xsame") as mock_post,
+            patch("httpx.get") as mock_get,
+        ):
+            mock_get.return_value = MagicMock(status_code=404)  # tx gone from mempool
+            monitor.process_submitted_deposits()
+
+        mock_build.assert_not_called()  # never re-signs
+        mock_post.assert_called_once_with(envelope)
+        assert posted and posted[0] == envelope
+        # rebroadcast uses the identical envelope → identical derived hash
+        assert monitor._envelope_tx_hash(posted[0]) == payout_hash
+        d = get_deposit("0xsub")
+        assert d["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert d["rebroadcast_count"] == 1
+
+    def test_rejected_at_apply_stays_submitted_and_alerts(self, monitor, tmp_path, caplog):
+        """Payout sealed with a failed status: stays SUBMITTED, alerts, no resubmit."""
+        import logging
+
+        self._submitted_row(monitor)
+
+        resp = MagicMock(status_code=200)
+        resp.json.return_value = {"block_height": 95, "status": "failed"}
+        with (
+            patch.object(monitor, "_head_height", return_value=100),
+            patch.object(monitor, "_post_signed_tx") as mock_post,
+            patch("httpx.get") as mock_get,
+            caplog.at_level(logging.CRITICAL),
+        ):
+            mock_get.return_value = resp
+            monitor.process_submitted_deposits()
+
+        mock_post.assert_not_called()
+        from bridge_monitor.storage import get_deposit
+
+        assert get_deposit("0xsub")["status"] == BridgeDepositStatus.SUBMITTED.value
+        assert any("ALERT" in r.getMessage() for r in caplog.records if r.levelno >= logging.CRITICAL)
+
+    def test_restart_with_submitted_creates_no_second_tx(self, monitor, tmp_path):
+        """process_deposit on a SUBMITTED row never builds another payout."""
+        self._submitted_row(monitor)
+
+        with (
+            patch.object(monitor, "_build_signed_transfer") as mock_build,
+            patch.object(monitor, "_post_signed_tx") as mock_post,
+        ):
+            monitor.process_deposit("0xsub", "0xfrom", Decimal("1.0"), "0xdata")
+
+        mock_build.assert_not_called()
+        mock_post.assert_not_called()
+        from bridge_monitor.storage import get_deposit
+
+        assert get_deposit("0xsub")["status"] == BridgeDepositStatus.SUBMITTED.value
 
 
 class TestCursorSafety:
